@@ -4,7 +4,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "types": [
-      "vitest/globals"
+      "vitest/globals",
+      // design-tokens.spec.ts lee styles.css del disco para medir el contraste
+      // sobre los valores reales y no sobre una copia.
+      "node"
     ]
   },
   "include": [

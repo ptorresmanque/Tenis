@@ -17,3 +17,19 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+/// Tabla de apoyo del spike de concurrencia (T2). NO es dominio del club.
+///
+/// Existe para probar contra MariaDB real que un constraint único deja pasar una
+/// sola de dos inserciones simultáneas. Ese es el mecanismo que va a proteger a
+/// `Reserva` de la doble reserva.
+///
+/// Se elimina en T21, cuando `Reserva` imponga la misma restricción de verdad.
+model PruebaUnicidad {
+  id        Int      @id @default(autoincrement())
+  recursoId Int      @map("recurso_id")
+  inicio    DateTime
+
+  @@unique([recursoId, inicio])
+  @@map("prueba_unicidad")
+}
