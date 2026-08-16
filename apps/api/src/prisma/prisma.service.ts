@@ -3,7 +3,29 @@ import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 
 import { PrismaClient } from '../generated/prisma/client';
 
+/**
+ * MySQL/MariaDB guarda DATETIME sin zona horaria, y el driver serializa las fechas
+ * en la zona del proceso. Con el proceso en America/Santiago, un instante UTC se
+ * escribe corrido y —peor— los dos "23:30" del domingo en que Chile atrasa el reloj
+ * caen en el mismo valor: dos reservas legítimas chocarían en el índice único.
+ *
+ * Correr el proceso en UTC es lo que hace que la columna guarde UTC de verdad.
+ * Se verifica en test/zona-horaria.spec.ts.
+ */
+function exigirProcesoEnUtc(): void {
+  const desfase = new Date().getTimezoneOffset();
+  if (desfase !== 0) {
+    throw new Error(
+      `El proceso no corre en UTC (offset ${desfase} min, TZ=${process.env.TZ ?? 'sin definir'}). ` +
+        'Los instantes se guardarían en hora local y colisionarían en el cambio de horario. ' +
+        'Arrancá con TZ=UTC (ya está en los scripts de package.json).',
+    );
+  }
+}
+
 function adaptadorDesde(urlCruda: string | undefined): PrismaMariaDb {
+  exigirProcesoEnUtc();
+
   if (!urlCruda) {
     throw new Error(
       'Falta DATABASE_URL. Copiá apps/api/.env.example a apps/api/.env.',
