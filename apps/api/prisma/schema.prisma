@@ -33,3 +33,74 @@ model PruebaUnicidad {
   @@unique([recursoId, inicio])
   @@map("prueba_unicidad")
 }
+
+// ── identidad ────────────────────────────────────────────────────────────────
+// Modelo de SPEC-identidad.md § Modelo de datos.
+
+/// Toda persona que entra al sistema. Un visitante es un `Usuario` sin `Socio`.
+///
+/// `esAdmin` es booleano y no un rol: el presidente del club es admin *y* socio,
+/// y un enum de tres valores obligaría a inventar ADMIN_SOCIO.
+model Usuario {
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  nombre   String
+  apellido String
+  telefono String?
+
+  /// Nulo para quien entra solo con Google: nunca eligió una contraseña.
+  passwordHash String? @map("password_hash")
+  /// Único: dos usuarios no pueden compartir la misma cuenta de Google (T7).
+  googleId     String? @unique @map("google_id")
+
+  emailVerificado Boolean @default(false) @map("email_verificado")
+  esAdmin         Boolean @default(false) @map("es_admin")
+
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  socio    Socio?
+  profesor Profesor?
+
+  @@map("usuario")
+}
+
+enum EstadoSocio {
+  ACTIVO
+  SUSPENDIDO
+  RETIRADO
+}
+
+/// Ficha de socio sobre un `Usuario`. Un usuario tiene a lo sumo una.
+model Socio {
+  id          Int         @id @default(autoincrement())
+  usuarioId   Int         @unique @map("usuario_id")
+  numeroSocio String      @unique @map("numero_socio")
+  estado      EstadoSocio @default(ACTIVO)
+
+  /// Fechas civiles, no instantes: `@db.Date` evita que un socio quede moroso
+  /// unas horas antes o después según la zona en que corra el proceso.
+  fechaIngreso DateTime @map("fecha_ingreso") @db.Date
+
+  /// Hasta cuándo tiene la cuota pagada. Vive acá y no en `cuotas` porque
+  /// `reservas` lo necesita y se construye antes; ver SPEC-identidad.md.
+  /// `cuotas`, cuando exista, será el único que lo escriba.
+  alDiaHasta DateTime @map("al_dia_hasta") @db.Date
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("socio")
+}
+
+/// Ficha de profesor. Declarada acá porque es una ficha sobre `Usuario`, pero su
+/// dueño funcional es `clases`: `identidad` no sabe qué es una clase.
+/// Un usuario puede ser socio y profesor a la vez.
+model Profesor {
+  id        Int     @id @default(autoincrement())
+  usuarioId Int     @unique @map("usuario_id")
+  activo    Boolean @default(true)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("profesor")
+}
