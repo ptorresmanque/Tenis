@@ -29,7 +29,10 @@ function crearBarrera(participantes: number): () => Promise<void> {
 describe('Unicidad bajo concurrencia en MariaDB', () => {
   let prisma: PrismaService;
 
-  const recursoId = 1;
+  // Rango de recursoId propio de este archivo. Jest corre los archivos de test en
+  // paralelo: si cada uno limpiara la tabla entera, un beforeEach borraría las filas
+  // de otro a mitad de camino y la suite fallaría una vez cada tantas corridas.
+  const recursoId = 10;
   const inicio = new Date('2026-09-01T18:00:00.000Z');
 
   beforeAll(async () => {
@@ -42,7 +45,7 @@ describe('Unicidad bajo concurrencia en MariaDB', () => {
   });
 
   beforeEach(async () => {
-    await prisma.pruebaUnicidad.deleteMany();
+    await prisma.pruebaUnicidad.deleteMany({ where: { recursoId } });
   });
 
   it('deja pasar una sola de dos inserciones simultáneas del mismo par', async () => {
@@ -53,7 +56,7 @@ describe('Unicidad bajo concurrencia en MariaDB', () => {
 
     expect(resultados.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(resultados.filter((r) => r.status === 'rejected')).toHaveLength(1);
-    expect(await prisma.pruebaUnicidad.count()).toBe(1);
+    expect(await prisma.pruebaUnicidad.count({ where: { recursoId } })).toBe(1);
   });
 
   it('el rechazo se reconoce como violación de unicidad, no como un error genérico', async () => {
@@ -92,7 +95,7 @@ describe('Unicidad bajo concurrencia en MariaDB', () => {
     const resultados = await Promise.allSettled([intentar(), intentar()]);
 
     expect(resultados.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect(await prisma.pruebaUnicidad.count()).toBe(1);
+    expect(await prisma.pruebaUnicidad.count({ where: { recursoId } })).toBe(1);
 
     const rechazo = resultados.find((r) => r.status === 'rejected');
     expect(esViolacionDeUnicidad(rechazo?.reason)).toBe(true);

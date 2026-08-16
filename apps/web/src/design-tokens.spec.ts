@@ -92,16 +92,28 @@ describe('Uso de los tokens en las plantillas', () => {
   // Los tests de arriba miden los colores; este mira cómo se combinan de verdad.
   // Sin él, `bg-accent` con texto blanco pasa desapercibido: fue exactamente el
   // error que se coló al escribir el chip de estado en T3.
-  function plantillas(): { archivo: string; contenido: string }[] {
-    const raiz = join(process.cwd(), 'src/app');
+  const RAIZ = join(process.cwd(), 'src/app');
 
-    return readdirSync(raiz, { recursive: true, encoding: 'utf8' })
-      .filter((ruta) => ruta.endsWith('.ts') && !ruta.endsWith('.spec.ts'))
+  // Se leen los .ts (plantillas inline) y también los .html: si sólo mirara los
+  // .ts, el primer componente con templateUrl quedaría sin revisar y el test
+  // pasaría igual. Un guardia que deja de guardar sin avisar es peor que ninguno.
+  function plantillas(): { archivo: string; contenido: string }[] {
+    return readdirSync(RAIZ, { recursive: true, encoding: 'utf8' })
+      .filter(
+        (ruta) =>
+          (ruta.endsWith('.ts') && !ruta.endsWith('.spec.ts')) || ruta.endsWith('.html'),
+      )
       .map((ruta) => ({
         archivo: ruta,
-        contenido: readFileSync(join(raiz, ruta), 'utf8'),
+        contenido: readFileSync(join(RAIZ, ruta), 'utf8'),
       }));
   }
+
+  it('encuentra plantillas que revisar', () => {
+    // Si un refactor mueve los componentes de carpeta, el escáner se quedaría sin
+    // archivos y todos los tests de abajo pasarían por vacuidad.
+    expect(plantillas().length).toBeGreaterThan(0);
+  });
 
   it('ningún elemento combina bg-accent con texto blanco', () => {
     const infractores: string[] = [];
