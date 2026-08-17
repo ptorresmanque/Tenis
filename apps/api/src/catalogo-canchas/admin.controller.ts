@@ -17,6 +17,7 @@ import { fechaDelClub } from '../comun/tiempo';
 import { SoloAdmin } from '../identidad/guards';
 import { AdminCanchasService } from './admin.service';
 import {
+  leerBloqueo,
   leerCambiosDeCancha,
   leerCanchaNueva,
   leerFranja,
@@ -62,6 +63,22 @@ export class AdminCanchasController {
   @HttpCode(204)
   borrarFranja(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.servicio.borrarFranja(id);
+  }
+
+  @Get('bloqueos')
+  bloqueos(@Query('cancha', ParseIntPipe) cancha: number) {
+    return this.servicio.bloqueos(cancha);
+  }
+
+  @Post('bloqueos')
+  crearBloqueo(@Body() cuerpo: unknown) {
+    return this.servicio.crearBloqueo(leerBloqueo(cuerpo));
+  }
+
+  @Delete('bloqueos/:id')
+  @HttpCode(204)
+  borrarBloqueo(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    return this.servicio.borrarBloqueo(id);
   }
 
   @Get('advertencias')

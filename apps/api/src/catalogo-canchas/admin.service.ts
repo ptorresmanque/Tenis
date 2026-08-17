@@ -6,7 +6,12 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 import { esViolacionDeUnicidad } from '../prisma/errores';
-import { DatosCancha, DatosFranja, DatosHorario } from './admin.dto';
+import {
+  DatosBloqueo,
+  DatosCancha,
+  DatosFranja,
+  DatosHorario,
+} from './admin.dto';
 import { DisponibilidadService } from './disponibilidad.service';
 
 /** Una cancha con horas de apertura que ninguna tarifa cubre. */
@@ -108,6 +113,30 @@ export class AdminCanchasService {
 
     if (borradas.count === 0) {
       throw new NotFoundException('No hay una tarifa con ese número.');
+    }
+  }
+
+  /** Los bloqueos de una cancha, del más próximo al más lejano. */
+  async bloqueos(canchaId: number) {
+    await this.laCancha(canchaId);
+
+    return this.prisma.bloqueo.findMany({
+      where: { canchaId },
+      orderBy: { inicio: 'asc' },
+    });
+  }
+
+  async crearBloqueo(datos: DatosBloqueo) {
+    await this.laCancha(datos.canchaId);
+
+    return this.prisma.bloqueo.create({ data: datos });
+  }
+
+  async borrarBloqueo(id: number): Promise<void> {
+    const borrados = await this.prisma.bloqueo.deleteMany({ where: { id } });
+
+    if (borrados.count === 0) {
+      throw new NotFoundException('No hay un bloqueo con ese número.');
     }
   }
 
