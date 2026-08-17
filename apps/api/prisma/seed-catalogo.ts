@@ -15,7 +15,7 @@ interface CanchaDemo {
   orden: number;
 }
 
-const CANCHAS: CanchaDemo[] = [
+export const CANCHAS: CanchaDemo[] = [
   {
     nombre: 'Cancha 1',
     superficie: Superficie.ARCILLA,
@@ -68,8 +68,10 @@ const FRANJAS = [
 const VIGENTE_DESDE = new Date('2026-01-01T00:00:00.000Z');
 
 export async function sembrarCatalogo(prisma: PrismaClient): Promise<void> {
-  // Sin `update`: si alguien cambió los valores desde el panel, el seed no tiene
-  // por qué revertirlos. Solo garantiza que la fila exista.
+  // `update: {}` a diferencia del resto del seed: las canchas y las tarifas son
+  // datos de demo que conviene restaurar en cada corrida, pero la configuración es
+  // operativa —el admin la ajusta en serio desde el panel— y el seed solo tiene que
+  // garantizar que la fila exista.
   await prisma.configuracionClub.upsert({
     where: { id: 1 },
     create: { id: 1 },
