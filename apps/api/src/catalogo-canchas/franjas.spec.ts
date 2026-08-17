@@ -117,6 +117,29 @@ describe('franjaPara', () => {
       ).toMatchObject({ montoClp: 20000 });
     });
 
+    it('el día es el del club, aunque en UTC ya sea el siguiente', () => {
+      // Un bloque de las 21:00 de un lunes en Santiago cae un martes en UTC. Sacar
+      // el día de la semana del instante en vez de la fecha del club deja la tarifa
+      // del lunes sin aplicarse justo en las horas de más demanda, todas las noches.
+      const lunesPorLaNoche = franjaPara({
+        fecha: LUNES,
+        canchaId: 7,
+        inicio: new Date('2026-08-18T01:00:00.000Z'),
+        franjas: [
+          franja({
+            id: 2,
+            diaSemana: 1,
+            horaDesde: '18:00',
+            horaHasta: '22:00',
+            esPico: true,
+            montoClp: 20000,
+          }),
+        ],
+      });
+
+      expect(lunesPorLaNoche).toEqual({ montoClp: 20000, esPico: true });
+    });
+
     it('la cancha pesa más que el día', () => {
       // Decisión, no está en la spec: "esta cancha cuesta más" es una regla del
       // club más fuerte que "los lunes cuestan más". Sin un orden fijo, el precio

@@ -32,9 +32,6 @@ export interface BloqueATarifar {
   franjas: FranjaCandidata[];
 }
 
-/** Sin franja que lo cubra: gratis y fuera del cupo pico. */
-const SIN_FRANJA: Tarifa = { montoClp: 0, esPico: false };
-
 /**
  * Cuánto pesa una franja al competir por un bloque.
  *
@@ -105,9 +102,12 @@ export function franjaPara(bloque: BloqueATarifar): Tarifa {
     null,
   );
 
+  // Un objeto nuevo cada vez, también para el caso sin franja: una constante
+  // compartida la muta el primer llamador que le ajuste el monto, y desde ahí
+  // todos los bloques sin tarifa valen lo que ese haya escrito.
   return ganadora
     ? { montoClp: ganadora.montoClp, esPico: ganadora.esPico }
-    : SIN_FRANJA;
+    : { montoClp: 0, esPico: false };
 }
 
 function leGana(franja: FranjaCandidata, otra: FranjaCandidata): boolean {

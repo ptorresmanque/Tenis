@@ -105,31 +105,25 @@ const FECHA_VALIDA = /^(\d{4})-(\d{2})-(\d{2})$/;
  * la del 2 de marzo sin que nada avise.
  */
 export function fechaDelClub(fecha: string): Date {
-  const dia = fechaCivil(fecha);
-  if (!dia) {
+  const partes = FECHA_VALIDA.exec(fecha);
+  // Una fecha ilegible da `Invalid Date`, cuyos componentes son `NaN` y no
+  // coinciden con nada: no hace falta comprobarla aparte.
+  const instante = new Date(`${fecha}T00:00:00.000Z`);
+
+  // Que `Date` la acepte no basta: hay que comprobar que conserve el día pedido.
+  const seConserva =
+    partes !== null &&
+    instante.getUTCFullYear() === Number(partes[1]) &&
+    instante.getUTCMonth() === Number(partes[2]) - 1 &&
+    instante.getUTCDate() === Number(partes[3]);
+
+  if (!seConserva) {
     throw new Error(
       `Fecha del club ilegible: "${fecha}". Se espera AAAA-MM-DD.`,
     );
   }
 
-  return dia;
-}
-
-function fechaCivil(fecha: string): Date | null {
-  const partes = FECHA_VALIDA.exec(fecha);
-  if (!partes) {
-    return null;
-  }
-
-  const [, año, mes, dia] = partes;
-  const instante = new Date(`${fecha}T00:00:00.000Z`);
-
-  const seConserva =
-    instante.getUTCFullYear() === Number(año) &&
-    instante.getUTCMonth() === Number(mes) - 1 &&
-    instante.getUTCDate() === Number(dia);
-
-  return seConserva ? instante : null;
+  return instante;
 }
 
 /**
