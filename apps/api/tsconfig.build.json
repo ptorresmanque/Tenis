@@ -1,9 +1,13 @@
 {
   "extends": "./tsconfig.json",
+  // `prisma/seed.ts` importa de src/ y corre con ts-node, nunca compilado. Si entra
+  // al build, el rootDir común pasa a ser la raíz del proyecto y la salida se corre
+  // a dist/src/main.js: compila igual y después no arranca.
   "exclude": [
     "node_modules",
     "test",
     "dist",
+    "prisma",
     "**/*spec.ts",
     "prisma.config.ts"
   ]

@@ -43,6 +43,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 export class App {
   protected readonly navegacion = [
     { ruta: '/', etiqueta: 'Inicio' },
+    { ruta: '/registro', etiqueta: 'Crear cuenta' },
     { ruta: '/estado', etiqueta: 'Estado' },
   ];
 }

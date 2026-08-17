@@ -1,0 +1,290 @@
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { verify } from '@node-rs/argon2';
+import request from 'supertest';
+
+import { AppModule } from '../src/app.module';
+import { CorreoSaliente, EnviadorCorreo } from '../src/identidad/correo';
+import { PrismaService } from '../src/prisma/prisma.service';
+
+/**
+ * T5. El registro es la primera puerta abierta al mundo: valida en el borde, no
+ * revela quién tiene cuenta, y la contraseña no sale por ningún lado.
+ */
+describe('Registro con email y contraseña', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+
+  // Dominio propio de este archivo: Jest corre los archivos en paralelo y otro
+  // test que borrara por email podría llevarse estas cuentas a mitad de camino.
+  const DOMINIO = '@registro.test';
+  const email = `nuevo${DOMINIO}`;
+  const CONTRASENA = 'raqueta lluviosa 44';
+
+  const enviados: CorreoSaliente[] = [];
+  const enviadorDoble: EnviadorCorreo = {
+    enviar: (correo) => {
+      enviados.push(correo);
+      return Promise.resolve();
+    },
+  };
+
+  const cuerpoValido = {
+    email,
+    contrasena: CONTRASENA,
+    nombre: 'Sofía',
+    apellido: 'Contreras',
+    telefono: '+56966666666',
+  };
+
+  beforeAll(async () => {
+    const modulo = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(EnviadorCorreo)
+      .useValue(enviadorDoble)
+      .compile();
+
+    app = modulo.createNestApplication();
+    app.setGlobalPrefix('api');
+    await app.init();
+
+    prisma = app.get(PrismaService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    await prisma.usuario.deleteMany({
+      where: { email: { endsWith: DOMINIO } },
+    });
+    enviados.length = 0;
+  });
+
+  // getHttpServer() devuelve `any`; el tipo que supertest espera se saca de él mismo.
+  const servidor = () => app.getHttpServer() as Parameters<typeof request>[0];
+
+  const registrar = (cuerpo: Record<string, unknown>) =>
+    request(servidor()).post('/api/auth/registro').send(cuerpo);
+
+  it('crea el usuario con la contraseña hasheada con argon2id', async () => {
+    await registrar(cuerpoValido).expect(201);
+
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
+
+    expect(usuario?.passwordHash?.startsWith('$argon2id$')).toBe(true);
+    expect(await verify(usuario!.passwordHash!, CONTRASENA)).toBe(true);
+  });
+
+  it('crea un visitante: sin ficha de socio y con el correo sin verificar', async () => {
+    await registrar(cuerpoValido).expect(201);
+
+    const usuario = await prisma.usuario.findUnique({
+      where: { email },
+      include: { socio: true },
+    });
+
+    expect(usuario?.socio).toBeNull();
+    expect(usuario?.emailVerificado).toBe(false);
+    expect(usuario?.esAdmin).toBe(false);
+  });
+
+  it('normaliza el correo: mayúsculas y espacios no crean una cuenta aparte', async () => {
+    await registrar(cuerpoValido).expect(201);
+    await registrar({
+      ...cuerpoValido,
+      email: `  NUEVO${DOMINIO.toUpperCase()} `,
+    });
+
+    expect(
+      await prisma.usuario.count({ where: { email: { endsWith: DOMINIO } } }),
+    ).toBe(1);
+  });
+
+  describe('rechazos', () => {
+    it('rechaza una contraseña de menos de 10 caracteres, diciendo por qué', async () => {
+      const respuesta = await registrar({
+        ...cuerpoValido,
+        contrasena: 'corta123',
+      }).expect(400);
+
+      expect(JSON.stringify(respuesta.body)).toContain('10');
+      expect(await prisma.usuario.count({ where: { email } })).toBe(0);
+    });
+
+    it('rechaza una contraseña que está en la lista de filtradas', async () => {
+      const respuesta = await registrar({
+        ...cuerpoValido,
+        contrasena: 'password123',
+      }).expect(400);
+
+      expect(JSON.stringify(respuesta.body)).toContain('filtradas');
+      expect(await prisma.usuario.count({ where: { email } })).toBe(0);
+    });
+
+    it('rechaza un correo con formato inválido', async () => {
+      await registrar({ ...cuerpoValido, email: 'no-es-un-correo' }).expect(
+        400,
+      );
+    });
+
+    it('rechaza el nombre vacío', async () => {
+      await registrar({ ...cuerpoValido, nombre: '   ' }).expect(400);
+    });
+
+    it('rechaza un cuerpo sin los campos obligatorios', async () => {
+      await registrar({}).expect(400);
+    });
+  });
+
+  describe('no revela quién tiene cuenta', () => {
+    it('responde a un correo ya registrado igual que a uno nuevo', async () => {
+      const primera = await registrar(cuerpoValido).expect(201);
+      const segunda = await registrar({
+        ...cuerpoValido,
+        contrasena: 'otra contraseña larga',
+      }).expect(201);
+
+      // Mismo status y mismo cuerpo: si difirieran, el formulario de registro se
+      // convierte en un oráculo para averiguar quién es socio del club.
+      expect(segunda.body).toEqual(primera.body);
+    });
+
+    it('no sobrescribe la contraseña de la cuenta que ya existía', async () => {
+      await registrar(cuerpoValido).expect(201);
+      await registrar({ ...cuerpoValido, contrasena: 'otra contraseña larga' });
+
+      const usuario = await prisma.usuario.findUnique({ where: { email } });
+
+      // Sin esto, cualquiera reescribe la contraseña de un socio con solo saber
+      // su correo. Es la toma de cuenta más barata que existe.
+      expect(await verify(usuario!.passwordHash!, CONTRASENA)).toBe(true);
+    });
+
+    it('no crea un segundo usuario con el mismo correo', async () => {
+      await registrar(cuerpoValido);
+      await registrar(cuerpoValido);
+
+      expect(await prisma.usuario.count({ where: { email } })).toBe(1);
+    });
+  });
+
+  describe('la contraseña no se filtra', () => {
+    it('no aparece en la respuesta del registro exitoso', async () => {
+      const respuesta = await registrar(cuerpoValido).expect(201);
+
+      expect(JSON.stringify(respuesta.body)).not.toContain(CONTRASENA);
+    });
+
+    it('no aparece en el mensaje de error de un rechazo', async () => {
+      const respuesta = await registrar({
+        ...cuerpoValido,
+        contrasena: 'password123',
+      }).expect(400);
+
+      expect(JSON.stringify(respuesta.body)).not.toContain('password123');
+    });
+
+    it('no aparece en la salida del proceso', async () => {
+      const escrito: string[] = [];
+      const espiar = (flujo: NodeJS.WriteStream) =>
+        jest
+          .spyOn(flujo, 'write')
+          .mockImplementation((texto: string | Uint8Array) => {
+            escrito.push(String(texto));
+            return true;
+          });
+
+      const salida = espiar(process.stdout);
+      const errores = espiar(process.stderr);
+      try {
+        await registrar(cuerpoValido);
+        await registrar({ ...cuerpoValido, contrasena: 'password123' });
+      } finally {
+        salida.mockRestore();
+        errores.mockRestore();
+      }
+
+      expect(escrito.join('')).not.toContain(CONTRASENA);
+    });
+  });
+
+  describe('verificación del correo', () => {
+    const enlaceDelUltimoCorreo = (): string => {
+      const enlace = /https?:\/\/\S+token=[\w.-]+/.exec(
+        enviados.at(-1)?.cuerpo ?? '',
+      );
+      if (!enlace) {
+        throw new Error('El correo enviado no trae enlace de verificación.');
+      }
+      return enlace[0];
+    };
+
+    const verificarCon = (enlace: string) =>
+      request(servidor()).get(`/api/auth/verificar?${enlace.split('?')[1]}`);
+
+    it('manda un correo al registrarse', async () => {
+      await registrar(cuerpoValido).expect(201);
+
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0].para).toBe(email);
+    });
+
+    it('el enlace del correo deja el correo verificado', async () => {
+      await registrar(cuerpoValido);
+
+      await verificarCon(enlaceDelUltimoCorreo()).expect(302);
+
+      const usuario = await prisma.usuario.findUnique({ where: { email } });
+      expect(usuario?.emailVerificado).toBe(true);
+    });
+
+    it('el enlace no sirve dos veces', async () => {
+      await registrar(cuerpoValido);
+      const enlace = enlaceDelUltimoCorreo();
+      await verificarCon(enlace);
+
+      const respuesta = await verificarCon(enlace).expect(302);
+
+      expect(respuesta.headers.location).toContain('verificado=0');
+    });
+
+    it('un token inventado no verifica a nadie', async () => {
+      await registrar(cuerpoValido);
+
+      const respuesta = await verificarCon(
+        'http://x/api/auth/verificar?token=inventado',
+      ).expect(302);
+
+      expect(respuesta.headers.location).toContain('verificado=0');
+      const usuario = await prisma.usuario.findUnique({ where: { email } });
+      expect(usuario?.emailVerificado).toBe(false);
+    });
+
+    it('un token vencido no verifica a nadie', async () => {
+      await registrar(cuerpoValido);
+      const enlace = enlaceDelUltimoCorreo();
+      await prisma.usuario.update({
+        where: { email },
+        data: { verificacionExpiraEn: new Date(Date.now() - 1000) },
+      });
+
+      await verificarCon(enlace).expect(302);
+
+      const usuario = await prisma.usuario.findUnique({ where: { email } });
+      expect(usuario?.emailVerificado).toBe(false);
+    });
+
+    it('el correo al que ya tenía cuenta no trae enlace de verificación', async () => {
+      await registrar(cuerpoValido);
+      enviados.length = 0;
+
+      await registrar(cuerpoValido).expect(201);
+
+      // Se le avisa que alguien intentó registrarse con su correo, pero un enlace
+      // acá dejaría a un desconocido disparando verificaciones de una cuenta ajena.
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0].cuerpo).not.toContain('token=');
+    });
+  });
+});
