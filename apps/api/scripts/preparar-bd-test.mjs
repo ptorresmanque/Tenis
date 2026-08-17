@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 
 const url = process.env.DATABASE_URL;
 if (!url) {
-  throw new Error('Falta DATABASE_URL. Copiá apps/api/.env.example a apps/api/.env.');
+  throw new Error('Falta DATABASE_URL. Copia apps/api/.env.example a apps/api/.env.');
 }
 
 const urlTest = url.replace(/\/tenis_dev(\?|$)/, '/tenis_test$1');
@@ -21,7 +21,7 @@ if (!urlTest.includes('tenis_test')) {
 // el día que alguien clona el repo. Acá se cae en la primera corrida de tests.
 if (!process.env.SHADOW_DATABASE_URL) {
   throw new Error(
-    'Falta SHADOW_DATABASE_URL. Copiá apps/api/.env.example a apps/api/.env.',
+    'Falta SHADOW_DATABASE_URL. Copia apps/api/.env.example a apps/api/.env.',
   );
 }
 

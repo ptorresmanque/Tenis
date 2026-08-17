@@ -68,17 +68,17 @@ export class RegistroService {
         asunto: 'Alguien intentó registrarse con tu correo',
         cuerpo:
           `Hola,\n\nYa hay una cuenta del Club de Tenis con este correo, así que ` +
-          `no creamos otra.\n\nSi fuiste vos, entrá con tu contraseña. Si no la ` +
-          `recordás, pedí recuperarla desde la pantalla de ingreso.\n`,
+          `no creamos otra.\n\nSi fuiste tú, entra con tu contraseña. Si no la ` +
+          `recuerdas, pide recuperarla desde la pantalla de ingreso.\n`,
       });
       return;
     }
 
     await this.correo.enviar({
       para: datos.email,
-      asunto: 'Verificá tu correo — Club de Tenis',
+      asunto: 'Verifica tu correo — Club de Tenis',
       cuerpo:
-        `Hola ${datos.nombre},\n\nPara terminar de crear tu cuenta, abrí este ` +
+        `Hola ${datos.nombre},\n\nPara terminar de crear tu cuenta, abre este ` +
         `enlace:\n\n${enlaceDeVerificacion(token)}\n\nEl enlace vence en ` +
         `${HORAS_DE_VIGENCIA_DEL_ENLACE} horas.\n`,
     });

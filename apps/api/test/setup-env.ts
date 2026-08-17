@@ -6,7 +6,7 @@
 const url = process.env.DATABASE_URL;
 if (!url) {
   throw new Error(
-    'Falta DATABASE_URL. Copiá apps/api/.env.example a apps/api/.env.',
+    'Falta DATABASE_URL. Copia apps/api/.env.example a apps/api/.env.',
   );
 }
 

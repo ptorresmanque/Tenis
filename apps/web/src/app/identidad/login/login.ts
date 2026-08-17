@@ -50,9 +50,9 @@ import { Auth } from '../../core/auth/auth';
       </button>
 
       <p class="text-sm text-muted-foreground">
-        ¿Todavía no tenés cuenta?
+        ¿Todavía no tienes cuenta?
         <a routerLink="/registro" class="font-semibold text-primary underline">
-          Creá una
+          Crea una
         </a>
       </p>
     </form>
