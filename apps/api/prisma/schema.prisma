@@ -56,6 +56,11 @@ model Usuario {
   emailVerificado Boolean @default(false) @map("email_verificado")
   esAdmin         Boolean @default(false) @map("es_admin")
 
+  /// SHA-256 del token de verificación, nunca el token. Quien lea la base no
+  /// puede verificar cuentas ajenas con lo que encuentre acá.
+  verificacionTokenHash String?   @unique @map("verificacion_token_hash")
+  verificacionExpiraEn  DateTime? @map("verificacion_expira_en")
+
   creadoEn      DateTime @default(now()) @map("creado_en")
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
