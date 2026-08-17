@@ -40,7 +40,9 @@ export class AdminCanchasService {
 
   async crear(datos: DatosCancha) {
     try {
-      return await this.prisma.cancha.create({ data: datos });
+      return await this.prisma.cancha.create({
+        data: { ...datos, orden: datos.orden ?? (await this.siguienteOrden()) },
+      });
     } catch (error) {
       if (esViolacionDeUnicidad(error)) {
         // Sin traducirlo, el nombre repetido sale como un 500 y el admin no se
@@ -115,6 +117,11 @@ export class AdminCanchasService {
    * Un bloque sin franja vale 0 y no es pico: legal según la spec, pero casi
    * siempre significa que el admin olvidó una tarifa y el club está regalando
    * horas de cancha sin enterarse.
+   *
+   * Se mira el monto y no si hubo franja, así que una tarifa puesta a propósito en
+   * $0 también se advierte. Distinguirlas obligaría a que `BloqueDisponible`
+   * cargue un campo que solo sirve acá, y el club no tiene canchas gratis: el día
+   * que las tenga, esto avisará todos los días y habrá que separarlas.
    */
   async advertencias(fecha: string): Promise<AdvertenciaDeTarifa[]> {
     const canchas = await this.disponibilidad.canchas();
@@ -130,6 +137,22 @@ export class AdminCanchasService {
     );
 
     return porCancha.filter((cancha) => cancha.sinTarifa.length > 0);
+  }
+
+  /**
+   * Al final de la lista, no al principio.
+   *
+   * Con `orden` en 0 por defecto, una cancha nueva se colaba antes que todas las
+   * que el club ya había ordenado, y el admin tenía que reordenarlas para deshacer
+   * algo que nunca pidió.
+   */
+  private async siguienteOrden(): Promise<number> {
+    const ultima = await this.prisma.cancha.findFirst({
+      orderBy: { orden: 'desc' },
+      select: { orden: true },
+    });
+
+    return (ultima?.orden ?? 0) + 1;
   }
 
   /** Existe o 404. Editar una cancha que no está no puede pasar en silencio. */

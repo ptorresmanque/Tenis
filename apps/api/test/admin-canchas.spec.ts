@@ -150,6 +150,21 @@ describe('Administración de canchas', () => {
       );
     });
 
+    it('la cancha nueva queda al final de la lista, no al principio', async () => {
+      const cancha = await nuevaCancha();
+
+      const todas = await request(servidor())
+        .get('/api/admin/canchas')
+        .set('Cookie', admin)
+        .expect(200);
+
+      // Con `orden` en 0 por defecto se colaba antes que todas las que el club ya
+      // había ordenado, y el admin tenía que reordenarlas para deshacer algo que
+      // nunca pidió.
+      const ids = (todas.body as { id: number }[]).map((c) => c.id);
+      expect(ids[ids.length - 1]).toBe(cancha.id);
+    });
+
     it('rechaza un nombre repetido con un mensaje y no con un 500', async () => {
       await nuevaCancha();
 

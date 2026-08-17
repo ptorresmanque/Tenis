@@ -62,7 +62,8 @@ export interface DatosCancha {
   superficie: Superficie;
   techada: boolean;
   iluminacion: boolean;
-  orden: number;
+  /** Sin él, el servicio la pone al final de la lista. */
+  orden?: number;
 }
 
 export function leerCanchaNueva(cuerpo: unknown): DatosCancha {
@@ -77,7 +78,10 @@ export function leerCanchaNueva(cuerpo: unknown): DatosCancha {
       datos.iluminacion === undefined
         ? false
         : booleano(datos.iluminacion, 'Iluminación'),
-    orden: datos.orden === undefined ? 0 : entero(datos.orden, 'El orden', 0),
+    orden:
+      datos.orden === undefined
+        ? undefined
+        : entero(datos.orden, 'El orden', 0),
   };
 }
 
