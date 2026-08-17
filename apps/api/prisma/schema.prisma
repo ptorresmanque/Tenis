@@ -127,3 +127,144 @@ model Profesor {
 
   @@map("profesor")
 }
+
+// ── catalogo-canchas ─────────────────────────────────────────────────────────
+// Modelo de SPEC-catalogo-canchas.md § Modelo de datos.
+//
+// Los bloques horarios no están acá: se calculan a partir de apertura, duración y
+// bloqueos (T10). Se guarda lo que alguien decidió, no lo que se deriva.
+//
+// Las horas locales del club van como texto "HH:MM" y no como TIME: es lo que el
+// admin escribe, sobrevive a un cierre a las "24:00", y leer un TIME desde JS
+// devuelve un Date con fecha inventada que invita justo al bug de zona que T10
+// tiene que evitar.
+
+enum Superficie {
+  ARCILLA
+  CEMENTO
+  PASTO_SINTETICO
+}
+
+model Cancha {
+  id          Int        @id @default(autoincrement())
+  nombre      String     @unique
+  superficie  Superficie
+  techada     Boolean    @default(false)
+  iluminacion Boolean    @default(false)
+
+  /// Desactivar en vez de borrar: una cancha con historial de reservas no se
+  /// puede eliminar sin dejar huérfano ese historial.
+  activa Boolean @default(true)
+  /// Orden del listado. Las canchas del club tienen un orden que no es el alfabético.
+  orden  Int     @default(0)
+
+  horarios HorarioApertura[]
+  franjas  FranjaHoraria[]
+  bloqueos Bloqueo[]
+
+  @@map("cancha")
+}
+
+/// A qué hora abre y cierra una cancha cada día. `canchaId` nulo aplica a todas:
+/// el club normalmente abre igual en todas y no hay por qué repetir siete filas
+/// por cancha.
+model HorarioApertura {
+  id        Int  @id @default(autoincrement())
+  canchaId  Int? @map("cancha_id")
+  /// 0 = domingo .. 6 = sábado, igual que `Date#getUTCDay`.
+  diaSemana Int  @map("dia_semana")
+
+  /// Hora local del club, "HH:MM". La conversión a UTC vive en T10.
+  horaApertura String @map("hora_apertura") @db.VarChar(5)
+  horaCierre   String @map("hora_cierre") @db.VarChar(5)
+
+  cancha Cancha? @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+
+  // Índice y no único: en MySQL dos filas con `cancha_id` NULL no chocan entre sí,
+  // así que un UNIQUE acá solo protegería el caso por cancha y daría la falsa
+  // impresión de cubrir el general. Que no haya dos aperturas del mismo día lo
+  // valida el panel de admin (T13).
+  @@index([canchaId, diaSemana])
+  @@map("horario_apertura")
+}
+
+/// Ventana de tiempo con precio y condición de pico.
+///
+/// `esPico` y `montoClp` viven en la misma fila a propósito: son la misma ventana
+/// mirada desde `reservas` (cupo del socio) y desde `pagos` (tarifa del no-socio).
+/// En dos tablas, el admin define el mismo rango dos veces y el primer desajuste
+/// produce un socio al que se le descuenta cupo pico en una hora que se cobra valle.
+model FranjaHoraria {
+  id        Int  @id @default(autoincrement())
+  canchaId  Int? @map("cancha_id")
+  /// Nulo = todos los días.
+  diaSemana Int? @map("dia_semana")
+
+  horaDesde String @map("hora_desde") @db.VarChar(5)
+  horaHasta String @map("hora_hasta") @db.VarChar(5)
+
+  esPico   Boolean @default(false) @map("es_pico")
+  montoClp Int     @map("monto_clp")
+
+  /// Vigencia como fechas civiles: una tarifa nueva empieza un día, no a una hora.
+  /// Cambiar el monto crea una franja nueva y cierra la anterior, así el precio de
+  /// una reserva ya pagada no se mueve.
+  vigenteDesde DateTime  @map("vigente_desde") @db.Date
+  vigenteHasta DateTime? @map("vigente_hasta") @db.Date
+
+  cancha Cancha? @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+
+  @@index([canchaId, diaSemana])
+  @@map("franja_horaria")
+}
+
+enum MotivoBloqueo {
+  MANTENCION
+  TORNEO
+  CLASE
+  OTRO
+}
+
+/// Rango en que una cancha no está disponible. Instantes en UTC, a diferencia de
+/// la apertura: un bloqueo es un momento concreto, no una regla semanal.
+model Bloqueo {
+  id       Int @id @default(autoincrement())
+  canchaId Int @map("cancha_id")
+
+  inicio DateTime
+  fin    DateTime
+
+  motivo      MotivoBloqueo
+  descripcion String?
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  cancha Cancha @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+
+  @@index([canchaId, inicio])
+  @@map("bloqueo")
+}
+
+/// Las reglas configurables del club, en una sola fila con columnas con nombre.
+///
+/// Un almacén clave-valor genérico sería más código que estas seis columnas y
+/// perdería el chequeo de tipos. Cuando aparezca la séptima regla, se agrega una
+/// columna. Ver SPEC.md § Configuración.
+///
+/// La fila es única y lo impone la base: un CHECK (id = 1) en la migración. Sin él,
+/// una segunda fila hace que "la configuración del club" dependa de cuál lea cada
+/// consulta, y eso no se nota hasta que dos pantallas muestran precios distintos.
+model ConfiguracionClub {
+  id Int @id @default(1)
+
+  duracionBloqueMin    Int @default(60) @map("duracion_bloque_min")
+  cupoDiarioSocioHoras Int @default(1) @map("cupo_diario_socio_horas")
+  cupoPicoSemanalHoras Int @default(2) @map("cupo_pico_semanal_horas")
+  invitadosPorMes      Int @default(4) @map("invitados_por_mes")
+  horasMinModificacion Int @default(6) @map("horas_min_modificacion")
+  horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")
+
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  @@map("configuracion_club")
+}
