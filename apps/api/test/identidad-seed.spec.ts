@@ -1,6 +1,8 @@
+import { verify } from '@node-rs/argon2';
+
 import { esViolacionDeUnicidad } from '../src/prisma/errores';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { DOMINIO_SEED, sembrar } from '../prisma/seed';
+import { CONTRASENA_DEMO, DOMINIO_SEED, sembrar } from '../prisma/seed';
 
 /**
  * T4. El seed de demo es lo que hace posible mostrar el sistema sin cargar datos a
@@ -93,6 +95,20 @@ describe('Seed de identidad', () => {
     // en la base, la demo solo puede mostrar el camino feliz.
     expect(socios.some((s) => s.alDiaHasta >= hoy)).toBe(true);
     expect(socios.some((s) => s.alDiaHasta < hoy)).toBe(true);
+  });
+
+  it('deja las cuentas listas para entrar con la contraseña de demo', async () => {
+    await sembrar(prisma);
+
+    const usuarios = await prisma.usuario.findMany({ where: cuentasDelSeed });
+
+    // Sin contraseña, las cuentas de demo sirven para consultar el rol pero nadie
+    // puede iniciar sesión con ellas, que es la mitad de lo que hay para mostrar.
+    for (const usuario of usuarios) {
+      expect(await verify(usuario.passwordHash ?? '', CONTRASENA_DEMO)).toBe(
+        true,
+      );
+    }
   });
 
   it('marca como admin exactamente a una cuenta', async () => {

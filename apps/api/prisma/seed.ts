@@ -1,17 +1,20 @@
 import { EstadoSocio, PrismaClient } from '../src/generated/prisma/client';
+import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
  * Datos de demo de `identidad` (T4). Idempotente: se corre tantas veces como haga
  * falta durante el desarrollo sin duplicar ni reventar.
  *
- * Las cuentas no tienen contraseña todavía — el hash argon2id llega en T5, junto
- * con el registro. Hasta entonces existen para que `catalogo-canchas` y `reservas`
- * tengan a quién consultarle el rol y la morosidad.
+ * Todas comparten la misma contraseña: son cuentas de demostración en una base de
+ * desarrollo, y tener que recordar cinco distintas durante una demo en vivo es una
+ * forma segura de arruinarla. Ninguna de estas cuentas existe en producción.
  */
 
 /** Dominio que identifica a las cuentas de demo, para poder distinguirlas. */
 export const DOMINIO_SEED = '@clubdetenis.cl';
+
+export const CONTRASENA_DEMO = 'raqueta lluviosa 44';
 
 /** Medianoche UTC de hoy más `dias`. Las fechas civiles son columnas DATE. */
 function enDias(dias: number): Date {
@@ -80,8 +83,14 @@ const CUENTAS: CuentaDemo[] = [
 ];
 
 export async function sembrar(prisma: PrismaClient): Promise<void> {
+  // Un solo hash para las cinco cuentas. Sirve porque la contraseña es pública y
+  // las cuentas son de demostración; con usuarios reales, compartir el hash
+  // significaría compartir la sal y delatar quién usa la misma contraseña.
+  const passwordHash = await hashear(CONTRASENA_DEMO);
+
   for (const cuenta of CUENTAS) {
     const usuario = {
+      passwordHash,
       nombre: cuenta.nombre,
       apellido: cuenta.apellido,
       telefono: cuenta.telefono,

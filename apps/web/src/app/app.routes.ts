@@ -7,6 +7,11 @@ export const routes: Routes = [
     loadComponent: () => import('./inicio/inicio').then((m) => m.Inicio),
   },
   {
+    path: 'entrar',
+    title: 'Entrar — Club de Tenis',
+    loadComponent: () => import('./identidad/login/login').then((m) => m.Login),
+  },
+  {
     path: 'registro',
     title: 'Crear cuenta — Club de Tenis',
     loadComponent: () => import('./identidad/registro/registro').then((m) => m.Registro),

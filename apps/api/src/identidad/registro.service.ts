@@ -1,5 +1,3 @@
-import { createHash, randomBytes } from 'node:crypto';
-
 import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { esViolacionDeUnicidad } from '../prisma/errores';
@@ -7,13 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { hashear, problemaDeContrasena } from './contrasena';
 import { EnviadorCorreo } from './correo';
 import { DatosRegistro } from './registro.dto';
+import { hashDeToken, nuevoToken } from './token';
 
 const HORAS_DE_VIGENCIA_DEL_ENLACE = 24;
-
-/** El token viaja por correo; en la base solo queda su hash. */
-function hashDeToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
 
 function enlaceDeVerificacion(token: string): string {
   const api =
@@ -46,7 +40,7 @@ export class RegistroService {
     // caso nuevo dejaría una diferencia de ~50 ms entre "correo libre" y "correo
     // tomado", que es todo lo que hace falta para enumerar a los socios.
     const passwordHash = await hashear(datos.contrasena);
-    const token = randomBytes(32).toString('base64url');
+    const token = nuevoToken();
 
     try {
       await this.prisma.usuario.create({

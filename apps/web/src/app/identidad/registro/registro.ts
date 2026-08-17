@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -19,7 +19,7 @@ interface Campo {
 
 @Component({
   selector: 'app-registro',
-  imports: [FormsModule],
+  imports: [ReactiveFormsModule],
   template: `
     <h1 class="font-display text-3xl font-bold">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -53,8 +53,8 @@ interface Campo {
     } @else {
       <form
         class="mt-6 grid max-w-md gap-4"
+        [formGroup]="formulario"
         (ngSubmit)="registrar()"
-        #formulario="ngForm"
       >
         @for (campo of campos; track campo.nombre) {
           <label class="grid gap-1">
@@ -66,11 +66,8 @@ interface Campo {
             </span>
             <input
               [type]="campo.tipo"
-              [name]="campo.nombre"
-              [required]="!campo.opcional"
+              [formControlName]="campo.nombre"
               [autocomplete]="campo.autocomplete"
-              [minlength]="campo.nombre === 'contrasena' ? 10 : 0"
-              [(ngModel)]="datos[campo.nombre]"
               class="rounded-lg border border-border bg-card px-3 py-2
                      focus-visible:border-ring"
             />
@@ -106,13 +103,15 @@ export class Registro {
     inject(ActivatedRoute).snapshot.queryParamMap.get('verificado'),
   );
 
-  protected readonly datos: Record<string, string> = {
-    nombre: '',
-    apellido: '',
-    email: '',
-    telefono: '',
-    contrasena: '',
-  };
+  protected readonly formulario = inject(FormBuilder).nonNullable.group({
+    nombre: ['', Validators.required],
+    apellido: ['', Validators.required],
+    email: ['', [Validators.required, Validators.email]],
+    telefono: [''],
+    // El servidor vuelve a validarla y rechaza además las filtradas; esto solo
+    // evita el viaje de ida y vuelta para el error más común.
+    contrasena: ['', [Validators.required, Validators.minLength(10)]],
+  });
 
   protected readonly campos: Campo[] = [
     { nombre: 'nombre', etiqueta: 'Nombre', tipo: 'text', autocomplete: 'given-name' },
@@ -150,7 +149,10 @@ export class Registro {
 
     try {
       const respuesta = await firstValueFrom(
-        this.http.post<RespuestaRegistro>('/api/auth/registro', this.datos),
+        this.http.post<RespuestaRegistro>(
+          '/api/auth/registro',
+          this.formulario.getRawValue(),
+        ),
       );
       this.enviado.set(respuesta.mensaje);
     } catch (falla: unknown) {
