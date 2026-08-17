@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 
-import { Controller, Get, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Logger, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
-import { ponerCookieDeSesion } from '../sesion/cookie';
+import { atributosDeCookie, ponerCookieDeSesion } from '../sesion/cookie';
 import { nuevoToken } from '../token';
 import { GoogleService, MotivoDeRechazo } from './google.service';
 import { ProveedorGoogle } from './google.port';
@@ -12,14 +12,9 @@ import { ProveedorGoogle } from './google.port';
 const COOKIE_FLUJO = 'google_oauth';
 const VIDA_DEL_FLUJO_MS = 10 * 60 * 1000;
 
-const ATRIBUTOS_FLUJO = {
-  httpOnly: true,
-  secure: true,
-  // `lax` y no `strict`: la vuelta de Google es una navegación desde otro sitio, y
-  // con `strict` el navegador no mandaría la cookie justo cuando hace falta.
-  sameSite: 'lax',
-  path: '/',
-} as const;
+// Los mismos atributos que la cookie de sesión, incluido `sameSite: 'lax'`: con
+// `strict` el navegador no mandaría esta cookie justo en la vuelta desde Google.
+const atributosDelFlujo = atributosDeCookie;
 
 function paginaDeIngreso(motivo?: MotivoDeRechazo): string {
   const web = process.env.WEB_ORIGIN ?? 'http://localhost:4200';
@@ -44,6 +39,8 @@ function leerFlujo(
 
 @Controller('auth/google')
 export class GoogleController {
+  private readonly log = new Logger('Google');
+
   constructor(
     private readonly proveedor: ProveedorGoogle,
     private readonly servicio: GoogleService,
@@ -68,7 +65,7 @@ export class GoogleController {
       .digest('base64url');
 
     res.cookie(COOKIE_FLUJO, `${state}.${verificador}`, {
-      ...ATRIBUTOS_FLUJO,
+      ...atributosDelFlujo(),
       maxAge: VIDA_DEL_FLUJO_MS,
     });
 
@@ -79,15 +76,38 @@ export class GoogleController {
   async volver(
     @Query('code') codigo: string | undefined,
     @Query('state') state: string | undefined,
+    @Query('error') errorDeGoogle: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     const flujo = leerFlujo(req);
-    res.clearCookie(COOKIE_FLUJO, ATRIBUTOS_FLUJO);
+    res.clearCookie(COOKIE_FLUJO, atributosDelFlujo());
+
+    if (errorDeGoogle) {
+      // `access_denied` es alguien que se arrepintió en la pantalla de Google:
+      // no es una falla y no merece un mensaje de error.
+      this.log.log(`Google devolvió sin autorizar: ${errorDeGoogle}`);
+      res.redirect(
+        paginaDeIngreso(
+          errorDeGoogle === 'access_denied' ? 'cancelado' : 'sin_perfil',
+        ),
+      );
+      return;
+    }
 
     // El state ata esta vuelta al navegador que empezó: sin la comparación,
     // cualquiera puede hacer que otro termine con la sesión de una cuenta ajena.
     if (!codigo || !flujo || flujo.state !== state) {
+      // Cuál de las tres cosas faltó, sin volcar ninguna: son credenciales de un
+      // solo uso, pero saber si el problema es la cookie o el código es la
+      // diferencia entre diagnosticar en un minuto o a ciegas.
+      const causa = !codigo
+        ? 'Google no devolvió código'
+        : !flujo
+          ? 'no volvió la cookie del flujo — revisar Secure sobre http'
+          : 'el state no coincide con el del inicio';
+
+      this.log.warn(`Vuelta de Google descartada: ${causa}.`);
       res.redirect(paginaDeIngreso('sin_perfil'));
       return;
     }

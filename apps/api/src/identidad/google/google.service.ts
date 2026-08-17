@@ -6,7 +6,11 @@ import { PerfilGoogle } from './google.port';
 
 /** Por qué no entró. Cada motivo lleva a un mensaje distinto en la SPA. */
 export type MotivoDeRechazo =
-  'correo_no_verificado' | 'sin_perfil' | 'sin_configurar';
+  | 'correo_no_verificado'
+  | 'sin_perfil'
+  | 'sin_configurar'
+  /** Se arrepintió en la pantalla de Google. No es una falla. */
+  | 'cancelado';
 
 export type ResultadoGoogle =
   { tokenSesion: string } | { rechazo: MotivoDeRechazo };

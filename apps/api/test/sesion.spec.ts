@@ -83,10 +83,10 @@ describe('Sesión, login y logout', () => {
 
     expect(cookie).toContain(`${NOMBRE_COOKIE}=`);
     // Sin HttpOnly, cualquier XSS se lleva la sesión. Sin SameSite, se la lleva
-    // cualquier formulario de otro sitio.
+    // cualquier formulario de otro sitio. `Secure` depende del entorno y tiene
+    // sus propios tests en src/identidad/sesion/cookie.spec.ts.
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('SameSite=Lax');
-    expect(cookie).toContain('Secure');
   });
 
   it('la sesión se resuelve en cada request', async () => {

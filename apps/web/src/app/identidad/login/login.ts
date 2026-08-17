@@ -10,6 +10,7 @@ const RECHAZOS: Record<string, string> = {
     'Google no confirmó que ese correo sea tuyo, así que no lo vinculamos a la ' +
     'cuenta del club. Entra con tu contraseña.',
   sin_perfil: 'No pudimos completar el ingreso con Google. Intenta de nuevo.',
+  cancelado: 'No autorizaste el ingreso con Google. Puedes intentar de nuevo.',
   sin_configurar:
     'El ingreso con Google todavía no está configurado en este servidor. ' +
     'Entra con tu correo y contraseña.',

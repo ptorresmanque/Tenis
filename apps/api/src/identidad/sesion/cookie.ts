@@ -5,22 +5,49 @@ export const NOMBRE_COOKIE = 'sesion';
 export const DIAS_DE_SESION = 30;
 const VIDA_MS = DIAS_DE_SESION * 24 * 60 * 60 * 1000;
 
-// SPEC-identidad.md § Sesión. `secure` va siempre: los navegadores tratan
-// http://localhost como origen seguro, así que el desarrollo no necesita excepción
-// y producción no depende de que alguien se acuerde de activarlo.
-const ATRIBUTOS = {
-  httpOnly: true,
-  secure: true,
-  sameSite: 'lax',
-  path: '/',
-} as const;
+/**
+ * Si las cookies deben llevar `Secure`. SPEC-identidad.md § Sesión las pide
+ * seguras, y lo son en todas partes menos en el localhost de desarrollo.
+ *
+ * Chrome acepta cookies `Secure` sobre `http://localhost`, pero Safari y otros las
+ * descartan en silencio, y entonces no se puede entrar de ninguna forma. La
+ * excepción se limita a localhost sobre http: cualquier otra combinación —https,
+ * un host remoto, o la variable sin definir— lleva `Secure`, para que un despliegue
+ * mal configurado falle del lado seguro.
+ */
+export function cookiesSeguras(): boolean {
+  const api = process.env.API_PUBLIC_URL;
+  if (!api) {
+    return true;
+  }
+
+  try {
+    const url = new URL(api);
+    const enEstaMaquina =
+      url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+
+    return !(url.protocol === 'http:' && enEstaMaquina);
+  } catch {
+    // Una URL ilegible es un error de configuración; se asume lo más seguro.
+    return true;
+  }
+}
+
+export function atributosDeCookie() {
+  return {
+    httpOnly: true,
+    secure: cookiesSeguras(),
+    sameSite: 'lax',
+    path: '/',
+  } as const;
+}
 
 export function ponerCookieDeSesion(res: Response, token: string): void {
-  res.cookie(NOMBRE_COOKIE, token, { ...ATRIBUTOS, maxAge: VIDA_MS });
+  res.cookie(NOMBRE_COOKIE, token, { ...atributosDeCookie(), maxAge: VIDA_MS });
 }
 
 export function borrarCookieDeSesion(res: Response): void {
-  res.clearCookie(NOMBRE_COOKIE, ATRIBUTOS);
+  res.clearCookie(NOMBRE_COOKIE, atributosDeCookie());
 }
 
 /**
