@@ -1,4 +1,4 @@
-import { instanteEnElClub } from '../comun/tiempo';
+import { horaDeReloj, instanteEnElClub, minutosDeReloj } from '../comun/tiempo';
 
 /** Un rango en que la cancha no se puede usar. Instantes, ya en UTC. */
 export interface RangoBloqueado {
@@ -25,19 +25,6 @@ export interface DiaDeCancha {
   bloqueos?: RangoBloqueado[];
 }
 
-/** "HH:MM" a minutos desde la medianoche del reloj. */
-function enMinutos(hora: string): number {
-  const [hh, mm] = hora.split(':');
-  return Number(hh) * 60 + Number(mm);
-}
-
-/** El inverso, para volver a pedirle el instante al reloj del club. */
-function enHora(minutos: number): string {
-  const hh = Math.floor(minutos / 60);
-  const mm = minutos % 60;
-  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-}
-
 /**
  * Los bloques de un día en una cancha, a partir del horario de apertura y los
  * bloqueos. Pura: ni base de datos ni reloj del sistema.
@@ -59,37 +46,46 @@ export function calcularBloques(dia: DiaDeCancha): Bloque[] {
     );
   }
 
-  const cierre = enMinutos(dia.horaCierre);
-  const bloqueos = dia.bloqueos ?? [];
-  const bloques: Bloque[] = [];
+  const apertura = minutosDeReloj(dia.horaApertura);
+  const cierre = minutosDeReloj(dia.horaCierre);
 
-  for (
-    let desde = enMinutos(dia.horaApertura);
-    desde + dia.duracionBloqueMin <= cierre;
-    desde += dia.duracionBloqueMin
-  ) {
-    // El bloque que no cabe entero antes del cierre no se ofrece: media hora de
-    // cancha no se le puede vender a nadie.
-    const inicio = instanteEnElClub(dia.fecha, enHora(desde));
-    const fin = instanteEnElClub(
-      dia.fecha,
-      enHora(desde + dia.duracionBloqueMin),
+  if (cierre < apertura) {
+    // Un horario al revés no es "cero bloques": es un dato malo. Cruzar la
+    // medianoche no está soportado —para cerrar a las doce está "24:00"—, y
+    // devolver una grilla vacía lo escondería hasta que alguien reclame.
+    throw new Error(
+      `El club no puede cerrar (${dia.horaCierre}) antes de abrir (${dia.horaApertura}).`,
     );
+  }
+
+  // Los bordes del reloj, convertidos una sola vez: el fin de un bloque es el
+  // inicio del siguiente, y calcularlo dos veces es trabajo de más y una ocasión
+  // para que dos números que tienen que ser iguales dejen de serlo.
+  const bordes: Date[] = [];
+  for (let m = apertura; m <= cierre; m += dia.duracionBloqueMin) {
+    bordes.push(instanteEnElClub(dia.fecha, horaDeReloj(m)));
+  }
+
+  const bloqueos = dia.bloqueos ?? [];
+
+  // Un borde de más que bloques: el último tramo, si no cabe entero antes del
+  // cierre, se queda sin par y no se ofrece. Media hora de cancha no le sirve a
+  // nadie.
+  return bordes.slice(0, -1).map((inicio, i) => {
+    const fin = bordes[i + 1];
 
     // Se superpone si empieza antes de que el otro termine y termina después de
     // que el otro empiece. Los bordes exactos no cuentan: un bloqueo que termina
     // a las 12:00 no toca el bloque que empieza a las 12:00.
     const choque = bloqueos.find((b) => b.inicio < fin && b.fin > inicio);
 
-    bloques.push({
+    return {
       inicio,
       fin,
       bloqueado: choque !== undefined,
       // Cualquier parte del bloque tomada lo inutiliza entero, así que basta el
       // motivo del primero que lo pise.
       motivoBloqueo: choque?.motivo ?? null,
-    });
-  }
-
-  return bloques;
+    };
+  });
 }

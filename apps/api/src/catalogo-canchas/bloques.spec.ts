@@ -65,6 +65,16 @@ describe('calcularBloques', () => {
     expect(() => calcularBloques({ ...dia, duracionBloqueMin: -60 })).toThrow();
   });
 
+  it('un horario ilegible falla en vez de parecer un día cerrado', () => {
+    // Es la diferencia entre arreglar una fila y buscar durante una hora por qué
+    // la grilla del martes sale vacía.
+    expect(() => calcularBloques({ ...dia, horaApertura: '8:00' })).toThrow();
+    expect(() => calcularBloques({ ...dia, horaCierre: '' })).toThrow();
+    expect(() =>
+      calcularBloques({ ...dia, horaApertura: '22:00', horaCierre: '08:00' }),
+    ).toThrow();
+  });
+
   describe('bloqueos', () => {
     const conBloqueo = (inicio: string, fin: string, motivo = 'MANTENCION') =>
       calcularBloques({

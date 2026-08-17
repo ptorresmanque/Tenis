@@ -112,5 +112,19 @@ describe('instanteEnElClub', () => {
     expect(() => instanteEnElClub('2026-08-17', '8:00')).toThrow();
     expect(() => instanteEnElClub('2026-08-17', '25:00')).toThrow();
     expect(() => instanteEnElClub('2026-08-17', '08:60')).toThrow();
+    expect(() => instanteEnElClub('2026-08-17', '24:30')).toThrow();
+  });
+
+  it('rechaza un día que no existe, en vez de correrlo al mes siguiente', () => {
+    // `new Date('2026-02-30T00:00:00Z')` no es inválida: se desborda en silencio
+    // al 2 de marzo. En T12 la fecha llega por query string, así que alguien
+    // pediría la disponibilidad del 30 de febrero y recibiría la del 2 de marzo.
+    expect(() => instanteEnElClub('2026-02-30', '08:00')).toThrow();
+    expect(() => instanteEnElClub('2026-13-01', '08:00')).toThrow();
+    expect(() => instanteEnElClub('17-08-2026', '08:00')).toThrow();
+    expect(() => instanteEnElClub('2026-8-17', '08:00')).toThrow();
+
+    // Y el 29 de febrero de un año bisiesto sí existe. En verano, por eso 11:00Z.
+    expect(instante('2028-02-29', '08:00')).toBe('2028-02-29T11:00:00.000Z');
   });
 });

@@ -64,17 +64,12 @@ function lecturaDelReloj(instante: Date): number {
 const HORA_VALIDA = /^([01]\d|2[0-4]):([0-5]\d)$/;
 
 /**
- * El instante en que el reloj del club marca `hora` del día `fecha`.
+ * Una hora del reloj del club, "HH:MM", en minutos desde la medianoche.
  *
- * Es el camino inverso de `hoyEnElClub` y el que sostiene toda la grilla: el admin
- * configura "abre a las 08:00" y eso hay que volverlo un momento en el tiempo. En
- * agosto esas 08:00 son las 12:00Z y en enero las 11:00Z.
- *
- * @param fecha Fecha civil del club, "AAAA-MM-DD".
- * @param hora  Hora del reloj del club, "HH:MM". "24:00" es medianoche del día
- *              siguiente, para el club que cierra a las doce.
+ * Valida acá y no en cada quien la use: viene de una columna de texto que escribe
+ * el panel, y un `NaN` que se propaga sin ruido se ve como un club que no abre.
  */
-export function instanteEnElClub(fecha: string, hora: string): Date {
+export function minutosDeReloj(hora: string): number {
   const partes = HORA_VALIDA.exec(hora);
   if (!partes) {
     throw new Error(`Hora del club ilegible: "${hora}". Se espera HH:MM.`);
@@ -87,15 +82,67 @@ export function instanteEnElClub(fecha: string, hora: string): Date {
     );
   }
 
-  const dia = new Date(`${fecha}T00:00:00.000Z`);
-  if (Number.isNaN(dia.getTime())) {
+  return Number(hh) * 60 + Number(mm);
+}
+
+/** El inverso de `minutosDeReloj`. 1440 minutos son las "24:00". */
+export function horaDeReloj(minutos: number): string {
+  const hh = String(Math.floor(minutos / 60)).padStart(2, '0');
+  const mm = String(minutos % 60).padStart(2, '0');
+
+  return `${hh}:${mm}`;
+}
+
+const FECHA_VALIDA = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Una fecha civil "AAAA-MM-DD" como medianoche UTC, o `null` si no lo es.
+ *
+ * No alcanza con que `Date` la acepte: `new Date('2026-02-30T00:00:00Z')` no es
+ * inválida, se desborda en silencio al 2 de marzo. En T12 la fecha llega por query
+ * string, así que alguien pediría la disponibilidad del 30 de febrero y recibiría
+ * la del 2 de marzo sin que nada avise.
+ */
+function fechaCivil(fecha: string): Date | null {
+  const partes = FECHA_VALIDA.exec(fecha);
+  if (!partes) {
+    return null;
+  }
+
+  const [, año, mes, dia] = partes;
+  const instante = new Date(`${fecha}T00:00:00.000Z`);
+
+  const seConserva =
+    instante.getUTCFullYear() === Number(año) &&
+    instante.getUTCMonth() === Number(mes) - 1 &&
+    instante.getUTCDate() === Number(dia);
+
+  return seConserva ? instante : null;
+}
+
+/**
+ * El instante en que el reloj del club marca `hora` del día `fecha`.
+ *
+ * Es el camino inverso de `hoyEnElClub` y el que sostiene toda la grilla: el admin
+ * configura "abre a las 08:00" y eso hay que volverlo un momento en el tiempo. En
+ * agosto esas 08:00 son las 12:00Z y en enero las 11:00Z.
+ *
+ * @param fecha Fecha civil del club, "AAAA-MM-DD".
+ * @param hora  Hora del reloj del club, "HH:MM". "24:00" es medianoche del día
+ *              siguiente, para el club que cierra a las doce.
+ */
+export function instanteEnElClub(fecha: string, hora: string): Date {
+  const minutos = minutosDeReloj(hora);
+
+  const dia = fechaCivil(fecha);
+  if (!dia) {
     throw new Error(
       `Fecha del club ilegible: "${fecha}". Se espera AAAA-MM-DD.`,
     );
   }
 
   // La lectura de reloj buscada, en la misma escala que `lecturaDelReloj`.
-  const buscada = dia.getTime() + (Number(hh) * 60 + Number(mm)) * 60_000;
+  const buscada = dia.getTime() + minutos * 60_000;
 
   // Dos pasadas: la primera estima con el desfase del instante equivocado y la
   // segunda corrige con el del instante estimado. Con eso basta salvo en los dos
