@@ -12,9 +12,15 @@ import { ProveedorGoogle } from './google.port';
 const COOKIE_FLUJO = 'google_oauth';
 const VIDA_DEL_FLUJO_MS = 10 * 60 * 1000;
 
-// Los mismos atributos que la cookie de sesión, incluido `sameSite: 'lax'`: con
-// `strict` el navegador no mandaría esta cookie justo en la vuelta desde Google.
-const atributosDelFlujo = atributosDeCookie;
+/**
+ * Los mismos atributos que la cookie de sesión —incluido `sameSite: 'lax'`, porque
+ * con `strict` el navegador no la mandaría justo en la vuelta desde Google— pero
+ * acotada a la ruta del flujo: es un secreto de diez minutos y no tiene por qué
+ * viajar en cada petición a la API.
+ */
+function atributosDelFlujo() {
+  return { ...atributosDeCookie(), path: '/api/auth/google' };
+}
 
 function paginaDeIngreso(motivo?: MotivoDeRechazo): string {
   const web = process.env.WEB_ORIGIN ?? 'http://localhost:4200';
@@ -86,10 +92,13 @@ export class GoogleController {
     if (errorDeGoogle) {
       // `access_denied` es alguien que se arrepintió en la pantalla de Google:
       // no es una falla y no merece un mensaje de error.
-      this.log.log(`Google devolvió sin autorizar: ${errorDeGoogle}`);
+      // Recortado y en una sola línea: lo escribe quien llama, y un salto de
+      // línea suyo se convertiría en una entrada de registro inventada.
+      const motivo = errorDeGoogle.slice(0, 40).replace(/\s+/g, ' ');
+      this.log.log(`Google devolvió sin autorizar: ${motivo}`);
       res.redirect(
         paginaDeIngreso(
-          errorDeGoogle === 'access_denied' ? 'cancelado' : 'sin_perfil',
+          motivo === 'access_denied' ? 'cancelado' : 'sin_perfil',
         ),
       );
       return;

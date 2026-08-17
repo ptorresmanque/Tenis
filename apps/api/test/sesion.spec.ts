@@ -89,6 +89,20 @@ describe('Sesión, login y logout', () => {
     expect(cookie).toContain('SameSite=Lax');
   });
 
+  it('con la API en https la cookie sale con Secure', async () => {
+    // El unitario de cookiesSeguras cubre la decisión; esto comprueba que la
+    // decisión llega de verdad al encabezado que recibe el navegador.
+    const anterior = process.env.API_PUBLIC_URL;
+    process.env.API_PUBLIC_URL = 'https://club.example.cl/api';
+
+    try {
+      const respuesta = await login({ email, contrasena: CONTRASENA });
+      expect(respuesta.headers['set-cookie'][0]).toContain('Secure');
+    } finally {
+      process.env.API_PUBLIC_URL = anterior;
+    }
+  });
+
   it('la sesión se resuelve en cada request', async () => {
     const cookie = await entrar();
 
