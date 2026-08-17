@@ -18,7 +18,7 @@ function exigirProcesoEnUtc(): void {
     throw new Error(
       `El proceso no corre en UTC (offset ${desfase} min, TZ=${process.env.TZ ?? 'sin definir'}). ` +
         'Los instantes se guardarían en hora local y colisionarían en el cambio de horario. ' +
-        'Arrancá con TZ=UTC (ya está en los scripts de package.json).',
+        'Arranca con TZ=UTC (ya está en los scripts de package.json).',
     );
   }
 }
@@ -28,7 +28,7 @@ function adaptadorDesde(urlCruda: string | undefined): PrismaMariaDb {
 
   if (!urlCruda) {
     throw new Error(
-      'Falta DATABASE_URL. Copiá apps/api/.env.example a apps/api/.env.',
+      'Falta DATABASE_URL. Copia apps/api/.env.example a apps/api/.env.',
     );
   }
 

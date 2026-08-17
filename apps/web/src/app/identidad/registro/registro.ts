@@ -31,7 +31,7 @@ interface Campo {
         class="mt-6 rounded-lg border border-border bg-card p-4 text-accent-strong"
         role="status"
       >
-        Tu correo quedó verificado. Ya podés entrar con tu contraseña.
+        Tu correo quedó verificado. Ya puedes entrar con tu contraseña.
       </p>
     } @else if (verificado() === '0') {
       <p
@@ -39,7 +39,7 @@ interface Campo {
         role="alert"
       >
         Ese enlace de verificación no sirve: puede haber vencido o ya haberse usado.
-        Registrate de nuevo para recibir otro.
+        Regístrate de nuevo para recibir otro.
       </p>
     }
 

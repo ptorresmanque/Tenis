@@ -19,7 +19,7 @@ export function problemaDeContrasena(contrasena: string): string | null {
   }
 
   if (CONTRASENAS_FILTRADAS.has(contrasena.trim().toLowerCase())) {
-    return 'Esa contraseña aparece en listas de contraseñas filtradas. Elegí otra.';
+    return 'Esa contraseña aparece en listas de contraseñas filtradas. Elige otra.';
   }
 
   return null;
