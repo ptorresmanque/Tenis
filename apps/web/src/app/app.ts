@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Auth } from './core/auth/auth';
@@ -22,7 +22,7 @@ import { Auth } from './core/auth/auth';
         </a>
 
         <nav aria-label="Principal" class="flex gap-1 text-sm">
-          @for (item of navegacion; track item.ruta) {
+          @for (item of navegacion(); track item.ruta) {
             <a
               [routerLink]="item.ruta"
               routerLinkActive="bg-muted text-primary"
@@ -74,10 +74,17 @@ export class App {
     void this.auth.salir();
   }
 
-  protected readonly navegacion = [
+  /**
+   * Esconderle el enlace a quien no es admin es cortesía, no seguridad: lo que
+   * cierra el panel es `@SoloAdmin()` en el servidor.
+   */
+  protected readonly navegacion = computed(() => [
     { ruta: '/', etiqueta: 'Inicio' },
     { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },
+    ...(this.auth.esAdmin()
+      ? [{ ruta: '/administracion/canchas', etiqueta: 'Canchas' }]
+      : []),
     { ruta: '/registro', etiqueta: 'Crear cuenta' },
     { ruta: '/estado', etiqueta: 'Estado' },
-  ];
+  ]);
 }

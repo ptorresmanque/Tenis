@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 
+import { soloAdmin } from './core/auth/solo-admin.guard';
+
 export const routes: Routes = [
   {
     path: '',
@@ -11,6 +13,15 @@ export const routes: Routes = [
     title: 'Disponibilidad — Club de Tenis',
     loadComponent: () =>
       import('./catalogo-canchas/grilla/grilla').then((m) => m.Grilla),
+  },
+  {
+    path: 'administracion/canchas',
+    title: 'Canchas — Administración',
+    canActivate: [soloAdmin],
+    loadComponent: () =>
+      import('./catalogo-canchas/admin/admin-canchas').then(
+        (m) => m.AdminCanchasPanel,
+      ),
   },
   {
     path: 'entrar',
