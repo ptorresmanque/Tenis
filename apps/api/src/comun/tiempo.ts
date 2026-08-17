@@ -96,28 +96,34 @@ export function horaDeReloj(minutos: number): string {
 const FECHA_VALIDA = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /**
- * Una fecha civil "AAAA-MM-DD" como medianoche UTC, o `null` si no lo es.
+ * Una fecha civil "AAAA-MM-DD" como medianoche UTC — la misma forma en que vuelven
+ * las columnas `DATE`, así que se compara con ellas directamente.
  *
  * No alcanza con que `Date` la acepte: `new Date('2026-02-30T00:00:00Z')` no es
  * inválida, se desborda en silencio al 2 de marzo. En T12 la fecha llega por query
  * string, así que alguien pediría la disponibilidad del 30 de febrero y recibiría
  * la del 2 de marzo sin que nada avise.
  */
-function fechaCivil(fecha: string): Date | null {
+export function fechaDelClub(fecha: string): Date {
   const partes = FECHA_VALIDA.exec(fecha);
-  if (!partes) {
-    return null;
-  }
-
-  const [, año, mes, dia] = partes;
+  // Una fecha ilegible da `Invalid Date`, cuyos componentes son `NaN` y no
+  // coinciden con nada: no hace falta comprobarla aparte.
   const instante = new Date(`${fecha}T00:00:00.000Z`);
 
+  // Que `Date` la acepte no basta: hay que comprobar que conserve el día pedido.
   const seConserva =
-    instante.getUTCFullYear() === Number(año) &&
-    instante.getUTCMonth() === Number(mes) - 1 &&
-    instante.getUTCDate() === Number(dia);
+    partes !== null &&
+    instante.getUTCFullYear() === Number(partes[1]) &&
+    instante.getUTCMonth() === Number(partes[2]) - 1 &&
+    instante.getUTCDate() === Number(partes[3]);
 
-  return seConserva ? instante : null;
+  if (!seConserva) {
+    throw new Error(
+      `Fecha del club ilegible: "${fecha}". Se espera AAAA-MM-DD.`,
+    );
+  }
+
+  return instante;
 }
 
 /**
@@ -133,13 +139,7 @@ function fechaCivil(fecha: string): Date | null {
  */
 export function instanteEnElClub(fecha: string, hora: string): Date {
   const minutos = minutosDeReloj(hora);
-
-  const dia = fechaCivil(fecha);
-  if (!dia) {
-    throw new Error(
-      `Fecha del club ilegible: "${fecha}". Se espera AAAA-MM-DD.`,
-    );
-  }
+  const dia = fechaDelClub(fecha);
 
   // La lectura de reloj buscada, en la misma escala que `lecturaDelReloj`.
   const buscada = dia.getTime() + minutos * 60_000;
