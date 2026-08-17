@@ -66,8 +66,26 @@ model Usuario {
 
   socio    Socio?
   profesor Profesor?
+  sesiones Sesion[]
 
   @@map("usuario")
+}
+
+/// Sesión abierta en el servidor. La cookie solo lleva el identificador; acá vive
+/// su hash, así que un dump de la base no sirve para hacerse pasar por nadie.
+///
+/// Se guarda en tabla y no en un JWT para poder cerrarla: un token firmado vale
+/// hasta que vence y no hay forma de echar a alguien antes.
+model Sesion {
+  tokenHash String   @id @map("token_hash")
+  usuarioId Int      @map("usuario_id")
+  creadaEn  DateTime @default(now()) @map("creada_en")
+  expiraEn  DateTime @map("expira_en")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("sesion")
 }
 
 enum EstadoSocio {

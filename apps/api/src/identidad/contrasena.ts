@@ -1,4 +1,4 @@
-import { hash } from '@node-rs/argon2';
+import { hash, verify } from '@node-rs/argon2';
 
 import { CONTRASENAS_FILTRADAS } from './contrasenas-filtradas';
 
@@ -42,4 +42,18 @@ export function hashear(contrasena: string): Promise<string> {
     timeCost: 2,
     parallelism: 1,
   });
+}
+
+/**
+ * Hash señuelo para gastar el mismo tiempo cuando el correo no existe o la cuenta
+ * entró por Google y no tiene contraseña. Sin esto, un login que responde al
+ * instante dice "ese correo no está registrado" sin decirlo.
+ */
+export const HASH_SENUELO =
+  '$argon2id$v=19$m=19456,t=2,p=1$6N3OPFVA2V/4iquPRTXTTg$o4xDUxHqytNw44nhaqm5HeoJ9ZGS7FSr/5GWI0Lakg0';
+
+export function coincide(hash: string, contrasena: string): Promise<boolean> {
+  // Un hash ilegible es un dato corrupto, no una contraseña válida: se responde
+  // que no coincide en vez de propagar un error que delataría el estado de la fila.
+  return verify(hash, contrasena).catch(() => false);
 }

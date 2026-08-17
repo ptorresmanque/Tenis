@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+
+import { Auth } from './core/auth/auth';
 
 @Component({
   selector: 'app-root',
@@ -32,6 +34,29 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
             </a>
           }
         </nav>
+
+        <div class="ms-auto flex items-center gap-3 text-sm">
+          @if (usuario(); as sesion) {
+            <span class="font-medium">{{ sesion.nombre }}</span>
+            <button
+              type="button"
+              (click)="salir()"
+              class="cursor-pointer rounded-md px-3 py-1.5 font-medium text-muted-foreground
+                     transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Salir
+            </button>
+          } @else {
+            <a
+              routerLink="/entrar"
+              routerLinkActive="bg-muted text-primary"
+              class="rounded-md px-3 py-1.5 font-medium text-muted-foreground
+                     transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Entrar
+            </a>
+          }
+        </div>
       </div>
     </header>
 
@@ -41,6 +66,14 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   `,
 })
 export class App {
+  private readonly auth = inject(Auth);
+
+  protected readonly usuario = this.auth.usuario;
+
+  protected salir(): void {
+    void this.auth.salir();
+  }
+
   protected readonly navegacion = [
     { ruta: '/', etiqueta: 'Inicio' },
     { ruta: '/registro', etiqueta: 'Crear cuenta' },
