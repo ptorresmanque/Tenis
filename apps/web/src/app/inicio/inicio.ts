@@ -1,7 +1,9 @@
 import { Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-inicio',
+  imports: [RouterLink],
   template: `
     <h1 class="font-display text-4xl font-bold text-balance">
       Reservá tu cancha en el club
@@ -12,21 +14,21 @@ import { Component } from '@angular/core';
     </p>
 
     <div class="mt-6 flex flex-wrap gap-3">
-      <button
-        type="button"
+      <a
+        routerLink="/disponibilidad"
         class="cursor-pointer rounded-lg bg-primary px-6 py-3 font-semibold text-on-primary
                shadow-md transition-[background-color,box-shadow] duration-200
                hover:bg-secondary hover:shadow-lg"
       >
         Ver disponibilidad
-      </button>
-      <button
-        type="button"
+      </a>
+      <a
+        routerLink="/entrar"
         class="cursor-pointer rounded-lg border-2 border-primary px-6 py-3 font-semibold
                text-primary transition-colors duration-200 hover:bg-muted"
       >
         Soy socio
-      </button>
+      </a>
     </div>
 
     <section class="mt-12" aria-labelledby="titulo-superficies">
