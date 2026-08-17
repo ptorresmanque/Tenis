@@ -76,6 +76,7 @@ export class App {
 
   protected readonly navegacion = [
     { ruta: '/', etiqueta: 'Inicio' },
+    { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },
     { ruta: '/registro', etiqueta: 'Crear cuenta' },
     { ruta: '/estado', etiqueta: 'Estado' },
   ];
