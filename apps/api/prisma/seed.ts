@@ -1,6 +1,7 @@
 import { EstadoSocio, PrismaClient } from '../src/generated/prisma/client';
 import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { sembrarCatalogo } from './seed-catalogo';
 
 /**
  * Datos de demo de `identidad` (T4). Idempotente: se corre tantas veces como haga
@@ -129,7 +130,8 @@ async function main(): Promise<void> {
   const prisma = new PrismaService();
   try {
     await sembrar(prisma);
-    console.log(`Seed listo: ${CUENTAS.length} cuentas de demo.`);
+    await sembrarCatalogo(prisma);
+    console.log(`Seed listo: ${CUENTAS.length} cuentas de demo y el catálogo.`);
   } finally {
     await prisma.$disconnect();
   }
