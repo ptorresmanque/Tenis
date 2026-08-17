@@ -7,6 +7,7 @@ import {
   CanchaAdmin,
   CanchaNueva,
 } from './admin-canchas.service';
+import { EditorBloqueos } from './editor-bloqueos';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
 
@@ -35,7 +36,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
 @Component({
   selector: 'app-admin-canchas',
-  imports: [FormsModule, EditorHorarios, EditorFranjas],
+  imports: [FormsModule, EditorHorarios, EditorFranjas, EditorBloqueos],
   template: `
     <h1 class="font-display text-3xl font-bold">Canchas del club</h1>
 
@@ -191,6 +192,9 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
               <h4 class="mt-3 text-sm font-semibold">Tarifas propias</h4>
               <app-editor-franjas [cancha]="cancha" (cambiado)="recargar()" />
+
+              <h4 class="mt-3 text-sm font-semibold">Bloqueos</h4>
+              <app-editor-bloqueos [cancha]="cancha" />
             </li>
           }
         </ul>
