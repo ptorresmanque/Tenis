@@ -70,8 +70,10 @@ describe('Sesión, login y logout', () => {
     return cookie.split(';')[0];
   };
 
+  // `/api/yo` es el contrato que expone `identidad` desde T8; acá se usa solo
+  // para comprobar si la cookie sigue abriendo sesión.
   const verSesion = (cookie: string) =>
-    request(servidor()).get('/api/auth/sesion').set('Cookie', cookie);
+    request(servidor()).get('/api/yo').set('Cookie', cookie);
 
   it('el login correcto deja una cookie de sesión', async () => {
     const respuesta = await login({ email, contrasena: CONTRASENA }).expect(
@@ -118,7 +120,7 @@ describe('Sesión, login y logout', () => {
   });
 
   it('sin cookie no hay sesión', async () => {
-    await request(servidor()).get('/api/auth/sesion').expect(401);
+    await request(servidor()).get('/api/yo').expect(401);
   });
 
   it('una cookie con un identificador inventado no abre sesión', async () => {

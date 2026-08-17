@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   Post,
   Req,
@@ -62,23 +61,5 @@ export class SesionController {
     }
 
     borrarCookieDeSesion(res);
-  }
-
-  /**
-   * Quién está mirando. Devuelve lo mínimo para que la SPA sepa si hay sesión;
-   * T8 lo reemplaza por `GET /api/yo` con el contrato `UsuarioActual` completo.
-   */
-  @Get('sesion')
-  async sesion(
-    @Req() req: Request,
-  ): Promise<{ id: number; nombre: string; email: string }> {
-    const token = tokenDeSesion(req);
-    const usuario = token ? await this.servicio.usuarioDe(token) : null;
-
-    if (!usuario) {
-      throw new UnauthorizedException('No hay sesión abierta.');
-    }
-
-    return { id: usuario.id, nombre: usuario.nombre, email: usuario.email };
   }
 }

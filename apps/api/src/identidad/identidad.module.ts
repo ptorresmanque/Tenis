@@ -9,9 +9,15 @@ import { RegistroController } from './registro.controller';
 import { RegistroService } from './registro.service';
 import { SesionController } from './sesion/sesion.controller';
 import { SesionService } from './sesion/sesion.service';
+import { YoController } from './yo.controller';
 
 @Module({
-  controllers: [RegistroController, SesionController, GoogleController],
+  controllers: [
+    RegistroController,
+    SesionController,
+    GoogleController,
+    YoController,
+  ],
   providers: [
     RegistroService,
     SesionService,
