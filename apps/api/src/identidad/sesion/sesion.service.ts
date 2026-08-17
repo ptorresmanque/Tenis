@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
-import { Usuario } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { coincide, HASH_SENUELO } from '../contrasena';
 import { hashDeToken, nuevoToken } from '../token';
+import { UsuarioConFichas } from '../usuario-actual';
 import { DIAS_DE_SESION } from './cookie';
 
 const VIDA_MS = DIAS_DE_SESION * 24 * 60 * 60 * 1000;
@@ -61,11 +61,27 @@ export class SesionService {
     return token;
   }
 
-  /** Resuelve la sesión de una request y la renueva si le queda poca vida. */
-  async usuarioDe(token: string): Promise<Usuario | null> {
+  /**
+   * Resuelve la sesión de una request y la renueva si le queda poca vida.
+   *
+   * Trae las fichas de socio y profesor porque de eso se arma `UsuarioActual`, que
+   * es lo que preguntan todos los guards y todos los módulos.
+   */
+  async usuarioDe(token: string): Promise<UsuarioConFichas | null> {
     const sesion = await this.prisma.sesion.findUnique({
       where: { tokenHash: hashDeToken(token) },
-      include: { usuario: true },
+      include: {
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            email: true,
+            esAdmin: true,
+            socio: { select: { id: true, estado: true, alDiaHasta: true } },
+            profesor: { select: { id: true } },
+          },
+        },
+      },
     });
 
     if (!sesion) {

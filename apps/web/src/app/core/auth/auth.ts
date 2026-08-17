@@ -1,15 +1,22 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Service, signal } from '@angular/core';
+import { computed, inject, Service, signal } from '@angular/core';
 import { catchError, firstValueFrom, of } from 'rxjs';
 
 /**
- * Lo que la SPA sabe de quien está mirando. Espejo de `GET /api/auth/sesion`;
- * T8 lo reemplaza por el contrato `UsuarioActual` completo.
+ * Espejo de `UsuarioActual` en apps/api/src/identidad/usuario-actual.ts.
+ *
+ * `socioActivo` y `socioAlDia` llegan separados a propósito: un socio suspendido
+ * no es lo mismo que uno con la cuota vencida y no se les dice lo mismo.
  */
-export interface UsuarioSesion {
+export interface UsuarioActual {
   id: number;
   nombre: string;
   email: string;
+  esAdmin: boolean;
+  socioId: number | null;
+  socioActivo: boolean;
+  socioAlDia: boolean;
+  profesorId: number | null;
 }
 
 /**
@@ -20,10 +27,11 @@ export interface UsuarioSesion {
 export class Auth {
   private readonly http = inject(HttpClient);
 
-  private readonly estado = signal<UsuarioSesion | null>(null);
+  private readonly estado = signal<UsuarioActual | null>(null);
 
   /** null si no hay sesión o si todavía no se resolvió la primera consulta. */
   readonly usuario = this.estado.asReadonly();
+  readonly esAdmin = computed(() => this.estado()?.esAdmin === true);
 
   constructor() {
     void this.refrescar();
@@ -38,9 +46,7 @@ export class Auth {
    */
   async refrescar(): Promise<void> {
     const usuario = await firstValueFrom(
-      this.http
-        .get<UsuarioSesion>('/api/auth/sesion')
-        .pipe(catchError(() => of(null))),
+      this.http.get<UsuarioActual>('/api/yo').pipe(catchError(() => of(null))),
     );
 
     this.estado.set(usuario);
