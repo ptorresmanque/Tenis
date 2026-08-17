@@ -39,6 +39,7 @@ describe('AdminCanchasPanel', () => {
     advertencias: ReturnType<typeof vi.fn>;
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
+    bloqueos: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (
@@ -50,6 +51,8 @@ describe('AdminCanchasPanel', () => {
       advertencias: vi.fn().mockResolvedValue(advertencias),
       crear: vi.fn().mockResolvedValue(canchas[0]),
       editar: vi.fn().mockResolvedValue(canchas[0]),
+      // Lo pide el editor de bloqueos, que el panel monta dentro de cada cancha.
+      bloqueos: vi.fn().mockResolvedValue([]),
     };
 
     TestBed.resetTestingModule();

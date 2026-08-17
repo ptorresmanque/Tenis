@@ -29,6 +29,33 @@ export interface CanchaAdmin extends Cancha {
   franjas: Franja[];
 }
 
+export type MotivoBloqueo = 'MANTENCION' | 'TORNEO' | 'CLASE' | 'OTRO';
+
+export interface Bloqueo {
+  id: number;
+  canchaId: number;
+  /** Instantes en UTC, como los devuelve la API. */
+  inicio: string;
+  fin: string;
+  motivo: MotivoBloqueo;
+  descripcion: string | null;
+}
+
+/**
+ * El rango va en hora del club y no en instantes: la conversión la hace el
+ * servidor, que es donde está probada contra los dos domingos que Chile cambia
+ * la hora.
+ */
+export interface BloqueoNuevo {
+  canchaId: number;
+  fechaDesde: string;
+  horaDesde: string;
+  fechaHasta: string;
+  horaHasta: string;
+  motivo: MotivoBloqueo;
+  descripcion: string | null;
+}
+
 export interface Advertencia {
   canchaId: number;
   nombre: string;
@@ -96,8 +123,24 @@ export class AdminCanchas {
   }
 
   borrarFranja(id: number): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/admin/franjas/${id}`));
+  }
+
+  bloqueos(canchaId: number): Promise<Bloqueo[]> {
     return firstValueFrom(
-      this.http.delete<void>(`/api/admin/franjas/${id}`),
+      this.http.get<Bloqueo[]>('/api/admin/bloqueos', {
+        params: { cancha: canchaId },
+      }),
     );
+  }
+
+  crearBloqueo(bloqueo: BloqueoNuevo): Promise<Bloqueo> {
+    return firstValueFrom(
+      this.http.post<Bloqueo>('/api/admin/bloqueos', bloqueo),
+    );
+  }
+
+  borrarBloqueo(id: number): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/admin/bloqueos/${id}`));
   }
 }

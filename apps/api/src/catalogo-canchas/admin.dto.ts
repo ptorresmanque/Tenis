@@ -1,7 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { fechaDelClub, minutosDeReloj } from '../comun/tiempo';
-import { Superficie } from '../generated/prisma/client';
+import {
+  fechaDelClub,
+  instanteEnElClub,
+  minutosDeReloj,
+} from '../comun/tiempo';
+import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
 
 /**
  * Validación del borde del panel de administración, con el patrón de
@@ -228,6 +232,85 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
         ? null
         : fechaDeCuerpo(datos.vigenteHasta, 'El fin de vigencia'),
   };
+}
+
+export interface DatosBloqueo {
+  canchaId: number;
+  inicio: Date;
+  fin: Date;
+  motivo: MotivoBloqueo;
+  descripcion: string | null;
+}
+
+/**
+ * El rango entra en hora del club —fecha y hora como las piensa el admin— y sale
+ * como instantes. La conversión la hace el servidor y no el navegador: es la misma
+ * que usa la grilla, y duplicarla en el cliente es duplicar el bug de marzo.
+ *
+ * Van dos fechas y no una: una cancha en mantención toda la semana es un bloqueo,
+ * no siete.
+ */
+export function leerBloqueo(cuerpo: unknown): DatosBloqueo {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  const motivos = Object.values(MotivoBloqueo) as string[];
+  if (typeof datos.motivo !== 'string' || !motivos.includes(datos.motivo)) {
+    throw new BadRequestException(
+      `El motivo tiene que ser uno de: ${motivos.join(', ')}.`,
+    );
+  }
+
+  const inicio = instanteDeCuerpo(
+    datos.fechaDesde,
+    datos.horaDesde,
+    'el inicio',
+  );
+  const fin = instanteDeCuerpo(datos.fechaHasta, datos.horaHasta, 'el fin');
+
+  if (fin <= inicio) {
+    // Un rango al revés no bloquea nada y no avisa: la cancha sigue apareciendo
+    // libre y nadie entiende por qué la mantención no tomó.
+    throw new BadRequestException(
+      'El bloqueo tiene que terminar después de empezar.',
+    );
+  }
+
+  const descripcion =
+    typeof datos.descripcion === 'string' ? datos.descripcion.trim() : '';
+
+  if (descripcion.length > LARGO_MAXIMO) {
+    // Se rechaza en vez de recortar, como el resto del archivo: un detalle que
+    // pierde el final sin avisar es peor que uno que no se guarda.
+    throw new BadRequestException('El detalle es demasiado largo.');
+  }
+
+  return {
+    canchaId: entero(datos.canchaId, 'La cancha', 1),
+    inicio,
+    fin,
+    motivo: datos.motivo as MotivoBloqueo,
+    descripcion: descripcion || null,
+  };
+}
+
+function instanteDeCuerpo(fecha: unknown, hora: unknown, campo: string): Date {
+  if (typeof fecha !== 'string') {
+    throw new BadRequestException(`Falta la fecha de ${campo}.`);
+  }
+
+  try {
+    return instanteEnElClub(fecha, horaDeCuerpo(hora, `la hora de ${campo}`));
+  } catch (error) {
+    // `horaDeCuerpo` ya devuelve un 400 con su motivo; lo que queda por traducir
+    // es la fecha, que `instanteEnElClub` rechaza con un `Error` común.
+    if (error instanceof BadRequestException) {
+      throw error;
+    }
+
+    throw new BadRequestException(
+      `La fecha de ${campo} se espera con forma AAAA-MM-DD y tiene que existir.`,
+    );
+  }
 }
 
 function diaValido(valor: unknown): number {

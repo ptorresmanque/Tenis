@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   diaEnPalabras,
   enPesos,
+  fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
 } from './reloj-del-club';
@@ -34,6 +35,12 @@ describe('reloj del club', () => {
     // Las 22:00 del 17 en Santiago son las 02:00 del 18 en UTC. Sin la zona, la
     // grilla saltaría al día siguiente cada noche a las nueve.
     expect(hoyEnElClub(new Date('2026-08-18T02:00:00.000Z'))).toBe('2026-08-17');
+  });
+
+  it('fecha un instante en el día del club, no en el de UTC', () => {
+    // Las 22:00 de un lunes en Santiago son las 02:00 del martes en UTC. Cortar
+    // el ISO daría martes: un día más que el que la persona escribió.
+    expect(fechaEnElClub('2026-08-18T02:00:00.000Z')).toBe('2026-08-17');
   });
 
   it('nombra el día sin correrlo al anterior', () => {

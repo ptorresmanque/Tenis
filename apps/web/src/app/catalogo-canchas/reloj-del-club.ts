@@ -35,9 +35,19 @@ const PESOS = new Intl.NumberFormat('es-CL', {
   maximumFractionDigits: 0,
 });
 
-/** Hoy en el club, "AAAA-MM-DD", que es lo que come `<input type="date">`. */
+/**
+ * Qué día es en el club en ese instante, "AAAA-MM-DD".
+ *
+ * No es lo mismo que cortar el ISO: un bloqueo que empieza a las 22:00 de un
+ * lunes en Santiago llega como `2026-08-18T02:00:00Z`, y el corte diría martes.
+ */
+export function fechaEnElClub(instante: string | Date): string {
+  return CALENDARIO.format(new Date(instante));
+}
+
+/** Hoy en el club, que es lo que come `<input type="date">`. */
 export function hoyEnElClub(ahora = new Date()): string {
-  return CALENDARIO.format(ahora);
+  return fechaEnElClub(ahora);
 }
 
 /** La hora que marca el reloj del club en ese instante, "HH:MM". */
