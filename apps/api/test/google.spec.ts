@@ -308,6 +308,16 @@ describe('Entrar con Google', () => {
       expect(await usuarios()).toHaveLength(0);
     });
 
+    it('quien se arrepiente en la pantalla de Google vuelve sin error de falla', async () => {
+      const { cookie } = await empezar();
+
+      const respuesta = await volver(cookie, 'error=access_denied').expect(302);
+
+      // Cancelar no es que algo se rompió, y el mensaje tiene que decir eso.
+      expect(respuesta.headers.location).toContain('error=cancelado');
+      expect(cookieDeSesion(respuesta)).toBeUndefined();
+    });
+
     it('un código que Google no reconoce se rechaza', async () => {
       const { cookie, state } = await empezar();
 
