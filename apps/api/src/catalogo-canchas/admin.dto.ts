@@ -278,12 +278,18 @@ export function leerBloqueo(cuerpo: unknown): DatosBloqueo {
   const descripcion =
     typeof datos.descripcion === 'string' ? datos.descripcion.trim() : '';
 
+  if (descripcion.length > LARGO_MAXIMO) {
+    // Se rechaza en vez de recortar, como el resto del archivo: un detalle que
+    // pierde el final sin avisar es peor que uno que no se guarda.
+    throw new BadRequestException('El detalle es demasiado largo.');
+  }
+
   return {
     canchaId: entero(datos.canchaId, 'La cancha', 1),
     inicio,
     fin,
     motivo: datos.motivo as MotivoBloqueo,
-    descripcion: descripcion.slice(0, LARGO_MAXIMO) || null,
+    descripcion: descripcion || null,
   };
 }
 

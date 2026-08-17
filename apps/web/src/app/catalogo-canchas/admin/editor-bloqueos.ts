@@ -56,7 +56,9 @@ function enBlanco(): Formulario {
     @if (bloqueos.isLoading()) {
       <p class="text-sm text-muted-foreground">Cargando bloqueos…</p>
     } @else if (bloqueos.value().length === 0) {
-      <p class="text-sm text-muted-foreground">Sin bloqueos.</p>
+      <!-- "Próximos" y no "bloqueos": los que ya terminaron no se listan, y decir
+           "sin bloqueos" haría dudar de si el de la semana pasada se guardó. -->
+      <p class="text-sm text-muted-foreground">Sin bloqueos próximos.</p>
     } @else {
       <ul class="text-sm text-muted-foreground">
         @for (bloqueo of bloqueos.value(); track bloqueo.id) {

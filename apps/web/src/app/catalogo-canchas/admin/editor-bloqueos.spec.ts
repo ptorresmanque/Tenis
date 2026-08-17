@@ -71,7 +71,9 @@ describe('EditorBloqueos', () => {
   it('sin bloqueos lo dice, en vez de quedar en blanco', async () => {
     await montar([]);
 
-    expect(elemento().textContent).toContain('Sin bloqueos');
+    // "Próximos": la API no lista los que ya terminaron, y decir "sin bloqueos"
+    // haría dudar de si el de la semana pasada se guardó.
+    expect(elemento().textContent).toContain('Sin bloqueos próximos');
   });
 
   it('muestra el motivo en castellano, no el enum de la base', () => {

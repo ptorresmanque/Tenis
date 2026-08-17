@@ -26,6 +26,8 @@ describe('Bloqueos por mantención', () => {
   const CONTRASENA = 'raqueta lluviosa 44';
   const NOMBRE = 'Cancha T14';
   const LUNES = '2026-08-17';
+  /** Para lo que se mira contra el reloj: lejos, y siempre en el futuro. */
+  const FUTURO = '2099-01-05';
 
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({
@@ -188,7 +190,13 @@ describe('Bloqueos por mantención', () => {
   });
 
   it('lista los bloqueos de una cancha para el panel', async () => {
-    await bloquear().expect(201);
+    // En un futuro lejano y fijo: el listado solo trae lo que no ha terminado,
+    // así que usar la fecha de hoy haría que el test dependa de la hora a la que
+    // se corra.
+    await bloquear({
+      fechaDesde: FUTURO,
+      fechaHasta: FUTURO,
+    }).expect(201);
 
     const respuesta = await request(servidor())
       .get(`/api/admin/bloqueos?cancha=${canchaId}`)
@@ -199,11 +207,37 @@ describe('Bloqueos por mantención', () => {
     expect(respuesta.body).toMatchObject([
       {
         canchaId,
-        inicio: '2026-08-17T14:00:00.000Z',
-        fin: '2026-08-17T16:00:00.000Z',
+        // Enero es verano en Chile: UTC-3, así que las 10:00 son las 13:00Z.
+        inicio: '2099-01-05T13:00:00.000Z',
+        fin: '2099-01-05T15:00:00.000Z',
         motivo: 'MANTENCION',
       },
     ]);
+  });
+
+  it('no lista los bloqueos que ya terminaron', async () => {
+    // No hay nada que administrar en una mantención del año pasado, y sin este
+    // filtro la lista del panel crece para siempre hasta volverse ilegible.
+    await prisma.bloqueo.create({
+      data: {
+        canchaId,
+        inicio: new Date('2020-01-01T12:00:00.000Z'),
+        fin: new Date('2020-01-01T14:00:00.000Z'),
+        motivo: 'MANTENCION',
+      },
+    });
+
+    const respuesta = await request(servidor())
+      .get(`/api/admin/bloqueos?cancha=${canchaId}`)
+      .set('Cookie', admin)
+      .expect(200);
+
+    expect(respuesta.body).toEqual([]);
+  });
+
+  it('rechaza un detalle demasiado largo en vez de recortarlo', async () => {
+    // Perder el final sin avisar es peor que no guardarlo.
+    await bloquear({ descripcion: 'x'.repeat(200) }).expect(400);
   });
 
   it('un bloqueo puede cruzar la medianoche y varios días', async () => {

@@ -116,12 +116,18 @@ export class AdminCanchasService {
     }
   }
 
-  /** Los bloqueos de una cancha, del más próximo al más lejano. */
-  async bloqueos(canchaId: number) {
+  /**
+   * Los bloqueos vigentes y futuros de una cancha, del más próximo al más lejano.
+   *
+   * Los que ya terminaron no se listan: no hay nada que administrar en una
+   * mantención del año pasado, y sin este filtro la lista del panel crece para
+   * siempre hasta volverse ilegible.
+   */
+  async bloqueos(canchaId: number, ahora = new Date()) {
     await this.laCancha(canchaId);
 
     return this.prisma.bloqueo.findMany({
-      where: { canchaId },
+      where: { canchaId, fin: { gte: ahora } },
       orderBy: { inicio: 'asc' },
     });
   }
