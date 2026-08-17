@@ -1,8 +1,19 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { Auth } from '../../core/auth/auth';
+
+/** Motivos con los que la API devuelve a esta pantalla tras un intento con Google. */
+const RECHAZOS: Record<string, string> = {
+  correo_no_verificado:
+    'Google no confirmó que ese correo sea tuyo, así que no lo vinculamos a la ' +
+    'cuenta del club. Entra con tu contraseña.',
+  sin_perfil: 'No pudimos completar el ingreso con Google. Intenta de nuevo.',
+  sin_configurar:
+    'El ingreso con Google todavía no está configurado en este servidor. ' +
+    'Entra con tu correo y contraseña.',
+};
 
 @Component({
   selector: 'app-login',
@@ -12,6 +23,15 @@ import { Auth } from '../../core/auth/auth';
     <p class="mt-1 max-w-prose text-muted-foreground">
       Con el correo y la contraseña de tu cuenta del club.
     </p>
+
+    @if (motivoDeRechazo(); as motivo) {
+      <p
+        class="mt-6 max-w-md rounded-lg border border-destructive bg-card p-4 text-destructive"
+        role="alert"
+      >
+        {{ motivo }}
+      </p>
+    }
 
     <form class="mt-6 grid max-w-md gap-4" [formGroup]="formulario" (ngSubmit)="entrar()">
       <label class="grid gap-1">
@@ -56,11 +76,29 @@ import { Auth } from '../../core/auth/auth';
         </a>
       </p>
     </form>
+
+    <div class="mt-6 grid max-w-md gap-3">
+      <p class="text-sm text-muted-foreground">O bien</p>
+
+      <!-- Enlace y no botón con fetch: el flujo de OAuth es una navegación de
+           verdad, con redirecciones que el navegador tiene que seguir. -->
+      <a
+        href="/api/auth/google"
+        class="rounded-lg border-2 border-primary px-6 py-3 text-center font-semibold
+               text-primary transition-colors duration-200 hover:bg-muted"
+      >
+        Entrar con Google
+      </a>
+    </div>
   `,
 })
 export class Login {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+
+  protected readonly motivoDeRechazo = signal(
+    RECHAZOS[inject(ActivatedRoute).snapshot.queryParamMap.get('error') ?? ''],
+  );
 
   protected readonly formulario = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

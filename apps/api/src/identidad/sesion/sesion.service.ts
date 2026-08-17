@@ -33,19 +33,27 @@ export class SesionService {
       return null;
     }
 
+    return this.abrirPara(usuario.id);
+  }
+
+  /**
+   * Abre una sesión para un usuario ya identificado. La usa el ingreso con Google,
+   * que verifica la identidad contra Google y no contra una contraseña de acá.
+   */
+  async abrirPara(usuarioId: number): Promise<string> {
     // Las sesiones se borran al usarlas si están vencidas, pero una abandonada
     // —el navegador de un locutorio, un teléfono perdido— no se usa nunca más y
     // se quedaría en la tabla para siempre. Entrar de nuevo es el momento barato
     // de barrer las propias.
     await this.prisma.sesion.deleteMany({
-      where: { usuarioId: usuario.id, expiraEn: { lte: new Date() } },
+      where: { usuarioId, expiraEn: { lte: new Date() } },
     });
 
     const token = nuevoToken();
     await this.prisma.sesion.create({
       data: {
         tokenHash: hashDeToken(token),
-        usuarioId: usuario.id,
+        usuarioId,
         expiraEn: new Date(Date.now() + VIDA_MS),
       },
     });
@@ -80,6 +88,15 @@ export class SesionService {
     }
 
     return sesion.usuario;
+  }
+
+  /**
+   * Echa a un usuario de todas partes. La usa la vinculación con Google cuando
+   * anula una contraseña que nadie demostró ser suya: sin esto, quien la había
+   * puesto conserva la sesión que ya tenía abierta.
+   */
+  async cerrarTodasDe(usuarioId: number): Promise<void> {
+    await this.prisma.sesion.deleteMany({ where: { usuarioId } });
   }
 
   async cerrar(token: string): Promise<void> {
