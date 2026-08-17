@@ -1,4 +1,4 @@
-import { Component, inject, resource, signal } from '@angular/core';
+import { Component, computed, inject, resource, signal } from '@angular/core';
 
 import { BloqueDisponible, Disponibilidad } from '../disponibilidad';
 import {
@@ -56,6 +56,11 @@ const SUPERFICIES: Record<string, string> = {
         </p>
       } @else if (grillas.value().length === 0) {
         <p class="text-muted-foreground">El club no tiene canchas publicadas.</p>
+      } @else {
+        <!-- Que la carga terminó también hay que decirlo: quien usa lector de
+             pantalla oyó "buscando" y después se quedaría en silencio, sin saber
+             si la grilla se repobló ni con cuánto. -->
+        <p class="sr-only">{{ resumen() }}</p>
       }
     </div>
 
@@ -82,9 +87,10 @@ const SUPERFICIES: Record<string, string> = {
             Esta cancha no abre este día.
           </p>
         } @else {
+          <!-- auto-fill con un mínimo de 9rem: a 375px entran dos columnas y a
+               partir de ahí las que quepan, sin scroll horizontal en ningún ancho. -->
           <ul
-            class="mt-3 grid gap-3"
-            style="grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr))"
+            class="mt-3 grid gap-3 grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]"
           >
             @for (bloque of grilla.bloques; track bloque.inicio; let i = $index) {
               <li
@@ -165,6 +171,19 @@ export class Grilla {
     // Con valor por defecto, `value()` nunca lanza y el template no necesita
     // preguntar `hasValue()` antes de cada lectura.
     defaultValue: [],
+  });
+
+  /** Lo que oye quien no ve la grilla: cuántas horas quedan y en cuántas canchas. */
+  protected readonly resumen = computed(() => {
+    const grillas = this.grillas.value();
+    const libres = grillas.reduce(
+      (total, g) => total + g.bloques.filter((b) => !b.bloqueado).length,
+      0,
+    );
+
+    return `${libres} ${libres === 1 ? 'hora disponible' : 'horas disponibles'} en ${
+      grillas.length === 1 ? '1 cancha' : `${grillas.length} canchas`
+    }.`;
   });
 
   protected cambiarFecha(evento: Event): void {

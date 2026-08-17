@@ -149,6 +149,26 @@ describe('GET /api/disponibilidad', () => {
     expect(bloques[0].montoClp).toBe(15000);
   });
 
+  it('con dos horarios para el mismo día, manda el más reciente', async () => {
+    // `horario_apertura` no tiene único sobre (cancha, día): en MySQL dos filas
+    // con `cancha_id` nulo no chocan, así que los duplicados son posibles hasta
+    // que el panel los valide (T13). Sin un orden fijo, cuál gana lo decide el
+    // plan de la consulta y el club abriría a horas distintas de un día a otro.
+    await prisma.horarioApertura.create({
+      data: {
+        canchaId,
+        diaSemana: 1,
+        horaApertura: '10:00',
+        horaCierre: '20:00',
+      },
+    });
+
+    const bloques = await delLunes();
+
+    expect(bloques).toHaveLength(10);
+    expect(bloques[0].inicio).toBe('2026-08-17T14:00:00.000Z');
+  });
+
   it('marca los bloques que un bloqueo cubre, y dice por qué', async () => {
     await prisma.bloqueo.create({
       data: {

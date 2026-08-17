@@ -122,6 +122,17 @@ describe('Grilla', () => {
     ]);
   });
 
+  it('anuncia el resultado a quien no ve la grilla', async () => {
+    // Sin esto, un lector de pantalla dice "buscando" y después se queda callado:
+    // nadie se entera de si la grilla se repobló ni con cuánto. Dos libres de
+    // tres bloques, porque el del medio está en mantención.
+    const resumen = (fixture.nativeElement as HTMLElement).querySelector(
+      '[role="status"] .sr-only',
+    );
+
+    expect(resumen?.textContent).toBe('2 horas disponibles en 1 cancha.');
+  });
+
   it('cuando una cancha no abre ese día lo dice, en vez de quedar vacía', async () => {
     await montar([{ cancha: DIA[0].cancha, bloques: [] }]);
 
