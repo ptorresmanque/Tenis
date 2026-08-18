@@ -108,6 +108,15 @@ describe('PagosService.iniciar', () => {
     expect(uno.referencia).not.toBe(otro.referencia);
   });
 
+  it('la referencia cabe en la orden de compra de la pasarela', async () => {
+    // Webpay acepta 26 caracteres en `buyOrder` (T17). Un UUID con guiones mide 36:
+    // con ese formato, el primer pago real muere con un error de validación del SDK
+    // y parece un problema de Transbank.
+    const { referencia } = await pagos.iniciar(solicitud);
+
+    expect(referencia.length).toBeLessThanOrEqual(26);
+  });
+
   it('rechaza un monto con decimales y no deja transacción', async () => {
     // La deuda que T15 dejó anotada: la columna `Int` no rechaza un decimal, lo
     // trunca en silencio. El guardia va acá, antes de escribir.

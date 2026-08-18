@@ -49,10 +49,7 @@ export class PagosService {
   async iniciar(solicitud: SolicitudPago): Promise<PagoIniciado> {
     exigirMontoCobrable(solicitud.montoClp);
 
-    // UUID y no el id de la fila: la referencia viaja a la pasarela y vuelve en sus
-    // registros, y un id correlativo le cuenta a cualquiera cuántos pagos lleva el
-    // club. Además hace falta antes de que la fila exista.
-    const referencia = randomUUID();
+    const referencia = nuevaReferencia();
 
     const transaccion = await this.prisma.transaccion.create({
       data: {
@@ -86,6 +83,21 @@ export class PagosService {
       urlRedireccion: inicio.urlRedireccion,
     };
   }
+}
+
+/**
+ * El identificador que viaja a la pasarela y vuelve en sus registros.
+ *
+ * Aleatorio y no el id de la fila: un correlativo le cuenta a cualquiera cuántos
+ * pagos lleva el club, y además hace falta antes de que la fila exista.
+ *
+ * **26 caracteres porque es lo que acepta la orden de compra de Webpay** (T17). Un
+ * UUID con guiones mide 36 y el pago moriría con un error de validación del SDK que
+ * parece un problema de Transbank. Son 104 bits de azar: el choque contra el índice
+ * único no va a pasar, y si pasara, el `create` falla y no se cobra dos veces.
+ */
+function nuevaReferencia(): string {
+  return randomUUID().replace(/-/g, '').slice(0, 26);
 }
 
 /**

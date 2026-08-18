@@ -1,13 +1,15 @@
 {
   "extends": "./tsconfig.json",
-  // `prisma/seed.ts` importa de src/ y corre con ts-node, nunca compilado. Si entra
-  // al build, el rootDir común pasa a ser la raíz del proyecto y la salida se corre
-  // a dist/src/main.js: compila igual y después no arranca.
+  // `prisma/seed.ts` y `scripts/probar-webpay.ts` importan de src/ y corren con
+  // ts-node, nunca compilados. Si entran al build, el rootDir común pasa a ser la
+  // raíz del proyecto y la salida se corre a dist/src/main.js: compila igual y
+  // después no arranca. El `postbuild` de package.json es el que lo caza.
   "exclude": [
     "node_modules",
     "test",
     "dist",
     "prisma",
+    "scripts",
     "**/*spec.ts",
     "prisma.config.ts"
   ]
