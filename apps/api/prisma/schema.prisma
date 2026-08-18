@@ -64,9 +64,10 @@ model Usuario {
   creadoEn      DateTime @default(now()) @map("creado_en")
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
-  socio    Socio?
-  profesor Profesor?
-  sesiones Sesion[]
+  socio         Socio?
+  profesor      Profesor?
+  sesiones      Sesion[]
+  transacciones Transaccion[]
 
   @@map("usuario")
 }
@@ -267,4 +268,73 @@ model ConfiguracionClub {
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
   @@map("configuracion_club")
+}
+
+// ── pagos ────────────────────────────────────────────────────────────────────
+// Modelo de SPEC-pagos.md § Modelo de datos.
+
+enum ConceptoPago {
+  RESERVA
+  CUOTA
+}
+
+enum EstadoTransaccion {
+  PENDIENTE
+  AUTORIZADA
+  RECHAZADA
+  ANULADA
+  EXPIRADA
+}
+
+/// Un cobro y su resultado. `pagos` no sabe qué se está pagando: recibe un monto y
+/// una referencia opaca, y `reservas` o `cuotas` interpretan `conceptoId`.
+///
+/// Las transiciones de estado las impone `src/pagos/estados.ts`, no la base: MySQL
+/// no tiene triggers que valgan la pena mantener acá y el enum solo dice qué valores
+/// existen, no en qué orden se pueden recorrer.
+model Transaccion {
+  id Int @id @default(autoincrement())
+
+  /// Identificador que viaja a la pasarela. Único: es lo que evita que un reintento
+  /// del cliente inicie dos cobros del mismo concepto.
+  referencia String @unique
+
+  concepto   ConceptoPago
+  /// Id de la reserva o de la cuota. Sin FK a propósito: apunta a dos tablas
+  /// distintas según `concepto`, y `pagos` no depende de ninguna de las dos.
+  conceptoId Int          @map("concepto_id")
+
+  /// Nulo: el no-socio paga sin cuenta.
+  usuarioId Int? @map("usuario_id")
+
+  /// Inicio del bloque que se compró, conservado aunque la reserva se reagende.
+  /// Sin esto, quien quiere cancelar faltando 12 horas mueve la reserva a la semana
+  /// siguiente y después cancela con 24 horas de sobra, cobrando un reembolso que no
+  /// le correspondía. La ventana se mide contra este instante (T24).
+  inicioBloqueOriginal DateTime? @map("inicio_bloque_original")
+
+  /// Entero: el peso chileno no tiene centavos y un flotante acá es un monto que la
+  /// pasarela redondea y que después no cuadra con el guardado. Lo calcula el
+  /// servidor con `franjaPara()`; nunca llega del cliente.
+  montoClp Int               @map("monto_clp")
+  estado   EstadoTransaccion @default(PENDIENTE)
+
+  pasarela String
+  /// Único y nulable: nace sin token y en MySQL dos NULL no chocan, así que el club
+  /// puede tener varios pagos iniciados. Cuando llega, el único es lo que hace que
+  /// dos callbacks concurrentes de la pasarela produzcan un solo efecto (T18).
+  tokenPasarela String? @unique @map("token_pasarela")
+
+  codigoAutorizacion String? @map("codigo_autorizacion")
+  /// Lo único que se guarda de la tarjeta. Nunca el número.
+  ultimosDigitos     String? @map("ultimos_digitos") @db.VarChar(4)
+
+  creadaEn     DateTime  @default(now()) @map("creada_en")
+  confirmadaEn DateTime? @map("confirmada_en")
+
+  // El pago sobrevive a la baja del usuario: es el registro de que el club cobró.
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@map("transaccion")
 }
