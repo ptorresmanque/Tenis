@@ -5,6 +5,7 @@ import {
   WebpayAdapter,
   webpayDesdeEntorno,
 } from './adaptadores/webpay.adapter';
+import { ConfirmacionService } from './confirmacion.service';
 import { PagosService } from './pagos.service';
 import { PasarelaPago } from './pasarela.port';
 
@@ -20,6 +21,7 @@ import { PasarelaPago } from './pasarela.port';
 @Module({
   providers: [
     PagosService,
+    ConfirmacionService,
     {
       provide: PasarelaPago,
       // Factory y no `useClass`: la transacción de Webpay se arma acá, y con el doble
@@ -31,6 +33,6 @@ import { PasarelaPago } from './pasarela.port';
           : new WebpayAdapter(webpayDesdeEntorno()),
     },
   ],
-  exports: [PagosService, PasarelaPago],
+  exports: [PagosService, ConfirmacionService, PasarelaPago],
 })
 export class PagosModule {}

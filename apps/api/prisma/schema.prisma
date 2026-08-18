@@ -329,6 +329,13 @@ model Transaccion {
   /// Lo único que se guarda de la tarjeta. Nunca el número.
   ultimosDigitos     String? @map("ultimos_digitos") @db.VarChar(4)
 
+  /// Algo no cuadra y lo tiene que mirar una persona: la pasarela reportó un monto
+  /// distinto al guardado, o el cobro llegó después de que la transacción expirara.
+  /// Una marca en la base y no un log, porque alguien tiene que poder encontrarla
+  /// mañana. No está en `SPEC-pagos.md` § Modelo de datos; lo exige el criterio de
+  /// T18 de "queda marcada para revisión manual", que sin columna no es verificable.
+  requiereRevision Boolean @default(false) @map("requiere_revision")
+
   creadaEn     DateTime  @default(now()) @map("creada_en")
   confirmadaEn DateTime? @map("confirmada_en")
 
