@@ -73,6 +73,7 @@
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "testTimeout": 20000,
+    "maxWorkers": 1,
     "setupFiles": [
       "<rootDir>/../test/setup-env.ts"
     ],
