@@ -35,6 +35,14 @@ export class PasarelaFake extends PasarelaPago {
   montoReportado: number | null = null;
   /** Simula la pasarela caída o rechazando la orden antes de redirigir. */
   fallarAlIniciar = false;
+  /**
+   * Que el segundo `confirmar()` del mismo token falle, como hace Webpay.
+   *
+   * Transbank responde 422 —`Transaction has an invalid finished state`— cuando se
+   * confirma dos veces, tal como se vio contra el ambiente de integración en T17. Es
+   * lo que pasa cuando dos callbacks llegan a la vez y los dos alcanzan a preguntar.
+   */
+  fallarEnConfirmacionRepetida = false;
 
   private readonly porToken = new Map<string, OrdenPago>();
   private readonly autorizados = new Set<string>();
@@ -61,6 +69,15 @@ export class PasarelaFake extends PasarelaPago {
       // La pasarela real tampoco conoce un token que no emitió. Responder algo
       // plausible dejaría pasar un cruce de tokens entre transacciones.
       return Promise.reject(new Error('Token desconocido para esta pasarela.'));
+    }
+
+    if (
+      this.fallarEnConfirmacionRepetida &&
+      this.confirmaciones.includes(tokenPasarela)
+    ) {
+      return Promise.reject(
+        new Error('Transaction has an invalid finished state: authorized'),
+      );
     }
 
     // Se registra siempre, también la repetida: el doble **no** es idempotente. Si lo
@@ -110,6 +127,7 @@ export class PasarelaFake extends PasarelaPago {
     this.respuesta = 'AUTORIZADA';
     this.montoReportado = null;
     this.fallarAlIniciar = false;
+    this.fallarEnConfirmacionRepetida = false;
     this.porToken.clear();
     this.autorizados.clear();
   }
