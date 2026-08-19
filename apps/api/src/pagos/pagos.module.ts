@@ -5,7 +5,9 @@ import {
   WebpayAdapter,
   webpayDesdeEntorno,
 } from './adaptadores/webpay.adapter';
+import { AnulacionService } from './anulacion.service';
 import { ConfirmacionService } from './confirmacion.service';
+import { ExpiracionService } from './expiracion.service';
 import { PagosService } from './pagos.service';
 import { PasarelaPago } from './pasarela.port';
 
@@ -22,6 +24,8 @@ import { PasarelaPago } from './pasarela.port';
   providers: [
     PagosService,
     ConfirmacionService,
+    ExpiracionService,
+    AnulacionService,
     {
       provide: PasarelaPago,
       // Factory y no `useClass`: la transacción de Webpay se arma acá, y con el doble
@@ -33,6 +37,12 @@ import { PasarelaPago } from './pasarela.port';
           : new WebpayAdapter(webpayDesdeEntorno()),
     },
   ],
-  exports: [PagosService, ConfirmacionService, PasarelaPago],
+  exports: [
+    PagosService,
+    ConfirmacionService,
+    ExpiracionService,
+    AnulacionService,
+    PasarelaPago,
+  ],
 })
 export class PagosModule {}
