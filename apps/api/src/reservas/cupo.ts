@@ -13,6 +13,8 @@ export interface SocioQueReserva {
 export interface AcompananteDeclarado {
   socioId?: number | null;
   nombre?: string | null;
+  /** Como lo escribe la persona. `ReservasService` lo traduce a `socioId`. */
+  numeroSocio?: string | null;
 }
 
 /** Un socio ya comprometido en otra cancha, con lo necesario para explicarlo. */

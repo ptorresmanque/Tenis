@@ -348,6 +348,57 @@ describe('POST /api/reservas — reserva de socio', () => {
     expect(respuesta.body.message).toMatch(/bis/);
   });
 
+  describe('declarar al acompañante por su número de socio', () => {
+    // Es lo que la persona conoce y lo que el formulario manda: el id interno no lo
+    // sabe nadie fuera de la base. La traducción es código nuevo y hasta acá no
+    // tenía ningún test que la ejercitara.
+    it('acepta el número y guarda al socio como acompañante', async () => {
+      const otro = await crearSocio('companiero');
+
+      const respuesta = await reservar(
+        unaReserva({ acompanantes: [{ numeroSocio: 'T22-companiero' }] }),
+      );
+
+      expect(respuesta.status).toBe(201);
+
+      const acompanantes = await prisma.acompananteReserva.findMany({
+        where: { reservaId: respuesta.body.id },
+      });
+
+      expect(acompanantes).toHaveLength(1);
+      expect(acompanantes[0]).toMatchObject({
+        socioId: otro.socioId,
+        nombre: null,
+      });
+    });
+
+    it('un número que no existe se rechaza diciendo cuál', async () => {
+      // Sin esto, un número mal tecleado quedaría como un acompañante que
+      // misteriosamente no cuenta, o como un rechazo por "no declaraste con quién".
+      const respuesta = await reservar(
+        unaReserva({ acompanantes: [{ numeroSocio: 'NO-EXISTE' }] }),
+      );
+
+      expect(respuesta.status).toBe(404);
+      expect(respuesta.body.message).toContain('NO-EXISTE');
+    });
+
+    it('el socio acompañante no gasta su propio cupo del día', async () => {
+      // La regla del club: es un registro, no una reserva suya. Si le descontara la
+      // hora, quien acompaña dos veces en un día quedaría sin poder reservar la suya.
+      const otro = await crearSocio('acompaniante2');
+      await reservar(
+        unaReserva({ acompanantes: [{ numeroSocio: 'T22-acompaniante2' }] }),
+      );
+
+      expect(
+        await prisma.reserva.count({
+          where: { socioId: otro.socioId, estado: EstadoReserva.CONFIRMADA },
+        }),
+      ).toBe(0);
+    });
+  });
+
   it('una hora que no está en el horario de la cancha no se reserva', async () => {
     // Las 06:00, con el club abriendo a las 08:00. Sin este guardia, el cliente puede
     // pedir cualquier instante y la reserva existiría fuera de la grilla.

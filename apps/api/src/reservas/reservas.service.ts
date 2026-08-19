@@ -58,6 +58,7 @@ export class ReservasService {
       throw new NotFoundException('No tienes ficha de socio en el club.');
     }
 
+    const acompanantes = await this.resolverNumerosDeSocio(datos.acompanantes);
     const fecha = fechaCivilDelClub(datos.inicio);
     const bloque = await this.bloqueDeLaGrilla(
       datos.canchaId,
@@ -82,7 +83,7 @@ export class ReservasService {
       this.contarDelDia(socio.id, fecha),
       this.contarPicoDeLaSemana(socio.id, fecha),
       this.ocupacionesEnElRango(
-        [socio.id, ...socioIdsDe(datos.acompanantes)],
+        [socio.id, ...socioIdsDe(acompanantes)],
         bloque.inicio,
         bloque.fin,
       ),
@@ -104,7 +105,7 @@ export class ReservasService {
       config,
       reservasDelDia,
       horasPicoDeLaSemana,
-      acompanantes: datos.acompanantes,
+      acompanantes,
       ocupados,
     });
 
@@ -129,7 +130,7 @@ export class ReservasService {
         nombre: yo.nombre,
         email: yo.email,
         telefono: socio.usuario.telefono ?? '',
-        acompanantes: datos.acompanantes,
+        acompanantes,
       });
 
       return {
@@ -152,6 +153,36 @@ export class ReservasService {
 
       throw error;
     }
+  }
+
+  /**
+   * Traduce los números de socio a ids.
+   *
+   * La persona declara "socio 214", que es lo que sabe; el id interno no lo conoce
+   * nadie fuera de la base. Un número que no existe se rechaza acá con su mensaje, y
+   * no como un acompañante que misteriosamente no cuenta.
+   */
+  private async resolverNumerosDeSocio(
+    acompanantes: AcompananteDeclarado[],
+  ): Promise<AcompananteDeclarado[]> {
+    return Promise.all(
+      acompanantes.map(async (acompanante) => {
+        if (!acompanante.numeroSocio) return acompanante;
+
+        const socio = await this.prisma.socio.findUnique({
+          where: { numeroSocio: acompanante.numeroSocio },
+          select: { id: true },
+        });
+
+        if (!socio) {
+          throw new NotFoundException(
+            `No hay ningún socio con el número ${acompanante.numeroSocio}.`,
+          );
+        }
+
+        return { socioId: socio.id };
+      }),
+    );
   }
 
   /**

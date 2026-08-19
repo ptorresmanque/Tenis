@@ -28,6 +28,7 @@ describe('Grilla', () => {
           esPico: false,
           bloqueado: false,
           motivoBloqueo: null,
+        reservado: false,
         },
         {
           inicio: '2026-08-17T14:00:00.000Z',
@@ -37,6 +38,7 @@ describe('Grilla', () => {
           esPico: false,
           bloqueado: true,
           motivoBloqueo: 'MANTENCION',
+        reservado: false,
         },
         {
           inicio: '2026-08-17T22:00:00.000Z',
@@ -46,6 +48,7 @@ describe('Grilla', () => {
           esPico: true,
           bloqueado: false,
           motivoBloqueo: null,
+        reservado: false,
         },
       ],
     },

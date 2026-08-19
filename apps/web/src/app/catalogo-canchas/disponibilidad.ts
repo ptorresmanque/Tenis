@@ -20,6 +20,8 @@ export interface BloqueDisponible {
   esPico: boolean;
   bloqueado: boolean;
   motivoBloqueo: string | null;
+  /** Alguien ya tomó esa hora. Lo agrega `reservas` sobre lo que calcula el catálogo. */
+  reservado: boolean;
 }
 
 export interface GrillaDeCancha {
