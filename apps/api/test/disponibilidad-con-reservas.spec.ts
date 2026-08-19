@@ -11,6 +11,7 @@ import {
 } from '../src/generated/prisma/client';
 import { MINUTOS_PARA_EXPIRAR } from '../src/pagos/expiracion';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { EventosDeReserva } from '../src/reservas/eventos';
 
 /**
  * T23. La grilla pública tiene que decir la verdad: un bloque reservado no se ofrece.
@@ -173,6 +174,36 @@ describe('GET /api/disponibilidad — con las reservas superpuestas', () => {
       expect(
         await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),
       ).toMatchObject({ estado: EstadoReserva.EXPIRADA });
+    });
+
+    it('avisa al panel del admin que esa hora se liberó (T26)', async () => {
+      // El panel se repuebla con los avisos del servidor. Si el barrido libera el
+      // bloque en silencio, el club sigue viendo "Esperando el pago" por una hora que
+      // ya volvió a la venta, y esa pantalla es la que usa para trabajar.
+      const reserva = await prisma.reserva.create({
+        data: unaReserva({ estado: EstadoReserva.PENDIENTE_PAGO }),
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `T26EXP${Date.now()}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.PENDIENTE,
+          creadaEn: new Date(Date.now() - (MINUTOS_PARA_EXPIRAR + 1) * 60_000),
+        },
+      });
+
+      const avisos: string[] = [];
+      const suscripcion = app
+        .get(EventosDeReserva)
+        .flujo.subscribe((cambio) => avisos.push(cambio.fecha));
+
+      await bloqueDeLas10();
+      suscripcion.unsubscribe();
+
+      expect(avisos).toContain(LUNES);
     });
 
     it('no toca una reserva cuyo pago recién empezó', async () => {

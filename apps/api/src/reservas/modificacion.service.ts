@@ -17,6 +17,7 @@ import { UsuarioActual } from '../identidad/usuario-actual';
 import { AnulacionService } from '../pagos/anulacion.service';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 import { ACTIVAS } from './reservas.service';
 import { correspondeReembolso, sePuedeModificar } from './ventanas';
@@ -54,6 +55,7 @@ export class ModificacionService {
     private readonly catalogo: DisponibilidadService,
     private readonly reservas: ReservaRepository,
     private readonly anulacion: AnulacionService,
+    private readonly eventos: EventosDeReserva,
   ) {}
 
   /**
@@ -160,7 +162,7 @@ export class ModificacionService {
     );
 
     try {
-      return await this.prisma.reserva.update({
+      const movida = await this.prisma.reserva.update({
         where: { id: reserva.id },
         data: {
           canchaId: destino.canchaId,
@@ -171,6 +173,13 @@ export class ModificacionService {
           esPico: bloque.esPico,
         },
       });
+
+      // Los dos días cambian: la hora se fue de uno y llegó al otro, y los dos
+      // paneles tienen que enterarse.
+      this.eventos.cambio(reserva.inicio);
+      this.eventos.cambio(movida.inicio);
+
+      return movida;
     } catch (error) {
       if (esBloqueOcupado(error)) {
         throw new ConflictException({

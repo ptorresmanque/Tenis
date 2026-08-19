@@ -24,6 +24,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'administracion/reservas',
+    title: 'Reservas del día — Administración',
+    canActivate: [soloAdmin],
+    loadComponent: () =>
+      import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
+  },
+  {
     path: 'mis-reservas',
     title: 'Mis reservas — Club de Tenis',
     loadComponent: () =>

@@ -3,8 +3,11 @@ import { Module } from '@nestjs/common';
 import { CatalogoCanchasModule } from '../catalogo-canchas/catalogo-canchas.module';
 import { IdentidadModule } from '../identidad/identidad.module';
 import { PagosModule } from '../pagos/pagos.module';
+import { AgendaController } from './agenda.controller';
+import { AgendaService } from './agenda.service';
 import { DisponibilidadPublicaController } from './disponibilidad-publica.controller';
 import { DisponibilidadPublicaService } from './disponibilidad-publica.service';
+import { EventosDeReserva } from './eventos';
 import { ModificacionService } from './modificacion.service';
 import { NoSocioController } from './no-socio.controller';
 import { ReservaNoSocioService } from './reserva-no-socio.service';
@@ -23,6 +26,7 @@ import { ReservasService } from './reservas.service';
     ReservasController,
     NoSocioController,
     DisponibilidadPublicaController,
+    AgendaController,
   ],
   providers: [
     ReservaRepository,
@@ -30,6 +34,8 @@ import { ReservasService } from './reservas.service';
     ReservaNoSocioService,
     ModificacionService,
     DisponibilidadPublicaService,
+    AgendaService,
+    EventosDeReserva,
   ],
   exports: [
     ReservaRepository,

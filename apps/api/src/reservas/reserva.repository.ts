@@ -4,6 +4,7 @@ import { randomInt } from 'node:crypto';
 import { EstadoReserva, Prisma, Reserva } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventosDeReserva } from './eventos';
 
 /**
  * Alguien se adelantó y tomó ese bloque.
@@ -43,7 +44,10 @@ export interface ReservaNueva {
 
 @Injectable()
 export class ReservaRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventos: EventosDeReserva,
+  ) {}
 
   /**
    * Crea la reserva, o falla porque el bloque ya está tomado.
@@ -56,7 +60,7 @@ export class ReservaRepository {
     datos.acompanantes?.forEach(exigirSocioOInvitado);
 
     try {
-      return await this.prisma.reserva.create({
+      const reserva = await this.prisma.reserva.create({
         data: {
           folio: nuevoFolio(),
           canchaId: datos.canchaId,
@@ -78,6 +82,13 @@ export class ReservaRepository {
             : undefined,
         },
       });
+
+      // Acá y no en cada servicio: por este método pasan todas las reservas que
+      // nacen, así que el panel en vivo no depende de que quien agregue un camino
+      // nuevo se acuerde de avisar.
+      this.eventos.cambio(reserva.inicio);
+
+      return reserva;
     } catch (error) {
       if (esViolacionDeUnicidad(error) && !chocaElFolio(error)) {
         throw new BloqueTomado(datos.canchaId, datos.inicio);
@@ -105,6 +116,8 @@ export class ReservaRepository {
       data: { estado: EstadoReserva.CANCELADA, canceladaEn: new Date() },
     });
 
+    if (count > 0) await this.avisar(id);
+
     return count > 0;
   }
 
@@ -115,7 +128,26 @@ export class ReservaRepository {
       data: { estado: EstadoReserva.EXPIRADA },
     });
 
+    if (count > 0) await this.avisar(id);
+
     return count > 0;
+  }
+
+  /**
+   * Avisa que ese día cambió.
+   *
+   * Hace falta releer la fila porque `cancelar` y `expirar` actualizan por
+   * `updateMany` —el estado va en el `where` y ese es el compare-and-set que evita
+   * que dos cancelaciones simultáneas se pisen— y `updateMany` no devuelve la fila.
+   * Es una lectura por clave primaria y solo cuando algo cambió de verdad.
+   */
+  private async avisar(id: number): Promise<void> {
+    const reserva = await this.prisma.reserva.findUnique({
+      where: { id },
+      select: { inicio: true },
+    });
+
+    if (reserva) this.eventos.cambio(reserva.inicio);
   }
 }
 

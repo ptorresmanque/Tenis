@@ -11,6 +11,7 @@ import { ConceptoPago, EstadoReserva } from '../generated/prisma/client';
 import { ConfirmacionService } from '../pagos/confirmacion.service';
 import { PagosService } from '../pagos/pagos.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 
 export interface ReservaDeNoSocio {
@@ -45,6 +46,7 @@ export class ReservaNoSocioService {
     private readonly reservas: ReservaRepository,
     private readonly pagos: PagosService,
     private readonly confirmacion: ConfirmacionService,
+    private readonly eventos: EventosDeReserva,
   ) {}
 
   /**
@@ -111,7 +113,9 @@ export class ReservaNoSocioService {
 
     const reserva = await this.prisma.reserva.findUnique({
       where: { id: transaccion.conceptoId },
-      select: { id: true, folio: true },
+      // `inicio` para el aviso al panel del admin: el evento viaja por el día del
+      // club al que pertenece el bloque.
+      select: { id: true, folio: true, inicio: true },
     });
 
     const resultado = await this.confirmacion.confirmar(
@@ -129,6 +133,12 @@ export class ReservaNoSocioService {
     );
 
     if (resultado.estado === 'AUTORIZADA') {
+      // El aviso al panel va acá y no en el repositorio: confirmar la reserva es un
+      // `updateMany` dentro de la transacción del pago, que es el único camino de
+      // escritura que no pasa por `ReservaRepository`. Es además el evento de la
+      // demo, así que quedarse sin él se nota.
+      if (reserva) this.eventos.cambio(reserva.inicio);
+
       return {
         estado: 'CONFIRMADA',
         folio: reserva?.folio ?? null,

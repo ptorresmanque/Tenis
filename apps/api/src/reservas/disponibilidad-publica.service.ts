@@ -7,6 +7,7 @@ import {
 import { EstadoReserva, EstadoTransaccion } from '../generated/prisma/client';
 import { ExpiracionService } from '../pagos/expiracion.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReservaRepository } from './reserva.repository';
 
 /** Un bloque de la grilla, ya sabiendo si alguien lo tiene tomado. */
 export interface BloqueConEstado extends BloqueDisponible {
@@ -22,6 +23,7 @@ export class DisponibilidadPublicaService {
     private readonly prisma: PrismaService,
     private readonly catalogo: DisponibilidadService,
     private readonly expiracion: ExpiracionService,
+    private readonly reservas: ReservaRepository,
   ) {}
 
   /**
@@ -112,12 +114,13 @@ export class DisponibilidadPublicaService {
       select: { conceptoId: true },
     });
 
-    await this.prisma.reserva.updateMany({
-      where: {
-        id: { in: sinPago.map((t) => t.conceptoId) },
-        estado: EstadoReserva.PENDIENTE_PAGO,
-      },
-      data: { estado: EstadoReserva.EXPIRADA },
-    });
+    // Una por una y por el repositorio, no con un `updateMany` propio: es el único
+    // lugar que escribe `reserva` y así el aviso al panel del admin sale sin que haya
+    // que acordarse acá. Con un `updateMany` suelto, el bloque volvía a la grilla
+    // pública mientras el panel seguía mostrando "Esperando el pago" para siempre.
+    // Son las pendientes vencidas de una cancha y un día: casi siempre ninguna o una.
+    for (const { conceptoId } of sinPago) {
+      await this.reservas.expirar(conceptoId);
+    }
   }
 }

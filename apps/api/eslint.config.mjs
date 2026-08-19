@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    // `src/generated/**` lo escribe `prisma generate`, no una persona: lintearlo son
+    // decenas de errores sobre código que nadie revisa ni puede arreglar, y que tapan
+    // los que sí importan. Reaparecen en cuanto se regenera el cliente.
+    ignores: ['eslint.config.mjs', 'src/generated/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

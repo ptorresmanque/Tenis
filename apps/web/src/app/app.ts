@@ -89,7 +89,10 @@ export class App {
       ? [{ ruta: '/mis-reservas', etiqueta: 'Mis reservas' }]
       : []),
     ...(this.auth.esAdmin()
-      ? [{ ruta: '/administracion/canchas', etiqueta: 'Canchas' }]
+      ? [
+          { ruta: '/administracion/reservas', etiqueta: 'Reservas del día' },
+          { ruta: '/administracion/canchas', etiqueta: 'Canchas' },
+        ]
       : []),
     { ruta: '/registro', etiqueta: 'Crear cuenta' },
     { ruta: '/estado', etiqueta: 'Estado' },
