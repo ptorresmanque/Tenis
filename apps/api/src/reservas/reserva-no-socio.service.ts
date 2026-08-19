@@ -1,0 +1,242 @@
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+
+import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
+import { hoyEnElClub } from '../comun/tiempo';
+import { ConceptoPago, EstadoReserva } from '../generated/prisma/client';
+import { ConfirmacionService } from '../pagos/confirmacion.service';
+import { PagosService } from '../pagos/pagos.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { BloqueTomado, ReservaRepository } from './reserva.repository';
+
+export interface ReservaDeNoSocio {
+  canchaId: number;
+  inicio: Date;
+  nombre: string;
+  email: string;
+  telefono: string;
+}
+
+export interface PagoDeReservaIniciado {
+  reservaId: number;
+  folio: string;
+  montoClp: number;
+  urlRedireccion: string;
+}
+
+/** Cómo terminó la vuelta desde la pasarela, para armar la redirección. */
+export interface RetornoDePago {
+  estado: 'CONFIRMADA' | 'RECHAZADA' | 'ERROR';
+  folio: string | null;
+  motivo: string | null;
+}
+
+@Injectable()
+export class ReservaNoSocioService {
+  private readonly log = new Logger('Reservas');
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly catalogo: DisponibilidadService,
+    private readonly reservas: ReservaRepository,
+    private readonly pagos: PagosService,
+    private readonly confirmacion: ConfirmacionService,
+  ) {}
+
+  /**
+   * Toma el bloque y manda a pagar.
+   *
+   * La reserva se crea **antes** de hablar con la pasarela y en estado
+   * `PENDIENTE_PAGO`: así el bloque queda tomado mientras la persona teclea su
+   * tarjeta. Al revés, dos visitantes podrían pagar la misma hora y uno de los dos
+   * cobros habría que devolverlo.
+   */
+  async iniciar(
+    datos: ReservaDeNoSocio,
+    urlRetorno: string,
+  ): Promise<PagoDeReservaIniciado> {
+    const bloque = await this.bloqueCobrable(datos.canchaId, datos.inicio);
+
+    const reserva = await this.crearPendiente(datos, bloque);
+
+    try {
+      const pago = await this.pagos.iniciar({
+        concepto: ConceptoPago.RESERVA,
+        conceptoId: reserva.id,
+        // **El monto sale del catálogo, nunca del cliente.** El DTO no acepta ningún
+        // campo de precio, y acá se recalcula igual (`SPEC.md` § Boundaries).
+        montoClp: bloque.montoClp,
+        // El bloque comprado, congelado para la ventana de reembolso de T24: sin
+        // esto, reagendar reiniciaría el derecho a devolución.
+        inicioBloqueOriginal: bloque.inicio,
+        urlRetorno,
+      });
+
+      return {
+        reservaId: reserva.id,
+        folio: reserva.folio,
+        montoClp: bloque.montoClp,
+        urlRedireccion: pago.urlRedireccion,
+      };
+    } catch (error) {
+      // La pasarela no aceptó la orden: el bloque vuelve a la grilla enseguida.
+      // Esperar los 15 minutos del barrido por un pago que nunca empezó es una hora
+      // de cancha perdida por nada.
+      await this.reservas.expirar(reserva.id);
+      throw error;
+    }
+  }
+
+  /**
+   * La vuelta desde la pasarela: confirma el pago y con él la reserva.
+   *
+   * **Confirmar la reserva es el efecto de negocio** que `ConfirmacionService` aplica
+   * dentro de su propia transacción (T18). Por eso una recarga de esta página no crea
+   * dos reservas ni cobra dos veces: la idempotencia ya está resuelta ahí.
+   */
+  async confirmarDesdeRetorno(tokenPasarela: string): Promise<RetornoDePago> {
+    const transaccion = await this.prisma.transaccion.findUnique({
+      where: { tokenPasarela },
+      select: { conceptoId: true },
+    });
+
+    if (!transaccion) {
+      this.log.warn('Volvió un pago con un token que no reconocemos.');
+      return { estado: 'ERROR', folio: null, motivo: 'token_desconocido' };
+    }
+
+    const reserva = await this.prisma.reserva.findUnique({
+      where: { id: transaccion.conceptoId },
+      select: { id: true, folio: true },
+    });
+
+    const resultado = await this.confirmacion.confirmar(
+      tokenPasarela,
+      (tx, transaccionConfirmada) =>
+        tx.reserva
+          .updateMany({
+            where: {
+              id: transaccionConfirmada.conceptoId,
+              estado: EstadoReserva.PENDIENTE_PAGO,
+            },
+            data: { estado: EstadoReserva.CONFIRMADA },
+          })
+          .then(() => undefined),
+    );
+
+    if (resultado.estado === 'AUTORIZADA') {
+      return {
+        estado: 'CONFIRMADA',
+        folio: reserva?.folio ?? null,
+        motivo: null,
+      };
+    }
+
+    // Rechazado, expirado o marcado para revisión: la hora vuelve a la grilla. Quien
+    // quiera esa cancha tiene que poder tomarla de nuevo.
+    if (reserva) await this.reservas.expirar(reserva.id);
+
+    return {
+      estado: 'RECHAZADA',
+      folio: reserva?.folio ?? null,
+      motivo: resultado.motivoRechazo,
+    };
+  }
+
+  /**
+   * Alguien anuló en la pantalla de la pasarela: la hora se libera.
+   *
+   * **Llega la referencia de la transacción, no el folio de la reserva.** Es lo que
+   * viajó a Webpay como `buyOrder` y lo único que Webpay conoce de nosotros; buscar
+   * por folio no encontraría nada y el bloque quedaría tomado los 15 minutos del
+   * barrido, por un pago que la persona canceló a propósito.
+   */
+  async anularDesdeRetorno(referencia: string): Promise<RetornoDePago> {
+    const transaccion = await this.prisma.transaccion.findUnique({
+      where: { referencia },
+      select: { conceptoId: true },
+    });
+
+    const reserva = transaccion
+      ? await this.prisma.reserva.findUnique({
+          where: { id: transaccion.conceptoId },
+          select: { id: true, folio: true },
+        })
+      : null;
+
+    if (reserva) await this.reservas.expirar(reserva.id);
+
+    return {
+      estado: 'RECHAZADA',
+      folio: reserva?.folio ?? null,
+      motivo: 'anulado',
+    };
+  }
+
+  /**
+   * El bloque con su precio de verdad, verificando que se pueda vender.
+   *
+   * Se toma del catálogo y no de lo que mande el cliente: una hora inventada, fuera
+   * del horario o en mantención se rechaza acá, antes de crear nada.
+   */
+  private async bloqueCobrable(canchaId: number, inicio: Date) {
+    const fecha = hoyEnElClub(inicio).toISOString().slice(0, 10);
+    const bloques = await this.catalogo.de(canchaId, fecha);
+    const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
+
+    if (!bloque) {
+      throw new NotFoundException(
+        'Esa hora no está en el horario de la cancha.',
+      );
+    }
+
+    if (bloque.bloqueado) {
+      throw new ConflictException({
+        motivo: 'BLOQUE_NO_DISPONIBLE',
+        message: `Esa hora no está disponible: ${bloque.motivoBloqueo ?? 'la cancha está cerrada'}.`,
+      });
+    }
+
+    if (bloque.montoClp <= 0) {
+      // Sin tarifa que cobrar no hay reserva de no-socio: el panel del admin advierte
+      // de estos bloques desde T13, y cobrar $0 sería regalar la cancha en silencio.
+      throw new ConflictException({
+        motivo: 'SIN_TARIFA',
+        message: 'Esa hora todavía no tiene tarifa publicada.',
+      });
+    }
+
+    return bloque;
+  }
+
+  private async crearPendiente(
+    datos: ReservaDeNoSocio,
+    bloque: { inicio: Date; fin: Date; esPico: boolean },
+  ) {
+    try {
+      return await this.reservas.crear({
+        canchaId: datos.canchaId,
+        inicio: bloque.inicio,
+        fin: bloque.fin,
+        esPico: bloque.esPico,
+        estado: EstadoReserva.PENDIENTE_PAGO,
+        nombre: datos.nombre,
+        email: datos.email,
+        telefono: datos.telefono,
+      });
+    } catch (error) {
+      if (error instanceof BloqueTomado) {
+        throw new ConflictException({
+          motivo: 'BLOQUE_TOMADO',
+          message: error.message,
+        });
+      }
+
+      throw error;
+    }
+  }
+}
