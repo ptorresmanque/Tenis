@@ -399,6 +399,102 @@ describe('POST /api/reservas — reserva de socio', () => {
     });
   });
 
+  describe('invitados del mes (T25)', () => {
+    /** Deja `cuantos` invitados ya registrados en el mes de la reserva. */
+    const gastarInvitados = async (cuantos: number, mes = '2026-08') => {
+      for (let i = 0; i < cuantos; i++) {
+        await prisma.reserva.create({
+          data: {
+            folio: `INV${mes.slice(-2)}${i}`,
+            canchaId,
+            // Días distintos: el cupo diario no interviene, y así el conteo mensual es
+            // lo único que puede rechazar.
+            inicio: new Date(
+              `${mes}-${String(10 + i).padStart(2, '0')}T14:00:00.000Z`,
+            ),
+            fin: new Date(
+              `${mes}-${String(10 + i).padStart(2, '0')}T15:00:00.000Z`,
+            ),
+            estado: EstadoReserva.CONFIRMADA,
+            socioId,
+            nombre: 'Socio titular',
+            email: `socio-titular${DOMINIO}`,
+            telefono: '',
+            acompanantes: { create: { nombre: `Invitado ${i}` } },
+          },
+        });
+      }
+    };
+
+    it('el quinto invitado del mes se rechaza, diciendo cuántos lleva', async () => {
+      await gastarInvitados(4);
+
+      const respuesta = await reservar(unaReserva());
+
+      expect(respuesta.status).toBe(409);
+      const rechazo = respuesta.body as { motivo: string; message: string };
+      expect(rechazo.motivo).toBe('CUPO_INVITADOS');
+      expect(rechazo.message).toMatch(/4 de 4/);
+    });
+
+    it('el cuarto todavía pasa', async () => {
+      await gastarInvitados(3);
+
+      expect((await reservar(unaReserva())).status).toBe(201);
+    });
+
+    it('los invitados del mes pasado no cuentan: el cupo se renueva el día 1', async () => {
+      // El criterio del reinicio mensual, contra la base y no solo contra la función
+      // pura. Cuatro invitados en julio no impiden reservar en agosto.
+      await gastarInvitados(4, '2026-07');
+
+      expect((await reservar(unaReserva())).status).toBe(201);
+    });
+
+    it('una reserva cancelada devuelve el invitado que había gastado', async () => {
+      // Igual que el resto de los cupos: cancelar no puede ser peor que no haber
+      // reservado (`SPEC-reservas.md` § Reglas del socio).
+      await gastarInvitados(4);
+      await prisma.reserva.updateMany({
+        where: { folio: 'INV080' },
+        data: { estado: EstadoReserva.CANCELADA },
+      });
+
+      expect((await reservar(unaReserva())).status).toBe(201);
+    });
+
+    it('jugar con otro socio no gasta invitados aunque el cupo esté agotado', async () => {
+      await gastarInvitados(4);
+      await crearSocio('companiero-invitados');
+
+      const respuesta = await reservar(
+        unaReserva({
+          acompanantes: [{ numeroSocio: 'T22-companiero-invitados' }],
+        }),
+      );
+
+      expect(respuesta.status).toBe(201);
+    });
+
+    it('el límite sale de la configuración', async () => {
+      await prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { invitadosPorMes: 2 },
+      });
+
+      try {
+        await gastarInvitados(2);
+
+        expect((await reservar(unaReserva())).status).toBe(409);
+      } finally {
+        await prisma.configuracionClub.update({
+          where: { id: 1 },
+          data: { invitadosPorMes: 4 },
+        });
+      }
+    });
+  });
+
   it('una hora que no está en el horario de la cancha no se reserva', async () => {
     // Las 06:00, con el club abriendo a las 08:00. Sin este guardia, el cliente puede
     // pedir cualquier instante y la reserva existiría fuera de la grilla.

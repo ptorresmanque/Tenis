@@ -1,5 +1,8 @@
 import { EstadoSocio } from '../generated/prisma/client';
-import { fechaDelClub } from '../comun/tiempo';
+// `hoyEnElClub` con un instante devuelve su día civil en el club; se renombra porque
+// acá no se usa para "hoy" sino para el día del bloque, que puede ser otro mes.
+import { fechaDelClub, hoyEnElClub as diaDelClub } from '../comun/tiempo';
+import { mesDelClub } from './invitados';
 
 /** Un socio, mirado desde las reglas de reserva. */
 export interface SocioQueReserva {
@@ -31,11 +34,17 @@ export interface SolicitudDeSocio {
   bloque: { inicio: Date; fin: Date; esPico: boolean };
   /** Fecha civil del club, "AAAA-MM-DD". */
   hoyEnElClub: string;
-  config: { cupoDiarioSocioHoras: number; cupoPicoSemanalHoras: number };
+  config: {
+    cupoDiarioSocioHoras: number;
+    cupoPicoSemanalHoras: number;
+    invitadosPorMes: number;
+  };
   /** Reservas activas que el socio ya tiene ese día. */
   reservasDelDia: number;
   /** Horas pico activas que ya tiene esta semana, lunes a domingo. */
   horasPicoDeLaSemana: number;
+  /** Invitados externos que ya registró en el mes del bloque. */
+  invitadosDelMes: number;
   acompanantes: AcompananteDeclarado[];
   /** Dónde están comprometidos el titular y los acompañantes a esa hora. */
   ocupados: OcupacionDeSocio[];
@@ -48,7 +57,8 @@ export type TipoDeRechazo =
   | 'CUPO_PICO'
   | 'SIN_ACOMPANANTE'
   | 'ACOMPANANTE_ES_TITULAR'
-  | 'YA_ESTA_EN_OTRA_CANCHA';
+  | 'YA_ESTA_EN_OTRA_CANCHA'
+  | 'CUPO_INVITADOS';
 
 export interface Rechazo {
   tipo: TipoDeRechazo;
@@ -145,7 +155,54 @@ export function evaluarReservaDeSocio(
     };
   }
 
+  // Los de esta reserva se suman a los que ya lleva: mirando solo el historial, quien
+  // tiene dos cupos libres podría declarar tres invitados de una vez y el mes cerraría
+  // con cinco registrados.
+  const invitados = solicitud.acompanantes.filter(esInvitadoExterno).length;
+
+  if (solicitud.invitadosDelMes + invitados > config.invitadosPorMes) {
+    return {
+      tipo: 'CUPO_INVITADOS',
+      mensaje:
+        `${cuantosYCuantosQuedan(solicitud.invitadosDelMes, invitados, config.invitadosPorMes)} ` +
+        // La renovación se mide contra el mes del bloque y no contra hoy, que es el
+        // mes contra el que se contó el cupo: quien reserva en agosto una hora de
+        // septiembre con su cupo de septiembre agotado tiene que leer "1 de octubre".
+        `El cupo se renueva el ${primeroDelMesSiguiente(bloque.inicio)}, ` +
+        'y jugar con otro socio del club no gasta invitados.',
+    };
+  }
+
   return null;
+}
+
+/**
+ * Por qué no alcanza, en los dos casos en que puede no alcanzar.
+ *
+ * Con el cupo agotado basta decir cuántos lleva. Pero quien lleva 2 de 4 y declara 3 de
+ * una vez leería "Llevas 2 de 4 invitados este mes" junto a un rechazo, y eso se ve
+ * como una falla del sistema: ve dos cupos libres y que igual no lo dejan.
+ */
+function cuantosYCuantosQuedan(
+  usados: number,
+  declarados: number,
+  limite: number,
+): string {
+  const quedan = Math.max(limite - usados, 0);
+
+  if (quedan === 0) {
+    return `Llevas ${usados} de ${limite} invitados este mes.`;
+  }
+
+  return (
+    `Estás declarando ${declarados} invitados y solo te ` +
+    `${quedan === 1 ? 'queda 1' : `quedan ${quedan}`} de tus ${limite} de este mes.`
+  );
+}
+
+/** Un nombre y no un `socioId`: el socio acompañante no gasta cupo de nadie. */
+function esInvitadoExterno(acompanante: AcompananteDeclarado): boolean {
+  return acompanante.socioId == null && acompanante.numeroSocio == null;
 }
 
 /** El titular y los socios que declaró: los invitados externos no tienen identidad. */
@@ -180,6 +237,37 @@ function estaMoroso(socio: SocioQueReserva, hoyEnElClub: string): boolean {
 
 function enHoras(cantidad: number): string {
   return cantidad === 1 ? '1 hora' : `${cantidad} horas`;
+}
+
+const MESES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+/**
+ * "1 de septiembre": cuándo vuelve a tener invitados.
+ *
+ * Cada límite dice cuál es y cuándo se renueva (`SPEC-reservas.md` § Reglas del socio).
+ * "Cupo mensual alcanzado" a secas deja a la persona contando días en el calendario.
+ *
+ * **Recibe el inicio del bloque**, no la fecha de hoy: el cupo se cuenta contra el mes
+ * en que se va a jugar, así que es ese el que se renueva.
+ */
+function primeroDelMesSiguiente(inicioDelBloque: Date): string {
+  const delBloque = diaDelClub(inicioDelBloque).toISOString().slice(0, 10);
+  const siguiente = new Date(mesDelClub(delBloque).hasta);
+
+  return `1 de ${MESES[siguiente.getUTCMonth()]}`;
 }
 
 /** Como lo escribiría el club: 31-07-2026. */
