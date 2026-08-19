@@ -1,6 +1,8 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { Router } from '@angular/router';
 
-import { BloqueDisponible, Disponibilidad } from '../disponibilidad';
+import { Reservar } from '../../reservas/reservar';
+import { BloqueDisponible, Cancha, Disponibilidad } from '../disponibilidad';
 import {
   diaEnPalabras,
   enPesos,
@@ -27,6 +29,7 @@ const SUPERFICIES: Record<string, string> = {
 
 @Component({
   selector: 'app-grilla',
+  imports: [Reservar],
   template: `
     <h1 class="font-display text-3xl font-bold">Disponibilidad</h1>
 
@@ -94,18 +97,32 @@ const SUPERFICIES: Record<string, string> = {
           >
             @for (bloque of grilla.bloques; track bloque.inicio; let i = $index) {
               <li
-                class="bloque rounded-xl border bg-card p-3 shadow-sm"
-                [class.border-border]="!bloque.bloqueado"
-                [class.border-dashed]="bloque.bloqueado"
-                [class.border-muted-foreground]="bloque.bloqueado"
-                [class.opacity-70]="bloque.bloqueado"
+                class="bloque rounded-xl border bg-card shadow-sm"
+                [class.border-border]="!noSePuedeTomar(bloque)"
+                [class.border-dashed]="noSePuedeTomar(bloque)"
+                [class.border-muted-foreground]="noSePuedeTomar(bloque)"
+                [class.opacity-70]="noSePuedeTomar(bloque)"
                 [style.--i]="i"
               >
+                <!-- Botón solo si se puede tomar: un bloque en mantención o ya
+                     reservado no es interactivo, y anunciarlo como botón hace que
+                     un lector de pantalla ofrezca algo que no se puede hacer. -->
+                <button
+                  type="button"
+                  class="block w-full rounded-xl p-3 text-left"
+                  [disabled]="noSePuedeTomar(bloque)"
+                  [attr.aria-label]="etiqueta(grilla.cancha, bloque)"
+                  (click)="elegir(grilla.cancha, bloque)"
+                >
                 <p class="font-display text-lg font-semibold">
                   {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
                 </p>
 
-                @if (bloque.bloqueado) {
+                @if (bloque.reservado) {
+                  <p class="mt-1 text-sm font-medium text-muted-foreground">
+                    Reservado
+                  </p>
+                } @else if (bloque.bloqueado) {
                   <!-- Texto y borde punteado, no solo el color apagado: el par
                        verde/rojo es justo el que no distingue quien tiene
                        daltonismo rojo-verde. -->
@@ -127,11 +144,21 @@ const SUPERFICIES: Record<string, string> = {
                     <p class="text-xs text-muted-foreground">Hora pico</p>
                   }
                 }
+                </button>
               </li>
             }
           </ul>
         }
       </section>
+    }
+
+    @if (elegido(); as eleccion) {
+      <app-reservar
+        [cancha]="eleccion.cancha"
+        [bloque]="eleccion.bloque"
+        (cerrar)="elegido.set(null)"
+        (reservado)="confirmar($event)"
+      />
     }
   `,
   styles: `
@@ -162,6 +189,7 @@ const SUPERFICIES: Record<string, string> = {
 })
 export class Grilla {
   private readonly disponibilidad = inject(Disponibilidad);
+  private readonly router = inject(Router);
 
   protected readonly fecha = signal(hoyEnElClub());
 
@@ -177,7 +205,8 @@ export class Grilla {
   protected readonly resumen = computed(() => {
     const grillas = this.grillas.value();
     const libres = grillas.reduce(
-      (total, g) => total + g.bloques.filter((b) => !b.bloqueado).length,
+      (total, g) =>
+        total + g.bloques.filter((b) => !b.bloqueado && !b.reservado).length,
       0,
     );
 
@@ -185,6 +214,37 @@ export class Grilla {
       grillas.length === 1 ? '1 cancha' : `${grillas.length} canchas`
     }.`;
   });
+
+  /** El bloque que la persona está por reservar, o nada. */
+  protected readonly elegido = signal<{
+    cancha: Cancha;
+    bloque: BloqueDisponible;
+  } | null>(null);
+
+  protected noSePuedeTomar(bloque: BloqueDisponible): boolean {
+    return bloque.bloqueado || bloque.reservado;
+  }
+
+  /** Lo que oye quien navega por teclado antes de abrir el formulario. */
+  protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
+    return `Reservar ${cancha.nombre} de ${this.hora(bloque.inicio)} a ${this.hora(
+      bloque.fin,
+    )}, ${this.pesos(bloque.montoClp)}`;
+  }
+
+  protected elegir(cancha: Cancha, bloque: BloqueDisponible): void {
+    if (this.noSePuedeTomar(bloque)) return;
+
+    this.elegido.set({ cancha, bloque });
+  }
+
+  /** El socio no pasa por la pasarela: se va directo a su confirmación. */
+  protected confirmar(folio: string): void {
+    this.elegido.set(null);
+    void this.router.navigate(['/reservas/confirmacion'], {
+      queryParams: { folio },
+    });
+  }
 
   protected cambiarFecha(evento: Event): void {
     const valor = (evento.target as HTMLInputElement).value;

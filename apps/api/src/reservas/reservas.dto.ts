@@ -54,12 +54,28 @@ function acompanantes(valor: unknown): AcompananteDeclarado[] {
 
   return valor.map((crudo) => {
     const item = (crudo ?? {}) as Record<string, unknown>;
+    // `numeroSocio` es lo que la persona conoce y lo que el spec dice que se elige;
+    // el id interno no lo sabe nadie fuera de la base. Lo resuelve el servicio.
+    const numeroSocio =
+      typeof item.numeroSocio === 'string' && item.numeroSocio.trim() !== ''
+        ? item.numeroSocio.trim()
+        : null;
     const socioId =
       item.socioId != null ? entero(item.socioId, 'El socio') : null;
     const nombre =
       typeof item.nombre === 'string' && item.nombre.trim() !== ''
         ? item.nombre.trim()
         : null;
+
+    if (numeroSocio !== null) {
+      if (nombre !== null || socioId !== null) {
+        throw new BadRequestException(
+          'Cada acompañante es un socio del club o un invitado, no las dos cosas.',
+        );
+      }
+
+      return { numeroSocio };
+    }
 
     if ((socioId === null) === (nombre === null)) {
       // La regla que MariaDB no deja poner en un CHECK sobre una columna con foreign
