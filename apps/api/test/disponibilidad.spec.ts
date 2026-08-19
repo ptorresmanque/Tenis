@@ -123,6 +123,9 @@ describe('GET /api/disponibilidad', () => {
 
     // Las 09:00 del club en agosto son las 13:00Z.
     expect(bloques[0]).toEqual({
+      // `reservado` entra al contrato en T23: la grilla la sirve `reservas`, que
+      // superpone lo suyo sobre los bloques que calcula `catalogo-canchas`.
+      reservado: false,
       inicio: '2026-08-17T13:00:00.000Z',
       fin: '2026-08-17T14:00:00.000Z',
       canchaId,
