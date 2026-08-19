@@ -43,6 +43,8 @@ export class PasarelaFake extends PasarelaPago {
    * lo que pasa cuando dos callbacks llegan a la vez y los dos alcanzan a preguntar.
    */
   fallarEnConfirmacionRepetida = false;
+  /** Simula una devolución que la pasarela no acepta. */
+  fallarAlAnular = false;
 
   private readonly porToken = new Map<string, OrdenPago>();
   private readonly autorizados = new Set<string>();
@@ -107,6 +109,10 @@ export class PasarelaFake extends PasarelaPago {
   }
 
   anular(tokenPasarela: string, montoClp: number): Promise<void> {
+    if (this.fallarAlAnular) {
+      return Promise.reject(new Error('La pasarela no aceptó la devolución.'));
+    }
+
     if (!this.autorizados.has(tokenPasarela)) {
       // Devolver plata de un cobro que no ocurrió. La pasarela real lo rechaza, y si
       // el doble lo aceptara, T19 se escribiría sin ese caso a la vista.
@@ -128,6 +134,7 @@ export class PasarelaFake extends PasarelaPago {
     this.montoReportado = null;
     this.fallarAlIniciar = false;
     this.fallarEnConfirmacionRepetida = false;
+    this.fallarAlAnular = false;
     this.porToken.clear();
     this.autorizados.clear();
   }
