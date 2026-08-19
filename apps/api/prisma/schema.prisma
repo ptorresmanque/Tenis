@@ -18,22 +18,6 @@ datasource db {
   provider = "mysql"
 }
 
-/// Tabla de apoyo del spike de concurrencia (T2). NO es dominio del club.
-///
-/// Existe para probar contra MariaDB real que un constraint único deja pasar una
-/// sola de dos inserciones simultáneas. Ese es el mecanismo que va a proteger a
-/// `Reserva` de la doble reserva.
-///
-/// Se elimina en T21, cuando `Reserva` imponga la misma restricción de verdad.
-model PruebaUnicidad {
-  id        Int      @id @default(autoincrement())
-  recursoId Int      @map("recurso_id")
-  inicio    DateTime
-
-  @@unique([recursoId, inicio])
-  @@map("prueba_unicidad")
-}
-
 // ── identidad ────────────────────────────────────────────────────────────────
 // Modelo de SPEC-identidad.md § Modelo de datos.
 
@@ -111,7 +95,9 @@ model Socio {
   /// `cuotas`, cuando exista, será el único que lo escriba.
   alDiaHasta DateTime @map("al_dia_hasta") @db.Date
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario         Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  reservas        Reserva[]
+  acompanamientos AcompananteReserva[]
 
   @@map("socio")
 }
@@ -162,6 +148,7 @@ model Cancha {
   horarios HorarioApertura[]
   franjas  FranjaHoraria[]
   bloqueos Bloqueo[]
+  reservas Reserva[]
 
   @@map("cancha")
 }
@@ -344,4 +331,99 @@ model Transaccion {
 
   @@index([usuarioId])
   @@map("transaccion")
+}
+
+// ── reservas ─────────────────────────────────────────────────────────────────
+// Modelo de SPEC-reservas.md § Modelo de datos.
+
+enum EstadoReserva {
+  PENDIENTE_PAGO
+  CONFIRMADA
+  CANCELADA
+  EXPIRADA
+}
+
+/// Quién ocupa qué cancha y cuándo.
+///
+/// **La unicidad del bloque la impone la base, no el código** (T2). El índice único
+/// no va sobre `(cancha_id, inicio)` a secas: una cancelada tiene que liberar la hora
+/// y su fila sigue ahí para el historial. Va sobre `inicio_activo`, una columna
+/// generada que vale `inicio` mientras la reserva ocupa el bloque y NULL cuando no —
+/// en MySQL dos NULL no chocan, así que conviven todas las canceladas y a lo sumo una
+/// activa. Está escrita a mano en la migración, como el CHECK de `ConfiguracionClub`:
+/// Prisma no modela columnas generadas, y que la derive la base es justamente el
+/// punto. Una columna que el código tiene que acordarse de anular al cancelar es una
+/// que alguien va a olvidar, y el síntoma sería un bloque que no vuelve a estar libre.
+model Reserva {
+  id Int @id @default(autoincrement())
+
+  /// Lo que la persona muestra en el mesón. Único y corto.
+  folio String @unique
+
+  canchaId Int      @map("cancha_id")
+  inicio   DateTime
+  fin      DateTime
+
+  estado EstadoReserva
+
+  /// Congelado al reservar, no recalculado. Si el admin cambia las franjas el jueves,
+  /// las horas del lunes no pueden cambiar de categoría y dejar a un socio pasado de
+  /// cupo sin que haya hecho nada. Mismo criterio que el monto de `Transaccion`.
+  esPico Boolean @default(false) @map("es_pico")
+
+  /// Nulo = no-socio. Su pago vive en `Transaccion` con `concepto: RESERVA` y
+  /// `conceptoId` = este id; no se guarda el vínculo inverso para que no haya dos
+  /// fuentes que puedan discrepar.
+  socioId Int? @map("socio_id")
+
+  /// Del no-socio se piden; del socio se copian de su ficha, para que el panel del
+  /// admin muestre a quién llamar sin salir de la tabla.
+  nombre   String
+  email    String
+  telefono String
+
+  creadaEn    DateTime  @default(now()) @map("creada_en")
+  canceladaEn DateTime? @map("cancelada_en")
+
+  /// **La escribe la base, nunca la aplicación.** Es una columna generada —
+  /// `IF(estado IN (PENDIENTE_PAGO, CONFIRMADA), inicio, NULL)`, ver la migración— y
+  /// MySQL rechaza cualquier INSERT o UPDATE que le mande un valor. Se declara acá
+  /// solo para que el índice único de abajo exista en el schema y el guardia de
+  /// migraciones no la vea como un cambio sin migrar.
+  inicioActivo DateTime? @map("inicio_activo")
+
+  cancha       Cancha               @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  socio        Socio?               @relation(fields: [socioId], references: [id], onDelete: SetNull)
+  acompanantes AcompananteReserva[]
+
+  /// Un bloque, una reserva activa. Las canceladas y expiradas tienen
+  /// `inicio_activo` nulo y en MySQL dos nulos no chocan, así que conviven todas.
+  @@unique([canchaId, inicioActivo], map: "reserva_bloque_activo")
+  @@index([canchaId, inicio])
+  @@index([socioId, inicio])
+  @@map("reserva")
+}
+
+/// Con quién juega el socio. Obligatorio declararlo: sin eso, "juego solo", "juego
+/// con un socio" y "traje a un amigo" se ven idénticos, y el cupo de invitados no
+/// controla nada.
+///
+/// Los dos tipos en la misma tabla porque son la respuesta a la misma pregunta.
+/// `socioId` = socio del club, que no gasta cupo de nadie; `nombre` = invitado
+/// externo, que cuenta contra los 4 del mes. Exactamente uno de los dos.
+model AcompananteReserva {
+  id        Int  @id @default(autoincrement())
+  reservaId Int  @map("reserva_id")
+  socioId   Int? @map("socio_id")
+
+  /// Solo un nombre: el invitado no tiene ficha propia (pregunta abierta 13). Muere
+  /// con la reserva y no se reutiliza.
+  nombre String?
+
+  reserva Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  socio   Socio?  @relation(fields: [socioId], references: [id], onDelete: SetNull)
+
+  @@index([reservaId])
+  @@index([socioId])
+  @@map("acompanante_reserva")
 }

@@ -4,6 +4,7 @@ import { CatalogoCanchasModule } from './catalogo-canchas/catalogo-canchas.modul
 import { IdentidadModule } from './identidad/identidad.module';
 import { PagosModule } from './pagos/pagos.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ReservasModule } from './reservas/reservas.module';
 import { SaludModule } from './salud/salud.module';
 
 @Module({
@@ -13,6 +14,7 @@ import { SaludModule } from './salud/salud.module';
     IdentidadModule,
     CatalogoCanchasModule,
     PagosModule,
+    ReservasModule,
   ],
 })
 export class AppModule {}

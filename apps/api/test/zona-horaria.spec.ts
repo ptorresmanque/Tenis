@@ -1,3 +1,4 @@
+import { EstadoReserva, Superficie } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -6,15 +7,26 @@ import { PrismaService } from '../src/prisma/prisma.service';
  * consulta hecha fuera de la app ve horas corridas, y en el cambio de horario de
  * Chile dos instantes distintos caen en el mismo valor.
  *
- * Estos tests son los que hacen ruido si alguien saca TZ=UTC de los scripts.
+ * Estos tests son los que hacen ruido si alguien saca TZ=UTC de los scripts. Corrían
+ * sobre la tabla del spike de T2; desde T21 corren sobre `reserva`, que es donde los
+ * instantes importan de verdad.
  */
-
-// Rango de recursoId propio de este archivo: Jest corre los archivos en paralelo
-// y la limpieza de cada uno no debe borrar las filas de otro.
-const RECURSO = 20;
+const NOMBRE_CANCHA = 'Cancha zona horaria';
 
 describe('Los instantes se guardan en UTC', () => {
   let prisma: PrismaService;
+  let canchaId: number;
+
+  const unaReserva = (inicio: Date) => ({
+    folio: `TZ${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    canchaId,
+    inicio,
+    fin: new Date(inicio.getTime() + 60 * 60 * 1000),
+    estado: EstadoReserva.CONFIRMADA,
+    nombre: 'Instante de prueba',
+    email: 'instante@ejemplo.cl',
+    telefono: '+56900000000',
+  });
 
   beforeAll(async () => {
     prisma = new PrismaService();
@@ -22,12 +34,18 @@ describe('Los instantes se guardan en UTC', () => {
   });
 
   afterAll(async () => {
-    await prisma.pruebaUnicidad.deleteMany({ where: { recursoId: RECURSO } });
+    await prisma.cancha.deleteMany({ where: { nombre: NOMBRE_CANCHA } });
     await prisma.$disconnect();
   });
 
   beforeEach(async () => {
-    await prisma.pruebaUnicidad.deleteMany({ where: { recursoId: RECURSO } });
+    // Borrar la cancha se lleva sus reservas en cascada.
+    await prisma.cancha.deleteMany({ where: { nombre: NOMBRE_CANCHA } });
+    const cancha = await prisma.cancha.create({
+      data: { nombre: NOMBRE_CANCHA, superficie: Superficie.CEMENTO },
+      select: { id: true },
+    });
+    canchaId = cancha.id;
   });
 
   it('el proceso corre en UTC', () => {
@@ -35,19 +53,16 @@ describe('Los instantes se guardan en UTC', () => {
   });
 
   it('la columna guarda el mismo valor que el instante UTC, no la hora local', async () => {
-    await prisma.pruebaUnicidad.create({
-      data: {
-        recursoId: RECURSO,
-        inicio: new Date('2026-09-01T18:00:00.000Z'),
-      },
+    await prisma.reserva.create({
+      data: unaReserva(new Date('2026-09-01T18:00:00.000Z')),
     });
 
     // Se lee como texto crudo a propósito: leerlo con el driver ocultaría el
     // problema, porque deshace su propia conversión al traer el dato.
     const filas = await prisma.$queryRaw<{ texto: string }[]>`
       SELECT CAST(inicio AS CHAR) AS texto
-      FROM prueba_unicidad
-      WHERE recurso_id = ${RECURSO}
+      FROM reserva
+      WHERE cancha_id = ${canchaId}
     `;
 
     expect(filas[0].texto).toBe('2026-09-01 18:00:00.000');
@@ -59,18 +74,17 @@ describe('Los instantes se guardan en UTC', () => {
     const antesDelCambio = new Date('2026-04-05T02:30:00.000Z');
     const despuesDelCambio = new Date('2026-04-05T03:30:00.000Z');
 
-    await prisma.pruebaUnicidad.create({
-      data: { recursoId: RECURSO, inicio: antesDelCambio },
-    });
-    await prisma.pruebaUnicidad.create({
-      data: { recursoId: RECURSO, inicio: despuesDelCambio },
-    });
+    await prisma.reserva.create({ data: unaReserva(antesDelCambio) });
+    await prisma.reserva.create({ data: unaReserva(despuesDelCambio) });
 
-    const guardadas = await prisma.pruebaUnicidad.findMany({
-      where: { recursoId: RECURSO },
+    const guardadas = await prisma.reserva.findMany({
+      where: { canchaId },
       orderBy: { inicio: 'asc' },
     });
 
+    // Y son dos filas, no una: con la hora guardada en local, el índice único del
+    // bloque las vería como la misma y la segunda reserva fallaría — que es el bug
+    // de marzo apareciendo por el peor lado posible.
     expect(guardadas.map((f) => f.inicio.toISOString())).toEqual([
       '2026-04-05T02:30:00.000Z',
       '2026-04-05T03:30:00.000Z',
