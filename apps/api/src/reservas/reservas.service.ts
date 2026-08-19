@@ -17,7 +17,7 @@ import {
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 
 /** Los estados en que una reserva ocupa la cancha y cuenta para los cupos. */
-const ACTIVAS = [EstadoReserva.PENDIENTE_PAGO, EstadoReserva.CONFIRMADA];
+export const ACTIVAS = [EstadoReserva.PENDIENTE_PAGO, EstadoReserva.CONFIRMADA];
 
 export interface ReservaDeSocio {
   canchaId: number;

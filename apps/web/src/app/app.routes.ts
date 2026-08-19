@@ -24,6 +24,12 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'mis-reservas',
+    title: 'Mis reservas — Club de Tenis',
+    loadComponent: () =>
+      import('./reservas/mis-reservas/mis-reservas').then((m) => m.MisReservas),
+  },
+  {
     path: 'reservas/confirmacion',
     title: 'Tu reserva — Club de Tenis',
     loadComponent: () =>

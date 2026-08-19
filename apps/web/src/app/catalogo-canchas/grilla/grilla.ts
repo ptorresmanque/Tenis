@@ -1,6 +1,8 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 
+import { mensajeDeRechazo, Reservas } from '../../reservas/reservas.service';
 import { Reservar } from '../../reservas/reservar';
 import { BloqueDisponible, Cancha, Disponibilidad } from '../disponibilidad';
 import {
@@ -32,6 +34,20 @@ const SUPERFICIES: Record<string, string> = {
   imports: [Reservar],
   template: `
     <h1 class="font-display text-3xl font-bold">Disponibilidad</h1>
+
+    @if (moviendo() !== null) {
+      <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" tiene
+           que saber que el proximo clic mueve su hora en vez de tomar una nueva. -->
+      <p class="mt-3 rounded-lg bg-muted p-3 font-medium">
+        Elige la nueva hora para tu reserva. La que tenías queda liberada.
+      </p>
+    }
+
+    @if (errorAlMover(); as falla) {
+      <p role="alert" class="mt-3 rounded-lg bg-destructive/10 p-3 text-destructive">
+        {{ falla }}
+      </p>
+    }
 
     <div class="mt-4 flex flex-wrap items-end gap-4">
       <div>
@@ -189,9 +205,26 @@ const SUPERFICIES: Record<string, string> = {
 })
 export class Grilla {
   private readonly disponibilidad = inject(Disponibilidad);
+  private readonly reservas = inject(Reservas);
   private readonly router = inject(Router);
+  private readonly parametros = toSignal(inject(ActivatedRoute).queryParamMap);
 
   protected readonly fecha = signal(hoyEnElClub());
+
+  /**
+   * La reserva que se está reubicando, si se llegó desde "mis reservas".
+   *
+   * El modo viaja en la URL y no en un servicio compartido: así sobrevive a un
+   * refresco y a compartir el enlace, y quien no viene de ahí no paga nada.
+   */
+  protected readonly moviendo = computed(() => {
+    const id = Number(this.parametros()?.get('mover'));
+
+    return Number.isInteger(id) && id > 0 ? id : null;
+  });
+
+  protected readonly errorAlMover = signal<string | null>(null);
+  protected readonly enviandoMovimiento = signal(false);
 
   protected readonly grillas = resource({
     params: () => ({ fecha: this.fecha() }),
@@ -227,15 +260,46 @@ export class Grilla {
 
   /** Lo que oye quien navega por teclado antes de abrir el formulario. */
   protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
-    return `Reservar ${cancha.nombre} de ${this.hora(bloque.inicio)} a ${this.hora(
+    const que = this.moviendo() !== null ? 'Mover tu reserva a' : 'Reservar';
+
+    return `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ${this.hora(
       bloque.fin,
     )}, ${this.pesos(bloque.montoClp)}`;
   }
 
-  protected elegir(cancha: Cancha, bloque: BloqueDisponible): void {
+  protected async elegir(
+    cancha: Cancha,
+    bloque: BloqueDisponible,
+  ): Promise<void> {
     if (this.noSePuedeTomar(bloque)) return;
 
-    this.elegido.set({ cancha, bloque });
+    const reservaId = this.moviendo();
+
+    if (reservaId === null) {
+      this.elegido.set({ cancha, bloque });
+      return;
+    }
+
+    // Un solo movimiento en vuelo: con la red lenta, quien no ve reacción toca otro
+    // bloque, y dos PATCH dejan la reserva donde responda el último, no donde eligió.
+    if (this.enviandoMovimiento()) return;
+
+    this.enviandoMovimiento.set(true);
+    this.errorAlMover.set(null);
+
+    try {
+      await this.reservas.mover(reservaId, {
+        canchaId: cancha.id,
+        inicio: bloque.inicio,
+      });
+      await this.router.navigate(['/mis-reservas']);
+    } catch (falla) {
+      // Se queda en la grilla a propósito: la hora que eligió no se pudo, pero las
+      // otras siguen ahí y volver atrás para reintentar sería un paso de más.
+      this.errorAlMover.set(mensajeDeRechazo(falla).mensaje);
+    } finally {
+      this.enviandoMovimiento.set(false);
+    }
   }
 
   /** El socio no pasa por la pasarela: se va directo a su confirmación. */

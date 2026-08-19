@@ -5,6 +5,7 @@ import { IdentidadModule } from '../identidad/identidad.module';
 import { PagosModule } from '../pagos/pagos.module';
 import { DisponibilidadPublicaController } from './disponibilidad-publica.controller';
 import { DisponibilidadPublicaService } from './disponibilidad-publica.service';
+import { ModificacionService } from './modificacion.service';
 import { NoSocioController } from './no-socio.controller';
 import { ReservaNoSocioService } from './reserva-no-socio.service';
 import { ReservaRepository } from './reserva.repository';
@@ -27,8 +28,14 @@ import { ReservasService } from './reservas.service';
     ReservaRepository,
     ReservasService,
     ReservaNoSocioService,
+    ModificacionService,
     DisponibilidadPublicaService,
   ],
-  exports: [ReservaRepository, ReservasService, DisponibilidadPublicaService],
+  exports: [
+    ReservaRepository,
+    ReservasService,
+    ModificacionService,
+    DisponibilidadPublicaService,
+  ],
 })
 export class ReservasModule {}

@@ -21,6 +21,19 @@ export function reservaDeSocioDeCuerpo(cuerpo: unknown): ReservaDeSocio {
   };
 }
 
+/** A dónde se mueve una reserva. Mismos dos campos, misma validación. */
+export function destinoDeCuerpo(cuerpo: unknown): {
+  canchaId: number;
+  inicio: Date;
+} {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  return {
+    canchaId: entero(datos.canchaId, 'La cancha'),
+    inicio: instante(datos.inicio),
+  };
+}
+
 function entero(valor: unknown, campo: string): number {
   const numero = Number(valor);
 
