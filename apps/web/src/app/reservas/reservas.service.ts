@@ -28,6 +28,26 @@ export interface RechazoDeReserva {
   mensaje: string;
 }
 
+/** Espejo de `ReservaMia` en la API. Las dos ventanas llegan ya resueltas. */
+export interface ReservaMia {
+  id: number;
+  folio: string;
+  cancha: string;
+  inicio: string;
+  fin: string;
+  estado: 'PENDIENTE_PAGO' | 'CONFIRMADA';
+  esPico: boolean;
+  pagada: boolean;
+  sePuedeModificar: boolean;
+  devolucionAlCancelar: boolean;
+}
+
+export interface ReservaCancelada {
+  folio: string;
+  huboDevolucion: boolean;
+  motivo: string | null;
+}
+
 @Service()
 export class Reservas {
   private readonly http = inject(HttpClient);
@@ -55,6 +75,23 @@ export class Reservas {
       this.http.post<PagoIniciado>('/api/reservas/no-socio', datos),
     );
   }
+
+  /** Las horas que tengo tomadas, de la más próxima a la más lejana. */
+  mias(): Promise<ReservaMia[]> {
+    return firstValueFrom(this.http.get<ReservaMia[]>('/api/reservas/mias'));
+  }
+
+  /** Mueve una reserva a otro bloque de la grilla. */
+  mover(id: number, destino: { canchaId: number; inicio: string }): Promise<unknown> {
+    return firstValueFrom(this.http.patch(`/api/reservas/${id}`, destino));
+  }
+
+  /** Cancela. Si corresponde devolución, la hace el servidor: acá solo se informa. */
+  cancelar(id: number): Promise<ReservaCancelada> {
+    return firstValueFrom(
+      this.http.delete<ReservaCancelada>(`/api/reservas/${id}`),
+    );
+  }
 }
 
 /**
@@ -80,9 +117,16 @@ export function mensajeDeRechazo(error: unknown): RechazoDeReserva {
   }
 
   if (estado === 404) {
+    // El `message` del servidor gana al texto fijo. Un 404 no siempre es un bloque
+    // que dejó de existir: al mover una reserva también significa "no encontramos esa
+    // reserva", y responder ahí con "esa hora ya no está en el horario de la cancha"
+    // manda a buscar el problema al lugar equivocado.
     return {
-      motivo: 'BLOQUE_INEXISTENTE',
-      mensaje: 'Esa hora ya no está en el horario de la cancha.',
+      motivo: 'NO_ENCONTRADO',
+      mensaje:
+        typeof cuerpo?.message === 'string'
+          ? cuerpo.message
+          : 'Esa hora ya no está en el horario de la cancha.',
     };
   }
 

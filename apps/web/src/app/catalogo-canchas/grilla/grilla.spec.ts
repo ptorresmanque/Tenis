@@ -1,6 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { of } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Reservas } from '../../reservas/reservas.service';
 import { Disponibilidad, GrillaDeCancha } from '../disponibilidad';
 import { Grilla } from './grilla';
 
@@ -55,12 +58,24 @@ describe('Grilla', () => {
   ];
 
   let fixture: ComponentFixture<Grilla>;
+  let mover: ReturnType<typeof vi.fn>;
+  let navegar: ReturnType<typeof vi.fn>;
 
-  const montar = async (dia: GrillaDeCancha[]) => {
+  /** `mover` es el id que llega por query string cuando se viene de "mis reservas". */
+  const montar = async (dia: GrillaDeCancha[], parametros: Record<string, string> = {}) => {
+    mover = vi.fn().mockResolvedValue({});
+    navegar = vi.fn().mockResolvedValue(true);
+
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(dia) } },
+        { provide: Reservas, useValue: { mover } },
+        { provide: Router, useValue: { navigate: navegar } },
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap(parametros)) },
+        },
       ],
     });
 
@@ -146,5 +161,106 @@ describe('Grilla', () => {
     await montar([]);
 
     expect(texto()).toContain('no tiene canchas publicadas');
+  });
+
+  describe('cambiando la hora de una reserva (T24)', () => {
+    // La grilla es el selector de bloques que ya existe, con las canchas, los
+    // bloqueos y lo que está tomado. Traer aquí a quien viene de "mis reservas" es
+    // más barato —y más consistente— que un segundo selector dentro de la tarjeta.
+    const elegirPrimerBloque = async () => {
+      (
+        (fixture.nativeElement as HTMLElement).querySelector(
+          '.bloque button',
+        ) as HTMLButtonElement
+      ).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('avisa que se está cambiando una hora ya reservada', async () => {
+      await montar(DIA, { mover: '7' });
+
+      expect(texto()).toContain('Elige la nueva hora');
+    });
+
+    it('al elegir un bloque libre mueve la reserva y vuelve a mis reservas', async () => {
+      await montar(DIA, { mover: '7' });
+
+      await elegirPrimerBloque();
+
+      expect(mover).toHaveBeenCalledWith(7, {
+        canchaId: 1,
+        inicio: '2026-08-17T12:00:00.000Z',
+      });
+      expect(navegar).toHaveBeenCalledWith(['/mis-reservas']);
+    });
+
+    it('sin el parámetro, el clic sigue abriendo el formulario de reserva', async () => {
+      // jsdom no implementa el diálogo nativo que abre `app-reservar`. Se apuntala
+      // acá y no con un guardia en el componente, por lo mismo que en `reservar.spec`:
+      // el que está roto es el entorno de prueba, no el código.
+      HTMLDialogElement.prototype.showModal = vi.fn(function (
+        this: HTMLDialogElement,
+      ) {
+        this.open = true;
+      });
+
+      await elegirPrimerBloque();
+
+      expect(mover).not.toHaveBeenCalled();
+      expect(texto()).toContain('Reservar');
+    });
+
+    it('si la reserva ya no existe, lo dice con las palabras del servidor', async () => {
+      // Un 404 al mover significa "no encontramos esa reserva" —la cancelaron desde
+      // otro dispositivo, o el enlace quedó viejo—, no que el bloque haya dejado de
+      // existir. El texto fijo de la grilla mandaba a mirar el horario de la cancha.
+      await montar(DIA, { mover: '7' });
+      mover.mockRejectedValueOnce({
+        status: 404,
+        error: { message: 'No encontramos esa reserva.' },
+      });
+
+      await elegirPrimerBloque();
+
+      expect(texto()).toContain('No encontramos esa reserva');
+      expect(texto()).not.toContain('horario de la cancha');
+    });
+
+    it('dos clics seguidos mueven la reserva una sola vez', async () => {
+      // Con la red lenta la persona vuelve a tocar otro bloque al no ver reacción.
+      // Sin un estado de envío salen dos PATCH y la hora final es la del que responda
+      // último, que no tiene por qué ser el que eligió último.
+      await montar(DIA, { mover: '7' });
+      let resolver: (valor: unknown) => void = () => undefined;
+      mover.mockReturnValueOnce(
+        new Promise((cumplir) => {
+          resolver = cumplir;
+        }),
+      );
+
+      const botones = (fixture.nativeElement as HTMLElement).querySelectorAll(
+        '.bloque button',
+      );
+      (botones[0] as HTMLButtonElement).click();
+      (botones[2] as HTMLButtonElement).click();
+
+      expect(mover).toHaveBeenCalledTimes(1);
+
+      resolver({});
+      await fixture.whenStable();
+    });
+
+    it('si la hora se tomó entre medio, lo dice y no se va de la página', async () => {
+      await montar(DIA, { mover: '7' });
+      mover.mockRejectedValueOnce({
+        error: { motivo: 'BLOQUE_TOMADO', message: 'Esa hora la acaban de tomar.' },
+      });
+
+      await elegirPrimerBloque();
+
+      expect(texto()).toContain('acaban de tomar');
+      expect(navegar).not.toHaveBeenCalled();
+    });
   });
 });

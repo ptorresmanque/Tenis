@@ -21,7 +21,9 @@ import { Auth } from './core/auth/auth';
           Club de Tenis
         </a>
 
-        <nav aria-label="Principal" class="flex gap-1 text-sm">
+        <!-- flex-wrap: con el socio dentro son cinco enlaces y a 375px no caben en
+             una línea. Sin esto, el último queda cortado contra el borde. -->
+        <nav aria-label="Principal" class="flex flex-wrap gap-1 text-sm">
           @for (item of navegacion(); track item.ruta) {
             <a
               [routerLink]="item.ruta"
@@ -81,6 +83,11 @@ export class App {
   protected readonly navegacion = computed(() => [
     { ruta: '/', etiqueta: 'Inicio' },
     { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },
+    // Solo para quien tiene ficha de socio: al resto la pantalla le mostraría una
+    // lista siempre vacía.
+    ...(this.auth.usuario()?.socioId != null
+      ? [{ ruta: '/mis-reservas', etiqueta: 'Mis reservas' }]
+      : []),
     ...(this.auth.esAdmin()
       ? [{ ruta: '/administracion/canchas', etiqueta: 'Canchas' }]
       : []),
