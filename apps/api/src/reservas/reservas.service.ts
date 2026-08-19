@@ -14,6 +14,7 @@ import {
   evaluarReservaDeSocio,
   OcupacionDeSocio,
 } from './cupo';
+import { mesDelClub } from './invitados';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 
 /** Los estados en que una reserva ocupa la cancha y cuenta para los cupos. */
@@ -79,15 +80,17 @@ export class ReservasService {
       },
     });
 
-    const [reservasDelDia, horasPicoDeLaSemana, ocupados] = await Promise.all([
-      this.contarDelDia(socio.id, fecha),
-      this.contarPicoDeLaSemana(socio.id, fecha),
-      this.ocupacionesEnElRango(
-        [socio.id, ...socioIdsDe(acompanantes)],
-        bloque.inicio,
-        bloque.fin,
-      ),
-    ]);
+    const [reservasDelDia, horasPicoDeLaSemana, invitadosDelMes, ocupados] =
+      await Promise.all([
+        this.contarDelDia(socio.id, fecha),
+        this.contarPicoDeLaSemana(socio.id, fecha),
+        this.contarInvitadosDelMes(socio.id, fecha),
+        this.ocupacionesEnElRango(
+          [socio.id, ...socioIdsDe(acompanantes)],
+          bloque.inicio,
+          bloque.fin,
+        ),
+      ]);
 
     const config = await this.prisma.configuracionClub.findFirstOrThrow();
 
@@ -105,6 +108,7 @@ export class ReservasService {
       config,
       reservasDelDia,
       horasPicoDeLaSemana,
+      invitadosDelMes,
       acompanantes,
       ocupados,
     });
@@ -250,6 +254,37 @@ export class ReservasService {
         inicio: {
           gte: instanteEnElClub(lunes, '00:00'),
           lt: instanteEnElClub(siguienteLunes, '00:00'),
+        },
+      },
+    });
+  }
+
+  /**
+   * Invitados externos que el socio ya registró en el mes del bloque.
+   *
+   * **El mes del bloque y no el de hoy**, igual que el cupo diario y el pico: quien
+   * reserva en agosto una hora de septiembre gasta un invitado de septiembre, que es
+   * el mes en que va a traer a esa persona.
+   *
+   * Cuenta filas de `AcompananteReserva` con nombre: por eso los acompañantes son una
+   * tabla y no una columna de texto (`SPEC-reservas.md` § Modelo de datos).
+   */
+  private contarInvitadosDelMes(
+    socioId: number,
+    fecha: string,
+  ): Promise<number> {
+    const { desde, hasta } = mesDelClub(fecha);
+
+    return this.prisma.acompananteReserva.count({
+      where: {
+        nombre: { not: null },
+        reserva: {
+          socioId,
+          estado: { in: ACTIVAS },
+          inicio: {
+            gte: instanteEnElClub(desde, '00:00'),
+            lt: instanteEnElClub(hasta, '00:00'),
+          },
         },
       },
     });

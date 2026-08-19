@@ -27,9 +27,14 @@ describe('evaluarReservaDeSocio', () => {
       esPico: false,
     },
     hoyEnElClub: HOY,
-    config: { cupoDiarioSocioHoras: 1, cupoPicoSemanalHoras: 2 },
+    config: {
+      cupoDiarioSocioHoras: 1,
+      cupoPicoSemanalHoras: 2,
+      invitadosPorMes: 4,
+    },
     reservasDelDia: 0,
     horasPicoDeLaSemana: 0,
+    invitadosDelMes: 0,
     acompanantes: [{ nombre: 'Ana Invitada' }],
     ocupados: [],
     ...parche,
@@ -149,7 +154,11 @@ describe('evaluarReservaDeSocio', () => {
           esPico: true,
         },
         horasPicoDeLaSemana: 2,
-        config: { cupoDiarioSocioHoras: 1, cupoPicoSemanalHoras: 3 },
+        config: {
+          cupoDiarioSocioHoras: 1,
+          cupoPicoSemanalHoras: 3,
+          invitadosPorMes: 4,
+        },
       });
 
       expect(evaluarReservaDeSocio(conTresHoras)).toBeNull();
@@ -160,7 +169,11 @@ describe('evaluarReservaDeSocio', () => {
         evaluarReservaDeSocio(
           solicitud({
             reservasDelDia: 1,
-            config: { cupoDiarioSocioHoras: 2, cupoPicoSemanalHoras: 2 },
+            config: {
+              cupoDiarioSocioHoras: 2,
+              cupoPicoSemanalHoras: 2,
+              invitadosPorMes: 4,
+            },
           }),
         ),
       ).toBeNull();
@@ -186,6 +199,110 @@ describe('evaluarReservaDeSocio', () => {
     it('otro socio sí cuenta como acompañante', () => {
       expect(
         evaluarReservaDeSocio(solicitud({ acompanantes: [{ socioId: 8 }] })),
+      ).toBeNull();
+    });
+  });
+
+  describe('invitados del mes (T25)', () => {
+    // Solo cuentan los externos: el socio acompañante es un registro, no un invitado,
+    // y ya tiene su propia membresía pagada.
+    it('el quinto invitado del mes se rechaza', () => {
+      const rechazo = evaluarReservaDeSocio(solicitud({ invitadosDelMes: 4 }));
+
+      expect(rechazo?.tipo).toBe('CUPO_INVITADOS');
+    });
+
+    it('el mensaje dice cuántos lleva, cuál es el límite y cuándo se renueva', () => {
+      // "Límite alcanzado" a secas obliga a llamar al club para saber cuántos van.
+      const rechazo = evaluarReservaDeSocio(solicitud({ invitadosDelMes: 4 }));
+
+      expect(rechazo?.mensaje).toMatch(/4 de 4/);
+      expect(rechazo?.mensaje).toMatch(/1 de septiembre/i);
+    });
+
+    it('el cuarto invitado del mes todavía pasa', () => {
+      expect(
+        evaluarReservaDeSocio(solicitud({ invitadosDelMes: 3 })),
+      ).toBeNull();
+    });
+
+    it('anuncia la renovación del mes del bloque, no la del mes de hoy', () => {
+      // El cupo se cuenta contra el mes en que se va a jugar. Midiendo la renovación
+      // contra hoy, quien reserva en agosto una hora de septiembre con su cupo de
+      // septiembre agotado lee "se renueva el 1 de septiembre": una fecha que llega sin
+      // devolverle nada, porque esos invitados vuelven el 1 de octubre.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          hoyEnElClub: '2026-08-20',
+          bloque: {
+            inicio: new Date('2026-09-05T22:00:00.000Z'),
+            fin: new Date('2026-09-05T23:00:00.000Z'),
+            esPico: false,
+          },
+          invitadosDelMes: 4,
+        }),
+      );
+
+      expect(rechazo?.mensaje).toMatch(/1 de octubre/i);
+    });
+
+    it('cuando declara más de los que le quedan, el mensaje dice cuántos declaró', () => {
+      // "Llevas 2 de 4" junto a un rechazo se lee como una falla del sistema: la
+      // persona ve que le sobran dos cupos y que igual no la dejan reservar.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          invitadosDelMes: 2,
+          acompanantes: [
+            { nombre: 'Ana' },
+            { nombre: 'Beto' },
+            { nombre: 'Carla' },
+          ],
+        }),
+      );
+
+      expect(rechazo?.mensaje).toMatch(/3 invitados/);
+      expect(rechazo?.mensaje).toMatch(/2 de tus 4/);
+    });
+
+    it('cuenta los invitados de esta misma reserva, no solo los anteriores', () => {
+      // Le quedan dos y declara tres de una vez. Mirando solo el historial pasaría, y
+      // el mes terminaría con cinco invitados registrados.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          invitadosDelMes: 2,
+          acompanantes: [
+            { nombre: 'Ana' },
+            { nombre: 'Beto' },
+            { nombre: 'Carla' },
+          ],
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('CUPO_INVITADOS');
+    });
+
+    it('los socios acompañantes no gastan invitados', () => {
+      // Con el cupo mensual agotado, jugar con otro socio sigue siendo posible: es lo
+      // que hace que el límite no se lea como "no puedes reservar más este mes".
+      expect(
+        evaluarReservaDeSocio(
+          solicitud({ invitadosDelMes: 4, acompanantes: [{ socioId: 8 }] }),
+        ),
+      ).toBeNull();
+    });
+
+    it('el límite sale de la configuración', () => {
+      expect(
+        evaluarReservaDeSocio(
+          solicitud({
+            invitadosDelMes: 4,
+            config: {
+              cupoDiarioSocioHoras: 1,
+              cupoPicoSemanalHoras: 2,
+              invitadosPorMes: 8,
+            },
+          }),
+        ),
       ).toBeNull();
     });
   });
@@ -321,6 +438,29 @@ describe('evaluarReservaDeSocio', () => {
       // Los dos rechazan, pero el diario es el que se topa primero y el que explica
       // por qué no puede reservar hoy en ningún horario.
       expect(rechazo?.tipo).toBe('CUPO_DIARIO');
+    });
+
+    it('estar en otra cancha gana al cupo de invitados', () => {
+      // El orden del spec: el conflicto de horario es el paso 8 y los invitados el 9.
+      // Importa porque el choque de horario se arregla eligiendo otra hora, y el cupo
+      // mensual no se arregla con nada hasta el día 1.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          invitadosDelMes: 4,
+          acompanantes: [{ socioId: 8 }, { nombre: 'Ana Invitada' }],
+          ocupados: [
+            {
+              socioId: 8,
+              nombre: 'Camila Soto',
+              cancha: 'Cancha 2',
+              inicio: LUNES_19,
+              fin: new Date('2026-08-18T00:00:00.000Z'),
+            },
+          ],
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('YA_ESTA_EN_OTRA_CANCHA');
     });
   });
 });
