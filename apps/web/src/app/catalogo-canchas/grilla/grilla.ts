@@ -29,6 +29,19 @@ const SUPERFICIES: Record<string, string> = {
   PASTO_SINTETICO: 'Pasto sintético',
 };
 
+/**
+ * Lo que le cuesta la hora al socio: nada. Paga cuota mensual, no la reserva.
+ *
+ * Con nombre y en un solo lugar porque aparece en el bloque y en su etiqueta
+ * accesible: el día que el club cobre la hora pico al socio, el cero suelto habría
+ * quedado en uno de los dos y nadie lo notaría hasta que alguien reclame.
+ *
+ * No viene del servidor a propósito. `BloqueDisponible.montoClp` es la tarifa del
+ * no-socio, y el contrato de `catalogo-canchas` no tiene ni tiene por qué tener un
+ * precio por tipo de persona.
+ */
+const TARIFA_DEL_SOCIO = 0;
+
 @Component({
   selector: 'app-grilla',
   imports: [Reservar],
@@ -52,10 +65,13 @@ const SUPERFICIES: Record<string, string> = {
     <div class="mt-4 flex flex-wrap items-end gap-4">
       <div>
         <label for="fecha" class="block text-sm font-medium">Día</label>
+        <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
+             etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
         <input
           id="fecha"
           type="date"
-          class="mt-1 rounded-lg border border-border bg-card px-3 py-2"
+          class="mt-1 cursor-pointer rounded-lg border border-border bg-card px-3 py-2
+                 transition-colors hover:border-primary"
           [value]="fecha()"
           (change)="cambiarFecha($event)"
         />
@@ -126,6 +142,7 @@ const SUPERFICIES: Record<string, string> = {
                 <button
                   type="button"
                   class="block w-full rounded-xl p-3 text-left"
+                  [class.cursor-pointer]="!noSePuedeTomar(bloque)"
                   [disabled]="noSePuedeTomar(bloque)"
                   [attr.aria-label]="etiqueta(grilla.cancha, bloque)"
                   (click)="elegir(grilla.cancha, bloque)"
@@ -153,8 +170,20 @@ const SUPERFICIES: Record<string, string> = {
                     ></span>
                     Disponible
                   </p>
-                  <p class="mt-1 font-semibold text-accent-strong">
-                    {{ pesos(bloque.montoClp) }}
+                  <!-- Las dos tarifas juntas: un monto suelto no dice a quién le
+                       toca, y el socio leía el precio del arriendo en una hora que
+                       para él es gratis. -->
+                  <p class="mt-1 text-sm">
+                    <span class="font-medium text-muted-foreground">Socio</span>
+                    <span class="font-semibold text-accent-strong">
+                      {{ pesos(tarifaDelSocio) }}
+                    </span>
+                  </p>
+                  <p class="text-sm">
+                    <span class="font-medium text-muted-foreground">Arriendo</span>
+                    <span class="font-semibold text-accent-strong">
+                      {{ pesos(bloque.montoClp) }}
+                    </span>
                   </p>
                   @if (bloque.esPico) {
                     <p class="text-xs text-muted-foreground">Hora pico</p>
@@ -193,6 +222,20 @@ const SUPERFICIES: Record<string, string> = {
         opacity: 0;
         transform: translateY(16px) scale(0.92);
       }
+    }
+
+    /* Que la tarjeta responde al mouse hay que mostrarlo, no solo saberlo: el
+       cursor lo dice sobre el botón y esto lo dice sobre el bloque entero.
+
+       Va en CSS y no con las variantes hover de Tailwind porque el borde y la
+       sombra viven en el li mientras que el hover que importa es el del botón de
+       adentro —el bloque tomado no tiene que iluminarse—, y porque el bloque
+       arrastra hasta 720ms de retardo por el stagger: heredarlo dejaría el hover
+       llegando tarde. Solo color de borde y sombra, así que nada cambia de tamaño
+       y la cuadrícula no salta al pasar el ratón. */
+    .bloque:has(button:not(:disabled):hover) {
+      border-color: var(--color-primary);
+      box-shadow: var(--shadow-md);
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -258,13 +301,23 @@ export class Grilla {
     return bloque.bloqueado || bloque.reservado;
   }
 
-  /** Lo que oye quien navega por teclado antes de abrir el formulario. */
+  /**
+   * Lo que oye quien navega por teclado antes de abrir el formulario.
+   *
+   * **Reemplaza al contenido del botón**, así que lo que no esté acá no existe para
+   * quien usa lector de pantalla: van las dos tarifas —con un solo monto le llega
+   * justo la mitad que falta para decidir— y la hora pico, que no es decoración
+   * porque le gasta al socio un cupo semanal del que solo tiene dos.
+   */
   protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
     const que = this.moviendo() !== null ? 'Mover tu reserva a' : 'Reservar';
 
-    return `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ${this.hora(
-      bloque.fin,
-    )}, ${this.pesos(bloque.montoClp)}`;
+    return (
+      `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
+      `${this.hora(bloque.fin)}, socio ${this.pesos(TARIFA_DEL_SOCIO)}, ` +
+      `arriendo ${this.pesos(bloque.montoClp)}` +
+      (bloque.esPico ? ', hora pico' : '')
+    );
   }
 
   protected async elegir(
@@ -322,6 +375,7 @@ export class Grilla {
 
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
+  protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
   protected readonly diaEnPalabras = diaEnPalabras;
 
   protected motivo(motivo: BloqueDisponible['motivoBloqueo']): string {

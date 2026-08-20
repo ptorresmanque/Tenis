@@ -105,6 +105,58 @@ describe('Grilla', () => {
     expect(texto()).toContain('$20.000');
   });
 
+  it('separa lo que paga el socio de lo que paga quien arrienda', () => {
+    // Un monto suelto no dice a quién le toca. El socio leía "$12.000" en una hora
+    // que para él es gratis, y el visitante no sabía si ese precio era el suyo.
+    const libre = bloques()[0].textContent ?? '';
+
+    expect(libre).toContain('Socio');
+    expect(libre).toContain('$0');
+    expect(libre).toContain('Arriendo');
+    expect(libre).toContain('$12.000');
+  });
+
+  it('dice las dos tarifas también a quien navega por teclado', () => {
+    const etiqueta = bloques()[0]
+      .querySelector('button')
+      ?.getAttribute('aria-label');
+
+    // La etiqueta es lo único que oye quien no ve el bloque: si trae un solo monto,
+    // le llega justo la mitad que la tarea vino a arreglar.
+    expect(etiqueta).toContain('socio $0');
+    expect(etiqueta).toContain('arriendo $12.000');
+  });
+
+  it('la etiqueta también avisa que es hora pico', () => {
+    // El `aria-label` reemplaza al contenido del botón, así que lo que no esté acá
+    // no existe para quien usa lector de pantalla. Y la hora pico no es decoración:
+    // le gasta al socio un cupo semanal del que solo tiene dos.
+    const etiquetas = bloques().map((b) =>
+      b.querySelector('button')?.getAttribute('aria-label'),
+    );
+
+    expect(etiquetas[2]).toContain('hora pico');
+    expect(etiquetas[0]).not.toContain('hora pico');
+  });
+
+  it('el bloque que se puede tomar se ve clickeable; el que no, no', () => {
+    // La grilla entera es una cuadrícula de tarjetas iguales y nada anunciaba que
+    // fueran botones. El cursor es la señal que el mouse da antes del clic.
+    const libre = bloques()[0].querySelector('button');
+    const enMantencion = bloques()[1].querySelector('button');
+
+    expect(libre?.classList.contains('cursor-pointer')).toBe(true);
+    expect(enMantencion?.classList.contains('cursor-pointer')).toBe(false);
+  });
+
+  it('el selector de día también se anuncia como clickeable', () => {
+    const fecha = (fixture.nativeElement as HTMLElement).querySelector(
+      'input[type="date"]',
+    );
+
+    expect(fecha?.classList.contains('cursor-pointer')).toBe(true);
+  });
+
   it('avisa cuál es hora pico', () => {
     expect(texto()).toContain('Hora pico');
   });
