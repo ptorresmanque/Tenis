@@ -36,19 +36,23 @@ describe('Sesión, login y logout', () => {
     await app.close();
   });
 
-  beforeEach(async () => {
-    await prisma.usuario.deleteMany({
-      where: { email: { endsWith: DOMINIO } },
-    });
-    await prisma.usuario.create({
+  /** Una cuenta de este archivo, con la contraseña de siempre. */
+  const crearCuenta = async (correo: string) =>
+    prisma.usuario.create({
       data: {
-        email,
+        email: correo,
         nombre: 'Carolina',
         apellido: 'Díaz',
         emailVerificado: true,
         passwordHash: await hashear(CONTRASENA),
       },
     });
+
+  beforeEach(async () => {
+    await prisma.usuario.deleteMany({
+      where: { email: { endsWith: DOMINIO } },
+    });
+    await crearCuenta(email);
   });
 
   // Jest corre los archivos en paralelo: las sesiones se cuentan solo para las
@@ -87,6 +91,65 @@ describe('Sesión, login y logout', () => {
     // sus propios tests en src/identidad/sesion/cookie.spec.ts.
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('SameSite=Lax');
+  });
+
+  describe('freno a la fuerza bruta', () => {
+    // Cada test usa su propio correo. El contador vive en memoria del proceso y no en
+    // la base, así que no lo limpia el `beforeEach`: compartir correo entre estos
+    // tests los haría depender del orden, y de paso dejaría bloqueada a la cuenta que
+    // usa el resto del archivo.
+    const malaClave = (correo: string) =>
+      login({ email: correo, contrasena: 'no-es-la-que-va' });
+
+    const gastarLosIntentos = async (correo: string) => {
+      for (let i = 0; i < 5; i++) await malaClave(correo);
+    };
+
+    it('tras cinco contraseñas malas, la sexta recibe 429 y no otro 401', async () => {
+      // Sin esto, probar mil claves contra una cuenta es cuestión de minutos. El 429
+      // se distingue del 401 a propósito: quien de verdad se equivocó tiene que poder
+      // leer "espera un rato" en vez de seguir intentando.
+      const correo = `bloqueo-uno${DOMINIO}`;
+      await gastarLosIntentos(correo);
+
+      const respuesta = await malaClave(correo);
+
+      expect(respuesta.status).toBe(429);
+      expect(respuesta.body.message).toMatch(/quince minutos/i);
+    });
+
+    it('bloqueada la cuenta, la contraseña correcta tampoco entra', async () => {
+      // Si la buena pasara igual, el freno no serviría: bastaría con seguir probando.
+      const correo = `bloqueo-dos${DOMINIO}`;
+      await crearCuenta(correo);
+      await gastarLosIntentos(correo);
+
+      expect(
+        (await login({ email: correo, contrasena: CONTRASENA })).status,
+      ).toBe(429);
+    });
+
+    it('bloquear una cuenta no deja afuera a las demás del club', async () => {
+      // El club entero sale por una sola IP: si el freno fuera por IP a secas, un
+      // socio equivocándose dejaría sin entrar a todos los demás.
+      await gastarLosIntentos(`bloqueo-tres${DOMINIO}`);
+
+      expect((await malaClave(`vecina${DOMINIO}`)).status).toBe(401);
+    });
+
+    it('entrar bien borra los intentos fallidos anteriores', async () => {
+      // Quien tecleó mal cuatro veces y entra a la quinta no puede quedar a un error
+      // del bloqueo por el resto del cuarto de hora.
+      const correo = `bloqueo-cuatro${DOMINIO}`;
+      await crearCuenta(correo);
+
+      for (let i = 0; i < 4; i++) await malaClave(correo);
+      await login({ email: correo, contrasena: CONTRASENA }).expect(204);
+
+      for (let i = 0; i < 4; i++) {
+        expect((await malaClave(correo)).status).toBe(401);
+      }
+    });
   });
 
   it('con la API en https la cookie sale con Secure', async () => {

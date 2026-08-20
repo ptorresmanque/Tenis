@@ -4,6 +4,7 @@ import { AppModule } from '../src/app.module';
 import {
   ConceptoPago,
   EstadoReserva,
+  EstadoSocio,
   EstadoTransaccion,
   Superficie,
 } from '../src/generated/prisma/client';
@@ -246,6 +247,289 @@ describe('Modificación y cancelación de reservas', () => {
           horasAntes(LUNES_20, 10),
         ),
       ).rejects.toMatchObject({ status: 409 });
+    });
+  });
+
+  describe('una reserva pagada no cambia de tarifa al moverse', () => {
+    /** Una cancha cuya hora de las 21:00 vale $20.000, no $12.000. */
+    const unaCanchaCara = async () => {
+      const cara = await prisma.cancha.create({
+        data: {
+          nombre: `${NOMBRE_CANCHA} cara`,
+          superficie: Superficie.CEMENTO,
+          horarios: {
+            create: [
+              { diaSemana: 1, horaApertura: '08:00', horaCierre: '22:00' },
+              { diaSemana: 2, horaApertura: '08:00', horaCierre: '22:00' },
+            ],
+          },
+          franjas: {
+            create: {
+              horaDesde: '08:00',
+              horaHasta: '22:00',
+              montoClp: 20000,
+              esPico: true,
+              vigenteDesde: new Date('2026-01-01'),
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      return cara.id;
+    };
+
+    it('mover a un bloque más caro se rechaza en vez de regalar la diferencia', async () => {
+      // Pagó $12.000 por una hora valle. Movida a una de $20.000, el club entrega una
+      // hora que vende más cara sin cobrar nada, y si después se cancela dentro de
+      // plazo devuelve $12.000 por algo que valía $20.000.
+      const reserva = await unaReservaPagada();
+      const cara = await unaCanchaCara();
+
+      await expect(
+        modificacion.modificar(
+          reserva.id,
+          { canchaId: cara, inicio: MARTES_20 },
+          admin,
+          horasAntes(LUNES_20, 30),
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('el rechazo dice los dos montos y qué hacer', async () => {
+      const reserva = await unaReservaPagada();
+      const cara = await unaCanchaCara();
+
+      await expect(
+        modificacion.modificar(
+          reserva.id,
+          { canchaId: cara, inicio: MARTES_20 },
+          admin,
+          horasAntes(LUNES_20, 30),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          motivo: 'CAMBIA_LA_TARIFA',
+          message: expect.stringContaining('20.000'),
+        },
+      });
+    });
+
+    it('la reserva del socio se mueve igual: no pagó nada que cuadrar', async () => {
+      // El socio no compra la hora, la descuenta de su cupo. Aplicarle esta regla le
+      // impediría mover su hora a un horario pico sin razón alguna.
+      const cara = await unaCanchaCara();
+      const suya = await prisma.reserva.create({
+        data: {
+          folio: 'T24SOC2',
+          canchaId,
+          inicio: LUNES_20,
+          fin: new Date(LUNES_20.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          nombre: 'Socio',
+          email: 'socio@ejemplo.cl',
+          telefono: '',
+        },
+      });
+
+      const movida = await modificacion.modificar(
+        suya.id,
+        { canchaId: cara, inicio: MARTES_20 },
+        admin,
+        horasAntes(LUNES_20, 30),
+      );
+
+      expect(movida.canchaId).toBe(cara);
+    });
+  });
+
+  describe('los cupos del socio se reevalúan al mover', () => {
+    // Sin esto, mover es la puerta de atrás de todas las reglas: se reserva una hora
+    // que pasa los cupos y después se la lleva a donde no habría pasado.
+    let socioId: number;
+
+    const unSocio = async (
+      sufijo: string,
+      parche: { alDiaHasta?: Date } = {},
+    ) => {
+      const usuario = await prisma.usuario.create({
+        data: {
+          email: `socio-${sufijo}@t24mover.cl`,
+          nombre: `Socio ${sufijo}`,
+          apellido: 'De prueba',
+          emailVerificado: true,
+          socio: {
+            create: {
+              numeroSocio: `T24M-${sufijo}-${Date.now()}`,
+              estado: EstadoSocio.ACTIVO,
+              fechaIngreso: new Date('2026-01-01'),
+              alDiaHasta: parche.alDiaHasta ?? new Date('2027-01-01'),
+            },
+          },
+        },
+        select: { socio: { select: { id: true } } },
+      });
+
+      return usuario.socio!.id;
+    };
+
+    /** Una reserva del socio en ese bloque, como la que crea `reservarComoSocio`. */
+    const suReserva = async (inicio: Date, canchaDe = canchaId) =>
+      prisma.reserva.create({
+        data: {
+          folio: `S${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+          canchaId: canchaDe,
+          inicio,
+          fin: new Date(inicio.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          socioId,
+          nombre: 'Socio',
+          email: 'socio@ejemplo.cl',
+          telefono: '',
+          acompanantes: { create: { nombre: 'Ana Invitada' } },
+        },
+      });
+
+    beforeEach(async () => {
+      await prisma.usuario.deleteMany({
+        where: { email: { endsWith: '@t24mover.cl' } },
+      });
+      socioId = await unSocio('titular');
+    });
+
+    afterAll(async () => {
+      await prisma.usuario.deleteMany({
+        where: { email: { endsWith: '@t24mover.cl' } },
+      });
+    });
+
+    it('no se puede mover a un día en el que ya tiene su hora', async () => {
+      // El cupo diario es 1. Con dos reservas —lunes y martes— mover la del lunes al
+      // martes lo dejaría con dos horas ese día, que es justo lo que el cupo impide.
+      const delLunes = await suReserva(LUNES_20);
+      await suReserva(MARTES_20);
+
+      await expect(
+        modificacion.modificar(
+          delLunes.id,
+          { canchaId: otraCanchaId, inicio: MARTES_20 },
+          admin,
+          horasAntes(LUNES_20, 30),
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('el socio que quedó moroso después de reservar tampoco mueve su hora', async () => {
+      // "Las que ya tenía se mantienen" (SPEC.md) es sobre conservarlas, no sobre
+      // seguir usándolas como si estuviera al día.
+      socioId = await unSocio('moroso', { alDiaHasta: new Date('2026-07-31') });
+      const suya = await suReserva(LUNES_20);
+
+      await expect(
+        modificacion.modificar(
+          suya.id,
+          { canchaId: otraCanchaId, inicio: MARTES_20 },
+          admin,
+          horasAntes(LUNES_20, 30),
+        ),
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('dos movimientos simultáneos no lo dejan con dos horas el mismo día', async () => {
+      // La misma carrera que se cerró al reservar, por el otro camino: dos peticiones
+      // suyas evalúan a la vez, cada una se excluye a sí misma, las dos cuentan cero
+      // reservas el martes y las dos pasan. El índice único no lo atrapa porque son
+      // bloques distintos.
+      const otroBloqueDelLunes = new Date(LUNES_20.getTime() - 60 * 60 * 1000);
+      const otroBloqueDelMartes = new Date(
+        MARTES_20.getTime() - 60 * 60 * 1000,
+      );
+      const primera = await suReserva(LUNES_20);
+      const segunda = await suReserva(otroBloqueDelLunes);
+
+      await Promise.allSettled([
+        modificacion.modificar(
+          primera.id,
+          { canchaId: otraCanchaId, inicio: MARTES_20 },
+          admin,
+          horasAntes(otroBloqueDelLunes, 30),
+        ),
+        modificacion.modificar(
+          segunda.id,
+          { canchaId: otraCanchaId, inicio: otroBloqueDelMartes },
+          admin,
+          horasAntes(otroBloqueDelLunes, 30),
+        ),
+      ]);
+
+      const elMartes = await prisma.reserva.count({
+        where: {
+          socioId,
+          estado: EstadoReserva.CONFIRMADA,
+          inicio: { gte: otroBloqueDelMartes, lte: MARTES_20 },
+        },
+      });
+
+      expect(elMartes).toBe(1);
+    });
+
+    it('la reserva sin acompañantes anotados se mueve igual', async () => {
+      // Declarar con quién se juega es una regla de reservar, no de mover: los
+      // acompañantes no cambian al cambiar la hora. Aplicarla acá dejaría inmóvil a
+      // toda reserva que el club anotó a mano, que es la que más suele necesitarlo.
+      const suya = await prisma.reserva.create({
+        data: {
+          folio: 'T24SINAC',
+          canchaId,
+          inicio: LUNES_20,
+          fin: new Date(LUNES_20.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          socioId,
+          nombre: 'Socio',
+          email: 'socio@ejemplo.cl',
+          telefono: '',
+        },
+      });
+
+      const movida = await modificacion.modificar(
+        suya.id,
+        { canchaId: otraCanchaId, inicio: MARTES_20 },
+        admin,
+        horasAntes(LUNES_20, 30),
+      );
+
+      expect(movida.inicio).toEqual(MARTES_20);
+    });
+
+    it('mover dentro del mismo día sigue siendo posible', async () => {
+      // La reserva no puede contarse a sí misma: si lo hiciera, el cupo diario de 1
+      // haría imposible cambiar la hora dentro del mismo día, que es lo más común.
+      const suya = await suReserva(LUNES_20);
+      const dosHorasAntes = new Date(LUNES_20.getTime() - 2 * 60 * 60 * 1000);
+
+      const movida = await modificacion.modificar(
+        suya.id,
+        { canchaId: otraCanchaId, inicio: dosHorasAntes },
+        admin,
+        horasAntes(LUNES_20, 30),
+      );
+
+      expect(movida.inicio).toEqual(dosHorasAntes);
+    });
+
+    it('cambiarse de cancha a la misma hora no se lee como estar en dos canchas', async () => {
+      // La regla mira si el socio está comprometido en otra cancha a esa hora, y la
+      // reserva que se está moviendo lo está: sin excluirla, se rechaza a sí misma.
+      const suya = await suReserva(LUNES_20);
+
+      const movida = await modificacion.modificar(
+        suya.id,
+        { canchaId: otraCanchaId, inicio: LUNES_20 },
+        admin,
+        horasAntes(LUNES_20, 30),
+      );
+
+      expect(movida.canchaId).toBe(otraCanchaId);
     });
   });
 

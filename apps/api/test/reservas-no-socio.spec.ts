@@ -278,6 +278,24 @@ describe('Reserva de no-socio con pago', () => {
     expect(pasarela.ordenes).toHaveLength(0);
   });
 
+  it('un objeto en lugar de un nombre se rechaza, no se guarda como "[object Object]"', async () => {
+    // `String({})` da "[object Object]", que no está vacío y pasaba la validación: la
+    // reserva quedaba a nombre de eso y el panel del club lo mostraba tal cual. Lo
+    // señalaba `no-base-to-string` en el lint, que llevaba tiempo sin mirarse.
+    const respuesta = await reservarYPagar({ nombre: { a: 1 } });
+
+    expect(respuesta.status).toBe(400);
+    expect(pasarela.ordenes).toHaveLength(0);
+    expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
+  });
+
+  it('un arreglo en el teléfono tampoco pasa', async () => {
+    // `String(['+569', '1234'])` da "+569,1234": pasaba entero como teléfono.
+    const respuesta = await reservarYPagar({ telefono: ['+569', '1234'] });
+
+    expect(respuesta.status).toBe(400);
+  });
+
   it('un token de retorno desconocido no rompe la página', async () => {
     const retorno = await volverDeWebpay('token-que-no-existe');
 

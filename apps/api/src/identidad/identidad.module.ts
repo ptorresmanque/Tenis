@@ -8,6 +8,7 @@ import { GoogleService } from './google/google.service';
 import { RegistroController } from './registro.controller';
 import { RegistroService } from './registro.service';
 import { SesionController } from './sesion/sesion.controller';
+import { IntentosFallidos } from './intentos';
 import { SesionService } from './sesion/sesion.service';
 import { YoController } from './yo.controller';
 
@@ -21,6 +22,7 @@ import { YoController } from './yo.controller';
   providers: [
     RegistroService,
     SesionService,
+    IntentosFallidos,
     GoogleService,
     { provide: ProveedorGoogle, useClass: GoogleOAuth },
     { provide: EnviadorCorreo, useClass: EnviadorPorConsola },
