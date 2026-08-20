@@ -30,15 +30,19 @@ async function levantar(
   return app;
 }
 
+/**
+ * La ruta pública devuelve solo `estado`: desde T27, el detalle del motor vive en
+ * `/api/salud/detalle`, tras `@SoloAdmin()`, y se prueba en `test/salud-detalle.spec.ts`.
+ */
 async function pedirSalud(
   app: INestApplication,
   estadoHttpEsperado: number,
-): Promise<EstadoSalud> {
+): Promise<Pick<EstadoSalud, 'estado'>> {
   const respuesta = await request(app.getHttpServer() as Server)
     .get('/api/salud')
     .expect(estadoHttpEsperado);
 
-  return respuesta.body as EstadoSalud;
+  return respuesta.body as Pick<EstadoSalud, 'estado'>;
 }
 
 describe('GET /api/salud', () => {
@@ -53,18 +57,18 @@ describe('GET /api/salud', () => {
       await app.close();
     });
 
-    it('responde 200 e informa que la base está conectada', async () => {
+    it('responde 200 y dice que el sistema está sano', async () => {
       const cuerpo = await pedirSalud(app, 200);
 
-      expect(cuerpo.baseDatos.conectado).toBe(true);
+      expect(cuerpo.estado).toBe('ok');
     });
 
-    it('reporta la versión que informa el motor, no una constante del código', async () => {
-      const cuerpo = await pedirSalud(app, 200);
+    it('no cuenta con qué motor corre el club', async () => {
+      const respuesta = await request(app.getHttpServer() as Server)
+        .get('/api/salud')
+        .expect(200);
 
-      // El dato viene de SELECT VERSION() en MariaDB. Si alguien reemplaza la consulta
-      // por un literal, este formato deja de coincidir con lo que el motor devuelve.
-      expect(cuerpo.baseDatos.versionMotor).toMatch(/^\d+\.\d+\.\d+.*MariaDB/i);
+      expect(JSON.stringify(respuesta.body)).not.toMatch(/MariaDB/i);
     });
   });
 
@@ -85,11 +89,10 @@ describe('GET /api/salud', () => {
       await pedirSalud(app, 503);
     });
 
-    it('reporta la base como desconectada y sin versión', async () => {
+    it('se reporta degradado, sin obligar a quien monitorea a leer el detalle', async () => {
       const cuerpo = await pedirSalud(app, 503);
 
-      expect(cuerpo.baseDatos.conectado).toBe(false);
-      expect(cuerpo.baseDatos.versionMotor).toBeNull();
+      expect(cuerpo.estado).toBe('degradado');
     });
   });
 });

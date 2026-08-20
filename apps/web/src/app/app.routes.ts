@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { soloAdmin } from './core/auth/solo-admin.guard';
+import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 
 export const routes: Routes = [
   {
@@ -50,11 +51,13 @@ export const routes: Routes = [
   {
     path: 'registro',
     title: 'Crear cuenta — Club de Tenis',
+    canActivate: [soloVisitantes],
     loadComponent: () => import('./identidad/registro/registro').then((m) => m.Registro),
   },
   {
     path: 'estado',
-    title: 'Estado del sistema — Club de Tenis',
+    title: 'Estado del sistema — Administración',
+    canActivate: [soloAdmin],
     loadComponent: () => import('./estado/estado').then((m) => m.Estado),
   },
   { path: '**', redirectTo: '' },

@@ -56,5 +56,9 @@ export interface EstadoSalud {
   `,
 })
 export class Estado {
-  protected readonly salud = httpResource<EstadoSalud>(() => '/api/salud');
+  // `/detalle` y no `/api/salud`: la ruta pública dice solo si el sistema está sano.
+  // La versión del motor sale del servidor únicamente para el admin.
+  protected readonly salud = httpResource<EstadoSalud>(
+    () => '/api/salud/detalle',
+  );
 }
