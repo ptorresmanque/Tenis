@@ -39,6 +39,7 @@ describe('AdminCanchasPanel', () => {
     advertencias: ReturnType<typeof vi.fn>;
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
+    eliminar: ReturnType<typeof vi.fn>;
     bloqueos: ReturnType<typeof vi.fn>;
   };
 
@@ -51,6 +52,7 @@ describe('AdminCanchasPanel', () => {
       advertencias: vi.fn().mockResolvedValue(advertencias),
       crear: vi.fn().mockResolvedValue(canchas[0]),
       editar: vi.fn().mockResolvedValue(canchas[0]),
+      eliminar: vi.fn().mockResolvedValue(undefined),
       // Lo pide el editor de bloqueos, que el panel monta dentro de cada cancha.
       bloqueos: vi.fn().mockResolvedValue([]),
     };
@@ -105,6 +107,56 @@ describe('AdminCanchasPanel', () => {
 
     expect(api.editar).toHaveBeenCalledWith(1, { activa: false });
     expect(texto()).toContain('Sus reservas siguen ahí');
+  });
+
+  describe('eliminación (T29)', () => {
+    it('pregunta antes de borrar, y nombra la cancha en la pregunta', async () => {
+      const preguntado = vi
+        .spyOn(window, 'confirm')
+        .mockReturnValue(false);
+
+      boton('Eliminar')?.click();
+      await fixture.whenStable();
+
+      // Cancelar deja todo como estaba: borrar una cancha no se deshace.
+      expect(preguntado.mock.calls[0][0]).toContain('Cancha 1');
+      expect(api.eliminar).not.toHaveBeenCalled();
+    });
+
+    it('confirmado, la borra y la saca de la lista', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      api.canchas.mockResolvedValue([]);
+
+      boton('Eliminar')?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(api.eliminar).toHaveBeenCalledWith(1);
+      // Por el encabezado y no por el texto de la página: el aviso de que se borró
+      // también nombra la cancha, y buscarla en todo el texto pasaría siempre.
+      const nombres = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('h3'),
+      ).map((h) => h.textContent?.trim());
+      expect(nombres).not.toContain('Cancha 1');
+    });
+
+    it('si el servidor dice que tiene historial, lo repite tal cual', async () => {
+      // El mensaje del servidor explica qué hacer —desactivarla— y cuántas
+      // reservas hay en juego. Uno genérico manda al admin a adivinar.
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      api.eliminar.mockRejectedValue({
+        error: {
+          message: 'Esta cancha tiene 3 reservas en su historial. Desactívala.',
+        },
+      });
+
+      boton('Eliminar')?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(texto()).toContain('Desactívala');
+      expect(texto()).toContain('Cancha 1');
+    });
   });
 
   describe('advertencias de tarifa', () => {

@@ -49,6 +49,12 @@ export class AdminCanchasController {
     return this.servicio.editar(id, leerCambiosDeCancha(cuerpo));
   }
 
+  @Delete('canchas/:id')
+  @HttpCode(204)
+  eliminar(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    return this.servicio.eliminar(id);
+  }
+
   @Put('canchas/:id/horarios')
   horarios(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
     return this.servicio.fijarHorarios(id, leerHorarios(cuerpo));

@@ -167,6 +167,18 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 >
                   {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
                 </button>
+
+                <!-- Para la cancha creada por error. La que el club dejó de usar se
+                     desactiva; el servidor no deja borrar una con historial. -->
+                <button
+                  type="button"
+                  class="cursor-pointer rounded-md border border-destructive px-3 py-1
+                         text-sm font-medium text-destructive transition-colors
+                         hover:bg-destructive/10"
+                  (click)="eliminar(cancha)"
+                >
+                  Eliminar
+                </button>
               </div>
 
               <p class="mt-1 text-sm text-muted-foreground">
@@ -260,6 +272,39 @@ export class AdminCanchasPanel {
           ? `${cancha.nombre} salió de la grilla pública. Sus reservas siguen ahí.`
           : `${cancha.nombre} volvió a la grilla.`,
       );
+      this.recargar();
+    } catch (falla) {
+      this.error.set(this.mensajeDe(falla));
+    }
+  }
+
+  /**
+   * Borra la cancha, después de preguntar.
+   *
+   * `confirm` nativo y no un diálogo propio: es una pregunta de sí o no, el
+   * navegador ya la sabe hacer con foco y teclado, y un modal a medida sería
+   * cincuenta líneas para lo mismo. Si el club pide algo más elaborado —escribir el
+   * nombre para confirmar—, ahí se cambia.
+   *
+   * Quién puede borrarse lo decide el servidor: con historial responde 409 y su
+   * mensaje se muestra tal cual.
+   */
+  protected async eliminar(cancha: CanchaAdmin): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+
+    if (
+      !confirm(
+        `¿Eliminar ${cancha.nombre}? Se van con ella su horario, sus tarifas y ` +
+          'sus bloqueos. Esto no se puede deshacer.',
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await this.api.eliminar(cancha.id);
+      this.aviso.set(`${cancha.nombre} ya no está en el club.`);
       this.recargar();
     } catch (falla) {
       this.error.set(this.mensajeDe(falla));
