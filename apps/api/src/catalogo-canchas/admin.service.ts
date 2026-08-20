@@ -77,6 +77,48 @@ export class AdminCanchasService {
   }
 
   /**
+   * Borra una cancha, pero solo si nunca tuvo una reserva.
+   *
+   * Desactivar y eliminar responden a dos situaciones distintas: la cancha que el
+   * club dejó de usar, y la que alguien creó con el nombre mal escrito. Sin esto,
+   * el panel acumula para siempre las equivocaciones de tipeo.
+   *
+   * **El 409 protege el historial.** `Reserva.canchaId` borra en cascada, así que
+   * eliminar una cancha con reservas se lleva lo que el club facturó y deja las
+   * transacciones de `pagos` —que apuntan a la reserva por `conceptoId`, sin
+   * foreign key— señalando filas que ya no existen. Cuenta **todas** las reservas,
+   * también canceladas y expiradas: son historial igual.
+   *
+   * Va en el servidor y no como aviso del panel porque el 409 tiene que valer
+   * también para quien llame la API a mano.
+   *
+   * ponytail: entre el conteo y el borrado cabe una reserva nueva, que se iría en
+   * la cascada. La ventana es de milisegundos sobre una cancha que el admin acaba
+   * de ver sin historial. Cerrarla de verdad es cambiar la FK a `Restrict` y
+   * traducir el error de la base; hoy eso rompería la limpieza de media suite de
+   * tests, que borra canchas contando con la cascada.
+   */
+  async eliminar(id: number): Promise<void> {
+    await this.laCancha(id);
+
+    const reservas = await this.prisma.reserva.count({
+      where: { canchaId: id },
+    });
+
+    if (reservas > 0) {
+      throw new ConflictException(
+        `Esta cancha tiene ${reservas === 1 ? 'una reserva' : `${reservas} reservas`} ` +
+          'en su historial y borrarla se las llevaría. Desactívala: sale de la ' +
+          'grilla pública y el historial se mantiene.',
+      );
+    }
+
+    // Horarios, tarifas y bloqueos se van con ella por la cascada del schema: no
+    // significan nada sin su cancha.
+    await this.prisma.cancha.delete({ where: { id } });
+  }
+
+  /**
    * Reemplaza el horario completo de una cancha.
    *
    * En una transacción: si el borrado saliera y la escritura no, la cancha

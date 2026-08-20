@@ -98,6 +98,14 @@ export class AdminCanchas {
     );
   }
 
+  /**
+   * Borra la cancha. El servidor responde 409 si tiene historial: la regla vive
+   * allá, así que el panel no la repite y solo muestra lo que le contestan.
+   */
+  eliminar(id: number): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/admin/canchas/${id}`));
+  }
+
   fijarHorarios(
     canchaId: number,
     horarios: Omit<Horario, 'id'>[],

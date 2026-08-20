@@ -117,6 +117,7 @@ describe('Administración de canchas', () => {
       ['get', '/api/admin/canchas'],
       ['post', '/api/admin/canchas'],
       ['patch', '/api/admin/canchas/1'],
+      ['delete', '/api/admin/canchas/1'],
       ['put', '/api/admin/canchas/1/horarios'],
       ['post', '/api/admin/franjas'],
       ['delete', '/api/admin/franjas/1'],
@@ -252,6 +253,121 @@ describe('Administración de canchas', () => {
       expect((todas.body as { id: number }[]).map((c) => c.id)).toContain(
         cancha.id,
       );
+    });
+  });
+
+  describe('eliminación (T29)', () => {
+    /**
+     * Una reserva de las que ya no le sirven a nadie: cancelada y del año pasado.
+     * Es a propósito el caso más flojo posible — si ni siquiera esta protege a la
+     * cancha del borrado, el historial del club no está protegido por nada.
+     */
+    const conUnaReservaCancelada = async (canchaId: number) => {
+      await prisma.reserva.create({
+        data: {
+          folio: `T29${canchaId}`,
+          canchaId,
+          inicio: new Date('2025-03-04T14:00:00.000Z'),
+          fin: new Date('2025-03-04T15:00:00.000Z'),
+          estado: 'CANCELADA',
+          canceladaEn: new Date('2025-03-03T10:00:00.000Z'),
+          nombre: 'Visitante de prueba',
+          email: 'visita@t29.test',
+          telefono: '+56900000000',
+        },
+      });
+    };
+
+    it('borra de verdad una cancha que nunca tuvo reservas', async () => {
+      const cancha = await nuevaCancha();
+
+      await request(servidor())
+        .delete(`/api/admin/canchas/${cancha.id}`)
+        .set('Cookie', admin)
+        .expect(204);
+
+      expect(
+        await prisma.cancha.findUnique({ where: { id: cancha.id } }),
+      ).toBeNull();
+    });
+
+    it('se lleva con ella su horario, sus tarifas y sus bloqueos', async () => {
+      const cancha = await nuevaCancha();
+
+      await request(servidor())
+        .put(`/api/admin/canchas/${cancha.id}/horarios`)
+        .set('Cookie', admin)
+        .send([{ diaSemana: 1, horaApertura: '08:00', horaCierre: '22:00' }])
+        .expect(200);
+      await request(servidor())
+        .post('/api/admin/franjas')
+        .set('Cookie', admin)
+        .send({
+          canchaId: cancha.id,
+          diaSemana: null,
+          horaDesde: '08:00',
+          horaHasta: '22:00',
+          esPico: false,
+          montoClp: 15000,
+          vigenteDesde: '2026-01-01',
+        })
+        .expect(201);
+      await request(servidor())
+        .post('/api/admin/bloqueos')
+        .set('Cookie', admin)
+        .send({
+          canchaId: cancha.id,
+          fechaDesde: '2026-09-01',
+          horaDesde: '10:00',
+          fechaHasta: '2026-09-01',
+          horaHasta: '11:00',
+          motivo: 'MANTENCION',
+        })
+        .expect(201);
+
+      await request(servidor())
+        .delete(`/api/admin/canchas/${cancha.id}`)
+        .set('Cookie', admin)
+        .expect(204);
+
+      // No significan nada sin su cancha, y si quedaran, el próximo `id`
+      // reutilizado heredaría el horario de una cancha que ya no existe.
+      expect(
+        await prisma.horarioApertura.count({ where: { canchaId: cancha.id } }),
+      ).toBe(0);
+      expect(
+        await prisma.franjaHoraria.count({ where: { canchaId: cancha.id } }),
+      ).toBe(0);
+      expect(
+        await prisma.bloqueo.count({ where: { canchaId: cancha.id } }),
+      ).toBe(0);
+    });
+
+    it('se niega a borrar una cancha con historial, y dice qué hacer', async () => {
+      // **El test obligatorio de T29.** `Reserva.canchaId` borra en cascada: sin
+      // este 409, eliminar una cancha se lleva las reservas del club y deja las
+      // transacciones de `pagos` apuntando a reservas que ya no existen.
+      const cancha = await nuevaCancha();
+      await conUnaReservaCancelada(cancha.id);
+
+      const respuesta = await request(servidor())
+        .delete(`/api/admin/canchas/${cancha.id}`)
+        .set('Cookie', admin)
+        .expect(409);
+
+      expect((respuesta.body as { message: string }).message).toContain(
+        'Desactívala',
+      );
+      expect(
+        await prisma.cancha.findUnique({ where: { id: cancha.id } }),
+      ).not.toBeNull();
+    });
+
+    it('borrar una cancha que no existe responde 404', async () => {
+      await request(servidor())
+        .delete('/api/admin/canchas/999999')
+        .set('Cookie', admin)
+        .expect(404);
     });
   });
 
