@@ -57,3 +57,29 @@ execFileSync('npx', ['prisma', 'migrate', 'deploy'], {
   stdio: 'inherit',
   env: { ...process.env, DATABASE_URL: urlTest },
 });
+
+// Las transacciones sobrevivientes se borran antes de cada suite.
+//
+// `Transaccion` apunta a `Reserva` por `concepto` + `concepto_id` y no por una foreign
+// key —el pago puede ser de una reserva o, mañana, de una cuota—, así que cuando un
+// spec borra sus canchas las reservas caen en cascada y sus transacciones quedan.
+// Se habían juntado 1.187.
+//
+// Eso es lo que producía el fallo intermitente que rondó desde T24: MariaDB recalcula
+// el AUTO_INCREMENT como MAX(id)+1 al reiniciar el servidor, y la tabla `reserva`
+// queda vacía al terminar la suite. Tras un reinicio, las reservas nuevas vuelven a
+// numerarse desde 1 y caen sobre los `concepto_id` de las huérfanas: entonces el test
+// que exige que la reserva del socio no tenga pago detrás encuentra uno, y falla sin
+// que nada del código haya cambiado.
+//
+// Se hace por SQL con el CLI y no con el cliente de Prisma porque este script es un
+// `.mjs` suelto y el cliente generado es TypeScript: cargarlo obligaría a compilar
+// antes de poder preparar la base para compilar.
+// La URL va por el entorno y no por `--url`: Prisma 7 la lee de `prisma.config.ts`,
+// que a su vez toma `DATABASE_URL`. Es la misma forma en que se invoca `migrate deploy`
+// unas líneas más arriba.
+execFileSync('npx', ['prisma', 'db', 'execute', '--stdin'], {
+  input: 'DELETE FROM transaccion;',
+  stdio: ['pipe', 'inherit', 'inherit'],
+  env: { ...process.env, DATABASE_URL: urlTest },
+});

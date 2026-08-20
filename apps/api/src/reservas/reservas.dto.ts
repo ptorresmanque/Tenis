@@ -45,7 +45,9 @@ function entero(valor: unknown, campo: string): number {
 }
 
 function instante(valor: unknown): Date {
-  const fecha = new Date(String(valor ?? ''));
+  // Solo `string`: convertir con `String()` acepta objetos y arreglos, que llegan como
+  // "[object Object]" y hay que descartar igual, pero por un camino menos claro.
+  const fecha = new Date(typeof valor === 'string' ? valor : NaN);
 
   if (Number.isNaN(fecha.getTime())) {
     // Sin este guardia, una fecha inválida sale como 500 y parece que la API está

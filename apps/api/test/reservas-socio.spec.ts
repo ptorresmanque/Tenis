@@ -495,6 +495,25 @@ describe('POST /api/reservas — reserva de socio', () => {
     });
   });
 
+  it('dos reservas simultáneas del mismo socio no le dan dos horas el mismo día', async () => {
+    // El cupo se evaluaba sobre lo que había al consultar: dos pestañas apretando
+    // "Reservar" a la vez leían las dos "cero reservas hoy" y las dos pasaban. El
+    // bloque no se duplicaba —de eso se encarga el índice— pero el socio terminaba con
+    // dos horas, y el que quedó afuera del cupo era otro.
+    const [primera, segunda] = await Promise.all([
+      reservar(unaReserva()),
+      reservar(unaReserva({ inicio: A_LAS_11 })),
+    ]);
+
+    const estados = [primera.status, segunda.status].sort();
+    expect(estados).toEqual([201, 409]);
+    expect(
+      await prisma.reserva.count({
+        where: { socioId, estado: EstadoReserva.CONFIRMADA },
+      }),
+    ).toBe(1);
+  });
+
   it('una hora que no está en el horario de la cancha no se reserva', async () => {
     // Las 06:00, con el club abriendo a las 08:00. Sin este guardia, el cliente puede
     // pedir cualquier instante y la reserva existiría fuera de la grilla.

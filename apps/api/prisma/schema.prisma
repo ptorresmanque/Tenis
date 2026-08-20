@@ -401,6 +401,11 @@ model Reserva {
   @@unique([canchaId, inicioActivo], map: "reserva_bloque_activo")
   @@index([canchaId, inicio])
   @@index([socioId, inicio])
+  /// El panel del admin pide el día entero, de todas las canchas: filtra por `inicio`
+  /// sin `cancha_id`, así que los dos índices de arriba no le sirven —MySQL solo usa
+  /// un índice compuesto desde su primera columna— y recorría la tabla completa. Lo
+  /// hace en cada carga y en cada aviso en vivo.
+  @@index([inicio])
   @@map("reserva")
 }
 

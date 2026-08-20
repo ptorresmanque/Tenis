@@ -19,7 +19,7 @@ import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
-import { ACTIVAS } from './reservas.service';
+import { ACTIVAS, ClienteDePrisma, ReservasService } from './reservas.service';
 import { correspondeReembolso, sePuedeModificar } from './ventanas';
 
 /** Una reserva propia, con lo que la pantalla necesita para decidir qué ofrecer. */
@@ -56,6 +56,7 @@ export class ModificacionService {
     private readonly reservas: ReservaRepository,
     private readonly anulacion: AnulacionService,
     private readonly eventos: EventosDeReserva,
+    private readonly reservasDeSocio: ReservasService,
   ) {}
 
   /**
@@ -161,21 +162,15 @@ export class ModificacionService {
       ahora,
     );
 
-    try {
-      const movida = await this.prisma.reserva.update({
-        where: { id: reserva.id },
-        data: {
-          canchaId: destino.canchaId,
-          inicio: bloque.inicio,
-          fin: bloque.fin,
-          // El pico se recongela con el bloque nuevo: es la categoría de la hora que
-          // se va a jugar, y de ella depende el cupo semanal del socio.
-          esPico: bloque.esPico,
-        },
-      });
+    await this.exigirQueLaTarifaCuadre(reserva.id, bloque.montoClp);
 
-      // Los dos días cambian: la hora se fue de uno y llegó al otro, y los dos
-      // paneles tienen que enterarse.
+    try {
+      const movida = await this.moverContraSusCupos(reserva, destino, bloque);
+
+      // Después de que la transacción cerró, no adentro: si el movimiento termina en
+      // rollback, el panel ya habría corrido a pedir un día que no cambió.
+      //
+      // Los dos días cambian: la hora se fue de uno y llegó al otro.
       this.eventos.cambio(reserva.inicio);
       this.eventos.cambio(movida.inicio);
 
@@ -255,6 +250,134 @@ export class ModificacionService {
         ? `Las devoluciones son con ${ventanas.horasReembolsoTotal} horas o más de anticipación.`
         : 'sin_pago',
     };
+  }
+
+  /**
+   * Escribe el movimiento, evaluando los cupos del socio bajo el mismo cerrojo.
+   *
+   * **Mover necesita el lock igual que reservar**: dos peticiones del socio hacia el
+   * mismo día se excluyen cada una a sí misma, cuentan cero y pasan las dos. El índice
+   * único no lo atrapa, porque son bloques distintos.
+   *
+   * La reserva del visitante no tiene cupos ni ficha que bloquear: se escribe directo.
+   */
+  private async moverContraSusCupos(
+    reserva: Reserva,
+    destino: { canchaId: number },
+    bloque: { inicio: Date; fin: Date; esPico: boolean },
+  ): Promise<Reserva> {
+    const escribir = (db: ClienteDePrisma) =>
+      db.reserva.update({
+        where: { id: reserva.id },
+        data: {
+          canchaId: destino.canchaId,
+          inicio: bloque.inicio,
+          fin: bloque.fin,
+          // El pico se recongela con el bloque nuevo: es la categoría de la hora que
+          // se va a jugar, y de ella depende el cupo semanal del socio.
+          esPico: bloque.esPico,
+        },
+      });
+
+    if (reserva.socioId === null) return escribir(this.prisma);
+
+    return this.reservasDeSocio.conElSocioBloqueado(
+      reserva.socioId,
+      async (tx) => {
+        await this.exigirQueLosCuposAlcancen(reserva, bloque, tx);
+
+        return escribir(tx);
+      },
+    );
+  }
+
+  /**
+   * Mover es reservar otra vez: los cupos del socio se vuelven a mirar.
+   *
+   * Sin esto, mover es la puerta de atrás de todas las reglas. Se toma una hora valle
+   * —que pasa el cupo pico— y se la lleva a un bloque pico; se toma una hora de un mes
+   * y se la lleva a otro con el invitado puesto; y quien quedó moroso después de
+   * reservar sigue acomodando su hora como si estuviera al día.
+   *
+   * Las reservas de visitante no tienen cupos que mirar: pagaron su hora.
+   */
+  private async exigirQueLosCuposAlcancen(
+    reserva: Reserva,
+    bloque: { inicio: Date; fin: Date; esPico: boolean },
+    tx: ClienteDePrisma,
+  ): Promise<void> {
+    if (reserva.socioId === null) return;
+
+    const socio = await this.prisma.socio.findUniqueOrThrow({
+      where: { id: reserva.socioId },
+      select: { id: true, estado: true, alDiaHasta: true },
+    });
+    const acompanantes = await this.prisma.acompananteReserva.findMany({
+      where: { reservaId: reserva.id },
+      select: { socioId: true, nombre: true },
+    });
+
+    const rechazo = await this.reservasDeSocio.evaluarParaSocio({
+      socio,
+      bloque,
+      acompanantes,
+      // Dentro del cerrojo: con el cliente de fuera contaría lo de antes de que la
+      // otra petición del socio escribiera, que es justo lo que hay que evitar.
+      db: tx,
+      // La reserva que se mueve no se cuenta a sí misma: si lo hiciera, el cupo diario
+      // de una hora impediría cambiar de horario dentro del mismo día.
+      excluyendo: reserva.id,
+    });
+
+    // **Declarar con quién juega es una regla de reservar, no de mover.** Los
+    // acompañantes de esta reserva son los que ya están y no cambian al cambiar la
+    // hora; exigirlos acá dejaría inmóvil para siempre a cualquier reserva anotada por
+    // el club a mano, que es justo la que más suele necesitar un cambio de horario.
+    if (rechazo?.tipo === 'SIN_ACOMPANANTE') return;
+
+    if (rechazo) {
+      throw new ConflictException({
+        motivo: rechazo.tipo,
+        message: rechazo.mensaje,
+      });
+    }
+  }
+
+  /**
+   * Una hora ya pagada solo se mueve a otra que valga lo mismo.
+   *
+   * Sin esta regla, mover de una franja valle a una pico entrega una hora de $20.000
+   * al precio de una de $12.000, y si después se cancela dentro de plazo se devuelven
+   * los $12.000 por algo que se vendía más caro.
+   *
+   * **Se rechaza en vez de cobrar la diferencia**: cobrar de nuevo es otro paso por la
+   * pasarela, con su retorno, su idempotencia y su reembolso parcial —que el club no
+   * tiene, porque `SPEC-pagos.md` solo admite devolución total—. Cancelar y reservar
+   * de nuevo hace lo mismo con las piezas que ya existen.
+   */
+  private async exigirQueLaTarifaCuadre(
+    reservaId: number,
+    montoDelBloque: number,
+  ): Promise<void> {
+    const pago = await this.prisma.transaccion.findFirst({
+      where: {
+        concepto: 'RESERVA',
+        conceptoId: reservaId,
+        estado: EstadoTransaccion.AUTORIZADA,
+      },
+      select: { montoClp: true },
+    });
+
+    // El socio no compra su hora, la descuenta de su cupo: no hay nada que cuadrar.
+    if (!pago || pago.montoClp === montoDelBloque) return;
+
+    throw new ConflictException({
+      motivo: 'CAMBIA_LA_TARIFA',
+      message:
+        `Esa hora vale ${enPesos(montoDelBloque)} y esta reserva se pagó ` +
+        `${enPesos(pago.montoClp)}. Para cambiar de tarifa hay que cancelar y ` +
+        'reservar de nuevo.',
+    });
   }
 
   /**
@@ -370,4 +493,9 @@ function esBloqueOcupado(error: unknown): boolean {
   // `esViolacionDeUnicidad` es el helper que T2 dejó para esto; reescribir el
   // chequeo de P2002 acá sería una segunda versión de la misma regla.
   return error instanceof BloqueTomado || esViolacionDeUnicidad(error);
+}
+
+/** "$20.000", como lo escribe el club. */
+function enPesos(monto: number): string {
+  return `$${monto.toLocaleString('es-CL')}`;
 }

@@ -32,7 +32,7 @@ function entero(valor: unknown): number {
 }
 
 function instante(valor: unknown): Date {
-  const fecha = new Date(String(valor ?? ''));
+  const fecha = new Date(typeof valor === 'string' ? valor : NaN);
 
   if (Number.isNaN(fecha.getTime())) {
     throw new BadRequestException('La hora de inicio no es válida.');
@@ -41,8 +41,20 @@ function instante(valor: unknown): Date {
   return fecha;
 }
 
+/**
+ * Un texto que la persona escribió, no cualquier cosa convertida a texto.
+ *
+ * **Se exige `string` en vez de convertir**: `String({})` da `"[object Object]"` y
+ * `String(['+569', '1234'])` da `"+569,1234"`, los dos no vacíos, así que un cuerpo con
+ * un objeto o un arreglo pasaba la validación y la reserva quedaba a nombre de eso —y
+ * el panel del club lo mostraba tal cual—.
+ */
 function texto(valor: unknown, campo: string, maximo: number): string {
-  const limpio = String(valor ?? '').trim();
+  if (typeof valor !== 'string') {
+    throw new BadRequestException(`${campo} es obligatorio.`);
+  }
+
+  const limpio = valor.trim();
 
   if (limpio === '') {
     throw new BadRequestException(`${campo} es obligatorio.`);

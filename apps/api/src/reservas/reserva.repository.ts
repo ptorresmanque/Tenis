@@ -56,11 +56,19 @@ export class ReservaRepository {
    * MariaDB que dos transacciones que leen antes de escribir ven ambas el bloque
    * libre. Acá se consulta para mostrar; el `INSERT` contra el índice es lo que manda.
    */
-  async crear(datos: ReservaNueva): Promise<Reserva> {
+  async crear(
+    datos: ReservaNueva,
+    /**
+     * El cliente de una transacción en curso, cuando quien llama necesita que la
+     * creación comparta el lock que tomó. La reserva del socio lo usa para evaluar sus
+     * cupos y crear sin que otra petición suya se cuele en el medio.
+     */
+    tx?: Prisma.TransactionClient,
+  ): Promise<Reserva> {
     datos.acompanantes?.forEach(exigirSocioOInvitado);
 
     try {
-      const reserva = await this.prisma.reserva.create({
+      const reserva = await (tx ?? this.prisma).reserva.create({
         data: {
           folio: nuevoFolio(),
           canchaId: datos.canchaId,
