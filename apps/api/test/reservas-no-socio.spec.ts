@@ -11,6 +11,7 @@ import {
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { EventosDeReserva } from '../src/reservas/eventos';
 
 /**
  * T23. El corazón de la demo: un visitante sin cuenta reserva una hora y la paga.
@@ -174,6 +175,26 @@ describe('Reserva de no-socio con pago', () => {
         where: { id: inicio.body.reservaId },
       }),
     ).toMatchObject({ estado: EstadoReserva.CONFIRMADA });
+  });
+
+  it('confirmar el pago avisa al panel del admin (T26)', async () => {
+    // **El evento de la demo**: la reserva del visitante aparece sola en el panel. La
+    // confirmación es un `updateMany` dentro de la transacción del pago y no pasa por
+    // el repositorio, así que sin un aviso propio el panel se queda mostrando
+    // "esperando el pago" hasta que alguien recargue.
+    const inicio = await reservarYPagar();
+    const { reservaId } = inicio.body as { reservaId: number };
+    const token = await tokenDe(reservaId);
+
+    const avisos: string[] = [];
+    const suscripcion = app
+      .get(EventosDeReserva)
+      .flujo.subscribe((cambio) => avisos.push(cambio.fecha));
+
+    await volverDeWebpay(token);
+    suscripcion.unsubscribe();
+
+    expect(avisos).toContain(LUNES);
   });
 
   it('volver dos veces del pago no crea dos reservas ni cobra dos veces', async () => {
