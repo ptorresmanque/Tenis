@@ -39,11 +39,20 @@ function booleano(valor: unknown, campo: string): boolean {
   return valor;
 }
 
-function entero(valor: unknown, campo: string, minimo: number): number {
+function entero(
+  valor: unknown,
+  campo: string,
+  minimo: number,
+  maximo?: number,
+): number {
   if (typeof valor !== 'number' || !Number.isInteger(valor) || valor < minimo) {
     throw new BadRequestException(
       `${campo} tiene que ser un número entero desde ${minimo}.`,
     );
+  }
+
+  if (maximo !== undefined && valor > maximo) {
+    throw new BadRequestException(`${campo} no puede pasar de ${maximo}.`);
   }
 
   return valor;
@@ -117,6 +126,77 @@ export function leerCambiosDeCancha(
 
   if (Object.keys(cambios).length === 0) {
     throw new BadRequestException('No viene ningún cambio.');
+  }
+
+  return cambios;
+}
+
+/**
+ * Las reglas del club, todas opcionales: es un PATCH sobre la fila única.
+ *
+ * `SPEC-catalogo-canchas.md` § Configuración general del club.
+ */
+export interface CambiosDeConfiguracion {
+  duracionBloqueMin: number;
+  cupoDiarioSocioHoras: number;
+  cupoPicoSemanalHoras: number;
+  invitadosPorMes: number;
+  horasMinModificacion: number;
+  horasReembolsoTotal: number;
+}
+
+/**
+ * Los límites de cada regla, y por qué.
+ *
+ * La duración de bloque es la única con mínimo y máximo, y no es cosmética: un 0
+ * llega hasta `calcularBloques`, que lanza para no colgarse en un bucle infinito, y
+ * la grilla del club entero responde 500 hasta que alguien entre a la base a
+ * arreglarlo a mano. Por arriba, un bloque de más de cuatro horas no es una hora de
+ * cancha sino un día completo, y casi siempre es un cero de más al tipear.
+ *
+ * Los cupos y las ventanas admiten 0 a propósito: cero invitados por mes es una
+ * política posible, y cero horas de cupo diario es como el club cierra las reservas
+ * de socios sin tocar código.
+ */
+const LIMITES: Record<keyof CambiosDeConfiguracion, [number, number?]> = {
+  duracionBloqueMin: [15, 240],
+  cupoDiarioSocioHoras: [0],
+  cupoPicoSemanalHoras: [0],
+  invitadosPorMes: [0],
+  horasMinModificacion: [0],
+  horasReembolsoTotal: [0],
+};
+
+const NOMBRES: Record<keyof CambiosDeConfiguracion, string> = {
+  duracionBloqueMin: 'La duración del bloque, en minutos,',
+  cupoDiarioSocioHoras: 'El cupo diario del socio',
+  cupoPicoSemanalHoras: 'El cupo semanal en horario pico',
+  invitadosPorMes: 'Los invitados por mes',
+  horasMinModificacion: 'Las horas mínimas para modificar',
+  horasReembolsoTotal: 'Las horas para el reembolso total',
+};
+
+export function leerCambiosDeConfiguracion(
+  cuerpo: unknown,
+): Partial<CambiosDeConfiguracion> {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+  const cambios: Partial<CambiosDeConfiguracion> = {};
+
+  for (const campo of Object.keys(
+    LIMITES,
+  ) as (keyof CambiosDeConfiguracion)[]) {
+    if (datos[campo] === undefined) continue;
+
+    const [minimo, maximo] = LIMITES[campo];
+    cambios[campo] = entero(datos[campo], NOMBRES[campo], minimo, maximo);
+  }
+
+  if (Object.keys(cambios).length === 0) {
+    // Un nombre de campo mal escrito responde 400 y no 200: si no, el admin cree
+    // que guardó y se va, y la regla sigue siendo la de antes.
+    throw new BadRequestException(
+      'No viene ninguna regla conocida para cambiar.',
+    );
   }
 
   return cambios;
