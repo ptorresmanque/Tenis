@@ -41,6 +41,7 @@ describe('AdminCanchasPanel', () => {
     editar: ReturnType<typeof vi.fn>;
     eliminar: ReturnType<typeof vi.fn>;
     bloqueos: ReturnType<typeof vi.fn>;
+    configuracion: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (
@@ -55,6 +56,16 @@ describe('AdminCanchasPanel', () => {
       eliminar: vi.fn().mockResolvedValue(undefined),
       // Lo pide el editor de bloqueos, que el panel monta dentro de cada cancha.
       bloqueos: vi.fn().mockResolvedValue([]),
+      // Y esto el editor de reglas, que va arriba de todo. Su propio spec es
+      // `editor-configuracion.spec.ts`; acá solo tiene que poder montarse.
+      configuracion: vi.fn().mockResolvedValue({
+        duracionBloqueMin: 60,
+        cupoDiarioSocioHoras: 1,
+        cupoPicoSemanalHoras: 2,
+        invitadosPorMes: 4,
+        horasMinModificacion: 6,
+        horasReembolsoTotal: 24,
+      }),
     };
 
     TestBed.resetTestingModule();

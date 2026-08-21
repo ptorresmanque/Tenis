@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import {
+  CambiosDeConfiguracion,
   DatosBloqueo,
   DatosCancha,
   DatosFranja,
@@ -40,6 +41,31 @@ export class AdminCanchasService {
         horarios: { orderBy: { diaSemana: 'asc' } },
         franjas: { orderBy: { horaDesde: 'asc' } },
       },
+    });
+  }
+
+  /** Las reglas del club. Una sola fila, y la base lo impone con un CHECK. */
+  configuracion() {
+    return this.prisma.configuracionClub.findFirstOrThrow();
+  }
+
+  /**
+   * Cambia las reglas del club.
+   *
+   * `update` sobre la fila que ya existe y nunca `create`: la configuración no se
+   * versiona ni se duplica, y una segunda fila haría que "la configuración del
+   * club" dependa de cuál lea cada consulta.
+   *
+   * Nada más que guardar: quien consume las reglas —la grilla, el cupo del socio,
+   * las ventanas de modificación— las lee de la base en cada operación, así que el
+   * cambio rige desde la petición siguiente sin reiniciar nada.
+   */
+  async fijarConfiguracion(cambios: Partial<CambiosDeConfiguracion>) {
+    const actual = await this.configuracion();
+
+    return this.prisma.configuracionClub.update({
+      where: { id: actual.id },
+      data: cambios,
     });
   }
 

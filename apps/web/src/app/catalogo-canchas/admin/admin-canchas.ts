@@ -1,6 +1,7 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { mensajeDelServidor } from '../../core/errores';
 import { hoyEnElClub, horaEnElClub } from '../reloj-del-club';
 import {
   AdminCanchas,
@@ -8,6 +9,7 @@ import {
   CanchaNueva,
 } from './admin-canchas.service';
 import { EditorBloqueos } from './editor-bloqueos';
+import { EditorConfiguracion } from './editor-configuracion';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
 
@@ -36,7 +38,13 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
 @Component({
   selector: 'app-admin-canchas',
-  imports: [FormsModule, EditorHorarios, EditorFranjas, EditorBloqueos],
+  imports: [
+    FormsModule,
+    EditorConfiguracion,
+    EditorHorarios,
+    EditorFranjas,
+    EditorBloqueos,
+  ],
   template: `
     <h1 class="font-display text-3xl font-bold">Canchas del club</h1>
 
@@ -64,6 +72,10 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
         </ul>
       </section>
     }
+
+    <!-- Antes de las canchas: son las reglas que valen para todas, y la lista de
+         abajo dice "vale el general del club" refiriéndose a esto. -->
+    <app-editor-configuracion (guardado)="recargar()" />
 
     <section class="mt-8" aria-labelledby="titulo-nueva">
       <h2 id="titulo-nueva" class="font-display text-xl font-semibold">
@@ -255,7 +267,7 @@ export class AdminCanchasPanel {
       Object.assign(this.nueva, CANCHA_EN_BLANCO);
       this.recargar();
     } catch (falla) {
-      this.error.set(this.mensajeDe(falla));
+      this.error.set(mensajeDelServidor(falla));
     } finally {
       this.guardando.set(false);
     }
@@ -274,7 +286,7 @@ export class AdminCanchasPanel {
       );
       this.recargar();
     } catch (falla) {
-      this.error.set(this.mensajeDe(falla));
+      this.error.set(mensajeDelServidor(falla));
     }
   }
 
@@ -307,31 +319,13 @@ export class AdminCanchasPanel {
       this.aviso.set(`${cancha.nombre} ya no está en el club.`);
       this.recargar();
     } catch (falla) {
-      this.error.set(this.mensajeDe(falla));
+      this.error.set(mensajeDelServidor(falla));
     }
   }
 
   /** Relee canchas y advertencias: una tarifa nueva puede apagar una advertencia. */
   protected recargar(): void {
     this.version.update((v) => v + 1);
-  }
-
-  /**
-   * El mensaje del servidor y no uno genérico: "Ya hay una cancha con ese nombre"
-   * dice qué arreglar, y "algo salió mal" obliga a adivinar.
-   */
-  private mensajeDe(falla: unknown): string {
-    const cuerpo = (falla as { error?: { message?: unknown } } | null)?.error;
-    const mensaje = cuerpo?.message;
-
-    if (typeof mensaje === 'string') {
-      return mensaje;
-    }
-    if (Array.isArray(mensaje) && typeof mensaje[0] === 'string') {
-      return mensaje[0];
-    }
-
-    return 'No se pudo guardar. Reintenta en un momento.';
   }
 
   protected nombreDia(dia: number): string {

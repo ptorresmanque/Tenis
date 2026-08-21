@@ -62,6 +62,21 @@ export interface Advertencia {
   sinTarifa: string[];
 }
 
+/**
+ * Las reglas del club, la fila única de `ConfiguracionClub`.
+ *
+ * Espejo de `CambiosDeConfiguracion` en la API. El servidor devuelve además `id` y
+ * `actualizadoEn`, que al panel no le sirven para nada.
+ */
+export interface ReglasDelClub {
+  duracionBloqueMin: number;
+  cupoDiarioSocioHoras: number;
+  cupoPicoSemanalHoras: number;
+  invitadosPorMes: number;
+  horasMinModificacion: number;
+  horasReembolsoTotal: number;
+}
+
 export interface CanchaNueva {
   nombre: string;
   superficie: Cancha['superficie'];
@@ -75,6 +90,18 @@ export class AdminCanchas {
 
   canchas(): Promise<CanchaAdmin[]> {
     return firstValueFrom(this.http.get<CanchaAdmin[]>('/api/admin/canchas'));
+  }
+
+  configuracion(): Promise<ReglasDelClub> {
+    return firstValueFrom(
+      this.http.get<ReglasDelClub>('/api/admin/configuracion'),
+    );
+  }
+
+  fijarConfiguracion(reglas: ReglasDelClub): Promise<ReglasDelClub> {
+    return firstValueFrom(
+      this.http.patch<ReglasDelClub>('/api/admin/configuracion', reglas),
+    );
   }
 
   advertencias(fecha: string): Promise<Advertencia[]> {

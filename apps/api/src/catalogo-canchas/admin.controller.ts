@@ -19,6 +19,7 @@ import { AdminCanchasService } from './admin.service';
 import {
   leerBloqueo,
   leerCambiosDeCancha,
+  leerCambiosDeConfiguracion,
   leerCanchaNueva,
   leerFranja,
   leerHorarios,
@@ -33,6 +34,16 @@ import {
 @SoloAdmin()
 export class AdminCanchasController {
   constructor(private readonly servicio: AdminCanchasService) {}
+
+  @Get('configuracion')
+  configuracion() {
+    return this.servicio.configuracion();
+  }
+
+  @Patch('configuracion')
+  fijarConfiguracion(@Body() cuerpo: unknown) {
+    return this.servicio.fijarConfiguracion(leerCambiosDeConfiguracion(cuerpo));
+  }
 
   @Get('canchas')
   canchas() {
