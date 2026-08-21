@@ -49,7 +49,7 @@ describe('EditorFranjas', () => {
     });
 
     fixture = TestBed.createComponent(EditorFranjas);
-    fixture.componentRef.setInput('cancha', cancha);
+    fixture.componentRef.setInput('ambito', cancha);
     await fixture.whenStable();
     fixture.detectChanges();
   };

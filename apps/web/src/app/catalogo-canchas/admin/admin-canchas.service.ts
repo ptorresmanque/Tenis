@@ -21,12 +21,31 @@ export interface Franja {
   montoClp: number;
 }
 
-/** La cancha como la ve el panel: con lo suyo colgando, y también si está activa. */
-export interface CanchaAdmin extends Cancha {
-  activa: boolean;
-  orden: number;
+/**
+ * Dónde rige un horario o una tarifa: una cancha, o el club entero.
+ *
+ * `id: null` es el club —las filas con `cancha_id` nulo—, y existe para que los
+ * editores de horario y tarifas sirvan para los dos casos. Sin esto habría dos
+ * copias de cada editor y la del club envejecería primero.
+ */
+export interface AmbitoDeReglas {
+  id: number | null;
+  nombre: string;
   horarios: Horario[];
   franjas: Franja[];
+}
+
+/** El horario y las tarifas generales del club. */
+export interface ReglasGenerales {
+  horarios: Horario[];
+  franjas: Franja[];
+}
+
+/** La cancha como la ve el panel: con lo suyo colgando, y también si está activa. */
+export interface CanchaAdmin extends Cancha, AmbitoDeReglas {
+  id: number;
+  activa: boolean;
+  orden: number;
 }
 
 export type MotivoBloqueo = 'MANTENCION' | 'TORNEO' | 'CLASE' | 'OTRO';
@@ -133,13 +152,21 @@ export class AdminCanchas {
     return firstValueFrom(this.http.delete<void>(`/api/admin/canchas/${id}`));
   }
 
+  /** El horario y las tarifas que rigen donde la cancha no dice otra cosa. */
+  general(): Promise<ReglasGenerales> {
+    return firstValueFrom(this.http.get<ReglasGenerales>('/api/admin/general'));
+  }
+
+  /** `canchaId` nulo fija el horario general del club. */
   fijarHorarios(
-    canchaId: number,
+    canchaId: number | null,
     horarios: Omit<Horario, 'id'>[],
   ): Promise<Horario[]> {
     return firstValueFrom(
       this.http.put<Horario[]>(
-        `/api/admin/canchas/${canchaId}/horarios`,
+        canchaId === null
+          ? '/api/admin/general/horarios'
+          : `/api/admin/canchas/${canchaId}/horarios`,
         horarios,
       ),
     );

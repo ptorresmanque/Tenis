@@ -259,6 +259,133 @@ describe('Configuración del club', () => {
     });
   });
 
+  describe('horario y tarifas generales (T31)', () => {
+    /**
+     * Lo general del club son las filas con `canchaId` nulo, y hasta T31 solo las
+     * ponía el seed. Se restauran al terminar por lo mismo que la configuración:
+     * son globales y las lee toda la suite.
+     */
+    let horariosOriginales: { diaSemana: number; horaApertura: string; horaCierre: string }[];
+
+    beforeAll(async () => {
+      horariosOriginales = (
+        await prisma.horarioApertura.findMany({ where: { canchaId: null } })
+      ).map(({ diaSemana, horaApertura, horaCierre }) => ({
+        diaSemana,
+        horaApertura,
+        horaCierre,
+      }));
+    });
+
+    afterAll(async () => {
+      await prisma.horarioApertura.deleteMany({ where: { canchaId: null } });
+      await prisma.horarioApertura.createMany({ data: horariosOriginales });
+    });
+
+    it('lista lo general del club, sin mezclarlo con lo de una cancha', async () => {
+      const respuesta = await request(servidor())
+        .get('/api/admin/general')
+        .set('Cookie', admin)
+        .expect(200);
+
+      const cuerpo = respuesta.body as {
+        horarios: { canchaId: number | null }[];
+        franjas: { canchaId: number | null }[];
+      };
+
+      expect(
+        [...cuerpo.horarios, ...cuerpo.franjas].every(
+          (fila) => fila.canchaId === null,
+        ),
+      ).toBe(true);
+    });
+
+    it('el horario general rige en una cancha sin horario propio', async () => {
+      // La cancha de este spec tiene horario propio los lunes; el martes no abre.
+      // Con el general puesto, ese martes pasa a existir en la grilla pública.
+      const MARTES = '2026-08-18';
+
+      await request(servidor())
+        .put('/api/admin/general/horarios')
+        .set('Cookie', admin)
+        .send([{ diaSemana: 2, horaApertura: '09:00', horaCierre: '13:00' }])
+        .expect(200);
+
+      const bloques = await request(servidor())
+        .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${MARTES}`)
+        .expect(200);
+
+      expect((bloques.body as unknown[]).length).toBe(4);
+    });
+
+    it('reemplaza el horario general entero, no le suma días', async () => {
+      await request(servidor())
+        .put('/api/admin/general/horarios')
+        .set('Cookie', admin)
+        .send([{ diaSemana: 3, horaApertura: '09:00', horaCierre: '13:00' }])
+        .expect(200);
+
+      const quedaron = await prisma.horarioApertura.findMany({
+        where: { canchaId: null },
+      });
+
+      // Mandar solo los días tocados obliga a decidir qué significa un día
+      // ausente, y esa ambigüedad termina en un club abierto un día que creía
+      // cerrado.
+      expect(quedaron.map((h) => h.diaSemana)).toEqual([3]);
+    });
+
+    it('un socio no puede tocar el horario general', async () => {
+      await request(servidor())
+        .put('/api/admin/general/horarios')
+        .set('Cookie', socio)
+        .send([])
+        .expect(403);
+      await request(servidor())
+        .get('/api/admin/general')
+        .set('Cookie', socio)
+        .expect(403);
+    });
+
+    it('una tarifa nueva cierra la anterior del mismo tramo, sin borrarla', async () => {
+      const tramo = {
+        canchaId: null,
+        diaSemana: null,
+        horaDesde: '07:00',
+        horaHasta: '07:30',
+        esPico: false,
+      };
+
+      const vieja = await request(servidor())
+        .post('/api/admin/franjas')
+        .set('Cookie', admin)
+        .send({ ...tramo, montoClp: 10000, vigenteDesde: '2026-01-01' })
+        .expect(201);
+
+      await request(servidor())
+        .post('/api/admin/franjas')
+        .set('Cookie', admin)
+        .send({ ...tramo, montoClp: 14000, vigenteDesde: '2026-08-20' })
+        .expect(201);
+
+      // **No se borra**: el monto de una reserva ya pagada se justifica con la
+      // tarifa que regía ese día, y borrarla deja ese cobro sin explicación.
+      const anterior = await prisma.franjaHoraria.findUniqueOrThrow({
+        where: { id: (vieja.body as { id: number }).id },
+      });
+      expect(anterior.vigenteHasta).not.toBeNull();
+      // Cierra la víspera de la nueva: si cerrara el mismo día, las dos regirían
+      // el 20 y cuál gana lo decidiría el desempate.
+      expect(anterior.vigenteHasta?.toISOString().slice(0, 10)).toBe(
+        '2026-08-19',
+      );
+
+      await prisma.franjaHoraria.deleteMany({
+        where: { canchaId: null, horaDesde: '07:00', horaHasta: '07:30' },
+      });
+    });
+  });
+
   describe('la regla cambia en el acto', () => {
     it('cambiar la duración del bloque redibuja la grilla pública', async () => {
       const antes = await request(servidor())
