@@ -95,9 +95,16 @@ model Socio {
   /// `cuotas`, cuando exista, será el único que lo escriba.
   alDiaHasta DateTime @map("al_dia_hasta") @db.Date
 
+  /// Hasta cuándo no puede reservar, por una hora que tomó y no usó (T34).
+  /// Fecha civil como `alDiaHasta`: una sanción dura días, no horas. Nula es lo
+  /// normal —la mayoría de los socios nunca la tiene— y por eso no hay un booleano
+  /// aparte que pueda quedar en desacuerdo con la fecha.
+  sancionadoHasta DateTime? @map("sancionado_hasta") @db.Date
+
   usuario         Usuario              @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   reservas        Reserva[]
   acompanamientos AcompananteReserva[]
+  reportes        ReporteNoUso[]
 
   @@map("socio")
 }
@@ -279,6 +286,8 @@ model ConfiguracionClub {
   invitadosPorMes      Int @default(4) @map("invitados_por_mes")
   horasMinModificacion Int @default(6) @map("horas_min_modificacion")
   horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")
+  /// Cuántos días queda sin reservar el socio que tomó una hora y no la usó (T34).
+  diasSancionNoUso     Int @default(15) @map("dias_sancion_no_uso")
 
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
@@ -423,6 +432,7 @@ model Reserva {
   cancha       Cancha               @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   socio        Socio?               @relation(fields: [socioId], references: [id], onDelete: SetNull)
   acompanantes AcompananteReserva[]
+  reportes     ReporteNoUso[]
 
   /// Un bloque, una reserva activa. Las canceladas y expiradas tienen
   /// `inicio_activo` nulo y en MySQL dos nulos no chocan, así que conviven todas.
@@ -435,6 +445,48 @@ model Reserva {
   /// hace en cada carga y en cada aviso en vivo.
   @@index([inicio])
   @@map("reserva")
+}
+
+enum EstadoReporte {
+  PENDIENTE
+  SANCIONADO
+  DESCARTADO
+}
+
+/// Alguien vio esa cancha vacía a la hora que estaba reservada.
+///
+/// **Anónimo hacia afuera, no hacia la base.** `reportanteSocioId` se guarda —es lo
+/// único que impide que una persona reporte cinco veces la misma hora y simule un
+/// consenso— y no sale por ninguna respuesta de la API, tampoco por la del admin.
+/// El anonimato es una propiedad del endpoint, y por eso tiene test propio: un
+/// `select` de más lo rompería en silencio.
+///
+/// **La sanción la aplica el admin, nunca el sistema.** Un castigo automático
+/// convierte esto en un arma: dos socios molestos dejan a un tercero sin reservar
+/// quince días y nadie revisó nada. Ver SPEC-reservas.md § Hora reservada y no usada.
+model ReporteNoUso {
+  id Int @id @default(autoincrement())
+
+  reservaId          Int @map("reserva_id")
+  reportanteSocioId  Int @map("reportante_socio_id")
+
+  estado   EstadoReporte @default(PENDIENTE)
+  creadoEn DateTime      @default(now()) @map("creado_en")
+
+  resueltoEn           DateTime? @map("resuelto_en")
+  /// Qué admin lo resolvió. Sin FK: si esa cuenta se borra, el reporte sigue
+  /// contando lo que pasó, que es para lo que existe.
+  resueltoPorUsuarioId Int?      @map("resuelto_por_usuario_id")
+
+  reserva    Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  reportante Socio   @relation(fields: [reportanteSocioId], references: [id], onDelete: Cascade)
+
+  /// Un reporte por persona y por reserva. Lo impone la base: sin esto, quien
+  /// quiera hundir a otro socio aprieta el botón diez veces y la bandeja del admin
+  /// muestra diez reportes de una sola persona.
+  @@unique([reservaId, reportanteSocioId])
+  @@index([estado])
+  @@map("reporte_no_uso")
 }
 
 /// Con quién juega el socio. Obligatorio declararlo: sin eso, "juego solo", "juego

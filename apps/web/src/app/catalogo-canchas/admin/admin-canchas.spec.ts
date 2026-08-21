@@ -69,6 +69,7 @@ describe('AdminCanchasPanel', () => {
         invitadosPorMes: 4,
         horasMinModificacion: 6,
         horasReembolsoTotal: 24,
+        diasSancionNoUso: 15,
       }),
     };
 

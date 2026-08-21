@@ -20,6 +20,7 @@ describe('evaluarReservaDeSocio', () => {
       id: 7,
       estado: EstadoSocio.ACTIVO,
       alDiaHasta: new Date('2026-12-31T00:00:00.000Z'),
+      sancionadoHasta: null,
     },
     bloque: {
       inicio: LUNES_19,
@@ -52,6 +53,7 @@ describe('evaluarReservaDeSocio', () => {
             id: 7,
             estado: EstadoSocio.SUSPENDIDO,
             alDiaHasta: new Date('2026-12-31T00:00:00.000Z'),
+            sancionadoHasta: null,
           },
         }),
       );
@@ -67,6 +69,7 @@ describe('evaluarReservaDeSocio', () => {
             id: 7,
             estado: EstadoSocio.ACTIVO,
             alDiaHasta: new Date('2026-07-31T00:00:00.000Z'),
+            sancionadoHasta: null,
           },
         }),
       );
@@ -85,6 +88,7 @@ describe('evaluarReservaDeSocio', () => {
             id: 7,
             estado: EstadoSocio.SUSPENDIDO,
             alDiaHasta: new Date('2026-07-31T00:00:00.000Z'),
+            sancionadoHasta: null,
           },
         }),
       );
@@ -103,6 +107,7 @@ describe('evaluarReservaDeSocio', () => {
               id: 7,
               estado: EstadoSocio.ACTIVO,
               alDiaHasta: new Date('2026-08-17T00:00:00.000Z'),
+              sancionadoHasta: null,
             },
           }),
         ),
@@ -391,6 +396,81 @@ describe('evaluarReservaDeSocio', () => {
     });
   });
 
+  describe('sanción por una hora no usada (T34)', () => {
+    const sancionadoHasta = (fecha: string) => ({
+      socio: {
+        id: 7,
+        estado: EstadoSocio.ACTIVO,
+        alDiaHasta: new Date('2026-12-31T00:00:00.000Z'),
+        sancionadoHasta: new Date(`${fecha}T00:00:00.000Z`),
+      },
+    });
+
+    it('el socio sancionado no puede reservar, y el mensaje dice hasta cuándo', () => {
+      const rechazo = evaluarReservaDeSocio(
+        solicitud(sancionadoHasta('2026-09-01')),
+      );
+
+      expect(rechazo?.tipo).toBe('SANCIONADO');
+      // La fecha en el mensaje: "estás sancionado" a secas deja a la persona
+      // probando todos los días a ver si ya puede.
+      expect(rechazo?.mensaje).toContain('01-09-2026');
+    });
+
+    it('el último día sancionado todavía no puede', () => {
+      // Hoy es el 17 y la sanción llega "hasta el 17": ese día no reserva. El
+      // borde tiene test porque un `>` en vez de `>=` le devolvería un día.
+      expect(
+        evaluarReservaDeSocio(solicitud(sancionadoHasta('2026-08-17')))?.tipo,
+      ).toBe('SANCIONADO');
+    });
+
+    it('al día siguiente vuelve a reservar', () => {
+      expect(
+        evaluarReservaDeSocio(solicitud(sancionadoHasta('2026-08-16'))),
+      ).toBeNull();
+    });
+
+    it('sin sanción, no molesta a nadie', () => {
+      expect(evaluarReservaDeSocio(solicitud())).toBeNull();
+    });
+
+    it('la sanción gana a la cuota vencida', () => {
+      // **El orden que fija la spec.** Quien está sancionado y además moroso tiene
+      // que leer que está sancionado: pagar la cuota no le devuelve el derecho a
+      // reservar, y el mensaje de la cuota lo mandaría a pagar para nada.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          socio: {
+            id: 7,
+            estado: EstadoSocio.ACTIVO,
+            alDiaHasta: new Date('2026-07-31T00:00:00.000Z'),
+            sancionadoHasta: new Date('2026-09-01T00:00:00.000Z'),
+          },
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('SANCIONADO');
+    });
+
+    it('la membresía inactiva gana a la sanción', () => {
+      // Al revés que la cuota: quien está suspendido tiene un problema más grande
+      // y una conversación distinta con el club.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          socio: {
+            id: 7,
+            estado: EstadoSocio.SUSPENDIDO,
+            alDiaHasta: new Date('2026-12-31T00:00:00.000Z'),
+            sancionadoHasta: new Date('2026-09-01T00:00:00.000Z'),
+          },
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('MEMBRESIA_INACTIVA');
+    });
+  });
+
   describe('el orden de los rechazos', () => {
     it('la suspensión gana al cupo', () => {
       const rechazo = evaluarReservaDeSocio(
@@ -399,6 +479,7 @@ describe('evaluarReservaDeSocio', () => {
             id: 7,
             estado: EstadoSocio.SUSPENDIDO,
             alDiaHasta: new Date('2026-12-31T00:00:00.000Z'),
+            sancionadoHasta: null,
           },
           reservasDelDia: 3,
         }),
@@ -414,6 +495,7 @@ describe('evaluarReservaDeSocio', () => {
             id: 7,
             estado: EstadoSocio.ACTIVO,
             alDiaHasta: new Date('2026-07-31T00:00:00.000Z'),
+            sancionadoHasta: null,
           },
           acompanantes: [],
         }),

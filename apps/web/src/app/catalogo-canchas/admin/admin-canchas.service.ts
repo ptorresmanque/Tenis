@@ -94,6 +94,7 @@ export interface ReglasDelClub {
   invitadosPorMes: number;
   horasMinModificacion: number;
   horasReembolsoTotal: number;
+  diasSancionNoUso: number;
 }
 
 export interface CanchaNueva {

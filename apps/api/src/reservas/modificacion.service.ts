@@ -310,7 +310,12 @@ export class ModificacionService {
 
     const socio = await this.prisma.socio.findUniqueOrThrow({
       where: { id: reserva.socioId },
-      select: { id: true, estado: true, alDiaHasta: true },
+      select: {
+        id: true,
+        estado: true,
+        alDiaHasta: true,
+        sancionadoHasta: true,
+      },
     });
     const acompanantes = await this.prisma.acompananteReserva.findMany({
       where: { reservaId: reserva.id },
