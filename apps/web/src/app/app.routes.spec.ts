@@ -15,7 +15,12 @@ describe('Rutas protegidas', () => {
   const guardsDe = (ruta: string) =>
     routes.find((r) => r.path === ruta)?.canActivate ?? [];
 
-  it.each(['administracion/canchas', 'administracion/reservas', 'estado'])(
+  it.each([
+    'administracion/canchas',
+    'administracion/reservas',
+    'administracion/socios',
+    'estado',
+  ])(
     '%s es solo del admin',
     (ruta) => {
       expect(guardsDe(ruta)).toContain(soloAdmin);

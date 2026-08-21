@@ -92,6 +92,7 @@ export class App {
       ? [
           { ruta: '/administracion/reservas', etiqueta: 'Reservas del día' },
           { ruta: '/administracion/canchas', etiqueta: 'Canchas' },
+          { ruta: '/administracion/socios', etiqueta: 'Socios' },
           // El diagnóstico del sistema no es una pantalla del socio: lo que dice
           // solo le sirve a quien puede hacer algo con la respuesta.
           { ruta: '/estado', etiqueta: 'Estado' },

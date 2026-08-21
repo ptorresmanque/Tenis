@@ -25,6 +25,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'administracion/socios',
+    title: 'Socios — Administración',
+    canActivate: [soloAdmin],
+    loadComponent: () =>
+      import('./identidad/admin/socios').then((m) => m.SociosPanel),
+  },
+  {
     path: 'administracion/reservas',
     title: 'Reservas del día — Administración',
     canActivate: [soloAdmin],
