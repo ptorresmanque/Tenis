@@ -19,6 +19,7 @@ describe('Rutas protegidas', () => {
     'administracion/canchas',
     'administracion/reservas',
     'administracion/socios',
+    'administracion/reportes',
     'estado',
   ])(
     '%s es solo del admin',

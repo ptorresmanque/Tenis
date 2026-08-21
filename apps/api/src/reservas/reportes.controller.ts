@@ -7,6 +7,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 
 import { SoloAdmin, SoloSocio, Yo } from '../identidad/guards';
@@ -20,6 +21,22 @@ import { ReportesService } from './reportes.service';
 @Controller('reservas')
 export class ReportesController {
   constructor(private readonly servicio: ReportesService) {}
+
+  /** Las horas de ese día que este socio podría reportar. */
+  @Get('reportables')
+  @SoloSocio()
+  reportables(
+    @Query('fecha') fecha: string | undefined,
+    @Yo() yo: UsuarioActual,
+  ) {
+    if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      throw new BadRequestException(
+        'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
+      );
+    }
+
+    return this.servicio.reportables(yo.socioId!, fecha);
+  }
 
   @Post(':id/reportes')
   @HttpCode(201)

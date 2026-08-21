@@ -2,6 +2,9 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
+import { Auth } from '../../core/auth/auth';
+import { mensajeDelServidor } from '../../core/errores';
+import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { mensajeDeRechazo, Reservas } from '../../reservas/reservas.service';
 import { Reservar } from '../../reservas/reservar';
 import { BloqueDisponible, Cancha, Disponibilidad } from '../disponibilidad';
@@ -53,6 +56,12 @@ const TARIFA_DEL_SOCIO = 0;
            que saber que el proximo clic mueve su hora en vez de tomar una nueva. -->
       <p class="mt-3 rounded-lg bg-muted p-3 font-medium">
         Elige la nueva hora para tu reserva. La que tenías queda liberada.
+      </p>
+    }
+
+    @if (avisoDeReporte(); as aviso) {
+      <p role="status" class="mt-3 rounded-lg bg-muted p-3 text-sm font-medium">
+        {{ aviso }}
       </p>
     }
 
@@ -190,6 +199,32 @@ const TARIFA_DEL_SOCIO = 0;
                   }
                 }
                 </button>
+
+                <!-- Fuera del botón del bloque: un botón dentro de otro no es HTML
+                     válido, y el lector de pantalla anunciaría uno solo. -->
+                @if (reportable(bloque); as caso) {
+                  <div class="px-3 pb-3">
+                    @if (caso.yaReportada) {
+                      <p class="text-xs text-muted-foreground">
+                        Ya reportaste esta hora.
+                      </p>
+                    } @else {
+                      <button
+                        type="button"
+                        class="cursor-pointer rounded-md border border-border px-2 py-1
+                               text-xs font-medium text-muted-foreground transition-colors
+                               hover:bg-muted"
+                        (click)="reportar(caso.reservaId)"
+                      >
+                        Reportar hora no usada
+                        <span class="sr-only">
+                          de las {{ hora(bloque.inicio) }} en
+                          {{ grilla.cancha.nombre }}
+                        </span>
+                      </button>
+                    }
+                  </div>
+                }
               </li>
             }
           </ul>
@@ -249,6 +284,8 @@ const TARIFA_DEL_SOCIO = 0;
 export class Grilla {
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly reservas = inject(Reservas);
+  private readonly reportes = inject(ReportesDelSocio);
+  private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly parametros = toSignal(inject(ActivatedRoute).queryParamMap);
 
@@ -267,6 +304,7 @@ export class Grilla {
   });
 
   protected readonly errorAlMover = signal<string | null>(null);
+  protected readonly avisoDeReporte = signal<string | null>(null);
   protected readonly enviandoMovimiento = signal(false);
 
   protected readonly grillas = resource({
@@ -276,6 +314,29 @@ export class Grilla {
     // preguntar `hasValue()` antes de cada lectura.
     defaultValue: [],
   });
+
+  /**
+   * Qué horas de este día podría reportar quien mira, según el servidor.
+   *
+   * **Solo para socios, y sin preguntar si no lo es**: el endpoint es
+   * `@SoloSocio()` y pedirlo igual llenaría de 403 la consola de cada visitante.
+   *
+   * La lista la decide el servidor —lo transcurrido, lo ajeno y lo que está dentro
+   * del plazo—, y la grilla no vuelve a decidirlo por su cuenta: ofrecer un botón
+   * sobre una hora que la API va a rechazar es prometer algo que no se puede.
+   */
+  private readonly reportables = resource({
+    params: () => ({ fecha: this.fecha(), esSocio: this.esSocio() }),
+    loader: ({ params }) =>
+      params.esSocio
+        ? this.reportes.reportables(params.fecha)
+        : Promise.resolve([]),
+    defaultValue: [],
+  });
+
+  private readonly esSocio = computed(
+    () => this.auth.usuario()?.socioId != null,
+  );
 
   /** Lo que oye quien no ve la grilla: cuántas horas quedan y en cuántas canchas. */
   protected readonly resumen = computed(() => {
@@ -296,6 +357,30 @@ export class Grilla {
     cancha: Cancha;
     bloque: BloqueDisponible;
   } | null>(null);
+
+  /** El caso reportable de ese bloque, si el servidor lo listó. */
+  protected reportable(bloque: BloqueDisponible) {
+    return this.reportables
+      .value()
+      .find(
+        (caso) =>
+          caso.canchaId === bloque.canchaId && caso.inicio === bloque.inicio,
+      );
+  }
+
+  protected async reportar(reservaId: number): Promise<void> {
+    this.avisoDeReporte.set(null);
+
+    try {
+      const { mensaje } = await this.reportes.reportar(reservaId);
+      this.avisoDeReporte.set(mensaje);
+      this.reportables.reload();
+    } catch (falla) {
+      this.avisoDeReporte.set(
+        mensajeDelServidor(falla, 'No se pudo enviar el reporte.'),
+      );
+    }
+  }
 
   protected noSePuedeTomar(bloque: BloqueDisponible): boolean {
     return bloque.bloqueado || bloque.reservado;

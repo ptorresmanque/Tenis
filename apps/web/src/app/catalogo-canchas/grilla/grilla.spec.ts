@@ -1,9 +1,12 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { Reservas } from '../../reservas/reservas.service';
+import { Auth } from '../../core/auth/auth';
 import { Disponibilidad, GrillaDeCancha } from '../disponibilidad';
 import { Grilla } from './grilla';
 
@@ -60,17 +63,49 @@ describe('Grilla', () => {
   let fixture: ComponentFixture<Grilla>;
   let mover: ReturnType<typeof vi.fn>;
   let navegar: ReturnType<typeof vi.fn>;
+  let reportables: ReturnType<typeof vi.fn>;
+  let reportar: ReturnType<typeof vi.fn>;
 
   /** `mover` es el id que llega por query string cuando se viene de "mis reservas". */
-  const montar = async (dia: GrillaDeCancha[], parametros: Record<string, string> = {}) => {
+  const montar = async (
+    dia: GrillaDeCancha[],
+    parametros: Record<string, string> = {},
+    opciones: {
+      socioId?: number | null;
+      reportables?: {
+        reservaId: number;
+        canchaId: number;
+        inicio: string;
+        yaReportada: boolean;
+      }[];
+    } = {},
+  ) => {
     mover = vi.fn().mockResolvedValue({});
     navegar = vi.fn().mockResolvedValue(true);
+    reportables = vi.fn().mockResolvedValue(opciones.reportables ?? []);
+    // El mensaje textual del servidor: la pantalla no inventa uno propio, así que
+    // un doble con otro texto probaría algo que no existe.
+    reportar = vi.fn().mockResolvedValue({
+      mensaje:
+        'Gracias. Tu reporte es anónimo y lo revisa la administración del club.',
+    });
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(dia) } },
         { provide: Reservas, useValue: { mover } },
+        { provide: ReportesDelSocio, useValue: { reportables, reportar } },
+        {
+          provide: Auth,
+          useValue: {
+            usuario: signal(
+              opciones.socioId === undefined
+                ? null
+                : { id: 1, socioId: opciones.socioId },
+            ).asReadonly(),
+          },
+        },
         { provide: Router, useValue: { navigate: navegar } },
         {
           provide: ActivatedRoute,
@@ -213,6 +248,83 @@ describe('Grilla', () => {
     await montar([]);
 
     expect(texto()).toContain('no tiene canchas publicadas');
+  });
+
+  describe('reportar una hora no usada (T35)', () => {
+    const RESERVADO: GrillaDeCancha[] = [
+      {
+        cancha: DIA[0].cancha,
+        bloques: [
+          {
+            ...DIA[0].bloques[0],
+            reservado: true,
+            montoClp: 0,
+          },
+        ],
+      },
+    ];
+
+    const laReportable = [
+      {
+        reservaId: 25,
+        canchaId: 1,
+        inicio: '2026-08-17T12:00:00.000Z',
+        yaReportada: false,
+      },
+    ];
+
+    it('el socio ve el botón sobre la hora tomada que ya pasó', async () => {
+      await montar(RESERVADO, {}, { socioId: 7, reportables: laReportable });
+
+      expect(texto()).toContain('Reportar hora no usada');
+    });
+
+    it('a quien no tiene ficha de socio no se lo ofrece', async () => {
+      // Ni siquiera se le pregunta al servidor: el endpoint es `@SoloSocio()` y
+      // pedirlo sería un 403 en la consola de cada visitante.
+      await montar(RESERVADO, {}, { socioId: null });
+
+      expect(reportables).not.toHaveBeenCalled();
+      expect(texto()).not.toContain('Reportar hora no usada');
+    });
+
+    it('tampoco sobre una hora que el servidor no listó como reportable', async () => {
+      // La lista la arma el servidor —lo transcurrido, ajeno y dentro del plazo—;
+      // la grilla no vuelve a decidirlo por su cuenta.
+      await montar(RESERVADO, {}, { socioId: 7, reportables: [] });
+
+      expect(texto()).not.toContain('Reportar hora no usada');
+    });
+
+    it('al reportar dice que es anónimo, sin prometer una sanción', async () => {
+      await montar(RESERVADO, {}, { socioId: 7, reportables: laReportable });
+
+      Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      )
+        .find((b) => b.textContent?.includes('Reportar'))
+        ?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(reportar).toHaveBeenCalledWith(25);
+      expect(texto()).toContain('anónimo');
+      // Decidir es del club: prometer castigo haría de esto un arma.
+      expect(texto()).not.toMatch(/sancion/i);
+    });
+
+    it('la que ya reportó lo dice, en vez de ofrecer un botón que falla', async () => {
+      await montar(
+        RESERVADO,
+        {},
+        {
+          socioId: 7,
+          reportables: [{ ...laReportable[0], yaReportada: true }],
+        },
+      );
+
+      expect(texto()).toContain('Ya reportaste esta hora');
+    });
   });
 
   describe('cambiando la hora de una reserva (T24)', () => {
