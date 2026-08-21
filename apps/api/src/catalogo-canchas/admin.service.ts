@@ -145,13 +145,40 @@ export class AdminCanchasService {
   }
 
   /**
-   * Reemplaza el horario completo de una cancha.
+   * Lo que rige donde la cancha no dice otra cosa: las filas con `canchaId` nulo.
+   *
+   * El panel las llama "el general del club" desde T13 y hasta T31 solo las ponía
+   * el seed, así que nombraba algo que no se podía cambiar.
+   */
+  async general() {
+    const [horarios, franjas] = await Promise.all([
+      this.prisma.horarioApertura.findMany({
+        where: { canchaId: null },
+        orderBy: { diaSemana: 'asc' },
+      }),
+      this.prisma.franjaHoraria.findMany({
+        where: { canchaId: null },
+        orderBy: { horaDesde: 'asc' },
+      }),
+    ]);
+
+    return { horarios, franjas };
+  }
+
+  /**
+   * Reemplaza el horario completo de una cancha, o el general del club.
+   *
+   * `canchaId` nulo es el del club: el mismo código porque es la misma operación
+   * sobre la misma tabla, y separarlos dejaría dos versiones del reemplazo entero
+   * de las que una envejecería.
    *
    * En una transacción: si el borrado saliera y la escritura no, la cancha
    * quedaría sin horario y desaparecería de la grilla sin que nadie lo pidiera.
    */
-  async fijarHorarios(canchaId: number, horarios: DatosHorario[]) {
-    await this.laCancha(canchaId);
+  async fijarHorarios(canchaId: number | null, horarios: DatosHorario[]) {
+    if (canchaId !== null) {
+      await this.laCancha(canchaId);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       await tx.horarioApertura.deleteMany({ where: { canchaId } });
@@ -166,12 +193,38 @@ export class AdminCanchasService {
     });
   }
 
+  /**
+   * Crea una tarifa y **cierra la que cubría el mismo tramo**, en vez de dejar las
+   * dos abiertas.
+   *
+   * Cambiar un precio es esto: una tarifa nueva desde una fecha, no una edición de
+   * la anterior. La vieja no se borra —el monto de una reserva ya pagada se
+   * justifica con la tarifa que regía ese día, y sin ella ese cobro queda sin
+   * explicación— y se cierra la víspera: cerrarla el mismo día dejaría a las dos
+   * rigiendo esa fecha y cuál gana lo decidiría el desempate de `franjaPara`.
+   *
+   * Solo el tramo exacto. Los solapamientos parciales los resuelve `franjaPara`
+   * por especificidad, y adivinar cuál "reemplaza" a cuál sería magia.
+   */
   async crearFranja(datos: DatosFranja) {
     if (datos.canchaId !== null) {
       await this.laCancha(datos.canchaId);
     }
 
-    return this.prisma.franjaHoraria.create({ data: datos });
+    return this.prisma.$transaction(async (tx) => {
+      await tx.franjaHoraria.updateMany({
+        where: {
+          canchaId: datos.canchaId,
+          diaSemana: datos.diaSemana,
+          horaDesde: datos.horaDesde,
+          horaHasta: datos.horaHasta,
+          vigenteHasta: null,
+        },
+        data: { vigenteHasta: vispera(datos.vigenteDesde) },
+      });
+
+      return tx.franjaHoraria.create({ data: datos });
+    });
   }
 
   async borrarFranja(id: number): Promise<void> {
@@ -269,4 +322,15 @@ export class AdminCanchasService {
       throw new NotFoundException('No hay una cancha con ese número.');
     }
   }
+}
+
+/**
+ * El día anterior a una fecha civil, como fecha civil.
+ *
+ * Aritmética en UTC sobre una `@db.Date`, que es medianoche UTC: restar un día no
+ * puede caer en otra fecha por una zona horaria, y por eso no pasa por el reloj del
+ * club.
+ */
+function vispera(fecha: Date): Date {
+  return new Date(fecha.getTime() - 24 * 60 * 60 * 1000);
 }

@@ -42,6 +42,7 @@ describe('AdminCanchasPanel', () => {
     eliminar: ReturnType<typeof vi.fn>;
     bloqueos: ReturnType<typeof vi.fn>;
     configuracion: ReturnType<typeof vi.fn>;
+    general: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (
@@ -56,6 +57,9 @@ describe('AdminCanchasPanel', () => {
       eliminar: vi.fn().mockResolvedValue(undefined),
       // Lo pide el editor de bloqueos, que el panel monta dentro de cada cancha.
       bloqueos: vi.fn().mockResolvedValue([]),
+      // Y esto el panel de lo general del club, que monta los mismos editores con
+      // un ámbito sin id. Su propio spec es `reglas-generales.spec.ts`.
+      general: vi.fn().mockResolvedValue({ horarios: [], franjas: [] }),
       // Y esto el editor de reglas, que va arriba de todo. Su propio spec es
       // `editor-configuracion.spec.ts`; acá solo tiene que poder montarse.
       configuracion: vi.fn().mockResolvedValue({
@@ -80,10 +84,15 @@ describe('AdminCanchasPanel', () => {
 
   const texto = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
 
+  /**
+   * Por texto exacto y no por subcadena: la pantalla monta los editores del club
+   * antes de la lista, y "Agregar" por subcadena encontraba "Agregar tarifa" —el
+   * test pasaba a apretar otro botón sin que nadie se enterara.
+   */
   const boton = (etiqueta: string) =>
     Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
-    ).find((b) => b.textContent?.includes(etiqueta));
+    ).find((b) => b.textContent?.trim() === etiqueta);
 
   beforeEach(async () => {
     await montar([CANCHA]);

@@ -12,6 +12,7 @@ import { EditorBloqueos } from './editor-bloqueos';
 import { EditorConfiguracion } from './editor-configuracion';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
+import { ReglasGeneralesPanel } from './reglas-generales';
 
 const DIAS = [
   'Domingo',
@@ -44,6 +45,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     EditorHorarios,
     EditorFranjas,
     EditorBloqueos,
+    ReglasGeneralesPanel,
   ],
   template: `
     <h1 class="font-display text-3xl font-bold">Canchas del club</h1>
@@ -76,6 +78,8 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     <!-- Antes de las canchas: son las reglas que valen para todas, y la lista de
          abajo dice "vale el general del club" refiriéndose a esto. -->
     <app-editor-configuracion (guardado)="recargar()" />
+
+    <app-reglas-generales (cambiado)="recargar()" />
 
     <section class="mt-8" aria-labelledby="titulo-nueva">
       <h2 id="titulo-nueva" class="font-display text-xl font-semibold">
@@ -209,13 +213,10 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   Sin horario propio: vale el general del club.
                 </p>
               }
-              <app-editor-horarios
-                [cancha]="cancha"
-                (guardado)="recargar()"
-              />
+              <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
 
               <h4 class="mt-3 text-sm font-semibold">Tarifas propias</h4>
-              <app-editor-franjas [cancha]="cancha" (cambiado)="recargar()" />
+              <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
 
               <h4 class="mt-3 text-sm font-semibold">Bloqueos</h4>
               <app-editor-bloqueos [cancha]="cancha" />

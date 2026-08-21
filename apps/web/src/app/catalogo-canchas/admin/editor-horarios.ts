@@ -1,7 +1,15 @@
-import { Component, inject, input, linkedSignal, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { AdminCanchas, CanchaAdmin } from './admin-canchas.service';
+import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
 
 const DIAS = [
   'Domingo',
@@ -37,7 +45,7 @@ interface FilaDeDia {
     <form class="mt-2" (ngSubmit)="guardar()">
       <table class="text-sm">
         <caption class="sr-only">
-          Horario de apertura de {{ cancha().nombre }}
+          Horario de apertura de {{ ambito().nombre }}
         </caption>
         <thead>
           <tr class="text-muted-foreground">
@@ -59,7 +67,7 @@ interface FilaDeDia {
                   [attr.aria-label]="'Abre el ' + nombreDia(fila.diaSemana)"
                   [ngModel]="fila.abre"
                   (ngModelChange)="cambiar(fila.diaSemana, { abre: $event })"
-                  [name]="'abre-' + cancha().id + '-' + fila.diaSemana"
+                  [name]="'abre-' + clave() + '-' + fila.diaSemana"
                 />
               </td>
               <td class="pe-3 py-1">
@@ -70,7 +78,7 @@ interface FilaDeDia {
                   [disabled]="!fila.abre"
                   [ngModel]="fila.horaApertura"
                   (ngModelChange)="cambiar(fila.diaSemana, { horaApertura: $event })"
-                  [name]="'desde-' + cancha().id + '-' + fila.diaSemana"
+                  [name]="'desde-' + clave() + '-' + fila.diaSemana"
                 />
               </td>
               <td class="py-1">
@@ -81,7 +89,7 @@ interface FilaDeDia {
                   [disabled]="!fila.abre"
                   [ngModel]="fila.horaCierre"
                   (ngModelChange)="cambiar(fila.diaSemana, { horaCierre: $event })"
-                  [name]="'hasta-' + cancha().id + '-' + fila.diaSemana"
+                  [name]="'hasta-' + clave() + '-' + fila.diaSemana"
                 />
               </td>
             </tr>
@@ -114,8 +122,15 @@ interface FilaDeDia {
 export class EditorHorarios {
   private readonly api = inject(AdminCanchas);
 
-  readonly cancha = input.required<CanchaAdmin>();
+  readonly ambito = input.required<AmbitoDeReglas>();
   readonly guardado = output<void>();
+
+  /**
+   * Para los `id` y los `name` del formulario. El club no tiene número, y sin esto
+   * sus campos se llamarían "desde-null-1", que además choca con cualquier otro
+   * ámbito sin id que aparezca después.
+   */
+  protected readonly clave = computed(() => this.ambito().id ?? 'club');
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -128,11 +143,11 @@ export class EditorHorarios {
    *
    * `linkedSignal` y no `computed`: se deriva de la cancha, pero el admin la edita.
    */
-  protected readonly filas = linkedSignal<CanchaAdmin, FilaDeDia[]>({
-    source: this.cancha,
-    computation: (cancha) =>
+  protected readonly filas = linkedSignal<AmbitoDeReglas, FilaDeDia[]>({
+    source: this.ambito,
+    computation: (ambito) =>
       SEMANA.map((diaSemana) => {
-        const suyo = cancha.horarios.find((h) => h.diaSemana === diaSemana);
+        const suyo = ambito.horarios.find((h) => h.diaSemana === diaSemana);
 
         return {
           diaSemana,
@@ -164,7 +179,7 @@ export class EditorHorarios {
 
     try {
       await this.api.fijarHorarios(
-        this.cancha().id,
+        this.ambito().id,
         this.filas()
           .filter((fila) => fila.abre)
           .map(({ diaSemana, horaApertura, horaCierre }) => ({

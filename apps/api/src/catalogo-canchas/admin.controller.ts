@@ -45,6 +45,17 @@ export class AdminCanchasController {
     return this.servicio.fijarConfiguracion(leerCambiosDeConfiguracion(cuerpo));
   }
 
+  /** El horario y las tarifas que rigen donde la cancha no dice otra cosa. */
+  @Get('general')
+  general() {
+    return this.servicio.general();
+  }
+
+  @Put('general/horarios')
+  horariosGenerales(@Body() cuerpo: unknown) {
+    return this.servicio.fijarHorarios(null, leerHorarios(cuerpo));
+  }
+
   @Get('canchas')
   canchas() {
     return this.servicio.canchas();
