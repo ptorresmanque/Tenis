@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { hoyEnElClub } from '../comun/tiempo';
+import { hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
 import {
   EstadoReporte,
   EstadoReserva,
@@ -95,6 +95,51 @@ export class ReportesService {
       // alguien apriete diez veces y la bandeja muestre diez reportes suyos.
       throw new ConflictException('Ya reportaste esta hora.');
     }
+  }
+
+  /**
+   * Qué horas de ese día puede reportar este socio.
+   *
+   * La grilla pública **no dice qué reserva ocupa cada bloque** —sería publicar
+   * quién juega y cuándo—, así que el botón necesita esta lista aparte. Va tras
+   * `@SoloSocio()` y no incluye las horas del propio socio ni aquellas en las que
+   * estaba declarado: de esas no es testigo, es parte.
+   *
+   * Solo lo transcurrido y dentro del plazo: ofrecer el botón sobre una hora que
+   * el servidor va a rechazar es prometer algo que no se puede hacer.
+   */
+  async reportables(socioId: number, fecha: string, ahora = new Date()) {
+    const reservas = await this.prisma.reserva.findMany({
+      where: {
+        estado: EstadoReserva.CONFIRMADA,
+        inicio: {
+          gte: instanteEnElClub(fecha, '00:00'),
+          lte: ahora,
+        },
+        fin: {
+          gte: new Date(ahora.getTime() - HORAS_PARA_REPORTAR * 3600_000),
+        },
+        socioId: { not: socioId },
+        acompanantes: { none: { socioId } },
+      },
+      select: {
+        id: true,
+        canchaId: true,
+        inicio: true,
+        reportes: {
+          where: { reportanteSocioId: socioId },
+          select: { id: true },
+        },
+      },
+    });
+
+    return reservas.map((reserva) => ({
+      reservaId: reserva.id,
+      canchaId: reserva.canchaId,
+      inicio: reserva.inicio,
+      // Para que el botón diga "ya lo reportaste" en vez de ofrecer un 409.
+      yaReportada: reserva.reportes.length > 0,
+    }));
   }
 
   /**

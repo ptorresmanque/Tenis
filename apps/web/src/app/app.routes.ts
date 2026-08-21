@@ -39,6 +39,13 @@ export const routes: Routes = [
       import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
   },
   {
+    path: 'administracion/reportes',
+    title: 'Horas reportadas — Administración',
+    canActivate: [soloAdmin],
+    loadComponent: () =>
+      import('./reservas/admin/reportes').then((m) => m.ReportesPanel),
+  },
+  {
     path: 'mis-reservas',
     title: 'Mis reservas — Club de Tenis',
     loadComponent: () =>

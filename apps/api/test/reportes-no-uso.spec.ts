@@ -270,6 +270,79 @@ describe('Reportes de hora no usada', () => {
     });
   });
 
+  describe('qué horas puede reportar el socio (T35)', () => {
+    const hoy = () => new Date().toISOString().slice(0, 10);
+
+    const reportables = (cookie = testigo) =>
+      request(servidor())
+        .get(`/api/reservas/reportables?fecha=${hoy()}`)
+        .set('Cookie', cookie);
+
+    it('trae la hora ajena ya transcurrida', async () => {
+      const id = await unaReserva();
+
+      const respuesta = await reportables().expect(200);
+
+      expect(
+        (respuesta.body as { reservaId: number }[]).map((r) => r.reservaId),
+      ).toContain(id);
+    });
+
+    it('no trae las suyas ni aquellas en las que estaba declarado', async () => {
+      const propia = await unaReserva({ socioId: testigoSocioId });
+      const comoAcompanante = await unaReserva({
+        acompanantes: [testigoSocioId],
+        inicio: new Date(Date.now() - 5 * 3600_000),
+        fin: new Date(Date.now() - 4 * 3600_000),
+      });
+
+      const respuesta = await reportables().expect(200);
+      const ids = (respuesta.body as { reservaId: number }[]).map(
+        (r) => r.reservaId,
+      );
+
+      // De esas no es testigo, es parte. Ofrecerle el botón sería prometerle algo
+      // que el servidor le va a negar.
+      expect(ids).not.toContain(propia);
+      expect(ids).not.toContain(comoAcompanante);
+    });
+
+    it('marca la que ya reportó, para no ofrecer un 409', async () => {
+      const id = await unaReserva();
+      await reportar(id).expect(201);
+
+      const respuesta = await reportables().expect(200);
+      const fila = (
+        respuesta.body as { reservaId: number; yaReportada: boolean }[]
+      ).find((r) => r.reservaId === id);
+
+      expect(fila?.yaReportada).toBe(true);
+    });
+
+    it('no trae lo que todavía no empezó', async () => {
+      const enDosHoras = new Date(Date.now() + 2 * 3600_000);
+      const id = await unaReserva({
+        inicio: enDosHoras,
+        fin: new Date(enDosHoras.getTime() + 3600_000),
+      });
+
+      const respuesta = await reportables().expect(200);
+
+      expect(
+        (respuesta.body as { reservaId: number }[]).map((r) => r.reservaId),
+      ).not.toContain(id);
+    });
+
+    it('quien no es socio no puede preguntarlo', async () => {
+      const visitante = await sesionDe('curioso');
+
+      await reportables(visitante).expect(403);
+      await prisma.usuario.deleteMany({
+        where: { email: `curioso${DOMINIO}` },
+      });
+    });
+  });
+
   describe('la bandeja del admin', () => {
     it('lista la hora reportada con cuántos reportes tiene', async () => {
       const id = await unaReserva();
