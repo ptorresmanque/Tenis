@@ -143,6 +143,7 @@ export interface CambiosDeConfiguracion {
   invitadosPorMes: number;
   horasMinModificacion: number;
   horasReembolsoTotal: number;
+  diasSancionNoUso: number;
 }
 
 /**
@@ -165,6 +166,9 @@ const LIMITES: Record<keyof CambiosDeConfiguracion, [number, number?]> = {
   invitadosPorMes: [0],
   horasMinModificacion: [0],
   horasReembolsoTotal: [0],
+  // Al menos un día: una sanción de cero días es no sancionar, y se expresa
+  // descartando el reporte.
+  diasSancionNoUso: [1, 365],
 };
 
 const NOMBRES: Record<keyof CambiosDeConfiguracion, string> = {
@@ -174,6 +178,7 @@ const NOMBRES: Record<keyof CambiosDeConfiguracion, string> = {
   invitadosPorMes: 'Los invitados por mes',
   horasMinModificacion: 'Las horas mínimas para modificar',
   horasReembolsoTotal: 'Las horas para el reembolso total',
+  diasSancionNoUso: 'Los días de sanción por una hora no usada',
 };
 
 export function leerCambiosDeConfiguracion(

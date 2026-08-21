@@ -48,6 +48,11 @@ const REGLAS: {
     etiqueta: 'Horas para el reembolso total',
     ayuda: 'Cancelando con esta antelación, se devuelve el 100%.',
   },
+  {
+    campo: 'diasSancionNoUso',
+    etiqueta: 'Días de sanción por hora no usada',
+    ayuda: 'Cuánto queda sin reservar quien tomó una hora y no la usó.',
+  },
 ];
 
 /** Lo que hay en los campos: números, o vacío mientras alguien está escribiendo. */

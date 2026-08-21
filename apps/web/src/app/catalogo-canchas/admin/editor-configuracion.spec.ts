@@ -16,6 +16,7 @@ describe('EditorConfiguracion', () => {
     invitadosPorMes: 4,
     horasMinModificacion: 6,
     horasReembolsoTotal: 24,
+    diasSancionNoUso: 15,
   };
 
   let fixture: ComponentFixture<EditorConfiguracion>;

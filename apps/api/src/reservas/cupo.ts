@@ -10,6 +10,15 @@ export interface SocioQueReserva {
   estado: EstadoSocio;
   /** Fecha civil: hasta cuándo tiene la cuota pagada. */
   alDiaHasta: Date;
+  /**
+   * Fecha civil: hasta cuándo no puede reservar por una hora no usada (T34).
+   *
+   * **Obligatorio y nulable, no opcional.** Nulo es lo normal —casi ningún socio
+   * está sancionado— pero omitirlo tiene que ser un error de compilación: si fuera
+   * opcional, un `select` que se olvide del campo apagaría la sanción sin que nada
+   * falle, y el club creería que castiga cuando no.
+   */
+  sancionadoHasta: Date | null;
 }
 
 /** Quién más va a jugar. Socio del club o invitado externo, exactamente uno. */
@@ -52,6 +61,7 @@ export interface SolicitudDeSocio {
 
 export type TipoDeRechazo =
   | 'MEMBRESIA_INACTIVA'
+  | 'SANCIONADO'
   | 'CUOTA_VENCIDA'
   | 'CUPO_DIARIO'
   | 'CUPO_PICO'
@@ -89,6 +99,18 @@ export function evaluarReservaDeSocio(
       mensaje:
         'Tu membresía no está activa. Acercate a la administración del club para ' +
         'reactivarla.',
+    };
+  }
+
+  if (sigueSancionado(socio, solicitud.hoyEnElClub)) {
+    // Antes que la cuota: pagar no levanta la sanción, y el mensaje de la cuota
+    // mandaría a esta persona a pagar para seguir sin poder reservar.
+    return {
+      tipo: 'SANCIONADO',
+      mensaje:
+        `No puedes reservar hasta el ${enDiaMesAno(socio.sancionadoHasta!)}: el ` +
+        'club registró una hora que reservaste y no se usó. Después de esa fecha ' +
+        'vuelves a reservar como siempre.',
     };
   }
 
@@ -233,6 +255,21 @@ function sePisan(
  */
 function estaMoroso(socio: SocioQueReserva, hoyEnElClub: string): boolean {
   return socio.alDiaHasta < fechaDelClub(hoyEnElClub);
+}
+
+/**
+ * `sancionadoHasta` es el **último día sancionado**, no el primero libre: quien
+ * está "sancionado hasta el 1 de septiembre" no reserva ese día y sí el 2.
+ *
+ * Es el mismo criterio que `alDiaHasta` —la fecha del papel es la última que
+ * vale—, aplicado al revés porque una dice hasta cuándo puede y la otra hasta
+ * cuándo no.
+ */
+function sigueSancionado(socio: SocioQueReserva, hoyEnElClub: string): boolean {
+  return (
+    socio.sancionadoHasta != null &&
+    socio.sancionadoHasta >= fechaDelClub(hoyEnElClub)
+  );
 }
 
 function enHoras(cantidad: number): string {

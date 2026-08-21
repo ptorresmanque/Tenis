@@ -11,6 +11,11 @@ import { EventosDeReserva } from './eventos';
 import { ModificacionService } from './modificacion.service';
 import { NoSocioController } from './no-socio.controller';
 import { ReservaNoSocioService } from './reserva-no-socio.service';
+import {
+  AdminReportesController,
+  ReportesController,
+} from './reportes.controller';
+import { ReportesService } from './reportes.service';
 import { ReservaRepository } from './reserva.repository';
 import { ReservasController } from './reservas.controller';
 import { ReservasService } from './reservas.service';
@@ -27,6 +32,8 @@ import { ReservasService } from './reservas.service';
     NoSocioController,
     DisponibilidadPublicaController,
     AgendaController,
+    ReportesController,
+    AdminReportesController,
   ],
   providers: [
     ReservaRepository,
@@ -35,6 +42,7 @@ import { ReservasService } from './reservas.service';
     ModificacionService,
     DisponibilidadPublicaService,
     AgendaService,
+    ReportesService,
     EventosDeReserva,
   ],
   exports: [

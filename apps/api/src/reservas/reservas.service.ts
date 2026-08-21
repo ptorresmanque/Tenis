@@ -83,6 +83,8 @@ export class ReservasService {
         id: true,
         estado: true,
         alDiaHasta: true,
+        // La sanción por una hora no usada se evalúa junto al resto (T34).
+        sancionadoHasta: true,
         // El teléfono viaja a la reserva para que el panel del admin sepa a quién
         // llamar sin ir a buscar la ficha. `UsuarioActual` no lo trae: es un dato
         // de contacto, no de autorización.
