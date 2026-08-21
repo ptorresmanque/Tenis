@@ -10,6 +10,8 @@ import { RegistroService } from './registro.service';
 import { SesionController } from './sesion/sesion.controller';
 import { IntentosFallidos } from './intentos';
 import { SesionService } from './sesion/sesion.service';
+import { InvitacionesController } from './socios/invitaciones.controller';
+import { InvitacionesService } from './socios/invitaciones.service';
 import { YoController } from './yo.controller';
 
 @Module({
@@ -18,10 +20,12 @@ import { YoController } from './yo.controller';
     SesionController,
     GoogleController,
     YoController,
+    InvitacionesController,
   ],
   providers: [
     RegistroService,
     SesionService,
+    InvitacionesService,
     IntentosFallidos,
     GoogleService,
     { provide: ProveedorGoogle, useClass: GoogleOAuth },

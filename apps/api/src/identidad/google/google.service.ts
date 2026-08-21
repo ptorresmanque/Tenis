@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { SesionService } from '../sesion/sesion.service';
+import { InvitacionesService } from '../socios/invitaciones.service';
 import { PerfilGoogle } from './google.port';
 
 /** Por qué no entró. Cada motivo lleva a un mensaje distinto en la SPA. */
@@ -20,6 +21,7 @@ export class GoogleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sesiones: SesionService,
+    private readonly invitaciones: InvitacionesService,
   ) {}
 
   /**
@@ -94,6 +96,11 @@ export class GoogleService {
       },
       select: { id: true },
     });
+
+    // El mismo punto que usa el registro con contraseña: si el club dio de alta
+    // este correo como socio, la ficha aparece acá. Es el camino que nadie prueba
+    // a mano, y por eso comparte código en vez de repetir la regla (T32).
+    await this.invitaciones.asociarSiInvitado(creado.id, perfil.email);
 
     return creado.id;
   }

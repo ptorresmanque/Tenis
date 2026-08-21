@@ -265,7 +265,11 @@ describe('Configuración del club', () => {
      * ponía el seed. Se restauran al terminar por lo mismo que la configuración:
      * son globales y las lee toda la suite.
      */
-    let horariosOriginales: { diaSemana: number; horaApertura: string; horaCierre: string }[];
+    let horariosOriginales: {
+      diaSemana: number;
+      horaApertura: string;
+      horaCierre: string;
+    }[];
 
     beforeAll(async () => {
       horariosOriginales = (

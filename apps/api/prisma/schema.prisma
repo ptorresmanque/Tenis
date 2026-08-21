@@ -102,6 +102,34 @@ model Socio {
   @@map("socio")
 }
 
+/// El club aceptó a alguien como socio antes de que esa persona tenga cuenta.
+///
+/// **Tabla propia y no un `Socio` sin usuario.** Hacer `Socio.usuarioId` nullable
+/// convertiría en opcional una relación que hoy lee media base de código —el
+/// teléfono que la reserva copia de la ficha, entre otros— y el compilador no
+/// avisaría de ninguno de esos usos. Una invitación es un papel del club, no una
+/// ficha de socio a medias.
+///
+/// Se guarda `usadaEn` en vez de borrar la fila al usarse: el club puede mirar a
+/// quién invitó y cuándo se sumó, que es la única traza de esa decisión.
+model InvitacionSocio {
+  id Int @id @default(autoincrement())
+
+  /// Normalizado en minúsculas antes de guardar: `Ana@club.cl` y `ana@club.cl`
+  /// son la misma persona, y con dos filas la segunda invitación no haría nada.
+  email       String @unique
+  numeroSocio String @unique @map("numero_socio")
+
+  /// Hasta cuándo cuenta como al día la ficha que se cree con esta invitación.
+  /// Fecha civil, como `Socio.alDiaHasta`.
+  alDiaHasta DateTime @map("al_dia_hasta") @db.Date
+
+  creadaEn DateTime  @default(now()) @map("creada_en")
+  usadaEn  DateTime? @map("usada_en")
+
+  @@map("invitacion_socio")
+}
+
 /// Ficha de profesor. Declarada acá porque es una ficha sobre `Usuario`, pero su
 /// dueño funcional es `clases`: `identidad` no sabe qué es una clase.
 /// Un usuario puede ser socio y profesor a la vez.
