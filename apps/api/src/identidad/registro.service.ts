@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { hashear, problemaDeContrasena } from './contrasena';
 import { EnviadorCorreo } from './correo';
 import { DatosRegistro } from './registro.dto';
+import { InvitacionesService } from './socios/invitaciones.service';
 import { hashDeToken, nuevoToken } from './token';
 
 const HORAS_DE_VIGENCIA_DEL_ENLACE = 24;
@@ -22,6 +23,7 @@ export class RegistroService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly correo: EnviadorCorreo,
+    private readonly invitaciones: InvitacionesService,
   ) {}
 
   /**
@@ -42,8 +44,10 @@ export class RegistroService {
     const passwordHash = await hashear(datos.contrasena);
     const token = nuevoToken();
 
+    let creado: { id: number };
+
     try {
-      await this.prisma.usuario.create({
+      creado = await this.prisma.usuario.create({
         data: {
           email: datos.email,
           nombre: datos.nombre,
@@ -55,6 +59,7 @@ export class RegistroService {
             Date.now() + HORAS_DE_VIGENCIA_DEL_ENLACE * 60 * 60 * 1000,
           ),
         },
+        select: { id: true },
       });
     } catch (error) {
       // El correo ya está tomado. Lo decide el índice único y no una consulta
@@ -73,6 +78,15 @@ export class RegistroService {
       });
       return;
     }
+
+    // **Fuera del `try` a propósito.** Adentro, un número de socio repetido —que
+    // también es una violación de unicidad— se leería como "el correo ya está
+    // tomado" y le mandaría a esta persona el aviso equivocado.
+    //
+    // Si el club lo había dado de alta como socio, acá le aparece la ficha. No
+    // cambia nada de lo que se responde: una respuesta distinta para un correo
+    // invitado diría quién es socio a cualquiera que pruebe direcciones.
+    await this.invitaciones.asociarSiInvitado(creado.id, datos.email);
 
     await this.correo.enviar({
       para: datos.email,
