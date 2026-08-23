@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { hoyEnElClub } from '../src/comun/tiempo';
 import { hashear } from '../src/identidad/contrasena';
 import {
   EstadoReserva,
@@ -271,7 +272,11 @@ describe('Reportes de hora no usada', () => {
   });
 
   describe('qué horas puede reportar el socio (T35)', () => {
-    const hoy = () => new Date().toISOString().slice(0, 10);
+    // El día **del club**, no el de UTC. Con `new Date().toISOString()`, desde las
+    // 20:00 de Santiago la fecha ya es la de mañana y el endpoint devolvía los
+    // reportables de un día en el que no hay nada: estos dos tests fallaban todas
+    // las noches, cuatro horas al día, sin que nada estuviera roto.
+    const hoy = () => hoyEnElClub().toISOString().slice(0, 10);
 
     const reportables = (cookie = testigo) =>
       request(servidor())

@@ -4,6 +4,7 @@ import { reservaDeNoSocioDeCuerpo } from './no-socio.dto';
 import {
   PagoDeReservaIniciado,
   ReservaNoSocioService,
+  RetornoDePago,
 } from './reserva-no-socio.service';
 
 /** Dónde vuelve la persona después de pagar. */
@@ -49,31 +50,34 @@ export class NoSocioController {
         ordenAnulada ?? '',
       );
       return {
-        url: destino(
-          anulada.estado,
-          anulada.folio,
-          tokenAnulado ? 'anulado' : 'sin_token',
-        ),
+        url: destino({
+          ...anulada,
+          motivo: tokenAnulado ? 'anulado' : 'sin_token',
+        }),
       };
     }
 
-    const resultado = await this.reservas.confirmarDesdeRetorno(tokenWs);
-
-    return {
-      url: destino(resultado.estado, resultado.folio, resultado.motivo),
-    };
+    return { url: destino(await this.reservas.confirmarDesdeRetorno(tokenWs)) };
   }
 }
 
-function destino(
-  estado: string,
-  folio: string | null,
-  motivo: string | null,
-): string {
+/**
+ * A dónde vuelve el navegador después de la pasarela.
+ *
+ * El token viaja **solo cuando la reserva quedó confirmada**: es la llave de la
+ * página pública, y mandarlo en una vuelta rechazada sería entregar el enlace de
+ * una hora que ya no existe.
+ */
+function destino(retorno: RetornoDePago): string {
   const parametros = new URLSearchParams();
-  if (folio) parametros.set('folio', folio);
-  if (estado !== 'CONFIRMADA')
-    parametros.set('error', motivo ?? estado.toLowerCase());
+
+  if (retorno.folio) parametros.set('folio', retorno.folio);
+
+  if (retorno.estado === 'CONFIRMADA') {
+    if (retorno.token) parametros.set('t', retorno.token);
+  } else {
+    parametros.set('error', retorno.motivo ?? retorno.estado.toLowerCase());
+  }
 
   return `${web()}/reservas/confirmacion?${parametros.toString()}`;
 }

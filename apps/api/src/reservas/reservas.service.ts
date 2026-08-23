@@ -40,6 +40,8 @@ export interface ReservaDeSocio {
 export interface ReservaCreada {
   id: number;
   folio: string;
+  /** La llave de su página pública: el socio también tiene su QR. */
+  token: string;
   canchaId: number;
   inicio: Date;
   fin: Date;
@@ -135,6 +137,7 @@ export class ReservasService {
       return {
         id: reserva.id,
         folio: reserva.folio,
+        token: reserva.token,
         canchaId: reserva.canchaId,
         inicio: reserva.inicio,
         fin: reserva.fin,
@@ -290,6 +293,86 @@ export class ReservasService {
    * el catálogo calculó para ese día. Un instante inventado —o el de un horario que
    * el club ya cambió— no encuentra bloque y se rechaza acá.
    */
+  /**
+   * Lo que el socio ya lleva usado, para mostrarlo antes de tomarle una hora.
+   *
+   * Las tres cuentas son las mismas que evalúa `evaluarParaSocio`; acá salen a la
+   * superficie sin decidir nada. Quien decide sigue siendo la evaluación completa
+   * en el momento de crear: entre que el mesón mira esto y aprieta "Reservar" el
+   * socio pudo tomar una hora desde su teléfono.
+   */
+  async ocupacionDelSocio(
+    socioId: number,
+    fecha: string,
+  ): Promise<{
+    reservasDelDia: number;
+    horasPicoDeLaSemana: number;
+    invitadosDelMes: number;
+  }> {
+    const [reservasDelDia, horasPicoDeLaSemana, invitadosDelMes] =
+      await Promise.all([
+        this.contarDelDia(this.prisma, socioId, fecha),
+        this.contarPicoDeLaSemana(this.prisma, socioId, fecha),
+        this.contarInvitadosDelMes(this.prisma, socioId, fecha),
+      ]);
+
+    return { reservasDelDia, horasPicoDeLaSemana, invitadosDelMes };
+  }
+
+  /**
+   * La hora que el club toma en el mesón, a nombre de quien no es socio.
+   *
+   * **Nace confirmada y sin transacción**: el cobro pasa en el mostrador, no por
+   * Webpay. Es el único camino en que una reserva de no-socio queda confirmada sin
+   * pago registrado, y existe porque el club atiende gente que llega en persona.
+   */
+  async reservarComoVisitanteDelMeson(datos: {
+    canchaId: number;
+    inicio: Date;
+    nombre: string;
+    email: string;
+    telefono: string;
+  }): Promise<ReservaCreada> {
+    const bloque = await this.bloqueDeLaGrilla(
+      datos.canchaId,
+      fechaCivilDelClub(datos.inicio),
+      datos.inicio,
+    );
+
+    try {
+      const reserva = await this.reservas.crear({
+        canchaId: datos.canchaId,
+        inicio: bloque.inicio,
+        fin: bloque.fin,
+        esPico: bloque.esPico,
+        estado: EstadoReserva.CONFIRMADA,
+        socioId: null,
+        nombre: datos.nombre,
+        email: datos.email,
+        telefono: datos.telefono,
+      });
+
+      return {
+        id: reserva.id,
+        folio: reserva.folio,
+        token: reserva.token,
+        canchaId: reserva.canchaId,
+        inicio: reserva.inicio,
+        fin: reserva.fin,
+        esPico: reserva.esPico,
+      };
+    } catch (error) {
+      if (error instanceof BloqueTomado) {
+        throw new ConflictException({
+          motivo: 'BLOQUE_TOMADO',
+          message: error.message,
+        });
+      }
+
+      throw error;
+    }
+  }
+
   private async bloqueDeLaGrilla(
     canchaId: number,
     fecha: string,
@@ -465,7 +548,7 @@ export class ReservasService {
 }
 
 /** La fecha civil del club de un instante, "AAAA-MM-DD". */
-function fechaCivilDelClub(instante: Date): string {
+export function fechaCivilDelClub(instante: Date): string {
   return hoyEnElClub(instante).toISOString().slice(0, 10);
 }
 

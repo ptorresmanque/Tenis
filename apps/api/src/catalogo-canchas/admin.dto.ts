@@ -137,6 +137,11 @@ export function leerCambiosDeCancha(
  * `SPEC-catalogo-canchas.md` § Configuración general del club.
  */
 export interface CambiosDeConfiguracion {
+  /** Los datos del club: los edita el mismo formulario, en otra pestaña. */
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  email: string;
   duracionBloqueMin: number;
   cupoDiarioSocioHoras: number;
   cupoPicoSemanalHoras: number;
@@ -159,7 +164,13 @@ export interface CambiosDeConfiguracion {
  * política posible, y cero horas de cupo diario es como el club cierra las reservas
  * de socios sin tocar código.
  */
-const LIMITES: Record<keyof CambiosDeConfiguracion, [number, number?]> = {
+/** Las reglas que son números: las de texto se validan aparte, por largo. */
+type ReglasNumericas = Omit<
+  CambiosDeConfiguracion,
+  'nombre' | 'direccion' | 'telefono' | 'email'
+>;
+
+const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   duracionBloqueMin: [15, 240],
   cupoDiarioSocioHoras: [0],
   cupoPicoSemanalHoras: [0],
@@ -171,7 +182,7 @@ const LIMITES: Record<keyof CambiosDeConfiguracion, [number, number?]> = {
   diasSancionNoUso: [1, 365],
 };
 
-const NOMBRES: Record<keyof CambiosDeConfiguracion, string> = {
+const NOMBRES: Record<keyof ReglasNumericas, string> = {
   duracionBloqueMin: 'La duración del bloque, en minutos,',
   cupoDiarioSocioHoras: 'El cupo diario del socio',
   cupoPicoSemanalHoras: 'El cupo semanal en horario pico',
@@ -181,19 +192,47 @@ const NOMBRES: Record<keyof CambiosDeConfiguracion, string> = {
   diasSancionNoUso: 'Los días de sanción por una hora no usada',
 };
 
+/**
+ * Los datos del club, con el largo que aguanta la columna.
+ *
+ * Se recortan y no se rechazan por largo: un teléfono con espacios de más o una
+ * dirección larguísima no son un error que valga la pena devolverle a quien está
+ * llenando un formulario, y la base sí se quejaría.
+ */
+const TEXTOS: Record<string, number> = {
+  nombre: 120,
+  direccion: 200,
+  telefono: 40,
+  email: 120,
+};
+
 export function leerCambiosDeConfiguracion(
   cuerpo: unknown,
 ): Partial<CambiosDeConfiguracion> {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
   const cambios: Partial<CambiosDeConfiguracion> = {};
 
-  for (const campo of Object.keys(
-    LIMITES,
-  ) as (keyof CambiosDeConfiguracion)[]) {
+  for (const campo of Object.keys(LIMITES) as (keyof ReglasNumericas)[]) {
     if (datos[campo] === undefined) continue;
 
     const [minimo, maximo] = LIMITES[campo];
     cambios[campo] = entero(datos[campo], NOMBRES[campo], minimo, maximo);
+  }
+
+  for (const [campo, largo] of Object.entries(TEXTOS)) {
+    if (datos[campo] === undefined) continue;
+
+    if (typeof datos[campo] !== 'string') {
+      throw new BadRequestException(`El campo ${campo} tiene que ser texto.`);
+    }
+
+    Object.assign(cambios, { [campo]: datos[campo].trim().slice(0, largo) });
+  }
+
+  // El nombre es lo único que no puede quedar vacío: es el título de cada página
+  // y el remitente de cada correo, y en blanco deja la pestaña sin nombre.
+  if (cambios.nombre !== undefined && cambios.nombre === '') {
+    throw new BadRequestException('El club necesita un nombre.');
   }
 
   if (Object.keys(cambios).length === 0) {

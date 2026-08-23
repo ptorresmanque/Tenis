@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { IdentidadModule } from '../identidad/identidad.module';
+import { ClubPublicoController } from './club-publico.controller';
 import { AdminCanchasController } from './admin.controller';
 import { AdminCanchasService } from './admin.service';
 import { DisponibilidadController } from './disponibilidad.controller';
@@ -10,7 +11,11 @@ import { DisponibilidadService } from './disponibilidad.service';
   // `IdentidadModule` porque `@SoloAdmin()` resuelve `SesionService` en el módulo
   // del controlador que lo usa, no en el que lo declara.
   imports: [IdentidadModule],
-  controllers: [DisponibilidadController, AdminCanchasController],
+  controllers: [
+    DisponibilidadController,
+    ClubPublicoController,
+    AdminCanchasController,
+  ],
   providers: [DisponibilidadService, AdminCanchasService],
   // `reservas` va a superponer sus reservas sobre estos bloques.
   exports: [DisponibilidadService],

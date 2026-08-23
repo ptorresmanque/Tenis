@@ -16,6 +16,10 @@ import {
   ReportesController,
 } from './reportes.controller';
 import { ReportesService } from './reportes.service';
+import { ReservaDelAdminController } from './reserva-del-admin.controller';
+import { ReservaDelAdminService } from './reserva-del-admin.service';
+import { ReservaPublicaController } from './reserva-publica.controller';
+import { ReservaPublicaService } from './reserva-publica.service';
 import { ReservaRepository } from './reserva.repository';
 import { ReservasController } from './reservas.controller';
 import { ReservasService } from './reservas.service';
@@ -31,7 +35,9 @@ import { ReservasService } from './reservas.service';
     ReservasController,
     NoSocioController,
     DisponibilidadPublicaController,
+    ReservaPublicaController,
     AgendaController,
+    ReservaDelAdminController,
     ReportesController,
     AdminReportesController,
   ],
@@ -41,6 +47,8 @@ import { ReservasService } from './reservas.service';
     ReservaNoSocioService,
     ModificacionService,
     DisponibilidadPublicaService,
+    ReservaPublicaService,
+    ReservaDelAdminService,
     AgendaService,
     ReportesService,
     EventosDeReserva,

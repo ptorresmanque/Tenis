@@ -33,6 +33,8 @@ export interface PagoDeReservaIniciado {
 export interface RetornoDePago {
   estado: 'CONFIRMADA' | 'RECHAZADA' | 'ERROR';
   folio: string | null;
+  /** La llave de la página pública, para que la confirmación pueda mostrar el QR. */
+  token: string | null;
   motivo: string | null;
 }
 
@@ -108,14 +110,19 @@ export class ReservaNoSocioService {
 
     if (!transaccion) {
       this.log.warn('Volvió un pago con un token que no reconocemos.');
-      return { estado: 'ERROR', folio: null, motivo: 'token_desconocido' };
+      return {
+        estado: 'ERROR',
+        folio: null,
+        token: null,
+        motivo: 'token_desconocido',
+      };
     }
 
     const reserva = await this.prisma.reserva.findUnique({
       where: { id: transaccion.conceptoId },
       // `inicio` para el aviso al panel del admin: el evento viaja por el día del
       // club al que pertenece el bloque.
-      select: { id: true, folio: true, inicio: true },
+      select: { id: true, folio: true, token: true, inicio: true },
     });
 
     const resultado = await this.confirmacion.confirmar(
@@ -142,6 +149,7 @@ export class ReservaNoSocioService {
       return {
         estado: 'CONFIRMADA',
         folio: reserva?.folio ?? null,
+        token: reserva?.token ?? null,
         motivo: null,
       };
     }
@@ -153,6 +161,7 @@ export class ReservaNoSocioService {
     return {
       estado: 'RECHAZADA',
       folio: reserva?.folio ?? null,
+      token: null,
       motivo: resultado.motivoRechazo,
     };
   }
@@ -183,6 +192,8 @@ export class ReservaNoSocioService {
     return {
       estado: 'RECHAZADA',
       folio: reserva?.folio ?? null,
+      // La hora quedó liberada: no hay reserva viva a la que llevar con un enlace.
+      token: null,
       motivo: 'anulado',
     };
   }

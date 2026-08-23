@@ -280,6 +280,17 @@ model Bloqueo {
 model ConfiguracionClub {
   id Int @id @default(1)
 
+  /// Los datos del club, para que dejen de estar escritos en las plantillas.
+  ///
+  /// Viven acá y no en variables de entorno porque los cambia el club desde su
+  /// panel, no quien despliega: mudarse de local no puede exigir un redeploy. El
+  /// logotipo **no** está: es un archivo, necesita dónde guardarse, y eso es una
+  /// decisión de infraestructura que este módulo no alcanza.
+  nombre    String @default("FEDAL Tennis Center") @db.VarChar(120)
+  direccion String @default("") @db.VarChar(200)
+  telefono  String @default("") @db.VarChar(40)
+  email     String @default("") @db.VarChar(120)
+
   duracionBloqueMin    Int @default(60) @map("duracion_bloque_min")
   cupoDiarioSocioHoras Int @default(1) @map("cupo_diario_socio_horas")
   cupoPicoSemanalHoras Int @default(2) @map("cupo_pico_semanal_horas")
@@ -396,6 +407,19 @@ model Reserva {
 
   /// Lo que la persona muestra en el mesón. Único y corto.
   folio String @unique
+
+  /// La llave de la página pública de la reserva, la que abre el QR.
+  ///
+  /// **No es el folio y no puede serlo.** El folio son 32^7 combinaciones y se dicta
+  /// por teléfono; con él en la URL, cualquiera recorre los valores posibles y lee el
+  /// nombre y la hora de socios ajenos. Un UUID v4 son 122 bits aleatorios: no se
+  /// adivina, no se dicta y no aparece en ninguna pantalla salvo dentro del enlace.
+  ///
+  /// Lo genera Prisma y no la aplicación, a propósito: por `reserva.create` pasan la
+  /// reserva del socio, la del no-socio, las de los tests y las que sembramos, y un
+  /// token que dependa de que cada camino se acuerde de pedirlo es un token que
+  /// alguna reserva no va a tener.
+  token String @unique @default(uuid(4)) @db.VarChar(43)
 
   canchaId Int      @map("cancha_id")
   inicio   DateTime
