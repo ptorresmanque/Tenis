@@ -4,27 +4,40 @@
    Si cambiás un valor acá, cambialo allá. Los contrastes están medidos por
    src/design-tokens.spec.ts: romper uno hace fallar la suite. */
 @theme {
-  /* Arcilla (superficie de la cancha) */
-  --color-primary: #9a3412;
+  /* Azul de cancha dura (los dos azules del Australian Open) */
+  --color-primary: #0b4f9e;
   --color-on-primary: #ffffff;
-  --color-secondary: #c2410c;
-  --color-ring: #9a3412;
+  --color-secondary: #1565c0;
+  --color-ring: #0b4f9e;
 
-  /* Verde cancha. Son DOS a propósito, ver la regla de contraste abajo. */
+  /* Verde de estado, no de marca. Son TRES a propósito: ver la regla abajo. */
   --color-accent: #059669;
   --color-accent-strong: #047857;
+  --color-accent-soft: #d1fae5;
   --color-on-accent: #ffffff;
 
-  --color-background: #fffbeb;
+  /* Ámbar. Mismo problema y misma forma que el verde. */
+  --color-warning: #d97706;
+  --color-warning-strong: #b45309;
+  --color-warning-soft: #fef3c7;
+
+  --color-background: #f4f8fd;
   --color-foreground: #0f172a;
   --color-card: #ffffff;
-  --color-muted: #f8f2f0;
-  --color-muted-foreground: #64748b;
-  --color-border: #f2e6e2;
+  /* Los tres grises de estado de la grilla: mantención, ocupado, elegido. */
+  --color-muted: #f1f5f9;
+  --color-busy: #e2e8f0;
+  --color-selected: #ebf4ff;
+  --color-muted-foreground: #475569;
+  --color-border: #dce7f5;
+  /* Dos rojos por el mismo motivo que hay dos verdes y dos ámbares: #dc2626
+     lleva blanco encima (4.83:1) pero sobre su propio fondo al 10% da 4.13:1 y
+     no sirve de texto. El -strong sí. */
   --color-destructive: #dc2626;
+  --color-destructive-strong: #b91c1c;
 
-  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Barlow Condensed', 'Barlow', ui-sans-serif, sans-serif;
+  --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Public Sans', 'Work Sans', ui-sans-serif, sans-serif;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px rgb(0 0 0 / 0.1);
@@ -43,8 +56,17 @@
 
     bg-accent         → fondos de chips, badges, indicador de bloque disponible.
     bg-accent-strong  → 5.46:1. El único verde que puede llevar texto blanco.
+    bg-accent-soft    → fondo del bloque libre, con accent-strong encima: 4.83:1.
 
-  Nunca pongas texto blanco de tamaño normal sobre bg-accent.
+  El ámbar repite el caso: --color-warning (#d97706) da 3.19:1 sobre blanco, así
+  que es color de chip, borde e ícono. El texto ámbar va en warning-strong.
+
+  Nunca pongas texto blanco de tamaño normal sobre bg-accent ni sobre bg-warning.
+
+  Dos desvíos deliberados del diseño de Stitch, los dos medidos:
+  el texto secundario es #475569 y no #64748b (7.10:1 contra 4.47:1), y el hover
+  del bloque libre no cambia el fondo —el #a7f3d0 de Stitch da 4.28:1— sino el
+  borde y la sombra.
 */
 
 @layer base {
@@ -59,6 +81,22 @@
   h3 {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
+  }
+
+  /* Material Symbols con clase propia, no con la de Google.
+     La hoja de Google define .material-symbols-outlined SIN capa, y en la
+     cascada una regla sin capa le gana a cualquier @layer: con esa clase,
+     text-2xl sobre un ícono no hace nada y todos salen de 24px. Acá no se
+     declara font-size a propósito, para que las utilidades manden.
+     El ícono es una ligadura: sin aria-hidden el lector lee "check_circle". */
+  .icono {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    white-space: nowrap;
+    direction: ltr;
   }
 
   /* Foco siempre visible: quitarlo deja la app inusable con teclado. */
