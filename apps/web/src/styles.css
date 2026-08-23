@@ -106,6 +106,138 @@
   }
 }
 
+/*
+  Las primitivas que no necesitan JavaScript.
+
+  Botón, campo y tabla son clases y no componentes de Angular a propósito: un
+  `<app-boton>` obliga a volver a exponer `type`, `disabled`, `click` y
+  `routerLink`, y no sirve para un `<a>`. Una clase funciona en los dos, no tiene
+  API que mantener y no llega al bundle de JavaScript.
+
+  Las que sí son componentes —insignia, aviso, campo, paginación, estado vacío,
+  selector, barra fija— están en `app/ui/`, y son las que tienen estado, ids que
+  coordinar o texto que anunciar.
+
+  Van en @layer components: las utilidades de Tailwind viven en una capa
+  posterior, así que `class="boton boton-primario bg-destructive"` sigue pudiendo
+  pisar el fondo sin pelear con la especificidad.
+*/
+@layer components {
+  .boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    /* Tailwind v4 dejó de forzarlo en <button>: sin esto sale con la flecha del
+       sistema y no se lee como pulsable. El lint lo comprueba. */
+    cursor: pointer;
+    transition:
+      opacity 200ms ease,
+      background-color 200ms ease,
+      transform 200ms ease;
+  }
+
+  .boton:hover:not(:disabled) {
+    opacity: 0.9;
+    /* transform y no margin: mover el layout en hover empuja lo que hay al lado. */
+    transform: translateY(-1px);
+  }
+
+  .boton:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+  }
+
+  .boton-primario {
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  .boton-secundario {
+    border: 2px solid var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .boton-texto {
+    color: var(--color-primary);
+    padding: 0.5rem 0.75rem;
+  }
+
+  .boton-destructivo {
+    background-color: var(--color-destructive);
+    color: var(--color-on-primary);
+  }
+
+  .boton-secundario:hover:not(:disabled),
+  .boton-texto:hover:not(:disabled) {
+    background-color: var(--color-muted);
+    opacity: 1;
+  }
+
+  /* Botón chico para tablas y tarjetas, donde 12/24 se come la fila. */
+  .boton-chico {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .campo {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background-color: var(--color-card);
+    padding: 0.75rem 1rem;
+    /* 16px exactos: con menos, Safari en iPhone hace zoom al enfocar. */
+    font-size: 1rem;
+    transition: border-color 200ms ease;
+  }
+
+  .campo:focus {
+    border-color: var(--color-primary);
+  }
+
+  /* Para las rejillas de edición del panel, donde 12/16 de padding por campo
+     convierte una fila de cuatro en una pantalla de scroll. */
+  .campo-chico {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .campo:disabled {
+    background-color: var(--color-muted);
+    cursor: not-allowed;
+  }
+
+  .tabla {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: start;
+  }
+
+  .tabla th {
+    background-color: var(--color-muted);
+    padding: 0.75rem 1rem;
+    text-align: start;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+  }
+
+  .tabla td {
+    border-top: 1px solid var(--color-border);
+    padding: 0.75rem 1rem;
+  }
+
+  .tabla tbody tr:hover {
+    background-color: var(--color-muted);
+  }
+}
+
 /* Nada se mueve para quien pidió que no se mueva. Incluye las transiciones de
    ruta, que de otro modo siguen animando aunque el resto esté quieto. */
 @media (prefers-reduced-motion: reduce) {

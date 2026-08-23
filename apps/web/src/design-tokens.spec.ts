@@ -1,6 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { VARIANTES_AVISO } from './app/ui/aviso';
+import { VARIANTES_INSIGNIA } from './app/ui/insignia';
+
 /**
  * Lint del sistema de diseño.
  *
@@ -128,6 +131,63 @@ describe('Contraste de los tokens de color', () => {
       expect(
         contraste(color('warning-strong'), color('warning-soft')),
       ).toBeGreaterThanOrEqual(4.5);
+    });
+  });
+
+  describe('las variantes de insignia y de aviso', () => {
+    // Los tests de arriba miden tokens sueltos; estos miden lo que la variante
+    // arma de verdad: un fondo al 10% sobre la tarjeta con su texto encima.
+    // Sin esto, cambiar `bg-accent-strong/10` por `bg-accent` en la tabla de
+    // variantes no lo caza nadie —el token accent existe y pasa su propio
+    // test— y la insignia queda en 3.7:1 en las cinco pantallas que la usan.
+
+    /** El color de una clase de Tailwind, con su alfa si la trae. */
+    function deClase(clases: string, prefijo: 'bg' | 'text'): [string, number] {
+      const uso = clases.match(new RegExp(`\\b${prefijo}-([a-z-]+?)(?:/(\\d+))?(?=\\s|$)`));
+
+      if (!uso) throw new Error(`La variante no declara ${prefijo}-: ${clases}`);
+
+      return [color(uso[1]), uso[2] ? Number(uso[2]) / 100 : 1];
+    }
+
+    /** Lo que ve el ojo cuando un color translúcido cae sobre otro opaco. */
+    function sobre(fondo: string, [frente, alfa]: [string, number]): string {
+      const canal = (i: number) =>
+        Math.round(
+          parseInt(frente.slice(i, i + 2), 16) * alfa +
+            parseInt(fondo.slice(i, i + 2), 16) * (1 - alfa),
+        );
+
+      return `#${[1, 3, 5].map((i) => canal(i).toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    const variantes = [
+      ...Object.entries(VARIANTES_INSIGNIA).map(
+        ([nombre, v]) => [`insignia ${nombre}`, v.clases] as const,
+      ),
+      ...Object.entries(VARIANTES_AVISO).map(
+        ([nombre, v]) => [`aviso ${nombre}`, v.clases] as const,
+      ),
+    ];
+
+    it.each(variantes)('%s se lee sobre su propio fondo (4.5:1)', (_, clases) => {
+      const fondo = sobre(color('card'), deClase(clases, 'bg'));
+      const [texto] = deClase(clases, 'text');
+
+      expect(contraste(texto, fondo)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('cada variante trae su ícono: el color no puede ser la única señal', () => {
+      // El anti-patrón del master. Una insignia que solo cambia de color no
+      // dice nada a quien no distingue el verde del rojo.
+      const sinIcono = [
+        ...Object.entries(VARIANTES_INSIGNIA),
+        ...Object.entries(VARIANTES_AVISO),
+      ]
+        .filter(([, variante]) => !variante.icono)
+        .map(([nombre]) => nombre);
+
+      expect(sinIcono).toEqual([]);
     });
   });
 
@@ -342,16 +402,31 @@ describe('Uso de los tokens en las plantillas', () => {
     // `cursor: pointer` en botones —v3 lo hacía— así que un <button> sin la
     // clase sale con la flecha del sistema y no se lee como pulsable. Los <a>
     // no entran: con href o routerLink el navegador ya pone la manito.
+    //
+    // La clase `.boton` de styles.css también cuenta: lo trae puesto. Que lo
+    // siga trayendo lo comprueba el test de abajo, que es la mitad que hace
+    // que esta excepción no sea un agujero.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
+        if (/\bboton\b/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
     }
 
     expect(infractores).toEqual([]);
+  });
+
+  it('la clase .boton trae el cursor puesto', () => {
+    // Si alguien la saca, el test de arriba seguiría dejando pasar todos los
+    // <button class="boton">, y quedarían con la flecha del sistema sin que
+    // nada avise. Este es el caso que hace fallar a esa excepción.
+    const boton = css.match(/\.boton\s*\{[^}]*\}/)?.[0];
+
+    expect(boton).toBeDefined();
+    expect(boton).toMatch(/cursor:\s*pointer/);
   });
 });
