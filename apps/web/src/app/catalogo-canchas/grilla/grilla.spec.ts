@@ -143,10 +143,13 @@ describe('Grilla', () => {
   it('separa lo que paga el socio de lo que paga quien arrienda', () => {
     // Un monto suelto no dice a quién le toca. El socio leía "$12.000" en una hora
     // que para él es gratis, y el visitante no sabía si ese precio era el suyo.
+    //
+    // "sin costo" y no "$0" desde el rediseño (plan § 5.1): un cero con signo de
+    // pesos se lee como un precio que alguien todavía no calculó.
     const libre = bloques()[0].textContent ?? '';
 
     expect(libre).toContain('Socio');
-    expect(libre).toContain('$0');
+    expect(libre).toContain('sin costo');
     expect(libre).toContain('Arriendo');
     expect(libre).toContain('$12.000');
   });
@@ -158,7 +161,7 @@ describe('Grilla', () => {
 
     // La etiqueta es lo único que oye quien no ve el bloque: si trae un solo monto,
     // le llega justo la mitad que la tarea vino a arreglar.
-    expect(etiqueta).toContain('socio $0');
+    expect(etiqueta).toContain('socio sin costo');
     expect(etiqueta).toContain('arriendo $12.000');
   });
 
@@ -199,7 +202,7 @@ describe('Grilla', () => {
   it('dice el estado con palabras, no solo con color', () => {
     // El par verde/rojo es justo el que no distingue quien tiene daltonismo
     // rojo-verde: si el estado solo estuviera en el color, la pantalla mentiría.
-    expect(texto()).toContain('Disponible');
+    expect(texto()).toContain('Libre');
     expect(texto()).toContain('En mantención');
     // Y nunca el enum crudo de la base, que se lee como una falla del sistema.
     expect(texto()).not.toContain('MANTENCION');
@@ -225,6 +228,74 @@ describe('Grilla', () => {
       expect.stringContaining('--i: 1'),
       expect.stringContaining('--i: 2'),
     ]);
+  });
+
+  describe('filtros de cancha', () => {
+    const DOS_CANCHAS: GrillaDeCancha[] = [
+      DIA[0],
+      {
+        cancha: {
+          id: 2,
+          nombre: 'Cancha techada',
+          superficie: 'CEMENTO',
+          techada: true,
+          iluminacion: false,
+        },
+        bloques: DIA[0].bloques,
+      },
+    ];
+
+    const elegirFiltro = async (valor: string) => {
+      const radio = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+        `input[type=radio][value="${valor}"]`,
+      )!;
+
+      radio.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('deja solo las canchas techadas', async () => {
+      await montar(DOS_CANCHAS);
+      await elegirFiltro('techadas');
+
+      expect(texto()).toContain('Cancha techada');
+      expect(texto()).not.toContain('Cancha 1');
+    });
+
+    it('"al aire libre" es lo contrario de techada, no un campo aparte', async () => {
+      await montar(DOS_CANCHAS);
+      await elegirFiltro('aire-libre');
+
+      expect(texto()).toContain('Cancha 1');
+      expect(texto()).not.toContain('Cancha techada');
+    });
+
+    it('el resumen cuenta lo que se ve, no lo que quedó filtrado', async () => {
+      // Anunciar las horas de las canchas escondidas le diría a quien usa lector
+      // de pantalla que hay el doble de lo que la pantalla muestra.
+      await montar(DOS_CANCHAS);
+      await elegirFiltro('techadas');
+
+      expect(texto()).toContain('en 1 cancha');
+    });
+
+    it('si el filtro no deja nada, ofrece la salida', async () => {
+      await montar(DIA);
+      await elegirFiltro('techadas');
+
+      expect(texto()).toContain('Ninguna cancha cumple ese filtro');
+
+      [
+        ...(fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      ]
+        .find((boton) => boton.textContent?.trim() === 'Ver todas las canchas')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(texto()).toContain('Cancha 1');
+    });
   });
 
   it('anuncia el resultado a quien no ve la grilla', async () => {
@@ -359,7 +430,18 @@ describe('Grilla', () => {
       expect(navegar).toHaveBeenCalledWith(['/mis-reservas']);
     });
 
-    it('sin el parámetro, el clic sigue abriendo el formulario de reserva', async () => {
+    it('sin el parámetro, el clic elige el bloque en vez de mover nada', async () => {
+      // El flujo del rediseño (plan § 5.8) tiene dos pasos: el clic marca la hora
+      // y muestra la barra de abajo con su precio; el formulario lo abre recién
+      // "Reservar". El clic-que-abre-el-diálogo saltaba ese paso intermedio.
+      await elegirPrimerBloque();
+
+      expect(mover).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.querySelector('app-barra-fija')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('app-reservar')).toBeNull();
+    });
+
+    it('la barra muestra lo elegido y su precio, y de ahí sale el formulario', async () => {
       // jsdom no implementa el diálogo nativo que abre `app-reservar`. Se apuntala
       // acá y no con un guardia en el componente, por lo mismo que en `reservar.spec`:
       // el que está roto es el entorno de prueba, no el código.
@@ -371,8 +453,71 @@ describe('Grilla', () => {
 
       await elegirPrimerBloque();
 
-      expect(mover).not.toHaveBeenCalled();
-      expect(texto()).toContain('Reservar');
+      const barra = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-barra-fija',
+      ) as HTMLElement;
+
+      expect(barra.textContent).toContain('Cancha 1');
+      expect(barra.textContent).toContain('08:00–09:00');
+      expect(barra.textContent).toContain('$12.000');
+
+      [...barra.querySelectorAll('button')]
+        .find((boton) => boton.textContent?.trim() === 'Reservar')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-reservar')).not.toBeNull();
+    });
+
+    it('al confirmar, el token viaja con el folio a la pantalla de confirmación', async () => {
+      // Sin el token, el socio llegaba a una confirmación con un número y nada
+      // más: el resumen y el QR salen de él.
+      HTMLDialogElement.prototype.showModal = vi.fn(function (
+        this: HTMLDialogElement,
+      ) {
+        this.open = true;
+      });
+
+      await elegirPrimerBloque();
+
+      const barra = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-barra-fija',
+      ) as HTMLElement;
+      [...barra.querySelectorAll('button')]
+        .find((boton) => boton.textContent?.trim() === 'Reservar')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const formulario = fixture.debugElement.query(
+        (nodo) => nodo.name === 'app-reservar',
+      );
+      formulario.componentInstance.reservado.emit({
+        folio: 'ABC1234',
+        token: 'un-token-largo-y-aleatorio',
+      });
+
+      expect(navegar).toHaveBeenCalledWith(['/reservas/confirmacion'], {
+        queryParams: { folio: 'ABC1234', t: 'un-token-largo-y-aleatorio' },
+      });
+    });
+
+    it('soltar la elección esconde la barra sin reservar nada', async () => {
+      await elegirPrimerBloque();
+
+      const barra = (fixture.nativeElement as HTMLElement).querySelector(
+        'app-barra-fija',
+      ) as HTMLElement;
+
+      [...barra.querySelectorAll('button')]
+        .find((boton) => boton.textContent?.trim() === 'Soltar')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-barra-fija')).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-reservar')).toBeNull();
     });
 
     it('si la reserva ya no existe, lo dice con las palabras del servidor', async () => {

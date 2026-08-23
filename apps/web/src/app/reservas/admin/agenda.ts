@@ -1,11 +1,23 @@
-import { Component, DestroyRef, inject, resource, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  resource,
+  signal,
+} from '@angular/core';
 
 import {
   diaEnPalabras,
+  fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
+import { Aviso } from '../../ui/aviso';
+import { EstadoVacio } from '../../ui/estado-vacio';
+import { Insignia } from '../../ui/insignia';
 import { Agenda, ReservaDelDia } from './agenda.service';
+import { NuevaReserva } from './nueva-reserva';
 
 /**
  * El día del club, para quien atiende el mesón.
@@ -17,23 +29,90 @@ import { Agenda, ReservaDelDia } from './agenda.service';
  */
 @Component({
   selector: 'app-agenda-del-dia',
+  imports: [Aviso, EstadoVacio, Insignia, NuevaReserva],
   template: `
-    <h1 class="font-display text-3xl font-bold">Reservas del día</h1>
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="font-display text-3xl font-bold">Reservas del día</h1>
+      <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
+           que alguien recargue por las dudas cada dos minutos. -->
+      <app-insignia variante="exito" icono="sensors">En vivo</app-insignia>
+    </div>
+    <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
 
-    <div class="mt-4 flex flex-wrap items-end gap-4">
+    <div class="mt-4 flex flex-wrap items-end gap-3">
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          class="boton boton-secundario boton-chico"
+          aria-label="Día anterior"
+          (click)="moverDia(-1)"
+        >
+          <span class="icono text-base" aria-hidden="true">chevron_left</span>
+        </button>
+        <button
+          type="button"
+          class="boton boton-secundario boton-chico"
+          [disabled]="fechaActual() === hoy"
+          (click)="fechaActual.set(hoy)"
+        >
+          Hoy
+        </button>
+        <button
+          type="button"
+          class="boton boton-secundario boton-chico"
+          aria-label="Día siguiente"
+          (click)="moverDia(1)"
+        >
+          <span class="icono text-base" aria-hidden="true">chevron_right</span>
+        </button>
+      </div>
+
       <div>
-        <label for="fecha" class="block text-sm font-medium">Día</label>
+        <label for="fecha" class="block text-sm font-medium">Ir a un día</label>
         <input
           id="fecha"
           type="date"
-          class="mt-1 rounded-lg border border-border bg-card px-3 py-2"
+          class="campo mt-1 w-auto cursor-pointer py-2"
           [value]="fechaActual()"
           (change)="cambiarFecha($event)"
         />
       </div>
 
-      <p class="text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
+      <button
+        type="button"
+        class="boton boton-primario ms-auto"
+        (click)="tomandoHora.set(true)"
+      >
+        <span class="icono text-base" aria-hidden="true">add</span>
+        Nueva reserva
+      </button>
     </div>
+
+    @if (tomandoHora()) {
+      <app-nueva-reserva
+        [fecha]="fechaActual()"
+        (cerrar)="tomandoHora.set(false)"
+        (creada)="anunciarCreada($event)"
+      />
+    }
+
+    @if (avisoDeCreacion(); as texto) {
+      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
+    }
+
+    @if (reservas.value().length > 0) {
+      <ul class="mt-6 grid gap-3 sm:grid-cols-3">
+        @for (dato of resumenDelDia(); track dato.titulo) {
+          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <p class="flex items-center gap-2 text-sm text-muted-foreground">
+              <span class="icono text-primary" aria-hidden="true">{{ dato.icono }}</span>
+              {{ dato.titulo }}
+            </p>
+            <p class="mt-1 font-display text-3xl font-bold">{{ dato.valor }}</p>
+          </li>
+        }
+      </ul>
+    }
 
     <div role="status" aria-live="polite" class="mt-6">
       @if (reservas.isLoading()) {
@@ -43,7 +122,11 @@ import { Agenda, ReservaDelDia } from './agenda.service';
           No se pudo cargar la agenda. Reintenta en un momento.
         </p>
       } @else if (reservas.value().length === 0) {
-        <p class="text-muted-foreground">No hay reservas para este día.</p>
+        <app-estado-vacio
+          icono="event_available"
+          titulo="No hay reservas para este día"
+          detalle="Las que entren aparecen acá solas, sin recargar."
+        />
       } @else {
         <!-- Lo anuncia para quien no ve la tabla: es la misma región que cambia
              sola cuando entra una reserva nueva. -->
@@ -87,10 +170,10 @@ import { Agenda, ReservaDelDia } from './agenda.service';
             }
 
             @if (reserva.estado === 'PENDIENTE_PAGO') {
-              <!-- Texto y borde punteado, no solo un color: ocupa la cancha pero
-                   puede caerse, y esa diferencia hay que poder leerla. -->
-              <p class="mt-1 text-sm font-medium text-muted-foreground">
-                Esperando el pago
+              <!-- Insignia y borde punteado, no solo un color: ocupa la cancha
+                   pero puede caerse, y esa diferencia hay que poder leerla. -->
+              <p class="mt-2">
+                <app-insignia variante="aviso">Esperando el pago</app-insignia>
               </p>
             }
           </li>
@@ -133,10 +216,64 @@ export class AgendaDelDia {
     return `${total} ${total === 1 ? 'reserva' : 'reservas'} este día.`;
   };
 
+  protected readonly hoy = hoyEnElClub();
+
+  /** El formulario del mesón está abierto. */
+  protected readonly tomandoHora = signal(false);
+  protected readonly avisoDeCreacion = signal<string | null>(null);
+
+  /**
+   * La lista no se recarga acá a mano: la reserva nueva dispara el mismo aviso del
+   * servidor que las que entran por la web, y la agenda ya se repuebla con eso.
+   */
+  protected anunciarCreada(folio: string): void {
+    this.tomandoHora.set(false);
+    this.avisoDeCreacion.set(`Hora tomada. Folio ${folio}.`);
+  }
+
+  /**
+   * Las tres cuentas del día, sacadas de las reservas que ya llegaron.
+   *
+   * El diseño pide además ocupación e ingresos. Ninguno de los dos sale de este
+   * endpoint —la agenda no trae montos ni el total de bloques del día—, y
+   * calcularlos a ojo sería inventarle plata al club.
+   */
+  protected readonly resumenDelDia = computed(() => {
+    const reservas = this.reservas.value();
+
+    return [
+      { titulo: 'Reservas', icono: 'book_online', valor: reservas.length },
+      {
+        titulo: 'De socios',
+        icono: 'group',
+        valor: reservas.filter((reserva) => reserva.esSocio).length,
+      },
+      {
+        titulo: 'Esperando el pago',
+        icono: 'schedule',
+        valor: reservas.filter((reserva) => reserva.estado === 'PENDIENTE_PAGO')
+          .length,
+      },
+    ];
+  });
+
   protected cambiarFecha(evento: Event): void {
     const valor = (evento.target as HTMLInputElement).value;
 
     if (valor) this.fechaActual.set(valor);
+  }
+
+  /**
+   * Un día adelante o atrás.
+   *
+   * Se mueve desde el mediodía UTC por lo mismo que la tira de días de la
+   * disponibilidad: los domingos del cambio de hora no tienen 24 horas.
+   */
+  protected moverDia(pasos: number): void {
+    const dia = new Date(`${this.fechaActual()}T12:00:00.000Z`);
+    dia.setUTCDate(dia.getUTCDate() + pasos);
+
+    this.fechaActual.set(fechaEnElClub(dia));
   }
 
   protected readonly hora = horaEnElClub;

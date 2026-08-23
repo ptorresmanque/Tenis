@@ -73,8 +73,7 @@ function enBlanco(): Formulario {
             </span>
             <button
               type="button"
-              class="cursor-pointer rounded-md px-2 py-0.5 text-xs font-medium
-                     text-destructive transition-colors hover:bg-muted"
+              class="boton boton-texto boton-chico text-destructive"
               (click)="borrar(bloqueo.id)"
             >
               Quitar
@@ -95,14 +94,14 @@ function enBlanco(): Formulario {
             type="date"
             [id]="'bd-' + cancha().id"
             [name]="'bloqueo-fecha-desde-' + cancha().id"
-            class="rounded-md border border-border bg-card px-2 py-1"
+            class="campo campo-chico"
             [(ngModel)]="nueva.fechaDesde"
           />
           <input
             type="time"
             [attr.aria-label]="'Hora de inicio del bloqueo'"
             [name]="'bloqueo-hora-desde-' + cancha().id"
-            class="rounded-md border border-border bg-card px-2 py-1"
+            class="campo campo-chico"
             [(ngModel)]="nueva.horaDesde"
           />
         </div>
@@ -115,14 +114,14 @@ function enBlanco(): Formulario {
             type="date"
             [id]="'bh-' + cancha().id"
             [name]="'bloqueo-fecha-hasta-' + cancha().id"
-            class="rounded-md border border-border bg-card px-2 py-1"
+            class="campo campo-chico"
             [(ngModel)]="nueva.fechaHasta"
           />
           <input
             type="time"
             [attr.aria-label]="'Hora de término del bloqueo'"
             [name]="'bloqueo-hora-hasta-' + cancha().id"
-            class="rounded-md border border-border bg-card px-2 py-1"
+            class="campo campo-chico"
             [(ngModel)]="nueva.horaHasta"
           />
         </div>
@@ -133,7 +132,7 @@ function enBlanco(): Formulario {
         <select
           [id]="'bm-' + cancha().id"
           [name]="'bloqueo-motivo-' + cancha().id"
-          class="mt-1 rounded-md border border-border bg-card px-2 py-1"
+          class="campo campo-chico mt-1"
           [(ngModel)]="nueva.motivo"
         >
           @for (motivo of motivos; track motivo.valor) {
@@ -149,7 +148,7 @@ function enBlanco(): Formulario {
         <input
           [id]="'bx-' + cancha().id"
           [name]="'bloqueo-detalle-' + cancha().id"
-          class="mt-1 rounded-md border border-border bg-card px-2 py-1"
+          class="campo campo-chico mt-1"
           [(ngModel)]="nueva.descripcion"
         />
       </div>
@@ -157,8 +156,7 @@ function enBlanco(): Formulario {
       <button
         type="submit"
         [disabled]="guardando()"
-        class="cursor-pointer rounded-md border border-primary px-3 py-1 font-medium
-               text-primary transition-colors hover:bg-muted disabled:opacity-60"
+        class="boton boton-secundario boton-chico"
       >
         Bloquear
       </button>

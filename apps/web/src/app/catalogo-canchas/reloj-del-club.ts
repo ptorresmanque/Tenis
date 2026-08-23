@@ -29,6 +29,11 @@ const DIA_LARGO = new Intl.DateTimeFormat('es-CL', {
   month: 'long',
 });
 
+const DIA_CORTO = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  weekday: 'short',
+});
+
 const PESOS = new Intl.NumberFormat('es-CL', {
   style: 'currency',
   currency: 'CLP',
@@ -64,4 +69,42 @@ export function diaEnPalabras(fecha: string): string {
 
 export function enPesos(monto: number): string {
   return PESOS.format(monto);
+}
+
+export interface DiaDelClub {
+  /** "AAAA-MM-DD", lo que comen la API y el `<input type="date">`. */
+  fecha: string;
+  /** "Hoy", "Mañana" o el día abreviado: "jue". */
+  etiqueta: string;
+  /** El número del día, para la segunda línea del chip. */
+  numero: string;
+}
+
+/**
+ * Los próximos días del club, para la tira de chips de la disponibilidad.
+ *
+ * Cada día se calcula desde el mediodía UTC y no sumando 24 horas: los dos
+ * domingos al año en que Chile cambia la hora tienen 23 o 25, y sumando horas la
+ * tira saltaría un día o repetiría el mismo. A mediodía UTC en Santiago son las
+ * 08:00 o las 09:00, así que siempre cae dentro del día que corresponde.
+ */
+export function proximosDias(cuantos: number, ahora = new Date()): DiaDelClub[] {
+  const base = new Date(`${hoyEnElClub(ahora)}T12:00:00.000Z`);
+
+  return Array.from({ length: cuantos }, (_, i) => {
+    const dia = new Date(base);
+    dia.setUTCDate(base.getUTCDate() + i);
+
+    return {
+      fecha: fechaEnElClub(dia),
+      etiqueta:
+        i === 0
+          ? 'Hoy'
+          : i === 1
+            ? 'Mañana'
+            : // Intl devuelve "jue." con punto; el chip se ve mejor sin él.
+              DIA_CORTO.format(dia).replace('.', ''),
+      numero: String(Number(fechaEnElClub(dia).slice(8))),
+    };
+  });
 }

@@ -73,7 +73,7 @@ interface FilaDeDia {
               <td class="pe-3 py-1">
                 <input
                   type="time"
-                  class="rounded-md border border-border bg-card px-2 py-1"
+                  class="campo campo-chico"
                   [attr.aria-label]="'Apertura del ' + nombreDia(fila.diaSemana)"
                   [disabled]="!fila.abre"
                   [ngModel]="fila.horaApertura"
@@ -84,7 +84,7 @@ interface FilaDeDia {
               <td class="py-1">
                 <input
                   type="time"
-                  class="rounded-md border border-border bg-card px-2 py-1"
+                  class="campo campo-chico"
                   [attr.aria-label]="'Cierre del ' + nombreDia(fila.diaSemana)"
                   [disabled]="!fila.abre"
                   [ngModel]="fila.horaCierre"
@@ -101,9 +101,7 @@ interface FilaDeDia {
         <button
           type="submit"
           [disabled]="guardando()"
-          class="cursor-pointer rounded-md border border-primary px-3 py-1 text-sm
-                 font-medium text-primary transition-colors hover:bg-muted
-                 disabled:opacity-60"
+          class="boton boton-secundario boton-chico"
         >
           Guardar horario
         </button>

@@ -3,6 +3,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { Auth } from '../../core/auth/auth';
+import { Aviso } from '../../ui/aviso';
+import { Campo, CampoControl } from '../../ui/campo';
 
 /** Motivos con los que la API devuelve a esta pantalla tras un intento con Google. */
 const RECHAZOS: Record<string, string> = {
@@ -18,7 +20,7 @@ const RECHAZOS: Record<string, string> = {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
   template: `
     <h1 class="font-display text-3xl font-bold">Entrar</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -26,46 +28,41 @@ const RECHAZOS: Record<string, string> = {
     </p>
 
     @if (motivoDeRechazo(); as motivo) {
-      <p
-        class="mt-6 max-w-md rounded-lg border border-destructive bg-card p-4 text-destructive"
-        role="alert"
-      >
-        {{ motivo }}
-      </p>
+      <app-aviso variante="error" class="mt-6 block">{{ motivo }}</app-aviso>
     }
 
-    <form class="mt-6 grid max-w-md gap-4" [formGroup]="formulario" (ngSubmit)="entrar()">
-      <label class="grid gap-1">
-        <span class="text-sm font-semibold">Correo</span>
+    <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="entrar()">
+      <app-campo etiqueta="Correo">
         <input
+          appCampoControl
           type="email"
           formControlName="email"
           autocomplete="email"
-          class="rounded-lg border border-border bg-card px-3 py-2 focus-visible:border-ring"
+          class="campo"
         />
-      </label>
+      </app-campo>
 
-      <label class="grid gap-1">
-        <span class="text-sm font-semibold">Contraseña</span>
+      <app-campo etiqueta="Contraseña">
         <input
+          appCampoControl
           type="password"
           formControlName="contrasena"
           autocomplete="current-password"
-          class="rounded-lg border border-border bg-card px-3 py-2 focus-visible:border-ring"
+          class="campo"
         />
-      </label>
+      </app-campo>
 
-      @if (error()) {
-        <p class="text-destructive" role="alert">{{ error() }}</p>
+      <!-- El rechazo es del intento, no de un campo: "correo o contraseña
+           incorrectos" no sabe cuál de los dos está mal, y colgarlo del segundo
+           haría que el lector culpe a la contraseña. -->
+      @if (error(); as motivo) {
+        <app-aviso variante="error">{{ motivo }}</app-aviso>
       }
 
       <button
         type="submit"
         [disabled]="entrando() || formulario.invalid"
-        class="cursor-pointer rounded-lg bg-primary px-6 py-3 font-semibold text-on-primary
-               shadow-md transition-[background-color,box-shadow] duration-200
-               hover:bg-secondary hover:shadow-lg disabled:cursor-not-allowed
-               disabled:opacity-60"
+        class="boton boton-primario"
       >
         {{ entrando() ? 'Entrando…' : 'Entrar' }}
       </button>
@@ -78,18 +75,12 @@ const RECHAZOS: Record<string, string> = {
       </p>
     </form>
 
-    <div class="mt-6 grid max-w-md gap-3">
+    <div class="mt-6 grid gap-3">
       <p class="text-sm text-muted-foreground">O bien</p>
 
       <!-- Enlace y no botón con fetch: el flujo de OAuth es una navegación de
            verdad, con redirecciones que el navegador tiene que seguir. -->
-      <a
-        href="/api/auth/google"
-        class="rounded-lg border-2 border-primary px-6 py-3 text-center font-semibold
-               text-primary transition-colors duration-200 hover:bg-muted"
-      >
-        Entrar con Google
-      </a>
+      <a href="/api/auth/google" class="boton boton-secundario">Entrar con Google</a>
     </div>
   `,
 })

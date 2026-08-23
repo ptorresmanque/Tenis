@@ -1,6 +1,10 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideHttpClient, withFetch } from '@angular/common/http';
-import { provideRouter, withViewTransitions } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withViewTransitions,
+} from '@angular/router';
 
 import { routes } from './app.routes';
 
@@ -17,6 +21,10 @@ export const appConfig: ApplicationConfig = {
     // La spec manda saltear la transición con ese error cuando el documento está oculto, y
     // el router loguea el rechazo de `ready`/`finished` solo en modo dev. En Chrome normal
     // la consola queda limpia y la transición anima 250ms. No es un bug: no lo "arregles".
-    provideRouter(routes, withViewTransitions()),
+    //
+    // withComponentInputBinding: los parámetros de la URL llegan como inputs del
+    // componente. Lo usa la página pública de la reserva para leer su token sin
+    // inyectar el ActivatedRoute a mano.
+    provideRouter(routes, withViewTransitions(), withComponentInputBinding()),
   ],
 };

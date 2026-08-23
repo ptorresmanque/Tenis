@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReservaMia, Reservas } from '../reservas.service';
@@ -68,6 +69,97 @@ describe('MisReservas', () => {
 
   beforeEach(async () => {
     await montar([UNA]);
+  });
+
+  it('llegando con ?cancelar=folio abre la confirmación de esa reserva', async () => {
+    // El atajo del botón "Cancelar esta reserva" de la confirmación, que solo
+    // conoce el folio: la traducción a id se hace acá, con la lista ya cargada.
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({ cancelar: 'AB23CDE' })) },
+        },
+        {
+          provide: Reservas,
+          useValue: {
+            mias: () => Promise.resolve([UNA]),
+            cancelar: vi.fn(),
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('Sí, cancelar');
+  });
+
+  it('descartado el atajo, no vuelve a abrirse solo', async () => {
+    // El fallo que arregla: el effect leía la lista de reservas, así que al
+    // cambiar la lista —cancelar otra hora, por ejemplo— reabría la confirmación
+    // que la persona ya había descartado con "Mejor no".
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({ cancelar: 'AB23CDE' })) },
+        },
+        {
+          provide: Reservas,
+          useValue: {
+            mias: () => Promise.resolve([UNA, { ...UNA, id: 8, folio: 'ZZ99XYZ' }]),
+            cancelar: vi.fn().mockResolvedValue({
+              folio: 'ZZ99XYZ',
+              huboDevolucion: false,
+              motivo: null,
+            }),
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    await apretar('Mejor no');
+    expect(texto()).not.toContain('Sí, cancelar');
+
+    // Se cancela la otra reserva: la lista cambia y el effect vuelve a correr.
+    await apretar('Cancelar');
+    await apretar('Sí, cancelar');
+
+    expect(texto()).not.toContain('Sí, cancelar');
+  });
+
+  it('un folio que no está en la lista no abre nada', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({ cancelar: 'OTRO123' })) },
+        },
+        {
+          provide: Reservas,
+          useValue: { mias: () => Promise.resolve([UNA]), cancelar: vi.fn() },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).not.toContain('Sí, cancelar');
   });
 
   it('muestra la cancha, el día, la hora del club y el folio', () => {

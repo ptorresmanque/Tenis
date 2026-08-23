@@ -43,8 +43,7 @@ const EN_BLANCO: FranjaNueva = {
             </span>
             <button
               type="button"
-              class="cursor-pointer rounded-md px-2 py-0.5 text-xs font-medium
-                     text-destructive transition-colors hover:bg-muted"
+              class="boton boton-texto boton-chico text-destructive"
               (click)="borrar(franja.id)"
             >
               Quitar
@@ -75,7 +74,7 @@ const EN_BLANCO: FranjaNueva = {
           type="time"
           [id]="'desde-' + clave()"
           [name]="'franja-desde-' + clave()"
-          class="mt-1 rounded-md border border-border bg-card px-2 py-1"
+          class="campo campo-chico mt-1"
           [(ngModel)]="nueva.horaDesde"
         />
       </div>
@@ -86,7 +85,7 @@ const EN_BLANCO: FranjaNueva = {
           type="time"
           [id]="'hasta-' + clave()"
           [name]="'franja-hasta-' + clave()"
-          class="mt-1 rounded-md border border-border bg-card px-2 py-1"
+          class="campo campo-chico mt-1"
           [(ngModel)]="nueva.horaHasta"
         />
       </div>
@@ -99,7 +98,7 @@ const EN_BLANCO: FranjaNueva = {
           step="500"
           [id]="'monto-' + clave()"
           [name]="'franja-monto-' + clave()"
-          class="mt-1 w-28 rounded-md border border-border bg-card px-2 py-1"
+          class="campo campo-chico mt-1 w-28"
           [(ngModel)]="nueva.montoClp"
         />
       </div>
@@ -116,8 +115,7 @@ const EN_BLANCO: FranjaNueva = {
       <button
         type="submit"
         [disabled]="guardando()"
-        class="cursor-pointer rounded-md border border-primary px-3 py-1 font-medium
-               text-primary transition-colors hover:bg-muted disabled:opacity-60"
+        class="boton boton-secundario boton-chico"
       >
         Agregar tarifa
       </button>

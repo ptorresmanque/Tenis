@@ -97,6 +97,23 @@ export interface ReglasDelClub {
   diasSancionNoUso: number;
 }
 
+/**
+ * Los datos de contacto, que viven en la misma fila que las reglas.
+ *
+ * Tipo aparte y no siete números junto a cuatro textos: el editor de reglas trata
+ * sus campos como numéricos —hasta el `''` de un campo recién borrado—, y meter
+ * textos en ese `Record` obligaba a castear en cada uno.
+ */
+export interface DatosDelClub {
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+}
+
+/** Lo que el servidor devuelve de `GET /api/admin/configuracion`: las dos cosas. */
+export type ConfiguracionDelClub = ReglasDelClub & DatosDelClub;
+
 export interface CanchaNueva {
   nombre: string;
   superficie: Cancha['superficie'];
@@ -112,16 +129,28 @@ export class AdminCanchas {
     return firstValueFrom(this.http.get<CanchaAdmin[]>('/api/admin/canchas'));
   }
 
-  configuracion(): Promise<ReglasDelClub> {
+  configuracion(): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
-      this.http.get<ReglasDelClub>('/api/admin/configuracion'),
+      this.http.get<ConfiguracionDelClub>('/api/admin/configuracion'),
     );
   }
 
-  fijarConfiguracion(reglas: ReglasDelClub): Promise<ReglasDelClub> {
+  fijarConfiguracion(
+    cambios: Partial<ConfiguracionDelClub>,
+  ): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
-      this.http.patch<ReglasDelClub>('/api/admin/configuracion', reglas),
+      this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', cambios),
     );
+  }
+
+  /**
+   * Los cuatro datos de contacto, que van a la misma fila que las reglas.
+   *
+   * Método aparte y no un `fijarConfiguracion` con todo mezclado: son dos
+   * pantallas distintas y quien lea una llamada quiere saber cuál está guardando.
+   */
+  fijarDatosDelClub(datos: DatosDelClub): Promise<ConfiguracionDelClub> {
+    return this.fijarConfiguracion(datos);
   }
 
   advertencias(fecha: string): Promise<Advertencia[]> {

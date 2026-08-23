@@ -9,7 +9,6 @@ import {
   CanchaNueva,
 } from './admin-canchas.service';
 import { EditorBloqueos } from './editor-bloqueos';
-import { EditorConfiguracion } from './editor-configuracion';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
 import { ReglasGeneralesPanel } from './reglas-generales';
@@ -41,7 +40,6 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
   selector: 'app-admin-canchas',
   imports: [
     FormsModule,
-    EditorConfiguracion,
     EditorHorarios,
     EditorFranjas,
     EditorBloqueos,
@@ -77,7 +75,6 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
     <!-- Antes de las canchas: son las reglas que valen para todas, y la lista de
          abajo dice "vale el general del club" refiriéndose a esto. -->
-    <app-editor-configuracion (guardado)="recargar()" />
 
     <app-reglas-generales (cambiado)="recargar()" />
 
@@ -93,7 +90,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
             id="nombre"
             name="nombre"
             required
-            class="mt-1 rounded-lg border border-border bg-card px-3 py-2"
+            class="campo mt-1"
             [(ngModel)]="nueva.nombre"
           />
         </div>
@@ -103,7 +100,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
           <select
             id="superficie"
             name="superficie"
-            class="mt-1 rounded-lg border border-border bg-card px-3 py-2"
+            class="campo mt-1"
             [(ngModel)]="nueva.superficie"
           >
             @for (opcion of superficies; track opcion.valor) {
@@ -129,9 +126,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
         <button
           type="submit"
           [disabled]="guardando()"
-          class="cursor-pointer rounded-lg bg-primary px-5 py-2 font-semibold text-on-primary
-                 shadow-md transition-[background-color,box-shadow] duration-200
-                 hover:bg-secondary hover:shadow-lg disabled:opacity-60"
+          class="boton boton-primario"
         >
           Agregar
         </button>
@@ -177,8 +172,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
                 <button
                   type="button"
-                  class="ms-auto cursor-pointer rounded-md border border-primary px-3 py-1
-                         text-sm font-medium text-primary transition-colors hover:bg-muted"
+                  class="boton boton-secundario boton-chico ms-auto"
                   (click)="alternarActiva(cancha)"
                 >
                   {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
@@ -188,9 +182,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                      desactiva; el servidor no deja borrar una con historial. -->
                 <button
                   type="button"
-                  class="cursor-pointer rounded-md border border-destructive px-3 py-1
-                         text-sm font-medium text-destructive transition-colors
-                         hover:bg-destructive/10"
+                  class="boton boton-secundario boton-chico border-destructive text-destructive"
                   (click)="eliminar(cancha)"
                 >
                   Eliminar

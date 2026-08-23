@@ -6,6 +6,7 @@ import {
   fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
+  proximosDias,
 } from './reloj-del-club';
 
 /**
@@ -54,5 +55,30 @@ describe('reloj del club', () => {
     // Sin espacios: según la versión de ICU el símbolo va pegado o separado por
     // un espacio duro, y no es eso lo que este test tiene que fijar.
     expect(enPesos(12000).replace(/\s/g, '')).toBe('$12.000');
+  });
+});
+
+describe('La tira de días', () => {
+  it('empieza en hoy y los dos primeros se llaman por su nombre', () => {
+    const dias = proximosDias(7, new Date('2026-08-21T15:00:00.000Z'));
+
+    expect(dias).toHaveLength(7);
+    expect(dias[0]).toMatchObject({ fecha: '2026-08-21', etiqueta: 'Hoy', numero: '21' });
+    expect(dias[1]).toMatchObject({ fecha: '2026-08-22', etiqueta: 'Mañana' });
+    expect(dias[2].etiqueta).toBe('dom');
+  });
+
+  it('cruza el fin de mes sin inventar un día 32', () => {
+    const dias = proximosDias(3, new Date('2026-08-30T15:00:00.000Z'));
+
+    expect(dias.map((d) => d.fecha)).toEqual(['2026-08-30', '2026-08-31', '2026-09-01']);
+  });
+
+  it('el domingo que Chile adelanta la hora no se salta un día', () => {
+    // El cambio es a medianoche del primer domingo de septiembre: ese día tiene
+    // 23 horas, y una tira que sumara 24 se saltaría el lunes.
+    const dias = proximosDias(3, new Date('2026-09-05T15:00:00.000Z'));
+
+    expect(dias.map((d) => d.fecha)).toEqual(['2026-09-05', '2026-09-06', '2026-09-07']);
   });
 });
