@@ -1,16 +1,10 @@
-import { Component, computed, inject, resource } from '@angular/core';
+import { Component, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
+import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
 import { Club } from './club.service';
-import { hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { Insignia } from '../ui/insignia';
-
-const SUPERFICIES: Record<string, string> = {
-  ARCILLA: 'Arcilla',
-  CEMENTO: 'Cemento',
-  PASTO_SINTETICO: 'Pasto sintético',
-};
 
 /**
  * La página que explica el club a quien todavía no reservó.
@@ -156,18 +150,13 @@ export class ElClub {
 
   protected readonly club = inject(Club).datos;
 
-  /**
-   * Se piden las del día de hoy porque es la consulta que ya existe y trae la
-   * cancha entera. Los bloques se descartan: acá solo interesa el catálogo.
-   */
-  private readonly grillas = resource({
-    loader: () => this.disponibilidad.delDia(hoyEnElClub()),
+  /** Solo el catálogo: esta página no muestra horas, así que no las pide. */
+  private readonly catalogo = resource({
+    loader: () => this.disponibilidad.canchas(),
     defaultValue: [],
   });
 
-  protected readonly canchas = computed(() =>
-    this.grillas.value().map(({ cancha }) => cancha),
-  );
+  protected readonly canchas = this.catalogo.value;
 
   protected readonly PASOS = [
     {
@@ -187,7 +176,5 @@ export class ElClub {
     },
   ];
 
-  protected superficie(superficie: string): string {
-    return SUPERFICIES[superficie] ?? superficie;
-  }
+  protected readonly superficie = nombreDeSuperficie;
 }

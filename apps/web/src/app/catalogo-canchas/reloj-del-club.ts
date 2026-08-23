@@ -34,6 +34,11 @@ const DIA_CORTO = new Intl.DateTimeFormat('es-CL', {
   weekday: 'short',
 });
 
+const MES_CORTO = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  month: 'short',
+});
+
 const PESOS = new Intl.NumberFormat('es-CL', {
   style: 'currency',
   currency: 'CLP',
@@ -65,6 +70,22 @@ export function diaEnPalabras(fecha: string): string {
   // Se lee a mediodía UTC y no a medianoche: a medianoche UTC en Santiago todavía
   // es el día anterior, y el encabezado mostraría un día menos que la grilla.
   return DIA_LARGO.format(new Date(`${fecha}T12:00:00.000Z`));
+}
+
+/**
+ * "ago", para el bloque de fecha de las tarjetas.
+ *
+ * Se le pide el mes a Intl en vez de recortar el "lunes, 17 de agosto" de
+ * `diaEnPalabras`: ese texto está en español y con esa forma **hoy**, y quien
+ * cambie el formato o el idioma no tiene por qué adivinar que alguien lo estaba
+ * partiendo por " de " en otro archivo.
+ *
+ * Los tres caracteres son del diseño, no del idioma: es una columna angosta bajo
+ * el número del día. Intl devuelve "sept" para septiembre y a veces con punto,
+ * así que se normaliza acá.
+ */
+export function mesCortoEnElClub(instante: string | Date): string {
+  return MES_CORTO.format(new Date(instante)).replace('.', '').slice(0, 3);
 }
 
 export function enPesos(monto: number): string {

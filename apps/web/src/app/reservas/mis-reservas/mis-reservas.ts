@@ -13,6 +13,7 @@ import {
   diaEnPalabras,
   fechaEnElClub,
   horaEnElClub,
+  mesCortoEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -285,7 +286,5 @@ export class MisReservas {
   }
 
   /** "ago", debajo del número. */
-  protected mesCorto(instante: string): string {
-    return this.dia(instante).split(' de ')[1]?.slice(0, 3) ?? '';
-  }
+  protected readonly mesCorto = mesCortoEnElClub;
 }

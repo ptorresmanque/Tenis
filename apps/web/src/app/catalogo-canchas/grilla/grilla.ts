@@ -19,6 +19,7 @@ import {
   horaEnElClub,
   proximosDias,
 } from '../reloj-del-club';
+import { nombreDeSuperficie } from '../superficies';
 
 /**
  * Cómo se nombra cada motivo de bloqueo. El enum de la base no se muestra crudo:
@@ -29,12 +30,6 @@ const MOTIVOS: Record<string, string> = {
   TORNEO: 'Torneo',
   CLASE: 'Clase',
   OTRO: 'No disponible',
-};
-
-const SUPERFICIES: Record<string, string> = {
-  ARCILLA: 'Arcilla',
-  CEMENTO: 'Cemento',
-  PASTO_SINTETICO: 'Pasto sintético',
 };
 
 /**
@@ -643,7 +638,5 @@ export class Grilla {
     return (motivo && MOTIVOS[motivo]) ?? 'No disponible';
   }
 
-  protected superficie(superficie: string): string {
-    return SUPERFICIES[superficie] ?? superficie;
-  }
+  protected readonly superficie = nombreDeSuperficie;
 }

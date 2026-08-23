@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { hoyEnElClub, horaEnElClub } from '../reloj-del-club';
+import { nombreDeSuperficie, SUPERFICIES } from '../superficies';
 import {
   AdminCanchas,
   CanchaAdmin,
@@ -22,12 +23,6 @@ const DIAS = [
   'Viernes',
   'Sábado',
 ];
-
-const SUPERFICIES = [
-  { valor: 'ARCILLA', etiqueta: 'Arcilla' },
-  { valor: 'CEMENTO', etiqueta: 'Cemento' },
-  { valor: 'PASTO_SINTETICO', etiqueta: 'Pasto sintético' },
-] as const;
 
 const CANCHA_EN_BLANCO: CanchaNueva = {
   nombre: '',
@@ -103,8 +98,8 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
             class="campo mt-1"
             [(ngModel)]="nueva.superficie"
           >
-            @for (opcion of superficies; track opcion.valor) {
-              <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+            @for (opcion of superficies; track opcion[0]) {
+              <option [value]="opcion[0]">{{ opcion[1] }}</option>
             }
           </select>
         </div>
@@ -222,7 +217,8 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 export class AdminCanchasPanel {
   private readonly api = inject(AdminCanchas);
 
-  protected readonly superficies = SUPERFICIES;
+  /** Las opciones del `select`, en el orden en que están escritas en la tabla. */
+  protected readonly superficies = Object.entries(SUPERFICIES);
   protected readonly nueva: CanchaNueva = { ...CANCHA_EN_BLANCO };
 
   protected readonly guardando = signal(false);
@@ -325,11 +321,7 @@ export class AdminCanchasPanel {
     return DIAS[dia] ?? `Día ${dia}`;
   }
 
-  protected nombreSuperficie(superficie: string): string {
-    return (
-      SUPERFICIES.find((s) => s.valor === superficie)?.etiqueta ?? superficie
-    );
-  }
+  protected readonly nombreSuperficie = nombreDeSuperficie;
 
   /** Las horas de una advertencia, en la hora del club y separadas por comas. */
   protected horasDe(instantes: string[]): string {

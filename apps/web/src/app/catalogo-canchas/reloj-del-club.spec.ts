@@ -6,6 +6,7 @@ import {
   fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
+  mesCortoEnElClub,
   proximosDias,
 } from './reloj-del-club';
 
@@ -49,6 +50,19 @@ describe('reloj del club', () => {
     // encabezado diría un día distinto del que muestra la grilla.
     expect(diaEnPalabras('2026-08-17')).toContain('lunes');
     expect(diaEnPalabras('2026-08-17')).toContain('17');
+  });
+
+  it('abrevia el mes a tres letras y sin punto', () => {
+    expect(mesCortoEnElClub('2026-08-17T15:00:00.000Z')).toBe('ago');
+    // Septiembre es el que Intl abrevia con cuatro letras, "sept": el bloque de
+    // fecha tiene ancho para tres.
+    expect(mesCortoEnElClub('2026-09-07T15:00:00.000Z')).toBe('sep');
+  });
+
+  it('el mes es el del club, no el del navegador', () => {
+    // 23:00 del 31 de agosto en Santiago ya es el 1 de septiembre en UTC. Quien
+    // mire su tarjeta a esa hora tiene que leer el mes en que juega.
+    expect(mesCortoEnElClub('2026-09-01T03:00:00.000Z')).toBe('ago');
   });
 
   it('escribe los montos en pesos chilenos, sin decimales', () => {

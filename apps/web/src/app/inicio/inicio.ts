@@ -7,14 +7,9 @@ import {
   horaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
+import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
-
-const SUPERFICIES: Record<string, string> = {
-  ARCILLA: 'Arcilla',
-  CEMENTO: 'Cemento',
-  PASTO_SINTETICO: 'Pasto sintético',
-};
 
 /**
  * La portada.
@@ -309,7 +304,5 @@ export class Inicio {
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
 
-  protected superficie(superficie: string): string {
-    return SUPERFICIES[superficie] ?? superficie;
-  }
+  protected readonly superficie = nombreDeSuperficie;
 }
