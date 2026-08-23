@@ -142,7 +142,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
     const grilla = await request(app.getHttpServer()).get(
       `/api/disponibilidad?cancha=${canchaId}&fecha=${enTresDias()}`,
     );
-    bloques = grilla.body;
+    bloques = grilla.body as { inicio: string; fin: string }[];
   });
 
   it('el club puede tomar una hora a nombre de un visitante, ya confirmada', async () => {
@@ -160,7 +160,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
       .expect(201);
 
     const guardada = await prisma.reserva.findUniqueOrThrow({
-      where: { id: respuesta.body.id },
+      where: { id: (respuesta.body as { id: number }).id },
       select: { estado: true, socioId: true, nombre: true },
     });
 
@@ -185,7 +185,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
     expect(respuesta.status).toBe(201);
 
     const guardada = await prisma.reserva.findUniqueOrThrow({
-      where: { id: respuesta.body.id },
+      where: { id: (respuesta.body as { id: number }).id },
       select: { socioId: true, estado: true },
     });
 
@@ -220,7 +220,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
       })
       .expect(409);
 
-    expect(segunda.body.motivo).toBe('CUPO_DIARIO');
+    expect((segunda.body as { motivo: string }).motivo).toBe('CUPO_DIARIO');
   });
 
   it('el cupo se puede consultar antes de decidir', async () => {
@@ -233,8 +233,12 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
       socioId,
       alDia: true,
       reservasDelDia: 0,
-      cupoDiarioSocioHoras: expect.any(Number),
     });
+    // Positivo y no "cualquier número": un cupo en 0 dejaría la pantalla del
+    // mesón diciendo que el socio no puede reservar nunca.
+    expect(
+      (antes.body as { cupoDiarioSocioHoras: number }).cupoDiarioSocioHoras,
+    ).toBeGreaterThan(0);
 
     await request(app.getHttpServer())
       .post('/api/admin/reservas')
@@ -252,7 +256,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
       .set('Cookie', cookieAdmin)
       .expect(200);
 
-    expect(despues.body.reservasDelDia).toBe(1);
+    expect((despues.body as { reservasDelDia: number }).reservasDelDia).toBe(1);
   });
 
   it('sin socio y sin nombre no se crea nada', async () => {

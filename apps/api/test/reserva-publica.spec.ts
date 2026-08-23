@@ -170,7 +170,9 @@ describe('GET /api/reservas/publica/:token', () => {
       .get(`/api/reservas/publica/${token}`)
       .expect(200);
 
-    expect(despues.body.estado).toBe(EstadoReserva.CONFIRMADA);
+    expect((despues.body as { estado: string }).estado).toBe(
+      EstadoReserva.CONFIRMADA,
+    );
   });
 
   it('la reserva cancelada se puede mirar, y lo dice', async () => {
@@ -182,6 +184,8 @@ describe('GET /api/reservas/publica/:token', () => {
       .get(`/api/reservas/publica/${token}`)
       .expect(200);
 
-    expect(respuesta.body.estado).toBe(EstadoReserva.CANCELADA);
+    expect((respuesta.body as { estado: string }).estado).toBe(
+      EstadoReserva.CANCELADA,
+    );
   });
 });

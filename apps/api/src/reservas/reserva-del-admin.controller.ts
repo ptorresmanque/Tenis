@@ -61,6 +61,17 @@ export class ReservaDelAdminController {
  * ningún otro endpoint, y traerlo por uno solo agregaría una forma distinta de
  * validar que hay que aprender aparte.
  */
+/**
+ * El campo como texto, o vacío si no vino como texto.
+ *
+ * `String(valor)` no sirve: un `{ "email": {} }` se convierte en
+ * "[object Object]", que no está vacío y pasa las comprobaciones de abajo como
+ * si la persona hubiera escrito algo.
+ */
+function texto(valor: unknown): string {
+  return typeof valor === 'string' ? valor.trim() : '';
+}
+
 function reservaDelAdminDeCuerpo(cuerpo: unknown) {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
@@ -69,7 +80,7 @@ function reservaDelAdminDeCuerpo(cuerpo: unknown) {
     throw new BadRequestException('Falta la cancha.');
   }
 
-  const inicio = new Date(String(datos.inicio ?? ''));
+  const inicio = new Date(texto(datos.inicio));
   if (Number.isNaN(inicio.getTime())) {
     throw new BadRequestException('Falta la hora de inicio, o no se entiende.');
   }
@@ -81,7 +92,7 @@ function reservaDelAdminDeCuerpo(cuerpo: unknown) {
 
   // Sin socio es una reserva de visitante, y de esas el club necesita a quién
   // llamar: es la hora que se cobra en el mesón y que alguien puede no venir a usar.
-  const nombre = String(datos.nombre ?? '').trim();
+  const nombre = texto(datos.nombre);
   if (socioId === null && nombre === '') {
     throw new BadRequestException(
       'Escribe a nombre de quién queda la hora, o elige un socio.',
@@ -93,8 +104,8 @@ function reservaDelAdminDeCuerpo(cuerpo: unknown) {
     inicio,
     socioId,
     nombre,
-    email: String(datos.email ?? '').trim(),
-    telefono: String(datos.telefono ?? '').trim(),
+    email: texto(datos.email),
+    telefono: texto(datos.telefono),
     acompanantes: Array.isArray(datos.acompanantes)
       ? (datos.acompanantes as { socioId?: number; nombre?: string }[])
       : [],

@@ -129,7 +129,8 @@ export class ReservaDelAdminService {
       esAdmin: false,
       socioId: socio.id,
       socioActivo: socio.estado === EstadoSocio.ACTIVO,
-      socioAlDia: fechaCivilDelClub(socio.alDiaHasta) >= fechaCivilDelClub(new Date()),
+      socioAlDia:
+        fechaCivilDelClub(socio.alDiaHasta) >= fechaCivilDelClub(new Date()),
       profesorId: null,
     };
 

@@ -59,9 +59,10 @@ export class AdministradoresController {
     @Yo() yo: UsuarioActual,
   ): Promise<Administrador> {
     const datos = (cuerpo ?? {}) as Record<string, unknown>;
-    const email = String(datos.email ?? '')
-      .trim()
-      .toLowerCase();
+    // `String(valor)` no sirve: un `{ "email": {} }` se convierte en
+    // "[object Object]", que no está vacío y pasaría el control de abajo.
+    const email =
+      typeof datos.email === 'string' ? datos.email.trim().toLowerCase() : '';
 
     if (!email) throw new BadRequestException('Falta el correo.');
     if (typeof datos.esAdmin !== 'boolean') {

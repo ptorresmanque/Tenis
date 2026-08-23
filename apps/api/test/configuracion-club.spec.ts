@@ -63,14 +63,18 @@ describe('Datos del club y administradores', () => {
 
     prisma = app.get(PrismaService);
 
-    await prisma.usuario.deleteMany({ where: { email: { endsWith: DOMINIO } } });
+    await prisma.usuario.deleteMany({
+      where: { email: { endsWith: DOMINIO } },
+    });
     admin = await crear('jefe', true);
     otroAdmin = await crear('suplente', true);
     await crear('socia', false);
   });
 
   afterAll(async () => {
-    await prisma.usuario.deleteMany({ where: { email: { endsWith: DOMINIO } } });
+    await prisma.usuario.deleteMany({
+      where: { email: { endsWith: DOMINIO } },
+    });
     await prisma.configuracionClub.updateMany({
       data: { direccion: '', telefono: '', email: '' },
     });
@@ -172,7 +176,9 @@ describe('Datos del club y administradores', () => {
         .send({ email: `fantasma${DOMINIO}`, esAdmin: true })
         .expect(400);
 
-      expect(respuesta.body.message).toContain('cuenta');
+      expect((respuesta.body as { message: string }).message).toContain(
+        'cuenta',
+      );
     });
 
     it('**nadie se quita el rol a sí mismo**', async () => {
