@@ -7,6 +7,8 @@ import { AgendaController } from './agenda.controller';
 import { AgendaService } from './agenda.service';
 import { DisponibilidadPublicaController } from './disponibilidad-publica.controller';
 import { DisponibilidadPublicaService } from './disponibilidad-publica.service';
+import { CierreDeCanchaController } from './cierre-de-cancha.controller';
+import { CierreDeCanchaService } from './cierre-de-cancha.service';
 import { EventosDeReserva } from './eventos';
 import { ModificacionService } from './modificacion.service';
 import { NoSocioController } from './no-socio.controller';
@@ -40,6 +42,7 @@ import { ReservasService } from './reservas.service';
     ReservaDelAdminController,
     ReportesController,
     AdminReportesController,
+    CierreDeCanchaController,
   ],
   providers: [
     ReservaRepository,
@@ -52,6 +55,7 @@ import { ReservasService } from './reservas.service';
     AgendaService,
     ReportesService,
     EventosDeReserva,
+    CierreDeCanchaService,
   ],
   exports: [
     ReservaRepository,

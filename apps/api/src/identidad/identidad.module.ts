@@ -34,6 +34,9 @@ import { YoController } from './yo.controller';
     { provide: EnviadorCorreo, useClass: EnviadorPorConsola },
   ],
   // Lo consumirán los guards de T8 y todo módulo que necesite saber quién mira.
-  exports: [SesionService],
+  // `EnviadorCorreo` sale del módulo porque `reservas` avisa cancelaciones (T36).
+  // Es el puerto, no el adaptador: quien lo importa no sabe si escribe en el log o
+  // manda un correo de verdad.
+  exports: [SesionService, EnviadorCorreo],
 })
 export class IdentidadModule {}

@@ -9,7 +9,9 @@ import {
 } from '../reloj-del-club';
 import {
   AdminCanchas,
+  BloqueoNuevo,
   CanchaAdmin,
+  HoraAfectada,
   MotivoBloqueo,
 } from './admin-canchas.service';
 
@@ -165,8 +167,63 @@ function enBlanco(): Formulario {
         @if (error()) {
           <span class="text-destructive">{{ error() }}</span>
         }
+        @if (aviso()) {
+          <span class="text-accent-strong">{{ aviso() }}</span>
+        }
       </span>
     </form>
+
+    <!-- El segundo paso, y solo cuando hay algo que perder: bloquear una hora libre
+         no pregunta nada. Lo que se confirma no es "¿seguro?", es esta lista. -->
+    @if (porConfirmar(); as afectadas) {
+      <div
+        role="alertdialog"
+        aria-labelledby="titulo-cierre"
+        class="mt-3 rounded-xl border border-destructive bg-card p-4 text-sm"
+      >
+        <h4 id="titulo-cierre" class="font-display font-semibold text-destructive">
+          Hay {{ afectadas.length }}
+          {{ afectadas.length === 1 ? 'hora tomada' : 'horas tomadas' }} en ese rango
+        </h4>
+        <p class="mt-1 text-muted-foreground">
+          Si cierras, se cancelan y avisamos por correo. A quien pagó se le devuelve
+          todo. <strong>Quitar el bloqueo después no las devuelve.</strong>
+        </p>
+
+        <ul class="mt-2 grid gap-1">
+          @for (tomada of afectadas; track tomada.id) {
+            <li>
+              <span class="font-medium">{{ cuando(tomada.inicio) }}</span>,
+              {{ hora(tomada.inicio) }}–{{ hora(tomada.fin) }} ·
+              {{ tomada.nombre }}
+              @if (tomada.pagada) {
+                <span class="text-destructive">(pagada, se devuelve)</span>
+              } @else if (tomada.esSocio) {
+                <span class="text-muted-foreground">(socio, recupera su cupo)</span>
+              }
+            </li>
+          }
+        </ul>
+
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="boton boton-destructivo boton-chico"
+            [disabled]="guardando()"
+            (click)="confirmar()"
+          >
+            Cerrar igual y avisarles
+          </button>
+          <button
+            type="button"
+            class="boton boton-texto boton-chico"
+            (click)="porConfirmar.set(null)"
+          >
+            Mejor no
+          </button>
+        </div>
+      </div>
+    }
   `,
 })
 export class EditorBloqueos {
@@ -178,6 +235,10 @@ export class EditorBloqueos {
   protected readonly nueva: Formulario = enBlanco();
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly aviso = signal<string | null>(null);
+
+  /** Las horas que el cierre se llevaría, mientras el admin decide. */
+  protected readonly porConfirmar = signal<HoraAfectada[] | null>(null);
 
   private readonly version = signal(0);
 
@@ -204,31 +265,79 @@ export class EditorBloqueos {
     return MOTIVOS.find((m) => m.valor === motivo)?.etiqueta ?? motivo;
   }
 
+  /**
+   * Primer paso: preguntar a quién afecta.
+   *
+   * **Nunca cierra directo, ni siquiera cuando no hay nadie debajo.** El servidor es
+   * el que sabe qué horas hay tomadas —esta pantalla no tiene la agenda— y hacer que
+   * el camino con reservas sea distinto del sin reservas obligaría a decidirlo acá.
+   */
   protected async crear(): Promise<void> {
     this.error.set(null);
+    this.aviso.set(null);
     this.guardando.set(true);
 
     try {
-      await this.api.crearBloqueo({
-        canchaId: this.cancha().id,
-        ...this.nueva,
-        descripcion: this.nueva.descripcion.trim() || null,
-      });
+      const { afectadas } = await this.api.simularCierre(this.formulario());
 
-      Object.assign(this.nueva, enBlanco());
-      this.version.update((v) => v + 1);
+      // Sin nadie debajo, cerrar es lo que era antes: no hay nada que confirmar y
+      // preguntar por preguntar entrena a la gente a apretar sin leer.
+      if (afectadas.length === 0) {
+        await this.cerrar();
+        return;
+      }
+
+      this.porConfirmar.set(afectadas);
     } catch (falla) {
-      // El motivo del servidor: "El bloqueo tiene que terminar después de
-      // empezar" dice qué corregir.
-      const mensaje = (falla as { error?: { message?: unknown } })?.error
-        ?.message;
-
-      this.error.set(
-        typeof mensaje === 'string' ? mensaje : 'No se pudo crear el bloqueo.',
-      );
+      this.mostrar(falla, 'No se pudo crear el bloqueo.');
     } finally {
       this.guardando.set(false);
     }
+  }
+
+  /** Segundo paso: el admin ya vio a quién deja sin hora. */
+  protected async confirmar(): Promise<void> {
+    this.guardando.set(true);
+
+    try {
+      await this.cerrar();
+    } catch (falla) {
+      this.mostrar(falla, 'No se pudo cerrar la cancha.');
+    } finally {
+      this.guardando.set(false);
+    }
+  }
+
+  private async cerrar(): Promise<void> {
+    const { canceladas } = await this.api.cerrar(this.formulario());
+
+    this.porConfirmar.set(null);
+    Object.assign(this.nueva, enBlanco());
+    this.version.update((v) => v + 1);
+
+    if (canceladas.length > 0) {
+      this.aviso.set(
+        canceladas.length === 1
+          ? 'Cancha cerrada. Avisamos a la persona que tenía esa hora.'
+          : `Cancha cerrada. Avisamos a las ${canceladas.length} personas afectadas.`,
+      );
+    }
+  }
+
+  private formulario(): BloqueoNuevo {
+    return {
+      canchaId: this.cancha().id,
+      ...this.nueva,
+      descripcion: this.nueva.descripcion.trim() || null,
+    };
+  }
+
+  private mostrar(falla: unknown, porDefecto: string): void {
+    // El motivo del servidor: "El bloqueo tiene que terminar después de empezar"
+    // dice qué corregir.
+    const mensaje = (falla as { error?: { message?: unknown } })?.error?.message;
+
+    this.error.set(typeof mensaje === 'string' ? mensaje : porDefecto);
   }
 
   protected async borrar(id: number): Promise<void> {

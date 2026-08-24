@@ -75,6 +75,23 @@ export interface BloqueoNuevo {
   descripcion: string | null;
 }
 
+/** Espejo de `ReservaAfectada` en la API: una hora que el cierre se lleva. */
+export interface HoraAfectada {
+  id: number;
+  folio: string;
+  inicio: string;
+  fin: string;
+  nombre: string;
+  email: string;
+  esSocio: boolean;
+  pagada: boolean;
+}
+
+export interface ResultadoCierre {
+  bloqueoId: number;
+  canceladas: HoraAfectada[];
+}
+
 export interface Advertencia {
   canchaId: number;
   nombre: string;
@@ -223,6 +240,33 @@ export class AdminCanchas {
       this.http.get<Bloqueo[]>('/api/admin/bloqueos', {
         params: { cancha: canchaId },
       }),
+    );
+  }
+
+  /**
+   * A quién dejaría sin su hora este cierre, sin escribir nada.
+   *
+   * Va antes de `cerrar` siempre: cancelar la hora de un socio no tiene deshacer, y
+   * el admin tiene que poder ver la lista antes de apretar.
+   */
+  simularCierre(bloqueo: BloqueoNuevo): Promise<{ afectadas: HoraAfectada[] }> {
+    return firstValueFrom(
+      this.http.post<{ afectadas: HoraAfectada[] }>(
+        '/api/admin/cierres/simulacion',
+        bloqueo,
+      ),
+    );
+  }
+
+  /**
+   * Cierra la cancha con lo que haya debajo: cancela, devuelve y avisa.
+   *
+   * Ruta distinta de `crearBloqueo` porque son dos operaciones distintas, y la
+   * diferencia importa: aquella crea un bloqueo y nada más.
+   */
+  cerrar(bloqueo: BloqueoNuevo): Promise<ResultadoCierre> {
+    return firstValueFrom(
+      this.http.post<ResultadoCierre>('/api/admin/cierres', bloqueo),
     );
   }
 

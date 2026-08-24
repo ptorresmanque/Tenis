@@ -446,6 +446,15 @@ model Reserva {
   creadaEn    DateTime  @default(now()) @map("creada_en")
   canceladaEn DateTime? @map("cancelada_en")
 
+  /// Qué cierre de cancha se llevó esta hora (T36). Nulo es lo normal: casi ninguna
+  /// reserva se cancela por un bloqueo.
+  ///
+  /// **Sin clave foránea, a propósito**, como `Transaccion.conceptoId`: el club borra
+  /// el bloqueo cuando la mantención termina, y con `SetNull` se perdería justo el
+  /// dato por el que alguien va a preguntar —por qué perdí mi hora— la semana
+  /// siguiente. Los ids son autoincrement y no se reutilizan.
+  canceladaPorBloqueoId Int? @map("cancelada_por_bloqueo_id")
+
   /// **La escribe la base, nunca la aplicación.** Es una columna generada —
   /// `IF(estado IN (PENDIENTE_PAGO, CONFIRMADA), inicio, NULL)`, ver la migración— y
   /// MySQL rechaza cualquier INSERT o UPDATE que le mande un valor. Se declara acá
