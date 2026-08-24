@@ -16,6 +16,7 @@ import {
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
+import { ClaseDelDia, Clases, NIVELES } from '../../clases/clases.service';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
 
@@ -121,11 +122,13 @@ import { NuevaReserva } from './nueva-reserva';
         <p class="text-destructive">
           No se pudo cargar la agenda. Reintenta en un momento.
         </p>
-      } @else if (reservas.value().length === 0) {
+      } @else if (elDia().length === 0) {
+        <!-- Sobre el día entero y no solo sobre las reservas: con una clase
+             agendada, "no hay reservas" se leía justo encima de la clase. -->
         <app-estado-vacio
           icono="event_available"
-          titulo="No hay reservas para este día"
-          detalle="Las que entren aparecen acá solas, sin recargar."
+          titulo="No hay nada agendado este día"
+          detalle="Las reservas que entren aparecen acá solas, sin recargar."
         />
       } @else {
         <!-- Lo anuncia para quien no ve la tabla: es la misma región que cambia
@@ -134,9 +137,31 @@ import { NuevaReserva } from './nueva-reserva';
       }
     </div>
 
-    @if (reservas.value().length > 0) {
+    @if (elDia().length > 0) {
       <ul class="mt-4 space-y-3">
-        @for (reserva of reservas.value(); track reserva.id) {
+        <!-- Clases y reservas en la misma lista y en orden de reloj, que es como
+             el mesón mira el día. La clase se distingue por la palabra "Clase" y su
+             ícono, no por el color: criterio 7 del spec de clases. -->
+        @for (fila of elDia(); track fila.clave) {
+          @if (fila.clase; as clase) {
+            <li class="rounded-xl border border-border bg-muted p-4 shadow-sm">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p class="font-display text-lg font-semibold">
+                  {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
+                </p>
+                <p class="font-medium">{{ clase.cancha }}</p>
+                <app-insignia variante="info" icono="school">
+                  Clase · {{ nivel(clase.nivel) }}
+                </app-insignia>
+              </div>
+              <p class="mt-1">
+                {{ clase.profesor }}
+                <span class="text-sm text-muted-foreground">
+                  · hasta {{ clase.cupoMaximo }} alumnos
+                </span>
+              </p>
+            </li>
+          } @else if (fila.reserva; as reserva) {
           <li
             class="rounded-xl border border-border bg-card p-4 shadow-sm"
             [class.border-dashed]="reserva.estado === 'PENDIENTE_PAGO'"
@@ -177,6 +202,7 @@ import { NuevaReserva } from './nueva-reserva';
               </p>
             }
           </li>
+          }
         }
       </ul>
     }
@@ -184,6 +210,7 @@ import { NuevaReserva } from './nueva-reserva';
 })
 export class AgendaDelDia {
   private readonly agenda = inject(Agenda);
+  private readonly clasesApi = inject(Clases);
 
   readonly fechaActual = signal(hoyEnElClub());
 
@@ -192,6 +219,41 @@ export class AgendaDelDia {
     loader: ({ params }) => this.agenda.delDia(params.fecha),
     defaultValue: [] as ReservaDelDia[],
   });
+
+  /**
+   * Las clases del día, que ocupan cancha igual que una reserva.
+   *
+   * Dos consultas y no una: `clases` y `reservas` no se conocen —lo dice el contrato
+   * de `SPEC-clases.md`— y juntarlas en un servicio del servidor obligaría a uno de
+   * los dos módulos a depender del otro. Se juntan acá, que es donde se miran juntas.
+   */
+  protected readonly clases = resource({
+    params: () => ({ fecha: this.fechaActual(), recarga: this.recargas() }),
+    loader: ({ params }) => this.clasesApi.delDia(params.fecha),
+    defaultValue: [] as ClaseDelDia[],
+  });
+
+  /** El día completo, en orden de reloj: lo que ocupa la cancha, sea lo que sea. */
+  protected readonly elDia = computed(() =>
+    [
+      ...this.clases.value().map((clase) => ({
+        clave: `clase-${clase.id}`,
+        inicio: clase.inicio,
+        clase,
+        reserva: null as ReservaDelDia | null,
+      })),
+      ...this.reservas.value().map((reserva) => ({
+        clave: `reserva-${reserva.id}`,
+        inicio: reserva.inicio,
+        clase: null as ClaseDelDia | null,
+        reserva,
+      })),
+    ].sort((una, otra) => una.inicio.localeCompare(otra.inicio)),
+  );
+
+  protected nivel(clave: keyof typeof NIVELES): string {
+    return NIVELES[clave] ?? clave;
+  }
 
   /** Cambia con cada aviso del servidor y así vuelve a disparar el `resource`. */
   private readonly recargas = signal(0);
@@ -212,8 +274,14 @@ export class AgendaDelDia {
 
   protected readonly resumen = () => {
     const total = this.reservas.value().length;
+    const clases = this.clases.value().length;
+    const reservas = `${total} ${total === 1 ? 'reserva' : 'reservas'}`;
 
-    return `${total} ${total === 1 ? 'reserva' : 'reservas'} este día.`;
+    // Las clases se nombran solo cuando las hay: "y 0 clases" es ruido en cada
+    // anuncio para quien escucha la pantalla todo el día.
+    return clases === 0
+      ? `${reservas} este día.`
+      : `${reservas} y ${clases} ${clases === 1 ? 'clase' : 'clases'} este día.`;
   };
 
   protected readonly hoy = hoyEnElClub();

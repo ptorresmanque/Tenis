@@ -39,7 +39,8 @@ function booleano(valor: unknown, campo: string): boolean {
   return valor;
 }
 
-function entero(
+/** Un entero de un cuerpo, con su rango. Exportada por la misma razón que `instanteDeCuerpo`. */
+export function entero(
   valor: unknown,
   campo: string,
   minimo: number,
@@ -417,7 +418,18 @@ export function leerBloqueo(cuerpo: unknown): DatosBloqueo {
   };
 }
 
-function instanteDeCuerpo(fecha: unknown, hora: unknown, campo: string): Date {
+/**
+ * Fecha y hora del club, como las manda un formulario, convertidas a instante.
+ *
+ * Exportada porque `clases` agenda con el mismo par de campos y con las mismas
+ * trampas —el 30 de febrero que `new Date` desborda a marzo, la hora sin dos
+ * puntos—. Si aparece un tercer módulo que la use, se muda a `comun/`.
+ */
+export function instanteDeCuerpo(
+  fecha: unknown,
+  hora: unknown,
+  campo: string,
+): Date {
   if (typeof fecha !== 'string') {
     throw new BadRequestException(`Falta la fecha de ${campo}.`);
   }

@@ -12,10 +12,9 @@ import { MenuDesplegable } from './menu-desplegable';
  * administración y **manda sobre el canvas de Stitch**, donde las cinco
  * pantallas de admin tienen versiones distintas entre sí.
  *
- * De los diez ítems de esa tabla se dibujan los seis que hoy tienen pantalla.
- * Cuotas, Torneos, Clases y Ranking son módulos que todavía no existen (fase 7 del
- * plan): un ítem deshabilitado que nunca se habilita es ruido permanente en la
- * barra que el club mira todo el día.
+ * De esa tabla se dibujan los ítems que hoy tienen pantalla. Torneos y Ranking son
+ * módulos que todavía no existen: un ítem deshabilitado que nunca se habilita es
+ * ruido permanente en la barra que el club mira todo el día.
  */
 @Component({
   selector: 'app-cascaron-admin',
@@ -228,6 +227,12 @@ export class CascaronAdmin {
       ruta: '/administracion/morosos',
       etiqueta: 'Socios con deuda',
       icono: 'money_off',
+      trasDivisoria: false,
+    },
+    {
+      ruta: '/administracion/clases',
+      etiqueta: 'Clases',
+      icono: 'event_note',
       trasDivisoria: false,
     },
     {

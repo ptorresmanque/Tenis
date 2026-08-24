@@ -10,6 +10,7 @@ import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import { EnviadorCorreo } from '../identidad/correo';
 import { MINUTOS_PARA_EXPIRAR } from '../pagos/expiracion';
 import { AnulacionService } from '../pagos/anulacion.service';
+import type { Prisma } from '../generated/prisma/client';
 import { EstadoReserva, EstadoTransaccion } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
@@ -142,8 +143,19 @@ export class CierreDeCanchaService {
    *    evitar: la cancha se ve cerrada y la hora sigue a nombre de alguien.
    * 3. **Los correos, después de que la transacción confirma.** Un aviso de una
    *    cancelación que terminó revirtiéndose no se puede retirar del buzón de nadie.
+   *
+   * @param tambienEnLaTransaccion Trabajo que tiene que pasar o fallar **junto con el
+   * bloqueo**. Lo usa `clases` para crear la `Clase` ahí mismo: una clase con la
+   * cancha abierta es la clase a la que alguien reserva encima, y un bloqueo sin
+   * clase nadie sabe por qué está.
    */
-  async cerrar(datos: DatosBloqueo): Promise<ResultadoCierre> {
+  async cerrar(
+    datos: DatosBloqueo,
+    tambienEnLaTransaccion?: (
+      tx: Prisma.TransactionClient,
+      bloqueoId: number,
+    ) => Promise<void>,
+  ): Promise<ResultadoCierre> {
     const afectadas = await this.afectadas(datos);
 
     this.exigirQueNadieEsteMitadPagando(afectadas);
@@ -156,6 +168,8 @@ export class CierreDeCanchaService {
 
     const { bloqueoId, ids } = await this.prisma.$transaction(async (tx) => {
       const bloqueo = await tx.bloqueo.create({ data: datos });
+
+      await tambienEnLaTransaccion?.(tx, bloqueo.id);
 
       // Se vuelve a consultar dentro de la transacción y no se reusa la lista de
       // arriba: entre el cálculo y el cierre cabe una reserva nueva, y dejarla viva

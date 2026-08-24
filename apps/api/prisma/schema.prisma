@@ -171,7 +171,7 @@ enum EstadoSolicitud {
 /// sirvió para algo. Un correo no se cuenta, y el que nadie contestó no se distingue
 /// del que nunca llegó.
 model SolicitudContacto {
-  id   Int            @id @default(autoincrement())
+  id   Int           @id @default(autoincrement())
   tipo TipoSolicitud
 
   nombre   String  @db.VarChar(120)
@@ -249,6 +249,7 @@ model Profesor {
   tarifaHoraClp Int?    @map("tarifa_hora_clp")
 
   usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  clases  Clase[]
 
   @@map("profesor")
 }
@@ -302,21 +303,21 @@ model Cuota {
   /// En pesos y no en porcentaje: el club piensa en pesos —"a la señora Ana le
   /// cobramos 15.000"— y un porcentaje obliga a redondear, que en dinero significa
   /// que la suma del mes no cuadra con el reporte.
-  descuentoClp Int @default(0) @map("descuento_clp")
+  descuentoClp    Int     @default(0) @map("descuento_clp")
   /// Obligatorio cuando hay descuento, y lo impone el servidor: un descuento sin
   /// motivo no se distingue de un error de tipeo seis meses después.
   motivoDescuento String? @map("motivo_descuento") @db.VarChar(200)
 
-  estado   EstadoCuota @default(PENDIENTE)
-  emitidaEn DateTime   @default(now()) @map("emitida_en")
+  estado    EstadoCuota @default(PENDIENTE)
+  emitidaEn DateTime    @default(now()) @map("emitida_en")
 
-  pagadaEn DateTime?  @map("pagada_en")
-  medio    MedioPago?
+  pagadaEn      DateTime?  @map("pagada_en")
+  medio         MedioPago?
   /// El cobro en línea, si lo hubo. Sin FK, como `Transaccion.conceptoId`.
-  transaccionId Int? @map("transaccion_id")
+  transaccionId Int?       @map("transaccion_id")
   /// Qué admin registró el pago en el mesón. Es dinero que pasó por las manos de una
   /// persona, y sin esto no hay forma de reconstruir una caja que no cuadra.
-  registradaPor Int? @map("registrada_por")
+  registradaPor Int?       @map("registrada_por")
 
   anuladaPor      Int?    @map("anulada_por")
   motivoAnulacion String? @map("motivo_anulacion") @db.VarChar(200)
@@ -362,6 +363,7 @@ model Cancha {
   franjas  FranjaHoraria[]
   bloqueos Bloqueo[]
   reservas Reserva[]
+  clases   Clase[]
 
   @@map("cancha")
 }
@@ -441,6 +443,7 @@ model Bloqueo {
   creadoEn DateTime @default(now()) @map("creado_en")
 
   cancha Cancha @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  clase  Clase?
 
   @@index([canchaId, inicio])
   @@map("bloqueo")
@@ -551,7 +554,7 @@ model Transaccion {
   montoClp Int               @map("monto_clp")
   estado   EstadoTransaccion @default(PENDIENTE)
 
-  pasarela String
+  pasarela      String
   /// Único y nulable: nace sin token y en MySQL dos NULL no chocan, así que el club
   /// puede tener varios pagos iniciados. Cuando llega, el único es lo que hace que
   /// dos callbacks concurrentes de la pasarela produzcan un solo efecto (T18).
@@ -697,8 +700,8 @@ enum EstadoReporte {
 model ReporteNoUso {
   id Int @id @default(autoincrement())
 
-  reservaId          Int @map("reserva_id")
-  reportanteSocioId  Int @map("reportante_socio_id")
+  reservaId         Int @map("reserva_id")
+  reportanteSocioId Int @map("reportante_socio_id")
 
   estado   EstadoReporte @default(PENDIENTE)
   creadoEn DateTime      @default(now()) @map("creado_en")
@@ -741,4 +744,59 @@ model AcompananteReserva {
   @@index([reservaId])
   @@index([socioId])
   @@map("acompanante_reserva")
+}
+
+// ── clases ───────────────────────────────────────────────────────────────────
+// Modelo de SPEC-clases.md § Modelo de datos.
+
+enum NivelClase {
+  INICIACION
+  INTERMEDIO
+  COMPETITIVO
+  NINOS
+}
+
+enum EstadoClase {
+  PROGRAMADA
+  REALIZADA
+  CANCELADA
+}
+
+/// Una clase con profesor: cuándo es, quién la da y en qué cancha.
+///
+/// **`bloqueoId` es la razón de ser del módulo.** La clase y el `Bloqueo` que cierra
+/// la cancha se crean en la misma transacción: sin eso queda o una clase con la
+/// cancha abierta —a la que alguien reserva encima— o un bloqueo huérfano que nadie
+/// sabe por qué está ahí. Ver `SPEC-clases.md` § Agendar crea el bloqueo.
+///
+/// Es opcional porque cancelar la clase **borra** su bloqueo para devolver la hora a
+/// la disponibilidad; la clase queda con su historia y sin bloqueo.
+model Clase {
+  id         Int @id @default(autoincrement())
+  profesorId Int @map("profesor_id")
+  canchaId   Int @map("cancha_id")
+
+  /// Instantes en UTC, como el bloqueo: una clase es un momento concreto.
+  inicio DateTime
+  fin    DateTime
+
+  cupoMaximo Int         @map("cupo_maximo")
+  nivel      NivelClase
+  estado     EstadoClase @default(PROGRAMADA)
+
+  bloqueoId Int?    @unique @map("bloqueo_id")
+  notas     String?
+
+  canceladaEn       DateTime? @map("cancelada_en")
+  motivoCancelacion String?   @map("motivo_cancelacion")
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  profesor Profesor @relation(fields: [profesorId], references: [id])
+  cancha   Cancha   @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  bloqueo  Bloqueo? @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
+
+  @@index([inicio])
+  @@index([canchaId, inicio])
+  @@map("clase")
 }

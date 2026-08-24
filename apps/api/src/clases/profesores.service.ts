@@ -3,7 +3,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CambioDeFicha, FichaNueva } from './profesores.dto';
 
-/** Lo que se publica de un profesor. La tarifa no sale de acá. */
+/**
+ * La ficha completa, **para el panel del admin y solo para ahí**: incluye el teléfono
+ * y la tarifa. La página pública de T48 lleva su propio `select`, más corto; reusar
+ * este publicaría lo que el club le paga a cada profesor.
+ */
 const FICHA = {
   id: true,
   nombreVisible: true,

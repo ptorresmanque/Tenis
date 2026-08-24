@@ -62,6 +62,9 @@ import { ReservasService } from './reservas.service';
     ReservasService,
     ModificacionService,
     DisponibilidadPublicaService,
+    // Lo usa `clases` para agendar: la clase cierra la cancha con la misma cascada
+    // que el cierre por mantención, no con una copia más blanda.
+    CierreDeCanchaService,
   ],
 })
 export class ReservasModule {}
