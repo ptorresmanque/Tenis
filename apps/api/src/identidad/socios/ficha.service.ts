@@ -8,7 +8,11 @@ import {
 import { EstadoSocio, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { UsuarioActual } from '../usuario-actual';
-import { CambiosDeSocio, CAMPOS_AUDITADOS } from './cambios.service';
+import {
+  CambiosDeSocio,
+  CAMPOS_AUDITADOS,
+  SELECCION_AUDITADA,
+} from './cambios.service';
 
 /** Lo que el admin puede cambiar de una ficha. Todo opcional: se toca lo que viaja. */
 export interface CambiosDeFicha {
@@ -43,29 +47,28 @@ export class FichaDeSocioService {
     yo: UsuarioActual,
     motivo: string | null,
   ) {
-    const antes = await this.prisma.socio.findUnique({
-      where: { id: socioId },
-      select: {
-        estado: true,
-        alDiaHasta: true,
-        numeroSocio: true,
-        sancionadoHasta: true,
-      },
-    });
-
-    if (!antes) throw new NotFoundException('No hay un socio con ese número.');
-
     try {
       return await this.prisma.$transaction(async (tx) => {
+        // **Se lee dentro de la transacción**, no antes. Leyéndolo fuera queda una
+        // ventana entre la lectura y la escritura: si otro admin suspende al socio en
+        // el medio, este renglón diría que se partió de ACTIVO cuando ya estaba
+        // SUSPENDIDO —y si los valores coinciden con los leídos, no deja renglón y el
+        // cambio queda sin rastro—. Un historial que miente sobre el punto de partida
+        // no sirve para lo único que existe: explicar una decisión.
+        const antes = await tx.socio.findUnique({
+          where: { id: socioId },
+          select: SELECCION_AUDITADA,
+        });
+
+        if (!antes)
+          throw new NotFoundException('No hay un socio con ese número.');
+
         const despues = await tx.socio.update({
           where: { id: socioId },
           data: cambios,
           select: {
             id: true,
-            numeroSocio: true,
-            estado: true,
-            alDiaHasta: true,
-            sancionadoHasta: true,
+            ...SELECCION_AUDITADA,
             usuario: { select: { nombre: true, apellido: true, email: true } },
           },
         });

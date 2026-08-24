@@ -239,6 +239,39 @@ describe('PATCH /api/admin/socios/:id y su historial', () => {
     expect(await historial()).toHaveLength(0);
   });
 
+  it('si falla el registro del cambio, el cambio tampoco queda', async () => {
+    // Las dos escrituras comparten transacción. Sin eso, un socio podría quedar
+    // suspendido sin renglón que lo explique, que es el estado que esta tabla existe
+    // para que no ocurra.
+    // El tipo de `$transaction` tiene dos sobrecargas y ninguna calza con envolver el
+    // callback; el puente va acotado a estas líneas, con la forma que usa el servicio.
+    type ConCallback = (
+      callback: (tx: PrismaService) => Promise<unknown>,
+    ) => Promise<unknown>;
+
+    const real = prisma.$transaction.bind(prisma) as ConCallback;
+
+    const espia = jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementationOnce(
+        (callback: (tx: PrismaService) => Promise<unknown>) =>
+          real(async (tx) => {
+            await callback(tx);
+            throw new Error('la base se cayó al registrar el cambio');
+          }),
+      );
+
+    await editar({ estado: 'SUSPENDIDO' }).expect(500);
+
+    espia.mockRestore();
+
+    const socio = await prisma.socio.findUniqueOrThrow({
+      where: { id: socioId },
+    });
+    expect(socio.estado).toBe(EstadoSocio.ACTIVO);
+    expect(await historial()).toHaveLength(0);
+  });
+
   it('un estado que no existe se rechaza', async () => {
     await editar({ estado: 'JUBILADO' }).expect(400);
   });

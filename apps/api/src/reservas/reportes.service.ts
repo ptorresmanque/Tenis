@@ -12,7 +12,10 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
-import { CambiosDeSocio } from '../identidad/socios/cambios.service';
+import {
+  CambiosDeSocio,
+  SELECCION_AUDITADA,
+} from '../identidad/socios/cambios.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Cuánto después de terminar el bloque se puede reportar. */
@@ -261,23 +264,13 @@ export class ReportesService {
       if (decision === 'SANCIONAR' && reserva.socioId !== null) {
         const antes = await tx.socio.findUniqueOrThrow({
           where: { id: reserva.socioId },
-          select: {
-            estado: true,
-            alDiaHasta: true,
-            numeroSocio: true,
-            sancionadoHasta: true,
-          },
+          select: SELECCION_AUDITADA,
         });
 
         const despues = await tx.socio.update({
           where: { id: reserva.socioId },
           data: { sancionadoHasta },
-          select: {
-            estado: true,
-            alDiaHasta: true,
-            numeroSocio: true,
-            sancionadoHasta: true,
-          },
+          select: SELECCION_AUDITADA,
         });
 
         // El otro camino que escribe un campo de derechos (T37). Pasa por el mismo
