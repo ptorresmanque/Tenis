@@ -1,0 +1,157 @@
+import { Component, computed, inject, resource, signal } from '@angular/core';
+
+import { enPesos, hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
+import { EstadoVacio } from '../../ui/estado-vacio';
+import { Insignia } from '../../ui/insignia';
+import { CuotaDelMes, Cuotas } from '../cuotas.service';
+
+/** El mes en curso del club, "AAAA-MM". */
+function mesActual(): string {
+  return hoyEnElClub().slice(0, 7);
+}
+
+/**
+ * Las cuotas del mes.
+ *
+ * **No hay botón de "emitir".** Abrir el mes es lo que lo emite, que es la decisión de
+ * `SPEC-cuotas.md`: un botón que hay que acordarse de apretar tiene el mismo problema
+ * que el cron que se decidió no tener —falla en silencio— y encima invita a apretarlo
+ * dos veces.
+ */
+@Component({
+  selector: 'app-panel-cuotas',
+  imports: [EstadoVacio, Insignia],
+  template: `
+    <h1 class="font-display text-3xl font-bold">Cuotas del club</h1>
+    <p class="mt-1 max-w-prose text-muted-foreground">
+      La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes.
+    </p>
+
+    <div class="mt-4 flex flex-wrap items-end gap-4">
+      <div>
+        <label for="mes" class="block text-sm font-medium">Mes</label>
+        <input
+          id="mes"
+          type="month"
+          class="campo mt-1 cursor-pointer"
+          [value]="mes()"
+          (change)="cambiarMes($event)"
+        />
+      </div>
+
+      @if (datos.value(); as mes) {
+        <dl class="flex flex-wrap gap-6">
+          <div>
+            <dt class="text-sm text-muted-foreground">Emitido</dt>
+            <dd class="font-display text-xl font-semibold">
+              {{ pesos(mes.totalEmitidoClp) }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm text-muted-foreground">Pagado</dt>
+            <dd class="font-display text-xl font-semibold text-accent-strong">
+              {{ pesos(mes.totalPagadoClp) }}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-sm text-muted-foreground">Por cobrar</dt>
+            <dd class="font-display text-xl font-semibold text-destructive">
+              {{ pesos(porCobrar()) }}
+            </dd>
+          </div>
+        </dl>
+      }
+    </div>
+
+    @if (datos.isLoading()) {
+      <p class="mt-4 text-muted-foreground">Cargando…</p>
+    } @else if (cuotas().length === 0) {
+      <app-estado-vacio
+        class="mt-4 block"
+        icono="payments"
+        titulo="Ninguna cuota en este mes"
+        detalle="Se emiten a los socios activos desde el mes en que ingresaron."
+      />
+    } @else {
+      <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
+        <table class="tabla">
+          <caption class="sr-only">
+            Cuotas de {{ mes() }}, {{ cuotas().length }} en total
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Nº</th>
+              <th scope="col">Socio</th>
+              <th scope="col">Monto</th>
+              <th scope="col">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cuota of cuotas(); track cuota.id) {
+              <tr>
+                <td class="font-mono text-sm">{{ cuota.socio.numeroSocio }}</td>
+                <td class="font-medium">{{ cuota.socio.nombre }}</td>
+                <td class="whitespace-nowrap">
+                  {{ pesos(cuota.montoClp - cuota.descuentoClp) }}
+                  @if (cuota.descuentoClp > 0) {
+                    <span class="block text-xs text-muted-foreground">
+                      con {{ pesos(cuota.descuentoClp) }} de descuento
+                    </span>
+                  }
+                </td>
+                <td>
+                  @if (cuota.estado === 'PAGADA') {
+                    <app-insignia variante="exito" icono="check_circle">
+                      Pagada
+                    </app-insignia>
+                  } @else if (cuota.estado === 'ANULADA') {
+                    <app-insignia variante="neutro" icono="block">Anulada</app-insignia>
+                  } @else {
+                    <app-insignia variante="aviso" icono="schedule">
+                      Por cobrar
+                    </app-insignia>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  `,
+})
+export class PanelDeCuotas {
+  private readonly api = inject(Cuotas);
+
+  protected readonly mes = signal(mesActual());
+
+  protected readonly datos = resource({
+    params: () => ({ periodo: this.mes() }),
+    loader: ({ params }) => this.api.delMes(params.periodo),
+  });
+
+  protected readonly cuotas = computed<CuotaDelMes[]>(
+    () => this.datos.value()?.cuotas ?? [],
+  );
+
+  /**
+   * Lo que falta entrar. Calculado y no leído del servidor porque es una resta de dos
+   * números que ya viajaron: pedirlo aparte sería un tercer total que puede quedar en
+   * desacuerdo con los otros dos.
+   */
+  protected readonly porCobrar = computed(() => {
+    const mes = this.datos.value();
+
+    return mes ? mes.totalEmitidoClp - mes.totalPagadoClp : 0;
+  });
+
+  protected readonly pesos = enPesos;
+
+  protected cambiarMes(evento: Event): void {
+    const valor = (evento.target as HTMLInputElement).value;
+
+    // El `<input type="month">` vacío devuelve "": quedarse en el mes anterior es
+    // mejor que pedirle al servidor un período que va a rechazar.
+    if (valor) this.mes.set(valor);
+  }
+}

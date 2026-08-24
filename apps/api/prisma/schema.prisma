@@ -105,6 +105,7 @@ model Socio {
   reservas        Reserva[]
   acompanamientos AcompananteReserva[]
   reportes        ReporteNoUso[]
+  cuotas          Cuota[]
 
   @@map("socio")
 }
@@ -237,6 +238,81 @@ model Profesor {
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@map("profesor")
+}
+
+// ── cuotas ───────────────────────────────────────────────────────────────────
+// Modelo de SPEC-cuotas.md § Modelo de datos.
+
+enum TipoCuota {
+  INCORPORACION
+  MENSUAL
+}
+
+enum EstadoCuota {
+  PENDIENTE
+  PAGADA
+  ANULADA
+}
+
+enum MedioPago {
+  WEBPAY
+  EFECTIVO
+  TRANSFERENCIA
+}
+
+/// Lo que un socio le debe al club por un período, y qué se hizo con esa deuda.
+///
+/// **Los dos cobros del modelo de socios en una sola tabla**: la incorporación que se
+/// paga una vez al entrar y la mensualidad. Podrían ser dos; no lo son porque
+/// responden a lo mismo —cuánto debe este socio y por qué— y el estado de cuenta las
+/// muestra juntas. En dos tablas, cada consulta de deuda es dos consultas y una unión,
+/// y la primera que se olvide de la incorporación deja reservar a alguien que no la
+/// pagó.
+model Cuota {
+  id      Int       @id @default(autoincrement())
+  socioId Int       @map("socio_id")
+  tipo    TipoCuota @default(MENSUAL)
+
+  /// "AAAA-MM". Para la incorporación es el mes del alta, y nunca se repite.
+  ///
+  /// **El único sobre (socio, tipo, período) es el mecanismo de emisión**, no una
+  /// precaución: la cuota del mes se emite cuando alguien la mira, y dos peticiones
+  /// simultáneas chocan acá en vez de crear dos filas. Ver SPEC-cuotas.md § La
+  /// emisión es perezosa.
+  periodo String @db.VarChar(7)
+
+  /// Congelado al emitir, como `Transaccion.montoClp`. Si el club sube la cuota en
+  /// septiembre, las de agosto siguen valiendo lo que valían: quien paga tarde no
+  /// puede terminar debiendo más de lo que se le cobró.
+  montoClp Int @map("monto_clp")
+
+  /// En pesos y no en porcentaje: el club piensa en pesos —"a la señora Ana le
+  /// cobramos 15.000"— y un porcentaje obliga a redondear, que en dinero significa
+  /// que la suma del mes no cuadra con el reporte.
+  descuentoClp Int @default(0) @map("descuento_clp")
+  /// Obligatorio cuando hay descuento, y lo impone el servidor: un descuento sin
+  /// motivo no se distingue de un error de tipeo seis meses después.
+  motivoDescuento String? @map("motivo_descuento") @db.VarChar(200)
+
+  estado   EstadoCuota @default(PENDIENTE)
+  emitidaEn DateTime   @default(now()) @map("emitida_en")
+
+  pagadaEn DateTime?  @map("pagada_en")
+  medio    MedioPago?
+  /// El cobro en línea, si lo hubo. Sin FK, como `Transaccion.conceptoId`.
+  transaccionId Int? @map("transaccion_id")
+  /// Qué admin registró el pago en el mesón. Es dinero que pasó por las manos de una
+  /// persona, y sin esto no hay forma de reconstruir una caja que no cuadra.
+  registradaPor Int? @map("registrada_por")
+
+  anuladaPor      Int?    @map("anulada_por")
+  motivoAnulacion String? @map("motivo_anulacion") @db.VarChar(200)
+
+  socio Socio @relation(fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@unique([socioId, tipo, periodo])
+  @@index([periodo, estado])
+  @@map("cuota")
 }
 
 // ── catalogo-canchas ─────────────────────────────────────────────────────────
@@ -388,6 +464,11 @@ model ConfiguracionClub {
   horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")
   /// Cuántos días queda sin reservar el socio que tomó una hora y no la usó (T34).
   diasSancionNoUso     Int @default(15) @map("dias_sancion_no_uso")
+
+  /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras siete: el
+  /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo
+  /// que una tabla de precios con vigencia vendría a resolver.
+  cuotaMensualClp Int @default(25000) @map("cuota_mensual_clp")
 
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 

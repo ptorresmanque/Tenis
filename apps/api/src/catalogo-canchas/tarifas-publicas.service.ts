@@ -2,8 +2,15 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Una fila de la lista de precios, como se publica. */
-interface TarifaPublica {
+/**
+ * Una fila de la lista de precios, como se publica.
+ *
+ * Exportada porque el controlador la infiere como tipo de retorno de un método
+ * público, y con `declaration` activado —que es como compila el build, no como corre
+ * `tsc --noEmit`— eso es un error: el `.d.ts` nombraría un tipo que nadie puede
+ * importar.
+ */
+export interface TarifaPublica {
   /** Nulo = rige en todas las canchas. */
   canchaId: number | null;
   cancha: string | null;

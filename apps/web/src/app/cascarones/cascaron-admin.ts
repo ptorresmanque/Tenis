@@ -219,6 +219,12 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/cuotas',
+      etiqueta: 'Cuotas',
+      icono: 'payments',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/solicitudes',
       etiqueta: 'Consultas al club',
       icono: 'drafts',
