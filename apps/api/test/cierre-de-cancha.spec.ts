@@ -502,6 +502,68 @@ describe('POST /api/admin/cierres', () => {
     expect(reserva.estado).toBe(EstadoReserva.CONFIRMADA);
   });
 
+  it('**no cierra sobre una hora con un pago en curso: la persona quedaría sin cancha y sin su plata**', async () => {
+    // El agujero: si se cancela una reserva que está pagándose en Webpay, el callback
+    // vuelve, autoriza el cobro, y el `updateMany` que la confirmaría no encuentra
+    // nada porque ya está CANCELADA. Queda una transacción autorizada sin cancha y
+    // sin devolución. Es el mismo motivo por el que `cancelar` tampoco lo permite.
+    const horas = await bloques();
+    await request(app.getHttpServer())
+      .post('/api/reservas/no-socio')
+      .send({
+        canchaId,
+        inicio: horas[0].inicio,
+        nombre: 'Visitante A Medias',
+        email: `medias${DOMINIO}`,
+        telefono: '+56900000000',
+      })
+      .expect(201);
+
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/admin/cierres')
+      .set('Cookie', cookieAdmin)
+      .send(cierre('08:00', '10:00'))
+      .expect(409);
+
+    expect((respuesta.body as { motivo: string }).motivo).toBe('PAGO_EN_CURSO');
+    expect((respuesta.body as { message: string }).message).toContain(
+      '15 minutos',
+    );
+
+    // Y no cerró nada: ni bloqueo ni cancelación.
+    expect(await prisma.bloqueo.count({ where: { canchaId } })).toBe(0);
+    const reserva = await prisma.reserva.findFirstOrThrow({
+      where: { canchaId },
+    });
+    expect(reserva.estado).toBe(EstadoReserva.PENDIENTE_PAGO);
+  });
+
+  it('la simulación avisa del pago en curso antes de que el admin lo intente', async () => {
+    const horas = await bloques();
+    await request(app.getHttpServer())
+      .post('/api/reservas/no-socio')
+      .send({
+        canchaId,
+        inicio: horas[0].inicio,
+        nombre: 'Visitante A Medias',
+        email: `medias${DOMINIO}`,
+        telefono: '+56900000000',
+      })
+      .expect(201);
+
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/admin/cierres/simulacion')
+      .set('Cookie', cookieAdmin)
+      .send(cierre('08:00', '10:00'))
+      .expect(200);
+
+    const cuerpo = respuesta.body as {
+      afectadas: { pagoEnCurso: boolean }[];
+    };
+
+    expect(cuerpo.afectadas[0].pagoEnCurso).toBe(true);
+  });
+
   it('solo el admin cierra una cancha', async () => {
     await request(app.getHttpServer())
       .post('/api/admin/cierres')

@@ -1,8 +1,14 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 
 import type { DatosBloqueo } from '../catalogo-canchas/admin.dto';
 import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import { EnviadorCorreo } from '../identidad/correo';
+import { MINUTOS_PARA_EXPIRAR } from '../pagos/expiracion';
 import { AnulacionService } from '../pagos/anulacion.service';
 import { EstadoReserva, EstadoTransaccion } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,6 +43,8 @@ export interface ReservaAfectada {
   email: string;
   esSocio: boolean;
   pagada: boolean;
+  /** Está pagándose en la pasarela ahora mismo. Ver `exigirQueNadieEsteMitadPagando`. */
+  pagoEnCurso: boolean;
 }
 
 export interface ResultadoCierre {
@@ -101,7 +109,11 @@ export class CierreDeCanchaService {
       },
     });
 
-    const pagos = await this.pagosDe(reservas.map((r) => r.id));
+    const ids = reservas.map((r) => r.id);
+    const [pagadas, pagandose] = await Promise.all([
+      this.conTransaccionEn(ids, EstadoTransaccion.AUTORIZADA),
+      this.conTransaccionEn(ids, EstadoTransaccion.PENDIENTE),
+    ]);
 
     return reservas.map((reserva) => ({
       id: reserva.id,
@@ -111,7 +123,8 @@ export class CierreDeCanchaService {
       nombre: reserva.nombre,
       email: reserva.email,
       esSocio: reserva.socioId !== null,
-      pagada: pagos.has(reserva.id),
+      pagada: pagadas.has(reserva.id),
+      pagoEnCurso: pagandose.has(reserva.id),
     }));
   }
 
@@ -120,6 +133,7 @@ export class CierreDeCanchaService {
    *
    * El orden de los tres pasos no es de conveniencia:
    *
+   * 0. **Nadie a mitad de pagar.** Ver `exigirQueNadieEsteMitadPagando`.
    * 1. **Primero la plata.** Es el mismo criterio de T19 y T24: si la pasarela falla,
    *    no se cerró nada y el club lo reintenta. Al revés, la persona se queda sin
    *    cancha y sin su dinero hasta que alguien lo note.
@@ -132,44 +146,43 @@ export class CierreDeCanchaService {
   async cerrar(datos: DatosBloqueo): Promise<ResultadoCierre> {
     const afectadas = await this.afectadas(datos);
 
+    this.exigirQueNadieEsteMitadPagando(afectadas);
+
     for (const reserva of afectadas.filter((r) => r.pagada)) {
       // **Devolución total, sin evaluar la ventana de 24 horas**: canceló el club y
       // no la persona, y cobrarle una hora que le quitaron es indefendible.
       await this.anularElPagoDe(reserva.id);
     }
 
-    const { bloqueoId, canceladas } = await this.prisma
-      .$transaction(async (tx) => {
-        const bloqueo = await tx.bloqueo.create({ data: datos });
+    const { bloqueoId, ids } = await this.prisma.$transaction(async (tx) => {
+      const bloqueo = await tx.bloqueo.create({ data: datos });
 
-        // Se vuelve a consultar dentro de la transacción y no se reusa la lista de
-        // arriba: entre el cálculo y el cierre cabe una reserva nueva, y dejarla viva
-        // debajo del bloqueo es el bug que esta operación viene a cerrar.
-        const debajo = await tx.reserva.findMany({
-          where: {
-            canchaId: datos.canchaId,
-            estado: { in: ACTIVAS },
-            inicio: { lt: datos.fin },
-            fin: { gt: datos.inicio },
-          },
-          select: { id: true },
-        });
+      // Se vuelve a consultar dentro de la transacción y no se reusa la lista de
+      // arriba: entre el cálculo y el cierre cabe una reserva nueva, y dejarla viva
+      // debajo del bloqueo es el bug que esta operación viene a cerrar.
+      const debajo = await tx.reserva.findMany({
+        where: {
+          canchaId: datos.canchaId,
+          estado: { in: ACTIVAS },
+          inicio: { lt: datos.fin },
+          fin: { gt: datos.inicio },
+        },
+        select: { id: true },
+      });
 
-        await tx.reserva.updateMany({
-          where: { id: { in: debajo.map((r) => r.id) } },
-          data: {
-            estado: EstadoReserva.CANCELADA,
-            canceladaEn: new Date(),
-            canceladaPorBloqueoId: bloqueo.id,
-          },
-        });
+      await tx.reserva.updateMany({
+        where: { id: { in: debajo.map((r) => r.id) } },
+        data: {
+          estado: EstadoReserva.CANCELADA,
+          canceladaEn: new Date(),
+          canceladaPorBloqueoId: bloqueo.id,
+        },
+      });
 
-        return { bloqueoId: bloqueo.id, ids: debajo.map((r) => r.id) };
-      })
-      .then(async ({ bloqueoId, ids }) => ({
-        bloqueoId,
-        canceladas: await this.fichasDe(ids, afectadas),
-      }));
+      return { bloqueoId: bloqueo.id, ids: debajo.map((r) => r.id) };
+    });
+
+    const canceladas = await this.fichasDe(ids, afectadas);
 
     // La que entró entre el cálculo y el cierre queda cancelada igual, pero su pago
     // no se anuló arriba porque no existía todavía. Se registra para que el club lo
@@ -184,24 +197,57 @@ export class CierreDeCanchaService {
       );
     }
 
+    // La cancha se consulta una vez y no una por reserva: es la misma en todas, y
+    // dentro del bucle serían tantas consultas como horas se lleve el cierre.
+    const cancha = await this.prisma.cancha.findUnique({
+      where: { id: datos.canchaId },
+      select: { nombre: true },
+    });
+
     for (const reserva of canceladas) {
       this.eventos.cambio(reserva.inicio);
-      await this.avisar(reserva, datos);
+      await this.avisar(reserva, datos, cancha);
     }
 
     return { bloqueoId, canceladas };
+  }
+
+  /**
+   * Con alguien a mitad de pagar, el cierre no va.
+   *
+   * Es el agujero más caro de esta operación y por eso se corta antes de escribir
+   * nada: si se cancela una reserva que se está pagando en Webpay, el callback
+   * vuelve, **autoriza el cobro**, y el `updateMany` que la confirmaría no encuentra
+   * nada porque ya está `CANCELADA`. Queda un cobro autorizado sin cancha y sin
+   * devolución, y nadie se entera hasta que la persona reclama.
+   *
+   * La misma regla que `ModificacionService.cancelar`, por el mismo motivo. La espera
+   * es corta y acotada: la transacción expira sola a los quince minutos y con ella la
+   * reserva. El mensaje lo dice, porque un 409 sin plazo se lee como "nunca".
+   */
+  private exigirQueNadieEsteMitadPagando(afectadas: ReservaAfectada[]): void {
+    const enCurso = afectadas.filter((r) => r.pagoEnCurso);
+
+    if (enCurso.length === 0) return;
+
+    throw new ConflictException({
+      motivo: 'PAGO_EN_CURSO',
+      message:
+        `Hay ${enCurso.length === 1 ? 'una hora' : `${enCurso.length} horas`} ` +
+        'con un pago en curso en ese rango ' +
+        `(${enCurso.map((r) => r.folio).join(', ')}). ` +
+        `Si el pago no se completa, se libera sola en ${MINUTOS_PARA_EXPIRAR} minutos ` +
+        'y ahí puedes cerrar. Cancelarla ahora dejaría a esa persona sin cancha y sin ' +
+        'su dinero.',
+    });
   }
 
   /** El aviso, que es el punto entero de la operación. */
   private async avisar(
     reserva: ReservaAfectada,
     cierre: DatosBloqueo,
+    cancha: { nombre: string } | null,
   ): Promise<void> {
-    const cancha = await this.prisma.cancha.findUnique({
-      where: { id: cierre.canchaId },
-      select: { nombre: true },
-    });
-
     const cuando = `${DIA.format(reserva.inicio)}, de ${HORA.format(reserva.inicio)} a ${HORA.format(reserva.fin)}`;
 
     const devolucion = reserva.pagada
@@ -277,19 +323,20 @@ export class CierreDeCanchaService {
         email: reserva.email,
         esSocio: reserva.socioId !== null,
         pagada: false,
+        pagoEnCurso: false,
       })),
     ];
   }
 
-  private async pagosDe(reservaIds: number[]): Promise<Set<number>> {
+  /** Cuáles de esas reservas tienen una transacción en ese estado. */
+  private async conTransaccionEn(
+    reservaIds: number[],
+    estado: EstadoTransaccion,
+  ): Promise<Set<number>> {
     if (reservaIds.length === 0) return new Set();
 
     const pagos = await this.prisma.transaccion.findMany({
-      where: {
-        concepto: 'RESERVA',
-        conceptoId: { in: reservaIds },
-        estado: EstadoTransaccion.AUTORIZADA,
-      },
+      where: { concepto: 'RESERVA', conceptoId: { in: reservaIds }, estado },
       select: { conceptoId: true },
     });
 

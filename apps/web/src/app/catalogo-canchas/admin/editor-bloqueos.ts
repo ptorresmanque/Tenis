@@ -1,4 +1,11 @@
-import { Component, inject, input, resource, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  resource,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import {
@@ -196,7 +203,13 @@ function enBlanco(): Formulario {
               <span class="font-medium">{{ cuando(tomada.inicio) }}</span>,
               {{ hora(tomada.inicio) }}–{{ hora(tomada.fin) }} ·
               {{ tomada.nombre }}
-              @if (tomada.pagada) {
+              @if (tomada.pagoEnCurso) {
+                <!-- El servidor rechaza el cierre mientras esté así, y con razón:
+                     cancelarla dejaría a esa persona sin cancha y sin su plata. -->
+                <span class="text-destructive">
+                  (pagándose ahora, no se puede cerrar todavía)
+                </span>
+              } @else if (tomada.pagada) {
                 <span class="text-destructive">(pagada, se devuelve)</span>
               } @else if (tomada.esSocio) {
                 <span class="text-muted-foreground">(socio, recupera su cupo)</span>
@@ -209,7 +222,7 @@ function enBlanco(): Formulario {
           <button
             type="button"
             class="boton boton-destructivo boton-chico"
-            [disabled]="guardando()"
+            [disabled]="guardando() || hayPagoEnCurso()"
             (click)="confirmar()"
           >
             Cerrar igual y avisarles
@@ -239,6 +252,14 @@ export class EditorBloqueos {
 
   /** Las horas que el cierre se llevaría, mientras el admin decide. */
   protected readonly porConfirmar = signal<HoraAfectada[] | null>(null);
+
+  /**
+   * Con alguien a mitad de pagar el servidor rechaza el cierre, así que el botón se
+   * apaga en vez de ofrecer algo que va a fallar. La regla real vive allá.
+   */
+  protected readonly hayPagoEnCurso = computed(() =>
+    (this.porConfirmar() ?? []).some((hora) => hora.pagoEnCurso),
+  );
 
   private readonly version = signal(0);
 

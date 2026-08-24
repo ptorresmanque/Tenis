@@ -85,6 +85,8 @@ export interface HoraAfectada {
   email: string;
   esSocio: boolean;
   pagada: boolean;
+  /** Se está pagando en la pasarela ahora mismo: el servidor no deja cerrar sobre ella. */
+  pagoEnCurso: boolean;
 }
 
 export interface ResultadoCierre {

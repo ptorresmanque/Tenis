@@ -59,6 +59,7 @@ describe('EditorBloqueos', () => {
     email: 'rafa@ejemplo.cl',
     esSocio: false,
     pagada: true,
+    pagoEnCurso: false,
   };
 
   const montar = async (bloqueos: Bloqueo[], afectadas: HoraAfectada[] = []) => {
@@ -197,6 +198,23 @@ describe('EditorBloqueos', () => {
 
     expect(api.cerrar).not.toHaveBeenCalled();
     expect(elemento().textContent).not.toContain('Rafael Nadal');
+  });
+
+  it('con un pago en curso no deja confirmar, y dice por qué', async () => {
+    // El servidor lo rechaza igual; apagar el botón evita ofrecer algo que va a
+    // fallar, y la frase explica que no es un capricho: cancelarla ahora dejaría a
+    // esa persona sin cancha y sin su plata.
+    await montar([DE_NOCHE], [{ ...TOMADA, pagada: false, pagoEnCurso: true }]);
+
+    await enviar();
+
+    expect(elemento().textContent).toContain('pagándose ahora');
+
+    const confirmar = Array.from(elemento().querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Cerrar igual'),
+    ) as HTMLButtonElement;
+
+    expect(confirmar.disabled).toBe(true);
   });
 
   it('quitar un bloqueo lo borra por su número', async () => {
