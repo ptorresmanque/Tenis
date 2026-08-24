@@ -470,6 +470,20 @@ model ConfiguracionClub {
   /// que una tabla de precios con vigencia vendría a resolver.
   cuotaMensualClp Int @default(25000) @map("cuota_mensual_clp")
 
+  /// La inscripción por única vez, el otro cobro del modelo de socios.
+  cuotaIncorporacionClp Int @default(150000) @map("cuota_incorporacion_clp")
+
+  /// Desde qué fecha de ingreso se cobra la incorporación (T42).
+  ///
+  /// **El club arranca con su padrón, y esa gente la pagó hace años fuera del
+  /// sistema.** Sin este corte habría que acordarse de marcar una por una las de los
+  /// socios migrados, y la que se olvide deja a alguien sin poder reservar por una
+  /// deuda que no tiene.
+  ///
+  /// Por defecto es el día en que se aplica la migración, que es exactamente la
+  /// puesta en marcha. Fecha civil, como `alDiaHasta`.
+  cobraIncorporacionDesde DateTime @default(now()) @map("cobra_incorporacion_desde") @db.Date
+
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
   @@map("configuracion_club")

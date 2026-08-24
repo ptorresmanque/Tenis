@@ -32,7 +32,8 @@ function mesActual(): string {
   template: `
     <h1 class="font-display text-3xl font-bold">Cuotas del club</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
-      La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes.
+      La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes. La
+      incorporación aparece en el mes en que el socio entró.
     </p>
 
     <div class="mt-4 flex flex-wrap items-end gap-4">
@@ -106,7 +107,17 @@ function mesActual(): string {
             @for (cuota of cuotas(); track cuota.id) {
               <tr>
                 <td class="font-mono text-sm">{{ cuota.socio.numeroSocio }}</td>
-                <td class="font-medium">{{ cuota.socio.nombre }}</td>
+                <td class="font-medium">
+                  {{ cuota.socio.nombre }}
+                  @if (cuota.tipo === 'INCORPORACION') {
+                    <!-- Marcada y no escondida: es deuda de este mes, y un socio nuevo
+                         debe dos cuotas. Sin la marca, el club ve su nombre dos veces
+                         con montos distintos y no entiende. -->
+                    <app-insignia variante="info" icono="person_add">
+                      Incorporación
+                    </app-insignia>
+                  }
+                </td>
                 <td class="whitespace-nowrap">
                   {{ pesos(cuota.montoClp - cuota.descuentoClp) }}
                   @if (cuota.descuentoClp > 0) {
@@ -214,8 +225,13 @@ export class PanelDeCuotas {
 
     try {
       await this.api.cobrar(cuota.id, medio);
+      // La incorporación no extiende la vigencia —compra la entrada, no tiempo—, así
+      // que prometer que "queda al día hasta fin de mes" sería mentirle al admin justo
+      // en la pantalla donde va a cobrar la mensualidad a continuación.
       this.aviso.set(
-        `Cobrada la cuota de ${cuota.socio.nombre}. Queda al día hasta fin de ${cuota.periodo}.`,
+        cuota.tipo === 'INCORPORACION'
+          ? `Cobrada la incorporación de ${cuota.socio.nombre}. Ya puede reservar; su mensualidad va aparte.`
+          : `Cobrada la cuota de ${cuota.socio.nombre}. Queda al día hasta fin de ${cuota.periodo}.`,
       );
       this.datos.reload();
     } catch (falla) {

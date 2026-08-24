@@ -46,7 +46,9 @@ export class EmisionDeCuotas {
     if (periodo <= mesEnElClub(ahora)) await this.emitir(periodo);
 
     const cuotas = await this.prisma.cuota.findMany({
-      where: { periodo, tipo: TipoCuota.MENSUAL },
+      // Los dos tipos: la incorporación de un socio que entró este mes es deuda de
+      // este mes, y esconderla dejaría al club cobrando la mitad de lo que emitió.
+      where: { periodo },
       orderBy: { socio: { numeroSocio: 'asc' } },
       select: {
         id: true,
@@ -101,7 +103,11 @@ export class EmisionDeCuotas {
    */
   private async emitir(periodo: string): Promise<void> {
     const config = await this.prisma.configuracionClub.findFirstOrThrow({
-      select: { cuotaMensualClp: true },
+      select: {
+        cuotaMensualClp: true,
+        cuotaIncorporacionClp: true,
+        cobraIncorporacionDesde: true,
+      },
     });
 
     const socios = await this.prisma.socio.findMany({
@@ -114,21 +120,45 @@ export class EmisionDeCuotas {
         // quien ingresó el 15 recibe la de ese mes, completa.
         fechaIngreso: { lt: primerDiaDelMesSiguiente(periodo) },
       },
-      select: { id: true },
+      select: { id: true, fechaIngreso: true },
     });
 
     if (socios.length === 0) return;
 
-    await this.prisma.cuota.createMany({
-      data: socios.map((socio) => ({
+    const mensuales = socios.map((socio) => ({
+      socioId: socio.id,
+      tipo: TipoCuota.MENSUAL,
+      periodo,
+      montoClp: config.cuotaMensualClp,
+    }));
+
+    // **La incorporación se emite en el mes en que el socio entró**, no en el que se
+    // esté mirando: es un cobro por única vez y su período es el del alta. Solo a
+    // quien ingresó después de la puesta en marcha; el padrón que el club ya tenía la
+    // pagó hace años, fuera del sistema.
+    const incorporaciones = socios
+      .filter(
+        (socio) =>
+          socio.fechaIngreso >= config.cobraIncorporacionDesde &&
+          mesDe(socio.fechaIngreso) === periodo,
+      )
+      .map((socio) => ({
         socioId: socio.id,
-        tipo: TipoCuota.MENSUAL,
+        tipo: TipoCuota.INCORPORACION,
         periodo,
-        montoClp: config.cuotaMensualClp,
-      })),
+        montoClp: config.cuotaIncorporacionClp,
+      }));
+
+    await this.prisma.cuota.createMany({
+      data: [...mensuales, ...incorporaciones],
       skipDuplicates: true,
     });
   }
+}
+
+/** El mes de una fecha civil, "AAAA-MM". */
+function mesDe(fecha: Date): string {
+  return fecha.toISOString().slice(0, 7);
 }
 
 /**

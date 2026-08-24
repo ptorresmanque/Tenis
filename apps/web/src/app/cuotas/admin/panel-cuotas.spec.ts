@@ -175,6 +175,34 @@ describe('PanelDeCuotas', () => {
     expect(elemento().textContent).toContain('ya estaba pagada');
   });
 
+  it('**la incorporación se marca: el socio nuevo debe dos cuotas ese mes**', async () => {
+    // Sin la marca, el club ve el mismo nombre dos veces con montos distintos.
+    await montar({
+      ...MES,
+      cuotas: [
+        UNA,
+        { ...UNA, id: 3, tipo: 'INCORPORACION', montoClp: 150000 },
+      ],
+    });
+
+    expect(elemento().textContent).toContain('Incorporación');
+    expect((elemento().textContent ?? '').replace(/\s/g, '')).toContain('$150.000');
+  });
+
+  it('**cobrar la incorporación no promete vigencia que no da**', async () => {
+    // No extiende `alDiaHasta`: compra la entrada, no tiempo. Decir "queda al día
+    // hasta fin de mes" mandaría al admin a no cobrar la mensualidad.
+    await montar({
+      ...MES,
+      cuotas: [{ ...UNA, tipo: 'INCORPORACION', montoClp: 150000 }],
+    });
+
+    await apretar('Efectivo');
+
+    expect(elemento().textContent).toContain('su mensualidad va aparte');
+    expect(elemento().textContent).not.toContain('Queda al día hasta');
+  });
+
   it('un mes sin socios lo dice, en vez de una tabla vacía', async () => {
     await montar({
       periodo: '2026-08',

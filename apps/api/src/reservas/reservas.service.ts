@@ -6,7 +6,12 @@ import {
 
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
 import { hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
-import { EstadoReserva, Prisma } from '../generated/prisma/client';
+import {
+  EstadoCuota,
+  EstadoReserva,
+  Prisma,
+  TipoCuota,
+} from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -186,19 +191,25 @@ export class ReservasService {
     const db = entrada.db ?? this.prisma;
     const fecha = fechaCivilDelClub(bloque.inicio);
 
-    const [reservasDelDia, horasPicoDeLaSemana, invitadosDelMes, ocupados] =
-      await Promise.all([
-        this.contarDelDia(db, socio.id, fecha, excluyendo),
-        this.contarPicoDeLaSemana(db, socio.id, fecha, excluyendo),
-        this.contarInvitadosDelMes(db, socio.id, fecha, excluyendo),
-        this.ocupacionesEnElRango(
-          db,
-          [socio.id, ...socioIdsDe(acompanantes)],
-          bloque.inicio,
-          bloque.fin,
-          excluyendo,
-        ),
-      ]);
+    const [
+      reservasDelDia,
+      horasPicoDeLaSemana,
+      invitadosDelMes,
+      ocupados,
+      incorporacionPendiente,
+    ] = await Promise.all([
+      this.contarDelDia(db, socio.id, fecha, excluyendo),
+      this.contarPicoDeLaSemana(db, socio.id, fecha, excluyendo),
+      this.contarInvitadosDelMes(db, socio.id, fecha, excluyendo),
+      this.ocupacionesEnElRango(
+        db,
+        [socio.id, ...socioIdsDe(acompanantes)],
+        bloque.inicio,
+        bloque.fin,
+        excluyendo,
+      ),
+      this.debeLaIncorporacion(db, socio.id),
+    ]);
 
     const config = await db.configuracionClub.findFirstOrThrow();
 
@@ -210,6 +221,7 @@ export class ReservasService {
       reservasDelDia,
       horasPicoDeLaSemana,
       invitadosDelMes,
+      incorporacionPendiente,
       acompanantes,
       ocupados,
     });
@@ -395,6 +407,49 @@ export class ReservasService {
     }
 
     return { inicio: bloque.inicio, fin: bloque.fin, esPico: bloque.esPico };
+  }
+
+  /**
+   * Si le falta pagar la cuota de incorporación (T42).
+   *
+   * **La regla no depende de que la fila exista**, y esa es la parte que importa: las
+   * cuotas se emiten cuando alguien las mira, así que un socio recién dado de alta
+   * todavía no tiene la suya. Preguntando por la fila, ese socio podría reservar
+   * hasta que al club se le ocurriera abrir el panel.
+   *
+   * Se resuelve al revés: **le corresponde** —ingresó después de la puesta en marcha—
+   * **y no hay ninguna resuelta**. Pagada la deja pasar; anulada también, porque
+   * anular es decir que no le correspondía.
+   *
+   * Se consulta y no se guarda en la ficha: un booleano en `Socio` sería un dato
+   * derivado que hay que mantener en acuerdo con `cuotas`, y el día que se
+   * desincronicen gana el equivocado.
+   */
+  private async debeLaIncorporacion(
+    db: ClienteDePrisma,
+    socioId: number,
+  ): Promise<boolean> {
+    const [socio, config] = await Promise.all([
+      db.socio.findUniqueOrThrow({
+        where: { id: socioId },
+        select: { fechaIngreso: true },
+      }),
+      db.configuracionClub.findFirstOrThrow({
+        select: { cobraIncorporacionDesde: true },
+      }),
+    ]);
+
+    if (socio.fechaIngreso < config.cobraIncorporacionDesde) return false;
+
+    const resueltas = await db.cuota.count({
+      where: {
+        socioId,
+        tipo: TipoCuota.INCORPORACION,
+        estado: { in: [EstadoCuota.PAGADA, EstadoCuota.ANULADA] },
+      },
+    });
+
+    return resueltas === 0;
   }
 
   /** Reservas activas del socio en ese día del club. */
