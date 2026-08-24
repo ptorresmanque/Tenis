@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 
 import { IdentidadModule } from '../identidad/identidad.module';
 import { ClubPublicoController } from './club-publico.controller';
+import {
+  TarifasPublicasController,
+  TarifasPublicasService,
+} from './tarifas-publicas.controller';
 import { AdminCanchasController } from './admin.controller';
 import { AdminCanchasService } from './admin.service';
 import { DisponibilidadController } from './disponibilidad.controller';
@@ -12,11 +16,16 @@ import { DisponibilidadService } from './disponibilidad.service';
   // del controlador que lo usa, no en el que lo declara.
   imports: [IdentidadModule],
   controllers: [
+    TarifasPublicasController,
     DisponibilidadController,
     ClubPublicoController,
     AdminCanchasController,
   ],
-  providers: [DisponibilidadService, AdminCanchasService],
+  providers: [
+    TarifasPublicasService,
+    DisponibilidadService,
+    AdminCanchasService,
+  ],
   // `reservas` va a superponer sus reservas sobre estos bloques.
   exports: [DisponibilidadService],
 })

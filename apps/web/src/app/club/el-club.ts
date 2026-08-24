@@ -6,6 +6,7 @@ import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
 import { Club } from './club.service';
 import { Insignia } from '../ui/insignia';
 import { FormularioContacto } from './formulario-contacto';
+import { Tarifas } from './tarifas';
 
 /**
  * La página que explica el club a quien todavía no reservó.
@@ -22,7 +23,7 @@ import { FormularioContacto } from './formulario-contacto';
  */
 @Component({
   selector: 'app-el-club',
-  imports: [RouterLink, Insignia, FormularioContacto],
+  imports: [RouterLink, Insignia, FormularioContacto, Tarifas],
   template: `
     <section class="py-8 text-center">
       <h1 class="font-display text-4xl font-black tracking-tight text-balance">
@@ -136,6 +137,10 @@ import { FormularioContacto } from './formulario-contacto';
           </dd>
         </div>
       </dl>
+    </section>
+
+    <section class="mt-16">
+      <app-tarifas />
     </section>
 
     <section class="mt-16">
