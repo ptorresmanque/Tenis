@@ -146,6 +146,58 @@ model CambioSocio {
   @@map("cambio_socio")
 }
 
+enum TipoSolicitud {
+  SOCIO
+  CLASES
+  EMPRESA
+  OTRO
+}
+
+enum EstadoSolicitud {
+  NUEVA
+  ATENDIDA
+  DESCARTADA
+}
+
+/// Alguien de afuera que le escribió al club (T38).
+///
+/// Nace de la problemática 2.5 del perfil: no había dónde mandar a un interesado en
+/// asociarse, a un apoderado que busca clases ni a una empresa.
+///
+/// **Es una bandeja y no un buzón de correo.** Podría ser un `mailto:` y ahorrarse
+/// esta tabla; no lo es porque el club necesita saber **cuántos interesados llegan y
+/// cuántos terminan siendo socios**, que es el único modo de saber si tener sitio
+/// sirvió para algo. Un correo no se cuenta, y el que nadie contestó no se distingue
+/// del que nunca llegó.
+model SolicitudContacto {
+  id   Int            @id @default(autoincrement())
+  tipo TipoSolicitud
+
+  nombre   String  @db.VarChar(120)
+  /// Uno de los dos alcanza, pero no puede faltar ninguno: una solicitud que el club
+  /// no puede contestar ocupa la bandeja como si se pudiera.
+  email    String  @db.VarChar(160)
+  telefono String  @db.VarChar(40)
+  mensaje  String? @db.VarChar(1000)
+
+  estado   EstadoSolicitud @default(NUEVA)
+  creadaEn DateTime        @default(now()) @map("creada_en")
+
+  atendidaEn  DateTime? @map("atendida_en")
+  /// Qué admin la atendió. Sin FK, como el resto del rastro del club: la solicitud
+  /// sobrevive a la cuenta de quien la contestó.
+  atendidaPor Int?      @map("atendida_por")
+  nota        String?   @db.VarChar(500)
+
+  /// La invitación que salió de esta solicitud, si terminó en un alta. **Es el enlace
+  /// que permite contar la conversión**: sin él, "llegaron treinta interesados" y
+  /// "entraron cuatro socios" son dos números que nadie puede juntar.
+  invitacionId Int? @map("invitacion_id")
+
+  @@index([estado, creadaEn])
+  @@map("solicitud_contacto")
+}
+
 /// El club aceptó a alguien como socio antes de que esa persona tenga cuenta.
 ///
 /// **Tabla propia y no un `Socio` sin usuario.** Hacer `Socio.usuarioId` nullable

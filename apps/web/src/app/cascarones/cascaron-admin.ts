@@ -219,6 +219,12 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/solicitudes',
+      etiqueta: 'Consultas al club',
+      icono: 'drafts',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/configuracion',
       etiqueta: 'Configuración',
       icono: 'settings',

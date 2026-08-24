@@ -103,6 +103,12 @@ export const routes: Routes = [
           import('./identidad/admin/socios').then((m) => m.SociosPanel),
       },
       {
+        path: 'administracion/solicitudes',
+        title: 'Consultas al club — Administración',
+        loadComponent: () =>
+          import('./identidad/admin/solicitudes').then((m) => m.SolicitudesPanel),
+      },
+      {
         path: 'administracion/reportes',
         title: 'Horas reportadas — Administración',
         loadComponent: () =>

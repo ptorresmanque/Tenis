@@ -12,6 +12,11 @@ import { AdministradoresController } from './admin/administradores.controller';
 import { IntentosFallidos } from './intentos';
 import { SesionService } from './sesion/sesion.service';
 import { InvitacionesController } from './socios/invitaciones.controller';
+import {
+  ContactoPublicoController,
+  SolicitudesController,
+} from './contacto/contacto.controller';
+import { ContactoService } from './contacto/contacto.service';
 import { CambiosDeSocio } from './socios/cambios.service';
 import { FichaDeSocioService } from './socios/ficha.service';
 import { InvitacionesService } from './socios/invitaciones.service';
@@ -19,6 +24,8 @@ import { YoController } from './yo.controller';
 
 @Module({
   controllers: [
+    ContactoPublicoController,
+    SolicitudesController,
     RegistroController,
     SesionController,
     GoogleController,
@@ -27,6 +34,7 @@ import { YoController } from './yo.controller';
     AdministradoresController,
   ],
   providers: [
+    ContactoService,
     CambiosDeSocio,
     FichaDeSocioService,
     RegistroService,
