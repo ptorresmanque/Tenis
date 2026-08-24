@@ -114,6 +114,12 @@ export const routes: Routes = [
           import('./cuotas/admin/panel-cuotas').then((m) => m.PanelDeCuotas),
       },
       {
+        path: 'administracion/morosos',
+        title: 'Socios con deuda — Administración',
+        loadComponent: () =>
+          import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
+      },
+      {
         path: 'administracion/solicitudes',
         title: 'Consultas al club — Administración',
         loadComponent: () =>

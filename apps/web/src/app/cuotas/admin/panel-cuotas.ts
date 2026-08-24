@@ -158,6 +158,25 @@ function mesActual(): string {
                       >
                         Transferencia
                       </button>
+                      <!-- Los dos ajustes piden un motivo que el servidor exige, y son
+                           de los que el club usa una vez al mes: un formulario propio
+                           para eso es una pantalla más que mantener. -->
+                      <button
+                        type="button"
+                        class="boton boton-texto boton-chico"
+                        [disabled]="cobrando()"
+                        (click)="condonar(cuota)"
+                      >
+                        Condonar
+                      </button>
+                      <button
+                        type="button"
+                        class="boton boton-texto boton-chico text-destructive"
+                        [disabled]="cobrando()"
+                        (click)="anular(cuota)"
+                      >
+                        Anular
+                      </button>
                     </div>
                   } @else if (cuota.medio) {
                     <span class="text-sm text-muted-foreground">
@@ -219,11 +238,7 @@ export class PanelDeCuotas {
     cuota: CuotaDelMes,
     medio: 'EFECTIVO' | 'TRANSFERENCIA',
   ): Promise<void> {
-    this.error.set(null);
-    this.aviso.set(null);
-    this.cobrando.set(true);
-
-    try {
+    await this.intentar(async () => {
       await this.api.cobrar(cuota.id, medio);
       // La incorporación no extiende la vigencia —compra la entrada, no tiempo—, así
       // que prometer que "queda al día hasta fin de mes" sería mentirle al admin justo
@@ -233,11 +248,71 @@ export class PanelDeCuotas {
           ? `Cobrada la incorporación de ${cuota.socio.nombre}. Ya puede reservar; su mensualidad va aparte.`
           : `Cobrada la cuota de ${cuota.socio.nombre}. Queda al día hasta fin de ${cuota.periodo}.`,
       );
+    });
+  }
+
+  /**
+   * Condonar: cobrar cero por una razón. **Deja al socio al día ese mes**, porque el
+   * mes se lo dieron igual.
+   */
+  protected async condonar(cuota: CuotaDelMes): Promise<void> {
+    const motivo = this.pedirMotivo(
+      `¿Por qué se le condona la cuota a ${cuota.socio.nombre}? Queda escrito en la cuota.`,
+    );
+
+    if (motivo === null) return;
+
+    await this.intentar(async () => {
+      await this.api.ajustar(cuota.id, { condonar: true, motivo });
+      this.aviso.set(
+        `Condonada la cuota de ${cuota.socio.nombre}. Queda al día ese mes igual.`,
+      );
+    });
+  }
+
+  /**
+   * Anular: deshacer una emisión equivocada. **No deja al día a nadie**: esa cuota
+   * nunca debió existir.
+   */
+  protected async anular(cuota: CuotaDelMes): Promise<void> {
+    const motivo = this.pedirMotivo(
+      `¿Por qué se anula esta cuota de ${cuota.socio.nombre}? No es lo mismo que ` +
+        'condonarla: anular es decir que no correspondía emitirla.',
+    );
+
+    if (motivo === null) return;
+
+    await this.intentar(async () => {
+      await this.api.ajustar(cuota.id, { anular: true, motivo });
+      this.aviso.set(`Anulada la cuota de ${cuota.socio.nombre}.`);
+    });
+  }
+
+  /** El motivo, o `null` si la persona canceló o lo dejó en blanco. */
+  private pedirMotivo(pregunta: string): string | null {
+    const escrito = window.prompt(pregunta)?.trim();
+
+    return escrito ? escrito : null;
+  }
+
+  /**
+   * Corre la acción, recarga el mes y muestra el mensaje del servidor si falla.
+   *
+   * Compartido por los cuatro botones: los avisos son distintos, pero el manejo
+   * —limpiar, bloquear, recargar, desbloquear— es el mismo en los cuatro.
+   */
+  private async intentar(accion: () => Promise<void>): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.cobrando.set(true);
+
+    try {
+      await accion();
       this.datos.reload();
     } catch (falla) {
-      // El del servidor: "Esa cuota ya estaba pagada" es la que importa, porque pasa
-      // cuando dos personas cobran desde dos pantallas.
-      this.error.set(mensajeDelServidor(falla, 'No se pudo registrar el pago.'));
+      // El del servidor: "Esa cuota ya estaba pagada" es el que importa, porque pasa
+      // cuando dos personas trabajan desde dos pantallas.
+      this.error.set(mensajeDelServidor(falla, 'No se pudo completar la acción.'));
     } finally {
       this.cobrando.set(false);
     }

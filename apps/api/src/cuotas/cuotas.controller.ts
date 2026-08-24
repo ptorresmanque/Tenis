@@ -4,12 +4,14 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 
 import { SoloAdmin, Yo } from '../identidad/guards';
 import type { UsuarioActual } from '../identidad/usuario-actual';
+import { AjustesDeCuota, leerAjuste } from './ajustes.service';
 import { EmisionDeCuotas } from './emision.service';
 import { leerMedio } from './cuotas.dto';
 import { PagoManualDeCuota } from './pago-manual.service';
@@ -26,6 +28,7 @@ export class CuotasController {
   constructor(
     private readonly emision: EmisionDeCuotas,
     private readonly pagoManual: PagoManualDeCuota,
+    private readonly ajustes: AjustesDeCuota,
   ) {}
 
   /**
@@ -39,6 +42,27 @@ export class CuotasController {
   @Get()
   delPeriodo(@Query('periodo') periodo = '') {
     return this.emision.delPeriodo(periodo);
+  }
+
+  /**
+   * Quién debe, cuánto y desde cuándo.
+   *
+   * Antes de `:id` en el archivo, o Nest interpretaría "morosos" como un id y
+   * respondería 400 en vez de la lista.
+   */
+  @Get('morosos')
+  morosos() {
+    return this.ajustes.morosos();
+  }
+
+  /** Descuento, condonación o anulación. Los tres exigen motivo. */
+  @Patch(':id')
+  ajustar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ) {
+    return this.ajustes.ajustar(id, leerAjuste(cuerpo), yo);
   }
 
   /**

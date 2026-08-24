@@ -37,12 +37,14 @@ describe('PanelDeCuotas', () => {
   let api: {
     delMes: ReturnType<typeof vi.fn>;
     cobrar: ReturnType<typeof vi.fn>;
+    ajustar: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (mes: MesDeCuotas) => {
     api = {
       delMes: vi.fn().mockResolvedValue(mes),
       cobrar: vi.fn().mockResolvedValue(UNA),
+      ajustar: vi.fn().mockResolvedValue(UNA),
     };
 
     TestBed.resetTestingModule();
@@ -201,6 +203,36 @@ describe('PanelDeCuotas', () => {
 
     expect(elemento().textContent).toContain('su mensualidad va aparte');
     expect(elemento().textContent).not.toContain('Queda al día hasta');
+  });
+
+  it('**condonar y anular son botones distintos, y la pantalla lo explica**', async () => {
+    // Son decisiones opuestas: una dice que el mes se le dio igual y la otra que la
+    // cuota no correspondía. Un solo botón "quitar" obligaría a elegir en silencio.
+    vi.spyOn(window, 'prompt').mockReturnValue('Estuvo lesionada');
+
+    await apretar('Condonar');
+    expect(api.ajustar).toHaveBeenCalledWith(1, {
+      condonar: true,
+      motivo: 'Estuvo lesionada',
+    });
+    expect(elemento().textContent).toContain('Queda al día ese mes igual');
+
+    await apretar('Anular');
+    expect(api.ajustar).toHaveBeenCalledWith(1, {
+      anular: true,
+      motivo: 'Estuvo lesionada',
+    });
+  });
+
+  it('**sin motivo no se manda nada: el servidor lo exigiría igual**', async () => {
+    // Cancelar el prompt, o dejarlo en blanco, no es "condonar sin motivo".
+    vi.spyOn(window, 'prompt').mockReturnValue(null);
+    await apretar('Condonar');
+
+    vi.spyOn(window, 'prompt').mockReturnValue('   ');
+    await apretar('Anular');
+
+    expect(api.ajustar).not.toHaveBeenCalled();
   });
 
   it('un mes sin socios lo dice, en vez de una tabla vacía', async () => {

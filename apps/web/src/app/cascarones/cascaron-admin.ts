@@ -225,6 +225,12 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/morosos',
+      etiqueta: 'Socios con deuda',
+      icono: 'money_off',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/solicitudes',
       etiqueta: 'Consultas al club',
       icono: 'drafts',

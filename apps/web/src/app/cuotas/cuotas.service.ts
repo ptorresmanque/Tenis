@@ -39,6 +39,26 @@ export interface MiCuota {
   medio: MedioPago | null;
 }
 
+/** Un socio con cuotas impagas, como lo lista el panel de morosidad. */
+export interface Moroso {
+  socioId: number;
+  numeroSocio: string;
+  nombre: string;
+  email: string;
+  cuotasImpagas: number;
+  deudaClp: number;
+  desdePeriodo: string;
+}
+
+/** Lo que el admin puede hacerle a una cuota que todavía no se cobró. */
+export interface AjusteDeCuota {
+  descuentoClp?: number;
+  condonar?: boolean;
+  anular?: boolean;
+  /** Obligatorio en los tres casos: el servidor lo exige. */
+  motivo: string;
+}
+
 /**
  * Las cuotas del club.
  *
@@ -84,6 +104,22 @@ export class Cuotas {
         `/api/cuotas/${id}/pagar`,
         {},
       ),
+    );
+  }
+
+  morosos(): Promise<Moroso[]> {
+    return firstValueFrom(this.http.get<Moroso[]>('/api/admin/cuotas/morosos'));
+  }
+
+  /**
+   * Descuento, condonación o anulación.
+   *
+   * Los tres exigen motivo y lo impone el servidor: un descuento sin motivo no se
+   * distingue de un error de tipeo seis meses después.
+   */
+  ajustar(id: number, ajuste: AjusteDeCuota): Promise<CuotaDelMes> {
+    return firstValueFrom(
+      this.http.patch<CuotaDelMes>(`/api/admin/cuotas/${id}`, ajuste),
     );
   }
 
