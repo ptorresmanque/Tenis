@@ -38,7 +38,7 @@ interface CuentaDemo {
     /** Días desde hoy hasta el vencimiento de la cuota. Negativo = moroso. */
     alDiaEnDias: number;
   };
-  profesor?: boolean;
+  profesor?: { especialidad: string; tarifaHoraClp: number | null };
 }
 
 const CUENTAS: CuentaDemo[] = [
@@ -70,7 +70,7 @@ const CUENTAS: CuentaDemo[] = [
     nombre: 'Ana',
     apellido: 'Silva',
     telefono: '+56944444444',
-    profesor: true,
+    profesor: { especialidad: 'Iniciación', tarifaHoraClp: 18000 },
   },
   {
     // Socio y profesor a la vez, el caso que el modelo de datos tiene que soportar.
@@ -79,7 +79,7 @@ const CUENTAS: CuentaDemo[] = [
     apellido: 'Morales',
     telefono: '+56955555555',
     socio: { numeroSocio: '003', ingresoHaceDias: 1500, alDiaEnDias: 60 },
-    profesor: true,
+    profesor: { especialidad: 'Competitivo', tarifaHoraClp: null },
   },
 ];
 
@@ -105,7 +105,15 @@ export async function sembrar(prisma: PrismaClient): Promise<void> {
       fechaIngreso: enDias(-cuenta.socio.ingresoHaceDias),
       alDiaHasta: enDias(cuenta.socio.alDiaEnDias),
     };
-    const profesor = cuenta.profesor ? { activo: true } : undefined;
+    const profesor = cuenta.profesor && {
+      activo: true,
+      // El nombre visible sale de la cuenta porque en la demo coinciden; en el club
+      // no tiene por qué, y por eso es un campo suyo y no uno de `Usuario`.
+      nombreVisible: `${cuenta.nombre} ${cuenta.apellido}`,
+      telefono: cuenta.telefono,
+      especialidad: cuenta.profesor.especialidad,
+      tarifaHoraClp: cuenta.profesor.tarifaHoraClp,
+    };
 
     // Upsert y no delete + create: borrar reasignaría los ids y dejaría colgado
     // todo lo que otros módulos hayan enganchado al usuario.

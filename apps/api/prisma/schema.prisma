@@ -230,12 +230,25 @@ model InvitacionSocio {
 /// Ficha de profesor. Declarada acá porque es una ficha sobre `Usuario`, pero su
 /// dueño funcional es `clases`: `identidad` no sabe qué es una clase.
 /// Un usuario puede ser socio y profesor a la vez.
+///
+/// **`usuarioId` es opcional**: el profesor no entra al sistema —`SPEC-clases.md`
+/// § Out of scope— y exigirle cuenta obligaría a crear credenciales que nadie usa
+/// para poder anotar un teléfono. Si además es socio, se vincula.
+///
+/// Los campos de acá no viven en `Usuario` porque son del oficio: el nombre visible
+/// es el que el club anuncia y puede no ser el de la cuenta, y la tarifa no le
+/// importa a nadie que no sea profesor.
 model Profesor {
-  id        Int     @id @default(autoincrement())
-  usuarioId Int     @unique @map("usuario_id")
-  activo    Boolean @default(true)
+  id            Int     @id @default(autoincrement())
+  usuarioId     Int?    @unique @map("usuario_id")
+  activo        Boolean @default(true)
+  nombreVisible String  @map("nombre_visible")
+  telefono      String
+  especialidad  String
+  /// Lo que el club le paga la hora. Referencia interna: no se publica.
+  tarifaHoraClp Int?    @map("tarifa_hora_clp")
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@map("profesor")
 }

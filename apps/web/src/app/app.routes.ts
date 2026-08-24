@@ -120,6 +120,12 @@ export const routes: Routes = [
           import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
       },
       {
+        path: 'administracion/profesores',
+        title: 'Profesores — Administración',
+        loadComponent: () =>
+          import('./clases/admin/profesores').then((m) => m.ProfesoresPanel),
+      },
+      {
         path: 'administracion/solicitudes',
         title: 'Consultas al club — Administración',
         loadComponent: () =>

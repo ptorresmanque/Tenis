@@ -231,6 +231,12 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/profesores',
+      etiqueta: 'Profesores',
+      icono: 'school',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/solicitudes',
       etiqueta: 'Consultas al club',
       icono: 'drafts',
