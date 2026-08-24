@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -10,19 +9,10 @@ import {
   SELECCION_AUDITADA,
 } from '../identidad/socios/cambios.service';
 import type { UsuarioActual } from '../identidad/usuario-actual';
-import { EstadoCuota, MedioPago, TipoCuota } from '../generated/prisma/client';
+import type { Prisma } from '../generated/prisma/client';
+import { EstadoCuota, TipoCuota } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-/**
- * Lo que un admin puede registrar a mano.
- *
- * **`WEBPAY` no está**, y es deliberado: ese medio lo escribe el callback de la
- * pasarela cuando el cobro se autoriza de verdad. Aceptarlo acá dejaría marcar como
- * cobrada por internet una cuota que nadie pagó, y sin transacción que lo respalde.
- */
-const MEDIOS_DEL_MESON = [MedioPago.EFECTIVO, MedioPago.TRANSFERENCIA] as const;
-
-type MedioDelMeson = (typeof MEDIOS_DEL_MESON)[number];
+import type { MedioDelMeson } from './cuotas.dto';
 
 /**
  * La cuota que se paga en el mesón.
@@ -102,7 +92,7 @@ export class PagoManualDeCuota {
    * la edición del panel y la sanción.
    */
   private async extenderVigencia(
-    tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0],
+    tx: Prisma.TransactionClient,
     socioId: number,
     periodo: string,
     yo: UsuarioActual,
@@ -143,19 +133,4 @@ function ultimoDiaDelPeriodo(periodo: string): Date {
   const [anio, mes] = periodo.split('-').map(Number);
 
   return new Date(Date.UTC(anio, mes, 0));
-}
-
-/** El medio del cuerpo, o 400 con lo que sí se acepta. */
-export function leerMedio(cuerpo: unknown): MedioDelMeson {
-  const datos = (cuerpo ?? {}) as Record<string, unknown>;
-  const medios = MEDIOS_DEL_MESON as readonly string[];
-
-  if (typeof datos.medio !== 'string' || !medios.includes(datos.medio)) {
-    throw new BadRequestException(
-      `El medio de pago tiene que ser uno de: ${medios.join(', ')}. ` +
-        'Los pagos por Webpay los registra la pasarela.',
-    );
-  }
-
-  return datos.medio as MedioDelMeson;
 }

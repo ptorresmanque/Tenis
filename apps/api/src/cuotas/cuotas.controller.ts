@@ -11,7 +11,8 @@ import {
 import { SoloAdmin, Yo } from '../identidad/guards';
 import type { UsuarioActual } from '../identidad/usuario-actual';
 import { EmisionDeCuotas } from './emision.service';
-import { leerMedio, PagoManualDeCuota } from './pago-manual.service';
+import { leerMedio } from './cuotas.dto';
+import { PagoManualDeCuota } from './pago-manual.service';
 
 /**
  * Las cuotas del club, mes a mes.
