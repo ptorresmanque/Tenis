@@ -2,10 +2,8 @@ import { Module } from '@nestjs/common';
 
 import { IdentidadModule } from '../identidad/identidad.module';
 import { ClubPublicoController } from './club-publico.controller';
-import {
-  TarifasPublicasController,
-  TarifasPublicasService,
-} from './tarifas-publicas.controller';
+import { TarifasPublicasController } from './tarifas-publicas.controller';
+import { TarifasPublicasService } from './tarifas-publicas.service';
 import { AdminCanchasController } from './admin.controller';
 import { AdminCanchasService } from './admin.service';
 import { DisponibilidadController } from './disponibilidad.controller';

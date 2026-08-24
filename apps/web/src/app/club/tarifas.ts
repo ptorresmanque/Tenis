@@ -75,7 +75,7 @@ const DIAS = [
                 </tr>
               </thead>
               <tbody>
-                @for (tarifa of lista; track $index) {
+                @for (tarifa of lista; track clave(tarifa)) {
                   <tr>
                     <td>{{ tarifa.cancha ?? 'Todas' }}</td>
                     <td>{{ cuandoRige(tarifa.diaSemana) }}</td>
@@ -147,6 +147,18 @@ export class Tarifas {
 
   protected nombreDia(dia: number): string {
     return DIAS[dia] ?? `Día ${dia}`;
+  }
+
+  /**
+   * Qué hace única a una fila de precios.
+   *
+   * Compuesta y no el id de la franja: el id no viaja en la respuesta pública —es
+   * superficie que nadie necesita— y `$index` está prohibido en el proyecto para
+   * datos que cambian, con razón: al recargar con otra tarifa al medio, Angular
+   * reusaría las filas equivocadas.
+   */
+  protected clave(tarifa: Tarifa): string {
+    return `${tarifa.canchaId}|${tarifa.diaSemana}|${tarifa.horaDesde}`;
   }
 
   protected cuandoRige(dia: number | null): string {
