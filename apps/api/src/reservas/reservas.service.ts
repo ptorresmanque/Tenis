@@ -191,6 +191,11 @@ export class ReservasService {
     const db = entrada.db ?? this.prisma;
     const fecha = fechaCivilDelClub(bloque.inicio);
 
+    // La configuración va primero y no dentro del `Promise.all`: el corte de la
+    // incorporación sale de acá, y consultarla dos veces —una para el corte y otra
+    // para los cupos— es una ida más a la base en el camino más caliente del sistema.
+    const config = await db.configuracionClub.findFirstOrThrow();
+
     const [
       reservasDelDia,
       horasPicoDeLaSemana,
@@ -208,10 +213,8 @@ export class ReservasService {
         bloque.fin,
         excluyendo,
       ),
-      this.debeLaIncorporacion(db, socio.id),
+      this.debeLaIncorporacion(db, socio.id, config.cobraIncorporacionDesde),
     ]);
-
-    const config = await db.configuracionClub.findFirstOrThrow();
 
     return evaluarReservaDeSocio({
       socio,
@@ -428,28 +431,26 @@ export class ReservasService {
   private async debeLaIncorporacion(
     db: ClienteDePrisma,
     socioId: number,
+    cobraDesde: Date,
   ): Promise<boolean> {
-    const [socio, config] = await Promise.all([
-      db.socio.findUniqueOrThrow({
-        where: { id: socioId },
-        select: { fechaIngreso: true },
-      }),
-      db.configuracionClub.findFirstOrThrow({
-        select: { cobraIncorporacionDesde: true },
-      }),
-    ]);
-
-    if (socio.fechaIngreso < config.cobraIncorporacionDesde) return false;
-
-    const resueltas = await db.cuota.count({
-      where: {
-        socioId,
-        tipo: TipoCuota.INCORPORACION,
-        estado: { in: [EstadoCuota.PAGADA, EstadoCuota.ANULADA] },
+    // Una sola consulta: la fecha de ingreso y si tiene alguna resuelta vienen juntas.
+    // `take: 1` porque la pregunta es si existe, no cuántas.
+    const socio = await db.socio.findUniqueOrThrow({
+      where: { id: socioId },
+      select: {
+        fechaIngreso: true,
+        cuotas: {
+          where: {
+            tipo: TipoCuota.INCORPORACION,
+            estado: { in: [EstadoCuota.PAGADA, EstadoCuota.ANULADA] },
+          },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
 
-    return resueltas === 0;
+    return socio.fechaIngreso >= cobraDesde && socio.cuotas.length === 0;
   }
 
   /** Reservas activas del socio en ese día del club. */
