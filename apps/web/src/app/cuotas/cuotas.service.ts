@@ -38,6 +38,21 @@ export interface MesDeCuotas {
 export class Cuotas {
   private readonly http = inject(HttpClient);
 
+  /**
+   * El cobro en el mesón.
+   *
+   * `WEBPAY` no es un medio válido acá: ese lo escribe la pasarela cuando el cobro se
+   * autoriza de verdad, y el servidor lo rechaza.
+   */
+  cobrar(
+    id: number,
+    medio: 'EFECTIVO' | 'TRANSFERENCIA',
+  ): Promise<CuotaDelMes> {
+    return firstValueFrom(
+      this.http.post<CuotaDelMes>(`/api/admin/cuotas/${id}/pago`, { medio }),
+    );
+  }
+
   delMes(periodo: string): Promise<MesDeCuotas> {
     return firstValueFrom(
       this.http.get<MesDeCuotas>('/api/admin/cuotas', { params: { periodo } }),

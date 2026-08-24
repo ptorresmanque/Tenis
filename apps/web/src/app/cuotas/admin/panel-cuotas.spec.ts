@@ -34,10 +34,16 @@ describe('PanelDeCuotas', () => {
   };
 
   let fixture: ComponentFixture<PanelDeCuotas>;
-  let api: { delMes: ReturnType<typeof vi.fn> };
+  let api: {
+    delMes: ReturnType<typeof vi.fn>;
+    cobrar: ReturnType<typeof vi.fn>;
+  };
 
   const montar = async (mes: MesDeCuotas) => {
-    api = { delMes: vi.fn().mockResolvedValue(mes) };
+    api = {
+      delMes: vi.fn().mockResolvedValue(mes),
+      cobrar: vi.fn().mockResolvedValue(UNA),
+    };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -50,6 +56,13 @@ describe('PanelDeCuotas', () => {
   };
 
   const elemento = () => fixture.nativeElement as HTMLElement;
+  const apretar = async (etiqueta: string) => {
+    Array.from(elemento().querySelectorAll('button'))
+      .find((b) => b.textContent?.includes(etiqueta))
+      ?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
 
   beforeEach(async () => {
     await montar(MES);
@@ -118,6 +131,48 @@ describe('PanelDeCuotas', () => {
     await fixture.whenStable();
 
     expect(api.delMes.mock.calls).toHaveLength(pedidos);
+  });
+
+  it('**cobrar en el mesón dice hasta cuándo quedó al día**', async () => {
+    // Es lo que el socio pregunta a continuación, y con la fila ya marcada como pagada
+    // el admin no tendría de dónde leerlo.
+    await apretar('Efectivo');
+
+    expect(api.cobrar).toHaveBeenCalledWith(1, 'EFECTIVO');
+    expect(elemento().textContent).toContain('Carolina Díaz');
+    expect(elemento().textContent).toContain('hasta fin de 2026-08');
+  });
+
+  it('la transferencia es el otro botón, no un menú', async () => {
+    await apretar('Transferencia');
+
+    expect(api.cobrar).toHaveBeenCalledWith(1, 'TRANSFERENCIA');
+  });
+
+  it('**la ya pagada no ofrece cobrar, y dice con qué se pagó**', async () => {
+    await montar({
+      ...MES,
+      cuotas: [{ ...UNA, estado: 'PAGADA', medio: 'TRANSFERENCIA' }],
+    });
+
+    expect(elemento().textContent).toContain('Transferencia');
+    expect(
+      Array.from(elemento().querySelectorAll('button')).some((b) =>
+        b.textContent?.includes('Efectivo'),
+      ),
+    ).toBe(false);
+  });
+
+  it('el rechazo del servidor se muestra tal como viene', async () => {
+    // "Esa cuota ya estaba pagada" es el que importa: pasa cuando dos personas cobran
+    // desde dos pantallas.
+    api.cobrar.mockRejectedValue({
+      error: { message: 'Esa cuota ya estaba pagada.' },
+    });
+
+    await apretar('Efectivo');
+
+    expect(elemento().textContent).toContain('ya estaba pagada');
   });
 
   it('un mes sin socios lo dice, en vez de una tabla vacía', async () => {

@@ -1,9 +1,17 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 
 import { enPesos, hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
+import { mensajeDelServidor } from '../../core/errores';
+import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { CuotaDelMes, Cuotas } from '../cuotas.service';
+import { CuotaDelMes, Cuotas, MedioPago } from '../cuotas.service';
+
+const MEDIOS: Record<MedioPago, string> = {
+  EFECTIVO: 'Efectivo',
+  TRANSFERENCIA: 'Transferencia',
+  WEBPAY: 'Webpay',
+};
 
 /** El mes en curso del club, "AAAA-MM". */
 function mesActual(): string {
@@ -20,7 +28,7 @@ function mesActual(): string {
  */
 @Component({
   selector: 'app-panel-cuotas',
-  imports: [EstadoVacio, Insignia],
+  imports: [Aviso, EstadoVacio, Insignia],
   template: `
     <h1 class="font-display text-3xl font-bold">Cuotas del club</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -63,6 +71,13 @@ function mesActual(): string {
       }
     </div>
 
+    @if (error(); as falla) {
+      <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
+    }
+    @if (aviso(); as texto) {
+      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
+    }
+
     @if (datos.isLoading()) {
       <p class="mt-4 text-muted-foreground">Cargando…</p>
     } @else if (cuotas().length === 0) {
@@ -84,6 +99,7 @@ function mesActual(): string {
               <th scope="col">Socio</th>
               <th scope="col">Monto</th>
               <th scope="col">Estado</th>
+              <th scope="col"><span class="sr-only">Cobrar</span></th>
             </tr>
           </thead>
           <tbody>
@@ -110,6 +126,32 @@ function mesActual(): string {
                     <app-insignia variante="aviso" icono="schedule">
                       Por cobrar
                     </app-insignia>
+                  }
+                </td>
+                <td>
+                  @if (cuota.estado === 'PENDIENTE') {
+                    <div class="flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        class="boton boton-secundario boton-chico"
+                        [disabled]="cobrando()"
+                        (click)="cobrar(cuota, 'EFECTIVO')"
+                      >
+                        Efectivo
+                      </button>
+                      <button
+                        type="button"
+                        class="boton boton-secundario boton-chico"
+                        [disabled]="cobrando()"
+                        (click)="cobrar(cuota, 'TRANSFERENCIA')"
+                      >
+                        Transferencia
+                      </button>
+                    </div>
+                  } @else if (cuota.medio) {
+                    <span class="text-sm text-muted-foreground">
+                      {{ nombreMedio(cuota.medio) }}
+                    </span>
                   }
                 </td>
               </tr>
@@ -145,7 +187,45 @@ export class PanelDeCuotas {
     return mes ? mes.totalEmitidoClp - mes.totalPagadoClp : 0;
   });
 
+  protected readonly cobrando = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly aviso = signal<string | null>(null);
+
   protected readonly pesos = enPesos;
+
+  protected nombreMedio(medio: MedioPago): string {
+    return MEDIOS[medio] ?? medio;
+  }
+
+  /**
+   * Cobra y recarga el mes.
+   *
+   * Dos botones y no un selector con confirmación: en el mesón hay alguien esperando,
+   * y el medio es lo único que hay que elegir. El aviso dice hasta cuándo quedó al día
+   * porque es lo que el socio pregunta a continuación.
+   */
+  protected async cobrar(
+    cuota: CuotaDelMes,
+    medio: 'EFECTIVO' | 'TRANSFERENCIA',
+  ): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.cobrando.set(true);
+
+    try {
+      await this.api.cobrar(cuota.id, medio);
+      this.aviso.set(
+        `Cobrada la cuota de ${cuota.socio.nombre}. Queda al día hasta fin de ${cuota.periodo}.`,
+      );
+      this.datos.reload();
+    } catch (falla) {
+      // El del servidor: "Esa cuota ya estaba pagada" es la que importa, porque pasa
+      // cuando dos personas cobran desde dos pantallas.
+      this.error.set(mensajeDelServidor(falla, 'No se pudo registrar el pago.'));
+    } finally {
+      this.cobrando.set(false);
+    }
+  }
 
   protected cambiarMes(evento: Event): void {
     const valor = (evento.target as HTMLInputElement).value;

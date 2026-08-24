@@ -1,7 +1,17 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 
-import { SoloAdmin } from '../identidad/guards';
+import { SoloAdmin, Yo } from '../identidad/guards';
+import type { UsuarioActual } from '../identidad/usuario-actual';
 import { EmisionDeCuotas } from './emision.service';
+import { leerMedio, PagoManualDeCuota } from './pago-manual.service';
 
 /**
  * Las cuotas del club, mes a mes.
@@ -12,7 +22,10 @@ import { EmisionDeCuotas } from './emision.service';
 @Controller('admin/cuotas')
 @SoloAdmin()
 export class CuotasController {
-  constructor(private readonly emision: EmisionDeCuotas) {}
+  constructor(
+    private readonly emision: EmisionDeCuotas,
+    private readonly pagoManual: PagoManualDeCuota,
+  ) {}
 
   /**
    * `GET` que escribe, y conviene decirlo: mirar el mes lo emite.
@@ -25,5 +38,20 @@ export class CuotasController {
   @Get()
   delPeriodo(@Query('periodo') periodo = '') {
     return this.emision.delPeriodo(periodo);
+  }
+
+  /**
+   * El pago en el mesón: efectivo o transferencia.
+   *
+   * `@Yo()` porque queda escrito quién lo registró. Es dinero que pasó por las manos
+   * de una persona.
+   */
+  @Post(':id/pago')
+  pagar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ) {
+    return this.pagoManual.registrar(id, leerMedio(cuerpo), yo);
   }
 }

@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { IdentidadModule } from '../identidad/identidad.module';
 import { CuotasController } from './cuotas.controller';
 import { EmisionDeCuotas } from './emision.service';
+import { PagoManualDeCuota } from './pago-manual.service';
 
 /**
  * La cuota mensual y la de incorporación.
@@ -13,7 +14,7 @@ import { EmisionDeCuotas } from './emision.service';
 @Module({
   imports: [IdentidadModule],
   controllers: [CuotasController],
-  providers: [EmisionDeCuotas],
+  providers: [EmisionDeCuotas, PagoManualDeCuota],
   exports: [EmisionDeCuotas],
 })
 export class CuotasModule {}
