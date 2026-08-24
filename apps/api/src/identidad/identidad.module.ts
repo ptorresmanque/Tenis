@@ -12,6 +12,8 @@ import { AdministradoresController } from './admin/administradores.controller';
 import { IntentosFallidos } from './intentos';
 import { SesionService } from './sesion/sesion.service';
 import { InvitacionesController } from './socios/invitaciones.controller';
+import { CambiosDeSocio } from './socios/cambios.service';
+import { FichaDeSocioService } from './socios/ficha.service';
 import { InvitacionesService } from './socios/invitaciones.service';
 import { YoController } from './yo.controller';
 
@@ -25,6 +27,8 @@ import { YoController } from './yo.controller';
     AdministradoresController,
   ],
   providers: [
+    CambiosDeSocio,
+    FichaDeSocioService,
     RegistroService,
     SesionService,
     InvitacionesService,
@@ -37,6 +41,6 @@ import { YoController } from './yo.controller';
   // `EnviadorCorreo` sale del módulo porque `reservas` avisa cancelaciones (T36).
   // Es el puerto, no el adaptador: quien lo importa no sabe si escribe en el log o
   // manda un correo de verdad.
-  exports: [SesionService, EnviadorCorreo],
+  exports: [SesionService, EnviadorCorreo, CambiosDeSocio],
 })
 export class IdentidadModule {}

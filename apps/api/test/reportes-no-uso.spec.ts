@@ -403,6 +403,46 @@ describe('Reportes de hora no usada', () => {
       expect(socio.sancionadoHasta).not.toBeNull();
     });
 
+    it('la sanción queda en el historial del socio, con quién y por qué hora (T37)', async () => {
+      // Es el otro camino que escribe un campo de derechos. Sin pasar por el mismo
+      // punto que la edición del panel, sería el único cambio del padrón sin autor —y
+      // es de los que el socio más pregunta.
+      const id = await unaReserva();
+      const folio = (
+        await prisma.reserva.findUniqueOrThrow({
+          where: { id },
+          select: { folio: true },
+        })
+      ).folio;
+      await reportar(id).expect(201);
+
+      await resolver(id, 'SANCIONAR').expect(201);
+
+      // Por el folio y no contando el total: el socio acusado es el mismo en todo el
+      // archivo y arrastra los renglones de los tests anteriores.
+      const renglones = await prisma.cambioSocio.findMany({
+        where: { socioId: acusadoSocioId, motivo: { contains: folio } },
+      });
+
+      expect(renglones).toHaveLength(1);
+      expect(renglones[0].campo).toBe('sancionadoHasta');
+      expect(renglones[0].hechoPorNombre).not.toBe('');
+    });
+
+    it('descartar el reporte no deja renglón: no cambió ningún derecho', async () => {
+      const antes = await prisma.cambioSocio.count({
+        where: { socioId: acusadoSocioId },
+      });
+      const id = await unaReserva();
+      await reportar(id).expect(201);
+
+      await resolver(id, 'DESCARTAR').expect(201);
+
+      expect(
+        await prisma.cambioSocio.count({ where: { socioId: acusadoSocioId } }),
+      ).toBe(antes);
+    });
+
     it('resuelve juntos todos los reportes de esa hora', async () => {
       const id = await unaReserva();
       await reportar(id).expect(201);

@@ -17,7 +17,13 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Paginacion } from '../../ui/paginacion';
 import { Selector } from '../../ui/selector';
-import { AltaDeSocio, EstadoSocio, Socios } from './socios.service';
+import { FichaSocio } from './ficha-socio';
+import {
+  AltaDeSocio,
+  EstadoSocio,
+  SocioDelClub,
+  Socios,
+} from './socios.service';
 
 const ESTADOS: Record<EstadoSocio, string> = {
   ACTIVO: 'Activo',
@@ -51,6 +57,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
     Insignia,
     Paginacion,
     Selector,
+    FichaSocio,
   ],
   template: `
     <h1 class="font-display text-3xl font-bold">Socios del club</h1>
@@ -202,6 +209,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
                 <th scope="col">Correo</th>
                 <th scope="col">Estado</th>
                 <th scope="col">Al día hasta</th>
+                <th scope="col"><span class="sr-only">Acciones</span></th>
               </tr>
             </thead>
             <tbody>
@@ -230,11 +238,33 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
                   <td class="text-sm whitespace-nowrap">
                     {{ enDiaMes(socio.alDiaHasta) }}
                   </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="boton boton-secundario boton-chico"
+                      (click)="editando.set(socio)"
+                    >
+                      Ver ficha
+                      <span class="sr-only">
+                        de {{ socio.usuario.nombre }} {{ socio.usuario.apellido }}
+                      </span>
+                    </button>
+                  </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+
+        <!-- Fuera de la tabla: un <dialog> dentro de un <td> hereda su ancho y sus
+             reglas de layout, y el navegador lo dibuja donde no corresponde. -->
+        @if (editando(); as socio) {
+          <app-ficha-socio
+            [socio]="socio"
+            (guardado)="recargar()"
+            (cerrado)="editando.set(null)"
+          />
+        }
 
         @if (filtrados().length > POR_PAGINA) {
           <app-paginacion
@@ -256,6 +286,9 @@ export class SociosPanel {
   protected readonly busqueda = signal('');
   protected readonly filtro = signal('todos');
   protected readonly paginaActual = signal(1);
+
+  /** El socio cuya ficha está abierta. Nulo es lo normal. */
+  protected readonly editando = signal<SocioDelClub | null>(null);
 
   protected readonly POR_PAGINA = 10;
 

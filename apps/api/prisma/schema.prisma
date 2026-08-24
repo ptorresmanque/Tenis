@@ -109,6 +109,43 @@ model Socio {
   @@map("socio")
 }
 
+/// Quién cambió qué en la ficha de un socio, y cuándo (T37).
+///
+/// Nace de la problemática 2.4 del perfil: el padrón vivía en una planilla donde el
+/// estado y la vigencia de la cuota se corregían a mano sin constancia de nada.
+///
+/// **Un renglón por campo, no una foto de la ficha entera.** Lo que se pregunta seis
+/// meses después es "quién le cambió el estado", y una lista de campos se responde
+/// leyéndola; una sucesión de fotos hay que compararla de a dos.
+///
+/// **Sin claves foráneas, a propósito.** Ni a `socio` ni al usuario que hizo el
+/// cambio: el historial de decisiones sobrevive a la ficha y a la cuenta, y con una
+/// cascada se iría justo cuando alguien pregunta. Por eso el nombre de quien lo hizo
+/// va congelado en texto y no se resuelve al leer.
+model CambioSocio {
+  id      Int @id @default(autoincrement())
+  socioId Int @map("socio_id")
+
+  /// "estado", "alDiaHasta", "numeroSocio" o "sancionadoHasta". Solo los cuatro que
+  /// cambian lo que el socio puede hacer; el teléfono y el correo no se auditan.
+  campo String @db.VarChar(40)
+
+  /// Como se veían, ya formateados. Vacío es "no tenía valor".
+  valorAnterior String @map("valor_anterior") @db.VarChar(80)
+  valorNuevo    String @map("valor_nuevo") @db.VarChar(80)
+
+  hechoPor       Int      @map("hecho_por")
+  hechoPorNombre String   @map("hecho_por_nombre") @db.VarChar(120)
+  hechoEn        DateTime @default(now()) @map("hecho_en")
+
+  /// Lo que el admin escribió al hacerlo. Opcional: la sanción por no usar una hora
+  /// trae el suyo desde el sistema, y el club a veces no explica una suspensión.
+  motivo String? @db.VarChar(200)
+
+  @@index([socioId, hechoEn])
+  @@map("cambio_socio")
+}
+
 /// El club aceptó a alguien como socio antes de que esa persona tenga cuenta.
 ///
 /// **Tabla propia y no un `Socio` sin usuario.** Hacer `Socio.usuarioId` nullable

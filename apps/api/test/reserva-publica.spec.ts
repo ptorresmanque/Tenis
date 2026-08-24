@@ -26,7 +26,10 @@ describe('GET /api/reservas/publica/:token', () => {
    * La hora se pasa por parámetro porque el club no deja dos reservas activas en el
    * mismo bloque: el índice único de la base lo impide, y con razón.
    */
-  const unaReserva = async (estado = EstadoReserva.CONFIRMADA, horaUtc = 18) =>
+  const unaReserva = async (
+    estado: EstadoReserva = EstadoReserva.CONFIRMADA,
+    horaUtc = 18,
+  ) =>
     prisma.reserva.create({
       data: {
         folio: `Q${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
