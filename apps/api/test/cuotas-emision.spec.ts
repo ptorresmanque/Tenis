@@ -158,8 +158,10 @@ describe('GET /api/admin/cuotas', () => {
         .set('Cookie', cookieAdmin),
     ]);
 
-    expect(una.status).toBe(200);
-    expect(otra.status).toBe(200);
+    // Con el cuerpo en el mensaje: si alguna vez falla por contención de la base y no
+    // por doble emisión, el error tiene que decirlo en vez de mostrar solo "500".
+    expect(`${una.status} ${JSON.stringify(una.body)}`).toMatch(/^200 /);
+    expect(`${otra.status} ${JSON.stringify(otra.body)}`).toMatch(/^200 /);
 
     const cuantas = await prisma.cuota.count({
       where: { socioId, periodo: PERIODO },
@@ -188,9 +190,11 @@ describe('GET /api/admin/cuotas', () => {
     const mes = await delMes();
     expect(mes.cuotas.find((c) => c.socioId === socioId)?.montoClp).toBe(25000);
 
-    // Y el mes siguiente sí sale al precio nuevo.
-    const siguiente = await delMes('2026-09');
-    expect(siguiente.cuotas.find((c) => c.socioId === socioId)?.montoClp).toBe(
+    // Y una emitida después sale al precio nuevo: se comprueba con un socio nuevo del
+    // mismo mes, y no con el mes siguiente, que puede ser futuro según el calendario.
+    const otra = await crearSocio('tardia');
+    const mismoMes = await delMes();
+    expect(mismoMes.cuotas.find((c) => c.socioId === otra)?.montoClp).toBe(
       30000,
     );
   });
@@ -207,6 +211,21 @@ describe('GET /api/admin/cuotas', () => {
     expect(agosto.cuotas.find((c) => c.socioId === nueva)?.montoClp).toBe(
       25000,
     );
+  });
+
+  it('**un mes futuro no se emite: esa deuda todavía no existe**', async () => {
+    // Sin esto, un admin que navega al mes siguiente para mirar deja emitidas cuotas
+    // por adelantado. Después el club cuenta como morosos a socios por meses que no
+    // han empezado, y si alguno se retira quedan cuotas suyas de meses en que ya no
+    // era socio.
+    const futuro = await delMes('2030-01');
+
+    // Por el socio de este test y no por la lista entera: los socios del seed viven en
+    // la misma base y otro spec puede haber tocado ese mes.
+    expect(futuro.cuotas.some((c) => c.socioId === socioId)).toBe(false);
+    expect(
+      await prisma.cuota.count({ where: { socioId, periodo: '2030-01' } }),
+    ).toBe(0);
   });
 
   it('al socio suspendido no se le sigue cobrando', async () => {

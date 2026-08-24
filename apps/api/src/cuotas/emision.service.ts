@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import { hoyEnElClub } from '../comun/tiempo';
 import {
   EstadoCuota,
   EstadoSocio,
@@ -34,10 +35,15 @@ export class EmisionDeCuotas {
    * un endpoint que hay que acordarse de llamar, que es el mismo problema del cron
    * con otra forma.
    */
-  async delPeriodo(periodo: string) {
+  async delPeriodo(periodo: string, ahora = new Date()) {
     exigirPeriodo(periodo);
 
-    await this.emitir(periodo);
+    // **Los meses futuros no se emiten.** Un admin que navega al mes siguiente para
+    // mirar dejaría cuotas emitidas por adelantado: después el club cuenta como
+    // morosos a socios por meses que no empezaron, y si alguno se retira quedan
+    // cuotas suyas de meses en que ya no era socio. Mirar el futuro devuelve lo que
+    // hay —nada, normalmente— sin escribir.
+    if (periodo <= mesEnElClub(ahora)) await this.emitir(periodo);
 
     const cuotas = await this.prisma.cuota.findMany({
       where: { periodo, tipo: TipoCuota.MENSUAL },
@@ -123,6 +129,19 @@ export class EmisionDeCuotas {
       skipDuplicates: true,
     });
   }
+}
+
+/**
+ * El mes en curso del club, "AAAA-MM".
+ *
+ * Del club y no UTC: a las 21:00 de un 31 de agosto en Santiago ya es septiembre en
+ * UTC, y el club estaría emitiendo el mes siguiente unas horas antes de tiempo.
+ *
+ * Se comparan como texto porque "AAAA-MM" ordena igual que la fecha: es la misma
+ * propiedad que hace que el formato exista.
+ */
+function mesEnElClub(ahora: Date): string {
+  return hoyEnElClub(ahora).toISOString().slice(0, 7);
 }
 
 export function exigirPeriodo(periodo: string): void {
