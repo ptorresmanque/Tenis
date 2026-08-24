@@ -73,6 +73,7 @@ import { MenuDesplegable } from './menu-desplegable';
 
               @if (sesion.socioId !== null) {
                 <a routerLink="/mis-reservas" [class]="ITEM_MENU">Mis reservas</a>
+                <a routerLink="/mi-cuenta" [class]="ITEM_MENU">Mi cuenta</a>
               }
               @if (esAdmin()) {
                 <a routerLink="/administracion/reservas" [class]="ITEM_MENU">
@@ -284,7 +285,10 @@ export class CascaronPublico {
     // Solo para quien tiene ficha de socio: al resto la pantalla le mostraría
     // una lista siempre vacía.
     ...(this.usuario()?.socioId != null
-      ? [{ ruta: '/mis-reservas', etiqueta: 'Mis reservas' }]
+      ? [
+          { ruta: '/mis-reservas', etiqueta: 'Mis reservas' },
+          { ruta: '/mi-cuenta', etiqueta: 'Mi cuenta' },
+        ]
       : []),
     { ruta: '/el-club', etiqueta: 'El club' },
   ]);

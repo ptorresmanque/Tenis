@@ -27,6 +27,18 @@ export interface MesDeCuotas {
   totalPagadoClp: number;
 }
 
+/** Una cuota como la ve su propio socio. */
+export interface MiCuota {
+  id: number;
+  tipo: 'MENSUAL' | 'INCORPORACION';
+  periodo: string;
+  montoClp: number;
+  descuentoClp: number;
+  estado: EstadoCuota;
+  pagadaEn: string | null;
+  medio: MedioPago | null;
+}
+
 /**
  * Las cuotas del club.
  *
@@ -50,6 +62,21 @@ export class Cuotas {
   ): Promise<CuotaDelMes> {
     return firstValueFrom(
       this.http.post<CuotaDelMes>(`/api/admin/cuotas/${id}/pago`, { medio }),
+    );
+  }
+
+  /**
+   * Empieza el cobro en línea y devuelve a dónde mandar a la persona.
+   *
+   * El monto no viaja: sale de la cuota emitida. Aceptarlo del navegador sería dejar
+   * que cada socio elija cuánto paga.
+   */
+  pagar(id: number): Promise<{ urlRedireccion: string }> {
+    return firstValueFrom(
+      this.http.post<{ urlRedireccion: string }>(
+        `/api/cuotas/${id}/pagar`,
+        {},
+      ),
     );
   }
 

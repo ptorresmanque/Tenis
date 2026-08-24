@@ -84,6 +84,7 @@ describe('Cada ruta en su cascarón', () => {
     ['', CascaronPublico],
     ['disponibilidad', CascaronPublico],
     ['mis-reservas', CascaronPublico],
+    ['mi-cuenta', CascaronPublico],
     ['reservas/confirmacion', CascaronPublico],
     ['el-club', CascaronPublico],
     ['entrar', CascaronAuth],

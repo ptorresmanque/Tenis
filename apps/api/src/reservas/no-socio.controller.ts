@@ -1,17 +1,12 @@
 import { Body, Controller, Get, Post, Query, Redirect } from '@nestjs/common';
 
+import { api, web } from '../comun/urls';
 import { reservaDeNoSocioDeCuerpo } from './no-socio.dto';
 import {
   PagoDeReservaIniciado,
   ReservaNoSocioService,
   RetornoDePago,
 } from './reserva-no-socio.service';
-
-/** Dónde vuelve la persona después de pagar. */
-const web = () => process.env.WEB_ORIGIN ?? 'http://localhost:4200';
-const api = () =>
-  process.env.API_PUBLIC_URL ??
-  `http://localhost:${process.env.PORT ?? 3001}/api`;
 
 @Controller('reservas')
 export class NoSocioController {

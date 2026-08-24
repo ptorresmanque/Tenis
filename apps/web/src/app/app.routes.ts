@@ -45,6 +45,11 @@ export const routes: Routes = [
           import('./reservas/confirmacion').then((m) => m.ConfirmacionReserva),
       },
       {
+        path: 'mi-cuenta',
+        title: 'Mi cuenta — FEDAL Tennis Center',
+        loadComponent: () => import('./cuotas/mi-cuenta').then((m) => m.MiCuenta),
+      },
+      {
         path: 'el-club',
         title: 'El club — FEDAL Tennis Center',
         loadComponent: () => import('./club/el-club').then((m) => m.ElClub),
