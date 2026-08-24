@@ -151,12 +151,29 @@ export class Clases {
    * **Las reservas que la clase canceló al agendarse no vuelven.** Deshacerlas sería
    * devolverle a alguien una hora que ya reorganizó y, si había pagado, volver a
    * cobrarle. El club llama si quiere ofrecérsela de nuevo.
+   *
+   * **Qué bloqueo borrar se lee dentro de la transacción**, no antes: entre leerlo y
+   * borrarlo cabe un movimiento de la clase, y entonces se borraría un bloqueo que ya
+   * no es el suyo —o uno que ya no existe—. Es la misma lección de T37.
    */
   async cancelar(id: number, motivo: string): Promise<{ id: number }> {
-    const clase = await this.laClase(id);
-
     await this.prisma.$transaction(async (tx) => {
+      const clase = await tx.clase.findUnique({
+        where: { id },
+        select: { bloqueoId: true, estado: true },
+      });
+
+      if (!clase) {
+        throw new NotFoundException('No hay una clase con ese número.');
+      }
+
+      if (clase.estado !== EstadoClase.PROGRAMADA) {
+        throw new ConflictException('Esa clase ya no está programada.');
+      }
+
       const { count } = await tx.clase.updateMany({
+        // El estado va también en el `where`, que es el compare-and-set: dos admins
+        // cancelando la misma clase llegan los dos hasta acá.
         where: { id, estado: EstadoClase.PROGRAMADA },
         data: {
           estado: EstadoClase.CANCELADA,

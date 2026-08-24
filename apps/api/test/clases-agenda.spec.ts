@@ -399,6 +399,21 @@ describe('POST /api/admin/clases', () => {
     expect(reserva.estado).toBe(EstadoReserva.CANCELADA);
   });
 
+  it('cancelar dos veces la misma clase no borra el bloqueo de otra', async () => {
+    // El bloqueo a borrar se lee dentro de la transacción: leerlo antes deja una
+    // ventana en la que la clase se movió y se borra un bloqueo que ya no es suyo.
+    const { id } = await agendada();
+
+    const cancelacion = () =>
+      request(app.getHttpServer())
+        .post(`/api/admin/clases/${id}/cancelacion`)
+        .set('Cookie', cookieAdmin)
+        .send({ motivo: 'Se suspendió' });
+
+    await cancelacion().expect(200);
+    await cancelacion().expect(409);
+  });
+
   it('**mover la clase conserva su id y cambia el bloqueo de lugar**', async () => {
     const { id, bloqueoId } = await agendada();
 
