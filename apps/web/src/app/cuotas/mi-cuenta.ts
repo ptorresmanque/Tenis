@@ -1,5 +1,4 @@
-import { httpResource } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, resource, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 
@@ -142,10 +141,12 @@ export class MiCuenta {
     () => this.parametros()?.get('pago') ?? null,
   );
 
-  protected readonly cuenta = httpResource<{
-    cuotas: MiCuota[];
-    deudaClp: number;
-  }>(() => '/api/cuotas/mias');
+  // Por el servicio y no con `httpResource` directo: el pago ya va por ahí, y una
+  // pantalla que lee por un camino y escribe por otro obliga a sus tests a doblar los
+  // dos. Es además lo que hace el panel del admin.
+  protected readonly cuenta = resource({
+    loader: () => this.api.mias(),
+  });
 
   protected readonly pagando = signal(false);
   protected readonly error = signal<string | null>(null);

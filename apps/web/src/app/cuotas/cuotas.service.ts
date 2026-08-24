@@ -65,6 +65,13 @@ export class Cuotas {
     );
   }
 
+  /** Lo que el socio debe de lo suyo. Vacío para quien todavía no es socio. */
+  mias(): Promise<{ cuotas: MiCuota[]; deudaClp: number }> {
+    return firstValueFrom(
+      this.http.get<{ cuotas: MiCuota[]; deudaClp: number }>('/api/cuotas/mias'),
+    );
+  }
+
   /**
    * Empieza el cobro en línea y devuelve a dónde mandar a la persona.
    *

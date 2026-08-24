@@ -1,12 +1,6 @@
-import { provideHttpClient } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of } from 'rxjs';
-import { convertToParamMap } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Cuotas, MiCuota } from './cuotas.service';
@@ -33,8 +27,10 @@ describe('MiCuenta', () => {
   };
 
   let fixture: ComponentFixture<MiCuenta>;
-  let http: HttpTestingController;
-  let api: { pagar: ReturnType<typeof vi.fn> };
+  let api: {
+    mias: ReturnType<typeof vi.fn>;
+    pagar: ReturnType<typeof vi.fn>;
+  };
 
   const montar = async (
     cuotas: MiCuota[],
@@ -42,14 +38,13 @@ describe('MiCuenta', () => {
     pago: string | null = null,
   ) => {
     api = {
+      mias: vi.fn().mockResolvedValue({ cuotas, deudaClp }),
       pagar: vi.fn().mockResolvedValue({ urlRedireccion: 'https://webpay/x' }),
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
         { provide: Cuotas, useValue: api },
         {
           provide: ActivatedRoute,
@@ -61,10 +56,6 @@ describe('MiCuenta', () => {
     });
 
     fixture = TestBed.createComponent(MiCuenta);
-    http = TestBed.inject(HttpTestingController);
-    fixture.detectChanges();
-
-    http.expectOne('/api/cuotas/mias').flush({ cuotas, deudaClp });
     await fixture.whenStable();
     fixture.detectChanges();
   };
