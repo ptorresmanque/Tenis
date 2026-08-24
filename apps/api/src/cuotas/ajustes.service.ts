@@ -68,14 +68,16 @@ export class AjustesDeCuota {
     }
 
     if (ajuste.anular) {
-      return this.prisma.cuota.update({
-        where: { id: cuotaId },
+      await this.exigirQueSigaPendiente(this.prisma, {
+        where: { id: cuotaId, estado: EstadoCuota.PENDIENTE },
         data: {
           estado: EstadoCuota.ANULADA,
           anuladaPor: yo.id,
           motivoAnulacion: ajuste.motivo,
         },
       });
+
+      return this.prisma.cuota.findUniqueOrThrow({ where: { id: cuotaId } });
     }
 
     const descuentoClp = ajuste.condonar
@@ -90,8 +92,8 @@ export class AjustesDeCuota {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const actualizada = await tx.cuota.update({
-        where: { id: cuotaId },
+      await this.exigirQueSigaPendiente(tx, {
+        where: { id: cuotaId, estado: EstadoCuota.PENDIENTE },
         data: {
           descuentoClp,
           motivoDescuento: ajuste.motivo,
@@ -107,8 +109,29 @@ export class AjustesDeCuota {
         await this.extenderVigencia(tx, cuota.socioId, cuota.periodo, yo);
       }
 
-      return actualizada;
+      return tx.cuota.findUniqueOrThrow({ where: { id: cuotaId } });
     });
+  }
+
+  /**
+   * Escribe la cuota **solo si sigue pendiente**, y ese `where` es el compare-and-set.
+   *
+   * Entre leerla y escribirla cabe el pago: el admin abre la pantalla, el socio paga
+   * por Webpay, y el admin aprieta Anular sobre una cuota que ya no está donde la vio.
+   * Sin esto, la plata entró y la cuota queda diciendo que nunca existió. Es el mismo
+   * patrón de `PagoManualDeCuota` y de la confirmación de la pasarela.
+   */
+  private async exigirQueSigaPendiente(
+    db: Prisma.TransactionClient | PrismaService,
+    escritura: Prisma.CuotaUpdateManyArgs,
+  ): Promise<void> {
+    const { count } = await db.cuota.updateMany(escritura);
+
+    if (count === 0) {
+      throw new ConflictException(
+        'Esa cuota cambió mientras la ajustabas: vuelve a abrirla.',
+      );
+    }
   }
 
   /**

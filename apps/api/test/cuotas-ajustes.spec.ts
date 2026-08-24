@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import {
   EstadoCuota,
   EstadoSocio,
+  MedioPago,
   TipoCuota,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -245,6 +246,67 @@ describe('Descuentos, anulación y morosidad', () => {
     });
 
     await ajustar(id, { anular: true, motivo: 'Me equivoqué' }).expect(409);
+  });
+
+  /**
+   * Cobra la cuota **entre** la lectura del servicio y su escritura.
+   *
+   * Es la ventana real: el admin abre la pantalla, el socio paga por Webpay, y el
+   * admin aprieta el botón sobre una cuota que ya no está donde la vio.
+   */
+  const cobradaAMitadDelAjuste = (id: number) => {
+    // El tipo de `findUnique` es genérico sobre el `select`, y acá la fila solo se pasa
+    // de vuelta sin mirarla: el puente va acotado a esta línea.
+    type LeerCuota = (argumentos: {
+      where: { id: number };
+    }) => Promise<unknown>;
+    const real = prisma.cuota.findUnique.bind(prisma.cuota) as LeerCuota;
+
+    return jest
+      .spyOn(prisma.cuota, 'findUnique')
+      .mockImplementationOnce((async (argumentos: {
+        where: { id: number };
+      }) => {
+        const fila = await real(argumentos);
+        await prisma.cuota.update({
+          where: { id },
+          data: {
+            estado: EstadoCuota.PAGADA,
+            medio: MedioPago.EFECTIVO,
+            pagadaEn: new Date(),
+          },
+        });
+
+        return fila;
+      }) as unknown as typeof prisma.cuota.findUnique);
+  };
+
+  it('**anular una cuota que se pagó a mitad del ajuste no borra el cobro**', async () => {
+    // Sin el estado en el `where`, el admin anula una cuota que Webpay acabó de cobrar:
+    // la plata entró y la cuota dice que nunca existió.
+    const id = await unaCuota();
+    const espia = cobradaAMitadDelAjuste(id);
+
+    await ajustar(id, { anular: true, motivo: 'Se retiró' }).expect(409);
+    espia.mockRestore();
+
+    const cuota = await prisma.cuota.findUniqueOrThrow({ where: { id } });
+    expect(cuota.estado).toBe(EstadoCuota.PAGADA);
+    expect(cuota.medio).toBe(MedioPago.EFECTIVO);
+  });
+
+  it('**condonar una cuota que se pagó a mitad del ajuste tampoco la pisa**', async () => {
+    const id = await unaCuota();
+    const espia = cobradaAMitadDelAjuste(id);
+
+    await ajustar(id, { condonar: true, motivo: 'Arbitró el torneo' }).expect(
+      409,
+    );
+    espia.mockRestore();
+
+    const cuota = await prisma.cuota.findUniqueOrThrow({ where: { id } });
+    expect(cuota.descuentoClp).toBe(0);
+    expect(cuota.medio).toBe(MedioPago.EFECTIVO);
   });
 
   it('anular tampoco necesita motivo inventado, pero sí uno', async () => {
