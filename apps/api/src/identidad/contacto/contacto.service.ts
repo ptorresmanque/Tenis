@@ -104,10 +104,7 @@ export class ContactoService {
       throw new ConflictException('Esa solicitud ya tiene su invitación.');
     }
 
-    const invitacion = await this.invitaciones.invitar({
-      email: solicitud.email,
-      numeroSocio,
-    });
+    const invitacion = await this.laInvitacionDe(solicitud.email, numeroSocio);
 
     await this.prisma.solicitudContacto.update({
       where: { id },
@@ -120,6 +117,34 @@ export class ContactoService {
     });
 
     return invitacion;
+  }
+
+  /**
+   * La invitación de ese correo: la nueva, o la que ya existía.
+   *
+   * **Reintentar tiene que poder enlazar**, y por dos caminos que pasan de verdad: el
+   * club la invitó desde la pantalla de socios y después ve su consulta en la bandeja,
+   * o un intento anterior creó la invitación y se cayó antes de escribir el enlace. En
+   * los dos casos `invitar` responde 409 por el correo único, y sin esto la solicitud
+   * queda atascada para siempre: esa conversión no se cuenta nunca.
+   *
+   * Una invitación **ya usada** también sirve de enlace: significa que esa persona ya
+   * entró al club, que es exactamente la conversión que se quiere contar.
+   */
+  private async laInvitacionDe(email: string, numeroSocio: string | undefined) {
+    try {
+      return await this.invitaciones.invitar({ email, numeroSocio });
+    } catch (falla) {
+      const existente = await this.prisma.invitacionSocio.findUnique({
+        where: { email },
+      });
+
+      // Sin invitación previa, el 409 era por otra cosa —el correo ya es socio, o el
+      // número de socio está tomado— y esos sí los tiene que ver el admin.
+      if (!existente) throw falla;
+
+      return existente;
+    }
   }
 
   private async laSolicitud(id: number) {
