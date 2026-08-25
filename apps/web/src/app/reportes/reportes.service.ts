@@ -30,6 +30,38 @@ export interface ReporteDeIngreso {
   calculadoEn: string;
 }
 
+/** Los tres cortes que significan algo sobre un bloque de cancha. */
+export type CorteDeOcupacion = 'cancha' | 'condicion' | 'franja';
+
+export const CORTES_DE_OCUPACION: Record<CorteDeOcupacion, string> = {
+  condicion: 'Techada o abierta',
+  cancha: 'Cancha',
+  franja: 'Pico o valle',
+};
+
+export interface FilaDeOcupacion {
+  etiqueta: string;
+  bloques: number;
+  ocupados: number;
+  cerrados: number;
+  libres: number;
+  /** `null` cuando no hubo ni una hora que ofrecer. */
+  porcentajeOcupacion: number | null;
+}
+
+export interface ReporteDeOcupacion {
+  desde: string;
+  hasta: string;
+  corte: CorteDeOcupacion;
+  bloques: number;
+  ocupados: number;
+  cerrados: number;
+  libres: number;
+  porcentajeOcupacion: number | null;
+  filas: FilaDeOcupacion[];
+  calculadoEn: string;
+}
+
 /**
  * Los reportes del club.
  *
@@ -43,6 +75,14 @@ export class Reportes {
   ingreso(desde: string, hasta: string, corte: CorteDeIngreso): Promise<ReporteDeIngreso> {
     return firstValueFrom(
       this.http.get<ReporteDeIngreso>('/api/admin/reportes/ingreso', {
+        params: { desde, hasta, corte },
+      }),
+    );
+  }
+
+  ocupacion(desde: string, hasta: string, corte: CorteDeOcupacion): Promise<ReporteDeOcupacion> {
+    return firstValueFrom(
+      this.http.get<ReporteDeOcupacion>('/api/admin/reportes/ocupacion', {
         params: { desde, hasta, corte },
       }),
     );

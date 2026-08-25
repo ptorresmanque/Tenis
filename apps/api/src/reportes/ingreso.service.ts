@@ -79,6 +79,16 @@ export class IngresoDelClub {
    * a `ANULADA`, así que sale sola de este filtro, y como la atribución es por hora
    * jugada, el peso desaparece exactamente del período de la hora devuelta. No hay una
    * fila negativa que alguien pueda olvidarse de generar.
+   *
+   * **Lo que se filtra es el pago, no el estado de la reserva**, y es a propósito. Una
+   * hora cancelada fuera de plazo no se devuelve: el club cobró y se quedó con la
+   * plata, así que es ingreso de esa hora aunque nadie la haya jugado. Filtrar por
+   * `CONFIRMADA` escondería dinero que el club tiene en la cuenta.
+   *
+   * La consecuencia hay que saberla al leer los dos reportes juntos: **una cancha puede
+   * mostrar ingreso con 0 % de ocupación**. No es una contradicción, son dos preguntas
+   * distintas —cuánto entró y cuánto se usó— y el mes en que se separan es justamente
+   * el que conviene mirar.
    */
   private async arriendos(desde: string, hasta: string): Promise<Movimiento[]> {
     // **Primero las reservas del rango y después sus pagos**, y no al revés. Al revés

@@ -439,6 +439,24 @@ describe('GET /api/admin/reportes/ingreso', () => {
       expect((await reporte('2026-08-01', '2026-08-31')).totalClp).toBe(18000);
     });
 
+    it('**una hora cancelada sin devolución sigue siendo ingreso**', async () => {
+      // El club cobró y no devolvió: la plata está en la cuenta. Filtrar por reserva
+      // CONFIRMADA escondería dinero que el club tiene. La contracara es que esa hora
+      // aparece con ingreso y sin ocupación, que es correcto y hay que saber leerlo.
+      const reservaId = await arriendoJugado({
+        dia: '2026-08-22',
+        hora: '20:00',
+        canchaId: canchaTechada,
+        montoClp: 18000,
+      });
+      await prisma.reserva.update({
+        where: { id: reservaId },
+        data: { estado: EstadoReserva.CANCELADA },
+      });
+
+      expect((await reporte('2026-08-01', '2026-08-31')).totalClp).toBe(18000);
+    });
+
     it('un pago pendiente tampoco es ingreso', async () => {
       await arriendoJugado({
         dia: '2026-08-22',

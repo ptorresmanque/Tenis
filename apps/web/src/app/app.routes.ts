@@ -188,6 +188,12 @@ export const routes: Routes = [
           import('./reportes/ingreso').then((m) => m.IngresoPanel),
       },
       {
+        path: 'administracion/ocupacion',
+        title: 'Ocupación de cancha — Administración',
+        loadComponent: () =>
+          import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
+      },
+      {
         path: 'administracion/reportes',
         title: 'Horas reportadas — Administración',
         loadComponent: () =>

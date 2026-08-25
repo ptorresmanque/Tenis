@@ -218,6 +218,12 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/ocupacion',
+      etiqueta: 'Ocupación de cancha',
+      icono: 'donut_large',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/reportes',
       etiqueta: 'Horas reportadas',
       icono: 'flag',
