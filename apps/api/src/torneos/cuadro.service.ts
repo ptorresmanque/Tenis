@@ -83,16 +83,26 @@ export class CuadroDelTorneo {
     const partidos = armarCuadro(inscritos, semilla);
 
     await this.prisma.$transaction(async (tx) => {
+      // **El estado va en el `where` y se comprueba acá dentro**, no arriba: dos
+      // admins armando el mismo cuadro a la vez pasaban los dos la comprobación de
+      // afuera, y el segundo se estrellaba contra el único de `partido` con un 500.
+      // Ahora lee "ya está armado", que es lo que pasó.
+      const { count } = await tx.torneo.updateMany({
+        where: { id: torneoId, estado: EstadoTorneo.INSCRIPCION },
+        data: { estado: EstadoTorneo.CUADRO_ARMADO, semillaSorteo: semilla },
+      });
+
+      if (count === 0) {
+        throw new ConflictException(
+          'El cuadro de ese torneo ya está armado. Para rehacerlo, vuelve a inscripción.',
+        );
+      }
+
       // Los partidos y el estado del torneo, o ninguna de las dos cosas: un torneo que
       // dice "cuadro armado" sin partidos es una pantalla en blanco donde la gente
       // busca su cruce.
       await tx.partido.createMany({
         data: partidos.map((partido) => ({ ...partido, torneoId })),
-      });
-
-      await tx.torneo.update({
-        where: { id: torneoId },
-        data: { estado: EstadoTorneo.CUADRO_ARMADO, semillaSorteo: semilla },
       });
     });
 
@@ -107,18 +117,20 @@ export class CuadroDelTorneo {
    * Si el admin se equivocó y todavía no cargó nada, puede volver.
    */
   async deshacer(torneoId: number): Promise<{ torneoId: number }> {
-    const jugados = await this.prisma.partido.count({
-      where: { torneoId, marcador: { not: null } },
-    });
-
-    if (jugados > 0) {
-      throw new ConflictException(
-        `Ese cuadro ya tiene ${jugados} ${jugados === 1 ? 'partido jugado' : 'partidos jugados'}: ` +
-          'rehacerlo borraría resultados que ya pasaron.',
-      );
-    }
-
     await this.prisma.$transaction(async (tx) => {
+      // Contar adentro y no antes: entre la cuenta y el borrado cabe un resultado, y
+      // ese partido se iría con el resto sin que nadie lo note.
+      const jugados = await tx.partido.count({
+        where: { torneoId, marcador: { not: null } },
+      });
+
+      if (jugados > 0) {
+        throw new ConflictException(
+          `Ese cuadro ya tiene ${jugados} ${jugados === 1 ? 'partido jugado' : 'partidos jugados'}: ` +
+            'rehacerlo borraría resultados que ya pasaron.',
+        );
+      }
+
       await tx.partido.deleteMany({ where: { torneoId } });
       await tx.torneo.update({
         where: { id: torneoId },

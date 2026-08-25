@@ -498,6 +498,17 @@ describe('Inscripción a un torneo', () => {
       await armar(torneo).expect(409);
     });
 
+    it('**dos admins armando a la vez: uno arma y el otro lee que ya está armado**', async () => {
+      // Sin el estado en el `where`, los dos pasaban la comprobación y el segundo se
+      // estrellaba contra el único de `partido` con un 500 en la cara.
+      const torneo = await cuatroInscritos();
+
+      const [una, otra] = await Promise.all([armar(torneo), armar(torneo)]);
+
+      expect([una.status, otra.status].sort()).toEqual([201, 409]);
+      expect((await cuadro(torneo)).partidos).toHaveLength(3);
+    });
+
     it('con el cuadro armado ya no se inscribe a nadie', async () => {
       const torneo = await cuatroInscritos();
       await armar(torneo).expect(201);
