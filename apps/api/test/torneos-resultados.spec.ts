@@ -344,6 +344,30 @@ describe('Resultados del cuadro', () => {
     expect((await partido(2, 1)).ganadorId).toBeNull();
   });
 
+  it('**un torneo cancelado no acepta resultados: no se jugó**', async () => {
+    // Un partido cargado ahí repartiría puntos de algo que no ocurrió.
+    await prisma.torneo.update({
+      where: { id: torneoId },
+      data: { estado: EstadoTorneo.CANCELADO },
+    });
+    const semi = await partido(1, 1);
+
+    await cargar(semi.id, { ganadorId: semi.jugadorAId }).expect(409);
+  });
+
+  it('el finalizado sí los acepta: corregir una final ya jugada es para eso', async () => {
+    const primera = await partido(1, 1);
+    const segunda = await partido(1, 2);
+    await cargar(primera.id, { ganadorId: primera.jugadorAId }).expect(200);
+    await cargar(segunda.id, { ganadorId: segunda.jugadorAId }).expect(200);
+    const final = await partido(2, 1);
+    await cargar(final.id, { ganadorId: final.jugadorAId }).expect(200);
+
+    await cargar(final.id, { ganadorId: final.jugadorBId }).expect(200);
+
+    expect((await partido(2, 1)).ganadorId).toBe(final.jugadorBId);
+  });
+
   it('un partido de otro torneo no se carga desde este', async () => {
     const otro = await prisma.torneo.findFirstOrThrow({
       where: { id: torneoId },

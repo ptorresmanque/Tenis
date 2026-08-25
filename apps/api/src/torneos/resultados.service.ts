@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -63,6 +64,21 @@ export class ResultadosDelCuadro {
     resultado: ResultadoCargado,
   ): Promise<{ id: number; deshechos: number }> {
     return this.prisma.$transaction(async (tx) => {
+      const torneo = await tx.torneo.findUnique({
+        where: { id: torneoId },
+        select: { estado: true },
+      });
+
+      // **Un torneo cancelado no acepta resultados**: se canceló, no se jugó, y un
+      // partido cargado ahí repartiría puntos de algo que no ocurrió. El finalizado sí
+      // los acepta: corregir el ganador de una final ya jugada es justo para lo que
+      // existe la corrección.
+      if (torneo?.estado === EstadoTorneo.CANCELADO) {
+        throw new ConflictException(
+          'Ese torneo está cancelado: no se le cargan resultados.',
+        );
+      }
+
       const partido = await this.elPartido(tx, torneoId, partidoId);
 
       // **Un partido sin los dos jugadores no acepta resultado.** Es el error que deja
@@ -209,11 +225,16 @@ export class ResultadosDelCuadro {
 
     for (;;) {
       const destino = avanceDe(actual.ronda, actual.posicion);
-      const siguiente = await db.partido.findFirst({
+      // Por la clave compuesta y no con un `findFirst`: es única y así se busca en el
+      // resto del archivo. La misma consulta escrita de dos formas es una que alguien
+      // va a cambiar en un lugar y no en el otro.
+      const siguiente = await db.partido.findUnique({
         where: {
-          torneoId,
-          ronda: destino.ronda,
-          posicion: destino.posicion,
+          torneoId_ronda_posicion: {
+            torneoId,
+            ronda: destino.ronda,
+            posicion: destino.posicion,
+          },
         },
         select: { id: true, ronda: true, posicion: true, ganadorId: true },
       });
