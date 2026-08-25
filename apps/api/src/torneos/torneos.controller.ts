@@ -13,6 +13,7 @@ import {
 import { SoloAdmin } from '../identidad/guards';
 import { CuadroDelTorneo } from './cuadro.service';
 import { InscripcionesATorneo } from './inscripciones.service';
+import { ResultadosDelCuadro } from './resultados.service';
 import { Jugadores } from './jugadores.service';
 import { Torneos } from './torneos.service';
 import {
@@ -22,6 +23,7 @@ import {
   leerCategoria,
   leerInscripcionATorneo,
   leerJugadorNuevo,
+  leerResultado,
   leerSiembra,
   leerTorneo,
 } from './torneos.dto';
@@ -40,6 +42,7 @@ export class TorneosController {
     private readonly torneos: Torneos,
     private readonly inscripciones: InscripcionesATorneo,
     private readonly cuadro: CuadroDelTorneo,
+    private readonly resultados: ResultadosDelCuadro,
   ) {}
 
   @Get('jugadores')
@@ -164,6 +167,31 @@ export class TorneosController {
   @HttpCode(200)
   deshacerCuadro(@Param('id', ParseIntPipe) id: number) {
     return this.cuadro.deshacer(id);
+  }
+
+  /**
+   * Cuántos partidos se deshacen si se corrige este resultado.
+   *
+   * Se consulta **antes** de corregir: cambiar al ganador de semifinales borra la
+   * final que ya se jugó, y eso el admin tiene que verlo escrito antes de apretar.
+   */
+  @Get('torneos/:torneoId/partidos/:id/consecuencias')
+  consecuencias(
+    @Param('torneoId', ParseIntPipe) torneoId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.resultados.consecuencias(torneoId, id);
+  }
+
+  /** Cargar el resultado avanza al ganador al partido y al lado que le tocan. */
+  @Post('torneos/:torneoId/partidos/:id/resultado')
+  @HttpCode(200)
+  cargarResultado(
+    @Param('torneoId', ParseIntPipe) torneoId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.resultados.cargar(torneoId, id, leerResultado(cuerpo));
   }
 
   /**

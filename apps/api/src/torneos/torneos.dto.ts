@@ -287,3 +287,23 @@ export function leerSiembra(cuerpo: unknown): number | null {
 
   return entero(datos.siembra, 'La siembra', 1, 256);
 }
+
+/**
+ * Lee un resultado.
+ *
+ * El marcador es texto libre y puede faltar: en un walkover no hay marcador que
+ * escribir, y obligar a inventar uno es pedirle al club que mienta en el cuadro.
+ */
+export function leerResultado(cuerpo: unknown): {
+  ganadorId: number;
+  marcador: string | null;
+  walkover: boolean;
+} {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  return {
+    ganadorId: entero(datos.ganadorId, 'El ganador', 1),
+    marcador: texto(datos.marcador, 60) || null,
+    walkover: datos.walkover === true,
+  };
+}

@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { IdentidadModule } from '../identidad/identidad.module';
 import { CuadroDelTorneo } from './cuadro.service';
 import { InscripcionesATorneo } from './inscripciones.service';
+import { ResultadosDelCuadro } from './resultados.service';
 import { Jugadores } from './jugadores.service';
 import { TorneosController } from './torneos.controller';
 import { Torneos } from './torneos.service';
@@ -17,7 +18,13 @@ import { Torneos } from './torneos.service';
 @Module({
   imports: [IdentidadModule],
   controllers: [TorneosController],
-  providers: [Jugadores, Torneos, InscripcionesATorneo, CuadroDelTorneo],
+  providers: [
+    Jugadores,
+    Torneos,
+    InscripcionesATorneo,
+    CuadroDelTorneo,
+    ResultadosDelCuadro,
+  ],
   exports: [Jugadores],
 })
 export class TorneosModule {}

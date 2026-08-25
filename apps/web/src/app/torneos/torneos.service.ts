@@ -258,6 +258,32 @@ export class Torneos {
     );
   }
 
+  /** Cuántos partidos se deshacen si se corrige este resultado. No escribe nada. */
+  consecuencias(
+    torneoId: number,
+    partidoId: number,
+  ): Promise<{ deshace: number }> {
+    return firstValueFrom(
+      this.http.get<{ deshace: number }>(
+        `/api/admin/torneos/${torneoId}/partidos/${partidoId}/consecuencias`,
+      ),
+    );
+  }
+
+  /** Cargar el resultado avanza al ganador al partido y al lado que le tocan. */
+  cargarResultado(
+    torneoId: number,
+    partidoId: number,
+    resultado: { ganadorId: number; marcador?: string; walkover?: boolean },
+  ): Promise<{ id: number; deshechos: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number; deshechos: number }>(
+        `/api/admin/torneos/${torneoId}/partidos/${partidoId}/resultado`,
+        resultado,
+      ),
+    );
+  }
+
   torneos(): Promise<Torneo[]> {
     return firstValueFrom(this.http.get<Torneo[]>('/api/admin/torneos'));
   }

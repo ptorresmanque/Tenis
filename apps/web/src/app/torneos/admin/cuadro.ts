@@ -68,12 +68,112 @@ import { PartidoDelCuadro, Torneos } from '../torneos.service';
                           {{ partido.marcador }}
                         </p>
                       }
+                      @if (partido.walkover) {
+                        <app-insignia variante="neutro" icono="block">
+                          No se presentó
+                        </app-insignia>
+                      }
+
+                      @if (sePuedeCargar(partido)) {
+                        <button
+                          type="button"
+                          class="boton boton-texto boton-chico mt-1"
+                          [disabled]="trabajando()"
+                          (click)="abrir(partido)"
+                        >
+                          {{ partido.ganadorId ? 'Corregir' : 'Cargar resultado' }}
+                        </button>
+                      }
                     </li>
                   }
                 </ul>
               </div>
             }
           </div>
+
+          @if (cargando(); as partido) {
+            <div
+              role="alertdialog"
+              aria-labelledby="titulo-resultado"
+              class="mt-3 rounded-xl border border-border bg-card p-4 text-sm"
+            >
+              <h4 id="titulo-resultado" class="font-display font-semibold">
+                {{ partido.jugadorA }} contra {{ partido.jugadorB }}
+              </h4>
+
+              @if (deshace() > 0) {
+                <!-- Lo que se confirma no es "¿seguro?", es este número: corregir una
+                     semifinal borra la final que ya se jugó. -->
+                <p class="mt-1 text-destructive">
+                  Cambiar este resultado deshace {{ deshace() }}
+                  {{ deshace() === 1 ? 'partido ya jugado' : 'partidos ya jugados' }}
+                  más adelante en el cuadro.
+                </p>
+              }
+
+              <fieldset class="mt-2">
+                <legend class="text-sm font-medium">Quién ganó</legend>
+                <label class="mt-1 flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="ganador"
+                    [value]="partido.jugadorAId"
+                    [checked]="ganadorId() === partido.jugadorAId"
+                    (change)="ganadorId.set(partido.jugadorAId)"
+                  />
+                  {{ partido.jugadorA }}
+                </label>
+                <label class="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="ganador"
+                    [value]="partido.jugadorBId"
+                    [checked]="ganadorId() === partido.jugadorBId"
+                    (change)="ganadorId.set(partido.jugadorBId)"
+                  />
+                  {{ partido.jugadorB }}
+                </label>
+              </fieldset>
+
+              <label class="mt-2 block">
+                <span class="text-sm font-medium">Marcador</span>
+                <input
+                  class="campo campo-chico mt-1"
+                  name="marcador"
+                  placeholder="6-4 3-6 7-5"
+                  [value]="marcador()"
+                  (input)="marcador.set($any($event.target).value)"
+                />
+              </label>
+
+              <label class="mt-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  [checked]="walkover()"
+                  (change)="walkover.set($any($event.target).checked)"
+                />
+                <span>El rival no se presentó</span>
+              </label>
+
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="boton boton-primario boton-chico"
+                  [disabled]="trabajando() || ganadorId() === null"
+                  (click)="guardar()"
+                >
+                  Guardar resultado
+                </button>
+                <button
+                  type="button"
+                  class="boton boton-texto boton-chico"
+                  (click)="cargando.set(null)"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          }
 
           <button
             type="button"
@@ -131,6 +231,55 @@ export class CuadroDelTorneo {
    */
   protected nombreVacio(partido: PartidoDelCuadro): string {
     return partido.ronda === 1 ? 'Bye' : 'Por definir';
+  }
+
+  /** El partido que se está cargando, con su formulario abierto. */
+  protected readonly cargando = signal<PartidoDelCuadro | null>(null);
+  protected readonly ganadorId = signal<number | null>(null);
+  protected readonly marcador = signal('');
+  protected readonly walkover = signal(false);
+
+  /** Cuántos partidos se deshacen si se guarda este cambio. */
+  protected readonly deshace = signal(0);
+
+  /** Solo los que tienen sus dos jugadores: el resto todavía no se jugó. */
+  protected sePuedeCargar(partido: PartidoDelCuadro): boolean {
+    return partido.jugadorAId !== null && partido.jugadorBId !== null;
+  }
+
+  /**
+   * Abre el formulario y **pregunta antes qué se va a deshacer**.
+   *
+   * Es el mismo paso previo del cierre de una cancha: lo que se confirma no es
+   * "¿seguro?", es el número de partidos ya jugados que este cambio borra.
+   */
+  protected async abrir(partido: PartidoDelCuadro): Promise<void> {
+    this.cargando.set(partido);
+    this.ganadorId.set(partido.ganadorId);
+    this.marcador.set(partido.marcador ?? '');
+    this.walkover.set(partido.walkover);
+    this.deshace.set(0);
+
+    if (partido.ganadorId !== null) {
+      const aviso = await this.api.consecuencias(this.torneoId(), partido.id);
+      this.deshace.set(aviso.deshace);
+    }
+  }
+
+  protected async guardar(): Promise<void> {
+    const partido = this.cargando();
+    const ganadorId = this.ganadorId();
+
+    if (partido === null || ganadorId === null) return;
+
+    await this.intentar(async () => {
+      await this.api.cargarResultado(this.torneoId(), partido.id, {
+        ganadorId,
+        marcador: this.marcador(),
+        walkover: this.walkover(),
+      });
+      this.cargando.set(null);
+    });
   }
 
   protected async armar(): Promise<void> {

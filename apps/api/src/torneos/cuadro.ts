@@ -230,3 +230,27 @@ function partidosDeTodasLasRondas(
 
   return partidos;
 }
+
+/** A dónde va el ganador de un partido. */
+export interface Avance {
+  ronda: number;
+  posicion: number;
+  /** En qué lado del partido siguiente entra. */
+  lado: 'A' | 'B';
+}
+
+/**
+ * Dónde juega el ganador de este partido.
+ *
+ * Los partidos de una ronda se emparejan de a dos igual que los lugares del cuadro: el
+ * 1 y el 2 dan el 1 de la ronda siguiente, el 3 y el 4 dan el 2. **El lado no es un
+ * detalle**: el de posición impar entra arriba y el par abajo, y confundirlos dibuja un
+ * cuadro donde los cruces no corresponden a los que se jugaron.
+ */
+export function avanceDe(ronda: number, posicion: number): Avance {
+  return {
+    ronda: ronda + 1,
+    posicion: Math.ceil(posicion / 2),
+    lado: posicion % 2 === 1 ? 'A' : 'B',
+  };
+}

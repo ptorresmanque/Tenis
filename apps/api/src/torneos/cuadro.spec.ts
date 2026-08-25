@@ -1,5 +1,6 @@
 import {
   armarCuadro,
+  avanceDe,
   azarCon,
   lugaresDeSiembra,
   lugarRival,
@@ -231,6 +232,29 @@ describe('El cuadro de un torneo', () => {
         expect(valor).toBeGreaterThanOrEqual(0);
         expect(valor).toBeLessThan(1);
       }
+    });
+  });
+
+  describe('avanceDe', () => {
+    it('**el ganador de la posición 3 va a la posición 2 de la ronda siguiente**', () => {
+      // Es el caso del criterio: los partidos se emparejan de a dos, el 3 y el 4 dan
+      // el 2 de la ronda que viene.
+      expect(avanceDe(1, 3)).toEqual({ ronda: 2, posicion: 2, lado: 'A' });
+    });
+
+    it('**el de posición impar entra arriba y el par abajo**', () => {
+      // Confundir el lado dibuja un cuadro donde los cruces no son los que se jugaron.
+      expect(avanceDe(1, 1).lado).toBe('A');
+      expect(avanceDe(1, 2).lado).toBe('B');
+      expect(avanceDe(2, 4).lado).toBe('B');
+    });
+
+    it('los dos partidos de un cruce llegan al mismo lugar por lados distintos', () => {
+      const uno = avanceDe(1, 5);
+      const otro = avanceDe(1, 6);
+
+      expect(uno.posicion).toBe(otro.posicion);
+      expect(uno.lado).not.toBe(otro.lado);
     });
   });
 
