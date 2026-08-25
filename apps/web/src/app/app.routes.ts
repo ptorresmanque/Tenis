@@ -138,6 +138,18 @@ export const routes: Routes = [
           import('./clases/admin/profesores').then((m) => m.ProfesoresPanel),
       },
       {
+        path: 'administracion/torneos',
+        title: 'Torneos — Administración',
+        loadComponent: () =>
+          import('./torneos/admin/torneos').then((m) => m.TorneosPanel),
+      },
+      {
+        path: 'administracion/jugadores',
+        title: 'Jugadores — Administración',
+        loadComponent: () =>
+          import('./torneos/admin/jugadores').then((m) => m.JugadoresPanel),
+      },
+      {
         path: 'administracion/solicitudes',
         title: 'Consultas al club — Administración',
         loadComponent: () =>

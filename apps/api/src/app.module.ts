@@ -8,6 +8,7 @@ import { PagosModule } from './pagos/pagos.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReservasModule } from './reservas/reservas.module';
 import { SaludModule } from './salud/salud.module';
+import { TorneosModule } from './torneos/torneos.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { SaludModule } from './salud/salud.module';
     CatalogoCanchasModule,
     PagosModule,
     ReservasModule,
+    TorneosModule,
   ],
 })
 export class AppModule {}

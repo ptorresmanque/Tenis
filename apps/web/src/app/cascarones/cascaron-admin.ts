@@ -242,6 +242,18 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/torneos',
+      etiqueta: 'Torneos',
+      icono: 'emoji_events',
+      trasDivisoria: false,
+    },
+    {
+      ruta: '/administracion/jugadores',
+      etiqueta: 'Jugadores',
+      icono: 'groups',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/solicitudes',
       etiqueta: 'Consultas al club',
       icono: 'drafts',

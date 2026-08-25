@@ -69,7 +69,12 @@ export function horaEnElClub(instante: string | Date): string {
 export function diaEnPalabras(fecha: string): string {
   // Se lee a mediodía UTC y no a medianoche: a medianoche UTC en Santiago todavía
   // es el día anterior, y el encabezado mostraría un día menos que la grilla.
-  return DIA_LARGO.format(new Date(`${fecha}T12:00:00.000Z`));
+  //
+  // Los diez primeros caracteres y no la cadena entera: una columna `DATE` viaja a
+  // veces como "2026-11-10" y a veces como "2026-11-10T00:00:00.000Z", y concatenarle
+  // la hora a la segunda forma daba una fecha inválida que hacía desaparecer el
+  // bloque entero sin un solo error a la vista.
+  return DIA_LARGO.format(new Date(`${fecha.slice(0, 10)}T12:00:00.000Z`));
 }
 
 /**

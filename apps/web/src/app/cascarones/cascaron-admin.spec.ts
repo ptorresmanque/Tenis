@@ -68,7 +68,7 @@ describe('Cascarón de administración', () => {
     );
   }
 
-  it('lista las once secciones que hoy tienen pantalla', () => {
+  it('lista las trece secciones que hoy tienen pantalla', () => {
     expect(itemsDeLaBarra()).toEqual([
       '/administracion/reservas',
       '/administracion/canchas',
@@ -78,6 +78,8 @@ describe('Cascarón de administración', () => {
       '/administracion/morosos',
       '/administracion/clases',
       '/administracion/profesores',
+      '/administracion/torneos',
+      '/administracion/jugadores',
       '/administracion/solicitudes',
       '/administracion/configuracion',
       '/estado',
@@ -85,7 +87,7 @@ describe('Cascarón de administración', () => {
   });
 
   it('ningún ítem lleva a una ruta que no existe', () => {
-    // Torneos y Ranking están en el diseño y no en el código:
+    // Ranking está en el diseño y no en el código:
     // hasta que tengan pantalla, no están en la barra.
     expect(urlsDelRouter()).toEqual(expect.arrayContaining(itemsDeLaBarra()));
   });
@@ -94,7 +96,7 @@ describe('Cascarón de administración', () => {
     const barra = (montar().nativeElement as HTMLElement).querySelector('aside');
     const iconos = [...barra!.querySelectorAll('nav a .icono')];
 
-    expect(iconos).toHaveLength(11);
+    expect(iconos).toHaveLength(13);
     expect(iconos.every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true);
   });
 

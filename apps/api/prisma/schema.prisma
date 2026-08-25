@@ -107,6 +107,7 @@ model Socio {
   reportes        ReporteNoUso[]
   cuotas          Cuota[]
   clases          InscripcionClase[]
+  jugador         Jugador?
 
   @@map("socio")
 }
@@ -857,4 +858,85 @@ model InscripcionClase {
   @@index([claseId])
   @@index([socioId])
   @@map("inscripcion_clase")
+}
+
+// ── torneos ──────────────────────────────────────────────────────────────────
+// Modelo de SPEC-torneos.md § Modelo de datos.
+
+/// Quien juega torneos. **No es el socio, y esa es la decisión que da forma al módulo.**
+///
+/// Va en contra de lo que hizo `reservas` con el invitado —un nombre suelto que muere
+/// con la reserva— y el contraste es el argumento: aquel no tiene identidad que
+/// reutilizar, este sí. Vuelve el año siguiente, acumula puntos y aparece en una tabla
+/// que ordena personas; sin ficha estable, el ranking suma "J. Pérez" y "Juan Pérez"
+/// por separado y la tabla queda mal a la vista de todos.
+///
+/// `socioId` único y opcional: nulo es un jugador de afuera, y un socio tiene a lo
+/// sumo un jugador. Enlazar un externo a una ficha de socio es escribir este campo, y
+/// por eso **sus puntos viajan con él**: cuelgan del jugador, no del socio.
+model Jugador {
+  id       Int     @id @default(autoincrement())
+  socioId  Int?    @unique @map("socio_id")
+  nombre   String  @db.VarChar(80)
+  apellido String  @db.VarChar(80)
+  telefono String? @db.VarChar(40)
+  activo   Boolean @default(true)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  socio Socio? @relation(fields: [socioId], references: [id], onDelete: SetNull)
+
+  @@index([apellido, nombre])
+  @@map("jugador")
+}
+
+/// Las categorías que el club inventa: "Club 250", "Club 500", "Máster de fin de año".
+///
+/// **Tabla y no enum**, por la misma razón que las franjas horarias son filas: este año
+/// hay una categoría que el año pasado no existía, y agregar un valor a un enum es una
+/// migración. De `puntosCampeon` salen los de cada ronda; ver `SPEC-ranking.md`.
+model CategoriaTorneo {
+  id            Int     @id @default(autoincrement())
+  nombre        String  @unique @db.VarChar(80)
+  puntosCampeon Int     @map("puntos_campeon")
+  activa        Boolean @default(true)
+
+  torneos Torneo[]
+
+  @@map("categoria_torneo")
+}
+
+enum EstadoTorneo {
+  INSCRIPCION
+  CUADRO_ARMADO
+  EN_CURSO
+  FINALIZADO
+  CANCELADO
+}
+
+/// Un torneo del club.
+model Torneo {
+  id          Int    @id @default(autoincrement())
+  nombre      String @db.VarChar(120)
+  categoriaId Int    @map("categoria_id")
+
+  /// Informativa: en qué se juega. Nula si el club todavía no lo decidió o se juega
+  /// en varias.
+  superficie Superficie?
+
+  /// Fechas civiles del club, como `alDiaHasta`: un torneo dura días, no horas.
+  fechaInicio       DateTime @map("fecha_inicio") @db.Date
+  fechaFin          DateTime @map("fecha_fin") @db.Date
+  cierreInscripcion DateTime @map("cierre_inscripcion") @db.Date
+
+  /// Cuántos jugadores entran al cuadro. Los que se pasan van a lista de espera.
+  cupo   Int
+  estado EstadoTorneo @default(INSCRIPCION)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  categoria CategoriaTorneo @relation(fields: [categoriaId], references: [id])
+
+  @@index([estado, fechaInicio])
+  @@map("torneo")
 }
