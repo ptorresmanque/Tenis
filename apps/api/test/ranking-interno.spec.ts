@@ -218,13 +218,34 @@ describe('GET /api/ranking/interno', () => {
     expect(respuesta.partidos).toBe(1);
   });
 
-  it('y desde cuándo alguien cuenta como inactivo', async () => {
+  it('**y desde cuándo alguien cuenta como inactivo**', async () => {
+    // Contra seis meses **escritos**, no contra la misma cuenta del servicio copiada
+    // acá: si el corte se anuncia desde un lado y se aplica desde otro, los dos se
+    // mueven juntos y nadie se entera. Es lo que pasó con el `hasta` de la otra tabla.
     const corte = new Date(hoyEnElClub());
     corte.setUTCMonth(corte.getUTCMonth() - 6);
 
     expect((await tabla(ana)).inactivosDesde).toBe(
       corte.toISOString().slice(0, 10),
     );
+  });
+
+  it('**el corte que anuncia es el que aplica**', async () => {
+    // El par del anterior, y el que de verdad ataja la deriva: se pregunta por el día
+    // que la propia respuesta declara como corte, y se comprueba que un partido de un
+    // día antes deja a los dos fuera de la tabla principal.
+    const { inactivosDesde } = await tabla(ana);
+    const vispera = new Date(`${inactivosDesde}T00:00:00.000Z`);
+    vispera.setUTCDate(vispera.getUTCDate() - 1);
+
+    await jugado(ana, beto, vispera.toISOString().slice(0, 10));
+
+    const suyas = (await tabla(ana)).posiciones.filter((f) =>
+      f.nombre.includes(APELLIDO),
+    );
+
+    expect(suyas).toHaveLength(2);
+    expect(suyas.every((f) => !f.activo)).toBe(true);
   });
 
   it('**quien no juega hace ocho meses sale de la tabla principal**', async () => {

@@ -28,6 +28,21 @@ export const K = 32;
  */
 const MESES_DE_INACTIVIDAD = 6;
 
+/**
+ * Desde qué día hay que haber jugado para seguir en la tabla principal.
+ *
+ * **Exportada porque la pantalla anuncia este corte**, y el número tiene que salir del
+ * mismo lugar que lo aplica. Calculado aparte en el servicio, cambiar los meses acá
+ * dejaba la pantalla prometiendo un corte distinto del que el motor usa: es el mismo
+ * error que el `hasta` del ranking de torneos, que prometía un tope que no existía.
+ */
+export function corteDeInactividad(hoy: Date): Date {
+  const corte = new Date(hoy);
+  corte.setUTCMonth(corte.getUTCMonth() - MESES_DE_INACTIVIDAD);
+
+  return corte;
+}
+
 /** Un partido confirmado, con lo único que el Elo necesita mirarle. */
 export interface PartidoConfirmado {
   socioAId: number;
@@ -146,8 +161,7 @@ export function tablaInterna(
     perdedor.ultimo = partido.jugadoEn;
   }
 
-  const corte = new Date(hoy);
-  corte.setUTCMonth(corte.getUTCMonth() - MESES_DE_INACTIVIDAD);
+  const corte = corteDeInactividad(hoy);
 
   const filas = [...socios].map(([socioId, suyo]) => ({
     socioId,

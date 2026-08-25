@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { comoFechaCivil, hoyEnElClub } from '../comun/tiempo';
 import { EstadoPartidoInterno } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { FilaInterna, tablaInterna } from './elo';
+import { corteDeInactividad, FilaInterna, tablaInterna } from './elo';
 import { NOMBRE_DEL_SOCIO, nombreDeSocio } from './nombres';
 
 export interface TablaDelClub {
@@ -46,19 +46,22 @@ export class RankingInterno {
       },
     });
 
-    const inactivosDesde = new Date(hoy);
-    inactivosDesde.setUTCMonth(inactivosDesde.getUTCMonth() - 6);
+    // El corte sale del motor y no se recalcula acá: es el número que la pantalla
+    // anuncia, y anunciarlo desde otro lado es prometer un corte que puede no ser el
+    // que se aplica.
+    const ultimo = partidos.reduce<Date | null>(
+      (mayor, partido) =>
+        mayor === null || partido.jugadoEn > mayor ? partido.jugadoEn : mayor,
+      null,
+    );
 
     return {
       partidos: partidos.length,
-      // El último es el último de la lista, que ya viene ordenada de más viejo a más
-      // nuevo. La pantalla lo muestra: una tabla que no dice hasta cuándo cuenta no
-      // se puede explicar cuando alguien pregunta por qué no está su partido.
-      ultimoPartido:
-        partidos.length > 0
-          ? comoFechaCivil(partidos[partidos.length - 1].jugadoEn)
-          : null,
-      inactivosDesde: comoFechaCivil(inactivosDesde),
+      // El máximo y no el último de la lista: viene ordenada, pero depender de eso
+      // hace que un `orderBy` cambiado de lugar mienta en silencio. El motor ya se
+      // defiende reordenando por su cuenta; esta línea también.
+      ultimoPartido: ultimo === null ? null : comoFechaCivil(ultimo),
+      inactivosDesde: comoFechaCivil(corteDeInactividad(hoy)),
       posiciones: tablaInterna(
         partidos.map((partido) => ({
           ...partido,
