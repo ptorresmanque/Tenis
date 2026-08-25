@@ -126,3 +126,63 @@ function leerRango(datos: Record<string, unknown>): {
   // por eso la fecha se lee una vez y vale para las dos.
   return { fecha: datos.fecha as string, inicio, fin };
 }
+
+/** Quién se inscribe: un socio del club o un alumno de afuera, nunca los dos. */
+export interface InscripcionNueva {
+  socioId: number | null;
+  nombre: string | null;
+  telefono: string | null;
+}
+
+/**
+ * Lee la inscripción.
+ *
+ * **Exactamente uno de los dos, y lo impone esto.** La base no puede: MariaDB no deja
+ * un CHECK sobre una columna con clave foránea, el mismo muro que encontró
+ * `AcompananteReserva`. Una fila con socio y nombre a la vez se cuenta una vez o dos
+ * según quién la lea —el que arma la lista del profesor ve los dos campos, el que
+ * cuenta el cupo ve uno—, y esa diferencia aparece como un alumno de más en la cancha.
+ */
+export function leerInscripcion(cuerpo: unknown): InscripcionNueva {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  const nombre = typeof datos.nombre === 'string' ? datos.nombre.trim() : '';
+  const telefono =
+    typeof datos.telefono === 'string' ? datos.telefono.trim() : '';
+  const traeSocio = datos.socioId !== undefined && datos.socioId !== null;
+
+  if (traeSocio && nombre !== '') {
+    throw new BadRequestException(
+      'O es un socio del club o es un alumno de afuera: elige uno.',
+    );
+  }
+
+  if (traeSocio) {
+    return {
+      socioId: entero(datos.socioId, 'El socio', 1),
+      nombre: null,
+      telefono: null,
+    };
+  }
+
+  if (nombre === '') {
+    throw new BadRequestException(
+      'Dinos quién viene: un socio del club o el nombre del alumno.',
+    );
+  }
+
+  // **El alumno de afuera deja teléfono**, a diferencia del invitado de una reserva:
+  // a aquel lo trae un socio que responde por él; a este lo tiene que poder llamar el
+  // club cuando el profesor se enferma.
+  if (telefono === '') {
+    throw new BadRequestException(
+      'Falta el teléfono del alumno: es por donde el club avisa si la clase se mueve.',
+    );
+  }
+
+  return {
+    socioId: null,
+    nombre: nombre.slice(0, 120),
+    telefono: telefono.slice(0, 40),
+  };
+}

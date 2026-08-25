@@ -106,6 +106,7 @@ model Socio {
   acompanamientos AcompananteReserva[]
   reportes        ReporteNoUso[]
   cuotas          Cuota[]
+  clases          InscripcionClase[]
 
   @@map("socio")
 }
@@ -792,11 +793,68 @@ model Clase {
 
   creadaEn DateTime @default(now()) @map("creada_en")
 
-  profesor Profesor @relation(fields: [profesorId], references: [id])
-  cancha   Cancha   @relation(fields: [canchaId], references: [id], onDelete: Cascade)
-  bloqueo  Bloqueo? @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
+  profesor      Profesor           @relation(fields: [profesorId], references: [id])
+  cancha        Cancha             @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  bloqueo       Bloqueo?           @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
+  inscripciones InscripcionClase[]
 
   @@index([inicio])
   @@index([canchaId, inicio])
   @@map("clase")
+}
+
+enum EstadoInscripcion {
+  INSCRITA
+  CANCELADA
+  ASISTIO
+  FALTO
+}
+
+/// Quién viene a una clase: un socio del club o un alumno de afuera.
+///
+/// **Los dos tipos en la misma tabla**, por la misma razón que `AcompananteReserva`:
+/// son la respuesta a la misma pregunta —quién viene a esta clase— y el club tiene
+/// que poder mirar una clase y ver la lista completa. En dos tablas, contar el cupo
+/// exige sumar dos consultas y es cuestión de tiempo que una se olvide.
+///
+/// **Exactamente uno de los dos.** La mitad que toca `socioId` la impone
+/// `Inscripciones` y no la base: MariaDB no deja que una columna con foreign key
+/// participe en un CHECK, el mismo muro de `AcompananteReserva`. La otra mitad —el
+/// alumno de afuera no queda sin teléfono— sí va en un CHECK, ver la migración.
+///
+/// **El alumno de afuera deja teléfono**, a diferencia del invitado de una reserva:
+/// a aquel lo trae un socio que responde por él; a este lo tiene que poder llamar el
+/// club cuando el profesor se enferma.
+model InscripcionClase {
+  id      Int @id @default(autoincrement())
+  claseId Int @map("clase_id")
+
+  /// Socio del club. Nulo = alumno de afuera.
+  socioId Int? @map("socio_id")
+
+  /// Del alumno de afuera. Nulos cuando la inscripción es de un socio: su nombre y su
+  /// teléfono se leen de su ficha y siguen al día si los cambió.
+  nombre   String? @db.VarChar(120)
+  telefono String? @db.VarChar(40)
+
+  estado     EstadoInscripcion @default(INSCRITA)
+  inscritaEn DateTime          @default(now()) @map("inscrita_en")
+
+  /// **La escribe la base, nunca la aplicación.** Columna generada —
+  /// `IF(estado = 'CANCELADA', NULL, socio_id)`, ver la migración— con el mismo
+  /// truco que `inicio_activo` en `Reserva`: el único no puede ir sobre
+  /// `(clase_id, socio_id)` a secas porque un socio que canceló tiene que poder
+  /// volver a inscribirse, y su fila sigue ahí para el historial.
+  socioActivo Int? @map("socio_activo")
+
+  clase Clase  @relation(fields: [claseId], references: [id], onDelete: Cascade)
+  socio Socio? @relation(fields: [socioId], references: [id], onDelete: SetNull)
+
+  /// Un socio, una inscripción viva por clase. Las canceladas tienen `socio_activo`
+  /// nulo y en MySQL dos nulos no chocan; el alumno de afuera lo tiene siempre nulo,
+  /// así que dos homónimos conviven —son dos personas distintas—.
+  @@unique([claseId, socioActivo], map: "inscripcion_socio_activo")
+  @@index([claseId])
+  @@index([socioId])
+  @@map("inscripcion_clase")
 }

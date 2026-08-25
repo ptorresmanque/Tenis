@@ -78,7 +78,10 @@ describe('AgendaDeClases', () => {
         {
           provide: AdminCanchas,
           useValue: {
-            canchas: vi.fn().mockResolvedValue([{ id: 2, nombre: 'Cancha 1' }]),
+            canchas: vi.fn().mockResolvedValue([
+              { id: 2, nombre: 'Cancha 1', activa: true },
+              { id: 5, nombre: 'Cancha en obras', activa: false },
+            ]),
           },
         },
       ],
@@ -190,6 +193,17 @@ describe('AgendaDeClases', () => {
     await apretar('Agendar clase');
 
     expect(texto()).toContain('ya está cerrada');
+  });
+
+  it('**una cancha desactivada no se ofrece: el servidor la rechaza siempre**', async () => {
+    // No tiene grilla, así que agendar sobre ella responde 404. Ofrecerla en el
+    // selector es ofrecer un callejón.
+    const opciones = Array.from(
+      elemento().querySelectorAll('select[name="canchaId"] option'),
+    ).map((o) => o.textContent?.trim());
+
+    expect(opciones).toContain('Cancha 1');
+    expect(opciones).not.toContain('Cancha en obras');
   });
 
   it('sin clases el día lo dice, en vez de quedar en blanco', async () => {

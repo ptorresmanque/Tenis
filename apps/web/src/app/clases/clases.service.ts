@@ -42,6 +42,39 @@ export interface ClaseNueva {
   notas?: string;
 }
 
+export type EstadoInscripcion = 'INSCRITA' | 'CANCELADA' | 'ASISTIO' | 'FALTO';
+
+/** Quién viene a la clase, como lo lee el club. */
+export interface Inscrito {
+  id: number;
+  nombre: string;
+  telefono: string;
+  esSocio: boolean;
+  numeroSocio: string | null;
+  estado: EstadoInscripcion;
+  inscritaEn: string;
+}
+
+/** La clase con su lista: lo que el profesor lleva a la cancha. */
+export interface FichaDeClase {
+  id: number;
+  cancha: string;
+  profesor: string;
+  inicio: string;
+  fin: string;
+  nivel: NivelClase;
+  estado: 'PROGRAMADA' | 'REALIZADA' | 'CANCELADA';
+  cupoMaximo: number;
+  cupoTomado: number;
+  notas: string | null;
+  inscritos: Inscrito[];
+}
+
+/** Un socio del club o un alumno de afuera, nunca los dos. */
+export type QuienSeInscribe =
+  | { socioId: number }
+  | { nombre: string; telefono: string };
+
 export interface ResultadoAgendar {
   id: number;
   bloqueoId: number;
@@ -88,6 +121,31 @@ export class Clases {
   ): Promise<ResultadoAgendar> {
     return firstValueFrom(
       this.http.patch<ResultadoAgendar>(`/api/admin/clases/${id}`, adonde),
+    );
+  }
+
+  /** La ficha con su lista de inscritos. */
+  ficha(id: number): Promise<FichaDeClase> {
+    return firstValueFrom(this.http.get<FichaDeClase>(`/api/admin/clases/${id}`));
+  }
+
+  /** El cupo lo decide el servidor: la pantalla solo lo anticipa. */
+  inscribir(claseId: number, quien: QuienSeInscribe): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/clases/${claseId}/inscripciones`,
+        quien,
+      ),
+    );
+  }
+
+  /** Baja a alguien de la clase. La fila queda marcada; libera el cupo, no la historia. */
+  bajar(claseId: number, id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/clases/${claseId}/inscripciones/${id}/cancelacion`,
+        {},
+      ),
     );
   }
 

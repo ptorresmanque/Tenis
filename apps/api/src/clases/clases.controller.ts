@@ -12,7 +12,13 @@ import {
 
 import { SoloAdmin } from '../identidad/guards';
 import { Clases } from './clases.service';
-import { leerCancelacion, leerClaseNueva, leerMovimiento } from './clases.dto';
+import { Inscripciones } from './inscripciones.service';
+import {
+  leerCancelacion,
+  leerClaseNueva,
+  leerInscripcion,
+  leerMovimiento,
+} from './clases.dto';
 
 /**
  * Las clases del club.
@@ -26,7 +32,10 @@ import { leerCancelacion, leerClaseNueva, leerMovimiento } from './clases.dto';
 @Controller('admin/clases')
 @SoloAdmin()
 export class ClasesController {
-  constructor(private readonly clases: Clases) {}
+  constructor(
+    private readonly clases: Clases,
+    private readonly inscripciones: Inscripciones,
+  ) {}
 
   @Get()
   delDia(@Query('fecha') fecha = '') {
@@ -48,6 +57,32 @@ export class ClasesController {
   @Post()
   agendar(@Body() cuerpo: unknown) {
     return this.clases.agendar(leerClaseNueva(cuerpo));
+  }
+
+  /**
+   * La ficha con su lista de inscritos: lo que el profesor lleva a la cancha.
+   *
+   * Después de `simulacion` en el archivo, o Nest leería "simulacion" como un id.
+   */
+  @Get(':id')
+  ficha(@Param('id', ParseIntPipe) id: number) {
+    return this.inscripciones.ficha(id);
+  }
+
+  /** Inscribir a un socio o a un alumno de afuera. El cupo lo decide el servidor. */
+  @Post(':id/inscripciones')
+  inscribir(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.inscripciones.inscribir(id, leerInscripcion(cuerpo));
+  }
+
+  /** Sacar a alguien de la clase. La fila queda, marcada: libera el cupo, no la historia. */
+  @Post(':claseId/inscripciones/:id/cancelacion')
+  @HttpCode(200)
+  bajar(
+    @Param('claseId', ParseIntPipe) claseId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.inscripciones.cancelar(claseId, id);
   }
 
   /** Mover la clase. Conserva su id, su profesor y sus inscritos. */

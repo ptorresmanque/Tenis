@@ -5,6 +5,7 @@ import { IdentidadModule } from '../identidad/identidad.module';
 import { ReservasModule } from '../reservas/reservas.module';
 import { ClasesController } from './clases.controller';
 import { Clases } from './clases.service';
+import { Inscripciones } from './inscripciones.service';
 import { ProfesoresController } from './profesores.controller';
 import { Profesores } from './profesores.service';
 
@@ -23,6 +24,6 @@ import { Profesores } from './profesores.service';
 @Module({
   imports: [IdentidadModule, CatalogoCanchasModule, ReservasModule],
   controllers: [ProfesoresController, ClasesController],
-  providers: [Profesores, Clases],
+  providers: [Profesores, Clases, Inscripciones],
 })
 export class ClasesModule {}

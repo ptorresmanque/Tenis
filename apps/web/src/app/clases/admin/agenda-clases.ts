@@ -23,6 +23,7 @@ import {
   NIVELES,
 } from '../clases.service';
 import { Profesores } from '../profesores.service';
+import { InscritosDeLaClase } from './inscritos';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -45,7 +46,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-agenda-clases',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase],
   template: `
     <h1 class="font-display text-3xl font-bold">Clases</h1>
     <p class="mt-1 text-muted-foreground">{{ enPalabras(fecha()) }}</p>
@@ -120,7 +121,15 @@ const enBlanco = () => ({
               </app-insignia>
               <button
                 type="button"
-                class="boton boton-texto boton-chico ms-auto"
+                class="boton boton-secundario boton-chico ms-auto"
+                [attr.aria-expanded]="abierta() === clase.id"
+                (click)="alternar(clase.id)"
+              >
+                {{ abierta() === clase.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
+              </button>
+              <button
+                type="button"
+                class="boton boton-texto boton-chico"
                 [disabled]="trabajando()"
                 (click)="cancelar(clase)"
               >
@@ -137,6 +146,10 @@ const enBlanco = () => ({
 
             @if (clase.notas) {
               <p class="mt-1 text-sm text-muted-foreground">{{ clase.notas }}</p>
+            }
+
+            @if (abierta() === clase.id) {
+              <app-inscritos [claseId]="clase.id" />
             }
           </li>
         }
@@ -158,7 +171,7 @@ const enBlanco = () => ({
           <span class="text-sm font-medium">Cancha</span>
           <select class="campo mt-1" name="canchaId" [(ngModel)]="datos.canchaId">
             <option [value]="0" disabled>Elige una cancha</option>
-            @for (cancha of canchas.value(); track cancha.id) {
+            @for (cancha of canchasActivas(); track cancha.id) {
               <option [value]="cancha.id">{{ cancha.nombre }}</option>
             }
           </select>
@@ -334,6 +347,17 @@ export class AgendaDeClases {
     defaultValue: [],
   });
 
+  /**
+   * Solo las activas.
+   *
+   * Una cancha desactivada no tiene grilla, así que el servidor rechaza cualquier
+   * clase sobre ella: ofrecerla en el selector es ofrecer un callejón. Es el mismo
+   * criterio que con los profesores desactivados.
+   */
+  protected readonly canchasActivas = computed(() =>
+    this.canchas.value().filter((cancha) => cancha.activa),
+  );
+
   protected readonly opcionesDeNivel = Object.entries(NIVELES).map(
     ([valor, etiqueta]) => ({ valor, etiqueta }),
   );
@@ -342,6 +366,13 @@ export class AgendaDeClases {
   protected readonly hayPagoEnCurso = computed(() =>
     (this.porConfirmar() ?? []).some((hora) => hora.pagoEnCurso),
   );
+
+  /** Qué clase tiene su lista abierta. Una a la vez: el día entero no cabe. */
+  protected readonly abierta = signal<number | null>(null);
+
+  protected alternar(id: number): void {
+    this.abierta.update((actual) => (actual === id ? null : id));
+  }
 
   protected readonly hora = horaEnElClub;
   protected readonly enPalabras = diaEnPalabras;
