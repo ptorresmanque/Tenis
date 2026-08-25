@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { comoFechaCivil, fechaDelClub, hoyEnElClub } from '../comun/tiempo';
+import { comoFechaCivil, fechaDelClub, mesEnElClub } from '../comun/tiempo';
 import { EstadoCuota, EstadoSocio } from '../generated/prisma/client';
 import type { CampoAuditado } from '../identidad/socios/cambios.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -115,9 +115,12 @@ export class PadronDelClub {
         ).length,
         // Socios distintos y no renglones: retirar, reincorporar y volver a retirar
         // son dos decisiones, pero **un socio menos**. Esta columna cuenta gente.
+        // `hechoEn` es un instante y `fechaIngreso` una columna `DATE`: por eso la
+        // baja pasa por el reloj del club y el alta de arriba no. Aplicarle
+        // `mesEnElClub` a una fecha civil la correría un día hacia atrás.
         bajas: new Set(
           bajas
-            .filter((baja) => this.periodoDe(baja.hechoEn) === periodo)
+            .filter((baja) => mesEnElClub(baja.hechoEn) === periodo)
             .map((baja) => baja.socioId),
         ).size,
         deudaClp: suyas.reduce(
@@ -143,17 +146,6 @@ export class PadronDelClub {
       meses,
       calculadoEn: new Date().toISOString(),
     };
-  }
-
-  /**
-   * El mes al que pertenece un instante, según el reloj del club.
-   *
-   * `hechoEn` es un instante y no una fecha civil: a las 23:30 del 31 de agosto en
-   * Santiago, en UTC ya es septiembre. Leerlo en UTC correría de mes la baja de
-   * cualquier fin de mes hecha de noche.
-   */
-  private periodoDe(instante: Date): string {
-    return comoFechaCivil(hoyEnElClub(instante)).slice(0, 7);
   }
 
   /**

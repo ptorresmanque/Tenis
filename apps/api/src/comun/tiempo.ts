@@ -177,6 +177,25 @@ export function comoFechaCivil(fecha: Date): string {
 }
 
 /**
+ * El mes del club al que pertenece un **instante**, "AAAA-MM".
+ *
+ * Distinto de `comoFechaCivil`, y la diferencia es la que rompe reportes: aquélla lee
+ * una columna `DATE` —que ya viene como medianoche UTC del día civil— y ésta convierte
+ * un instante con el reloj del club antes de mirarlo.
+ *
+ * A las 21:00 de un 31 de agosto en Santiago ya es septiembre en UTC. Como el club
+ * cierra a las 22:00, leer un instante en UTC corre de mes **toda** hora de la tarde
+ * del último día de cualquier mes: la emisión de cuotas se adelantaría un mes, y en los
+ * reportes esa hora aparece en un mes que ni siquiera se pidió.
+ *
+ * Se compara como texto porque "AAAA-MM" ordena igual que la fecha: es la propiedad que
+ * hace que el formato exista.
+ */
+export function mesEnElClub(instante: Date): string {
+  return comoFechaCivil(hoyEnElClub(instante)).slice(0, 7);
+}
+
+/**
  * Si esa cadena es una fecha civil del club que existe de verdad.
  *
  * Vive acá y no en cada controlador porque la usan tres —la agenda, la reserva del

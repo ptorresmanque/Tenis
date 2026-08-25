@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { comoFechaCivil } from '../comun/tiempo';
+import { mesEnElClub } from '../comun/tiempo';
 import { EstadoReporte, EstadoReserva } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { abreEl, cierraEl } from './rango';
@@ -172,8 +172,12 @@ interface HoraDeCancha {
 function etiquetaDe(hora: HoraDeCancha, corte: CorteDeNoUso): string {
   switch (corte) {
     case 'mes':
-      // El mes civil del club, que es como el club piensa el período.
-      return comoFechaCivil(hora.inicio).slice(0, 7);
+      // **Del club y no UTC.** `inicio` es un instante: las 21:00 del 31 de agosto en
+      // Santiago son la 01:00Z del 1 de septiembre, y como el club cierra a las 22:00
+      // le pasa a toda hora de la tarde del último día del mes. El rango del reporte
+      // ya se calcula con el reloj del club; si la etiqueta no, esa hora entra en
+      // agosto y sale rotulada como septiembre.
+      return mesEnElClub(hora.inicio);
     case 'cancha':
       return hora.cancha.nombre;
     case 'franja':

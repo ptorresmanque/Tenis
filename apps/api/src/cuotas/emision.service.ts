@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { hoyEnElClub } from '../comun/tiempo';
+import { mesEnElClub } from '../comun/tiempo';
 import {
   EstadoCuota,
   EstadoSocio,
@@ -159,19 +159,6 @@ export class EmisionDeCuotas {
 /** El mes de una fecha civil, "AAAA-MM". */
 function mesDe(fecha: Date): string {
   return fecha.toISOString().slice(0, 7);
-}
-
-/**
- * El mes en curso del club, "AAAA-MM".
- *
- * Del club y no UTC: a las 21:00 de un 31 de agosto en Santiago ya es septiembre en
- * UTC, y el club estaría emitiendo el mes siguiente unas horas antes de tiempo.
- *
- * Se comparan como texto porque "AAAA-MM" ordena igual que la fecha: es la misma
- * propiedad que hace que el formato exista.
- */
-function mesEnElClub(ahora: Date): string {
-  return hoyEnElClub(ahora).toISOString().slice(0, 7);
 }
 
 export function exigirPeriodo(periodo: string): void {

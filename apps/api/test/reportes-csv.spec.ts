@@ -33,6 +33,8 @@ describe('Reportes: no uso, padrón y CSV', () => {
   const DOMINIO = '@csv.ejemplo.cl';
   const CONTRASENA = 'una-contrasena-larga-2026';
   const MARCA = 'Csv';
+  /** El admin de este archivo. Su nombre firma los cambios de ficha; ver `FIRMA`. */
+  const ADMIN = 'jefe';
   const DIA = '2026-08-10';
 
   const alguien = async (sufijo: string, esAdmin: boolean) => {
@@ -40,7 +42,7 @@ describe('Reportes: no uso, padrón y CSV', () => {
 
     await request(app.getHttpServer())
       .post('/api/auth/registro')
-      .send({ email, contrasena: CONTRASENA, nombre: sufijo, apellido: 'Csv' })
+      .send({ email, contrasena: CONTRASENA, nombre: sufijo, apellido: MARCA })
       .expect(201);
 
     const usuario = await prisma.usuario.update({
@@ -62,8 +64,12 @@ describe('Reportes: no uso, padrón y CSV', () => {
   };
 
   /** Una reserva confirmada, con su reporte de no uso si se pide. */
-  const reservar = async (hora: string, reporte?: EstadoReporte) => {
-    const inicio = instanteEnElClub(DIA, hora);
+  const reservar = async (
+    hora: string,
+    reporte?: EstadoReporte,
+    dia: string = DIA,
+  ) => {
+    const inicio = instanteEnElClub(dia, hora);
     const reserva = await prisma.reserva.create({
       data: {
         folio: `${MARCA}${Math.random().toString(36).slice(2, 10)}`,
@@ -94,7 +100,10 @@ describe('Reportes: no uso, padrón y CSV', () => {
 
   const pedir = async <T>(
     ruta: string,
-    rango: { desde: string; hasta: string } = { desde: DIA, hasta: DIA },
+    rango: { desde: string; hasta: string; corte?: string } = {
+      desde: DIA,
+      hasta: DIA,
+    },
   ): Promise<T> => {
     const respuesta = await request(app.getHttpServer())
       .get(`/api/admin/reportes/${ruta}`)
@@ -129,8 +138,13 @@ describe('Reportes: no uso, padrón y CSV', () => {
    * `CambioSocio` no tiene clave foránea a `socio` —el historial sobrevive a la ficha,
    * a propósito—, así que borrar el socio no se lleva sus renglones y la corrida
    * siguiente contaría las bajas de la anterior.
+   *
+   * Se arma con las mismas constantes que registran al admin y no escrita a mano: una
+   * copia de "jefe Csv" dejaría de barrer nada el día que alguien renombre al admin, y
+   * el síntoma sería un test de bajas que empieza a fallar por datos de la corrida
+   * anterior.
    */
-  const FIRMA = 'jefe Csv';
+  const FIRMA = `${ADMIN} ${MARCA}`;
 
   const limpiar = async () => {
     await prisma.cambioSocio.deleteMany({ where: { hechoPorNombre: FIRMA } });
@@ -177,7 +191,7 @@ describe('Reportes: no uso, padrón y CSV', () => {
   beforeEach(async () => {
     await limpiar();
 
-    cookieAdmin = (await alguien('jefe', true)).cookie;
+    cookieAdmin = (await alguien(ADMIN, true)).cookie;
     const socio = await alguien('socia', false);
     cookieSocio = socio.cookie;
 
@@ -301,6 +315,29 @@ describe('Reportes: no uso, padrón y CSV', () => {
 
       expect(mia?.noUsadas).toBe(0);
     });
+
+    it('**la hora de las nueve de la noche del 31 es de ese mes, no del siguiente**', async () => {
+      // En agosto el club está en UTC-4: las 21:00 del 31 son la 01:00Z del 1 de
+      // septiembre. El rango del reporte se calcula con el reloj del club y la
+      // etiqueta del mes no, así que esa hora entraba en agosto y salía rotulada
+      // como septiembre —una fila de un mes que ni siquiera se pidió—.
+      //
+      // No es un caso raro: el club cierra a las 22:00, así que le pasa a **toda**
+      // hora de la tarde del último día de cualquier mes, y corre las dos cifras que
+      // el OE4 compara mes contra mes.
+      await reservar('21:00', EstadoReporte.SANCIONADO, '2026-08-31');
+
+      const suyo = await pedir<NoUso>('no-uso', {
+        desde: '2026-08-01',
+        hasta: '2026-08-31',
+        corte: 'mes',
+      });
+
+      // Todo lo que el rango incluye es de agosto por definición: el rango termina
+      // justo cuando empieza septiembre en el club.
+      expect(suyo.filas.map((fila) => fila.etiqueta)).toEqual(['2026-08']);
+      expect(suyo.filas[0].noUsadas).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('padrón y morosidad', () => {
@@ -331,8 +368,18 @@ describe('Reportes: no uso, padrón y CSV', () => {
         .send({ estado })
         .expect(200);
 
-      await prisma.cambioSocio.updateMany({
+      // **Solo el renglón que se acaba de escribir.** Con un `updateMany` se
+      // refechaban también los anteriores, y dos llamadas seguidas dejaban ambos
+      // cambios en la misma fecha: un test de "una baja en julio y otra en agosto"
+      // habría medido otra cosa y nada lo habría avisado.
+      const ultimo = await prisma.cambioSocio.findFirstOrThrow({
         where: { socioId, campo: 'estado', hechoPorNombre: FIRMA },
+        orderBy: { id: 'desc' },
+        select: { id: true },
+      });
+
+      await prisma.cambioSocio.update({
+        where: { id: ultimo.id },
         data: { hechoEn: cuando },
       });
     };

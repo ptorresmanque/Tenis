@@ -96,7 +96,9 @@ describe('PadronPanel', () => {
   });
 
   it('dice qué cuenta como baja, para que el club pueda discutir la cifra', () => {
-    expect(texto()).toContain('panel');
+    // La frase entera y no la palabra "panel" suelta: lo que hay que proteger es la
+    // afirmación —qué hecho produce una baja—, no que aparezca una palabra común.
+    expect(texto()).toContain('retirado desde el panel');
   });
 
   it('un rango sin meses lo dice, en vez de una tabla vacía', async () => {
