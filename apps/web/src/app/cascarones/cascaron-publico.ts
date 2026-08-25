@@ -285,6 +285,9 @@ export class CascaronPublico {
     // Para todos y no solo para socios: es la puerta del apoderado que busca clases
     // para su hijo, y ese todavía no tiene cuenta.
     { ruta: '/clases', etiqueta: 'Clases' },
+    // El calendario de torneos es de las pocas cosas que un tercero mira antes de
+    // asociarse: un club con torneos es un club con vida.
+    { ruta: '/torneos', etiqueta: 'Torneos' },
     // Solo para quien tiene ficha de socio: al resto la pantalla le mostraría
     // una lista siempre vacía.
     ...(this.usuario()?.socioId != null

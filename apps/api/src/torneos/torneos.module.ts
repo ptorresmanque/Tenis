@@ -4,6 +4,8 @@ import { IdentidadModule } from '../identidad/identidad.module';
 import { CuadroDelTorneo } from './cuadro.service';
 import { InscripcionesATorneo } from './inscripciones.service';
 import { ResultadosDelCuadro } from './resultados.service';
+import { TorneosPublicosController } from './torneos-publicos.controller';
+import { TorneosPublicos } from './torneos-publicos.service';
 import { Jugadores } from './jugadores.service';
 import { TorneosController } from './torneos.controller';
 import { Torneos } from './torneos.service';
@@ -17,13 +19,14 @@ import { Torneos } from './torneos.service';
  */
 @Module({
   imports: [IdentidadModule],
-  controllers: [TorneosController],
+  controllers: [TorneosController, TorneosPublicosController],
   providers: [
     Jugadores,
     Torneos,
     InscripcionesATorneo,
     CuadroDelTorneo,
     ResultadosDelCuadro,
+    TorneosPublicos,
   ],
   exports: [Jugadores],
 })

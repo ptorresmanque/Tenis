@@ -98,6 +98,41 @@ export interface Cuadro {
   partidos: PartidoDelCuadro[];
 }
 
+/** Un torneo del calendario, como lo ve quien todavía no es del club. */
+export interface TorneoPublico {
+  id: number;
+  nombre: string;
+  categoria: string;
+  superficie: string | null;
+  fechaInicio: string;
+  fechaFin: string;
+  cierreInscripcion: string;
+  estado: EstadoTorneo;
+  cupo: number;
+  cuposLibres: number;
+}
+
+/** Un partido publicado: nombres y marcador, sin teléfonos. */
+export interface PartidoPublico {
+  ronda: number;
+  ronda_nombre: string;
+  posicion: number;
+  jugadorA: string | null;
+  jugadorB: string | null;
+  ganador: string | null;
+  marcador: string | null;
+  walkover: boolean;
+}
+
+export interface CuadroPublico {
+  id: number;
+  nombre: string;
+  categoria: string;
+  estado: EstadoTorneo;
+  inscritos: string[];
+  partidos: PartidoPublico[];
+}
+
 export interface TorneoNuevo {
   nombre: string;
   categoriaId: number;
@@ -118,6 +153,22 @@ export interface TorneoNuevo {
 @Service()
 export class Torneos {
   private readonly http = inject(HttpClient);
+
+  /** El calendario del año, sin cuenta. */
+  calendario(anio?: number): Promise<TorneoPublico[]> {
+    return firstValueFrom(
+      this.http.get<TorneoPublico[]>('/api/torneos/publicos', {
+        params: anio ? { anio } : {},
+      }),
+    );
+  }
+
+  /** El cuadro público, con los resultados que ya se cargaron. */
+  cuadroPublico(id: number): Promise<CuadroPublico> {
+    return firstValueFrom(
+      this.http.get<CuadroPublico>(`/api/torneos/${id}/cuadro`),
+    );
+  }
 
   jugadores(soloActivos = false): Promise<Jugador[]> {
     return firstValueFrom(

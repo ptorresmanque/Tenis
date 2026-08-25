@@ -92,11 +92,17 @@ describe('Cascarón público: la navegación', () => {
   });
 
   it('el enlace del club está para cualquiera, con sesión o sin ella', () => {
-    // Los enlaces del menú del diseño entran cuando existe su pantalla. "El
-    // club" ya la tiene; "Torneos" y "Clases" todavía no, y por eso no están.
+    // Los enlaces del menú del diseño entran cuando existe su pantalla.
     expect(enlacesCon(null)).toContain('El club');
     expect(enlacesCon(SOCIA)).toContain('El club');
-    expect(enlacesCon(null)).not.toContain('Torneos');
+  });
+
+  it('**clases y torneos se ven sin cuenta**', () => {
+    // Son las dos puertas de quien todavía no es del club: el apoderado que busca
+    // clases para su hijo y el que mira el calendario antes de asociarse. Exigir
+    // cuenta para mirarlos es la barrera que el sitio viene a sacar.
+    expect(enlacesCon(null)).toContain('Clases');
+    expect(enlacesCon(null)).toContain('Torneos');
   });
 
   it('no le ofrece "Mis reservas" a quien no tiene ficha de socio', () => {
