@@ -13,9 +13,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { Jugadores } from './jugadores.service';
 
-/** Los estados en que una inscripción ocupa un lugar del cuadro. */
-const OCUPAN: EstadoInscripcionTorneo[] = [EstadoInscripcionTorneo.INSCRITA];
-
 /** Una inscripción, como se lee en la lista del torneo. */
 export interface InscripcionPublicada {
   id: number;
@@ -73,29 +70,36 @@ export class InscripcionesATorneo {
     return this.prisma.$transaction(async (tx) => {
       const torneo = await this.tomarElTorneo(tx, torneoId);
 
-      const tomados = await tx.inscripcionTorneo.count({
-        where: { torneoId, estado: { in: OCUPAN } },
-      });
-
       if (await this.yaEsta(tx, torneoId, jugadorId)) {
         throw new ConflictException(
           'Ese jugador ya está inscrito en el torneo.',
         );
       }
 
-      const inscripcion = await tx.inscripcionTorneo.create({
+      const [tomados, esperando] = await Promise.all([
+        tx.inscripcionTorneo.count({
+          where: { torneoId, estado: EstadoInscripcionTorneo.INSCRITA },
+        }),
+        tx.inscripcionTorneo.count({
+          where: { torneoId, estado: EstadoInscripcionTorneo.LISTA_ESPERA },
+        }),
+      ]);
+
+      return tx.inscripcionTorneo.create({
         data: {
           torneoId,
           jugadorId,
+          // **Con gente esperando, el que llega va al final de la fila aunque haya
+          // lugar.** Un lugar que se libera es de quien lleva dos semanas esperando,
+          // no del que se inscribió después; si no, la lista de espera deja de ser
+          // una fila y el club queda explicándole a alguien por qué lo pasaron.
           estado:
-            tomados < torneo.cupo
+            tomados < torneo.cupo && esperando === 0
               ? EstadoInscripcionTorneo.INSCRITA
               : EstadoInscripcionTorneo.LISTA_ESPERA,
         },
         select: { id: true, estado: true },
       });
-
-      return inscripcion;
     });
   }
 
@@ -131,7 +135,7 @@ export class InscripcionesATorneo {
       const torneo = await this.tomarElTorneo(tx, torneoId, false);
 
       const tomados = await tx.inscripcionTorneo.count({
-        where: { torneoId, estado: { in: OCUPAN } },
+        where: { torneoId, estado: EstadoInscripcionTorneo.INSCRITA },
       });
 
       if (tomados >= torneo.cupo) {

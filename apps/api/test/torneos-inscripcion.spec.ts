@@ -303,6 +303,34 @@ describe('Inscripción a un torneo', () => {
     expect(lista.enEspera).toHaveLength(1);
   });
 
+  it('**el lugar que se libera es de quien esperaba, no del que llega después**', async () => {
+    // Sin esto, la lista de espera deja de ser una fila: el que se inscribe después
+    // de un retiro entra directo al cuadro y pasa por delante de quien lleva dos
+    // semanas esperando. El club queda explicando por qué lo pasaron.
+    const primera = await inscribir(await unJugador('Primera')).expect(201);
+    await inscribir(await unJugador('Segunda')).expect(201);
+    await inscribir(await unJugador('Tercera')).expect(201);
+
+    await request(app.getHttpServer())
+      .post(
+        `/api/admin/torneos/${torneoId}/inscripciones/${(primera.body as { id: number }).id}/retiro`,
+      )
+      .set('Cookie', cookieAdmin)
+      .expect(200);
+
+    // Queda un lugar libre y alguien esperando: el que llega ahora hace fila.
+    const tardia = await inscribir(await unJugador('Tardia')).expect(201);
+
+    expect((tardia.body as { estado: string }).estado).toBe(
+      EstadoInscripcionTorneo.LISTA_ESPERA,
+    );
+    const lista = await inscritos();
+    expect(lista.enEspera.map((i) => i.jugador.split(' ')[0])).toEqual([
+      'Tercera',
+      'Tardia',
+    ]);
+  });
+
   it('promover al primero de la lista lo mete en el cuadro', async () => {
     await inscribir(await unJugador('Primera')).expect(201);
     await inscribir(await unJugador('Segunda')).expect(201);
