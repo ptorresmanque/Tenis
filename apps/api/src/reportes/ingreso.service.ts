@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import {
-  comoFechaCivil,
-  fechaDelClub,
-  instanteEnElClub,
-} from '../comun/tiempo';
+import { comoFechaCivil, fechaDelClub } from '../comun/tiempo';
 import {
   ConceptoPago,
   EstadoCuota,
@@ -13,6 +9,7 @@ import {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { agrupar, Corte, FilaDeIngreso, Movimiento } from './ingreso';
+import { abreEl, cierraEl } from './rango';
 
 export interface ReporteDeIngreso {
   desde: string;
@@ -98,7 +95,7 @@ export class IngresoDelClub {
     // rechazando por tamaño de consulta. Así las dos consultas quedan acotadas por el
     // período que se pidió, que es lo único que se está mirando.
     const reservas = await this.prisma.reserva.findMany({
-      where: { inicio: { gte: this.abre(desde), lt: this.cierra(hasta) } },
+      where: { inicio: { gte: abreEl(desde), lt: cierraEl(hasta) } },
       select: {
         id: true,
         esPico: true,
@@ -210,18 +207,5 @@ export class IngresoDelClub {
     }
 
     return periodos;
-  }
-
-  /** El instante en que empieza el primer día del rango, en el reloj del club. */
-  private abre(desde: string): Date {
-    return instanteEnElClub(desde, '00:00');
-  }
-
-  /** El instante en que termina el último día: la medianoche del siguiente. */
-  private cierra(hasta: string): Date {
-    const siguiente = fechaDelClub(hasta);
-    siguiente.setUTCDate(siguiente.getUTCDate() + 1);
-
-    return instanteEnElClub(comoFechaCivil(siguiente), '00:00');
   }
 }

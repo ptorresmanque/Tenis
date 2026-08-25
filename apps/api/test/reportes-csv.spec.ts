@@ -236,6 +236,38 @@ describe('Reportes: no uso, padrón y CSV', () => {
       expect(suyo.sinResolver).toBe(1);
     });
 
+    it('**dos socios reportando la misma hora no la cuentan dos veces**', async () => {
+      // `ReporteNoUso` es único por (reserva, reportante): un no-show lo ve todo el que
+      // esté esperando esa cancha, así que dos reportes de la misma hora es el caso
+      // normal y no un borde. Contando reportes en vez de horas, el indicador puede
+      // pasar del 100 % y nadie entiende cómo.
+      const otro = await alguien('tercero', false);
+      const ficha = await prisma.socio.create({
+        data: {
+          usuarioId: otro.usuarioId,
+          numeroSocio: `CS2-${otro.usuarioId}`,
+          fechaIngreso: instanteEnElClub(DIA, '00:00'),
+          alDiaHasta: instanteEnElClub(DIA, '00:00'),
+        },
+        select: { id: true },
+      });
+
+      const reservaId = await reservar('10:00', EstadoReporte.SANCIONADO);
+      await prisma.reporteNoUso.create({
+        data: {
+          reservaId,
+          reportanteSocioId: ficha.id,
+          estado: EstadoReporte.SANCIONADO,
+        },
+      });
+
+      const suyo = await pedir<NoUso>('no-uso');
+
+      expect(suyo.noUsadas).toBe(1);
+      expect(suyo.reservadas).toBe(1);
+      expect(suyo.porcentaje).toBe(100);
+    });
+
     it('uno descartado tampoco', async () => {
       await reservar('10:00', EstadoReporte.DESCARTADO);
 

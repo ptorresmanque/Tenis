@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
-import {
-  comoFechaCivil,
-  fechaDelClub,
-  instanteEnElClub,
-} from '../comun/tiempo';
+import { comoFechaCivil } from '../comun/tiempo';
 import { EstadoReporte, EstadoReserva } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { abreEl, cierraEl } from './rango';
 
 export interface FilaDeNoUso {
   etiqueta: string;
@@ -63,8 +60,8 @@ export class HorasNoUsadas {
     corte: CorteDeNoUso,
   ): Promise<ReporteDeNoUso> {
     const rango = {
-      gte: instanteEnElClub(desde, '00:00'),
-      lt: this.finDelUltimoDia(hasta),
+      gte: abreEl(desde),
+      lt: cierraEl(hasta),
     };
 
     const [reportes, reservas, sinResolver] = await Promise.all([
@@ -74,6 +71,7 @@ export class HorasNoUsadas {
           reserva: { inicio: rango },
         },
         select: {
+          reservaId: true,
           reserva: {
             select: {
               inicio: true,
@@ -102,7 +100,14 @@ export class HorasNoUsadas {
       }),
     ]);
 
-    const noUsadas = reportes.map((uno) => uno.reserva);
+    // **Una hora por reserva, no una por reporte.** `ReporteNoUso` es único por
+    // (reserva, reportante), así que dos socios pueden reportar la misma hora —y es el
+    // caso normal: un no-show lo ve todo el que esté esperando esa cancha—. Contando
+    // reportes, esa hora sumaba dos y el indicador podía pasar del 100 %.
+    const porReserva = new Map(
+      reportes.map((uno) => [uno.reservaId, uno.reserva]),
+    );
+    const noUsadas = [...porReserva.values()];
     const filas = this.agrupar(noUsadas, reservas, corte);
 
     return {
@@ -154,14 +159,6 @@ export class HorasNoUsadas {
           (otra.porcentaje ?? -1) - (una.porcentaje ?? -1) ||
           una.etiqueta.localeCompare(otra.etiqueta, 'es'),
       );
-  }
-
-  /** La medianoche del día siguiente: el último día del rango entra entero. */
-  private finDelUltimoDia(hasta: string): Date {
-    const siguiente = fechaDelClub(hasta);
-    siguiente.setUTCDate(siguiente.getUTCDate() + 1);
-
-    return instanteEnElClub(comoFechaCivil(siguiente), '00:00');
   }
 }
 
