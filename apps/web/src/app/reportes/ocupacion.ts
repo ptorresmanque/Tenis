@@ -1,4 +1,4 @@
-import { Component, inject, resource, signal } from '@angular/core';
+import { Component, computed, inject, resource, signal } from '@angular/core';
 
 import {
   diaConAnioEnPalabras,
@@ -6,6 +6,7 @@ import {
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../ui/estado-vacio';
+import { DescargarCsv } from './descargar-csv';
 import {
   CorteDeOcupacion,
   CORTES_DE_OCUPACION,
@@ -27,7 +28,7 @@ import {
  */
 @Component({
   selector: 'app-ocupacion-panel',
-  imports: [EstadoVacio],
+  imports: [EstadoVacio, DescargarCsv],
   template: `
     <h1 class="font-display text-2xl font-bold">Ocupación de cancha</h1>
     <p class="mt-2 max-w-prose text-sm text-muted-foreground">
@@ -143,6 +144,10 @@ import {
         </p>
         <p>Calculado el {{ enPalabras(datos.calculadoEn) }}.</p>
       </div>
+
+      <div class="mt-4">
+        <app-descargar-csv [url]="urlDelCsv()" />
+      </div>
     } @else if (reporte.isLoading()) {
       <p class="mt-6 text-muted-foreground">Midiendo las horas del período…</p>
     }
@@ -167,6 +172,11 @@ export class OcupacionPanel {
     }),
     loader: ({ params }) => this.api.ocupacion(params.desde, params.hasta, params.corte),
   });
+
+  /** El CSV lleva el mismo rango y corte: si no, el club descarga otra cosa. */
+  protected readonly urlDelCsv = computed(() =>
+    this.api.csv('ocupacion', this.desde(), this.hasta(), this.corte()),
+  );
 
   protected valorDe(evento: Event): string {
     return (evento.target as HTMLInputElement | HTMLSelectElement).value;

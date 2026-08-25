@@ -224,6 +224,18 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/no-uso',
+      etiqueta: 'Horas no usadas',
+      icono: 'timer_off',
+      trasDivisoria: false,
+    },
+    {
+      ruta: '/administracion/padron',
+      etiqueta: 'Padrón y morosidad',
+      icono: 'group',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/reportes',
       etiqueta: 'Horas reportadas',
       icono: 'flag',

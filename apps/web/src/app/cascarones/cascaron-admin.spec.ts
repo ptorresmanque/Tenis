@@ -68,13 +68,15 @@ describe('Cascarón de administración', () => {
     );
   }
 
-  it('lista las dieciséis secciones que hoy tienen pantalla', () => {
+  it('lista las dieciocho secciones que hoy tienen pantalla', () => {
     expect(itemsDeLaBarra()).toEqual([
       '/administracion/reservas',
       '/administracion/canchas',
       '/administracion/socios',
       '/administracion/ingreso',
       '/administracion/ocupacion',
+      '/administracion/no-uso',
+      '/administracion/padron',
       '/administracion/reportes',
       '/administracion/cuotas',
       '/administracion/morosos',
@@ -99,7 +101,7 @@ describe('Cascarón de administración', () => {
     const barra = (montar().nativeElement as HTMLElement).querySelector('aside');
     const iconos = [...barra!.querySelectorAll('nav a .icono')];
 
-    expect(iconos).toHaveLength(16);
+    expect(iconos).toHaveLength(18);
     expect(iconos.every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true);
   });
 

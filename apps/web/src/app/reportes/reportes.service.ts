@@ -62,6 +62,52 @@ export interface ReporteDeOcupacion {
   calculadoEn: string;
 }
 
+export type CorteDeNoUso = 'mes' | 'cancha' | 'franja';
+
+export const CORTES_DE_NO_USO: Record<CorteDeNoUso, string> = {
+  mes: 'Mes',
+  cancha: 'Cancha',
+  franja: 'Pico o valle',
+};
+
+export interface FilaDeNoUso {
+  etiqueta: string;
+  noUsadas: number;
+  reservadas: number;
+  porcentaje: number | null;
+}
+
+export interface ReporteDeNoUso {
+  desde: string;
+  hasta: string;
+  corte: CorteDeNoUso;
+  noUsadas: number;
+  reservadas: number;
+  porcentaje: number | null;
+  /** Reportes que nadie miró todavía: no cuentan, pero hay que saber que están. */
+  sinResolver: number;
+  filas: FilaDeNoUso[];
+  calculadoEn: string;
+}
+
+export interface MesDelPadron {
+  periodo: string;
+  altas: number;
+  deudaClp: number;
+  sociosConDeuda: number;
+}
+
+export interface ReporteDePadron {
+  desde: string;
+  hasta: string;
+  activosHoy: number;
+  suspendidosHoy: number;
+  retiradosHoy: number;
+  altasDelPeriodo: number;
+  meses: MesDelPadron[];
+  calculadoEn: string;
+}
+
 /**
  * Los reportes del club.
  *
@@ -86,5 +132,40 @@ export class Reportes {
         params: { desde, hasta, corte },
       }),
     );
+  }
+
+  noUso(desde: string, hasta: string, corte: CorteDeNoUso): Promise<ReporteDeNoUso> {
+    return firstValueFrom(
+      this.http.get<ReporteDeNoUso>('/api/admin/reportes/no-uso', {
+        params: { desde, hasta, corte },
+      }),
+    );
+  }
+
+  padron(desde: string, hasta: string): Promise<ReporteDePadron> {
+    return firstValueFrom(
+      this.http.get<ReporteDePadron>('/api/admin/reportes/padron', {
+        params: { desde, hasta },
+      }),
+    );
+  }
+
+  /**
+   * La dirección del CSV del mismo reporte y el mismo rango.
+   *
+   * Un enlace y no un `fetch` con `Blob`: el navegador ya sabe descargar y el servidor
+   * ya manda el `Content-Disposition` con el nombre. Armar el archivo en memoria sería
+   * escribir código para hacer peor lo que el navegador hace bien.
+   */
+  csv(
+    reporte: 'ingreso' | 'ocupacion' | 'no-uso' | 'padron',
+    desde: string,
+    hasta: string,
+    corte?: string,
+  ): string {
+    const parametros = new URLSearchParams({ desde, hasta });
+    if (corte) parametros.set('corte', corte);
+
+    return `/api/admin/reportes/${reporte}.csv?${parametros.toString()}`;
   }
 }

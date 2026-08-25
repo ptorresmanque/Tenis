@@ -2,33 +2,33 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 
 import {
   diaConAnioEnPalabras,
-  enPesos,
   fechaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { DescargarCsv } from './descargar-csv';
-import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service';
+import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reportes.service';
 
 /**
- * El ingreso del club por período.
+ * Las horas que alguien reservó y no usó.
  *
- * **El ingreso se atribuye a la hora jugada, no a la fecha de pago.** Es la decisión que
- * hace comparables las canchas, y la razón por la que este reporte contesta la pregunta
- * que el club tiene sobre la mesa: si la techada rinde más que la abierta.
+ * Es el indicador que el objetivo específico 4 del perfil compara antes y después del
+ * sistema, así que tiene que poder mirarse por período sin contar a mano.
  *
- * La pantalla dice dos cosas que evitan leer mal el número: **cuánto de lo atribuido
- * sigue sin cobrarse** y **cuándo se calculó**. Un mes reciente todavía se mueve, porque
- * una cuota de agosto pagada en octubre se suma a agosto.
+ * **La pantalla dice cuántos reportes están sin revisar**, y no es un detalle: un 6 %
+ * se lee como que el club anda bien, cuando lo que puede estar pasando es que nadie
+ * miró la bandeja. Un indicador que depende de la diligencia del admin tiene que
+ * mostrar esa dependencia.
  */
 @Component({
-  selector: 'app-ingreso-panel',
+  selector: 'app-no-uso-panel',
   imports: [EstadoVacio, DescargarCsv],
   template: `
-    <h1 class="font-display text-2xl font-bold">Ingreso del club</h1>
+    <h1 class="font-display text-2xl font-bold">Horas reservadas y no usadas</h1>
     <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-      Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
-      Las cuotas van a su mes, no al día en que el socio se puso al día.
+      Horas que alguien tomó y dejó vacías, sobre el total reservado del período. Solo cuentan las
+      que el club <strong>confirmó</strong> al resolver el reporte: uno pendiente es una acusación
+      que nadie miró todavía.
     </p>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
@@ -68,15 +68,15 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
       @if (datos.filas.length === 0) {
         <app-estado-vacio
           class="mt-6 block"
-          icono="payments"
-          titulo="No hubo ingresos en este período"
-          detalle="Ni arriendos cobrados ni cuotas pagadas con fecha dentro del rango."
+          icono="event_available"
+          titulo="No hubo reservas en este período"
+          detalle="Sin horas reservadas no hay nada que comparar."
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
           <table class="w-full border-collapse text-sm">
             <caption class="sr-only">
-              Ingreso del período, cortado por
+              Horas no usadas del período, cortadas por
               {{
                 nombreDelCorte(datos.corte)
               }}
@@ -84,7 +84,9 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
             <thead>
               <tr class="border-b border-border text-left text-muted-foreground">
                 <th scope="col" class="py-2 pr-3 font-medium">Corte</th>
-                <th scope="col" class="py-2 text-right font-medium">Ingreso</th>
+                <th scope="col" class="py-2 pr-3 text-right font-medium">No usadas</th>
+                <th scope="col" class="py-2 pr-3 text-right font-medium">Reservadas</th>
+                <th scope="col" class="py-2 text-right font-medium">Proporción</th>
               </tr>
             </thead>
             <tbody>
@@ -93,15 +95,23 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
                   <th scope="row" class="py-2 pr-3 text-left font-normal">
                     {{ fila.etiqueta }}
                   </th>
-                  <td class="py-2 text-right">{{ pesos(fila.montoClp) }}</td>
+                  <td class="py-2 pr-3 text-right">{{ fila.noUsadas }}</td>
+                  <td class="py-2 pr-3 text-right text-muted-foreground">
+                    {{ fila.reservadas }}
+                  </td>
+                  <td class="py-2 text-right font-semibold">
+                    {{ enPorcentaje(fila) }}
+                  </td>
                 </tr>
               }
             </tbody>
             <tfoot>
               <tr>
                 <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
+                <td class="py-2 pr-3 text-right font-semibold">{{ datos.noUsadas }}</td>
+                <td class="py-2 pr-3 text-right">{{ datos.reservadas }}</td>
                 <td class="py-2 text-right font-semibold">
-                  {{ pesos(datos.totalClp) }}
+                  {{ enPorcentaje(datos) }}
                 </td>
               </tr>
             </tfoot>
@@ -109,12 +119,13 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
         </div>
       }
 
-      <!-- Las dos advertencias que evitan leer el número como si estuviera cerrado. -->
       <div class="mt-4 grid gap-1 text-sm text-muted-foreground">
-        @if (datos.cuotasImpagasClp > 0) {
+        @if (datos.sinResolver > 0) {
+          <!-- Un indicador que depende de la diligencia del admin tiene que mostrar
+               esa dependencia, o un número bajo se lee como una buena noticia. -->
           <p>
-            Quedan <strong>{{ pesos(datos.cuotasImpagasClp) }}</strong> en cuotas de este período
-            <strong>sin cobrar</strong>. Si se pagan, se suman acá aunque el mes ya haya cerrado.
+            Hay <strong>{{ datos.sinResolver }}</strong> reportes <strong>sin revisar</strong> en
+            este período. Cuando el club los resuelva, los que confirme se suman acá.
           </p>
         }
         <p>Calculado el {{ enPalabras(datos.calculadoEn) }}.</p>
@@ -124,55 +135,49 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
         <app-descargar-csv [url]="urlDelCsv()" />
       </div>
     } @else if (reporte.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Sumando el período…</p>
+      <p class="mt-6 text-muted-foreground">Contando las horas del período…</p>
     }
   `,
 })
-export class IngresoPanel {
+export class NoUsoPanel {
   private readonly api = inject(Reportes);
 
-  protected readonly OPCIONES = (Object.keys(CORTES_DE_INGRESO) as CorteDeIngreso[]).map(
-    (valor) => ({ valor, etiqueta: CORTES_DE_INGRESO[valor] }),
-  );
+  protected readonly OPCIONES = (Object.keys(CORTES_DE_NO_USO) as CorteDeNoUso[]).map((valor) => ({
+    valor,
+    etiqueta: CORTES_DE_NO_USO[valor],
+  }));
 
-  /** El mes corriente: es lo que el club mira al entrar. */
   protected readonly desde = signal(`${hoyEnElClub().slice(0, 7)}-01`);
   protected readonly hasta = signal(hoyEnElClub());
-
-  /** Por condición, que es la pregunta que motivó el módulo. */
-  protected readonly corte = signal('condicion');
+  protected readonly corte = signal('mes');
 
   protected readonly reporte = resource({
     params: () => ({
       desde: this.desde(),
       hasta: this.hasta(),
-      corte: this.corte() as CorteDeIngreso,
+      corte: this.corte() as CorteDeNoUso,
     }),
-    loader: ({ params }) => this.api.ingreso(params.desde, params.hasta, params.corte),
+    loader: ({ params }) => this.api.noUso(params.desde, params.hasta, params.corte),
   });
-
-  protected readonly pesos = enPesos;
 
   /** El CSV lleva el mismo rango y corte: si no, el club descarga otra cosa. */
   protected readonly urlDelCsv = computed(() =>
-    this.api.csv('ingreso', this.desde(), this.hasta(), this.corte()),
+    this.api.csv('no-uso', this.desde(), this.hasta(), this.corte()),
   );
 
   protected valorDe(evento: Event): string {
     return (evento.target as HTMLInputElement | HTMLSelectElement).value;
   }
 
-  protected nombreDelCorte(corte: CorteDeIngreso): string {
-    return CORTES_DE_INGRESO[corte] ?? corte;
+  protected nombreDelCorte(corte: CorteDeNoUso): string {
+    return CORTES_DE_NO_USO[corte] ?? corte;
   }
 
-  /**
-   * El instante en que se calculó, en palabras.
-   *
-   * Pasa por el reloj del club antes de recortarse: llega como ISO en UTC, y a las
-   * 02:00Z de un 26 en el club todavía es 25. Recortar los diez primeros caracteres
-   * hacía que el reporte dijera que se calculó mañana.
-   */
+  /** Cero por ciento de nada no es una buena noticia: es que no hubo nada. */
+  protected enPorcentaje(fila: Pick<FilaDeNoUso, 'porcentaje'>): string {
+    return fila.porcentaje === null ? 'Sin reservas' : `${fila.porcentaje} %`;
+  }
+
   protected enPalabras(instante: string): string {
     return diaConAnioEnPalabras(fechaEnElClub(instante));
   }

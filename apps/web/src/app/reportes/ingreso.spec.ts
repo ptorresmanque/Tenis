@@ -27,10 +27,16 @@ describe('IngresoPanel', () => {
   };
 
   let fixture: ComponentFixture<IngresoPanel>;
-  let api: { ingreso: ReturnType<typeof vi.fn> };
+  let api: {
+    ingreso: ReturnType<typeof vi.fn>;
+    csv: ReturnType<typeof vi.fn>;
+  };
 
   const montar = async (reporte: ReporteDeIngreso = REPORTE) => {
-    api = { ingreso: vi.fn().mockResolvedValue(reporte) };
+    api = {
+      ingreso: vi.fn().mockResolvedValue(reporte),
+      csv: vi.fn().mockReturnValue('/api/admin/reportes/ingreso.csv?x=1'),
+    };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({

@@ -194,6 +194,18 @@ export const routes: Routes = [
           import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
       },
       {
+        path: 'administracion/no-uso',
+        title: 'Horas no usadas — Administración',
+        loadComponent: () =>
+          import('./reportes/no-uso').then((m) => m.NoUsoPanel),
+      },
+      {
+        path: 'administracion/padron',
+        title: 'Padrón y morosidad — Administración',
+        loadComponent: () =>
+          import('./reportes/padron').then((m) => m.PadronPanel),
+      },
+      {
         path: 'administracion/reportes',
         title: 'Horas reportadas — Administración',
         loadComponent: () =>

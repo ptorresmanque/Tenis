@@ -43,10 +43,16 @@ describe('OcupacionPanel', () => {
   };
 
   let fixture: ComponentFixture<OcupacionPanel>;
-  let api: { ocupacion: ReturnType<typeof vi.fn> };
+  let api: {
+    ocupacion: ReturnType<typeof vi.fn>;
+    csv: ReturnType<typeof vi.fn>;
+  };
 
   const montar = async (reporte: ReporteDeOcupacion = REPORTE) => {
-    api = { ocupacion: vi.fn().mockResolvedValue(reporte) };
+    api = {
+      ocupacion: vi.fn().mockResolvedValue(reporte),
+      csv: vi.fn().mockReturnValue('/api/admin/reportes/ocupacion.csv?x=1'),
+    };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({

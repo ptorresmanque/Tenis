@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 
 import { IdentidadModule } from '../identidad/identidad.module';
 import { IngresoDelClub } from './ingreso.service';
+import { HorasNoUsadas } from './no-uso.service';
 import { OcupacionDeCancha } from './ocupacion.service';
+import { PadronDelClub } from './padron.service';
 import { ReportesController } from './reportes.controller';
 
 /**
@@ -23,6 +25,6 @@ import { ReportesController } from './reportes.controller';
 @Module({
   imports: [IdentidadModule],
   controllers: [ReportesController],
-  providers: [IngresoDelClub, OcupacionDeCancha],
+  providers: [IngresoDelClub, OcupacionDeCancha, HorasNoUsadas, PadronDelClub],
 })
 export class ReportesModule {}
