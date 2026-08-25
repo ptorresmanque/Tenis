@@ -111,36 +111,12 @@ export function leerCategoria(cuerpo: unknown): CategoriaNueva {
 export function leerTorneo(cuerpo: unknown): TorneoNuevo {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
-  const fechaInicio = fecha(datos.fechaInicio, 'de inicio');
-  const fechaFin = fecha(datos.fechaFin, 'de término');
-  const cierreInscripcion = fecha(
-    datos.cierreInscripcion,
-    'de cierre de inscripción',
-  );
-
-  if (fechaFin < fechaInicio) {
-    throw new BadRequestException(
-      'El torneo no puede terminar antes de empezar.',
-    );
-  }
-
-  if (cierreInscripcion > fechaInicio) {
-    throw new BadRequestException(
-      'La inscripción tiene que cerrar antes de que el torneo empiece.',
-    );
-  }
-
-  const superficies = Object.values(Superficie) as string[];
-  const superficie =
-    typeof datos.superficie === 'string' &&
-    superficies.includes(datos.superficie)
-      ? (datos.superficie as Superficie)
-      : null;
+  const { fechaInicio, fechaFin, cierreInscripcion } = leerFechas(datos);
 
   return {
     nombre: exigirTexto(datos.nombre, 'nombre del torneo', 120),
     categoriaId: entero(datos.categoriaId, 'La categoría', 1),
-    superficie,
+    superficie: leerSuperficie(datos.superficie),
     fechaInicio,
     fechaFin,
     cierreInscripcion,
@@ -164,29 +140,90 @@ export function leerCambioDeTorneo(cuerpo: unknown): Partial<TorneoNuevo> {
   if (datos.categoriaId !== undefined) {
     cambio.categoriaId = entero(datos.categoriaId, 'La categoría', 1);
   }
+  if (datos.superficie !== undefined) {
+    cambio.superficie = leerSuperficie(datos.superficie);
+  }
 
-  // Las fechas se cambian juntas o no se cambian: comprobarlas de a una contra las
-  // que ya están guardadas es la forma de dejar un torneo que termina antes de
-  // empezar en dos pasos que por separado se ven bien.
+  // **Las tres fechas se cambian juntas o no se cambian.** Comprobar una contra las
+  // que ya están guardadas deja llegar a un torneo que termina antes de empezar en
+  // dos pasos que por separado se ven bien.
   if (
     datos.fechaInicio !== undefined ||
     datos.fechaFin !== undefined ||
     datos.cierreInscripcion !== undefined
   ) {
-    const completo = leerTorneo({
-      ...datos,
-      nombre: datos.nombre ?? 'x',
-      categoriaId: datos.categoriaId ?? 1,
-      cupo: datos.cupo ?? 2,
-    });
-
-    cambio.fechaInicio = completo.fechaInicio;
-    cambio.fechaFin = completo.fechaFin;
-    cambio.cierreInscripcion = completo.cierreInscripcion;
-    cambio.superficie = completo.superficie;
+    Object.assign(cambio, leerFechas(datos));
   }
 
   return cambio;
+}
+
+/** Lee una categoría por cambiar. Desactivarla no obliga a repetir sus puntos. */
+export function leerCambioDeCategoria(
+  cuerpo: unknown,
+): Partial<CategoriaNueva> & { activa?: boolean } {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+  const cambio: Partial<CategoriaNueva> & { activa?: boolean } = {};
+
+  if (datos.nombre !== undefined) {
+    cambio.nombre = exigirTexto(datos.nombre, 'nombre de la categoría', 80);
+  }
+  if (datos.puntosCampeon !== undefined) {
+    cambio.puntosCampeon = entero(
+      datos.puntosCampeon,
+      'Los puntos del campeón',
+      1,
+      10000,
+    );
+  }
+  if (datos.activa !== undefined) {
+    cambio.activa = datos.activa === true;
+  }
+
+  return cambio;
+}
+
+/**
+ * Las tres fechas de un torneo, comprobadas entre sí.
+ *
+ * Sale acá y no dentro de `leerTorneo` porque la edición necesita la misma
+ * comprobación: reusar el lector completo obligaba a inventarle un nombre y una
+ * categoría al cuerpo para pasar por validaciones que no eran las suyas.
+ */
+function leerFechas(datos: Record<string, unknown>): {
+  fechaInicio: Date;
+  fechaFin: Date;
+  cierreInscripcion: Date;
+} {
+  const fechaInicio = fecha(datos.fechaInicio, 'de inicio');
+  const fechaFin = fecha(datos.fechaFin, 'de término');
+  const cierreInscripcion = fecha(
+    datos.cierreInscripcion,
+    'de cierre de inscripción',
+  );
+
+  if (fechaFin < fechaInicio) {
+    throw new BadRequestException(
+      'El torneo no puede terminar antes de empezar.',
+    );
+  }
+
+  if (cierreInscripcion > fechaInicio) {
+    throw new BadRequestException(
+      'La inscripción tiene que cerrar antes de que el torneo empiece.',
+    );
+  }
+
+  return { fechaInicio, fechaFin, cierreInscripcion };
+}
+
+/** La superficie del cuerpo, o nada: es informativa y el club puede no saberla. */
+function leerSuperficie(valor: unknown): Superficie | null {
+  const superficies = Object.values(Superficie) as string[];
+
+  return typeof valor === 'string' && superficies.includes(valor)
+    ? (valor as Superficie)
+    : null;
 }
 
 function fecha(valor: unknown, campo: string): Date {

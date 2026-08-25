@@ -13,6 +13,7 @@ import { SoloAdmin } from '../identidad/guards';
 import { Jugadores } from './jugadores.service';
 import { Torneos } from './torneos.service';
 import {
+  leerCambioDeCategoria,
   leerCambioDeJugador,
   leerCambioDeTorneo,
   leerCategoria,
@@ -74,20 +75,17 @@ export class TorneosController {
   }
 
   @Patch('categorias-torneo/:id')
+  /**
+   * Editar o desactivar.
+   *
+   * Una categoría con torneos jugados **no se borra**: sus puntos ya están repartidos
+   * y la tabla del ranking los sigue contando.
+   */
   editarCategoria(
     @Param('id', ParseIntPipe) id: number,
     @Body() cuerpo: unknown,
   ) {
-    const datos = (cuerpo ?? {}) as Record<string, unknown>;
-
-    // Desactivar es lo único que se hace sin tocar el resto: una categoría con
-    // torneos jugados no se borra, porque sus puntos ya están repartidos.
-    return this.torneos.editarCategoria(
-      id,
-      datos.activa !== undefined && Object.keys(datos).length === 1
-        ? { activa: datos.activa === true }
-        : leerCategoria(cuerpo),
-    );
+    return this.torneos.editarCategoria(id, leerCambioDeCategoria(cuerpo));
   }
 
   @Get('torneos')

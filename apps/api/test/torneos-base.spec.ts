@@ -117,7 +117,7 @@ describe('Torneos: jugadores, categorías y torneos', () => {
       where: { apellido: { in: ['Del torneo', 'Externo', 'Cambiado'] } },
     });
     await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'Club ' } },
+      where: { nombre: { startsWith: 'Club' } },
     });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
@@ -369,6 +369,46 @@ describe('Torneos: jugadores, categorías y torneos', () => {
       respuesta.body as { nombre: string; fechaInicio: string }[]
     ).find((t) => t.nombre.startsWith(MARCA));
     expect(suyo?.fechaInicio).toBe('2026-12-01');
+  });
+
+  it('**cambiar solo el cupo no obliga a repetir las tres fechas**', async () => {
+    // Antes, editar reusaba el lector del alta y le inventaba nombre y categoría al
+    // cuerpo para pasar por validaciones que no eran las suyas.
+    const torneo = (await crearTorneo()).body as { id: number };
+
+    await request(app.getHttpServer())
+      .patch(`/api/admin/torneos/${torneo.id}`)
+      .set('Cookie', cookieAdmin)
+      .send({ cupo: 8 })
+      .expect(200);
+  });
+
+  it('**cambiar una sola fecha exige las tres: si no, el torneo queda al revés**', async () => {
+    // Comprobar una contra las guardadas deja llegar a "termina antes de empezar" en
+    // dos pasos que por separado se ven bien.
+    const torneo = (await crearTorneo()).body as { id: number };
+
+    await request(app.getHttpServer())
+      .patch(`/api/admin/torneos/${torneo.id}`)
+      .set('Cookie', cookieAdmin)
+      .send({ fechaFin: '2026-11-01' })
+      .expect(400);
+  });
+
+  it('desactivar una categoría no obliga a repetir sus puntos', async () => {
+    const id = await categoria('Club por desactivar', 300);
+
+    await request(app.getHttpServer())
+      .patch(`/api/admin/categorias-torneo/${id}`)
+      .set('Cookie', cookieAdmin)
+      .send({ activa: false })
+      .expect(200);
+
+    const guardada = await prisma.categoriaTorneo.findUniqueOrThrow({
+      where: { id },
+    });
+    expect(guardada.activa).toBe(false);
+    expect(guardada.puntosCampeon).toBe(300);
   });
 
   it('solo el admin toca jugadores, categorías y torneos', async () => {
