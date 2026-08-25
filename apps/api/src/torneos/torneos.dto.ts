@@ -273,3 +273,17 @@ export function leerInscripcionATorneo(cuerpo: unknown): {
     'Dinos a quién se inscribe: un jugador o un socio del club.',
   );
 }
+
+/**
+ * Lee la siembra. `null` es quitarla.
+ *
+ * El tope es el mismo del cupo: sembrar al 300 de un torneo de 16 es un dato mal
+ * escrito, y el cuadro no tendría dónde ponerlo.
+ */
+export function leerSiembra(cuerpo: unknown): number | null {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  if (datos.siembra === null || datos.siembra === undefined) return null;
+
+  return entero(datos.siembra, 'La siembra', 1, 256);
+}

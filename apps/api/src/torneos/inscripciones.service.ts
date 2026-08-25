@@ -163,6 +163,52 @@ export class InscripcionesATorneo {
     });
   }
 
+  /**
+   * Asigna la siembra de un inscrito.
+   *
+   * **La pone el admin, no el ranking.** Es lo que hace hoy y lo que le permite
+   * separar a dos socios que ya jugaron la final el mes pasado; el ranking se le
+   * muestra al lado como sugerencia. Ver `SPEC-torneos.md` § El cuadro se arma una vez.
+   */
+  async sembrar(
+    torneoId: number,
+    id: number,
+    siembra: number | null,
+  ): Promise<{ id: number }> {
+    if (siembra !== null) {
+      const repetida = await this.prisma.inscripcionTorneo.findFirst({
+        where: {
+          torneoId,
+          siembra,
+          estado: EstadoInscripcionTorneo.INSCRITA,
+          id: { not: id },
+        },
+        select: { jugador: { select: { nombre: true, apellido: true } } },
+      });
+
+      if (repetida) {
+        // Dos sembrados con el mismo número se pisan el lugar del cuadro, y el
+        // segundo desaparecería del sorteo sin que nadie lo note.
+        throw new ConflictException(
+          `El ${siembra} ya es de ${repetida.jugador.nombre} ${repetida.jugador.apellido}.`,
+        );
+      }
+    }
+
+    const { count } = await this.prisma.inscripcionTorneo.updateMany({
+      where: { id, torneoId, estado: EstadoInscripcionTorneo.INSCRITA },
+      data: { siembra },
+    });
+
+    if (count === 0) {
+      throw new NotFoundException(
+        'No hay un inscrito con ese número en este torneo.',
+      );
+    }
+
+    return { id };
+  }
+
   /** La lista del torneo, en tres grupos porque son tres cosas distintas. */
   async lista(torneoId: number): Promise<ListaDelTorneo> {
     const torneo = await this.prisma.torneo.findUnique({
@@ -175,9 +221,11 @@ export class InscripcionesATorneo {
 
     const filas = await this.prisma.inscripcionTorneo.findMany({
       where: { torneoId },
-      // Por siembra primero y después por llegada: el cuadro se lee sembrado, y la
-      // lista de espera se atiende en orden.
-      orderBy: [{ siembra: 'asc' }, { inscritaEn: 'asc' }, { id: 'asc' }],
+      // Por llegada: la lista de espera se atiende en ese orden. Los sembrados suben
+      // después, en memoria, porque MySQL pone los nulos **primero** en un `ASC` y
+      // ordenar por siembra dejaba a los sembrados al final de la lista, que es justo
+      // al revés de como el club lee un cuadro.
+      orderBy: [{ inscritaEn: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         jugadorId: true,
@@ -194,15 +242,17 @@ export class InscripcionesATorneo {
       },
     });
 
-    const inscripciones = filas.map((fila) => ({
-      id: fila.id,
-      jugadorId: fila.jugadorId,
-      jugador: `${fila.jugador.nombre} ${fila.jugador.apellido}`,
-      numeroSocio: fila.jugador.socio?.numeroSocio ?? null,
-      siembra: fila.siembra,
-      estado: fila.estado,
-      inscritaEn: fila.inscritaEn,
-    }));
+    const inscripciones = ordenarPorSiembra(
+      filas.map((fila) => ({
+        id: fila.id,
+        jugadorId: fila.jugadorId,
+        jugador: `${fila.jugador.nombre} ${fila.jugador.apellido}`,
+        numeroSocio: fila.jugador.socio?.numeroSocio ?? null,
+        siembra: fila.siembra,
+        estado: fila.estado,
+        inscritaEn: fila.inscritaEn,
+      })),
+    );
 
     return {
       torneoId: torneo.id,
@@ -277,4 +327,26 @@ export class InscripcionesATorneo {
 
     return cuantas > 0;
   }
+}
+
+/**
+ * Los sembrados arriba y en orden; el resto, como llegaron.
+ *
+ * En memoria y no en el `ORDER BY` porque MySQL pone los nulos primero en un `ASC`:
+ * ordenar por siembra dejaba al 1 y al 2 debajo de todos los sin sembrar, que es al
+ * revés de como se lee un cuadro.
+ */
+function ordenarPorSiembra(
+  inscripciones: InscripcionPublicada[],
+): InscripcionPublicada[] {
+  return [...inscripciones].sort((una, otra) => {
+    if (una.siembra !== null && otra.siembra !== null) {
+      return una.siembra - otra.siembra;
+    }
+
+    if (una.siembra !== null) return -1;
+    if (otra.siembra !== null) return 1;
+
+    return una.inscritaEn.getTime() - otra.inscritaEn.getTime();
+  });
 }

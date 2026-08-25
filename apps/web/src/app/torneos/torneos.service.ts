@@ -74,6 +74,30 @@ export interface ListaDelTorneo {
   retirados: InscripcionTorneo[];
 }
 
+/** Un partido, como se dibuja en el cuadro. */
+export interface PartidoDelCuadro {
+  id: number;
+  ronda: number;
+  ronda_nombre: string;
+  posicion: number;
+  jugadorA: string | null;
+  jugadorB: string | null;
+  jugadorAId: number | null;
+  jugadorBId: number | null;
+  ganadorId: number | null;
+  marcador: string | null;
+  walkover: boolean;
+}
+
+export interface Cuadro {
+  torneoId: number;
+  estado: EstadoTorneo;
+  rondas: number;
+  /** Con qué se sorteó: guardada para poder rehacer el sorteo. */
+  semillaSorteo: number | null;
+  partidos: PartidoDelCuadro[];
+}
+
 export interface TorneoNuevo {
   nombre: string;
   categoriaId: number;
@@ -192,6 +216,43 @@ export class Torneos {
     return firstValueFrom(
       this.http.post<{ id: number }>(
         `/api/admin/torneos/${torneoId}/inscripciones/${id}/promocion`,
+        {},
+      ),
+    );
+  }
+
+  /** La siembra la pone el admin, no el ranking. `null` la quita. */
+  sembrar(
+    torneoId: number,
+    id: number,
+    siembra: number | null,
+  ): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.patch<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/inscripciones/${id}/siembra`,
+        { siembra },
+      ),
+    );
+  }
+
+  cuadro(torneoId: number): Promise<Cuadro> {
+    return firstValueFrom(
+      this.http.get<Cuadro>(`/api/admin/torneos/${torneoId}/cuadro`),
+    );
+  }
+
+  /** Armar cierra la inscripción y sortea a los no sembrados. */
+  armarCuadro(torneoId: number): Promise<Cuadro> {
+    return firstValueFrom(
+      this.http.post<Cuadro>(`/api/admin/torneos/${torneoId}/cuadro`, {}),
+    );
+  }
+
+  /** Solo mientras no haya resultados: con partidos jugados el servidor se niega. */
+  deshacerCuadro(torneoId: number): Promise<{ torneoId: number }> {
+    return firstValueFrom(
+      this.http.post<{ torneoId: number }>(
+        `/api/admin/torneos/${torneoId}/cuadro/deshacer`,
         {},
       ),
     );

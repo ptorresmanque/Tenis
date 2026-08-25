@@ -401,6 +401,232 @@ describe('Inscripción a un torneo', () => {
     ).toBe(1);
   });
 
+  /** T51: armar el cuadro, que es lo que la gente mira en el mural del club. */
+  describe('El cuadro', () => {
+    const armar = (torneo = torneoId) =>
+      request(app.getHttpServer())
+        .post(`/api/admin/torneos/${torneo}/cuadro`)
+        .set('Cookie', cookieAdmin);
+
+    const cuadro = async (torneo = torneoId) => {
+      const respuesta = await request(app.getHttpServer())
+        .get(`/api/admin/torneos/${torneo}/cuadro`)
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      return respuesta.body as {
+        estado: string;
+        rondas: number;
+        semillaSorteo: number | null;
+        partidos: {
+          id: number;
+          ronda: number;
+          ronda_nombre: string;
+          posicion: number;
+          jugadorAId: number | null;
+          jugadorBId: number | null;
+          ganadorId: number | null;
+        }[];
+      };
+    };
+
+    /** Cuatro inscritos en un torneo de cupo 4: cuadro redondo, sin byes. */
+    const cuatroInscritos = async () => {
+      const torneo = await crearTorneo({ cupo: 4 });
+      for (const nombre of ['Ana', 'Beto', 'Cata', 'Dani']) {
+        await inscribir(await unJugador(nombre), torneo).expect(201);
+      }
+
+      return torneo;
+    };
+
+    it('**armar cierra la inscripción y deja el cuadro entero**', async () => {
+      const torneo = await cuatroInscritos();
+
+      await armar(torneo).expect(201);
+
+      const armado = await cuadro(torneo);
+      expect(armado.estado).toBe(EstadoTorneo.CUADRO_ARMADO);
+      // Cuatro jugadores: dos semifinales y una final.
+      expect(armado.partidos).toHaveLength(3);
+      expect(armado.rondas).toBe(2);
+    });
+
+    it('la ronda se nombra por el tamaño del cuadro', async () => {
+      const torneo = await cuatroInscritos();
+      await armar(torneo).expect(201);
+
+      const armado = await cuadro(torneo);
+
+      expect(armado.partidos.at(-1)?.ronda_nombre).toBe('Final');
+      expect(armado.partidos[0].ronda_nombre).toBe('Semifinal');
+    });
+
+    it('**la semilla del sorteo queda guardada, para poder rehacerlo**', async () => {
+      const torneo = await cuatroInscritos();
+      await armar(torneo).expect(201);
+
+      expect((await cuadro(torneo)).semillaSorteo).not.toBeNull();
+    });
+
+    it('los de la lista de espera no entran al cuadro', async () => {
+      const torneo = await crearTorneo({ cupo: 2 });
+      for (const nombre of ['Ana', 'Beto', 'EnEspera']) {
+        await inscribir(await unJugador(nombre), torneo).expect(201);
+      }
+
+      await armar(torneo).expect(201);
+
+      const enPrimera = (await cuadro(torneo)).partidos
+        .filter((p) => p.ronda === 1)
+        .flatMap((p) => [p.jugadorAId, p.jugadorBId])
+        .filter((id) => id !== null);
+      expect(enPrimera).toHaveLength(2);
+    });
+
+    it('con menos de dos inscritos no hay cuadro que armar', async () => {
+      const torneo = await crearTorneo({ cupo: 4 });
+      await inscribir(await unJugador('Sola'), torneo).expect(201);
+
+      await armar(torneo).expect(409);
+    });
+
+    it('armar dos veces se rechaza', async () => {
+      const torneo = await cuatroInscritos();
+      await armar(torneo).expect(201);
+
+      await armar(torneo).expect(409);
+    });
+
+    it('con el cuadro armado ya no se inscribe a nadie', async () => {
+      const torneo = await cuatroInscritos();
+      await armar(torneo).expect(201);
+
+      await inscribir(await unJugador('Tarde'), torneo).expect(409);
+    });
+
+    it('**deshacer sin resultados devuelve el torneo a inscripción**', async () => {
+      const torneo = await cuatroInscritos();
+      await armar(torneo).expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/api/admin/torneos/${torneo}/cuadro/deshacer`)
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      const despues = await cuadro(torneo);
+      expect(despues.estado).toBe(EstadoTorneo.INSCRIPCION);
+      expect(despues.partidos).toHaveLength(0);
+      expect(despues.semillaSorteo).toBeNull();
+    });
+
+    it('**deshacer con un resultado cargado se rechaza: sería rehacer la historia**', async () => {
+      const torneo = await cuatroInscritos();
+      await armar(torneo).expect(201);
+      const partido = (await cuadro(torneo)).partidos[0];
+      await prisma.partido.update({
+        where: { id: partido.id },
+        data: { marcador: '6-4 6-2', ganadorId: partido.jugadorAId },
+      });
+
+      const respuesta = await request(app.getHttpServer())
+        .post(`/api/admin/torneos/${torneo}/cuadro/deshacer`)
+        .set('Cookie', cookieAdmin);
+
+      expect(respuesta.status).toBe(409);
+      expect((respuesta.body as { message: string }).message).toContain(
+        'partido jugado',
+      );
+    });
+
+    it('**dos sembrados con el mismo número se rechazan**', async () => {
+      // Se pisarían el lugar del cuadro y el segundo desaparecería del sorteo.
+      const torneo = await crearTorneo({ cupo: 4 });
+      const primera = await inscribir(await unJugador('Ana'), torneo).expect(
+        201,
+      );
+      const segunda = await inscribir(await unJugador('Beto'), torneo).expect(
+        201,
+      );
+
+      const sembrar = (id: number, siembra: number) =>
+        request(app.getHttpServer())
+          .patch(`/api/admin/torneos/${torneo}/inscripciones/${id}/siembra`)
+          .set('Cookie', cookieAdmin)
+          .send({ siembra });
+
+      await sembrar((primera.body as { id: number }).id, 1).expect(200);
+      await sembrar((segunda.body as { id: number }).id, 1).expect(409);
+    });
+
+    it('**los sembrados se leen arriba de la lista, en orden**', async () => {
+      // MySQL pone los nulos primero en un `ASC`: ordenar por siembra en la consulta
+      // dejaba al 1 y al 2 debajo de todos los sin sembrar.
+      const torneo = await crearTorneo({ cupo: 4 });
+      const ids: number[] = [];
+      for (const nombre of ['Ana', 'Beto', 'Cata']) {
+        const inscripcion = await inscribir(
+          await unJugador(nombre),
+          torneo,
+        ).expect(201);
+        ids.push((inscripcion.body as { id: number }).id);
+      }
+
+      // Se siembra al último de la lista, que sin ordenar quedaría al final.
+      await request(app.getHttpServer())
+        .patch(`/api/admin/torneos/${torneo}/inscripciones/${ids[2]}/siembra`)
+        .set('Cookie', cookieAdmin)
+        .send({ siembra: 1 })
+        .expect(200);
+
+      const lista = await inscritos(torneo);
+
+      expect(lista.inscritos[0].jugador).toContain('Cata');
+      expect(lista.inscritos[0].siembra).toBe(1);
+    });
+
+    it('**el sembrado 1 no se cruza con el 2 en primera ronda**', async () => {
+      // Con cuatro jugadores y dos sembrados, la primera ronda son las semifinales:
+      // los dos sembrados tienen que estar en semifinales distintas.
+      const torneo = await crearTorneo({ cupo: 4 });
+      const ids: number[] = [];
+      for (const nombre of ['Ana', 'Beto', 'Cata', 'Dani']) {
+        const inscripcion = await inscribir(
+          await unJugador(nombre),
+          torneo,
+        ).expect(201);
+        ids.push((inscripcion.body as { id: number }).id);
+      }
+
+      for (const [indice, id] of [ids[0], ids[1]].entries()) {
+        await request(app.getHttpServer())
+          .patch(`/api/admin/torneos/${torneo}/inscripciones/${id}/siembra`)
+          .set('Cookie', cookieAdmin)
+          .send({ siembra: indice + 1 })
+          .expect(200);
+      }
+
+      await armar(torneo).expect(201);
+
+      const lista = await inscritos(torneo);
+      const sembrados = new Set(
+        lista.inscritos
+          .filter((i) => i.siembra !== null)
+          .map((i) => i.jugadorId),
+      );
+      const primera = (await cuadro(torneo)).partidos.filter(
+        (p) => p.ronda === 1,
+      );
+
+      for (const partido of primera) {
+        const ambos =
+          sembrados.has(partido.jugadorAId ?? 0) &&
+          sembrados.has(partido.jugadorBId ?? 0);
+        expect(ambos).toBe(false);
+      }
+    });
+  });
+
   it('solo el admin inscribe y ve la lista', async () => {
     await request(app.getHttpServer())
       .post(`/api/admin/torneos/${torneoId}/inscripciones`)

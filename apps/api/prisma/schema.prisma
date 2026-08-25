@@ -884,8 +884,11 @@ model Jugador {
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
-  socio         Socio?              @relation(fields: [socioId], references: [id], onDelete: SetNull)
-  inscripciones InscripcionTorneo[]
+  socio           Socio?              @relation(fields: [socioId], references: [id], onDelete: SetNull)
+  inscripciones   InscripcionTorneo[]
+  partidosComoA   Partido[]           @relation("PartidosComoA")
+  partidosComoB   Partido[]           @relation("PartidosComoB")
+  partidosGanados Partido[]           @relation("PartidosGanados")
 
   @@index([apellido, nombre])
   @@map("jugador")
@@ -936,8 +939,14 @@ model Torneo {
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
+  /// Con qué semilla se sorteó el cuadro. Se guarda para poder **reproducir** el
+  /// sorteo: si alguien pregunta por qué le tocó ese cruce, la respuesta no puede ser
+  /// "salió así".
+  semillaSorteo Int? @map("semilla_sorteo")
+
   categoria     CategoriaTorneo     @relation(fields: [categoriaId], references: [id])
   inscripciones InscripcionTorneo[]
+  partidos      Partido[]
 
   @@index([estado, fechaInicio])
   @@map("torneo")
@@ -980,4 +989,48 @@ model InscripcionTorneo {
   @@unique([torneoId, jugadorActivo], map: "inscripcion_jugador_activo")
   @@index([torneoId, estado])
   @@map("inscripcion_torneo")
+}
+
+/// Un partido del cuadro.
+///
+/// **El cuadro se genera completo**, con todos los partidos de todas las rondas y los
+/// jugadores nulos donde todavía no se sabe quién llega. Así se puede dibujar entero
+/// desde el primer día, que es lo que la gente mira en el mural del club.
+///
+/// **`ronda` es un número y no un nombre.** "Cuartos de final" depende del tamaño del
+/// cuadro: en uno de 8 la ronda 1 es cuartos, en uno de 32 es dieciseisavos. El nombre
+/// se calcula al mostrar, contando desde la final hacia atrás.
+model Partido {
+  id       Int @id @default(autoincrement())
+  torneoId Int @map("torneo_id")
+
+  /// 1 = primera ronda. La final es la más alta.
+  ronda    Int
+  /// Lugar del partido dentro de su ronda, desde arriba del cuadro.
+  posicion Int
+
+  /// Nulos hasta que la ronda anterior resuelve. En primera ronda, un nulo es un bye.
+  jugadorAId Int? @map("jugador_a_id")
+  jugadorBId Int? @map("jugador_b_id")
+
+  ganadorId Int? @map("ganador_id")
+
+  /// Como lo escribe el admin: "6-4 3-6 7-5". **Texto libre a propósito**: el ranking
+  /// solo mira quién ganó, y un modelo de sets y tie-breaks es mucho código para un
+  /// dato que nadie consulta. Si algún día hacen falta estadísticas, el texto está.
+  marcador String? @db.VarChar(60)
+
+  /// El rival no se presentó. Distinto de un bye, que es un lugar vacío del cuadro.
+  walkover Boolean @default(false)
+
+  jugadoEn DateTime? @map("jugado_en")
+
+  torneo   Torneo   @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jugadorA Jugador? @relation("PartidosComoA", fields: [jugadorAId], references: [id])
+  jugadorB Jugador? @relation("PartidosComoB", fields: [jugadorBId], references: [id])
+  ganador  Jugador? @relation("PartidosGanados", fields: [ganadorId], references: [id])
+
+  @@unique([torneoId, ronda, posicion])
+  @@index([torneoId])
+  @@map("partido")
 }

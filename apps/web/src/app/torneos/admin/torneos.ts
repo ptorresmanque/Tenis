@@ -7,6 +7,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
+import { CuadroDelTorneo } from './cuadro';
 import { InscritosDelTorneo } from './inscritos';
 import {
   CategoriaTorneo,
@@ -36,7 +37,14 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-torneos',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDelTorneo],
+  imports: [
+    FormsModule,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    InscritosDelTorneo,
+    CuadroDelTorneo,
+  ],
   template: `
     <h1 class="font-display text-3xl font-bold">Torneos</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -95,6 +103,7 @@ const enBlanco = () => ({
 
             @if (abierto() === torneo.id) {
               <app-inscritos-torneo [torneoId]="torneo.id" />
+              <app-cuadro-torneo [torneoId]="torneo.id" />
             }
           </li>
         }

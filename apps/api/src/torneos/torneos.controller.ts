@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 
 import { SoloAdmin } from '../identidad/guards';
+import { CuadroDelTorneo } from './cuadro.service';
 import { InscripcionesATorneo } from './inscripciones.service';
 import { Jugadores } from './jugadores.service';
 import { Torneos } from './torneos.service';
@@ -21,6 +22,7 @@ import {
   leerCategoria,
   leerInscripcionATorneo,
   leerJugadorNuevo,
+  leerSiembra,
   leerTorneo,
 } from './torneos.dto';
 
@@ -37,6 +39,7 @@ export class TorneosController {
     private readonly jugadores: Jugadores,
     private readonly torneos: Torneos,
     private readonly inscripciones: InscripcionesATorneo,
+    private readonly cuadro: CuadroDelTorneo,
   ) {}
 
   @Get('jugadores')
@@ -127,6 +130,40 @@ export class TorneosController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.inscripciones.retirar(torneoId, id);
+  }
+
+  /** La siembra la pone el admin, no el ranking: es lo que hace hoy. */
+  @Patch('torneos/:torneoId/inscripciones/:id/siembra')
+  sembrar(
+    @Param('torneoId', ParseIntPipe) torneoId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.inscripciones.sembrar(torneoId, id, leerSiembra(cuerpo));
+  }
+
+  /** El cuadro entero, con todos los partidos de todas las rondas. */
+  @Get('torneos/:id/cuadro')
+  verCuadro(@Param('id', ParseIntPipe) id: number) {
+    return this.cuadro.leer(id);
+  }
+
+  /** Armar cierra la inscripción y sortea a los no sembrados con semilla guardada. */
+  @Post('torneos/:id/cuadro')
+  armarCuadro(@Param('id', ParseIntPipe) id: number) {
+    return this.cuadro.armar(id);
+  }
+
+  /**
+   * Deshacer el cuadro y volver a inscripción.
+   *
+   * Solo mientras no haya resultados: rearmar con partidos jugados es rehacer la
+   * historia de alguien que ganó de verdad.
+   */
+  @Post('torneos/:id/cuadro/deshacer')
+  @HttpCode(200)
+  deshacerCuadro(@Param('id', ParseIntPipe) id: number) {
+    return this.cuadro.deshacer(id);
   }
 
   /**

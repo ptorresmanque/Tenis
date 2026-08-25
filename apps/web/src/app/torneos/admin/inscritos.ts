@@ -46,14 +46,21 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                     Socio {{ quien.numeroSocio }}
                   </app-insignia>
                 }
-                @if (quien.siembra) {
-                  <app-insignia variante="exito" icono="star">
-                    Sembrado {{ quien.siembra }}
-                  </app-insignia>
-                }
+                <label class="ms-auto flex items-center gap-1">
+                  <span class="text-sm text-muted-foreground">Siembra</span>
+                  <input
+                    class="campo campo-chico w-16"
+                    type="number"
+                    min="1"
+                    [name]="'siembra-' + quien.id"
+                    [value]="quien.siembra ?? ''"
+                    [disabled]="trabajando() || datos.estado !== 'INSCRIPCION'"
+                    (change)="sembrar(quien, $any($event.target).value)"
+                  />
+                </label>
                 <button
                   type="button"
-                  class="boton boton-texto boton-chico ms-auto"
+                  class="boton boton-texto boton-chico"
                   [disabled]="trabajando()"
                   (click)="retirar(quien)"
                 >
@@ -192,6 +199,22 @@ export class InscritosDelTorneo {
       });
       this.jugadorId = 0;
     });
+  }
+
+  /**
+   * Pone o quita la siembra.
+   *
+   * **La decide el admin, no el ranking**: es lo que hace hoy y lo que le permite
+   * separar a dos socios que ya jugaron la final el mes pasado.
+   */
+  protected async sembrar(quien: InscripcionTorneo, valor: string): Promise<void> {
+    await this.intentar(() =>
+      this.api.sembrar(
+        this.torneoId(),
+        quien.id,
+        valor === '' ? null : Number(valor),
+      ),
+    );
   }
 
   protected async retirar(quien: InscripcionTorneo): Promise<void> {
