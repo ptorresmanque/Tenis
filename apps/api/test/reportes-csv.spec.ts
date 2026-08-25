@@ -8,6 +8,7 @@ import {
   EstadoCuota,
   EstadoReporte,
   EstadoReserva,
+  EstadoSocio,
   MedioPago,
   Superficie,
 } from '../src/generated/prisma/client';
@@ -91,10 +92,13 @@ describe('Reportes: no uso, padrón y CSV', () => {
     return reserva.id;
   };
 
-  const pedir = async <T>(ruta: string): Promise<T> => {
+  const pedir = async <T>(
+    ruta: string,
+    rango: { desde: string; hasta: string } = { desde: DIA, hasta: DIA },
+  ): Promise<T> => {
     const respuesta = await request(app.getHttpServer())
       .get(`/api/admin/reportes/${ruta}`)
-      .query({ desde: DIA, hasta: DIA })
+      .query(rango)
       .set('Cookie', cookieAdmin)
       .expect(200);
 
@@ -119,7 +123,17 @@ describe('Reportes: no uso, padrón y CSV', () => {
   const celda = (filas: string[][], etiqueta: string, columna: number) =>
     filas.find((fila) => fila[0].replace(/"/g, '') === etiqueta)?.[columna];
 
+  /**
+   * Quien firma los cambios de ficha de este archivo, y por eso el modo de barrerlos.
+   *
+   * `CambioSocio` no tiene clave foránea a `socio` —el historial sobrevive a la ficha,
+   * a propósito—, así que borrar el socio no se lleva sus renglones y la corrida
+   * siguiente contaría las bajas de la anterior.
+   */
+  const FIRMA = 'jefe Csv';
+
   const limpiar = async () => {
+    await prisma.cambioSocio.deleteMany({ where: { hechoPorNombre: FIRMA } });
     await prisma.reporteNoUso.deleteMany({
       where: { reserva: { folio: { startsWith: MARCA } } },
     });
@@ -293,13 +307,101 @@ describe('Reportes: no uso, padrón y CSV', () => {
     interface Padron {
       activosHoy: number;
       altasDelPeriodo: number;
+      bajasDelPeriodo: number;
       meses: {
         periodo: string;
         altas: number;
+        bajas: number;
         deudaClp: number;
         sociosConDeuda: number;
       }[];
     }
+
+    /**
+     * Cambia el estado del socio **por el panel**, que es el único camino que lo
+     * escribe, y fecha el cambio en el instante que se pida.
+     *
+     * `hechoEn` es un `now()` y el rango del reporte es un día fijo del pasado: sin
+     * correrlo, ningún cambio caería nunca dentro del período que se consulta.
+     */
+    const cambiarEstado = async (estado: EstadoSocio, cuando: Date) => {
+      await request(app.getHttpServer())
+        .patch(`/api/admin/socios/${socioId}`)
+        .set('Cookie', cookieAdmin)
+        .send({ estado })
+        .expect(200);
+
+      await prisma.cambioSocio.updateMany({
+        where: { socioId, campo: 'estado', hechoPorNombre: FIRMA },
+        data: { hechoEn: cuando },
+      });
+    };
+
+    it('**cuenta la baja del período**', async () => {
+      await cambiarEstado(EstadoSocio.RETIRADO, instanteEnElClub(DIA, '15:00'));
+
+      const suyo = await pedir<Padron>('padron');
+
+      expect(suyo.bajasDelPeriodo).toBe(1);
+      expect(suyo.meses[0].bajas).toBe(1);
+    });
+
+    it('sin bajas el período informa cero, no un hueco', async () => {
+      const suyo = await pedir<Padron>('padron');
+
+      expect(suyo.bajasDelPeriodo).toBe(0);
+      expect(suyo.meses[0].bajas).toBe(0);
+    });
+
+    it('**una suspensión no es una baja**', async () => {
+      // Un socio suspendido sigue siendo socio: contarlo como baja diría que el club
+      // perdió a alguien que no perdió.
+      await cambiarEstado(
+        EstadoSocio.SUSPENDIDO,
+        instanteEnElClub(DIA, '15:00'),
+      );
+
+      expect((await pedir<Padron>('padron')).bajasDelPeriodo).toBe(0);
+    });
+
+    it('**una baja de otro día no entra en este período**', async () => {
+      await cambiarEstado(
+        EstadoSocio.RETIRADO,
+        instanteEnElClub('2026-07-04', '15:00'),
+      );
+
+      expect((await pedir<Padron>('padron')).bajasDelPeriodo).toBe(0);
+    });
+
+    it('**la baja de las once y media de la noche es de ese día, no del siguiente**', async () => {
+      // A las 23:30 en Santiago ya es el día siguiente en UTC. Fechar la baja por el
+      // reloj equivocado la corre de mes cada 31 del mes, y un club que se pregunta
+      // por qué agosto perdió una baja que sí ocurrió.
+      await cambiarEstado(
+        EstadoSocio.RETIRADO,
+        instanteEnElClub('2026-08-31', '23:30'),
+      );
+
+      const suyo = await pedir<Padron>('padron', {
+        desde: '2026-08-01',
+        hasta: '2026-09-30',
+      });
+      const agosto = suyo.meses.find((mes) => mes.periodo === '2026-08');
+      const septiembre = suyo.meses.find((mes) => mes.periodo === '2026-09');
+
+      expect(agosto?.bajas).toBe(1);
+      expect(septiembre?.bajas).toBe(0);
+    });
+
+    it('el mismo socio retirado dos veces en el mes es una baja', async () => {
+      // Se puede: retirar, reincorporar y volver a retirar deja dos renglones. Son
+      // dos decisiones, pero **un socio menos**, y la columna del padrón cuenta gente.
+      await cambiarEstado(EstadoSocio.RETIRADO, instanteEnElClub(DIA, '10:00'));
+      await cambiarEstado(EstadoSocio.ACTIVO, instanteEnElClub(DIA, '11:00'));
+      await cambiarEstado(EstadoSocio.RETIRADO, instanteEnElClub(DIA, '12:00'));
+
+      expect((await pedir<Padron>('padron')).bajasDelPeriodo).toBe(1);
+    });
 
     it('cuenta el alta del período', async () => {
       const suyo = await pedir<Padron>('padron');

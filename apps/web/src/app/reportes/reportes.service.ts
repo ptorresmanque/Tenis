@@ -93,6 +93,8 @@ export interface ReporteDeNoUso {
 export interface MesDelPadron {
   periodo: string;
   altas: number;
+  /** Socios que el club retiró ese mes, según la auditoría de fichas. */
+  bajas: number;
   deudaClp: number;
   sociosConDeuda: number;
 }
@@ -104,6 +106,7 @@ export interface ReporteDePadron {
   suspendidosHoy: number;
   retiradosHoy: number;
   altasDelPeriodo: number;
+  bajasDelPeriodo: number;
   meses: MesDelPadron[];
   calculadoEn: string;
 }

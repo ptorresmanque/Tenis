@@ -73,19 +73,20 @@ export function noUsoACsv(reporte: ReporteDeNoUso): string {
 
 export function padronACsv(reporte: ReporteDePadron): string {
   return aCsv(
-    ['Período', 'Altas', 'Deuda CLP', 'Socios con deuda'],
+    ['Período', 'Altas', 'Bajas', 'Deuda CLP', 'Socios con deuda'],
     [
       ...reporte.meses.map((mes): Celda[] => [
         mes.periodo,
         mes.altas,
+        mes.bajas,
         mes.deudaClp,
         mes.sociosConDeuda,
       ]),
       // El estado del padrón es de hoy y no del cierre del período: va etiquetado así
       // para que nadie lo lea como parte de la serie de arriba.
-      ['Activos hoy', reporte.activosHoy, null, null],
-      ['Suspendidos hoy', reporte.suspendidosHoy, null, null],
-      ['Retirados hoy', reporte.retiradosHoy, null, null],
+      ['Activos hoy', reporte.activosHoy, null, null, null],
+      ['Suspendidos hoy', reporte.suspendidosHoy, null, null, null],
+      ['Retirados hoy', reporte.retiradosHoy, null, null, null],
     ],
   );
 }
