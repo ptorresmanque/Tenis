@@ -63,12 +63,14 @@ import { Ranking } from './ranking.service';
             <tbody>
               @for (fila of datos.posiciones; track fila.jugadorId) {
                 <tr class="border-b border-border last:border-0">
-                  <!-- Encabezado de fila: es lo que identifica la fila para quien la
-                       escucha, junto con el nombre. -->
-                  <th scope="row" class="py-2 pr-3 text-left font-semibold">
-                    {{ fila.puesto }}
+                  <td class="py-2 pr-3 font-semibold">{{ fila.puesto }}</td>
+                  <!-- El nombre es el encabezado de fila, no el puesto: con empates el
+                       puesto se repite, y un encabezado que dice "1" en dos filas no
+                       identifica ninguna. Quien escucha la tabla necesita oír de quién
+                       son los 650 puntos. -->
+                  <th scope="row" class="py-2 pr-3 text-left font-normal">
+                    {{ fila.nombre }}
                   </th>
-                  <td class="py-2 pr-3">{{ fila.nombre }}</td>
                   <td class="py-2 pr-3 text-right font-semibold">{{ fila.puntos }}</td>
                   <td class="py-2 text-right text-muted-foreground">
                     {{ fila.torneos }}

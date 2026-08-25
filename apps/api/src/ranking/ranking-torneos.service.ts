@@ -14,9 +14,15 @@ export interface TorneoContado {
 }
 
 export interface TablaDeTorneos {
-  /** El corte: solo suman los torneos que terminaron desde este día. */
+  /**
+   * El corte: solo suman los torneos que terminaron desde este día.
+   *
+   * **No hay un `hasta`, y es a propósito.** La ventana tiene un solo borde: un torneo
+   * que se terminó de jugar antes de su fecha de cierre repartió sus puntos igual, y
+   * dejarlo fuera hasta que llegue el día sería esconder algo que ya pasó. Un `hasta`
+   * en la respuesta prometía un tope que la consulta no aplica.
+   */
   desde: string;
-  hasta: string;
   torneos: TorneoContado[];
   posiciones: FilaDeRanking[];
 }
@@ -59,6 +65,10 @@ export class RankingDeTorneos {
     const torneos = await this.prisma.torneo.findMany({
       // **Solo los `FINALIZADO`.** Un torneo a medias no reparte puntos de campeón, y
       // uno cancelado no se jugó: darle puntos sería premiar algo que no ocurrió.
+      //
+      // Un solo borde: `gte` y nada de `lte`. El que se terminó de jugar antes de su
+      // fecha prevista ya repartió sus puntos, y esconderlos hasta que llegue el día
+      // sería negar un torneo que el club vio jugarse.
       where: { estado: EstadoTorneo.FINALIZADO, fechaFin: { gte: desde } },
       orderBy: [{ fechaFin: 'desc' }, { id: 'desc' }],
       select: {
@@ -81,7 +91,6 @@ export class RankingDeTorneos {
 
     return {
       desde: comoFechaCivil(desde),
-      hasta: comoFechaCivil(hoy),
       torneos: torneos.map((torneo) => ({
         id: torneo.id,
         nombre: torneo.nombre,

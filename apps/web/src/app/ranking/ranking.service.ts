@@ -21,9 +21,12 @@ export interface TorneoContado {
 }
 
 export interface TablaDeTorneos {
-  /** El corte: solo suman los torneos terminados desde este día. */
+  /**
+   * El corte: solo suman los torneos terminados desde este día. **Sin un tope**: la
+   * ventana tiene un solo borde, porque un torneo que se terminó de jugar antes de su
+   * fecha prevista ya repartió sus puntos.
+   */
   desde: string;
-  hasta: string;
   torneos: TorneoContado[];
   posiciones: PosicionDeTorneos[];
 }

@@ -76,6 +76,19 @@ export function puntosDe(
 }
 
 /**
+ * Si ese partido se jugó de verdad, con dos personas en la cancha.
+ *
+ * **Un bye no lo es.** El sembrado que entra en segunda ronda y pierde ahí alcanzó la
+ * segunda, no la primera: se cuenta por el partido más lejano que jugó, y un lugar
+ * vacío del cuadro no se juega. En una sola función porque la pregunta se hace dos
+ * veces —para la ronda alcanzada y para saber si hay final— y dos copias de la misma
+ * condición es una que alguien cambia sin cambiar la otra.
+ */
+function seJugo(partido: PartidoJugado): boolean {
+  return partido.jugadorAId !== null && partido.jugadorBId !== null;
+}
+
+/**
  * Los puntos que reparte un torneo, por jugador.
  *
  * Están todos los que aparecen en el cuadro, incluidos los que sacaron cero: quien
@@ -87,27 +100,22 @@ export function puntosDelTorneo(torneo: TorneoTerminado): Map<number, number> {
     0,
   );
 
-  // **Un bye no es un partido jugado.** El sembrado que entra en segunda ronda y
-  // pierde ahí alcanzó la segunda, no la primera: se cuenta por el partido más lejano
-  // que jugó, y un lugar vacío del cuadro no se juega.
-  const conRival = torneo.partidos.filter(
-    (partido) => partido.jugadorAId !== null && partido.jugadorBId !== null,
-  );
-
   // Campeón es quien ganó la final, y la final es un partido con dos nombres. Sin
   // esta condición, un cuadro de puros byes coronaría a los dos que pasaron solos.
-  const final = conRival.find((partido) => partido.ronda === rondas);
+  const final = torneo.partidos.find(
+    (partido) => partido.ronda === rondas && seJugo(partido),
+  );
   const campeonId = final?.ganadorId ?? null;
 
   const alcanzada = new Map<number, number>();
   for (const partido of torneo.partidos) {
+    const juega = seJugo(partido);
+
     for (const jugadorId of [partido.jugadorAId, partido.jugadorBId]) {
       if (jugadorId === null) continue;
 
       // Aparecer en el cuadro con cero es distinto de no aparecer.
       const suya = alcanzada.get(jugadorId) ?? 0;
-      const juega = partido.jugadorAId !== null && partido.jugadorBId !== null;
-
       alcanzada.set(jugadorId, juega ? Math.max(suya, partido.ronda) : suya);
     }
   }

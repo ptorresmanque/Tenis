@@ -15,7 +15,6 @@ import { RankingDeTorneos } from './torneos';
 describe('RankingDeTorneos', () => {
   const TABLA: TablaDeTorneos = {
     desde: '2025-08-26',
-    hasta: '2026-08-25',
     torneos: [
       {
         id: 5,

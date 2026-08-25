@@ -37,7 +37,6 @@ describe('GET /api/ranking/torneos', () => {
 
   interface Tabla {
     desde: string;
-    hasta: string;
     torneos: {
       id: number;
       nombre: string;
@@ -82,9 +81,16 @@ describe('GET /api/ranking/torneos', () => {
     return respuesta.body as Tabla;
   };
 
-  /** Una fecha civil a tantas semanas de hoy, hacia atrás. */
-  const hace = (semanas: number) =>
-    new Date(hoyEnElClub().getTime() - semanas * 7 * 24 * 60 * 60 * 1000);
+  /**
+   * Una fecha civil a tantos días de hoy, hacia atrás. Negativo es hacia adelante.
+   *
+   * Aritmética en milisegundos sobre medianoches UTC: las fechas civiles del club
+   * viven en UTC, así que acá no hay horario de verano que corra un día.
+   */
+  const haceDias = (dias: number) =>
+    new Date(hoyEnElClub().getTime() - dias * 24 * 60 * 60 * 1000);
+
+  const hace = (semanas: number) => haceDias(semanas * 7);
 
   /**
    * Un torneo ya terminado, escrito directo en la base.
@@ -150,16 +156,21 @@ describe('GET /api/ranking/torneos', () => {
     return torneo.id;
   };
 
-  const limpiar = async () => {
+  /** Borra los torneos y deja los jugadores, para probar dos ventanas seguidas. */
+  const limpiarTorneos = async () => {
     await prisma.partido.deleteMany({});
     await prisma.inscripcionTorneo.deleteMany({});
     await prisma.torneo.deleteMany({
       where: { nombre: { startsWith: MARCA } },
     });
-    await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
     await prisma.categoriaTorneo.deleteMany({
       where: { nombre: { startsWith: 'CatRank' } },
     });
+  };
+
+  const limpiar = async () => {
+    await limpiarTorneos();
+    await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });
@@ -323,6 +334,42 @@ describe('GET /api/ranking/torneos', () => {
     expect((await tabla()).posiciones).toHaveLength(2);
   });
 
+  it('**el borde está al día: 364 entra y 365 no**', async () => {
+    // Los de 51 y 53 semanas dejan pasar un corte corrido tres días. La ventana son
+    // 52 semanas exactas, y el día que se cae un torneo del ranking es una llamada
+    // al club: tiene que ser el día que corresponde y no uno cerca.
+    const enElBorde = async (dias: number) => {
+      await limpiarTorneos();
+      await torneoTerminado({
+        puntosCampeon: 250,
+        fechaFin: haceDias(dias),
+        campeon: jugadores[0],
+        finalista: jugadores[1],
+        otros: [jugadores[2], jugadores[3]],
+      });
+
+      return (await tabla()).posiciones.length;
+    };
+
+    expect(await enElBorde(364)).toBe(2);
+    expect(await enElBorde(365)).toBe(0);
+  });
+
+  it('uno que se jugó antes de su fecha suma igual', async () => {
+    // El admin puso el torneo para el mes que viene y se terminó de jugar antes. Los
+    // puntos ya se repartieron: esconderlos hasta que llegue el día sería negar un
+    // torneo que el club vio jugarse. Por eso la ventana tiene un solo borde.
+    await torneoTerminado({
+      puntosCampeon: 250,
+      fechaFin: haceDias(-21),
+      campeon: jugadores[0],
+      finalista: jugadores[1],
+      otros: [jugadores[2], jugadores[3]],
+    });
+
+    expect((await tabla()).posiciones).toHaveLength(2);
+  });
+
   it('un torneo que todavía no termina no reparte puntos', async () => {
     await torneoTerminado({
       puntosCampeon: 250,
@@ -420,11 +467,11 @@ describe('GET /api/ranking/torneos', () => {
     });
 
     const respuesta = await tabla();
-    const corte = new Date(hoyEnElClub().getTime());
-    corte.setUTCDate(corte.getUTCDate() - 364);
 
-    expect(respuesta.desde).toBe(corte.toISOString().slice(0, 10));
-    expect(respuesta.hasta).toBe(hoyEnElClub().toISOString().slice(0, 10));
+    // Contra los mismos 364 días literales que usa el test del borde, y no contra la
+    // fórmula del servicio escrita otra vez acá: así el corte que se **anuncia** y el
+    // que se **aplica** no pueden separarse sin que caiga uno de los dos.
+    expect(respuesta.desde).toBe(haceDias(364).toISOString().slice(0, 10));
     expect(respuesta.torneos.map((t) => t.id)).toEqual([torneoId]);
     expect(respuesta.torneos[0].fechaFin).toBe(
       hace(10).toISOString().slice(0, 10),
