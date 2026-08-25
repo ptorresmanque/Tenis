@@ -423,6 +423,34 @@ describe('Partidos internos entre socios', () => {
       expect(guardado?.estado).toBe(EstadoPartidoInterno.RECHAZADO);
     });
 
+    it('**un rechazo no deja fecha de confirmación**', async () => {
+      // La columna se llama `confirmadoEn`: escribirla al rechazar la convierte en
+      // "cuándo contestó" sin avisarle a nadie, y deja este camino guardando algo
+      // distinto del que usa el admin para la misma operación.
+      await responder(beto, partidoId, 'rechazo').expect(200);
+
+      const guardado = await prisma.partidoInterno.findUnique({
+        where: { id: partidoId },
+        select: { confirmadoEn: true },
+      });
+      expect(guardado?.confirmadoEn).toBeNull();
+    });
+
+    it('y el admin que rechaza tampoco', async () => {
+      // El par del anterior: los dos caminos tienen que dejar la misma columna igual.
+      await request(app.getHttpServer())
+        .post(`/api/admin/partidos-internos/${partidoId}/resolucion`)
+        .set('Cookie', jefe.cookie)
+        .send({ estado: EstadoPartidoInterno.RECHAZADO })
+        .expect(200);
+
+      const guardado = await prisma.partidoInterno.findUnique({
+        where: { id: partidoId },
+        select: { confirmadoEn: true },
+      });
+      expect(guardado?.confirmadoEn).toBeNull();
+    });
+
     it('**contestar dos veces no vuelve a contestar**', async () => {
       // Dos toques al botón, o dos pestañas abiertas. El segundo tiene que rebotar
       // contra el estado y no pisar el primero.

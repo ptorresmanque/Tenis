@@ -158,8 +158,9 @@ describe('MisPartidos', () => {
         (o) => o.textContent?.trim(),
       );
 
-      expect(opciones).toContain('Ana Uno');
-      expect(opciones).toContain('Beto Dos');
+      // Con el número de socio: dos que se llamen igual tienen que distinguirse.
+      expect(opciones).toContain('Ana Uno · S-10');
+      expect(opciones).toContain('Beto Dos · S-20');
     });
 
     it('manda el partido con quien ganó', async () => {

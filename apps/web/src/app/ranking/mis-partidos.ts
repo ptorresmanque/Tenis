@@ -40,8 +40,11 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
             (change)="rival.set(valorDe($event))"
           >
             <option value="">Elige un socio…</option>
+            <!-- Con el número al lado: dos socios que se llaman igual no es un caso
+                 raro en un club, y elegir al equivocado le crea un partido a un
+                 tercero que después tiene que rechazarlo. -->
             @for (quien of rivales.value(); track quien.socioId) {
-              <option [value]="quien.socioId">{{ quien.nombre }}</option>
+              <option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</option>
             }
           </select>
         </label>
@@ -217,11 +220,6 @@ export class MisPartidos {
   protected readonly hoy = hoyEnElClub();
 
   protected readonly enPalabras = diaConAnioEnPalabras;
-
-  /** Cuántos me están esperando, por si algún día esto va en la barra. */
-  protected readonly porContestar = computed(
-    () => this.partidos.value().filter((uno) => uno.esperaMiRespuesta).length,
-  );
 
   protected valorDe(evento: Event): string {
     return (evento.target as HTMLSelectElement | HTMLInputElement).value;

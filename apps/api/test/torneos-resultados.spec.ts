@@ -100,8 +100,12 @@ describe('Resultados del cuadro', () => {
   };
 
   const limpiar = async () => {
-    await prisma.partido.deleteMany({});
-    await prisma.inscripcionTorneo.deleteMany({});
+    // **Acotado a los torneos de este archivo.** Jest corre los archivos en paralelo:
+    // un `deleteMany({})` acá le borra el cuadro a otra suite a mitad de un test, y
+    // eso salía como un fallo intermitente sin causa aparente en otro archivo.
+    const mios = { torneo: { nombre: { startsWith: MARCA } } };
+    await prisma.partido.deleteMany({ where: mios });
+    await prisma.inscripcionTorneo.deleteMany({ where: mios });
     await prisma.torneo.deleteMany({
       where: { nombre: { startsWith: MARCA } },
     });

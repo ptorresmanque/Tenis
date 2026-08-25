@@ -290,7 +290,12 @@ export class PartidosInternos {
       where: { id, estado: EstadoPartidoInterno.PENDIENTE },
       data: {
         estado,
-        confirmadoEn: new Date(),
+        // Se llama `confirmadoEn`, así que solo se escribe cuando hubo confirmación.
+        // Ponerlo también al rechazar convertía la columna en "cuándo contestó" sin
+        // avisarle a nadie, y encima dejaba a los dos caminos —éste y el del admin—
+        // guardando cosas distintas para la misma operación.
+        confirmadoEn:
+          estado === EstadoPartidoInterno.CONFIRMADO ? new Date() : null,
       },
     });
 

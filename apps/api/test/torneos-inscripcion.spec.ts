@@ -121,7 +121,11 @@ describe('Inscripción a un torneo', () => {
   };
 
   const limpiar = async () => {
-    await prisma.inscripcionTorneo.deleteMany({});
+    // Acotado a los torneos de este archivo: los archivos corren en paralelo y un
+    // borrado global le vacía la lista a otra suite en mitad de un test.
+    await prisma.inscripcionTorneo.deleteMany({
+      where: { torneo: { nombre: { startsWith: MARCA } } },
+    });
     await prisma.torneo.deleteMany({
       where: { nombre: { startsWith: MARCA } },
     });
