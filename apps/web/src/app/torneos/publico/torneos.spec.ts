@@ -162,6 +162,19 @@ describe('TorneosPublicos', () => {
     expect(texto()).not.toMatch(/\+?56\d{8}/);
   });
 
+  it('**el cuadro de un torneo no se muestra bajo el nombre de otro**', async () => {
+    // Al cambiar de torneo, el `resource` conserva el valor anterior hasta que llega
+    // el nuevo: sin comprobar de quién es el cuadro que se tiene en la mano, la
+    // tarjeta del segundo dibuja el del primero mientras carga. Acá el servidor
+    // devuelve siempre el cuadro del torneo 5, y el que se abre es el 9.
+    const otro = { ...EN_INSCRIPCION, id: 9, nombre: 'Copa de invierno' };
+    await montar([otro]);
+
+    await apretar('Ver quiénes juegan');
+
+    expect(texto()).not.toContain('6-4 6-2');
+  });
+
   it('sin torneos este año lo dice, en vez de quedar en blanco', async () => {
     await montar([]);
 

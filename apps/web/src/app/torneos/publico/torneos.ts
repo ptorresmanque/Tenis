@@ -5,6 +5,7 @@ import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import {
+  CuadroPublico,
   ESTADOS_TORNEO,
   EstadoTorneo,
   PartidoPublico,
@@ -86,7 +87,11 @@ import {
                 {{ abierto() === torneo.id ? 'Ocultar' : 'Ver quiénes juegan' }}
               </button>
 
-              @if (abierto() === torneo.id && cuadro.value(); as detalle) {
+              <!-- Se comprueba de quién es el cuadro que se tiene en la mano: al
+                   cambiar de torneo se conserva el anterior hasta que llega el nuevo,
+                   y sin esto la tarjeta del segundo dibujaba el del primero con el
+                   nombre equivocado encima. -->
+              @if (detalleDe(torneo.id); as detalle) {
                 @if (detalle.partidos.length === 0) {
                   <div class="mt-3 rounded-lg border border-border bg-background p-3">
                     <h3 class="text-sm font-semibold">Inscritos</h3>
@@ -176,6 +181,15 @@ export class TorneosPublicos {
 
   protected readonly enPalabras = diaEnPalabras;
   protected readonly superficie = nombreDeSuperficie;
+
+  /** El cuadro abierto, **solo si es el de este torneo**. */
+  protected detalleDe(torneoId: number): CuadroPublico | null {
+    const detalle = this.cuadro.value();
+
+    return this.abierto() === torneoId && detalle?.id === torneoId
+      ? detalle
+      : null;
+  }
 
   protected alternar(id: number): void {
     this.abierto.update((actual) => (actual === id ? null : id));

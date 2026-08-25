@@ -161,9 +161,11 @@ export class TorneosPublicos {
       nombre: torneo.nombre,
       categoria: torneo.categoria.nombre,
       estado: torneo.estado,
-      inscritos: torneo.inscripciones.map((fila) =>
-        nombre(fila.jugador),
-      ) as string[],
+      // Sin cast: un inscrito **siempre** tiene jugador —la relación es obligatoria—,
+      // y el `as string[]` tapaba que se estaba usando el lector de los opcionales.
+      inscritos: torneo.inscripciones.map(
+        (fila) => `${fila.jugador.nombre} ${fila.jugador.apellido}`,
+      ),
       partidos: torneo.partidos.map((partido) => ({
         ronda: partido.ronda,
         ronda_nombre: nombreDeRonda(partido.ronda, rondas),
