@@ -163,3 +163,19 @@ export function instanteEnElClub(fecha: string, hora: string): Date {
     validos.length > 0 ? Math.min(...validos) : Math.max(primera, segunda),
   );
 }
+
+/**
+ * Si esa cadena es una fecha civil del club que existe de verdad.
+ *
+ * Vive acá y no en cada controlador porque la usan tres —la agenda, la reserva del
+ * mesón y las clases públicas— y tres copias de un `try/catch` son tres lugares donde
+ * arreglar el día que `fechaDelClub` cambie de excepción.
+ */
+export function esFechaDelClub(fecha: string): boolean {
+  try {
+    fechaDelClub(fecha);
+    return true;
+  } catch {
+    return false;
+  }
+}

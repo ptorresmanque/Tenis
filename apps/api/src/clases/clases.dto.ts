@@ -186,3 +186,25 @@ export function leerInscripcion(cuerpo: unknown): InscripcionNueva {
     telefono: telefono.slice(0, 40),
   };
 }
+
+/**
+ * Lee la lista de asistencia.
+ *
+ * **`undefined` y lista vacía no son lo mismo, y la diferencia es la regla.** Sin el
+ * campo, la clase se cierra sin pasar lista y nadie cambia de estado —la asistencia es
+ * un dato que el club lleva si quiere, no un trámite que bloquea cerrar—. Con la lista
+ * vacía, el club está diciendo que no vino nadie.
+ */
+export function leerAsistencia(cuerpo: unknown): number[] | null {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  if (datos.asistieron === undefined) return null;
+
+  if (!Array.isArray(datos.asistieron)) {
+    throw new BadRequestException(
+      'La asistencia va como una lista de inscripciones.',
+    );
+  }
+
+  return datos.asistieron.map((id) => entero(id, 'La inscripción', 1));
+}

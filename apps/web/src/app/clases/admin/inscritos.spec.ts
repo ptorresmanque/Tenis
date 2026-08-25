@@ -43,6 +43,7 @@ describe('InscritosDeLaClase', () => {
     ficha: ReturnType<typeof vi.fn>;
     inscribir: ReturnType<typeof vi.fn>;
     bajar: ReturnType<typeof vi.fn>;
+    realizar: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (ficha: FichaDeClase) => {
@@ -50,6 +51,7 @@ describe('InscritosDeLaClase', () => {
       ficha: vi.fn().mockResolvedValue(ficha),
       inscribir: vi.fn().mockResolvedValue({ id: 12 }),
       bajar: vi.fn().mockResolvedValue({ id: 11 }),
+      realizar: vi.fn().mockResolvedValue({ id: 7 }),
     };
 
     TestBed.resetTestingModule();
@@ -190,6 +192,50 @@ describe('InscritosDeLaClase', () => {
     ).map((o) => o.textContent?.trim());
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(true);
+  });
+
+  it('pasar lista manda a los que vinieron', async () => {
+    const casilla = elemento().querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    casilla.checked = true;
+    casilla.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+
+    await apretar('Cerrar la clase con esta lista');
+
+    expect(api.realizar).toHaveBeenCalledWith(7, [11]);
+  });
+
+  it('**cerrar sin pasar lista no es lo mismo que decir que no vino nadie**', async () => {
+    // Con un solo botón, la lista vacía significaría las dos cosas y el club no
+    // tendría cómo decir "no alcancé a pasar lista".
+    await apretar('Cerrar sin pasar lista');
+
+    expect(api.realizar).toHaveBeenCalledWith(7, null);
+  });
+
+  it('cerrar con nadie marcado dice que no vino nadie', async () => {
+    await apretar('Cerrar la clase con esta lista');
+
+    expect(api.realizar).toHaveBeenCalledWith(7, []);
+  });
+
+  it('a la clase ya cerrada no se le vuelve a pasar lista', async () => {
+    await montar({
+      ...FICHA,
+      estado: 'REALIZADA',
+      inscritos: [{ ...FICHA.inscritos[0], estado: 'ASISTIO' }],
+    });
+
+    expect(texto()).toContain('Vino');
+    expect(
+      Array.from(elemento().querySelectorAll('button')).some((b) =>
+        b.textContent?.includes('Cerrar la clase'),
+      ),
+    ).toBe(false);
+    // Ni se inscribe a nadie más: la clase ya pasó.
+    expect(elemento().querySelector('select[name="socioId"]')).toBeNull();
   });
 
   it('sin nadie inscrito lo dice, en vez de una lista vacía', async () => {

@@ -9,7 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 
-import { fechaDelClub } from '../comun/tiempo';
+import { esFechaDelClub } from '../comun/tiempo';
 import { SoloAdmin } from '../identidad/guards';
 import {
   CupoDelSocio,
@@ -110,13 +110,4 @@ function reservaDelAdminDeCuerpo(cuerpo: unknown) {
       ? (datos.acompanantes as { socioId?: number; nombre?: string }[])
       : [],
   };
-}
-
-function esFechaDelClub(fecha: string): boolean {
-  try {
-    fechaDelClub(fecha);
-    return true;
-  } catch {
-    return false;
-  }
 }

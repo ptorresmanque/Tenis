@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { map, Observable } from 'rxjs';
 
-import { fechaDelClub } from '../comun/tiempo';
+import { esFechaDelClub } from '../comun/tiempo';
 import { SoloAdmin } from '../identidad/guards';
 import { AgendaService, ReservaDelDia } from './agenda.service';
 import { EventosDeReserva } from './eventos';
@@ -52,14 +52,5 @@ export class AgendaController {
     }
 
     return this.agenda.delDia(fecha);
-  }
-}
-
-function esFechaDelClub(fecha: string): boolean {
-  try {
-    fechaDelClub(fecha);
-    return true;
-  } catch {
-    return false;
   }
 }

@@ -68,10 +68,23 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
 
                 @if (quien.estado === 'CANCELADA') {
                   <span class="text-muted-foreground">Se bajó</span>
+                } @else if (quien.estado === 'ASISTIO') {
+                  <app-insignia variante="exito" icono="check_circle">Vino</app-insignia>
+                } @else if (quien.estado === 'FALTO') {
+                  <app-insignia variante="aviso" icono="cancel">No vino</app-insignia>
                 } @else {
+                  <label class="ms-auto flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      class="size-4"
+                      [checked]="vinieron().has(quien.id)"
+                      (change)="marcar(quien.id, $any($event.target).checked)"
+                    />
+                    <span class="text-sm">Vino</span>
+                  </label>
                   <button
                     type="button"
-                    class="boton boton-texto boton-chico ms-auto"
+                    class="boton boton-texto boton-chico"
                     [disabled]="trabajando()"
                     (click)="bajar(quien)"
                   >
@@ -83,6 +96,9 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
           </ul>
         }
 
+        <!-- A una clase que ya se dio no se inscribe a nadie: el servidor lo rechaza
+             y el formulario solo serviría para descubrirlo apretando. -->
+        @if (clase.estado === 'PROGRAMADA') {
         <form class="mt-3 border-t border-border pt-3" (ngSubmit)="inscribir()">
           <app-selector
             etiqueta="A quién se inscribe"
@@ -125,6 +141,30 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
             </button>
           </div>
 
+          @if (clase.estado === 'PROGRAMADA' && clase.inscritos.length > 0) {
+            <!-- Dos botones y no uno con una casilla: cerrar sin pasar lista y cerrar
+                 diciendo que no vino nadie son cosas distintas, y con un solo botón
+                 la lista vacía significaría las dos. -->
+            <div class="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+              <button
+                type="button"
+                class="boton boton-secundario boton-chico"
+                [disabled]="trabajando()"
+                (click)="cerrar(true)"
+              >
+                Cerrar la clase con esta lista
+              </button>
+              <button
+                type="button"
+                class="boton boton-texto boton-chico"
+                [disabled]="trabajando()"
+                (click)="cerrar(false)"
+              >
+                Cerrar sin pasar lista
+              </button>
+            </div>
+          }
+
           @if (lleno()) {
             <!-- No deshabilita el botón: quien decide es el servidor, y entre esta
                  pantalla y el clic alguien pudo bajarse. -->
@@ -133,6 +173,7 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
             </p>
           }
         </form>
+        }
       </div>
     }
   `,
@@ -201,6 +242,35 @@ export class InscritosDeLaClase {
       this.socioId = 0;
       this.nombre = '';
       this.telefono = '';
+    });
+  }
+
+  /** Quiénes vinieron, mientras el club pasa lista y todavía no cierra. */
+  protected readonly vinieron = signal(new Set<number>());
+
+  protected marcar(id: number, vino: boolean): void {
+    this.vinieron.update((actual) => {
+      const copia = new Set(actual);
+      if (vino) copia.add(id);
+      else copia.delete(id);
+
+      return copia;
+    });
+  }
+
+  /**
+   * Cierra la clase.
+   *
+   * `conLista` en `false` la deja realizada sin tocar a nadie: la asistencia es un
+   * dato que el club lleva si quiere, no un trámite que bloquea cerrar la clase.
+   */
+  protected async cerrar(conLista: boolean): Promise<void> {
+    await this.intentar(async () => {
+      await this.api.realizar(
+        this.claseId(),
+        conLista ? [...this.vinieron()] : null,
+      );
+      this.vinieron.set(new Set());
     });
   }
 

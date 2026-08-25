@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import { hoyEnElClub } from '../src/comun/tiempo';
 import { EnviadorCorreo } from '../src/identidad/correo';
 import {
+  EstadoClase,
   EstadoInscripcion,
   EstadoSocio,
   NivelClase,
@@ -99,6 +100,7 @@ describe('Inscripciones a una clase', () => {
 
     return respuesta.body as {
       id: number;
+      estado: string;
       cupoMaximo: number;
       cupoTomado: number;
       inscritos: {
@@ -394,6 +396,106 @@ describe('Inscripciones a una clase', () => {
 
   it('un socio que no existe se rechaza con su mensaje', async () => {
     await inscribir({ socioId: 999999 }).expect(404);
+  });
+
+  /** T48: pasar lista, que es lo último que le pasa a una clase. */
+  describe('Asistencia', () => {
+    const cerrar = (cuerpo: Record<string, unknown> = {}) =>
+      request(app.getHttpServer())
+        .post(`/api/admin/clases/${claseId}/realizacion`)
+        .set('Cookie', cookieAdmin)
+        .send(cuerpo);
+
+    it('**marcar quién vino deja a los demás como ausentes**', async () => {
+      const vino = await inscribir({ socioId }).expect(201);
+      await inscribir({ nombre: 'No vino', telefono: '+56911112222' }).expect(
+        201,
+      );
+
+      await cerrar({ asistieron: [(vino.body as { id: number }).id] }).expect(
+        200,
+      );
+
+      const clase = await laClase();
+      expect(clase.inscritos[0].estado).toBe(EstadoInscripcion.ASISTIO);
+      expect(clase.inscritos[1].estado).toBe(EstadoInscripcion.FALTO);
+    });
+
+    it('la clase queda realizada', async () => {
+      await cerrar({ asistieron: [] }).expect(200);
+
+      const guardada = await prisma.clase.findUniqueOrThrow({
+        where: { id: claseId },
+      });
+      expect(guardada.estado).toBe(EstadoClase.REALIZADA);
+    });
+
+    it('**se puede cerrar sin pasar lista: la asistencia es un dato, no un trámite**', async () => {
+      await inscribir({ socioId }).expect(201);
+
+      await cerrar().expect(200);
+
+      const clase = await laClase();
+      expect(clase.inscritos[0].estado).toBe(EstadoInscripcion.INSCRITA);
+      expect(clase.estado).toBe(EstadoClase.REALIZADA);
+    });
+
+    it('pasar lista vacía es decir que no vino nadie', async () => {
+      await inscribir({ socioId }).expect(201);
+
+      await cerrar({ asistieron: [] }).expect(200);
+
+      expect((await laClase()).inscritos[0].estado).toBe(
+        EstadoInscripcion.FALTO,
+      );
+    });
+
+    it('**faltar a una clase no sanciona a nadie**', async () => {
+      // La sanción es una regla de `reservas` sobre canchas que quedaron vacías; una
+      // clase se da igual con cinco que con seis.
+      await inscribir({ socioId }).expect(201);
+      await cerrar({ asistieron: [] }).expect(200);
+
+      const socio = await prisma.socio.findUniqueOrThrow({
+        where: { id: socioId },
+      });
+      expect(socio.sancionadoHasta).toBeNull();
+    });
+
+    it('al que se bajó no se le pasa lista', async () => {
+      const primera = await inscribir({ socioId }).expect(201);
+      const id = (primera.body as { id: number }).id;
+      await request(app.getHttpServer())
+        .post(`/api/admin/clases/${claseId}/inscripciones/${id}/cancelacion`)
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      await cerrar({ asistieron: [] }).expect(200);
+
+      expect((await laClase()).inscritos[0].estado).toBe(
+        EstadoInscripcion.CANCELADA,
+      );
+    });
+
+    it('una clase ya cerrada no se cierra de nuevo', async () => {
+      await cerrar().expect(200);
+
+      await cerrar().expect(409);
+    });
+
+    it('**un inscrito de otra clase no se cuela en la lista**', async () => {
+      const otra = await crearClase(4, '20:00');
+      const ajena = await inscribir({ socioId }, otra).expect(201);
+
+      await cerrar({ asistieron: [(ajena.body as { id: number }).id] }).expect(
+        200,
+      );
+
+      const suya = await prisma.inscripcionClase.findUniqueOrThrow({
+        where: { id: (ajena.body as { id: number }).id },
+      });
+      expect(suya.estado).toBe(EstadoInscripcion.INSCRITA);
+    });
   });
 
   it('solo el admin inscribe y ve la lista', async () => {

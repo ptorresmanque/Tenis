@@ -50,6 +50,12 @@ export const routes: Routes = [
         loadComponent: () => import('./cuotas/mi-cuenta').then((m) => m.MiCuenta),
       },
       {
+        path: 'clases',
+        title: 'Clases con profesor — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./clases/publico/clases').then((m) => m.ClasesPublicas),
+      },
+      {
         path: 'el-club',
         title: 'El club — FEDAL Tennis Center',
         loadComponent: () => import('./club/el-club').then((m) => m.ElClub),

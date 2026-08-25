@@ -36,6 +36,7 @@ describe('AgendaDelDia', () => {
     inicio: '2026-08-17T14:00:00.000Z',
     fin: '2026-08-17T15:00:00.000Z',
     nivel: 'INICIACION',
+    estado: 'PROGRAMADA',
     cupoMaximo: 6,
     notas: null,
   };

@@ -282,6 +282,9 @@ export class CascaronPublico {
 
   protected readonly navegacion = computed(() => [
     { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },
+    // Para todos y no solo para socios: es la puerta del apoderado que busca clases
+    // para su hijo, y ese todavía no tiene cuenta.
+    { ruta: '/clases', etiqueta: 'Clases' },
     // Solo para quien tiene ficha de socio: al resto la pantalla le mostraría
     // una lista siempre vacía.
     ...(this.usuario()?.socioId != null

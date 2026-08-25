@@ -141,6 +141,64 @@ export class Inscripciones {
     return { id };
   }
 
+  /**
+   * Cierra la clase, con o sin lista.
+   *
+   * **Una clase se puede marcar realizada sin pasar lista.** La asistencia es un dato
+   * que el club lleva si quiere —para que el profesor cobre por alumnos que vinieron,
+   * si ese es el trato, y para saber a quién le está guardando un cupo que no usa—,
+   * no un trámite que bloquea cerrar la clase.
+   *
+   * **No genera sanción.** La sanción por no usar una hora es una regla de `reservas`
+   * sobre canchas que quedaron vacías; una clase se da igual con cinco que con seis.
+   *
+   * @param asistieron Ids de las inscripciones que vinieron. `null` = no se pasó
+   * lista y nadie cambia de estado. Lista vacía = no vino nadie.
+   */
+  async realizar(
+    claseId: number,
+    asistieron: number[] | null,
+  ): Promise<{ id: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.clase.updateMany({
+        where: { id: claseId, estado: EstadoClase.PROGRAMADA },
+        data: { estado: EstadoClase.REALIZADA },
+      });
+
+      if (count === 0) {
+        const existe = await tx.clase.count({ where: { id: claseId } });
+
+        if (existe === 0) {
+          throw new NotFoundException('No hay una clase con ese número.');
+        }
+
+        throw new ConflictException('Esa clase ya no está programada.');
+      }
+
+      if (asistieron === null) return { id: claseId };
+
+      // `claseId` en los dos `where`, y no solo el id de la inscripción: una lista
+      // con el id de otra clase marcaría presente a alguien que nunca estuvo acá.
+      await tx.inscripcionClase.updateMany({
+        where: {
+          claseId,
+          id: { in: asistieron },
+          estado: EstadoInscripcion.INSCRITA,
+        },
+        data: { estado: EstadoInscripcion.ASISTIO },
+      });
+
+      // Los que quedan inscritos son los que no vinieron. Al que se bajó no se le
+      // pasa lista: su fila ya dice lo que pasó con él.
+      await tx.inscripcionClase.updateMany({
+        where: { claseId, estado: EstadoInscripcion.INSCRITA },
+        data: { estado: EstadoInscripcion.FALTO },
+      });
+
+      return { id: claseId };
+    });
+  }
+
   /** La ficha de la clase con su lista, que es lo que el profesor lleva a la cancha. */
   async ficha(id: number): Promise<FichaDeClase> {
     const clase = await this.prisma.clase.findUnique({

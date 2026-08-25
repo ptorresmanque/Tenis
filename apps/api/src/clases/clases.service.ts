@@ -23,6 +23,9 @@ export interface ClaseDelDia {
   inicio: Date;
   fin: Date;
   nivel: string;
+  /// La agenda muestra las realizadas del día: son las que ya pasaron, no las que
+  /// no existen. Lo que cambia es qué se puede hacer con ellas.
+  estado: EstadoClase;
   cupoMaximo: number;
   notas: string | null;
 }
@@ -218,6 +221,7 @@ export class Clases {
         inicio: true,
         fin: true,
         nivel: true,
+        estado: true,
         cupoMaximo: true,
         notas: true,
         cancha: { select: { nombre: true } },
@@ -232,6 +236,7 @@ export class Clases {
       inicio: clase.inicio,
       fin: clase.fin,
       nivel: clase.nivel,
+      estado: clase.estado,
       cupoMaximo: clase.cupoMaximo,
       notas: clase.notas,
     }));

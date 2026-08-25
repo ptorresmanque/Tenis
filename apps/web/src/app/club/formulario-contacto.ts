@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../core/errores';
@@ -13,9 +13,9 @@ const TIPOS: { valor: TipoSolicitud; etiqueta: string }[] = [
   { valor: 'OTRO', etiqueta: 'Otra cosa' },
 ];
 
-function enBlanco() {
+function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
   return {
-    tipo: 'SOCIO' as TipoSolicitud,
+    tipo,
     nombre: '',
     email: '',
     telefono: '',
@@ -121,7 +121,26 @@ export class FormularioContacto {
   private readonly api = inject(Contacto);
 
   protected readonly TIPOS = TIPOS;
+
+  /**
+   * Con qué consulta llega la persona.
+   *
+   * La página de clases lo pone en `CLASES`: quien llegó ahí ya dijo qué busca, y
+   * hacerle elegir de nuevo en una lista donde "quiero asociarme" está primero es
+   * una invitación a mandar la consulta al buzón equivocado.
+   */
+  readonly tipoInicial = input<TipoSolicitud>('SOCIO');
+
   protected readonly datos = enBlanco();
+
+  constructor() {
+    // En un `effect` y no leyendo el input al construir el objeto: los inputs llegan
+    // después de que la clase se construye, así que ahí `tipoInicial()` todavía vale
+    // su valor por defecto y la página de clases mandaba la consulta como "socio".
+    effect(() => {
+      this.datos.tipo = this.tipoInicial();
+    });
+  }
 
   protected readonly enviando = signal(false);
   protected readonly enviado = signal(false);
@@ -138,7 +157,7 @@ export class FormularioContacto {
       // con los campos ya en blanco.
       await this.api.enviar({ ...this.datos });
       this.enviado.set(true);
-      Object.assign(this.datos, enBlanco());
+      Object.assign(this.datos, enBlanco(this.tipoInicial()));
     } catch (falla) {
       // El del servidor: "Deja un correo o un teléfono" dice qué corregir, y el 429
       // dice cuánto esperar. Las dos frases están escritas para leerse.

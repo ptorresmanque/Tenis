@@ -119,6 +119,9 @@ const enBlanco = () => ({
               <app-insignia variante="info" icono="school">
                 {{ nivel(clase.nivel) }}
               </app-insignia>
+              @if (clase.estado === 'REALIZADA') {
+                <app-insignia variante="neutro" icono="check">Ya se dio</app-insignia>
+              }
               <button
                 type="button"
                 class="boton boton-secundario boton-chico ms-auto"
@@ -127,14 +130,18 @@ const enBlanco = () => ({
               >
                 {{ abierta() === clase.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
               </button>
-              <button
-                type="button"
-                class="boton boton-texto boton-chico"
-                [disabled]="trabajando()"
-                (click)="cancelar(clase)"
-              >
-                Cancelar clase
-              </button>
+              @if (clase.estado === 'PROGRAMADA') {
+                <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y
+                     ofrecerlo es un callejón. -->
+                <button
+                  type="button"
+                  class="boton boton-texto boton-chico"
+                  [disabled]="trabajando()"
+                  (click)="cancelar(clase)"
+                >
+                  Cancelar clase
+                </button>
+              }
             </div>
 
             <p class="mt-1">

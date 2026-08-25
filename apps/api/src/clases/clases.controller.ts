@@ -14,6 +14,7 @@ import { SoloAdmin } from '../identidad/guards';
 import { Clases } from './clases.service';
 import { Inscripciones } from './inscripciones.service';
 import {
+  leerAsistencia,
   leerCancelacion,
   leerClaseNueva,
   leerInscripcion,
@@ -83,6 +84,18 @@ export class ClasesController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.inscripciones.cancelar(claseId, id);
+  }
+
+  /**
+   * Cerrar la clase, con o sin lista.
+   *
+   * Sin `asistieron` en el cuerpo, la clase queda realizada y nadie cambia de estado:
+   * pasar lista es un dato que el club lleva si quiere, no un trámite.
+   */
+  @Post(':id/realizacion')
+  @HttpCode(200)
+  realizar(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.inscripciones.realizar(id, leerAsistencia(cuerpo));
   }
 
   /** Mover la clase. Conserva su id, su profesor y sus inscritos. */

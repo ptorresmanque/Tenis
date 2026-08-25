@@ -26,6 +26,7 @@ export interface ClaseDelDia {
   inicio: string;
   fin: string;
   nivel: NivelClase;
+  estado: 'PROGRAMADA' | 'REALIZADA' | 'CANCELADA';
   cupoMaximo: number;
   notas: string | null;
 }
@@ -75,6 +76,23 @@ export type QuienSeInscribe =
   | { socioId: number }
   | { nombre: string; telefono: string };
 
+/** Un profesor, como lo anuncia el club. Sin tarifa ni teléfono: eso es interno. */
+export interface ProfesorPublico {
+  nombreVisible: string;
+  especialidad: string;
+}
+
+/** Una clase de la semana, como la ve quien todavía no es del club. */
+export interface ClasePublica {
+  id: number;
+  cancha: string;
+  profesor: string;
+  inicio: string;
+  fin: string;
+  nivel: NivelClase;
+  cuposLibres: number;
+}
+
 export interface ResultadoAgendar {
   id: number;
   bloqueoId: number;
@@ -91,6 +109,25 @@ export interface ResultadoAgendar {
 @Service()
 export class Clases {
   private readonly http = inject(HttpClient);
+
+  /**
+   * Lo que se ve de las clases sin cuenta.
+   *
+   * Va en este mismo servicio y no en uno público aparte: es el mismo módulo y la
+   * misma pregunta, y lo que se publica lo decide el servidor, que arma sus propias
+   * formas. Un servicio de más acá no impediría nada allá.
+   */
+  publicas(desde?: string): Promise<{
+    profesores: ProfesorPublico[];
+    clases: ClasePublica[];
+  }> {
+    return firstValueFrom(
+      this.http.get<{ profesores: ProfesorPublico[]; clases: ClasePublica[] }>(
+        '/api/clases/publicas',
+        { params: desde ? { desde } : {} },
+      ),
+    );
+  }
 
   delDia(fecha: string): Promise<ClaseDelDia[]> {
     return firstValueFrom(
@@ -145,6 +182,21 @@ export class Clases {
       this.http.post<{ id: number }>(
         `/api/admin/clases/${claseId}/inscripciones/${id}/cancelacion`,
         {},
+      ),
+    );
+  }
+
+  /**
+   * Cierra la clase.
+   *
+   * `asistieron` en `null` es cerrarla **sin pasar lista**: nadie cambia de estado.
+   * Una lista vacía es decir que no vino nadie. La diferencia es deliberada.
+   */
+  realizar(id: number, asistieron: number[] | null): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/clases/${id}/realizacion`,
+        asistieron === null ? {} : { asistieron },
       ),
     );
   }

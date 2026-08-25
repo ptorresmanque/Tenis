@@ -4,6 +4,8 @@ import { CatalogoCanchasModule } from '../catalogo-canchas/catalogo-canchas.modu
 import { IdentidadModule } from '../identidad/identidad.module';
 import { ReservasModule } from '../reservas/reservas.module';
 import { ClasesController } from './clases.controller';
+import { ClasesPublicasController } from './clases-publicas.controller';
+import { ClasesPublicas } from './clases-publicas.service';
 import { Clases } from './clases.service';
 import { Inscripciones } from './inscripciones.service';
 import { ProfesoresController } from './profesores.controller';
@@ -23,7 +25,11 @@ import { Profesores } from './profesores.service';
  */
 @Module({
   imports: [IdentidadModule, CatalogoCanchasModule, ReservasModule],
-  controllers: [ProfesoresController, ClasesController],
-  providers: [Profesores, Clases, Inscripciones],
+  controllers: [
+    ProfesoresController,
+    ClasesController,
+    ClasesPublicasController,
+  ],
+  providers: [Profesores, Clases, Inscripciones, ClasesPublicas],
 })
 export class ClasesModule {}

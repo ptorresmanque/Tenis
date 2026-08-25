@@ -24,6 +24,7 @@ describe('AgendaDeClases', () => {
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',
     nivel: 'INICIACION',
+    estado: 'PROGRAMADA',
     cupoMaximo: 6,
     notas: null,
   };
@@ -204,6 +205,19 @@ describe('AgendaDeClases', () => {
 
     expect(opciones).toContain('Cancha 1');
     expect(opciones).not.toContain('Cancha en obras');
+  });
+
+  it('**a una clase que ya se dio no se le ofrece cancelarla**', async () => {
+    // El servidor lo rechaza con un 409; ofrecerlo solo sirve para descubrirlo
+    // apretando. Es el mismo criterio de las canchas desactivadas.
+    await montar([{ ...CLASE, estado: 'REALIZADA' }]);
+
+    expect(texto()).toContain('Ya se dio');
+    expect(
+      Array.from(elemento().querySelectorAll('button')).some((b) =>
+        b.textContent?.includes('Cancelar clase'),
+      ),
+    ).toBe(false);
   });
 
   it('sin clases el día lo dice, en vez de quedar en blanco', async () => {
