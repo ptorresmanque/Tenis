@@ -1,11 +1,33 @@
 import { Injectable } from '@nestjs/common';
 
-import { instanteEnElClub } from '../comun/tiempo';
+import { fechaDelClub, instanteEnElClub } from '../comun/tiempo';
 import { EstadoClase, EstadoInscripcion } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Cuántos días de clases se anuncian de una vez. */
 const DIAS_DE_LA_SEMANA = 7;
+
+/**
+ * Desde y hasta qué instante va la semana que arranca en esa fecha.
+ *
+ * **Los días se cuentan en el calendario, no sumando 24 horas.** El domingo en que
+ * Chile adelanta la hora tiene 23, y con la aritmética de milisegundos la semana se
+ * corre una hora: la clase del último día a las 21:00 se cae de la lista sin que nadie
+ * entienda por qué. Es la misma regla que ya cuidan `calcularBloques` y la tira de días
+ * de la disponibilidad.
+ *
+ * Exportada para poder probarla sola: el error solo se ve dos domingos al año, y un
+ * test que dependa de qué día se corre no prueba nada el resto del tiempo.
+ */
+export function semanaDesde(fecha: string): { desde: Date; hasta: Date } {
+  const ultimo = fechaDelClub(fecha);
+  ultimo.setUTCDate(ultimo.getUTCDate() + DIAS_DE_LA_SEMANA);
+
+  return {
+    desde: instanteEnElClub(fecha, '00:00'),
+    hasta: instanteEnElClub(ultimo.toISOString().slice(0, 10), '00:00'),
+  };
+}
 
 /** Un profesor, como lo anuncia el club. */
 export interface ProfesorPublico {
@@ -59,16 +81,12 @@ export class ClasesPublicas {
    * que es lo que busca quien llega al sitio.
    */
   async delaSemana(desde: string): Promise<ClasePublica[]> {
+    const semana = semanaDesde(desde);
+
     const clases = await this.prisma.clase.findMany({
       where: {
         estado: EstadoClase.PROGRAMADA,
-        inicio: {
-          gte: instanteEnElClub(desde, '00:00'),
-          lt: new Date(
-            instanteEnElClub(desde, '00:00').getTime() +
-              DIAS_DE_LA_SEMANA * 24 * 60 * 60 * 1000,
-          ),
-        },
+        inicio: { gte: semana.desde, lt: semana.hasta },
       },
       orderBy: [{ inicio: 'asc' }, { id: 'asc' }],
       select: {
