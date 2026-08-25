@@ -12,8 +12,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import type { InscripcionNueva } from './clases.dto';
 
-/** Los estados en que una inscripción ocupa un lugar en la clase. */
-const OCUPAN = [
+/**
+ * Los estados en que una inscripción ocupa un lugar en la clase.
+ *
+ * Tipado como la lista completa de estados a propósito: sin eso, `includes` obliga a
+ * un cast que también silenciaría un estado nuevo del enum que nadie decidió de qué
+ * lado cae. Con el tipo ancho, el compilador deja preguntar y la respuesta se lee acá.
+ */
+const OCUPAN: EstadoInscripcion[] = [
   EstadoInscripcion.INSCRITA,
   EstadoInscripcion.ASISTIO,
   EstadoInscripcion.FALTO,
@@ -197,9 +203,8 @@ export class Inscripciones {
       nivel: clase.nivel,
       estado: clase.estado,
       cupoMaximo: clase.cupoMaximo,
-      cupoTomado: inscritos.filter((quien) =>
-        OCUPAN.includes(quien.estado as (typeof OCUPAN)[number]),
-      ).length,
+      cupoTomado: inscritos.filter((quien) => OCUPAN.includes(quien.estado))
+        .length,
       notas: clase.notas,
       inscritos,
     };

@@ -96,7 +96,7 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
                 <span class="text-sm font-medium">Socio</span>
                 <select class="campo campo-chico mt-1" name="socioId" [(ngModel)]="socioId">
                   <option [value]="0" disabled>Elige un socio</option>
-                  @for (socio of socios.value()?.socios ?? []; track socio.id) {
+                  @for (socio of sociosPorInscribir(); track socio.id) {
                     <option [value]="socio.id">
                       {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
                       {{ socio.usuario.apellido }}
@@ -164,6 +164,25 @@ export class InscritosDeLaClase {
   });
 
   protected readonly socios = resource({ loader: () => this.sociosApi.listado() });
+
+  /**
+   * Los que todavía no están en esta clase.
+   *
+   * Elegir a alguien que ya está inscrito responde 409 con un mensaje claro, pero
+   * sigue siendo un callejón: la lista lo ofrece y el servidor lo rechaza siempre.
+   * Es el mismo criterio de las canchas desactivadas en la pantalla de agendar.
+   */
+  protected readonly sociosPorInscribir = computed(() => {
+    const yaEstan = new Set(
+      (this.ficha.value()?.inscritos ?? [])
+        .filter((quien) => quien.estado !== 'CANCELADA')
+        .map((quien) => quien.numeroSocio),
+    );
+
+    return (this.socios.value()?.socios ?? []).filter(
+      (socio) => !yaEstan.has(socio.numeroSocio),
+    );
+  });
 
   protected readonly lleno = computed(() => {
     const clase = this.ficha.value();

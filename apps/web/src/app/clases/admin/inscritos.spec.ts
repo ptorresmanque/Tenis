@@ -161,6 +161,37 @@ describe('InscritosDeLaClase', () => {
     ).toBe(false);
   });
 
+  it('**a quien ya está en la clase no se le vuelve a ofrecer**', async () => {
+    // Elegirlo responde 409 con un mensaje claro, pero sigue siendo un callejón que
+    // la lista ofrece y el servidor rechaza siempre.
+    await montar({
+      ...FICHA,
+      inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002' }],
+    });
+
+    const opciones = Array.from(
+      elemento().querySelectorAll('select[name="socioId"] option'),
+    ).map((o) => o.textContent?.trim());
+
+    expect(opciones.some((o) => o?.startsWith('002'))).toBe(false);
+  });
+
+  it('el que se bajó vuelve a la lista: puede reinscribirse', async () => {
+    await montar({
+      ...FICHA,
+      cupoTomado: 0,
+      inscritos: [
+        { ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' },
+      ],
+    });
+
+    const opciones = Array.from(
+      elemento().querySelectorAll('select[name="socioId"] option'),
+    ).map((o) => o.textContent?.trim());
+
+    expect(opciones.some((o) => o?.startsWith('002'))).toBe(true);
+  });
+
   it('sin nadie inscrito lo dice, en vez de una lista vacía', async () => {
     await montar({ ...FICHA, cupoTomado: 0, inscritos: [] });
 
