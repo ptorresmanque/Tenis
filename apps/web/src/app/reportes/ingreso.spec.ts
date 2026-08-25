@@ -81,6 +81,14 @@ describe('IngresoPanel', () => {
     expect(texto()).toContain('agosto');
   });
 
+  it('**y lo dice en el día del club, no en el de UTC**', async () => {
+    // A las 02:00Z de un 26 en Santiago todavía es 25. Recortando los diez primeros
+    // caracteres del ISO, el reporte decía que se había calculado mañana.
+    await montar({ ...REPORTE, calculadoEn: '2026-08-26T02:00:00.000Z' });
+
+    expect(texto()).toContain('25 de agosto de 2026');
+  });
+
   it('arranca en el mes corriente y por condición, que es la pregunta del club', () => {
     const [desde, hasta, corte] = api.ingreso.mock.calls[0] as string[];
 

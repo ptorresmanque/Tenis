@@ -1,6 +1,11 @@
 import { Component, inject, resource, signal } from '@angular/core';
 
-import { diaConAnioEnPalabras, enPesos, hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
+import {
+  diaConAnioEnPalabras,
+  enPesos,
+  fechaEnElClub,
+  hoyEnElClub,
+} from '../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service';
 
@@ -151,8 +156,14 @@ export class IngresoPanel {
     return CORTES_DE_INGRESO[corte] ?? corte;
   }
 
-  /** El instante en que se calculó, en palabras. Llega como ISO con hora. */
+  /**
+   * El instante en que se calculó, en palabras.
+   *
+   * Pasa por el reloj del club antes de recortarse: llega como ISO en UTC, y a las
+   * 02:00Z de un 26 en el club todavía es 25. Recortar los diez primeros caracteres
+   * hacía que el reporte dijera que se calculó mañana.
+   */
   protected enPalabras(instante: string): string {
-    return diaConAnioEnPalabras(instante);
+    return diaConAnioEnPalabras(fechaEnElClub(instante));
   }
 }

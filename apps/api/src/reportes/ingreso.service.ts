@@ -81,30 +81,35 @@ export class IngresoDelClub {
    * fila negativa que alguien pueda olvidarse de generar.
    */
   private async arriendos(desde: string, hasta: string): Promise<Movimiento[]> {
-    const pagos = await this.prisma.transaccion.findMany({
-      where: {
-        estado: EstadoTransaccion.AUTORIZADA,
-        concepto: ConceptoPago.RESERVA,
-      },
-      select: { conceptoId: true, montoClp: true },
-    });
-
-    if (pagos.length === 0) return [];
-
-    // Dos consultas y no un join, porque `Transaccion.conceptoId` no tiene clave
-    // foránea a propósito: apunta a dos tablas según el concepto. Son decenas de miles
-    // de filas al año y el `in` las resuelve por índice primario.
+    // **Primero las reservas del rango y después sus pagos**, y no al revés. Al revés
+    // había que traer todas las transacciones autorizadas de la historia del club para
+    // después descartarlas por fecha: a los cinco años son cien mil filas cargadas en
+    // memoria por cada vista del reporte, y un `in` con cien mil ids que MySQL termina
+    // rechazando por tamaño de consulta. Así las dos consultas quedan acotadas por el
+    // período que se pidió, que es lo único que se está mirando.
     const reservas = await this.prisma.reserva.findMany({
-      where: {
-        id: { in: pagos.map((pago) => pago.conceptoId) },
-        inicio: { gte: this.abre(desde), lt: this.cierra(hasta) },
-      },
+      where: { inicio: { gte: this.abre(desde), lt: this.cierra(hasta) } },
       select: {
         id: true,
         esPico: true,
         socioId: true,
         cancha: { select: { nombre: true, techada: true } },
       },
+    });
+
+    if (reservas.length === 0) return [];
+
+    // Dos consultas y no un join, porque `Transaccion.conceptoId` no tiene clave
+    // foránea a propósito: apunta a dos tablas según el concepto. **El filtro por
+    // concepto es lo que impide que el pago de una cuota cuyo id coincida con el de
+    // una reserva se sume como arriendo**, que es un choque real y no teórico.
+    const pagos = await this.prisma.transaccion.findMany({
+      where: {
+        estado: EstadoTransaccion.AUTORIZADA,
+        concepto: ConceptoPago.RESERVA,
+        conceptoId: { in: reservas.map((reserva) => reserva.id) },
+      },
+      select: { conceptoId: true, montoClp: true },
     });
 
     const porId = new Map(reservas.map((reserva) => [reserva.id, reserva]));
