@@ -7,6 +7,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
+import { InscritosDelTorneo } from './inscritos';
 import {
   CategoriaTorneo,
   ESTADOS_TORNEO,
@@ -35,7 +36,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-torneos',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDelTorneo],
   template: `
     <h1 class="font-display text-3xl font-bold">Torneos</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -73,6 +74,14 @@ const enBlanco = () => ({
               >
                 {{ nombreEstado(torneo.estado) }}
               </app-insignia>
+              <button
+                type="button"
+                class="boton boton-secundario boton-chico ms-auto"
+                [attr.aria-expanded]="abierto() === torneo.id"
+                (click)="alternar(torneo.id)"
+              >
+                {{ abierto() === torneo.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
+              </button>
             </div>
 
             <p class="mt-1 text-sm text-muted-foreground">
@@ -83,6 +92,10 @@ const enBlanco = () => ({
             <p class="text-sm text-muted-foreground">
               El campeón se lleva {{ torneo.puntosCampeon }} puntos.
             </p>
+
+            @if (abierto() === torneo.id) {
+              <app-inscritos-torneo [torneoId]="torneo.id" />
+            }
           </li>
         }
       </ul>
@@ -275,6 +288,13 @@ export class TorneosPanel {
   protected readonly categoriasActivas = computed(() =>
     this.categorias.value().filter((categoria) => categoria.activa),
   );
+
+  /** Qué torneo tiene su lista abierta. Uno a la vez: la temporada entera no cabe. */
+  protected readonly abierto = signal<number | null>(null);
+
+  protected alternar(id: number): void {
+    this.abierto.update((actual) => (actual === id ? null : id));
+  }
 
   protected readonly enPalabras = diaEnPalabras;
 

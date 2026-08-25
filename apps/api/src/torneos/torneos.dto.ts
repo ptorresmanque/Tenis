@@ -247,3 +247,29 @@ function exigirTexto(valor: unknown, campo: string, largo = 80): string {
 function texto(valor: unknown, largo: number): string {
   return typeof valor === 'string' ? valor.trim().slice(0, largo) : '';
 }
+
+/**
+ * Lee a quién se inscribe: un jugador que ya existe, o un socio por su ficha.
+ *
+ * Con el socio, el servidor le crea o le reutiliza su jugador. Es la comodidad que
+ * evita que el club tenga que pasar por la pantalla de jugadores para inscribir a
+ * alguien que ya está en el padrón.
+ */
+export function leerInscripcionATorneo(cuerpo: unknown): {
+  jugadorId?: number;
+  socioId?: number;
+} {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  if (datos.jugadorId !== undefined && datos.jugadorId !== null) {
+    return { jugadorId: entero(datos.jugadorId, 'El jugador', 1) };
+  }
+
+  if (datos.socioId !== undefined && datos.socioId !== null) {
+    return { socioId: entero(datos.socioId, 'El socio', 1) };
+  }
+
+  throw new BadRequestException(
+    'Dinos a quién se inscribe: un jugador o un socio del club.',
+  );
+}

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -10,6 +11,7 @@ import {
 } from '@nestjs/common';
 
 import { SoloAdmin } from '../identidad/guards';
+import { InscripcionesATorneo } from './inscripciones.service';
 import { Jugadores } from './jugadores.service';
 import { Torneos } from './torneos.service';
 import {
@@ -17,6 +19,7 @@ import {
   leerCambioDeJugador,
   leerCambioDeTorneo,
   leerCategoria,
+  leerInscripcionATorneo,
   leerJugadorNuevo,
   leerTorneo,
 } from './torneos.dto';
@@ -33,6 +36,7 @@ export class TorneosController {
   constructor(
     private readonly jugadores: Jugadores,
     private readonly torneos: Torneos,
+    private readonly inscripciones: InscripcionesATorneo,
   ) {}
 
   @Get('jugadores')
@@ -101,5 +105,42 @@ export class TorneosController {
   @Patch('torneos/:id')
   editarTorneo(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
     return this.torneos.editar(id, leerCambioDeTorneo(cuerpo));
+  }
+
+  /** Quién juega el torneo, en tres grupos: en el cuadro, esperando y retirados. */
+  @Get('torneos/:id/inscripciones')
+  lista(@Param('id', ParseIntPipe) id: number) {
+    return this.inscripciones.lista(id);
+  }
+
+  /** Pasado el cupo, el servidor deja al jugador en espera en vez de rechazarlo. */
+  @Post('torneos/:id/inscripciones')
+  inscribir(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.inscripciones.inscribir(id, leerInscripcionATorneo(cuerpo));
+  }
+
+  /** Bajar a alguien. El primero de la espera **no** entra solo: ver `promover`. */
+  @Post('torneos/:torneoId/inscripciones/:id/retiro')
+  @HttpCode(200)
+  retirar(
+    @Param('torneoId', ParseIntPipe) torneoId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.inscripciones.retirar(torneoId, id);
+  }
+
+  /**
+   * Meter en el cuadro al que estaba esperando.
+   *
+   * Es manual a propósito: el club llama por teléfono antes, porque quien quedó fuera
+   * hace dos semanas ya hizo otros planes.
+   */
+  @Post('torneos/:torneoId/inscripciones/:id/promocion')
+  @HttpCode(200)
+  promover(
+    @Param('torneoId', ParseIntPipe) torneoId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.inscripciones.promover(torneoId, id);
   }
 }

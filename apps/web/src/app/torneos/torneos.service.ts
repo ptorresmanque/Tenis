@@ -51,6 +51,29 @@ export interface Torneo {
   estado: EstadoTorneo;
 }
 
+export type EstadoInscripcionTorneo = 'INSCRITA' | 'LISTA_ESPERA' | 'RETIRADA';
+
+/** Una inscripción a un torneo, como se lee en la lista. */
+export interface InscripcionTorneo {
+  id: number;
+  jugadorId: number;
+  jugador: string;
+  numeroSocio: string | null;
+  siembra: number | null;
+  estado: EstadoInscripcionTorneo;
+  inscritaEn: string;
+}
+
+/** La lista del torneo, en tres grupos porque son tres cosas distintas. */
+export interface ListaDelTorneo {
+  torneoId: number;
+  cupo: number;
+  estado: EstadoTorneo;
+  inscritos: InscripcionTorneo[];
+  enEspera: InscripcionTorneo[];
+  retirados: InscripcionTorneo[];
+}
+
 export interface TorneoNuevo {
   nombre: string;
   categoriaId: number;
@@ -129,6 +152,47 @@ export class Torneos {
       this.http.patch<CategoriaTorneo>(
         `/api/admin/categorias-torneo/${id}`,
         cambio,
+      ),
+    );
+  }
+
+  /** Quién juega el torneo: en el cuadro, esperando y retirados. */
+  inscripciones(torneoId: number): Promise<ListaDelTorneo> {
+    return firstValueFrom(
+      this.http.get<ListaDelTorneo>(
+        `/api/admin/torneos/${torneoId}/inscripciones`,
+      ),
+    );
+  }
+
+  /** Pasado el cupo el servidor deja al jugador en espera, no lo rechaza. */
+  inscribir(
+    torneoId: number,
+    quien: { jugadorId: number } | { socioId: number },
+  ): Promise<{ id: number; estado: EstadoInscripcionTorneo }> {
+    return firstValueFrom(
+      this.http.post<{ id: number; estado: EstadoInscripcionTorneo }>(
+        `/api/admin/torneos/${torneoId}/inscripciones`,
+        quien,
+      ),
+    );
+  }
+
+  retirar(torneoId: number, id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/inscripciones/${id}/retiro`,
+        {},
+      ),
+    );
+  }
+
+  /** Manual a propósito: el club llama antes de meter a alguien en el cuadro. */
+  promover(torneoId: number, id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/inscripciones/${id}/promocion`,
+        {},
       ),
     );
   }
