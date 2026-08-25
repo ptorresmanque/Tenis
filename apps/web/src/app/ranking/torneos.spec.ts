@@ -1,6 +1,8 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Auth, UsuarioActual } from '../core/auth/auth';
 import { Ranking, TablaDeTorneos } from './ranking.service';
 import { RankingDeTorneos } from './torneos';
 
@@ -30,12 +32,38 @@ describe('RankingDeTorneos', () => {
     ],
   };
 
+  /** Un socio cualquiera; `null` es quien mira desde la calle. */
+  const SOCIA: UsuarioActual = {
+    id: 9,
+    nombre: 'Ana Uno',
+    email: 'ana@ejemplo.cl',
+    esAdmin: false,
+    socioId: 3,
+    socioActivo: true,
+    socioAlDia: true,
+    profesorId: null,
+  };
+
   let fixture: ComponentFixture<RankingDeTorneos>;
 
-  const montar = async (tabla: TablaDeTorneos = TABLA) => {
+  const montar = async (tabla: TablaDeTorneos = TABLA, quien: UsuarioActual | null = null) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Ranking, useValue: { torneos: vi.fn().mockResolvedValue(tabla) } }],
+      providers: [
+        {
+          provide: Ranking,
+          useValue: {
+            torneos: vi.fn().mockResolvedValue(tabla),
+            interno: vi.fn().mockResolvedValue({
+              partidos: 0,
+              ultimoPartido: null,
+              inactivosDesde: '2026-02-25',
+              posiciones: [],
+            }),
+          },
+        },
+        { provide: Auth, useValue: { usuario: signal(quien).asReadonly() } },
+      ],
     });
 
     fixture = TestBed.createComponent(RankingDeTorneos);
@@ -48,7 +76,7 @@ describe('RankingDeTorneos', () => {
 
   /** Las filas de la tabla, cada una como el texto de sus celdas. */
   const filas = () =>
-    Array.from(elemento().querySelectorAll('tbody tr')).map((fila) =>
+    Array.from(elemento().querySelectorAll('[data-tabla="torneos"] tbody tr')).map((fila) =>
       Array.from(fila.querySelectorAll('th, td')).map((celda) => celda.textContent?.trim() ?? ''),
     );
 
@@ -81,9 +109,9 @@ describe('RankingDeTorneos', () => {
     // Acá sí es una tabla —filas y columnas comparables—, al revés que el cuadro,
     // que son llaves. Sin encabezados, un lector de pantalla lee cuatro números
     // sueltos por fila.
-    const encabezados = Array.from(elemento().querySelectorAll('thead th[scope="col"]')).map((th) =>
-      th.textContent?.trim(),
-    );
+    const encabezados = Array.from(
+      elemento().querySelectorAll('[data-tabla="torneos"] thead th[scope="col"]'),
+    ).map((th) => th.textContent?.trim());
 
     expect(encabezados).toEqual(['Puesto', 'Jugador', 'Puntos', 'Torneos']);
   });
@@ -92,7 +120,19 @@ describe('RankingDeTorneos', () => {
     await montar({ ...TABLA, torneos: [], posiciones: [] });
 
     expect(texto()).toContain('Todavía no hay puntos');
-    expect(elemento().querySelector('tbody')).toBeNull();
+    expect(elemento().querySelector('[data-tabla="torneos"]')).toBeNull();
+  });
+
+  it('**la tabla del club no se le muestra a quien mira desde la calle**', () => {
+    // El endpoint se la niega igual; una sección que carga un 403 es peor que una
+    // que no está.
+    expect(texto()).not.toContain('Tabla del club');
+  });
+
+  it('**y sí a un socio**', async () => {
+    await montar(TABLA, SOCIA);
+
+    expect(texto()).toContain('Tabla del club');
   });
 
   it('con la tabla vacía sigue diciendo desde cuándo cuenta', async () => {

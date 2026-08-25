@@ -1,8 +1,10 @@
-import { Component, inject, resource } from '@angular/core';
+import { Component, computed, inject, resource } from '@angular/core';
 
 import { diaConAnioEnPalabras } from '../catalogo-canchas/reloj-del-club';
+import { Auth } from '../core/auth/auth';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Ranking } from './ranking.service';
+import { TablaInterna } from './tabla-interna';
 
 /**
  * El ranking de torneos del club.
@@ -17,7 +19,7 @@ import { Ranking } from './ranking.service';
  */
 @Component({
   selector: 'app-ranking-torneos',
-  imports: [EstadoVacio],
+  imports: [EstadoVacio, TablaInterna],
   template: `
     <h1 class="font-display text-4xl font-bold">Ranking de torneos</h1>
     <p class="mt-2 max-w-prose text-lg text-muted-foreground">
@@ -32,8 +34,8 @@ import { Ranking } from './ranking.service';
              (Y sin comillas invertidas en este comentario: rompen el template.) -->
         Suma los torneos terminados desde el
         <strong>{{ enPalabras(datos.desde) }}</strong
-        >. Los puntos duran 52 semanas y después caducan solos, así que la tabla
-        cambia aunque no se juegue nada.
+        >. Los puntos duran 52 semanas y después caducan solos, así que la tabla cambia aunque no se
+        juegue nada.
       </p>
 
       @if (datos.posiciones.length === 0) {
@@ -47,7 +49,7 @@ import { Ranking } from './ranking.service';
         <!-- Una tabla de verdad, al revés que el cuadro: acá las filas son
              comparables entre sí y las columnas significan lo mismo en todas. Sin
              encabezados, un lector de pantalla lee cuatro números sueltos por fila. -->
-        <div class="mt-6 overflow-x-auto">
+        <div class="mt-6 overflow-x-auto" data-tabla="torneos">
           <table class="w-full border-collapse text-sm">
             <caption class="sr-only">
               Puntos por jugador en los torneos de las últimas 52 semanas
@@ -98,6 +100,19 @@ import { Ranking } from './ranking.service';
     } @else if (tabla.isLoading()) {
       <p class="mt-6 text-muted-foreground">Cargando el ranking…</p>
     }
+
+    <!-- La tabla del club solo para socios: el endpoint la niega a los demás, y una
+         sección que carga un 403 es peor que una que no está. Las dos comparten
+         pantalla porque comparten vocabulario, pero no comparten público. -->
+    @if (esSocio()) {
+      <section class="mt-12">
+        <h2 class="font-display text-2xl font-bold">Tabla del club</h2>
+        <p class="mt-1 max-w-prose text-muted-foreground">
+          El orden de juego entre socios, con los amistosos que ustedes mismos cargan.
+        </p>
+        <app-tabla-interna />
+      </section>
+    }
   `,
 })
 export class RankingDeTorneos {
@@ -106,4 +121,7 @@ export class RankingDeTorneos {
   protected readonly tabla = resource({ loader: () => this.api.torneos() });
 
   protected readonly enPalabras = diaConAnioEnPalabras;
+
+  private readonly sesion = inject(Auth);
+  protected readonly esSocio = computed(() => this.sesion.usuario()?.socioId != null);
 }

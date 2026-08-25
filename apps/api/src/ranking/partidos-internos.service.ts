@@ -9,6 +9,7 @@ import {
 import { comoFechaCivil } from '../comun/tiempo';
 import { EstadoPartidoInterno, EstadoSocio } from '../generated/prisma/client';
 import type { UsuarioActual } from '../identidad/usuario-actual';
+import { NOMBRE_DEL_SOCIO, nombreDeSocio } from './nombres';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PartidoInternoNuevo } from './partidos-internos.dto';
 
@@ -47,11 +48,9 @@ const FICHA = {
   jugadoEn: true,
   estado: true,
   resueltoPorAdmin: true,
-  socioA: { select: { usuario: { select: { nombre: true, apellido: true } } } },
-  socioB: { select: { usuario: { select: { nombre: true, apellido: true } } } },
-  ganador: {
-    select: { usuario: { select: { nombre: true, apellido: true } } },
-  },
+  socioA: { select: NOMBRE_DEL_SOCIO },
+  socioB: { select: NOMBRE_DEL_SOCIO },
+  ganador: { select: NOMBRE_DEL_SOCIO },
 } as const;
 
 /**
@@ -143,7 +142,7 @@ export class PartidosInternos {
 
       return {
         id: partido.id,
-        rival: nombre(soyA ? partido.socioB : partido.socioA),
+        rival: nombreDeSocio(soyA ? partido.socioB : partido.socioA),
         ganeYo: partido.ganadorSocioId === mio,
         marcador: partido.marcador,
         jugadoEn: comoFechaCivil(partido.jugadoEn),
@@ -179,17 +178,13 @@ export class PartidosInternos {
         { usuario: { apellido: 'asc' } },
         { usuario: { nombre: 'asc' } },
       ],
-      select: {
-        id: true,
-        numeroSocio: true,
-        usuario: { select: { nombre: true, apellido: true } },
-      },
+      select: { id: true, numeroSocio: true, ...NOMBRE_DEL_SOCIO },
     });
 
     return socios.map((socio) => ({
       socioId: socio.id,
       numeroSocio: socio.numeroSocio,
-      nombre: nombre(socio),
+      nombre: nombreDeSocio(socio),
     }));
   }
 
@@ -244,9 +239,9 @@ export class PartidosInternos {
 
     return partidos.map((partido) => ({
       id: partido.id,
-      socioA: nombre(partido.socioA),
-      socioB: nombre(partido.socioB),
-      ganador: nombre(partido.ganador),
+      socioA: nombreDeSocio(partido.socioA),
+      socioB: nombreDeSocio(partido.socioB),
+      ganador: nombreDeSocio(partido.ganador),
       marcador: partido.marcador,
       jugadoEn: comoFechaCivil(partido.jugadoEn),
       estado: partido.estado,
@@ -313,10 +308,4 @@ export class PartidosInternos {
 
     return yo.socioId;
   }
-}
-
-function nombre(socio: {
-  usuario: { nombre: string; apellido: string };
-}): string {
-  return `${socio.usuario.nombre} ${socio.usuario.apellido}`;
 }

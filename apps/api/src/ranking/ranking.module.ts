@@ -6,6 +6,7 @@ import {
   PartidosInternosDelAdminController,
 } from './partidos-internos.controller';
 import { PartidosInternos } from './partidos-internos.service';
+import { RankingInterno } from './ranking-interno.service';
 import { RankingController } from './ranking.controller';
 import { RankingDeTorneos } from './ranking-torneos.service';
 
@@ -27,6 +28,6 @@ import { RankingDeTorneos } from './ranking-torneos.service';
     PartidosInternosController,
     PartidosInternosDelAdminController,
   ],
-  providers: [RankingDeTorneos, PartidosInternos],
+  providers: [RankingDeTorneos, RankingInterno, PartidosInternos],
 })
 export class RankingModule {}

@@ -68,6 +68,27 @@ export interface PartidoNuevo {
   jugadoEn: string;
 }
 
+/** Una fila de la tabla interna. */
+export interface FilaInterna {
+  /** `null` en los inactivos: están en la lista, pero no ocupan lugar. */
+  puesto: number | null;
+  socioId: number;
+  nombre: string;
+  elo: number;
+  partidos: number;
+  ganados: number;
+  ultimoPartido: string;
+  activo: boolean;
+}
+
+export interface TablaDelClub {
+  partidos: number;
+  ultimoPartido: string | null;
+  /** Quien no juega desde este día sale de la tabla principal. */
+  inactivosDesde: string;
+  posiciones: FilaInterna[];
+}
+
 /**
  * Las tablas que ordenan personas.
  *
@@ -83,6 +104,15 @@ export class Ranking {
   /** La tabla de torneos: puntos de las últimas 52 semanas. Sin cuenta. */
   torneos(): Promise<TablaDeTorneos> {
     return firstValueFrom(this.http.get<TablaDeTorneos>('/api/ranking/torneos'));
+  }
+
+  /**
+   * La tabla interna: el Elo de los amistosos. **Solo para socios**, al revés que la
+   * de torneos: un torneo es público y su cuadro está en el mural; el orden de juego
+   * entre socios es cosa de adentro.
+   */
+  interno(): Promise<TablaDelClub> {
+    return firstValueFrom(this.http.get<TablaDelClub>('/api/ranking/interno'));
   }
 
   /** Los partidos amistosos míos: los que cargué y los que tengo que contestar. */
