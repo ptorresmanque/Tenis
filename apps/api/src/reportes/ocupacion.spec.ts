@@ -4,6 +4,7 @@ import {
   estadoDelBloque,
   CORTES_DE_OCUPACION,
   esCorteDeOcupacion,
+  porcentajeDeOcupacion,
 } from './ocupacion';
 
 /**
@@ -179,6 +180,30 @@ describe('ocupación de cancha', () => {
 
         expect([corte, suma]).toEqual([corte, 3]);
       }
+    });
+  });
+
+  describe('el porcentaje, que es una sola regla', () => {
+    // Exportada porque la usan las filas **y** el total del reporte. Calculada aparte
+    // para el total, un reporte terminaría con un total que no cuadra con sus filas.
+    it('**la cerrada no entra en el denominador**', () => {
+      // Uno ocupado, uno cerrado, dos libres: 1 de 3 es 33 %. Contando la cerrada
+      // darían 25 %, y es el caso donde las dos fórmulas se separan.
+      expect(
+        porcentajeDeOcupacion({ bloques: 4, ocupados: 1, cerrados: 1 }),
+      ).toBe(33);
+    });
+
+    it('sin horas que ofrecer, nulo y no cero', () => {
+      expect(
+        porcentajeDeOcupacion({ bloques: 3, ocupados: 0, cerrados: 3 }),
+      ).toBeNull();
+    });
+
+    it('todo ocupado es 100 %', () => {
+      expect(
+        porcentajeDeOcupacion({ bloques: 5, ocupados: 4, cerrados: 1 }),
+      ).toBe(100);
     });
   });
 

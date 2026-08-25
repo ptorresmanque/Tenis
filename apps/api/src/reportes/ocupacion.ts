@@ -130,7 +130,10 @@ export function agruparOcupacion(
   }
 
   return [...porEtiqueta.values()]
-    .map((fila) => ({ ...fila, porcentajeOcupacion: porcentaje(fila) }))
+    .map((fila) => ({
+      ...fila,
+      porcentajeOcupacion: porcentajeDeOcupacion(fila),
+    }))
     .sort(
       (una, otra) =>
         (otra.porcentajeOcupacion ?? -1) - (una.porcentajeOcupacion ?? -1) ||
@@ -138,8 +141,25 @@ export function agruparOcupacion(
     );
 }
 
-function porcentaje(fila: FilaDeOcupacion): number | null {
-  const ofrecidos = fila.bloques - fila.cerrados;
+/**
+ * Qué proporción de las horas ofrecidas se ocupó.
+ *
+ * **Exportada porque el total del reporte también la necesita**, y la regla tiene que
+ * salir de un solo lugar: calculada aparte para el total, cambiar el redondeo o lo que
+ * entra al denominador dejaría un reporte cuyo total no cuadra con sus filas, que es
+ * exactamente el que nadie puede auditar.
+ *
+ * `null` y no cero cuando no hubo horas que ofrecer: un cero se lee como "nadie vino",
+ * y lo que pasó fue que la cancha estuvo cerrada.
+ */
+export function porcentajeDeOcupacion(cuenta: {
+  bloques: number;
+  ocupados: number;
+  cerrados: number;
+}): number | null {
+  const ofrecidos = cuenta.bloques - cuenta.cerrados;
 
-  return ofrecidos === 0 ? null : Math.round((fila.ocupados / ofrecidos) * 100);
+  return ofrecidos === 0
+    ? null
+    : Math.round((cuenta.ocupados / ofrecidos) * 100);
 }

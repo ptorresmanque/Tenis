@@ -11,6 +11,7 @@ import {
   CorteDeOcupacion,
   estadoDelBloque,
   FilaDeOcupacion,
+  porcentajeDeOcupacion,
 } from './ocupacion';
 
 export interface ReporteDeOcupacion {
@@ -58,20 +59,22 @@ export class OcupacionDeCancha {
 
     const cuenta = (cual: BloqueMedido['estado']) =>
       medidos.filter((bloque) => bloque.estado === cual).length;
-    const cerrados = cuenta('CERRADO');
-    const ocupados = cuenta('OCUPADO');
-    const ofrecidos = medidos.length - cerrados;
+    // El total sale de la **misma** función que cada fila: si el porcentaje se
+    // calculara acá aparte, un cambio en la regla dejaría un total que no cuadra con
+    // sus propias filas.
+    const total = {
+      bloques: medidos.length,
+      ocupados: cuenta('OCUPADO'),
+      cerrados: cuenta('CERRADO'),
+      libres: cuenta('LIBRE'),
+    };
 
     return {
       desde,
       hasta,
       corte,
-      bloques: medidos.length,
-      ocupados,
-      cerrados,
-      libres: cuenta('LIBRE'),
-      porcentajeOcupacion:
-        ofrecidos === 0 ? null : Math.round((ocupados / ofrecidos) * 100),
+      ...total,
+      porcentajeOcupacion: porcentajeDeOcupacion(total),
       filas: agruparOcupacion(medidos, corte),
       calculadoEn: new Date().toISOString(),
     };
@@ -119,6 +122,20 @@ export class OcupacionDeCancha {
         this.prisma.franjaHoraria.findMany(),
       ]);
 
+    // Indexados por cancha una sola vez. Filtrar dentro del bucle recorría todas las
+    // reservas del rango por cada par (día, cancha): con un año y ocho canchas son
+    // casi tres mil pasadas sobre decenas de miles de filas.
+    const porCancha = <T extends { canchaId: number }>(filas: T[]) => {
+      const mapa = new Map<number, T[]>();
+      for (const fila of filas) {
+        mapa.set(fila.canchaId, [...(mapa.get(fila.canchaId) ?? []), fila]);
+      }
+
+      return mapa;
+    };
+    const bloqueosDe = porCancha(bloqueos);
+    const reservasDe = porCancha(reservas);
+
     const medidos: BloqueMedido[] = [];
 
     for (const fecha of dias) {
@@ -143,10 +160,10 @@ export class OcupacionDeCancha {
           horaApertura: horario.horaApertura,
           horaCierre: horario.horaCierre,
           duracionBloqueMin: config.duracionBloqueMin,
-          bloqueos: bloqueos.filter((uno) => uno.canchaId === cancha.id),
+          bloqueos: bloqueosDe.get(cancha.id) ?? [],
         });
 
-        const ocupantes = reservas.filter((una) => una.canchaId === cancha.id);
+        const ocupantes = reservasDe.get(cancha.id) ?? [];
 
         for (const bloque of suyos) {
           medidos.push({

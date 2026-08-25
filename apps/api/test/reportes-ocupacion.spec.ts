@@ -280,6 +280,22 @@ describe('GET /api/admin/reportes/ocupacion', () => {
       expect(mia?.porcentajeOcupacion).toBe(0);
     });
 
+    it('**con una ocupada y una cerrada, la cerrada no está en el denominador**', async () => {
+      // Es el caso donde las dos fórmulas se separan: 1 de 3 es 33 %, y contar la
+      // cerrada daría 25 %. Sin él, el error se esconde detrás de los ceros.
+      await reservar('10:00');
+      await bloquear('12:00', MotivoBloqueo.MANTENCION);
+
+      // El total no se puede fijar acá: agrega todas las canchas de la base, que es
+      // compartida entre suites. La regla en sí se prueba en `ocupacion.spec.ts`, y el
+      // servicio la usa desde ahí para el total y para cada fila.
+      const mia = await miFila();
+
+      expect(mia?.ocupados).toBe(1);
+      expect(mia?.cerrados).toBe(1);
+      expect(mia?.porcentajeOcupacion).toBe(33);
+    });
+
     it('una hora tomada por un torneo, igual', async () => {
       await bloquear('11:00', MotivoBloqueo.TORNEO);
 
@@ -317,6 +333,26 @@ describe('GET /api/admin/reportes/ocupacion', () => {
 
     it('por cancha, con su nombre', async () => {
       expect(await miFila()).toBeDefined();
+    });
+
+    it('**el total cuadra con la suma de sus filas**', async () => {
+      // El total y cada fila salen de la misma función a propósito. Calculado aparte,
+      // un cambio en la regla dejaría un reporte cuyo total no coincide con lo que
+      // muestra debajo, que es el que nadie puede auditar.
+      const respuesta = await request(app.getHttpServer())
+        .get('/api/admin/reportes/ocupacion')
+        .query({ desde: LUNES, hasta: LUNES, corte: 'cancha' })
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+      const suyo = respuesta.body as Reporte;
+
+      const suma = (cual: 'bloques' | 'ocupados' | 'cerrados' | 'libres') =>
+        suyo.filas.reduce((total, fila) => total + fila[cual], 0);
+
+      expect(suma('bloques')).toBe(suyo.bloques);
+      expect(suma('ocupados')).toBe(suyo.ocupados);
+      expect(suma('cerrados')).toBe(suyo.cerrados);
+      expect(suma('libres')).toBe(suyo.libres);
     });
 
     it('un corte que no aplica sobre un bloque se rechaza', async () => {
