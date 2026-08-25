@@ -29,6 +29,13 @@ const DIA_LARGO = new Intl.DateTimeFormat('es-CL', {
   month: 'long',
 });
 
+const DIA_CON_ANIO = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
 const DIA_CORTO = new Intl.DateTimeFormat('es-CL', {
   timeZone: ZONA_DEL_CLUB,
   weekday: 'short',
@@ -75,6 +82,17 @@ export function diaEnPalabras(fecha: string): string {
   // la hora a la segunda forma daba una fecha inválida que hacía desaparecer el
   // bloque entero sin un solo error a la vista.
   return DIA_LARGO.format(new Date(`${fecha.slice(0, 10)}T12:00:00.000Z`));
+}
+
+/**
+ * "26 de agosto de 2025", para fechas que no son de esta semana.
+ *
+ * Con año y sin día de la semana, al revés que `diaEnPalabras`: el corte del ranking
+ * está siempre a un año de distancia, y ahí "el 26 de agosto" no dice nada mientras
+ * que "martes" no le importa a nadie.
+ */
+export function diaConAnioEnPalabras(fecha: string): string {
+  return DIA_CON_ANIO.format(new Date(`${fecha.slice(0, 10)}T12:00:00.000Z`));
 }
 
 /**

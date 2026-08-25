@@ -165,6 +165,18 @@ export function instanteEnElClub(fecha: string, hora: string): Date {
 }
 
 /**
+ * Una columna `DATE` como la fecha civil que es, "AAAA-MM-DD".
+ *
+ * El inverso de `fechaDelClub`. Vive acá porque ya eran dos copias iguales en
+ * `torneos` y el ranking habría sido la tercera: una fecha civil que sale con hora
+ * invita a que la pantalla muestre el día anterior, y ese error hay que arreglarlo
+ * en un solo lugar.
+ */
+export function comoFechaCivil(fecha: Date): string {
+  return fecha.toISOString().slice(0, 10);
+}
+
+/**
  * Si esa cadena es una fecha civil del club que existe de verdad.
  *
  * Vive acá y no en cada controlador porque la usan tres —la agenda, la reserva del

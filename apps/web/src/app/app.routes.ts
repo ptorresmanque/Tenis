@@ -62,6 +62,12 @@ export const routes: Routes = [
           import('./torneos/publico/torneos').then((m) => m.TorneosPublicos),
       },
       {
+        path: 'ranking',
+        title: 'Ranking — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./ranking/torneos').then((m) => m.RankingDeTorneos),
+      },
+      {
         path: 'el-club',
         title: 'El club — FEDAL Tennis Center',
         loadComponent: () => import('./club/el-club').then((m) => m.ElClub),

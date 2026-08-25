@@ -288,6 +288,9 @@ export class CascaronPublico {
     // El calendario de torneos es de las pocas cosas que un tercero mira antes de
     // asociarse: un club con torneos es un club con vida.
     { ruta: '/torneos', etiqueta: 'Torneos' },
+    // Al lado de los torneos porque es su consecuencia: quien mira el cuadro de un
+    // torneo terminado quiere saber en qué lo dejó.
+    { ruta: '/ranking', etiqueta: 'Ranking' },
     // Solo para quien tiene ficha de socio: al resto la pantalla le mostraría
     // una lista siempre vacía.
     ...(this.usuario()?.socioId != null

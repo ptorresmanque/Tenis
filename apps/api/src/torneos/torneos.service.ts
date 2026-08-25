@@ -4,14 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { comoFechaCivil } from '../comun/tiempo';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CategoriaNueva, TorneoNuevo } from './torneos.dto';
-
-/** Una columna `DATE` como la fecha civil que es: "AAAA-MM-DD". */
-function comoFechaCivil(fecha: Date): string {
-  return fecha.toISOString().slice(0, 10);
-}
 
 /**
  * Los torneos del club y las categorías con que se puntúan.

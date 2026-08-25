@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
+import { comoFechaCivil } from '../comun/tiempo';
 import {
   EstadoInscripcionTorneo,
   EstadoTorneo,
@@ -184,9 +185,4 @@ function nombre(
   jugador: { nombre: string; apellido: string } | null,
 ): string | null {
   return jugador ? `${jugador.nombre} ${jugador.apellido}` : null;
-}
-
-/** Una columna `DATE` como la fecha civil que es. */
-function comoFechaCivil(fecha: Date): string {
-  return fecha.toISOString().slice(0, 10);
 }
