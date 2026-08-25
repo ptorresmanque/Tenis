@@ -296,6 +296,9 @@ export class CascaronPublico {
     ...(this.usuario()?.socioId != null
       ? [
           { ruta: '/mis-reservas', etiqueta: 'Mis reservas' },
+          // Acá y no en el sitio público: cargar un amistoso y confirmarle uno al
+          // rival son cosas de socio, y al resto la pantalla le quedaría vacía.
+          { ruta: '/mis-partidos', etiqueta: 'Mis partidos' },
           { ruta: '/mi-cuenta', etiqueta: 'Mi cuenta' },
         ]
       : []),

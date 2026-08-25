@@ -109,6 +109,10 @@ model Socio {
   clases          InscripcionClase[]
   jugador         Jugador?
 
+  partidosInternosComoA   PartidoInterno[] @relation("PartidosInternosComoA")
+  partidosInternosComoB   PartidoInterno[] @relation("PartidosInternosComoB")
+  partidosInternosGanados PartidoInterno[] @relation("PartidosInternosGanados")
+
   @@map("socio")
 }
 
@@ -1033,4 +1037,61 @@ model Partido {
   @@unique([torneoId, ronda, posicion])
   @@index([torneoId])
   @@map("partido")
+}
+
+// ── ranking ──────────────────────────────────────────────────────────────────
+// Modelo de SPEC-ranking.md § Ranking interno.
+//
+// El ranking de torneos no tiene tablas: se calcula leyendo `torneo` y `partido`.
+// Lo único que este módulo posee es el partido amistoso entre socios.
+
+enum EstadoPartidoInterno {
+  PENDIENTE
+  CONFIRMADO
+  RECHAZADO
+}
+
+/// Un partido amistoso entre dos socios, cargado por uno y confirmado por el otro.
+///
+/// **No puntúa hasta que el rival lo confirma.** Sin eso el ranking lo escribe quien
+/// más se acuerda de cargar victorias, y la tabla deja de ser creíble el primer mes.
+///
+/// Las dos reglas que la base **no** puede sostener acá —que los dos socios sean
+/// distintos y que el ganador sea uno de ellos— viven en el servicio: MariaDB no
+/// acepta un CHECK sobre una columna con clave foránea, la misma pared que encontró
+/// `InscripcionClase` en T47.
+model PartidoInterno {
+  id Int @id @default(autoincrement())
+
+  /// Quien carga es A; B es quien tiene que confirmar. La asimetría es el mecanismo,
+  /// no un detalle de implementación.
+  socioAId       Int @map("socio_a_id")
+  socioBId       Int @map("socio_b_id")
+  ganadorSocioId Int @map("ganador_socio_id")
+
+  /// Texto libre, como el del cuadro: el Elo mira quién ganó y nada más.
+  marcador String? @db.VarChar(60)
+
+  /// Fecha civil del club: un partido se juega un día, no a una hora UTC.
+  jugadoEn DateTime @map("jugado_en") @db.Date
+
+  estado EstadoPartidoInterno @default(PENDIENTE)
+
+  cargadoEn    DateTime  @default(now()) @map("cargado_en")
+  confirmadoEn DateTime? @map("confirmado_en")
+
+  /// El admin lo resolvió a mano. Queda marcado para que la tabla pueda explicarse:
+  /// es la salida de emergencia que evita construir un tribunal.
+  resueltoPorAdmin Boolean @default(false) @map("resuelto_por_admin")
+
+  socioA  Socio @relation("PartidosInternosComoA", fields: [socioAId], references: [id], onDelete: Cascade)
+  socioB  Socio @relation("PartidosInternosComoB", fields: [socioBId], references: [id], onDelete: Cascade)
+  ganador Socio @relation("PartidosInternosGanados", fields: [ganadorSocioId], references: [id])
+
+  /// El orden del Elo: por fecha jugada y, dentro del día, por orden de carga. Es un
+  /// índice y no un capricho —el Elo es secuencial y recorre esta tabla entera—.
+  @@index([estado, jugadoEn, cargadoEn])
+  @@index([socioAId])
+  @@index([socioBId])
+  @@map("partido_interno")
 }

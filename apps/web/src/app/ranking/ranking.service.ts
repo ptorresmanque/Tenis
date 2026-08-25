@@ -31,6 +31,43 @@ export interface TablaDeTorneos {
   posiciones: PosicionDeTorneos[];
 }
 
+export type EstadoPartidoInterno = 'PENDIENTE' | 'CONFIRMADO' | 'RECHAZADO';
+
+/** Cómo se lee cada estado en pantalla. */
+export const ESTADOS_PARTIDO: Record<EstadoPartidoInterno, string> = {
+  PENDIENTE: 'Esperando confirmación',
+  CONFIRMADO: 'Confirmado',
+  RECHAZADO: 'Rechazado',
+};
+
+/** Un partido amistoso, como lo ve uno de los dos que jugaron. */
+export interface PartidoMio {
+  id: number;
+  /** El otro. Cada uno ve al que tuvo enfrente, no una pareja de nombres. */
+  rival: string;
+  ganeYo: boolean;
+  marcador: string | null;
+  jugadoEn: string;
+  estado: EstadoPartidoInterno;
+  /** Si me toca a mí contestar. Es lo que decide si se dibuja el botón. */
+  esperaMiRespuesta: boolean;
+  resueltoPorAdmin: boolean;
+}
+
+/** Alguien contra quien se puede cargar un partido. */
+export interface Rival {
+  socioId: number;
+  numeroSocio: string;
+  nombre: string;
+}
+
+export interface PartidoNuevo {
+  rivalSocioId: number;
+  ganadorSocioId: number;
+  marcador: string | null;
+  jugadoEn: string;
+}
+
 /**
  * Las tablas que ordenan personas.
  *
@@ -46,5 +83,33 @@ export class Ranking {
   /** La tabla de torneos: puntos de las últimas 52 semanas. Sin cuenta. */
   torneos(): Promise<TablaDeTorneos> {
     return firstValueFrom(this.http.get<TablaDeTorneos>('/api/ranking/torneos'));
+  }
+
+  /** Los partidos amistosos míos: los que cargué y los que tengo que contestar. */
+  misPartidos(): Promise<PartidoMio[]> {
+    return firstValueFrom(this.http.get<PartidoMio[]>('/api/partidos-internos/mios'));
+  }
+
+  /** Contra quién puedo cargar uno. Nombre y número de socio, nada más. */
+  rivales(): Promise<Rival[]> {
+    return firstValueFrom(this.http.get<Rival[]>('/api/partidos-internos/rivales'));
+  }
+
+  /**
+   * Cargar un partido. **Quien lo carga no va en el cuerpo**: lo pone el servidor
+   * desde la sesión, que es lo que impide cargarlo a nombre de otro.
+   */
+  cargarPartido(datos: PartidoNuevo): Promise<{ id: number }> {
+    return firstValueFrom(this.http.post<{ id: number }>('/api/partidos-internos', datos));
+  }
+
+  /** Contestar. Solo el rival puede, y solo una vez. */
+  responderPartido(id: number, acepto: boolean): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/partidos-internos/${id}/${acepto ? 'confirmacion' : 'rechazo'}`,
+        {},
+      ),
+    );
   }
 }

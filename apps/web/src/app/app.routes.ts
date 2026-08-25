@@ -62,6 +62,12 @@ export const routes: Routes = [
           import('./torneos/publico/torneos').then((m) => m.TorneosPublicos),
       },
       {
+        path: 'mis-partidos',
+        title: 'Mis partidos — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./ranking/mis-partidos').then((m) => m.MisPartidos),
+      },
+      {
         path: 'ranking',
         title: 'Ranking — FEDAL Tennis Center',
         loadComponent: () =>
@@ -160,6 +166,14 @@ export const routes: Routes = [
         title: 'Jugadores — Administración',
         loadComponent: () =>
           import('./torneos/admin/jugadores').then((m) => m.JugadoresPanel),
+      },
+      {
+        path: 'administracion/partidos-internos',
+        title: 'Partidos entre socios — Administración',
+        loadComponent: () =>
+          import('./ranking/admin/partidos-internos').then(
+            (m) => m.PartidosInternosPanel,
+          ),
       },
       {
         path: 'administracion/solicitudes',
