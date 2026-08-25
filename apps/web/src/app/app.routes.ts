@@ -182,6 +182,12 @@ export const routes: Routes = [
           import('./identidad/admin/solicitudes').then((m) => m.SolicitudesPanel),
       },
       {
+        path: 'administracion/ingreso',
+        title: 'Ingreso del club — Administración',
+        loadComponent: () =>
+          import('./reportes/ingreso').then((m) => m.IngresoPanel),
+      },
+      {
         path: 'administracion/reportes',
         title: 'Horas reportadas — Administración',
         loadComponent: () =>

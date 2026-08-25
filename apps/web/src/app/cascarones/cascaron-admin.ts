@@ -212,6 +212,12 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      ruta: '/administracion/ingreso',
+      etiqueta: 'Ingreso del club',
+      icono: 'payments',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/reportes',
       etiqueta: 'Horas reportadas',
       icono: 'flag',

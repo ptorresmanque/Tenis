@@ -7,6 +7,7 @@ import { IdentidadModule } from './identidad/identidad.module';
 import { PagosModule } from './pagos/pagos.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RankingModule } from './ranking/ranking.module';
+import { ReportesModule } from './reportes/reportes.module';
 import { ReservasModule } from './reservas/reservas.module';
 import { SaludModule } from './salud/salud.module';
 import { TorneosModule } from './torneos/torneos.module';
@@ -21,6 +22,7 @@ import { TorneosModule } from './torneos/torneos.module';
     CatalogoCanchasModule,
     PagosModule,
     RankingModule,
+    ReportesModule,
     ReservasModule,
     TorneosModule,
   ],
