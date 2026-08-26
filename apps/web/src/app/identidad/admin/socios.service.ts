@@ -28,6 +28,27 @@ export interface ListadoDeSocios {
   invitaciones: InvitacionPendiente[];
 }
 
+/** Lo que el club puede cambiar de una ficha. Se manda solo lo que cambia. */
+export interface CambiosDeFicha {
+  estado?: EstadoSocio;
+  alDiaHasta?: string;
+  numeroSocio?: string;
+  sancionadoHasta?: string | null;
+  /** Por qué. Viaja al historial y no a la ficha. */
+  motivo?: string;
+}
+
+/** Un renglón del historial: un campo que cambió, con su autor. */
+export interface CambioDeFicha {
+  id: number;
+  campo: string;
+  valorAnterior: string;
+  valorNuevo: string;
+  hechoPorNombre: string;
+  hechoEn: string;
+  motivo: string | null;
+}
+
 /**
  * Lo que el admin escribe para dar de alta. **Solo el correo es obligatorio**: el
  * número y la fecha los pone el club si no vienen.
@@ -52,6 +73,24 @@ export class Socios {
         '/api/admin/socios/invitaciones',
         datos,
       ),
+    );
+  }
+
+  /**
+   * Cambia los campos de la ficha que tocan derechos.
+   *
+   * Hasta T37 esto se hacía escribiendo en la base. Cada cambio queda firmado en el
+   * historial; el servidor decide qué se audita y qué no.
+   */
+  editar(id: number, cambios: CambiosDeFicha): Promise<SocioDelClub> {
+    return firstValueFrom(
+      this.http.patch<SocioDelClub>(`/api/admin/socios/${id}`, cambios),
+    );
+  }
+
+  historial(id: number): Promise<CambioDeFicha[]> {
+    return firstValueFrom(
+      this.http.get<CambioDeFicha[]>(`/api/admin/socios/${id}/cambios`),
     );
   }
 

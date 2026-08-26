@@ -2,13 +2,17 @@ import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+
 import { firstValueFrom } from 'rxjs';
+
+import { Aviso } from '../../ui/aviso';
+import { Campo, CampoControl } from '../../ui/campo';
 
 interface RespuestaRegistro {
   mensaje: string;
 }
 
-interface Campo {
+interface CampoDelFormulario {
   nombre: string;
   etiqueta: string;
   tipo: string;
@@ -19,7 +23,7 @@ interface Campo {
 
 @Component({
   selector: 'app-registro',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, Aviso, Campo, CampoControl],
   template: `
     <h1 class="font-display text-3xl font-bold">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -27,67 +31,47 @@ interface Campo {
     </p>
 
     @if (verificado() === '1') {
-      <p
-        class="mt-6 rounded-lg border border-border bg-card p-4 text-accent-strong"
-        role="status"
-      >
+      <app-aviso variante="exito" class="mt-6 block">
         Tu correo quedó verificado. Ya puedes entrar con tu contraseña.
-      </p>
+      </app-aviso>
     } @else if (verificado() === '0') {
-      <p
-        class="mt-6 rounded-lg border border-destructive bg-card p-4 text-destructive"
-        role="alert"
-      >
+      <app-aviso variante="error" class="mt-6 block">
         Ese enlace de verificación no sirve: puede haber vencido o ya haberse usado.
         Regístrate de nuevo para recibir otro.
-      </p>
+      </app-aviso>
     }
 
     @if (enviado()) {
-      <p
-        class="mt-6 rounded-lg border border-border bg-card p-4 shadow-sm"
-        role="status"
-      >
+      <app-aviso variante="exito" titulo="Cuenta creada" class="mt-6 block">
         {{ enviado() }}
-      </p>
+      </app-aviso>
     } @else {
-      <form
-        class="mt-6 grid max-w-md gap-4"
-        [formGroup]="formulario"
-        (ngSubmit)="registrar()"
-      >
+      <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="registrar()">
         @for (campo of campos; track campo.nombre) {
-          <label class="grid gap-1">
-            <span class="text-sm font-semibold">
-              {{ campo.etiqueta }}
-              @if (!campo.opcional) {
-                <span aria-hidden="true">*</span>
-              }
-            </span>
+          <app-campo
+            [etiqueta]="campo.etiqueta"
+            [ayuda]="campo.ayuda ?? ''"
+            [obligatorio]="!campo.opcional"
+          >
             <input
+              appCampoControl
               [type]="campo.tipo"
               [formControlName]="campo.nombre"
               [autocomplete]="campo.autocomplete"
-              class="rounded-lg border border-border bg-card px-3 py-2
-                     focus-visible:border-ring"
+              [required]="!campo.opcional"
+              class="campo"
             />
-            @if (campo.ayuda) {
-              <span class="text-sm text-muted-foreground">{{ campo.ayuda }}</span>
-            }
-          </label>
+          </app-campo>
         }
 
-        @if (error()) {
-          <p class="text-destructive" role="alert">{{ error() }}</p>
+        @if (error(); as motivo) {
+          <app-aviso variante="error">{{ motivo }}</app-aviso>
         }
 
         <button
           type="submit"
           [disabled]="enviando() || formulario.invalid"
-          class="cursor-pointer rounded-lg bg-primary px-6 py-3 font-semibold
-                 text-on-primary shadow-md transition-[background-color,box-shadow]
-                 duration-200 hover:bg-secondary hover:shadow-lg
-                 disabled:cursor-not-allowed disabled:opacity-60"
+          class="boton boton-primario"
         >
           {{ enviando() ? 'Creando…' : 'Crear cuenta' }}
         </button>
@@ -113,7 +97,7 @@ export class Registro {
     contrasena: ['', [Validators.required, Validators.minLength(10)]],
   });
 
-  protected readonly campos: Campo[] = [
+  protected readonly campos: CampoDelFormulario[] = [
     { nombre: 'nombre', etiqueta: 'Nombre', tipo: 'text', autocomplete: 'given-name' },
     {
       nombre: 'apellido',

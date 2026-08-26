@@ -105,8 +105,104 @@ model Socio {
   reservas        Reserva[]
   acompanamientos AcompananteReserva[]
   reportes        ReporteNoUso[]
+  cuotas          Cuota[]
+  clases          InscripcionClase[]
+  jugador         Jugador?
+
+  partidosInternosComoA   PartidoInterno[] @relation("PartidosInternosComoA")
+  partidosInternosComoB   PartidoInterno[] @relation("PartidosInternosComoB")
+  partidosInternosGanados PartidoInterno[] @relation("PartidosInternosGanados")
 
   @@map("socio")
+}
+
+/// Quién cambió qué en la ficha de un socio, y cuándo (T37).
+///
+/// Nace de la problemática 2.4 del perfil: el padrón vivía en una planilla donde el
+/// estado y la vigencia de la cuota se corregían a mano sin constancia de nada.
+///
+/// **Un renglón por campo, no una foto de la ficha entera.** Lo que se pregunta seis
+/// meses después es "quién le cambió el estado", y una lista de campos se responde
+/// leyéndola; una sucesión de fotos hay que compararla de a dos.
+///
+/// **Sin claves foráneas, a propósito.** Ni a `socio` ni al usuario que hizo el
+/// cambio: el historial de decisiones sobrevive a la ficha y a la cuenta, y con una
+/// cascada se iría justo cuando alguien pregunta. Por eso el nombre de quien lo hizo
+/// va congelado en texto y no se resuelve al leer.
+model CambioSocio {
+  id      Int @id @default(autoincrement())
+  socioId Int @map("socio_id")
+
+  /// "estado", "alDiaHasta", "numeroSocio" o "sancionadoHasta". Solo los cuatro que
+  /// cambian lo que el socio puede hacer; el teléfono y el correo no se auditan.
+  campo String @db.VarChar(40)
+
+  /// Como se veían, ya formateados. Vacío es "no tenía valor".
+  valorAnterior String @map("valor_anterior") @db.VarChar(80)
+  valorNuevo    String @map("valor_nuevo") @db.VarChar(80)
+
+  hechoPor       Int      @map("hecho_por")
+  hechoPorNombre String   @map("hecho_por_nombre") @db.VarChar(120)
+  hechoEn        DateTime @default(now()) @map("hecho_en")
+
+  /// Lo que el admin escribió al hacerlo. Opcional: la sanción por no usar una hora
+  /// trae el suyo desde el sistema, y el club a veces no explica una suspensión.
+  motivo String? @db.VarChar(200)
+
+  @@index([socioId, hechoEn])
+  @@map("cambio_socio")
+}
+
+enum TipoSolicitud {
+  SOCIO
+  CLASES
+  EMPRESA
+  OTRO
+}
+
+enum EstadoSolicitud {
+  NUEVA
+  ATENDIDA
+  DESCARTADA
+}
+
+/// Alguien de afuera que le escribió al club (T38).
+///
+/// Nace de la problemática 2.5 del perfil: no había dónde mandar a un interesado en
+/// asociarse, a un apoderado que busca clases ni a una empresa.
+///
+/// **Es una bandeja y no un buzón de correo.** Podría ser un `mailto:` y ahorrarse
+/// esta tabla; no lo es porque el club necesita saber **cuántos interesados llegan y
+/// cuántos terminan siendo socios**, que es el único modo de saber si tener sitio
+/// sirvió para algo. Un correo no se cuenta, y el que nadie contestó no se distingue
+/// del que nunca llegó.
+model SolicitudContacto {
+  id   Int           @id @default(autoincrement())
+  tipo TipoSolicitud
+
+  nombre   String  @db.VarChar(120)
+  /// Uno de los dos alcanza, pero no puede faltar ninguno: una solicitud que el club
+  /// no puede contestar ocupa la bandeja como si se pudiera.
+  email    String  @db.VarChar(160)
+  telefono String  @db.VarChar(40)
+  mensaje  String? @db.VarChar(1000)
+
+  estado   EstadoSolicitud @default(NUEVA)
+  creadaEn DateTime        @default(now()) @map("creada_en")
+
+  atendidaEn  DateTime? @map("atendida_en")
+  /// Qué admin la atendió. Sin FK, como el resto del rastro del club: la solicitud
+  /// sobrevive a la cuenta de quien la contestó.
+  atendidaPor Int?      @map("atendida_por")
+  nota        String?   @db.VarChar(500)
+
+  /// La invitación que salió de esta solicitud, si terminó en un alta. **Es el enlace
+  /// que permite contar la conversión**: sin él, "llegaron treinta interesados" y
+  /// "entraron cuatro socios" son dos números que nadie puede juntar.
+  invitacionId Int? @map("invitacion_id")
+
+  @@index([estado, creadaEn])
+  @@map("solicitud_contacto")
 }
 
 /// El club aceptó a alguien como socio antes de que esa persona tenga cuenta.
@@ -140,14 +236,103 @@ model InvitacionSocio {
 /// Ficha de profesor. Declarada acá porque es una ficha sobre `Usuario`, pero su
 /// dueño funcional es `clases`: `identidad` no sabe qué es una clase.
 /// Un usuario puede ser socio y profesor a la vez.
+///
+/// **`usuarioId` es opcional**: el profesor no entra al sistema —`SPEC-clases.md`
+/// § Out of scope— y exigirle cuenta obligaría a crear credenciales que nadie usa
+/// para poder anotar un teléfono. Si además es socio, se vincula.
+///
+/// Los campos de acá no viven en `Usuario` porque son del oficio: el nombre visible
+/// es el que el club anuncia y puede no ser el de la cuenta, y la tarifa no le
+/// importa a nadie que no sea profesor.
 model Profesor {
-  id        Int     @id @default(autoincrement())
-  usuarioId Int     @unique @map("usuario_id")
-  activo    Boolean @default(true)
+  id            Int     @id @default(autoincrement())
+  usuarioId     Int?    @unique @map("usuario_id")
+  activo        Boolean @default(true)
+  nombreVisible String  @map("nombre_visible")
+  telefono      String
+  especialidad  String
+  /// Lo que el club le paga la hora. Referencia interna: no se publica.
+  tarifaHoraClp Int?    @map("tarifa_hora_clp")
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  clases  Clase[]
 
   @@map("profesor")
+}
+
+// ── cuotas ───────────────────────────────────────────────────────────────────
+// Modelo de SPEC-cuotas.md § Modelo de datos.
+
+enum TipoCuota {
+  INCORPORACION
+  MENSUAL
+}
+
+enum EstadoCuota {
+  PENDIENTE
+  PAGADA
+  ANULADA
+}
+
+enum MedioPago {
+  WEBPAY
+  EFECTIVO
+  TRANSFERENCIA
+}
+
+/// Lo que un socio le debe al club por un período, y qué se hizo con esa deuda.
+///
+/// **Los dos cobros del modelo de socios en una sola tabla**: la incorporación que se
+/// paga una vez al entrar y la mensualidad. Podrían ser dos; no lo son porque
+/// responden a lo mismo —cuánto debe este socio y por qué— y el estado de cuenta las
+/// muestra juntas. En dos tablas, cada consulta de deuda es dos consultas y una unión,
+/// y la primera que se olvide de la incorporación deja reservar a alguien que no la
+/// pagó.
+model Cuota {
+  id      Int       @id @default(autoincrement())
+  socioId Int       @map("socio_id")
+  tipo    TipoCuota @default(MENSUAL)
+
+  /// "AAAA-MM". Para la incorporación es el mes del alta, y nunca se repite.
+  ///
+  /// **El único sobre (socio, tipo, período) es el mecanismo de emisión**, no una
+  /// precaución: la cuota del mes se emite cuando alguien la mira, y dos peticiones
+  /// simultáneas chocan acá en vez de crear dos filas. Ver SPEC-cuotas.md § La
+  /// emisión es perezosa.
+  periodo String @db.VarChar(7)
+
+  /// Congelado al emitir, como `Transaccion.montoClp`. Si el club sube la cuota en
+  /// septiembre, las de agosto siguen valiendo lo que valían: quien paga tarde no
+  /// puede terminar debiendo más de lo que se le cobró.
+  montoClp Int @map("monto_clp")
+
+  /// En pesos y no en porcentaje: el club piensa en pesos —"a la señora Ana le
+  /// cobramos 15.000"— y un porcentaje obliga a redondear, que en dinero significa
+  /// que la suma del mes no cuadra con el reporte.
+  descuentoClp    Int     @default(0) @map("descuento_clp")
+  /// Obligatorio cuando hay descuento, y lo impone el servidor: un descuento sin
+  /// motivo no se distingue de un error de tipeo seis meses después.
+  motivoDescuento String? @map("motivo_descuento") @db.VarChar(200)
+
+  estado    EstadoCuota @default(PENDIENTE)
+  emitidaEn DateTime    @default(now()) @map("emitida_en")
+
+  pagadaEn      DateTime?  @map("pagada_en")
+  medio         MedioPago?
+  /// El cobro en línea, si lo hubo. Sin FK, como `Transaccion.conceptoId`.
+  transaccionId Int?       @map("transaccion_id")
+  /// Qué admin registró el pago en el mesón. Es dinero que pasó por las manos de una
+  /// persona, y sin esto no hay forma de reconstruir una caja que no cuadra.
+  registradaPor Int?       @map("registrada_por")
+
+  anuladaPor      Int?    @map("anulada_por")
+  motivoAnulacion String? @map("motivo_anulacion") @db.VarChar(200)
+
+  socio Socio @relation(fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@unique([socioId, tipo, periodo])
+  @@index([periodo, estado])
+  @@map("cuota")
 }
 
 // ── catalogo-canchas ─────────────────────────────────────────────────────────
@@ -184,6 +369,7 @@ model Cancha {
   franjas  FranjaHoraria[]
   bloqueos Bloqueo[]
   reservas Reserva[]
+  clases   Clase[]
 
   @@map("cancha")
 }
@@ -263,6 +449,7 @@ model Bloqueo {
   creadoEn DateTime @default(now()) @map("creado_en")
 
   cancha Cancha @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  clase  Clase?
 
   @@index([canchaId, inicio])
   @@map("bloqueo")
@@ -280,6 +467,17 @@ model Bloqueo {
 model ConfiguracionClub {
   id Int @id @default(1)
 
+  /// Los datos del club, para que dejen de estar escritos en las plantillas.
+  ///
+  /// Viven acá y no en variables de entorno porque los cambia el club desde su
+  /// panel, no quien despliega: mudarse de local no puede exigir un redeploy. El
+  /// logotipo **no** está: es un archivo, necesita dónde guardarse, y eso es una
+  /// decisión de infraestructura que este módulo no alcanza.
+  nombre    String @default("FEDAL Tennis Center") @db.VarChar(120)
+  direccion String @default("") @db.VarChar(200)
+  telefono  String @default("") @db.VarChar(40)
+  email     String @default("") @db.VarChar(120)
+
   duracionBloqueMin    Int @default(60) @map("duracion_bloque_min")
   cupoDiarioSocioHoras Int @default(1) @map("cupo_diario_socio_horas")
   cupoPicoSemanalHoras Int @default(2) @map("cupo_pico_semanal_horas")
@@ -288,6 +486,25 @@ model ConfiguracionClub {
   horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")
   /// Cuántos días queda sin reservar el socio que tomó una hora y no la usó (T34).
   diasSancionNoUso     Int @default(15) @map("dias_sancion_no_uso")
+
+  /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras siete: el
+  /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo
+  /// que una tabla de precios con vigencia vendría a resolver.
+  cuotaMensualClp Int @default(25000) @map("cuota_mensual_clp")
+
+  /// La inscripción por única vez, el otro cobro del modelo de socios.
+  cuotaIncorporacionClp Int @default(150000) @map("cuota_incorporacion_clp")
+
+  /// Desde qué fecha de ingreso se cobra la incorporación (T42).
+  ///
+  /// **El club arranca con su padrón, y esa gente la pagó hace años fuera del
+  /// sistema.** Sin este corte habría que acordarse de marcar una por una las de los
+  /// socios migrados, y la que se olvide deja a alguien sin poder reservar por una
+  /// deuda que no tiene.
+  ///
+  /// Por defecto es el día en que se aplica la migración, que es exactamente la
+  /// puesta en marcha. Fecha civil, como `alDiaHasta`.
+  cobraIncorporacionDesde DateTime @default(now()) @map("cobra_incorporacion_desde") @db.Date
 
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
@@ -343,7 +560,7 @@ model Transaccion {
   montoClp Int               @map("monto_clp")
   estado   EstadoTransaccion @default(PENDIENTE)
 
-  pasarela String
+  pasarela      String
   /// Único y nulable: nace sin token y en MySQL dos NULL no chocan, así que el club
   /// puede tener varios pagos iniciados. Cuando llega, el único es lo que hace que
   /// dos callbacks concurrentes de la pasarela produzcan un solo efecto (T18).
@@ -397,6 +614,19 @@ model Reserva {
   /// Lo que la persona muestra en el mesón. Único y corto.
   folio String @unique
 
+  /// La llave de la página pública de la reserva, la que abre el QR.
+  ///
+  /// **No es el folio y no puede serlo.** El folio son 32^7 combinaciones y se dicta
+  /// por teléfono; con él en la URL, cualquiera recorre los valores posibles y lee el
+  /// nombre y la hora de socios ajenos. Un UUID v4 son 122 bits aleatorios: no se
+  /// adivina, no se dicta y no aparece en ninguna pantalla salvo dentro del enlace.
+  ///
+  /// Lo genera Prisma y no la aplicación, a propósito: por `reserva.create` pasan la
+  /// reserva del socio, la del no-socio, las de los tests y las que sembramos, y un
+  /// token que dependa de que cada camino se acuerde de pedirlo es un token que
+  /// alguna reserva no va a tener.
+  token String @unique @default(uuid(4)) @db.VarChar(43)
+
   canchaId Int      @map("cancha_id")
   inicio   DateTime
   fin      DateTime
@@ -421,6 +651,15 @@ model Reserva {
 
   creadaEn    DateTime  @default(now()) @map("creada_en")
   canceladaEn DateTime? @map("cancelada_en")
+
+  /// Qué cierre de cancha se llevó esta hora (T36). Nulo es lo normal: casi ninguna
+  /// reserva se cancela por un bloqueo.
+  ///
+  /// **Sin clave foránea, a propósito**, como `Transaccion.conceptoId`: el club borra
+  /// el bloqueo cuando la mantención termina, y con `SetNull` se perdería justo el
+  /// dato por el que alguien va a preguntar —por qué perdí mi hora— la semana
+  /// siguiente. Los ids son autoincrement y no se reutilizan.
+  canceladaPorBloqueoId Int? @map("cancelada_por_bloqueo_id")
 
   /// **La escribe la base, nunca la aplicación.** Es una columna generada —
   /// `IF(estado IN (PENDIENTE_PAGO, CONFIRMADA), inicio, NULL)`, ver la migración— y
@@ -467,8 +706,8 @@ enum EstadoReporte {
 model ReporteNoUso {
   id Int @id @default(autoincrement())
 
-  reservaId          Int @map("reserva_id")
-  reportanteSocioId  Int @map("reportante_socio_id")
+  reservaId         Int @map("reserva_id")
+  reportanteSocioId Int @map("reportante_socio_id")
 
   estado   EstadoReporte @default(PENDIENTE)
   creadoEn DateTime      @default(now()) @map("creado_en")
@@ -511,4 +750,348 @@ model AcompananteReserva {
   @@index([reservaId])
   @@index([socioId])
   @@map("acompanante_reserva")
+}
+
+// ── clases ───────────────────────────────────────────────────────────────────
+// Modelo de SPEC-clases.md § Modelo de datos.
+
+enum NivelClase {
+  INICIACION
+  INTERMEDIO
+  COMPETITIVO
+  NINOS
+}
+
+enum EstadoClase {
+  PROGRAMADA
+  REALIZADA
+  CANCELADA
+}
+
+/// Una clase con profesor: cuándo es, quién la da y en qué cancha.
+///
+/// **`bloqueoId` es la razón de ser del módulo.** La clase y el `Bloqueo` que cierra
+/// la cancha se crean en la misma transacción: sin eso queda o una clase con la
+/// cancha abierta —a la que alguien reserva encima— o un bloqueo huérfano que nadie
+/// sabe por qué está ahí. Ver `SPEC-clases.md` § Agendar crea el bloqueo.
+///
+/// Es opcional porque cancelar la clase **borra** su bloqueo para devolver la hora a
+/// la disponibilidad; la clase queda con su historia y sin bloqueo.
+model Clase {
+  id         Int @id @default(autoincrement())
+  profesorId Int @map("profesor_id")
+  canchaId   Int @map("cancha_id")
+
+  /// Instantes en UTC, como el bloqueo: una clase es un momento concreto.
+  inicio DateTime
+  fin    DateTime
+
+  cupoMaximo Int         @map("cupo_maximo")
+  nivel      NivelClase
+  estado     EstadoClase @default(PROGRAMADA)
+
+  bloqueoId Int?    @unique @map("bloqueo_id")
+  notas     String?
+
+  canceladaEn       DateTime? @map("cancelada_en")
+  motivoCancelacion String?   @map("motivo_cancelacion")
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  profesor      Profesor           @relation(fields: [profesorId], references: [id])
+  cancha        Cancha             @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  bloqueo       Bloqueo?           @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
+  inscripciones InscripcionClase[]
+
+  @@index([inicio])
+  @@index([canchaId, inicio])
+  @@map("clase")
+}
+
+enum EstadoInscripcion {
+  INSCRITA
+  CANCELADA
+  ASISTIO
+  FALTO
+}
+
+/// Quién viene a una clase: un socio del club o un alumno de afuera.
+///
+/// **Los dos tipos en la misma tabla**, por la misma razón que `AcompananteReserva`:
+/// son la respuesta a la misma pregunta —quién viene a esta clase— y el club tiene
+/// que poder mirar una clase y ver la lista completa. En dos tablas, contar el cupo
+/// exige sumar dos consultas y es cuestión de tiempo que una se olvide.
+///
+/// **Exactamente uno de los dos.** La mitad que toca `socioId` la impone
+/// `Inscripciones` y no la base: MariaDB no deja que una columna con foreign key
+/// participe en un CHECK, el mismo muro de `AcompananteReserva`. La otra mitad —el
+/// alumno de afuera no queda sin teléfono— sí va en un CHECK, ver la migración.
+///
+/// **El alumno de afuera deja teléfono**, a diferencia del invitado de una reserva:
+/// a aquel lo trae un socio que responde por él; a este lo tiene que poder llamar el
+/// club cuando el profesor se enferma.
+model InscripcionClase {
+  id      Int @id @default(autoincrement())
+  claseId Int @map("clase_id")
+
+  /// Socio del club. Nulo = alumno de afuera.
+  socioId Int? @map("socio_id")
+
+  /// Del alumno de afuera. Nulos cuando la inscripción es de un socio: su nombre y su
+  /// teléfono se leen de su ficha y siguen al día si los cambió.
+  nombre   String? @db.VarChar(120)
+  telefono String? @db.VarChar(40)
+
+  estado     EstadoInscripcion @default(INSCRITA)
+  inscritaEn DateTime          @default(now()) @map("inscrita_en")
+
+  /// **La escribe la base, nunca la aplicación.** Columna generada —
+  /// `IF(estado = 'CANCELADA', NULL, socio_id)`, ver la migración— con el mismo
+  /// truco que `inicio_activo` en `Reserva`: el único no puede ir sobre
+  /// `(clase_id, socio_id)` a secas porque un socio que canceló tiene que poder
+  /// volver a inscribirse, y su fila sigue ahí para el historial.
+  socioActivo Int? @map("socio_activo")
+
+  clase Clase  @relation(fields: [claseId], references: [id], onDelete: Cascade)
+  socio Socio? @relation(fields: [socioId], references: [id], onDelete: SetNull)
+
+  /// Un socio, una inscripción viva por clase. Las canceladas tienen `socio_activo`
+  /// nulo y en MySQL dos nulos no chocan; el alumno de afuera lo tiene siempre nulo,
+  /// así que dos homónimos conviven —son dos personas distintas—.
+  @@unique([claseId, socioActivo], map: "inscripcion_socio_activo")
+  @@index([claseId])
+  @@index([socioId])
+  @@map("inscripcion_clase")
+}
+
+// ── torneos ──────────────────────────────────────────────────────────────────
+// Modelo de SPEC-torneos.md § Modelo de datos.
+
+/// Quien juega torneos. **No es el socio, y esa es la decisión que da forma al módulo.**
+///
+/// Va en contra de lo que hizo `reservas` con el invitado —un nombre suelto que muere
+/// con la reserva— y el contraste es el argumento: aquel no tiene identidad que
+/// reutilizar, este sí. Vuelve el año siguiente, acumula puntos y aparece en una tabla
+/// que ordena personas; sin ficha estable, el ranking suma "J. Pérez" y "Juan Pérez"
+/// por separado y la tabla queda mal a la vista de todos.
+///
+/// `socioId` único y opcional: nulo es un jugador de afuera, y un socio tiene a lo
+/// sumo un jugador. Enlazar un externo a una ficha de socio es escribir este campo, y
+/// por eso **sus puntos viajan con él**: cuelgan del jugador, no del socio.
+model Jugador {
+  id       Int     @id @default(autoincrement())
+  socioId  Int?    @unique @map("socio_id")
+  nombre   String  @db.VarChar(80)
+  apellido String  @db.VarChar(80)
+  telefono String? @db.VarChar(40)
+  activo   Boolean @default(true)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  socio           Socio?              @relation(fields: [socioId], references: [id], onDelete: SetNull)
+  inscripciones   InscripcionTorneo[]
+  partidosComoA   Partido[]           @relation("PartidosComoA")
+  partidosComoB   Partido[]           @relation("PartidosComoB")
+  partidosGanados Partido[]           @relation("PartidosGanados")
+
+  @@index([apellido, nombre])
+  @@map("jugador")
+}
+
+/// Las categorías que el club inventa: "Club 250", "Club 500", "Máster de fin de año".
+///
+/// **Tabla y no enum**, por la misma razón que las franjas horarias son filas: este año
+/// hay una categoría que el año pasado no existía, y agregar un valor a un enum es una
+/// migración. De `puntosCampeon` salen los de cada ronda; ver `SPEC-ranking.md`.
+model CategoriaTorneo {
+  id            Int     @id @default(autoincrement())
+  nombre        String  @unique @db.VarChar(80)
+  puntosCampeon Int     @map("puntos_campeon")
+  activa        Boolean @default(true)
+
+  torneos Torneo[]
+
+  @@map("categoria_torneo")
+}
+
+enum EstadoTorneo {
+  INSCRIPCION
+  CUADRO_ARMADO
+  EN_CURSO
+  FINALIZADO
+  CANCELADO
+}
+
+/// Un torneo del club.
+model Torneo {
+  id          Int    @id @default(autoincrement())
+  nombre      String @db.VarChar(120)
+  categoriaId Int    @map("categoria_id")
+
+  /// Informativa: en qué se juega. Nula si el club todavía no lo decidió o se juega
+  /// en varias.
+  superficie Superficie?
+
+  /// Fechas civiles del club, como `alDiaHasta`: un torneo dura días, no horas.
+  fechaInicio       DateTime @map("fecha_inicio") @db.Date
+  fechaFin          DateTime @map("fecha_fin") @db.Date
+  cierreInscripcion DateTime @map("cierre_inscripcion") @db.Date
+
+  /// Cuántos jugadores entran al cuadro. Los que se pasan van a lista de espera.
+  cupo   Int
+  estado EstadoTorneo @default(INSCRIPCION)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  /// Con qué semilla se sorteó el cuadro. Se guarda para poder **reproducir** el
+  /// sorteo: si alguien pregunta por qué le tocó ese cruce, la respuesta no puede ser
+  /// "salió así".
+  semillaSorteo Int? @map("semilla_sorteo")
+
+  categoria     CategoriaTorneo     @relation(fields: [categoriaId], references: [id])
+  inscripciones InscripcionTorneo[]
+  partidos      Partido[]
+
+  @@index([estado, fechaInicio])
+  @@map("torneo")
+}
+
+enum EstadoInscripcionTorneo {
+  INSCRITA
+  LISTA_ESPERA
+  RETIRADA
+}
+
+/// Quién juega un torneo.
+///
+/// **Pasado el cupo se entra en lista de espera, no se rechaza.** El club llama por
+/// teléfono antes de meter a alguien en un cuadro, así que promover es una decisión
+/// suya y no un automatismo: ver `SPEC-torneos.md` § Inscripción.
+model InscripcionTorneo {
+  id        Int @id @default(autoincrement())
+  torneoId  Int @map("torneo_id")
+  jugadorId Int @map("jugador_id")
+
+  /// 1..n; nulo = sin sembrar. La asigna el admin al armar el cuadro (T51), no el
+  /// ranking: es lo que le permite separar a dos que ya jugaron la final el mes pasado.
+  siembra Int?
+
+  estado     EstadoInscripcionTorneo @default(INSCRITA)
+  inscritaEn DateTime                @default(now()) @map("inscrita_en")
+
+  /// **La escribe la base, nunca la aplicación.** Columna generada —
+  /// `IF(estado = 'RETIRADA', NULL, jugador_id)`— con el mismo truco que
+  /// `inicio_activo` en `Reserva` y `socio_activo` en `InscripcionClase`: el único no
+  /// puede ir sobre `(torneo_id, jugador_id)` a secas porque quien se retira por una
+  /// lesión y se recupera antes del cierre tiene que poder volver, y su fila se queda
+  /// para que el club vea que se bajó.
+  jugadorActivo Int? @map("jugador_activo")
+
+  torneo  Torneo  @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jugador Jugador @relation(fields: [jugadorId], references: [id])
+
+  @@unique([torneoId, jugadorActivo], map: "inscripcion_jugador_activo")
+  @@index([torneoId, estado])
+  @@map("inscripcion_torneo")
+}
+
+/// Un partido del cuadro.
+///
+/// **El cuadro se genera completo**, con todos los partidos de todas las rondas y los
+/// jugadores nulos donde todavía no se sabe quién llega. Así se puede dibujar entero
+/// desde el primer día, que es lo que la gente mira en el mural del club.
+///
+/// **`ronda` es un número y no un nombre.** "Cuartos de final" depende del tamaño del
+/// cuadro: en uno de 8 la ronda 1 es cuartos, en uno de 32 es dieciseisavos. El nombre
+/// se calcula al mostrar, contando desde la final hacia atrás.
+model Partido {
+  id       Int @id @default(autoincrement())
+  torneoId Int @map("torneo_id")
+
+  /// 1 = primera ronda. La final es la más alta.
+  ronda    Int
+  /// Lugar del partido dentro de su ronda, desde arriba del cuadro.
+  posicion Int
+
+  /// Nulos hasta que la ronda anterior resuelve. En primera ronda, un nulo es un bye.
+  jugadorAId Int? @map("jugador_a_id")
+  jugadorBId Int? @map("jugador_b_id")
+
+  ganadorId Int? @map("ganador_id")
+
+  /// Como lo escribe el admin: "6-4 3-6 7-5". **Texto libre a propósito**: el ranking
+  /// solo mira quién ganó, y un modelo de sets y tie-breaks es mucho código para un
+  /// dato que nadie consulta. Si algún día hacen falta estadísticas, el texto está.
+  marcador String? @db.VarChar(60)
+
+  /// El rival no se presentó. Distinto de un bye, que es un lugar vacío del cuadro.
+  walkover Boolean @default(false)
+
+  jugadoEn DateTime? @map("jugado_en")
+
+  torneo   Torneo   @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jugadorA Jugador? @relation("PartidosComoA", fields: [jugadorAId], references: [id])
+  jugadorB Jugador? @relation("PartidosComoB", fields: [jugadorBId], references: [id])
+  ganador  Jugador? @relation("PartidosGanados", fields: [ganadorId], references: [id])
+
+  @@unique([torneoId, ronda, posicion])
+  @@index([torneoId])
+  @@map("partido")
+}
+
+// ── ranking ──────────────────────────────────────────────────────────────────
+// Modelo de SPEC-ranking.md § Ranking interno.
+//
+// El ranking de torneos no tiene tablas: se calcula leyendo `torneo` y `partido`.
+// Lo único que este módulo posee es el partido amistoso entre socios.
+
+enum EstadoPartidoInterno {
+  PENDIENTE
+  CONFIRMADO
+  RECHAZADO
+}
+
+/// Un partido amistoso entre dos socios, cargado por uno y confirmado por el otro.
+///
+/// **No puntúa hasta que el rival lo confirma.** Sin eso el ranking lo escribe quien
+/// más se acuerda de cargar victorias, y la tabla deja de ser creíble el primer mes.
+///
+/// Las dos reglas que la base **no** puede sostener acá —que los dos socios sean
+/// distintos y que el ganador sea uno de ellos— viven en el servicio: MariaDB no
+/// acepta un CHECK sobre una columna con clave foránea, la misma pared que encontró
+/// `InscripcionClase` en T47.
+model PartidoInterno {
+  id Int @id @default(autoincrement())
+
+  /// Quien carga es A; B es quien tiene que confirmar. La asimetría es el mecanismo,
+  /// no un detalle de implementación.
+  socioAId       Int @map("socio_a_id")
+  socioBId       Int @map("socio_b_id")
+  ganadorSocioId Int @map("ganador_socio_id")
+
+  /// Texto libre, como el del cuadro: el Elo mira quién ganó y nada más.
+  marcador String? @db.VarChar(60)
+
+  /// Fecha civil del club: un partido se juega un día, no a una hora UTC.
+  jugadoEn DateTime @map("jugado_en") @db.Date
+
+  estado EstadoPartidoInterno @default(PENDIENTE)
+
+  cargadoEn    DateTime  @default(now()) @map("cargado_en")
+  confirmadoEn DateTime? @map("confirmado_en")
+
+  /// El admin lo resolvió a mano. Queda marcado para que la tabla pueda explicarse:
+  /// es la salida de emergencia que evita construir un tribunal.
+  resueltoPorAdmin Boolean @default(false) @map("resuelto_por_admin")
+
+  socioA  Socio @relation("PartidosInternosComoA", fields: [socioAId], references: [id], onDelete: Cascade)
+  socioB  Socio @relation("PartidosInternosComoB", fields: [socioBId], references: [id], onDelete: Cascade)
+  ganador Socio @relation("PartidosInternosGanados", fields: [ganadorSocioId], references: [id])
+
+  /// El orden del Elo: por fecha jugada y, dentro del día, por orden de carga. Es un
+  /// índice y no un capricho —el Elo es secuencial y recorre esta tabla entera—.
+  @@index([estado, jugadoEn, cargadoEn])
+  @@index([socioAId])
+  @@index([socioBId])
+  @@map("partido_interno")
 }

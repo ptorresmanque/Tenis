@@ -3,13 +3,13 @@ import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { hoyEnElClub, horaEnElClub } from '../reloj-del-club';
+import { nombreDeSuperficie, SUPERFICIES } from '../superficies';
 import {
   AdminCanchas,
   CanchaAdmin,
   CanchaNueva,
 } from './admin-canchas.service';
 import { EditorBloqueos } from './editor-bloqueos';
-import { EditorConfiguracion } from './editor-configuracion';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
 import { ReglasGeneralesPanel } from './reglas-generales';
@@ -24,12 +24,6 @@ const DIAS = [
   'Sábado',
 ];
 
-const SUPERFICIES = [
-  { valor: 'ARCILLA', etiqueta: 'Arcilla' },
-  { valor: 'CEMENTO', etiqueta: 'Cemento' },
-  { valor: 'PASTO_SINTETICO', etiqueta: 'Pasto sintético' },
-] as const;
-
 const CANCHA_EN_BLANCO: CanchaNueva = {
   nombre: '',
   superficie: 'ARCILLA',
@@ -41,7 +35,6 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
   selector: 'app-admin-canchas',
   imports: [
     FormsModule,
-    EditorConfiguracion,
     EditorHorarios,
     EditorFranjas,
     EditorBloqueos,
@@ -77,7 +70,6 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
     <!-- Antes de las canchas: son las reglas que valen para todas, y la lista de
          abajo dice "vale el general del club" refiriéndose a esto. -->
-    <app-editor-configuracion (guardado)="recargar()" />
 
     <app-reglas-generales (cambiado)="recargar()" />
 
@@ -93,7 +85,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
             id="nombre"
             name="nombre"
             required
-            class="mt-1 rounded-lg border border-border bg-card px-3 py-2"
+            class="campo mt-1"
             [(ngModel)]="nueva.nombre"
           />
         </div>
@@ -103,11 +95,11 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
           <select
             id="superficie"
             name="superficie"
-            class="mt-1 rounded-lg border border-border bg-card px-3 py-2"
+            class="campo mt-1"
             [(ngModel)]="nueva.superficie"
           >
-            @for (opcion of superficies; track opcion.valor) {
-              <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+            @for (opcion of superficies; track opcion[0]) {
+              <option [value]="opcion[0]">{{ opcion[1] }}</option>
             }
           </select>
         </div>
@@ -129,9 +121,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
         <button
           type="submit"
           [disabled]="guardando()"
-          class="cursor-pointer rounded-lg bg-primary px-5 py-2 font-semibold text-on-primary
-                 shadow-md transition-[background-color,box-shadow] duration-200
-                 hover:bg-secondary hover:shadow-lg disabled:opacity-60"
+          class="boton boton-primario"
         >
           Agregar
         </button>
@@ -177,8 +167,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
                 <button
                   type="button"
-                  class="ms-auto cursor-pointer rounded-md border border-primary px-3 py-1
-                         text-sm font-medium text-primary transition-colors hover:bg-muted"
+                  class="boton boton-secundario boton-chico ms-auto"
                   (click)="alternarActiva(cancha)"
                 >
                   {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
@@ -188,9 +177,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                      desactiva; el servidor no deja borrar una con historial. -->
                 <button
                   type="button"
-                  class="cursor-pointer rounded-md border border-destructive px-3 py-1
-                         text-sm font-medium text-destructive transition-colors
-                         hover:bg-destructive/10"
+                  class="boton boton-secundario boton-chico border-destructive text-destructive"
                   (click)="eliminar(cancha)"
                 >
                   Eliminar
@@ -230,7 +217,8 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 export class AdminCanchasPanel {
   private readonly api = inject(AdminCanchas);
 
-  protected readonly superficies = SUPERFICIES;
+  /** Las opciones del `select`, en el orden en que están escritas en la tabla. */
+  protected readonly superficies = Object.entries(SUPERFICIES);
   protected readonly nueva: CanchaNueva = { ...CANCHA_EN_BLANCO };
 
   protected readonly guardando = signal(false);
@@ -333,11 +321,7 @@ export class AdminCanchasPanel {
     return DIAS[dia] ?? `Día ${dia}`;
   }
 
-  protected nombreSuperficie(superficie: string): string {
-    return (
-      SUPERFICIES.find((s) => s.valor === superficie)?.etiqueta ?? superficie
-    );
-  }
+  protected readonly nombreSuperficie = nombreDeSuperficie;
 
   /** Las horas de una advertencia, en la hora del club y separadas por comas. */
   protected horasDe(instantes: string[]): string {

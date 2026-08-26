@@ -6,6 +6,8 @@ import {
   fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
+  mesCortoEnElClub,
+  proximosDias,
 } from './reloj-del-club';
 
 /**
@@ -50,9 +52,69 @@ describe('reloj del club', () => {
     expect(diaEnPalabras('2026-08-17')).toContain('17');
   });
 
+  it('abrevia el mes a tres letras y sin punto', () => {
+    expect(mesCortoEnElClub('2026-08-17T15:00:00.000Z')).toBe('ago');
+    // Septiembre es el que Intl abrevia con cuatro letras, "sept": el bloque de
+    // fecha tiene ancho para tres.
+    expect(mesCortoEnElClub('2026-09-07T15:00:00.000Z')).toBe('sep');
+  });
+
+  it('el mes es el del club, no el del navegador', () => {
+    // 23:00 del 31 de agosto en Santiago ya es el 1 de septiembre en UTC. Quien
+    // mire su tarjeta a esa hora tiene que leer el mes en que juega.
+    expect(mesCortoEnElClub('2026-09-01T03:00:00.000Z')).toBe('ago');
+  });
+
   it('escribe los montos en pesos chilenos, sin decimales', () => {
     // Sin espacios: según la versión de ICU el símbolo va pegado o separado por
     // un espacio duro, y no es eso lo que este test tiene que fijar.
     expect(enPesos(12000).replace(/\s/g, '')).toBe('$12.000');
+  });
+});
+
+describe('La tira de días', () => {
+  it('empieza en hoy y los dos primeros se llaman por su nombre', () => {
+    const dias = proximosDias(7, new Date('2026-08-21T15:00:00.000Z'));
+
+    expect(dias).toHaveLength(7);
+    expect(dias[0]).toMatchObject({ fecha: '2026-08-21', etiqueta: 'Hoy', numero: '21' });
+    expect(dias[1]).toMatchObject({ fecha: '2026-08-22', etiqueta: 'Mañana' });
+    expect(dias[2].etiqueta).toBe('dom');
+  });
+
+  it('cruza el fin de mes sin inventar un día 32', () => {
+    const dias = proximosDias(3, new Date('2026-08-30T15:00:00.000Z'));
+
+    expect(dias.map((d) => d.fecha)).toEqual(['2026-08-30', '2026-08-31', '2026-09-01']);
+  });
+
+  it('el domingo que Chile adelanta la hora no se salta un día', () => {
+    // El cambio es a medianoche del primer domingo de septiembre: ese día tiene
+    // 23 horas, y una tira que sumara 24 se saltaría el lunes.
+    const dias = proximosDias(3, new Date('2026-09-05T15:00:00.000Z'));
+
+    expect(dias.map((d) => d.fecha)).toEqual(['2026-09-05', '2026-09-06', '2026-09-07']);
+  });
+});
+
+/**
+ * Una fecha civil viaja de dos formas y las dos tienen que llegar al mismo día.
+ *
+ * Prisma serializa una columna `DATE` como un instante ISO completo, así que el mismo
+ * dato llega como "2026-11-10" desde un formulario y como "2026-11-10T00:00:00.000Z"
+ * desde la API. Concatenarle la hora a la segunda daba una fecha inválida, y el bloque
+ * que la mostraba desaparecía sin un solo error a la vista.
+ */
+describe('diaEnPalabras', () => {
+  it('lee la fecha civil como la escribe un formulario', () => {
+    expect(diaEnPalabras('2026-11-10')).toContain('10 de noviembre');
+  });
+
+  it('**y también como la manda la API, con hora incluida**', () => {
+    expect(diaEnPalabras('2026-11-10T00:00:00.000Z')).toContain('10 de noviembre');
+  });
+
+  it('no se corre un día: a medianoche UTC en Santiago todavía es ayer', () => {
+    expect(diaEnPalabras('2026-11-10')).toContain('martes');
   });
 });

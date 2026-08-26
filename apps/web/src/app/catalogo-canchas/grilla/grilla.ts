@@ -7,13 +7,19 @@ import { mensajeDelServidor } from '../../core/errores';
 import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { mensajeDeRechazo, Reservas } from '../../reservas/reservas.service';
 import { Reservar } from '../../reservas/reservar';
+import { BarraFija } from '../../ui/barra-fija';
+import { EstadoVacio } from '../../ui/estado-vacio';
+import { Insignia } from '../../ui/insignia';
+import { Selector } from '../../ui/selector';
 import { BloqueDisponible, Cancha, Disponibilidad } from '../disponibilidad';
 import {
   diaEnPalabras,
   enPesos,
   hoyEnElClub,
   horaEnElClub,
+  proximosDias,
 } from '../reloj-del-club';
+import { nombreDeSuperficie } from '../superficies';
 
 /**
  * Cómo se nombra cada motivo de bloqueo. El enum de la base no se muestra crudo:
@@ -26,28 +32,29 @@ const MOTIVOS: Record<string, string> = {
   OTRO: 'No disponible',
 };
 
-const SUPERFICIES: Record<string, string> = {
-  ARCILLA: 'Arcilla',
-  CEMENTO: 'Cemento',
-  PASTO_SINTETICO: 'Pasto sintético',
-};
-
 /**
- * Lo que le cuesta la hora al socio: nada. Paga cuota mensual, no la reserva.
+ * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
+ * hora sino su cuota mensual.
  *
- * Con nombre y en un solo lugar porque aparece en el bloque y en su etiqueta
- * accesible: el día que el club cobre la hora pico al socio, el cero suelto habría
- * quedado en uno de los dos y nadie lo notaría hasta que alguien reclame.
+ * En un solo lugar porque aparece en el bloque, en la etiqueta accesible y en la
+ * barra de abajo: el día que el club cobre la hora pico al socio, un "sin costo"
+ * suelto habría quedado en dos de los tres y nadie lo notaría hasta que reclamen.
  *
  * No viene del servidor a propósito. `BloqueDisponible.montoClp` es la tarifa del
  * no-socio, y el contrato de `catalogo-canchas` no tiene ni tiene por qué tener un
  * precio por tipo de persona.
  */
-const TARIFA_DEL_SOCIO = 0;
+const TARIFA_DEL_SOCIO = 'sin costo';
 
 @Component({
   selector: 'app-grilla',
-  imports: [Reservar],
+  imports: [Reservar, BarraFija, EstadoVacio, Insignia, Selector],
+  host: {
+    class: 'block',
+    // La barra fija tapa la última fila de bloques si no se le deja aire, y el
+    // checklist del master lo prohíbe.
+    '[class.pb-28]': 'elegido() !== null',
+  },
   template: `
     <h1 class="font-display text-3xl font-bold">Disponibilidad</h1>
 
@@ -72,22 +79,52 @@ const TARIFA_DEL_SOCIO = 0;
     }
 
     <div class="mt-4 flex flex-wrap items-end gap-4">
+      <!-- La semana a un toque. El calendario sigue estando al lado para ir más
+           lejos: siete chips cubren lo que la gente reserva de verdad, y el resto
+           no justifica un calendario propio pudiendo usar el del sistema. -->
+      <app-selector
+        etiqueta="Día"
+        estilo="chips"
+        [opciones]="chipsDeDia()"
+        [valor]="fecha()"
+        (valorChange)="fecha.set($event)"
+      />
+
       <div>
-        <label for="fecha" class="block text-sm font-medium">Día</label>
+        <label for="fecha" class="block text-sm font-medium">Otro día</label>
         <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
              etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
         <input
           id="fecha"
           type="date"
-          class="mt-1 cursor-pointer rounded-lg border border-border bg-card px-3 py-2
-                 transition-colors hover:border-primary"
+          class="campo mt-1 w-auto cursor-pointer py-2 transition-colors
+                 hover:border-primary"
           [value]="fecha()"
           (change)="cambiarFecha($event)"
         />
       </div>
-
-      <p class="text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
     </div>
+
+    <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
+
+    <!-- Los filtros salen de lo que la cancha ya declara —techada e
+         iluminación—, así que filtran en el navegador sobre lo que ya llegó:
+         una consulta más al servidor no traería nada nuevo. -->
+    <app-selector
+      class="mt-4 block"
+      etiqueta="Filtrar canchas"
+      [opciones]="FILTROS"
+      [valor]="filtro()"
+      (valorChange)="filtro.set($event)"
+    />
+
+    <!-- La leyenda no es decoración: los tres estados se distinguen por color,
+         forma e ícono, y esto es lo que dice qué significa cada uno. -->
+    <ul class="mt-4 flex flex-wrap gap-2">
+      <li><app-insignia variante="libre">Libre</app-insignia></li>
+      <li><app-insignia variante="neutro" icono="lock">Ocupado</app-insignia></li>
+      <li><app-insignia variante="neutro" icono="build">En mantención</app-insignia></li>
+    </ul>
 
     <!-- Los cambios de estado se anuncian: quien usa lector de pantalla no ve
          que la grilla se repobló. -->
@@ -100,6 +137,22 @@ const TARIFA_DEL_SOCIO = 0;
         </p>
       } @else if (grillas.value().length === 0) {
         <p class="text-muted-foreground">El club no tiene canchas publicadas.</p>
+      } @else if (visibles().length === 0) {
+        <!-- Filtrar hasta quedarse sin nada es un callejón: la salida está acá,
+             no en volver a probar los cuatro filtros a ver cuál era. -->
+        <app-estado-vacio
+          icono="filter_alt_off"
+          titulo="Ninguna cancha cumple ese filtro"
+          detalle="El club no tiene canchas de ese tipo publicadas hoy."
+        >
+          <button
+            type="button"
+            class="boton boton-primario"
+            (click)="filtro.set('todas')"
+          >
+            Ver todas las canchas
+          </button>
+        </app-estado-vacio>
       } @else {
         <!-- Que la carga terminó también hay que decirlo: quien usa lector de
              pantalla oyó "buscando" y después se quedaría en silencio, sin saber
@@ -108,7 +161,7 @@ const TARIFA_DEL_SOCIO = 0;
       }
     </div>
 
-    @for (grilla of grillas.value(); track grilla.cancha.id) {
+    @for (grilla of visibles(); track grilla.cancha.id) {
       <section class="mt-8" [attr.aria-labelledby]="'cancha-' + grilla.cancha.id">
         <h2
           [id]="'cancha-' + grilla.cancha.id"
@@ -116,13 +169,17 @@ const TARIFA_DEL_SOCIO = 0;
         >
           {{ grilla.cancha.nombre }}
         </h2>
-        <p class="text-sm text-muted-foreground">
-          {{ superficie(grilla.cancha.superficie) }}
+        <p class="mt-1 flex flex-wrap items-center gap-2">
+          <app-insignia variante="info" icono="sports_tennis">
+            {{ superficie(grilla.cancha.superficie) }}
+          </app-insignia>
           @if (grilla.cancha.techada) {
-            · Techada
+            <app-insignia variante="neutro" icono="roofing">Techada</app-insignia>
           }
           @if (grilla.cancha.iluminacion) {
-            · Con iluminación
+            <app-insignia variante="neutro" icono="lightbulb">
+              Con iluminación
+            </app-insignia>
           }
         </p>
 
@@ -138,11 +195,16 @@ const TARIFA_DEL_SOCIO = 0;
           >
             @for (bloque of grilla.bloques; track bloque.inicio; let i = $index) {
               <li
-                class="bloque rounded-xl border bg-card shadow-sm"
+                class="bloque rounded-xl border shadow-sm"
                 [class.border-border]="!noSePuedeTomar(bloque)"
                 [class.border-dashed]="noSePuedeTomar(bloque)"
                 [class.border-muted-foreground]="noSePuedeTomar(bloque)"
                 [class.opacity-70]="noSePuedeTomar(bloque)"
+                [class.bg-busy]="bloque.reservado"
+                [class.bg-muted]="bloque.bloqueado"
+                [class.bg-accent-soft]="!noSePuedeTomar(bloque) && !estaElegido(bloque)"
+                [class.bg-selected]="estaElegido(bloque)"
+                [class.border-primary]="estaElegido(bloque)"
                 [style.--i]="i"
               >
                 <!-- Botón solo si se puede tomar: un bloque en mantención o ya
@@ -154,6 +216,7 @@ const TARIFA_DEL_SOCIO = 0;
                   [class.cursor-pointer]="!noSePuedeTomar(bloque)"
                   [disabled]="noSePuedeTomar(bloque)"
                   [attr.aria-label]="etiqueta(grilla.cancha, bloque)"
+                  [attr.aria-pressed]="noSePuedeTomar(bloque) ? null : estaElegido(bloque)"
                   (click)="elegir(grilla.cancha, bloque)"
                 >
                 <p class="font-display text-lg font-semibold">
@@ -161,42 +224,48 @@ const TARIFA_DEL_SOCIO = 0;
                 </p>
 
                 @if (bloque.reservado) {
-                  <p class="mt-1 text-sm font-medium text-muted-foreground">
-                    Reservado
+                  <p class="mt-2">
+                    <app-insignia variante="neutro" icono="lock">Ocupado</app-insignia>
                   </p>
                 } @else if (bloque.bloqueado) {
-                  <!-- Texto y borde punteado, no solo el color apagado: el par
-                       verde/rojo es justo el que no distingue quien tiene
-                       daltonismo rojo-verde. -->
-                  <p class="mt-1 text-sm font-medium text-muted-foreground">
-                    {{ motivo(bloque.motivoBloqueo) }}
+                  <!-- Insignia con ícono y borde punteado, no solo el color
+                       apagado: el par verde/rojo es justo el que no distingue
+                       quien tiene daltonismo rojo-verde. -->
+                  <p class="mt-2">
+                    <app-insignia variante="neutro" icono="build">
+                      {{ motivo(bloque.motivoBloqueo) }}
+                    </app-insignia>
                   </p>
                 } @else {
-                  <p class="mt-1 flex items-center gap-1.5 text-sm font-medium">
-                    <span
-                      class="size-2 rounded-full bg-accent"
-                      aria-hidden="true"
-                    ></span>
-                    Disponible
+                  <p class="mt-2 flex flex-wrap gap-1">
+                    @if (estaElegido(bloque)) {
+                      <app-insignia variante="info" icono="check_circle">
+                        Elegida
+                      </app-insignia>
+                    } @else {
+                      <app-insignia variante="libre">Libre</app-insignia>
+                    }
+                    @if (bloque.esPico) {
+                      <app-insignia variante="aviso" icono="trending_up">
+                        Hora pico
+                      </app-insignia>
+                    }
                   </p>
                   <!-- Las dos tarifas juntas: un monto suelto no dice a quién le
                        toca, y el socio leía el precio del arriendo en una hora que
                        para él es gratis. -->
-                  <p class="mt-1 text-sm">
+                  <p class="mt-2 flex items-baseline justify-between gap-2 text-sm">
                     <span class="font-medium text-muted-foreground">Socio</span>
                     <span class="font-semibold text-accent-strong">
-                      {{ pesos(tarifaDelSocio) }}
+                      {{ tarifaDelSocio }}
                     </span>
                   </p>
-                  <p class="text-sm">
+                  <p class="flex items-baseline justify-between gap-2 text-sm">
                     <span class="font-medium text-muted-foreground">Arriendo</span>
                     <span class="font-semibold text-accent-strong">
                       {{ pesos(bloque.montoClp) }}
                     </span>
                   </p>
-                  @if (bloque.esPico) {
-                    <p class="text-xs text-muted-foreground">Hora pico</p>
-                  }
                 }
                 </button>
 
@@ -232,11 +301,43 @@ const TARIFA_DEL_SOCIO = 0;
       </section>
     }
 
+    <!-- Elegir y reservar quedaron separados: el bloque se marca, la barra dice
+         qué se marcó y con cuánto, y recién "Reservar" abre el formulario. El
+         diálogo que ya existía sigue siendo el que pide acompañantes y cobra. -->
     @if (elegido(); as eleccion) {
+      <app-barra-fija>
+        <div role="status" aria-live="polite">
+          <p class="font-display text-lg font-semibold">
+            {{ eleccion.cancha.nombre }} ·
+            {{ hora(eleccion.bloque.inicio) }}–{{ hora(eleccion.bloque.fin) }}
+          </p>
+          <p class="text-sm text-muted-foreground">
+            Socio {{ tarifaDelSocio }} · Arriendo
+            <span class="font-semibold text-accent-strong">
+              {{ pesos(eleccion.bloque.montoClp) }}
+            </span>
+            @if (eleccion.bloque.esPico) {
+              · Hora pico
+            }
+          </p>
+        </div>
+
+        <div class="flex gap-2">
+          <button type="button" class="boton boton-texto" (click)="elegido.set(null)">
+            Soltar
+          </button>
+          <button type="button" class="boton boton-primario" (click)="reservar()">
+            Reservar
+          </button>
+        </div>
+      </app-barra-fija>
+    }
+
+    @if (reservando(); as eleccion) {
       <app-reservar
         [cancha]="eleccion.cancha"
         [bloque]="eleccion.bloque"
-        (cerrar)="elegido.set(null)"
+        (cerrar)="reservando.set(null)"
         (reservado)="confirmar($event)"
       />
     }
@@ -340,7 +441,9 @@ export class Grilla {
 
   /** Lo que oye quien no ve la grilla: cuántas horas quedan y en cuántas canchas. */
   protected readonly resumen = computed(() => {
-    const grillas = this.grillas.value();
+    // Sobre las visibles y no sobre todas: si el filtro dejó fuera dos canchas,
+    // anunciar las horas de esas dos contradice lo que hay en pantalla.
+    const grillas = this.visibles();
     const libres = grillas.reduce(
       (total, g) =>
         total + g.bloques.filter((b) => !b.bloqueado && !b.reservado).length,
@@ -352,11 +455,72 @@ export class Grilla {
     }.`;
   });
 
-  /** El bloque que la persona está por reservar, o nada. */
+  /** El bloque marcado en la grilla, el que muestra la barra de abajo. */
   protected readonly elegido = signal<{
     cancha: Cancha;
     bloque: BloqueDisponible;
   } | null>(null);
+
+  /** El que ya pasó por "Reservar" y tiene el formulario abierto encima. */
+  protected readonly reservando = signal<{
+    cancha: Cancha;
+    bloque: BloqueDisponible;
+  } | null>(null);
+
+  protected readonly filtro = signal('todas');
+
+  protected readonly FILTROS = [
+    { valor: 'todas', etiqueta: 'Todas' },
+    { valor: 'techadas', etiqueta: 'Techadas' },
+    { valor: 'iluminacion', etiqueta: 'Con iluminación' },
+    { valor: 'aire-libre', etiqueta: 'Al aire libre' },
+  ];
+
+  /**
+   * Las canchas que pasan el filtro.
+   *
+   * "Al aire libre" es lo contrario de techada y no un atributo propio: si fuera
+   * un tercer campo del modelo, tarde o temprano existiría una cancha marcada
+   * como techada y al aire libre a la vez.
+   */
+  protected readonly visibles = computed(() => {
+    const filtro = this.filtro();
+
+    return this.grillas.value().filter(({ cancha }) => {
+      switch (filtro) {
+        case 'techadas':
+          return cancha.techada;
+        case 'iluminacion':
+          return cancha.iluminacion;
+        case 'aire-libre':
+          return !cancha.techada;
+        default:
+          return true;
+      }
+    });
+  });
+
+  /** Los siete chips de la tira de días, empezando por hoy. */
+  protected readonly chipsDeDia = computed(() =>
+    proximosDias(7).map((dia) => ({
+      valor: dia.fecha,
+      etiqueta: dia.etiqueta,
+      sub: dia.numero,
+    })),
+  );
+
+  protected estaElegido(bloque: BloqueDisponible): boolean {
+    const eleccion = this.elegido();
+
+    return (
+      eleccion?.bloque.inicio === bloque.inicio &&
+      eleccion?.bloque.canchaId === bloque.canchaId
+    );
+  }
+
+  protected reservar(): void {
+    this.reservando.set(this.elegido());
+  }
 
   /** El caso reportable de ese bloque, si el servidor lo listó. */
   protected reportable(bloque: BloqueDisponible) {
@@ -395,11 +559,11 @@ export class Grilla {
    * porque le gasta al socio un cupo semanal del que solo tiene dos.
    */
   protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
-    const que = this.moviendo() !== null ? 'Mover tu reserva a' : 'Reservar';
+    const que = this.moviendo() !== null ? 'Mover tu reserva a' : 'Elegir';
 
     return (
       `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
-      `${this.hora(bloque.fin)}, socio ${this.pesos(TARIFA_DEL_SOCIO)}, ` +
+      `${this.hora(bloque.fin)}, socio ${TARIFA_DEL_SOCIO}, ` +
       `arriendo ${this.pesos(bloque.montoClp)}` +
       (bloque.esPico ? ', hora pico' : '')
     );
@@ -440,11 +604,18 @@ export class Grilla {
     }
   }
 
-  /** El socio no pasa por la pasarela: se va directo a su confirmación. */
-  protected confirmar(folio: string): void {
+  /**
+   * El socio no pasa por la pasarela: se va directo a su confirmación.
+   *
+   * Con el token, no solo con el folio: es lo que hace que su confirmación muestre
+   * el resumen y el QR, igual que la de quien vuelve de Webpay. Sin él, el socio
+   * llegaba a una pantalla con un número y nada más.
+   */
+  protected confirmar(reserva: { folio: string; token: string }): void {
+    this.reservando.set(null);
     this.elegido.set(null);
     void this.router.navigate(['/reservas/confirmacion'], {
-      queryParams: { folio },
+      queryParams: { folio: reserva.folio, t: reserva.token },
     });
   }
 
@@ -467,7 +638,5 @@ export class Grilla {
     return (motivo && MOTIVOS[motivo]) ?? 'No disponible';
   }
 
-  protected superficie(superficie: string): string {
-    return SUPERFICIES[superficie] ?? superficie;
-  }
+  protected readonly superficie = nombreDeSuperficie;
 }

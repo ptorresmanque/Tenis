@@ -75,6 +75,25 @@ export interface BloqueoNuevo {
   descripcion: string | null;
 }
 
+/** Espejo de `ReservaAfectada` en la API: una hora que el cierre se lleva. */
+export interface HoraAfectada {
+  id: number;
+  folio: string;
+  inicio: string;
+  fin: string;
+  nombre: string;
+  email: string;
+  esSocio: boolean;
+  pagada: boolean;
+  /** Se está pagando en la pasarela ahora mismo: el servidor no deja cerrar sobre ella. */
+  pagoEnCurso: boolean;
+}
+
+export interface ResultadoCierre {
+  bloqueoId: number;
+  canceladas: HoraAfectada[];
+}
+
 export interface Advertencia {
   canchaId: number;
   nombre: string;
@@ -97,6 +116,23 @@ export interface ReglasDelClub {
   diasSancionNoUso: number;
 }
 
+/**
+ * Los datos de contacto, que viven en la misma fila que las reglas.
+ *
+ * Tipo aparte y no siete números junto a cuatro textos: el editor de reglas trata
+ * sus campos como numéricos —hasta el `''` de un campo recién borrado—, y meter
+ * textos en ese `Record` obligaba a castear en cada uno.
+ */
+export interface DatosDelClub {
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+}
+
+/** Lo que el servidor devuelve de `GET /api/admin/configuracion`: las dos cosas. */
+export type ConfiguracionDelClub = ReglasDelClub & DatosDelClub;
+
 export interface CanchaNueva {
   nombre: string;
   superficie: Cancha['superficie'];
@@ -112,16 +148,28 @@ export class AdminCanchas {
     return firstValueFrom(this.http.get<CanchaAdmin[]>('/api/admin/canchas'));
   }
 
-  configuracion(): Promise<ReglasDelClub> {
+  configuracion(): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
-      this.http.get<ReglasDelClub>('/api/admin/configuracion'),
+      this.http.get<ConfiguracionDelClub>('/api/admin/configuracion'),
     );
   }
 
-  fijarConfiguracion(reglas: ReglasDelClub): Promise<ReglasDelClub> {
+  fijarConfiguracion(
+    cambios: Partial<ConfiguracionDelClub>,
+  ): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
-      this.http.patch<ReglasDelClub>('/api/admin/configuracion', reglas),
+      this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', cambios),
     );
+  }
+
+  /**
+   * Los cuatro datos de contacto, que van a la misma fila que las reglas.
+   *
+   * Método aparte y no un `fijarConfiguracion` con todo mezclado: son dos
+   * pantallas distintas y quien lea una llamada quiere saber cuál está guardando.
+   */
+  fijarDatosDelClub(datos: DatosDelClub): Promise<ConfiguracionDelClub> {
+    return this.fijarConfiguracion(datos);
   }
 
   advertencias(fecha: string): Promise<Advertencia[]> {
@@ -194,6 +242,33 @@ export class AdminCanchas {
       this.http.get<Bloqueo[]>('/api/admin/bloqueos', {
         params: { cancha: canchaId },
       }),
+    );
+  }
+
+  /**
+   * A quién dejaría sin su hora este cierre, sin escribir nada.
+   *
+   * Va antes de `cerrar` siempre: cancelar la hora de un socio no tiene deshacer, y
+   * el admin tiene que poder ver la lista antes de apretar.
+   */
+  simularCierre(bloqueo: BloqueoNuevo): Promise<{ afectadas: HoraAfectada[] }> {
+    return firstValueFrom(
+      this.http.post<{ afectadas: HoraAfectada[] }>(
+        '/api/admin/cierres/simulacion',
+        bloqueo,
+      ),
+    );
+  }
+
+  /**
+   * Cierra la cancha con lo que haya debajo: cancela, devuelve y avisa.
+   *
+   * Ruta distinta de `crearBloqueo` porque son dos operaciones distintas, y la
+   * diferencia importa: aquella crea un bloqueo y nada más.
+   */
+  cerrar(bloqueo: BloqueoNuevo): Promise<ResultadoCierre> {
+    return firstValueFrom(
+      this.http.post<ResultadoCierre>('/api/admin/cierres', bloqueo),
     );
   }
 

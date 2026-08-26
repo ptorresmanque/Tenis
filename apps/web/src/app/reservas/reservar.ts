@@ -78,7 +78,7 @@ import {
                   </span>
                   <button
                     type="button"
-                    class="rounded-lg px-3 py-2 text-sm underline"
+                    class="cursor-pointer rounded-lg px-3 py-2 text-sm underline"
                     (click)="quitar($index)"
                   >
                     Quitar
@@ -105,7 +105,7 @@ import {
                 />
                 <button
                   type="button"
-                  class="rounded-lg bg-muted px-3 py-2 font-medium"
+                  class="cursor-pointer rounded-lg bg-muted px-3 py-2 font-medium disabled:cursor-not-allowed"
                   [disabled]="porAgregar().trim() === ''"
                   (click)="agregar()"
                 >
@@ -155,14 +155,14 @@ import {
           <div class="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              class="rounded-lg px-4 py-2 font-medium"
+              class="cursor-pointer rounded-lg px-4 py-2 font-medium"
               (click)="dialogo.close()"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              class="rounded-lg bg-accent-strong px-4 py-2 font-semibold text-white disabled:opacity-60"
+              class="cursor-pointer rounded-lg bg-accent-strong px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               [disabled]="enviando()"
             >
               {{ enviando() ? 'Enviando…' : esSocio() ? 'Reservar' : 'Ir a pagar' }}
@@ -191,7 +191,8 @@ export class Reservar {
   readonly bloque = input.required<BloqueDisponible>();
 
   readonly cerrar = output<void>();
-  readonly reservado = output<string>();
+  /** El folio y el token de la reserva recién creada, para la confirmación. */
+  readonly reservado = output<{ folio: string; token: string }>();
 
   private readonly dialogo =
     viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
@@ -272,7 +273,7 @@ export class Reservar {
           acompanantes: this.acompanantes(),
         });
 
-        this.reservado.emit(reserva.folio);
+        this.reservado.emit({ folio: reserva.folio, token: reserva.token });
       } else {
         const pago = await this.reservas.reservarComoNoSocio({
           canchaId: this.cancha().id,

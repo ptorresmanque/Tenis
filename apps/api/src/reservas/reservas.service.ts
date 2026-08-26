@@ -6,7 +6,12 @@ import {
 
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
 import { hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
-import { EstadoReserva, Prisma } from '../generated/prisma/client';
+import {
+  EstadoCuota,
+  EstadoReserva,
+  Prisma,
+  TipoCuota,
+} from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -40,6 +45,8 @@ export interface ReservaDeSocio {
 export interface ReservaCreada {
   id: number;
   folio: string;
+  /** La llave de su página pública: el socio también tiene su QR. */
+  token: string;
   canchaId: number;
   inicio: Date;
   fin: Date;
@@ -135,6 +142,7 @@ export class ReservasService {
       return {
         id: reserva.id,
         folio: reserva.folio,
+        token: reserva.token,
         canchaId: reserva.canchaId,
         inicio: reserva.inicio,
         fin: reserva.fin,
@@ -183,21 +191,30 @@ export class ReservasService {
     const db = entrada.db ?? this.prisma;
     const fecha = fechaCivilDelClub(bloque.inicio);
 
-    const [reservasDelDia, horasPicoDeLaSemana, invitadosDelMes, ocupados] =
-      await Promise.all([
-        this.contarDelDia(db, socio.id, fecha, excluyendo),
-        this.contarPicoDeLaSemana(db, socio.id, fecha, excluyendo),
-        this.contarInvitadosDelMes(db, socio.id, fecha, excluyendo),
-        this.ocupacionesEnElRango(
-          db,
-          [socio.id, ...socioIdsDe(acompanantes)],
-          bloque.inicio,
-          bloque.fin,
-          excluyendo,
-        ),
-      ]);
-
+    // La configuración va primero y no dentro del `Promise.all`: el corte de la
+    // incorporación sale de acá, y consultarla dos veces —una para el corte y otra
+    // para los cupos— es una ida más a la base en el camino más caliente del sistema.
     const config = await db.configuracionClub.findFirstOrThrow();
+
+    const [
+      reservasDelDia,
+      horasPicoDeLaSemana,
+      invitadosDelMes,
+      ocupados,
+      incorporacionPendiente,
+    ] = await Promise.all([
+      this.contarDelDia(db, socio.id, fecha, excluyendo),
+      this.contarPicoDeLaSemana(db, socio.id, fecha, excluyendo),
+      this.contarInvitadosDelMes(db, socio.id, fecha, excluyendo),
+      this.ocupacionesEnElRango(
+        db,
+        [socio.id, ...socioIdsDe(acompanantes)],
+        bloque.inicio,
+        bloque.fin,
+        excluyendo,
+      ),
+      this.debeLaIncorporacion(db, socio.id, config.cobraIncorporacionDesde),
+    ]);
 
     return evaluarReservaDeSocio({
       socio,
@@ -207,6 +224,7 @@ export class ReservasService {
       reservasDelDia,
       horasPicoDeLaSemana,
       invitadosDelMes,
+      incorporacionPendiente,
       acompanantes,
       ocupados,
     });
@@ -290,6 +308,86 @@ export class ReservasService {
    * el catálogo calculó para ese día. Un instante inventado —o el de un horario que
    * el club ya cambió— no encuentra bloque y se rechaza acá.
    */
+  /**
+   * Lo que el socio ya lleva usado, para mostrarlo antes de tomarle una hora.
+   *
+   * Las tres cuentas son las mismas que evalúa `evaluarParaSocio`; acá salen a la
+   * superficie sin decidir nada. Quien decide sigue siendo la evaluación completa
+   * en el momento de crear: entre que el mesón mira esto y aprieta "Reservar" el
+   * socio pudo tomar una hora desde su teléfono.
+   */
+  async ocupacionDelSocio(
+    socioId: number,
+    fecha: string,
+  ): Promise<{
+    reservasDelDia: number;
+    horasPicoDeLaSemana: number;
+    invitadosDelMes: number;
+  }> {
+    const [reservasDelDia, horasPicoDeLaSemana, invitadosDelMes] =
+      await Promise.all([
+        this.contarDelDia(this.prisma, socioId, fecha),
+        this.contarPicoDeLaSemana(this.prisma, socioId, fecha),
+        this.contarInvitadosDelMes(this.prisma, socioId, fecha),
+      ]);
+
+    return { reservasDelDia, horasPicoDeLaSemana, invitadosDelMes };
+  }
+
+  /**
+   * La hora que el club toma en el mesón, a nombre de quien no es socio.
+   *
+   * **Nace confirmada y sin transacción**: el cobro pasa en el mostrador, no por
+   * Webpay. Es el único camino en que una reserva de no-socio queda confirmada sin
+   * pago registrado, y existe porque el club atiende gente que llega en persona.
+   */
+  async reservarComoVisitanteDelMeson(datos: {
+    canchaId: number;
+    inicio: Date;
+    nombre: string;
+    email: string;
+    telefono: string;
+  }): Promise<ReservaCreada> {
+    const bloque = await this.bloqueDeLaGrilla(
+      datos.canchaId,
+      fechaCivilDelClub(datos.inicio),
+      datos.inicio,
+    );
+
+    try {
+      const reserva = await this.reservas.crear({
+        canchaId: datos.canchaId,
+        inicio: bloque.inicio,
+        fin: bloque.fin,
+        esPico: bloque.esPico,
+        estado: EstadoReserva.CONFIRMADA,
+        socioId: null,
+        nombre: datos.nombre,
+        email: datos.email,
+        telefono: datos.telefono,
+      });
+
+      return {
+        id: reserva.id,
+        folio: reserva.folio,
+        token: reserva.token,
+        canchaId: reserva.canchaId,
+        inicio: reserva.inicio,
+        fin: reserva.fin,
+        esPico: reserva.esPico,
+      };
+    } catch (error) {
+      if (error instanceof BloqueTomado) {
+        throw new ConflictException({
+          motivo: 'BLOQUE_TOMADO',
+          message: error.message,
+        });
+      }
+
+      throw error;
+    }
+  }
+
   private async bloqueDeLaGrilla(
     canchaId: number,
     fecha: string,
@@ -312,6 +410,47 @@ export class ReservasService {
     }
 
     return { inicio: bloque.inicio, fin: bloque.fin, esPico: bloque.esPico };
+  }
+
+  /**
+   * Si le falta pagar la cuota de incorporación (T42).
+   *
+   * **La regla no depende de que la fila exista**, y esa es la parte que importa: las
+   * cuotas se emiten cuando alguien las mira, así que un socio recién dado de alta
+   * todavía no tiene la suya. Preguntando por la fila, ese socio podría reservar
+   * hasta que al club se le ocurriera abrir el panel.
+   *
+   * Se resuelve al revés: **le corresponde** —ingresó después de la puesta en marcha—
+   * **y no hay ninguna resuelta**. Pagada la deja pasar; anulada también, porque
+   * anular es decir que no le correspondía.
+   *
+   * Se consulta y no se guarda en la ficha: un booleano en `Socio` sería un dato
+   * derivado que hay que mantener en acuerdo con `cuotas`, y el día que se
+   * desincronicen gana el equivocado.
+   */
+  private async debeLaIncorporacion(
+    db: ClienteDePrisma,
+    socioId: number,
+    cobraDesde: Date,
+  ): Promise<boolean> {
+    // Una sola consulta: la fecha de ingreso y si tiene alguna resuelta vienen juntas.
+    // `take: 1` porque la pregunta es si existe, no cuántas.
+    const socio = await db.socio.findUniqueOrThrow({
+      where: { id: socioId },
+      select: {
+        fechaIngreso: true,
+        cuotas: {
+          where: {
+            tipo: TipoCuota.INCORPORACION,
+            estado: { in: [EstadoCuota.PAGADA, EstadoCuota.ANULADA] },
+          },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+
+    return socio.fechaIngreso >= cobraDesde && socio.cuotas.length === 0;
   }
 
   /** Reservas activas del socio en ese día del club. */
@@ -465,7 +604,7 @@ export class ReservasService {
 }
 
 /** La fecha civil del club de un instante, "AAAA-MM-DD". */
-function fechaCivilDelClub(instante: Date): string {
+export function fechaCivilDelClub(instante: Date): string {
   return hoyEnElClub(instante).toISOString().slice(0, 10);
 }
 

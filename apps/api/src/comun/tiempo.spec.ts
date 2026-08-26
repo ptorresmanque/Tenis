@@ -1,4 +1,4 @@
-import { hoyEnElClub, instanteEnElClub } from './tiempo';
+import { hoyEnElClub, instanteEnElClub, mesEnElClub } from './tiempo';
 
 /**
  * La fecha civil del club decide si un socio está al día. Si se calcula en UTC, a
@@ -44,6 +44,35 @@ describe('hoyEnElClub', () => {
     expect(hoy.getUTCHours()).toBe(0);
     expect(hoy.getUTCMinutes()).toBe(0);
     expect(hoy.getUTCMilliseconds()).toBe(0);
+  });
+});
+
+/**
+ * El mes al que pertenece un instante. Lo usan la emisión de cuotas y dos reportes,
+ * y los tres se rompen del mismo modo: el club cierra a las 22:00, así que **toda**
+ * hora de la tarde del último día de un mes cae en el mes siguiente si se lee en UTC.
+ */
+describe('mesEnElClub', () => {
+  const mes = (iso: string) => mesEnElClub(new Date(iso));
+
+  it('al mediodía devuelve el mes en curso', () => {
+    expect(mes('2026-08-17T12:00:00Z')).toBe('2026-08');
+  });
+
+  it('**las 21:00 del 31 de agosto siguen siendo agosto**', () => {
+    // 2026-09-01T01:00Z son las 21:00 del 31 de agosto en Santiago: dentro del
+    // horario del club, y el último momento del mes en que alguien juega.
+    expect(mes('2026-09-01T01:00:00Z')).toBe('2026-08');
+  });
+
+  it('el 1 a las 00:30 del club ya es el mes nuevo', () => {
+    // El borde por el otro lado: sin él, "devolver siempre el mes anterior" pasaría.
+    expect(mes('2026-09-01T04:30:00Z')).toBe('2026-09');
+  });
+
+  it('en verano, con el desfase de tres horas, sigue acertando', () => {
+    // 2026-01-01T02:00Z son las 23:00 del 31 de diciembre en Santiago.
+    expect(mes('2026-01-01T02:00:00Z')).toBe('2025-12');
   });
 });
 

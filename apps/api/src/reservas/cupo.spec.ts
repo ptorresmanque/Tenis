@@ -36,6 +36,7 @@ describe('evaluarReservaDeSocio', () => {
     reservasDelDia: 0,
     horasPicoDeLaSemana: 0,
     invitadosDelMes: 0,
+    incorporacionPendiente: false,
     acompanantes: [{ nombre: 'Ana Invitada' }],
     ocupados: [],
     ...parche,
@@ -43,6 +44,52 @@ describe('evaluarReservaDeSocio', () => {
 
   it('un socio al día, dentro del cupo y con acompañante, puede reservar', () => {
     expect(evaluarReservaDeSocio(solicitud())).toBeNull();
+  });
+
+  describe('la incorporación impaga bloquea igual que la mensualidad (T42)', () => {
+    it('**con la incorporación pendiente no reserva, aunque esté al día**', () => {
+      // El agujero que esta regla cierra: el club le regala el primer mes al socio
+      // nuevo —`alDiaHasta` vigente— y la incorporación queda "para cuando pase por el
+      // club". Sin esto, entra a reservar y el cobro no lo hace nadie.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({ incorporacionPendiente: true }),
+      );
+
+      expect(rechazo?.tipo).toBe('INCORPORACION_IMPAGA');
+      expect(rechazo?.mensaje).toMatch(/inscripción|incorporación/i);
+    });
+
+    it('va después de la sanción: pagarla no levanta un castigo', () => {
+      // Mismo criterio que la cuota vencida. Mandar a pagar a quien está sancionado lo
+      // deja igual de sancionado, pero con menos plata.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          incorporacionPendiente: true,
+          socio: {
+            id: 7,
+            estado: EstadoSocio.ACTIVO,
+            alDiaHasta: new Date('2026-12-31T00:00:00.000Z'),
+            sancionadoHasta: new Date('2026-09-01T00:00:00.000Z'),
+          },
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('SANCIONADO');
+    });
+
+    it('y antes que el cupo diario: la deuda se resuelve, el cupo se espera', () => {
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({ incorporacionPendiente: true, reservasDelDia: 5 }),
+      );
+
+      expect(rechazo?.tipo).toBe('INCORPORACION_IMPAGA');
+    });
+
+    it('pagada, el socio nuevo reserva como cualquiera', () => {
+      expect(
+        evaluarReservaDeSocio(solicitud({ incorporacionPendiente: false })),
+      ).toBeNull();
+    });
   });
 
   describe('membresía y morosidad son rechazos distintos', () => {

@@ -11,6 +11,8 @@ export interface AcompananteNuevo {
 export interface ReservaConfirmada {
   id: number;
   folio: string;
+  /** La llave de su página pública: con ella la confirmación muestra el QR. */
+  token: string;
   inicio: string;
   fin: string;
 }

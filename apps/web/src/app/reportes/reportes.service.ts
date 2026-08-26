@@ -1,0 +1,174 @@
+import { HttpClient } from '@angular/common/http';
+import { inject, Service } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+
+/** Los cinco cortes del reporte de ingreso. No hay un sexto: para otros está el CSV. */
+export type CorteDeIngreso = 'cancha' | 'condicion' | 'franja' | 'usuario' | 'concepto';
+
+/** Cómo se lee cada corte en pantalla. */
+export const CORTES_DE_INGRESO: Record<CorteDeIngreso, string> = {
+  condicion: 'Techada o abierta',
+  cancha: 'Cancha',
+  franja: 'Pico o valle',
+  usuario: 'Socio o no socio',
+  concepto: 'Concepto',
+};
+
+export interface FilaDeIngreso {
+  etiqueta: string;
+  montoClp: number;
+}
+
+export interface ReporteDeIngreso {
+  desde: string;
+  hasta: string;
+  corte: CorteDeIngreso;
+  totalClp: number;
+  filas: FilaDeIngreso[];
+  /** Lo emitido del período que sigue sin cobrarse. */
+  cuotasImpagasClp: number;
+  calculadoEn: string;
+}
+
+/** Los tres cortes que significan algo sobre un bloque de cancha. */
+export type CorteDeOcupacion = 'cancha' | 'condicion' | 'franja';
+
+export const CORTES_DE_OCUPACION: Record<CorteDeOcupacion, string> = {
+  condicion: 'Techada o abierta',
+  cancha: 'Cancha',
+  franja: 'Pico o valle',
+};
+
+export interface FilaDeOcupacion {
+  etiqueta: string;
+  bloques: number;
+  ocupados: number;
+  cerrados: number;
+  libres: number;
+  /** `null` cuando no hubo ni una hora que ofrecer. */
+  porcentajeOcupacion: number | null;
+}
+
+export interface ReporteDeOcupacion {
+  desde: string;
+  hasta: string;
+  corte: CorteDeOcupacion;
+  bloques: number;
+  ocupados: number;
+  cerrados: number;
+  libres: number;
+  porcentajeOcupacion: number | null;
+  filas: FilaDeOcupacion[];
+  calculadoEn: string;
+}
+
+export type CorteDeNoUso = 'mes' | 'cancha' | 'franja';
+
+export const CORTES_DE_NO_USO: Record<CorteDeNoUso, string> = {
+  mes: 'Mes',
+  cancha: 'Cancha',
+  franja: 'Pico o valle',
+};
+
+export interface FilaDeNoUso {
+  etiqueta: string;
+  noUsadas: number;
+  reservadas: number;
+  porcentaje: number | null;
+}
+
+export interface ReporteDeNoUso {
+  desde: string;
+  hasta: string;
+  corte: CorteDeNoUso;
+  noUsadas: number;
+  reservadas: number;
+  porcentaje: number | null;
+  /** Reportes que nadie miró todavía: no cuentan, pero hay que saber que están. */
+  sinResolver: number;
+  filas: FilaDeNoUso[];
+  calculadoEn: string;
+}
+
+export interface MesDelPadron {
+  periodo: string;
+  altas: number;
+  /** Socios que el club retiró ese mes, según la auditoría de fichas. */
+  bajas: number;
+  deudaClp: number;
+  sociosConDeuda: number;
+}
+
+export interface ReporteDePadron {
+  desde: string;
+  hasta: string;
+  activosHoy: number;
+  suspendidosHoy: number;
+  retiradosHoy: number;
+  altasDelPeriodo: number;
+  bajasDelPeriodo: number;
+  meses: MesDelPadron[];
+  calculadoEn: string;
+}
+
+/**
+ * Los reportes del club.
+ *
+ * **Solo lectura.** El módulo no escribe nada en ninguna parte: consulta lo que los
+ * otros ya guardaron y agrega.
+ */
+@Service()
+export class Reportes {
+  private readonly http = inject(HttpClient);
+
+  ingreso(desde: string, hasta: string, corte: CorteDeIngreso): Promise<ReporteDeIngreso> {
+    return firstValueFrom(
+      this.http.get<ReporteDeIngreso>('/api/admin/reportes/ingreso', {
+        params: { desde, hasta, corte },
+      }),
+    );
+  }
+
+  ocupacion(desde: string, hasta: string, corte: CorteDeOcupacion): Promise<ReporteDeOcupacion> {
+    return firstValueFrom(
+      this.http.get<ReporteDeOcupacion>('/api/admin/reportes/ocupacion', {
+        params: { desde, hasta, corte },
+      }),
+    );
+  }
+
+  noUso(desde: string, hasta: string, corte: CorteDeNoUso): Promise<ReporteDeNoUso> {
+    return firstValueFrom(
+      this.http.get<ReporteDeNoUso>('/api/admin/reportes/no-uso', {
+        params: { desde, hasta, corte },
+      }),
+    );
+  }
+
+  padron(desde: string, hasta: string): Promise<ReporteDePadron> {
+    return firstValueFrom(
+      this.http.get<ReporteDePadron>('/api/admin/reportes/padron', {
+        params: { desde, hasta },
+      }),
+    );
+  }
+
+  /**
+   * La dirección del CSV del mismo reporte y el mismo rango.
+   *
+   * Un enlace y no un `fetch` con `Blob`: el navegador ya sabe descargar y el servidor
+   * ya manda el `Content-Disposition` con el nombre. Armar el archivo en memoria sería
+   * escribir código para hacer peor lo que el navegador hace bien.
+   */
+  csv(
+    reporte: 'ingreso' | 'ocupacion' | 'no-uso' | 'padron',
+    desde: string,
+    hasta: string,
+    corte?: string,
+  ): string {
+    const parametros = new URLSearchParams({ desde, hasta });
+    if (corte) parametros.set('corte', corte);
+
+    return `/api/admin/reportes/${reporte}.csv?${parametros.toString()}`;
+  }
+}

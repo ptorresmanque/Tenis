@@ -54,6 +54,14 @@ export interface SolicitudDeSocio {
   horasPicoDeLaSemana: number;
   /** Invitados externos que ya registró en el mes del bloque. */
   invitadosDelMes: number;
+  /**
+   * Le falta pagar la cuota de incorporación (T42).
+   *
+   * Viaja aparte y no dentro de `socio` porque no es un campo de la ficha: es el
+   * estado de una fila de `cuotas`, y este módulo no conoce esa tabla. Quien consulta
+   * es `ReservasService`, igual que con las reservas del día.
+   */
+  incorporacionPendiente: boolean;
   acompanantes: AcompananteDeclarado[];
   /** Dónde están comprometidos el titular y los acompañantes a esa hora. */
   ocupados: OcupacionDeSocio[];
@@ -62,6 +70,7 @@ export interface SolicitudDeSocio {
 export type TipoDeRechazo =
   | 'MEMBRESIA_INACTIVA'
   | 'SANCIONADO'
+  | 'INCORPORACION_IMPAGA'
   | 'CUOTA_VENCIDA'
   | 'CUPO_DIARIO'
   | 'CUPO_PICO'
@@ -111,6 +120,20 @@ export function evaluarReservaDeSocio(
         `No puedes reservar hasta el ${enDiaMesAno(socio.sancionadoHasta!)}: el ` +
         'club registró una hora que reservaste y no se usó. Después de esa fecha ' +
         'vuelves a reservar como siempre.',
+    };
+  }
+
+  if (solicitud.incorporacionPendiente) {
+    // Después de la sanción y antes del cupo, por el mismo criterio que la cuota
+    // vencida: es una deuda que la persona puede resolver hoy, y el cupo se resuelve
+    // esperando. Bloquea igual que la mensualidad porque es la primera que el club
+    // cobra y la única que se paga una vez: si no bloqueara, el socio nuevo entra a
+    // reservar y el cobro queda "para cuando pase por el club".
+    return {
+      tipo: 'INCORPORACION_IMPAGA',
+      mensaje:
+        'Te falta pagar la cuota de incorporación al club. Puedes hacerlo en línea ' +
+        'desde tu estado de cuenta, o en el mesón.',
     };
   }
 

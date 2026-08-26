@@ -163,3 +163,50 @@ export function instanteEnElClub(fecha: string, hora: string): Date {
     validos.length > 0 ? Math.min(...validos) : Math.max(primera, segunda),
   );
 }
+
+/**
+ * Una columna `DATE` como la fecha civil que es, "AAAA-MM-DD".
+ *
+ * El inverso de `fechaDelClub`. Vive acá porque ya eran dos copias iguales en
+ * `torneos` y el ranking habría sido la tercera: una fecha civil que sale con hora
+ * invita a que la pantalla muestre el día anterior, y ese error hay que arreglarlo
+ * en un solo lugar.
+ */
+export function comoFechaCivil(fecha: Date): string {
+  return fecha.toISOString().slice(0, 10);
+}
+
+/**
+ * El mes del club al que pertenece un **instante**, "AAAA-MM".
+ *
+ * Distinto de `comoFechaCivil`, y la diferencia es la que rompe reportes: aquélla lee
+ * una columna `DATE` —que ya viene como medianoche UTC del día civil— y ésta convierte
+ * un instante con el reloj del club antes de mirarlo.
+ *
+ * A las 21:00 de un 31 de agosto en Santiago ya es septiembre en UTC. Como el club
+ * cierra a las 22:00, leer un instante en UTC corre de mes **toda** hora de la tarde
+ * del último día de cualquier mes: la emisión de cuotas se adelantaría un mes, y en los
+ * reportes esa hora aparece en un mes que ni siquiera se pidió.
+ *
+ * Se compara como texto porque "AAAA-MM" ordena igual que la fecha: es la propiedad que
+ * hace que el formato exista.
+ */
+export function mesEnElClub(instante: Date): string {
+  return comoFechaCivil(hoyEnElClub(instante)).slice(0, 7);
+}
+
+/**
+ * Si esa cadena es una fecha civil del club que existe de verdad.
+ *
+ * Vive acá y no en cada controlador porque la usan tres —la agenda, la reserva del
+ * mesón y las clases públicas— y tres copias de un `try/catch` son tres lugares donde
+ * arreglar el día que `fechaDelClub` cambie de excepción.
+ */
+export function esFechaDelClub(fecha: string): boolean {
+  try {
+    fechaDelClub(fecha);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -6,6 +6,8 @@ import {
   horaEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
+import { EstadoVacio } from '../../ui/estado-vacio';
+import { Insignia } from '../../ui/insignia';
 import { Decision, HoraReportada, Reportes } from './reportes.service';
 
 /**
@@ -18,6 +20,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
  */
 @Component({
   selector: 'app-reportes',
+  imports: [EstadoVacio, Insignia],
   template: `
     <h1 class="font-display text-3xl font-bold">Horas reportadas</h1>
     <p class="mt-1 text-muted-foreground">
@@ -37,9 +40,12 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
       <p class="mt-6 text-muted-foreground">Cargando…</p>
     } @else if (pendientes.value(); as horas) {
       @if (horas.length === 0) {
-        <p class="mt-6 text-muted-foreground">
-          No hay horas reportadas esperando decisión.
-        </p>
+        <app-estado-vacio
+          class="mt-6 block"
+          icono="flag"
+          titulo="No hay horas reportadas esperando decisión"
+          detalle="Acá caen las que un socio marca como no usadas."
+        />
       } @else {
         <ul class="mt-6 space-y-3">
           @for (reportada of horas; track reportada.reservaId) {
@@ -49,12 +55,9 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
                   {{ dia(reportada.inicio) }}, {{ hora(reportada.inicio) }}–{{ hora(reportada.fin) }}
                 </h2>
                 <span class="text-sm text-muted-foreground">{{ reportada.cancha }}</span>
-                <span
-                  class="rounded-md border border-destructive px-2 py-0.5 text-xs
-                         font-medium text-destructive"
-                >
+                <app-insignia variante="error" icono="flag">
                   {{ reportada.reportes === 1 ? '1 reporte' : reportada.reportes + ' reportes' }}
-                </span>
+                </app-insignia>
               </div>
 
               @if (reportada.socio; as socio) {

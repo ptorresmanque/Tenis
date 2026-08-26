@@ -6,10 +6,13 @@ import {
   HttpCode,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
 } from '@nestjs/common';
 
-import { SoloAdmin } from '../guards';
+import { SoloAdmin, Yo } from '../guards';
+import type { UsuarioActual } from '../usuario-actual';
+import { FichaDeSocioService, leerCambiosDeFicha } from './ficha.service';
 import { leerInvitacion } from './invitaciones.dto';
 import { InvitacionesService } from './invitaciones.service';
 
@@ -22,11 +25,36 @@ import { InvitacionesService } from './invitaciones.service';
 @Controller('admin/socios')
 @SoloAdmin()
 export class InvitacionesController {
-  constructor(private readonly servicio: InvitacionesService) {}
+  constructor(
+    private readonly servicio: InvitacionesService,
+    private readonly fichas: FichaDeSocioService,
+  ) {}
 
   @Get()
   listado() {
     return this.servicio.listado();
+  }
+
+  /**
+   * Cambia los campos de la ficha que tocan derechos.
+   *
+   * `@Yo()` porque cada cambio queda firmado: quién lo hizo es la mitad de lo que
+   * esta operación existe para registrar.
+   */
+  @Patch(':id')
+  editar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ) {
+    const { cambios, motivo } = leerCambiosDeFicha(cuerpo);
+
+    return this.fichas.editar(id, cambios, yo, motivo);
+  }
+
+  @Get(':id/cambios')
+  cambios(@Param('id', ParseIntPipe) id: number) {
+    return this.fichas.historial(id);
   }
 
   @Post('invitaciones')

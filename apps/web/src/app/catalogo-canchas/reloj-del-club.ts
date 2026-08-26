@@ -29,6 +29,23 @@ const DIA_LARGO = new Intl.DateTimeFormat('es-CL', {
   month: 'long',
 });
 
+const DIA_CON_ANIO = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+const DIA_CORTO = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  weekday: 'short',
+});
+
+const MES_CORTO = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  month: 'short',
+});
+
 const PESOS = new Intl.NumberFormat('es-CL', {
   style: 'currency',
   currency: 'CLP',
@@ -59,9 +76,79 @@ export function horaEnElClub(instante: string | Date): string {
 export function diaEnPalabras(fecha: string): string {
   // Se lee a mediodía UTC y no a medianoche: a medianoche UTC en Santiago todavía
   // es el día anterior, y el encabezado mostraría un día menos que la grilla.
-  return DIA_LARGO.format(new Date(`${fecha}T12:00:00.000Z`));
+  //
+  // Los diez primeros caracteres y no la cadena entera: una columna `DATE` viaja a
+  // veces como "2026-11-10" y a veces como "2026-11-10T00:00:00.000Z", y concatenarle
+  // la hora a la segunda forma daba una fecha inválida que hacía desaparecer el
+  // bloque entero sin un solo error a la vista.
+  return DIA_LARGO.format(new Date(`${fecha.slice(0, 10)}T12:00:00.000Z`));
+}
+
+/**
+ * "26 de agosto de 2025", para fechas que no son de esta semana.
+ *
+ * Con año y sin día de la semana, al revés que `diaEnPalabras`: el corte del ranking
+ * está siempre a un año de distancia, y ahí "el 26 de agosto" no dice nada mientras
+ * que "martes" no le importa a nadie.
+ */
+export function diaConAnioEnPalabras(fecha: string): string {
+  return DIA_CON_ANIO.format(new Date(`${fecha.slice(0, 10)}T12:00:00.000Z`));
+}
+
+/**
+ * "ago", para el bloque de fecha de las tarjetas.
+ *
+ * Se le pide el mes a Intl en vez de recortar el "lunes, 17 de agosto" de
+ * `diaEnPalabras`: ese texto está en español y con esa forma **hoy**, y quien
+ * cambie el formato o el idioma no tiene por qué adivinar que alguien lo estaba
+ * partiendo por " de " en otro archivo.
+ *
+ * Los tres caracteres son del diseño, no del idioma: es una columna angosta bajo
+ * el número del día. Intl devuelve "sept" para septiembre y a veces con punto,
+ * así que se normaliza acá.
+ */
+export function mesCortoEnElClub(instante: string | Date): string {
+  return MES_CORTO.format(new Date(instante)).replace('.', '').slice(0, 3);
 }
 
 export function enPesos(monto: number): string {
   return PESOS.format(monto);
+}
+
+export interface DiaDelClub {
+  /** "AAAA-MM-DD", lo que comen la API y el `<input type="date">`. */
+  fecha: string;
+  /** "Hoy", "Mañana" o el día abreviado: "jue". */
+  etiqueta: string;
+  /** El número del día, para la segunda línea del chip. */
+  numero: string;
+}
+
+/**
+ * Los próximos días del club, para la tira de chips de la disponibilidad.
+ *
+ * Cada día se calcula desde el mediodía UTC y no sumando 24 horas: los dos
+ * domingos al año en que Chile cambia la hora tienen 23 o 25, y sumando horas la
+ * tira saltaría un día o repetiría el mismo. A mediodía UTC en Santiago son las
+ * 08:00 o las 09:00, así que siempre cae dentro del día que corresponde.
+ */
+export function proximosDias(cuantos: number, ahora = new Date()): DiaDelClub[] {
+  const base = new Date(`${hoyEnElClub(ahora)}T12:00:00.000Z`);
+
+  return Array.from({ length: cuantos }, (_, i) => {
+    const dia = new Date(base);
+    dia.setUTCDate(base.getUTCDate() + i);
+
+    return {
+      fecha: fechaEnElClub(dia),
+      etiqueta:
+        i === 0
+          ? 'Hoy'
+          : i === 1
+            ? 'Mañana'
+            : // Intl devuelve "jue." con punto; el chip se ve mejor sin él.
+              DIA_CORTO.format(dia).replace('.', ''),
+      numero: String(Number(fechaEnElClub(dia).slice(8))),
+    };
+  });
 }

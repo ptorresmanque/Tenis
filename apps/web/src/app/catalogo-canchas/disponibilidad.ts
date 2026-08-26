@@ -34,6 +34,17 @@ export class Disponibilidad {
   private readonly http = inject(HttpClient);
 
   /**
+   * Las canchas activas, sin sus horas.
+   *
+   * Separado de `delDia` para quien solo quiere el catálogo —la página del club
+   * las lista y nada más—: pedir la grilla entera para tirar los bloques son
+   * cuatro peticiones donde bastaba una.
+   */
+  canchas(): Promise<Cancha[]> {
+    return firstValueFrom(this.http.get<Cancha[]>('/api/canchas'));
+  }
+
+  /**
    * La grilla del día: cada cancha activa con sus bloques.
    *
    * Una petición por cancha, en paralelo, porque el endpoint es por cancha. Con
@@ -41,9 +52,7 @@ export class Disponibilidad {
    * devuelva el día entero antes que disparar veinte consultas.
    */
   async delDia(fecha: string): Promise<GrillaDeCancha[]> {
-    const canchas = await firstValueFrom(
-      this.http.get<Cancha[]>('/api/canchas'),
-    );
+    const canchas = await this.canchas();
 
     return Promise.all(
       canchas.map(async (cancha) => ({

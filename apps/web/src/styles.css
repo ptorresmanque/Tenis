@@ -4,27 +4,40 @@
    Si cambiás un valor acá, cambialo allá. Los contrastes están medidos por
    src/design-tokens.spec.ts: romper uno hace fallar la suite. */
 @theme {
-  /* Arcilla (superficie de la cancha) */
-  --color-primary: #9a3412;
+  /* Azul de cancha dura (los dos azules del Australian Open) */
+  --color-primary: #0b4f9e;
   --color-on-primary: #ffffff;
-  --color-secondary: #c2410c;
-  --color-ring: #9a3412;
+  --color-secondary: #1565c0;
+  --color-ring: #0b4f9e;
 
-  /* Verde cancha. Son DOS a propósito, ver la regla de contraste abajo. */
+  /* Verde de estado, no de marca. Son TRES a propósito: ver la regla abajo. */
   --color-accent: #059669;
   --color-accent-strong: #047857;
+  --color-accent-soft: #d1fae5;
   --color-on-accent: #ffffff;
 
-  --color-background: #fffbeb;
+  /* Ámbar. Mismo problema y misma forma que el verde. */
+  --color-warning: #d97706;
+  --color-warning-strong: #b45309;
+  --color-warning-soft: #fef3c7;
+
+  --color-background: #f4f8fd;
   --color-foreground: #0f172a;
   --color-card: #ffffff;
-  --color-muted: #f8f2f0;
-  --color-muted-foreground: #64748b;
-  --color-border: #f2e6e2;
+  /* Los tres grises de estado de la grilla: mantención, ocupado, elegido. */
+  --color-muted: #f1f5f9;
+  --color-busy: #e2e8f0;
+  --color-selected: #ebf4ff;
+  --color-muted-foreground: #475569;
+  --color-border: #dce7f5;
+  /* Dos rojos por el mismo motivo que hay dos verdes y dos ámbares: #dc2626
+     lleva blanco encima (4.83:1) pero sobre su propio fondo al 10% da 4.13:1 y
+     no sirve de texto. El -strong sí. */
   --color-destructive: #dc2626;
+  --color-destructive-strong: #b91c1c;
 
-  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Barlow Condensed', 'Barlow', ui-sans-serif, sans-serif;
+  --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Public Sans', 'Work Sans', ui-sans-serif, sans-serif;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px rgb(0 0 0 / 0.1);
@@ -43,8 +56,17 @@
 
     bg-accent         → fondos de chips, badges, indicador de bloque disponible.
     bg-accent-strong  → 5.46:1. El único verde que puede llevar texto blanco.
+    bg-accent-soft    → fondo del bloque libre, con accent-strong encima: 4.83:1.
 
-  Nunca pongas texto blanco de tamaño normal sobre bg-accent.
+  El ámbar repite el caso: --color-warning (#d97706) da 3.19:1 sobre blanco, así
+  que es color de chip, borde e ícono. El texto ámbar va en warning-strong.
+
+  Nunca pongas texto blanco de tamaño normal sobre bg-accent ni sobre bg-warning.
+
+  Dos desvíos deliberados del diseño de Stitch, los dos medidos:
+  el texto secundario es #475569 y no #64748b (7.10:1 contra 4.47:1), y el hover
+  del bloque libre no cambia el fondo —el #a7f3d0 de Stitch da 4.28:1— sino el
+  borde y la sombra.
 */
 
 @layer base {
@@ -61,10 +83,158 @@
     letter-spacing: -0.01em;
   }
 
+  /* Material Symbols con clase propia, no con la de Google.
+     La hoja de Google define .material-symbols-outlined SIN capa, y en la
+     cascada una regla sin capa le gana a cualquier @layer: con esa clase,
+     text-2xl sobre un ícono no hace nada y todos salen de 24px. Acá no se
+     declara font-size a propósito, para que las utilidades manden.
+     El ícono es una ligadura: sin aria-hidden el lector lee "check_circle". */
+  .icono {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    white-space: nowrap;
+    direction: ltr;
+  }
+
   /* Foco siempre visible: quitarlo deja la app inusable con teclado. */
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
+  }
+}
+
+/*
+  Las primitivas que no necesitan JavaScript.
+
+  Botón, campo y tabla son clases y no componentes de Angular a propósito: un
+  `<app-boton>` obliga a volver a exponer `type`, `disabled`, `click` y
+  `routerLink`, y no sirve para un `<a>`. Una clase funciona en los dos, no tiene
+  API que mantener y no llega al bundle de JavaScript.
+
+  Las que sí son componentes —insignia, aviso, campo, paginación, estado vacío,
+  selector, barra fija— están en `app/ui/`, y son las que tienen estado, ids que
+  coordinar o texto que anunciar.
+
+  Van en @layer components: las utilidades de Tailwind viven en una capa
+  posterior, así que `class="boton boton-primario bg-destructive"` sigue pudiendo
+  pisar el fondo sin pelear con la especificidad.
+*/
+@layer components {
+  .boton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    /* Tailwind v4 dejó de forzarlo en <button>: sin esto sale con la flecha del
+       sistema y no se lee como pulsable. El lint lo comprueba. */
+    cursor: pointer;
+    transition:
+      opacity 200ms ease,
+      background-color 200ms ease,
+      transform 200ms ease;
+  }
+
+  .boton:hover:not(:disabled) {
+    opacity: 0.9;
+    /* transform y no margin: mover el layout en hover empuja lo que hay al lado. */
+    transform: translateY(-1px);
+  }
+
+  .boton:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+  }
+
+  .boton-primario {
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  .boton-secundario {
+    border: 2px solid var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .boton-texto {
+    color: var(--color-primary);
+    padding: 0.5rem 0.75rem;
+  }
+
+  .boton-destructivo {
+    background-color: var(--color-destructive);
+    color: var(--color-on-primary);
+  }
+
+  .boton-secundario:hover:not(:disabled),
+  .boton-texto:hover:not(:disabled) {
+    background-color: var(--color-muted);
+    opacity: 1;
+  }
+
+  /* Botón chico para tablas y tarjetas, donde 12/24 se come la fila. */
+  .boton-chico {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .campo {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background-color: var(--color-card);
+    padding: 0.75rem 1rem;
+    /* 16px exactos: con menos, Safari en iPhone hace zoom al enfocar. */
+    font-size: 1rem;
+    transition: border-color 200ms ease;
+  }
+
+  .campo:focus {
+    border-color: var(--color-primary);
+  }
+
+  /* Para las rejillas de edición del panel, donde 12/16 de padding por campo
+     convierte una fila de cuatro en una pantalla de scroll. */
+  .campo-chico {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .campo:disabled {
+    background-color: var(--color-muted);
+    cursor: not-allowed;
+  }
+
+  .tabla {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: start;
+  }
+
+  .tabla th {
+    background-color: var(--color-muted);
+    padding: 0.75rem 1rem;
+    text-align: start;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-muted-foreground);
+  }
+
+  .tabla td {
+    border-top: 1px solid var(--color-border);
+    padding: 0.75rem 1rem;
+  }
+
+  .tabla tbody tr:hover {
+    background-color: var(--color-muted);
   }
 }
 

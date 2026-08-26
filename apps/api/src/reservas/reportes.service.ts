@@ -12,6 +12,10 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
+import {
+  CambiosDeSocio,
+  SELECCION_AUDITADA,
+} from '../identidad/socios/cambios.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Cuánto después de terminar el bloque se puede reportar. */
@@ -19,7 +23,10 @@ const HORAS_PARA_REPORTAR = 24;
 
 @Injectable()
 export class ReportesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cambios: CambiosDeSocio,
+  ) {}
 
   /**
    * Un socio avisa que una hora reservada quedó sin usar.
@@ -219,6 +226,9 @@ export class ReportesService {
     const reserva = await this.prisma.reserva.findUnique({
       where: { id: reservaId },
       select: {
+        // El folio va al motivo del renglón de auditoría (T37): sin él, el historial
+        // diría "sancionado" sin decir por cuál hora.
+        folio: true,
         socioId: true,
         socio: { select: { sancionadoHasta: true } },
         reportes: {
@@ -252,10 +262,28 @@ export class ReportesService {
 
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       if (decision === 'SANCIONAR' && reserva.socioId !== null) {
-        await tx.socio.update({
+        const antes = await tx.socio.findUniqueOrThrow({
+          where: { id: reserva.socioId },
+          select: SELECCION_AUDITADA,
+        });
+
+        const despues = await tx.socio.update({
           where: { id: reserva.socioId },
           data: { sancionadoHasta },
+          select: SELECCION_AUDITADA,
         });
+
+        // El otro camino que escribe un campo de derechos (T37). Pasa por el mismo
+        // punto que la edición del panel: sin esto, la sanción sería el único cambio
+        // del padrón sin autor, y es de los que más se preguntan.
+        await this.cambios.registrar(
+          tx,
+          reserva.socioId,
+          antes,
+          despues,
+          { id: adminUsuarioId, nombre: 'Administración' },
+          `Hora reservada y no usada, folio ${reserva.folio}`,
+        );
       }
 
       await tx.reporteNoUso.updateMany({

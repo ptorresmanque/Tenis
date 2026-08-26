@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ClaseDelDia, Clases } from '../../clases/clases.service';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { AgendaDelDia } from './agenda';
 
@@ -26,18 +27,35 @@ describe('AgendaDelDia', () => {
     acompanantes: [],
   };
 
+  /** Una clase ocupa cancha igual que una reserva, y el mesón la mira ahí mismo. */
+  const CLASE: ClaseDelDia = {
+    id: 7,
+    cancha: 'Cancha 2',
+    profesor: 'Ana Silva',
+    // 14:00Z en agosto son las 10:00 en Santiago: después de la reserva de arriba.
+    inicio: '2026-08-17T14:00:00.000Z',
+    fin: '2026-08-17T15:00:00.000Z',
+    nivel: 'INICIACION',
+    estado: 'PROGRAMADA',
+    cupoMaximo: 6,
+    notas: null,
+  };
+
   let fixture: ComponentFixture<AgendaDelDia>;
   let delDia: ReturnType<typeof vi.fn>;
+  let clasesDelDia: ReturnType<typeof vi.fn>;
   let avisos: Subject<{ fecha: string }>;
 
-  const montar = async (reservas: ReservaDelDia[]) => {
+  const montar = async (reservas: ReservaDelDia[], clases: ClaseDelDia[] = []) => {
     delDia = vi.fn().mockResolvedValue(reservas);
+    clasesDelDia = vi.fn().mockResolvedValue(clases);
     avisos = new Subject<{ fecha: string }>();
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         { provide: Agenda, useValue: { delDia, avisos: avisos.asObservable() } },
+        { provide: Clases, useValue: { delDia: clasesDelDia } },
       ],
     });
 
@@ -79,7 +97,7 @@ describe('AgendaDelDia', () => {
   it('cuando el día está vacío lo dice', async () => {
     await montar([]);
 
-    expect(texto()).toContain('No hay reservas');
+    expect(texto()).toContain('No hay nada agendado');
   });
 
   it('**un aviso del servidor repuebla el panel sin recargar la página**', async () => {
@@ -94,6 +112,36 @@ describe('AgendaDelDia', () => {
     fixture.detectChanges();
 
     expect(texto()).toContain('Recién llegada');
+  });
+
+  it('**las clases se ven en la misma agenda que las reservas**', async () => {
+    await montar([UNA], [CLASE]);
+
+    expect(texto()).toContain('Ana Silva');
+    expect(texto()).toContain('10:00–11:00');
+  });
+
+  it('la clase se distingue de una reserva sin depender del color', async () => {
+    // El criterio 7 del spec de clases: quien no ve el color tiene que poder saber
+    // cuál de las dos cosas ocupa esa cancha.
+    await montar([UNA], [CLASE]);
+
+    expect(texto()).toContain('Clase');
+    expect(texto()).toContain('Iniciación');
+  });
+
+  it('**un día con clases y sin reservas no se anuncia como vacío**', async () => {
+    // Se veía "No hay reservas para este día" justo encima de la clase agendada.
+    await montar([], [CLASE]);
+
+    expect(texto()).toContain('Ana Silva');
+    expect(texto()).not.toContain('No hay nada agendado');
+  });
+
+  it('el resumen que se lee en voz alta cuenta las dos cosas', async () => {
+    await montar([UNA], [CLASE]);
+
+    expect(texto()).toContain('1 reserva y 1 clase este día.');
   });
 
   it('un aviso de otro día no interrumpe lo que se está mirando', async () => {

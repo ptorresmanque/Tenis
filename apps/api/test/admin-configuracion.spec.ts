@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
+import { sembrarCatalogo } from '../prisma/seed-catalogo';
 import { AppModule } from '../src/app.module';
 import { hashear } from '../src/identidad/contrasena';
 import {
@@ -261,29 +262,28 @@ describe('Configuración del club', () => {
 
   describe('horario y tarifas generales (T31)', () => {
     /**
-     * Lo general del club son las filas con `canchaId` nulo, y hasta T31 solo las
-     * ponía el seed. Se restauran al terminar por lo mismo que la configuración:
-     * son globales y las lee toda la suite.
+     * Lo general del club son las filas con `canchaId` nulo, y el endpoint que se
+     * prueba acá las **reemplaza todas**: desde el primer `PUT` el club abre un solo
+     * día de la semana, y eso lo lee toda la suite.
+     *
+     * **Se restaura desde el seed y no desde una foto tomada al empezar.** La base de
+     * prueba no se vuelve a sembrar entre corridas —`pretest` migra y borra
+     * transacciones, nada más—, así que un Ctrl-C o un timeout en el medio de este
+     * bloque dejaría el club con un día abierto para siempre; y la corrida siguiente
+     * fotografiaría ese daño y lo restauraría fielmente. `sembrarCatalogo` es
+     * idempotente y conserva los ids, así que sirve de restauración y de cura: se
+     * llama también al empezar, para que una base ya envenenada se arregle sola en
+     * vez de quedar cementada.
+     *
+     * Y va en `afterEach`, no en `afterAll`: la semana del club queda caída lo que
+     * dura un test y no lo que dura el bloque.
      */
-    let horariosOriginales: {
-      diaSemana: number;
-      horaApertura: string;
-      horaCierre: string;
-    }[];
-
     beforeAll(async () => {
-      horariosOriginales = (
-        await prisma.horarioApertura.findMany({ where: { canchaId: null } })
-      ).map(({ diaSemana, horaApertura, horaCierre }) => ({
-        diaSemana,
-        horaApertura,
-        horaCierre,
-      }));
+      await sembrarCatalogo(prisma);
     });
 
-    afterAll(async () => {
-      await prisma.horarioApertura.deleteMany({ where: { canchaId: null } });
-      await prisma.horarioApertura.createMany({ data: horariosOriginales });
+    afterEach(async () => {
+      await sembrarCatalogo(prisma);
     });
 
     it('lista lo general del club, sin mezclarlo con lo de una cancha', async () => {

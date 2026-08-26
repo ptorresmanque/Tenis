@@ -7,6 +7,8 @@ import { AgendaController } from './agenda.controller';
 import { AgendaService } from './agenda.service';
 import { DisponibilidadPublicaController } from './disponibilidad-publica.controller';
 import { DisponibilidadPublicaService } from './disponibilidad-publica.service';
+import { CierreDeCanchaController } from './cierre-de-cancha.controller';
+import { CierreDeCanchaService } from './cierre-de-cancha.service';
 import { EventosDeReserva } from './eventos';
 import { ModificacionService } from './modificacion.service';
 import { NoSocioController } from './no-socio.controller';
@@ -16,6 +18,10 @@ import {
   ReportesController,
 } from './reportes.controller';
 import { ReportesService } from './reportes.service';
+import { ReservaDelAdminController } from './reserva-del-admin.controller';
+import { ReservaDelAdminService } from './reserva-del-admin.service';
+import { ReservaPublicaController } from './reserva-publica.controller';
+import { ReservaPublicaService } from './reserva-publica.service';
 import { ReservaRepository } from './reserva.repository';
 import { ReservasController } from './reservas.controller';
 import { ReservasService } from './reservas.service';
@@ -31,9 +37,12 @@ import { ReservasService } from './reservas.service';
     ReservasController,
     NoSocioController,
     DisponibilidadPublicaController,
+    ReservaPublicaController,
     AgendaController,
+    ReservaDelAdminController,
     ReportesController,
     AdminReportesController,
+    CierreDeCanchaController,
   ],
   providers: [
     ReservaRepository,
@@ -41,15 +50,21 @@ import { ReservasService } from './reservas.service';
     ReservaNoSocioService,
     ModificacionService,
     DisponibilidadPublicaService,
+    ReservaPublicaService,
+    ReservaDelAdminService,
     AgendaService,
     ReportesService,
     EventosDeReserva,
+    CierreDeCanchaService,
   ],
   exports: [
     ReservaRepository,
     ReservasService,
     ModificacionService,
     DisponibilidadPublicaService,
+    // Lo usa `clases` para agendar: la clase cierra la cancha con la misma cascada
+    // que el cierre por mantención, no con una copia más blanda.
+    CierreDeCanchaService,
   ],
 })
 export class ReservasModule {}

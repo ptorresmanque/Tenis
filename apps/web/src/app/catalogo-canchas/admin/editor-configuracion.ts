@@ -10,7 +10,11 @@ import {
 import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../../core/errores';
-import { AdminCanchas, ReglasDelClub } from './admin-canchas.service';
+import {
+  AdminCanchas,
+  ConfiguracionDelClub,
+  ReglasDelClub,
+} from './admin-canchas.service';
 
 /** Cada regla con su etiqueta y su ayuda. El orden es el de la pantalla. */
 const REGLAS: {
@@ -58,6 +62,13 @@ const REGLAS: {
 /** Lo que hay en los campos: números, o vacío mientras alguien está escribiendo. */
 type ValoresEnPantalla = Record<keyof ReglasDelClub, number | ''>;
 
+/** Descarta los datos de contacto que vienen en la misma respuesta. */
+function soloLasReglas(config: ConfiguracionDelClub): ValoresEnPantalla {
+  return Object.fromEntries(
+    REGLAS.map(({ campo }) => [campo, config[campo]]),
+  ) as ValoresEnPantalla;
+}
+
 /** Las reglas completas, o nada si algún campo quedó vacío. */
 function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
   return Object.values(valores).every((valor) => typeof valor === 'number')
@@ -98,7 +109,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
                   [name]="regla.campo"
                   type="number"
                   min="0"
-                  class="mt-1 w-28 rounded-lg border border-border bg-card px-3 py-2"
+                  class="campo mt-1 w-28"
                   [attr.aria-describedby]="regla.campo + '-ayuda'"
                   [ngModel]="puestos[regla.campo]"
                   (ngModelChange)="cambiar(regla.campo, $event)"
@@ -126,9 +137,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
           <button
             type="submit"
             [disabled]="guardando()"
-            class="mt-4 cursor-pointer rounded-lg bg-primary px-5 py-2 font-semibold
-                   text-on-primary shadow-md transition-[background-color,box-shadow]
-                   duration-200 hover:bg-secondary hover:shadow-lg disabled:opacity-60"
+            class="boton boton-primario mt-4"
           >
             Guardar reglas
           </button>
@@ -173,11 +182,13 @@ export class EditorConfiguracion {
    * cast deja salir el string hacia la API como si fuera una regla del club.
    */
   protected readonly valores = linkedSignal<
-    ReglasDelClub | undefined,
+    ConfiguracionDelClub | undefined,
     ValoresEnPantalla | null
   >({
     source: () => this.reglas.value(),
-    computation: (cargadas) => (cargadas ? { ...cargadas } : null),
+    // Solo las reglas numéricas: la misma fila trae los datos de contacto del
+    // club, que edita otra pantalla y que este formulario no debe pisar.
+    computation: (cargadas) => (cargadas ? soloLasReglas(cargadas) : null),
   });
 
   /** Para el aviso: solo importa si la duración quedó distinta de la guardada. */
