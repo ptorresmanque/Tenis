@@ -1,5 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  provideRouter,
+  Router,
+} from '@angular/router';
 import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -99,6 +104,40 @@ describe('MisReservas', () => {
     expect(texto()).toContain('Sí, cancelar');
   });
 
+  it('el folio no se queda en la URL después de usarlo', async () => {
+    // El atajo es de un solo uso, pero la marca que lo recuerda muere con la
+    // pestaña. Dejando el folio en la URL, quien cancela y recarga para comprobar
+    // vuelve a entrar por acá con su hora ya fuera de la lista y lee que no se
+    // canceló nada, justo después de haberla cancelado.
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({ cancelar: 'AB23CDE' })) },
+        },
+        {
+          provide: Reservas,
+          useValue: { mias: () => Promise.resolve([UNA]), cancelar: vi.fn() },
+        },
+      ],
+    });
+
+    const navegar = vi
+      .spyOn(TestBed.inject(Router), 'navigate')
+      .mockResolvedValue(true);
+
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(navegar).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ queryParams: {}, replaceUrl: true }),
+    );
+  });
+
   it('descartado el atajo, no vuelve a abrirse solo', async () => {
     // El fallo que arregla: el effect leía la lista de reservas, así que al
     // cambiar la lista —cancelar otra hora, por ejemplo— reabría la confirmación
@@ -139,7 +178,12 @@ describe('MisReservas', () => {
     expect(texto()).not.toContain('Sí, cancelar');
   });
 
-  it('un folio que no está en la lista no abre nada', async () => {
+  it('un folio que no está en la lista no abre nada, pero lo dice', async () => {
+    // El fallo que arregla: el atajo se rendía en silencio. La confirmación se
+    // reabre con su token mucho después —es una URL que la persona guarda—, así
+    // que "Cancelar esta reserva" llega acá cuando esa hora ya terminó y salió de
+    // la lista. Quien lo apretaba veía "No tienes horas tomadas" y se iba creyendo
+    // que había cancelado: la reserva seguía CONFIRMADA y gastando su cupo del día.
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -160,6 +204,33 @@ describe('MisReservas', () => {
     fixture.detectChanges();
 
     expect(texto()).not.toContain('Sí, cancelar');
+    expect(texto()).toContain('OTRO123');
+    expect(texto()).toContain('no se canceló nada');
+  });
+
+  it('con la lista vacía el atajo tampoco se queda callado', async () => {
+    // El caso real del reporte: la única hora del socio ya terminó, así que la
+    // lista viene vacía y la pantalla mostraba solo "No tienes horas tomadas".
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({ cancelar: 'AB23CDE' })) },
+        },
+        {
+          provide: Reservas,
+          useValue: { mias: () => Promise.resolve([]), cancelar: vi.fn() },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('no se canceló nada');
   });
 
   it('muestra la cancha, el día, la hora del club y el folio', () => {

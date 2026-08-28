@@ -7,7 +7,7 @@ import {
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import {
   diaEnPalabras,
@@ -176,10 +176,11 @@ export class MisReservas {
   protected readonly enviando = signal(false);
   protected readonly aviso = signal<string | null>(null);
 
+  private readonly ruta = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
   /** El folio que llega desde la confirmación con "Cancelar esta reserva". */
-  private readonly folioPorCancelar = toSignal(
-    inject(ActivatedRoute).queryParamMap,
-  );
+  private readonly folioPorCancelar = toSignal(this.ruta.queryParamMap);
 
   /**
    * El atajo del enlace ya se usó.
@@ -193,15 +194,48 @@ export class MisReservas {
   constructor() {
     effect(() => {
       const folio = this.folioPorCancelar()?.get('cancelar');
-      const reserva = this.reservas.value().find((una) => una.folio === folio);
 
-      if (this.atajoConsumido || !reserva) return;
+      if (this.atajoConsumido || !folio) return;
+
+      // Hasta que la lista no esté resuelta, "no está" no significa nada: mientras
+      // carga siempre está vacía. Con `error` tampoco se afirma nada, que la
+      // pantalla ya avisa que no se pudieron cargar.
+      if (this.reservas.status() !== 'resolved') return;
 
       // El folio se traduce a id acá porque la confirmación no conoce el id: lo
       // único que le llega por la URL es el folio, y pedirle al servidor un
       // endpoint nuevo para resolverlo sería backend para ahorrarse tres líneas.
+      const reserva = this.reservas.value().find((una) => una.folio === folio);
+
       this.atajoConsumido = true;
-      untracked(() => this.porCancelar.set(reserva.id));
+      untracked(() => {
+        // El atajo es de un solo uso y la marca de arriba muere con la pestaña. Si
+        // el folio se queda en la URL, quien cancela y recarga para comprobarlo
+        // vuelve a caer acá con su hora ya fuera de la lista, y lee que no se
+        // canceló nada justo después de haberla cancelado.
+        void this.router.navigate([], {
+          relativeTo: this.ruta,
+          queryParams: {},
+          replaceUrl: true,
+        });
+
+        if (reserva) {
+          this.porCancelar.set(reserva.id);
+          return;
+        }
+
+        // **El atajo no puede fallar en silencio.** La confirmación de una reserva
+        // sigue abriéndose con su token mucho después —es una URL que la persona
+        // guarda—, así que "Cancelar esta reserva" llega acá cuando esa hora ya
+        // terminó y salió de la lista. Sin este aviso, quien lo apretaba aterrizaba
+        // en "No tienes horas tomadas" y se iba creyendo que había cancelado: la
+        // hora seguía CONFIRMADA y gastando su cupo del día.
+        this.aviso.set(
+          `La reserva ${folio} no está entre tus horas próximas, así que no se ` +
+            'canceló nada. Si ya se jugó, el cupo de ese día queda usado igual; si ' +
+            'crees que es un error, escribe al club con ese folio.',
+        );
+      });
     });
   }
 
