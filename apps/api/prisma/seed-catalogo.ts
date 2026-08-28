@@ -1,4 +1,9 @@
-import { PrismaClient, Superficie } from '../src/generated/prisma/client';
+import {
+  MotivoBloqueo,
+  PrismaClient,
+  Superficie,
+} from '../src/generated/prisma/client';
+import { instanteEnElClub } from '../src/comun/tiempo';
 
 /**
  * Datos de demo de `catalogo-canchas` (T9): las canchas del club, su horario de
@@ -15,31 +20,33 @@ interface CanchaDemo {
   orden: number;
 }
 
-export const CANCHAS: CanchaDemo[] = [
-  {
-    nombre: 'Cancha 1',
-    superficie: Superficie.ARCILLA,
-    techada: false,
-    iluminacion: true,
-    orden: 1,
-  },
-  {
-    nombre: 'Cancha 2',
-    superficie: Superficie.CEMENTO,
-    techada: false,
-    iluminacion: true,
-    orden: 2,
-  },
-  {
-    // La techada es la que hace interesante la demo un día de lluvia, y la única
-    // que justifica que la superficie se muestre en la grilla.
-    nombre: 'Cancha 3 (techada)',
-    superficie: Superficie.PASTO_SINTETICO,
-    techada: true,
-    iluminacion: true,
-    orden: 3,
-  },
-];
+/**
+ * Las ocho canchas del club: todas de cemento y todas con iluminación. Las cuatro
+ * últimas son techadas, que es lo que hace interesante la demo un día de lluvia.
+ */
+export const CANCHAS: CanchaDemo[] = Array.from({ length: 8 }, (_, i) => ({
+  nombre: `Cancha ${i + 1}`,
+  superficie: Superficie.CEMENTO,
+  techada: i >= 4,
+  iluminacion: true,
+  orden: i + 1,
+}));
+
+/**
+ * Dos de las techadas están en mantención hasta diciembre. Van como `Bloqueo` y no
+ * como `activa: false`: la mantención termina en una fecha, y una cancha inactiva no
+ * explica ni cuándo vuelve ni por qué no está.
+ *
+ * "Hasta diciembre" es hasta el 1 de diciembre: el bloqueo termina cuando empieza el
+ * mes, no cuando termina.
+ */
+export const EN_MANTENCION = ['Cancha 7', 'Cancha 8'];
+const MANTENCION = {
+  inicio: instanteEnElClub('2026-08-01', '00:00'),
+  fin: instanteEnElClub('2026-12-01', '00:00'),
+  motivo: MotivoBloqueo.MANTENCION,
+  descripcion: 'Mantención de la superficie',
+};
 
 /** Apertura pareja para todas las canchas: `canchaId` nulo. */
 const APERTURA = [
@@ -78,12 +85,42 @@ export async function sembrarCatalogo(prisma: PrismaClient): Promise<void> {
     update: {},
   });
 
+  // La cancha 3 llevaba el "(techada)" en el nombre cuando era la única. Renombrarla
+  // y no recrearla: la base de desarrollo tiene reservas colgando de ese id, y un
+  // upsert con el nombre nuevo dejaría la vieja como una novena cancha fantasma.
+  await prisma.cancha.updateMany({
+    where: { nombre: 'Cancha 3 (techada)' },
+    data: { nombre: 'Cancha 3' },
+  });
+
   for (const cancha of CANCHAS) {
-    await prisma.cancha.upsert({
+    const { id } = await prisma.cancha.upsert({
       where: { nombre: cancha.nombre },
-      create: cancha,
-      update: cancha,
+      // `activa` también en el update: la base de desarrollo termina con canchas que
+      // alguien desactivó probando el panel, y las ocho son datos de demo que el seed
+      // tiene que dejar como dice acá.
+      create: { ...cancha, activa: true },
+      update: { ...cancha, activa: true },
+      select: { id: true },
     });
+
+    // Como la apertura y las franjas: sin clave natural, la idempotencia se resuelve
+    // buscando primero. Una cancha del seed tiene a lo más una mantención.
+    if (EN_MANTENCION.includes(cancha.nombre)) {
+      const existente = await prisma.bloqueo.findFirst({
+        where: { canchaId: id, motivo: MotivoBloqueo.MANTENCION },
+        select: { id: true },
+      });
+
+      if (existente) {
+        await prisma.bloqueo.update({
+          where: { id: existente.id },
+          data: MANTENCION,
+        });
+      } else {
+        await prisma.bloqueo.create({ data: { ...MANTENCION, canchaId: id } });
+      }
+    }
   }
 
   // Ni la apertura ni las franjas tienen clave natural —`cancha_id` nulo no choca

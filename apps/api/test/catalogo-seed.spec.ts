@@ -1,6 +1,11 @@
 import { MotivoBloqueo, Superficie } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { CANCHAS, sembrarCatalogo } from '../prisma/seed-catalogo';
+import { instanteEnElClub } from '../src/comun/tiempo';
+import {
+  CANCHAS,
+  EN_MANTENCION,
+  sembrarCatalogo,
+} from '../prisma/seed-catalogo';
 
 /**
  * T9. El modelo de `SPEC-catalogo-canchas.md` más la fila única de configuración.
@@ -149,11 +154,35 @@ describe('Catálogo de canchas', () => {
       ).toBe(7);
     });
 
-    it('deja tres canchas de superficies distintas', async () => {
+    it('deja ocho canchas de cemento iluminadas, cuatro de ellas techadas', async () => {
       const canchas = await prisma.cancha.findMany({ where: canchasDelSeed });
 
-      expect(canchas).toHaveLength(3);
-      expect(new Set(canchas.map((c) => c.superficie)).size).toBe(3);
+      expect(canchas).toHaveLength(8);
+      expect(canchas.every((c) => c.superficie === Superficie.CEMENTO)).toBe(
+        true,
+      );
+      expect(canchas.every((c) => c.iluminacion)).toBe(true);
+      expect(canchas.filter((c) => c.techada)).toHaveLength(4);
+    });
+
+    it('deja en mantención hasta diciembre a dos de las techadas', async () => {
+      const enMantencion = await prisma.cancha.findMany({
+        where: { nombre: { in: EN_MANTENCION } },
+        include: { bloqueos: true },
+      });
+
+      expect(enMantencion).toHaveLength(2);
+
+      for (const cancha of enMantencion) {
+        // Techadas y no cualquiera: la demo de un día de lluvia se apoya en que
+        // queden dos techadas disponibles, no cero.
+        expect(cancha.techada).toBe(true);
+        expect(cancha.bloqueos).toHaveLength(1);
+        expect(cancha.bloqueos[0]).toMatchObject({
+          motivo: MotivoBloqueo.MANTENCION,
+          fin: instanteEnElClub('2026-12-01', '00:00'),
+        });
+      }
     });
 
     it('deja horario de apertura para los siete días', async () => {
