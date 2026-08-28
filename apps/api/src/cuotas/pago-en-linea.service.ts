@@ -26,6 +26,8 @@ export interface PagoDeCuotaIniciado {
   cuotaId: number;
   montoClp: number;
   urlRedireccion: string;
+  /** Se manda como `token_ws` en el POST a la pasarela. Ver `PagoIniciado`. */
+  tokenPasarela: string;
 }
 
 /**
@@ -123,7 +125,12 @@ export class PagoEnLineaDeCuota {
       urlRetorno,
     });
 
-    return { cuotaId: cuota.id, montoClp, urlRedireccion: pago.urlRedireccion };
+    return {
+      cuotaId: cuota.id,
+      montoClp,
+      urlRedireccion: pago.urlRedireccion,
+      tokenPasarela: pago.tokenPasarela,
+    };
   }
 
   /**

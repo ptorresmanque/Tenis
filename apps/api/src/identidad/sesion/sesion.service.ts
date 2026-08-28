@@ -75,7 +75,11 @@ export class SesionService {
           select: {
             id: true,
             nombre: true,
+            apellido: true,
             email: true,
+            // El formulario de reserva del visitante los usa para no volver a pedir
+            // lo que la cuenta ya sabe.
+            telefono: true,
             esAdmin: true,
             socio: { select: { id: true, estado: true, alDiaHasta: true } },
             profesor: { select: { id: true } },

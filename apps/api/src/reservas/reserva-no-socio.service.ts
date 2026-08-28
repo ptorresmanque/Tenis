@@ -27,6 +27,8 @@ export interface PagoDeReservaIniciado {
   folio: string;
   montoClp: number;
   urlRedireccion: string;
+  /** Se manda como `token_ws` en el POST a la pasarela. Ver `PagoIniciado`. */
+  tokenPasarela: string;
 }
 
 /** Cómo terminó la vuelta desde la pasarela, para armar la redirección. */
@@ -85,6 +87,7 @@ export class ReservaNoSocioService {
         folio: reserva.folio,
         montoClp: bloque.montoClp,
         urlRedireccion: pago.urlRedireccion,
+        tokenPasarela: pago.tokenPasarela,
       };
     } catch (error) {
       // La pasarela no aceptó la orden: el bloque vuelve a la grilla enseguida.

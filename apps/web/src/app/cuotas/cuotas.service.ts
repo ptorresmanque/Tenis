@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { RedireccionAPasarela } from '../core/pagos/ir-a-pagar';
+
 export type EstadoCuota = 'PENDIENTE' | 'PAGADA' | 'ANULADA';
 export type MedioPago = 'WEBPAY' | 'EFECTIVO' | 'TRANSFERENCIA';
 
@@ -98,12 +100,9 @@ export class Cuotas {
    * El monto no viaja: sale de la cuota emitida. Aceptarlo del navegador sería dejar
    * que cada socio elija cuánto paga.
    */
-  pagar(id: number): Promise<{ urlRedireccion: string }> {
+  pagar(id: number): Promise<RedireccionAPasarela> {
     return firstValueFrom(
-      this.http.post<{ urlRedireccion: string }>(
-        `/api/cuotas/${id}/pagar`,
-        {},
-      ),
+      this.http.post<RedireccionAPasarela>(`/api/cuotas/${id}/pagar`, {}),
     );
   }
 

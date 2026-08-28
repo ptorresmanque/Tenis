@@ -9,6 +9,7 @@ import { hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
 import {
   EstadoCuota,
   EstadoReserva,
+  EstadoSocio,
   Prisma,
   TipoCuota,
 } from '../generated/prisma/client';
@@ -277,6 +278,12 @@ export class ReservasService {
    * La persona declara "socio 214", que es lo que sabe; el id interno no lo conoce
    * nadie fuera de la base. Un número que no existe se rechaza acá con su mensaje, y
    * no como un acompañante que misteriosamente no cuenta.
+   *
+   * **Y tiene que estar activo.** Un acompañante con `socioId` no descuenta invitados
+   * del mes (`cupo.ts`, `esInvitadoExterno`), así que el número de alguien retirado o
+   * suspendido sería la puerta para meter gente sin tocar el cupo y sin límite. La
+   * regla vive acá, en el único camino que crea reservas de socio: dejarla solo en la
+   * lista que ofrece la interfaz es dejarla en el lado que no manda.
    */
   private async resolverNumerosDeSocio(
     acompanantes: AcompananteDeclarado[],
@@ -287,13 +294,25 @@ export class ReservasService {
 
         const socio = await this.prisma.socio.findUnique({
           where: { numeroSocio: acompanante.numeroSocio },
-          select: { id: true },
+          select: { id: true, estado: true },
         });
 
         if (!socio) {
           throw new NotFoundException(
             `No hay ningún socio con el número ${acompanante.numeroSocio}.`,
           );
+        }
+
+        if (socio.estado !== EstadoSocio.ACTIVO) {
+          // 409 con motivo, como el resto de los rechazos de negocio: la SPA ya sabe
+          // mostrar este mensaje tal cual viene escrito.
+          throw new ConflictException({
+            motivo: 'ACOMPANANTE_NO_ACTIVO',
+            message:
+              `El socio ${acompanante.numeroSocio} no tiene la membresía activa: ` +
+              'no puede entrar como acompañante. Puedes declararlo como invitado, ' +
+              'que descuenta de tus invitados del mes.',
+          });
         }
 
         return { socioId: socio.id };

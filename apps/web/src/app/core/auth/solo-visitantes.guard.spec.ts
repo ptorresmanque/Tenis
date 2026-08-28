@@ -14,6 +14,8 @@ describe('soloVisitantes', () => {
   const SOCIA: UsuarioActual = {
     id: 2,
     nombre: 'Camila',
+    apellido: 'Vera',
+    telefono: null,
     email: 'camila@clubdetenis.cl',
     esAdmin: false,
     socioId: 7,

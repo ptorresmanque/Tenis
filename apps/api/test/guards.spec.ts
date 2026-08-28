@@ -168,7 +168,10 @@ describe('Guards de autorización', () => {
       expect(respuesta.body).toEqual({
         id: expect.any(Number) as number,
         nombre: 'socio',
+        apellido: 'De Prueba',
         email: `socio${DOMINIO}`,
+        // Lo usa el formulario de reserva para no volver a pedir lo que ya se sabe.
+        telefono: null,
         esAdmin: false,
         socioId: expect.any(Number) as number,
         socioActivo: true,

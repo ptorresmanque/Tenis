@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { RedireccionAPasarela } from '../core/pagos/ir-a-pagar';
+
 /** Con quién juega el socio: otro socio por su número, o un invitado por su nombre. */
 export interface AcompananteNuevo {
   numeroSocio?: string;
@@ -17,11 +19,17 @@ export interface ReservaConfirmada {
   fin: string;
 }
 
-export interface PagoIniciado {
+/** Lo mismo que devuelve el cobro de una cuota, más lo que se acaba de reservar. */
+export interface PagoIniciado extends RedireccionAPasarela {
   reservaId: number;
   folio: string;
   montoClp: number;
-  urlRedireccion: string;
+}
+
+/** El socio del club que puede acompañar a otro, tal como lo lista la API. */
+export interface SocioDelDirectorio {
+  numeroSocio: string;
+  nombre: string;
 }
 
 /** Lo que la API responde cuando una regla del club rechaza la reserva. */
@@ -76,6 +84,11 @@ export class Reservas {
     return firstValueFrom(
       this.http.post<PagoIniciado>('/api/reservas/no-socio', datos),
     );
+  }
+
+  /** Los socios activos con los que se puede jugar, para elegir de una lista. */
+  socios(): Promise<SocioDelDirectorio[]> {
+    return firstValueFrom(this.http.get<SocioDelDirectorio[]>('/api/socios'));
   }
 
   /** Las horas que tengo tomadas, de la más próxima a la más lejana. */

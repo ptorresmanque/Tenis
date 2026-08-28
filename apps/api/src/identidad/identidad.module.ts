@@ -17,6 +17,7 @@ import {
   SolicitudesController,
 } from './contacto/contacto.controller';
 import { ContactoService } from './contacto/contacto.service';
+import { DirectorioController } from './socios/directorio.controller';
 import { CambiosDeSocio } from './socios/cambios.service';
 import { FichaDeSocioService } from './socios/ficha.service';
 import { InvitacionesService } from './socios/invitaciones.service';
@@ -32,6 +33,7 @@ import { YoController } from './yo.controller';
     YoController,
     InvitacionesController,
     AdministradoresController,
+    DirectorioController,
   ],
   providers: [
     ContactoService,

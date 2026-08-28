@@ -8,6 +8,7 @@ import {
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
+import { Auth } from '../core/auth/auth';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 
@@ -39,7 +40,9 @@ import { Insignia } from '../ui/insignia';
         <a routerLink="/disponibilidad" class="boton boton-primario">
           Ver disponibilidad
         </a>
-        <a routerLink="/entrar" class="boton boton-secundario">Soy socio</a>
+        @if (!hayCuenta()) {
+          <a routerLink="/entrar" class="boton boton-secundario">Soy socio</a>
+        }
       </div>
 
       <p
@@ -151,44 +154,46 @@ import { Insignia } from '../ui/insignia';
       </ul>
     </section>
 
-    <section class="mt-16" aria-labelledby="socio-o-visitante">
-      <h2 id="socio-o-visitante" class="font-display text-2xl font-semibold">
-        Socio o visitante
-      </h2>
+    @if (!hayCuenta()) {
+      <section class="mt-16" aria-labelledby="socio-o-visitante">
+        <h2 id="socio-o-visitante" class="font-display text-2xl font-semibold">
+          Socio o visitante
+        </h2>
 
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        @for (plan of PLANES; track plan.titulo) {
-          <div
-            class="rounded-xl border bg-card p-6 shadow-sm"
-            [class.border-primary]="plan.destacado"
-            [class.border-border]="!plan.destacado"
-          >
-            <div class="flex flex-wrap items-center gap-2">
-              <h3 class="font-display text-xl font-semibold">{{ plan.titulo }}</h3>
-              @if (plan.destacado) {
-                <app-insignia variante="info" icono="star">Recomendado</app-insignia>
-              }
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          @for (plan of PLANES; track plan.titulo) {
+            <div
+              class="rounded-xl border bg-card p-6 shadow-sm"
+              [class.border-primary]="plan.destacado"
+              [class.border-border]="!plan.destacado"
+            >
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="font-display text-xl font-semibold">{{ plan.titulo }}</h3>
+                @if (plan.destacado) {
+                  <app-insignia variante="info" icono="star">Recomendado</app-insignia>
+                }
+              </div>
+              <p class="mt-1 text-sm text-muted-foreground">{{ plan.bajada }}</p>
+
+              <ul class="mt-4 grid gap-2">
+                @for (punto of plan.puntos; track punto) {
+                  <li class="flex gap-2 text-sm">
+                    <span class="icono text-accent-strong" aria-hidden="true">
+                      check_circle
+                    </span>
+                    {{ punto }}
+                  </li>
+                }
+              </ul>
+
+              <a [routerLink]="plan.destino" class="boton boton-primario mt-6 w-full">
+                {{ plan.accion }}
+              </a>
             </div>
-            <p class="mt-1 text-sm text-muted-foreground">{{ plan.bajada }}</p>
-
-            <ul class="mt-4 grid gap-2">
-              @for (punto of plan.puntos; track punto) {
-                <li class="flex gap-2 text-sm">
-                  <span class="icono text-accent-strong" aria-hidden="true">
-                    check_circle
-                  </span>
-                  {{ punto }}
-                </li>
-              }
-            </ul>
-
-            <a [routerLink]="plan.destino" class="boton boton-primario mt-6 w-full">
-              {{ plan.accion }}
-            </a>
-          </div>
-        }
-      </div>
-    </section>
+          }
+        </div>
+      </section>
+    }
 
     <section
       class="mt-16 rounded-2xl bg-primary px-6 py-12 text-center text-on-primary"
@@ -213,6 +218,17 @@ import { Insignia } from '../ui/insignia';
 })
 export class Inicio {
   private readonly disponibilidad = inject(Disponibilidad);
+  private readonly auth = inject(Auth);
+
+  /**
+   * Si hay sesión abierta, la portada deja de vender la cuenta.
+   *
+   * "Soy socio" lleva al login y la sección "Socio o visitante" ofrece registrarse:
+   * las dos le proponen a quien ya entró algo que ya hizo. Se mira la sesión y no la
+   * ficha de socio porque el visitante con cuenta está en el mismo caso —el botón
+   * "Crear mi cuenta" tampoco tiene nada que ofrecerle.
+   */
+  protected readonly hayCuenta = computed(() => this.auth.usuario() !== null);
 
   protected readonly grillas = resource({
     loader: () => this.disponibilidad.delDia(hoyEnElClub()),

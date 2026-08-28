@@ -15,6 +15,8 @@ describe('soloAdmin', () => {
   const ADMIN: UsuarioActual = {
     id: 1,
     nombre: 'Rodrigo',
+    apellido: 'Torres',
+    telefono: null,
     email: 'admin@clubdetenis.cl',
     esAdmin: true,
     socioId: null,

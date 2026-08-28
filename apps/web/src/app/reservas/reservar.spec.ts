@@ -34,10 +34,17 @@ describe('Reservar', () => {
     reservado: false,
   };
 
-  const usuario = signal<{ socioId: number | null } | null>(null);
+  const usuario = signal<{
+    socioId: number | null;
+    nombre?: string;
+    apellido?: string;
+    email?: string;
+    telefono?: string | null;
+  } | null>(null);
   const reservas = {
     reservarComoSocio: vi.fn(),
     reservarComoNoSocio: vi.fn(),
+    socios: vi.fn(),
   };
 
   const montar = () => {
@@ -69,6 +76,11 @@ describe('Reservar', () => {
     usuario.set(null);
     reservas.reservarComoSocio.mockReset();
     reservas.reservarComoNoSocio.mockReset();
+    reservas.socios.mockReset();
+    reservas.socios.mockResolvedValue([
+      { numeroSocio: '008', nombre: 'Ana Fuentes' },
+      { numeroSocio: '012', nombre: 'Bruno Salas' },
+    ]);
 
     TestBed.configureTestingModule({
       providers: [
@@ -94,6 +106,111 @@ describe('Reservar', () => {
     // El socio no paga: mostrarle un monto lo haría dudar de si le van a cobrar.
     expect(texto(fixture)).toContain('¿Con quién vas a jugar?');
     expect(texto(fixture)).not.toContain('$12.000');
+  });
+
+  it('al socio se lo elige de una lista, no se teclea su número', async () => {
+    // Tecleado a mano, el error aparece recién al enviar —"no hay ningún socio con
+    // ese número"— y para entonces ya se eligió la cancha y la hora.
+    usuario.set({ socioId: 4 });
+    const fixture = montar();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const elemento = fixture.nativeElement as HTMLElement;
+    const tipo = elemento.querySelector<HTMLSelectElement>(
+      'select[aria-label="Tipo de acompañante"]',
+    )!;
+    tipo.value = 'socio';
+    tipo.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const select = elemento.querySelector<HTMLSelectElement>(
+      'select[aria-label="Socio con el que vas a jugar"]',
+    )!;
+
+    expect(select).not.toBeNull();
+    expect(select.textContent).toContain('Ana Fuentes');
+    expect(select.textContent).toContain('008');
+  });
+
+  it('si la lista de socios no carga, lo dice y deja reintentar', async () => {
+    // Una consulta fallida no es un club sin socios. Decir "no hay otros socios"
+    // ahí es afirmar algo falso del padrón y esconder que basta con reintentar.
+    reservas.socios.mockRejectedValue(new Error('sin red'));
+    usuario.set({ socioId: 4 });
+
+    const fixture = montar();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const elemento = fixture.nativeElement as HTMLElement;
+    const tipo = elemento.querySelector<HTMLSelectElement>(
+      'select[aria-label="Tipo de acompañante"]',
+    )!;
+    tipo.value = 'socio';
+    tipo.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto(fixture)).toContain('No pudimos cargar la lista de socios');
+    expect(texto(fixture)).not.toContain('No hay otros socios');
+    expect(
+      elemento.querySelector('select[aria-label="Socio con el que vas a jugar"]'),
+    ).toBeNull();
+
+    // Y el reintento vuelve a preguntar: sin eso, el aviso es un callejón sin salida.
+    reservas.socios.mockResolvedValue([
+      { numeroSocio: '008', nombre: 'Ana Fuentes' },
+    ]);
+    Array.from(elemento.querySelectorAll('button'))
+      .find((boton) => boton.textContent?.includes('Reintentar'))!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto(fixture)).toContain('Ana Fuentes');
+  });
+
+  it('el invitado se sigue escribiendo a mano: el club no lo conoce', async () => {
+    usuario.set({ socioId: 4 });
+    const fixture = montar();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // "Invitado" es el tipo por omisión, así que lo que hay es el campo de texto.
+    const elemento = fixture.nativeElement as HTMLElement;
+    expect(
+      elemento.querySelector('input[aria-label="Nombre del invitado"]'),
+    ).not.toBeNull();
+    expect(
+      elemento.querySelector('select[aria-label="Socio con el que vas a jugar"]'),
+    ).toBeNull();
+  });
+
+  it('a quien ya entró no se le vuelven a pedir sus datos', async () => {
+    // El caso del ingreso con Google: la cuenta ya sabe cómo se llama y cuál es su
+    // correo. Volver a preguntarlo es hacerle teclear lo que el sistema tiene.
+    usuario.set({
+      socioId: null,
+      nombre: 'Patricio',
+      apellido: 'Manquepillán',
+      email: 'patricio@ejemplo.cl',
+      telefono: '+56 9 1111 2222',
+    });
+
+    const fixture = montar();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const valor = (id: string) =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+        `#${id}`,
+      )!.value;
+
+    expect(valor('nombre')).toBe('Patricio Manquepillán');
+    expect(valor('email')).toBe('patricio@ejemplo.cl');
+    expect(valor('telefono')).toBe('+56 9 1111 2222');
   });
 
   it('el visitante con datos incompletos no llega a la pasarela', async () => {

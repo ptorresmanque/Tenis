@@ -12,7 +12,9 @@ function usuario(fichas: Partial<UsuarioConFichas> = {}): UsuarioConFichas {
   return {
     id: 1,
     nombre: 'Carolina',
+    apellido: 'Rojas',
     email: 'carolina@ejemplo.cl',
+    telefono: null,
     esAdmin: false,
     socio: null,
     profesor: null,
@@ -98,6 +100,7 @@ describe('usuarioActualDe', () => {
     // Nada de hashes ni de googleId: los otros módulos reciben esto tal cual y
     // cualquier campo de más termina en un log o en una respuesta HTTP.
     expect(Object.keys(actual).sort()).toEqual([
+      'apellido',
       'email',
       'esAdmin',
       'id',
@@ -106,6 +109,7 @@ describe('usuarioActualDe', () => {
       'socioActivo',
       'socioAlDia',
       'socioId',
+      'telefono',
     ]);
   });
 });

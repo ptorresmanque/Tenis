@@ -19,7 +19,9 @@ describe('Cascarón de administración', () => {
   const ADMIN: UsuarioActual = {
     id: 1,
     nombre: 'Rodrigo Torres',
+    apellido: '',
     email: 'admin@clubdetenis.cl',
+    telefono: null,
     esAdmin: true,
     socioId: null,
     socioActivo: false,

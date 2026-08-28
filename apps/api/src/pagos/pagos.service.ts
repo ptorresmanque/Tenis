@@ -29,6 +29,15 @@ export interface PagoIniciado {
   transaccionId: number;
   referencia: string;
   urlRedireccion: string;
+  /**
+   * El token que el navegador tiene que mandar a la pasarela.
+   *
+   * Viaja hasta el cliente porque Webpay se abre con un **POST** a `urlRedireccion`
+   * llevando `token_ws`: un `GET` a esa URL pelada deja al comprador en una página
+   * en blanco. No es un secreto nuestro — es la llave de *esa* transacción y es la
+   * pasarela quien la emite para que el navegador la lleve.
+   */
+  tokenPasarela: string;
 }
 
 @Injectable()
@@ -81,6 +90,7 @@ export class PagosService {
       transaccionId: transaccion.id,
       referencia,
       urlRedireccion: inicio.urlRedireccion,
+      tokenPasarela: inicio.tokenPasarela,
     };
   }
 }

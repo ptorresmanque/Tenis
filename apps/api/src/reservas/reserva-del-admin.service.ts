@@ -106,7 +106,15 @@ export class ReservaDelAdminService {
         id: true,
         estado: true,
         alDiaHasta: true,
-        usuario: { select: { id: true, nombre: true, email: true } },
+        usuario: {
+          select: {
+            id: true,
+            nombre: true,
+            apellido: true,
+            email: true,
+            telefono: true,
+          },
+        },
       },
     });
 
@@ -125,7 +133,9 @@ export class ReservaDelAdminService {
     const comoElSocio: UsuarioActual = {
       id: socio.usuario.id,
       nombre: socio.usuario.nombre,
+      apellido: socio.usuario.apellido,
       email: socio.usuario.email,
+      telefono: socio.usuario.telefono,
       esAdmin: false,
       socioId: socio.id,
       socioActivo: socio.estado === EstadoSocio.ACTIVO,

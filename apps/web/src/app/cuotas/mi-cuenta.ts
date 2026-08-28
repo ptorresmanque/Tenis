@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../core/errores';
+import { irAPagar } from '../core/pagos/ir-a-pagar';
 import { Aviso } from '../ui/aviso';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
@@ -164,16 +165,15 @@ export class MiCuenta {
   /**
    * Manda a la pasarela.
    *
-   * Se sale de la aplicación con `location.href` y no con el router: del otro lado hay
-   * un dominio ajeno, y el router de Angular no navega fuera del sitio.
+   * Se sale de la aplicación por fuera del router —del otro lado hay un dominio
+   * ajeno— y por POST, que es la única forma en que Webpay abre su formulario.
    */
   protected async pagar(cuota: MiCuota): Promise<void> {
     this.error.set(null);
     this.pagando.set(true);
 
     try {
-      const { urlRedireccion } = await this.api.pagar(cuota.id);
-      window.location.href = urlRedireccion;
+      irAPagar(await this.api.pagar(cuota.id));
     } catch (falla) {
       this.error.set(
         mensajeDelServidor(falla, 'No se pudo iniciar el pago. Reintenta.'),

@@ -37,9 +37,16 @@ describe('MiCuenta', () => {
     deudaClp: number,
     pago: string | null = null,
   ) => {
+    // jsdom no navega: `form.submit()` no está implementado y sin este doble la
+    // salida a la pasarela llena la consola de errores del entorno de prueba.
+    HTMLFormElement.prototype.submit = vi.fn();
+
     api = {
       mias: vi.fn().mockResolvedValue({ cuotas, deudaClp }),
-      pagar: vi.fn().mockResolvedValue({ urlRedireccion: 'https://webpay/x' }),
+      pagar: vi.fn().mockResolvedValue({
+        urlRedireccion: 'https://webpay/x',
+        tokenPasarela: 'tok-1',
+      }),
     };
 
     TestBed.resetTestingModule();

@@ -36,6 +36,8 @@ describe('RankingDeTorneos', () => {
   const SOCIA: UsuarioActual = {
     id: 9,
     nombre: 'Ana Uno',
+    apellido: '',
+    telefono: null,
     email: 'ana@ejemplo.cl',
     esAdmin: false,
     socioId: 3,

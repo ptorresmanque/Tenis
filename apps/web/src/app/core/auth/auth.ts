@@ -11,7 +11,10 @@ import { catchError, firstValueFrom, of } from 'rxjs';
 export interface UsuarioActual {
   id: number;
   nombre: string;
+  apellido: string;
   email: string;
+  /** Nulo para quien entró con Google: Google no entrega el teléfono. */
+  telefono: string | null;
   esAdmin: boolean;
   socioId: number | null;
   socioActivo: boolean;

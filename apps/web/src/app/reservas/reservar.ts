@@ -6,6 +6,7 @@ import {
   inject,
   input,
   output,
+  resource,
   signal,
   viewChild,
 } from '@angular/core';
@@ -16,6 +17,7 @@ import {
 } from '@angular/forms';
 
 import { Auth } from '../core/auth/auth';
+import { irAPagar } from '../core/pagos/ir-a-pagar';
 import { BloqueDisponible, Cancha } from '../catalogo-canchas/disponibilidad';
 import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
 import {
@@ -74,7 +76,7 @@ import {
               @for (acompanante of acompanantes(); track $index) {
                 <div class="flex items-center gap-2">
                   <span class="flex-1 rounded-lg border border-border px-3 py-2 text-sm">
-                    {{ acompanante.numeroSocio ? 'Socio ' + acompanante.numeroSocio : acompanante.nombre }}
+                    {{ etiqueta(acompanante) }}
                   </span>
                   <button
                     type="button"
@@ -96,13 +98,63 @@ import {
                   <option value="invitado">Invitado</option>
                   <option value="socio">Socio del club</option>
                 </select>
-                <input
-                  class="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2"
-                  [placeholder]="tipo() === 'socio' ? 'Número de socio' : 'Nombre y apellido'"
-                  [attr.aria-label]="tipo() === 'socio' ? 'Número de socio' : 'Nombre del invitado'"
-                  [value]="porAgregar()"
-                  (input)="porAgregar.set($any($event.target).value)"
-                />
+
+                <!-- Al socio se lo elige de la lista y al invitado se lo escribe: el
+                     número de socio no se lo sabe nadie de memoria, y tecleado a mano
+                     el error recién aparece al enviar, con "no hay ningún socio con
+                     ese número". Al invitado, en cambio, el club no lo conoce: no hay
+                     lista de donde sacarlo. -->
+                @if (tipo() === 'socio') {
+                  <!-- La lista que no cargó no es una lista vacía. Decir "no hay
+                       otros socios" cuando lo que falló fue la consulta es afirmar
+                       algo falso sobre el padrón del club, y deja a quien reserva
+                       sin saber que basta con reintentar. -->
+                  @if (socios.error()) {
+                    <p
+                      role="alert"
+                      class="min-w-0 flex-1 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                    >
+                      No pudimos cargar la lista de socios.
+                      <button
+                        type="button"
+                        class="cursor-pointer font-semibold underline"
+                        (click)="socios.reload()"
+                      >
+                        Reintentar
+                      </button>
+                    </p>
+                  } @else {
+                    <select
+                      class="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2"
+                      aria-label="Socio con el que vas a jugar"
+                      [value]="porAgregar()"
+                      (change)="porAgregar.set($any($event.target).value)"
+                    >
+                      <option value="">
+                        {{
+                          socios.isLoading()
+                            ? 'Buscando socios…'
+                            : sinSociosDisponibles()
+                              ? 'No hay otros socios para elegir'
+                              : 'Elige un socio'
+                        }}
+                      </option>
+                      @for (socio of sociosDisponibles(); track socio.numeroSocio) {
+                        <option [value]="socio.numeroSocio">
+                          {{ socio.nombre }} · N.º {{ socio.numeroSocio }}
+                        </option>
+                      }
+                    </select>
+                  }
+                } @else {
+                  <input
+                    class="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2"
+                    placeholder="Nombre y apellido"
+                    aria-label="Nombre del invitado"
+                    [value]="porAgregar()"
+                    (input)="porAgregar.set($any($event.target).value)"
+                  />
+                }
                 <button
                   type="button"
                   class="cursor-pointer rounded-lg bg-muted px-3 py-2 font-medium disabled:cursor-not-allowed"
@@ -211,6 +263,42 @@ export class Reservar {
   protected readonly error = signal<string | null>(null);
   protected readonly enviando = signal(false);
 
+  /**
+   * Los socios del club, para elegir de una lista.
+   *
+   * Solo se pide si quien mira es socio: el visitante no declara acompañantes y el
+   * endpoint le respondería 403.
+   */
+  protected readonly socios = resource({
+    params: () => (this.esSocio() ? {} : undefined),
+    loader: () => this.reservas.socios(),
+    defaultValue: [],
+  });
+
+  /** Los que todavía no están en la lista: agregar dos veces al mismo no es válido. */
+  protected readonly sociosDisponibles = computed(() => {
+    const puestos = new Set(
+      this.acompanantes()
+        .map((acompanante) => acompanante.numeroSocio)
+        .filter((numero) => numero !== undefined),
+    );
+
+    return this.socios.value().filter((socio) => !puestos.has(socio.numeroSocio));
+  });
+
+  /**
+   * No quedan socios que ofrecer, y es porque no los hay.
+   *
+   * La consulta fallida se descuenta acá y no solo en la plantilla: con la lista
+   * vacía por un error, esto respondería que el club no tiene más socios.
+   */
+  protected readonly sinSociosDisponibles = computed(
+    () =>
+      !this.socios.isLoading() &&
+      this.socios.error() === undefined &&
+      this.sociosDisponibles().length === 0,
+  );
+
   constructor() {
     // `showModal()` y no el atributo `open`: solo la primera vuelve el resto de la
     // página inerte y atrapa el foco.
@@ -224,6 +312,22 @@ export class Reservar {
       const elemento = this.dialogo().nativeElement;
 
       if (!elemento.open) elemento.showModal();
+    });
+
+    // Quien ya entró —con Google o con su contraseña— no vuelve a teclear lo que su
+    // cuenta ya sabe. Solo mientras no haya tocado nada: si empezó a corregir el
+    // correo, el suyo gana. El teléfono llega vacío desde Google, que no lo entrega,
+    // y ese sí queda por escribir.
+    effect(() => {
+      const yo = this.auth.usuario();
+
+      if (!yo || this.formulario.dirty) return;
+
+      this.formulario.patchValue({
+        nombre: `${yo.nombre} ${yo.apellido}`.trim(),
+        email: yo.email,
+        telefono: yo.telefono ?? '',
+      });
     });
   }
 
@@ -252,6 +356,22 @@ export class Reservar {
     this.tipo.set(
       (evento.target as HTMLSelectElement).value === 'socio' ? 'socio' : 'invitado',
     );
+    // Lo tecleado para un invitado no es un número de socio ni al revés: arrastrarlo
+    // al otro campo agrega a alguien que nadie eligió.
+    this.porAgregar.set('');
+  }
+
+  /** Cómo se lee un acompañante ya agregado. Al socio se lo nombra, no se lo numera. */
+  protected etiqueta(acompanante: AcompananteNuevo): string {
+    if (!acompanante.numeroSocio) return acompanante.nombre ?? '';
+
+    const socio = this.socios
+      .value()
+      .find((candidato) => candidato.numeroSocio === acompanante.numeroSocio);
+
+    return socio
+      ? `${socio.nombre} · N.º ${acompanante.numeroSocio}`
+      : `Socio ${acompanante.numeroSocio}`;
   }
 
   protected async enviar(): Promise<void> {
@@ -281,9 +401,8 @@ export class Reservar {
           ...this.formulario.getRawValue(),
         });
 
-        // A la pasarela con `location.href`: es una navegación fuera de la SPA y el
-        // router de Angular no la haría.
-        globalThis.location.href = pago.urlRedireccion;
+        // A la pasarela por POST: Webpay no abre el formulario de pago con un GET.
+        irAPagar(pago);
       }
     } catch (falla) {
       this.error.set(mensajeDeRechazo(falla).mensaje);

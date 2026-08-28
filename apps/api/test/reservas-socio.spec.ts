@@ -383,6 +383,34 @@ describe('POST /api/reservas — reserva de socio', () => {
       expect(respuesta.body.message).toContain('NO-EXISTE');
     });
 
+    it('un socio sin membresía activa no entra como acompañante', async () => {
+      // El agujero que tapa esta regla: un acompañante con `socioId` no descuenta
+      // invitados del mes, así que el número de alguien retirado sería la forma de
+      // meter gente gratis y sin tope. La lista de la interfaz ya no los ofrece,
+      // pero la que manda es esta.
+      await crearSocio('retirado', { estado: EstadoSocio.RETIRADO });
+
+      const respuesta = await reservar(
+        unaReserva({ acompanantes: [{ numeroSocio: 'T22-retirado' }] }),
+      );
+
+      expect(respuesta.status).toBe(409);
+      expect(respuesta.body.motivo).toBe('ACOMPANANTE_NO_ACTIVO');
+      // Y se le dice por dónde sí puede: como invitado, gastando cupo.
+      expect(respuesta.body.message).toContain('invitado');
+    });
+
+    it('un socio suspendido tampoco: la membresía está en pausa', async () => {
+      await crearSocio('suspendido', { estado: EstadoSocio.SUSPENDIDO });
+
+      const respuesta = await reservar(
+        unaReserva({ acompanantes: [{ numeroSocio: 'T22-suspendido' }] }),
+      );
+
+      expect(respuesta.status).toBe(409);
+      expect(respuesta.body.motivo).toBe('ACOMPANANTE_NO_ACTIVO');
+    });
+
     it('el socio acompañante no gasta su propio cupo del día', async () => {
       // La regla del club: es un registro, no una reserva suya. Si le descontara la
       // hora, quien acompaña dos veces en un día quedaría sin poder reservar la suya.

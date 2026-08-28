@@ -37,7 +37,9 @@ describe('Modificación y cancelación de reservas', () => {
   const admin: UsuarioActual = {
     id: 1,
     nombre: 'Admin',
+    apellido: 'Del Club',
     email: 'admin@ejemplo.cl',
+    telefono: null,
     esAdmin: true,
     socioId: null,
     socioActivo: false,

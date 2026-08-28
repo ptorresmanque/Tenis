@@ -7,7 +7,10 @@ import { EstadoSocio } from '../generated/prisma/client';
 export interface UsuarioActual {
   id: number;
   nombre: string;
+  apellido: string;
   email: string;
+  /** Nulo para quien entró con Google: Google no entrega el teléfono. */
+  telefono: string | null;
   esAdmin: boolean;
   socioId: number | null;
   /** El socio está en estado ACTIVO. */
@@ -21,7 +24,9 @@ export interface UsuarioActual {
 export interface UsuarioConFichas {
   id: number;
   nombre: string;
+  apellido: string;
   email: string;
+  telefono: string | null;
   esAdmin: boolean;
   socio: { id: number; estado: EstadoSocio; alDiaHasta: Date } | null;
   profesor: { id: number } | null;
@@ -40,7 +45,9 @@ export function usuarioActualDe(
   return {
     id: usuario.id,
     nombre: usuario.nombre,
+    apellido: usuario.apellido,
     email: usuario.email,
+    telefono: usuario.telefono,
     esAdmin: usuario.esAdmin,
     socioId: usuario.socio?.id ?? null,
     socioActivo: usuario.socio?.estado === EstadoSocio.ACTIVO,
