@@ -26,7 +26,7 @@ import { RouterLink } from '@angular/router';
 })
 export class Logotipo {
   /** "Club de Tenis" del diseño quedó fuera: el club se llama Tennis Center. */
-  readonly descriptor = input('Tennis Center · Desde 2008');
+  readonly descriptor = input('Tennis Center');
   readonly destino = input('/');
   /** Para esconder el descriptor donde la barra queda apretada en móvil. */
   readonly claseDescriptor = input('');
