@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Service, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { catchError, firstValueFrom, of } from 'rxjs';
 
 /**
@@ -29,6 +30,7 @@ export interface UsuarioActual {
 @Service()
 export class Auth {
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
 
   private readonly estado = signal<UsuarioActual | null>(null);
 
@@ -68,5 +70,9 @@ export class Auth {
   async salir(): Promise<void> {
     await firstValueFrom(this.http.post('/api/auth/logout', {}));
     await this.refrescar();
+
+    // Los guards solo corren al navegar: sin esto, quien sale desde el panel de
+    // administración se queda parado en una pantalla de admin ya sin sesión.
+    await this.router.navigateByUrl('/');
   }
 }
