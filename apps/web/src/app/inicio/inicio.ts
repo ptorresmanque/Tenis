@@ -3,12 +3,14 @@ import { RouterLink } from '@angular/router';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import {
+  diaEnPalabras,
   enPesos,
   horaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
 import { Auth } from '../core/auth/auth';
+import { Torneos } from '../torneos/torneos.service';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 
@@ -19,9 +21,15 @@ import { Insignia } from '../ui/insignia';
  * misma consulta que la grilla, así que el precio y la disponibilidad son los del
  * momento: una portada con horarios inventados envejece el mismo día.
  *
- * Del diseño quedó fuera la sección "La vida del club" —torneos, clases y
- * ranking—: son los módulos de la fase 7 y todavía no existen. Anunciar un torneo
- * que no se puede abrir es peor que no anunciarlo.
+ * **Anuncia los torneos con la inscripción abierta**, que es lo único de "La vida del
+ * club" que la portada muestra. El resto de esa sección del diseño —clases y ranking—
+ * sigue fuera: acá va lo que alguien puede hacer *hoy*, y de esos tres módulos el único
+ * con una fecha de cierre encima es la inscripción a un torneo.
+ *
+ * Lo que se anuncia sale del mismo endpoint público que la página de torneos, filtrado
+ * por estado **y por fecha de cierre**: un torneo puede quedar en `INSCRIPCION` con el
+ * plazo vencido hasta que el admin arma el cuadro, y mandar a alguien a un formulario
+ * que lo va a rechazar es peor que no anunciarlo.
  */
 @Component({
   selector: 'app-inicio',
@@ -54,7 +62,92 @@ import { Insignia } from '../ui/insignia';
         {{ cuantasCanchas() }} · Abierto de 08:00 a 22:00 · Reserva confirmada al
         instante
       </p>
+
+      <!-- **La franja del torneo va sobre el pliegue y la sección abajo.** Es lo que
+           pidió el club: quien entra a reservar una hora no baja hasta el final, y un
+           torneo con la inscripción abierta tiene fecha de cierre. El aviso ancla a la
+           sección en vez de sacar a nadie de la portada. -->
+      @if (abiertos().length > 0) {
+        <p class="mt-4 text-sm">
+          <a
+            href="#torneos-abiertos"
+            class="inline-flex flex-wrap items-center justify-center gap-2 rounded-full
+                   border border-primary/30 bg-primary/5 px-4 py-2 font-semibold
+                   text-primary"
+          >
+            <span class="icono" aria-hidden="true">emoji_events</span>
+            {{ avisoDeTorneos() }}
+          </a>
+        </p>
+      }
     </section>
+
+    @if (abiertos().length > 0) {
+      <section class="mt-12" aria-labelledby="torneos-abiertos">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="torneos-abiertos" class="font-display text-2xl font-semibold">
+            Inscripciones abiertas
+          </h2>
+          <a routerLink="/torneos" class="text-sm font-semibold text-primary">
+            Ver todos los torneos
+          </a>
+        </div>
+
+        <ul class="mt-4 grid gap-4 md:grid-cols-2">
+          @for (torneo of abiertos(); track torneo.id) {
+            <li class="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="font-display text-lg font-semibold">
+                  {{ torneo.nombre }}
+                </h3>
+                <app-insignia variante="exito" icono="how_to_reg">
+                  Inscripción abierta
+                </app-insignia>
+              </div>
+
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ enPalabras(torneo.fechaInicio) }} —
+                {{ enPalabras(torneo.fechaFin) }}
+              </p>
+              <p class="text-sm font-medium">
+                Te puedes inscribir hasta el
+                {{ enPalabras(torneo.cierreInscripcion) }}.
+              </p>
+
+              <!-- **Una línea por categoría**: el valor y el cupo son de cada cuadro,
+                   así que un precio del torneo mentiría —Honor puede costar el doble
+                   que la 5ª el mismo fin de semana—. -->
+              <ul class="mt-3 grid gap-1">
+                @for (categoria of torneo.categorias; track categoria.id) {
+                  <li class="flex flex-wrap gap-x-2 text-sm">
+                    <strong>{{ categoria.categoria }}</strong>
+                    <span class="text-accent-strong">
+                      {{ precio(categoria.montoClp) }}
+                    </span>
+                    <span class="text-muted-foreground">
+                      @if (categoria.cuposLibres > 0) {
+                        · quedan {{ categoria.cuposLibres }} de {{ categoria.cupo }}
+                      } @else {
+                        · sin cupos, se entra en lista de espera
+                      }
+                    </span>
+                  </li>
+                }
+              </ul>
+
+              <a
+                routerLink="/torneos"
+                [queryParams]="{ inscripcion: torneo.id }"
+                class="boton boton-primario mt-4 w-full"
+              >
+                Inscribirme
+                <span class="sr-only">en {{ torneo.nombre }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
 
     <section class="mt-12" aria-labelledby="libre-hoy">
       <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -219,6 +312,54 @@ import { Insignia } from '../ui/insignia';
 export class Inicio {
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly auth = inject(Auth);
+  private readonly torneos = inject(Torneos);
+
+  /**
+   * El calendario del año, para quedarse solo con lo que se puede inscribir hoy.
+   *
+   * Del mismo endpoint público que la página de torneos y sin uno nuevo: lo que la
+   * portada muestra es un recorte de lo que ya se publica, y dos fuentes para el mismo
+   * dato se contradicen el día que alguien cambia una.
+   */
+  private readonly calendario = resource({
+    loader: () => this.torneos.calendario(),
+    defaultValue: [],
+  });
+
+  /**
+   * Los torneos que aceptan inscripciones **hoy**.
+   *
+   * El estado no alcanza: un torneo puede quedar en `INSCRIPCION` con la fecha de
+   * cierre pasada hasta que el admin arma el cuadro, y anunciar eso en la portada es
+   * mandar a alguien a un formulario que lo va a rechazar. La fecha de cierre cuenta
+   * entera, como en el servidor.
+   */
+  protected readonly abiertos = computed(() =>
+    this.calendario
+      .value()
+      .filter(
+        (torneo) =>
+          torneo.estado === 'INSCRIPCION' &&
+          torneo.cierreInscripcion.slice(0, 10) >= hoyEnElClub(),
+      ),
+  );
+
+  /** El aviso de arriba: un torneo se nombra, varios se cuentan. */
+  protected readonly avisoDeTorneos = computed(() => {
+    const abiertos = this.abiertos();
+
+    return abiertos.length === 1
+      ? `Inscripciones abiertas: ${abiertos[0].nombre}, hasta el ` +
+          `${diaEnPalabras(abiertos[0].cierreInscripcion)}`
+      : `${abiertos.length} torneos con la inscripción abierta`;
+  });
+
+  protected readonly enPalabras = diaEnPalabras;
+
+  /** El precio de una categoría. Cero es gratis y se dice con la palabra. */
+  protected precio(montoClp: number): string {
+    return montoClp > 0 ? enPesos(montoClp) : 'gratis';
+  }
 
   /**
    * Si hay sesión abierta, la portada deja de vender la cuenta.

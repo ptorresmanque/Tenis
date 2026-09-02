@@ -17,9 +17,16 @@ export interface PartidoJugado {
   ganadorId: number | null;
 }
 
-/** Un torneo terminado, con lo que hace falta para repartir sus puntos. */
-export interface TorneoTerminado {
-  /** De la categoría. Es la única perilla configurable de toda la escala. */
+/**
+ * Un **cuadro** terminado, con lo que hace falta para repartir sus puntos.
+ *
+ * La unidad es el cuadro desde T70: una Copa que corre 5ª, 4ª y Honor entrega tres de
+ * éstos, cada uno con su `puntosCampeon`. El motor no se enteró del cambio —siempre
+ * contó rondas sobre una lista de partidos con una final—; lo que cambió es quién le
+ * pasa las unidades.
+ */
+export interface CuadroTerminado {
+  /** De la categoría del cuadro. Es la única perilla configurable de toda la escala. */
   puntosCampeon: number;
   partidos: PartidoJugado[];
 }
@@ -30,7 +37,12 @@ export interface FilaDeRanking {
   jugadorId: number;
   nombre: string;
   puntos: number;
-  /** En cuántos torneos los consiguió. Es el primer criterio de desempate. */
+  /**
+   * En cuántos **cuadros** los consiguió. Es el primer criterio de desempate.
+   *
+   * Se llama `torneos` y no `cuadros` porque es lo que la pantalla dice —"3 torneos"—
+   * y para el jugador son tres torneos: nadie juega dos categorías del mismo.
+   */
   torneos: number;
 }
 
@@ -46,13 +58,13 @@ export interface FilaDeRanking {
 const FRACCIONES = [0.6, 0.36, 0.18, 0.09, 0.045];
 
 /**
- * Los puntos de un jugador en un torneo.
+ * Los puntos de un jugador en un cuadro.
  *
  * @param rondaAlcanzada La ronda del último partido que **jugó**. Cero si no jugó
  *                       ninguno.
  * @param rondas         Cuántas rondas tuvo el cuadro; la final es la última.
  * @param esCampeon      Si ganó la final.
- * @param puntosCampeon  Los de la categoría del torneo.
+ * @param puntosCampeon  Los de la categoría del cuadro.
  *
  * **Perder en primera ronda da cero**, se llame esa ronda como se llame: en un cuadro
  * de cuatro la primera ronda es la semifinal y tampoco puntúa. Participar no es un
@@ -89,26 +101,26 @@ function seJugo(partido: PartidoJugado): boolean {
 }
 
 /**
- * Los puntos que reparte un torneo, por jugador.
+ * Los puntos que reparte un cuadro, por jugador.
  *
  * Están todos los que aparecen en el cuadro, incluidos los que sacaron cero: quien
  * pregunta por qué no suma quiere ver su cero, no su ausencia.
  */
-export function puntosDelTorneo(torneo: TorneoTerminado): Map<number, number> {
-  const rondas = torneo.partidos.reduce(
+export function puntosDelCuadro(cuadro: CuadroTerminado): Map<number, number> {
+  const rondas = cuadro.partidos.reduce(
     (mayor, partido) => Math.max(mayor, partido.ronda),
     0,
   );
 
   // Campeón es quien ganó la final, y la final es un partido con dos nombres. Sin
   // esta condición, un cuadro de puros byes coronaría a los dos que pasaron solos.
-  const final = torneo.partidos.find(
+  const final = cuadro.partidos.find(
     (partido) => partido.ronda === rondas && seJugo(partido),
   );
   const campeonId = final?.ganadorId ?? null;
 
   const alcanzada = new Map<number, number>();
-  for (const partido of torneo.partidos) {
+  for (const partido of cuadro.partidos) {
     const juega = seJugo(partido);
 
     for (const jugadorId of [partido.jugadorAId, partido.jugadorBId]) {
@@ -123,7 +135,7 @@ export function puntosDelTorneo(torneo: TorneoTerminado): Map<number, number> {
   return new Map(
     [...alcanzada].map(([jugadorId, ronda]) => [
       jugadorId,
-      puntosDe(ronda, rondas, jugadorId === campeonId, torneo.puntosCampeon),
+      puntosDe(ronda, rondas, jugadorId === campeonId, cuadro.puntosCampeon),
     ]),
   );
 }
@@ -145,19 +157,19 @@ interface Acumulado {
  * queda mintiendo sin que nada falle. Con los torneos de un club esto son
  * milisegundos.
  *
- * @param torneos Los que caen dentro de la ventana. Elegirlos es de quien consulta.
+ * @param cuadros Los que caen dentro de la ventana. Elegirlos es de quien consulta.
  * @param nombres Cómo se llama cada jugador, para mostrar y para el último desempate.
  */
 export function tablaDeRanking(
-  torneos: TorneoTerminado[],
+  cuadros: CuadroTerminado[],
   nombres: Map<number, string>,
 ): FilaDeRanking[] {
   const acumulado = new Map<number, Acumulado>();
 
-  for (const torneo of torneos) {
-    for (const [jugadorId, puntos] of puntosDelTorneo(torneo)) {
-      // Un torneo donde no sumó no cuenta como torneo: el desempate premia a quien
-      // llegó a los mismos puntos en menos, no a quien se inscribió en menos.
+  for (const cuadro of cuadros) {
+    for (const [jugadorId, puntos] of puntosDelCuadro(cuadro)) {
+      // Un cuadro donde no sumó no cuenta: el desempate premia a quien llegó a los
+      // mismos puntos en menos, no a quien se inscribió en más.
       if (puntos === 0) continue;
 
       const suyo = acumulado.get(jugadorId) ?? {
@@ -169,7 +181,7 @@ export function tablaDeRanking(
       acumulado.set(jugadorId, {
         puntos: suyo.puntos + puntos,
         torneos: suyo.torneos + 1,
-        mejorCategoria: Math.max(suyo.mejorCategoria, torneo.puntosCampeon),
+        mejorCategoria: Math.max(suyo.mejorCategoria, cuadro.puntosCampeon),
       });
     }
   }

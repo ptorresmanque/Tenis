@@ -65,6 +65,27 @@ export class IntentosFallidos {
   }
 
   /**
+   * Devuelve **una** unidad de cuota, sin borrar el resto.
+   *
+   * Distinto de `perdonar`, y la diferencia importa donde lo que se cuenta no son
+   * contraseñas erradas sino algo que se retiene y se devuelve: una inscripción a un
+   * torneo ocupa un cupo mientras espera el pago, y quien lo suelta —o termina de
+   * pagar— deja de retenerlo. Perdonarle todo le regalaría también los otros que
+   * todavía tiene abiertos.
+   */
+  devolver(llave: string, ahora = Date.now()): void {
+    const vigentes = this.recientes(llave, ahora);
+
+    if (vigentes.length === 0) return;
+
+    // El más reciente: es el que se acaba de soltar.
+    vigentes.pop();
+
+    if (vigentes.length === 0) this.fallos.delete(llave);
+    else this.fallos.set(llave, vigentes);
+  }
+
+  /**
    * Barre lo vencido y, si todavía sobra, lo más viejo.
    *
    * `Map` conserva el orden de inserción, así que lo primero que devuelve es lo que

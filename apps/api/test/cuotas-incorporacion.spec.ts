@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { mesEnElClub } from '../src/comun/tiempo';
 import {
   EstadoCuota,
   Superficie,
@@ -68,7 +69,9 @@ describe('La cuota de incorporación', () => {
       .send({ email: `${sufijo}${DOMINIO}` });
 
   /** El mes en curso del club, que es cuando se dan de alta los socios del test. */
-  const mesActual = () => new Date().toISOString().slice(0, 7);
+  // **Con el reloj del club.** En UTC, a las 21:00 de un 31 ya es el mes siguiente:
+  // el panel emitiría las cuotas de un mes y el test las buscaría en el otro.
+  const mesActual = () => mesEnElClub(new Date());
 
   /** Abrir el panel del mes: es lo que emite las cuotas. */
   const mirarElMes = async () => {

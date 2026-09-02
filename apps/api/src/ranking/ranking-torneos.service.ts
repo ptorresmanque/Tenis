@@ -5,11 +5,21 @@ import { EstadoTorneo } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { FilaDeRanking, tablaDeRanking } from './puntos';
 
-/** Un torneo que la tabla está contando. Se publica para poder explicarla. */
-export interface TorneoContado {
+/**
+ * Un **cuadro** que la tabla está contando. Se publica para poder explicarla.
+ *
+ * Un cuadro y no un torneo (T70): una Copa que corre 5ª, 4ª y Honor aporta tres
+ * campeones y tres juegos de puntos, y quien mira la tabla tiene que poder ver cuál de
+ * los tres le dio los suyos.
+ */
+export interface CuadroContado {
   id: number;
+  torneoId: number;
   nombre: string;
+  /** El nivel: "4ª", "Honor". */
   categoria: string;
+  /** Cuánto valía ganarlo: "Club 250". */
+  valor: string;
   fechaFin: string;
 }
 
@@ -23,7 +33,7 @@ export interface TablaDeTorneos {
    * en la respuesta prometía un tope que la consulta no aplica.
    */
   desde: string;
-  torneos: TorneoContado[];
+  torneos: CuadroContado[];
   posiciones: FilaDeRanking[];
 }
 
@@ -62,19 +72,30 @@ export class RankingDeTorneos {
     const desde = new Date(hoy);
     desde.setUTCDate(desde.getUTCDate() - DIAS_DE_LA_VENTANA);
 
-    const torneos = await this.prisma.torneo.findMany({
-      // **Solo los `FINALIZADO`.** Un torneo a medias no reparte puntos de campeón, y
-      // uno cancelado no se jugó: darle puntos sería premiar algo que no ocurrió.
+    // **La unidad es el cuadro, no el torneo** (T70). Un torneo con tres categorías
+    // reparte tres juegos de puntos, uno por cada final, y cada uno vale lo que diga su
+    // propia categoría: el campeón de Honor puede sumar el doble que el de 5ª.
+    const cuadros = await this.prisma.torneoCategoria.findMany({
+      // **Solo los de torneos `FINALIZADO`.** Un torneo a medias no reparte puntos de
+      // campeón, y uno cancelado no se jugó: darle puntos sería premiar algo que no
+      // ocurrió.
       //
       // Un solo borde: `gte` y nada de `lte`. El que se terminó de jugar antes de su
       // fecha prevista ya repartió sus puntos, y esconderlos hasta que llegue el día
       // sería negar un torneo que el club vio jugarse.
-      where: { estado: EstadoTorneo.FINALIZADO, fechaFin: { gte: desde } },
-      orderBy: [{ fechaFin: 'desc' }, { id: 'desc' }],
+      where: {
+        torneo: { estado: EstadoTorneo.FINALIZADO, fechaFin: { gte: desde } },
+      },
+      orderBy: [
+        { torneo: { fechaFin: 'desc' } },
+        { torneo: { id: 'desc' } },
+        { id: 'desc' },
+      ],
       select: {
         id: true,
-        nombre: true,
-        fechaFin: true,
+        torneoId: true,
+        torneo: { select: { nombre: true, fechaFin: true } },
+        categoriaJuego: { select: { nombre: true } },
         categoria: { select: { nombre: true, puntosCampeon: true } },
         // Todos los partidos del cuadro en la misma consulta: el motor necesita el
         // cuadro entero para saber cuántas rondas tuvo y quién ganó la final.
@@ -91,18 +112,20 @@ export class RankingDeTorneos {
 
     return {
       desde: comoFechaCivil(desde),
-      torneos: torneos.map((torneo) => ({
-        id: torneo.id,
-        nombre: torneo.nombre,
-        categoria: torneo.categoria.nombre,
-        fechaFin: comoFechaCivil(torneo.fechaFin),
+      torneos: cuadros.map((cuadro) => ({
+        id: cuadro.id,
+        torneoId: cuadro.torneoId,
+        nombre: cuadro.torneo.nombre,
+        categoria: cuadro.categoriaJuego.nombre,
+        valor: cuadro.categoria.nombre,
+        fechaFin: comoFechaCivil(cuadro.torneo.fechaFin),
       })),
       posiciones: tablaDeRanking(
-        torneos.map((torneo) => ({
-          puntosCampeon: torneo.categoria.puntosCampeon,
-          partidos: torneo.partidos,
+        cuadros.map((cuadro) => ({
+          puntosCampeon: cuadro.categoria.puntosCampeon,
+          partidos: cuadro.partidos,
         })),
-        await this.nombresDe(torneos),
+        await this.nombresDe(cuadros),
       ),
     };
   }
@@ -117,13 +140,13 @@ export class RankingDeTorneos {
    * para publicarlo, y esta tabla se mira desde la calle.
    */
   private async nombresDe(
-    torneos: {
+    cuadros: {
       partidos: { jugadorAId: number | null; jugadorBId: number | null }[];
     }[],
   ): Promise<Map<number, string>> {
     const ids = new Set<number>();
-    for (const torneo of torneos) {
-      for (const partido of torneo.partidos) {
+    for (const cuadro of cuadros) {
+      for (const partido of cuadro.partidos) {
         if (partido.jugadorAId !== null) ids.add(partido.jugadorAId);
         if (partido.jugadorBId !== null) ids.add(partido.jugadorBId);
       }

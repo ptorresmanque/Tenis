@@ -8,6 +8,9 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { CuadroDelTorneo } from './cuadro';
+import { CuadrosDelTorneo } from './cuadros-del-torneo';
+import { FotosDelTorneo } from './fotos';
+import { TransmisionesDelTorneo } from './transmisiones';
 import { InscritosDelTorneo } from './inscritos';
 import {
   CategoriaTorneo,
@@ -20,12 +23,10 @@ import {
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
   nombre: '',
-  categoriaId: 0,
   superficie: '' as string,
   fechaInicio: '',
   fechaFin: '',
   cierreInscripcion: '',
-  cupo: 16,
 });
 
 /**
@@ -44,6 +45,9 @@ const enBlanco = () => ({
     Insignia,
     InscritosDelTorneo,
     CuadroDelTorneo,
+    CuadrosDelTorneo,
+    TransmisionesDelTorneo,
+    FotosDelTorneo,
   ],
   template: `
     <h1 class="font-display text-3xl font-bold">Torneos</h1>
@@ -73,9 +77,6 @@ const enBlanco = () => ({
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <p class="font-display text-lg font-semibold">{{ torneo.nombre }}</p>
-              <app-insignia variante="info" icono="emoji_events">
-                {{ torneo.categoria }}
-              </app-insignia>
               <app-insignia
                 [variante]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
                 icono="flag"
@@ -88,22 +89,65 @@ const enBlanco = () => ({
                 [attr.aria-expanded]="abierto() === torneo.id"
                 (click)="alternar(torneo.id)"
               >
-                {{ abierto() === torneo.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
+                {{ abierto() === torneo.id ? 'Ocultar cuadros' : 'Ver cuadros' }}
               </button>
             </div>
 
             <p class="mt-1 text-sm text-muted-foreground">
               {{ enPalabras(torneo.fechaInicio) }} — {{ enPalabras(torneo.fechaFin) }}
-              · cupo {{ torneo.cupo }} · inscripción hasta
-              {{ enPalabras(torneo.cierreInscripcion) }}
+              · inscripción hasta {{ enPalabras(torneo.cierreInscripcion) }}
             </p>
-            <p class="text-sm text-muted-foreground">
-              El campeón se lleva {{ torneo.puntosCampeon }} puntos.
+            <p class="mt-1 text-sm">
+              @if (torneo.cuadros.length === 0) {
+                <span class="text-muted-foreground">
+                  Todavía no corre ninguna categoría.
+                </span>
+              } @else {
+                @for (cuadro of torneo.cuadros; track cuadro.id) {
+                  <!-- Con cuánto vale ganarlo al lado: desde T70 no es del torneo,
+                       así que verlo por cuadro es la única forma de verlo. -->
+                  <span class="me-2 text-muted-foreground">
+                    {{ cuadro.categoria }} ({{ cuadro.cupo }}) · {{ cuadro.valor }},
+                    {{ cuadro.puntosCampeon }} al campeón
+                  </span>
+                }
+              }
             </p>
 
             @if (abierto() === torneo.id) {
-              <app-inscritos-torneo [torneoId]="torneo.id" />
-              <app-cuadro-torneo [torneoId]="torneo.id" />
+              <app-cuadros-del-torneo
+                [torneoId]="torneo.id"
+                (cambiaron)="recargar()"
+              />
+
+              <app-transmisiones-del-torneo [torneoId]="torneo.id" />
+              <app-fotos-del-torneo [torneoId]="torneo.id" />
+
+              @if (torneo.cuadros.length > 0) {
+                <div class="mt-4 flex flex-wrap items-center gap-2">
+                  <span class="text-sm font-medium">Cuadro:</span>
+                  @for (cuadro of torneo.cuadros; track cuadro.id) {
+                    <button
+                      type="button"
+                      class="boton boton-chico"
+                      [class]="
+                        elegido() === cuadro.id
+                          ? 'boton-primario'
+                          : 'boton-secundario'
+                      "
+                      [attr.aria-pressed]="elegido() === cuadro.id"
+                      (click)="elegir(cuadro.id)"
+                    >
+                      {{ cuadro.categoria }}
+                    </button>
+                  }
+                </div>
+
+                @if (elegidoEn(torneo); as cuadroId) {
+                  <app-inscritos-torneo [cuadroId]="cuadroId" />
+                  <app-cuadro-torneo [cuadroId]="cuadroId" />
+                }
+              }
             }
           </li>
         }
@@ -125,38 +169,6 @@ const enBlanco = () => ({
             placeholder="Copa de verano"
             [(ngModel)]="datos.nombre"
           />
-        </label>
-
-        <label class="block">
-          <span class="text-sm font-medium">Categoría</span>
-          <select class="campo mt-1" name="categoriaId" [(ngModel)]="datos.categoriaId">
-            <option [value]="0" disabled>Elige una categoría</option>
-            @for (categoria of categoriasActivas(); track categoria.id) {
-              <option [value]="categoria.id">
-                {{ categoria.nombre }} · {{ categoria.puntosCampeon }} puntos
-              </option>
-            }
-          </select>
-          @if (categoriasActivas().length === 0) {
-            <span class="text-sm text-muted-foreground">
-              Crea una categoría primero, abajo.
-            </span>
-          }
-        </label>
-
-        <label class="block">
-          <span class="text-sm font-medium">Cupo del cuadro</span>
-          <input
-            class="campo mt-1"
-            type="number"
-            name="cupo"
-            min="2"
-            max="256"
-            [(ngModel)]="datos.cupo"
-          />
-          <span class="text-sm text-muted-foreground">
-            No hace falta que sea potencia de dos: el cuadro completa con byes.
-          </span>
         </label>
 
         <label class="block">
@@ -301,8 +313,37 @@ export class TorneosPanel {
   /** Qué torneo tiene su lista abierta. Uno a la vez: la temporada entera no cabe. */
   protected readonly abierto = signal<number | null>(null);
 
+  /** Qué cuadro del torneo abierto se está mirando. */
+  protected readonly elegido = signal<number | null>(null);
+
   protected alternar(id: number): void {
     this.abierto.update((actual) => (actual === id ? null : id));
+    this.elegido.set(null);
+  }
+
+  protected elegir(cuadroId: number): void {
+    this.elegido.set(cuadroId);
+  }
+
+  /**
+   * El cuadro elegido, o el primero si todavía no se eligió ninguno.
+   *
+   * **Se cae al primero en vez de no mostrar nada**: abrir un torneo y ver una fila de
+   * botones sin contenido debajo parece una pantalla rota. Y se comprueba que el
+   * elegido siga siendo de **este** torneo, porque el mismo signal sobrevive a cerrar
+   * uno y abrir otro.
+   */
+  protected elegidoEn(torneo: Torneo): number | null {
+    const suyos = torneo.cuadros.map((cuadro) => cuadro.id);
+    const elegido = this.elegido();
+
+    return elegido !== null && suyos.includes(elegido)
+      ? elegido
+      : (suyos[0] ?? null);
+  }
+
+  protected recargar(): void {
+    this.version.update((veces) => veces + 1);
   }
 
   protected readonly enPalabras = diaEnPalabras;
@@ -315,13 +356,15 @@ export class TorneosPanel {
     await this.intentar(async () => {
       const torneo = await this.api.crearTorneo({
         ...this.datos,
-        categoriaId: Number(this.datos.categoriaId),
-        cupo: Number(this.datos.cupo),
         superficie: this.datos.superficie || null,
       });
 
       this.datos = enBlanco();
-      this.aviso.set(`${torneo.nombre} queda con la inscripción abierta.`);
+      // **El torneo nace sin cuadros y hay que decirlo**: sin categorías no se puede
+      // inscribir a nadie, y un torneo vacío en la lista no explica por qué.
+      this.aviso.set(
+        `${torneo.nombre} creado. Ábrelo y agrégale las categorías que va a correr.`,
+      );
     });
   }
 

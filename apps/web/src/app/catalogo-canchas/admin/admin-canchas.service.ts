@@ -46,6 +46,13 @@ export interface CanchaAdmin extends Cancha, AmbitoDeReglas {
   id: number;
   activa: boolean;
   orden: number;
+  /**
+   * Solo desde una cancha con cámara se transmite un partido (T68).
+   *
+   * Vive acá y no en `Cancha`: la grilla pública no dibuja nada con esto, y el
+   * endpoint abierto no tiene por qué contar dónde hay cámaras instaladas.
+   */
+  tieneCamara: boolean;
 }
 
 export type MotivoBloqueo = 'MANTENCION' | 'TORNEO' | 'CLASE' | 'OTRO';
@@ -137,6 +144,8 @@ export interface CanchaNueva {
   nombre: string;
   superficie: Cancha['superficie'];
   techada: boolean;
+  /** Solo desde una cancha con cámara se transmite un partido (T68). */
+  tieneCamara: boolean;
   iluminacion: boolean;
 }
 

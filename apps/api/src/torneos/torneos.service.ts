@@ -69,10 +69,21 @@ export class Torneos {
         fechaInicio: true,
         fechaFin: true,
         cierreInscripcion: true,
-        cupo: true,
         estado: true,
-        categoriaId: true,
-        categoria: { select: { nombre: true, puntosCampeon: true } },
+        // **El cupo y la categoría ya no son del torneo, son de cada cuadro** (T62 y
+        // T70): Honor cierra con 8 y la 4ª con 32, y ganar Honor puede valer el doble.
+        // La lista los trae para que el panel no tenga que pedir los cuadros de cada
+        // torneo por separado.
+        cuadros: {
+          orderBy: { categoriaJuego: { orden: 'asc' } },
+          select: {
+            id: true,
+            cupo: true,
+            categoriaId: true,
+            categoriaJuego: { select: { nombre: true } },
+            categoria: { select: { nombre: true, puntosCampeon: true } },
+          },
+        },
       },
     });
 
@@ -88,22 +99,22 @@ export class Torneos {
       // Aplanado acá y no en la pantalla: el nombre de la categoría se muestra en
       // toda lista de torneos, y dejar el objeto anidado obliga a cada una a saber
       // cómo está guardado.
-      categoria: torneo.categoria.nombre,
-      puntosCampeon: torneo.categoria.puntosCampeon,
+      cuadros: torneo.cuadros.map((cuadro) => ({
+        id: cuadro.id,
+        categoria: cuadro.categoriaJuego.nombre,
+        cupo: cuadro.cupo,
+        categoriaId: cuadro.categoriaId,
+        valor: cuadro.categoria.nombre,
+        puntosCampeon: cuadro.categoria.puntosCampeon,
+      })),
     }));
   }
 
-  async crear(datos: TorneoNuevo) {
-    await this.exigirCategoria(datos.categoriaId);
-
+  crear(datos: TorneoNuevo) {
     return this.prisma.torneo.create({ data: datos });
   }
 
   async editar(id: number, cambio: Partial<TorneoNuevo>) {
-    if (cambio.categoriaId !== undefined) {
-      await this.exigirCategoria(cambio.categoriaId);
-    }
-
     const { count } = await this.prisma.torneo.updateMany({
       where: { id },
       data: cambio,
@@ -114,16 +125,5 @@ export class Torneos {
     }
 
     return this.prisma.torneo.findUniqueOrThrow({ where: { id } });
-  }
-
-  private async exigirCategoria(id: number): Promise<void> {
-    const categoria = await this.prisma.categoriaTorneo.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
-    if (!categoria) {
-      throw new NotFoundException('No hay una categoría con ese número.');
-    }
   }
 }

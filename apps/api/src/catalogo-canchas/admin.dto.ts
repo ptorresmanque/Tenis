@@ -75,6 +75,7 @@ export interface DatosCancha {
   nombre: string;
   superficie: Superficie;
   techada: boolean;
+  tieneCamara: boolean;
   iluminacion: boolean;
   /** Sin él, el servicio la pone al final de la lista. */
   orden?: number;
@@ -88,6 +89,12 @@ export function leerCanchaNueva(cuerpo: unknown): DatosCancha {
     superficie: superficieValida(datos.superficie),
     techada:
       datos.techada === undefined ? false : booleano(datos.techada, 'Techada'),
+    // Solo desde una cancha con cámara se puede transmitir (T68). Por omisión no la
+    // tiene: el club marca las que sí, que son una o dos.
+    tieneCamara:
+      datos.tieneCamara === undefined
+        ? false
+        : booleano(datos.tieneCamara, 'Tiene cámara'),
     iluminacion:
       datos.iluminacion === undefined
         ? false
@@ -113,6 +120,9 @@ export function leerCambiosDeCancha(
     cambios.nombre = texto(datos.nombre, 'el nombre');
   if (datos.superficie !== undefined) {
     cambios.superficie = superficieValida(datos.superficie);
+  }
+  if (datos.tieneCamara !== undefined) {
+    cambios.tieneCamara = booleano(datos.tieneCamara, 'Tiene cámara');
   }
   if (datos.techada !== undefined) {
     cambios.techada = booleano(datos.techada, 'Techada');

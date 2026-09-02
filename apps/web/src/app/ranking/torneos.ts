@@ -86,12 +86,14 @@ import { TablaInterna } from './tabla-interna';
 
       @if (datos.torneos.length > 0) {
         <section class="mt-8">
-          <h2 class="font-display text-lg font-semibold">Torneos que está contando</h2>
+          <h2 class="font-display text-lg font-semibold">Cuadros que está contando</h2>
           <ul class="mt-2 grid gap-1 text-sm text-muted-foreground">
-            @for (torneo of datos.torneos; track torneo.id) {
+            <!-- Cada cuadro con su nivel y con cuánto valía ganarlo (T70): una misma
+                 Copa aparece tres veces, una por categoría, y no valen lo mismo. -->
+            @for (cuadro of datos.torneos; track cuadro.id) {
               <li>
-                {{ torneo.nombre }} · {{ torneo.categoria }} · terminó el
-                {{ enPalabras(torneo.fechaFin) }}
+                {{ cuadro.nombre }} · {{ cuadro.categoria }} · {{ cuadro.valor }} ·
+                terminó el {{ enPalabras(cuadro.fechaFin) }}
               </li>
             }
           </ul>

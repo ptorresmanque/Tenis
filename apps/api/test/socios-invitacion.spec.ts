@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { mesEnElClub } from '../src/comun/tiempo';
 import { hashear } from '../src/identidad/contrasena';
 import {
   PerfilGoogle,
@@ -182,10 +183,11 @@ describe('Alta de socio por correo', () => {
       expect(invitacion.numeroSocio).not.toBe('');
       // Al día hasta fin del mes en curso: el socio que se inscribe puede usar el
       // club el mes que se inscribió, sin que nadie tenga que cargarle nada.
-      const hoy = new Date();
-      const finDeMes = new Date(
-        Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() + 1, 0),
-      );
+      // **El mes es el del club, no el de UTC.** A las 21:00 de un 31 en Santiago
+      // ya es el día 1 del mes siguiente en UTC, y calcularlo así hacía fallar este
+      // test todas las últimas noches de mes contra un servidor que estaba bien.
+      const [ano, mes] = mesEnElClub(new Date()).split('-').map(Number);
+      const finDeMes = new Date(Date.UTC(ano, mes, 0));
       expect(invitacion.alDiaHasta.slice(0, 10)).toBe(
         finDeMes.toISOString().slice(0, 10),
       );

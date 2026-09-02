@@ -40,15 +40,48 @@ export interface CategoriaTorneo {
 export interface Torneo {
   id: number;
   nombre: string;
-  categoriaId: number;
-  categoria: string;
-  puntosCampeon: number;
   superficie: string | null;
   fechaInicio: string;
   fechaFin: string;
   cierreInscripcion: string;
-  cupo: number;
   estado: EstadoTorneo;
+  /**
+   * Qué categorías corre.
+   *
+   * **El cupo es de cada una** (T62) y **cuánto vale ganarla también** (T70): en el
+   * mismo fin de semana, Honor puede ser un Máster 500 y la 5ª un Club 250.
+   */
+  cuadros: {
+    id: number;
+    categoria: string;
+    cupo: number;
+    categoriaId: number;
+    valor: string;
+    puntosCampeon: number;
+  }[];
+}
+
+/** El nivel del **jugador**: 5ª, 4ª, … Honor. No es `CategoriaTorneo`. */
+export interface CategoriaJuego {
+  id: number;
+  nombre: string;
+  orden: number;
+  activa: boolean;
+}
+
+/** Un cuadro del torneo: la categoría que corre y con cuántos. */
+export interface CuadroDelTorneo {
+  id: number;
+  torneoId: number;
+  categoriaJuegoId: number;
+  categoria: string;
+  cupo: number;
+  montoInscripcionClp: number;
+  semillaSorteo: number | null;
+  /** Cuánto vale ganarlo (T70): la categoría de torneo, no la de juego. */
+  categoriaId: number;
+  valor: string;
+  puntosCampeon: number;
 }
 
 export type EstadoInscripcionTorneo = 'INSCRITA' | 'LISTA_ESPERA' | 'RETIRADA';
@@ -59,14 +92,25 @@ export interface InscripcionTorneo {
   jugadorId: number;
   jugador: string;
   numeroSocio: string | null;
+  /** De qué club viene. Sale en el panel y en la lista pública. */
+  procedencia: string | null;
+  /**
+   * Cuándo **no** puede jugar (T65).
+   *
+   * Solo en el panel: dice a qué hora esa persona no está en su casa, así que es dato
+   * de seguridad de un tercero y no sale en la respuesta pública.
+   */
+  restricciones: { diaSemana: number; horaDesde: string; horaHasta: string }[];
   siembra: number | null;
   estado: EstadoInscripcionTorneo;
   inscritaEn: string;
 }
 
-/** La lista del torneo, en tres grupos porque son tres cosas distintas. */
-export interface ListaDelTorneo {
+/** La lista de un **cuadro**, en tres grupos porque son tres cosas distintas. */
+export interface ListaDelCuadro {
   torneoId: number;
+  torneoCategoriaId: number;
+  categoria: string;
   cupo: number;
   estado: EstadoTorneo;
   inscritos: InscripcionTorneo[];
@@ -75,6 +119,31 @@ export interface ListaDelTorneo {
 }
 
 /** Un partido, como se dibuja en el cuadro. */
+/** Una transmisión, **con la URL ya armada por el servidor**. Nunca el id pelado. */
+export interface Transmision {
+  id: number;
+  canchaId: number;
+  cancha: string;
+  titulo: string | null;
+  inicio: string;
+  fin: string;
+  url: string;
+  miniatura: string;
+}
+
+/** Un pago de inscripción esperando que el club lo mire. */
+export interface PagoPendiente {
+  id: number;
+  jugador: string;
+  telefono: string | null;
+  torneoId: number;
+  torneo: string;
+  categoria: string;
+  montoClp: number;
+  tieneComprobante: boolean;
+  inscritaEn: string;
+}
+
 export interface PartidoDelCuadro {
   id: number;
   ronda: number;
@@ -87,11 +156,19 @@ export interface PartidoDelCuadro {
   ganadorId: number | null;
   marcador: string | null;
   walkover: boolean;
+  /** Cuándo y dónde se juega (T67). Nulos mientras nadie lo programe. */
+  programadoInicio: string | null;
+  programadoFin: string | null;
+  canchaId: number | null;
+  cancha: string | null;
 }
 
 export interface Cuadro {
   torneoId: number;
+  torneoCategoriaId: number;
+  categoria: string;
   estado: EstadoTorneo;
+  armado: boolean;
   rondas: number;
   /** Con qué se sorteó: guardada para poder rehacer el sorteo. */
   semillaSorteo: number | null;
@@ -108,8 +185,23 @@ export interface TorneoPublico {
   fechaFin: string;
   cierreInscripcion: string;
   estado: EstadoTorneo;
+  /** Sus cuadros, con cuánto lugar queda en cada uno. */
+  categorias: CategoriaPublica[];
+}
+
+/** Un cuadro visto desde la calle. */
+export interface CategoriaPublica {
+  id: number;
+  /** El nivel del jugador. Es lo que el formulario manda al inscribirse. */
+  categoriaJuegoId: number;
+  categoria: string;
+  /** Cuánto vale ganarlo: "Club 250". Del cuadro y no del torneo desde T70. */
+  valor: string;
+  /** Cuánto cuesta inscribirse en **esta** categoría. 0 = gratis. */
+  montoClp: number;
   cupo: number;
   cuposLibres: number;
+  armado: boolean;
 }
 
 /** Un partido publicado: nombres y marcador, sin teléfonos. */
@@ -126,6 +218,7 @@ export interface PartidoPublico {
 
 export interface CuadroPublico {
   id: number;
+  torneoId: number;
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
@@ -135,12 +228,10 @@ export interface CuadroPublico {
 
 export interface TorneoNuevo {
   nombre: string;
-  categoriaId: number;
   superficie: string | null;
   fechaInicio: string;
   fechaFin: string;
   cierreInscripcion: string;
-  cupo: number;
 }
 
 /**
@@ -150,6 +241,25 @@ export interface TorneoNuevo {
  * el servidor reutiliza el jugador que ya tenga: el mismo socio en dos torneos es un
  * solo jugador, o el ranking sumaría sus puntos en dos filas distintas.
  */
+
+/** Cuándo se sacó la foto respecto del torneo (T69). */
+export type Momento = 'ANTES' | 'DURANTE' | 'DESPUES';
+
+/**
+ * Una foto del torneo, **con las dos direcciones ya armadas por el servidor**.
+ *
+ * Dónde está el archivo en el disco no viaja: la galería pide `miniatura` y solo al
+ * abrir la foto pide `imagen`.
+ */
+export interface Foto {
+  id: number;
+  partidoId: number | null;
+  momento: Momento;
+  descripcion: string | null;
+  miniatura: string;
+  imagen: string;
+}
+
 @Service()
 export class Torneos {
   private readonly http = inject(HttpClient);
@@ -163,10 +273,69 @@ export class Torneos {
     );
   }
 
-  /** El cuadro público, con los resultados que ya se cargaron. */
-  cuadroPublico(id: number): Promise<CuadroPublico> {
+  /**
+   * Inscribirse a un torneo **sin cuenta**.
+   *
+   * El servidor decide todo lo que importa —si la inscripción sigue abierta, si el
+   * cuadro ya se armó, si queda cupo— y devuelve en qué quedó: dentro del cuadro o en
+   * la lista de espera. La pantalla no lo adivina.
+   *
+   * **Con el comprobante adjunto viaja como multipart y en un solo envío.** El
+   * servidor rechaza la inscripción que elige transferir y llega sin imagen, así que
+   * mandarlos por separado dejaría a la persona a medio inscribir.
+   */
+  inscribirseEnTorneo(
+    torneoId: number,
+    datos: {
+      nombre: string;
+      apellido: string;
+      telefono: string;
+      procedencia: string;
+      categoriaJuegoId: number;
+      /** Vacío cuando la categoría es gratis: ahí no hay nada que elegir. */
+      medioPago: '' | 'WEBPAY' | 'TRANSFERENCIA';
+      restricciones: {
+        diaSemana: number;
+        horaDesde: string;
+        horaHasta: string;
+      }[];
+    },
+    comprobante?: File,
+  ): Promise<{
+    id: number;
+    estado: EstadoInscripcionTorneo;
+    estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
+    /** Su llave: con ella vuelve a pagar o a subir el comprobante. */
+    token: string;
+    montoClp: number;
+    categoria: string;
+    jugador: string;
+  }> {
     return firstValueFrom(
-      this.http.get<CuadroPublico>(`/api/torneos/${id}/cuadro`),
+      this.http.post<{
+        id: number;
+        estado: EstadoInscripcionTorneo;
+        estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
+        token: string;
+        montoClp: number;
+        categoria: string;
+        jugador: string;
+      }>(
+        `/api/torneos/${torneoId}/inscripcion`,
+        comprobante ? conArchivo(datos, comprobante) : datos,
+      ),
+    );
+  }
+
+  /**
+   * El cuadro público de **una categoría**, con los resultados que ya se cargaron.
+   *
+   * El id es el del cuadro, no el del torneo: un torneo corre varios y "el cuadro del
+   * torneo" dejó de significar algo. Los ids salen del calendario.
+   */
+  cuadroPublico(cuadroId: number): Promise<CuadroPublico> {
+    return firstValueFrom(
+      this.http.get<CuadroPublico>(`/api/torneos/cuadros/${cuadroId}`),
     );
   }
 
@@ -231,42 +400,103 @@ export class Torneos {
     );
   }
 
-  /** Quién juega el torneo: en el cuadro, esperando y retirados. */
-  inscripciones(torneoId: number): Promise<ListaDelTorneo> {
+  /** Las categorías con que juega el club, para armarle cuadros a un torneo. */
+  categoriasDeJuego(soloActivas = false): Promise<CategoriaJuego[]> {
     return firstValueFrom(
-      this.http.get<ListaDelTorneo>(
-        `/api/admin/torneos/${torneoId}/inscripciones`,
+      this.http.get<CategoriaJuego[]>('/api/admin/categorias-juego', {
+        params: soloActivas ? { activas: '1' } : {},
+      }),
+    );
+  }
+
+  /** Qué categorías corre este torneo. */
+  cuadrosDelTorneo(torneoId: number): Promise<CuadroDelTorneo[]> {
+    return firstValueFrom(
+      this.http.get<CuadroDelTorneo[]>(
+        `/api/admin/torneos/${torneoId}/categorias`,
+      ),
+    );
+  }
+
+  agregarCuadro(
+    torneoId: number,
+    datos: {
+      categoriaJuegoId: number;
+      categoriaId: number;
+      cupo: number;
+      montoInscripcionClp?: number;
+    },
+  ): Promise<CuadroDelTorneo> {
+    return firstValueFrom(
+      this.http.post<CuadroDelTorneo>(
+        `/api/admin/torneos/${torneoId}/categorias`,
+        datos,
+      ),
+    );
+  }
+
+  editarCuadro(
+    torneoId: number,
+    id: number,
+    cambio: Partial<{
+      cupo: number;
+      montoInscripcionClp: number;
+      categoriaId: number;
+    }>,
+  ): Promise<CuadroDelTorneo> {
+    return firstValueFrom(
+      this.http.patch<CuadroDelTorneo>(
+        `/api/admin/torneos/${torneoId}/categorias/${id}`,
+        cambio,
+      ),
+    );
+  }
+
+  /** Solo si no hay nadie inscrito: el servidor responde 409 si lo hay. */
+  quitarCuadro(torneoId: number, id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.delete<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/categorias/${id}`,
+      ),
+    );
+  }
+
+  /** Quién juega **este cuadro**: dentro, esperando y retirados. */
+  inscripciones(cuadroId: number): Promise<ListaDelCuadro> {
+    return firstValueFrom(
+      this.http.get<ListaDelCuadro>(
+        `/api/admin/cuadros/${cuadroId}/inscripciones`,
       ),
     );
   }
 
   /** Pasado el cupo el servidor deja al jugador en espera, no lo rechaza. */
   inscribir(
-    torneoId: number,
+    cuadroId: number,
     quien: { jugadorId: number } | { socioId: number },
   ): Promise<{ id: number; estado: EstadoInscripcionTorneo }> {
     return firstValueFrom(
       this.http.post<{ id: number; estado: EstadoInscripcionTorneo }>(
-        `/api/admin/torneos/${torneoId}/inscripciones`,
+        `/api/admin/cuadros/${cuadroId}/inscripciones`,
         quien,
       ),
     );
   }
 
-  retirar(torneoId: number, id: number): Promise<{ id: number }> {
+  retirar(cuadroId: number, id: number): Promise<{ id: number }> {
     return firstValueFrom(
       this.http.post<{ id: number }>(
-        `/api/admin/torneos/${torneoId}/inscripciones/${id}/retiro`,
+        `/api/admin/cuadros/${cuadroId}/inscripciones/${id}/retiro`,
         {},
       ),
     );
   }
 
   /** Manual a propósito: el club llama antes de meter a alguien en el cuadro. */
-  promover(torneoId: number, id: number): Promise<{ id: number }> {
+  promover(cuadroId: number, id: number): Promise<{ id: number }> {
     return firstValueFrom(
       this.http.post<{ id: number }>(
-        `/api/admin/torneos/${torneoId}/inscripciones/${id}/promocion`,
+        `/api/admin/cuadros/${cuadroId}/inscripciones/${id}/promocion`,
         {},
       ),
     );
@@ -274,36 +504,36 @@ export class Torneos {
 
   /** La siembra la pone el admin, no el ranking. `null` la quita. */
   sembrar(
-    torneoId: number,
+    cuadroId: number,
     id: number,
     siembra: number | null,
   ): Promise<{ id: number }> {
     return firstValueFrom(
       this.http.patch<{ id: number }>(
-        `/api/admin/torneos/${torneoId}/inscripciones/${id}/siembra`,
+        `/api/admin/cuadros/${cuadroId}/inscripciones/${id}/siembra`,
         { siembra },
       ),
     );
   }
 
-  cuadro(torneoId: number): Promise<Cuadro> {
+  cuadro(cuadroId: number): Promise<Cuadro> {
     return firstValueFrom(
-      this.http.get<Cuadro>(`/api/admin/torneos/${torneoId}/cuadro`),
+      this.http.get<Cuadro>(`/api/admin/cuadros/${cuadroId}`),
     );
   }
 
   /** Armar cierra la inscripción y sortea a los no sembrados. */
-  armarCuadro(torneoId: number): Promise<Cuadro> {
+  armarCuadro(cuadroId: number): Promise<Cuadro> {
     return firstValueFrom(
-      this.http.post<Cuadro>(`/api/admin/torneos/${torneoId}/cuadro`, {}),
+      this.http.post<Cuadro>(`/api/admin/cuadros/${cuadroId}/armar`, {}),
     );
   }
 
   /** Solo mientras no haya resultados: con partidos jugados el servidor se niega. */
-  deshacerCuadro(torneoId: number): Promise<{ torneoId: number }> {
+  deshacerCuadro(cuadroId: number): Promise<{ torneoCategoriaId: number }> {
     return firstValueFrom(
-      this.http.post<{ torneoId: number }>(
-        `/api/admin/torneos/${torneoId}/cuadro/deshacer`,
+      this.http.post<{ torneoCategoriaId: number }>(
+        `/api/admin/cuadros/${cuadroId}/deshacer`,
         {},
       ),
     );
@@ -335,6 +565,219 @@ export class Torneos {
     );
   }
 
+  // ── El pago de la inscripción (T66) ───────────────────────────────────────
+
+  /**
+   * Empieza el pago con Webpay y devuelve a dónde mandar a la persona.
+   *
+   * Se pide con **la llave de la inscripción**, no con su número: los ids son
+   * correlativos y con ellos cualquiera abriría una transacción a nombre de otro.
+   */
+  /**
+   * Empieza el cobro y devuelve **a dónde ir y con qué llave**.
+   *
+   * El `tokenPasarela` no es un detalle: Webpay abre su formulario solo si esa URL se
+   * visita por `POST` llevándolo. Ver `core/pagos/ir-a-pagar.ts`.
+   */
+  pagarInscripcion(
+    token: string,
+  ): Promise<{
+    montoClp: number;
+    urlRedireccion: string;
+    tokenPasarela: string;
+  }> {
+    return firstValueFrom(
+      this.http.post<{
+        montoClp: number;
+        urlRedireccion: string;
+        tokenPasarela: string;
+      }>(`/api/torneos/inscripciones/${token}/pago`, {}),
+    );
+  }
+
+  /**
+   * Suelta el cupo de una inscripción propia que se quedó sin pagar.
+   *
+   * La llama la pantalla cuando esta pestaña vuelve de la pasarela **sin haber
+   * pagado** —apretando "atrás", que no avisa a nadie más—. Responde `soltada: false`
+   * si no había nada que soltar: la persona pagó, o el servidor ya la soltó al volver.
+   */
+  soltarInscripcion(token: string): Promise<{ soltada: boolean }> {
+    return firstValueFrom(
+      this.http.post<{ soltada: boolean }>(
+        `/api/torneos/inscripciones/${token}/soltar`,
+        {},
+      ),
+    );
+  }
+
+  /** Sube el comprobante de la transferencia. Uno por inscripción. */
+  subirComprobante(token: string, imagen: File): Promise<{ id: number }> {
+    const cuerpo = new FormData();
+    cuerpo.append('comprobante', imagen);
+
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/torneos/inscripciones/${token}/comprobante`,
+        cuerpo,
+      ),
+    );
+  }
+
+  /** La bandeja del club: quién dice que pagó y nadie ha revisado. */
+  pagosPendientes(): Promise<PagoPendiente[]> {
+    return firstValueFrom(
+      this.http.get<PagoPendiente[]>('/api/admin/inscripciones/pendientes'),
+    );
+  }
+
+  aprobarPago(id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/inscripciones/${id}/aprobar`,
+        {},
+      ),
+    );
+  }
+
+  /** Rechazar **libera el cupo**: la inscripción sale del cuadro. */
+  rechazarPago(id: number, motivo: string): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/inscripciones/${id}/rechazar`,
+        { motivo },
+      ),
+    );
+  }
+
+  // ── La programación de partidos (T67) ─────────────────────────────────────
+
+  programarPartido(
+    torneoId: number,
+    partidoId: number,
+    datos: {
+      canchaId: number;
+      fecha: string;
+      horaDesde: string;
+      horaHasta: string;
+    },
+  ): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/partidos/${partidoId}/programacion`,
+        datos,
+      ),
+    );
+  }
+
+  /** Le quita la hora y **libera la cancha**. */
+  desprogramarPartido(
+    torneoId: number,
+    partidoId: number,
+  ): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.delete<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/partidos/${partidoId}/programacion`,
+      ),
+    );
+  }
+
+  // ── Las transmisiones (T68) ───────────────────────────────────────────────
+
+  transmisiones(torneoId: number): Promise<Transmision[]> {
+    return firstValueFrom(
+      this.http.get<Transmision[]>(`/api/admin/torneos/${torneoId}/transmisiones`),
+    );
+  }
+
+  /** Las mismas, sin cuenta: es lo que mira quien no es del club. */
+  transmisionesPublicas(torneoId: number): Promise<Transmision[]> {
+    return firstValueFrom(
+      this.http.get<Transmision[]>(`/api/torneos/${torneoId}/transmisiones`),
+    );
+  }
+
+  /**
+   * La que cubre a este partido, o nada.
+   *
+   * **Se transmite una cancha, no un partido**: la respuesta es el live de esa cancha
+   * en esa jornada, y puede estar mostrando el partido anterior si se alargó.
+   */
+  transmisionDelPartido(partidoId: number): Promise<Transmision | null> {
+    return firstValueFrom(
+      this.http.get<{ transmision: Transmision | null }>(
+        `/api/torneos/partidos/${partidoId}/transmision`,
+      ),
+    ).then((r) => r.transmision);
+  }
+
+  anunciarTransmision(
+    torneoId: number,
+    datos: {
+      canchaId: number;
+      enlace: string;
+      fecha: string;
+      horaDesde: string;
+      horaHasta: string;
+      titulo?: string;
+    },
+  ): Promise<Transmision> {
+    return firstValueFrom(
+      this.http.post<Transmision>(
+        `/api/admin/torneos/${torneoId}/transmisiones`,
+        datos,
+      ),
+    );
+  }
+
+  quitarTransmision(torneoId: number, id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.delete<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/transmisiones/${id}`,
+      ),
+    );
+  }
+
+  // ── Las fotos del torneo (T69) ──────────────────────────────────────────────
+
+  fotos(torneoId: number): Promise<Foto[]> {
+    return firstValueFrom(
+      this.http.get<Foto[]>(`/api/torneos/${torneoId}/fotos`),
+    );
+  }
+
+  /**
+   * Sube una foto. **Va como `FormData` y no como JSON**: es un archivo, y meterlo en
+   * un JSON obligaría a codificarlo en base64, un tercio más de bytes por nada.
+   *
+   * Sin `Content-Type` a mano: el navegador tiene que ponerlo él para agregar el
+   * `boundary`, y escribirlo rompe la subida sin decir por qué.
+   */
+  subirFoto(
+    torneoId: number,
+    archivo: File,
+    datos: { momento: Momento; partidoId?: number; descripcion?: string },
+  ): Promise<Foto> {
+    const cuerpo = new FormData();
+
+    cuerpo.append('momento', datos.momento);
+    if (datos.partidoId) cuerpo.append('partidoId', String(datos.partidoId));
+    if (datos.descripcion) cuerpo.append('descripcion', datos.descripcion);
+    cuerpo.append('foto', archivo);
+
+    return firstValueFrom(
+      this.http.post<Foto>(`/api/admin/torneos/${torneoId}/fotos`, cuerpo),
+    );
+  }
+
+  quitarFoto(torneoId: number, id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.delete<{ id: number }>(
+        `/api/admin/torneos/${torneoId}/fotos/${id}`,
+      ),
+    );
+  }
+
   torneos(): Promise<Torneo[]> {
     return firstValueFrom(this.http.get<Torneo[]>('/api/admin/torneos'));
   }
@@ -348,4 +791,29 @@ export class Torneos {
       this.http.patch<Torneo>(`/api/admin/torneos/${id}`, cambio),
     );
   }
+}
+
+/**
+ * El formulario de inscripción con su comprobante, como `FormData`.
+ *
+ * **En multipart todo campo es texto**, así que las franjas horarias viajan como JSON
+ * y el servidor las lee de vuelta. Es la costura que permite un solo envío en vez de
+ * inscribir primero y adjuntar después, que era el paso que se podía saltar.
+ */
+function conArchivo(
+  datos: Record<string, unknown>,
+  comprobante: File,
+): FormData {
+  const cuerpo = new FormData();
+
+  for (const [campo, valor] of Object.entries(datos)) {
+    cuerpo.append(
+      campo,
+      typeof valor === 'object' ? JSON.stringify(valor) : String(valor),
+    );
+  }
+
+  cuerpo.append('comprobante', comprobante);
+
+  return cuerpo;
 }

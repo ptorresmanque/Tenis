@@ -96,18 +96,14 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     fechaInicio: '2026-12-01',
     fechaFin: '2026-12-07',
     cierreInscripcion: '2026-11-25',
-    cupo: 16,
     ...extra,
   });
 
-  const crearTorneo = async (extra: Record<string, unknown> = {}) => {
-    const categoriaId = await categoria(`Club ${Date.now() % 100000}`);
-
-    return request(app.getHttpServer())
+  const crearTorneo = (extra: Record<string, unknown> = {}) =>
+    request(app.getHttpServer())
       .post('/api/admin/torneos')
       .set('Cookie', cookieAdmin)
-      .send({ ...unTorneo(extra), categoriaId });
-  };
+      .send(unTorneo(extra));
 
   const limpiar = async () => {
     await prisma.torneo.deleteMany({
@@ -319,40 +315,63 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     expect(respuesta.status).toBe(400);
   });
 
-  it('un cupo que no es potencia de dos se acepta igual', async () => {
-    // El cuadro se redondea hacia arriba con byes; ver `SPEC-torneos.md`. Rechazar
-    // un cupo de 12 obligaría al club a saber de potencias de dos para inscribir.
+  it('**el alta del torneo ya no lleva cupo**', async () => {
+    // T62: el cupo es de cada cuadro, porque Honor cierra con 8 y la 4ª con 32. Un
+    // `cupo` en el cuerpo del torneo se ignora en vez de guardarse en ningún lado.
     const respuesta = await crearTorneo({ cupo: 12 });
 
     expect(respuesta.status).toBe(201);
   });
 
-  it('editar el torneo cambia sus fechas y su cupo', async () => {
+  it('editar el torneo cambia sus fechas', async () => {
     const torneo = (await crearTorneo()).body as { id: number };
 
     await request(app.getHttpServer())
       .patch(`/api/admin/torneos/${torneo.id}`)
       .set('Cookie', cookieAdmin)
-      .send({ cupo: 32 })
+      .send({
+        fechaInicio: '2027-01-10',
+        fechaFin: '2027-01-17',
+        cierreInscripcion: '2027-01-05',
+      })
       .expect(200);
 
     const guardado = await prisma.torneo.findUniqueOrThrow({
       where: { id: torneo.id },
     });
-    expect(guardado.cupo).toBe(32);
+    expect(guardado.fechaInicio.toISOString()).toContain('2027-01-10');
   });
 
-  it('la lista de torneos trae su categoría, para no tener que ir a buscarla', async () => {
-    await crearTorneo();
+  it('**la lista trae cuánto vale cada cuadro** (T70), sin ir a buscarlo', async () => {
+    // Desde T70 el valor es del cuadro y no del torneo: en el mismo fin de semana,
+    // ganar Honor puede valer el doble que ganar la 5ª, y el panel lo muestra por
+    // cuadro. Un torneo sin cuadros todavía no vale nada, y eso también es correcto.
+    const creado = await crearTorneo().expect(201);
+    const torneoId = (creado.body as { id: number }).id;
+    const categoriaId = await categoria(`Club ${Date.now() % 100000}`);
+    const cuartaId = (
+      await prisma.categoriaJuego.findFirstOrThrow({ where: { nombre: '4ª' } })
+    ).id;
+
+    await request(app.getHttpServer())
+      .post(`/api/admin/torneos/${torneoId}/categorias`)
+      .set('Cookie', cookieAdmin)
+      .send({ categoriaJuegoId: cuartaId, categoriaId, cupo: 8 })
+      .expect(201);
 
     const respuesta = await request(app.getHttpServer())
       .get('/api/admin/torneos')
       .set('Cookie', cookieAdmin)
       .expect(200);
 
-    const torneos = respuesta.body as { nombre: string; categoria: string }[];
+    const torneos = respuesta.body as {
+      nombre: string;
+      cuadros: { valor: string; puntosCampeon: number }[];
+    }[];
     const suyo = torneos.find((t) => t.nombre.startsWith(MARCA));
-    expect(suyo?.categoria).toBeTruthy();
+
+    expect(suyo?.cuadros[0].valor).toBeTruthy();
+    expect(suyo?.cuadros[0].puntosCampeon).toBeGreaterThan(0);
   });
 
   it('**las fechas del torneo salen como fecha civil, no como instante**', async () => {
@@ -371,7 +390,7 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     expect(suyo?.fechaInicio).toBe('2026-12-01');
   });
 
-  it('**cambiar solo el cupo no obliga a repetir las tres fechas**', async () => {
+  it('**cambiar solo el nombre no obliga a repetir las tres fechas**', async () => {
     // Antes, editar reusaba el lector del alta y le inventaba nombre y categoría al
     // cuerpo para pasar por validaciones que no eran las suyas.
     const torneo = (await crearTorneo()).body as { id: number };
@@ -379,7 +398,7 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     await request(app.getHttpServer())
       .patch(`/api/admin/torneos/${torneo.id}`)
       .set('Cookie', cookieAdmin)
-      .send({ cupo: 8 })
+      .send({ nombre: `${MARCA} renombrada` })
       .expect(200);
   });
 

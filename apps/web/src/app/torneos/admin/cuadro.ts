@@ -1,9 +1,27 @@
-import { Component, computed, inject, input, resource, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  resource,
+  signal,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
 
+import {
+  diaEnPalabras,
+  fechaEnElClub,
+  horaEnElClub,
+} from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
+import {
+  AdminCanchas,
+  CanchaAdmin,
+} from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
-import { PartidoDelCuadro, Torneos } from '../torneos.service';
+import { Foto, PartidoDelCuadro, Torneos } from '../torneos.service';
+import { FotoDelPartido } from './foto-del-partido';
 
 /**
  * El cuadro del torneo.
@@ -15,7 +33,7 @@ import { PartidoDelCuadro, Torneos } from '../torneos.service';
  */
 @Component({
   selector: 'app-cuadro-torneo',
-  imports: [Aviso, Insignia],
+  imports: [FormsModule, Aviso, Insignia, FotoDelPartido],
   template: `
     @if (cuadro.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
@@ -84,12 +102,126 @@ import { PartidoDelCuadro, Torneos } from '../torneos.service';
                           {{ partido.ganadorId ? 'Corregir' : 'Cargar resultado' }}
                         </button>
                       }
+
+                      @if (sePuedeCargar(partido)) {
+                        <app-foto-del-partido
+                          [torneoId]="torneoId()"
+                          [partidoId]="partido.id"
+                          [fotos]="fotosDe(partido.id)"
+                          (subida)="recargarFotos()"
+                        />
+                      }
+
+                      <!-- **Cuándo y dónde se juega** (T67). Programar cierra la
+                           cancha: desaparece de la disponibilidad sola. -->
+                      @if (partido.programadoInicio) {
+                        <p class="mt-1 text-xs text-muted-foreground">
+                          <span class="icono align-middle text-sm" aria-hidden="true">
+                            event
+                          </span>
+                          {{ cuando(partido) }} · {{ partido.cancha }}
+                          <button
+                            type="button"
+                            class="boton boton-texto boton-chico"
+                            [disabled]="trabajando()"
+                            (click)="desprogramar(partido)"
+                          >
+                            Quitar la hora
+                          </button>
+                        </p>
+                      } @else if (sePuedeCargar(partido)) {
+                        <button
+                          type="button"
+                          class="boton boton-texto boton-chico mt-1"
+                          [disabled]="trabajando()"
+                          (click)="abrirHorario(partido)"
+                        >
+                          Programar
+                        </button>
+                      }
                     </li>
                   }
                 </ul>
               </div>
             }
           </div>
+
+          @if (programando(); as partido) {
+            <div class="mt-4 rounded-xl border border-border bg-card p-4">
+              <h4 class="font-medium">Programar el partido</h4>
+              <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+                Cerrar la cancha a esa hora es parte de programar: deja de ofrecerse en
+                la grilla. El servidor rechaza el horario si alguno de los dos jugadores
+                dijo que no puede, y <strong>dice quién y cuándo</strong>.
+              </p>
+
+              <form class="mt-3 grid gap-3 sm:grid-cols-4" (ngSubmit)="programar()">
+                <label class="block">
+                  <span class="text-sm font-medium">Cancha</span>
+                  <select
+                    class="campo mt-1"
+                    name="cancha"
+                    [(ngModel)]="horario.canchaId"
+                  >
+                    <option [value]="0" disabled>Elige una</option>
+                    <!-- **Solo las activas.** El servidor responde 404 sobre una
+                         cancha fuera de la grilla, y descubrirlo después de elegir
+                         día y hora es un formulario perdido. -->
+                    @for (cancha of activas(); track cancha.id) {
+                      <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="block">
+                  <span class="text-sm font-medium">Día</span>
+                  <input
+                    class="campo mt-1"
+                    type="date"
+                    name="fecha"
+                    [(ngModel)]="horario.fecha"
+                  />
+                </label>
+
+                <label class="block">
+                  <span class="text-sm font-medium">Desde</span>
+                  <input
+                    class="campo mt-1"
+                    type="time"
+                    name="desde"
+                    [(ngModel)]="horario.horaDesde"
+                  />
+                </label>
+
+                <label class="block">
+                  <span class="text-sm font-medium">Hasta</span>
+                  <input
+                    class="campo mt-1"
+                    type="time"
+                    name="hasta"
+                    [(ngModel)]="horario.horaHasta"
+                  />
+                </label>
+
+                <div class="flex gap-2 sm:col-span-4">
+                  <button
+                    type="submit"
+                    class="boton boton-primario boton-chico"
+                    [disabled]="trabajando()"
+                  >
+                    Programar
+                  </button>
+                  <button
+                    type="button"
+                    class="boton boton-secundario boton-chico"
+                    (click)="programando.set(null)"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          }
 
           @if (cargando(); as partido) {
             <div
@@ -193,8 +325,110 @@ import { PartidoDelCuadro, Torneos } from '../torneos.service';
 })
 export class CuadroDelTorneo {
   private readonly api = inject(Torneos);
+  private readonly canchasApi = inject(AdminCanchas);
 
-  readonly torneoId = input.required<number>();
+  /**
+   * El id del **cuadro**, no el del torneo (T62).
+   *
+   * Un torneo corre 4ª, 3ª y Honor a la vez y cada uno se arma por su cuenta, así que
+   * este componente dibuja uno. El id del torneo lo necesita para cargar resultados y
+   * sale de la respuesta del cuadro: pedirlo también como entrada serían dos datos que
+   * pueden dejar de coincidir.
+   */
+  readonly cuadroId = input.required<number>();
+
+  /** Qué partido tiene abierto su formulario de horario (T67). */
+  protected readonly programando = signal<PartidoDelCuadro | null>(null);
+  protected horario = {
+    canchaId: 0,
+    fecha: '',
+    horaDesde: '10:00',
+    horaHasta: '12:00',
+  };
+
+  protected readonly canchas = resource({
+    loader: () => this.canchasApi.canchas(),
+    defaultValue: [] as CanchaAdmin[],
+  });
+
+  private readonly versionDeFotos = signal(0);
+
+  /**
+   * Las fotos del torneo entero, **en una sola consulta**.
+   *
+   * Y no una por partido: un cuadro de dieciséis pediría dieciséis veces lo mismo para
+   * dibujarse. Cada partido filtra las suyas de acá.
+   */
+  protected readonly fotos = resource({
+    params: () => ({ id: this.torneoId(), version: this.versionDeFotos() }),
+    loader: ({ params }) =>
+      params.id === 0 ? Promise.resolve([]) : this.api.fotos(params.id),
+    defaultValue: [] as Foto[],
+  });
+
+  protected fotosDe(partidoId: number): Foto[] {
+    return this.fotos.value().filter((foto) => foto.partidoId === partidoId);
+  }
+
+  protected recargarFotos(): void {
+    this.versionDeFotos.update((veces) => veces + 1);
+  }
+
+  protected activas() {
+    return this.canchas.value().filter((cancha) => cancha.activa);
+  }
+
+  /**
+   * "sábado, 7 de noviembre a las 19:00", **en hora del club**.
+   *
+   * Con los formateadores de `reloj-del-club` y no con `toLocaleString` pelado: ése
+   * usa la zona del navegador, y un partido de las 19:00 se leía a las 17:00 desde
+   * fuera de Chile. Es la misma regla que ya cuida la grilla.
+   */
+  protected cuando(partido: PartidoDelCuadro): string {
+    if (!partido.programadoInicio) return '';
+
+    const dia = diaEnPalabras(fechaEnElClub(partido.programadoInicio));
+
+    return `${dia} a las ${horaEnElClub(partido.programadoInicio)}`;
+  }
+
+  protected abrirHorario(partido: PartidoDelCuadro): void {
+    this.programando.set(partido);
+    this.horario = {
+      canchaId: 0,
+      fecha: '',
+      horaDesde: '10:00',
+      horaHasta: '12:00',
+    };
+  }
+
+  protected async programar(): Promise<void> {
+    const partido = this.programando();
+
+    if (partido === null) return;
+
+    if (!Number(this.horario.canchaId) || !this.horario.fecha) {
+      this.error.set('Falta la cancha o el día.');
+      return;
+    }
+
+    await this.intentar(async () => {
+      await this.api.programarPartido(this.torneoId(), partido.id, {
+        canchaId: Number(this.horario.canchaId),
+        fecha: this.horario.fecha,
+        horaDesde: this.horario.horaDesde,
+        horaHasta: this.horario.horaHasta,
+      });
+      this.programando.set(null);
+    });
+  }
+
+  protected async desprogramar(partido: PartidoDelCuadro): Promise<void> {
+    await this.intentar(() =>
+      this.api.desprogramarPartido(this.torneoId(), partido.id),
+    );
+  }
 
   protected readonly trabajando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -202,9 +436,12 @@ export class CuadroDelTorneo {
   private readonly version = signal(0);
 
   protected readonly cuadro = resource({
-    params: () => ({ id: this.torneoId(), version: this.version() }),
+    params: () => ({ id: this.cuadroId(), version: this.version() }),
     loader: ({ params }) => this.api.cuadro(params.id),
   });
+
+  /** De la respuesta y no de una entrada aparte: ver el comentario de `cuadroId`. */
+  protected readonly torneoId = computed(() => this.cuadro.value()?.torneoId ?? 0);
 
   /** Los partidos agrupados por ronda, que es como se dibuja un cuadro. */
   protected readonly porRonda = computed(() => {
@@ -283,11 +520,11 @@ export class CuadroDelTorneo {
   }
 
   protected async armar(): Promise<void> {
-    await this.intentar(() => this.api.armarCuadro(this.torneoId()));
+    await this.intentar(() => this.api.armarCuadro(this.cuadroId()));
   }
 
   protected async deshacer(): Promise<void> {
-    await this.intentar(() => this.api.deshacerCuadro(this.torneoId()));
+    await this.intentar(() => this.api.deshacerCuadro(this.cuadroId()));
   }
 
   private async intentar(accion: () => Promise<unknown>): Promise<void> {

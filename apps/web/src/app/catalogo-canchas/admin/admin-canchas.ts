@@ -28,6 +28,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
   nombre: '',
   superficie: 'ARCILLA',
   techada: false,
+  tieneCamara: false,
   iluminacion: false,
 };
 
@@ -112,6 +113,18 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
         <label class="flex items-center gap-2 py-2 text-sm">
           <input
             type="checkbox"
+            name="tieneCamara"
+            [(ngModel)]="nueva.tieneCamara"
+          />
+          Con cámara
+          <span class="text-muted-foreground">
+            — solo desde estas se pueden transmitir los partidos
+          </span>
+        </label>
+
+        <label class="flex items-center gap-2 py-2 text-sm">
+          <input
+            type="checkbox"
             name="iluminacion"
             [(ngModel)]="nueva.iluminacion"
           />
@@ -168,6 +181,15 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 <button
                   type="button"
                   class="boton boton-secundario boton-chico ms-auto"
+                  (click)="alternarCamara(cancha)"
+                >
+                  {{ cancha.tieneCamara ? 'Quitar la cámara' : 'Marcar con cámara' }}
+                  <span class="sr-only">de {{ cancha.nombre }}</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="boton boton-secundario boton-chico"
                   (click)="alternarActiva(cancha)"
                 >
                   {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
@@ -191,6 +213,9 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 }
                 @if (cancha.iluminacion) {
                   · Con iluminación
+                }
+                @if (cancha.tieneCamara) {
+                  · Con cámara
                 }
               </p>
 
@@ -272,6 +297,32 @@ export class AdminCanchasPanel {
         cancha.activa
           ? `${cancha.nombre} salió de la grilla pública. Sus reservas siguen ahí.`
           : `${cancha.nombre} volvió a la grilla.`,
+      );
+      this.recargar();
+    } catch (falla) {
+      this.error.set(mensajeDelServidor(falla));
+    }
+  }
+
+  /**
+   * Marca o desmarca la cámara de una cancha **que ya existe**.
+   *
+   * La casilla del formulario de arriba solo sirve para la cancha que se está creando,
+   * y una cámara casi nunca se instala el mismo día que se hizo la cancha: el club
+   * tiene sus canchas cargadas hace meses y monta la cámara antes del torneo. Sin este
+   * botón, la única forma de marcarla sería borrar la cancha y volver a crearla, que se
+   * llevaría su historial.
+   */
+  protected async alternarCamara(cancha: CanchaAdmin): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+
+    try {
+      await this.api.editar(cancha.id, { tieneCamara: !cancha.tieneCamara });
+      this.aviso.set(
+        cancha.tieneCamara
+          ? `${cancha.nombre} ya no se puede transmitir.`
+          : `${cancha.nombre} queda disponible para transmitir.`,
       );
       this.recargar();
     } catch (falla) {

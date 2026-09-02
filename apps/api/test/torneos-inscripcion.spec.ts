@@ -72,7 +72,7 @@ describe('Inscripción a un torneo', () => {
 
   const inscribir = (jugadorId: number, torneo = torneoId) =>
     request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneo}/inscripciones`)
+      .post(`/api/admin/cuadros/${torneo}/inscripciones`)
       .set('Cookie', cookieAdmin)
       .send({ jugadorId });
 
@@ -87,7 +87,7 @@ describe('Inscripción a un torneo', () => {
 
   const inscritos = async (torneo = torneoId) => {
     const respuesta = await request(app.getHttpServer())
-      .get(`/api/admin/torneos/${torneo}/inscripciones`)
+      .get(`/api/admin/cuadros/${torneo}/inscripciones`)
       .set('Cookie', cookieAdmin)
       .expect(200);
 
@@ -98,26 +98,43 @@ describe('Inscripción a un torneo', () => {
     };
   };
 
+  /**
+   * Crea un torneo con **un** cuadro y devuelve el id del cuadro.
+   *
+   * Desde T62 el cupo, la lista de espera y el sorteo son del cuadro, así que es el id
+   * con el que se opera. Un solo cuadro por torneo acá: lo que este archivo prueba —el
+   * cupo y la fila de espera— es de un cuadro, y dos no agregarían nada.
+   */
   const crearTorneo = async (extra: Record<string, unknown> = {}) => {
     const categoria = await prisma.categoriaTorneo.create({
       data: { nombre: `Cat ${Date.now()}${Math.random()}`, puntosCampeon: 250 },
       select: { id: true },
     });
+    const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
+      orderBy: { orden: 'asc' },
+    });
+
+    const { cupo = 2, ...delTorneo } = extra as { cupo?: number };
 
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
-        categoriaId: categoria.id,
         fechaInicio: new Date('2026-12-01T00:00:00.000Z'),
         fechaFin: new Date('2026-12-07T00:00:00.000Z'),
         cierreInscripcion: new Date('2026-11-25T00:00:00.000Z'),
-        cupo: 2,
-        ...extra,
+        ...delTorneo,
+        cuadros: {
+          create: {
+            categoriaId: categoria.id,
+            categoriaJuegoId: categoriaJuego.id,
+            cupo,
+          },
+        },
       },
-      select: { id: true },
+      select: { cuadros: { select: { id: true } } },
     });
 
-    return torneo.id;
+    return torneo.cuadros[0].id;
   };
 
   const limpiar = async () => {
@@ -191,7 +208,7 @@ describe('Inscripción a un torneo', () => {
 
   it('se puede inscribir a un socio por su ficha, sin pasar por jugadores', async () => {
     const respuesta = await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/inscripciones`)
+      .post(`/api/admin/cuadros/${torneoId}/inscripciones`)
       .set('Cookie', cookieAdmin)
       .send({ socioId })
       .expect(201);
@@ -265,9 +282,12 @@ describe('Inscripción a un torneo', () => {
   });
 
   it('con el cuadro ya armado no se inscribe a nadie más', async () => {
-    await prisma.torneo.update({
+    // **El cierre es por cuadro y no por torneo** desde T62: un cuadro con semilla ya
+    // se sorteó, y el de al lado puede seguir inscribiendo. Antes esto ponía el torneo
+    // entero en `CUADRO_ARMADO`, que ahora cerraría también la 4ª porque Honor se armó.
+    await prisma.torneoCategoria.update({
       where: { id: torneoId },
-      data: { estado: EstadoTorneo.CUADRO_ARMADO },
+      data: { semillaSorteo: 1 },
     });
 
     await inscribir(await unJugador('Tarde')).expect(409);
@@ -282,7 +302,7 @@ describe('Inscripción a un torneo', () => {
     });
 
     await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/inscripciones`)
+      .post(`/api/admin/cuadros/${torneoId}/inscripciones`)
       .set('Cookie', cookieAdmin)
       .send({ socioId })
       .expect(201);
@@ -297,7 +317,7 @@ describe('Inscripción a un torneo', () => {
 
     await request(app.getHttpServer())
       .post(
-        `/api/admin/torneos/${torneoId}/inscripciones/${(primera.body as { id: number }).id}/retiro`,
+        `/api/admin/cuadros/${torneoId}/inscripciones/${(primera.body as { id: number }).id}/retiro`,
       )
       .set('Cookie', cookieAdmin)
       .expect(200);
@@ -317,7 +337,7 @@ describe('Inscripción a un torneo', () => {
 
     await request(app.getHttpServer())
       .post(
-        `/api/admin/torneos/${torneoId}/inscripciones/${(primera.body as { id: number }).id}/retiro`,
+        `/api/admin/cuadros/${torneoId}/inscripciones/${(primera.body as { id: number }).id}/retiro`,
       )
       .set('Cookie', cookieAdmin)
       .expect(200);
@@ -342,13 +362,13 @@ describe('Inscripción a un torneo', () => {
     const primeraId = (await inscritos()).inscritos[0].id;
 
     await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/inscripciones/${primeraId}/retiro`)
+      .post(`/api/admin/cuadros/${torneoId}/inscripciones/${primeraId}/retiro`)
       .set('Cookie', cookieAdmin)
       .expect(200);
 
     await request(app.getHttpServer())
       .post(
-        `/api/admin/torneos/${torneoId}/inscripciones/${(tercera.body as { id: number }).id}/promocion`,
+        `/api/admin/cuadros/${torneoId}/inscripciones/${(tercera.body as { id: number }).id}/promocion`,
       )
       .set('Cookie', cookieAdmin)
       .expect(200);
@@ -365,7 +385,7 @@ describe('Inscripción a un torneo', () => {
 
     await request(app.getHttpServer())
       .post(
-        `/api/admin/torneos/${torneoId}/inscripciones/${(tercera.body as { id: number }).id}/promocion`,
+        `/api/admin/cuadros/${torneoId}/inscripciones/${(tercera.body as { id: number }).id}/promocion`,
       )
       .set('Cookie', cookieAdmin)
       .expect(409);
@@ -379,7 +399,7 @@ describe('Inscripción a un torneo', () => {
 
     await request(app.getHttpServer())
       .post(
-        `/api/admin/torneos/${torneoId}/inscripciones/${(inscripcion.body as { id: number }).id}/retiro`,
+        `/api/admin/cuadros/${torneoId}/inscripciones/${(inscripcion.body as { id: number }).id}/retiro`,
       )
       .set('Cookie', cookieAdmin)
       .expect(200);
@@ -393,14 +413,17 @@ describe('Inscripción a un torneo', () => {
 
     await request(app.getHttpServer())
       .post(
-        `/api/admin/torneos/${torneoId}/inscripciones/${(inscripcion.body as { id: number }).id}/retiro`,
+        `/api/admin/cuadros/${torneoId}/inscripciones/${(inscripcion.body as { id: number }).id}/retiro`,
       )
       .set('Cookie', cookieAdmin)
       .expect(200);
 
     expect(
       await prisma.inscripcionTorneo.count({
-        where: { torneoId, estado: EstadoInscripcionTorneo.RETIRADA },
+        where: {
+          torneoCategoriaId: torneoId,
+          estado: EstadoInscripcionTorneo.RETIRADA,
+        },
       }),
     ).toBe(1);
   });
@@ -409,12 +432,12 @@ describe('Inscripción a un torneo', () => {
   describe('El cuadro', () => {
     const armar = (torneo = torneoId) =>
       request(app.getHttpServer())
-        .post(`/api/admin/torneos/${torneo}/cuadro`)
+        .post(`/api/admin/cuadros/${torneo}/armar`)
         .set('Cookie', cookieAdmin);
 
     const cuadro = async (torneo = torneoId) => {
       const respuesta = await request(app.getHttpServer())
-        .get(`/api/admin/torneos/${torneo}/cuadro`)
+        .get(`/api/admin/cuadros/${torneo}`)
         .set('Cookie', cookieAdmin)
         .expect(200);
 
@@ -525,7 +548,7 @@ describe('Inscripción a un torneo', () => {
       await armar(torneo).expect(201);
 
       await request(app.getHttpServer())
-        .post(`/api/admin/torneos/${torneo}/cuadro/deshacer`)
+        .post(`/api/admin/cuadros/${torneo}/deshacer`)
         .set('Cookie', cookieAdmin)
         .expect(200);
 
@@ -545,7 +568,7 @@ describe('Inscripción a un torneo', () => {
       });
 
       const respuesta = await request(app.getHttpServer())
-        .post(`/api/admin/torneos/${torneo}/cuadro/deshacer`)
+        .post(`/api/admin/cuadros/${torneo}/deshacer`)
         .set('Cookie', cookieAdmin);
 
       expect(respuesta.status).toBe(409);
@@ -566,7 +589,7 @@ describe('Inscripción a un torneo', () => {
 
       const sembrar = (id: number, siembra: number) =>
         request(app.getHttpServer())
-          .patch(`/api/admin/torneos/${torneo}/inscripciones/${id}/siembra`)
+          .patch(`/api/admin/cuadros/${torneo}/inscripciones/${id}/siembra`)
           .set('Cookie', cookieAdmin)
           .send({ siembra });
 
@@ -589,7 +612,7 @@ describe('Inscripción a un torneo', () => {
 
       // Se siembra al último de la lista, que sin ordenar quedaría al final.
       await request(app.getHttpServer())
-        .patch(`/api/admin/torneos/${torneo}/inscripciones/${ids[2]}/siembra`)
+        .patch(`/api/admin/cuadros/${torneo}/inscripciones/${ids[2]}/siembra`)
         .set('Cookie', cookieAdmin)
         .send({ siembra: 1 })
         .expect(200);
@@ -615,7 +638,7 @@ describe('Inscripción a un torneo', () => {
 
       for (const [indice, id] of [ids[0], ids[1]].entries()) {
         await request(app.getHttpServer())
-          .patch(`/api/admin/torneos/${torneo}/inscripciones/${id}/siembra`)
+          .patch(`/api/admin/cuadros/${torneo}/inscripciones/${id}/siembra`)
           .set('Cookie', cookieAdmin)
           .send({ siembra: indice + 1 })
           .expect(200);
@@ -644,13 +667,13 @@ describe('Inscripción a un torneo', () => {
 
   it('solo el admin inscribe y ve la lista', async () => {
     await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/inscripciones`)
+      .post(`/api/admin/cuadros/${torneoId}/inscripciones`)
       .set('Cookie', cookieSocio)
       .send({ socioId })
       .expect(403);
 
     await request(app.getHttpServer())
-      .get(`/api/admin/torneos/${torneoId}/inscripciones`)
+      .get(`/api/admin/cuadros/${torneoId}/inscripciones`)
       .expect(401);
   });
 });

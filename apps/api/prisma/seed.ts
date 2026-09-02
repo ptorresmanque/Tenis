@@ -2,6 +2,7 @@ import { EstadoSocio, PrismaClient } from '../src/generated/prisma/client';
 import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { sembrarCatalogo } from './seed-catalogo';
+import { sembrarCategoriasDeJuego } from './seed-torneos';
 
 /**
  * Datos de demo de `identidad` (T4). Idempotente: se corre tantas veces como haga
@@ -128,7 +129,9 @@ export async function sembrar(prisma: PrismaClient): Promise<void> {
       update: {
         ...usuario,
         socio: socio && { upsert: { create: socio, update: socio } },
-        profesor: profesor && { upsert: { create: profesor, update: profesor } },
+        profesor: profesor && {
+          upsert: { create: profesor, update: profesor },
+        },
       },
     });
   }
@@ -139,7 +142,11 @@ async function main(): Promise<void> {
   try {
     await sembrar(prisma);
     await sembrarCatalogo(prisma);
-    console.log(`Seed listo: ${CUENTAS.length} cuentas de demo y el catálogo.`);
+    await sembrarCategoriasDeJuego(prisma);
+    console.log(
+      `Seed listo: ${CUENTAS.length} cuentas de demo, el catálogo y las ` +
+        'categorías de juego.',
+    );
   } finally {
     await prisma.$disconnect();
   }

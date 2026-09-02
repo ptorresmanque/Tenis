@@ -39,12 +39,15 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
         } @else {
           <ul class="mt-2 grid gap-2">
             @for (quien of datos.inscritos; track quien.id) {
-              <li class="flex flex-wrap items-center gap-2 text-sm">
+              <li class="grid gap-1 text-sm">
+                <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium">{{ quien.jugador }}</span>
                 @if (quien.numeroSocio) {
                   <app-insignia variante="info" icono="badge">
                     Socio {{ quien.numeroSocio }}
                   </app-insignia>
+                } @else if (quien.procedencia) {
+                  <span class="text-muted-foreground">{{ quien.procedencia }}</span>
                 }
                 <label class="ms-auto flex items-center gap-1">
                   <span class="text-sm text-muted-foreground">Siembra</span>
@@ -66,6 +69,20 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                 >
                   Retirar
                 </button>
+                </div>
+
+                <!-- **Cuándo NO puede jugar** (T65). Va acá y no en lo público: dice a
+                     qué hora esa persona no está en su casa. Es lo que el club mira al
+                     programar los partidos, así que se lee de un vistazo. -->
+                @if (quien.restricciones.length > 0) {
+                  <p class="text-xs text-muted-foreground">
+                    <span class="icono align-middle text-sm" aria-hidden="true">
+                      schedule
+                    </span>
+                    No puede
+                    {{ enPalabras(quien.restricciones) }}
+                  </p>
+                }
               </li>
             }
           </ul>
@@ -150,9 +167,27 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
 export class InscritosDelTorneo {
   private readonly api = inject(Torneos);
 
-  readonly torneoId = input.required<number>();
+  /** El id del **cuadro**: el cupo y la lista de espera son suyos, no del torneo. */
+  readonly cuadroId = input.required<number>();
 
   protected jugadorId = 0;
+
+  /**
+   * Las franjas en palabras: "los martes de 18:00 a 21:00 y los jueves de 09:00 a 12:00".
+   *
+   * En una línea y no en una lista: el admin las lee al pasar, mientras decide a qué
+   * hora poner un partido, y una lista por inscrito llenaría la pantalla de viñetas.
+   */
+  protected enPalabras(
+    franjas: { diaSemana: number; horaDesde: string; horaHasta: string }[],
+  ): string {
+    return franjas
+      .map(
+        (franja) =>
+          `los ${DIAS[franja.diaSemana]} de ${franja.horaDesde} a ${franja.horaHasta}`,
+      )
+      .join(' y ');
+  }
 
   protected readonly trabajando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -160,7 +195,7 @@ export class InscritosDelTorneo {
   private readonly version = signal(0);
 
   protected readonly lista = resource({
-    params: () => ({ id: this.torneoId(), version: this.version() }),
+    params: () => ({ id: this.cuadroId(), version: this.version() }),
     loader: ({ params }) => this.api.inscripciones(params.id),
   });
 
@@ -194,7 +229,7 @@ export class InscritosDelTorneo {
 
   protected async inscribir(): Promise<void> {
     await this.intentar(async () => {
-      await this.api.inscribir(this.torneoId(), {
+      await this.api.inscribir(this.cuadroId(), {
         jugadorId: Number(this.jugadorId),
       });
       this.jugadorId = 0;
@@ -210,7 +245,7 @@ export class InscritosDelTorneo {
   protected async sembrar(quien: InscripcionTorneo, valor: string): Promise<void> {
     await this.intentar(() =>
       this.api.sembrar(
-        this.torneoId(),
+        this.cuadroId(),
         quien.id,
         valor === '' ? null : Number(valor),
       ),
@@ -218,11 +253,11 @@ export class InscritosDelTorneo {
   }
 
   protected async retirar(quien: InscripcionTorneo): Promise<void> {
-    await this.intentar(() => this.api.retirar(this.torneoId(), quien.id));
+    await this.intentar(() => this.api.retirar(this.cuadroId(), quien.id));
   }
 
   protected async promover(quien: InscripcionTorneo): Promise<void> {
-    await this.intentar(() => this.api.promover(this.torneoId(), quien.id));
+    await this.intentar(() => this.api.promover(this.cuadroId(), quien.id));
   }
 
   private async intentar(accion: () => Promise<unknown>): Promise<void> {
@@ -241,3 +276,14 @@ export class InscritosDelTorneo {
     }
   }
 }
+
+/** 0 = domingo, con la convención de `HorarioApertura`. Solo se usan 1 a 5. */
+const DIAS = [
+  'domingos',
+  'lunes',
+  'martes',
+  'miércoles',
+  'jueves',
+  'viernes',
+  'sábados',
+];

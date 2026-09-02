@@ -7,19 +7,40 @@ import {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { nombreDeRonda } from './cuadro';
+import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 
 /** Un torneo del calendario, como lo ve quien todavía no es del club. */
 export interface TorneoPublico {
   id: number;
   nombre: string;
-  categoria: string;
   superficie: string | null;
   fechaInicio: string;
   fechaFin: string;
   cierreInscripcion: string;
   estado: EstadoTorneo;
+  /** Qué categorías corre, con cuánto lugar queda en cada una. */
+  categorias: CategoriaPublica[];
+}
+
+/** Un cuadro visto desde la calle: cuánto lugar queda, sin decir de quién. */
+export interface CategoriaPublica {
+  id: number;
+  /** El nivel del jugador. Es lo que el formulario manda al inscribirse. */
+  categoriaJuegoId: number;
+  categoria: string;
+  /** Cuánto vale ganarlo: "Club 250". Del cuadro y no del torneo desde T70. */
+  valor: string;
+  /**
+   * Cuánto cuesta inscribirse en **esta** categoría. 0 = gratis.
+   *
+   * Va en el calendario y no solo en el formulario: es la pregunta que sigue a
+   * "¿quedan cupos?", y el monto cuelga del cuadro —Honor puede costar el doble que la
+   * 5ª en el mismo torneo—, así que un precio del torneo no diría nada.
+   */
+  montoClp: number;
   cupo: number;
   cuposLibres: number;
+  armado: boolean;
 }
 
 /** Un partido publicado. Nombres y marcador, nada más. */
@@ -36,6 +57,7 @@ export interface PartidoPublico {
 
 export interface CuadroPublico {
   id: number;
+  torneoId: number;
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
@@ -57,7 +79,10 @@ export interface CuadroPublico {
  */
 @Injectable()
 export class TorneosPublicos {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly abandonadas: InscripcionesAbandonadas,
+  ) {}
 
   /**
    * El calendario del año.
@@ -66,13 +91,20 @@ export class TorneosPublicos {
    * la pantalla que alguien mira para decidir si se asocia.
    */
   async calendario(anio: number): Promise<TorneoPublico[]> {
+    const delAnio = {
+      gte: new Date(Date.UTC(anio, 0, 1)),
+      lt: new Date(Date.UTC(anio + 1, 0, 1)),
+    };
+
+    // **"Quedan 3 cupos" tiene que ser verdad.** Los lugares de quienes eligieron
+    // Webpay y cerraron la ventana de pago se sueltan acá, acotado al mismo año que se
+    // está consultando: ver `InscripcionesAbandonadas`.
+    await this.abandonadas.liberar({ torneo: { fechaInicio: delAnio } });
+
     const torneos = await this.prisma.torneo.findMany({
       where: {
         estado: { not: EstadoTorneo.CANCELADO },
-        fechaInicio: {
-          gte: new Date(Date.UTC(anio, 0, 1)),
-          lt: new Date(Date.UTC(anio + 1, 0, 1)),
-        },
+        fechaInicio: delAnio,
       },
       orderBy: [{ fechaInicio: 'asc' }, { id: 'asc' }],
       select: {
@@ -83,13 +115,26 @@ export class TorneosPublicos {
         fechaFin: true,
         cierreInscripcion: true,
         estado: true,
-        cupo: true,
-        categoria: { select: { nombre: true } },
-        // Solo el número: cuántos lugares quedan, no quiénes están.
-        _count: {
+        cuadros: {
+          orderBy: { categoriaJuego: { orden: 'asc' } },
           select: {
-            inscripciones: {
-              where: { estado: EstadoInscripcionTorneo.INSCRITA },
+            id: true,
+            cupo: true,
+            semillaSorteo: true,
+            categoriaJuegoId: true,
+            montoInscripcionClp: true,
+            categoriaJuego: { select: { nombre: true } },
+            // **Cuánto vale ganar este cuadro** (T70). Cuelga del cuadro y no del
+            // torneo: en el mismo fin de semana, ganar Honor puede valer el doble que
+            // ganar la 5ª.
+            categoria: { select: { nombre: true } },
+            // Solo el número: cuántos lugares quedan, no quiénes están.
+            _count: {
+              select: {
+                inscripciones: {
+                  where: { estado: EstadoInscripcionTorneo.INSCRITA },
+                },
+              },
             },
           },
         },
@@ -99,7 +144,6 @@ export class TorneosPublicos {
     return torneos.map((torneo) => ({
       id: torneo.id,
       nombre: torneo.nombre,
-      categoria: torneo.categoria.nombre,
       superficie: torneo.superficie,
       // Fechas civiles y no instantes, por lo mismo que en el panel: un torneo empieza
       // un día, y mandarlas con hora invita a que la pantalla muestre el día anterior.
@@ -107,8 +151,18 @@ export class TorneosPublicos {
       fechaFin: comoFechaCivil(torneo.fechaFin),
       cierreInscripcion: comoFechaCivil(torneo.cierreInscripcion),
       estado: torneo.estado,
-      cupo: torneo.cupo,
-      cuposLibres: Math.max(torneo.cupo - torneo._count.inscripciones, 0),
+      categorias: torneo.cuadros.map((cuadro) => ({
+        id: cuadro.id,
+        categoriaJuegoId: cuadro.categoriaJuegoId,
+        categoria: cuadro.categoriaJuego.nombre,
+        valor: cuadro.categoria.nombre,
+        montoClp: cuadro.montoInscripcionClp,
+        cupo: cuadro.cupo,
+        cuposLibres: Math.max(cuadro.cupo - cuadro._count.inscripciones, 0),
+        // Sin columna que lo diga: el cuadro está armado cuando se guardó su semilla,
+        // que es lo mismo que decir que sus partidos existen.
+        armado: cuadro.semillaSorteo !== null,
+      })),
     }));
   }
 
@@ -118,15 +172,22 @@ export class TorneosPublicos {
    * Se publica desde que está armado. Mientras la inscripción sigue abierta hay lista
    * de inscritos y todavía no hay cuadro, que es exactamente lo que la gente quiere
    * saber en ese momento: quiénes se anotaron.
+   *
+   * **El `id` es el de la categoría del torneo, no el del torneo.** Un torneo tiene
+   * tres cuadros y "el cuadro del torneo" dejó de significar algo.
    */
   async cuadro(id: number): Promise<CuadroPublico> {
-    const torneo = await this.prisma.torneo.findFirst({
-      where: { id, estado: { not: EstadoTorneo.CANCELADO } },
+    // La lista de inscritos es lo que la gente mira para saber quién juega. El que no
+    // pagó no juega.
+    await this.abandonadas.liberar({ torneoCategoriaId: id });
+
+    const cuadro = await this.prisma.torneoCategoria.findFirst({
+      where: { id, torneo: { estado: { not: EstadoTorneo.CANCELADO } } },
       select: {
         id: true,
-        nombre: true,
-        estado: true,
-        categoria: { select: { nombre: true } },
+        torneoId: true,
+        categoriaJuego: { select: { nombre: true } },
+        torneo: { select: { nombre: true, estado: true } },
         inscripciones: {
           where: { estado: EstadoInscripcionTorneo.INSCRITA },
           orderBy: [{ siembra: 'asc' }, { inscritaEn: 'asc' }],
@@ -149,25 +210,26 @@ export class TorneosPublicos {
       },
     });
 
-    if (!torneo)
-      throw new NotFoundException('No hay un torneo con ese número.');
+    if (!cuadro)
+      throw new NotFoundException('No hay un cuadro con ese número.');
 
-    const rondas = torneo.partidos.reduce(
+    const rondas = cuadro.partidos.reduce(
       (mayor, partido) => Math.max(mayor, partido.ronda),
       0,
     );
 
     return {
-      id: torneo.id,
-      nombre: torneo.nombre,
-      categoria: torneo.categoria.nombre,
-      estado: torneo.estado,
+      id: cuadro.id,
+      torneoId: cuadro.torneoId,
+      nombre: cuadro.torneo.nombre,
+      categoria: cuadro.categoriaJuego.nombre,
+      estado: cuadro.torneo.estado,
       // Sin cast: un inscrito **siempre** tiene jugador —la relación es obligatoria—,
       // y el `as string[]` tapaba que se estaba usando el lector de los opcionales.
-      inscritos: torneo.inscripciones.map(
+      inscritos: cuadro.inscripciones.map(
         (fila) => `${fila.jugador.nombre} ${fila.jugador.apellido}`,
       ),
-      partidos: torneo.partidos.map((partido) => ({
+      partidos: cuadro.partidos.map((partido) => ({
         ronda: partido.ronda,
         ronda_nombre: nombreDeRonda(partido.ronda, rondas),
         posicion: partido.posicion,

@@ -24,6 +24,7 @@ describe('EditorBloqueos', () => {
     nombre: 'Cancha 4',
     superficie: 'CEMENTO',
     techada: false,
+    tieneCamara: false,
     iluminacion: false,
     activa: true,
     orden: 1,

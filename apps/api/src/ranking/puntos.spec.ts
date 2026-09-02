@@ -2,9 +2,9 @@ import {
   FilaDeRanking,
   PartidoJugado,
   puntosDe,
-  puntosDelTorneo,
+  puntosDelCuadro,
   tablaDeRanking,
-  TorneoTerminado,
+  CuadroTerminado,
 } from './puntos';
 
 /**
@@ -91,7 +91,7 @@ describe('puntos del ranking de torneos', () => {
   describe('la ronda que cuenta es la del último partido jugado', () => {
     it('reparte el cuadro entero: campeón, finalista y los que perdieron entrando', () => {
       // Cuadro de 4: dos semifinales y una final.
-      const torneo: TorneoTerminado = {
+      const torneo: CuadroTerminado = {
         puntosCampeon: 250,
         partidos: [
           jugado(1, 10, 20, 10),
@@ -100,7 +100,7 @@ describe('puntos del ranking de torneos', () => {
         ],
       };
 
-      const puntos = puntosDelTorneo(torneo);
+      const puntos = puntosDelCuadro(torneo);
 
       expect(puntos.get(10)).toBe(250);
       expect(puntos.get(30)).toBe(150);
@@ -111,7 +111,7 @@ describe('puntos del ranking de torneos', () => {
     it('**el bye no es una ronda alcanzada**: cuadro de 12 en 16', () => {
       // El sembrado 1 entra en segunda ronda y pierde ahí. Alcanzó los cuartos, que
       // es donde jugó, y no los octavos, que es donde no jugó.
-      const torneo: TorneoTerminado = {
+      const torneo: CuadroTerminado = {
         puntosCampeon: 250,
         partidos: [
           bye(1, 1),
@@ -122,25 +122,25 @@ describe('puntos del ranking de torneos', () => {
         ],
       };
 
-      expect(puntosDelTorneo(torneo).get(1)).toBe(45);
+      expect(puntosDelCuadro(torneo).get(1)).toBe(45);
     });
 
     it('un cuadro donde nadie jugó no le da puntos a nadie', () => {
       // No es un caso real; es la protección contra contar el bye como partido. Si
       // se colara, estos dos aparecerían campeones sin haber jugado un punto.
-      const torneo: TorneoTerminado = {
+      const torneo: CuadroTerminado = {
         puntosCampeon: 250,
         partidos: [bye(1, 1), bye(1, 2)],
       };
 
-      expect([...puntosDelTorneo(torneo).values()]).toEqual([0, 0]);
+      expect([...puntosDelCuadro(torneo).values()]).toEqual([0, 0]);
     });
 
     it('**el walkover cuenta para los dos**: el que avanzó y el que no llegó', () => {
       // Quien ganó la final por walkover es campeón —ganó todo lo anterior—, y quien
       // no se presentó llegó a la final ganando sus partidos. El ranking no mira la
       // bandera de walkover: un partido con dos nombres y un ganador es un partido.
-      const torneo: TorneoTerminado = {
+      const torneo: CuadroTerminado = {
         puntosCampeon: 250,
         partidos: [
           jugado(1, 10, 20, 10),
@@ -149,14 +149,14 @@ describe('puntos del ranking de torneos', () => {
         ],
       };
 
-      const puntos = puntosDelTorneo(torneo);
+      const puntos = puntosDelCuadro(torneo);
 
       expect(puntos.get(10)).toBe(250);
       expect(puntos.get(30)).toBe(150);
     });
 
     it('un partido que todavía no se juega no corona a nadie', () => {
-      const torneo: TorneoTerminado = {
+      const torneo: CuadroTerminado = {
         puntosCampeon: 250,
         partidos: [
           jugado(1, 10, 20, 10),
@@ -165,7 +165,7 @@ describe('puntos del ranking de torneos', () => {
       };
 
       // La final está a medias: el 10 alcanzó la ronda 1 y ahí no se puntúa.
-      expect(puntosDelTorneo(torneo).get(10)).toBe(0);
+      expect(puntosDelCuadro(torneo).get(10)).toBe(0);
     });
   });
 
@@ -188,7 +188,7 @@ describe('puntos del ranking de torneos', () => {
       campeon: number,
       finalista: number,
       otros: [number, number],
-    ): TorneoTerminado => ({
+    ): CuadroTerminado => ({
       puntosCampeon,
       partidos: [
         jugado(1, campeon, otros[0], campeon),

@@ -51,6 +51,10 @@ import { YoController } from './yo.controller';
   // `EnviadorCorreo` sale del módulo porque `reservas` avisa cancelaciones (T36).
   // Es el puerto, no el adaptador: quien lo importa no sabe si escribe en el log o
   // manda un correo de verdad.
-  exports: [SesionService, EnviadorCorreo, CambiosDeSocio],
+  // `IntentosFallidos` se exporta para que `torneos` frene su formulario público con
+  // el mismo contador (T64). **Una sola instancia y no una por módulo**: las llaves ya
+  // separan las superficies —`login|`, `contacto|`, `inscripcion|`— y la poda de
+  // memoria que la protege de llenarse está pensada sobre un único mapa.
+  exports: [SesionService, EnviadorCorreo, CambiosDeSocio, IntentosFallidos],
 })
 export class IdentidadModule {}

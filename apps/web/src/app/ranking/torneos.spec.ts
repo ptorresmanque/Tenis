@@ -20,8 +20,10 @@ describe('RankingDeTorneos', () => {
     torneos: [
       {
         id: 5,
+        torneoId: 2,
         nombre: 'Copa de verano',
-        categoria: 'Club 250',
+        categoria: '4ª',
+        valor: 'Club 250',
         fechaFin: '2026-01-15',
       },
     ],
@@ -143,5 +145,13 @@ describe('RankingDeTorneos', () => {
     await montar({ ...TABLA, torneos: [], posiciones: [] });
 
     expect(texto()).toContain('agosto');
+  });
+
+  it('**cada cuadro se nombra con su nivel y con lo que valía** (T70)', async () => {
+    // Una misma Copa aparece una vez por categoría, y no valen lo mismo: quien mira
+    // la tabla tiene que poder ver de cuál de los tres salieron sus puntos.
+    await montar();
+
+    expect(texto()).toContain('Copa de verano · 4ª · Club 250');
   });
 });

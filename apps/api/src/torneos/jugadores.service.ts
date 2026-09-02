@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type { Prisma } from '../generated/prisma/client';
+import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizarTelefono } from './telefono';
 import type { CambioDeJugador, JugadorNuevo } from './torneos.dto';
 
 /** Lo que se lee de un jugador para mostrarlo. */
@@ -53,6 +56,34 @@ function comoFicha(fila: {
     numeroSocio: fila.socio?.numeroSocio ?? null,
     activo: fila.activo,
   };
+}
+
+/**
+ * La llave del dedupe, tal como la lee la base.
+ *
+ * Las tres columnas juntas y no el teléfono solo: una familia comparte teléfono —el
+ * padre inscribe a sus hijos con el suyo— y con el número de llave los tres quedaban
+ * convertidos en una sola persona.
+ */
+function llaveDe(datos: {
+  telefono: string;
+  nombre: string;
+  apellido: string;
+}): { telefono: string; nombre: string; apellido: string } {
+  return {
+    telefono: datos.telefono,
+    nombre: datos.nombre,
+    apellido: datos.apellido,
+  };
+}
+
+/** El choque del único, dicho con el nombre que lo produce. */
+function yaEsSuya(nombre: string, apellido: string): ConflictException {
+  return new ConflictException(
+    `Ya hay un jugador que se llama ${nombre} ${apellido} con ese teléfono. ` +
+      'Búscalo en la lista en vez de anotarlo otra vez; si es otra persona de la ' +
+      'misma familia, revisa el nombre y los apellidos.',
+  );
 }
 
 /**
@@ -112,22 +143,146 @@ export class Jugadores {
           socioId,
           nombre: socio.usuario.nombre,
           apellido: socio.usuario.apellido,
-          telefono: socio.usuario.telefono,
+          // Normalizado, no como está en su ficha: desde T64 la columna es única y es
+          // la llave con que se decide si dos inscripciones son la misma persona. Un
+          // `+56 9 1111 2222` en crudo no chocaría con el `56911112222` de su propio
+          // jugador externo, y esa persona quedaría partida en dos.
+          telefono: normalizarTelefono(socio.usuario.telefono),
         },
         select: FICHA,
       }),
     );
   }
 
+  /**
+   * Anota a alguien de afuera.
+   *
+   * **Repetir la ficha entera no es un error del sistema, es un dato que el club ya
+   * tiene**: el trío teléfono–nombre–apellidos es la llave con que se decide si dos
+   * inscripciones son la misma persona. Un teléfono repetido con otro nombre sí entra,
+   * porque una familia comparte teléfono.
+   */
   async crear(datos: JugadorNuevo): Promise<JugadorPublicado> {
+    const telefono = normalizarTelefono(datos.telefono);
+
+    try {
+      return comoFicha(
+        await this.prisma.jugador.create({
+          data: {
+            socioId: null,
+            nombre: datos.nombre,
+            apellido: datos.apellido,
+            telefono,
+          },
+          select: FICHA,
+        }),
+      );
+    } catch (falla) {
+      if (esViolacionDeUnicidad(falla) && telefono !== null) {
+        throw yaEsSuya(datos.nombre, datos.apellido);
+      }
+
+      throw falla;
+    }
+  }
+
+  /**
+   * El jugador de quien se inscribe solo: **se reutiliza o se crea**.
+   *
+   * Es la defensa contra el problema que abre la inscripción pública. Quien escribe el
+   * nombre es el propio jugador, distinto cada año y sin nadie que revise antes de
+   * guardar; sin esta reutilización, el ranking suma los puntos de "J. Pérez" y "Juan
+   * Pérez" por separado y la tabla queda mal a la vista del club.
+   *
+   * **La llave es el teléfono más el nombre y los apellidos, y ya no el teléfono
+   * solo.** El club encontró el caso que rompía la versión anterior: el padre que
+   * inscribe a sus hijos deja su propio número en las tres fichas, así que con el
+   * teléfono de llave los tres menores eran una sola persona y el segundo hijo recibía
+   * un "ya estás inscrito" que nadie sabía cómo interpretar. La collation de la base
+   * hace el resto: "Juan Pérez" y "juan perez" siguen siendo uno.
+   *
+   * **Reutilizar es usarlo tal cual, no reescribirlo.** El spec pedía actualizar sus
+   * datos de contacto, y era razonable cuando quien escribía era el admin: en un
+   * formulario abierto es un vector de vandalismo. Los teléfonos chilenos son
+   * enumerables, así que quien adivine uno podría reescribir la ficha de cualquier
+   * jugador —incluida la de un socio— desde internet y sin cuenta, y ese nombre es el
+   * que sale en el ranking y en la lista pública del cuadro.
+   *
+   * Lo único que se completa es lo que está **vacío**: rellenar un hueco no le quita
+   * nada a nadie. Corregir un nombre es cosa del panel, que sí pide sesión.
+   *
+   * **Lo que garantiza el dedupe es el único de la base, no el `findUnique`.**
+   * Comprobado por mutación: anulando la búsqueda previa los tests siguen pasando,
+   * porque el `create` choca y el `catch` termina en el mismo lugar. La búsqueda es el
+   * atajo del caso normal —quien vuelve el año siguiente—; la corrección la pone la
+   * columna única.
+   *
+   * Recibe el cliente por parámetro para poder correr **dentro de la transacción** de
+   * la inscripción: así no se escribe un jugador que después no se va a poder inscribir.
+   */
+  async porTelefono(
+    db: PrismaService | Prisma.TransactionClient,
+    datos: {
+      nombre: string;
+      apellido: string;
+      telefono: string;
+      procedencia: string;
+    },
+  ): Promise<JugadorPublicado> {
+    const suyo = await db.jugador.findUnique({
+      where: { telefono_nombre_apellido: llaveDe(datos) },
+      select: { id: true, procedencia: true },
+    });
+
+    if (suyo) return this.completarHuecos(db, suyo, datos.procedencia);
+
+    try {
+      return comoFicha(
+        await db.jugador.create({
+          data: {
+            socioId: null,
+            nombre: datos.nombre,
+            apellido: datos.apellido,
+            telefono: datos.telefono,
+            procedencia: datos.procedencia,
+          },
+          select: FICHA,
+        }),
+      );
+    } catch (falla) {
+      if (!esViolacionDeUnicidad(falla)) throw falla;
+
+      // Se le adelantaron por milisegundos: dos envíos simultáneos de la misma
+      // persona —lo que hace quien aprieta dos veces— pasan los dos por la búsqueda
+      // sin encontrar nada y llegan los dos al `create`.
+      const ganador = await db.jugador.findUniqueOrThrow({
+        where: { telefono_nombre_apellido: llaveDe(datos) },
+        select: { id: true, procedencia: true },
+      });
+
+      return this.completarHuecos(db, ganador, datos.procedencia);
+    }
+  }
+
+  /** Rellena lo que está vacío y no toca nada más. Ver `porTelefono`. */
+  private async completarHuecos(
+    db: PrismaService | Prisma.TransactionClient,
+    jugador: { id: number; procedencia: string | null },
+    procedencia: string,
+  ): Promise<JugadorPublicado> {
+    if (jugador.procedencia) {
+      return comoFicha(
+        await db.jugador.findUniqueOrThrow({
+          where: { id: jugador.id },
+          select: FICHA,
+        }),
+      );
+    }
+
     return comoFicha(
-      await this.prisma.jugador.create({
-        data: {
-          socioId: null,
-          nombre: datos.nombre,
-          apellido: datos.apellido,
-          telefono: datos.telefono,
-        },
+      await db.jugador.update({
+        where: { id: jugador.id },
+        data: { procedencia },
         select: FICHA,
       }),
     );
@@ -145,14 +300,50 @@ export class Jugadores {
       await this.exigirSocioLibre(id, cambio.socioId);
     }
 
-    const { count } = await this.prisma.jugador.updateMany({
+    const telefono =
+      cambio.telefono === undefined
+        ? undefined
+        : normalizarTelefono(cambio.telefono);
+
+    // **Cómo quedaría la ficha después del cambio.** La llave son las tres columnas
+    // juntas, así que corregirle el nombre a un jugador puede chocar igual que
+    // cambiarle el número: mirar solo el campo que viene en el cambio dejaría pasar la
+    // mitad de los choques y saldrían como un 500 de Prisma.
+    const actual = await this.prisma.jugador.findUnique({
       where: { id },
-      data: cambio,
+      select: { nombre: true, apellido: true, telefono: true },
     });
 
-    if (count === 0) {
+    if (!actual) {
       throw new NotFoundException('No hay un jugador con ese número.');
     }
+
+    const quedaria = {
+      telefono: telefono === undefined ? actual.telefono : telefono,
+      nombre: cambio.nombre ?? actual.nombre,
+      apellido: cambio.apellido ?? actual.apellido,
+    };
+
+    if (quedaria.telefono !== null) {
+      const otro = await this.prisma.jugador.findUnique({
+        where: {
+          telefono_nombre_apellido: {
+            ...quedaria,
+            telefono: quedaria.telefono,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (otro && otro.id !== id) {
+        throw yaEsSuya(quedaria.nombre, quedaria.apellido);
+      }
+    }
+
+    await this.prisma.jugador.update({
+      where: { id },
+      data: telefono === undefined ? cambio : { ...cambio, telefono },
+    });
 
     return comoFicha(
       await this.prisma.jugador.findUniqueOrThrow({

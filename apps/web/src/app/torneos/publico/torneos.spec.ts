@@ -26,8 +26,18 @@ describe('TorneosPublicos', () => {
     fechaFin: '2026-12-07',
     cierreInscripcion: '2026-11-25',
     estado: 'INSCRIPCION',
-    cupo: 8,
-    cuposLibres: 3,
+    categorias: [
+      {
+        id: 7,
+        categoriaJuegoId: 20,
+        categoria: '4ª',
+        valor: 'Club 250',
+        montoClp: 12_000,
+        cupo: 8,
+        cuposLibres: 3,
+        armado: false,
+      },
+    ],
   };
 
   const SEMIFINAL: PartidoPublico = {
@@ -42,7 +52,8 @@ describe('TorneosPublicos', () => {
   };
 
   const CUADRO: CuadroPublico = {
-    id: 5,
+    id: 7,
+    torneoId: 5,
     nombre: 'Copa de verano',
     categoria: 'Club 250',
     estado: 'CUADRO_ARMADO',
@@ -63,16 +74,39 @@ describe('TorneosPublicos', () => {
     ],
   };
 
+  const EN_VIVO = {
+    id: 3,
+    canchaId: 1,
+    cancha: 'Cancha 1',
+    url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+    miniatura: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+    titulo: null,
+    inicio: '2026-11-07T13:00:00.000Z',
+    fin: '2026-11-07T22:00:00.000Z',
+  };
+
   let fixture: ComponentFixture<TorneosPublicos>;
   let api: {
     calendario: ReturnType<typeof vi.fn>;
     cuadroPublico: ReturnType<typeof vi.fn>;
+    transmisionesPublicas: ReturnType<typeof vi.fn>;
+    fotos: ReturnType<typeof vi.fn>;
+    soltarInscripcion: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (torneos: TorneoPublico[], cuadro = CUADRO) => {
+  const montar = async (
+    torneos: TorneoPublico[],
+    cuadro = CUADRO,
+    transmisiones: (typeof EN_VIVO)[] = [],
+    fotos: unknown[] = [],
+    soltada = { soltada: true },
+  ) => {
     api = {
       calendario: vi.fn().mockResolvedValue(torneos),
       cuadroPublico: vi.fn().mockResolvedValue(cuadro),
+      transmisionesPublicas: vi.fn().mockResolvedValue(transmisiones),
+      fotos: vi.fn().mockResolvedValue(fotos),
+      soltarInscripcion: vi.fn().mockResolvedValue(soltada),
     };
 
     TestBed.resetTestingModule();
@@ -97,6 +131,9 @@ describe('TorneosPublicos', () => {
   };
 
   beforeEach(async () => {
+    // Sin marca de pago a medias: cada test que la quiere la pone. Sin limpiarla, la
+    // de un test suelta el cupo en el siguiente.
+    sessionStorage.clear();
     await montar([EN_INSCRIPCION]);
   });
 
@@ -111,8 +148,120 @@ describe('TorneosPublicos', () => {
     expect(texto()).toContain('cupos');
   });
 
+  it('**dice cuánto cuesta inscribirse en cada categoría**', () => {
+    // El monto es del cuadro y no del torneo: Honor puede costar el doble que la 5ª el
+    // mismo fin de semana, así que un precio único de la tarjeta mentiría.
+    expect(texto()).toContain('$12.000');
+  });
+
+  it('una categoría gratis lo dice con la palabra, no con un cero', async () => {
+    await montar([
+      {
+        ...EN_INSCRIPCION,
+        categorias: [{ ...EN_INSCRIPCION.categorias[0], montoClp: 0 }],
+      },
+    ]);
+
+    expect(texto()).toContain('gratis');
+    expect(texto()).not.toContain('$0');
+  });
+
+  describe('volver atrás sin pagar', () => {
+    /**
+     * Es el caso que ningún aviso del servidor cubre: apretar "atrás" en el navegador
+     * no pasa por el retorno, así que no hay `?pago=` en la URL ni callback que avise.
+     * Lo único que queda es la marca que dejó esta pestaña antes de irse a la pasarela.
+     */
+    beforeEach(() => {
+      sessionStorage.setItem('torneo-pago-pendiente', 'llave-9');
+    });
+
+    it('**suelta el cupo y lo dice**', async () => {
+      await montar([EN_INSCRIPCION]);
+
+      expect(api.soltarInscripcion).toHaveBeenCalledWith('llave-9');
+      expect(texto()).toContain('no quedó tomada');
+    });
+
+    it('**los cupos que muestra ya cuentan el que se acaba de soltar**', async () => {
+      // La propiedad, y no cuántas peticiones se hacen: la **última** lectura del
+      // calendario ocurre después de soltar. Da igual si alcanzó a hacerse una sola
+      // —el cupo ya estaba suelto— o si hicieron falta dos; lo que no puede pasar es
+      // que la lista quede mostrando un cupo menos de los que hay.
+      await montar([EN_INSCRIPCION]);
+
+      const soltó = api.soltarInscripcion.mock.invocationCallOrder[0];
+      const calendarios = api.calendario.mock.invocationCallOrder;
+
+      expect(calendarios[calendarios.length - 1]).toBeGreaterThan(soltó);
+    });
+
+    it('**la marca se borra: recargar no vuelve a soltar nada**', async () => {
+      await montar([EN_INSCRIPCION]);
+
+      expect(sessionStorage.getItem('torneo-pago-pendiente')).toBeNull();
+    });
+
+    it('si el pago sí entró, no dice que no quedó inscrito', async () => {
+      // El servidor no suelta una inscripción que ya está pagada, así que responde
+      // `soltada: false` y la pantalla no inventa un fracaso que no ocurrió.
+      await montar([EN_INSCRIPCION], CUADRO, [], [], { soltada: false });
+
+      expect(texto()).not.toContain('no quedó tomada');
+    });
+  });
+
+  describe('la vuelta desde Webpay', () => {
+    /** Lo que la pasarela deja en la URL al traer de vuelta al navegador. */
+    const volviendo = async (pago: string) => {
+      fixture.componentRef.setInput('pago', pago);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**pagar y volver lo dice: la inscripción quedó confirmada**', async () => {
+      await volviendo('listo');
+
+      expect(texto()).toContain('Pago recibido');
+    });
+
+    it('**anular el pago dice que no quedó inscrito**', async () => {
+      // Es el arreglo del defecto que encontró el club: cerrar la ventana de pago
+      // dejaba la inscripción viva y a la persona creyendo que estaba dentro.
+      await volviendo('anulado');
+
+      expect(texto()).toContain('no quedó tomada');
+    });
+
+    it('un pago rechazado tampoco deja a nadie inscrito', async () => {
+      await volviendo('rechazado');
+
+      expect(texto()).toContain('no quedó tomada');
+    });
+
+    it('sin volver de la pasarela no hay ningún aviso', () => {
+      expect(texto()).not.toContain('Pago recibido');
+      expect(texto()).not.toContain('no quedó tomada');
+    });
+  });
+
+  it('**llegar con `?inscripcion=5` abre el formulario de ese torneo**', async () => {
+    // Es el botón "Inscribirme" de la portada: sin esto aterriza en la lista y hay
+    // que volver a buscar el torneo que ya se había elegido.
+    fixture.componentRef.setInput('inscripcion', '5');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elemento().querySelector('app-inscripcion-a-torneo')).not.toBeNull();
+  });
+
   it('sin cupos lo dice, y explica que se entra en lista de espera', async () => {
-    await montar([{ ...EN_INSCRIPCION, cuposLibres: 0 }]);
+    await montar([
+      {
+        ...EN_INSCRIPCION,
+        categorias: [{ ...EN_INSCRIPCION.categorias[0], cuposLibres: 0 }],
+      },
+    ]);
 
     expect(texto()).toContain('lista de espera');
   });
@@ -163,11 +312,19 @@ describe('TorneosPublicos', () => {
   });
 
   it('**el cuadro de un torneo no se muestra bajo el nombre de otro**', async () => {
-    // Al cambiar de torneo, el `resource` conserva el valor anterior hasta que llega
+    // Al cambiar de cuadro, el `resource` conserva el valor anterior hasta que llega
     // el nuevo: sin comprobar de quién es el cuadro que se tiene en la mano, la
     // tarjeta del segundo dibuja el del primero mientras carga. Acá el servidor
-    // devuelve siempre el cuadro del torneo 5, y el que se abre es el 9.
-    const otro = { ...EN_INSCRIPCION, id: 9, nombre: 'Copa de invierno' };
+    // devuelve siempre el cuadro 7, y el que se abre es el 99.
+    //
+    // **La identidad que se compara es la del cuadro y no la del torneo** (T62): un
+    // torneo corre varios, así que "el cuadro del torneo 5" ya no distingue nada.
+    const otro = {
+      ...EN_INSCRIPCION,
+      id: 9,
+      nombre: 'Copa de invierno',
+      categorias: [{ ...EN_INSCRIPCION.categorias[0], id: 99 }],
+    };
     await montar([otro]);
 
     await apretar('Ver quiénes juegan');
@@ -179,5 +336,48 @@ describe('TorneosPublicos', () => {
     await montar([]);
 
     expect(texto()).toContain('Todavía no hay torneos este año');
+  });
+
+  describe('las transmisiones (T68)', () => {
+    it('**el live se ve en la página, sin ir a YouTube**', async () => {
+      await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, [EN_VIVO]);
+      await apretar('Ver quiénes juegan');
+
+      expect(texto()).toContain('En vivo');
+      expect(texto()).toContain('Cancha 1');
+    });
+
+    it('**no carga nada de Google hasta que alguien aprieta play**', async () => {
+      await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, [EN_VIVO]);
+      await apretar('Ver quiénes juegan');
+
+      expect(elemento().querySelector('iframe')).toBeNull();
+    });
+
+    it('sin transmisiones no aparece el bloque vacío', async () => {
+      await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, []);
+      await apretar('Ver quiénes juegan');
+
+      expect(texto()).not.toContain('En vivo');
+    });
+  });
+
+  it('**las fotos del torneo salen en su tarjeta** (T69)', async () => {
+    await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, [], [
+      {
+        id: 4,
+        partidoId: null,
+        momento: 'DURANTE',
+        descripcion: 'La entrega de premios',
+        miniatura: '/api/torneos/fotos/4/miniatura',
+        imagen: '/api/torneos/fotos/4/imagen',
+      },
+    ]);
+    await apretar('Ver quiénes juegan');
+
+    expect(texto()).toContain('Fotos');
+    expect(
+      elemento().querySelector('img')?.getAttribute('src'),
+    ).toBe('/api/torneos/fotos/4/miniatura');
   });
 });

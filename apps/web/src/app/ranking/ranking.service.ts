@@ -12,11 +12,21 @@ export interface PosicionDeTorneos {
   torneos: number;
 }
 
-/** Un torneo que la tabla está contando. */
-export interface TorneoContado {
+/**
+ * Un **cuadro** que la tabla está contando.
+ *
+ * Un cuadro y no un torneo (T70): una Copa que corre 5ª, 4ª y Honor aporta tres
+ * campeones, y quien mira la tabla tiene que poder ver de cuál salieron sus puntos.
+ */
+export interface CuadroContado {
+  /** El del cuadro. El del torneo va aparte. */
   id: number;
+  torneoId: number;
   nombre: string;
+  /** El nivel: "4ª", "Honor". */
   categoria: string;
+  /** Cuánto valía ganarlo: "Club 250". */
+  valor: string;
   fechaFin: string;
 }
 
@@ -27,7 +37,7 @@ export interface TablaDeTorneos {
    * fecha prevista ya repartió sus puntos.
    */
   desde: string;
-  torneos: TorneoContado[];
+  torneos: CuadroContado[];
   posiciones: PosicionDeTorneos[];
 }
 

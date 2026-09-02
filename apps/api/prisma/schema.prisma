@@ -359,17 +359,26 @@ model Cancha {
   techada     Boolean    @default(false)
   iluminacion Boolean    @default(false)
 
+  /// Si tiene cámara para transmitir (T68).
+  ///
+  /// **Columna y no tabla de equipamiento**, igual que `techada` e `iluminacion`: es un
+  /// sí o un no por cancha, y una tabla con una fila posible por cancha es una tabla de
+  /// más. La usa `torneos` para rechazar una transmisión sobre una cancha que no la
+  /// puede grabar.
+  tieneCamara Boolean @default(false) @map("tiene_camara")
+
   /// Desactivar en vez de borrar: una cancha con historial de reservas no se
   /// puede eliminar sin dejar huérfano ese historial.
   activa Boolean @default(true)
   /// Orden del listado. Las canchas del club tienen un orden que no es el alfabético.
   orden  Int     @default(0)
 
-  horarios HorarioApertura[]
-  franjas  FranjaHoraria[]
-  bloqueos Bloqueo[]
-  reservas Reserva[]
-  clases   Clase[]
+  horarios      HorarioApertura[]
+  franjas       FranjaHoraria[]
+  bloqueos      Bloqueo[]
+  reservas      Reserva[]
+  clases        Clase[]
+  transmisiones Transmision[]
 
   @@map("cancha")
 }
@@ -450,6 +459,8 @@ model Bloqueo {
 
   cancha Cancha @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   clase  Clase?
+  /// El partido de torneo que cerró esta cancha (T67), si lo hay.
+  partido Partido?
 
   @@index([canchaId, inicio])
   @@map("bloqueo")
@@ -517,6 +528,10 @@ model ConfiguracionClub {
 enum ConceptoPago {
   RESERVA
   CUOTA
+  /// La inscripción a un torneo (T66). **Es la única extensión que `pagos` recibe**:
+  /// sigue sin saber qué se está pagando —recibe un monto y una referencia opaca— y esa
+  /// es justo la propiedad que hace que el tercer concepto cueste una línea.
+  INSCRIPCION_TORNEO
 }
 
 enum EstadoTransaccion {
@@ -879,12 +894,30 @@ model InscripcionClase {
 /// sumo un jugador. Enlazar un externo a una ficha de socio es escribir este campo, y
 /// por eso **sus puntos viajan con él**: cuelgan del jugador, no del socio.
 model Jugador {
-  id       Int     @id @default(autoincrement())
-  socioId  Int?    @unique @map("socio_id")
-  nombre   String  @db.VarChar(80)
-  apellido String  @db.VarChar(80)
-  telefono String? @db.VarChar(40)
-  activo   Boolean @default(true)
+  id       Int    @id @default(autoincrement())
+  socioId  Int?   @unique @map("socio_id")
+  nombre   String @db.VarChar(80)
+  apellido String @db.VarChar(80)
+
+  /// **Parte de la llave con que se decide si dos inscripciones son la misma persona.**
+  ///
+  /// Ya no es único por sí solo. Lo fue en T64 con un argumento razonable —es lo único
+  /// que el club le puede pedir a un desconocido, y lo escribe igual todos los años—,
+  /// pero **el club encontró el caso que lo rompe: el padre que inscribe a sus hijos
+  /// deja el mismo teléfono en las tres fichas**, y con el teléfono solo de llave los
+  /// tres menores eran una sola persona. La llave es ahora
+  /// `(telefono, nombre, apellido)`; ver el `@@unique` de abajo.
+  ///
+  /// **Se guarda normalizado**, no como lo escribió la persona: ver `telefono.ts`. Sin
+  /// eso, `+56 9 8765 4321` y `56987654321` son dos filas y el ranking parte a alguien
+  /// en dos.
+  telefono String? @db.VarChar(20)
+
+  /// De qué club o lugar viene. Texto libre: el club no lleva un padrón de clubes, y
+  /// una tabla obligaría a darle de alta uno nuevo a cada externo que se inscribe.
+  procedencia String? @db.VarChar(120)
+
+  activo Boolean @default(true)
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
@@ -894,8 +927,108 @@ model Jugador {
   partidosComoB   Partido[]           @relation("PartidosComoB")
   partidosGanados Partido[]           @relation("PartidosGanados")
 
+  /// **La llave del dedupe: teléfono más nombre y apellidos.**
+  ///
+  /// Las tres juntas y no el teléfono solo, porque una familia comparte teléfono: el
+  /// padre que inscribe a sus dos hijos escribe el suyo en las tres fichas, y con el
+  /// teléfono de llave el club terminaba con un solo jugador para tres personas —y un
+  /// "ya estás inscrito" que nadie entendía—.
+  ///
+  /// El nombre solo tampoco sirve: "Juan Pérez" hay muchos. Las tres juntas aciertan
+  /// en el caso que importa, que es la misma persona volviendo el año siguiente.
+  ///
+  /// La collation de la base es `utf8mb4_unicode_ci`, así que "Juan Pérez" y "juan
+  /// perez" chocan y son uno solo. Es lo que se quiere: la diferencia entre dos
+  /// personas no puede ser una tilde.
+  ///
+  /// En MySQL los nulos no chocan entre sí: los jugadores sin teléfono conviven.
+  @@unique([telefono, nombre, apellido])
   @@index([apellido, nombre])
   @@map("jugador")
+}
+
+/// El nivel del **jugador**: 5ª, 4ª, 3ª, 2ª, 1ª, Honor.
+///
+/// **No confundir con `CategoriaTorneo`**, que está justo abajo y es el nivel del
+/// *torneo* —"Club 250"— del que sale la escala entera del ranking. Esta solo separa
+/// cuadros: la 4ª no juega contra Honor. Renombrar las filas de la otra a 5ª…Honor
+/// rompería `SPEC-ranking.md` § De dónde salen los puntos, y es el error que este
+/// comentario existe para evitar.
+///
+/// **Tabla y no enum**, por lo mismo que la otra: el club inventa categorías —un año
+/// aparece una "Sub-18", otro se fusionan la 5ª y la 4ª— y agregar un valor a un enum
+/// es una migración. Se configura desde el panel.
+model CategoriaJuego {
+  id     Int    @id @default(autoincrement())
+  nombre String @unique @db.VarChar(40)
+
+  /// Mayor = categoría más alta. Honor arriba, la 5ª abajo.
+  ///
+  /// **Único, y sembrado de diez en diez.** Único porque dos categorías en el mismo
+  /// lugar dejan un selector cuyo orden depende de cuál lea la base primero. De diez
+  /// en diez porque así intercalar una "Sub-18" entre la 3ª y la 2ª es escribir 35 y
+  /// no renumerar seis filas — con orden consecutivo, cada inserción sería una
+  /// cascada de choques contra este mismo único.
+  ///
+  /// **No se ordena por nombre y por eso este campo existe**: "1ª" ordena antes que
+  /// "5ª" y "Honor" después de las dos, y ninguna de las tres es la posición correcta.
+  orden Int @unique
+
+  activa Boolean @default(true)
+
+  cuadros TorneoCategoria[]
+
+  @@map("categoria_juego")
+}
+
+/// Un cuadro del torneo: la categoría que se corre y con cuántos.
+///
+/// **Un torneo corre N categorías a la vez y cada una juega su propio cuadro.** El
+/// "Torneo Aniversario" tiene cuadro de 4ª, de 3ª y de Honor, se juega el mismo fin de
+/// semana y es un solo evento en el calendario; modelarlo como tres torneos separados
+/// le mentiría al calendario público, que es lo que la gente mira.
+///
+/// **El cupo vive acá y el cierre de inscripción en `Torneo`**, y la asimetría es
+/// deliberada: Honor cierra con 8 y la 4ª con 32, así que un cupo único no describe
+/// nada; la fecha de cierre, en cambio, el club la publica en un afiche y no va a
+/// llevar tres. El cupo describe un cuadro, la fecha describe el evento.
+model TorneoCategoria {
+  id               Int @id @default(autoincrement())
+  torneoId         Int @map("torneo_id")
+  categoriaJuegoId Int @map("categoria_juego_id")
+
+  /// Cuánto vale ganar **este** cuadro, y no el torneo entero (T70).
+  ///
+  /// Bajó de `Torneo` acá porque un mismo fin de semana corre la 5ª y el Honor, y
+  /// darle los mismos puntos al campeón de los dos deja a la tabla —que es una sola,
+  /// con todos juntos— premiando por igual dos logros que no lo son. Con la categoría
+  /// en el cuadro, el club dice que el de Honor es un Máster 500 y el de 5ª un Club
+  /// 250, torneo por torneo.
+  categoriaId Int @map("categoria_id")
+
+  /// Cuántos jugadores entran a **este** cuadro. Los que se pasan van a lista de
+  /// espera, como antes.
+  cupo Int
+
+  /// Lo que cuesta inscribirse en esta categoría. Cero = gratis, y entonces la
+  /// inscripción no pasa por `pagos` (ver `SPEC-torneos.md` § Pago de la inscripción).
+  montoInscripcionClp Int @default(0) @map("monto_inscripcion_clp")
+
+  /// Con qué semilla se sorteó **este** cuadro. Rearmar Honor no puede volver a
+  /// sortear la 4ª, así que la semilla baja de `Torneo` a acá.
+  semillaSorteo Int? @map("semilla_sorteo")
+
+  torneo         Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  categoriaJuego CategoriaJuego  @relation(fields: [categoriaJuegoId], references: [id])
+  categoria      CategoriaTorneo @relation(fields: [categoriaId], references: [id])
+
+  inscripciones InscripcionTorneo[]
+  partidos      Partido[]
+
+  @@unique([torneoId, categoriaJuegoId])
+  @@index([categoriaJuegoId])
+  @@index([categoriaId])
+  @@map("torneo_categoria")
 }
 
 /// Las categorías que el club inventa: "Club 250", "Club 500", "Máster de fin de año".
@@ -909,7 +1042,7 @@ model CategoriaTorneo {
   puntosCampeon Int     @map("puntos_campeon")
   activa        Boolean @default(true)
 
-  torneos Torneo[]
+  cuadros TorneoCategoria[]
 
   @@map("categoria_torneo")
 }
@@ -926,7 +1059,6 @@ enum EstadoTorneo {
 model Torneo {
   id          Int    @id @default(autoincrement())
   nombre      String @db.VarChar(120)
-  categoriaId Int    @map("categoria_id")
 
   /// Informativa: en qué se juega. Nula si el club todavía no lo decidió o se juega
   /// en varias.
@@ -937,18 +1069,17 @@ model Torneo {
   fechaFin          DateTime @map("fecha_fin") @db.Date
   cierreInscripcion DateTime @map("cierre_inscripcion") @db.Date
 
-  /// Cuántos jugadores entran al cuadro. Los que se pasan van a lista de espera.
-  cupo   Int
+  /// **`cupo` y `semillaSorteo` se fueron a `TorneoCategoria` en T62**, y `categoriaId`
+  /// en T70. Honor cierra con 8 y la 4ª con 32: un cupo único del torneo no describía
+  /// nada, una semilla única hacía que rearmar Honor volviera a sortear la 4ª, y una
+  /// sola categoría daba los mismos puntos al campeón de Honor y al de 5ª.
   estado EstadoTorneo @default(INSCRIPCION)
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
-  /// Con qué semilla se sorteó el cuadro. Se guarda para poder **reproducir** el
-  /// sorteo: si alguien pregunta por qué le tocó ese cruce, la respuesta no puede ser
-  /// "salió así".
-  semillaSorteo Int? @map("semilla_sorteo")
-
-  categoria     CategoriaTorneo     @relation(fields: [categoriaId], references: [id])
+  cuadros       TorneoCategoria[]
+  transmisiones Transmision[]
+  fotos         FotoTorneo[]
   inscripciones InscripcionTorneo[]
   partidos      Partido[]
 
@@ -962,6 +1093,33 @@ enum EstadoInscripcionTorneo {
   RETIRADA
 }
 
+/// Cómo va el pago de una inscripción. **Eje aparte del estado de la inscripción.**
+///
+/// Son dos preguntas distintas: "¿está dentro del cuadro?" y "¿pagó?". Mezclarlas en un
+/// solo enum obligaría a inventar `INSCRITA_PERO_SIN_PAGAR` y a duplicar cada valor.
+enum EstadoPagoInscripcion {
+  /// El cuadro es gratis: `montoInscripcionClp` es cero y no pasa por `pagos`.
+  EXENTA
+  /// Falta que el pago se autorice, o que el admin apruebe el comprobante.
+  PENDIENTE
+  PAGADA
+  /// El admin miró el comprobante y no era. Libera el cupo.
+  RECHAZADA
+}
+
+/// Cómo dijo que iba a pagar quien se inscribió solo.
+///
+/// **Se guarda para saber a quién se le puede soltar el cupo.** Quien eligió Webpay y
+/// cerró la ventana de pago no deja ningún rastro —la pasarela no avisa cuando alguien
+/// cierra una pestaña—, así que la única forma de distinguirlo del que el admin anotó a
+/// mano para que pague en efectivo en el mesón es haber anotado qué dijo.
+///
+/// Nulo = no pasa por acá: el cuadro es gratis, o lo inscribió el admin desde el panel.
+enum MedioPagoInscripcion {
+  WEBPAY
+  TRANSFERENCIA
+}
+
 /// Quién juega un torneo.
 ///
 /// **Pasado el cupo se entra en lista de espera, no se rechaza.** El club llama por
@@ -972,11 +1130,58 @@ model InscripcionTorneo {
   torneoId  Int @map("torneo_id")
   jugadorId Int @map("jugador_id")
 
+  /// A qué cuadro del torneo entra. Obligatoria desde T62.
+  ///
+  /// **`torneoId` se queda aunque sea derivable de acá.** El único que impide
+  /// inscribirse en dos categorías del mismo torneo va sobre `(torneoId,
+  /// jugadorActivo)`, y un único no puede apoyarse en una columna que no está. Esa es
+  /// la regla "un jugador, una sola categoría por torneo" de `SPEC-torneos.md`, y la
+  /// impone la base sin una línea de código.
+  torneoCategoriaId Int @map("torneo_categoria_id")
+
   /// 1..n; nulo = sin sembrar. La asigna el admin al armar el cuadro (T51), no el
   /// ranking: es lo que le permite separar a dos que ya jugaron la final el mes pasado.
   siembra Int?
 
   estado     EstadoInscripcionTorneo @default(INSCRITA)
+
+  /// **Eje aparte de `estado`**: una inscripción puede estar en el cuadro y sin pagar.
+  ///
+  /// Un pendiente **ocupa cupo** mientras el admin no lo rechace: al revés, el cupo se
+  /// llenaría por orden de rapidez del banco y no por orden de llegada, y quien
+  /// transfirió un viernes por la tarde quedaría fuera.
+  estadoPago EstadoPagoInscripcion @default(EXENTA) @map("estado_pago")
+
+  /// Cómo dijo que iba a pagar. Nulo si es gratis o si la anotó el admin.
+  ///
+  /// **Es lo que hace posible soltar el cupo del que no pagó.** Ver
+  /// `inscripciones-abandonadas.service.ts`: una `WEBPAY` que sigue `PENDIENTE` pasada
+  /// la ventana del pago y sin transacción viva se borra, y una nula no se toca nunca
+  /// —esa es la del jugador que va a pagar en efectivo en el mesón—.
+  medioPago MedioPagoInscripcion? @map("medio_pago")
+
+  /// La llave con que quien se inscribió sin cuenta vuelve a **su** inscripción.
+  ///
+  /// **Sin esto, el id alcanza**, y los ids son correlativos: cualquiera podía pisar el
+  /// comprobante de otro y hacer que el club le rechazara un pago que sí hizo. Lo
+  /// destapó la revisión de T66 con una sonda.
+  ///
+  /// Es el mismo mecanismo del token del QR de `Reserva`, y por la misma razón: 122
+  /// bits aleatorios no se adivinan, no se dictan por teléfono y no aparecen en ninguna
+  /// pantalla salvo dentro del enlace de quien se inscribió. Lo genera Prisma y no la
+  /// aplicación, para que ninguna vía de creación se olvide de pedirlo.
+  token String @unique @default(uuid(4)) @db.VarChar(43)
+
+  /// Ruta en disco del comprobante de transferencia, si pagó por ahí.
+  ///
+  /// **Uno por inscripción**: subir otro reemplaza al anterior y borra el archivo
+  /// viejo. Sin eso, una inscripción es un buzón de subida ilimitado en un endpoint
+  /// sin sesión.
+  comprobanteRuta String? @map("comprobante_ruta") @db.VarChar(200)
+
+  /// Por qué el admin lo rechazó. Lo lee quien llama al jugador para explicarle.
+  motivoRechazo String? @map("motivo_rechazo") @db.VarChar(200)
+
   inscritaEn DateTime                @default(now()) @map("inscrita_en")
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —
@@ -987,12 +1192,88 @@ model InscripcionTorneo {
   /// para que el club vea que se bajó.
   jugadorActivo Int? @map("jugador_activo")
 
-  torneo  Torneo  @relation(fields: [torneoId], references: [id], onDelete: Cascade)
-  jugador Jugador @relation(fields: [jugadorId], references: [id])
+  torneo          Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jugador         Jugador         @relation(fields: [jugadorId], references: [id])
+  torneoCategoria TorneoCategoria @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
+  restricciones   RestriccionHoraria[]
 
   @@unique([torneoId, jugadorActivo], map: "inscripcion_jugador_activo")
+  @@index([torneoCategoriaId])
   @@index([torneoId, estado])
   @@map("inscripcion_torneo")
+}
+
+/// Cuándo **no** puede jugar un inscrito (T65).
+///
+/// **Cuelga de la inscripción y no del jugador.** El horario de trabajo de alguien en
+/// marzo no es el de noviembre, y una restricción pegada a la ficha del jugador
+/// terminaría bloqueando horas por una razón que ya no existe. El costo es que quien
+/// juega tres torneos al año la escribe tres veces; es el costo correcto.
+///
+/// **Solo de lunes a viernes.** El torneo se juega el fin de semana, así que permitir
+/// bloquear el sábado es permitir inscribirse a un torneo que no se puede jugar. Lo
+/// impone `restricciones.ts`, no la base: un CHECK acá diría lo mismo en un lugar donde
+/// nadie lo lee al escribir el código que la viola.
+///
+/// **Las franjas superpuestas se aceptan.** La pregunta que se le hace a esta tabla es
+/// "¿este horario cae dentro de alguna?", y dos que se pisan responden lo mismo que una
+/// fusionada.
+model RestriccionHoraria {
+  id            Int @id @default(autoincrement())
+  inscripcionId Int @map("inscripcion_id")
+
+  /// 1 = lunes .. 5 = viernes, con la convención de `HorarioApertura` (0 = domingo).
+  diaSemana Int @map("dia_semana")
+
+  /// Hora local del club, "HH:MM", como en `HorarioApertura` y `FranjaHoraria`.
+  horaDesde String @map("hora_desde") @db.VarChar(5)
+  horaHasta String @map("hora_hasta") @db.VarChar(5)
+
+  inscripcion InscripcionTorneo @relation(fields: [inscripcionId], references: [id], onDelete: Cascade)
+
+  @@index([inscripcionId])
+  @@map("restriccion_horaria")
+}
+
+/// Un live de YouTube: **una cancha durante una jornada** (T68).
+///
+/// **Se transmite una cancha, no un partido.** El club pone una cámara fija en la
+/// Cancha 1, abre un live el sábado a las nueve y lo cierra a las siete; ese único
+/// video cubre los ocho partidos que se jugaron ahí. Modelar un video por partido
+/// obligaría a alguien a abrir y cerrar una transmisión ocho veces en un día de torneo,
+/// que es trabajo manual justo cuando nadie tiene manos libres.
+///
+/// El partido resuelve la suya por **cancha y hora**: la que cubre su
+/// `programadoInicio`. Un partido sin programar no tiene transmisión, porque no se sabe
+/// dónde ni cuándo se juega.
+model Transmision {
+  id       Int @id @default(autoincrement())
+  torneoId Int @map("torneo_id")
+  canchaId Int @map("cancha_id")
+
+  /// **Los once caracteres del id, nunca la URL.**
+  ///
+  /// Ese valor termina dentro del `src` de un `iframe`: guardar el texto que pegó el
+  /// admin y ponerlo ahí es dejar que un campo de formulario decida qué sitio se carga
+  /// dentro del nuestro. Se extrae y se valida en `youtube.ts`, y la URL la arma el
+  /// servidor.
+  youtubeVideoId String @map("youtube_video_id") @db.VarChar(11)
+
+  /// La ventana que cubre. Instantes, como `Bloqueo`.
+  inicio DateTime
+  fin    DateTime
+
+  /// "Cancha 1 — sábado". Lo escribe el club para distinguirlas en su lista.
+  titulo String? @db.VarChar(120)
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  torneo Torneo @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  cancha Cancha @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+
+  @@index([canchaId, inicio])
+  @@index([torneoId])
+  @@map("transmision")
 }
 
 /// Un partido del cuadro.
@@ -1007,6 +1288,17 @@ model InscripcionTorneo {
 model Partido {
   id       Int @id @default(autoincrement())
   torneoId Int @map("torneo_id")
+
+  /// De qué cuadro del torneo es este partido.
+  ///
+  /// **Es el eje del módulo desde T62.** El único va sobre `(torneoCategoriaId, ronda,
+  /// posicion)` y no sobre `(torneoId, ...)`: un torneo con cuadros de 4ª y de Honor
+  /// tiene dos partidos en la ronda 1 posición 1, uno de cada cuadro, y con el único
+  /// viejo el segundo no se podía guardar.
+  ///
+  /// **`torneoId` se queda**: es el índice por el que se lee el calendario del torneo
+  /// entero sin pasar por sus tres cuadros.
+  torneoCategoriaId Int @map("torneo_categoria_id")
 
   /// 1 = primera ronda. La final es la más alta.
   ronda    Int
@@ -1027,16 +1319,77 @@ model Partido {
   /// El rival no se presentó. Distinto de un bye, que es un lugar vacío del cuadro.
   walkover Boolean @default(false)
 
+  /// Cuándo y dónde se juega. Nulos mientras el club no lo programe (T67).
+  ///
+  /// **Programar es opcional**: un torneo puede jugarse entero sin que nadie programe
+  /// un partido, como hasta ahora. Un partido sin `programadoInicio` simplemente no
+  /// aparece en el calendario.
+  programadoInicio DateTime? @map("programado_inicio")
+  programadoFin    DateTime? @map("programado_fin")
+
+  /// El `Bloqueo` que le reserva la cancha, con motivo `TORNEO`.
+  ///
+  /// **Es el atajo que hace que T67 quepa.** `catalogo-canchas` ya tiene la máquina y
+  /// `clases` la usa igual; escribir el bloqueo trae gratis que ningún socio pueda
+  /// reservar sobre un partido programado, porque la disponibilidad ya respeta los
+  /// bloqueos. Por eso `torneos` **no le habla a `reservas`**: una consulta directa
+  /// sería una segunda fuente de verdad sobre si una cancha está ocupada.
+  bloqueoId Int? @unique @map("bloqueo_id")
+
   jugadoEn DateTime? @map("jugado_en")
 
-  torneo   Torneo   @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  torneo          Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  torneoCategoria TorneoCategoria @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
+  bloqueo         Bloqueo?        @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
+  fotos    FotoTorneo[]
   jugadorA Jugador? @relation("PartidosComoA", fields: [jugadorAId], references: [id])
   jugadorB Jugador? @relation("PartidosComoB", fields: [jugadorBId], references: [id])
   ganador  Jugador? @relation("PartidosGanados", fields: [ganadorId], references: [id])
 
-  @@unique([torneoId, ronda, posicion])
+  @@unique([torneoCategoriaId, ronda, posicion])
   @@index([torneoId])
+  @@index([programadoInicio])
   @@map("partido")
+}
+
+
+/// Cuándo se sacó la foto respecto del torneo. Ver T69.
+enum MomentoFoto {
+  ANTES
+  DURANTE
+  DESPUES
+}
+
+/// Una foto del torneo.
+///
+/// **Los tres usos que pidió el club son dos campos, no tres tablas**: fotos generales
+/// de antes, generales de durante, y la del partido —los dos jugadores antes de salir a
+/// la cancha—. `partidoId` y `momento` son ejes independientes, así que la tercera sale
+/// sin inventar nada: es de un partido y es de antes.
+model FotoTorneo {
+  id       Int  @id @default(autoincrement())
+  torneoId Int  @map("torneo_id")
+  /// Nulo en las generales del torneo.
+  partidoId Int? @map("partido_id")
+
+  momento MomentoFoto @default(DURANTE)
+
+  /// Las dos versiones que deja `guardarImagenConMiniatura`, relativas a la carpeta de
+  /// subidas. La galería pide la miniatura; la web solo al abrir la foto.
+  rutaWeb       String @map("ruta_web") @db.VarChar(255)
+  rutaMiniatura String @map("ruta_miniatura") @db.VarChar(255)
+
+  /// El pie de foto. Opcional: la mayoría no lo va a tener.
+  descripcion String? @db.VarChar(200)
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  torneo  Torneo   @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  partido Partido? @relation(fields: [partidoId], references: [id], onDelete: SetNull)
+
+  @@index([torneoId, momento])
+  @@index([partidoId])
+  @@map("foto_torneo")
 }
 
 // ── ranking ──────────────────────────────────────────────────────────────────

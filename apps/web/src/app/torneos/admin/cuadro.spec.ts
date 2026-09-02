@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Cuadro, PartidoDelCuadro, Torneos } from '../torneos.service';
 import { CuadroDelTorneo } from './cuadro';
 
@@ -25,6 +26,10 @@ describe('CuadroDelTorneo', () => {
       ganadorId: null,
       marcador: null,
       walkover: false,
+    programadoInicio: null,
+    programadoFin: null,
+    canchaId: null,
+    cancha: null,
       ...extra,
     }) as PartidoDelCuadro;
 
@@ -40,10 +45,17 @@ describe('CuadroDelTorneo', () => {
     ganadorId: null,
     marcador: null,
     walkover: false,
+    programadoInicio: null,
+    programadoFin: null,
+    canchaId: null,
+    cancha: null,
   };
 
   const ARMADO: Cuadro = {
     torneoId: 5,
+    torneoCategoriaId: 7,
+    categoria: '4ª',
+    armado: true,
     estado: 'CUADRO_ARMADO',
     rondas: 2,
     semillaSorteo: 12345,
@@ -52,6 +64,9 @@ describe('CuadroDelTorneo', () => {
 
   const SIN_ARMAR: Cuadro = {
     torneoId: 5,
+    torneoCategoriaId: 7,
+    categoria: '4ª',
+    armado: false,
     estado: 'INSCRIPCION',
     rondas: 0,
     semillaSorteo: null,
@@ -65,7 +80,27 @@ describe('CuadroDelTorneo', () => {
     deshacerCuadro: ReturnType<typeof vi.fn>;
     consecuencias: ReturnType<typeof vi.fn>;
     cargarResultado: ReturnType<typeof vi.fn>;
+    programarPartido: ReturnType<typeof vi.fn>;
+    desprogramarPartido: ReturnType<typeof vi.fn>;
+    fotos: ReturnType<typeof vi.fn>;
   };
+
+  /** Una foto colgada del primer partido, para el bloque de T69. */
+  const FOTOS = [
+    {
+      id: 7,
+      partidoId: 1,
+      momento: 'ANTES',
+      descripcion: null,
+      miniatura: '/api/torneos/fotos/7/miniatura',
+      imagen: '/api/torneos/fotos/7/imagen',
+    },
+  ];
+
+  const CANCHAS = [
+    { id: 1, nombre: 'Cancha 1', activa: true },
+    { id: 9, nombre: 'Cancha vieja', activa: false },
+  ];
 
   const montar = async (cuadro: Cuadro) => {
     api = {
@@ -74,15 +109,24 @@ describe('CuadroDelTorneo', () => {
       deshacerCuadro: vi.fn().mockResolvedValue({ torneoId: 5 }),
       consecuencias: vi.fn().mockResolvedValue({ deshace: 0 }),
       cargarResultado: vi.fn().mockResolvedValue({ id: 1, deshechos: 0 }),
+      programarPartido: vi.fn().mockResolvedValue({ id: 1, bloqueoId: 7 }),
+      desprogramarPartido: vi.fn().mockResolvedValue({ id: 1 }),
+      fotos: vi.fn().mockResolvedValue(FOTOS),
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Torneos, useValue: api }],
+      providers: [
+        { provide: Torneos, useValue: api },
+        {
+          provide: AdminCanchas,
+          useValue: { canchas: () => Promise.resolve(CANCHAS) },
+        },
+      ],
     });
 
     fixture = TestBed.createComponent(CuadroDelTorneo);
-    fixture.componentRef.setInput('torneoId', 5);
+    fixture.componentRef.setInput('cuadroId', 5);
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -249,5 +293,157 @@ describe('CuadroDelTorneo', () => {
     // en negrita, y buscarlo suelto haría pasar este test por la razón equivocada.
     const enNegrita = elemento().querySelector('li .font-semibold');
     expect(enNegrita?.textContent).toContain('Ana Uno');
+  });
+
+  /**
+   * T67. Ponerle cancha y hora a un partido.
+   *
+   * Lo que este bloque cuida: que **la razón del rechazo del servidor se lea tal cual**.
+   * "No se puede" obliga al admin a adivinar; "Pedro no juega los martes de 18:00 a
+   * 21:00" le dice qué mover, y es la decisión entera de T67.
+   */
+  describe('programar el partido (T67)', () => {
+    const escribir = async (name: string, valor: string) => {
+      const campo = elemento().querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+      campo.value = valor;
+      campo.dispatchEvent(new Event('input'));
+      campo.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    const llenarYMandar = async () => {
+      const cancha = elemento().querySelector<HTMLSelectElement>('[name="cancha"]')!;
+      cancha.value = '1';
+      cancha.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      await escribir('fecha', '2026-11-07');
+      await escribir('desde', '19:00');
+      await escribir('hasta', '20:30');
+
+      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('manda cancha, día y horas', async () => {
+      await apretar('Programar');
+      await llenarYMandar();
+
+      expect(api.programarPartido).toHaveBeenCalledWith(5, 1, {
+        canchaId: 1,
+        fecha: '2026-11-07',
+        horaDesde: '19:00',
+        horaHasta: '20:30',
+      });
+    });
+
+    it('**la razón del servidor se lee entera**: dice quién no puede y cuándo', async () => {
+      api.programarPartido.mockRejectedValue({
+        error: {
+          message: 'Pedro Soto no juega los martes de 18:00 a 21:00.',
+        },
+      });
+
+      await apretar('Programar');
+      await llenarYMandar();
+
+      expect(texto()).toContain('no juega los martes de 18:00 a 21:00');
+    });
+
+    it('**sin día no se manda**: la hora sola no ubica el partido', async () => {
+      await apretar('Programar');
+      const cancha = elemento().querySelector<HTMLSelectElement>('[name="cancha"]')!;
+      cancha.value = '1';
+      cancha.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+
+      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(api.programarPartido).not.toHaveBeenCalled();
+    });
+
+    it('**no ofrece una cancha desactivada**: el servidor la rechaza con un 404', async () => {
+      await apretar('Programar');
+
+      const opciones = Array.from(elemento().querySelectorAll('option')).map((o) =>
+        o.textContent?.trim(),
+      );
+
+      expect(opciones).toContain('Cancha 1');
+      expect(opciones).not.toContain('Cancha vieja');
+    });
+
+    it('lo programado se lee **en hora del club**, no en la del navegador', async () => {
+      await montar({
+        ...ARMADO,
+        partidos: [
+          semifinal(1, {
+            // 22:00 UTC son las 19:00 en Santiago. Formateado con la zona de quien
+            // mira, este mismo partido dice otra hora desde otro país.
+            programadoInicio: '2026-11-07T22:00:00.000Z',
+            programadoFin: '2026-11-08T00:00:00.000Z',
+            canchaId: 1,
+            cancha: 'Cancha 1',
+          }),
+          semifinal(2),
+          FINAL,
+        ],
+      });
+
+      expect(texto()).toContain('19:00');
+      expect(texto()).toContain('Cancha 1');
+    });
+
+    it('quitar la hora libera la cancha', async () => {
+      await montar({
+        ...ARMADO,
+        partidos: [
+          semifinal(1, {
+            programadoInicio: '2026-11-07T22:00:00.000Z',
+            programadoFin: '2026-11-08T00:00:00.000Z',
+            canchaId: 1,
+            cancha: 'Cancha 1',
+          }),
+          semifinal(2),
+          FINAL,
+        ],
+      });
+
+      await apretar('Quitar la hora');
+
+      expect(api.desprogramarPartido).toHaveBeenCalledWith(5, 1);
+    });
+  });
+
+  /**
+   * T69. La foto del partido, desde el cuadro.
+   *
+   * Lo que este bloque cuida: que **las fotos se pidan una vez para todo el cuadro**.
+   * Un `resource` por partido serían dieciséis peticiones para dibujarlo.
+   */
+  describe('la foto del partido (T69)', () => {
+    it('**pide las fotos del torneo una sola vez, no una por partido**', async () => {
+      expect(api.fotos).toHaveBeenCalledTimes(1);
+      expect(api.fotos).toHaveBeenCalledWith(5);
+    });
+
+    it('cada partido muestra solo las suyas', () => {
+      const miniaturas = Array.from(
+        elemento().querySelectorAll('img'),
+      ).map((i) => i.getAttribute('src'));
+
+      // Una sola: la del partido 1. El partido 2 y la final no tienen.
+      expect(miniaturas).toEqual(['/api/torneos/fotos/7/miniatura']);
+    });
+
+    it('**se ofrece subirla desde el partido**, no desde una lista aparte', () => {
+      const campos = elemento().querySelectorAll('input[type="file"]');
+
+      // Uno por partido con sus dos jugadores; la final vacía no lleva.
+      expect(campos).toHaveLength(2);
+    });
   });
 });

@@ -3,3 +3,9 @@ node_modules
 .env
 
 /src/generated/prisma
+
+# Lo que sube la gente: comprobantes de transferencia (T66) y fotos (T69).
+# **El comprobante lleva el nombre, el banco y el número de cuenta de un socio**: un
+# `git add -A` distraído lo publicaría en el repositorio para siempre. La carpeta se
+# monta como volumen en el despliegue; acá solo existe mientras se desarrolla.
+/subidas

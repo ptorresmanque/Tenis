@@ -162,6 +162,14 @@ export const routes: Routes = [
           import('./torneos/admin/torneos').then((m) => m.TorneosPanel),
       },
       {
+        path: 'administracion/pagos-torneos',
+        title: 'Pagos de inscripción — Administración',
+        loadComponent: () =>
+          import('./torneos/admin/pagos-pendientes').then(
+            (m) => m.PagosPendientes,
+          ),
+      },
+      {
         path: 'administracion/jugadores',
         title: 'Jugadores — Administración',
         loadComponent: () =>
@@ -240,6 +248,14 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./configuracion/administradores').then(
                 (m) => m.AdministradoresPanel,
+              ),
+          },
+          {
+            path: 'categorias-juego',
+            title: 'Categorías de juego — Administración',
+            loadComponent: () =>
+              import('./configuracion/categorias-juego').then(
+                (m) => m.CategoriasDeJuegoPanel,
               ),
           },
         ],

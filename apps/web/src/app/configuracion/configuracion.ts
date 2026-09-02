@@ -4,9 +4,9 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 /**
  * Configuración del club: el cascarón con la sub-navegación.
  *
- * Tres secciones y no tres pantallas sueltas, como decidió R.5 en el plan: comparten
- * encabezado y se saltan entre sí todo el tiempo. La cuarta —avisos y correos— entra
- * acá cuando exista, sin tocar nada más que esta lista.
+ * Secciones y no pantallas sueltas, como decidió R.5 en el plan: comparten encabezado
+ * y se saltan entre sí todo el tiempo. Agregar una es agregar una línea a esta lista y
+ * su ruta, sin tocar nada más — así entró la de categorías de juego en T60.
  */
 @Component({
   selector: 'app-configuracion',
@@ -52,5 +52,6 @@ export class Configuracion {
     { ruta: 'reglas', etiqueta: 'Reglas de reserva', icono: 'rule' },
     { ruta: 'datos', etiqueta: 'Datos del club', icono: 'storefront' },
     { ruta: 'administradores', etiqueta: 'Administradores', icono: 'shield_person' },
+    { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },
   ];
 }

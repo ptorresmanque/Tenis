@@ -21,12 +21,33 @@ describe('GET /api/torneos/publicos', () => {
   let prisma: PrismaService;
   let cookieAdmin: string;
   let torneoId: number;
+  let cuadroId: number;
 
   const DOMINIO = '@torneos-publicos.ejemplo.cl';
   const CONTRASENA = 'una-contrasena-larga-2026';
   const MARCA = 'Copa publicada';
   const APELLIDO = 'DelMural';
-  const TELEFONO = '+56999998888';
+  /**
+   * Un teléfono por jugador, y **guardados como los guarda el servidor**.
+   *
+   * Desde T64 el teléfono es único —es la llave con que se decide si dos inscripciones
+   * son la misma persona—, así que cuatro jugadores no pueden compartirlo. Y la
+   * comprobación de fuga tiene que buscar la **forma normalizada**: el servidor guarda
+   * `56999990001`, así que buscar `+56 9 9999 0001` en el JSON no encontraría nada ni
+   * aunque estuviera filtrando el número entero.
+   */
+  const TELEFONOS = [
+    '+56 9 9999 0001',
+    '+56 9 9999 0002',
+    '+56 9 9999 0003',
+    '+56 9 9999 0004',
+  ];
+  const GUARDADOS = [
+    '56999990001',
+    '56999990002',
+    '56999990003',
+    '56999990004',
+  ];
 
   const crearCuenta = async (sufijo: string, esAdmin = false) => {
     await request(app.getHttpServer())
@@ -60,8 +81,17 @@ describe('GET /api/torneos/publicos', () => {
     categoria: string;
     fechaInicio: string;
     estado: string;
-    cupo: number;
-    cuposLibres: number;
+    categorias: {
+      id: number;
+      categoria: string;
+      /** Cuánto vale ganarlo: del cuadro y no del torneo desde T70. */
+      valor: string;
+      /** Cuánto cuesta inscribirse en **esta** categoría. */
+      montoClp: number;
+      cupo: number;
+      cuposLibres: number;
+      armado: boolean;
+    }[];
   }
 
   const calendario = async (consulta = '') => {
@@ -72,9 +102,9 @@ describe('GET /api/torneos/publicos', () => {
     return respuesta.body as TorneoPublico[];
   };
 
-  const cuadro = async (id = torneoId) => {
+  const cuadro = async (id = cuadroId) => {
     const respuesta = await request(app.getHttpServer())
-      .get(`/api/torneos/${id}/cuadro`)
+      .get(`/api/torneos/cuadros/${id}`)
       .expect(200);
 
     return respuesta.body as {
@@ -138,29 +168,39 @@ describe('GET /api/torneos/publicos', () => {
       select: { id: true },
     });
 
+    const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
+      orderBy: { orden: 'asc' },
+    });
+
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
-        categoriaId: categoria.id,
         fechaInicio: new Date('2026-12-01T00:00:00.000Z'),
         fechaFin: new Date('2026-12-07T00:00:00.000Z'),
         cierreInscripcion: new Date('2026-11-25T00:00:00.000Z'),
-        cupo: 4,
+        cuadros: {
+          create: {
+            categoriaJuegoId: categoriaJuego.id,
+            cupo: 4,
+            categoriaId: categoria.id,
+          },
+        },
       },
-      select: { id: true },
+      select: { id: true, cuadros: { select: { id: true } } },
     });
     torneoId = torneo.id;
+    cuadroId = torneo.cuadros[0].id;
 
     // Los cuatro jugadores llevan teléfono: es lo que no puede salir publicado.
-    for (const nombre of ['Ana', 'Beto', 'Cata', 'Dani']) {
+    for (const [i, nombre] of ['Ana', 'Beto', 'Cata', 'Dani'].entries()) {
       const jugador = await request(app.getHttpServer())
         .post('/api/admin/jugadores')
         .set('Cookie', cookieAdmin)
-        .send({ nombre, apellido: APELLIDO, telefono: TELEFONO })
+        .send({ nombre, apellido: APELLIDO, telefono: TELEFONOS[i] })
         .expect(201);
 
       await request(app.getHttpServer())
-        .post(`/api/admin/torneos/${torneoId}/inscripciones`)
+        .post(`/api/admin/cuadros/${cuadroId}/inscripciones`)
         .set('Cookie', cookieAdmin)
         .send({ jugadorId: (jugador.body as { id: number }).id })
         .expect(201);
@@ -172,7 +212,28 @@ describe('GET /api/torneos/publicos', () => {
     const suyo = torneos.find((t) => t.id === torneoId);
 
     expect(suyo?.nombre).toContain(MARCA);
-    expect(suyo?.categoria).toContain('CatPub');
+    // **Cuánto vale ganarlo cuelga del cuadro desde T70**, no del torneo: en el mismo
+    // fin de semana, ganar Honor puede valer el doble que ganar la 5ª.
+    expect(suyo?.categorias[0].valor).toContain('CatPub');
+  });
+
+  it('**dice cuánto cuesta inscribirse en cada categoría**', async () => {
+    // Es la pregunta que sigue a "¿quedan cupos?", y el monto cuelga del cuadro: Honor
+    // puede costar el doble que la 5ª en el mismo torneo. Sin esto, quien mira el
+    // calendario tiene que llamar al club para saber el precio, que es justo lo que la
+    // inscripción en línea vino a sacar del teléfono.
+    // El monto se pone acá y no en el fixture: un cuadro con inscripciones pendientes
+    // de pago no se puede armar, y los demás tests de este archivo arman el suyo.
+    await prisma.torneoCategoria.update({
+      where: { id: cuadroId },
+      data: { montoInscripcionClp: 12_000 },
+    });
+
+    const suyo = (await calendario('?anio=2026')).find(
+      (t) => t.id === torneoId,
+    );
+
+    expect(suyo?.categorias[0].montoClp).toBe(12_000);
   });
 
   it('dice cuántos cupos quedan, que es lo que decide si alguien pregunta', async () => {
@@ -180,8 +241,10 @@ describe('GET /api/torneos/publicos', () => {
       (t) => t.id === torneoId,
     );
 
-    expect(suyo?.cupo).toBe(4);
-    expect(suyo?.cuposLibres).toBe(0);
+    // T62: el cupo es de cada cuadro, así que el calendario los publica por categoría.
+    expect(suyo?.categorias).toHaveLength(1);
+    expect(suyo?.categorias[0].cupo).toBe(4);
+    expect(suyo?.categorias[0].cuposLibres).toBe(0);
   });
 
   it('**ninguna respuesta pública trae un teléfono**', async () => {
@@ -189,15 +252,17 @@ describe('GET /api/torneos/publicos', () => {
     // comprueba sobre el JSON entero: un campo nuevo que lo filtre entra sin que nadie
     // se acuerde de actualizar este test.
     await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/cuadro`)
+      .post(`/api/admin/cuadros/${cuadroId}/armar`)
       .set('Cookie', cookieAdmin)
       .expect(201);
 
     const delCalendario = JSON.stringify(await calendario('?anio=2026'));
     const delCuadro = JSON.stringify(await cuadro());
 
-    expect(delCalendario).not.toContain(TELEFONO);
-    expect(delCuadro).not.toContain(TELEFONO);
+    for (const guardado of GUARDADOS) {
+      expect(delCalendario).not.toContain(guardado);
+      expect(delCuadro).not.toContain(guardado);
+    }
     expect(delCuadro).not.toContain('telefono');
   });
 
@@ -218,12 +283,12 @@ describe('GET /api/torneos/publicos', () => {
 
   it('**el cuadro se publica con los resultados que ya se cargaron**', async () => {
     await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/cuadro`)
+      .post(`/api/admin/cuadros/${cuadroId}/armar`)
       .set('Cookie', cookieAdmin)
       .expect(201);
 
     const interno = await request(app.getHttpServer())
-      .get(`/api/admin/torneos/${torneoId}/cuadro`)
+      .get(`/api/admin/cuadros/${cuadroId}`)
       .set('Cookie', cookieAdmin)
       .expect(200);
     const semi = (
@@ -258,7 +323,7 @@ describe('GET /api/torneos/publicos', () => {
       (await calendario('?anio=2026')).some((t) => t.id === torneoId),
     ).toBe(false);
     await request(app.getHttpServer())
-      .get(`/api/torneos/${torneoId}/cuadro`)
+      .get(`/api/torneos/cuadros/${cuadroId}`)
       .expect(404);
   });
 

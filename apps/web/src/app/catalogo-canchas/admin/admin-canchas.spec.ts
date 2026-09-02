@@ -14,6 +14,7 @@ describe('AdminCanchasPanel', () => {
     nombre: 'Cancha 1',
     superficie: 'ARCILLA',
     techada: false,
+    tieneCamara: false,
     iluminacion: true,
     activa: true,
     orden: 1,
@@ -230,6 +231,43 @@ describe('AdminCanchasPanel', () => {
       fixture.detectChanges();
 
       expect(texto()).toContain('Ya hay una cancha con ese nombre.');
+    });
+  });
+
+  describe('la cámara de la cancha (T68)', () => {
+    // Por prefijo: el botón lleva detrás el nombre de la cancha para el lector de
+    // pantalla, porque en la página hay uno igual por cada cancha.
+    const camara = (etiqueta: string) =>
+      Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll('button'),
+      ).find((b) => b.textContent?.trim().startsWith(etiqueta));
+
+    beforeEach(async () => {
+      await montar([CANCHA]);
+    });
+
+    it('**una cancha que ya existe se puede marcar con cámara**', async () => {
+      // La casilla del formulario de arriba solo vale para la que se está creando, y
+      // la cámara se instala meses después de cargar la cancha.
+      camara('Marcar con cámara')?.click();
+      await fixture.whenStable();
+
+      expect(api.editar).toHaveBeenCalledWith(1, { tieneCamara: true });
+    });
+
+    it('la marcada ofrece quitarla, y se lee en su ficha', async () => {
+      await montar([{ ...CANCHA, tieneCamara: true }]);
+
+      expect(texto()).toContain('Con cámara');
+      expect(camara('Quitar la cámara')).toBeTruthy();
+    });
+
+    it('dice para qué sirve: se puede transmitir', async () => {
+      camara('Marcar con cámara')?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(texto()).toContain('transmitir');
     });
   });
 });

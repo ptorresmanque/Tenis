@@ -19,6 +19,7 @@ describe('Resultados del cuadro', () => {
   let prisma: PrismaService;
   let cookieAdmin: string;
   let torneoId: number;
+  let cuadroId: number;
 
   const DOMINIO = '@resultados.ejemplo.cl';
   const CONTRASENA = 'una-contrasena-larga-2026';
@@ -64,7 +65,7 @@ describe('Resultados del cuadro', () => {
 
   const cuadro = async () => {
     const respuesta = await request(app.getHttpServer())
-      .get(`/api/admin/torneos/${torneoId}/cuadro`)
+      .get(`/api/admin/cuadros/${cuadroId}`)
       .set('Cookie', cookieAdmin)
       .expect(200);
 
@@ -147,18 +148,28 @@ describe('Resultados del cuadro', () => {
       select: { id: true },
     });
 
+    const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
+      orderBy: { orden: 'asc' },
+    });
+
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
-        categoriaId: categoria.id,
         fechaInicio: new Date('2026-12-01T00:00:00.000Z'),
         fechaFin: new Date('2026-12-07T00:00:00.000Z'),
         cierreInscripcion: new Date('2026-11-25T00:00:00.000Z'),
-        cupo: 4,
+        cuadros: {
+          create: {
+            categoriaJuegoId: categoriaJuego.id,
+            cupo: 4,
+            categoriaId: categoria.id,
+          },
+        },
       },
-      select: { id: true },
+      select: { id: true, cuadros: { select: { id: true } } },
     });
     torneoId = torneo.id;
+    cuadroId = torneo.cuadros[0].id;
 
     for (const nombre of ['Ana', 'Beto', 'Cata', 'Dani']) {
       const jugador = await request(app.getHttpServer())
@@ -168,14 +179,14 @@ describe('Resultados del cuadro', () => {
         .expect(201);
 
       await request(app.getHttpServer())
-        .post(`/api/admin/torneos/${torneoId}/inscripciones`)
+        .post(`/api/admin/cuadros/${cuadroId}/inscripciones`)
         .set('Cookie', cookieAdmin)
         .send({ jugadorId: (jugador.body as { id: number }).id })
         .expect(201);
     }
 
     await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/cuadro`)
+      .post(`/api/admin/cuadros/${cuadroId}/armar`)
       .set('Cookie', cookieAdmin)
       .expect(201);
   });

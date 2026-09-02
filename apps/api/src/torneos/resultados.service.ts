@@ -44,7 +44,11 @@ export class ResultadosDelCuadro {
     partidoId: number,
   ): Promise<{ deshace: number }> {
     const partido = await this.elPartido(this.prisma, torneoId, partidoId);
-    const cadena = await this.cadenaAguasAbajo(this.prisma, torneoId, partido);
+    const cadena = await this.cadenaAguasAbajo(
+      this.prisma,
+      partido.torneoCategoriaId,
+      partido,
+    );
 
     return {
       deshace: cadena.filter((eslabon) => eslabon.ganadorId !== null).length,
@@ -104,7 +108,7 @@ export class ResultadosDelCuadro {
       const cadena =
         partido.ganadorId === null
           ? []
-          : await this.cadenaAguasAbajo(tx, torneoId, partido);
+          : await this.cadenaAguasAbajo(tx, partido.torneoCategoriaId, partido);
 
       for (const eslabon of cadena) {
         await tx.partido.update({
@@ -117,8 +121,18 @@ export class ResultadosDelCuadro {
             marcador: null,
             walkover: false,
             jugadoEn: null,
+            programadoInicio: null,
+            programadoFin: null,
+            bloqueoId: null,
           },
         });
+
+        // **Y se suelta su cancha.** Un partido que deja de existir no puede seguir
+        // teniendo una hora reservada: sería una hora que el club pierde sin darse
+        // cuenta, y que ningún socio puede tomar porque el bloqueo sigue ahí.
+        if (eslabon.bloqueoId !== null) {
+          await tx.bloqueo.delete({ where: { id: eslabon.bloqueoId } });
+        }
       }
 
       const deshechos = cadena.filter(
@@ -145,12 +159,7 @@ export class ResultadosDelCuadro {
         },
       });
 
-      await this.colocarEnLaSiguiente(
-        tx,
-        torneoId,
-        partido,
-        resultado.ganadorId,
-      );
+      await this.colocarEnLaSiguiente(tx, partido, resultado.ganadorId);
 
       return { id: partidoId, deshechos };
     });
@@ -165,16 +174,20 @@ export class ResultadosDelCuadro {
    */
   private async colocarEnLaSiguiente(
     tx: Prisma.TransactionClient,
-    torneoId: number,
-    partido: { ronda: number; posicion: number },
+    partido: {
+      torneoId: number;
+      torneoCategoriaId: number;
+      ronda: number;
+      posicion: number;
+    },
     ganadorId: number,
   ): Promise<void> {
     const destino = avanceDe(partido.ronda, partido.posicion);
 
     const siguiente = await tx.partido.findUnique({
       where: {
-        torneoId_ronda_posicion: {
-          torneoId,
+        torneoCategoriaId_ronda_posicion: {
+          torneoCategoriaId: partido.torneoCategoriaId,
           ronda: destino.ronda,
           posicion: destino.posicion,
         },
@@ -183,10 +196,16 @@ export class ResultadosDelCuadro {
     });
 
     if (!siguiente) {
-      await tx.torneo.update({
-        where: { id: torneoId },
-        data: { estado: EstadoTorneo.FINALIZADO },
-      });
+      // Era la final **de este cuadro**. El torneo no termina por eso: termina cuando
+      // terminan todos, y un torneo con Honor coronado y la 4ª en semifinales sigue en
+      // curso. De `FINALIZADO` salen los puntos del ranking, así que ponerlo antes
+      // repartiría puntos de un torneo a medias.
+      if (await this.todosLosCuadrosTerminaron(tx, partido.torneoId)) {
+        await tx.torneo.update({
+          where: { id: partido.torneoId },
+          data: { estado: EstadoTorneo.FINALIZADO },
+        });
+      }
 
       return;
     }
@@ -201,17 +220,51 @@ export class ResultadosDelCuadro {
   }
 
   /**
+   * ¿Terminaron **todos** los cuadros del torneo?
+   *
+   * Un cuadro terminó cuando su ronda más alta —su final— tiene ganador. Un cuadro sin
+   * partidos todavía no empezó, así que el torneo no puede estar terminado.
+   *
+   * Se resuelve con una consulta y no con una por cuadro: son tres o cuatro cuadros con
+   * menos de 128 partidos entre todos, y el N+1 acá costaría más código que datos.
+   */
+  private async todosLosCuadrosTerminaron(
+    tx: Prisma.TransactionClient,
+    torneoId: number,
+  ): Promise<boolean> {
+    const cuadros = await tx.torneoCategoria.findMany({
+      where: { torneoId },
+      select: { partidos: { select: { ronda: true, ganadorId: true } } },
+    });
+
+    return (
+      cuadros.length > 0 &&
+      cuadros.every(({ partidos }) => {
+        if (partidos.length === 0) return false;
+
+        const final = Math.max(...partidos.map((partido) => partido.ronda));
+
+        return partidos
+          .filter((partido) => partido.ronda === final)
+          .every((partido) => partido.ganadorId !== null);
+      })
+    );
+  }
+
+  /**
    * Los partidos que cuelgan de este, ronda por ronda hasta la final.
    *
    * Una sola función para contar y para limpiar: son el mismo recorrido, y tenerlo dos
    * veces es tenerlo mal una de las dos cuando el cuadro cambie.
    *
    * No se recorre el cuadro entero: los partidos de la otra mitad no tienen nada que
-   * ver con este error y se están jugando.
+   * ver con este error y se están jugando. Y **no se sale del cuadro**: el avance vive
+   * dentro de su categoría, así que corregir una semifinal de Honor no puede tocar la
+   * final de la 4ª.
    */
   private async cadenaAguasAbajo(
     db: PrismaService | Prisma.TransactionClient,
-    torneoId: number,
+    torneoCategoriaId: number,
     desde: { ronda: number; posicion: number },
   ) {
     const cadena: {
@@ -219,6 +272,7 @@ export class ResultadosDelCuadro {
       ronda: number;
       posicion: number;
       ganadorId: number | null;
+      bloqueoId: number | null;
       lado: 'A' | 'B';
     }[] = [];
     let actual = desde;
@@ -230,13 +284,19 @@ export class ResultadosDelCuadro {
       // va a cambiar en un lugar y no en el otro.
       const siguiente = await db.partido.findUnique({
         where: {
-          torneoId_ronda_posicion: {
-            torneoId,
+          torneoCategoriaId_ronda_posicion: {
+            torneoCategoriaId,
             ronda: destino.ronda,
             posicion: destino.posicion,
           },
         },
-        select: { id: true, ronda: true, posicion: true, ganadorId: true },
+        select: {
+          id: true,
+          ronda: true,
+          posicion: true,
+          ganadorId: true,
+          bloqueoId: true,
+        },
       });
 
       if (!siguiente) return cadena;
@@ -256,6 +316,7 @@ export class ResultadosDelCuadro {
       select: {
         id: true,
         torneoId: true,
+        torneoCategoriaId: true,
         ronda: true,
         posicion: true,
         jugadorAId: true,

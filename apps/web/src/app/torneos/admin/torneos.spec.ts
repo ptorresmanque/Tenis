@@ -29,14 +29,20 @@ describe('TorneosPanel', () => {
   const TORNEO: Torneo = {
     id: 5,
     nombre: 'Copa de verano',
-    categoriaId: 1,
-    categoria: 'Club 250',
-    puntosCampeon: 250,
     superficie: 'ARCILLA',
     fechaInicio: '2026-12-01',
     fechaFin: '2026-12-07',
     cierreInscripcion: '2026-11-25',
-    cupo: 16,
+    cuadros: [
+      {
+        id: 7,
+        categoria: '4ª',
+        cupo: 16,
+        categoriaId: 3,
+        valor: 'Club 250',
+        puntosCampeon: 250,
+      },
+    ],
     estado: 'INSCRIPCION',
   };
 
@@ -104,15 +110,6 @@ describe('TorneosPanel', () => {
     expect(texto()).toContain('250 puntos');
   });
 
-  it('**una categoría desactivada no se ofrece para un torneo nuevo**', () => {
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="categoriaId"] option'),
-    ).map((o) => o.textContent?.trim());
-
-    expect(opciones.some((o) => o?.startsWith('Club 250'))).toBe(true);
-    expect(opciones.some((o) => o?.startsWith('Copa antigua'))).toBe(false);
-  });
-
   it('la categoría desactivada sigue en la lista, para poder reactivarla', async () => {
     expect(texto()).toContain('Copa antigua');
 
@@ -123,7 +120,6 @@ describe('TorneosPanel', () => {
 
   it('crear un torneo manda las tres fechas juntas', async () => {
     await escribir('nombre', 'Copa de invierno');
-    await escribir('categoriaId', '1');
     await escribir('fechaInicio', '2026-07-01');
     await escribir('fechaFin', '2026-07-05');
     await escribir('cierreInscripcion', '2026-06-25');
@@ -133,7 +129,6 @@ describe('TorneosPanel', () => {
     expect(api.crearTorneo).toHaveBeenCalledWith(
       expect.objectContaining({
         nombre: 'Copa de invierno',
-        categoriaId: 1,
         fechaInicio: '2026-07-01',
         fechaFin: '2026-07-05',
         cierreInscripcion: '2026-06-25',
@@ -153,10 +148,10 @@ describe('TorneosPanel', () => {
     expect(texto()).toContain('no puede terminar antes de empezar');
   });
 
-  it('sin categorías, lo dice en vez de dejar un selector vacío', async () => {
-    await montar([TORNEO], []);
-
-    expect(texto()).toContain('Crea una categoría primero');
+  it('**el torneo nace sin valor: lo pone cada cuadro** (T70)', async () => {
+    // Ganar Honor puede valer el doble que ganar la 5ª el mismo fin de semana, así
+    // que el formulario del torneo ya no elige categoría: la elige cada cuadro.
+    expect(elemento().querySelector('select[name="categoriaId"]')).toBeNull();
   });
 
   it('agregar una categoría manda su nombre y sus puntos', async () => {

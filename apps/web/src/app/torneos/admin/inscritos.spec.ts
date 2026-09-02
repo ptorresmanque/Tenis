@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { InscripcionTorneo, ListaDelTorneo, Torneos } from '../torneos.service';
+import { InscripcionTorneo, ListaDelCuadro, Torneos } from '../torneos.service';
 import { InscritosDelTorneo } from './inscritos';
 
 /**
@@ -17,6 +17,8 @@ describe('InscritosDelTorneo', () => {
     jugadorId: 1,
     jugador: 'Carolina Díaz',
     numeroSocio: '001',
+    procedencia: 'Club de Ñuñoa',
+    restricciones: [{ diaSemana: 2, horaDesde: '18:00', horaHasta: '21:00' }],
     siembra: null,
     estado: 'INSCRITA',
     inscritaEn: '2026-11-01T12:00:00.000Z',
@@ -28,12 +30,16 @@ describe('InscritosDelTorneo', () => {
     jugador: 'Tomás Invitado',
     numeroSocio: null,
     siembra: null,
+    procedencia: null,
+    restricciones: [],
     estado: 'LISTA_ESPERA',
     inscritaEn: '2026-11-02T12:00:00.000Z',
   };
 
-  const LISTA: ListaDelTorneo = {
+  const LISTA: ListaDelCuadro = {
     torneoId: 5,
+    torneoCategoriaId: 7,
+    categoria: '4ª',
     cupo: 2,
     estado: 'INSCRIPCION',
     inscritos: [EN_EL_CUADRO],
@@ -50,7 +56,7 @@ describe('InscritosDelTorneo', () => {
     promover: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (lista: ListaDelTorneo) => {
+  const montar = async (lista: ListaDelCuadro) => {
     api = {
       inscripciones: vi.fn().mockResolvedValue(lista),
       jugadores: vi.fn().mockResolvedValue([
@@ -68,7 +74,7 @@ describe('InscritosDelTorneo', () => {
     });
 
     fixture = TestBed.createComponent(InscritosDelTorneo);
-    fixture.componentRef.setInput('torneoId', 5);
+    fixture.componentRef.setInput('cuadroId', 5);
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -169,5 +175,21 @@ describe('InscritosDelTorneo', () => {
     await apretar('Inscribir');
 
     expect(texto()).toContain('ya se cerró');
+  });
+
+  it('**muestra cuándo NO puede jugar el inscrito**', () => {
+    // Es lo que el club mira al programar los partidos, y lo que T67 va a usar para
+    // rechazar un horario imposible. Sin esto, el dato viajaba por la API y no lo veía
+    // nadie.
+    expect(texto()).toContain('No puede');
+    expect(texto()).toContain('los martes de 18:00 a 21:00');
+  });
+
+  it('**al socio se le muestra su número, no su procedencia**', () => {
+    // La procedencia existe para el externo: de qué club viene alguien que no es del
+    // nuestro. Para un socio, el club es este, y repetirlo al lado de su número sería
+    // ruido en una lista que el admin lee de corrido.
+    expect(texto()).toContain('Socio 001');
+    expect(texto()).not.toContain('Club de Ñuñoa');
   });
 });

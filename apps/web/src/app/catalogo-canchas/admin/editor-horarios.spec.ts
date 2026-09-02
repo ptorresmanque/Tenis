@@ -14,6 +14,7 @@ describe('EditorHorarios', () => {
     nombre: 'Cancha 7',
     superficie: 'ARCILLA',
     techada: false,
+    tieneCamara: false,
     iluminacion: false,
     activa: true,
     orden: 1,

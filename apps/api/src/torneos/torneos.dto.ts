@@ -26,14 +26,17 @@ export interface CategoriaNueva {
   puntosCampeon: number;
 }
 
+// La categoría de **juego** —el nivel del jugador, 5ª … Honor— se lee en
+// `categorias-juego.dto.ts`. Está aparte a propósito: sus dos lectores tienen forma
+// casi idéntica a `leerCategoria` y `leerCambioDeCategoria` de acá abajo, que leen otra
+// cosa, y juntos son cuatro funciones parecidas entre las que es fácil equivocarse.
+
 export interface TorneoNuevo {
   nombre: string;
-  categoriaId: number;
   superficie: Superficie | null;
   fechaInicio: Date;
   fechaFin: Date;
   cierreInscripcion: Date;
-  cupo: number;
 }
 
 /**
@@ -104,6 +107,9 @@ export function leerCategoria(cuerpo: unknown): CategoriaNueva {
 /**
  * Lee un torneo.
  *
+ * **Sin `cupo` desde T62**: el cupo es de cada cuadro y se define al agregarle su
+ * categoría, porque Honor cierra con 8 y la 4ª con 32.
+ *
  * **Las tres fechas se comprueban entre sí**: un torneo que termina antes de empezar
  * no se puede jugar, y una inscripción que cierra después del comienzo es aceptar
  * gente para un cuadro que ya se está jugando.
@@ -115,14 +121,10 @@ export function leerTorneo(cuerpo: unknown): TorneoNuevo {
 
   return {
     nombre: exigirTexto(datos.nombre, 'nombre del torneo', 120),
-    categoriaId: entero(datos.categoriaId, 'La categoría', 1),
     superficie: leerSuperficie(datos.superficie),
     fechaInicio,
     fechaFin,
     cierreInscripcion,
-    // Sin tope de potencia de dos: el cuadro se redondea hacia arriba con byes, y
-    // exigirlo obligaría al club a saber de potencias de dos para inscribir.
-    cupo: entero(datos.cupo, 'El cupo', 2, 256),
   };
 }
 
@@ -133,12 +135,6 @@ export function leerCambioDeTorneo(cuerpo: unknown): Partial<TorneoNuevo> {
 
   if (datos.nombre !== undefined) {
     cambio.nombre = exigirTexto(datos.nombre, 'nombre del torneo', 120);
-  }
-  if (datos.cupo !== undefined) {
-    cambio.cupo = entero(datos.cupo, 'El cupo', 2, 256);
-  }
-  if (datos.categoriaId !== undefined) {
-    cambio.categoriaId = entero(datos.categoriaId, 'La categoría', 1);
   }
   if (datos.superficie !== undefined) {
     cambio.superficie = leerSuperficie(datos.superficie);
@@ -236,7 +232,14 @@ function fecha(valor: unknown, campo: string): Date {
   }
 }
 
-function exigirTexto(valor: unknown, campo: string, largo = 80): string {
+/**
+ * Recorta y exige. Exportada porque `categorias-juego.dto.ts` la usa.
+ *
+ * Se comparte en vez de copiarse: el repo ya arrastra seis `texto` privados casi
+ * iguales en otros tantos DTOs, y una séptima copia normaliza esa deriva en vez de
+ * frenarla. Unificar las seis es otra tarea, no esta.
+ */
+export function exigirTexto(valor: unknown, campo: string, largo = 80): string {
   const limpio = texto(valor, largo);
 
   if (limpio === '') throw new BadRequestException(`Falta el ${campo}.`);
