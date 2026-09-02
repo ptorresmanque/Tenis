@@ -125,6 +125,18 @@ describe('CuadroDelTorneo', () => {
       ],
     });
 
+    // El componente abre un `<dialog>` con showModal(), que jsdom no implementa.
+    HTMLDialogElement.prototype.showModal = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.open = true;
+    });
+    HTMLDialogElement.prototype.close = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.open = false;
+    });
+
     fixture = TestBed.createComponent(CuadroDelTorneo);
     fixture.componentRef.setInput('cuadroId', 5);
     await fixture.whenStable();
@@ -219,6 +231,16 @@ describe('CuadroDelTorneo', () => {
     );
 
     expect(botones).toHaveLength(2);
+  });
+
+  it('**cargar el resultado también va en un modal**', async () => {
+    // Era un `<div role="alertdialog">` dibujado en línea: un modal de mentira, vecino
+    // de los dos que sí lo son. Dos acciones contiguas de la misma pantalla no pueden
+    // comportarse distinto.
+    await apretar('Cargar resultado');
+
+    const abierto = elemento().querySelector('dialog[open]');
+    expect(abierto?.textContent).toContain('Quién ganó');
   });
 
   it('cargar un resultado manda el ganador y el marcador', async () => {
@@ -325,6 +347,15 @@ describe('CuadroDelTorneo', () => {
       await fixture.whenStable();
       fixture.detectChanges();
     };
+
+    it('**el formulario va en un modal**, no en un bloque más bajo el cuadro', async () => {
+      // Programar es una tarea con foco: se elige cancha, día y dos horas, y el
+      // servidor puede rechazarlas por la restricción de un jugador. Con el formulario
+      // debajo del cuadro había que buscarlo con la vista después de cada clic.
+      await apretar('Programar');
+
+      expect(elemento().querySelector('dialog[open]')).not.toBeNull();
+    });
 
     it('manda cancha, día y horas', async () => {
       await apretar('Programar');

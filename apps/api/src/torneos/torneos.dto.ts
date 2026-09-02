@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { entero } from '../catalogo-canchas/admin.dto';
 import { fechaDelClub } from '../comun/tiempo';
-import { Superficie } from '../generated/prisma/client';
+import { MedioPagoInscripcion, Superficie } from '../generated/prisma/client';
 
 /** Un jugador nuevo: el socio por su ficha, o alguien de afuera por su nombre. */
 export interface JugadorNuevo {
@@ -309,4 +309,28 @@ export function leerResultado(cuerpo: unknown): {
     marcador: texto(datos.marcador, 60) || null,
     walkover: datos.walkover === true,
   };
+}
+
+/**
+ * Cómo dice el club que se pagó una inscripción, al aprobarla.
+ *
+ * **Opcional**: aprobar el comprobante de una transferencia que la persona ya declaró
+ * no tiene por qué repetir el medio, y sobreescribirlo con un valor por omisión sería
+ * perder el dato. Lo que no se acepta es un valor inventado — la caja del club se
+ * cuadra con esta columna.
+ */
+export function leerMedioDePago(cuerpo: unknown): MedioPagoInscripcion | null {
+  const valor = ((cuerpo ?? {}) as Record<string, unknown>).medioPago;
+
+  if (valor === undefined || valor === null || valor === '') return null;
+
+  const medios = Object.values(MedioPagoInscripcion) as string[];
+
+  if (typeof valor !== 'string' || !medios.includes(valor)) {
+    throw new BadRequestException(
+      `El medio de pago tiene que ser uno de: ${medios.join(', ')}.`,
+    );
+  }
+
+  return valor as MedioPagoInscripcion;
 }

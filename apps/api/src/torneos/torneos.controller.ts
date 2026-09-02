@@ -46,6 +46,7 @@ import {
   leerCambioDeCategoria,
   leerCambioDeJugador,
   leerCambioDeTorneo,
+  leerMedioDePago,
   leerCategoria,
   leerInscripcionATorneo,
   leerJugadorNuevo,
@@ -105,10 +106,38 @@ export class TorneosController {
     res.sendFile(ruta, { root: carpetaDeSubidas() });
   }
 
+  /**
+   * Da el pago por bueno, con **cómo se pagó** si el club lo dice.
+   *
+   * El medio importa para el que anota el admin —el que llega al mesón y paga en
+   * efectivo—, cuya inscripción nace sin comprobante y sin medio. Es opcional: aprobar
+   * la transferencia que la persona ya declaró no tiene por qué repetirlo.
+   */
   @Post('inscripciones/:id/aprobar')
   @HttpCode(200)
-  aprobarPago(@Param('id', ParseIntPipe) id: number) {
-    return this.comprobantes.aprobar(id);
+  aprobarPago(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.comprobantes.aprobar(id, leerMedioDePago(cuerpo));
+  }
+
+  /**
+   * El comprobante subido **por el admin**, para el que lo mandó por otro lado.
+   *
+   * Mismo pipeline de imagen que el camino público —se reencodifica y se le quitan los
+   * metadatos— y las mismas reglas: uno por inscripción, y solo sobre una pendiente.
+   */
+  @Post('inscripciones/:id/comprobante')
+  @UseInterceptors(
+    FileInterceptor('comprobante', { limits: { fileSize: MAXIMO_BYTES } }),
+  )
+  subirComprobanteDelClub(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() archivo?: { buffer: Buffer },
+  ) {
+    if (!archivo) {
+      throw new BadRequestException('Adjunta la imagen del comprobante.');
+    }
+
+    return this.comprobantes.subirComoAdmin(id, archivo.buffer);
   }
 
   /** Rechazar libera el cupo: ver el servicio. El motivo lo lee quien llama. */

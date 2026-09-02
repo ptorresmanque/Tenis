@@ -93,6 +93,7 @@ describe('InscritosDelTorneo', () => {
     promover: ReturnType<typeof vi.fn>;
     aprobarPago: ReturnType<typeof vi.fn>;
     rechazarPago: ReturnType<typeof vi.fn>;
+    subirComprobanteDelClub: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (lista: ListaDelCuadro) => {
@@ -106,12 +107,25 @@ describe('InscritosDelTorneo', () => {
       retirar: vi.fn().mockResolvedValue({ id: 11 }),
       promover: vi.fn().mockResolvedValue({ id: 12 }),
       aprobarPago: vi.fn().mockResolvedValue({ id: 13 }),
+      subirComprobanteDelClub: vi.fn().mockResolvedValue({ id: 14 }),
       rechazarPago: vi.fn().mockResolvedValue({ id: 13 }),
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [{ provide: Torneos, useValue: api }],
+    });
+
+    // El componente abre un `<dialog>` con showModal(), que jsdom no implementa.
+    HTMLDialogElement.prototype.showModal = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.open = true;
+    });
+    HTMLDialogElement.prototype.close = vi.fn(function (
+      this: HTMLDialogElement,
+    ) {
+      this.open = false;
     });
 
     fixture = TestBed.createComponent(InscritosDelTorneo);
@@ -278,6 +292,31 @@ describe('InscritosDelTorneo', () => {
       expect(texto()).not.toContain('Matías Fuentes');
     });
 
+    it('**el del mesón también cuenta como por revisar**', async () => {
+      // Pendiente, sin comprobante y sin medio: no se suelta solo —solo lo hace el que
+      // eligió Webpay— así que alguien tiene que cobrarle. Dejarlo fuera del filtro lo
+      // volvía invisible justo en la lista de trabajo.
+      const delMeson = { ...SIN_PAGAR, id: 15, jugador: 'Paga Enefectivo', medioPago: null };
+      await montar({ ...LISTA, cupo: 8, inscritos: [SIN_PAGAR, delMeson] });
+
+      await apretar('Por revisar');
+
+      expect(texto()).toContain('Paga Enefectivo');
+      expect(texto()).not.toContain('Matías Fuentes');
+    });
+
+    it('**el panel no llama transferencia a lo que no lo es**', async () => {
+      // Decía "Transferencia · $15.000" fijo, heredado de cuando el panel solo existía
+      // para los que subían comprobante. Al del mesón le mentía en la cara.
+      const delMeson = { ...SIN_PAGAR, id: 15, jugador: 'Paga Enefectivo', medioPago: null };
+      await montar({ ...LISTA, cupo: 8, inscritos: [delMeson] });
+
+      await apretar('Resolver');
+
+      expect(texto()).toContain('$15.000');
+      expect(texto()).not.toContain('Transferencia · ');
+    });
+
     it('**el comprobante se mira sin salir de la pantalla**', async () => {
       await conPagos();
 
@@ -301,9 +340,46 @@ describe('InscritosDelTorneo', () => {
       await conPagos();
       await apretar('Revisar');
 
-      await apretar('Confirmar');
+      await apretar('Confirmar el pago');
+      await apretar('Sí, confirmar');
 
-      expect(api.aprobarPago).toHaveBeenCalledWith(13);
+      // Sin medio: el que ya declaró su transferencia no tiene por qué repetirlo, y
+      // mandar uno por omisión sobreescribiría el dato con algo que nadie eligió.
+      expect(api.aprobarPago).toHaveBeenCalledWith(13, undefined);
+    });
+
+    it('**pregunta antes de confirmar**: un miss clic cobra un pago que no llegó', async () => {
+      await conPagos();
+      await apretar('Revisar');
+
+      await apretar('Confirmar el pago');
+
+      expect(api.aprobarPago).not.toHaveBeenCalled();
+      expect(texto()).toContain('queda pagado');
+    });
+
+    it('**la pregunta va en un modal**, no en una tira más dentro de la fila', async () => {
+      // `showModal` y no el atributo `open`: es lo único que vuelve inerte el resto de
+      // la página y atrapa el foco, que es lo que hace que una confirmación se lea
+      // como tal. Mismo patrón que la ficha del socio.
+      await conPagos();
+      await apretar('Revisar');
+
+      await apretar('Confirmar el pago');
+
+      expect(elemento().querySelector('dialog[open]')).not.toBeNull();
+    });
+
+    it('**y se cierra al resolver**, para no chocar contra el 409 del segundo clic', async () => {
+      // Con el panel abierto sobre una inscripción ya resuelta, el segundo intento
+      // recibía "esa inscripción ya no está pendiente" y parecía un error del sistema.
+      await conPagos();
+      await apretar('Revisar');
+      await apretar('Confirmar el pago');
+
+      await apretar('Sí, confirmar');
+
+      expect(texto()).not.toContain('Motivo del rechazo');
     });
 
     it('**rechazar exige el motivo**, que es lo que el club le dice por teléfono', async () => {
@@ -314,6 +390,9 @@ describe('InscritosDelTorneo', () => {
 
       expect(api.rechazarPago).not.toHaveBeenCalled();
       expect(texto()).toContain('Escribe el motivo');
+      // Sin motivo no se abre el modal: sería pedir que confirmen algo que el propio
+      // formulario va a rechazar dos pasos después.
+      expect(elemento().querySelector('dialog[open]')).toBeNull();
     });
 
     it('con motivo escrito, rechaza y avisa de que libera el cupo', async () => {
@@ -322,10 +401,24 @@ describe('InscritosDelTorneo', () => {
       await escribirMotivo('El comprobante es de otro monto');
 
       await apretar('Rechazar');
+      await apretar('Sí, rechazar');
 
       expect(api.rechazarPago).toHaveBeenCalledWith(
         13,
         'El comprobante es de otro monto',
+      );
+    });
+
+    it('**rechazar también pregunta**, que además libera el cupo', async () => {
+      await conPagos();
+      await apretar('Revisar');
+      await escribirMotivo('El comprobante es de otro monto');
+
+      await apretar('Rechazar');
+
+      expect(api.rechazarPago).not.toHaveBeenCalled();
+      expect(elemento().querySelector('dialog[open]')?.textContent).toContain(
+        'libera el cupo',
       );
     });
 
@@ -357,6 +450,69 @@ describe('InscritosDelTorneo', () => {
       await apretar('Revisar');
 
       expect(texto()).toContain('56987654321');
+    });
+  });
+
+  describe('el pago del que anota el admin', () => {
+    /**
+     * Nace pendiente, sin comprobante y sin medio: es el que llega al mesón. La
+     * bandeja vieja podía cobrarle; la lista nueva ató las acciones al comprobante y
+     * lo dejó sin salida.
+     */
+    const soloElDelMeson = () =>
+      montar({ ...LISTA, cupo: 8, inscritos: [SIN_PAGAR] });
+
+    it('**también se puede resolver, sin comprobante de por medio**', async () => {
+      await soloElDelMeson();
+
+      await apretar('Resolver');
+
+      expect(texto()).toContain('No adjuntó comprobante');
+    });
+
+    it('**se marca pagada diciendo cómo se pagó**', async () => {
+      await soloElDelMeson();
+      await apretar('Resolver');
+
+      const medio = elemento().querySelector<HTMLSelectElement>(
+        '[name^="medio-"]',
+      )!;
+      medio.value = 'EFECTIVO';
+      medio.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      await apretar('Confirmar el pago');
+      await apretar('Sí, confirmar');
+
+      expect(api.aprobarPago).toHaveBeenCalledWith(14, 'EFECTIVO');
+    });
+
+    it('**el club puede adjuntar el comprobante por el jugador**', async () => {
+      // El que lo mandó por WhatsApp: el club lo guarda como respaldo de lo que está
+      // por aprobar. Escrito y sin prueba hasta la revisión.
+      await soloElDelMeson();
+      await apretar('Resolver');
+
+      const campo = elemento().querySelector<HTMLInputElement>(
+        'input[type="file"]',
+      )!;
+      const imagen = new File(['x'], 'transferencia.jpg', {
+        type: 'image/jpeg',
+      });
+      Object.defineProperty(campo, 'files', { value: [imagen] });
+      campo.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+
+      expect(api.subirComprobanteDelClub).toHaveBeenCalledWith(14, imagen);
+    });
+
+    it('el que sí trajo comprobante no pierde su imagen', async () => {
+      await montar({ ...LISTA, cupo: 8, inscritos: [POR_REVISAR] });
+
+      await apretar('Revisar');
+
+      expect(elemento().querySelector('img')).not.toBeNull();
     });
   });
 });

@@ -8,6 +8,7 @@ import { borrarImagen, guardarImagen } from '../comun/imagenes';
 import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
+  MedioPagoInscripcion,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
@@ -55,6 +56,43 @@ export class ComprobantesDeInscripcion {
       throw new NotFoundException('No hay una inscripción con esa llave.');
     }
 
+    return this.adjuntar(inscripcion, bytes);
+  }
+
+  /**
+   * El mismo comprobante, subido **por el admin** desde el panel.
+   *
+   * Es el jugador que manda su transferencia por WhatsApp: el club la guarda como
+   * respaldo de lo que está por aprobar. Hasta acá solo se podía subir desde la
+   * pantalla pública, con el token que el panel no tiene.
+   *
+   * **Por id y no por token, y eso está bien acá**: la razón de usar el token en el
+   * camino público es que los ids son correlativos y cualquiera podía pisar el
+   * comprobante de otro. Este endpoint vive detrás del guard de admin, donde el que
+   * llama ya es el club.
+   */
+  async subirComoAdmin(id: number, bytes: Buffer): Promise<{ id: number }> {
+    const inscripcion = await this.prisma.inscripcionTorneo.findUnique({
+      where: { id },
+      select: { id: true, estadoPago: true, comprobanteRuta: true },
+    });
+
+    if (!inscripcion) {
+      throw new NotFoundException('No hay una inscripción con ese número.');
+    }
+
+    return this.adjuntar(inscripcion, bytes);
+  }
+
+  /** Guarda la imagen y reemplaza la anterior, venga de donde venga. */
+  private async adjuntar(
+    inscripcion: {
+      id: number;
+      estadoPago: EstadoPagoInscripcion;
+      comprobanteRuta: string | null;
+    },
+    bytes: Buffer,
+  ): Promise<{ id: number }> {
     if (inscripcion.estadoPago !== EstadoPagoInscripcion.PENDIENTE) {
       throw new ConflictException(
         inscripcion.estadoPago === EstadoPagoInscripcion.EXENTA
@@ -124,8 +162,22 @@ export class ComprobantesDeInscripcion {
   }
 
   /** El admin miró el comprobante y era. */
-  async aprobar(id: number): Promise<{ id: number }> {
-    return this.resolver(id, EstadoPagoInscripcion.PAGADA, null);
+  /**
+   * Da el pago por bueno, y **deja dicho cómo se pagó**.
+   *
+   * El medio importa para el que anota el admin: es el que llega al mesón y paga en
+   * efectivo, y su inscripción nace sin comprobante y sin medio. Sin registrarlo, el
+   * club no tiene con qué cuadrar la caja al final del torneo.
+   *
+   * **Opcional a propósito.** Aprobar el comprobante de una transferencia que la
+   * persona ya declaró no necesita repetir el medio: ya está escrito desde que se
+   * inscribió, y sobreescribirlo con un valor por omisión sería perder el dato.
+   */
+  async aprobar(
+    id: number,
+    medioPago: MedioPagoInscripcion | null = null,
+  ): Promise<{ id: number }> {
+    return this.resolver(id, EstadoPagoInscripcion.PAGADA, null, medioPago);
   }
 
   /**
@@ -143,6 +195,7 @@ export class ComprobantesDeInscripcion {
     id: number,
     estadoPago: EstadoPagoInscripcion,
     motivo: string | null,
+    medioPago: MedioPagoInscripcion | null = null,
   ): Promise<{ id: number }> {
     // **El estado va en el `where`**, como en el resto del módulo: dos admins mirando
     // la misma bandeja no pueden aprobar y rechazar la misma fila, y el segundo lee que
@@ -152,6 +205,8 @@ export class ComprobantesDeInscripcion {
       data: {
         estadoPago,
         motivoRechazo: motivo,
+        // Solo si vino: nulo significa "no lo dijo", no "bórralo".
+        ...(medioPago ? { medioPago } : {}),
         ...(estadoPago === EstadoPagoInscripcion.RECHAZADA
           ? { estado: EstadoInscripcionTorneo.RETIRADA, siembra: null }
           : {}),

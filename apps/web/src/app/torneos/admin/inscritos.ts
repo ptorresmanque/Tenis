@@ -1,4 +1,14 @@
-import { Component, computed, inject, input, resource, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  resource,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
@@ -37,8 +47,8 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
         </div>
 
         <!-- **El filtro es la lista de trabajo del club.** "Por revisar" no es un
-             estado de la base: es PENDIENTE **con** comprobante, que es lo único que
-             espera una decisión de una persona. -->
+             estado de la base: es toda pendiente que no se resuelve sola, y la única
+             que se resuelve sola es la que eligió Webpay y no pagó. -->
         @if (porRevisar(datos.inscritos).length > 0 || filtro() !== 'todos') {
           <div class="mt-2 flex flex-wrap gap-2">
             <button
@@ -71,7 +81,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
         } @else {
           <div
             class="mt-2 hidden gap-x-3 px-1 text-xs text-muted-foreground
-                   sm:grid sm:grid-cols-[minmax(0,1fr)_10rem_5rem_auto]"
+                   sm:grid sm:grid-cols-[minmax(0,1fr)_10rem_5rem_11rem]"
           >
             <span>Jugador</span>
             <span>Pago</span>
@@ -88,7 +98,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                      vistazo, que es justo para lo que sirve una lista de inscritos. -->
                 <div
                   class="grid items-center gap-x-3 gap-y-1
-                         sm:grid-cols-[minmax(0,1fr)_10rem_5rem_auto]"
+                         sm:grid-cols-[minmax(0,1fr)_10rem_5rem_11rem]"
                 >
                   <div class="min-w-0">
                     <span class="font-medium">{{ quien.jugador }}</span>
@@ -127,14 +137,22 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
 
                   <!-- Las acciones juntas y al final, siempre en el mismo sitio. -->
                   <div class="flex items-center gap-1 justify-self-end">
-                    @if (quien.tieneComprobante) {
+                    <!-- **Para cualquier pendiente, con comprobante o sin él.** Al
+                         que anota el admin —el que llega al mesón y paga ahí— también
+                         hay que poder cobrarle, y atar el botón al comprobante lo
+                         dejaba sin ninguna salida. -->
+                    @if (quien.estadoPago === 'PENDIENTE') {
                       <button
                         type="button"
                         class="boton boton-secundario boton-chico"
                         [attr.aria-expanded]="revisando() === quien.id"
                         (click)="alternarRevision(quien.id)"
                       >
-                        {{ revisando() === quien.id ? 'Cerrar' : 'Revisar' }}
+                        @if (revisando() === quien.id) {
+                          Cerrar
+                        } @else {
+                          {{ quien.tieneComprobante ? 'Revisar' : 'Resolver' }}
+                        }
                       </button>
                     }
                     <button
@@ -169,21 +187,50 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                     class="mt-1 grid gap-3 rounded-lg border border-border bg-card p-3
                            sm:grid-cols-[12rem_1fr]"
                   >
-                    <a
-                      [href]="'/api/admin/inscripciones/' + quien.id + '/comprobante'"
-                      target="_blank"
-                      rel="noopener"
-                    >
-                      <img
-                        class="max-h-40 w-full rounded-lg border border-border object-contain"
-                        [src]="'/api/admin/inscripciones/' + quien.id + '/comprobante'"
-                        alt="Comprobante de {{ quien.jugador }}. Ábrelo para verlo en grande."
-                      />
-                    </a>
+                    @if (quien.tieneComprobante) {
+                      <a
+                        [href]="'/api/admin/inscripciones/' + quien.id + '/comprobante'"
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        <img
+                          class="max-h-40 w-full rounded-lg border border-border object-contain"
+                          [src]="'/api/admin/inscripciones/' + quien.id + '/comprobante'"
+                          alt="Comprobante de {{ quien.jugador }}. Ábrelo para verlo en grande."
+                        />
+                      </a>
+                    } @else {
+                      <!-- El que pagó en el mesón, o el que mandó su transferencia por
+                           WhatsApp: el club puede adjuntarla acá como respaldo. -->
+                      <div
+                        class="grid content-center gap-2 rounded-lg border border-dashed
+                               border-border p-3 text-center"
+                      >
+                        <p class="text-xs text-muted-foreground">
+                          No adjuntó comprobante.
+                        </p>
+                        <label class="boton boton-secundario boton-chico cursor-pointer">
+                          Adjuntar uno
+                          <input
+                            class="sr-only"
+                            type="file"
+                            accept="image/jpeg,image/png"
+                            [attr.name]="'comprobante-' + quien.id"
+                            [disabled]="trabajando()"
+                            (change)="adjuntar(quien, $event)"
+                          />
+                        </label>
+                      </div>
+                    }
 
                     <div>
                       <p class="text-sm text-muted-foreground">
-                        Transferencia · {{ pesos(datos.montoClp) }}
+                        <!-- El medio **si se sabe**. Decía "Transferencia" siempre, y
+                             al que anotó el admin —el del mesón— le mentía. -->
+                        @if (quien.medioPago) {
+                          {{ nombreDelMedio(quien.medioPago) }} ·
+                        }
+                        {{ pesos(datos.montoClp) }}
                         @if (quien.telefono) {
                           <br />Para llamarlo: {{ quien.telefono }}
                         }
@@ -193,6 +240,20 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                            campo del motivo, heredado de la bandeja vieja: con un
                            campo elástico de por medio, rechazar quedaba en la otra
                            punta de la fila y no se leía como la pareja de confirmar. -->
+                      <label class="mt-2 block text-sm">
+                        <span class="text-muted-foreground">Cómo pagó</span>
+                        <select
+                          class="campo campo-chico mt-1"
+                          [attr.name]="'medio-' + quien.id"
+                          [(ngModel)]="medios[quien.id]"
+                        >
+                          <option value="">Sin especificar</option>
+                          @for (medio of MEDIOS; track medio.valor) {
+                            <option [value]="medio.valor">{{ medio.opcion }}</option>
+                          }
+                        </select>
+                      </label>
+
                       <label class="mt-2 block text-sm">
                         <span class="text-muted-foreground">Motivo del rechazo</span>
                         <input
@@ -204,29 +265,30 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                         />
                       </label>
 
+                      <!-- Los dos abren el modal; la decisión se toma allá. -->
                       <div class="mt-2 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          class="boton boton-primario boton-chico"
-                          [disabled]="trabajando()"
-                          (click)="aprobar(quien)"
-                        >
-                          Confirmar el pago
-                        </button>
+                          <button
+                            type="button"
+                            class="boton boton-primario boton-chico"
+                            [disabled]="trabajando()"
+                            (click)="preguntar(quien, 'aprobar')"
+                          >
+                            Confirmar el pago
+                          </button>
 
-                        <button
-                          type="button"
-                          class="boton boton-secundario boton-chico"
-                          [disabled]="trabajando()"
-                          (click)="rechazar(quien)"
-                        >
-                          Rechazar
-                        </button>
-                      </div>
+                          <button
+                            type="button"
+                            class="boton boton-secundario boton-chico"
+                            [disabled]="trabajando()"
+                            (click)="preguntar(quien, 'rechazar')"
+                          >
+                            Rechazar
+                          </button>
+                        </div>
 
-                      <p class="mt-2 text-xs text-muted-foreground">
-                        Rechazar libera el cupo: pasa al primero de la lista de espera.
-                      </p>
+                        <p class="mt-2 text-xs text-muted-foreground">
+                          Rechazar libera el cupo: pasa al primero de la lista de espera.
+                        </p>
                     </div>
                   </div>
                 }
@@ -309,6 +371,61 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
         }
       </div>
     }
+
+    <!-- **La confirmación es un modal de verdad**, no una tira más dentro de la fila.
+         Se abre con showModal y no con el atributo open: es lo único que vuelve inerte
+         el resto de la página y atrapa el foco, que es lo que hace que una pregunta se
+         lea como una pregunta. Mismo patrón que la ficha del socio y la reserva. -->
+    <dialog
+      #confirmacion
+      closedby="any"
+      class="m-auto w-[min(28rem,92vw)] rounded-2xl bg-card p-6 shadow-xl
+             backdrop:bg-foreground/50"
+      aria-labelledby="titulo-confirmacion"
+      (close)="confirmando.set(null)"
+    >
+      @if (confirmando(); as decision) {
+        <h2 id="titulo-confirmacion" class="font-display text-lg font-semibold">
+          {{ decision.accion === 'aprobar' ? 'Confirmar el pago' : 'Rechazar el pago' }}
+        </h2>
+
+        <p class="mt-2 max-w-prose text-sm text-muted-foreground">
+          @if (decision.accion === 'aprobar') {
+            {{ decision.quien.jugador }} queda pagado
+            @if (medios[decision.quien.id]) {
+              {{ comoPago(medios[decision.quien.id]) }}
+            }
+            . Esto no se deshace desde acá.
+          } @else {
+            Rechazar el pago de {{ decision.quien.jugador }}
+            <strong>libera el cupo</strong>: pasa al primero de la lista de espera, y
+            su inscripción queda retirada.
+          }
+        </p>
+
+        <div class="mt-5 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            class="boton boton-texto"
+            (click)="confirmacion.close()"
+          >
+            Mejor no
+          </button>
+          <button
+            type="button"
+            class="boton boton-primario"
+            [disabled]="trabajando()"
+            (click)="resolver(decision.quien)"
+          >
+            {{
+              decision.accion === 'aprobar'
+                ? 'Sí, confirmar el pago'
+                : 'Sí, rechazar'
+            }}
+          </button>
+        </div>
+      }
+    </dialog>
   `,
 })
 export class InscritosDelTorneo {
@@ -347,6 +464,49 @@ export class InscritosDelTorneo {
 
   /** El motivo del rechazo, por inscripción. */
   protected motivos: Record<number, string> = {};
+
+  /** Cómo dice el club que se pagó, por inscripción. */
+  protected medios: Record<number, string> = {};
+
+  /**
+   * Los tres medios, como se llaman en pantalla.
+   *
+   * `EFECTIVO` es el que da sentido a todo esto: el que llega al mesón, se anota y
+   * paga ahí. Los otros dos existen para corregir el que la persona declaró mal.
+   */
+  /**
+   * Los tres medios y sus tres formas de nombrarse.
+   *
+   * **Una sola tabla.** Estuvieron repartidos en tres —la del selector, la de la línea
+   * del panel y la de la frase del modal— y agregar un medio obligaba a acordarse de
+   * las tres. `EFECTIVO` es el que da sentido a todo esto: el que llega al mesón, se
+   * anota y paga ahí.
+   */
+  protected readonly MEDIOS = [
+    {
+      valor: 'EFECTIVO',
+      opcion: 'En efectivo, en el club',
+      corto: 'Efectivo',
+      enFrase: 'en efectivo',
+    },
+    {
+      valor: 'TRANSFERENCIA',
+      opcion: 'Por transferencia',
+      corto: 'Transferencia',
+      enFrase: 'por transferencia',
+    },
+    { valor: 'WEBPAY', opcion: 'Con Webpay', corto: 'Webpay', enFrase: 'con Webpay' },
+  ];
+
+  /** "en efectivo", para la frase del modal. Vacío si no se eligió ninguno. */
+  protected comoPago(medio: string): string {
+    return this.MEDIOS.find((uno) => uno.valor === medio)?.enFrase ?? '';
+  }
+
+  /** "Efectivo", para la línea corta del panel. */
+  protected nombreDelMedio(medio: string): string {
+    return this.MEDIOS.find((uno) => uno.valor === medio)?.corto ?? '';
+  }
 
   protected readonly pesos = enPesos;
 
@@ -387,10 +547,19 @@ export class InscritosDelTorneo {
     };
   }
 
-  /** Los que esperan que una persona mire su comprobante. */
+  /**
+   * Los que esperan que una persona decida.
+   *
+   * **Toda pendiente que no se resuelve sola**, y solo se resuelve sola una: la que
+   * eligió Webpay y no pagó, que el barrido suelta a los quince minutos. El que trae
+   * comprobante espera que lo miren; el que anotó el admin espera que le cobren. Contar
+   * solo a los primeros dejaba al del mesón invisible en la lista de trabajo.
+   */
   protected porRevisar(inscritos: InscripcionTorneo[]): InscripcionTorneo[] {
     return inscritos.filter(
-      (quien) => quien.estadoPago === 'PENDIENTE' && quien.tieneComprobante,
+      (quien) =>
+        quien.estadoPago === 'PENDIENTE' &&
+        !(quien.medioPago === 'WEBPAY' && !quien.tieneComprobante),
     );
   }
 
@@ -404,31 +573,103 @@ export class InscritosDelTorneo {
     this.revisando.update((actual) => (actual === id ? null : id));
   }
 
-  protected async aprobar(quien: InscripcionTorneo): Promise<void> {
-    await this.intentar(() => this.api.aprobarPago(quien.id));
+  /**
+   * Qué inscripción está esperando un "sí", y para qué.
+   *
+   * Las dos decisiones son de las que no se deshacen solas: confirmar da por cobrada
+   * plata que puede no haber llegado, y rechazar suelta el cupo y se lo ofrece a otro.
+   */
+  protected readonly confirmando = signal<{
+    quien: InscripcionTorneo;
+    accion: 'aprobar' | 'rechazar';
+  } | null>(null);
+
+  private readonly confirmacion =
+    viewChild.required<ElementRef<HTMLDialogElement>>('confirmacion');
+
+  constructor() {
+    // Abrir y cerrar el `<dialog>` sigue a la señal, en vez de que cada botón lo haga
+    // a mano: así el `closedby="any"` —la tecla Esc y el clic en el fondo— y el botón
+    // de "mejor no" terminan todos en el mismo estado.
+    effect(() => {
+      const abierto = this.confirmando() !== null;
+      const elemento = this.confirmacion().nativeElement;
+
+      if (abierto && !elemento.open) elemento.showModal();
+      if (!abierto && elemento.open) elemento.close();
+    });
   }
 
   /**
-   * Rechaza el pago, **con el motivo escrito**.
+   * Primer clic: pregunta.
    *
-   * No es un botón cualquiera: libera el cupo y su lugar queda para el primero de la
-   * lista de espera. El motivo es lo que el club le va a decir por teléfono a esa
-   * persona, así que sin él no se manda.
+   * **El motivo se valida antes de preguntar.** Al revés sería pedir que confirmen
+   * algo que el propio formulario va a rechazar dos pasos después.
    */
-  protected async rechazar(quien: InscripcionTorneo): Promise<void> {
-    const motivo = (this.motivos[quien.id] ?? '').trim();
+  protected preguntar(
+    quien: InscripcionTorneo,
+    accion: 'aprobar' | 'rechazar',
+  ): void {
+    this.error.set(null);
 
-    if (motivo === '') {
-      this.error.set('Escribe el motivo del rechazo: es lo que se le va a decir.');
+    if (accion === 'rechazar' && (this.motivos[quien.id] ?? '').trim() === '') {
+      this.error.set(
+        'Escribe el motivo del rechazo: es lo que se le va a decir.',
+      );
       return;
     }
 
+    this.confirmando.set({ quien, accion });
+  }
+
+  /** Segundo clic: la decisión, y el panel se cierra con ella. */
+  protected async resolver(quien: InscripcionTorneo): Promise<void> {
+    const accion = this.confirmando()?.accion;
+
     await this.intentar(async () => {
-      await this.api.rechazarPago(quien.id, motivo);
-      this.motivos = { ...this.motivos, [quien.id]: '' };
+      if (accion === 'aprobar') {
+        // El medio va solo si el club lo dijo: vacío significa "no lo sé", y mandar
+        // uno por omisión escribiría en la caja un dato que nadie eligió.
+        await this.api.aprobarPago(
+          quien.id,
+          this.medios[quien.id] || undefined,
+        );
+      } else {
+        await this.api.rechazarPago(
+          quien.id,
+          (this.motivos[quien.id] ?? '').trim(),
+        );
+        this.motivos = { ...this.motivos, [quien.id]: '' };
+      }
+
+      // **Se cierra al resolver.** Con el panel abierto sobre una inscripción ya
+      // resuelta, el segundo clic recibía "esa inscripción ya no está pendiente" y
+      // parecía un error del sistema en vez de un botón que sobraba.
+      this.confirmando.set(null);
       this.revisando.set(null);
     });
   }
+
+  /**
+   * Adjunta el comprobante por el jugador.
+   *
+   * Es el que mandó su transferencia por WhatsApp: el club la guarda como respaldo de
+   * lo que está por aprobar. Desde la pantalla pública se sube con el token de la
+   * inscripción, que el panel no tiene.
+   */
+  protected async adjuntar(
+    quien: InscripcionTorneo,
+    evento: Event,
+  ): Promise<void> {
+    const archivo = (evento.target as HTMLInputElement).files?.[0];
+
+    if (!archivo) return;
+
+    await this.intentar(() =>
+      this.api.subirComprobanteDelClub(quien.id, archivo),
+    );
+  }
+
 
   private readonly version = signal(0);
 

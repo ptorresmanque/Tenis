@@ -638,11 +638,31 @@ export class Torneos {
     );
   }
 
-  aprobarPago(id: number): Promise<{ id: number }> {
+  /**
+   * Da el pago por bueno, con **cómo se pagó** si el club lo dice.
+   *
+   * El medio es opcional: aprobar el comprobante de una transferencia que la persona
+   * ya declaró no tiene por qué repetirlo, y mandar uno por omisión sobreescribiría el
+   * dato con algo que nadie eligió.
+   */
+  aprobarPago(id: number, medioPago?: string): Promise<{ id: number }> {
     return firstValueFrom(
       this.http.post<{ id: number }>(
         `/api/admin/inscripciones/${id}/aprobar`,
-        {},
+        medioPago ? { medioPago } : {},
+      ),
+    );
+  }
+
+  /** El comprobante que el club adjunta por el jugador. Uno por inscripción. */
+  subirComprobanteDelClub(id: number, imagen: File): Promise<{ id: number }> {
+    const cuerpo = new FormData();
+    cuerpo.append('comprobante', imagen);
+
+    return firstValueFrom(
+      this.http.post<{ id: number }>(
+        `/api/admin/inscripciones/${id}/comprobante`,
+        cuerpo,
       ),
     );
   }

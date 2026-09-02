@@ -1107,17 +1107,24 @@ enum EstadoPagoInscripcion {
   RECHAZADA
 }
 
-/// Cómo dijo que iba a pagar quien se inscribió solo.
+/// Cómo se paga una inscripción — o cómo se dijo que se iba a pagar.
 ///
-/// **Se guarda para saber a quién se le puede soltar el cupo.** Quien eligió Webpay y
-/// cerró la ventana de pago no deja ningún rastro —la pasarela no avisa cuando alguien
-/// cierra una pestaña—, así que la única forma de distinguirlo del que el admin anotó a
-/// mano para que pague en efectivo en el mesón es haber anotado qué dijo.
+/// **Sirve para dos cosas distintas, según el momento.** Antes de pagar dice *qué
+/// eligió* quien se inscribió solo, y es lo que permite soltarle el cupo al que cerró
+/// la ventana de Webpay: ese abandono no deja ningún rastro —la pasarela no avisa
+/// cuando alguien cierra una pestaña— así que sin esto es indistinguible del que el
+/// admin anotó a mano. Después de pagar dice *cómo se pagó*, que es lo que el club
+/// necesita para cuadrar la caja.
 ///
-/// Nulo = no pasa por acá: el cuadro es gratis, o lo inscribió el admin desde el panel.
+/// Nulo = todavía no se sabe: el cuadro es gratis, o lo anotó el admin y aún no dijo
+/// cómo se pagó.
 enum MedioPagoInscripcion {
   WEBPAY
   TRANSFERENCIA
+
+  /// **Solo lo pone el admin al confirmar**: es el que llega al mesón y paga ahí.
+  /// Nadie puede elegirlo desde el formulario público, que no cobra en efectivo.
+  EFECTIVO
 }
 
 /// Quién juega un torneo.

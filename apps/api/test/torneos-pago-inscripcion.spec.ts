@@ -12,10 +12,7 @@ import {
   ConceptoPago,
   EstadoPagoInscripcion,
 } from '../src/generated/prisma/client';
-import {
-  FALLOS_TOLERADOS,
-  IntentosFallidos,
-} from '../src/identidad/intentos';
+import { FALLOS_TOLERADOS, IntentosFallidos } from '../src/identidad/intentos';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -751,8 +748,126 @@ describe('El pago de la inscripción a un torneo', () => {
       expect((await listado())?.pagosPorRevisar).toBe(1);
     });
 
+    it('**y cuenta al que anotó el admin**, que también espera una decisión', async () => {
+      // Es el del mesón: pendiente, sin comprobante y sin medio. No se suelta solo
+      // —solo lo hace el que eligió Webpay— así que alguien tiene que cobrarle, y sin
+      // contarlo acá el índice decía "0 por revisar" mientras dos personas debían.
+      const jugador = await prisma.jugador.create({
+        data: { nombre: 'Debe', apellido: APELLIDO, telefono: null },
+      });
+      await request(app.getHttpServer())
+        .post(`/api/admin/cuadros/${cuadroPagado}/inscripciones`)
+        .set('Cookie', cookieAdmin)
+        .send({ jugadorId: jugador.id })
+        .expect(201);
+
+      expect((await listado())?.pagosPorRevisar).toBe(1);
+    });
+
     it('cuenta a los que esperan un lugar', async () => {
       expect((await listado())?.enEspera).toBe(0);
+    });
+  });
+
+  /**
+   * **Al que anota el admin también hay que poder cobrarle.**
+   *
+   * Su inscripción nace pendiente, sin comprobante y sin medio de pago —es el que llega
+   * al mesón—, y hasta acá no había forma de decir cómo pagó ni de marcarla pagada: la
+   * bandeja vieja sí podía, y el rediseño ató las acciones al comprobante.
+   */
+  describe('el pago que resuelve el admin', () => {
+    /** Como lo hace el panel: sin medio de pago y sin comprobante. */
+    const anotadoEnElMeson = async () => {
+      const jugador = await prisma.jugador.create({
+        data: { nombre: 'Paga', apellido: APELLIDO, telefono: null },
+      });
+      const inscripcion = await request(app.getHttpServer())
+        .post(`/api/admin/cuadros/${cuadroPagado}/inscripciones`)
+        .set('Cookie', cookieAdmin)
+        .send({ jugadorId: jugador.id })
+        .expect(201);
+
+      return (inscripcion.body as { id: number }).id;
+    };
+
+    const aprobar = (id: number, cuerpo: Record<string, unknown> = {}) =>
+      request(app.getHttpServer())
+        .post(`/api/admin/inscripciones/${id}/aprobar`)
+        .set('Cookie', cookieAdmin)
+        .send(cuerpo);
+
+    const adjuntar = (id: number, bytes: Buffer, cookie = cookieAdmin) =>
+      request(app.getHttpServer())
+        .post(`/api/admin/inscripciones/${id}/comprobante`)
+        .set('Cookie', cookie)
+        .attach('comprobante', bytes, 'transferencia.jpg');
+
+    it('**nace pendiente y sin medio de pago**, que es el caso a resolver', async () => {
+      const id = await anotadoEnElMeson();
+
+      const guardada = await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(guardada.estadoPago).toBe(EstadoPagoInscripcion.PENDIENTE);
+      expect(guardada.medioPago).toBeNull();
+    });
+
+    it('**el admin la marca pagada y deja dicho cómo se pagó**', async () => {
+      const id = await anotadoEnElMeson();
+
+      await aprobar(id, { medioPago: 'EFECTIVO' }).expect(200);
+
+      const guardada = await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(guardada.estadoPago).toBe(EstadoPagoInscripcion.PAGADA);
+      expect(guardada.medioPago).toBe('EFECTIVO');
+    });
+
+    it('sin decir el medio, la aprueba igual y no inventa uno', async () => {
+      const id = await anotadoEnElMeson();
+
+      await aprobar(id).expect(200);
+
+      const guardada = await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(guardada.estadoPago).toBe(EstadoPagoInscripcion.PAGADA);
+      expect(guardada.medioPago).toBeNull();
+    });
+
+    it('un medio inventado se rechaza', async () => {
+      const id = await anotadoEnElMeson();
+
+      await aprobar(id, { medioPago: 'TRUEQUE' }).expect(400);
+    });
+
+    it('**el admin puede adjuntar el comprobante por el jugador**', async () => {
+      // El que manda su transferencia por WhatsApp: el club la guarda como respaldo,
+      // y hasta acá solo se podía subir desde la pantalla pública, con un token que el
+      // panel no tiene.
+      const id = await anotadoEnElMeson();
+
+      await adjuntar(id, await unaImagen()).expect(201);
+
+      const guardada = await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(guardada.comprobanteRuta).toMatch(/^comprobantes\//);
+    });
+
+    it('sobre una ya pagada no se adjunta nada', async () => {
+      const id = await anotadoEnElMeson();
+      await aprobar(id, { medioPago: 'EFECTIVO' }).expect(200);
+
+      await adjuntar(id, await unaImagen()).expect(409);
+    });
+
+    it('**y esto no lo abre a cualquiera**', async () => {
+      const id = await anotadoEnElMeson();
+
+      await adjuntar(id, await unaImagen(), cookieSocio).expect(403);
     });
   });
 

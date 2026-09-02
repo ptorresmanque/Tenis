@@ -9,6 +9,7 @@ import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTorneo,
+  MedioPagoInscripcion,
 } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
@@ -186,13 +187,30 @@ export class Torneos {
         // **El trabajo pendiente, contado por el servidor.** Es lo que permite entrar
         // solo al torneo que tiene algo: sin estos números habría que abrir los tres
         // abiertos para descubrir que dos estaban al día.
+        //
+        // **Trabajo es toda pendiente que no se resuelve sola**, y solo se resuelve
+        // sola una: la que eligió Webpay y no pagó, que el barrido suelta a los quince
+        // minutos. Las demás esperan que una persona decida — la que trae comprobante
+        // y también la que anotó el admin para que pague en el mesón. Contar solo las
+        // que traían imagen dejaba el índice diciendo "0 por revisar" con gente
+        // debiendo la inscripción.
         _count: {
           select: {
             inscripciones: {
               where: {
                 estadoPago: EstadoPagoInscripcion.PENDIENTE,
-                comprobanteRuta: { not: null },
                 estado: { not: EstadoInscripcionTorneo.RETIRADA },
+                // **En positivo, con el nulo dicho aparte.** El medio en nulo —la que
+                // anotó el admin— se escapa de las dos formas cortas: `NOT (medio =
+                // 'WEBPAY' AND ...)` la deja fuera porque en SQL `NULL = 'WEBPAY'` no
+                // es falso sino desconocido, y `medio <> 'WEBPAY'` tampoco la trae por
+                // lo mismo. Las tres ramas dicen lo que se quiere decir: hay algo que
+                // mirar, o hay alguien de quien cobrar.
+                OR: [
+                  { comprobanteRuta: { not: null } },
+                  { medioPago: null },
+                  { medioPago: { not: MedioPagoInscripcion.WEBPAY } },
+                ],
               },
             },
           },
