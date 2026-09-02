@@ -642,6 +642,120 @@ describe('El pago de la inscripción a un torneo', () => {
     });
   });
 
+  /**
+   * **El pago se ve en la lista del cuadro, que es donde el club mira a su gente.**
+   *
+   * Hasta acá vivía en una bandeja aparte: mirando a un inscrito no se sabía si había
+   * pagado, y mirando la bandeja no se sabía en qué cuadro estaba.
+   */
+  describe('la lista del cuadro dice cómo va cada pago', () => {
+    interface Fila {
+      id: number;
+      jugador: string;
+      estadoPago: string;
+      medioPago: string | null;
+      tieneComprobante: boolean;
+      telefono: string | null;
+    }
+
+    const lista = async () => {
+      const respuesta = await request(app.getHttpServer())
+        .get(`/api/admin/cuadros/${cuadroPagado}/inscripciones`)
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      return respuesta.body as {
+        montoClp: number;
+        inscritos: Fila[];
+      };
+    };
+
+    it('**el estado de pago viene por inscrito**', async () => {
+      const { id } = (await inscribirse().expect(201)).body as { id: number };
+
+      const suya = (await lista()).inscritos.find((f) => f.id === id);
+
+      expect(suya).toMatchObject({
+        estadoPago: EstadoPagoInscripcion.PENDIENTE,
+        medioPago: 'WEBPAY',
+        tieneComprobante: false,
+      });
+    });
+
+    it('**dice si hay un comprobante que mirar**, que es la lista de trabajo', async () => {
+      // Es la diferencia que la pantalla necesita: "subió algo y espera que lo mires"
+      // no es lo mismo que "eligió Webpay y todavía no paga", aunque las dos sean
+      // PENDIENTE en la base.
+      const { id } = (
+        await inscribirseTransfiriendo(await unaImagen()).expect(201)
+      ).body as { id: number };
+
+      const suya = (await lista()).inscritos.find((f) => f.id === id);
+
+      expect(suya).toMatchObject({
+        medioPago: 'TRANSFERENCIA',
+        tieneComprobante: true,
+      });
+    });
+
+    it('trae el monto del cuadro, para no tener que pedirlo aparte', async () => {
+      await inscribirse().expect(201);
+
+      expect((await lista()).montoClp).toBe(15000);
+    });
+
+    it('**y el teléfono, que es a quien hay que llamar si el comprobante no cuadra**', async () => {
+      const { id } = (await inscribirse().expect(201)).body as { id: number };
+
+      const suya = (await lista()).inscritos.find((f) => f.id === id);
+
+      expect(suya?.telefono).toMatch(/^569\d+$/);
+    });
+
+    it('**la ruta del comprobante nunca sale en la respuesta**', async () => {
+      // Es una ruta del disco del servidor: la imagen se pide por su endpoint, que
+      // vive detrás del guard, y el cliente no tiene por qué saber dónde está.
+      await inscribirseTransfiriendo(await unaImagen()).expect(201);
+
+      expect(JSON.stringify(await lista())).not.toContain('comprobantes/');
+    });
+  });
+
+  /**
+   * **El índice del panel dice dónde hay trabajo.**
+   *
+   * Con la bandeja de pagos fuera, es lo único que impide entrar a los tres torneos
+   * abiertos para descubrir que solo uno tenía algo por revisar.
+   */
+  describe('el listado de torneos trae el panorama', () => {
+    const listado = async () => {
+      const respuesta = await request(app.getHttpServer())
+        .get('/api/admin/torneos')
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      return (
+        respuesta.body as {
+          id: number;
+          pagosPorRevisar: number;
+          enEspera: number;
+        }[]
+      ).find((t) => t.id === torneoId);
+    };
+
+    it('**cuenta los pagos que esperan que alguien los mire**', async () => {
+      await inscribirseTransfiriendo(await unaImagen()).expect(201);
+      // Este eligió Webpay y no pagó: no es trabajo de nadie, se suelta solo.
+      await inscribirse().expect(201);
+
+      expect((await listado())?.pagosPorRevisar).toBe(1);
+    });
+
+    it('cuenta a los que esperan un lugar', async () => {
+      expect((await listado())?.enEspera).toBe(0);
+    });
+  });
+
   describe('el comprobante de transferencia', () => {
     const conComprobante = async () => {
       const inscripcion = (await inscribirse().expect(201)).body as {

@@ -59,6 +59,10 @@ export interface Torneo {
     valor: string;
     puntosCampeon: number;
   }[];
+  /** Cuántos comprobantes esperan que una persona los mire. */
+  pagosPorRevisar: number;
+  /** Cuántos esperan un lugar en alguno de sus cuadros. */
+  enEspera: number;
 }
 
 /** El nivel del **jugador**: 5ª, 4ª, … Honor. No es `CategoriaTorneo`. */
@@ -86,6 +90,13 @@ export interface CuadroDelTorneo {
 
 export type EstadoInscripcionTorneo = 'INSCRITA' | 'LISTA_ESPERA' | 'RETIRADA';
 
+/** Cómo va el pago de una inscripción. **Eje aparte del estado de la inscripción.** */
+export type EstadoPagoInscripcion =
+  | 'EXENTA'
+  | 'PENDIENTE'
+  | 'PAGADA'
+  | 'RECHAZADA';
+
 /** Una inscripción a un torneo, como se lee en la lista. */
 export interface InscripcionTorneo {
   id: number;
@@ -104,6 +115,20 @@ export interface InscripcionTorneo {
   siembra: number | null;
   estado: EstadoInscripcionTorneo;
   inscritaEn: string;
+  /** Cómo va su pago, en la misma fila que su nombre. */
+  estadoPago: EstadoPagoInscripcion;
+  /** Qué dijo que iba a hacer. Nulo si es gratis o lo anotó el admin. */
+  medioPago: 'WEBPAY' | 'TRANSFERENCIA' | null;
+  /**
+   * Si hay un comprobante que mirar.
+   *
+   * Es lo que separa "subió algo y espera que lo revises" de "eligió Webpay y todavía
+   * no paga": en la base las dos son `PENDIENTE`, y para el club son dos cosas
+   * distintas —una es trabajo suyo y la otra se resuelve sola—.
+   */
+  tieneComprobante: boolean;
+  /** A quién llamar si el comprobante no cuadra. Solo en el panel. */
+  telefono: string | null;
 }
 
 /** La lista de un **cuadro**, en tres grupos porque son tres cosas distintas. */
@@ -112,6 +137,8 @@ export interface ListaDelCuadro {
   torneoCategoriaId: number;
   categoria: string;
   cupo: number;
+  /** Cuánto cuesta este cuadro. Es el mismo para todos sus inscritos. */
+  montoClp: number;
   estado: EstadoTorneo;
   inscritos: InscripcionTorneo[];
   enEspera: InscripcionTorneo[];
@@ -129,19 +156,6 @@ export interface Transmision {
   fin: string;
   url: string;
   miniatura: string;
-}
-
-/** Un pago de inscripción esperando que el club lo mire. */
-export interface PagoPendiente {
-  id: number;
-  jugador: string;
-  telefono: string | null;
-  torneoId: number;
-  torneo: string;
-  categoria: string;
-  montoClp: number;
-  tieneComprobante: boolean;
-  inscritaEn: string;
 }
 
 export interface PartidoDelCuadro {
@@ -624,13 +638,6 @@ export class Torneos {
     );
   }
 
-  /** La bandeja del club: quién dice que pagó y nadie ha revisado. */
-  pagosPendientes(): Promise<PagoPendiente[]> {
-    return firstValueFrom(
-      this.http.get<PagoPendiente[]>('/api/admin/inscripciones/pendientes'),
-    );
-  }
-
   aprobarPago(id: number): Promise<{ id: number }> {
     return firstValueFrom(
       this.http.post<{ id: number }>(
@@ -784,6 +791,30 @@ export class Torneos {
 
   crearTorneo(datos: TorneoNuevo): Promise<Torneo> {
     return firstValueFrom(this.http.post<Torneo>('/api/admin/torneos', datos));
+  }
+
+  /**
+   * Cancela un torneo, o deshace la cancelación.
+   *
+   * Endpoint propio y no un `editarTorneo({ estado })`: cancelar esconde el torneo del
+   * calendario público y cierra sus inscripciones, así que no viaja por la misma
+   * puerta que cambiarle el nombre.
+   */
+  cancelarTorneo(id: number): Promise<{ id: number; estado: EstadoTorneo }> {
+    return firstValueFrom(
+      this.http.post<{ id: number; estado: EstadoTorneo }>(
+        `/api/admin/torneos/${id}/cancelacion`,
+        {},
+      ),
+    );
+  }
+
+  reactivarTorneo(id: number): Promise<{ id: number; estado: EstadoTorneo }> {
+    return firstValueFrom(
+      this.http.delete<{ id: number; estado: EstadoTorneo }>(
+        `/api/admin/torneos/${id}/cancelacion`,
+      ),
+    );
   }
 
   editarTorneo(id: number, cambio: Partial<TorneoNuevo>): Promise<Torneo> {

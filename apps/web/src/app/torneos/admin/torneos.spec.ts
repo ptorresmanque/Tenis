@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CategoriaTorneo, Torneo, Torneos } from '../torneos.service';
@@ -44,6 +45,8 @@ describe('TorneosPanel', () => {
       },
     ],
     estado: 'INSCRIPCION',
+    pagosPorRevisar: 0,
+    enEspera: 0,
   };
 
   let fixture: ComponentFixture<TorneosPanel>;
@@ -66,7 +69,7 @@ describe('TorneosPanel', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Torneos, useValue: api }],
+      providers: [provideRouter([]), { provide: Torneos, useValue: api }],
     });
 
     fixture = TestBed.createComponent(TorneosPanel);
@@ -118,7 +121,14 @@ describe('TorneosPanel', () => {
     expect(api.editarCategoria).toHaveBeenCalledWith(2, { activa: true });
   });
 
+  /**
+   * El formulario nace cerrado: crear un torneo es lo raro, mirarlos es lo diario.
+   * Antes ocupaba media pantalla debajo de la lista, siempre.
+   */
+  const abrirElFormulario = () => apretar('Crear torneo');
+
   it('crear un torneo manda las tres fechas juntas', async () => {
+    await abrirElFormulario();
     await escribir('nombre', 'Copa de invierno');
     await escribir('fechaInicio', '2026-07-01');
     await escribir('fechaFin', '2026-07-05');
@@ -142,6 +152,7 @@ describe('TorneosPanel', () => {
     api.crearTorneo.mockRejectedValue({
       error: { message: 'El torneo no puede terminar antes de empezar.' },
     });
+    await abrirElFormulario();
 
     await apretar('Crear torneo');
 
@@ -151,6 +162,8 @@ describe('TorneosPanel', () => {
   it('**el torneo nace sin valor: lo pone cada cuadro** (T70)', async () => {
     // Ganar Honor puede valer el doble que ganar la 5ª el mismo fin de semana, así
     // que el formulario del torneo ya no elige categoría: la elige cada cuadro.
+    await abrirElFormulario();
+
     expect(elemento().querySelector('select[name="categoriaId"]')).toBeNull();
   });
 

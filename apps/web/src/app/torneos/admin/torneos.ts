@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { SUPERFICIES } from '../../catalogo-canchas/superficies';
@@ -7,11 +8,6 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { CuadroDelTorneo } from './cuadro';
-import { CuadrosDelTorneo } from './cuadros-del-torneo';
-import { FotosDelTorneo } from './fotos';
-import { TransmisionesDelTorneo } from './transmisiones';
-import { InscritosDelTorneo } from './inscritos';
 import {
   CategoriaTorneo,
   ESTADOS_TORNEO,
@@ -19,6 +15,32 @@ import {
   Torneo,
   Torneos,
 } from '../torneos.service';
+
+/**
+ * Los tres grupos con que el club mira su temporada.
+ *
+ * **Activo es tres estados y no dos**: el torneo con el cuadro ya armado todavía da
+ * trabajo —hay partidos que programar— así que esconderlo sería peor que mostrarlo.
+ */
+const GRUPOS = [
+  {
+    id: 'activos' as const,
+    nombre: 'Activos',
+    estados: ['INSCRIPCION', 'CUADRO_ARMADO', 'EN_CURSO'] as EstadoTorneo[],
+  },
+  {
+    id: 'finalizados' as const,
+    nombre: 'Finalizados',
+    estados: ['FINALIZADO'] as EstadoTorneo[],
+  },
+  {
+    id: 'cancelados' as const,
+    nombre: 'Cancelados',
+    estados: ['CANCELADO'] as EstadoTorneo[],
+  },
+];
+
+type Grupo = (typeof GRUPOS)[number]['id'];
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -38,22 +60,28 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-torneos',
-  imports: [
-    FormsModule,
-    Aviso,
-    EstadoVacio,
-    Insignia,
-    InscritosDelTorneo,
-    CuadroDelTorneo,
-    CuadrosDelTorneo,
-    TransmisionesDelTorneo,
-    FotosDelTorneo,
-  ],
+  imports: [FormsModule, RouterLink, Aviso, EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Torneos</h1>
-    <p class="mt-1 max-w-prose text-muted-foreground">
-      Los torneos del club y las categorías con que reparten puntos.
-    </p>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="font-display text-3xl font-bold">Torneos</h1>
+        <p class="mt-1 max-w-prose text-muted-foreground">
+          Los torneos del club y las categorías con que reparten puntos.
+        </p>
+      </div>
+
+      <!-- **Arriba y junto al título, no al pie de la lista.** Que el formulario de
+           crear viviera debajo de todos los torneos era uno de los defectos que este
+           rediseño venía a arreglar; dejar ahí su botón lo conservaba entero. -->
+      <button
+        type="button"
+        class="boton boton-secundario"
+        [attr.aria-expanded]="creando()"
+        (click)="creando.set(!creando())"
+      >
+        {{ creando() ? 'Cerrar' : 'Crear torneo' }}
+      </button>
+    </div>
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -62,100 +90,9 @@ const enBlanco = () => ({
       <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
-    @if (torneos.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
-    } @else if (torneos.value().length === 0) {
-      <app-estado-vacio
-        class="mt-4 block"
-        icono="emoji_events"
-        titulo="Todavía no hay torneos"
-        detalle="Crea una categoría y después el primer torneo."
-      />
-    } @else {
-      <ul class="mt-4 grid gap-3">
-        @for (torneo of torneos.value(); track torneo.id) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p class="font-display text-lg font-semibold">{{ torneo.nombre }}</p>
-              <app-insignia
-                [variante]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
-                icono="flag"
-              >
-                {{ nombreEstado(torneo.estado) }}
-              </app-insignia>
-              <button
-                type="button"
-                class="boton boton-secundario boton-chico ms-auto"
-                [attr.aria-expanded]="abierto() === torneo.id"
-                (click)="alternar(torneo.id)"
-              >
-                {{ abierto() === torneo.id ? 'Ocultar cuadros' : 'Ver cuadros' }}
-              </button>
-            </div>
-
-            <p class="mt-1 text-sm text-muted-foreground">
-              {{ enPalabras(torneo.fechaInicio) }} — {{ enPalabras(torneo.fechaFin) }}
-              · inscripción hasta {{ enPalabras(torneo.cierreInscripcion) }}
-            </p>
-            <p class="mt-1 text-sm">
-              @if (torneo.cuadros.length === 0) {
-                <span class="text-muted-foreground">
-                  Todavía no corre ninguna categoría.
-                </span>
-              } @else {
-                @for (cuadro of torneo.cuadros; track cuadro.id) {
-                  <!-- Con cuánto vale ganarlo al lado: desde T70 no es del torneo,
-                       así que verlo por cuadro es la única forma de verlo. -->
-                  <span class="me-2 text-muted-foreground">
-                    {{ cuadro.categoria }} ({{ cuadro.cupo }}) · {{ cuadro.valor }},
-                    {{ cuadro.puntosCampeon }} al campeón
-                  </span>
-                }
-              }
-            </p>
-
-            @if (abierto() === torneo.id) {
-              <app-cuadros-del-torneo
-                [torneoId]="torneo.id"
-                (cambiaron)="recargar()"
-              />
-
-              <app-transmisiones-del-torneo [torneoId]="torneo.id" />
-              <app-fotos-del-torneo [torneoId]="torneo.id" />
-
-              @if (torneo.cuadros.length > 0) {
-                <div class="mt-4 flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-medium">Cuadro:</span>
-                  @for (cuadro of torneo.cuadros; track cuadro.id) {
-                    <button
-                      type="button"
-                      class="boton boton-chico"
-                      [class]="
-                        elegido() === cuadro.id
-                          ? 'boton-primario'
-                          : 'boton-secundario'
-                      "
-                      [attr.aria-pressed]="elegido() === cuadro.id"
-                      (click)="elegir(cuadro.id)"
-                    >
-                      {{ cuadro.categoria }}
-                    </button>
-                  }
-                </div>
-
-                @if (elegidoEn(torneo); as cuadroId) {
-                  <app-inscritos-torneo [cuadroId]="cuadroId" />
-                  <app-cuadro-torneo [cuadroId]="cuadroId" />
-                }
-              }
-            }
-          </li>
-        }
-      </ul>
-    }
-
+    @if (creando()) {
     <form
-      class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
+      class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="crearTorneo()"
     >
       <h2 class="font-display text-lg font-semibold">Crear un torneo</h2>
@@ -216,6 +153,127 @@ const enBlanco = () => ({
         Crear torneo
       </button>
     </form>
+    }
+
+    <!-- **El filtro dice lo que esconde antes de que lo toques.** Por defecto solo
+         se ven los que dan trabajo hoy; sin el número al lado, el día que alguien
+         busque un torneo viejo va a creer que se borró. -->
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      @for (grupo of GRUPOS; track grupo.id) {
+        <button
+          type="button"
+          class="boton boton-chico"
+          [class]="grupo_() === grupo.id ? 'boton-primario' : 'boton-secundario'"
+          [attr.aria-pressed]="grupo_() === grupo.id"
+          (click)="grupo_.set(grupo.id)"
+        >
+          {{ grupo.nombre }} {{ cuantos(grupo.id) }}
+        </button>
+      }
+
+      <label class="ms-auto flex items-center gap-2 text-sm">
+        <span class="text-muted-foreground">Año</span>
+        <select class="campo campo-chico" name="anio" [(ngModel)]="anio">
+          <option value="">Todos</option>
+          @for (uno of anios(); track uno) {
+            <option [value]="uno">{{ uno }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    @if (torneos.isLoading()) {
+      <p class="mt-4 text-muted-foreground">Cargando…</p>
+    } @else if (torneos.value().length === 0) {
+      <app-estado-vacio
+        class="mt-4 block"
+        icono="emoji_events"
+        titulo="Todavía no hay torneos"
+        detalle="Crea una categoría y después el primer torneo."
+      />
+    } @else {
+      <ul class="mt-4 grid gap-3">
+        @for (torneo of visibles(); track torneo.id) {
+          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <a
+                class="font-display text-lg font-semibold text-primary"
+                [routerLink]="['/administracion/torneos', torneo.id]"
+              >
+                {{ torneo.nombre }}
+              </a>
+              <app-insignia
+                [variante]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
+                icono="flag"
+              >
+                {{ nombreEstado(torneo.estado) }}
+              </app-insignia>
+              <span class="text-sm text-muted-foreground">
+                {{ enPalabras(torneo.fechaInicio) }} —
+                {{ enPalabras(torneo.fechaFin) }}
+                @if (torneo.estado === 'INSCRIPCION') {
+                  · inscripción hasta {{ enPalabras(torneo.cierreInscripcion) }}
+                }
+              </span>
+            </div>
+
+            <p class="mt-1 text-sm text-muted-foreground">
+              @if (torneo.cuadros.length === 0) {
+                Todavía no corre ninguna categoría.
+              } @else {
+                @for (cuadro of torneo.cuadros; track cuadro.id) {
+                  <span class="me-2">
+                    {{ cuadro.categoria }} ({{ cuadro.cupo }}) · {{ cuadro.valor }},
+                    {{ cuadro.puntosCampeon }} al campeón
+                  </span>
+                }
+              }
+            </p>
+
+            <!-- El trabajo pendiente, en la tarjeta: es lo que evita entrar a los
+                 tres torneos abiertos para descubrir que dos estaban al día. -->
+            @if (torneo.pagosPorRevisar > 0 || torneo.enEspera > 0) {
+              <p class="mt-2 flex flex-wrap gap-2">
+                @if (torneo.pagosPorRevisar > 0) {
+                  <a [routerLink]="['/administracion/torneos', torneo.id]">
+                    <app-insignia variante="aviso" icono="receipt_long">
+                      {{ torneo.pagosPorRevisar }}
+                      {{ torneo.pagosPorRevisar === 1 ? 'pago' : 'pagos' }} por revisar
+                    </app-insignia>
+                  </a>
+                }
+                @if (torneo.enEspera > 0) {
+                  <app-insignia variante="neutro" icono="hourglass_empty">
+                    {{ torneo.enEspera }} en lista de espera
+                  </app-insignia>
+                }
+              </p>
+            }
+          </li>
+        }
+      </ul>
+
+      @if (visibles().length === 0) {
+        <app-estado-vacio
+          class="mt-4 block"
+          icono="filter_alt_off"
+          titulo="Ningún torneo con ese filtro"
+          detalle="Prueba con otro estado o con otro año."
+        />
+      }
+
+      @if (escondidos() > 0) {
+        <p class="mt-3 text-sm text-muted-foreground">
+          <span class="icono align-middle text-base" aria-hidden="true">
+            visibility_off
+          </span>
+          {{ escondidos() }}
+          {{ escondidos() === 1 ? 'torneo no se está mostrando' : 'torneos no se están mostrando' }}
+          con este filtro.
+        </p>
+      }
+    }
+
 
     <h2 class="mt-8 font-display text-2xl font-bold">Categorías</h2>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -310,37 +368,55 @@ export class TorneosPanel {
     this.categorias.value().filter((categoria) => categoria.activa),
   );
 
-  /** Qué torneo tiene su lista abierta. Uno a la vez: la temporada entera no cabe. */
-  protected readonly abierto = signal<number | null>(null);
-
-  /** Qué cuadro del torneo abierto se está mirando. */
-  protected readonly elegido = signal<number | null>(null);
-
-  protected alternar(id: number): void {
-    this.abierto.update((actual) => (actual === id ? null : id));
-    this.elegido.set(null);
-  }
-
-  protected elegir(cuadroId: number): void {
-    this.elegido.set(cuadroId);
-  }
+  /** Si el formulario de crear está abierto. Cerrado por omisión: es lo raro. */
+  protected readonly creando = signal(false);
 
   /**
-   * El cuadro elegido, o el primero si todavía no se eligió ninguno.
+   * Qué grupo de estados se está mirando. **Activos por omisión.**
    *
-   * **Se cae al primero en vez de no mostrar nada**: abrir un torneo y ver una fila de
-   * botones sin contenido debajo parece una pantalla rota. Y se comprueba que el
-   * elegido siga siendo de **este** torneo, porque el mismo signal sobrevive a cerrar
-   * uno y abrir otro.
+   * El torneo con el cuadro armado sigue siendo trabajo —hay partidos que programar—,
+   * así que "activo" son tres estados y no dos. Los cancelados no están abiertos ni en
+   * curso, así que se esconden con los finalizados, pero tienen su propio grupo.
    */
-  protected elegidoEn(torneo: Torneo): number | null {
-    const suyos = torneo.cuadros.map((cuadro) => cuadro.id);
-    const elegido = this.elegido();
+  protected readonly grupo_ = signal<Grupo>('activos');
 
-    return elegido !== null && suyos.includes(elegido)
-      ? elegido
-      : (suyos[0] ?? null);
+  /** El año, o todos. Como cadena: sale de un `<select>`. */
+  protected anio = '';
+
+  protected readonly GRUPOS = GRUPOS;
+
+  /** Los años que tienen algún torneo, del más nuevo al más viejo. */
+  protected readonly anios = computed(() => [
+    ...new Set(this.torneos.value().map((t) => t.fechaInicio.slice(0, 4))),
+  ]);
+
+  /**
+   * Lo que se muestra: el grupo elegido y, si se pidió, el año.
+   *
+   * **Se filtra en el navegador y no en el servidor.** El club hace un puñado de
+   * torneos al año: a diez años son unas cincuenta filas, y pedirle al servidor que
+   * filtre sería un parámetro más que mantener para ahorrar nada.
+   */
+  protected readonly visibles = computed(() =>
+    this.torneos
+      .value()
+      .filter((torneo) => this.enElGrupo(torneo, this.grupo_()))
+      .filter((torneo) => this.anio === '' || torneo.fechaInicio.startsWith(this.anio)),
+  );
+
+  protected readonly escondidos = computed(
+    () => this.torneos.value().length - this.visibles().length,
+  );
+
+  /** Cuántos hay en un grupo, para decirlo en el botón antes de apretarlo. */
+  protected cuantos(grupo: Grupo): number {
+    return this.torneos.value().filter((t) => this.enElGrupo(t, grupo)).length;
   }
+
+  private enElGrupo(torneo: Torneo, grupo: Grupo): boolean {
+    return GRUPOS.find((uno) => uno.id === grupo)!.estados.includes(torneo.estado);
+  }
+
 
   protected recargar(): void {
     this.version.update((veces) => veces + 1);

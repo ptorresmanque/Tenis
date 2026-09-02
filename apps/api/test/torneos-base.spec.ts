@@ -430,6 +430,111 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     expect(guardada.puntosCampeon).toBe(300);
   });
 
+  /**
+   * **Cancelar un torneo.**
+   *
+   * `CANCELADO` existía en el enum y cuatro lugares del sistema reaccionaban a él —no
+   * deja inscribirse, ni armar cuadro, ni cargar resultados, y lo esconde del
+   * calendario público— pero **nada podía ponerlo**: era un estado inalcanzable. Lo
+   * encontró el club buscando el botón en el panel.
+   */
+  describe('cancelar un torneo', () => {
+    const cancelar = (id: number, cookie = cookieAdmin) =>
+      request(app.getHttpServer())
+        .post(`/api/admin/torneos/${id}/cancelacion`)
+        .set('Cookie', cookie);
+
+    const reactivar = (id: number) =>
+      request(app.getHttpServer())
+        .delete(`/api/admin/torneos/${id}/cancelacion`)
+        .set('Cookie', cookieAdmin);
+
+    const nuevo = async () =>
+      ((await crearTorneo().expect(201)).body as { id: number }).id;
+
+    it('lo deja cancelado y fuera del calendario público', async () => {
+      const id = await nuevo();
+
+      await cancelar(id).expect(201);
+
+      const publicos = await request(app.getHttpServer())
+        .get('/api/torneos/publicos?anio=2026')
+        .expect(200);
+      expect(
+        (publicos.body as { id: number }[]).some((t) => t.id === id),
+      ).toBe(false);
+    });
+
+    it('**y desde ahí nadie se inscribe**, que es de lo que servía el estado', async () => {
+      const id = await nuevo();
+      const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow();
+      const categoria = await prisma.categoriaTorneo.create({
+        data: { nombre: `Club cancelado ${Date.now()}`, puntosCampeon: 250 },
+      });
+      const cuadro = await prisma.torneoCategoria.create({
+        data: {
+          torneoId: id,
+          categoriaJuegoId: categoriaJuego.id,
+          categoriaId: categoria.id,
+          cupo: 8,
+        },
+      });
+      const jugador = await prisma.jugador.create({
+        data: { nombre: 'Quedó', apellido: 'Del torneo' },
+      });
+
+      await cancelar(id).expect(201);
+
+      const rechazada = await request(app.getHttpServer())
+        .post(`/api/admin/cuadros/${cuadro.id}/inscripciones`)
+        .set('Cookie', cookieAdmin)
+        .send({ jugadorId: jugador.id })
+        .expect(409);
+      expect((rechazada.body as { message: string }).message).toContain(
+        'cancelado',
+      );
+    });
+
+    it('**deshacerlo lo devuelve a inscripción**: un clic no puede ser definitivo', async () => {
+      const id = await nuevo();
+      await cancelar(id).expect(201);
+
+      const vuelto = await reactivar(id).expect(200);
+
+      expect((vuelto.body as { estado: string }).estado).toBe('INSCRIPCION');
+    });
+
+    it('un torneo que ya se jugó no se cancela: sería rehacer la historia', async () => {
+      const id = await nuevo();
+      await prisma.torneo.update({
+        where: { id },
+        data: { estado: EstadoTorneo.FINALIZADO },
+      });
+
+      const rechazo = await cancelar(id).expect(409);
+
+      expect((rechazo.body as { message: string }).message).toContain(
+        'ya se jugó',
+      );
+    });
+
+    it('reactivar uno que no está cancelado no hace nada raro', async () => {
+      const id = await nuevo();
+
+      await reactivar(id).expect(409);
+    });
+
+    it('un torneo que no existe responde 404', async () => {
+      await cancelar(999999).expect(404);
+    });
+
+    it('**solo el admin cancela**', async () => {
+      const id = await nuevo();
+
+      await cancelar(id, cookieSocio).expect(403);
+    });
+  });
+
   it('solo el admin toca jugadores, categorías y torneos', async () => {
     await request(app.getHttpServer())
       .post('/api/admin/jugadores')

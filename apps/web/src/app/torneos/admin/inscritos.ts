@@ -1,9 +1,10 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Insignia } from '../../ui/insignia';
+import { Insignia, VarianteInsignia } from '../../ui/insignia';
 import { InscripcionTorneo, Torneos } from '../torneos.service';
 
 /**
@@ -28,7 +29,38 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
           >
             {{ datos.inscritos.length }} de {{ datos.cupo }}
           </app-insignia>
+          @if (datos.montoClp > 0) {
+            <span class="text-sm text-muted-foreground">
+              inscripción {{ pesos(datos.montoClp) }}
+            </span>
+          }
         </div>
+
+        <!-- **El filtro es la lista de trabajo del club.** "Por revisar" no es un
+             estado de la base: es PENDIENTE **con** comprobante, que es lo único que
+             espera una decisión de una persona. -->
+        @if (porRevisar(datos.inscritos).length > 0 || filtro() !== 'todos') {
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="boton boton-chico"
+              [class]="filtro() === 'todos' ? 'boton-primario' : 'boton-secundario'"
+              [attr.aria-pressed]="filtro() === 'todos'"
+              (click)="filtro.set('todos')"
+            >
+              Todos {{ datos.inscritos.length }}
+            </button>
+            <button
+              type="button"
+              class="boton boton-chico"
+              [class]="filtro() === 'revisar' ? 'boton-primario' : 'boton-secundario'"
+              [attr.aria-pressed]="filtro() === 'revisar'"
+              (click)="filtro.set('revisar')"
+            >
+              Por revisar {{ porRevisar(datos.inscritos).length }}
+            </button>
+          </div>
+        }
 
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
@@ -37,38 +69,83 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
         @if (datos.inscritos.length === 0) {
           <p class="mt-2 text-sm text-muted-foreground">Todavía no hay nadie inscrito.</p>
         } @else {
-          <ul class="mt-2 grid gap-2">
-            @for (quien of datos.inscritos; track quien.id) {
+          <div
+            class="mt-2 hidden gap-x-3 px-1 text-xs text-muted-foreground
+                   sm:grid sm:grid-cols-[minmax(0,1fr)_10rem_5rem_auto]"
+          >
+            <span>Jugador</span>
+            <span>Pago</span>
+            <span>Siembra</span>
+            <span></span>
+          </div>
+          <ul class="mt-1 grid gap-2">
+            @for (quien of visibles(datos.inscritos); track quien.id) {
               <li class="grid gap-1 text-sm">
-                <div class="flex flex-wrap items-center gap-2">
-                <span class="font-medium">{{ quien.jugador }}</span>
-                @if (quien.numeroSocio) {
-                  <app-insignia variante="info" icono="badge">
-                    Socio {{ quien.numeroSocio }}
-                  </app-insignia>
-                } @else if (quien.procedencia) {
-                  <span class="text-muted-foreground">{{ quien.procedencia }}</span>
-                }
-                <label class="ms-auto flex items-center gap-1">
-                  <span class="text-sm text-muted-foreground">Siembra</span>
-                  <input
-                    class="campo campo-chico w-16"
-                    type="number"
-                    min="1"
-                    [name]="'siembra-' + quien.id"
-                    [value]="quien.siembra ?? ''"
-                    [disabled]="trabajando() || datos.estado !== 'INSCRIPCION'"
-                    (change)="sembrar(quien, $any($event.target).value)"
-                  />
-                </label>
-                <button
-                  type="button"
-                  class="boton boton-texto boton-chico"
-                  [disabled]="trabajando()"
-                  (click)="retirar(quien)"
+                <!-- **Cuatro columnas alineadas y no un renglón de piezas sueltas.**
+                     Con todo en un solo renglón, el estado de pago y el de revisar
+                     caían en un lugar distinto en cada fila —según el largo del
+                     nombre y si había procedencia— y no se podían comparar de un
+                     vistazo, que es justo para lo que sirve una lista de inscritos. -->
+                <div
+                  class="grid items-center gap-x-3 gap-y-1
+                         sm:grid-cols-[minmax(0,1fr)_10rem_5rem_auto]"
                 >
-                  Retirar
-                </button>
+                  <div class="min-w-0">
+                    <span class="font-medium">{{ quien.jugador }}</span>
+                    @if (quien.numeroSocio) {
+                      <app-insignia variante="info" icono="badge" class="ms-2">
+                        Socio {{ quien.numeroSocio }}
+                      </app-insignia>
+                    } @else if (quien.procedencia) {
+                      <span class="ms-2 text-muted-foreground">
+                        {{ quien.procedencia }}
+                      </span>
+                    }
+                  </div>
+
+                  <app-insignia
+                    class="justify-self-start"
+                    [variante]="pago(quien).variante"
+                    [icono]="pago(quien).icono"
+                  >
+                    {{ pago(quien).texto }}
+                  </app-insignia>
+
+                  <label class="flex items-center gap-1">
+                    <span class="sr-only">Siembra de {{ quien.jugador }}</span>
+                    <input
+                      class="campo campo-chico w-16"
+                      type="number"
+                      min="1"
+                      placeholder="—"
+                      [name]="'siembra-' + quien.id"
+                      [value]="quien.siembra ?? ''"
+                      [disabled]="trabajando() || datos.estado !== 'INSCRIPCION'"
+                      (change)="sembrar(quien, $any($event.target).value)"
+                    />
+                  </label>
+
+                  <!-- Las acciones juntas y al final, siempre en el mismo sitio. -->
+                  <div class="flex items-center gap-1 justify-self-end">
+                    @if (quien.tieneComprobante) {
+                      <button
+                        type="button"
+                        class="boton boton-secundario boton-chico"
+                        [attr.aria-expanded]="revisando() === quien.id"
+                        (click)="alternarRevision(quien.id)"
+                      >
+                        {{ revisando() === quien.id ? 'Cerrar' : 'Revisar' }}
+                      </button>
+                    }
+                    <button
+                      type="button"
+                      class="boton boton-texto boton-chico"
+                      [disabled]="trabajando()"
+                      (click)="retirar(quien)"
+                    >
+                      Retirar
+                    </button>
+                  </div>
                 </div>
 
                 <!-- **Cuándo NO puede jugar** (T65). Va acá y no en lo público: dice a
@@ -82,6 +159,76 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                     No puede
                     {{ enPalabras(quien.restricciones) }}
                   </p>
+                }
+
+                <!-- **El comprobante se mira acá y la decisión se toma acá.** La
+                     imagen se pide recién al abrir esta fila: con la de cada inscrito
+                     cargada de entrada, abrir un cuadro lleno se traía veinte fotos. -->
+                @if (revisando() === quien.id) {
+                  <div
+                    class="mt-1 grid gap-3 rounded-lg border border-border bg-card p-3
+                           sm:grid-cols-[12rem_1fr]"
+                  >
+                    <a
+                      [href]="'/api/admin/inscripciones/' + quien.id + '/comprobante'"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      <img
+                        class="max-h-40 w-full rounded-lg border border-border object-contain"
+                        [src]="'/api/admin/inscripciones/' + quien.id + '/comprobante'"
+                        alt="Comprobante de {{ quien.jugador }}. Ábrelo para verlo en grande."
+                      />
+                    </a>
+
+                    <div>
+                      <p class="text-sm text-muted-foreground">
+                        Transferencia · {{ pesos(datos.montoClp) }}
+                        @if (quien.telefono) {
+                          <br />Para llamarlo: {{ quien.telefono }}
+                        }
+                      </p>
+
+                      <!-- **Las dos decisiones, juntas.** Venían separadas por el
+                           campo del motivo, heredado de la bandeja vieja: con un
+                           campo elástico de por medio, rechazar quedaba en la otra
+                           punta de la fila y no se leía como la pareja de confirmar. -->
+                      <label class="mt-2 block text-sm">
+                        <span class="text-muted-foreground">Motivo del rechazo</span>
+                        <input
+                          class="campo campo-chico mt-1"
+                          [attr.name]="'motivo-' + quien.id"
+                          maxlength="200"
+                          placeholder="El comprobante es de otro monto"
+                          [(ngModel)]="motivos[quien.id]"
+                        />
+                      </label>
+
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          class="boton boton-primario boton-chico"
+                          [disabled]="trabajando()"
+                          (click)="aprobar(quien)"
+                        >
+                          Confirmar el pago
+                        </button>
+
+                        <button
+                          type="button"
+                          class="boton boton-secundario boton-chico"
+                          [disabled]="trabajando()"
+                          (click)="rechazar(quien)"
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+
+                      <p class="mt-2 text-xs text-muted-foreground">
+                        Rechazar libera el cupo: pasa al primero de la lista de espera.
+                      </p>
+                    </div>
+                  </div>
                 }
               </li>
             }
@@ -191,6 +338,97 @@ export class InscritosDelTorneo {
 
   protected readonly trabajando = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  /** Qué se está mirando: todos, o solo lo que espera una decisión. */
+  protected readonly filtro = signal<'todos' | 'revisar'>('todos');
+
+  /** Qué fila tiene el comprobante abierto. Una a la vez: la imagen pesa. */
+  protected readonly revisando = signal<number | null>(null);
+
+  /** El motivo del rechazo, por inscripción. */
+  protected motivos: Record<number, string> = {};
+
+  protected readonly pesos = enPesos;
+
+  /**
+   * Cómo se lee el pago de un inscrito.
+   *
+   * **`PENDIENTE` se muestra como dos cosas distintas**, y esa es la decisión que hace
+   * útil la columna: con comprobante es trabajo del club —alguien tiene que mirar una
+   * imagen y decidir—; sin él es alguien que eligió Webpay y no pagó, que se resuelve
+   * solo cuando el barrido le suelta el cupo. Mostrarlas iguales las volvería ruido.
+   */
+  protected pago(quien: InscripcionTorneo): {
+    texto: string;
+    variante: VarianteInsignia;
+    icono: string;
+  } {
+    if (quien.estadoPago === 'PAGADA') {
+      return { texto: 'Pagada', variante: 'exito', icono: 'check_circle' };
+    }
+
+    if (quien.estadoPago === 'EXENTA') {
+      return { texto: 'Exenta', variante: 'neutro', icono: 'money_off' };
+    }
+
+    if (quien.estadoPago === 'RECHAZADA') {
+      return { texto: 'Rechazada', variante: 'error', icono: 'cancel' };
+    }
+
+    if (quien.tieneComprobante) {
+      return { texto: 'Por revisar', variante: 'aviso', icono: 'receipt_long' };
+    }
+
+    return {
+      texto:
+        quien.medioPago === 'WEBPAY' ? 'Webpay sin pagar' : 'Sin pagar',
+      variante: 'neutro',
+      icono: 'schedule',
+    };
+  }
+
+  /** Los que esperan que una persona mire su comprobante. */
+  protected porRevisar(inscritos: InscripcionTorneo[]): InscripcionTorneo[] {
+    return inscritos.filter(
+      (quien) => quien.estadoPago === 'PENDIENTE' && quien.tieneComprobante,
+    );
+  }
+
+  protected visibles(inscritos: InscripcionTorneo[]): InscripcionTorneo[] {
+    return this.filtro() === 'revisar'
+      ? this.porRevisar(inscritos)
+      : inscritos;
+  }
+
+  protected alternarRevision(id: number): void {
+    this.revisando.update((actual) => (actual === id ? null : id));
+  }
+
+  protected async aprobar(quien: InscripcionTorneo): Promise<void> {
+    await this.intentar(() => this.api.aprobarPago(quien.id));
+  }
+
+  /**
+   * Rechaza el pago, **con el motivo escrito**.
+   *
+   * No es un botón cualquiera: libera el cupo y su lugar queda para el primero de la
+   * lista de espera. El motivo es lo que el club le va a decir por teléfono a esa
+   * persona, así que sin él no se manda.
+   */
+  protected async rechazar(quien: InscripcionTorneo): Promise<void> {
+    const motivo = (this.motivos[quien.id] ?? '').trim();
+
+    if (motivo === '') {
+      this.error.set('Escribe el motivo del rechazo: es lo que se le va a decir.');
+      return;
+    }
+
+    await this.intentar(async () => {
+      await this.api.rechazarPago(quien.id, motivo);
+      this.motivos = { ...this.motivos, [quien.id]: '' };
+      this.revisando.set(null);
+    });
+  }
 
   private readonly version = signal(0);
 

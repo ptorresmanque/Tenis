@@ -22,6 +22,38 @@ describe('InscritosDelTorneo', () => {
     siembra: null,
     estado: 'INSCRITA',
     inscritaEn: '2026-11-01T12:00:00.000Z',
+    estadoPago: 'PAGADA',
+    medioPago: 'WEBPAY',
+    tieneComprobante: false,
+    telefono: '56911112222',
+  };
+
+  /** El que subió un comprobante y espera que alguien lo mire. */
+  const POR_REVISAR: InscripcionTorneo = {
+    id: 13,
+    jugadorId: 3,
+    jugador: 'Camila Reyes',
+    numeroSocio: '214',
+    procedencia: null,
+    restricciones: [],
+    siembra: null,
+    estado: 'INSCRITA',
+    inscritaEn: '2026-11-03T12:00:00.000Z',
+    estadoPago: 'PENDIENTE',
+    medioPago: 'TRANSFERENCIA',
+    tieneComprobante: true,
+    telefono: '56987654321',
+  };
+
+  /** El que eligió Webpay y todavía no paga: mismo estado, otra situación. */
+  const SIN_PAGAR: InscripcionTorneo = {
+    ...POR_REVISAR,
+    id: 14,
+    jugadorId: 4,
+    jugador: 'Matías Fuentes',
+    numeroSocio: null,
+    medioPago: 'WEBPAY',
+    tieneComprobante: false,
   };
 
   const ESPERANDO: InscripcionTorneo = {
@@ -34,6 +66,10 @@ describe('InscritosDelTorneo', () => {
     restricciones: [],
     estado: 'LISTA_ESPERA',
     inscritaEn: '2026-11-02T12:00:00.000Z',
+    estadoPago: 'EXENTA',
+    medioPago: null,
+    tieneComprobante: false,
+    telefono: null,
   };
 
   const LISTA: ListaDelCuadro = {
@@ -41,6 +77,7 @@ describe('InscritosDelTorneo', () => {
     torneoCategoriaId: 7,
     categoria: '4ª',
     cupo: 2,
+    montoClp: 15000,
     estado: 'INSCRIPCION',
     inscritos: [EN_EL_CUADRO],
     enEspera: [],
@@ -54,6 +91,8 @@ describe('InscritosDelTorneo', () => {
     inscribir: ReturnType<typeof vi.fn>;
     retirar: ReturnType<typeof vi.fn>;
     promover: ReturnType<typeof vi.fn>;
+    aprobarPago: ReturnType<typeof vi.fn>;
+    rechazarPago: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (lista: ListaDelCuadro) => {
@@ -66,6 +105,8 @@ describe('InscritosDelTorneo', () => {
       inscribir: vi.fn().mockResolvedValue({ id: 13, estado: 'INSCRITA' }),
       retirar: vi.fn().mockResolvedValue({ id: 11 }),
       promover: vi.fn().mockResolvedValue({ id: 12 }),
+      aprobarPago: vi.fn().mockResolvedValue({ id: 13 }),
+      rechazarPago: vi.fn().mockResolvedValue({ id: 13 }),
     };
 
     TestBed.resetTestingModule();
@@ -86,6 +127,17 @@ describe('InscritosDelTorneo', () => {
     Array.from(elemento().querySelectorAll('button'))
       .find((b) => b.textContent?.trim().startsWith(etiqueta))
       ?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+
+  /** Escribe el motivo del rechazo en la fila abierta. */
+  const escribirMotivo = async (motivo: string) => {
+    const campo = elemento().querySelector<HTMLInputElement>(
+      '[name^="motivo-"]',
+    )!;
+    campo.value = motivo;
+    campo.dispatchEvent(new Event('input'));
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -191,5 +243,120 @@ describe('InscritosDelTorneo', () => {
     // ruido en una lista que el admin lee de corrido.
     expect(texto()).toContain('Socio 001');
     expect(texto()).not.toContain('Club de Ñuñoa');
+  });
+
+  describe('el pago, en la misma fila que el nombre', () => {
+    const conPagos = () =>
+      montar({
+        ...LISTA,
+        cupo: 8,
+        inscritos: [EN_EL_CUADRO, POR_REVISAR, SIN_PAGAR],
+      });
+
+    it('**cada inscrito muestra cómo va su pago**', async () => {
+      await conPagos();
+
+      expect(texto()).toContain('Pagada');
+    });
+
+    it('**"por revisar" y "sin pagar" no se dicen igual**', async () => {
+      // En la base las dos son PENDIENTE. Para el club son dos cosas distintas: una
+      // es trabajo suyo y la otra se resuelve sola, así que mostrarlas iguales
+      // convertiría la columna en ruido.
+      await conPagos();
+
+      expect(texto()).toContain('Por revisar');
+      expect(texto()).toContain('sin pagar');
+    });
+
+    it('el filtro por revisar deja solo a quien espera que lo miren', async () => {
+      await conPagos();
+
+      await apretar('Por revisar');
+
+      expect(texto()).toContain('Camila Reyes');
+      expect(texto()).not.toContain('Matías Fuentes');
+    });
+
+    it('**el comprobante se mira sin salir de la pantalla**', async () => {
+      await conPagos();
+
+      await apretar('Revisar');
+
+      const imagen = elemento().querySelector('img');
+      expect(imagen?.getAttribute('src')).toBe(
+        '/api/admin/inscripciones/13/comprobante',
+      );
+    });
+
+    it('**la imagen no se pide hasta que se abre esa fila**', async () => {
+      // Es lo que permitió traerla acá: con la imagen de cada inscrito cargada de
+      // entrada, abrir la lista de un cuadro lleno se traía veinte fotos.
+      await conPagos();
+
+      expect(elemento().querySelector('img')).toBeNull();
+    });
+
+    it('confirmar el pago lo resuelve desde acá', async () => {
+      await conPagos();
+      await apretar('Revisar');
+
+      await apretar('Confirmar');
+
+      expect(api.aprobarPago).toHaveBeenCalledWith(13);
+    });
+
+    it('**rechazar exige el motivo**, que es lo que el club le dice por teléfono', async () => {
+      await conPagos();
+      await apretar('Revisar');
+
+      await apretar('Rechazar');
+
+      expect(api.rechazarPago).not.toHaveBeenCalled();
+      expect(texto()).toContain('Escribe el motivo');
+    });
+
+    it('con motivo escrito, rechaza y avisa de que libera el cupo', async () => {
+      await conPagos();
+      await apretar('Revisar');
+      await escribirMotivo('El comprobante es de otro monto');
+
+      await apretar('Rechazar');
+
+      expect(api.rechazarPago).toHaveBeenCalledWith(
+        13,
+        'El comprobante es de otro monto',
+      );
+    });
+
+    it('**la lista se lee en columnas, no como un renglón de piezas sueltas**', async () => {
+      // Lo encontró el club a ojo: con todo en un solo renglón, el estado de pago y el
+      // botón de revisar caían en un lugar distinto en cada fila según el largo del
+      // nombre, y no se podían comparar de un vistazo.
+      await conPagos();
+
+      const cabecera = elemento().textContent ?? '';
+      expect(cabecera).toContain('Jugador');
+      expect(cabecera).toContain('Siembra');
+    });
+
+    it('**confirmar y rechazar están juntos**, no separados por el motivo', async () => {
+      await conPagos();
+      await apretar('Revisar');
+
+      const botones = Array.from(elemento().querySelectorAll('button'));
+      const confirmar = botones.find((b) => b.textContent?.includes('Confirmar'))!;
+      const rechazar = botones.find((b) => b.textContent?.includes('Rechazar'))!;
+
+      expect(confirmar.parentElement).toBe(rechazar.parentElement);
+    });
+
+    it('**el teléfono está donde se necesita: al lado del comprobante**', async () => {
+      await conPagos();
+
+      await apretar('Revisar');
+
+      expect(texto()).toContain('56987654321');
+    });
   });
 });

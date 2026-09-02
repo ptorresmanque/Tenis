@@ -220,6 +220,24 @@ export class TorneosController {
     return this.torneos.crear(leerTorneo(cuerpo));
   }
 
+  /**
+   * Cancela un torneo, y lo deshace.
+   *
+   * **`POST` y `DELETE` sobre la cancelación** y no un `PATCH` del estado: cancelar no
+   * es editar un campo cualquiera —esconde el torneo del calendario público y cierra
+   * sus inscripciones— y dejarlo entrar por el mismo `PATCH` que cambia el nombre
+   * invitaría a mandarlo sin querer desde cualquier formulario.
+   */
+  @Post('torneos/:id/cancelacion')
+  cancelarTorneo(@Param('id', ParseIntPipe) id: number) {
+    return this.torneos.cancelar(id);
+  }
+
+  @Delete('torneos/:id/cancelacion')
+  reactivarTorneo(@Param('id', ParseIntPipe) id: number) {
+    return this.torneos.reactivar(id);
+  }
+
   @Patch('torneos/:id')
   editarTorneo(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
     return this.torneos.editar(id, leerCambioDeTorneo(cuerpo));

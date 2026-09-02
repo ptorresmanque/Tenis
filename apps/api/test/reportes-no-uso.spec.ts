@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { hoyEnElClub } from '../src/comun/tiempo';
+import { comoFechaCivil, hoyEnElClub } from '../src/comun/tiempo';
 import { hashear } from '../src/identidad/contrasena';
 import {
   EstadoReserva,
@@ -272,15 +272,20 @@ describe('Reportes de hora no usada', () => {
   });
 
   describe('qué horas puede reportar el socio (T35)', () => {
-    // El día **del club**, no el de UTC. Con `new Date().toISOString()`, desde las
-    // 20:00 de Santiago la fecha ya es la de mañana y el endpoint devolvía los
-    // reportables de un día en el que no hay nada: estos dos tests fallaban todas
-    // las noches, cuatro horas al día, sin que nada estuviera roto.
-    const hoy = () => hoyEnElClub().toISOString().slice(0, 10);
+    // El día **de la reserva sembrada**, en hora del club. No "hoy": entre medianoche
+    // y las tres de la mañana, una hora que terminó hace dos cae en el día anterior, y
+    // el endpoint devolvía los reportables de un día en el que todavía no pasó nada.
+    //
+    // La versión anterior cambió `new Date()` por `hoyEnElClub()` para arreglar esto
+    // mismo entre las 20:00 y la medianoche; **mudó la ventana rota en vez de
+    // cerrarla**, y estos dos tests seguían fallando tres horas cada noche. Preguntar
+    // por el día al que pertenece lo que se sembró es cierto a cualquier hora.
+    const elDiaDeLaReserva = () =>
+      comoFechaCivil(hoyEnElClub(HACE_TRES_HORAS));
 
     const reportables = (cookie = testigo) =>
       request(servidor())
-        .get(`/api/reservas/reportables?fecha=${hoy()}`)
+        .get(`/api/reservas/reportables?fecha=${elDiaDeLaReserva()}`)
         .set('Cookie', cookie);
 
     it('trae la hora ajena ya transcurrida', async () => {

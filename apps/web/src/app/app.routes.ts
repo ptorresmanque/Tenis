@@ -162,12 +162,13 @@ export const routes: Routes = [
           import('./torneos/admin/torneos').then((m) => m.TorneosPanel),
       },
       {
-        path: 'administracion/pagos-torneos',
-        title: 'Pagos de inscripción — Administración',
+        // **Antes de la lista no: después.** Angular resuelve por orden y
+        // `administracion/torneos` es prefijo de esta, pero al ser rutas distintas
+        // —una con parámetro— no compiten. Va junto a la suya para leerlas de a par.
+        path: 'administracion/torneos/:id',
+        title: 'Torneo — Administración',
         loadComponent: () =>
-          import('./torneos/admin/pagos-pendientes').then(
-            (m) => m.PagosPendientes,
-          ),
+          import('./torneos/admin/ficha-torneo').then((m) => m.FichaDeTorneo),
       },
       {
         path: 'administracion/jugadores',

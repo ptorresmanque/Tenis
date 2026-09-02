@@ -11,6 +11,7 @@ import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTorneo,
+  MedioPagoInscripcion,
   type Prisma,
 } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
@@ -31,6 +32,32 @@ export interface InscripcionPublicada {
   estado: EstadoInscripcionTorneo;
   inscritaEn: Date;
   /**
+   * Cómo va su pago, **en la misma fila que su nombre**.
+   *
+   * Vivía solo en la bandeja de pagos, y esa separación era el problema: mirando a un
+   * inscrito no se sabía si había pagado, y mirando la bandeja no se sabía en qué
+   * cuadro estaba.
+   */
+  estadoPago: EstadoPagoInscripcion;
+  /** Qué dijo que iba a hacer. Nulo si es gratis o lo anotó el admin. */
+  medioPago: MedioPagoInscripcion | null;
+  /**
+   * Si hay un comprobante que mirar. **Un booleano y no la ruta**: la ruta es del
+   * disco del servidor y la imagen se pide por su endpoint, detrás del guard.
+   *
+   * Es lo que separa "subió algo y espera que lo revises" de "eligió Webpay y todavía
+   * no paga", que en la base son el mismo `PENDIENTE` y para el club son dos cosas
+   * distintas: una es trabajo suyo y la otra se resuelve sola.
+   */
+  tieneComprobante: boolean;
+  /**
+   * A quién llamar si el comprobante no cuadra.
+   *
+   * Va en la lista del panel y **no** en la pública, como las restricciones: es el
+   * mismo criterio de la bandeja de pagos, donde ya estaba por esta misma razón.
+   */
+  telefono: string | null;
+  /**
    * Cuándo **no** puede jugar.
    *
    * Va en la lista del panel y **no** en la pública: dice a qué hora esa persona no
@@ -47,6 +74,8 @@ export interface ListaDelCuadro {
   torneoCategoriaId: number;
   categoria: string;
   cupo: number;
+  /** Cuánto cuesta este cuadro. Del cuadro y no de cada fila: es el mismo para todos. */
+  montoClp: number;
   estado: EstadoTorneo;
   inscritos: InscripcionPublicada[];
   enEspera: InscripcionPublicada[];
@@ -478,6 +507,7 @@ export class InscripcionesATorneo {
         id: true,
         torneoId: true,
         cupo: true,
+        montoInscripcionClp: true,
         categoriaJuego: { select: { nombre: true } },
         torneo: { select: { estado: true } },
       },
@@ -499,10 +529,16 @@ export class InscripcionesATorneo {
         siembra: true,
         estado: true,
         inscritaEn: true,
+        estadoPago: true,
+        medioPago: true,
+        // **La ruta no sale de acá.** Se lee para responder si hay algo que mirar y
+        // se convierte en un booleano: es una ruta del disco del servidor.
+        comprobanteRuta: true,
         jugador: {
           select: {
             nombre: true,
             apellido: true,
+            telefono: true,
             procedencia: true,
             socio: { select: { numeroSocio: true } },
           },
@@ -524,6 +560,10 @@ export class InscripcionesATorneo {
         siembra: fila.siembra,
         estado: fila.estado,
         inscritaEn: fila.inscritaEn,
+        estadoPago: fila.estadoPago,
+        medioPago: fila.medioPago,
+        tieneComprobante: fila.comprobanteRuta !== null,
+        telefono: fila.jugador.telefono,
         restricciones: fila.restricciones,
       })),
     );
@@ -533,6 +573,7 @@ export class InscripcionesATorneo {
       torneoCategoriaId: cuadro.id,
       categoria: cuadro.categoriaJuego.nombre,
       cupo: cuadro.cupo,
+      montoClp: cuadro.montoInscripcionClp,
       estado: cuadro.torneo.estado,
       inscritos: inscripciones.filter(
         (i) => i.estado === EstadoInscripcionTorneo.INSCRITA,
