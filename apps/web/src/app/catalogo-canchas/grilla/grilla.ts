@@ -81,8 +81,12 @@ const TARIFA_DEL_SOCIO = 'sin costo';
     <div class="mt-4 flex flex-wrap items-end gap-4">
       <!-- La semana a un toque. El calendario sigue estando al lado para ir más
            lejos: siete chips cubren lo que la gente reserva de verdad, y el resto
-           no justifica un calendario propio pudiendo usar el del sistema. -->
+           no justifica un calendario propio pudiendo usar el del sistema.
+
+           A ancho completo: compartiendo fila con el campo de fecha, los siete
+           chips no llegaban a encogerse. -->
       <app-selector
+        class="w-full"
         etiqueta="Día"
         estilo="chips"
         [opciones]="chipsDeDia()"
@@ -161,142 +165,141 @@ const TARIFA_DEL_SOCIO = 'sin costo';
       }
     </div>
 
-    @for (grilla of visibles(); track grilla.cancha.id) {
-      <section class="mt-8" [attr.aria-labelledby]="'cancha-' + grilla.cancha.id">
-        <h2
-          [id]="'cancha-' + grilla.cancha.id"
-          class="font-display text-xl font-semibold"
-        >
-          {{ grilla.cancha.nombre }}
-        </h2>
-        <p class="mt-1 flex flex-wrap items-center gap-2">
-          <app-insignia variante="info" icono="sports_tennis">
-            {{ superficie(grilla.cancha.superficie) }}
-          </app-insignia>
-          @if (grilla.cancha.techada) {
-            <app-insignia variante="neutro" icono="roofing">Techada</app-insignia>
-          }
-          @if (grilla.cancha.iluminacion) {
-            <app-insignia variante="neutro" icono="lightbulb">
-              Con iluminación
-            </app-insignia>
-          }
-        </p>
+    <!--
+      EL DÍA, POR HORA.
 
-        @if (grilla.bloques.length === 0) {
-          <p class="mt-3 text-muted-foreground">
-            Esta cancha no abre este día.
+      Cada banda es una hora y dentro van las canchas libres como chips. Antes
+      esto eran ocho secciones de catorce tarjetas cada una: 112 tarjetas, 56
+      filas en un teléfono, 10.223px de alto para responder "¿a qué hora puedo
+      jugar?". El eje lo cambió el club el 2026-09-08 y la razón es la pregunta,
+      no el tamaño: agrupada por cancha, esa pregunta obliga a recorrer ocho
+      listas y compararlas de memoria.
+    -->
+    @if (visibles().length > 0 && porHora().length === 0) {
+      <!-- Agrupando por hora, un día sin bloques deja la pantalla en blanco: sin
+           esto, "el club no abre este día" se leería como una falla de carga. -->
+      <p class="mt-6 text-muted-foreground">
+        El club no abre este día.
+      </p>
+    }
+
+    @for (franja of porHora(); track franja.inicio) {
+      <section class="mt-6 border-t border-border pt-5">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <!-- Las etiquetas van pegadas a propósito: un salto de línea entre
+               ellas mete un espacio en blanco y en pantalla se lee "08:00 –09:00",
+               con el guion suelto. -->
+          <h2 class="font-display leading-none">
+            <span class="text-marcador">{{ hora(franja.inicio) }}</span
+            ><span class="text-lg font-semibold text-muted-foreground"
+              >–{{ hora(franja.fin) }}</span
+            >
+          </h2>
+
+          <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
+            @if (franja.libres.length > 0) {
+              <span class="font-semibold text-accent-strong">
+                {{ franja.libres.length }}
+                {{ franja.libres.length === 1 ? 'libre' : 'libres' }}
+              </span>
+              <span class="text-muted-foreground">Socio {{ tarifaDelSocio }}</span>
+              <span class="text-muted-foreground" aria-hidden="true">·</span>
+              <span class="text-muted-foreground">
+                Arriendo
+                <strong class="text-accent-strong">
+                  {{ precioDeLaHora(franja.libres) }}
+                </strong>
+              </span>
+            } @else {
+              <span class="font-medium text-muted-foreground">Sin canchas libres</span>
+            }
+            @if (franja.esPico) {
+              <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+            }
           </p>
-        } @else {
-          <!-- auto-fill con un mínimo de 9rem: a 375px entran dos columnas y a
-               partir de ahí las que quepan, sin scroll horizontal en ningún ancho. -->
-          <ul
-            class="mt-3 grid gap-3 grid-cols-[repeat(auto-fill,minmax(9rem,1fr))]"
-          >
-            @for (bloque of grilla.bloques; track bloque.inicio; let i = $index) {
-              <li
-                class="bloque rounded-xl border shadow-sm"
-                [class.border-border]="!noSePuedeTomar(bloque)"
-                [class.border-dashed]="noSePuedeTomar(bloque)"
-                [class.border-muted-foreground]="noSePuedeTomar(bloque)"
-                [class.opacity-70]="noSePuedeTomar(bloque)"
-                [class.bg-busy]="bloque.reservado"
-                [class.bg-muted]="bloque.bloqueado"
-                [class.bg-accent-soft]="!noSePuedeTomar(bloque) && !estaElegido(bloque)"
-                [class.bg-selected]="estaElegido(bloque)"
-                [class.border-primary]="estaElegido(bloque)"
-                [style.--i]="i"
-              >
-                <!-- Botón solo si se puede tomar: un bloque en mantención o ya
-                     reservado no es interactivo, y anunciarlo como botón hace que
-                     un lector de pantalla ofrezca algo que no se puede hacer. -->
+        </div>
+
+        @if (franja.libres.length > 0) {
+          <ul class="mt-3 flex flex-wrap gap-2">
+            @for (libre of franja.libres; track libre.cancha.id; let i = $index) {
+              <li class="bloque" [style.--i]="i">
                 <button
                   type="button"
-                  class="block w-full rounded-xl p-3 text-left"
-                  [class.cursor-pointer]="!noSePuedeTomar(bloque)"
-                  [disabled]="noSePuedeTomar(bloque)"
-                  [attr.aria-label]="etiqueta(grilla.cancha, bloque)"
-                  [attr.aria-pressed]="noSePuedeTomar(bloque) ? null : estaElegido(bloque)"
-                  (click)="elegir(grilla.cancha, bloque)"
+                  class="flex min-h-11 cursor-pointer items-center gap-2 rounded-control
+                         border px-3 py-2 text-sm font-semibold transition-colors"
+                  [class.border-border]="!estaElegido(libre.bloque)"
+                  [class.bg-accent-soft]="!estaElegido(libre.bloque)"
+                  [class.text-accent-strong]="!estaElegido(libre.bloque)"
+                  [class.border-primary]="estaElegido(libre.bloque)"
+                  [class.bg-selected]="estaElegido(libre.bloque)"
+                  [class.text-primary]="estaElegido(libre.bloque)"
+                  [attr.aria-label]="etiqueta(libre.cancha, libre.bloque)"
+                  [attr.aria-pressed]="estaElegido(libre.bloque)"
+                  (click)="elegir(libre.cancha, libre.bloque)"
                 >
-                <p class="font-display text-lg font-semibold">
-                  {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
-                </p>
-
-                @if (bloque.reservado) {
-                  <p class="mt-2">
-                    <app-insignia variante="neutro" icono="lock">Ocupado</app-insignia>
-                  </p>
-                } @else if (bloque.bloqueado) {
-                  <!-- Insignia con ícono y borde punteado, no solo el color
-                       apagado: el par verde/rojo es justo el que no distingue
-                       quien tiene daltonismo rojo-verde. -->
-                  <p class="mt-2">
-                    <app-insignia variante="neutro" icono="build">
-                      {{ motivo(bloque.motivoBloqueo) }}
-                    </app-insignia>
-                  </p>
-                } @else {
-                  <p class="mt-2 flex flex-wrap gap-1">
-                    @if (estaElegido(bloque)) {
-                      <app-insignia variante="info" icono="check_circle">
-                        Elegida
-                      </app-insignia>
-                    } @else {
-                      <app-insignia variante="libre">Libre</app-insignia>
-                    }
-                    @if (bloque.esPico) {
-                      <app-insignia variante="aviso" icono="trending_up">
-                        Hora pico
-                      </app-insignia>
-                    }
-                  </p>
-                  <!-- Las dos tarifas juntas: un monto suelto no dice a quién le
-                       toca, y el socio leía el precio del arriendo en una hora que
-                       para él es gratis. -->
-                  <p class="mt-2 flex items-baseline justify-between gap-2 text-sm">
-                    <span class="font-medium text-muted-foreground">Socio</span>
-                    <span class="font-semibold text-accent-strong">
-                      {{ tarifaDelSocio }}
+                  @if (estaElegido(libre.bloque)) {
+                    <span class="icono text-base" aria-hidden="true">check_circle</span>
+                  }
+                  {{ libre.cancha.nombre }}
+                  @if (libre.cancha.techada) {
+                    <span class="icono text-base" aria-hidden="true" title="Techada">
+                      roofing
                     </span>
-                  </p>
-                  <p class="flex items-baseline justify-between gap-2 text-sm">
-                    <span class="font-medium text-muted-foreground">Arriendo</span>
-                    <span class="font-semibold text-accent-strong">
-                      {{ pesos(bloque.montoClp) }}
-                    </span>
-                  </p>
-                }
+                  }
                 </button>
-
-                <!-- Fuera del botón del bloque: un botón dentro de otro no es HTML
-                     válido, y el lector de pantalla anunciaría uno solo. -->
-                @if (reportable(bloque); as caso) {
-                  <div class="px-3 pb-3">
-                    @if (caso.yaReportada) {
-                      <p class="text-xs text-muted-foreground">
-                        Ya reportaste esta hora.
-                      </p>
-                    } @else {
-                      <button
-                        type="button"
-                        class="cursor-pointer rounded-md border border-border px-2 py-1
-                               text-xs font-medium text-muted-foreground transition-colors
-                               hover:bg-muted"
-                        (click)="reportar(caso.reservaId)"
-                      >
-                        Reportar hora no usada
-                        <span class="sr-only">
-                          de las {{ hora(bloque.inicio) }} en
-                          {{ grilla.cancha.nombre }}
-                        </span>
-                      </button>
-                    }
-                  </div>
-                }
               </li>
             }
           </ul>
+        }
+
+        <!-- Las horas propias que ya pasaron siguen siendo un elemento con su
+             botón, no un número: es la única forma de que el socio pueda decir
+             que nadie usó esa cancha (T35). El resto de las ocupadas se cuenta
+             abajo. -->
+        @for (caso of franja.reportables; track caso.cancha.id) {
+          @if (reportable(caso.bloque); as reporte) {
+            <div class="mt-3 flex flex-wrap items-center gap-3 rounded-caja bg-muted p-3">
+              <span class="font-semibold">{{ caso.cancha.nombre }}</span>
+              @if (reporte.yaReportada) {
+                <span class="text-sm text-muted-foreground">
+                  Ya reportaste esta hora.
+                </span>
+              } @else {
+                <button
+                  type="button"
+                  class="cursor-pointer rounded-control border border-border px-2 py-1
+                         text-xs font-medium text-muted-foreground transition-colors"
+                  (click)="reportar(reporte.reservaId)"
+                >
+                  Reportar hora no usada
+                  <span class="sr-only">
+                    de las {{ hora(caso.bloque.inicio) }} en {{ caso.cancha.nombre }}
+                  </span>
+                </button>
+              }
+            </div>
+          }
+        }
+
+        <!-- Lo que no se puede tomar se cuenta, no se esconde: que a las 19:00
+             haya seis ocupadas es información, y borrarla haría que esa hora se
+             viera igual que una que el club no abre. -->
+        @if (franja.ocupadas > 0 || franja.enMantencion > 0) {
+          <p class="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
+            @if (franja.ocupadas > 0) {
+              <span class="inline-flex items-center gap-1">
+                <span class="icono text-base" aria-hidden="true">lock</span>
+                {{ franja.ocupadas }}
+                {{ franja.ocupadas === 1 ? 'ocupada' : 'ocupadas' }}
+              </span>
+            }
+            @if (franja.enMantencion > 0) {
+              <span class="inline-flex items-center gap-1">
+                <span class="icono text-base" aria-hidden="true">build</span>
+                {{ franja.enMantencion }} en mantención
+              </span>
+            }
+          </p>
         }
       </section>
     }
@@ -347,12 +350,12 @@ const TARIFA_DEL_SOCIO = 'sin costo';
        el hilo principal. Solo opacity y transform. */
     .bloque {
       transition:
-        opacity 400ms,
-        transform 400ms;
-      transition-timing-function: linear(0, 0.6 30%, 1.05 60%, 1);
-      /* Topeado en 12: con 60ms por bloque, el número 40 entraría 2,4 s después
-         de que la grilla ya está lista. */
-      transition-delay: calc(min(var(--i), 12) * 60ms);
+        opacity var(--duracion-entrada),
+        transform var(--duracion-entrada);
+      transition-timing-function: var(--ease-rebote);
+      /* Topeado en 12: con el escalonado por bloque, el número 40 entraría 2,4 s
+         después de que la grilla ya está lista. */
+      transition-delay: calc(min(var(--i), 12) * var(--escalonado));
 
       @starting-style {
         opacity: 0;
@@ -369,9 +372,11 @@ const TARIFA_DEL_SOCIO = 'sin costo';
        arrastra hasta 720ms de retardo por el stagger: heredarlo dejaría el hover
        llegando tarde. Solo color de borde y sombra, así que nada cambia de tamaño
        y la cuadrícula no salta al pasar el ratón. */
-    .bloque:has(button:not(:disabled):hover) {
-      border-color: var(--color-primary);
-      box-shadow: var(--shadow-md);
+    @media (hover: hover) and (pointer: fine) {
+      .bloque:has(button:not(:disabled):hover) {
+        border-color: var(--color-primary);
+        box-shadow: var(--shadow-md);
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -499,6 +504,87 @@ export class Grilla {
       }
     });
   });
+
+  /**
+   * El día entero, agrupado por hora y no por cancha.
+   *
+   * **Es el cambio de eje que decidió el club el 2026-09-08**, y la razón está
+   * en la pregunta que trae el socio: *cuándo* puedo jugar. Agrupada por cancha,
+   * esa pregunta se responde recorriendo ocho listas y comparándolas de memoria;
+   * agrupada por hora se responde de un vistazo.
+   *
+   * Lo que arregla de paso: con ocho canchas y catorce bloques, la pantalla eran
+   * 112 tarjetas, que a dos columnas dan 56 filas y **10.223px de alto en un
+   * teléfono**. Por hora son catorce bandas.
+   *
+   * Las canchas que no se pueden tomar no desaparecen: se cuentan. Saber que a
+   * las 19:00 hay seis ocupadas y ninguna libre es información, y borrarla haría
+   * que esa hora se viera igual que una que el club no abre.
+   */
+  protected readonly porHora = computed(() => {
+    const horas = new Map<
+      string,
+      {
+        inicio: string;
+        fin: string;
+        libres: { cancha: Cancha; bloque: BloqueDisponible }[];
+        /**
+         * Las horas tomadas del propio socio que ya pasaron y sobre las que
+         * puede reportar que nadie las usó (T35).
+         *
+         * Van aparte de la cuenta de ocupadas porque son las únicas ocupadas
+         * que necesitan seguir siendo un elemento con un botón: agrupar por hora
+         * convirtió el resto en un número, y con ellas eso habría borrado la
+         * función sin que nadie lo notara hasta que el club preguntara por qué
+         * dejaron de llegar reportes.
+         */
+        reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
+        ocupadas: number;
+        enMantencion: number;
+        esPico: boolean;
+      }
+    >();
+
+    for (const { cancha, bloques } of this.visibles()) {
+      for (const bloque of bloques) {
+        const franja = horas.get(bloque.inicio) ?? {
+          inicio: bloque.inicio,
+          fin: bloque.fin,
+          libres: [],
+          reportables: [],
+          ocupadas: 0,
+          enMantencion: 0,
+          esPico: bloque.esPico,
+        };
+
+        if (bloque.bloqueado) franja.enMantencion++;
+        else if (bloque.reservado) {
+          franja.ocupadas++;
+          if (this.reportable(bloque)) franja.reportables.push({ cancha, bloque });
+        } else franja.libres.push({ cancha, bloque });
+
+        horas.set(bloque.inicio, franja);
+      }
+    }
+
+    return [...horas.values()].sort((una, otra) => una.inicio.localeCompare(otra.inicio));
+  });
+
+  /**
+   * Lo que cuesta arrendar en esa hora.
+   *
+   * Casi siempre es un solo monto para todas las canchas, y entonces se dice una
+   * vez arriba en vez de repetirlo en cada chip. Cuando el club cobra distinto
+   * por cancha, se dice "desde" y el monto de cada una viaja en su etiqueta
+   * accesible, que es donde ya estaba.
+   */
+  protected precioDeLaHora(libres: { bloque: BloqueDisponible }[]): string {
+    const montos = [...new Set(libres.map(({ bloque }) => bloque.montoClp))];
+
+    return montos.length === 1
+      ? enPesos(montos[0])
+      : `desde ${enPesos(Math.min(...montos))}`;
+  }
 
   /** Los siete chips de la tira de días, empezando por hoy. */
   protected readonly chipsDeDia = computed(() =>

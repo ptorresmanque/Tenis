@@ -74,7 +74,7 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="w-full border-collapse text-sm">
+          <table class="tabla text-sm">
             <caption class="sr-only">
               Horas no usadas del período, cortadas por
               {{
@@ -82,24 +82,24 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
               }}
             </caption>
             <thead>
-              <tr class="border-b border-border text-left text-muted-foreground">
-                <th scope="col" class="py-2 pr-3 font-medium">Corte</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">No usadas</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Reservadas</th>
-                <th scope="col" class="py-2 text-right font-medium">Proporción</th>
+              <tr>
+                <th scope="col">Corte</th>
+                <th scope="col" class="numero">No usadas</th>
+                <th scope="col" class="numero">Reservadas</th>
+                <th scope="col" class="numero">Proporción</th>
               </tr>
             </thead>
             <tbody>
               @for (fila of datos.filas; track fila.etiqueta) {
-                <tr class="border-b border-border">
-                  <th scope="row" class="py-2 pr-3 text-left font-normal">
+                <tr>
+                  <th scope="row">
                     {{ fila.etiqueta }}
                   </th>
-                  <td class="py-2 pr-3 text-right">{{ fila.noUsadas }}</td>
+                  <td class="numero">{{ fila.noUsadas }}</td>
                   <td class="py-2 pr-3 text-right text-muted-foreground">
                     {{ fila.reservadas }}
                   </td>
-                  <td class="py-2 text-right font-semibold">
+                  <td class="numero font-semibold">
                     {{ enPorcentaje(fila) }}
                   </td>
                 </tr>
@@ -108,9 +108,9 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
             <tfoot>
               <tr>
                 <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="py-2 pr-3 text-right font-semibold">{{ datos.noUsadas }}</td>
-                <td class="py-2 pr-3 text-right">{{ datos.reservadas }}</td>
-                <td class="py-2 text-right font-semibold">
+                <td class="numero font-semibold">{{ datos.noUsadas }}</td>
+                <td class="numero">{{ datos.reservadas }}</td>
+                <td class="numero font-semibold">
                   {{ enPorcentaje(datos) }}
                 </td>
               </tr>

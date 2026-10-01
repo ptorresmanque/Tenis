@@ -7,36 +7,76 @@ import { VARIANTES_INSIGNIA } from './app/ui/insignia';
 /**
  * Lint del sistema de diseño.
  *
- * La referencia visual es el proyecto de Stitch "Club de Tenis — reservas y
- * administración" (FEDAL), volcado en design-system/club-de-tenis/MASTER.md.
- * Esta suite es lo que impide que el código se aleje de esa referencia sin que
- * nadie se entere.
+ * **La fuente de verdad es este código.** Lo fue el proyecto de Stitch hasta el
+ * 2026-09-08, cuando el club decidió lo contrario; el histórico de esa etapa
+ * está en `tasks/plan-diseno-fedal.md`. Esta suite es lo que impide que el
+ * sistema se desarme sin que nadie se entere.
  *
- * Mide el contraste real de los tokens leyendo styles.css, no una copia. Si
- * alguien cambia un color y rompe WCAG AA, la suite se cae acá y no en una
- * auditoría de accesibilidad tres meses después.
+ * Mide el contraste real de los tokens leyendo styles.css, no una copia, y lo
+ * mide **en los dos temas**: el claro que vive en `@theme` y el oscuro que vive
+ * en la regla de `prefers-color-scheme`. Un tema que nadie midió es un tema que
+ * se publica roto.
  */
 
 // El runner de tests de Angular corre desde apps/web. No se usa import.meta.url:
 // dentro del bundle de test no resuelve a una ruta de archivo.
 const css = readFileSync(join(process.cwd(), 'src/styles.css'), 'utf8');
 
-function tokensDeColor(): Map<string, string> {
+/**
+ * El cuerpo del bloque CSS que empieza con `apertura`, con las llaves contadas.
+ *
+ * Hace falta contarlas porque el bloque del tema oscuro vive dentro de un
+ * `@media`, y cortar en la primera llave de cierre dejaría fuera la mitad de
+ * los tokens sin que ningún test se quejara.
+ */
+function bloque(apertura: string): string {
+  const inicio = css.indexOf(apertura);
+  if (inicio === -1) {
+    throw new Error(`styles.css no tiene el bloque "${apertura}"`);
+  }
+
+  let profundidad = 0;
+  for (let i = inicio + apertura.length - 1; i < css.length; i++) {
+    if (css[i] === '{') profundidad++;
+    if (css[i] === '}' && --profundidad === 0) {
+      return css.slice(inicio, i);
+    }
+  }
+  throw new Error(`El bloque "${apertura}" no cierra`);
+}
+
+function tokensDeColor(fuente: string): Map<string, string> {
   const tokens = new Map<string, string>();
-  for (const [, nombre, valor] of css.matchAll(/--color-([\w-]+):\s*(#[0-9a-f]{6})/gi)) {
+  for (const [, nombre, valor] of fuente.matchAll(/--color-([\w-]+):\s*(#[0-9a-f]{6})/gi)) {
     tokens.set(nombre, valor);
   }
   return tokens;
 }
 
-const COLORES = tokensDeColor();
+const CLARO = tokensDeColor(bloque('@theme {'));
+// El oscuro redefine lo que cambia y hereda el resto, igual que la cascada.
+const OSCURO = new Map([
+  ...CLARO,
+  ...tokensDeColor(bloque("html[data-tema='publico']:not([data-modo='claro']) {")),
+]);
 
-function color(nombre: string): string {
-  const valor = COLORES.get(nombre);
+/** Los dos temas que hay que medir. El claro manda donde no hay tema oscuro. */
+const TEMAS: readonly [string, Map<string, string>][] = [
+  ['claro', CLARO],
+  ['oscuro', OSCURO],
+];
+
+function colorDe(tema: Map<string, string>, nombre: string): string {
+  const valor = tema.get(nombre);
   if (!valor) {
     throw new Error(`El token --color-${nombre} no existe en styles.css`);
   }
   return valor;
+}
+
+/** Atajo para los tests que solo hablan del tema claro. */
+function color(nombre: string): string {
+  return colorDe(CLARO, nombre);
 }
 
 /** Luminancia relativa según WCAG 2.1. */
@@ -54,24 +94,101 @@ function contraste(unColor: string, otro: string): number {
   return (claro + 0.05) / (oscuro + 0.05);
 }
 
-describe('Contraste de los tokens de color', () => {
-  // Cada par es una combinación que la interfaz usa de verdad.
-  const paresDeTexto: readonly [string, string, string][] = [
-    ['texto principal sobre el fondo', 'foreground', 'background'],
-    ['texto principal sobre tarjeta', 'foreground', 'card'],
-    ['texto secundario sobre el fondo', 'muted-foreground', 'background'],
-    ['texto secundario sobre tarjeta', 'muted-foreground', 'card'],
-    ['etiqueta sobre botón primario', 'on-primary', 'primary'],
-    ['etiqueta sobre botón secundario', 'on-primary', 'secondary'],
-    ['etiqueta sobre verde fuerte', 'on-accent', 'accent-strong'],
-    ['texto primario sobre tarjeta', 'primary', 'card'],
-    ['texto verde fuerte sobre tarjeta', 'accent-strong', 'card'],
-    ['texto verde fuerte sobre el fondo', 'accent-strong', 'background'],
-  ];
+// Cada par es una combinación que la interfaz usa de verdad, en los dos temas.
+const PARES_DE_TEXTO: readonly [string, string, string][] = [
+  ['texto principal sobre el fondo', 'foreground', 'background'],
+  ['texto principal sobre tarjeta', 'foreground', 'card'],
+  ['texto secundario sobre el fondo', 'muted-foreground', 'background'],
+  ['texto secundario sobre tarjeta', 'muted-foreground', 'card'],
+  ['etiqueta sobre botón primario', 'on-primary', 'primary'],
+  ['etiqueta sobre botón secundario', 'on-primary', 'secondary'],
+  ['etiqueta sobre verde fuerte', 'on-accent', 'accent-strong'],
+  ['texto primario sobre tarjeta', 'primary', 'card'],
+  ['texto verde fuerte sobre tarjeta', 'accent-strong', 'card'],
+  ['texto verde fuerte sobre el fondo', 'accent-strong', 'background'],
+];
 
-  it.each(paresDeTexto)('%s cumple AA para texto normal (4.5:1)', (_, frente, fondo) => {
-    expect(contraste(color(frente), color(fondo))).toBeGreaterThanOrEqual(4.5);
+/**
+ * Los dos temas, medidos con la misma vara.
+ *
+ * El tema claro además tiene abajo sus propios tests, más finos, porque su
+ * paleta lleva más historia: los tres verdes, los tres ámbares y los grises de
+ * la grilla tienen cada uno su razón documentada.
+ */
+it('los dos bloques del tema oscuro son idénticos', () => {
+  // El tema oscuro se declara dos veces: una para cuando lo pide el sistema y
+  // otra para cuando lo pide el visitante con el conmutador. No hay forma de
+  // evitar la duplicación —una lista de selectores no puede mezclar uno normal
+  // con otro que vive dentro de un `@media`—, así que lo que hay es este test:
+  // tocar un bloque y no el otro deja al conmutador pintando un tema distinto
+  // del que pinta el sistema, y nadie lo notaría hasta usarlo.
+  const porElSistema = bloque("html[data-tema='publico']:not([data-modo='claro']) {");
+  const aMano = bloque("html[data-tema='publico'][data-modo='oscuro'] {");
+
+  const soloLosTokens = (b: string) => b.slice(b.indexOf('{') + 1).trim();
+
+  expect(soloLosTokens(aMano)).toBe(soloLosTokens(porElSistema));
+});
+
+describe.each(TEMAS)('Contraste del tema %s', (_, tema) => {
+  const c = (nombre: string) => colorDe(tema, nombre);
+
+  it.each(PARES_DE_TEXTO)('%s cumple AA para texto normal (4.5:1)', (_titulo, frente, fondo) => {
+    expect(contraste(c(frente), c(fondo))).toBeGreaterThanOrEqual(4.5);
   });
+
+  it('el anillo de foco se distingue del fondo y de la tarjeta (3:1)', () => {
+    expect(contraste(c('ring'), c('background'))).toBeGreaterThanOrEqual(3);
+    expect(contraste(c('ring'), c('card'))).toBeGreaterThanOrEqual(3);
+  });
+
+  it('el texto del bloque libre se lee sobre su propio fondo (4.5:1)', () => {
+    expect(contraste(c('accent-strong'), c('accent-soft'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('el texto del panel ámbar se lee sobre su propio fondo (4.5:1)', () => {
+    expect(contraste(c('warning-strong'), c('warning-soft'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('el texto de error se lee sobre el fondo y sobre la tarjeta (4.5:1)', () => {
+    expect(contraste(c('destructive-strong'), c('background'))).toBeGreaterThanOrEqual(4.5);
+    expect(contraste(c('destructive-strong'), c('card'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('la etiqueta del botón destructivo se lee encima (4.5:1)', () => {
+    // En claro el botón es rojo y la etiqueta blanca; en oscuro el botón es
+    // rosado y la etiqueta oscura. El token `on-primary` sirve a los dos.
+    expect(contraste(c('on-primary'), c('destructive'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('el texto de una banda plena se lee encima', () => {
+    // El campo es fondo de región y no color de botón: `primary` en oscuro se
+    // aclara para seguir leyéndose como algo pulsable, y una banda pintada con
+    // ese azul claro convertía al hero en la zona más brillante de una pantalla
+    // oscura. Son dos tokens desde el 2026-09-08 y este par es la razón.
+    expect(contraste(c('on-campo'), c('campo'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('la banda plena se distingue del fondo de la página', () => {
+    // Si el campo y el fondo tuvieran la misma luminancia, la banda dejaría de
+    // ser una banda. No es un mínimo de WCAG: es que la composición exista.
+    expect(contraste(c('campo'), c('background'))).toBeGreaterThanOrEqual(1.3);
+  });
+
+  it('las dos capas del logotipo se leen sobre el fondo', () => {
+    // La marca es forma y le basta el 3:1 de componente; el texto es texto.
+    expect(contraste(c('logo-marca'), c('background'))).toBeGreaterThanOrEqual(3);
+    expect(contraste(c('logo-texto'), c('background'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('la etiqueta del bloque ocupado y la del elegido se leen', () => {
+    expect(contraste(c('foreground'), c('busy'))).toBeGreaterThanOrEqual(4.5);
+    expect(contraste(c('foreground'), c('selected'))).toBeGreaterThanOrEqual(4.5);
+    expect(contraste(c('muted-foreground'), c('busy'))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('Contraste de los tokens de color', () => {
 
   it('el blanco sobre destructive cumple AA: los errores hay que poder leerlos', () => {
     expect(contraste('#ffffff', color('destructive'))).toBeGreaterThanOrEqual(4.5);
@@ -237,7 +354,9 @@ describe('Tipografía', () => {
   function familias(): string[] {
     const declaradas = new Set<string>();
 
-    for (const [, valor] of css.matchAll(/--font-[\w-]+:\s*([^;]+);/g)) {
+    // Anclado al inicio de línea: sin eso, `--text-marcador--font-weight: 800`
+    // entra por la subcadena `--font-` y el test pide cargar "la fuente 800".
+    for (const [, valor] of css.matchAll(/^\s*--font-[\w-]+:\s*([^;]+);/gm)) {
       // Solo la primera de la lista: las que siguen son el respaldo, y
       // ui-sans-serif o system-ui no se cargan de ningún lado.
       const primera = valor.split(',')[0].trim().replace(/['"]/g, '');
@@ -428,5 +547,298 @@ describe('Uso de los tokens en las plantillas', () => {
 
     expect(boton).toBeDefined();
     expect(boton).toMatch(/cursor:\s*pointer/);
+  });
+});
+
+/**
+ * El archivo sin sus comentarios.
+ *
+ * Los tests de estilo miran lo que el usuario lee y lo que el navegador
+ * ejecuta, no lo que el código explica de sí mismo. Sin esto, el comentario
+ * que dice "no escribas 250ms a mano" hace fallar al test que prohíbe escribir
+ * 250ms a mano, que es la forma más tonta de perder una tarde.
+ */
+function sinComentarios(contenido: string): string {
+  return contenido.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|\s)\/\/[^\n]*/g, ' ');
+}
+
+describe('Español de Chile', () => {
+  /**
+   * El voseo rioplatense no entra al sitio.
+   *
+   * La regla vive en CLAUDE.md y llegó por una razón concreta: el 2026-09-08 se
+   * encontraron dos frases voseantes **a la vista del socio** —"Elegí una cancha
+   * … al toque" en el estado vacío de Mis reservas, y "Reservá en línea" en el
+   * pie de las quince pantallas públicas—. Una regla de estilo que depende de
+   * que alguien se acuerde no es una regla.
+   *
+   * Solo mira plantillas, que es donde vive el texto que alguien lee. En prosa
+   * técnica "elegí" puede ser el pretérito legítimo de la primera persona.
+   */
+  // Los límites van con \p{L} y no con \b: el \b de JavaScript es ASCII, así que
+  // ve un límite de palabra justo después de una "á" y da por voseante la
+  // "pagá" que hay dentro de "pagándose".
+  const VOSEO =
+    /(?<!\p{L})(?:vos|tenés|podés|querés|sabés|necesitás|debés|sos|reservá|elegí|mirá|entrá|andá|hacé|hacete|poné|sacá|dejá|avisá|revisá|escribí|seguí|agregá|cambiá|creá|pagá|volvé|llevá|buscá|probá|tocá|apretá|ingresá|completá|confirmá|guardá|acordate|fijate|corregime|avisame|decime)(?!\p{L})/giu;
+
+  it('ninguna plantilla usa voseo rioplatense', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [forma] of sinComentarios(contenido).matchAll(VOSEO)) {
+        infractores.push(`${archivo}: "${forma}"`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('el club se llama FEDAL Tennis Center y no de otra forma', () => {
+    // Dos nombres conviviendo fue deuda declarada del diseño anterior. El
+    // descriptor "Club de Tenis" quedó fuera cuando el club confirmó el suyo.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      if (/Club de Tenis/.test(sinComentarios(contenido))) {
+        infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('Movimiento', () => {
+  /**
+   * Las curvas y las duraciones salen de los tokens, nunca de la mano.
+   *
+   * El fallo que atrapa: alguien escribe `transition: transform 300ms ease` en
+   * un componente, y el sitio termina con cinco velocidades distintas para el
+   * mismo gesto sin que nadie lo haya decidido. Los tokens están en styles.css
+   * con la razón de cada valor.
+   */
+  it('ningún componente escribe una curva a mano', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const codigo = sinComentarios(contenido);
+      for (const [uso] of codigo.matchAll(/cubic-bezier\([^)]*\)|\blinear\([^)]*\)/g)) {
+        infractores.push(`${archivo}: ${uso}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('ningún componente escribe una duración a mano', () => {
+    // `0ms` y `0.01ms` sí: son "no animes", no una velocidad elegida.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const duraciones = /(?<![\d.])(?!0ms|0\.01ms)\d+(?:\.\d+)?ms\b/g;
+      for (const [uso] of sinComentarios(contenido).matchAll(duraciones)) {
+        infractores.push(`${archivo}: ${uso}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('define las curvas y las duraciones que el sistema usa', () => {
+    for (const token of ['--ease-salida', '--ease-vaiven', '--ease-cajon', '--ease-rebote']) {
+      expect(css).toContain(token);
+    }
+    for (const token of ['--duracion-pulsacion', '--duracion-menu', '--duracion-dialogo']) {
+      expect(css).toContain(token);
+    }
+  });
+
+  it('no existe una curva de entrada: ease-in hace que la interfaz se sienta lenta', () => {
+    // Arranca despacio justo cuando el usuario está mirando. Para entrar se usa
+    // --ease-salida. Que el token no exista es la forma de que nadie lo use.
+    // Se busca la declaración y no la palabra: el comentario que explica esto
+    // en styles.css la nombra, y nombrarla no es declararla.
+    expect(css).not.toMatch(/^\s*--ease-entrada\s*:/m);
+  });
+});
+
+describe('Viewport', () => {
+  it('ninguna plantilla usa h-screen: en iOS la barra de direcciones lo rompe', () => {
+    // `100vh` en Safari de iPhone cuenta la barra que después se esconde, así
+    // que la sección salta al hacer scroll. `min-h-dvh` mide lo que se ve.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [, clases] of contenido.matchAll(/class="([^"]*)"/g)) {
+        if (/\b(h-screen|min-h-screen)\b/.test(clases)) {
+          infractores.push(archivo);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('Tacto', () => {
+  /**
+   * El texto sin sus bloques `@media (hover: hover)`.
+   *
+   * Lo que queda son los `:hover` que un teléfono también aplica.
+   */
+  function fueraDeConsultaDeHover(fuente: string): string {
+    let resultado = '';
+    let i = 0;
+
+    while (i < fuente.length) {
+      const inicio = fuente.indexOf('@media (hover', i);
+      if (inicio === -1) {
+        resultado += fuente.slice(i);
+        break;
+      }
+
+      resultado += fuente.slice(i, inicio);
+      let profundidad = 0;
+      let j = fuente.indexOf('{', inicio);
+      for (; j < fuente.length; j++) {
+        if (fuente[j] === '{') profundidad++;
+        if (fuente[j] === '}' && --profundidad === 0) break;
+      }
+      i = j + 1;
+    }
+
+    return resultado;
+  }
+
+  it('la clase .boton confirma la pulsación', () => {
+    // Entre que el dedo baja y que la pantalla responde puede pasar media
+    // segundo de red. Sin :active, en todo ese rato el botón parece muerto.
+    expect(css).toMatch(/\.boton:active/);
+  });
+
+  it('ningún hover queda fuera de su consulta de medios', () => {
+    // En un teléfono el navegador aplica :hover al tocar y lo deja pegado hasta
+    // que el dedo toca otra cosa: el socio ve un control encendido que no lo
+    // está. `@media (hover: hover) and (pointer: fine)` es lo que lo evita.
+    const infractores: string[] = [];
+
+    if (/:hover/.test(fueraDeConsultaDeHover(css))) {
+      infractores.push('styles.css');
+    }
+
+    for (const { archivo, contenido } of plantillas()) {
+      const codigo = sinComentarios(contenido);
+      // Solo los bloques `styles:` de los componentes: en una plantilla, el
+      // `hover:` de Tailwind es otra cosa y no sufre este problema.
+      for (const [, estilos] of codigo.matchAll(/styles:\s*`([\s\S]*?)`/g)) {
+        if (/:hover/.test(fueraDeConsultaDeHover(estilos))) {
+          infractores.push(archivo);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('Fotos', () => {
+  it('todo <app-foto> dice qué foto va ahí', () => {
+    // La descripción hace dos trabajos: es el pedido que el club lee en
+    // `docs/fotos-pendientes.md` y es el `alt` cuando la foto llega. Sin ella,
+    // el slot no se puede pedir y la imagen termina sin texto alternativo.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      // El lookahead deja fuera a `<app-foto-del-partido>` y
+      // `<app-fotos-del-torneo>`, que son la galería de los torneos.
+      for (const [uso] of contenido.matchAll(/<app-foto(?=[\s/>])[\s\S]*?\/>/g)) {
+        if (!/\[?descripcion\]?="[^"]+"/.test(uso)) {
+          infractores.push(`${archivo}: ${uso.replace(/\s+/g, ' ').slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+
+describe('Tablas', () => {
+  it('toda tabla usa la primitiva, no un juego de clases propio', () => {
+    // Las cuatro de reportes traían `w-full border-collapse text-sm` y sus
+    // propias líneas por fila: dos familias de tabla en el mismo panel, con
+    // encabezados distintos y sin cifras tabulares. La primitiva es lo que hace
+    // que el padrón y el reporte de ingresos se lean como el mismo sistema.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of sinComentarios(contenido).matchAll(/<table[^>]*>/g)) {
+        if (!/class="[^"]*\btabla\b/.test(etiqueta)) {
+          infractores.push(`${archivo}: ${etiqueta}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('la primitiva alinea los números y les da ancho fijo', () => {
+    // Sin `tabular-nums` el 1 es más angosto que el 8, y una columna de montos
+    // queda con los dígitos desalineados fila a fila: comparar $12.000 con
+    // $120.000 de un vistazo deja de ser posible.
+    const tabla = css.match(/\.tabla\s*\{[^}]*\}/)?.[0];
+
+    expect(tabla).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    expect(css).toMatch(/\.tabla\s+\.numero/);
+  });
+
+  it('el encabezado de columna se queda a la vista, y el de fila no', () => {
+    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
+
+    expect(encabezado).toMatch(/position:\s*sticky/);
+    // El `<th scope="row">` es una celda de datos: se estiliza con los `td`.
+    expect(css).toMatch(/\.tabla td,\s*\n\s*\.tabla tbody th/);
+  });
+});
+
+describe('Acabado', () => {
+  it('ninguna transición usa la palabra all', () => {
+    // `transition: all` anima también lo que nadie quiso animar —un `width` que
+    // cambia por el contenido, un `top` que cambia por el layout— y esas dos son
+    // las que descartan el hilo de composición y hacen saltar el cuadro.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of [...plantillas(), { archivo: 'styles.css', contenido: css }]) {
+      if (/transition:\s*all|\btransition-all\b/.test(sinComentarios(contenido))) {
+        infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('nada entra desde la nada', () => {
+    // `scale(0)` es un elemento que aparece de un punto sin dimensión, y en el
+    // mundo real nada hace eso. Se entra desde `scale(0.95)` con opacidad, que
+    // es lo que el ojo lee como "esto ya estaba y se acercó".
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of [...plantillas(), { archivo: 'styles.css', contenido: css }]) {
+      if (/scale\(0\)/.test(sinComentarios(contenido))) {
+        infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('los diálogos salen más rápido de lo que entran', () => {
+    // Al entrar, el diálogo se presenta y conviene verlo llegar. Al salir ya no
+    // interesa: lo único que hace una salida lenta es demorar a alguien que ya
+    // decidió irse.
+    const entrada = css.match(/--duracion-dialogo:\s*(\d+)ms/)?.[1];
+    const salida = css.match(/--duracion-salida:\s*(\d+)ms/)?.[1];
+
+    expect(Number(salida)).toBeLessThan(Number(entrada));
   });
 });

@@ -84,7 +84,7 @@ import {
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="w-full border-collapse text-sm">
+          <table class="tabla text-sm">
             <caption class="sr-only">
               Ocupación del período, cortada por
               {{
@@ -92,28 +92,28 @@ import {
               }}
             </caption>
             <thead>
-              <tr class="border-b border-border text-left text-muted-foreground">
-                <th scope="col" class="py-2 pr-3 font-medium">Corte</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Ocupadas</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Libres</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Cerradas</th>
-                <th scope="col" class="py-2 text-right font-medium">Ocupación</th>
+              <tr>
+                <th scope="col">Corte</th>
+                <th scope="col" class="numero">Ocupadas</th>
+                <th scope="col" class="numero">Libres</th>
+                <th scope="col" class="numero">Cerradas</th>
+                <th scope="col" class="numero">Ocupación</th>
               </tr>
             </thead>
             <tbody>
               @for (fila of datos.filas; track fila.etiqueta) {
-                <tr class="border-b border-border">
-                  <th scope="row" class="py-2 pr-3 text-left font-normal">
+                <tr>
+                  <th scope="row">
                     {{ fila.etiqueta }}
                   </th>
-                  <td class="py-2 pr-3 text-right">{{ fila.ocupados }}</td>
+                  <td class="numero">{{ fila.ocupados }}</td>
                   <td class="py-2 pr-3 text-right text-muted-foreground">
                     {{ fila.libres }}
                   </td>
                   <td class="py-2 pr-3 text-right text-muted-foreground">
                     {{ fila.cerrados }}
                   </td>
-                  <td class="py-2 text-right font-semibold">
+                  <td class="numero font-semibold">
                     {{ enPorcentaje(fila) }}
                   </td>
                 </tr>
@@ -122,10 +122,10 @@ import {
             <tfoot>
               <tr>
                 <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="py-2 pr-3 text-right font-semibold">{{ datos.ocupados }}</td>
-                <td class="py-2 pr-3 text-right">{{ datos.libres }}</td>
-                <td class="py-2 pr-3 text-right">{{ datos.cerrados }}</td>
-                <td class="py-2 text-right font-semibold">
+                <td class="numero font-semibold">{{ datos.ocupados }}</td>
+                <td class="numero">{{ datos.libres }}</td>
+                <td class="numero">{{ datos.cerrados }}</td>
+                <td class="numero font-semibold">
                   {{ enPorcentaje(datos) }}
                 </td>
               </tr>

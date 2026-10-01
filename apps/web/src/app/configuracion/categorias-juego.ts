@@ -5,6 +5,8 @@ import {
   resource,
   signal,
 } from '@angular/core';
+
+import { Esqueleto } from '../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../core/errores';
@@ -29,7 +31,7 @@ import {
  */
 @Component({
   selector: 'app-categorias-juego',
-  imports: [FormsModule, Aviso, Campo, CampoControl, Insignia],
+  imports: [Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
   template: `
     <section aria-labelledby="agregar">
       <h2 id="agregar" class="font-display text-xl font-semibold">
@@ -88,7 +90,7 @@ import {
       <h2 id="listado" class="sr-only">Categorías configuradas</h2>
 
       @if (categorias.isLoading()) {
-        <p class="text-muted-foreground">Cargando…</p>
+        <app-esqueleto class="block" [filas]="4" etiqueta="Cargando las categorías…" />
       } @else {
         <div class="overflow-x-auto rounded-xl border border-border bg-card">
           <table class="tabla">

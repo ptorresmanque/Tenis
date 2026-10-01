@@ -114,16 +114,19 @@ const MOTIVOS: Record<string, string> = {
           }
         }
 
-        <div class="mt-8 rounded-xl border border-border bg-card p-6 text-center shadow-sm">
-          <p class="text-sm font-medium text-muted-foreground">Folio</p>
-          <!-- Grande y separado: es lo que la persona va a dictar por teléfono. -->
-          <p class="font-display text-3xl font-bold tracking-widest break-all">
+        <!-- El folio en azul pleno y en la escala de marcador: es el único dato
+             que esta pantalla existe para entregar, y el que la persona va a
+             dictar por teléfono o mostrar en el mesón. En una tarjeta blanca más
+             pesaba lo mismo que el resumen de al lado. -->
+        <div class="mt-8 rounded-region bg-campo p-6 text-center text-on-campo">
+          <p class="text-sm font-medium text-on-campo/80">Folio</p>
+          <p class="font-display text-marcador tracking-widest break-all">
             {{ folio() }}
           </p>
 
           <button
             type="button"
-            class="boton boton-secundario boton-chico mt-4"
+            class="boton boton-chico mt-4 bg-on-campo text-campo"
             (click)="copiar()"
           >
             <span class="icono text-base" aria-hidden="true">content_copy</span>

@@ -1,4 +1,5 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { Esqueleto } from '../../ui/esqueleto';
 
 import { enPesos, hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -28,7 +29,7 @@ function mesActual(): string {
  */
 @Component({
   selector: 'app-panel-cuotas',
-  imports: [Aviso, EstadoVacio, Insignia],
+  imports: [Esqueleto, Aviso, EstadoVacio, Insignia],
   template: `
     <h1 class="font-display text-3xl font-bold">Cuotas del club</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -80,7 +81,7 @@ function mesActual(): string {
     }
 
     @if (datos.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando las cuotas…" />
     } @else if (cuotas().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

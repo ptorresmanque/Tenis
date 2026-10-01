@@ -45,24 +45,17 @@ export class Disponibilidad {
   }
 
   /**
-   * La grilla del día: cada cancha activa con sus bloques.
+   * La grilla del día: cada cancha activa con sus bloques, **en una petición**.
    *
-   * Una petición por cancha, en paralelo, porque el endpoint es por cancha. Con
-   * tres canchas no se nota; si el club creciera, conviene un endpoint que
-   * devuelva el día entero antes que disparar veinte consultas.
+   * Antes eran una por cancha más la del catálogo: con ocho canchas, nueve
+   * viajes al servidor para pintar la portada. El endpoint del día entero se
+   * agregó el 2026-09-08 para cerrar ese hallazgo de la auditoría, y devuelve
+   * exactamente lo mismo que preguntar cancha por cancha —hay un test de la API
+   * que compara las dos respuestas—.
    */
-  async delDia(fecha: string): Promise<GrillaDeCancha[]> {
-    const canchas = await this.canchas();
-
-    return Promise.all(
-      canchas.map(async (cancha) => ({
-        cancha,
-        bloques: await firstValueFrom(
-          this.http.get<BloqueDisponible[]>('/api/disponibilidad', {
-            params: { cancha: cancha.id, fecha },
-          }),
-        ),
-      })),
+  delDia(fecha: string): Promise<GrillaDeCancha[]> {
+    return firstValueFrom(
+      this.http.get<GrillaDeCancha[]>('/api/disponibilidad', { params: { fecha } }),
     );
   }
 }

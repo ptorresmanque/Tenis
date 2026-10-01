@@ -4,7 +4,9 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Club } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { Logotipo } from './logotipo';
+import { ConmutadorDeTema } from './conmutador-de-tema';
 import { MenuDesplegable } from './menu-desplegable';
+import { usarTemaPublico } from './tema';
 
 /**
  * El sitio público: barra superior, contenido y pie.
@@ -14,9 +16,13 @@ import { MenuDesplegable } from './menu-desplegable';
  * tiene su propia barra lateral y la puerta de entrada es el menú del avatar. La
  * barra pública se ve igual para todos.
  *
- * `Torneos` y `Clases` son parte del menú del diseño y todavía no tienen ruta: un
- * enlace que cae en el comodín y devuelve al inicio miente peor que un enlace
- * ausente. Entran cuando exista su pantalla, como acaba de pasar con `El club`.
+ * **El menú se define en un solo lugar**, el `computed` de abajo, y de ahí lo leen
+ * tanto la barra de escritorio como el cajón del teléfono. Que hubiera cuatro
+ * versiones distintas del mismo menú era deuda de la referencia de Stitch, no del
+ * código.
+ *
+ * Con sesión de socio son ocho enlaces, y por eso la barra aparece recién en `lg`:
+ * a 768px no caben. El punto de corte está explicado donde se aplica.
  */
 @Component({
   selector: 'app-cascaron-publico',
@@ -25,6 +31,7 @@ import { MenuDesplegable } from './menu-desplegable';
     RouterLink,
     RouterLinkActive,
     Logotipo,
+    ConmutadorDeTema,
     MenuDesplegable,
   ],
   template: `
@@ -40,7 +47,11 @@ import { MenuDesplegable } from './menu-desplegable';
       <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
         <app-logotipo />
 
-        <nav aria-label="Principal" class="hidden gap-1 text-sm md:flex">
+        <!-- Desde lg y no desde md: con sesión de socio el menú lleva ocho
+             enlaces, que a 768px se salen 247px de la pantalla. Medido el
+             2026-09-08 a ese ancho, que es el de una tablet vertical y el de una
+             ventana a media pantalla. A 1024 entran en una línea con holgura. -->
+        <nav aria-label="Principal" class="hidden gap-1 text-sm lg:flex">
           @for (item of navegacion(); track item.ruta) {
             <a
               [routerLink]="item.ruta"
@@ -55,6 +66,8 @@ import { MenuDesplegable } from './menu-desplegable';
         </nav>
 
         <div class="ms-auto flex items-center gap-2">
+          <app-conmutador-de-tema />
+
           @if (usuario(); as sesion) {
             <app-menu-desplegable
               [etiqueta]="'Menú de ' + sesion.nombre"
@@ -108,7 +121,7 @@ import { MenuDesplegable } from './menu-desplegable';
           <button
             type="button"
             class="cursor-pointer rounded-lg p-2 text-foreground transition-colors
-                   hover:bg-muted md:hidden"
+                   hover:bg-muted lg:hidden"
             aria-label="Abrir el menú"
             (click)="panel.showModal()"
           >
@@ -125,7 +138,7 @@ import { MenuDesplegable } from './menu-desplegable';
     <dialog
       #panel
       closedby="any"
-      class="m-0 ms-auto h-dvh w-4/5 max-w-xs bg-card p-6 shadow-xl
+      class="dialogo-cajon-fin m-0 ms-auto h-dvh w-4/5 max-w-xs bg-card p-6 shadow-xl
              backdrop:bg-foreground/50"
       aria-label="Menú"
     >
@@ -209,7 +222,7 @@ import { MenuDesplegable } from './menu-desplegable';
         <div>
           <app-logotipo />
           <p class="mt-3 max-w-xs text-sm text-muted-foreground">
-            Siete canchas duras, todas de la misma superficie. Reservá en línea.
+            Canchas duras, todas de la misma superficie. Reserva en línea.
           </p>
         </div>
 
@@ -228,10 +241,18 @@ import { MenuDesplegable } from './menu-desplegable';
           </ul>
         </nav>
 
+        <!-- Acá decía "todos los días, de 08:00 a 22:00", escrito a mano y
+             repetido en las quince pantallas públicas. El horario de verdad sale
+             del endpoint de horarios y el club lo edita desde su panel: sábado y
+             domingo cierran a las 20:00, así que la frase era falsa en dos de
+             cada siete días. Se enlaza en vez de pedir esa consulta en cada
+             página solo para el pie. -->
         <div>
           <h2 class="font-display text-sm font-bold uppercase">Horarios</h2>
           <p class="mt-3 text-sm text-muted-foreground">
-            Todos los días, de 08:00 a 22:00.
+            <a routerLink="/el-club" class="underline hover:text-primary">
+              Mira el horario de cada día
+            </a>
           </p>
         </div>
 
@@ -274,6 +295,10 @@ export class CascaronPublico {
   protected readonly usuario = this.auth.usuario;
   protected readonly club = inject(Club).datos;
   protected readonly esAdmin = this.auth.esAdmin;
+
+  constructor() {
+    usarTemaPublico();
+  }
 
   /** Un ítem del menú desplegable. Es una constante y no una clase de CSS
       porque la comparten un enlace y un botón, que no son el mismo elemento. */

@@ -8,110 +8,304 @@ import {
   horaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
-import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
 import { Auth } from '../core/auth/auth';
 import { Torneos } from '../torneos/torneos.service';
-import { EstadoVacio } from '../ui/estado-vacio';
+import { Foto } from '../ui/foto';
 import { Insignia } from '../ui/insignia';
 
 /**
  * La portada.
  *
- * **Muestra horas de verdad, no un folleto.** Las que se ofrecen abajo salen de la
+ * **Es el marcador de un partido en curso, no el folleto de un club.** Esa es la
+ * decisión que ordena todo lo demás y está escrita en el contrato de dirección
+ * de esta superficie. En la práctica significa tres cosas: el azul ocupa
+ * regiones enteras en vez de aparecer como acento, las secciones son bandas
+ * horizontales de altura desigual en vez de tarjetas iguales en una retícula, y
+ * **cada banda reserva el blanco puro para un solo dato**, que es el que hay que
+ * leer desde lejos.
+ *
+ * Lo que reemplaza: seis secciones con la misma forma —caja blanca, borde gris,
+ * sombra chica— repetida veinte veces. La auditoría del 2026-09-08 midió que esa
+ * era la única familia de composición del sitio entero.
+ *
+ * **Muestra horas de verdad, no un folleto.** Las que se ofrecen salen de la
  * misma consulta que la grilla, así que el precio y la disponibilidad son los del
  * momento: una portada con horarios inventados envejece el mismo día.
  *
- * **Anuncia los torneos con la inscripción abierta**, que es lo único de "La vida del
- * club" que la portada muestra. El resto de esa sección del diseño —clases y ranking—
- * sigue fuera: acá va lo que alguien puede hacer *hoy*, y de esos tres módulos el único
- * con una fecha de cierre encima es la inscripción a un torneo.
- *
- * Lo que se anuncia sale del mismo endpoint público que la página de torneos, filtrado
- * por estado **y por fecha de cierre**: un torneo puede quedar en `INSCRIPCION` con el
- * plazo vencido hasta que el admin arma el cuadro, y mandar a alguien a un formulario
- * que lo va a rechazar es peor que no anunciarlo.
+ * **Los dos caminos pesan igual.** El club quiere las dos cosas —que alguien
+ * arriende una hora y que alguien se asocie— y lo dijo así el 2026-09-08. No hay
+ * botón primario y secundario: hay dos entradas, cada una con su bloque.
  */
 @Component({
   selector: 'app-inicio',
-  imports: [RouterLink, EstadoVacio, Insignia],
+  imports: [RouterLink, Foto, Insignia],
   template: `
-    <section class="py-8 text-center sm:py-12">
-      <h1 class="font-display text-5xl font-black tracking-tight text-balance sm:text-6xl">
-        Tu cancha, a un clic
-      </h1>
-      <p class="mx-auto mt-4 max-w-prose text-lg text-muted-foreground">
-        Reserva por hora sin ser socio, o entra con tu cuenta y usa tu cupo.
-        Disponibilidad real y precio a la vista.
-      </p>
+    <!--
+      BANDA 1 — La foto y la promesa.
 
-      <div class="mt-8 flex flex-wrap justify-center gap-3">
-        <a routerLink="/disponibilidad" class="boton boton-primario">
-          Ver disponibilidad
-        </a>
-        @if (!hayCuenta()) {
-          <a routerLink="/entrar" class="boton boton-secundario">Soy socio</a>
-        }
-      </div>
+      Cuatro elementos de texto y ni uno más: el titular, la bajada, y los dos
+      caminos. Las horas libres, que son el dato por el que alguien entra, van en
+      la banda siguiente y no acá: meterlas dentro convertiría el primer momento
+      en una lista de cosas.
+    -->
+    <section
+      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      aria-labelledby="promesa"
+    >
+      <app-foto
+        descripcion="Las canchas del club al atardecer, con las luces encendidas y
+                     gente jugando al fondo"
+        proporcion="16/9"
+        [prioritaria]="true"
+        claseCaja="min-h-[32rem] sm:min-h-[34rem]"
+      />
 
-      <p
-        class="mx-auto mt-8 flex max-w-xl flex-wrap items-center justify-center gap-x-2
-               gap-y-1 rounded-xl border border-border bg-card px-4 py-3 text-sm
-               text-muted-foreground"
+      <!--
+        El scrim va de abajo hacia arriba y no cubre parejo: una foto tapada
+        entera deja de ser una foto.
+
+        Es azul y no negro porque el tinte del color de cancha es la mitad del
+        lenguaje de esta portada; un velo negro la volvería una foto oscurecida
+        y nada más. Y arriba llega al 65% en vez del 20% que tenía: por debajo de
+        eso se transparenta el texto del marcador de posición y compite con el
+        titular. Cuando la foto llegue, al 65% se sigue viendo entera.
+      -->
+      <div
+        class="absolute inset-0 bg-gradient-to-t from-campo via-campo/90 to-campo/65"
+        aria-hidden="true"
+      ></div>
+
+      <div
+        class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo sm:p-10"
       >
-        <span class="icono text-primary" aria-hidden="true">verified</span>
-        {{ cuantasCanchas() }} · Abierto de 08:00 a 22:00 · Reserva confirmada al
-        instante
-      </p>
-
-      <!-- **La franja del torneo va sobre el pliegue y la sección abajo.** Es lo que
-           pidió el club: quien entra a reservar una hora no baja hasta el final, y un
-           torneo con la inscripción abierta tiene fecha de cierre. El aviso ancla a la
-           sección en vez de sacar a nadie de la portada. -->
-      @if (abiertos().length > 0) {
-        <p class="mt-4 text-sm">
-          <a
-            href="#torneos-abiertos"
-            class="inline-flex flex-wrap items-center justify-center gap-2 rounded-full
-                   border border-primary/30 bg-primary/5 px-4 py-2 font-semibold
-                   text-primary"
-          >
-            <span class="icono" aria-hidden="true">emoji_events</span>
-            {{ avisoDeTorneos() }}
-          </a>
+        <h1
+          id="promesa"
+          class="font-display text-4xl font-black tracking-tight text-balance
+                 sm:text-6xl lg:text-7xl"
+        >
+          Tu cancha, a un clic
+        </h1>
+        <p class="max-w-prose text-lg text-on-campo/90">
+          Mira las horas libres de hoy y reserva sin llamar a nadie.
         </p>
-      }
+
+        <div class="mt-2 grid gap-3 sm:max-w-lg sm:grid-cols-2">
+          <a
+            routerLink="/disponibilidad"
+            class="boton bg-on-campo text-campo hover:opacity-90"
+          >
+            Ver disponibilidad
+          </a>
+          @if (!hayCuenta()) {
+            <!--
+              Dice "Crear cuenta" y no "Hacerme socio", que es lo que decía antes.
+
+              Los dos botones llevan a /registro, que **crea una cuenta**;
+              asociarse con pago de cuota es otra cosa y todavía no existe (es la
+              tarea 6.4 del plan anterior, que quedó fuera de este). Un botón que
+              promete una membresía y entrega un formulario de cuenta miente en
+              el primer clic. Lo que vende la membresía es la sección de más
+              abajo, que sí puede explicarla.
+
+              Y es la misma etiqueta que usa la barra de arriba: cuatro nombres
+              para la misma acción obligan a decidir cuatro veces si son la misma.
+            -->
+            <a
+              routerLink="/registro"
+              class="boton border-2 border-on-campo text-on-campo"
+            >
+              Crear cuenta
+            </a>
+          }
+        </div>
+      </div>
     </section>
 
     @if (abiertos().length > 0) {
-      <section class="mt-12" aria-labelledby="torneos-abiertos">
+      <!--
+        FRANJA — El torneo con la inscripción abierta.
+
+        **La pidió el club**: quien entra a reservar una hora no baja hasta el
+        final, y una inscripción tiene fecha de cierre. Ancla a la sección en vez
+        de sacar a nadie de la portada.
+
+        Es su propia banda y no un quinto renglón del hero. taste § 4.7 prohíbe
+        el texto chico bajo los botones —el hero es un momento, no una lista— y
+        manda esas cosas a una sección propia debajo. Acá las dos reglas se
+        cumplen: el club tiene su aviso sobre el pliegue y el hero queda en sus
+        cuatro elementos.
+      -->
+      <p class="mt-3">
+        <a
+          href="#torneos-abiertos"
+          class="flex flex-wrap items-center justify-center gap-2 rounded-caja
+                 bg-accent-soft px-4 py-3 font-semibold text-accent-strong"
+        >
+          <span class="icono" aria-hidden="true">emoji_events</span>
+          {{ avisoDeTorneos() }}
+        </a>
+      </p>
+    }
+
+    <!--
+      BANDA 2 — El marcador.
+
+      La razón de que exista la portada: qué horas quedan hoy. Va en cifras
+      grandes sobre azul pleno porque es lo único que alguien tiene que poder
+      leer de un vistazo, y en un carril horizontal porque seis horas apiladas en
+      el teléfono son seis pantallazos de scroll.
+    -->
+    <section
+      class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+      aria-labelledby="libre-hoy"
+    >
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="libre-hoy" class="font-display text-2xl font-bold">Libre hoy</h2>
+        <a routerLink="/disponibilidad" class="text-sm font-semibold underline">
+          Ver todos los horarios
+        </a>
+      </div>
+
+      <div role="status" aria-live="polite" class="mt-4">
+        @if (grillas.isLoading()) {
+          <p class="text-on-campo/80">Buscando las horas de hoy…</p>
+        } @else if (grillas.error()) {
+          <p class="text-on-campo/80">
+            No pudimos cargar las horas de hoy.
+            <a routerLink="/disponibilidad" class="font-semibold underline">
+              Mira la disponibilidad
+            </a>
+          </p>
+        } @else if (libresDeHoy().length === 0) {
+          <p class="text-xl font-semibold">
+            Hoy ya no quedan horas libres.
+            <a routerLink="/disponibilidad" class="underline">Mira los próximos días.</a>
+          </p>
+        }
+      </div>
+
+      @if (libresDeHoy().length > 0) {
+        <!-- Carril con anclaje: se hojea con el pulgar y cada hora queda
+             encuadrada sola. Apilarlas sería volver a la lista. -->
+        <!-- Sin márgenes negativos propios: la sección ya se sangra con los
+             suyos, y un contenedor de scroll que además es más ancho que la
+             pantalla deja de contener a sus hijos y empuja al documento entero.
+             Medido: 1136px de desborde a 390px. -->
+        <ul
+          class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2
+                 sm:grid sm:grid-cols-3"
+        >
+          @for (libre of libresDeHoy(); track libre.inicio + libre.cancha) {
+            <li
+              class="min-w-[13rem] shrink-0 snap-start rounded-caja bg-on-campo/10 p-4
+                     sm:min-w-0"
+            >
+              <!-- El único blanco puro de la banda. Todo lo demás cede. -->
+              <p class="font-display text-marcador text-on-campo">
+                {{ hora(libre.inicio) }}
+              </p>
+              <p class="mt-1 font-semibold text-on-campo/90">{{ libre.cancha }}</p>
+              <p class="text-sm text-on-campo/75">
+                Socio sin costo · Arriendo {{ pesos(libre.montoClp) }}
+              </p>
+              <a
+                routerLink="/disponibilidad"
+                class="boton boton-chico mt-3 w-full bg-on-campo text-campo"
+              >
+                Reservar
+                <span class="sr-only">
+                  {{ libre.cancha }} a las {{ hora(libre.inicio) }}
+                </span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!--
+      BANDA 3 — Las canchas, en cifras y no en lista.
+
+      Ocho canchas en una lista de ocho filas es una tabla disfrazada. Lo que
+      alguien necesita saber antes de venir son tres números, y esos van grandes.
+    -->
+    <section class="mt-16 grid gap-6 lg:grid-cols-2 lg:items-start" aria-labelledby="canchas">
+      <!-- items-start y no items-center: en una grilla, una celda se estira al
+           alto de la fila, y una foto estirada pierde su proporción. -->
+      <app-foto
+        descripcion="Una cancha vista desde el fondo, a la altura de la red, con la
+                     superficie de cemento a la vista"
+        proporcion="3/2"
+        claseCaja="rounded-caja"
+      />
+
+      <div>
+        <h2 id="canchas" class="font-display text-3xl font-bold">Nuestras canchas</h2>
+        <p class="mt-2 max-w-prose text-muted-foreground">
+          Todas de la misma superficie dura, todo el año. Sin arcilla y sin pasto: la
+          pelota pica igual en enero que en julio.
+        </p>
+
+        <dl class="mt-6 grid grid-cols-3 gap-4">
+          @for (dato of resumenDeCanchas(); track dato.etiqueta) {
+            <div>
+              <dt class="text-sm text-muted-foreground">{{ dato.etiqueta }}</dt>
+              <dd class="font-display text-marcador text-primary">{{ dato.valor }}</dd>
+            </div>
+          }
+        </dl>
+
+        @if (desdeCuanto() !== null) {
+          <p class="mt-6 text-lg">
+            Desde
+            <strong class="font-display text-2xl text-accent-strong">
+              {{ pesos(desdeCuanto()!) }}
+            </strong>
+            la hora para quien no es socio.
+          </p>
+        }
+      </div>
+    </section>
+
+    @if (abiertos().length > 0) {
+      <!--
+        BANDA 4 — Los torneos con la inscripción abierta.
+
+        Solo aparece cuando hay alguno: una sección que dice "no hay torneos" no
+        le sirve a nadie. Lo que se anuncia sale del mismo endpoint público que
+        la página de torneos, filtrado por estado **y por fecha de cierre**: un
+        torneo puede quedar en INSCRIPCION con el plazo vencido hasta que el
+        admin arma el cuadro, y mandar a alguien a un formulario que lo va a
+        rechazar es peor que no anunciarlo.
+      -->
+      <section class="mt-16" aria-labelledby="torneos-abiertos">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="torneos-abiertos" class="font-display text-2xl font-semibold">
+          <h2 id="torneos-abiertos" class="font-display text-3xl font-bold">
             Inscripciones abiertas
           </h2>
-          <a routerLink="/torneos" class="text-sm font-semibold text-primary">
+          <a routerLink="/torneos" class="text-sm font-semibold text-primary underline">
             Ver todos los torneos
           </a>
         </div>
 
-        <ul class="mt-4 grid gap-4 md:grid-cols-2">
+        <ul class="mt-6 grid gap-4 md:grid-cols-2">
           @for (torneo of abiertos(); track torneo.id) {
-            <li class="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <!-- El fondo verde suave y no una barra de color en el canto: esa
+                 franja es el tell más reconocible de una interfaz generada, y el
+                 detector de impeccable la marca. -->
+            <li class="rounded-caja bg-accent-soft p-6">
               <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-display text-lg font-semibold">
-                  {{ torneo.nombre }}
-                </h3>
+                <h3 class="font-display text-xl font-bold">{{ torneo.nombre }}</h3>
                 <app-insignia variante="exito" icono="how_to_reg">
                   Inscripción abierta
                 </app-insignia>
               </div>
 
               <p class="mt-1 text-sm text-muted-foreground">
-                {{ enPalabras(torneo.fechaInicio) }} —
-                {{ enPalabras(torneo.fechaFin) }}
+                {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
               </p>
               <p class="text-sm font-medium">
-                Te puedes inscribir hasta el
-                {{ enPalabras(torneo.cierreInscripcion) }}.
+                Te puedes inscribir hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
               </p>
 
               <!-- **Una línea por categoría**: el valor y el cupo son de cada cuadro,
@@ -121,9 +315,7 @@ import { Insignia } from '../ui/insignia';
                 @for (categoria of torneo.categorias; track categoria.id) {
                   <li class="flex flex-wrap gap-x-2 text-sm">
                     <strong>{{ categoria.categoria }}</strong>
-                    <span class="text-accent-strong">
-                      {{ precio(categoria.montoClp) }}
-                    </span>
+                    <span class="text-accent-strong">{{ precio(categoria.montoClp) }}</span>
                     <span class="text-muted-foreground">
                       @if (categoria.cuposLibres > 0) {
                         · quedan {{ categoria.cuposLibres }} de {{ categoria.cupo }}
@@ -149,164 +341,122 @@ import { Insignia } from '../ui/insignia';
       </section>
     }
 
-    <section class="mt-12" aria-labelledby="libre-hoy">
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="libre-hoy" class="font-display text-2xl font-semibold">Libre hoy</h2>
-        <a routerLink="/disponibilidad" class="text-sm font-semibold text-primary">
-          Ver todos los horarios
-        </a>
-      </div>
-
-      <div role="status" aria-live="polite" class="mt-4">
-        @if (grillas.isLoading()) {
-          <p class="text-muted-foreground">Buscando las horas de hoy…</p>
-        } @else if (grillas.error()) {
-          <p class="text-muted-foreground">
-            No pudimos cargar las horas de hoy.
-            <a routerLink="/disponibilidad" class="font-medium underline">
-              Mira la disponibilidad
-            </a>
-          </p>
-        } @else if (libresDeHoy().length === 0) {
-          <app-estado-vacio
-            icono="event_busy"
-            titulo="Hoy ya no quedan horas libres"
-            detalle="Mañana abre de nuevo a las 08:00."
-          >
-            <a routerLink="/disponibilidad" class="boton boton-primario">
-              Ver otros días
-            </a>
-          </app-estado-vacio>
-        }
-      </div>
-
-      @if (libresDeHoy().length > 0) {
-        <ul class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          @for (libre of libresDeHoy(); track libre.inicio + libre.cancha) {
-            <li
-              class="flex items-center gap-4 rounded-xl border border-border bg-card p-4
-                     shadow-sm"
-            >
-              <p class="font-display text-2xl font-bold text-primary">
-                {{ hora(libre.inicio) }}
-              </p>
-              <div class="min-w-0 flex-1">
-                <p class="truncate font-semibold">{{ libre.cancha }}</p>
-                <p class="text-sm text-muted-foreground">
-                  Socio sin costo · Arriendo
-                  <span class="font-semibold text-accent-strong">
-                    {{ pesos(libre.montoClp) }}
-                  </span>
-                </p>
-              </div>
-              <a routerLink="/disponibilidad" class="boton boton-primario boton-chico">
-                Reservar
-                <span class="sr-only">
-                  {{ libre.cancha }} a las {{ hora(libre.inicio) }}
-                </span>
-              </a>
-            </li>
-          }
-        </ul>
-      }
-    </section>
-
-    <section class="mt-16" aria-labelledby="nuestras-canchas">
-      <h2 id="nuestras-canchas" class="font-display text-2xl font-semibold">
-        Nuestras canchas
-      </h2>
-      <p class="mt-1 max-w-prose text-muted-foreground">
-        Todas de la misma superficie dura, todo el año. Sin arcilla y sin pasto: la
-        pelota pica igual en enero que en julio.
-      </p>
-
-      <ul class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        @for (cancha of canchas(); track cancha.id) {
-          <li class="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h3 class="font-display text-lg font-semibold">{{ cancha.nombre }}</h3>
-            <p class="mt-2 flex flex-wrap gap-2">
-              <app-insignia variante="info" icono="sports_tennis">
-                {{ superficie(cancha.superficie) }}
-              </app-insignia>
-              @if (cancha.techada) {
-                <app-insignia variante="neutro" icono="roofing">Techada</app-insignia>
-              }
-              @if (cancha.iluminacion) {
-                <app-insignia variante="neutro" icono="lightbulb">
-                  Con iluminación
-                </app-insignia>
-              }
-            </p>
-            @if (cancha.desde !== null) {
-              <p class="mt-3 font-semibold text-accent-strong">
-                Desde {{ pesos(cancha.desde) }} la hora
-              </p>
-            }
-          </li>
-        }
-      </ul>
-    </section>
-
     @if (!hayCuenta()) {
-      <section class="mt-16" aria-labelledby="socio-o-visitante">
-        <h2 id="socio-o-visitante" class="font-display text-2xl font-semibold">
-          Socio o visitante
-        </h2>
+      <!--
+        BANDA 5 — Los dos caminos, del mismo peso.
 
-        <div class="mt-4 grid gap-4 md:grid-cols-2">
-          @for (plan of PLANES; track plan.titulo) {
-            <div
-              class="rounded-xl border bg-card p-6 shadow-sm"
-              [class.border-primary]="plan.destacado"
-              [class.border-border]="!plan.destacado"
-            >
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-display text-xl font-semibold">{{ plan.titulo }}</h3>
-                @if (plan.destacado) {
-                  <app-insignia variante="info" icono="star">Recomendado</app-insignia>
-                }
-              </div>
-              <p class="mt-1 text-sm text-muted-foreground">{{ plan.bajada }}</p>
+        Dos bloques de color pleno, uno al lado del otro, sin jerarquía entre
+        ellos. Es la decisión del club del 2026-09-08 puesta en la composición:
+        el arriendo es el 55% del ingreso y la captación de socios es lo que más
+        les urge, así que ninguno de los dos puede quedar como el chico.
+      -->
+      <section class="mt-16" aria-labelledby="dos-caminos">
+        <h2 id="dos-caminos" class="sr-only">Socio o visitante</h2>
 
-              <ul class="mt-4 grid gap-2">
-                @for (punto of plan.puntos; track punto) {
-                  <li class="flex gap-2 text-sm">
-                    <span class="icono text-accent-strong" aria-hidden="true">
-                      check_circle
-                    </span>
-                    {{ punto }}
-                  </li>
-                }
-              </ul>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div
+            class="relative isolate overflow-hidden rounded-region bg-campo
+                   p-8 text-on-campo"
+          >
+            <h3 class="font-display text-3xl font-bold">Socio</h3>
+            <p class="mt-1 text-on-campo/90">
+              Cuota mensual al día y la cancha sale sin costo.
+            </p>
+            <ul class="mt-6 grid gap-2">
+              @for (punto of PLAN_SOCIO; track punto) {
+                <li class="flex gap-2 text-sm">
+                  <span class="icono shrink-0" aria-hidden="true">check_circle</span>
+                  {{ punto }}
+                </li>
+              }
+            </ul>
+            <a routerLink="/registro" class="boton mt-8 w-full bg-on-campo text-campo">
+              Crear cuenta
+            </a>
+          </div>
 
-              <a [routerLink]="plan.destino" class="boton boton-primario mt-6 w-full">
-                {{ plan.accion }}
-              </a>
-            </div>
-          }
+          <div class="rounded-region border-2 border-primary p-8">
+            <h3 class="font-display text-3xl font-bold text-primary">Visitante</h3>
+            <p class="mt-1 text-muted-foreground">
+              Sin cuenta y sin cuota: pagas la hora que juegas.
+            </p>
+            <ul class="mt-6 grid gap-2">
+              @for (punto of PLAN_VISITANTE; track punto) {
+                <li class="flex gap-2 text-sm">
+                  <span class="icono shrink-0 text-accent-strong" aria-hidden="true">
+                    check_circle
+                  </span>
+                  {{ punto }}
+                </li>
+              }
+            </ul>
+            <a routerLink="/disponibilidad" class="boton boton-primario mt-8 w-full">
+              Reservar una hora
+            </a>
+          </div>
         </div>
       </section>
     }
 
+    <!--
+      BANDA 6 — El cierre.
+
+      Una foto del club a sangre y una sola cosa que hacer. La etiqueta del botón
+      es la misma que arriba a propósito: dos formas de decir lo mismo en una
+      página obligan a decidir dos veces qué son.
+    -->
     <section
-      class="mt-16 rounded-2xl bg-primary px-6 py-12 text-center text-on-primary"
-      aria-labelledby="jugamos-hoy"
+      class="relative isolate -mx-4 mt-16 overflow-hidden sm:mx-0 sm:rounded-region"
+      aria-labelledby="cierre"
     >
-      <h2 id="jugamos-hoy" class="font-display text-3xl font-bold">¿Jugamos hoy?</h2>
-      <p class="mt-2">
-        @if (libresDeHoy().length > 0) {
-          Todavía quedan horas libres para hoy.
-        } @else {
-          Mira los próximos días y elige la tuya.
-        }
-      </p>
-      <a
-        routerLink="/disponibilidad"
-        class="boton mt-6 bg-card text-primary hover:opacity-90"
+      <app-foto
+        descripcion="Socios conversando después de un partido, con las raquetas
+                     todavía en la mano"
+        proporcion="3/2"
+        claseCaja="min-h-[18rem]"
+      />
+      <div class="absolute inset-0 bg-campo/85" aria-hidden="true"></div>
+
+      <div
+        class="absolute inset-0 flex flex-col items-center justify-center gap-4
+               px-6 text-center text-on-campo"
       >
-        Ver disponibilidad
-      </a>
+        <h2 id="cierre" class="font-display text-3xl font-bold sm:text-4xl">
+          @if (libresDeHoy().length > 0) {
+            Todavía quedan horas para hoy
+          } @else {
+            Elige tu hora de esta semana
+          }
+        </h2>
+        <a routerLink="/disponibilidad" class="boton bg-on-campo text-campo">
+          Ver disponibilidad
+        </a>
+      </div>
     </section>
+  `,
+  styles: `
+    /* Las bandas entran al aparecer, una sola vez y sin bloquear nada.
+
+       Va con animation-timeline y no con IntersectionObserver porque el
+       navegador la corre fuera del hilo principal: la portada es lo primero que
+       se ve y no puede pagar JavaScript por una entrada. Donde la propiedad no
+       existe, las secciones simplemente están ahí, que es el estado correcto. */
+    @supports (animation-timeline: view()) {
+      @media (prefers-reduced-motion: no-preference) {
+        section {
+          animation: entra linear both;
+          animation-timeline: view();
+          animation-range: entry 0% entry 40%;
+        }
+      }
+    }
+
+    @keyframes entra {
+      from {
+        opacity: 0;
+        transform: translateY(1.5rem);
+      }
+    }
   `,
 })
 export class Inicio {
@@ -344,7 +494,7 @@ export class Inicio {
       ),
   );
 
-  /** El aviso de arriba: un torneo se nombra, varios se cuentan. */
+  /** El aviso de la franja: un torneo se nombra, varios se cuentan. */
   protected readonly avisoDeTorneos = computed(() => {
     const abiertos = this.abiertos();
 
@@ -364,45 +514,73 @@ export class Inicio {
   /**
    * Si hay sesión abierta, la portada deja de vender la cuenta.
    *
-   * "Soy socio" lleva al login y la sección "Socio o visitante" ofrece registrarse:
-   * las dos le proponen a quien ya entró algo que ya hizo. Se mira la sesión y no la
-   * ficha de socio porque el visitante con cuenta está en el mismo caso —el botón
-   * "Crear mi cuenta" tampoco tiene nada que ofrecerle.
+   * "Hacerme socio" y la sección de los dos caminos le proponen a quien ya entró
+   * algo que ya hizo. Se mira la sesión y no la ficha de socio porque el visitante
+   * con cuenta está en el mismo caso.
    */
   protected readonly hayCuenta = computed(() => this.auth.usuario() !== null);
 
+  /**
+   * La grilla del día.
+   *
+   * **Son nueve peticiones y debería ser una.** `delDia` pide el catálogo y
+   * después una consulta por cancha, porque el endpoint es por cancha; con ocho
+   * canchas eso es lo que cuesta pintar seis horas. El arreglo es un endpoint
+   * que devuelva el día entero, que es trabajo de la API y este plan no la toca.
+   * Está anotado como hallazgo 6 de la auditoría y se cierra en D8.5.
+   */
   protected readonly grillas = resource({
     loader: () => this.disponibilidad.delDia(hoyEnElClub()),
     defaultValue: [],
   });
 
+  private readonly canchas = computed(() => this.grillas.value().map(({ cancha }) => cancha));
+
   /**
-   * Las canchas del club con lo que cuesta la hora más barata de hoy.
+   * Las tres cifras que alguien necesita antes de venir.
    *
-   * El precio sale de la grilla y no de un catálogo de tarifas porque el precio
-   * *es* del bloque: cambia por franja y por día. "Desde" es la palabra honesta.
+   * Ocho canchas en una lista de ocho filas es una tabla disfrazada, y taste
+   * pide otro componente para más de cinco ítems. Lo que se lee de un vistazo
+   * son tres números.
    */
-  protected readonly canchas = computed(() =>
-    this.grillas.value().map(({ cancha, bloques }) => {
-      const precios = bloques.filter((b) => !b.bloqueado).map((b) => b.montoClp);
+  protected readonly resumenDeCanchas = computed(() => {
+    const canchas = this.canchas();
+    const techadas = canchas.filter((cancha) => cancha.techada).length;
+    const conLuz = canchas.filter((cancha) => cancha.iluminacion).length;
 
-      return {
-        ...cancha,
-        desde: precios.length > 0 ? Math.min(...precios) : null,
-      };
-    }),
-  );
-
-  /** Cuántas hay publicadas hoy, con el plural que corresponda. */
-  protected readonly cuantasCanchas = computed(() => {
-    const cuantas = this.canchas().length;
-
-    return cuantas === 1 ? '1 cancha dura' : `${cuantas} canchas duras`;
+    return [
+      { etiqueta: canchas.length === 1 ? 'Cancha' : 'Canchas', valor: `${canchas.length}` },
+      { etiqueta: 'Techadas', valor: `${techadas}` },
+      { etiqueta: 'Con iluminación', valor: `${conLuz}` },
+    ];
   });
 
-  /** Las próximas horas libres de hoy, las que alcanzan a jugarse. */
+  /**
+   * La hora más barata de hoy.
+   *
+   * Sale de la grilla y no de un catálogo de tarifas porque el precio *es* del
+   * bloque: cambia por franja y por día. "Desde" es la palabra honesta.
+   */
+  protected readonly desdeCuanto = computed(() => {
+    const precios = this.grillas
+      .value()
+      .flatMap(({ bloques }) => bloques.filter((b) => !b.bloqueado).map((b) => b.montoClp));
+
+    return precios.length > 0 ? Math.min(...precios) : null;
+  });
+
+  /**
+   * Las próximas horas libres de hoy: **una por hora, no una por cancha**.
+   *
+   * Sin deduplicar, a las 12:00 con ocho canchas libres la portada mostraba
+   * seis veces "12:00" y cambiaba solo el nombre de la cancha. Quien mira esto
+   * está preguntando *cuándo* puede jugar, no en cuál de las ocho canchas
+   * idénticas. Se muestra la primera cancha libre de cada hora y el resto se ve
+   * en la grilla, que es la pantalla que sí compara canchas.
+   */
   protected readonly libresDeHoy = computed(() => {
     const ahora = Date.now();
+    const vistas = new Set<string>();
 
     return this.grillas
       .value()
@@ -417,6 +595,12 @@ export class Inicio {
           .map((bloque) => ({ ...bloque, cancha: cancha.nombre })),
       )
       .sort((una, otra) => una.inicio.localeCompare(otra.inicio))
+      .filter((libre) => {
+        const hora = libre.inicio.slice(0, 16);
+        if (vistas.has(hora)) return false;
+        vistas.add(hora);
+        return true;
+      })
       .slice(0, 6);
   });
 
@@ -429,37 +613,20 @@ export class Inicio {
    * una constante del navegador es prometer algo que el admin puede desmentir
    * esta tarde desde su panel.
    */
-  protected readonly PLANES = [
-    {
-      titulo: 'Socio',
-      bajada: 'Cuota mensual al día y la cancha sale sin costo.',
-      destacado: true,
-      puntos: [
-        'Sin pago al reservar: la hora ya está en tu cuota',
-        'Cupo diario de cancha y horas en franja pico',
-        'Puedes traer invitados cada mes',
-        'Cambias y cancelas desde "Mis reservas"',
-      ],
-      accion: 'Crear mi cuenta',
-      destino: '/registro',
-    },
-    {
-      titulo: 'Visitante',
-      bajada: 'Sin cuenta y sin cuota: pagas la hora que juegas.',
-      destacado: false,
-      puntos: [
-        'Arriendo por hora, con el precio a la vista',
-        'Pagas en línea al reservar',
-        'Cancelas con 24 horas y se devuelve todo',
-        'Modificas hasta 6 horas antes',
-      ],
-      accion: 'Reservar una hora',
-      destino: '/disponibilidad',
-    },
+  protected readonly PLAN_SOCIO = [
+    'Sin pago al reservar: la hora ya está en tu cuota',
+    'Cupo diario de cancha y horas en franja pico',
+    'Puedes traer invitados cada mes',
+    'Cambias y cancelas desde "Mis reservas"',
+  ];
+
+  protected readonly PLAN_VISITANTE = [
+    'Arriendo por hora, con el precio a la vista',
+    'Pagas en línea al reservar',
+    'Cancelas con 24 horas y se devuelve todo',
+    'Modificas hasta 6 horas antes',
   ];
 
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
-
-  protected readonly superficie = nombreDeSuperficie;
 }

@@ -129,7 +129,7 @@ describe('Grilla', () => {
     await montar(DIA);
   });
 
-  it('muestra la hora de cada bloque en la hora del club', () => {
+  it('muestra la hora de cada franja en la hora del club', () => {
     // 12:00Z en agosto son las 08:00 en Santiago. Con la hora del navegador o un
     // desfase fijo, el socio vería una hora que no es a la que juega.
     expect(texto()).toContain('08:00–09:00');
@@ -146,12 +146,19 @@ describe('Grilla', () => {
     //
     // "sin costo" y no "$0" desde el rediseño (plan § 5.1): un cero con signo de
     // pesos se lee como un precio que alguien todavía no calculó.
-    const libre = bloques()[0].textContent ?? '';
+    //
+    // Desde que la grilla se agrupa por hora, las dos tarifas viven en el
+    // encabezado de la franja y no en cada chip: el precio es de la hora, no de
+    // la cancha, y repetirlo en cada una de las ocho era decir ocho veces lo
+    // mismo. Lo que este test protege sigue siendo lo mismo: que las dos se vean
+    // antes de hacer clic.
+    const franja = (fixture.nativeElement as HTMLElement).querySelector('section');
+    const texto = franja?.textContent ?? '';
 
-    expect(libre).toContain('Socio');
-    expect(libre).toContain('sin costo');
-    expect(libre).toContain('Arriendo');
-    expect(libre).toContain('$12.000');
+    expect(texto).toContain('Socio');
+    expect(texto).toContain('sin costo');
+    expect(texto).toContain('Arriendo');
+    expect(texto).toContain('$12.000');
   });
 
   it('dice las dos tarifas también a quien navega por teclado', () => {
@@ -169,22 +176,30 @@ describe('Grilla', () => {
     // El `aria-label` reemplaza al contenido del botón, así que lo que no esté acá
     // no existe para quien usa lector de pantalla. Y la hora pico no es decoración:
     // le gasta al socio un cupo semanal del que solo tiene dos.
+    //
+    // Los chips son ahora uno por cancha libre, así que de los tres bloques del
+    // fixture solo llegan los dos que se pueden tomar: el de las 08:00 y el de
+    // las 10:00, que es el de hora pico.
     const etiquetas = bloques().map((b) =>
       b.querySelector('button')?.getAttribute('aria-label'),
     );
 
-    expect(etiquetas[2]).toContain('hora pico');
+    expect(etiquetas[1]).toContain('hora pico');
     expect(etiquetas[0]).not.toContain('hora pico');
   });
 
-  it('el bloque que se puede tomar se ve clickeable; el que no, no', () => {
-    // La grilla entera es una cuadrícula de tarjetas iguales y nada anunciaba que
-    // fueran botones. El cursor es la señal que el mouse da antes del clic.
-    const libre = bloques()[0].querySelector('button');
-    const enMantencion = bloques()[1].querySelector('button');
+  it('solo se lista lo que se puede tomar, y se ve clickeable', () => {
+    // Antes la grilla pintaba también lo ocupado y lo bloqueado como tarjetas, y
+    // el test comprobaba que esas no tuvieran cursor. Agrupada por hora, lo que
+    // no se puede tomar dejó de ser un elemento y pasó a ser una cuenta, así que
+    // el caso negativo desapareció por construcción: **lo único que se lista es
+    // lo que se puede apretar.**
+    const chips = bloques();
 
-    expect(libre?.classList.contains('cursor-pointer')).toBe(true);
-    expect(enMantencion?.classList.contains('cursor-pointer')).toBe(false);
+    expect(chips.length).toBe(2);
+    for (const chip of chips) {
+      expect(chip.querySelector('button')?.classList.contains('cursor-pointer')).toBe(true);
+    }
   });
 
   it('el selector de día también se anuncia como clickeable', () => {
@@ -208,11 +223,11 @@ describe('Grilla', () => {
     expect(texto()).not.toContain('MANTENCION');
   });
 
-  it('marca el bloque tomado con una forma distinta, no solo un color', () => {
-    const tomado = bloques()[1];
-
-    expect(tomado.classList.contains('border-dashed')).toBe(true);
-    expect(bloques()[0].classList.contains('border-dashed')).toBe(false);
+  it('lo que no se puede tomar se cuenta con palabras, no con un color', () => {
+    // El par verde/rojo es justo el que no distingue quien tiene daltonismo
+    // rojo-verde. Antes eso se resolvía con un borde punteado sobre la tarjeta;
+    // ahora que lo ocupado es una cuenta, se resuelve con la palabra y su ícono.
+    expect(texto()).toContain('en mantención');
   });
 
   it('no ofrece precio de un bloque que no se puede tomar', () => {
@@ -223,10 +238,10 @@ describe('Grilla', () => {
   it('numera los bloques para el stagger, sin pasar del tope', () => {
     // El `--i` es lo que escalona la entrada. El tope vive en el CSS; acá se fija
     // que el índice llegue, porque sin él todos entran a la vez.
+    // Uno por chip libre dentro de su franja, que es la unidad que entra junta.
     expect(bloques().map((b) => b.getAttribute('style'))).toEqual([
       expect.stringContaining('--i: 0'),
-      expect.stringContaining('--i: 1'),
-      expect.stringContaining('--i: 2'),
+      expect.stringContaining('--i: 0'),
     ]);
   });
 
@@ -551,8 +566,10 @@ describe('Grilla', () => {
       const botones = (fixture.nativeElement as HTMLElement).querySelectorAll(
         '.bloque button',
       );
+      // Los dos chips libres del día: agrupada por hora, la grilla solo lista
+      // lo que se puede tomar, así que el segundo clic va al índice 1.
       (botones[0] as HTMLButtonElement).click();
-      (botones[2] as HTMLButtonElement).click();
+      (botones[1] as HTMLButtonElement).click();
 
       expect(mover).toHaveBeenCalledTimes(1);
 

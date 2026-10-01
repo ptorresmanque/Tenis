@@ -21,11 +21,21 @@ import { TablaInterna } from './tabla-interna';
   selector: 'app-ranking-torneos',
   imports: [EstadoVacio, TablaInterna],
   template: `
-    <h1 class="font-display text-4xl font-bold">Ranking de torneos</h1>
-    <p class="mt-2 max-w-prose text-lg text-muted-foreground">
-      Los puntos de cada jugador según hasta dónde llegó en cada torneo, multiplicados por la
-      categoría.
-    </p>
+    <!-- Cabecera en banda de color y sin fotografía: esta pantalla es una tabla
+         de posiciones, y lo que se viene a hacer acá es buscar un nombre en una
+         lista. Una foto grande arriba solo alejaría la primera fila. -->
+    <section
+      class="-mx-4 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+      aria-labelledby="ranking"
+    >
+      <h1 id="ranking" class="font-display text-4xl font-black tracking-tight sm:text-5xl">
+        Ranking de torneos
+      </h1>
+      <p class="mt-2 max-w-prose text-on-campo/90">
+        Los puntos de cada jugador según hasta dónde llegó en cada torneo, multiplicados
+        por la categoría.
+      </p>
+    </section>
 
     @if (tabla.value(); as datos) {
       <p class="mt-4 max-w-prose text-sm text-muted-foreground">
@@ -50,30 +60,45 @@ import { TablaInterna } from './tabla-interna';
              comparables entre sí y las columnas significan lo mismo en todas. Sin
              encabezados, un lector de pantalla lee cuatro números sueltos por fila. -->
         <div class="mt-6 overflow-x-auto" data-tabla="torneos">
-          <table class="w-full border-collapse text-sm">
+          <table class="tabla text-sm">
             <caption class="sr-only">
               Puntos por jugador en los torneos de las últimas 52 semanas
             </caption>
             <thead>
-              <tr class="border-b border-border text-left text-muted-foreground">
-                <th scope="col" class="py-2 pr-3 font-medium">Puesto</th>
-                <th scope="col" class="py-2 pr-3 font-medium">Jugador</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Puntos</th>
-                <th scope="col" class="py-2 text-right font-medium">Torneos</th>
+              <tr>
+                <th scope="col">Puesto</th>
+                <th scope="col">Jugador</th>
+                <th scope="col" class="numero">Puntos</th>
+                <th scope="col" class="numero">Torneos</th>
               </tr>
             </thead>
             <tbody>
               @for (fila of datos.posiciones; track fila.jugadorId) {
-                <tr class="border-b border-border last:border-0">
-                  <td class="py-2 pr-3 font-semibold">{{ fila.puesto }}</td>
+                <!-- Los tres primeros con el puesto en grande: es lo que alguien
+                     busca primero cuando abre una tabla de posiciones, y sin eso
+                     las cuarenta filas se leen todas iguales. **Sin rebote ni
+                     overshoot en la entrada**: MASTER.md § Motion lo dice para
+                     tabla densa, donde el movimiento elástico se lee como
+                     descuido y no como intención. -->
+                <tr
+                  class="border-b border-border last:border-0"
+                  [class.bg-selected]="fila.puesto <= 3"
+                >
+                  <td
+                    class="py-2 pr-3 font-display font-bold"
+                    [class.text-xl]="fila.puesto <= 3"
+                    [class.text-primary]="fila.puesto <= 3"
+                  >
+                    {{ fila.puesto }}
+                  </td>
                   <!-- El nombre es el encabezado de fila, no el puesto: con empates el
                        puesto se repite, y un encabezado que dice "1" en dos filas no
                        identifica ninguna. Quien escucha la tabla necesita oír de quién
                        son los 650 puntos. -->
-                  <th scope="row" class="py-2 pr-3 text-left font-normal">
+                  <th scope="row">
                     {{ fila.nombre }}
                   </th>
-                  <td class="py-2 pr-3 text-right font-semibold">{{ fila.puntos }}</td>
+                  <td class="numero font-semibold">{{ fila.puntos }}</td>
                   <td class="py-2 text-right text-muted-foreground">
                     {{ fila.torneos }}
                   </td>

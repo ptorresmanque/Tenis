@@ -44,7 +44,7 @@ import { NuevaReserva } from './nueva-reserva';
       <div class="flex items-center gap-1">
         <button
           type="button"
-          class="boton boton-secundario boton-chico"
+          class="boton boton-secundario boton-chico min-h-11"
           aria-label="Día anterior"
           (click)="moverDia(-1)"
         >
@@ -52,7 +52,7 @@ import { NuevaReserva } from './nueva-reserva';
         </button>
         <button
           type="button"
-          class="boton boton-secundario boton-chico"
+          class="boton boton-secundario boton-chico min-h-11"
           [disabled]="fechaActual() === hoy"
           (click)="fechaActual.set(hoy)"
         >
@@ -60,7 +60,7 @@ import { NuevaReserva } from './nueva-reserva';
         </button>
         <button
           type="button"
-          class="boton boton-secundario boton-chico"
+          class="boton boton-secundario boton-chico min-h-11"
           aria-label="Día siguiente"
           (click)="moverDia(1)"
         >
@@ -73,7 +73,7 @@ import { NuevaReserva } from './nueva-reserva';
         <input
           id="fecha"
           type="date"
-          class="campo mt-1 w-auto cursor-pointer py-2"
+          class="campo mt-1 min-h-11 w-auto cursor-pointer py-2"
           [value]="fechaActual()"
           (change)="cambiarFecha($event)"
         />

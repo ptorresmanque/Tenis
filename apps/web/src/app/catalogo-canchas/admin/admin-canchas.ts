@@ -219,19 +219,38 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 }
               </p>
 
-              <h4 class="mt-3 text-sm font-semibold">Horario de apertura</h4>
-              @if (cancha.horarios.length === 0) {
-                <p class="text-sm text-muted-foreground">
-                  Sin horario propio: vale el general del club.
-                </p>
-              }
-              <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
+              <!--
+                Los tres editores plegados, con details nativo.
 
-              <h4 class="mt-3 text-sm font-semibold">Tarifas propias</h4>
-              <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
+                Con ocho canchas abiertas a la vez la pantalla medía 10.683px en
+                el teléfono y 7.292px en el escritorio: ocho pantallazos de
+                scroll para cambiar una tarifa, y 269 campos de formulario
+                cargados a la vez. Es una pantalla de configuración, y quien
+                entra viene a tocar **una** cancha.
 
-              <h4 class="mt-3 text-sm font-semibold">Bloqueos</h4>
-              <app-editor-bloqueos [cancha]="cancha" />
+                details y no un acordeón propio: el navegador ya trae el estado,
+                el teclado y el anuncio al lector de pantalla. Cero JavaScript.
+              -->
+              <details class="mt-3 border-t border-border pt-3">
+                <summary class="cursor-pointer text-sm font-semibold">
+                  Horario, tarifas y bloqueos
+                  <span class="sr-only">de {{ cancha.nombre }}</span>
+                </summary>
+
+                <h4 class="mt-3 text-sm font-semibold">Horario de apertura</h4>
+                @if (cancha.horarios.length === 0) {
+                  <p class="text-sm text-muted-foreground">
+                    Sin horario propio: vale el general del club.
+                  </p>
+                }
+                <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
+
+                <h4 class="mt-3 text-sm font-semibold">Tarifas propias</h4>
+                <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
+
+                <h4 class="mt-3 text-sm font-semibold">Bloqueos</h4>
+                <app-editor-bloqueos [cancha]="cancha" />
+              </details>
             </li>
           }
         </ul>

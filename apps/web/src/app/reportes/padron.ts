@@ -74,28 +74,28 @@ import { Reportes } from './reportes.service';
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="w-full border-collapse text-sm">
+          <table class="tabla text-sm">
             <caption class="sr-only">
               Altas, bajas y deuda por mes
             </caption>
             <thead>
-              <tr class="border-b border-border text-left text-muted-foreground">
-                <th scope="col" class="py-2 pr-3 font-medium">Mes</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Altas</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Bajas</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Deuda</th>
-                <th scope="col" class="py-2 text-right font-medium">Socios con deuda</th>
+              <tr>
+                <th scope="col">Mes</th>
+                <th scope="col" class="numero">Altas</th>
+                <th scope="col" class="numero">Bajas</th>
+                <th scope="col" class="numero">Deuda</th>
+                <th scope="col" class="numero">Socios con deuda</th>
               </tr>
             </thead>
             <tbody>
               @for (mes of datos.meses; track mes.periodo) {
-                <tr class="border-b border-border">
-                  <th scope="row" class="py-2 pr-3 text-left font-normal">
+                <tr>
+                  <th scope="row">
                     {{ mes.periodo }}
                   </th>
-                  <td class="py-2 pr-3 text-right">{{ mes.altas }}</td>
-                  <td class="py-2 pr-3 text-right">{{ mes.bajas }}</td>
-                  <td class="py-2 pr-3 text-right font-semibold">
+                  <td class="numero">{{ mes.altas }}</td>
+                  <td class="numero">{{ mes.bajas }}</td>
+                  <td class="numero font-semibold">
                     {{ pesos(mes.deudaClp) }}
                   </td>
                   <td class="py-2 text-right text-muted-foreground">

@@ -23,16 +23,33 @@ let contador = 0;
  */
 @Component({
   selector: 'app-selector',
+  // Las tres clases del host resuelven el mismo defecto por capas, y cada una
+  // hace falta:
+  //
+  //   `block`      un componente de Angular es `inline` mientras nadie diga lo
+  //                contrario, y un host inline se dimensiona por su contenido.
+  //   `min-w-0`    este vive dentro de contenedores flex, y todo hijo flex trae
+  //                `min-width: auto`, que le impide encogerse.
+  //   `overflow-x-auto`  el scroll vive acá y no en el `<fieldset>` de adentro:
+  //                **un fieldset no se encoge por debajo de su contenido** por
+  //                mucho `min-width: 0` que se le ponga, así que su propio
+  //                overflow no llega a usarse nunca.
+  //
+  // Sin las tres, la tira de siete días medía 504px dentro de una pantalla de
+  // 375. Esos 145px eran el scroll horizontal que la auditoría del 2026-09-08
+  // encontró en la pantalla más usada del sitio.
+  host: { class: 'block min-w-0 max-w-full overflow-x-auto' },
   template: `
-    <fieldset
-      [class]="
-        estilo() === 'chips'
-          ? 'flex gap-2 overflow-x-auto pb-1'
-          : 'inline-flex gap-1 rounded-lg bg-muted p-1'
-      "
-    >
+    <fieldset class="min-w-0">
       <legend class="sr-only">{{ etiqueta() }}</legend>
 
+      <div
+        [class]="
+          estilo() === 'chips'
+            ? 'flex w-max gap-2 pb-1'
+            : 'inline-flex gap-1 rounded-lg bg-muted p-1'
+        "
+      >
       @for (opcion of opciones(); track opcion.valor) {
         <label
           [class]="clasesDeOpcion()"
@@ -54,6 +71,7 @@ let contador = 0;
           }
         </label>
       }
+      </div>
     </fieldset>
   `,
 })
@@ -75,9 +93,14 @@ export class Selector {
       'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ' +
       'has-[:focus-visible]:outline-ring';
 
+    // `relative` en la etiqueta: el radio va oculto con `sr-only`, que es
+    // `position: absolute`, y sin ancestro posicionado se cuelga del documento.
+    // Dentro de una tira con scroll eso empuja la página entera, que es el mismo
+    // defecto que tenían los botones antes de que `.boton` fuera relative.
     return this.estilo() === 'chips'
-      ? `flex min-w-16 shrink-0 cursor-pointer flex-col items-center gap-0.5 rounded-xl
-         border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground
+      ? `relative flex min-w-16 shrink-0 cursor-pointer flex-col items-center gap-0.5
+         rounded-xl border border-border bg-card px-3 py-2 text-xs font-medium
+         text-muted-foreground
          transition-colors has-[:checked]:border-primary has-[:checked]:bg-selected
          has-[:checked]:text-primary ${foco}`
       : `flex cursor-pointer items-center gap-1 rounded-md px-3 py-1.5 text-sm

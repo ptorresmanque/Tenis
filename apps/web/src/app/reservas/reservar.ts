@@ -46,7 +46,8 @@ import {
     <dialog
       #dialogo
       aria-labelledby="titulo-reserva"
-      class="w-full max-w-md rounded-t-2xl bg-card p-5 shadow-lg backdrop:bg-black/40 sm:rounded-2xl"
+      class="dialogo-hoja w-full max-w-md rounded-t-2xl bg-card p-5 shadow-lg
+             backdrop:bg-black/40 sm:rounded-2xl"
       (close)="cerrar.emit()"
     >
       <section>

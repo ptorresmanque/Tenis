@@ -43,7 +43,10 @@ interface FilaDeDia {
   imports: [FormsModule],
   template: `
     <form class="mt-2" (ngSubmit)="guardar()">
-      <table class="text-sm">
+      <!-- La tabla lleva siete filas de dos horas cada una y no se encoge más:
+           el scroll va acá para que no empuje el ancho del documento entero. -->
+      <div class="overflow-x-auto">
+      <table class="tabla tabla-densa text-sm">
         <caption class="sr-only">
           Horario de apertura de {{ ambito().nombre }}
         </caption>
@@ -96,6 +99,7 @@ interface FilaDeDia {
           }
         </tbody>
       </table>
+      </div>
 
       <div class="mt-2 flex flex-wrap items-center gap-3">
         <button

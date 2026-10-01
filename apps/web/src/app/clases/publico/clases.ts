@@ -7,6 +7,7 @@ import {
 } from '../../catalogo-canchas/reloj-del-club';
 import { FormularioContacto } from '../../club/formulario-contacto';
 import { EstadoVacio } from '../../ui/estado-vacio';
+import { Foto } from '../../ui/foto';
 import { Insignia } from '../../ui/insignia';
 import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
 
@@ -24,34 +25,54 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
  */
 @Component({
   selector: 'app-clases-publicas',
-  imports: [EstadoVacio, Insignia, FormularioContacto],
+  imports: [EstadoVacio, Foto, Insignia, FormularioContacto],
   template: `
-    <h1 class="font-display text-4xl font-bold">Clases con profesor</h1>
-    <p class="mt-2 max-w-prose text-lg text-muted-foreground">
-      Iniciación, competitivo y clases para niños. Mira los horarios de esta semana y
-      escríbenos: te llamamos para contarte cómo funcionan y qué cupos quedan.
-    </p>
+    <section
+      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      aria-labelledby="clases"
+    >
+      <app-foto
+        descripcion="Un profesor dando clase a un grupo, con los alumnos en la línea de fondo"
+        proporcion="16/9"
+        [prioritaria]="true"
+        claseCaja="min-h-[22rem]"
+      />
+      <div
+        class="absolute inset-0 bg-gradient-to-t from-campo via-campo/90 to-campo/65"
+        aria-hidden="true"
+      ></div>
 
-    <h2 class="mt-8 font-display text-2xl font-bold">Quiénes enseñan</h2>
+      <div class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo sm:p-10">
+        <h1 id="clases" class="font-display text-4xl font-black tracking-tight sm:text-5xl">
+          Clases con profesor
+        </h1>
+        <p class="max-w-prose text-lg text-on-campo/90">
+          Iniciación, competitivo y clases para niños. Mira los horarios de esta semana y
+          escríbenos.
+        </p>
+      </div>
+    </section>
+
+    <h2 class="mt-16 font-display text-3xl font-bold">Quiénes enseñan</h2>
     @if (datos.value(); as info) {
       @if (info.profesores.length === 0) {
         <p class="mt-2 text-muted-foreground">
           Estamos armando el equipo de profesores para la próxima temporada.
         </p>
       } @else {
-        <ul class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul class="mt-4 divide-y divide-border border-y border-border">
           @for (profesor of info.profesores; track profesor.nombreVisible) {
-            <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <p class="font-display text-lg font-semibold">
+            <li class="flex flex-wrap items-baseline justify-between gap-2 py-4">
+              <p class="font-display text-xl font-bold">
                 {{ profesor.nombreVisible }}
               </p>
-              <p class="text-sm text-muted-foreground">{{ profesor.especialidad }}</p>
+              <p class="text-muted-foreground">{{ profesor.especialidad }}</p>
             </li>
           }
         </ul>
       }
 
-      <h2 class="mt-8 font-display text-2xl font-bold">Esta semana</h2>
+      <h2 class="mt-16 font-display text-3xl font-bold">Esta semana</h2>
 
       @if (info.clases.length === 0) {
         <app-estado-vacio
@@ -62,16 +83,16 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         />
       } @else {
         @for (dia of porDia(); track dia.fecha) {
-          <h3 class="mt-5 font-display text-lg font-semibold">
+          <h3
+            class="mt-8 border-b-2 border-primary pb-1 font-display text-lg font-bold
+                   tracking-wide text-primary uppercase"
+          >
             {{ enPalabras(dia.fecha) }}
           </h3>
-          <ul class="mt-2 grid gap-2">
+          <ul class="divide-y divide-border">
             @for (clase of dia.clases; track clase.id) {
-              <li
-                class="flex flex-wrap items-center gap-3 rounded-xl border border-border
-                       bg-card p-3 shadow-sm"
-              >
-                <span class="font-display text-lg font-semibold">
+              <li class="flex flex-wrap items-center gap-3 py-4">
+                <span class="font-display text-xl font-bold">
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
                 </span>
                 <app-insignia variante="info" icono="school">

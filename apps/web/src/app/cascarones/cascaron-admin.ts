@@ -40,7 +40,12 @@ import { MenuDesplegable } from './menu-desplegable';
                bg-card md:flex"
       >
         <div class="border-b border-border px-6 py-4">
-          <app-logotipo descriptor="Administración" destino="/administracion/reservas" />
+          <app-logotipo destino="/administracion/reservas" />
+        <span
+          class="font-display text-xs font-bold tracking-widest text-muted-foreground uppercase"
+        >
+          Administración
+        </span>
         </div>
 
         <nav aria-label="Administración" class="flex-1 overflow-y-auto py-4">
@@ -127,17 +132,28 @@ import { MenuDesplegable } from './menu-desplegable';
         >
           <span class="icono text-2xl" aria-hidden="true">menu</span>
         </button>
-        <app-logotipo descriptor="Administración" destino="/administracion/reservas" />
+        <app-logotipo destino="/administracion/reservas" />
+        <span
+          class="font-display text-xs font-bold tracking-widest text-muted-foreground uppercase"
+        >
+          Administración
+        </span>
       </header>
 
       <dialog
         #cajon
         closedby="any"
-        class="m-0 h-dvh w-4/5 max-w-xs bg-card shadow-xl backdrop:bg-foreground/50"
+        class="dialogo-cajon-inicio m-0 h-dvh w-4/5 max-w-xs bg-card shadow-xl
+               backdrop:bg-foreground/50"
         aria-label="Administración"
       >
         <div class="flex items-center justify-between border-b border-border px-4 py-4">
-          <app-logotipo descriptor="Administración" destino="/administracion/reservas" />
+          <app-logotipo destino="/administracion/reservas" />
+        <span
+          class="font-display text-xs font-bold tracking-widest text-muted-foreground uppercase"
+        >
+          Administración
+        </span>
           <button
             type="button"
             class="cursor-pointer rounded-lg p-2 transition-colors hover:bg-muted"

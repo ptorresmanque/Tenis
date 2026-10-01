@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Esqueleto } from '../../ui/esqueleto';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { SUPERFICIES } from '../../catalogo-canchas/superficies';
@@ -60,7 +61,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-torneos',
-  imports: [FormsModule, RouterLink, Aviso, EstadoVacio, Insignia],
+  imports: [Esqueleto, FormsModule, RouterLink, Aviso, EstadoVacio, Insignia],
   template: `
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -183,7 +184,7 @@ const enBlanco = () => ({
     </div>
 
     @if (torneos.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los torneos…" />
     } @else if (torneos.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

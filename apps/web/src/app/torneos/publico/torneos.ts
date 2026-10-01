@@ -13,6 +13,10 @@ import { diaEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
+// Alias: `torneos.service` ya exporta un tipo `Foto`, que son las de la
+// galería del torneo. Este es el componente que reserva el hueco de una
+// foto del sitio mientras el club no la entrega.
+import { Foto as FotoDelSitio } from '../../ui/foto';
 import { Insignia } from '../../ui/insignia';
 import { Galeria } from './galeria';
 import { InscripcionATorneo } from './inscripcion';
@@ -67,6 +71,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
 @Component({
   selector: 'app-torneos-publicos',
   imports: [
+    FotoDelSitio,
     Aviso,
     EstadoVacio,
     Galeria,
@@ -75,11 +80,31 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
     Reproductor,
   ],
   template: `
-    <h1 class="font-display text-4xl font-bold">Torneos</h1>
-    <p class="mt-2 max-w-prose text-lg text-muted-foreground">
-      Lo que se juega este año en el club: cuándo es cada torneo, cuántos cupos quedan
-      y cómo va el cuadro.
-    </p>
+    <section
+      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      aria-labelledby="torneos"
+    >
+      <app-foto
+        descripcion="La entrega de premios de un torneo, con los finalistas y el público"
+        proporcion="16/9"
+        [prioritaria]="true"
+        claseCaja="min-h-[22rem]"
+      />
+      <div
+        class="absolute inset-0 bg-gradient-to-t from-campo via-campo/90 to-campo/65"
+        aria-hidden="true"
+      ></div>
+
+      <div class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo sm:p-10">
+        <h1 id="torneos" class="font-display text-4xl font-black tracking-tight sm:text-6xl">
+          Torneos
+        </h1>
+        <p class="max-w-prose text-lg text-on-campo/90">
+          Lo que se juega este año en el club: cuándo es cada torneo, cuántos cupos
+          quedan y cómo va el cuadro.
+        </p>
+      </div>
+    </section>
 
     <!-- **La vuelta desde la pasarela se cuenta acá.** Sin esto, quien pagaba volvía
          a la lista sin una palabra y no sabía si había quedado inscrito; y quien
@@ -99,11 +124,20 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
           detalle="El calendario se publica acá en cuanto el club lo cierra."
         />
       } @else {
-        <ul class="mt-6 grid gap-3">
+        <!-- Sin cajas: el torneo abierto se distingue por una barra de color en el
+             canto, que es más fuerte que un borde gris alrededor de todo. -->
+        <ul class="mt-8 grid gap-4">
           @for (torneo of lista; track torneo.id) {
-            <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <!-- El torneo abierto se distingue por su propio fondo y no por una
+                 barra de color en el canto: esa franja es el tell más reconocible
+                 de una interfaz generada. El verde suave dice lo mismo. -->
+            <li
+              class="rounded-caja p-5"
+              [class.bg-accent-soft]="torneo.estado === 'INSCRIPCION'"
+              [class.bg-muted]="torneo.estado !== 'INSCRIPCION'"
+            >
               <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 class="font-display text-xl font-semibold">{{ torneo.nombre }}</h2>
+                <h2 class="font-display text-2xl font-bold">{{ torneo.nombre }}</h2>
                 <app-insignia variante="info" icono="emoji_events">
                   {{ torneo.categoria }}
                 </app-insignia>
@@ -116,8 +150,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
               </div>
 
               <p class="mt-1 text-sm text-muted-foreground">
-                {{ enPalabras(torneo.fechaInicio) }} —
-                {{ enPalabras(torneo.fechaFin) }}
+                {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
                 @if (torneo.superficie) {
                   · {{ superficie(torneo.superficie) }}
                 }

@@ -74,7 +74,7 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="w-full border-collapse text-sm">
+          <table class="tabla text-sm">
             <caption class="sr-only">
               Ingreso del período, cortado por
               {{
@@ -82,25 +82,25 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
               }}
             </caption>
             <thead>
-              <tr class="border-b border-border text-left text-muted-foreground">
-                <th scope="col" class="py-2 pr-3 font-medium">Corte</th>
-                <th scope="col" class="py-2 text-right font-medium">Ingreso</th>
+              <tr>
+                <th scope="col">Corte</th>
+                <th scope="col" class="numero">Ingreso</th>
               </tr>
             </thead>
             <tbody>
               @for (fila of datos.filas; track fila.etiqueta) {
-                <tr class="border-b border-border">
-                  <th scope="row" class="py-2 pr-3 text-left font-normal">
+                <tr>
+                  <th scope="row">
                     {{ fila.etiqueta }}
                   </th>
-                  <td class="py-2 text-right">{{ pesos(fila.montoClp) }}</td>
+                  <td class="numero">{{ pesos(fila.montoClp) }}</td>
                 </tr>
               }
             </tbody>
             <tfoot>
               <tr>
                 <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="py-2 text-right font-semibold">
+                <td class="numero font-semibold">
                   {{ pesos(datos.totalClp) }}
                 </td>
               </tr>

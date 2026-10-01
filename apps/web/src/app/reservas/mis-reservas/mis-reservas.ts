@@ -46,7 +46,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
         <app-estado-vacio
           icono="sports_tennis"
           titulo="No tienes horas tomadas"
-          detalle="Elegí una cancha y una hora, y queda reservada al toque."
+          detalle="Elige una cancha y una hora, y queda reservada al tiro."
         >
           <a routerLink="/disponibilidad" class="boton boton-primario">
             Ver la disponibilidad
@@ -61,9 +61,17 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
       <app-aviso variante="info" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
-    <ul class="mt-6 space-y-4">
+    <!-- Sin tarjeta y con una línea entre reservas: la caja con borde y sombra
+         era la única forma de agrupar que tenía el sitio, y separaba tan poco que
+         cuatro reservas se leían como un bloque. -->
+    <!-- Con @if y no con la variante empty: de CSS, porque el @for de Angular
+         deja nodos de comentario dentro del ul y la pseudo-clase :empty no
+         matchea. Sin esto, el border-y dibuja dos líneas pegadas debajo del
+         estado vacío y parecen un error de render. -->
+    @if (reservas.value().length > 0) {
+    <ul class="mt-6 divide-y divide-border border-y border-border">
       @for (reserva of reservas.value(); track reserva.id) {
-        <li class="flex gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <li class="flex gap-4 py-5">
           <!-- El bloque de fecha del diseño: el día que se juega, del tamaño que
                tiene en la cabeza de quien vino a buscar "la del sábado". -->
           <p
@@ -92,14 +100,17 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
               }
             </div>
 
-            <p class="mt-1">
-              {{ dia(reserva.inicio) }} ·
+            <!-- La hora en la escala de marcador, igual que en la grilla: es el
+                 dato con el que alguien busca su reserva, y estaba en tamaño de
+                 párrafo entre el nombre de la cancha y el folio. -->
+            <p class="mt-1 font-display text-2xl font-bold">
               {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
             </p>
+            <p class="text-muted-foreground">{{ dia(reserva.inicio) }}</p>
             <p class="mt-1 text-sm text-muted-foreground">Folio {{ reserva.folio }}</p>
 
           @if (porCancelar() === reserva.id) {
-            <!-- La confirmacion se abre en la propia tarjeta: es la consecuencia de
+            <!-- La confirmacion se abre en la propia fila: es la consecuencia de
                  esta reserva y no de otra, y asi no hay que atrapar el foco. -->
             <app-aviso variante="aviso" [urgente]="true" class="mt-3 block">
               {{ consecuencia(reserva) }}
@@ -161,6 +172,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
         </li>
       }
     </ul>
+    }
   `,
 })
 export class MisReservas {

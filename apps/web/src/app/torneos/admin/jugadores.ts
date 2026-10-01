@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Esqueleto } from '../../ui/esqueleto';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
@@ -22,7 +23,7 @@ import { Jugador, Torneos } from '../torneos.service';
  */
 @Component({
   selector: 'app-jugadores',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector],
+  imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector],
   template: `
     <h1 class="font-display text-3xl font-bold">Jugadores</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -91,7 +92,7 @@ import { Jugador, Torneos } from '../torneos.service';
     </form>
 
     @if (jugadores.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los jugadores…" />
     } @else if (jugadores.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

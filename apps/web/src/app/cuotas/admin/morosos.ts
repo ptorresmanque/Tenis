@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Esqueleto } from '../../ui/esqueleto';
 
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -18,7 +19,7 @@ import { Cuotas } from '../cuotas.service';
  */
 @Component({
   selector: 'app-morosos',
-  imports: [RouterLink, EstadoVacio, Insignia],
+  imports: [Esqueleto, RouterLink, EstadoVacio, Insignia],
   template: `
     <h1 class="font-display text-3xl font-bold">Socios con deuda</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -26,7 +27,7 @@ import { Cuotas } from '../cuotas.service';
     </p>
 
     @if (morosos.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los socios con deuda…" />
     } @else if (morosos.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

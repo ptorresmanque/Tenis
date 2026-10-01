@@ -39,10 +39,119 @@
   --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Public Sans', 'Work Sans', ui-sans-serif, sans-serif;
 
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px rgb(0 0 0 / 0.15);
+  /* El logotipo tiene dos tonos y por eso dos variables. Ver
+     `public/logo-fedal.svg` y § 11 del plan de rediseño. */
+  --color-logo-marca: #0b4f9e;
+  --color-logo-texto: #0f172a;
+
+  /*
+    EL CAMPO PLENO, QUE NO ES EL COLOR DE ACCIÓN.
+
+    Las bandas del lenguaje broadcast —el hero, el marcador de horas, el cierre—
+    son regiones enteras de color, y hasta el 2026-09-08 usaban `--color-primary`
+    para eso. En el tema claro daba igual porque son el mismo azul; **en oscuro
+    reveló que son dos trabajos distintos**: ahí `primary` se aclara para seguir
+    leyéndose como algo pulsable, y una banda pintada con ese azul claro convertía
+    al hero en la zona más brillante de una pantalla oscura.
+
+    Así que son dos tokens. `primary` es lo que se aprieta —botón, enlace,
+    anillo de foco—; `campo` es la región de fondo. En claro coinciden en el mismo
+    azul del Australian Open; en oscuro cada uno va por su lado.
+  */
+  --color-campo: #0b4f9e;
+  --color-on-campo: #ffffff;
+
+  /*
+    LA ESCALA DE MARCADOR.
+
+    El lenguaje broadcast necesita cifras que se lean a un metro: la hora libre,
+    el precio, el resultado. `text-6xl` de Tailwind sirve para un titular pero
+    trae `line-height` de titular, y una cifra sola dentro de esa caja flota.
+    Estos tres tamaños son para números, no para frases: interlínea 1, ancho de
+    dígito fijo y apretado, que es como se pinta un marcador.
+  */
+  --text-marcador: 2.75rem;
+  --text-marcador--line-height: 1;
+  --text-marcador--letter-spacing: -0.03em;
+  --text-marcador--font-weight: 800;
+
+  --text-marcador-lg: 4.5rem;
+  --text-marcador-lg--line-height: 1;
+  --text-marcador-lg--letter-spacing: -0.035em;
+  --text-marcador-lg--font-weight: 800;
+
+  --text-marcador-xl: 7rem;
+  --text-marcador-xl--line-height: 0.95;
+  --text-marcador-xl--letter-spacing: -0.04em;
+  --text-marcador-xl--font-weight: 900;
+
+  /*
+    LAS CURVAS.
+
+    Las de CSS son demasiado débiles: `ease-out` no tiene el tirón que hace que
+    una animación se lea como intencional. Estas tres son las de la disciplina
+    de Emil Kowalski, y son las únicas que el proyecto usa. Escribir un
+    `cubic-bezier` a mano en un componente es saltarse esta decisión.
+
+    `--ease-entrada` NO existe a propósito: `ease-in` empieza lento justo en el
+    momento que el usuario está mirando, y hace que la interfaz se sienta
+    pesada. Para entrar se usa `--ease-salida`.
+  */
+  --ease-salida: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-vaiven: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-cajon: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* El overshoot suave de la grilla de bloques. Se pasa de 1 y vuelve, que es
+     lo que hace que un elemento grande se sienta físico al aparecer.
+     **No va en tabla ni en listado denso**: ahí el rebote se lee como
+     descuido, no como intención. La regla está en MASTER.md § Motion. */
+  --ease-rebote: linear(0, 0.6 30%, 1.05 60%, 1);
+
+  /*
+    LAS DURACIONES.
+
+    Nada de la interfaz pasa de 300ms. Un menú de 180ms se siente más rápido
+    que uno de 400ms aunque los dos abran igual de rápido, porque lo que el
+    usuario mide es cuándo empieza a ver el resultado.
+
+    La salida es más corta que la entrada, siempre: al entrar, el elemento se
+    está presentando; al salir, ya no interesa y estorba.
+  */
+  --duracion-pulsacion: 120ms;
+  --duracion-emergente: 160ms;
+  --duracion-menu: 200ms;
+  --duracion-dialogo: 280ms;
+  --duracion-salida: 140ms;
+
+  /* La entrada de contenido al cargar, más larga porque no bloquea a nadie:
+     el usuario no está esperando que termine para hacer lo siguiente. */
+  --duracion-entrada: 400ms;
+  /* El desfase entre un elemento y el siguiente en una entrada escalonada.
+     Se topea el acumulado: con 40 elementos, el último entraría 2,4 s tarde. */
+  --escalonado: 60ms;
+
+  /*
+    LAS SOMBRAS, TEÑIDAS.
+
+    Una sombra negra sobre un fondo azulado se ve sucia: el ojo la lee como
+    gris muerto encima de un color. Estas llevan el matiz del fondo del sitio,
+    que es lo que hace una sombra de verdad cuando la luz rebota en algo azul.
+  */
+  --shadow-sm: 0 1px 2px rgb(11 41 79 / 0.06);
+  --shadow-md: 0 4px 6px rgb(11 41 79 / 0.1);
+  --shadow-lg: 0 10px 15px rgb(11 41 79 / 0.12);
+  --shadow-xl: 0 20px 25px rgb(11 41 79 / 0.16);
+
+  /*
+    UN SOLO SISTEMA DE ESQUINAS.
+
+    Interactivo 8px, contenedor 16px, región 24px. Tres valores y ninguno más:
+    un botón de 6px al lado de una tarjeta de 12px al lado de un panel de 20px
+    es lo que hace que una interfaz se vea armada por turnos.
+  */
+  --radius-control: 0.5rem;
+  --radius-caja: 1rem;
+  --radius-region: 1.5rem;
 }
 
 /* La escala de espaciado del master (4/8/16/24/32/48/64px) coincide exactamente
@@ -68,6 +177,139 @@
   del bloque libre no cambia el fondo —el #a7f3d0 de Stitch da 4.28:1— sino el
   borde y la sombra.
 */
+
+/*
+  EL TEMA OSCURO, SOLO EN EL SITIO PÚBLICO.
+
+  Por qué con `data-tema` y no a secas: el modo oscuro va en las quince pantallas
+  públicas y **no** en el panel de administración. Esa no es una omisión, es una
+  decisión del 2026-09-08 y está escrita en el plan: el sitio público se mira de
+  noche desde la cama y el panel se opera de día en el mesón, bajo luz. Teñir
+  veintidós pantallas de tabla para dos personas que nunca lo van a activar es
+  trabajo sin destinatario.
+
+  El atributo lo pone el cascarón público. Sin él no pasa nada, que es
+  exactamente lo que tiene que pasar en el panel.
+
+  La escena que fuerza estos valores: alguien mira el teléfono en la cama para
+  ver si queda hora mañana. Por eso el fondo no es negro sino el azul profundo
+  de una cancha de noche, y por eso el azul de acción sube de tono: el #0b4f9e
+  del tema claro sobre este fondo se hunde y deja de leerse como algo pulsable.
+
+  Los 27 pares están medidos en `design-tokens.spec.ts`, igual que los del tema
+  claro. Cambiar un valor acá sin correr esa suite es publicar un tema que nadie
+  midió.
+*/
+@media (prefers-color-scheme: dark) {
+  /* El sistema pide oscuro y el visitante no dijo lo contrario. */
+  html[data-tema='publico']:not([data-modo='claro']) {
+    --color-background: #0a1b33;
+    --color-foreground: #eaf2fb;
+    --color-card: #11294a;
+    --color-muted: #16314f;
+    --color-busy: #1d3a5c;
+    --color-selected: #14355e;
+    --color-muted-foreground: #a6beda;
+    --color-border: #22405f;
+
+    /* Sube de #0b4f9e: el azul del tema claro sobre este fondo da 1,4:1. */
+    --color-primary: #4f9be8;
+    --color-secondary: #6fb0ef;
+    --color-ring: #4f9be8;
+    /* Se invierte: con el primario claro, el texto encima tiene que ser oscuro.
+       Vale también para el botón destructivo, que en oscuro es rosado. */
+    --color-on-primary: #06182e;
+
+    --color-accent: #34d399;
+    --color-accent-strong: #6ee7b7;
+    --color-accent-soft: #06382a;
+    --color-on-accent: #052e22;
+
+    --color-warning: #fbbf24;
+    --color-warning-strong: #fcd34d;
+    --color-warning-soft: #3b2a06;
+
+    --color-destructive: #f87171;
+    --color-destructive-strong: #fca5a5;
+
+    --color-logo-marca: #5ba7e8;
+    --color-logo-texto: #eaf2fb;
+
+    /* Profundo y no claro: es fondo de región, no color de botón. Se distingue
+       del fondo de la página y de la tarjeta, y lleva el texto del sitio encima
+       con 9,2:1. */
+    --color-campo: #173f77;
+    --color-on-campo: #eaf2fb;
+
+    /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
+       caja sea más clara que el fondo. Se dejan negras y profundas para separar
+       lo que flota de verdad, como un diálogo. */
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px rgb(0 0 0 / 0.55);
+
+    color-scheme: dark;
+  }
+}
+
+/*
+  El visitante lo pidió a mano, gane lo que gane el sistema.
+
+  Los tokens están duplicados y **no hay forma de no duplicarlos**: una lista de
+  selectores no puede mezclar uno normal con otro que vive dentro de un `@media`.
+  Lo que sí se puede es que la duplicación no se pudra: `design-tokens.spec.ts`
+  compara los dos bloques carácter por carácter y falla si alguien toca uno solo.
+*/
+html[data-tema='publico'][data-modo='oscuro'] {
+    --color-background: #0a1b33;
+    --color-foreground: #eaf2fb;
+    --color-card: #11294a;
+    --color-muted: #16314f;
+    --color-busy: #1d3a5c;
+    --color-selected: #14355e;
+    --color-muted-foreground: #a6beda;
+    --color-border: #22405f;
+
+    /* Sube de #0b4f9e: el azul del tema claro sobre este fondo da 1,4:1. */
+    --color-primary: #4f9be8;
+    --color-secondary: #6fb0ef;
+    --color-ring: #4f9be8;
+    /* Se invierte: con el primario claro, el texto encima tiene que ser oscuro.
+       Vale también para el botón destructivo, que en oscuro es rosado. */
+    --color-on-primary: #06182e;
+
+    --color-accent: #34d399;
+    --color-accent-strong: #6ee7b7;
+    --color-accent-soft: #06382a;
+    --color-on-accent: #052e22;
+
+    --color-warning: #fbbf24;
+    --color-warning-strong: #fcd34d;
+    --color-warning-soft: #3b2a06;
+
+    --color-destructive: #f87171;
+    --color-destructive-strong: #fca5a5;
+
+    --color-logo-marca: #5ba7e8;
+    --color-logo-texto: #eaf2fb;
+
+    /* Profundo y no claro: es fondo de región, no color de botón. Se distingue
+       del fondo de la página y de la tarjeta, y lleva el texto del sitio encima
+       con 9,2:1. */
+    --color-campo: #173f77;
+    --color-on-campo: #eaf2fb;
+
+    /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
+       caja sea más clara que el fondo. Se dejan negras y profundas para separar
+       lo que flota de verdad, como un diálogo. */
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px rgb(0 0 0 / 0.55);
+
+    color-scheme: dark;
+}
 
 @layer base {
   html {
@@ -104,6 +346,144 @@
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
   }
+
+  /*
+    EL TEXTO PARA LECTOR DE PANTALLA NO EMPUJA LA PÁGINA.
+
+    `sr-only` es `position: absolute`. Sin un ancestro posicionado, ese span de
+    un píxel se cuelga del documento, y si está dentro de algo desplazado —una
+    tabla con scroll, un carril de chips— aparece a cientos de píxeles del
+    origen y **arrastra el ancho de la página entera**. El elemento culpable es
+    invisible, así que el síntoma es una barra de scroll horizontal que no se le
+    puede atribuir a nada.
+
+    Apareció tres veces: 1.136px en la portada, 145px en la disponibilidad y
+    311px en el padrón de socios. Las dos primeras se parchearon donde dolía
+    —`.boton` es `relative` desde entonces—; esta es la regla que cierra la
+    clase entera de defecto.
+
+    Va con `:where()` para que su especificidad sea cero: cualquier utilidad de
+    posición que alguien escriba —`absolute`, `fixed`, `sticky`— le gana sin
+    pelear. Solo actúa donde nadie dijo nada, que es exactamente el caso que
+    rompe.
+  */
+  :where(:has(> .sr-only)) {
+    position: relative;
+  }
+
+  /*
+    LOS DIÁLOGOS ENTRAN Y SALEN.
+
+    Los ocho `<dialog>` del sitio aparecían y desaparecían de golpe. Un elemento
+    que se materializa encima del contenido sin transición se lee como un fallo
+    de renderizado, no como una respuesta: la persona no alcanza a ver de dónde
+    salió y tiene que volver a orientarse.
+
+    Va acá y no en cada componente porque son ocho y ninguno tiene una razón
+    para animarse distinto del resto. `allow-discrete` es lo que permite animar
+    la salida de un elemento que termina en `display: none`; sin eso, la entrada
+    anima y la salida sigue siendo un corte.
+
+    **La salida es la mitad de larga que la entrada.** Al entrar, el diálogo se
+    está presentando y conviene verlo llegar. Al salir ya no interesa: lo único
+    que hace una salida lenta es demorar a alguien que ya decidió irse.
+
+    `prefers-reduced-motion` lo apaga entero desde la regla global de abajo.
+  */
+  dialog {
+    opacity: 0;
+    transform: scale(0.96);
+    transition:
+      opacity var(--duracion-salida) var(--ease-salida),
+      transform var(--duracion-salida) var(--ease-salida),
+      overlay var(--duracion-salida) allow-discrete,
+      display var(--duracion-salida) allow-discrete;
+  }
+
+  dialog[open] {
+    opacity: 1;
+    transform: scale(1);
+    transition-duration: var(--duracion-dialogo);
+  }
+
+  @starting-style {
+    dialog[open] {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+
+  dialog::backdrop {
+    opacity: 0;
+    transition:
+      opacity var(--duracion-salida) var(--ease-salida),
+      overlay var(--duracion-salida) allow-discrete,
+      display var(--duracion-salida) allow-discrete;
+  }
+
+  dialog[open]::backdrop {
+    opacity: 1;
+    transition-duration: var(--duracion-dialogo);
+  }
+
+  @starting-style {
+    dialog[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
+  /*
+    El cajón del menú lateral entra desde el borde, no desde el centro.
+
+    Escalar un panel que está pegado al lado izquierdo lo hace crecer desde un
+    punto donde no hay nada. Viene de donde lo abrieron: la continuidad
+    espacial es lo que hace que el gesto de cerrar se sienta obvio después.
+  */
+  dialog.dialogo-cajon-inicio,
+  dialog.dialogo-cajon-fin {
+    transition-timing-function: var(--ease-cajon);
+  }
+
+  dialog.dialogo-cajon-inicio {
+    transform: translateX(-100%);
+  }
+
+  dialog.dialogo-cajon-fin {
+    transform: translateX(100%);
+  }
+
+  dialog.dialogo-cajon-inicio[open],
+  dialog.dialogo-cajon-fin[open] {
+    transform: translateX(0);
+  }
+
+  @starting-style {
+    dialog.dialogo-cajon-inicio[open] {
+      transform: translateX(-100%);
+    }
+
+    dialog.dialogo-cajon-fin[open] {
+      transform: translateX(100%);
+    }
+  }
+
+  /* La hoja del flujo de reserva sube desde abajo en el teléfono, que es donde
+     está pegada al borde inferior. En escritorio es un modal y escala. */
+  @media (max-width: 639px) {
+    dialog.dialogo-hoja {
+      transform: translateY(100%);
+    }
+
+    dialog.dialogo-hoja[open] {
+      transform: translateY(0);
+    }
+
+    @starting-style {
+      dialog.dialogo-hoja[open] {
+        transform: translateY(100%);
+      }
+    }
+  }
 }
 
 /*
@@ -128,6 +508,16 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    /*
+      Ancla para el `sr-only` que muchos botones llevan dentro.
+
+      `sr-only` es `position: absolute`, así que sin un ancestro posicionado se
+      cuelga del documento. Dentro de un carril horizontal desplazado, ese span
+      de un píxel aparece a 1600px del origen y **empuja la página entera**: son
+      1136px de scroll horizontal que nadie sabe de dónde salen, porque el
+      elemento culpable es invisible. Diagnosticado el 2026-09-08 en la portada.
+    */
+    position: relative;
     border-radius: 0.5rem;
     padding: 0.75rem 1.5rem;
     font-weight: 600;
@@ -135,15 +525,30 @@
        sistema y no se lee como pulsable. El lint lo comprueba. */
     cursor: pointer;
     transition:
-      opacity 200ms ease,
-      background-color 200ms ease,
-      transform 200ms ease;
+      opacity var(--duracion-menu) var(--ease-salida),
+      background-color var(--duracion-menu) var(--ease-salida),
+      transform var(--duracion-pulsacion) var(--ease-salida);
   }
 
-  .boton:hover:not(:disabled) {
-    opacity: 0.9;
-    /* transform y no margin: mover el layout en hover empuja lo que hay al lado. */
-    transform: translateY(-1px);
+  /* El hover va detrás de la consulta porque en un teléfono no existe: sin
+     esto, el navegador aplica el estado al tocar y lo deja pegado hasta que el
+     dedo toca otra cosa. El socio ve un botón "encendido" que ya no lo está. */
+  @media (hover: hover) and (pointer: fine) {
+    .boton:hover:not(:disabled) {
+      opacity: 0.9;
+      /* transform y no margin: mover el layout en hover empuja lo que hay al lado. */
+      transform: translateY(-1px);
+    }
+  }
+
+  /* La confirmación de que el botón oyó.
+     Sin esto el control se siente muerto en el instante que más importa, que es
+     el de la pulsación: entre que el dedo baja y que la pantalla cambia pueden
+     pasar cientos de milisegundos de red, y en todos ellos no pasa nada.
+     Va después del hover para ganarle cuando los dos son ciertos, y anula el
+     desplazamiento del hover para que el botón se hunda en vez de flotar. */
+  .boton:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
   }
 
   .boton:disabled {
@@ -172,10 +577,12 @@
     color: var(--color-on-primary);
   }
 
-  .boton-secundario:hover:not(:disabled),
-  .boton-texto:hover:not(:disabled) {
-    background-color: var(--color-muted);
-    opacity: 1;
+  @media (hover: hover) and (pointer: fine) {
+    .boton-secundario:hover:not(:disabled),
+    .boton-texto:hover:not(:disabled) {
+      background-color: var(--color-muted);
+      opacity: 1;
+    }
   }
 
   /* Botón chico para tablas y tarjetas, donde 12/24 se come la fila. */
@@ -192,7 +599,7 @@
     padding: 0.75rem 1rem;
     /* 16px exactos: con menos, Safari en iPhone hace zoom al enfocar. */
     font-size: 1rem;
-    transition: border-color 200ms ease;
+    transition: border-color var(--duracion-menu) var(--ease-salida);
   }
 
   .campo:focus {
@@ -215,9 +622,30 @@
     width: 100%;
     border-collapse: collapse;
     text-align: start;
+    /*
+      Cifras de ancho fijo.
+
+      Sin esto, el 1 es más angosto que el 8 y una columna de montos queda con
+      los dígitos desalineados fila a fila: comparar $12.000 con $120.000 de un
+      vistazo deja de ser posible, que es justo para lo que existe una tabla de
+      plata. En texto no cambia nada porque solo afecta a los números.
+    */
+    font-variant-numeric: tabular-nums;
   }
 
-  .tabla th {
+  /*
+    Solo el encabezado de columna, y se queda mientras se recorre la tabla.
+
+    Dos cosas en una regla porque las dos dependen de lo mismo. Un
+    `<th scope="row">` —el nombre del socio, que es el encabezado de su fila— es
+    una celda de datos: pintarlo en mayúsculas y con fondo lo convertiría en un
+    título de columna que aparece ochenta veces, y pegarlo arriba lo haría flotar
+    sobre el resto.
+
+    Y el `sticky`: el padrón tiene decenas de filas y el reporte de ingresos una
+    por día. Sin esto, a la fila veinte nadie se acuerda de qué columna es cuál.
+  */
+  .tabla thead th {
     background-color: var(--color-muted);
     padding: 0.75rem 1rem;
     text-align: start;
@@ -226,15 +654,40 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--color-muted-foreground);
+    position: sticky;
+    top: 0;
+    z-index: 1;
   }
 
-  .tabla td {
+  .tabla td,
+  .tabla tbody th {
     border-top: 1px solid var(--color-border);
     padding: 0.75rem 1rem;
+    text-align: start;
+    font-weight: 400;
   }
 
-  .tabla tbody tr:hover {
-    background-color: var(--color-muted);
+  /* La rejilla de edición de horarios y tarifas: misma tabla, menos aire. Con el
+     padding normal, catorce campos por cancha convierten una pantalla de
+     configuración en una de scroll. */
+  .tabla-densa td,
+  .tabla-densa tbody th,
+  .tabla-densa thead th {
+    padding: 0.375rem 0.5rem;
+  }
+
+  /* Los números van a la derecha: es donde el ojo compara magnitudes, porque
+     alinea las unidades con las unidades. Se marca en la celda y en su
+     encabezado, que tienen que ir juntos o la columna se lee torcida. */
+  .tabla .numero,
+  .tabla th.numero {
+    text-align: end;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .tabla tbody tr:hover {
+      background-color: var(--color-muted);
+    }
   }
 }
 

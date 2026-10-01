@@ -149,7 +149,7 @@ export class Registro {
       this.error.set(
         respuesta?.status === 400 && typeof mensaje === 'string'
           ? mensaje
-          : 'No pudimos crear la cuenta. Probá de nuevo en un momento.',
+          : 'No pudimos crear la cuenta. Prueba de nuevo en un momento.',
       );
     } finally {
       this.enviando.set(false);

@@ -37,30 +37,30 @@ import { FilaInterna, Ranking } from './ranking.service';
         />
       } @else {
         <div class="mt-4 overflow-x-auto" data-tabla="activos">
-          <table class="w-full border-collapse text-sm">
+          <table class="tabla text-sm">
             <caption class="sr-only">
               Elo de los socios que jugaron en los últimos seis meses
             </caption>
             <thead>
-              <tr class="border-b border-border text-left text-muted-foreground">
-                <th scope="col" class="py-2 pr-3 font-medium">Puesto</th>
-                <th scope="col" class="py-2 pr-3 font-medium">Socio</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Elo</th>
-                <th scope="col" class="py-2 pr-3 text-right font-medium">Jugados</th>
-                <th scope="col" class="py-2 text-right font-medium">Ganados</th>
+              <tr>
+                <th scope="col">Puesto</th>
+                <th scope="col">Socio</th>
+                <th scope="col" class="numero">Elo</th>
+                <th scope="col" class="numero">Jugados</th>
+                <th scope="col" class="numero">Ganados</th>
               </tr>
             </thead>
             <tbody>
               @for (fila of activos(); track fila.socioId) {
-                <tr class="border-b border-border last:border-0">
+                <tr>
                   <td class="py-2 pr-3 font-semibold">{{ fila.puesto }}</td>
                   <!-- El nombre es el encabezado de fila y no el puesto: con empates
                        el puesto se repite, y uno que dice "1" en dos filas no
                        identifica ninguna. -->
-                  <th scope="row" class="py-2 pr-3 text-left font-normal">
+                  <th scope="row">
                     {{ fila.nombre }}
                   </th>
-                  <td class="py-2 pr-3 text-right font-semibold">{{ fila.elo }}</td>
+                  <td class="numero font-semibold">{{ fila.elo }}</td>
                   <td class="py-2 pr-3 text-right text-muted-foreground">
                     {{ fila.partidos }}
                   </td>
@@ -84,24 +84,24 @@ import { FilaInterna, Ranking } from './ranking.service';
           </p>
 
           <div class="mt-3 overflow-x-auto" data-tabla="inactivos">
-            <table class="w-full border-collapse text-sm">
+            <table class="tabla text-sm">
               <caption class="sr-only">
                 Socios fuera de la tabla principal, con su Elo conservado
               </caption>
               <thead>
-                <tr class="border-b border-border text-left text-muted-foreground">
-                  <th scope="col" class="py-2 pr-3 font-medium">Socio</th>
-                  <th scope="col" class="py-2 pr-3 text-right font-medium">Elo</th>
-                  <th scope="col" class="py-2 text-right font-medium">Último partido</th>
+                <tr>
+                  <th scope="col">Socio</th>
+                  <th scope="col" class="numero">Elo</th>
+                  <th scope="col" class="numero">Último partido</th>
                 </tr>
               </thead>
               <tbody>
                 @for (fila of inactivos(); track fila.socioId) {
-                  <tr class="border-b border-border last:border-0">
-                    <th scope="row" class="py-2 pr-3 text-left font-normal">
+                  <tr>
+                    <th scope="row">
                       {{ fila.nombre }}
                     </th>
-                    <td class="py-2 pr-3 text-right">{{ fila.elo }}</td>
+                    <td class="numero">{{ fila.elo }}</td>
                     <td class="py-2 text-right text-muted-foreground">
                       {{ enPalabras(fila.ultimoPartido) }}
                     </td>

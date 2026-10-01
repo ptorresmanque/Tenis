@@ -7,6 +7,8 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+
+import { Esqueleto } from '../../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
 
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
@@ -48,7 +50,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
  */
 @Component({
   selector: 'app-socios',
-  imports: [
+  imports: [Esqueleto, 
     FormsModule,
     Aviso,
     Campo,
@@ -188,7 +190,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
       </div>
 
       @if (listado.isLoading()) {
-        <p class="mt-3 text-muted-foreground">Cargando…</p>
+        <app-esqueleto class="mt-3 block" [filas]="6" etiqueta="Cargando el padrón…" />
       } @else if (filtrados().length === 0) {
         <app-estado-vacio
           class="mt-4 block"

@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Esqueleto } from '../ui/esqueleto';
 
 import { Auth } from '../core/auth/auth';
 import { mensajeDelServidor } from '../core/errores';
@@ -19,7 +20,7 @@ import { Administradores as ApiAdministradores } from './administradores.service
  */
 @Component({
   selector: 'app-administradores',
-  imports: [FormsModule, Aviso, Campo, CampoControl, Insignia],
+  imports: [Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
   template: `
     <section aria-labelledby="nombrar">
       <h2 id="nombrar" class="font-display text-xl font-semibold">
@@ -64,7 +65,7 @@ import { Administradores as ApiAdministradores } from './administradores.service
       </div>
 
       @if (administradores.isLoading()) {
-        <p class="mt-3 text-muted-foreground">Cargando…</p>
+        <app-esqueleto class="mt-3 block" [filas]="3" etiqueta="Cargando los administradores…" />
       } @else {
         <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
           <table class="tabla">
