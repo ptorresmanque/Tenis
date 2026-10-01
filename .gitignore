@@ -23,6 +23,6 @@ docs/
 .claude/
 .stitch/
 design-system/
-scripts/
+/scripts/
 tasks/
 e2e/
