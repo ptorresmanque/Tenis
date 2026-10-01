@@ -16,7 +16,13 @@ coverage/
 test-results/
 playwright-report/
 
-# Material de referencia del trabajo de titulo (no versionar)
-docs/Pauta_y_Rubrica.pdf
-docs/Reporte_Proyecto_Ingenieria.pdf
-docs/swebok-v4.pdf
+# Documentacion del trabajo de titulo (no versionar)
+docs/
+
+*.md
+.claude/
+.stitch/
+design-system/
+scripts/
+tasks/
+e2e/
