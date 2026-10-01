@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import {
   BloqueDisponible,
+  CanchaPublica,
   DisponibilidadService,
 } from '../catalogo-canchas/disponibilidad.service';
 import { EstadoReserva, EstadoTransaccion } from '../generated/prisma/client';
@@ -12,6 +13,12 @@ import { ReservaRepository } from './reserva.repository';
 /** Un bloque de la grilla, ya sabiendo si alguien lo tiene tomado. */
 export interface BloqueConEstado extends BloqueDisponible {
   reservado: boolean;
+}
+
+/** Una cancha con sus bloques del día, que es lo que dibuja la grilla. */
+export interface GrillaDeCancha {
+  cancha: CanchaPublica;
+  bloques: BloqueConEstado[];
 }
 
 /** Estados en que una reserva ocupa la cancha. */
@@ -25,6 +32,29 @@ export class DisponibilidadPublicaService {
     private readonly expiracion: ExpiracionService,
     private readonly reservas: ReservaRepository,
   ) {}
+
+  /**
+   * El día entero: cada cancha activa con sus bloques.
+   *
+   * **Existe para ahorrar viajes, no para responder otra cosa.** La portada pedía
+   * el catálogo y después una consulta por cancha: con ocho canchas eran nueve
+   * viajes para pintar seis horas libres. El comentario de `de()` ya avisaba que
+   * ese era el camino en cuanto el club creciera.
+   *
+   * Las canchas se resuelven en paralelo y cada una pasa por el mismo `de()` que
+   * usa la consulta suelta, así que las dos respuestas no pueden divergir: hay un
+   * test que lo comprueba comparándolas.
+   */
+  async delDia(fecha: string): Promise<GrillaDeCancha[]> {
+    const canchas = await this.catalogo.canchas();
+
+    return Promise.all(
+      canchas.map(async (cancha) => ({
+        cancha,
+        bloques: await this.de(cancha.id, fecha),
+      })),
+    );
+  }
 
   /**
    * Los bloques de una cancha en un día, con las reservas superpuestas.

@@ -4,6 +4,7 @@ import { fechaDelClub } from '../comun/tiempo';
 import {
   BloqueConEstado,
   DisponibilidadPublicaService,
+  GrillaDeCancha,
 } from './disponibilidad-publica.service';
 
 /**
@@ -20,14 +21,7 @@ export class DisponibilidadPublicaController {
   disponibilidad(
     @Query('cancha') cancha: string | undefined,
     @Query('fecha') fecha: string | undefined,
-  ): Promise<BloqueConEstado[]> {
-    const canchaId = Number(cancha);
-    if (!cancha || !Number.isInteger(canchaId) || canchaId <= 0) {
-      throw new BadRequestException(
-        'Falta el número de cancha, o no es un número.',
-      );
-    }
-
+  ): Promise<BloqueConEstado[] | GrillaDeCancha[]> {
     if (!fecha || !esFechaDelClub(fecha)) {
       // Se valida acá y no se deja fallar adentro: una fecha ilegible es culpa de
       // quien la pidió, y como error del servicio saldría con un 500 que hace creer
@@ -35,6 +29,16 @@ export class DisponibilidadPublicaController {
       throw new BadRequestException(
         'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
       );
+    }
+
+    // Sin cancha, el día entero. La portada y la grilla lo piden así para no
+    // hacer una consulta por cancha; con `cancha`, la respuesta es la de siempre
+    // y nada de lo que ya existe cambia.
+    if (cancha === undefined) return this.servicio.delDia(fecha);
+
+    const canchaId = Number(cancha);
+    if (!cancha || !Number.isInteger(canchaId) || canchaId <= 0) {
+      throw new BadRequestException('El número de cancha no es un número.');
     }
 
     return this.servicio.de(canchaId, fecha);

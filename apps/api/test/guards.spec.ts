@@ -158,8 +158,15 @@ describe('Guards de autorización', () => {
       return cookie ? peticion.set('Cookie', cookie) : peticion;
     };
 
-    it('sin sesión responde 401', async () => {
-      await yo().expect(401);
+    it('sin sesión no trae a nadie, y no es un error', async () => {
+      // Preguntar quién soy con respuesta "nadie" es información válida: un 401
+      // dice "no estás autorizado a esto", y a saber si hay sesión lo está
+      // cualquiera. Cambiado el 2026-09-08 porque la SPA consulta este endpoint
+      // al arrancar en todas las páginas, y cada visita sin sesión dejaba un
+      // error rojo en la consola. El resto de los endpoints sigue con 401.
+      const respuesta = await yo().expect(200);
+
+      expect(respuesta.body).toEqual({});
     });
 
     it('devuelve el contrato completo', async () => {

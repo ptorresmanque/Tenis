@@ -193,15 +193,28 @@ describe('Sesión, login y logout', () => {
     // Sin esto la tabla solo crece: una sesión abandonada que nadie vuelve a usar
     // no se borra nunca, porque el borrado ocurre al resolverla.
     expect(await prisma.sesion.count({ where: sesionesDeAca })).toBe(1);
-    await verSesion(cookie).expect(401);
+    // La sonda cambió de forma, no de sentido: antes el 401 probaba que la
+    // sesión murió y ahora lo prueba el cuerpo vacío. La afirmación es la misma
+    // —esa cookie no autentica a nadie— dicha como el endpoint la dice desde
+    // que responder "nadie" dejó de ser un error.
+    expect((await verSesion(cookie).expect(200)).body).toEqual({});
   });
 
   it('sin cookie no hay sesión', async () => {
-    await request(servidor()).get('/api/yo').expect(401);
+    // Responde 200 con el cuerpo vacío y no 401: preguntar quién soy con
+    // respuesta "nadie" es información, no un error. Lo que este test protege
+    // sigue siendo lo mismo —que sin cookie no aparezca ningún usuario—, y lo
+    // que cambió el 2026-09-08 es que decirlo dejó de ensuciar la consola de
+    // cada visita pública.
+    const respuesta = await request(servidor()).get('/api/yo').expect(200);
+
+    expect(respuesta.body).toEqual({});
   });
 
   it('una cookie con un identificador inventado no abre sesión', async () => {
-    await verSesion(`${NOMBRE_COOKIE}=inventado`).expect(401);
+    const respuesta = await verSesion(`${NOMBRE_COOKIE}=inventado`).expect(200);
+
+    expect(respuesta.body).toEqual({});
   });
 
   it('en la base no queda el identificador que viaja en la cookie', async () => {
@@ -216,7 +229,7 @@ describe('Sesión, login y logout', () => {
   });
 
   describe('logout', () => {
-    it('invalida la sesión en el servidor: la misma cookie da 401', async () => {
+    it('invalida la sesión en el servidor: la misma cookie ya no trae a nadie', async () => {
       const cookie = await entrar();
       await verSesion(cookie).expect(200);
 
@@ -225,7 +238,7 @@ describe('Sesión, login y logout', () => {
         .set('Cookie', cookie)
         .expect(204);
 
-      await verSesion(cookie).expect(401);
+      expect((await verSesion(cookie).expect(200)).body).toEqual({});
     });
 
     it('borra la sesión de la base, no solo la cookie del navegador', async () => {
@@ -294,7 +307,7 @@ describe('Sesión, login y logout', () => {
         data: { expiraEn: new Date(Date.now() - 1000) },
       });
 
-      await verSesion(cookie).expect(401);
+      expect((await verSesion(cookie).expect(200)).body).toEqual({});
     });
 
     it('usar una sesión que se acerca al vencimiento la extiende', async () => {

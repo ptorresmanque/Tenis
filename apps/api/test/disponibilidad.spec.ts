@@ -286,4 +286,80 @@ describe('GET /api/disponibilidad', () => {
       await fallar(`cancha=${canchaId}&fecha=${LUNES}`, 404);
     });
   });
+  /**
+   * El día entero en una consulta.
+   *
+   * Sin esto la portada pedía el catálogo y después **una consulta por cancha**:
+   * con ocho canchas, nueve viajes al servidor para pintar seis horas libres. El
+   * comentario del servicio ya lo decía desde T12 —"si el club creciera, conviene
+   * un endpoint que devuelva el día entero antes que disparar veinte consultas"—
+   * y la auditoría del rediseño lo midió en la pantalla de entrada.
+   */
+  describe('sin cancha: el día completo', () => {
+    it('devuelve todas las canchas activas con sus bloques', async () => {
+      await prisma.cancha.update({
+        where: { id: canchaId },
+        data: { activa: true },
+      });
+
+      const respuesta = await request(app.getHttpServer())
+        .get(`/api/disponibilidad?fecha=${LUNES}`)
+        .expect(200);
+
+      const grillas = respuesta.body as {
+        cancha: { id: number; nombre: string };
+        bloques: unknown[];
+      }[];
+
+      expect(grillas.length).toBeGreaterThan(0);
+      const nuestra = grillas.find((g) => g.cancha.id === canchaId);
+      expect(nuestra).toBeDefined();
+      expect(nuestra!.bloques.length).toBeGreaterThan(0);
+    });
+
+    it('da lo mismo que preguntar cancha por cancha', async () => {
+      // La razón de existir del endpoint es ahorrar viajes, no cambiar la
+      // respuesta: el día que devuelva algo distinto de la consulta por cancha,
+      // la portada y la grilla empiezan a contradecirse.
+      const [entero, suelta] = await Promise.all([
+        request(app.getHttpServer()).get(`/api/disponibilidad?fecha=${LUNES}`),
+        request(app.getHttpServer()).get(
+          `/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`,
+        ),
+      ]);
+
+      const grillas = entero.body as {
+        cancha: { id: number };
+        bloques: unknown[];
+      }[];
+      const nuestra = grillas.find((g) => g.cancha.id === canchaId);
+
+      expect(nuestra!.bloques).toEqual(suelta.body);
+    });
+
+    it('deja fuera las canchas desactivadas', async () => {
+      await prisma.cancha.update({
+        where: { id: canchaId },
+        data: { activa: false },
+      });
+
+      const respuesta = await request(app.getHttpServer())
+        .get(`/api/disponibilidad?fecha=${LUNES}`)
+        .expect(200);
+
+      const grillas = respuesta.body as { cancha: { id: number } }[];
+      expect(grillas.some((g) => g.cancha.id === canchaId)).toBe(false);
+
+      await prisma.cancha.update({
+        where: { id: canchaId },
+        data: { activa: true },
+      });
+    });
+
+    it('sigue exigiendo una fecha que exista', async () => {
+      await request(app.getHttpServer())
+        .get('/api/disponibilidad?fecha=2026-02-30')
+        .expect(400);
+    });
+  });
 });
