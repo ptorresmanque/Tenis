@@ -20,6 +20,7 @@ playwright-report/
 docs/
 
 *.md
+!/README.md
 .claude/
 .stitch/
 design-system/
