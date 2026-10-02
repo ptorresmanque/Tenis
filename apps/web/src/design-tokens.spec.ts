@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { VARIANTES_AVISO } from './app/ui/aviso';
 import { VARIANTES_INSIGNIA } from './app/ui/insignia';
+import { VOSEO } from './voseo';
 
 /**
  * Lint del sistema de diseño.
@@ -575,12 +576,6 @@ describe('Español de Chile', () => {
    * Solo mira plantillas, que es donde vive el texto que alguien lee. En prosa
    * técnica "elegí" puede ser el pretérito legítimo de la primera persona.
    */
-  // Los límites van con \p{L} y no con \b: el \b de JavaScript es ASCII, así que
-  // ve un límite de palabra justo después de una "á" y da por voseante la
-  // "pagá" que hay dentro de "pagándose".
-  const VOSEO =
-    /(?<!\p{L})(?:vos|tenés|podés|querés|sabés|necesitás|debés|sos|reservá|elegí|mirá|entrá|andá|hacé|hacete|poné|sacá|dejá|avisá|revisá|escribí|seguí|agregá|cambiá|creá|pagá|volvé|llevá|buscá|probá|tocá|apretá|ingresá|completá|confirmá|guardá|acordate|fijate|corregime|avisame|decime)(?!\p{L})/giu;
-
   it('ninguna plantilla usa voseo rioplatense', () => {
     const infractores: string[] = [];
 

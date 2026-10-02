@@ -103,7 +103,7 @@ describe('Reserva: un bloque, una reserva', () => {
 
     const rechazo = resultados.find((r) => r.status === 'rejected');
     // Un error de dominio, no un P2002 crudo: es la diferencia entre "ese bloque lo
-    // tomaron recién, elegí otro" y un 500 en la cara del que iba a pagar.
+    // tomaron recién, elige otro" y un 500 en la cara del que iba a pagar.
     expect(rechazo?.reason).toBeInstanceOf(BloqueTomado);
     expect(esViolacionDeUnicidad(rechazo?.reason)).toBe(false);
 

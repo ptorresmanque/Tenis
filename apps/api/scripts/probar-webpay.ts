@@ -65,7 +65,7 @@ async function main() {
       if (!token) {
         if (campo('TBK_TOKEN')) {
           console.log('\nEl pago se anuló en Webpay. No hay nada que confirmar.');
-          responder(respuesta, 'Pago anulado. Podés cerrar esta pestaña.');
+          responder(respuesta, 'Pago anulado. Puedes cerrar esta pestaña.');
           return terminar(servidor, 1);
         }
 
@@ -81,13 +81,13 @@ async function main() {
         console.log(resultado);
         responder(
           respuesta,
-          `Pago ${resultado.estado}. Volvé a la terminal para ver el detalle.`,
+          `Pago ${resultado.estado}. Vuelve a la terminal para ver el detalle.`,
         );
         terminar(servidor, resultado.estado === 'AUTORIZADA' ? 0 : 0);
       } catch (error) {
         console.error('\nTransbank rechazó la confirmación:');
         console.error(error instanceof Error ? error.message : error);
-        responder(respuesta, 'La confirmación falló. Mirá la terminal.');
+        responder(respuesta, 'La confirmación falló. Mira la terminal.');
         terminar(servidor, 1);
       }
     })();
