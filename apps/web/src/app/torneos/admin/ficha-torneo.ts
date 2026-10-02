@@ -97,7 +97,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
             {{ pestana.nombre }}
             @if (pestana.id === 'inscritos' && suyo.pagosPorRevisar > 0) {
               <span
-                class="ms-1 rounded-full bg-warning-soft px-2 text-xs
+                class="ms-1 rounded-control bg-warning-soft px-2 text-xs
                        text-warning-strong"
               >
                 {{ suyo.pagosPorRevisar }}

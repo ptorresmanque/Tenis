@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { VARIANTES_AVISO } from './app/ui/aviso';
@@ -734,6 +735,71 @@ describe('Tacto', () => {
         if (/:hover/.test(fueraDeConsultaDeHover(estilos))) {
           infractores.push(archivo);
         }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('Esquinas', () => {
+  // Un solo radio en todo el sitio: el lenguaje de transmisión es de esquinas
+  // rectas (plan de transmisión, TV1.2). La forma de cumplirlo sin tocar las
+  // plantillas que usan rounded-lg, rounded-xl y compañía es redefinir cada
+  // variable de radio de Tailwind al mismo valor. Por eso se leen las que trae el
+  // Tailwind instalado y no una lista escrita a mano: con la próxima versión, un
+  // radio nuevo haría fallar el test en vez de colarse redondeado.
+  const deTailwind = readFileSync(
+    createRequire(import.meta.url).resolve('tailwindcss/theme.css'),
+    'utf8',
+  );
+  const propios = new Map(
+    [...bloque('@theme {').matchAll(/^\s*(--radius(?:-[\w-]+)?):\s*([^;]+);/gm)].map(
+      ([, nombre, valor]) => [nombre, valor.trim()],
+    ),
+  );
+
+  it('redefine cada radio que trae Tailwind', () => {
+    const deFabrica = new Set([...deTailwind.matchAll(/(--radius(?:-[\w-]+)?):/g)].map(([, n]) => n));
+    const faltan = [...deFabrica].filter((nombre) => !propios.has(nombre));
+
+    expect(deFabrica.size).toBeGreaterThan(0);
+    expect(faltan).toEqual([]);
+  });
+
+  it('todos los radios valen lo mismo', () => {
+    expect(new Set(propios.values())).toEqual(new Set([propios.get('--radius-control')]));
+  });
+
+  it('ninguna regla de styles.css escribe un radio a mano', () => {
+    // Una regla con `border-radius: 0.5rem` no la alcanza ninguna variable: se
+    // queda redondeada aunque el sistema entero sea recto.
+    const aMano = [...css.matchAll(/border(?:-[a-z]+)*-radius:\s*([^;]+);/g)]
+      .map(([, valor]) => valor.trim())
+      .filter((valor) => !valor.startsWith('var(--radius'));
+
+    expect(aMano).toEqual([]);
+  });
+
+  it('ninguna plantilla usa un radio arbitrario', () => {
+    // `rounded-[10px]` es el único camino que le queda a una plantilla para
+    // saltarse el sistema, y no lo alcanza ninguna variable.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /\brounded(?:-[a-z]+)?-\[/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('rounded-full solo en elementos cuadrados: un avatar o un botón de ícono', () => {
+    // Un cuadrado con rounded-full es un círculo, y un avatar redondo es
+    // convención, no estilo. Una pastilla de texto es estilo, y en este lenguaje
+    // las etiquetas son rótulos rectos.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [clases] of contenido.matchAll(/(?:class|claseBoton)="[^"]*\brounded-full\b[^"]*"/g)) {
+        if (!/\bsize-\d/.test(clases)) infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
     }
 

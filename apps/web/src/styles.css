@@ -147,15 +147,35 @@
   --shadow-xl: 0 20px 25px rgb(11 41 79 / 0.16);
 
   /*
-    UN SOLO SISTEMA DE ESQUINAS.
+    UN SOLO RADIO, Y CASI RECTO.
 
-    Interactivo 8px, contenedor 16px, región 24px. Tres valores y ninguno más:
-    un botón de 6px al lado de una tarjeta de 12px al lado de un panel de 20px
-    es lo que hace que una interfaz se vea armada por turnos.
+    El lenguaje de transmisión es de esquinas rectas: un rótulo de televisión no
+    tiene curvas (plan de transmisión, TV1.2). 2px y no 0 para que el borde no
+    se vea cortado con tijera en pantallas de alta densidad.
+
+    Los tres nombres semánticos se quedan —control, caja, región— porque dicen
+    qué es cada cosa aunque hoy midan lo mismo. Y se redefine **cada radio de
+    Tailwind** al mismo valor: así las plantillas que usan rounded-lg o
+    rounded-xl se vuelven rectas sin tocarlas. `--radius` a secas es el que
+    Tailwind usa para `rounded` sin sufijo. Un test lee el theme.css del Tailwind
+    instalado y falla si aparece un radio que no esté acá.
+
+    `rounded-full` no lee ninguna variable y sigue siendo un círculo: solo va en
+    elementos cuadrados, que son avatares y botones de ícono.
   */
-  --radius-control: 0.5rem;
-  --radius-caja: 1rem;
-  --radius-region: 1.5rem;
+  --radius-control: 2px;
+  --radius-caja: 2px;
+  --radius-region: 2px;
+
+  --radius: 2px;
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+  --radius-4xl: 2px;
 }
 
 /* La escala de espaciado del master (4/8/16/24/32/48/64px) coincide exactamente
@@ -540,7 +560,7 @@ html[data-tema='publico'][data-modo='oscuro'] {
       elemento culpable es invisible. Diagnosticado el 2026-09-08 en la portada.
     */
     position: relative;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-control);
     padding: 0.75rem 1.5rem;
     /* La etiqueta en la condensada y en mayúscula, como un rótulo. La mayúscula
        es de CSS y no del texto, y en Chrome el nombre accesible no cambia: sigue
@@ -625,7 +645,7 @@ html[data-tema='publico'][data-modo='oscuro'] {
   .campo {
     width: 100%;
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-control);
     background-color: var(--color-card);
     padding: 0.75rem 1rem;
     /* 16px exactos: con menos, Safari en iPhone hace zoom al enfocar. */
