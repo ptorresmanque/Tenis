@@ -261,14 +261,24 @@ export class NuevaReserva {
     () => this.canchaId() || this.grillas.value()[0]?.cancha.id || 0,
   );
 
-  /** Las horas que quedan libres en la cancha elegida. */
+  /**
+   * Las horas que quedan libres en la cancha elegida.
+   *
+   * La que está corriendo sí se ofrece: el mesón la puede vender a quien llega a
+   * jugar ahora. La que ya terminó no, porque la API la rechaza
+   * (`BLOQUE_EN_EL_PASADO`). Se corta por `fin` y no por `inicio` como la grilla
+   * pública. Si el reloj del navegador anda mal, manda la API.
+   */
   protected readonly libres = computed(() => {
     const grilla = this.grillas
       .value()
       .find((una) => una.cancha.id === this.canchaElegida());
 
     return (grilla?.bloques ?? []).filter(
-      (bloque) => !bloque.bloqueado && !bloque.reservado,
+      (bloque) =>
+        !bloque.bloqueado &&
+        !bloque.reservado &&
+        new Date(bloque.fin).getTime() > Date.now(),
     );
   });
 
