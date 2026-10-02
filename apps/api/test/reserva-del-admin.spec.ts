@@ -10,6 +10,7 @@ import {
   Superficie,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ReservaDelAdminService } from '../src/reservas/reserva-del-admin.service';
 
 /**
  * T6.3: la hora que toma el club por teléfono o en el mesón.
@@ -257,6 +258,63 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
       .expect(200);
 
     expect((despues.body as { reservasDelDia: number }).reservasDelDia).toBe(1);
+  });
+
+  describe('la hora en curso', () => {
+    // El mesón existe para quien llega en persona: el que entra a las 16:10 quiere
+    // jugar la de las 16:00. Por el servicio, con `ahora` inyectado.
+    const diezMinutosDespuesDe = (instante: string) =>
+      new Date(new Date(instante).getTime() + 10 * 60 * 1000);
+
+    it('el club la toma a nombre de un visitante', async () => {
+      const reserva = await app.get(ReservaDelAdminService).crear(
+        {
+          canchaId,
+          inicio: new Date(bloques[0].inicio),
+          nombre: 'Llegó al club',
+          telefono: '+56911112222',
+        },
+        diezMinutosDespuesDe(bloques[0].inicio),
+      );
+
+      expect(reserva.folio).toBeTruthy();
+    });
+
+    it('y a nombre de un socio, aunque el socio solo no podría', async () => {
+      const reserva = await app.get(ReservaDelAdminService).crear(
+        {
+          canchaId,
+          inicio: new Date(bloques[0].inicio),
+          socioId,
+          acompanantes: [{ nombre: 'Invitado del mesón' }],
+        },
+        diezMinutosDespuesDe(bloques[0].inicio),
+      );
+
+      expect(reserva.folio).toBeTruthy();
+    });
+
+    it('la que ya terminó no se anota', async () => {
+      await expect(
+        app.get(ReservaDelAdminService).crear(
+          {
+            canchaId,
+            inicio: new Date(bloques[0].inicio),
+            nombre: 'Llegó tarde',
+            telefono: '+56911112222',
+          },
+          new Date(bloques[0].fin),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: {
+          motivo: 'BLOQUE_EN_EL_PASADO',
+          message: 'Esa hora ya terminó.',
+        },
+      });
+
+      expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
+    });
   });
 
   it('sin socio y sin nombre no se crea nada', async () => {

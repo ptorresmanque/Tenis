@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { of } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { Reservas } from '../../reservas/reservas.service';
@@ -126,7 +126,14 @@ describe('Grilla', () => {
     );
 
   beforeEach(async () => {
+    // Las 07:00 del club el día del fixture, antes de todos sus bloques: la grilla
+    // no ofrece horas que ya empezaron, y con el reloj real el fixture ya pasó.
+    vi.setSystemTime('2026-08-17T11:00:00.000Z');
     await montar(DIA);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('muestra la hora de cada franja en la hora del club', () => {
@@ -200,6 +207,37 @@ describe('Grilla', () => {
     for (const chip of chips) {
       expect(chip.querySelector('button')?.classList.contains('cursor-pointer')).toBe(true);
     }
+  });
+
+  describe('a media mañana', () => {
+    // A las 16:40 la grilla ofrecía "Elegir Cancha 1 de 08:00 a 09:00", y un
+    // visitante podía pagar una hora que ya había pasado. Acá son las 10:40 del
+    // club: la de las 08:00 ya pasó y la de las 18:00 sigue libre.
+    beforeEach(async () => {
+      vi.setSystemTime('2026-08-17T14:40:00.000Z');
+      await montar(DIA);
+    });
+
+    it('no ofrece una hora que ya empezó', () => {
+      const etiquetas = bloques().map((b) =>
+        b.querySelector('button')?.getAttribute('aria-label'),
+      );
+
+      expect(etiquetas).toEqual([expect.stringContaining('de 18:00 a 19:00')]);
+    });
+
+    it('dice que esa hora ya pasó, en vez de que no quedan canchas', () => {
+      // "Sin canchas libres" en cada hora de la mañana se lee como un club lleno.
+      expect(texto()).toContain('Ya pasó');
+    });
+
+    it('el resumen tampoco la cuenta', () => {
+      const resumen = (fixture.nativeElement as HTMLElement).querySelector(
+        '[role="status"] .sr-only',
+      );
+
+      expect(resumen?.textContent).toBe('1 hora disponible en 1 cancha.');
+    });
   });
 
   it('el selector de día también se anuncia como clickeable', () => {

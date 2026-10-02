@@ -13,6 +13,7 @@ import { PagosService } from '../pagos/pagos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
+import { rechazarSiYaPaso } from './reservas.service';
 
 export interface ReservaDeNoSocio {
   canchaId: number;
@@ -64,8 +65,13 @@ export class ReservaNoSocioService {
   async iniciar(
     datos: ReservaDeNoSocio,
     urlRetorno: string,
+    ahora = new Date(),
   ): Promise<PagoDeReservaIniciado> {
-    const bloque = await this.bloqueCobrable(datos.canchaId, datos.inicio);
+    const bloque = await this.bloqueCobrable(
+      datos.canchaId,
+      datos.inicio,
+      ahora,
+    );
 
     const reserva = await this.crearPendiente(datos, bloque);
 
@@ -205,9 +211,9 @@ export class ReservaNoSocioService {
    * El bloque con su precio de verdad, verificando que se pueda vender.
    *
    * Se toma del catálogo y no de lo que mande el cliente: una hora inventada, fuera
-   * del horario o en mantención se rechaza acá, antes de crear nada.
+   * del horario, en mantención o que ya empezó se rechaza acá, antes de crear nada.
    */
-  private async bloqueCobrable(canchaId: number, inicio: Date) {
+  private async bloqueCobrable(canchaId: number, inicio: Date, ahora: Date) {
     const fecha = hoyEnElClub(inicio).toISOString().slice(0, 10);
     const bloques = await this.catalogo.de(canchaId, fecha);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
@@ -217,6 +223,8 @@ export class ReservaNoSocioService {
         'Esa hora no está en el horario de la cancha.',
       );
     }
+
+    rechazarSiYaPaso(bloque, ahora);
 
     if (bloque.bloqueado) {
       throw new ConflictException({
