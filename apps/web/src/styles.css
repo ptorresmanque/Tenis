@@ -543,9 +543,11 @@ html[data-tema='publico'][data-modo='oscuro'] {
     border-radius: 0.5rem;
     padding: 0.75rem 1.5rem;
     /* La etiqueta en la condensada y en mayúscula, como un rótulo. La mayúscula
-       es de CSS y no del texto: el nombre accesible sigue siendo "Ver
-       disponibilidad", así que el lector de pantalla no lo deletrea. Verificado
-       en Chrome el 2026-10-02. */
+       es de CSS y no del texto, y en Chrome el nombre accesible no cambia: sigue
+       siendo "Ver disponibilidad" (verificado el 2026-10-02). **Falta probarlo
+       con VoiceOver en un iPhone**, que es como reserva casi todo socio: WebKit
+       podría exponer el texto ya transformado y deletrear un "HOY". Está en el
+       Checkpoint B del plan de transmisión. */
     font-family: var(--font-display);
     font-weight: 700;
     text-transform: uppercase;
