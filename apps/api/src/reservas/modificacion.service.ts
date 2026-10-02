@@ -19,7 +19,12 @@ import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
-import { ACTIVAS, ClienteDePrisma, ReservasService } from './reservas.service';
+import {
+  ACTIVAS,
+  ClienteDePrisma,
+  rechazarSiYaPaso,
+  ReservasService,
+} from './reservas.service';
 import { correspondeReembolso, sePuedeModificar } from './ventanas';
 
 /** Una reserva propia, con lo que la pantalla necesita para decidir qué ofrecer. */
@@ -179,7 +184,7 @@ export class ModificacionService {
       if (esBloqueOcupado(error)) {
         throw new ConflictException({
           motivo: 'BLOQUE_TOMADO',
-          message: 'Esa hora la acaban de tomar. Elegí otra.',
+          message: 'Esa hora la acaban de tomar. Elige otra.',
         });
       }
 
@@ -469,12 +474,7 @@ export class ModificacionService {
     // sin este guardia, mover al pasado es una cancelación encubierta que devuelve el
     // cupo del día —`contarDelDia` cuenta por la fecha del bloque— y además esconde la
     // reserva, porque `mias()` solo lista las futuras.
-    if (bloque.inicio.getTime() <= ahora.getTime()) {
-      throw new ConflictException({
-        motivo: 'BLOQUE_EN_EL_PASADO',
-        message: 'Esa hora ya pasó. Elegí una que todavía no haya empezado.',
-      });
-    }
+    rechazarSiYaPaso(bloque, ahora);
 
     if (bloque.bloqueado) {
       throw new ConflictException({

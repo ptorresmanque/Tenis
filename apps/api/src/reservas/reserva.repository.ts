@@ -10,14 +10,14 @@ import { EventosDeReserva } from './eventos';
  * Alguien se adelantó y tomó ese bloque.
  *
  * Un error de dominio y no el `P2002` crudo: es la diferencia entre decirle a quien
- * iba a pagar "esa hora la tomaron recién, elegí otra" y mostrarle un 500.
+ * iba a pagar "esa hora la tomaron recién, elige otra" y mostrarle un 500.
  */
 export class BloqueTomado extends Error {
   constructor(
     readonly canchaId: number,
     readonly inicio: Date,
   ) {
-    super('Ese bloque lo acaban de tomar. Elegí otro horario.');
+    super('Ese bloque lo acaban de tomar. Elige otro horario.');
     this.name = 'BloqueTomado';
   }
 }

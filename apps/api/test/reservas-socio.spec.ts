@@ -8,7 +8,9 @@ import {
   EstadoSocio,
   Superficie,
 } from '../src/generated/prisma/client';
+import { UsuarioActual } from '../src/identidad/usuario-actual';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ReservasService } from '../src/reservas/reservas.service';
 import { sembrarCatalogo } from '../prisma/seed-catalogo';
 
 /**
@@ -29,10 +31,12 @@ describe('POST /api/reservas — reserva de socio', () => {
   const DOMINIO = '@t22.ejemplo.cl';
   const CONTRASENA = 'una-contrasena-larga-2026';
   // Lunes de agosto: sin cambio de hora de por medio. El club en UTC-4.
-  const LUNES = '2026-08-17';
-  const A_LAS_10 = '2026-08-17T14:00:00.000Z';
-  const A_LAS_11 = '2026-08-17T15:00:00.000Z';
-  const A_LAS_19 = '2026-08-17T23:00:00.000Z';
+  // Y en el futuro: la API no reserva horas que ya empezaron. 2037 repite el
+  // calendario de 2026, así que los días de la semana no cambian.
+  const LUNES = '2037-08-17';
+  const A_LAS_10 = '2037-08-17T14:00:00.000Z';
+  const A_LAS_11 = '2037-08-17T15:00:00.000Z';
+  const A_LAS_19 = '2037-08-17T23:00:00.000Z';
 
   /** Crea una cuenta con ficha de socio y devuelve su id de socio. */
   const crearSocio = async (
@@ -215,7 +219,7 @@ describe('POST /api/reservas — reserva de socio', () => {
   it('la tercera hora pico de la semana se rechaza', async () => {
     // Las dos primeras horas pico las pone la base directamente: el cupo diario
     // impide tomarlas por la API el mismo día, y lo que se prueba acá es el semanal.
-    for (const dia of ['2026-08-18', '2026-08-19']) {
+    for (const dia of ['2037-08-18', '2037-08-19']) {
       await prisma.reserva.create({
         data: {
           folio: `PICO${dia.slice(-2)}`,
@@ -239,7 +243,7 @@ describe('POST /api/reservas — reserva de socio', () => {
   });
 
   it('las horas pico gastadas no impiden reservar en horario valle', async () => {
-    for (const dia of ['2026-08-18', '2026-08-19']) {
+    for (const dia of ['2037-08-18', '2037-08-19']) {
       await prisma.reserva.create({
         data: {
           folio: `VALL${dia.slice(-2)}`,
@@ -264,8 +268,8 @@ describe('POST /api/reservas — reserva de socio', () => {
       data: {
         folio: 'PREVIA1',
         canchaId,
-        inicio: new Date('2026-08-24T14:00:00.000Z'),
-        fin: new Date('2026-08-24T15:00:00.000Z'),
+        inicio: new Date('2037-08-24T14:00:00.000Z'),
+        fin: new Date('2037-08-24T15:00:00.000Z'),
         estado: EstadoReserva.CONFIRMADA,
         socioId,
         nombre: 'Socio titular',
@@ -429,7 +433,7 @@ describe('POST /api/reservas — reserva de socio', () => {
 
   describe('invitados del mes (T25)', () => {
     /** Deja `cuantos` invitados ya registrados en el mes de la reserva. */
-    const gastarInvitados = async (cuantos: number, mes = '2026-08') => {
+    const gastarInvitados = async (cuantos: number, mes = '2037-08') => {
       for (let i = 0; i < cuantos; i++) {
         await prisma.reserva.create({
           data: {
@@ -474,7 +478,7 @@ describe('POST /api/reservas — reserva de socio', () => {
     it('los invitados del mes pasado no cuentan: el cupo se renueva el día 1', async () => {
       // El criterio del reinicio mensual, contra la base y no solo contra la función
       // pura. Cuatro invitados en julio no impiden reservar en agosto.
-      await gastarInvitados(4, '2026-07');
+      await gastarInvitados(4, '2037-07');
 
       expect((await reservar(unaReserva())).status).toBe(201);
     });
@@ -546,7 +550,7 @@ describe('POST /api/reservas — reserva de socio', () => {
     // Las 06:00, con el club abriendo a las 08:00. Sin este guardia, el cliente puede
     // pedir cualquier instante y la reserva existiría fuera de la grilla.
     const respuesta = await reservar(
-      unaReserva({ inicio: '2026-08-17T10:00:00.000Z' }),
+      unaReserva({ inicio: '2037-08-17T10:00:00.000Z' }),
     );
 
     expect(respuesta.status).toBe(404);
@@ -566,6 +570,46 @@ describe('POST /api/reservas — reserva de socio', () => {
 
     expect(respuesta.status).toBe(409);
     expect(respuesta.body.motivo).toBe('BLOQUE_NO_DISPONIBLE');
+  });
+
+  it('una hora que ya empezó no se reserva', async () => {
+    // Por el servicio y no por HTTP: `ahora` va inyectado para no depender del reloj.
+    const usuario = await prisma.usuario.findUniqueOrThrow({
+      where: { email: `socio-titular${DOMINIO}` },
+    });
+    const yo: UsuarioActual = {
+      id: usuario.id,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+      email: usuario.email,
+      telefono: usuario.telefono,
+      esAdmin: false,
+      socioId,
+      socioActivo: true,
+      socioAlDia: true,
+      profesorId: null,
+    };
+    const ahora = new Date(new Date(A_LAS_10).getTime() + 40 * 60 * 1000);
+
+    await expect(
+      app.get(ReservasService).reservarComoSocio(
+        yo,
+        {
+          canchaId,
+          inicio: new Date(A_LAS_10),
+          acompanantes: [{ nombre: 'Ana Invitada' }],
+        },
+        ahora,
+      ),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: {
+        motivo: 'BLOQUE_EN_EL_PASADO',
+        message: 'Esa hora ya pasó. Elige una que todavía no haya empezado.',
+      },
+    });
+
+    expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
   });
 
   it('sin sesión no se reserva', async () => {

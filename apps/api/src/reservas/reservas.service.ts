@@ -68,10 +68,14 @@ export class ReservasService {
    * Las reglas viven en `cupo.ts` y son puras; acá se juntan los datos que necesitan.
    * La separación no es ceremonia: las reglas son lo que el club discute y cambia, y
    * poder probarlas sin base de datos es lo que hace barato ese cambio.
+   *
+   * `tomableHasta` lo cambia solo el mesón (`ReservaDelAdminService`).
    */
   async reservarComoSocio(
     yo: UsuarioActual,
     datos: ReservaDeSocio,
+    ahora = new Date(),
+    tomableHasta: TomableHasta = 'inicio',
   ): Promise<ReservaCreada> {
     if (yo.socioId === null) {
       throw new NotFoundException('No tienes ficha de socio en el club.');
@@ -83,6 +87,8 @@ export class ReservasService {
       datos.canchaId,
       fecha,
       datos.inicio,
+      ahora,
+      tomableHasta,
     );
 
     const socio = await this.prisma.socio.findUniqueOrThrow({
@@ -321,13 +327,6 @@ export class ReservasService {
   }
 
   /**
-   * El bloque, tal como lo ve la grilla pública.
-   *
-   * No se confía en el `inicio` que manda el cliente: se busca entre los bloques que
-   * el catálogo calculó para ese día. Un instante inventado —o el de un horario que
-   * el club ya cambió— no encuentra bloque y se rechaza acá.
-   */
-  /**
    * Lo que el socio ya lleva usado, para mostrarlo antes de tomarle una hora.
    *
    * Las tres cuentas son las mismas que evalúa `evaluarParaSocio`; acá salen a la
@@ -359,18 +358,24 @@ export class ReservasService {
    * **Nace confirmada y sin transacción**: el cobro pasa en el mostrador, no por
    * Webpay. Es el único camino en que una reserva de no-socio queda confirmada sin
    * pago registrado, y existe porque el club atiende gente que llega en persona.
+   * Por lo mismo, la hora se puede tomar mientras no termine.
    */
-  async reservarComoVisitanteDelMeson(datos: {
-    canchaId: number;
-    inicio: Date;
-    nombre: string;
-    email: string;
-    telefono: string;
-  }): Promise<ReservaCreada> {
+  async reservarComoVisitanteDelMeson(
+    datos: {
+      canchaId: number;
+      inicio: Date;
+      nombre: string;
+      email: string;
+      telefono: string;
+    },
+    ahora = new Date(),
+  ): Promise<ReservaCreada> {
     const bloque = await this.bloqueDeLaGrilla(
       datos.canchaId,
       fechaCivilDelClub(datos.inicio),
       datos.inicio,
+      ahora,
+      'fin',
     );
 
     try {
@@ -407,10 +412,19 @@ export class ReservasService {
     }
   }
 
+  /**
+   * El bloque, tal como lo ve la grilla pública.
+   *
+   * No se confía en el `inicio` que manda el cliente: se busca entre los bloques que
+   * el catálogo calculó para ese día. Un instante inventado —o el de un horario que
+   * el club ya cambió— no encuentra bloque y se rechaza acá.
+   */
   private async bloqueDeLaGrilla(
     canchaId: number,
     fecha: string,
     inicio: Date,
+    ahora: Date,
+    tomableHasta: TomableHasta,
   ): Promise<{ inicio: Date; fin: Date; esPico: boolean }> {
     const bloques = await this.disponibilidad.de(canchaId, fecha);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
@@ -420,6 +434,8 @@ export class ReservasService {
         'Esa hora no está en el horario de la cancha.',
       );
     }
+
+    rechazarSiYaPaso(bloque, ahora, tomableHasta);
 
     if (bloque.bloqueado) {
       throw new ConflictException({
@@ -620,6 +636,39 @@ export class ReservasService {
         }));
     });
   }
+}
+
+/**
+ * Hasta qué borde del bloque se puede tomar. El socio y el visitante, hasta que
+ * empieza; el mesón, hasta que termina, porque atiende a quien llega en persona y
+ * quiere jugar la hora que está corriendo.
+ */
+export type TomableHasta = 'inicio' | 'fin';
+
+/**
+ * Rechaza un bloque que ya pasó su borde.
+ *
+ * El catálogo calcula los bloques del día que se le pida, incluidos los que ya
+ * pasaron: la grilla los necesita para contar lo ocupado y el socio para reportar
+ * una hora no usada. Por eso el corte va al tomar la hora y no en el catálogo, y
+ * vive en un solo lugar porque reservar y mover tienen que decir lo mismo.
+ *
+ * El borde cuenta en contra: a las 16:00 en punto, la de las 16:00 ya empezó.
+ */
+export function rechazarSiYaPaso(
+  bloque: { inicio: Date; fin: Date },
+  ahora: Date,
+  tomableHasta: TomableHasta = 'inicio',
+): void {
+  if (bloque[tomableHasta].getTime() > ahora.getTime()) return;
+
+  throw new ConflictException({
+    motivo: 'BLOQUE_EN_EL_PASADO',
+    message:
+      tomableHasta === 'inicio'
+        ? 'Esa hora ya pasó. Elige una que todavía no haya empezado.'
+        : 'Esa hora ya terminó.',
+  });
 }
 
 /** La fecha civil del club de un instante, "AAAA-MM-DD". */

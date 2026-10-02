@@ -12,6 +12,7 @@ import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { EventosDeReserva } from '../src/reservas/eventos';
+import { ReservaNoSocioService } from '../src/reservas/reserva-no-socio.service';
 
 /**
  * T23. El corazón de la demo: un visitante sin cuenta reserva una hora y la paga.
@@ -27,8 +28,11 @@ describe('Reserva de no-socio con pago', () => {
   let canchaId: number;
 
   const NOMBRE_CANCHA = 'Cancha T23 pago';
-  const LUNES = '2026-08-17';
-  const A_LAS_10 = '2026-08-17T14:00:00.000Z';
+  // Lunes de agosto, sin cambio de hora de por medio. El club en UTC-4.
+  // Y en el futuro: la API no reserva horas que ya empezaron. 2037 repite el
+  // calendario de 2026, así que los días de la semana no cambian.
+  const LUNES = '2037-08-17';
+  const A_LAS_10 = '2037-08-17T14:00:00.000Z';
 
   const datosDelVisitante = {
     nombre: 'Camila Visitante',
@@ -263,12 +267,38 @@ describe('Reserva de no-socio con pago', () => {
       data: {
         canchaId,
         inicio: new Date(A_LAS_10),
-        fin: new Date('2026-08-17T15:00:00.000Z'),
+        fin: new Date('2037-08-17T15:00:00.000Z'),
         motivo: 'MANTENCION',
       },
     });
 
     expect((await reservarYPagar()).status).toBe(409);
+  });
+
+  it('una hora que ya empezó no se vende ni se cobra', async () => {
+    // La grilla ofrecía las horas de la mañana a media tarde: a las 16:40 se podía
+    // pagar la de las 08:00. `ahora` va inyectado para no depender del reloj.
+    const ahora = new Date(new Date(A_LAS_10).getTime() + 40 * 60 * 1000);
+    const transaccionesAntes = await prisma.transaccion.count();
+
+    await expect(
+      app
+        .get(ReservaNoSocioService)
+        .iniciar(
+          { canchaId, inicio: new Date(A_LAS_10), ...datosDelVisitante },
+          'http://localhost/api/reservas/retorno',
+          ahora,
+        ),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: {
+        motivo: 'BLOQUE_EN_EL_PASADO',
+        message: 'Esa hora ya pasó. Elige una que todavía no haya empezado.',
+      },
+    });
+
+    expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
+    expect(await prisma.transaccion.count()).toBe(transaccionesAntes);
   });
 
   it('rechaza datos de contacto incompletos antes de tocar la pasarela', async () => {

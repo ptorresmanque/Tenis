@@ -89,15 +89,26 @@ export class ReservaDelAdminService {
     };
   }
 
-  async crear(datos: ReservaDelAdmin): Promise<ReservaCreada> {
+  /**
+   * **El mesón puede tomar la hora que está corriendo**, no solo las que vienen: quien
+   * entra a las 16:10 quiere jugar la de las 16:00. La que ya terminó, no: anotarla
+   * gastaría un cupo y ensuciaría el reporte de horas no usadas.
+   */
+  async crear(
+    datos: ReservaDelAdmin,
+    ahora = new Date(),
+  ): Promise<ReservaCreada> {
     if (datos.socioId == null) {
-      return this.reservas.reservarComoVisitanteDelMeson({
-        canchaId: datos.canchaId,
-        inicio: datos.inicio,
-        nombre: datos.nombre ?? '',
-        email: datos.email ?? '',
-        telefono: datos.telefono ?? '',
-      });
+      return this.reservas.reservarComoVisitanteDelMeson(
+        {
+          canchaId: datos.canchaId,
+          inicio: datos.inicio,
+          nombre: datos.nombre ?? '',
+          email: datos.email ?? '',
+          telefono: datos.telefono ?? '',
+        },
+        ahora,
+      );
     }
 
     const socio = await this.prisma.socio.findUnique({
@@ -140,14 +151,19 @@ export class ReservaDelAdminService {
       socioId: socio.id,
       socioActivo: socio.estado === EstadoSocio.ACTIVO,
       socioAlDia:
-        fechaCivilDelClub(socio.alDiaHasta) >= fechaCivilDelClub(new Date()),
+        fechaCivilDelClub(socio.alDiaHasta) >= fechaCivilDelClub(ahora),
       profesorId: null,
     };
 
-    return this.reservas.reservarComoSocio(comoElSocio, {
-      canchaId: datos.canchaId,
-      inicio: datos.inicio,
-      acompanantes: datos.acompanantes ?? [],
-    });
+    return this.reservas.reservarComoSocio(
+      comoElSocio,
+      {
+        canchaId: datos.canchaId,
+        inicio: datos.inicio,
+        acompanantes: datos.acompanantes ?? [],
+      },
+      ahora,
+      'fin',
+    );
   }
 }

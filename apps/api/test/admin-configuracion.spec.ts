@@ -35,9 +35,11 @@ describe('Configuración del club', () => {
   const CONTRASENA = 'raqueta lluviosa 44';
   const NOMBRE_CANCHA = 'Cancha T30';
   // Lunes de agosto, sin cambio de hora de por medio. El club en UTC-4.
-  const LUNES = '2026-08-17';
-  const A_LAS_10 = '2026-08-17T14:00:00.000Z';
-  const A_LAS_11 = '2026-08-17T15:00:00.000Z';
+  // Y en el futuro: la API no reserva horas que ya empezaron. 2037 repite el
+  // calendario de 2026, así que los días de la semana no cambian.
+  const LUNES = '2037-08-17';
+  const A_LAS_10 = '2037-08-17T14:00:00.000Z';
+  const A_LAS_11 = '2037-08-17T15:00:00.000Z';
 
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({

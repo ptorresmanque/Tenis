@@ -219,7 +219,13 @@ describe('Modificación y cancelación de reservas', () => {
           admin,
           ahora,
         ),
-      ).rejects.toMatchObject({ status: 409 });
+      ).rejects.toMatchObject({
+        status: 409,
+        response: {
+          motivo: 'BLOQUE_EN_EL_PASADO',
+          message: 'Esa hora ya pasó. Elige una que todavía no haya empezado.',
+        },
+      });
 
       expect(
         await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),

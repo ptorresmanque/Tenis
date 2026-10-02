@@ -46,6 +46,19 @@ const MOTIVOS: Record<string, string> = {
  */
 const TARIFA_DEL_SOCIO = 'sin costo';
 
+/**
+ * Si la hora ya empezó, según el reloj de quien mira.
+ *
+ * La API rechaza reservar una hora que ya empezó (`BLOQUE_EN_EL_PASADO`), y la
+ * grilla no ofrece lo que la API va a rechazar: a las 16:40 ofrecía la de las
+ * 08:00. El filtro va acá y no en la disponibilidad pública porque el mesón lee el
+ * mismo endpoint y sí puede tomar la hora que está corriendo. Si el reloj del
+ * navegador anda mal, manda la API.
+ */
+function yaEmpezo(bloque: BloqueDisponible): boolean {
+  return new Date(bloque.inicio).getTime() <= Date.now();
+}
+
 @Component({
   selector: 'app-grilla',
   imports: [Reservar, BarraFija, EstadoVacio, Insignia, Selector],
@@ -211,7 +224,9 @@ const TARIFA_DEL_SOCIO = 'sin costo';
                 </strong>
               </span>
             } @else {
-              <span class="font-medium text-muted-foreground">Sin canchas libres</span>
+              <span class="font-medium text-muted-foreground">
+                {{ franja.yaPaso ? 'Ya pasó' : 'Sin canchas libres' }}
+              </span>
             }
             @if (franja.esPico) {
               <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
@@ -451,7 +466,7 @@ export class Grilla {
     const grillas = this.visibles();
     const libres = grillas.reduce(
       (total, g) =>
-        total + g.bloques.filter((b) => !b.bloqueado && !b.reservado).length,
+        total + g.bloques.filter((b) => !this.noSePuedeTomar(b)).length,
       0,
     );
 
@@ -542,6 +557,8 @@ export class Grilla {
         ocupadas: number;
         enMantencion: number;
         esPico: boolean;
+        /** Sin libres por haber pasado, que no es lo mismo que un club lleno. */
+        yaPaso: boolean;
       }
     >();
 
@@ -555,13 +572,14 @@ export class Grilla {
           ocupadas: 0,
           enMantencion: 0,
           esPico: bloque.esPico,
+          yaPaso: yaEmpezo(bloque),
         };
 
         if (bloque.bloqueado) franja.enMantencion++;
         else if (bloque.reservado) {
           franja.ocupadas++;
           if (this.reportable(bloque)) franja.reportables.push({ cancha, bloque });
-        } else franja.libres.push({ cancha, bloque });
+        } else if (!yaEmpezo(bloque)) franja.libres.push({ cancha, bloque });
 
         horas.set(bloque.inicio, franja);
       }
@@ -633,7 +651,7 @@ export class Grilla {
   }
 
   protected noSePuedeTomar(bloque: BloqueDisponible): boolean {
-    return bloque.bloqueado || bloque.reservado;
+    return bloque.bloqueado || bloque.reservado || yaEmpezo(bloque);
   }
 
   /**
