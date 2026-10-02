@@ -106,7 +106,7 @@ export function evaluarReservaDeSocio(
     return {
       tipo: 'MEMBRESIA_INACTIVA',
       mensaje:
-        'Tu membresía no está activa. Acercate a la administración del club para ' +
+        'Tu membresía no está activa. Acércate a la administración del club para ' +
         'reactivarla.',
     };
   }
@@ -142,7 +142,7 @@ export function evaluarReservaDeSocio(
       tipo: 'CUOTA_VENCIDA',
       mensaje:
         `Tu cuota está vencida desde el ${enDiaMesAno(socio.alDiaHasta)}. ` +
-        'Ponete al día y vuelve a reservar; las reservas que ya tenías se mantienen.',
+        'Ponte al día y vuelve a reservar; las reservas que ya tenías se mantienen.',
     };
   }
 
@@ -172,7 +172,7 @@ export function evaluarReservaDeSocio(
     return {
       tipo: 'SIN_ACOMPANANTE',
       mensaje:
-        'Declará con quién vas a jugar: otro socio del club, o un invitado que ' +
+        'Declara con quién vas a jugar: otro socio del club, o un invitado que ' +
         'descuenta de tus invitados del mes.',
     };
   }
@@ -180,7 +180,7 @@ export function evaluarReservaDeSocio(
   if (solicitud.acompanantes.some((a) => a.socioId === socio.id)) {
     return {
       tipo: 'ACOMPANANTE_ES_TITULAR',
-      mensaje: 'No puedes declararte a vos mismo como acompañante.',
+      mensaje: 'No puedes declararte a ti mismo como acompañante.',
     };
   }
 

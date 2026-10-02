@@ -7,7 +7,7 @@ const CODIGO_UNICIDAD = 'P2002';
  * Distingue "alguien se te adelantó" de cualquier otra falla de base de datos.
  *
  * Es la diferencia entre decirle al usuario "ese bloque lo tomaron recién,
- * elegí otro" y devolverle un 500. Todo el módulo de reservas se apoya acá.
+ * elige otro" y devolverle un 500. Todo el módulo de reservas se apoya acá.
  */
 export function esViolacionDeUnicidad(error: unknown): boolean {
   return (
