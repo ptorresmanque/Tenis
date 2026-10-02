@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* Fuente de verdad: design-system/club-de-tenis/MASTER.md
-   Si cambiás un valor acá, cambialo allá. Los contrastes están medidos por
+   Si cambias un valor acá, cámbialo allá. Los contrastes están medidos por
    src/design-tokens.spec.ts: romper uno hace fallar la suite. */
 @theme {
   /* Azul de cancha dura (los dos azules del Australian Open) */
@@ -36,8 +36,12 @@
   --color-destructive: #dc2626;
   --color-destructive-strong: #b91c1c;
 
-  --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Public Sans', 'Work Sans', ui-sans-serif, sans-serif;
+  /* La letra de una transmisión: condensada para los títulos y las cifras, que
+     es la que cabe en un rótulo de televisión, y su versión de ancho normal para
+     leer. Son la misma familia, así que conversan sin esfuerzo. Plan de
+     transmisión, TV1.1. */
+  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', ui-sans-serif, sans-serif;
 
   /* El logotipo tiene dos tonos y por eso dos variables. Ver
      `public/logo-fedal.svg` y § 11 del plan de rediseño. */
@@ -503,6 +507,24 @@ html[data-tema='publico'][data-modo='oscuro'] {
   pisar el fondo sin pelear con la especificidad.
 */
 @layer components {
+  /*
+    EL TITULAR DE TRANSMISIÓN.
+
+    Cursiva, mayúscula y 800: es como se rotula un partido en la tele, y es lo que
+    más distingue a este lenguaje del folleto. **Solo en bandas y cabeceras**,
+    nunca en un párrafo, una tabla ni un formulario: en mayúscula cursiva un texto
+    largo se lee letra por letra. La interlínea apretada es porque son una o dos
+    líneas y quieren verse como un bloque.
+  */
+  .titular {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    line-height: 0.88;
+    letter-spacing: -0.005em;
+  }
+
   .boton {
     display: inline-flex;
     align-items: center;
@@ -520,7 +542,14 @@ html[data-tema='publico'][data-modo='oscuro'] {
     position: relative;
     border-radius: 0.5rem;
     padding: 0.75rem 1.5rem;
-    font-weight: 600;
+    /* La etiqueta en la condensada y en mayúscula, como un rótulo. La mayúscula
+       es de CSS y no del texto: el nombre accesible sigue siendo "Ver
+       disponibilidad", así que el lector de pantalla no lo deletrea. Verificado
+       en Chrome el 2026-10-02. */
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     /* Tailwind v4 dejó de forzarlo en <button>: sin esto sale con la flecha del
        sistema y no se lee como pulsable. El lint lo comprueba. */
     cursor: pointer;

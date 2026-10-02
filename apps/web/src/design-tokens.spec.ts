@@ -373,7 +373,12 @@ describe('Tipografía', () => {
   });
 
   it.each(familias())('index.html carga la fuente %s', (familia) => {
-    expect(html).toContain(`family=${familia.replaceAll(' ', '+')}`);
+    // El nombre tiene que terminar ahí: `family=Barlow` también aparece dentro de
+    // `family=Barlow+Condensed`, y sin este borde una familia que solo carga a su
+    // hermana condensada pasaba el test sin cargarse.
+    // El + se escapa: en la URL separa palabras, en una expresión regular repite.
+    const nombre = familia.replaceAll(' ', '\\+');
+    expect(html).toMatch(new RegExp(`family=${nombre}(?=[:&"'])`));
   });
 
   it('la fuente de íconos se carga y no con display=swap', () => {
