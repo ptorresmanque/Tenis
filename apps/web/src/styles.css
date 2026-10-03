@@ -717,6 +717,24 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 
   /*
+    EL TÍTULO DE UNA TARJETA (TV7.8).
+
+    El nombre de lo que la tarjeta muestra —una cancha, un profesor, un torneo,
+    una reserva—, en la condensada y en mayúscula, como el nombre de un jugador
+    en la transmisión. Iba copiado en siete lugares del sitio y del panel, y
+    TV7.8 sumaba el octavo. No es `.titular`: va derecho y sin cursiva, porque
+    se lee en una lista y no encabeza una banda.
+  */
+  .titulo-tarjeta {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+  }
+
+  /*
     LA HORA EN UN RÓTULO (TV5.1, TV5.3).
 
     Campo, o ámbar suave si es hora pico, en la condensada y con cifras de ancho

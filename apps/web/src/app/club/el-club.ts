@@ -130,7 +130,7 @@ import { Tarifas } from './tarifas';
             <p class="font-display text-marcador-lg leading-none" aria-hidden="true">
               {{ i + 1 }}
             </p>
-            <h3 class="mt-2 font-display text-xl font-bold tracking-wide uppercase">
+            <h3 class="mt-2 titulo-tarjeta">
               {{ paso.titulo }}
             </h3>
             <p class="mt-1 text-on-campo/85">{{ paso.detalle }}</p>

@@ -177,7 +177,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
               [class.border-dashed]="!cancha.activa"
             >
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h3 class="font-display text-xl font-bold tracking-wide uppercase">
+                <h3 class="titulo-tarjeta">
                   {{ cancha.nombre }}
                 </h3>
                 @if (!cancha.activa) {

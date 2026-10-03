@@ -89,7 +89,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
 
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
-              <h2 class="font-display text-xl font-bold tracking-wide uppercase">
+              <h2 class="titulo-tarjeta">
                 {{ reserva.cancha }}
               </h2>
               @if (reserva.estado === 'PENDIENTE_PAGO') {

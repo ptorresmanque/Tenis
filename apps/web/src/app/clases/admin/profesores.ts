@@ -137,7 +137,7 @@ const enBlanco = () => ({
                    bg-card p-4 shadow-sm"
           >
             <div class="min-w-0 flex-1">
-              <p class="font-display text-xl font-bold tracking-wide uppercase">
+              <p class="titulo-tarjeta">
                 {{ profesor.nombreVisible }}
               </p>
               <p class="text-sm text-muted-foreground">

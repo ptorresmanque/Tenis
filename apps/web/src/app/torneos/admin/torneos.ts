@@ -201,7 +201,7 @@ const enBlanco = () => ({
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <a
-                class="font-display text-xl font-bold tracking-wide text-primary uppercase"
+                class="titulo-tarjeta text-primary"
                 [routerLink]="['/administracion/torneos', torneo.id]"
               >
                 {{ torneo.nombre }}

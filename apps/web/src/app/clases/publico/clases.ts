@@ -64,7 +64,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         <ul class="mt-4 divide-y divide-border border-y border-border">
           @for (profesor of info.profesores; track profesor.nombreVisible) {
             <li class="flex flex-wrap items-baseline justify-between gap-2 py-4">
-              <p class="font-display text-xl font-bold tracking-wide uppercase">
+              <p class="titulo-tarjeta">
                 {{ profesor.nombreVisible }}
               </p>
               <p class="text-muted-foreground">{{ profesor.especialidad }}</p>

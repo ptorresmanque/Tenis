@@ -92,7 +92,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
               </span>
             </div>
 
-            <h2 class="mt-2 font-display text-xl font-bold tracking-wide uppercase">
+            <h2 class="mt-2 titulo-tarjeta">
               {{ solicitud.nombre }}
             </h2>
             <p class="text-sm text-muted-foreground">
