@@ -70,6 +70,13 @@ describe('EditorConfiguracion', () => {
     await montar();
   });
 
+  it('la sección se encabeza con un rótulo, como el resto del panel (TV7.2)', () => {
+    const titulo = (fixture.nativeElement as HTMLElement).querySelector('section > h2');
+
+    expect(titulo?.textContent).toContain('Reglas del club');
+    expect(titulo?.classList.contains('rotulo-seccion')).toBe(true);
+  });
+
   it('llega con las reglas vigentes puestas, no con campos vacíos', () => {
     // Un formulario en blanco obliga a adivinar qué había antes, y guardar sin
     // querer cambiaría las seis reglas de una vez.

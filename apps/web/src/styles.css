@@ -675,6 +675,30 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 
   /*
+    EL RÓTULO DE SECCIÓN (TV7.2).
+
+    El encabezado de cada sección del panel: la placa del rótulo con el corte en
+    diagonal, como la pestaña de un zócalo. Es primitiva porque la Fase 7 lo pone
+    en las veintidós pantallas del panel: copiado en cada plantilla, cambiar el
+    corte o el tamaño pediría acordarse de todas. El margen lo pone cada pantalla;
+    una alarma lo pinta de otro color con utilidades, que ganan por capa.
+  */
+  .rotulo-seccion {
+    @apply corte-fin;
+    display: inline-flex;
+    background-color: var(--color-rotulo);
+    color: var(--color-on-rotulo);
+    padding-block: 0.375rem;
+    padding-inline-start: 1rem;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /*
     LA HORA EN UN RÓTULO (TV5.1, TV5.3).
 
     Campo, o ámbar suave si es hora pico, en la condensada y con cifras de ancho
