@@ -60,20 +60,25 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
     </a>
 
     @if (torneo(); as suyo) {
-      <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 class="font-display text-3xl font-bold">{{ suyo.nombre }}</h1>
-        <app-insignia
-          [variante]="suyo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
-          icono="flag"
-        >
-          {{ nombreEstado(suyo.estado) }}
-        </app-insignia>
-      </div>
-
-      <p class="mt-1 text-sm text-muted-foreground">
-        {{ enPalabras(suyo.fechaInicio) }} — {{ enPalabras(suyo.fechaFin) }} ·
-        inscripción hasta {{ enPalabras(suyo.cierreInscripcion) }}
-      </p>
+      <!-- La cabecera del panel (TV7.1), sin acción: cada pestaña trae las suyas,
+           y las pestañas van debajo. -->
+      <header class="cabecera-panel mt-1">
+        <div>
+          <div class="flex flex-wrap items-center gap-3">
+            <h1 class="titular text-4xl">{{ suyo.nombre }}</h1>
+            <app-insignia
+              [variante]="suyo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
+              icono="flag"
+            >
+              {{ nombreEstado(suyo.estado) }}
+            </app-insignia>
+          </div>
+          <p class="mt-1 text-sm text-muted-foreground">
+            {{ enPalabras(suyo.fechaInicio) }} — {{ enPalabras(suyo.fechaFin) }} ·
+            inscripción hasta {{ enPalabras(suyo.cierreInscripcion) }}
+          </p>
+        </div>
+      </header>
 
       <!-- Pestañas y no enlaces: cambian lo que se muestra sin cambiar de página, y
            el lector de pantalla tiene que oír cuál está activa. -->
@@ -82,7 +87,8 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
           <button
             type="button"
             role="tab"
-            class="-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm font-medium"
+            class="-mb-px cursor-pointer border-b-2 px-3 py-2 font-display text-sm font-bold
+                   tracking-wide uppercase"
             [class]="
               activa() === pestana.id
                 ? 'border-primary text-primary'
@@ -157,7 +163,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
           class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
           (ngSubmit)="guardar(suyo.id)"
         >
-          <h2 class="font-display text-lg font-semibold">Datos del torneo</h2>
+          <h2 class="rotulo-seccion">Datos del torneo</h2>
 
           <div class="mt-3 grid gap-3 sm:grid-cols-2">
             <label class="block sm:col-span-2">
@@ -236,7 +242,9 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
              borde rojo, separado del resto, y diciendo antes lo que no hace: el
              sistema no le devuelve la plata a nadie. -->
         <section class="mt-6 rounded-xl border border-destructive/30 bg-card p-4">
-          <h2 class="font-display text-lg font-semibold">
+          <!-- En rojo, como la alarma de las canchas: es la zona que no tiene
+               vuelta atrás para los inscritos. -->
+          <h2 class="rotulo-seccion bg-destructive text-on-primary">
             {{ suyo.estado === 'CANCELADO' ? 'Torneo cancelado' : 'Cancelar el torneo' }}
           </h2>
 

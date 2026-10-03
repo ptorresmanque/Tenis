@@ -63,9 +63,12 @@ const enBlanco = () => ({
   selector: 'app-torneos',
   imports: [Esqueleto, FormsModule, RouterLink, Aviso, EstadoVacio, Insignia],
   template: `
-    <div class="flex flex-wrap items-start justify-between gap-3">
+    <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
+         crear; va como secundaria porque la principal es el "Crear torneo" del
+         formulario, y con las dos en azul lleno habría dos principales. -->
+    <header class="cabecera-panel">
       <div>
-        <h1 class="font-display text-3xl font-bold">Torneos</h1>
+        <h1 class="titular text-4xl">Torneos</h1>
         <p class="mt-1 max-w-prose text-muted-foreground">
           Los torneos del club y las categorías con que reparten puntos.
         </p>
@@ -82,7 +85,7 @@ const enBlanco = () => ({
       >
         {{ creando() ? 'Cerrar' : 'Crear torneo' }}
       </button>
-    </div>
+    </header>
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -96,7 +99,7 @@ const enBlanco = () => ({
       class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="crearTorneo()"
     >
-      <h2 class="font-display text-lg font-semibold">Crear un torneo</h2>
+      <h2 class="rotulo-seccion">Crear un torneo</h2>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <label class="block sm:col-span-2">
@@ -198,7 +201,7 @@ const enBlanco = () => ({
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <a
-                class="font-display text-lg font-semibold text-primary"
+                class="font-display text-xl font-bold tracking-wide text-primary uppercase"
                 [routerLink]="['/administracion/torneos', torneo.id]"
               >
                 {{ torneo.nombre }}
@@ -276,8 +279,8 @@ const enBlanco = () => ({
     }
 
 
-    <h2 class="mt-8 font-display text-2xl font-bold">Categorías</h2>
-    <p class="mt-1 max-w-prose text-muted-foreground">
+    <h2 class="rotulo-seccion mt-8">Categorías</h2>
+    <p class="mt-2 max-w-prose text-muted-foreground">
       De los puntos del campeón salen los de cada ronda.
     </p>
 

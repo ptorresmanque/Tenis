@@ -41,7 +41,7 @@ import { FotoDelPartido } from './foto-del-partido';
     @if (cuadro.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
-          <h3 class="font-display font-semibold">Cuadro</h3>
+          <h3 class="subtitulo">Cuadro</h3>
           @if (datos.semillaSorteo !== null) {
             <!-- La semilla a la vista: si alguien pregunta por qué le tocó ese cruce,
                  el sorteo se puede rehacer con este número. -->
@@ -72,7 +72,7 @@ import { FotoDelPartido } from './foto-del-partido';
           <div class="mt-3 flex gap-4 overflow-x-auto pb-2">
             @for (ronda of porRonda(); track ronda.numero) {
               <div class="min-w-56 flex-1">
-                <h4 class="text-sm font-semibold text-muted-foreground">
+                <h4 class="subtitulo text-muted-foreground">
                   {{ ronda.nombre }}
                 </h4>
                 <ul class="mt-2 grid gap-2">
@@ -85,7 +85,9 @@ import { FotoDelPartido } from './foto-del-partido';
                         {{ partido.jugadorB ?? nombreVacio(partido) }}
                       </p>
                       @if (partido.marcador) {
-                        <p class="text-xs text-muted-foreground">
+                        <!-- El resultado en la condensada y con cifras de ancho
+                             fijo, como en un marcador: es lo que se busca. -->
+                        <p class="font-display font-bold tabular-nums">
                           {{ partido.marcador }}
                         </p>
                       }
