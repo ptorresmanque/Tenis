@@ -40,8 +40,8 @@ import { FotoDelPartido } from './foto-del-partido';
   template: `
     @if (cuadro.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
-        <div class="flex flex-wrap items-baseline gap-2">
-          <h2 class="subtitulo">Cuadro</h2>
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="rotulo-seccion">Cuadro</h2>
           @if (datos.semillaSorteo !== null) {
             <!-- La semilla a la vista: si alguien pregunta por qué le tocó ese cruce,
                  el sorteo se puede rehacer con este número. -->
