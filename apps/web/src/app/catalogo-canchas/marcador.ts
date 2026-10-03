@@ -120,8 +120,9 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
                         [attr.aria-label]="
                           'Libre: reservar la ' + celda.cancha.nombre + ' a las ' + fila.hora
                         "
-                        class="flex h-full items-center justify-center bg-celda-libre font-display
-                               text-sm font-bold tracking-wider text-on-celda-libre uppercase
+                        class="flex h-full items-center justify-center border
+                               border-borde-celda-libre bg-celda-libre font-display text-sm
+                               font-bold tracking-wider text-on-celda-libre uppercase
                                transition-transform active:scale-95"
                       >
                         Libre
@@ -158,7 +159,7 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
 
     <ul class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-on-campo/85">
       <li class="flex items-center gap-2">
-        <span class="size-4 bg-celda-libre" aria-hidden="true"></span>
+        <span class="size-4 border border-borde-celda-libre bg-celda-libre" aria-hidden="true"></span>
         Libre: tócala para reservar
       </li>
       <li class="flex items-center gap-2">

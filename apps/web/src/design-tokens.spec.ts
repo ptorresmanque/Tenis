@@ -117,6 +117,14 @@ const PARES_DE_TEXTO: readonly [string, string, string][] = [
  * paleta lleva más historia: los tres verdes, los tres ámbares y los grises de
  * la grilla tienen cada uno su razón documentada.
  */
+it('en oscuro, la celda libre del marcador no es una zona clara (TV6.1)', () => {
+  // El defecto que obligó a crear el campo en D6.2: en un tema oscuro, lo que
+  // ocupa área no puede ser lo más claro de la pantalla. El marcador pinta hasta
+  // cuarenta celdas libres; con el relleno en #34d399 eran 61.000px² a 0,50 de
+  // luminancia a las 17:30, más que todos los botones y rótulos juntos.
+  expect(luminancia(colorDe(OSCURO, 'celda-libre'))).toBeLessThan(0.1);
+});
+
 it('los dos bloques del tema oscuro son idénticos', () => {
   // El tema oscuro se declara dos veces: una para cuando lo pide el sistema y
   // otra para cuando lo pide el visitante con el conmutador. No hay forma de
@@ -194,9 +202,11 @@ describe.each(TEMAS)('Contraste del tema %s', (_, tema) => {
 
   it('la celda libre del marcador se distingue del campo y su texto se lee', () => {
     // El marcador de la portada pinta las canchas libres sobre el campo. La celda
-    // es un control, así que pide el 3:1 de componente contra lo que la rodea; en
-    // oscuro no puede llevar texto blanco, porque el verde ahí se aclara.
-    expect(contraste(c('celda-libre'), c('campo'))).toBeGreaterThanOrEqual(3);
+    // es un control, así que pide el 3:1 de componente contra lo que la rodea.
+    // Desde TV6.1 lo carga el borde y no el relleno: en oscuro, un relleno que
+    // llegue a 3:1 contra el campo es claro, y cuarenta celdas claras eran la
+    // zona más brillante de la portada.
+    expect(contraste(c('borde-celda-libre'), c('campo'))).toBeGreaterThanOrEqual(3);
     expect(contraste(c('on-celda-libre'), c('celda-libre'))).toBeGreaterThanOrEqual(4.5);
   });
 

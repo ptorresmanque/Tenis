@@ -100,6 +100,9 @@
   --color-on-rotulo: #ffffff;
   --color-celda-libre: #d1fae5;
   --color-on-celda-libre: #047857;
+  /* El borde de la celda libre carga el 3:1 contra el campo (TV6.1). En claro es
+     el mismo color del relleno; en oscuro el relleno se apaga y el borde no. */
+  --color-borde-celda-libre: #d1fae5;
 
   /*
     LA ESCALA DE MARCADOR.
@@ -312,8 +315,11 @@
     /* La placa clara: ver el comentario del rótulo en @theme. */
     --color-rotulo: #eaf2fb;
     --color-on-rotulo: #0a1b33;
-    --color-celda-libre: #34d399;
-    --color-on-celda-libre: #052e22;
+    /* Relleno verde hondo, texto y borde claros (TV6.1): con el relleno en
+       #34d399, cuarenta celdas libres eran la zona más brillante de la portada. */
+    --color-celda-libre: #0b3d2c;
+    --color-on-celda-libre: #6ee7b7;
+    --color-borde-celda-libre: #34d399;
 
     /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
        caja sea más clara que el fondo. Se dejan negras y profundas para separar
@@ -378,8 +384,11 @@ html[data-tema='publico'][data-modo='oscuro'] {
     /* La placa clara: ver el comentario del rótulo en @theme. */
     --color-rotulo: #eaf2fb;
     --color-on-rotulo: #0a1b33;
-    --color-celda-libre: #34d399;
-    --color-on-celda-libre: #052e22;
+    /* Relleno verde hondo, texto y borde claros (TV6.1): con el relleno en
+       #34d399, cuarenta celdas libres eran la zona más brillante de la portada. */
+    --color-celda-libre: #0b3d2c;
+    --color-on-celda-libre: #6ee7b7;
+    --color-borde-celda-libre: #34d399;
 
     /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
        caja sea más clara que el fondo. Se dejan negras y profundas para separar
