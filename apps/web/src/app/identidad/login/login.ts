@@ -22,7 +22,7 @@ const RECHAZOS: Record<string, string> = {
   selector: 'app-login',
   imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
   template: `
-    <h1 class="font-display text-3xl font-bold">Entrar</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Entrar</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
       Con el correo y la contraseña de tu cuenta del club.
     </p>
