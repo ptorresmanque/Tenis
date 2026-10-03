@@ -111,6 +111,19 @@ describe('Marcador', () => {
     );
   });
 
+  it('las celdas libres no suman paradas de teclado', () => {
+    // Con 8 canchas y 6 horas serían 48 Tab hacia la misma página, que ya tiene
+    // camino en "Ver todos los horarios" y en el zócalo. El lector igual las activa.
+    const el = montar([
+      { cancha: cancha(1), bloques: [bloque(1, enHoras(2)), bloque(1, enHoras(3))] },
+      { cancha: cancha(2), bloques: [bloque(2, enHoras(2))] },
+    ]);
+    const enlaces = [...el.querySelectorAll('td a')];
+
+    expect(enlaces.length).toBe(3);
+    expect(enlaces.every((enlace) => enlace.getAttribute('tabindex') === '-1')).toBe(true);
+  });
+
   it('la ocupada no se puede tocar y dice su estado en palabras', () => {
     const el = montar([
       { cancha: cancha(1), bloques: [bloque(1, enHoras(2), { reservado: true })] },
