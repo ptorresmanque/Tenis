@@ -10,6 +10,7 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { Torneos } from '../torneos/torneos.service';
+import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
 import { Insignia } from '../ui/insignia';
 
@@ -38,7 +39,7 @@ import { Insignia } from '../ui/insignia';
  */
 @Component({
   selector: 'app-inicio',
-  imports: [RouterLink, Foto, Insignia],
+  imports: [RouterLink, Foto, Insignia, Esqueleto],
   template: `
     <!--
       BANDA 1 — La foto y la promesa.
@@ -78,12 +79,10 @@ import { Insignia } from '../ui/insignia';
       <div
         class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo sm:p-10"
       >
-        <h1
-          id="promesa"
-          class="font-display text-4xl font-black tracking-tight text-balance
-                 sm:text-6xl lg:text-7xl"
-        >
-          Tu cancha, a un clic
+        <!-- En dos líneas a todo ancho, como en la propuesta: en una sola, a
+             1280px, el titular era una tira y dejaba de ser un titular. -->
+        <h1 id="promesa" class="titular text-6xl sm:text-7xl lg:text-8xl">
+          Tu cancha, <span class="block">a un clic</span>
         </h1>
         <p class="max-w-prose text-lg text-on-campo/90">
           Mira las horas libres de hoy y reserva sin llamar a nadie.
@@ -116,6 +115,62 @@ import { Insignia } from '../ui/insignia';
             >
               Crear cuenta
             </a>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!--
+      EL ZÓCALO — La próxima hora libre, como la barra inferior de una
+      transmisión (TV3.1). Va pegado al hero y fuera de él: el hero se queda en
+      sus cuatro elementos, y el dato por el que alguien entra se lee sin bajar en
+      escritorio. Usa la primera de "Libre hoy" y los mismos mensajes de carga,
+      vacío y error, sin una consulta nueva.
+    -->
+    <section class="-mx-4 sm:mx-0" aria-labelledby="proxima-libre">
+      <!-- En el teléfono el rótulo va arriba, a todo el ancho y sin corte: al
+           costado se comía media fila y la hora quedaba en la otra mitad. -->
+      <div class="bg-card shadow-md sm:flex sm:items-stretch">
+        <h2
+          id="proxima-libre"
+          class="bg-rotulo px-4 py-1.5 font-display text-sm font-bold tracking-wider
+                 text-on-rotulo uppercase sm:flex sm:items-center sm:ps-5 sm:corte-fin"
+        >
+          Próxima hora libre
+        </h2>
+        <div
+          role="status"
+          aria-live="polite"
+          class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
+        >
+          @if (grillas.isLoading()) {
+            <app-esqueleto class="flex-1" [filas]="1" etiqueta="Buscando la próxima hora libre…" />
+          } @else if (grillas.error()) {
+            <p class="text-muted-foreground">
+              No pudimos cargar las horas de hoy.
+              <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
+                Mira la disponibilidad
+              </a>
+            </p>
+          } @else if (libresDeHoy()[0]; as libre) {
+            <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
+            <div class="min-w-0 flex-1">
+              <p class="font-display text-lg font-bold uppercase">{{ libre.cancha }}</p>
+              <p class="text-sm text-muted-foreground">
+                Arriendo {{ pesos(libre.montoClp) }}. Socio sin costo.
+              </p>
+            </div>
+            <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
+              Reservar
+              <span class="sr-only">{{ libre.cancha }} a las {{ hora(libre.inicio) }}</span>
+            </a>
+          } @else {
+            <p class="font-semibold">
+              Hoy ya no quedan horas libres.
+              <a routerLink="/disponibilidad" class="text-primary underline">
+                Mira los próximos días.
+              </a>
+            </p>
           }
         </div>
       </div>
@@ -476,6 +531,11 @@ export class Inicio {
     defaultValue: [],
   });
 
+  /** Como `grillasSeguras`: `value()` lanza en estado de error. */
+  private readonly calendarioSeguro = computed(() =>
+    this.calendario.hasValue() ? this.calendario.value() : [],
+  );
+
   /**
    * Los torneos que aceptan inscripciones **hoy**.
    *
@@ -485,8 +545,7 @@ export class Inicio {
    * entera, como en el servidor.
    */
   protected readonly abiertos = computed(() =>
-    this.calendario
-      .value()
+    this.calendarioSeguro()
       .filter(
         (torneo) =>
           torneo.estado === 'INSCRIPCION' &&
@@ -534,7 +593,20 @@ export class Inicio {
     defaultValue: [],
   });
 
-  private readonly canchas = computed(() => this.grillas.value().map(({ cancha }) => cancha));
+  /**
+   * Las grillas, leídas sin reventar.
+   *
+   * `value()` de un `resource` **lanza una excepción en estado de error**, aunque
+   * tenga `defaultValue`. Sin esto, si la API de disponibilidad no respondía, los
+   * `computed` que la leen rompían el pintado de la portada entera en vez de que
+   * cada sección dijera "no pudimos cargar". Encontrado al probar el estado de
+   * error del zócalo (TV3.1). Cada sección sigue preguntando por `error()`.
+   */
+  private readonly grillasSeguras = computed(() =>
+    this.grillas.hasValue() ? this.grillas.value() : [],
+  );
+
+  private readonly canchas = computed(() => this.grillasSeguras().map(({ cancha }) => cancha));
 
   /**
    * Las tres cifras que alguien necesita antes de venir.
@@ -562,8 +634,7 @@ export class Inicio {
    * bloque: cambia por franja y por día. "Desde" es la palabra honesta.
    */
   protected readonly desdeCuanto = computed(() => {
-    const precios = this.grillas
-      .value()
+    const precios = this.grillasSeguras()
       .flatMap(({ bloques }) => bloques.filter((b) => !b.bloqueado).map((b) => b.montoClp));
 
     return precios.length > 0 ? Math.min(...precios) : null;
@@ -582,8 +653,7 @@ export class Inicio {
     const ahora = Date.now();
     const vistas = new Set<string>();
 
-    return this.grillas
-      .value()
+    return this.grillasSeguras()
       .flatMap(({ cancha, bloques }) =>
         bloques
           .filter(

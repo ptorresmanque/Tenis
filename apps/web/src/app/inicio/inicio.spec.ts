@@ -3,7 +3,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
+import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
+import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
 import { Inicio } from './inicio';
@@ -41,19 +42,24 @@ describe('Inicio', () => {
 
   let fixture: ComponentFixture<Inicio>;
 
-  const montar = async (torneos: TorneoPublico[]) => {
+  const montar = async (
+    torneos: TorneoPublico[],
+    delDia: () => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
+    { esperar } = { esperar: true },
+  ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: Disponibilidad, useValue: { delDia: vi.fn().mockResolvedValue([]) } },
+        { provide: Disponibilidad, useValue: { delDia: vi.fn(delDia) } },
         { provide: Auth, useValue: { usuario: signal(null) } },
         { provide: Torneos, useValue: { calendario: vi.fn().mockResolvedValue(torneos) } },
       ],
     });
 
     fixture = TestBed.createComponent(Inicio);
-    await fixture.whenStable();
+    // Sin esperar: una carga que no termina nunca no deja a la portada estable.
+    if (esperar) await fixture.whenStable();
     fixture.detectChanges();
   };
 
@@ -108,5 +114,63 @@ describe('Inicio', () => {
 
     expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
     expect(texto()).not.toContain('Inscripciones abiertas');
+  });
+  /**
+   * El zócalo: la barra de la transmisión con la próxima hora libre, debajo del
+   * hero (TV3.1). Es el dato por el que alguien entra a la portada, así que sus
+   * cuatro estados se prueban: con hora, buscando, sin horas y con la API caída.
+   */
+  describe('el zócalo de la próxima hora libre', () => {
+    const CANCHA = {
+      id: 3,
+      nombre: 'Cancha 3',
+      superficie: 'CEMENTO',
+      techada: false,
+      iluminacion: true,
+    } as GrillaDeCancha['cancha'];
+    const enDosHoras = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    enDosHoras.setMinutes(0, 0, 0);
+    const libreA = (inicio: Date) => ({
+      inicio: inicio.toISOString(),
+      fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
+      canchaId: 3,
+      montoClp: 12_000,
+      esPico: false,
+      bloqueado: false,
+      motivoBloqueo: null,
+      reservado: false,
+    });
+    const zocalo = () =>
+      elemento().querySelector('[aria-labelledby="proxima-libre"]') as HTMLElement;
+
+    it('muestra la próxima hora libre de hoy, con su cancha, su precio y cómo tomarla', async () => {
+      await montar([], () => Promise.resolve([{ cancha: CANCHA, bloques: [libreA(enDosHoras)] }]));
+
+      expect(zocalo().textContent).toContain(horaEnElClub(enDosHoras.toISOString()));
+      expect(zocalo().textContent).toContain('Cancha 3');
+      expect(zocalo().textContent).toContain(enPesos(12_000));
+      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+    });
+
+    it('mientras busca, lo dice en vez de quedar en blanco', async () => {
+      // Una promesa que nunca se resuelve deja la carga abierta para siempre.
+      await montar([], () => new Promise(() => undefined), { esperar: false });
+
+      expect(zocalo().textContent).toContain('Buscando');
+    });
+
+    it('si hoy ya no quedan horas, ofrece los próximos días', async () => {
+      await montar([]);
+
+      expect(zocalo().textContent).toContain('Hoy ya no quedan horas libres');
+      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+    });
+
+    it('si no pudo cargar, lo dice y ofrece la disponibilidad', async () => {
+      await montar([], () => Promise.reject(new Error('la API no respondió')));
+
+      expect(zocalo().textContent).toContain('No pudimos cargar');
+      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+    });
   });
 });

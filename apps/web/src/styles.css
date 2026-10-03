@@ -557,6 +557,15 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 }
 
+/* El corte en diagonal del final de un rótulo, como la pestaña de un zócalo de
+   televisión (TV3.1). Recorta el canto derecho, así que trae su propio relleno a
+   ese lado para que el corte no le muerda las letras. Es `@utility` y no una
+   clase de componentes porque se pide con variante: `sm:corte-fin`. */
+@utility corte-fin {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 0.875rem) 100%, 0 100%);
+  padding-inline-end: 2rem;
+}
+
 /*
   Las primitivas que no necesitan JavaScript.
 
