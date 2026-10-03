@@ -53,14 +53,8 @@ const MOTIVOS: Record<string, string> = {
                no paga la hora y la del mesón se cobra en efectivo, así que la
                insignia afirmaba un pago que en dos de los tres casos no existió. -->
           <p class="mt-3">
-            <app-insignia
-              [variante]="detalle.value()?.estado === 'PENDIENTE_PAGO' ? 'aviso' : 'exito'"
-            >
-              {{
-                detalle.value()?.estado === 'PENDIENTE_PAGO'
-                  ? 'Esperando el pago'
-                  : 'Confirmada'
-              }}
+            <app-insignia [variante]="esperandoElPago() ? 'aviso' : 'exito'">
+              {{ esperandoElPago() ? 'Esperando el pago' : 'Confirmada' }}
             </app-insignia>
           </p>
         </div>
@@ -68,7 +62,11 @@ const MOTIVOS: Record<string, string> = {
         <!-- El resumen y el QR llegan del token, no de la URL: lo único que viaja
              en la redirección de Webpay es el folio y ese token, y con el segundo
              el servidor devuelve la reserva de verdad. -->
-        @if (detalle.value(); as reserva) {
+        @if (detalle.error()) {
+          <app-aviso variante="aviso" class="mt-8 block">
+            No se pudo cargar el resumen ni el QR. Con el folio te atienden igual en el club.
+          </app-aviso>
+        } @else if (detalle.value(); as reserva) {
           <div class="mt-8 rounded-xl border border-border bg-card p-6 shadow-sm">
             <dl class="grid gap-3 sm:grid-cols-2">
               <div>
@@ -241,6 +239,14 @@ export class ConfirmacionReserva {
         ? this.publicas.porToken(params.token)
         : Promise.resolve(undefined),
   });
+
+  /**
+   * Sin el detalle no se sabe si falta el pago, y se dice "Confirmada" como mientras
+   * carga. `hasValue()` porque `value()` lanza si la consulta falló.
+   */
+  protected readonly esperandoElPago = computed(
+    () => this.detalle.hasValue() && this.detalle.value().estado === 'PENDIENTE_PAGO',
+  );
 
   protected readonly enlace = computed(() =>
     this.token() ? enlaceDeReserva(this.token()!) : '',

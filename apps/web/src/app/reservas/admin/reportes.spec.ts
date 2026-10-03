@@ -34,9 +34,11 @@ describe('ReportesPanel', () => {
     resolver: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (horas: HoraReportada[] = [UNA]) => {
+  const montar = async (horas: HoraReportada[] | Error = [UNA]) => {
     api = {
-      pendientes: vi.fn().mockResolvedValue(horas),
+      pendientes: vi.fn(() =>
+        horas instanceof Error ? Promise.reject(horas) : Promise.resolve(horas),
+      ),
       resolver: vi.fn().mockResolvedValue({ sancionadoHasta: '2026-09-05' }),
     };
 
@@ -116,5 +118,12 @@ describe('ReportesPanel', () => {
     await montar([]);
 
     expect(texto()).toContain('No hay horas reportadas');
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si la lista no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar las horas reportadas');
   });
 });

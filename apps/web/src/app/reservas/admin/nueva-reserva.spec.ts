@@ -107,4 +107,65 @@ describe('NuevaReserva', () => {
     // jugar ahora, y esa hora todavía se puede vender.
     expect(horasOfrecidas()).toEqual(['10:00–11:00', '12:00–13:00']);
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la disponibilidad no carga, lo dice', async () => {
+    const caida = () => Promise.reject(new Error('la API no respondió'));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: caida } },
+        { provide: Socios, useValue: { listado: caida } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'No se pudo cargar la disponibilidad',
+    );
+  });
+
+  it('si el cupo del socio no carga, lo dice', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(DIA) } },
+        {
+          provide: Socios,
+          useValue: {
+            listado: () =>
+              Promise.resolve({
+                socios: [{ id: 3, numeroSocio: '002', usuario: { nombre: 'Matías', apellido: 'Rojas' } }],
+              }),
+          },
+        },
+        {
+          provide: ReservasDelAdmin,
+          useValue: { cupoDe: () => Promise.reject(new Error('la API no respondió')), crear: vi.fn() },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const socio = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+      'select[name="socio"]',
+    )!;
+    socio.value = '3';
+    socio.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'No se pudo cargar el cupo',
+    );
+  });
 });
