@@ -116,6 +116,9 @@ const MOTIVOS: Record<string, string> = {
               <!-- El QR es decorativo para el lector de pantalla: lo que codifica
                    está escrito abajo como enlace, que es la versión que sí se puede
                    leer, copiar y compartir. -->
+              <!-- Para el detector de impeccable no tiene src: lo pone Angular con
+                   [src], y el @if de arriba asegura que el QR ya existe. -->
+              <!-- impeccable-disable-next-line broken-image -->
               <img [src]="imagen" alt="" class="mx-auto mt-4" width="240" height="240" />
               <p class="mt-2 text-xs break-all text-muted-foreground">
                 <a [href]="enlace()" class="underline">{{ enlace() }}</a>
