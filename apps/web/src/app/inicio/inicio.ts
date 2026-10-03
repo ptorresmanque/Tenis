@@ -246,36 +246,46 @@ import { Insignia } from '../ui/insignia';
       Ocho canchas en una lista de ocho filas es una tabla disfrazada. Lo que
       alguien necesita saber antes de venir son tres números, y esos van grandes.
     -->
-    <section class="mt-16 grid gap-6 lg:grid-cols-2 lg:items-start" aria-labelledby="canchas">
-      <!-- items-start y no items-center: en una grilla, una celda se estira al
-           alto de la fila, y una foto estirada pierde su proporción. -->
+    <section
+      class="mt-16 grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-center"
+      aria-labelledby="canchas"
+    >
+      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
       <app-foto
         descripcion="Una cancha vista desde el fondo, a la altura de la red, con la
                      superficie de cemento a la vista"
-        proporcion="3/2"
-        claseCaja="rounded-caja"
+        proporcion="4/3"
+        claseCaja="corte-foto"
       />
 
       <div>
-        <h2 id="canchas" class="font-display text-3xl font-bold">Nuestras canchas</h2>
-        <p class="mt-2 max-w-prose text-muted-foreground">
+        <h2 id="canchas" class="titular text-5xl sm:text-6xl">Nuestras canchas</h2>
+        <p class="mt-3 max-w-prose text-lg text-muted-foreground">
           Todas de la misma superficie dura, todo el año. Sin arcilla y sin pasto: la
           pelota pica igual en enero que en julio.
         </p>
 
-        <dl class="mt-6 grid grid-cols-3 gap-4">
+        <!-- Cifras de marcador con raya encima, como los números de un
+             tablero. Salen del catálogo, no de un texto escrito a mano. -->
+        <dl class="mt-8 grid grid-cols-3 gap-4">
           @for (dato of resumenDeCanchas(); track dato.etiqueta) {
-            <div>
-              <dt class="text-sm text-muted-foreground">{{ dato.etiqueta }}</dt>
-              <dd class="font-display text-marcador text-primary">{{ dato.valor }}</dd>
+            <div class="border-t-4 border-primary pt-3">
+              <dt
+                class="font-display text-sm font-semibold tracking-wider text-muted-foreground
+                       uppercase"
+              >
+                {{ dato.etiqueta }}
+              </dt>
+              <dd class="mt-1 font-display text-marcador text-primary">{{ dato.valor }}</dd>
             </div>
           }
         </dl>
 
         @if (desdeCuanto() !== null) {
-          <p class="mt-6 text-lg">
+          <!-- En azul y no en verde: el verde quedó para "libre" (decisión 6). -->
+          <p class="mt-8 text-lg">
             Desde
-            <strong class="font-display text-2xl text-accent-strong">
+            <strong class="font-display text-3xl text-primary">
               {{ pesos(desdeCuanto()!) }}
             </strong>
             la hora para quien no es socio.
@@ -294,10 +304,14 @@ import { Insignia } from '../ui/insignia';
         torneo puede quedar en INSCRIPCION con el plazo vencido hasta que el
         admin arma el cuadro, y mandar a alguien a un formulario que lo va a
         rechazar es peor que no anunciarlo.
+
+        Desde TV3.4 cada torneo es un cartel y una tabla: el cartel dice qué y
+        cuándo, sobre su foto; la tabla, cuánto cuesta y cuánto lugar queda en
+        cada categoría, que es lo que se compara.
       -->
       <section class="mt-16" aria-labelledby="torneos-abiertos">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="torneos-abiertos" class="font-display text-3xl font-bold">
+          <h2 id="torneos-abiertos" class="titular text-5xl sm:text-6xl">
             Inscripciones abiertas
           </h2>
           <a routerLink="/torneos" class="text-sm font-semibold text-primary underline">
@@ -305,53 +319,85 @@ import { Insignia } from '../ui/insignia';
           </a>
         </div>
 
-        <ul class="mt-6 grid gap-4 md:grid-cols-2">
+        <ul class="mt-6 grid gap-6">
           @for (torneo of abiertos(); track torneo.id) {
-            <!-- El fondo verde suave y no una barra de color en el canto: esa
-                 franja es el tell más reconocible de una interfaz generada, y el
-                 detector de impeccable la marca. -->
-            <li class="rounded-caja bg-accent-soft p-6">
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-display text-xl font-bold">{{ torneo.nombre }}</h3>
-                <app-insignia variante="exito" icono="how_to_reg">
+            <li class="grid overflow-hidden bg-card shadow-md lg:grid-cols-[1fr_1.25fr]">
+              <!-- EL CARTEL. La foto llena el fondo y el velo sube desde abajo,
+                   como el del hero, para que el texto claro se lea encima. -->
+              <div
+                class="relative isolate flex min-h-[21rem] flex-col justify-end gap-3 p-6
+                       text-on-campo sm:p-9 lg:min-h-[28rem]"
+              >
+                <app-foto
+                  class="absolute inset-0 -z-20"
+                  descripcion="Una jugadora lanza la pelota para sacar, con el cielo despejado
+                               detrás"
+                  proporcion="4/3"
+                  claseCaja="h-full"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-gradient-to-t from-campo via-campo/80
+                         to-campo/30"
+                  aria-hidden="true"
+                ></div>
+
+                <app-insignia class="self-start" variante="libre" icono="how_to_reg">
                   Inscripción abierta
                 </app-insignia>
+                <h3 class="titular text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
+                <p class="max-w-prose text-on-campo/90">
+                  Del {{ enPalabras(torneo.fechaInicio) }} al
+                  {{ enPalabras(torneo.fechaFin) }}. Te puedes inscribir hasta el
+                  {{ enPalabras(torneo.cierreInscripcion) }}.
+                </p>
               </div>
 
-              <p class="mt-1 text-sm text-muted-foreground">
-                {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
-              </p>
-              <p class="text-sm font-medium">
-                Te puedes inscribir hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
-              </p>
+              <!-- LA TABLA. **Una fila por categoría**: el valor y el cupo son de
+                   cada cuadro, así que un precio del torneo mentiría —Honor puede
+                   costar el doble que la 5ª el mismo fin de semana—. -->
+              <div class="flex flex-col p-4 sm:p-7">
+                <table class="tabla">
+                  <caption class="sr-only">
+                    Categorías de {{ torneo.nombre }}
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Categoría</th>
+                      <th scope="col">Inscripción</th>
+                      <th scope="col" class="numero">Cupos libres</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (categoria of torneo.categorias; track categoria.id) {
+                      <tr>
+                        <td class="font-display text-2xl font-extrabold text-primary">
+                          {{ categoria.categoria }}
+                        </td>
+                        <td>{{ precio(categoria.montoClp) }}</td>
+                        <td class="numero">
+                          @if (categoria.cuposLibres > 0) {
+                            {{ categoria.cuposLibres }} de {{ categoria.cupo }}
+                          } @else {
+                            <span class="font-semibold text-warning-strong">Lista de espera</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
 
-              <!-- **Una línea por categoría**: el valor y el cupo son de cada cuadro,
-                   así que un precio del torneo mentiría —Honor puede costar el doble
-                   que la 5ª el mismo fin de semana—. -->
-              <ul class="mt-3 grid gap-1">
-                @for (categoria of torneo.categorias; track categoria.id) {
-                  <li class="flex flex-wrap gap-x-2 text-sm">
-                    <strong>{{ categoria.categoria }}</strong>
-                    <span class="text-accent-strong">{{ precio(categoria.montoClp) }}</span>
-                    <span class="text-muted-foreground">
-                      @if (categoria.cuposLibres > 0) {
-                        · quedan {{ categoria.cuposLibres }} de {{ categoria.cupo }}
-                      } @else {
-                        · sin cupos, se entra en lista de espera
-                      }
-                    </span>
-                  </li>
-                }
-              </ul>
-
-              <a
-                routerLink="/torneos"
-                [queryParams]="{ inscripcion: torneo.id }"
-                class="boton boton-primario mt-4 w-full"
-              >
-                Inscribirme
-                <span class="sr-only">en {{ torneo.nombre }}</span>
-              </a>
+                <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
+                  <span class="text-muted-foreground">Socio o visitante</span>
+                  <a
+                    routerLink="/torneos"
+                    [queryParams]="{ inscripcion: torneo.id }"
+                    class="boton boton-primario"
+                  >
+                    Inscribirme
+                    <span class="sr-only">en {{ torneo.nombre }}</span>
+                  </a>
+                </div>
+              </div>
             </li>
           }
         </ul>

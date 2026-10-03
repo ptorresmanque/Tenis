@@ -134,6 +134,62 @@ describe('Inicio', () => {
   });
 
   /**
+   * El torneo como cartel y tabla (TV3.4): el cartel dice qué y cuándo, la tabla
+   * cuánto cuesta y cuánto lugar queda en cada categoría. Los datos son los
+   * mismos de siempre; cambia cómo se leen.
+   */
+  // No tenían test hasta TV3.4, que les cambió la forma: es lo que cuida que las
+  // cifras sigan saliendo del catálogo y el precio del bloque más barato.
+  it('las canchas se dicen en tres cifras del catálogo, y "Desde" es el arriendo más barato', async () => {
+    const techada = { ...CANCHA, id: 4, nombre: 'Cancha 4', techada: true, iluminacion: false };
+    await montar([], () =>
+      Promise.resolve([
+        { cancha: CANCHA, bloques: [libreA(enDosHoras)] },
+        { cancha: techada, bloques: [{ ...libreA(enDosHoras), canchaId: 4, montoClp: 9_000 }] },
+      ]),
+    );
+    const banda = elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+    const cifras = [...banda.querySelectorAll('dd')].map((dd) => dd.textContent?.trim());
+
+    expect(cifras).toEqual(['2', '1', '1']);
+    expect(banda.textContent).toContain(enPesos(9_000));
+  });
+
+  describe('el torneo con la inscripción abierta', () => {
+    const seccion = () =>
+      elemento().querySelector('[aria-labelledby="torneos-abiertos"]') as HTMLElement;
+
+    it('el cartel nombra el torneo y dice hasta cuándo inscribirse', async () => {
+      await montar([ABIERTO]);
+
+      expect(seccion().querySelector('h3')?.textContent).toContain('Copa Aniversario');
+      expect(seccion().textContent).toContain('Te puedes inscribir hasta el');
+    });
+
+    it('una tabla por torneo: categoría, inscripción y cupos libres', async () => {
+      await montar([ABIERTO]);
+      const tabla = seccion().querySelector('table.tabla');
+      const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
+        th.textContent?.trim(),
+      );
+      const fila = [...(tabla?.querySelectorAll('tbody tr td') ?? [])].map((td) =>
+        td.textContent?.trim(),
+      );
+
+      expect(encabezados).toEqual(['Categoría', 'Inscripción', 'Cupos libres']);
+      expect(fila).toEqual(['4ª', '$12.000', '3 de 8']);
+    });
+
+    it('la categoría llena dice que se entra en lista de espera', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 0 }] },
+      ]);
+
+      expect(seccion().querySelector('tbody')?.textContent).toContain('Lista de espera');
+    });
+  });
+
+  /**
    * La cinta reemplaza al aviso de arriba con la misma condición (TV3.2): un
    * rótulo fijo que lleva a la sección y mensajes que pasan con lo que hay que
    * saber antes de bajar: hasta cuándo y cuánto lugar queda.

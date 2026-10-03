@@ -591,6 +591,13 @@ html[data-tema='publico'][data-modo='oscuro'] {
   padding-inline-end: 2rem;
 }
 
+/* El mismo corte a escala de una foto (TV3.4): el canto derecho baja en
+   diagonal, como el borde de un gráfico de transmisión. Sin relleno: lo que
+   corta es imagen, no texto. */
+@utility corte-foto {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 3rem) 100%, 0 100%);
+}
+
 /*
   Las primitivas que no necesitan JavaScript.
 
