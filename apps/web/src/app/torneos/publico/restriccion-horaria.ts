@@ -35,8 +35,8 @@ const DIAS = [
   selector: 'app-restriccion-horaria',
   imports: [FormsModule],
   template: `
-    <fieldset class="mt-3">
-      <legend class="text-sm font-semibold">
+    <fieldset class="mt-4">
+      <legend class="font-display text-sm font-bold tracking-wide uppercase">
         ¿Hay horarios en que no puedas jugar?
       </legend>
       <p class="mt-1 max-w-prose text-sm text-muted-foreground">
