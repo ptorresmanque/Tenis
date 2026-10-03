@@ -134,6 +134,79 @@ describe('Inicio', () => {
   });
 
   /**
+   * El cara a cara (TV3.5): socio contra visitante, fila por fila. Lo que se
+   * cuida es que diga **lo mismo que decían las dos listas, ni una afirmación
+   * más**, y que donde una no tiene par la celda quede vacía en vez de
+   * inventarle uno.
+   */
+  describe('el cara a cara', () => {
+    const OCHO = [
+      'Sin pago al reservar: la hora ya está en tu cuota',
+      'Cupo diario de cancha y horas en franja pico',
+      'Puedes traer invitados cada mes',
+      'Cambias y cancelas desde "Mis reservas"',
+      'Arriendo por hora, con el precio a la vista',
+      'Pagas en línea al reservar',
+      'Cancelas con 24 horas y se devuelve todo',
+      'Modificas hasta 6 horas antes',
+    ];
+    const tabla = () => elemento().querySelector('[role="table"]') as HTMLElement;
+    /** Las tres celdas de la fila de un rótulo, en el orden socio, rótulo, visitante. */
+    const fila = (rotulo: string) =>
+      [...tabla().querySelectorAll('[role="row"]')]
+        .find((r) => r.querySelector('[role="rowheader"]')?.textContent?.trim() === rotulo)
+        ?.querySelectorAll('[role="cell"], [role="rowheader"]');
+    const legible = (celda: Element | undefined) => {
+      const copia = celda?.cloneNode(true) as HTMLElement | undefined;
+      copia?.querySelectorAll('[aria-hidden="true"]').forEach((oculto) => oculto.remove());
+      return copia?.textContent?.trim();
+    };
+
+    it('las ocho afirmaciones están, textuales, una vez cada una', async () => {
+      await montar([]);
+
+      for (const afirmacion of OCHO) {
+        expect(tabla().textContent?.split(afirmacion).length, afirmacion).toBe(2);
+      }
+    });
+
+    it('cada afirmación va en su fila, frente a su par', async () => {
+      await montar([]);
+
+      expect([...(fila('El pago') ?? [])].map(legible)).toEqual([
+        'Sin pago al reservar: la hora ya está en tu cuota',
+        'El pago',
+        'Pagas en línea al reservar',
+      ]);
+      expect([...(fila('Cancelar') ?? [])].map(legible)).toEqual([
+        'Cambias y cancelas desde "Mis reservas"',
+        'Cancelar',
+        'Cancelas con 24 horas y se devuelve todo',
+      ]);
+    });
+
+    it('donde una no tiene par, la celda queda vacía', async () => {
+      await montar([]);
+
+      expect(legible(fila('Invitados')?.[2])).toBe('');
+      expect(legible(fila('Cambiar')?.[0])).toBe('');
+    });
+
+    it('los dos caminos siguen llevando adonde llevaban', async () => {
+      await montar([]);
+      const enlaces = [...tabla().querySelectorAll('a')].map((a) => [
+        a.textContent?.trim(),
+        a.getAttribute('href'),
+      ]);
+
+      expect(enlaces).toEqual([
+        ['Crear cuenta', '/registro'],
+        ['Reservar una hora', '/disponibilidad'],
+      ]);
+    });
+  });
+
+  /**
    * El torneo como cartel y tabla (TV3.4): el cartel dice qué y cuándo, la tabla
    * cuánto cuesta y cuánto lugar queda en cada categoría. Los datos son los
    * mismos de siempre; cambia cómo se leen.

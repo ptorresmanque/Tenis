@@ -69,6 +69,10 @@
   */
   --color-campo: #0b4f9e;
   --color-on-campo: #ffffff;
+  /* El campo hondo: el lado visitante del cara a cara (TV3.5). Media sección
+     no puede ir en rótulo, que en oscuro es una placa clara; va en el mismo azul,
+     un tono más profundo, y lleva el mismo texto. */
+  --color-campo-hondo: #083a74;
 
   /*
     EL RÓTULO, Y LA CELDA LIBRE DEL MARCADOR.
@@ -303,6 +307,7 @@
        con 9,2:1. */
     --color-campo: #173f77;
     --color-on-campo: #eaf2fb;
+    --color-campo-hondo: #0f2b52;
 
     /* La placa clara: ver el comentario del rótulo en @theme. */
     --color-rotulo: #eaf2fb;
@@ -368,6 +373,7 @@ html[data-tema='publico'][data-modo='oscuro'] {
        con 9,2:1. */
     --color-campo: #173f77;
     --color-on-campo: #eaf2fb;
+    --color-campo-hondo: #0f2b52;
 
     /* La placa clara: ver el comentario del rótulo en @theme. */
     --color-rotulo: #eaf2fb;

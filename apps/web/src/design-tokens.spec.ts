@@ -804,6 +804,15 @@ describe('Foco', () => {
     expect(css).toMatch(/\.bg-rotulo > \*\s*\{[^}]*--color-ring:\s*var\(--color-on-rotulo\)/);
   });
 
+  it('el campo hondo, el lado visitante del cara a cara, lleva el texto del campo (TV3.5)', () => {
+    for (const [nombre, tema] of TEMAS) {
+      expect(
+        contraste(colorDe(tema, 'on-campo'), colorDe(tema, 'campo-hondo')),
+        `texto sobre el campo hondo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('cada anillo se distingue de su fondo, en los dos temas', () => {
     for (const [nombre, tema] of TEMAS) {
       expect(

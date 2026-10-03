@@ -406,56 +406,105 @@ import { Insignia } from '../ui/insignia';
 
     @if (!hayCuenta()) {
       <!--
-        BANDA 5 — Los dos caminos, del mismo peso.
+        BANDA 5 — Los dos caminos, cara a cara.
 
-        Dos bloques de color pleno, uno al lado del otro, sin jerarquía entre
-        ellos. Es la decisión del club del 2026-09-08 puesta en la composición:
-        el arriendo es el 55% del ingreso y la captación de socios es lo que más
-        les urge, así que ninguno de los dos puede quedar como el chico.
+        Socio contra visitante, fila por fila, como un cara a cara antes de un
+        partido (TV3.5). Del mismo peso: es la decisión del club del 2026-09-08
+        —el arriendo es el 55% del ingreso y la captación de socios es lo que más
+        les urge—, y por eso las dos columnas miden igual y los dos botones son
+        primarios.
+
+        **Dice lo mismo que las dos listas que reemplaza, ni una afirmación más**:
+        donde una no tiene par, la celda queda vacía en vez de inventarle uno.
+
+        Es una tabla hecha con roles y no una tabla nativa: en el teléfono cada fila
+        se rearma con el rótulo arriba, y cambiarle el display a una tabla nativa
+        le quita la semántica en algunos lectores. Los roles explícitos la
+        conservan.
       -->
       <section class="mt-16" aria-labelledby="dos-caminos">
-        <h2 id="dos-caminos" class="sr-only">Socio o visitante</h2>
+        <h2 id="dos-caminos" class="titular text-center text-5xl sm:text-6xl">
+          Socio o visitante
+        </h2>
 
-        <div class="grid gap-4 md:grid-cols-2">
-          <div
-            class="relative isolate overflow-hidden rounded-region bg-campo
-                   p-8 text-on-campo"
-          >
-            <h3 class="font-display text-3xl font-bold">Socio</h3>
-            <p class="mt-1 text-on-campo/90">
-              Cuota mensual al día y la cancha sale sin costo.
-            </p>
-            <ul class="mt-6 grid gap-2">
-              @for (punto of PLAN_SOCIO; track punto) {
-                <li class="flex gap-2 text-sm">
-                  <span class="icono shrink-0" aria-hidden="true">check_circle</span>
-                  {{ punto }}
-                </li>
-              }
-            </ul>
-            <a routerLink="/registro" class="boton boton-sobre-campo mt-8 w-full">
-              Crear cuenta
-            </a>
+        <div role="table" aria-labelledby="dos-caminos" class="mt-8 bg-card shadow-md">
+          <div role="row" class="grid grid-cols-2 sm:grid-cols-[1fr_auto_1fr]">
+            <div role="columnheader" class="bg-campo p-5 text-on-campo sm:p-8 sm:text-end">
+              <h3 class="titular text-4xl sm:text-5xl">Socio</h3>
+              <p class="mt-2 text-on-campo/85">
+                Cuota mensual al día y la cancha sale sin costo.
+              </p>
+            </div>
+            <!-- El sello: decoración en la costura de los dos colores. Queda en
+                 el árbol con sr-only en el teléfono para que la fila de encabezado
+                 tenga tantas celdas como las demás. -->
+            <div
+              role="columnheader"
+              class="flex items-center justify-center bg-gradient-to-r from-campo from-50%
+                     to-campo-hondo to-50% px-5 max-sm:sr-only"
+            >
+              <span
+                class="grid size-16 -skew-x-6 place-items-center bg-card font-display text-3xl
+                       font-extrabold text-foreground italic"
+                aria-hidden="true"
+              >
+                VS
+              </span>
+            </div>
+            <div role="columnheader" class="bg-campo-hondo p-5 text-on-campo sm:p-8">
+              <h3 class="titular text-4xl sm:text-5xl">Visitante</h3>
+              <p class="mt-2 text-on-campo/85">Sin cuenta y sin cuota: pagas la hora que juegas.</p>
+            </div>
           </div>
 
-          <div class="rounded-region border-2 border-primary p-8">
-            <h3 class="font-display text-3xl font-bold text-primary">Visitante</h3>
-            <p class="mt-1 text-muted-foreground">
-              Sin cuenta y sin cuota: pagas la hora que juegas.
-            </p>
-            <ul class="mt-6 grid gap-2">
-              @for (punto of PLAN_VISITANTE; track punto) {
-                <li class="flex gap-2 text-sm">
-                  <span class="icono shrink-0 text-accent-strong" aria-hidden="true">
-                    check_circle
-                  </span>
-                  {{ punto }}
-                </li>
-              }
-            </ul>
-            <a routerLink="/disponibilidad" class="boton boton-primario mt-8 w-full">
-              Reservar una hora
-            </a>
+          @for (fila of CARA_A_CARA; track fila.rotulo) {
+            <div
+              role="row"
+              class="grid grid-cols-2 border-t border-border sm:grid-cols-[1fr_11rem_1fr]"
+            >
+              <div role="cell" class="px-5 py-4 font-semibold sm:px-8 sm:text-end">
+                {{ fila.socio }}
+                @if (!fila.socio) {
+                  <span class="text-muted-foreground" aria-hidden="true">—</span>
+                }
+              </div>
+              <!-- En el teléfono, el rótulo arriba y los dos valores abajo. -->
+              <div
+                role="rowheader"
+                class="flex items-center bg-muted px-5 py-2 font-display text-sm font-semibold
+                       tracking-wider text-muted-foreground uppercase max-sm:order-first
+                       max-sm:col-span-2 sm:justify-center sm:px-3"
+              >
+                {{ fila.rotulo }}
+              </div>
+              <div role="cell" class="px-5 py-4 font-semibold sm:px-8">
+                {{ fila.visitante }}
+                @if (!fila.visitante) {
+                  <span class="text-muted-foreground" aria-hidden="true">—</span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- En el teléfono, apilados: lado a lado, "Reservar una hora" se partía
+               en dos líneas a 375 y los dos a 360. Y entre sm y md con menos
+               relleno: a 640 la columna mide 216px. Las etiquetas no se tocan. -->
+          <div
+            role="row"
+            class="grid gap-3 border-t border-border p-5 sm:grid-cols-[1fr_11rem_1fr] sm:gap-0
+                   sm:p-0"
+          >
+            <div role="cell" class="sm:flex sm:justify-end sm:px-4 sm:py-6 md:px-8">
+              <a routerLink="/registro" class="boton boton-primario w-full sm:w-auto">
+                Crear cuenta
+              </a>
+            </div>
+            <div role="cell" class="bg-muted max-sm:sr-only"></div>
+            <div role="cell" class="sm:px-4 sm:py-6 md:px-8">
+              <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
+                Reservar una hora
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -478,13 +527,18 @@ import { Insignia } from '../ui/insignia';
         proporcion="3/2"
         claseCaja="min-h-[18rem]"
       />
-      <div class="absolute inset-0 bg-campo/85" aria-hidden="true"></div>
+      <!-- El velo de izquierda a derecha, como el de la propuesta: el titular se
+           lee sobre el campo casi pleno y la foto respira del otro lado. -->
+      <div
+        class="absolute inset-0 bg-gradient-to-r from-campo/95 to-campo/60"
+        aria-hidden="true"
+      ></div>
 
       <div
-        class="absolute inset-0 flex flex-col items-center justify-center gap-4
-               px-6 text-center text-on-campo"
+        class="absolute inset-0 flex flex-col items-start justify-center gap-6 px-6
+               text-on-campo sm:px-14"
       >
-        <h2 id="cierre" class="font-display text-3xl font-bold sm:text-4xl">
+        <h2 id="cierre" class="titular max-w-[12ch] text-5xl sm:text-7xl">
           @if (proximaLibre()) {
             Todavía quedan horas para hoy
           } @else {
@@ -701,18 +755,34 @@ export class Inicio {
    * una constante del navegador es prometer algo que el admin puede desmentir
    * esta tarde desde su panel.
    */
-  protected readonly PLAN_SOCIO = [
-    'Sin pago al reservar: la hora ya está en tu cuota',
-    'Cupo diario de cancha y horas en franja pico',
-    'Puedes traer invitados cada mes',
-    'Cambias y cancelas desde "Mis reservas"',
-  ];
-
-  protected readonly PLAN_VISITANTE = [
-    'Arriendo por hora, con el precio a la vista',
-    'Pagas en línea al reservar',
-    'Cancelas con 24 horas y se devuelve todo',
-    'Modificas hasta 6 horas antes',
+  /**
+   * Las ocho afirmaciones de las dos listas de antes, emparejadas por tema
+   * (TV3.5). Ninguna nueva: donde una no tiene par va `null` y la celda queda
+   * vacía. El rótulo es lo único que se agregó, y es la pregunta que cada fila
+   * contesta.
+   */
+  protected readonly CARA_A_CARA: readonly {
+    rotulo: string;
+    socio: string | null;
+    visitante: string | null;
+  }[] = [
+    {
+      rotulo: 'El pago',
+      socio: 'Sin pago al reservar: la hora ya está en tu cuota',
+      visitante: 'Pagas en línea al reservar',
+    },
+    {
+      rotulo: 'La cancha',
+      socio: 'Cupo diario de cancha y horas en franja pico',
+      visitante: 'Arriendo por hora, con el precio a la vista',
+    },
+    {
+      rotulo: 'Cancelar',
+      socio: 'Cambias y cancelas desde "Mis reservas"',
+      visitante: 'Cancelas con 24 horas y se devuelve todo',
+    },
+    { rotulo: 'Cambiar', socio: null, visitante: 'Modificas hasta 6 horas antes' },
+    { rotulo: 'Invitados', socio: 'Puedes traer invitados cada mes', visitante: null },
   ];
 
   protected readonly hora = horaEnElClub;
