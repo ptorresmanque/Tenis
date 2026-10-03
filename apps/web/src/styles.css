@@ -66,6 +66,25 @@
   --color-on-campo: #ffffff;
 
   /*
+    EL RÓTULO, Y LA CELDA LIBRE DEL MARCADOR.
+
+    El rótulo es la placa de la transmisión: la cinta del torneo, el rótulo del
+    zócalo, el lado visitante del cara a cara. Es la superficie inversa del
+    tema: tinta con texto blanco en claro, placa clara con texto oscuro en
+    oscuro. Que en oscuro sea clara no es capricho: el fondo #0a1b33 está tan
+    cerca del negro que ni el negro puro se separa de él (1,22:1), y una placa
+    que no se separa del fondo no es una placa. Plan de transmisión, TV1.4.
+
+    La celda libre es la cancha libre en el marcador de la portada, sobre el
+    campo. Son valores que la paleta ya tenía: menta con verde fuerte en claro,
+    y en oscuro el verde con texto oscuro, porque ahí no aguanta blanco encima.
+  */
+  --color-rotulo: #0f172a;
+  --color-on-rotulo: #ffffff;
+  --color-celda-libre: #d1fae5;
+  --color-on-celda-libre: #047857;
+
+  /*
     LA ESCALA DE MARCADOR.
 
     El lenguaje broadcast necesita cifras que se lean a un metro: la hora libre,
@@ -265,6 +284,12 @@
     --color-campo: #173f77;
     --color-on-campo: #eaf2fb;
 
+    /* La placa clara: ver el comentario del rótulo en @theme. */
+    --color-rotulo: #eaf2fb;
+    --color-on-rotulo: #0a1b33;
+    --color-celda-libre: #34d399;
+    --color-on-celda-libre: #052e22;
+
     /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
        caja sea más clara que el fondo. Se dejan negras y profundas para separar
        lo que flota de verdad, como un diálogo. */
@@ -323,6 +348,12 @@ html[data-tema='publico'][data-modo='oscuro'] {
        con 9,2:1. */
     --color-campo: #173f77;
     --color-on-campo: #eaf2fb;
+
+    /* La placa clara: ver el comentario del rótulo en @theme. */
+    --color-rotulo: #eaf2fb;
+    --color-on-rotulo: #0a1b33;
+    --color-celda-libre: #34d399;
+    --color-on-celda-libre: #052e22;
 
     /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
        caja sea más clara que el fondo. Se dejan negras y profundas para separar

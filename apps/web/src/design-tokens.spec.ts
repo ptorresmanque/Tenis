@@ -177,6 +177,29 @@ describe.each(TEMAS)('Contraste del tema %s', (_, tema) => {
     expect(contraste(c('campo'), c('background'))).toBeGreaterThanOrEqual(1.3);
   });
 
+  it('el texto de un rótulo se lee encima (4.5:1)', () => {
+    // El rótulo es la placa de la transmisión: la cinta, el rótulo del zócalo,
+    // el lado visitante del cara a cara (plan de transmisión, TV1.4).
+    expect(contraste(c('on-rotulo'), c('rotulo'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('el rótulo se distingue del fondo y de la banda plena', () => {
+    // Va pegado al campo —la cinta bajo el hero, el visitante junto al socio—,
+    // así que tiene que separarse de los dos. En oscuro esto descarta un rótulo
+    // más oscuro que la página: ni el negro puro llega a 1,3:1 contra #0a1b33,
+    // y por eso ahí el rótulo es una placa clara.
+    expect(contraste(c('rotulo'), c('background'))).toBeGreaterThanOrEqual(1.3);
+    expect(contraste(c('rotulo'), c('campo'))).toBeGreaterThanOrEqual(1.3);
+  });
+
+  it('la celda libre del marcador se distingue del campo y su texto se lee', () => {
+    // El marcador de la portada pinta las canchas libres sobre el campo. La celda
+    // es un control, así que pide el 3:1 de componente contra lo que la rodea; en
+    // oscuro no puede llevar texto blanco, porque el verde ahí se aclara.
+    expect(contraste(c('celda-libre'), c('campo'))).toBeGreaterThanOrEqual(3);
+    expect(contraste(c('on-celda-libre'), c('celda-libre'))).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('las dos capas del logotipo se leen sobre el fondo', () => {
     // La marca es forma y le basta el 3:1 de componente; el texto es texto.
     expect(contraste(c('logo-marca'), c('background'))).toBeGreaterThanOrEqual(3);
