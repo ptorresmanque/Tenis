@@ -21,7 +21,11 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
   selector: 'app-inscritos',
   imports: [FormsModule, Aviso, Insignia, Selector],
   template: `
-    @if (ficha.value(); as clase) {
+    @if (ficha.error()) {
+      <p class="mt-3 text-sm text-destructive">
+        No se pudieron cargar los inscritos de la clase. Reintenta en un momento.
+      </p>
+    } @else if (ficha.value(); as clase) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
           <h3 class="font-display font-semibold">Quién viene</h3>
@@ -220,7 +224,8 @@ export class InscritosDeLaClase {
         .map((quien) => quien.numeroSocio),
     );
 
-    return (this.socios.value()?.socios ?? []).filter(
+    // Si la lista no cargó, el selector queda vacío y la clase se ve igual.
+    return (this.socios.hasValue() ? this.socios.value().socios : []).filter(
       (socio) => !yaEstan.has(socio.numeroSocio),
     );
   });

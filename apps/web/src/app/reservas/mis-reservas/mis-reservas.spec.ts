@@ -307,4 +307,25 @@ describe('MisReservas', () => {
     expect(texto()).toContain('AB23CDE');
     expect(texto()).toContain('No se pudo');
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`:
+  // la lista de abajo lo leía fuera de la rama del error y la pantalla reventaba.
+  it('si la lista no carga, lo dice', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: Reservas,
+          useValue: { mias: () => Promise.reject(new Error('la API no respondió')) },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudieron cargar tus reservas');
+  });
 });

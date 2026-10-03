@@ -46,9 +46,16 @@ describe('AgendaDelDia', () => {
   let clasesDelDia: ReturnType<typeof vi.fn>;
   let avisos: Subject<{ fecha: string }>;
 
-  const montar = async (reservas: ReservaDelDia[], clases: ClaseDelDia[] = []) => {
-    delDia = vi.fn().mockResolvedValue(reservas);
-    clasesDelDia = vi.fn().mockResolvedValue(clases);
+  const montar = async (
+    reservas: ReservaDelDia[] | Error,
+    clases: ClaseDelDia[] | Error = [],
+  ) => {
+    delDia = vi.fn(() =>
+      reservas instanceof Error ? Promise.reject(reservas) : Promise.resolve(reservas),
+    );
+    clasesDelDia = vi.fn(() =>
+      clases instanceof Error ? Promise.reject(clases) : Promise.resolve(clases),
+    );
     avisos = new Subject<{ fecha: string }>();
 
     TestBed.resetTestingModule();
@@ -153,5 +160,20 @@ describe('AgendaDelDia', () => {
     await fixture.whenStable();
 
     expect(delDia).not.toHaveBeenCalled();
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    await montar(new Error('la API no respondió'), new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar la agenda');
+  });
+
+  it('si solo las clases no cargan, no anuncia el día como vacío', async () => {
+    // Diría "No hay nada agendado" con una clase ocupando la cancha.
+    await montar([], new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar la agenda');
+    expect(texto()).not.toContain('No hay nada agendado');
   });
 });

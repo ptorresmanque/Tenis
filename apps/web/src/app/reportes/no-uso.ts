@@ -64,7 +64,9 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
       </label>
     </div>
 
-    @if (reporte.value(); as datos) {
+    @if (reporte.error()) {
+      <p class="mt-6 text-destructive">No se pudieron contar las horas no usadas. Reintenta en un momento.</p>
+    } @else if (reporte.value(); as datos) {
       @if (datos.filas.length === 0) {
         <app-estado-vacio
           class="mt-6 block"

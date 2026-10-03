@@ -46,9 +46,11 @@ describe('InscritosDeLaClase', () => {
     realizar: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (ficha: FichaDeClase) => {
+  const montar = async (ficha: FichaDeClase | Error) => {
     api = {
-      ficha: vi.fn().mockResolvedValue(ficha),
+      ficha: vi.fn(() =>
+        ficha instanceof Error ? Promise.reject(ficha) : Promise.resolve(ficha),
+      ),
       inscribir: vi.fn().mockResolvedValue({ id: 12 }),
       bajar: vi.fn().mockResolvedValue({ id: 11 }),
       realizar: vi.fn().mockResolvedValue({ id: 7 }),
@@ -242,5 +244,32 @@ describe('InscritosDeLaClase', () => {
     await montar({ ...FICHA, cupoTomado: 0, inscritos: [] });
 
     expect(texto()).toContain('Todavía no hay nadie inscrito');
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la clase no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar los inscritos');
+  });
+
+  it('si la lista de socios no carga, la clase se ve igual', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Clases, useValue: { ficha: () => Promise.resolve(FICHA) } },
+        {
+          provide: Socios,
+          useValue: { listado: () => Promise.reject(new Error('la API no respondió')) },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(InscritosDeLaClase);
+    fixture.componentRef.setInput('claseId', 7);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('Camila Socia');
   });
 });

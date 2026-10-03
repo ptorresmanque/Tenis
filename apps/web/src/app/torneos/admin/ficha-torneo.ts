@@ -59,7 +59,11 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
       Torneos
     </a>
 
-    @if (torneo(); as suyo) {
+    @if (torneos.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudo cargar el torneo. Reintenta en un momento.
+      </p>
+    } @else if (torneo(); as suyo) {
       <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 class="font-display text-3xl font-bold">{{ suyo.nombre }}</h1>
         <app-insignia

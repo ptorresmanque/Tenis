@@ -33,7 +33,7 @@ describe('MiCuenta', () => {
   };
 
   const montar = async (
-    cuotas: MiCuota[],
+    cuotas: MiCuota[] | Error,
     deudaClp: number,
     pago: string | null = null,
   ) => {
@@ -42,7 +42,11 @@ describe('MiCuenta', () => {
     HTMLFormElement.prototype.submit = vi.fn();
 
     api = {
-      mias: vi.fn().mockResolvedValue({ cuotas, deudaClp }),
+      mias: vi.fn(() =>
+        cuotas instanceof Error
+          ? Promise.reject(cuotas)
+          : Promise.resolve({ cuotas, deudaClp }),
+      ),
       pagar: vi.fn().mockResolvedValue({
         urlRedireccion: 'https://webpay/x',
         tokenPasarela: 'tok-1',
@@ -157,5 +161,12 @@ describe('MiCuenta', () => {
     await montar([], 0);
 
     expect(elemento().textContent).toContain('No tienes cuotas');
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si la cuenta no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'), 0);
+
+    expect(elemento().textContent).toContain('No se pudo cargar tu cuenta');
   });
 });

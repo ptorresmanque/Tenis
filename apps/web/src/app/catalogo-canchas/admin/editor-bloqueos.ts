@@ -64,6 +64,10 @@ function enBlanco(): Formulario {
   template: `
     @if (bloqueos.isLoading()) {
       <p class="text-sm text-muted-foreground">Cargando bloqueos…</p>
+    } @else if (bloqueos.error()) {
+      <p class="text-sm text-destructive">
+        No se pudieron cargar los bloqueos. Reintenta en un momento.
+      </p>
     } @else if (bloqueos.value().length === 0) {
       <!-- "Próximos" y no "bloqueos": los que ya terminaron no se listan, y decir
            "sin bloqueos" haría dudar de si el de la semana pasada se guardó. -->

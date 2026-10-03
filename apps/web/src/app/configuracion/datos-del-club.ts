@@ -52,6 +52,12 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
   imports: [FormsModule, Aviso, Campo, CampoControl],
   template: `
     <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
+      @if (club.error()) {
+        <app-aviso variante="error">
+          No se pudieron cargar los datos del club. Reintenta en un momento.
+        </app-aviso>
+      }
+
       @for (dato of DATOS; track dato.campo) {
         <app-campo
           [etiqueta]="dato.etiqueta"
@@ -81,7 +87,7 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
         <button
           type="submit"
           class="boton boton-primario"
-          [disabled]="guardando() || club.isLoading()"
+          [disabled]="guardando() || club.isLoading() || !club.hasValue()"
         >
           {{ guardando() ? 'Guardando…' : 'Guardar los datos' }}
         </button>
@@ -111,7 +117,7 @@ export class DatosDelClub {
   protected readonly error = signal<string | null>(null);
 
   protected formulario(): Formulario {
-    const guardadoEnElServidor = this.club.value();
+    const guardadoEnElServidor = this.club.hasValue() ? this.club.value() : undefined;
 
     return {
       nombre: this.editado().nombre ?? guardadoEnElServidor?.nombre ?? '',

@@ -38,7 +38,11 @@ const enBlanco = () => ({
         cancha y a esa hora lo encuentra solo.
       </p>
 
-      @if (transmisiones.value().length > 0) {
+      @if (transmisiones.error()) {
+        <p class="mt-3 text-sm text-destructive">
+          No se pudieron cargar las transmisiones. Reintenta en un momento.
+        </p>
+      } @else if (transmisiones.value().length > 0) {
         <ul class="mt-3 grid gap-2">
           @for (transmision of transmisiones.value(); track transmision.id) {
             <li class="flex flex-wrap items-center gap-3 rounded-lg bg-card p-3">
@@ -100,7 +104,9 @@ const enBlanco = () => ({
               <option [value]="cancha.id">{{ cancha.nombre }}</option>
             }
           </select>
-          @if (conCamara().length === 0 && !canchas.isLoading()) {
+          @if (canchas.error()) {
+            <span class="text-sm text-destructive">No se pudieron cargar las canchas.</span>
+          } @else if (conCamara().length === 0 && !canchas.isLoading()) {
             <span class="text-sm text-muted-foreground">
               Ninguna cancha está marcada con cámara. Márcala en Canchas.
             </span>
@@ -188,6 +194,8 @@ export class TransmisionesDelTorneo {
   });
 
   protected conCamara() {
+    if (!this.canchas.hasValue()) return [];
+
     return this.canchas.value().filter((cancha) => cancha.tieneCamara);
   }
 

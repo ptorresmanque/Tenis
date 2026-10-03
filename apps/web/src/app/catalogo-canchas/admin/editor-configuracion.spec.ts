@@ -25,9 +25,11 @@ describe('EditorConfiguracion', () => {
     fijarConfiguracion: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (reglas: ReglasDelClub = REGLAS) => {
+  const montar = async (reglas: ReglasDelClub | Error = REGLAS) => {
     api = {
-      configuracion: vi.fn().mockResolvedValue(reglas),
+      configuracion: vi.fn(() =>
+        reglas instanceof Error ? Promise.reject(reglas) : Promise.resolve(reglas),
+      ),
       fijarConfiguracion: vi.fn().mockResolvedValue(reglas),
     };
 
@@ -128,5 +130,12 @@ describe('EditorConfiguracion', () => {
     await guardar();
 
     expect(avisado).toHaveBeenCalled();
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si las reglas no cargan, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar las reglas del club');
   });
 });

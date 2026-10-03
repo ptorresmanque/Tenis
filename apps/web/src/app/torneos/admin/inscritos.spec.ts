@@ -96,9 +96,11 @@ describe('InscritosDelTorneo', () => {
     subirComprobanteDelClub: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (lista: ListaDelCuadro) => {
+  const montar = async (lista: ListaDelCuadro | Error) => {
     api = {
-      inscripciones: vi.fn().mockResolvedValue(lista),
+      inscripciones: vi.fn(() =>
+        lista instanceof Error ? Promise.reject(lista) : Promise.resolve(lista),
+      ),
       jugadores: vi.fn().mockResolvedValue([
         { id: 1, nombre: 'Carolina', apellido: 'Díaz', activo: true },
         { id: 3, nombre: 'Matías', apellido: 'Rojas', activo: true },
@@ -514,5 +516,34 @@ describe('InscritosDelTorneo', () => {
 
       expect(elemento().querySelector('img')).not.toBeNull();
     });
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si la lista no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar los inscritos');
+  });
+
+  it('si los jugadores no cargan, los inscritos se ven igual', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: Torneos,
+          useValue: {
+            inscripciones: () => Promise.resolve(LISTA),
+            jugadores: () => Promise.reject(new Error('la API no respondió')),
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(InscritosDelTorneo);
+    fixture.componentRef.setInput('cuadroId', 5);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('Carolina Díaz');
   });
 });
