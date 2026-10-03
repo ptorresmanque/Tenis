@@ -60,12 +60,16 @@ import { Administradores as ApiAdministradores } from './administradores.service
           Con acceso hoy
         </h2>
         <app-insignia variante="info" icono="shield_person">
-          {{ administradores.value()?.length ?? 0 }}
+          {{ cuantos() }}
         </app-insignia>
       </div>
 
       @if (administradores.isLoading()) {
         <app-esqueleto class="mt-3 block" [filas]="3" etiqueta="Cargando los administradores…" />
+      } @else if (administradores.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar los administradores. Reintenta en un momento.
+        </p>
       } @else {
         <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
           <table class="tabla">
@@ -131,8 +135,8 @@ export class AdministradoresPanel {
     loader: () => this.api.listar(),
   });
 
-  protected readonly cuantos = computed(
-    () => this.administradores.value()?.length ?? 0,
+  protected readonly cuantos = computed(() =>
+    this.administradores.hasValue() ? this.administradores.value().length : 0,
   );
 
   protected async nombrar(): Promise<void> {
