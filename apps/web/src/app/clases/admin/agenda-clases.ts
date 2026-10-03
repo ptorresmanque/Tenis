@@ -100,6 +100,10 @@ const enBlanco = () => ({
 
     @if (clases.isLoading()) {
       <p class="mt-4 text-muted-foreground">Cargando…</p>
+    } @else if (clases.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar las clases. Reintenta en un momento.
+      </p>
     } @else if (clases.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
@@ -188,13 +192,19 @@ const enBlanco = () => ({
           <span class="text-sm font-medium">Profesor</span>
           <select class="campo mt-1" name="profesorId" [(ngModel)]="datos.profesorId">
             <option [value]="0" disabled>Elige un profesor</option>
-            @for (profesor of profesores.value(); track profesor.id) {
-              <option [value]="profesor.id">
-                {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-              </option>
+            @if (profesores.hasValue()) {
+              @for (profesor of profesores.value(); track profesor.id) {
+                <option [value]="profesor.id">
+                  {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
+                </option>
+              }
             }
           </select>
-          @if (profesores.value().length === 0) {
+          @if (profesores.error()) {
+            <span class="text-sm text-destructive">
+              No se pudieron cargar los profesores.
+            </span>
+          } @else if (profesores.value().length === 0) {
             <span class="text-sm text-muted-foreground">
               No hay profesores activos: anota uno primero.
             </span>
@@ -362,7 +372,7 @@ export class AgendaDeClases {
    * criterio que con los profesores desactivados.
    */
   protected readonly canchasActivas = computed(() =>
-    this.canchas.value().filter((cancha) => cancha.activa),
+    (this.canchas.hasValue() ? this.canchas.value() : []).filter((cancha) => cancha.activa),
   );
 
   protected readonly opcionesDeNivel = Object.entries(NIVELES).map(

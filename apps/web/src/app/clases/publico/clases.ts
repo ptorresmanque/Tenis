@@ -54,7 +54,11 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
     </section>
 
     <h2 class="mt-16 font-display text-3xl font-bold">Quiénes enseñan</h2>
-    @if (datos.value(); as info) {
+    @if (datos.error()) {
+      <p class="mt-3 text-destructive">
+        No se pudieron cargar las clases. Reintenta en un momento.
+      </p>
+    } @else if (datos.value(); as info) {
       @if (info.profesores.length === 0) {
         <p class="mt-2 text-muted-foreground">
           Estamos armando el equipo de profesores para la próxima temporada.

@@ -112,4 +112,25 @@ describe('ClasesPublicas', () => {
 
     expect(texto()).toContain('Estamos armando el equipo');
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si los horarios no cargan, lo dice', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: Clases,
+          useValue: { publicas: () => Promise.reject(new Error('la API no respondió')) },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ClasesPublicas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudieron cargar las clases');
+  });
 });

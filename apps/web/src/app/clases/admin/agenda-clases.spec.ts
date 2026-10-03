@@ -225,4 +225,24 @@ describe('AgendaDeClases', () => {
 
     expect(texto()).toContain('No hay clases este día');
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    const caida = () => Promise.reject(new Error('la API no respondió'));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Clases, useValue: { delDia: caida } },
+        { provide: Profesores, useValue: { listar: caida } },
+        { provide: AdminCanchas, useValue: { canchas: caida } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(AgendaDeClases);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudieron cargar las clases');
+    expect(texto()).toContain('No se pudieron cargar los profesores');
+  });
 });

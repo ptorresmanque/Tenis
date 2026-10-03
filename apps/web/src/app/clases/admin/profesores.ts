@@ -117,6 +117,10 @@ const enBlanco = () => ({
 
     @if (profesores.isLoading()) {
       <p class="mt-4 text-muted-foreground">Cargando…</p>
+    } @else if (profesores.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar los profesores. Reintenta en un momento.
+      </p>
     } @else if (profesores.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
