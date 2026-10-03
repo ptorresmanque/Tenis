@@ -31,10 +31,10 @@ import { EditorHorarios } from './editor-horarios';
         <p class="mt-3 text-muted-foreground">Cargando…</p>
       } @else if (club(); as ambito) {
         <div class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-          <h3 class="font-display text-sm font-bold tracking-wider uppercase">Horario de apertura</h3>
+          <h3 class="subtitulo">Horario de apertura</h3>
           <app-editor-horarios [ambito]="ambito" (guardado)="recargar()" />
 
-          <h3 class="mt-4 font-display text-sm font-bold tracking-wider uppercase">Tarifas</h3>
+          <h3 class="mt-4 subtitulo">Tarifas</h3>
           <app-editor-franjas [ambito]="ambito" (cambiado)="recargar()" />
         </div>
       }

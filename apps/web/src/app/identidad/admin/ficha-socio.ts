@@ -123,7 +123,7 @@ const CAMPOS: Record<string, string> = {
       </form>
 
       <section class="mt-6 border-t border-border pt-4" aria-labelledby="historial">
-        <h3 id="historial" class="font-display text-sm font-bold tracking-wider uppercase">Qué se le cambió</h3>
+        <h3 id="historial" class="subtitulo">Qué se le cambió</h3>
 
         @if (historial.isLoading()) {
           <p class="mt-2 text-sm text-muted-foreground">Cargando…</p>

@@ -699,6 +699,24 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 
   /*
+    EL SUBTÍTULO (revisión de TV7.5).
+
+    El encabezado de un bloque dentro de una sección o de una tarjeta: la
+    condensada, chica y en mayúscula, sin placa. Va en el panel y en las fichas
+    públicas de torneos. Estaba copiado en diez lugares de seis archivos, con
+    los de torneos del panel por sumarse: cambiarle el tamaño pedía acordarse de
+    todos. El margen lo pone cada pantalla.
+  */
+  .subtitulo {
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /*
     LA HORA EN UN RÓTULO (TV5.1, TV5.3).
 
     Campo, o ámbar suave si es hora pico, en la condensada y con cifras de ancho

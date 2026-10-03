@@ -245,7 +245,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   <span class="sr-only">de {{ cancha.nombre }}</span>
                 </summary>
 
-                <h4 class="mt-3 font-display text-sm font-bold tracking-wider uppercase">Horario de apertura</h4>
+                <h4 class="mt-3 subtitulo">Horario de apertura</h4>
                 @if (cancha.horarios.length === 0) {
                   <p class="text-sm text-muted-foreground">
                     Sin horario propio: vale el general del club.
@@ -253,10 +253,10 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 }
                 <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
 
-                <h4 class="mt-3 font-display text-sm font-bold tracking-wider uppercase">Tarifas propias</h4>
+                <h4 class="mt-3 subtitulo">Tarifas propias</h4>
                 <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
 
-                <h4 class="mt-3 font-display text-sm font-bold tracking-wider uppercase">Bloqueos</h4>
+                <h4 class="mt-3 subtitulo">Bloqueos</h4>
                 <app-editor-bloqueos [cancha]="cancha" />
               </details>
             </li>

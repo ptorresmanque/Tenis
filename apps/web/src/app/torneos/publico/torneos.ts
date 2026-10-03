@@ -289,7 +289,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                 @if (detalleDe(categoria.id); as detalle) {
                 @if (detalle.partidos.length === 0) {
                   <div class="mt-3 rounded-lg border border-border bg-background p-3">
-                    <h3 class="font-display text-sm font-bold tracking-wider uppercase">Inscritos</h3>
+                    <h3 class="subtitulo">Inscritos</h3>
                     <p class="mt-1 text-sm text-muted-foreground">
                       {{ detalle.inscritos.join(', ') || 'Todavía nadie.' }}
                     </p>
@@ -348,7 +348,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
 
               @if (torneoAbierto() === torneo.id && transmisiones.value().length > 0) {
                 <div class="mt-3">
-                  <h3 class="font-display text-sm font-bold tracking-wider uppercase">En vivo</h3>
+                  <h3 class="subtitulo">En vivo</h3>
                   <div class="grid gap-3 sm:grid-cols-2">
                     @for (transmision of transmisiones.value(); track transmision.id) {
                       <app-reproductor [transmision]="transmision" />

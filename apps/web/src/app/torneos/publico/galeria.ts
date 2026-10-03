@@ -25,7 +25,7 @@ const TRAMOS: { momento: Momento; titulo: string }[] = [
   template: `
     @if (fotos().length > 0) {
       <div class="mt-3">
-        <h3 class="font-display text-sm font-bold tracking-wider uppercase">Fotos</h3>
+        <h3 class="subtitulo">Fotos</h3>
 
         @if (abierta(); as foto) {
           <figure class="mt-2">
