@@ -43,7 +43,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
       ></div>
 
       <div class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo sm:p-10">
-        <h1 id="clases" class="font-display text-4xl font-black tracking-tight sm:text-5xl">
+        <h1 id="clases" class="titular text-6xl sm:text-7xl lg:text-8xl">
           Clases con profesor
         </h1>
         <p class="max-w-prose text-lg text-on-campo/90">
@@ -53,7 +53,8 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
       </div>
     </section>
 
-    <h2 class="mt-16 font-display text-3xl font-bold">Quiénes enseñan</h2>
+    <!-- Los títulos de la A, como el del formulario de contacto de abajo (TV4.4). -->
+    <h2 class="titular mt-16 text-5xl sm:text-6xl">Quiénes enseñan</h2>
     @if (datos.value(); as info) {
       @if (info.profesores.length === 0) {
         <p class="mt-2 text-muted-foreground">
@@ -63,7 +64,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         <ul class="mt-4 divide-y divide-border border-y border-border">
           @for (profesor of info.profesores; track profesor.nombreVisible) {
             <li class="flex flex-wrap items-baseline justify-between gap-2 py-4">
-              <p class="font-display text-xl font-bold">
+              <p class="font-display text-xl font-bold tracking-wide uppercase">
                 {{ profesor.nombreVisible }}
               </p>
               <p class="text-muted-foreground">{{ profesor.especialidad }}</p>
@@ -72,7 +73,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         </ul>
       }
 
-      <h2 class="mt-16 font-display text-3xl font-bold">Esta semana</h2>
+      <h2 class="titular mt-16 text-5xl sm:text-6xl">Esta semana</h2>
 
       @if (info.clases.length === 0) {
         <app-estado-vacio
@@ -83,16 +84,17 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         />
       } @else {
         @for (dia of porDia(); track dia.fecha) {
+          <!-- Cada día lo encabeza un rótulo de transmisión, con su corte (TV4.4). -->
           <h3
-            class="mt-8 border-b-2 border-primary pb-1 font-display text-lg font-bold
-                   tracking-wide text-primary uppercase"
+            class="mt-8 inline-flex bg-rotulo py-1.5 ps-4 font-display text-sm font-bold
+                   tracking-wider text-on-rotulo uppercase corte-fin"
           >
             {{ enPalabras(dia.fecha) }}
           </h3>
-          <ul class="divide-y divide-border">
+          <ul class="divide-y divide-border border-t border-border">
             @for (clase of dia.clases; track clase.id) {
               <li class="flex flex-wrap items-center gap-3 py-4">
-                <span class="font-display text-xl font-bold">
+                <span class="font-display text-2xl font-bold tabular-nums">
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
                 </span>
                 <app-insignia variante="info" icono="school">
@@ -107,7 +109,8 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
                     Sin cupos
                   </app-insignia>
                 } @else {
-                  <app-insignia variante="exito" icono="event_available" class="ms-auto">
+                  <!-- Cupos libres: el verde de "libre", con fondo sólido. -->
+                  <app-insignia variante="libre" icono="event_available" class="ms-auto">
                     {{ clase.cuposLibres }}
                     {{ clase.cuposLibres === 1 ? 'cupo' : 'cupos' }}
                   </app-insignia>
