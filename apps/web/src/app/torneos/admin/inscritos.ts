@@ -32,7 +32,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
     @if (lista.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
-          <h3 class="font-display font-semibold">Inscritos</h3>
+          <h2 class="font-display font-semibold">Inscritos</h2>
           <app-insignia
             [variante]="datos.inscritos.length >= datos.cupo ? 'aviso' : 'neutro'"
             icono="group"
@@ -298,12 +298,12 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
         }
 
         @if (datos.enEspera.length > 0) {
-          <h4 class="mt-3 font-medium">
+          <h3 class="mt-3 font-medium">
             Lista de espera
             <span class="text-sm font-normal text-muted-foreground">
               · en orden de llegada
             </span>
-          </h4>
+          </h3>
           <ul class="mt-1 grid gap-2">
             @for (quien of datos.enEspera; track quien.id) {
               <li class="flex flex-wrap items-center gap-2 text-sm">

@@ -41,7 +41,7 @@ import { FotoDelPartido } from './foto-del-partido';
     @if (cuadro.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
-          <h3 class="subtitulo">Cuadro</h3>
+          <h2 class="subtitulo">Cuadro</h2>
           @if (datos.semillaSorteo !== null) {
             <!-- La semilla a la vista: si alguien pregunta por qué le tocó ese cruce,
                  el sorteo se puede rehacer con este número. -->
@@ -72,9 +72,9 @@ import { FotoDelPartido } from './foto-del-partido';
           <div class="mt-3 flex gap-4 overflow-x-auto pb-2">
             @for (ronda of porRonda(); track ronda.numero) {
               <div class="min-w-56 flex-1">
-                <h4 class="subtitulo text-muted-foreground">
+                <h3 class="subtitulo text-muted-foreground">
                   {{ ronda.nombre }}
-                </h4>
+                </h3>
                 <ul class="mt-2 grid gap-2">
                   @for (partido of ronda.partidos; track partido.id) {
                     <li class="rounded-lg border border-border bg-card p-2 text-sm">
@@ -182,9 +182,9 @@ import { FotoDelPartido } from './foto-del-partido';
       (close)="programando.set(null)"
     >
       @if (programando(); as partido) {
-        <h4 id="titulo-programar" class="titular text-2xl">
+        <h2 id="titulo-programar" class="titular text-2xl">
           Programar el partido
-        </h4>
+        </h2>
         <p class="mt-1 max-w-prose text-sm text-muted-foreground">
           Cerrar la cancha a esa hora es parte de programar: deja de ofrecerse en
           la grilla. El servidor rechaza el horario si alguno de los dos jugadores
@@ -269,9 +269,9 @@ import { FotoDelPartido } from './foto-del-partido';
       (close)="cargando.set(null)"
     >
       @if (cargando(); as partido) {
-        <h4 id="titulo-resultado" class="titular text-2xl">
+        <h2 id="titulo-resultado" class="titular text-2xl">
           {{ partido.jugadorA }} contra {{ partido.jugadorB }}
-        </h4>
+        </h2>
 
         @if (deshace() > 0) {
           <!-- Lo que se confirma no es "¿seguro?", es este número: corregir una

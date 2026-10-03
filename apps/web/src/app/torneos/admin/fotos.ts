@@ -31,7 +31,7 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
   imports: [FormsModule, Aviso],
   template: `
     <section class="mt-4 rounded-xl border border-border bg-muted/30 p-4">
-      <h3 class="font-display text-base font-semibold">Fotos</h3>
+      <h2 class="font-display text-base font-semibold">Fotos</h2>
       <p class="mt-1 max-w-prose text-sm text-muted-foreground">
         Se ven <strong>sin necesidad de tener cuenta</strong>. Al subirlas se les quitan
         los datos que traen adentro —entre ellos el lugar donde se sacaron— y se guardan

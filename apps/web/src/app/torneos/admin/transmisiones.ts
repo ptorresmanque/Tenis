@@ -31,7 +31,7 @@ const enBlanco = () => ({
   imports: [FormsModule, Aviso],
   template: `
     <section class="mt-4 rounded-xl border border-border bg-muted/30 p-4">
-      <h3 class="font-display text-base font-semibold">Transmisiones</h3>
+      <h2 class="font-display text-base font-semibold">Transmisiones</h2>
       <p class="mt-1 max-w-prose text-sm text-muted-foreground">
         Se transmite <strong>una cancha durante una jornada</strong>, no un partido:
         abre el live en YouTube y pega su enlace acá. Cada partido programado en esa

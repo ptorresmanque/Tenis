@@ -72,6 +72,13 @@ describe('FotosDelTorneo', () => {
     await montar([]);
   });
 
+  it('se titula con un h2, como las otras pestañas de la ficha', () => {
+    // En la ficha, cada pestaña cuelga del h1 con el nombre del torneo, y en
+    // Ajustes sus secciones ya eran h2: con h3 se saltaba un nivel y las
+    // pestañas no se oían iguales (revisión de TV7.6).
+    expect(elemento().querySelector('section > h2')?.textContent).toContain('Fotos');
+  });
+
   it('**dice que las fotos se ven sin cuenta**, al revés que el comprobante', () => {
     expect(texto()).toContain('sin necesidad de tener cuenta');
   });

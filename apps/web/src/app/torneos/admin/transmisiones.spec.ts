@@ -82,6 +82,13 @@ describe('TransmisionesDelTorneo', () => {
     await montar([]);
   });
 
+  it('se titula con un h2, como las otras pestañas de la ficha', () => {
+    // En la ficha, cada pestaña cuelga del h1 con el nombre del torneo, y en
+    // Ajustes sus secciones ya eran h2: con h3 se saltaba un nivel y las
+    // pestañas no se oían iguales (revisión de TV7.6).
+    expect(elemento().querySelector('section > h2')?.textContent).toContain('Transmisiones');
+  });
+
   it('**solo ofrece las canchas con cámara**', () => {
     const opciones = Array.from(elemento().querySelectorAll('option')).map((o) =>
       o.textContent?.trim(),
