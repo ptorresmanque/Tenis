@@ -20,7 +20,11 @@ import { FilaInterna, Ranking } from './ranking.service';
   selector: 'app-tabla-interna',
   imports: [EstadoVacio],
   template: `
-    @if (tabla.value(); as datos) {
+    @if (tabla.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudo cargar la tabla del club. Reintenta en un momento.
+      </p>
+    } @else if (tabla.value(); as datos) {
       <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         Solo cuentan los partidos <strong>confirmados</strong> por el rival.
         @if (datos.ultimoPartido; as ultimo) {

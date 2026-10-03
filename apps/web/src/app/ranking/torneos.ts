@@ -37,7 +37,11 @@ import { TablaInterna } from './tabla-interna';
       </p>
     </section>
 
-    @if (tabla.value(); as datos) {
+    @if (tabla.error()) {
+      <p class="mt-6 text-destructive">
+        No se pudo cargar el ranking. Reintenta en un momento.
+      </p>
+    } @else if (tabla.value(); as datos) {
       <p class="mt-4 max-w-prose text-sm text-muted-foreground">
         <!-- El punto va pegado al cierre del strong y no en la línea siguiente: si se
              separa, el navegador dibuja "26 de agosto de 2025 ." con un espacio.

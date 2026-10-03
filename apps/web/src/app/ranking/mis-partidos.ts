@@ -43,8 +43,10 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
             <!-- Con el número al lado: dos socios que se llaman igual no es un caso
                  raro en un club, y elegir al equivocado le crea un partido a un
                  tercero que después tiene que rechazarlo. -->
-            @for (quien of rivales.value(); track quien.socioId) {
-              <option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</option>
+            @if (rivales.hasValue()) {
+              @for (quien of rivales.value(); track quien.socioId) {
+                <option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</option>
+              }
             }
           </select>
         </label>
@@ -109,7 +111,11 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
 
     <h2 class="mt-8 font-display text-lg font-semibold">Tus partidos</h2>
 
-    @if (partidos.value().length === 0) {
+    @if (partidos.error()) {
+      <p class="mt-3 text-destructive">
+        No se pudieron cargar tus partidos. Reintenta en un momento.
+      </p>
+    } @else if (partidos.value().length === 0) {
       <app-estado-vacio
         class="mt-3 block"
         icono="sports_tennis"
