@@ -47,6 +47,11 @@
      `public/logo-fedal.svg` y § 11 del plan de rediseño. */
   --color-logo-marca: #0b4f9e;
   --color-logo-texto: #0f172a;
+  /* La capa "marca" sobre una banda de campo, donde el azul de arriba sería el
+     mismo del fondo y desaparecería. Es el valor que el tema oscuro ya usa para
+     el logotipo, no un color nuevo: 3,1:1 sobre el campo claro y 4:1 sobre el
+     oscuro, medido. La capa "texto" usa el texto de la banda. TV2.4. */
+  --color-logo-marca-sobre-campo: #5ba7e8;
 
   /*
     EL CAMPO PLENO, QUE NO ES EL COLOR DE ACCIÓN.
@@ -578,6 +583,14 @@ html[data-tema='publico'][data-modo='oscuro'] {
     largo se lee letra por letra. La interlínea apretada es porque son una o dos
     líneas y quieren verse como un bloque.
   */
+  /* El logotipo dentro de una banda de campo, como el pie (TV2.4). Redefine las
+     dos variables que lee el SVG, así que vale en los dos temas sin tocar el
+     componente. */
+  .logotipo-sobre-campo {
+    --color-logo-marca: var(--color-logo-marca-sobre-campo);
+    --color-logo-texto: var(--color-on-campo);
+  }
+
   .titular {
     font-family: var(--font-display);
     font-weight: 800;

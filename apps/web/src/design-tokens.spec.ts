@@ -200,6 +200,14 @@ describe.each(TEMAS)('Contraste del tema %s', (_, tema) => {
     expect(contraste(c('on-celda-libre'), c('celda-libre'))).toBeGreaterThanOrEqual(4.5);
   });
 
+  it('las dos capas del logotipo se leen sobre el campo', () => {
+    // El pie va en banda de campo (TV2.4). En claro, la capa "marca" del logotipo
+    // es el mismo azul del campo y desaparecería: sobre el campo usa su color
+    // para fondo oscuro, y la capa "texto" usa el texto de la banda.
+    expect(contraste(c('logo-marca-sobre-campo'), c('campo'))).toBeGreaterThanOrEqual(3);
+    expect(contraste(c('on-campo'), c('campo'))).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('las dos capas del logotipo se leen sobre el fondo', () => {
     // La marca es forma y le basta el 3:1 de componente; el texto es texto.
     expect(contraste(c('logo-marca'), c('background'))).toBeGreaterThanOrEqual(3);
