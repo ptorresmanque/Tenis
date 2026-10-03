@@ -912,9 +912,9 @@ describe('Tablas', () => {
 
 describe('Botones', () => {
   it('un botón sobre el campo usa su variante y no arma los colores a mano', () => {
-    // Seis botones se armaban con `bg-on-campo text-campo` a mano y solo uno
-    // tenía hover. La variante existe para que la fase 3, que llena la portada
-    // de bandas de campo, no repita la mezcla seis veces más (TV2.1).
+    // Seis botones se armaban con `bg-on-campo text-campo` a mano. La variante
+    // existe para que la fase 3, que llena la portada de bandas de campo, no
+    // repita la mezcla seis veces más (TV2.1).
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {

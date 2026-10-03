@@ -672,8 +672,8 @@ html[data-tema='publico'][data-modo='oscuro'] {
 
   /* Sobre una banda de campo el botón invierte la banda: el fondo toma el color
      del texto de la banda y la etiqueta, el de la banda. En los dos temas, porque
-     `campo` y `on-campo` ya cambian juntos. Antes se armaba a mano seis veces y
-     solo una tenía hover (TV2.1). */
+     `campo` y `on-campo` ya cambian juntos. Antes se armaba a mano seis veces
+     con `bg-on-campo text-campo` (TV2.1). El hover lo trae `.boton`. */
   .boton-sobre-campo {
     background-color: var(--color-on-campo);
     color: var(--color-campo);
@@ -685,10 +685,8 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .boton-sobre-campo:hover:not(:disabled) {
-      opacity: 0.9;
-    }
-
+    /* El contorno suma un tinte de la banda: sin fondo propio, la opacidad del
+       hover de .boton casi no se nota sobre el campo. */
     .boton-contorno-sobre-campo:hover:not(:disabled) {
       background-color: color-mix(in srgb, var(--color-on-campo) 12%, transparent);
     }
