@@ -45,7 +45,7 @@ export const VARIANTES_AVISO: Record<VarianteAviso, { clases: string; icono: str
       </span>
       <div class="min-w-0 flex-1 text-sm">
         @if (titulo()) {
-          <p class="font-semibold">{{ titulo() }}</p>
+          <p class="font-display font-bold uppercase tracking-wide">{{ titulo() }}</p>
         }
         <ng-content />
       </div>
