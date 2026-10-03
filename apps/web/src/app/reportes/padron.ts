@@ -30,7 +30,7 @@ import { Reportes } from './reportes.service';
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Padrón y morosidad</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Cómo se mueve el padrón y cuánto se debe, mes a mes. La deuda de un mes son sus cuotas
           emitidas que siguen sin cobrarse, así que baja sola cuando alguien se pone al día.
         </p>

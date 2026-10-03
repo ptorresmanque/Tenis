@@ -24,7 +24,7 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Partidos entre socios</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Los amistosos que un socio cargó y el rival no aceptó. Resolver acá deja el partido
           cerrado y marcado como resuelto por el club.
         </p>

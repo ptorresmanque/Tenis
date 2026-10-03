@@ -1017,6 +1017,20 @@ describe('El panel en la A (Fase 7)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('la bajada de la cabecera no lleva max-w-prose, que le gana al ancho de la primitiva', () => {
+    // Con max-w-prose la bajada se partía en tres líneas y la banda pasaba los 96px
+    // en nueve pantallas (revisión de TV7.9). El ancho lo pone .cabecera-panel p.
+    const infractores = delPanel()
+      .filter(({ contenido }) =>
+        [...contenido.matchAll(/<header\b[^>]*\bcabecera-panel\b[\s\S]*?<\/header>/g)].some(
+          ([bloque]) => /\bmax-w-prose\b/.test(bloque),
+        ),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('cada sección visible se encabeza con el rótulo, no con un título suelto', () => {
     // La sección es la que se nombra con aria-labelledby, que es como la arma el
     // panel. El h2 de una tarjeta —el nombre de quien escribió una consulta— o

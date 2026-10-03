@@ -670,8 +670,24 @@ html[data-tema='publico'][data-modo='oscuro'] {
     align-items: flex-end;
     justify-content: space-between;
     gap: 0.75rem 1.5rem;
-    padding-bottom: 0.75rem;
+    /* 10px y no 12: con una bajada de dos líneas, 12 dejaba la banda en 97px. */
+    padding-bottom: 0.625rem;
     border-bottom: 1px solid var(--color-border);
+  }
+
+  /*
+    La bajada de la cabecera, en 14px y hasta 48rem de ancho (unos 110 caracteres).
+
+    Con la letra de leer y max-w-prose, una bajada de dos frases se partía en dos o
+    tres líneas y la banda llegaba a 105px y a 129px en nueve pantallas: pasaba los
+    96 sin que nadie lo midiera (revisión de TV7.9). Así, la más larga, la de "Horas
+    no usadas", entra en dos líneas. Por eso las bajadas de las cabeceras no llevan
+    max-w-prose: como utilidad, le ganaría a esto.
+  */
+  .cabecera-panel p {
+    max-width: 48rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
   }
 
   /*

@@ -35,7 +35,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Consultas al club</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Lo que llega del formulario del sitio. Quien quiere asociarse se convierte en
           invitación desde acá.
         </p>

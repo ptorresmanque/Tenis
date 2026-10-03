@@ -29,7 +29,7 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Horas reservadas y no usadas</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Horas que alguien tomó y dejó vacías, sobre el total reservado del período. Solo cuentan las
           que el club <strong>confirmó</strong> al resolver el reporte: uno pendiente es una acusación
           que nadie miró todavía.

@@ -69,7 +69,7 @@ const enBlanco = () => ({
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Torneos</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Los torneos del club y las categorías con que reparten puntos.
         </p>
       </div>

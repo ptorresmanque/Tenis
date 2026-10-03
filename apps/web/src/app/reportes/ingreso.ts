@@ -30,7 +30,7 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Ingreso del club</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
           Las cuotas van a su mes, no al día en que el socio se puso al día.
         </p>

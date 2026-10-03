@@ -29,7 +29,7 @@ import { Jugador, Torneos } from '../torneos.service';
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Jugadores</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Quiénes juegan los torneos del club. Un socio que ya jugó conserva su jugador y
           con él sus puntos.
         </p>

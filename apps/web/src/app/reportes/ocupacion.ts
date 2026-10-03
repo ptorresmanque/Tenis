@@ -35,7 +35,7 @@ import {
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Ocupación de cancha</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Qué proporción de las horas que el club abrió se ocupó de verdad. Cuenta sobre los bloques que
           existieron ese día según el horario de apertura, no sobre el día entero.
         </p>

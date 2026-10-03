@@ -34,7 +34,7 @@ const enBlanco = () => ({
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Profesores</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Quiénes dan clases, cómo se anuncian y por dónde los llama el club cuando una
           clase se mueve.
         </p>

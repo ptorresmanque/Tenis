@@ -25,7 +25,7 @@ import { Cuotas } from '../cuotas.service';
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Socios con deuda</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <p class="mt-1 text-muted-foreground">
           Ordenados por lo que deben. Se cuenta por cuotas impagas, no por fechas.
         </p>
       </div>
