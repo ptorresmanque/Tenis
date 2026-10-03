@@ -28,9 +28,7 @@ import { TablaInterna } from './tabla-interna';
       class="-mx-4 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
       aria-labelledby="ranking"
     >
-      <h1 id="ranking" class="font-display text-4xl font-black tracking-tight sm:text-5xl">
-        Ranking de torneos
-      </h1>
+      <h1 id="ranking" class="titular text-5xl sm:text-7xl">Ranking de torneos</h1>
       <p class="mt-2 max-w-prose text-on-campo/90">
         Los puntos de cada jugador según hasta dónde llegó en cada torneo, multiplicados
         por la categoría.
@@ -60,7 +58,7 @@ import { TablaInterna } from './tabla-interna';
              comparables entre sí y las columnas significan lo mismo en todas. Sin
              encabezados, un lector de pantalla lee cuatro números sueltos por fila. -->
         <div class="mt-6 overflow-x-auto" data-tabla="torneos">
-          <table class="tabla text-sm">
+          <table class="tabla text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
             <caption class="sr-only">
               Puntos por jugador en los torneos de las últimas 52 semanas
             </caption>
@@ -74,34 +72,51 @@ import { TablaInterna } from './tabla-interna';
             </thead>
             <tbody>
               @for (fila of datos.posiciones; track fila.jugadorId) {
-                <!-- Los tres primeros con el puesto en grande: es lo que alguien
-                     busca primero cuando abre una tabla de posiciones, y sin eso
-                     las cuarenta filas se leen todas iguales. **Sin rebote ni
-                     overshoot en la entrada**: MASTER.md § Motion lo dice para
-                     tabla densa, donde el movimiento elástico se lee como
-                     descuido y no como intención. -->
+                <!-- EL PODIO (TV4.5): del puesto 3 para arriba, con empates, el
+                     puesto va en un rótulo y el nombre y los puntos en la
+                     condensada, como la tabla de una transmisión. Es lo que alguien
+                     busca primero, y sin eso las cuarenta filas se leen iguales.
+                     **Sin rebote ni overshoot en la entrada**: MASTER.md § Motion
+                     lo dice para tabla densa, y D4.4 dejó la pantalla sin foto. -->
                 <tr
-                  class="border-b border-border last:border-0"
+                  [attr.data-podio]="fila.puesto <= 3 ? '' : null"
                   [class.bg-selected]="fila.puesto <= 3"
                 >
-                  <td
-                    class="py-2 pr-3 font-display font-bold"
-                    [class.text-xl]="fila.puesto <= 3"
-                    [class.text-primary]="fila.puesto <= 3"
-                  >
-                    {{ fila.puesto }}
+                  <td class="font-display font-bold">
+                    @if (fila.puesto <= 3) {
+                      <span
+                        class="inline-grid size-9 place-items-center bg-rotulo text-xl
+                               font-extrabold text-on-rotulo"
+                      >
+                        {{ fila.puesto }}
+                      </span>
+                    } @else {
+                      {{ fila.puesto }}
+                    }
                   </td>
                   <!-- El nombre es el encabezado de fila, no el puesto: con empates el
                        puesto se repite, y un encabezado que dice "1" en dos filas no
                        identifica ninguna. Quien escucha la tabla necesita oír de quién
                        son los 650 puntos. -->
-                  <th scope="row">
+                  <th
+                    scope="row"
+                    [class]="
+                      fila.puesto <= 3
+                        ? 'font-display text-lg font-bold tracking-wide uppercase'
+                        : ''
+                    "
+                  >
                     {{ fila.nombre }}
                   </th>
-                  <td class="numero font-semibold">{{ fila.puntos }}</td>
-                  <td class="py-2 text-right text-muted-foreground">
-                    {{ fila.torneos }}
+                  <td
+                    class="numero font-semibold"
+                    [class]="fila.puesto <= 3 ? 'font-display text-xl text-primary' : ''"
+                  >
+                    {{ fila.puntos }}
                   </td>
+                  <!-- Sin rellenos a mano: los ponía la tabla vieja en unas celdas y
+                       no en otras, y las columnas no alineaban con la primitiva. -->
+                  <td class="numero text-muted-foreground">{{ fila.torneos }}</td>
                 </tr>
               }
             </tbody>
@@ -111,7 +126,9 @@ import { TablaInterna } from './tabla-interna';
 
       @if (datos.torneos.length > 0) {
         <section class="mt-8">
-          <h2 class="font-display text-lg font-semibold">Cuadros que está contando</h2>
+          <h2 class="font-display text-lg font-bold tracking-wide uppercase">
+            Cuadros que está contando
+          </h2>
           <ul class="mt-2 grid gap-1 text-sm text-muted-foreground">
             <!-- Cada cuadro con su nivel y con cuánto valía ganarlo (T70): una misma
                  Copa aparece tres veces, una por categoría, y no valen lo mismo. -->
@@ -133,7 +150,7 @@ import { TablaInterna } from './tabla-interna';
          pantalla porque comparten vocabulario, pero no comparten público. -->
     @if (esSocio()) {
       <section class="mt-12">
-        <h2 class="font-display text-2xl font-bold">Tabla del club</h2>
+        <h2 class="titular text-4xl sm:text-5xl">Tabla del club</h2>
         <p class="mt-1 max-w-prose text-muted-foreground">
           El orden de juego entre socios, con los amistosos que ustedes mismos cargan.
         </p>
