@@ -428,20 +428,19 @@ import { Insignia } from '../ui/insignia';
         </h2>
 
         <div role="table" aria-labelledby="dos-caminos" class="mt-8 bg-card shadow-md">
+          <!-- En el DOM el rótulo (y el sello, en el encabezado) va primero: quien
+               lee en orden oye la pregunta antes de las dos respuestas, y el
+               lector asocia cada celda con su encabezado por posición en el DOM.
+               En escritorio, order lo lleva al medio; en el teléfono ya queda
+               arriba sin reordenar nada. -->
           <div role="row" class="grid grid-cols-2 sm:grid-cols-[1fr_auto_1fr]">
-            <div role="columnheader" class="bg-campo p-5 text-on-campo sm:p-8 sm:text-end">
-              <h3 class="titular text-4xl sm:text-5xl">Socio</h3>
-              <p class="mt-2 text-on-campo/85">
-                Cuota mensual al día y la cancha sale sin costo.
-              </p>
-            </div>
             <!-- El sello: decoración en la costura de los dos colores. Queda en
                  el árbol con sr-only en el teléfono para que la fila de encabezado
                  tenga tantas celdas como las demás. -->
             <div
               role="columnheader"
               class="flex items-center justify-center bg-gradient-to-r from-campo from-50%
-                     to-campo-hondo to-50% px-5 max-sm:sr-only"
+                     to-campo-hondo to-50% px-5 max-sm:sr-only sm:order-2"
             >
               <span
                 class="grid size-16 -skew-x-6 place-items-center bg-card font-display text-3xl
@@ -451,7 +450,16 @@ import { Insignia } from '../ui/insignia';
                 VS
               </span>
             </div>
-            <div role="columnheader" class="bg-campo-hondo p-5 text-on-campo sm:p-8">
+            <div
+              role="columnheader"
+              class="bg-campo p-5 text-on-campo sm:order-1 sm:p-8 sm:text-end"
+            >
+              <h3 class="titular text-4xl sm:text-5xl">Socio</h3>
+              <p class="mt-2 text-on-campo/85">
+                Cuota mensual al día y la cancha sale sin costo.
+              </p>
+            </div>
+            <div role="columnheader" class="bg-campo-hondo p-5 text-on-campo sm:order-3 sm:p-8">
               <h3 class="titular text-4xl sm:text-5xl">Visitante</h3>
               <p class="mt-2 text-on-campo/85">Sin cuenta y sin cuota: pagas la hora que juegas.</p>
             </div>
@@ -462,22 +470,21 @@ import { Insignia } from '../ui/insignia';
               role="row"
               class="grid grid-cols-2 border-t border-border sm:grid-cols-[1fr_11rem_1fr]"
             >
-              <div role="cell" class="px-5 py-4 font-semibold sm:px-8 sm:text-end">
+              <div
+                role="rowheader"
+                class="col-span-2 flex items-center bg-muted px-5 py-2 font-display text-sm
+                       font-semibold tracking-wider text-muted-foreground uppercase sm:order-2
+                       sm:col-span-1 sm:justify-center sm:px-3"
+              >
+                {{ fila.rotulo }}
+              </div>
+              <div role="cell" class="px-5 py-4 font-semibold sm:order-1 sm:px-8 sm:text-end">
                 {{ fila.socio }}
                 @if (!fila.socio) {
                   <span class="text-muted-foreground" aria-hidden="true">—</span>
                 }
               </div>
-              <!-- En el teléfono, el rótulo arriba y los dos valores abajo. -->
-              <div
-                role="rowheader"
-                class="flex items-center bg-muted px-5 py-2 font-display text-sm font-semibold
-                       tracking-wider text-muted-foreground uppercase max-sm:order-first
-                       max-sm:col-span-2 sm:justify-center sm:px-3"
-              >
-                {{ fila.rotulo }}
-              </div>
-              <div role="cell" class="px-5 py-4 font-semibold sm:px-8">
+              <div role="cell" class="px-5 py-4 font-semibold sm:order-3 sm:px-8">
                 {{ fila.visitante }}
                 @if (!fila.visitante) {
                   <span class="text-muted-foreground" aria-hidden="true">—</span>
@@ -494,13 +501,13 @@ import { Insignia } from '../ui/insignia';
             class="grid gap-3 border-t border-border p-5 sm:grid-cols-[1fr_11rem_1fr] sm:gap-0
                    sm:p-0"
           >
-            <div role="cell" class="sm:flex sm:justify-end sm:px-4 sm:py-6 md:px-8">
+            <div role="cell" class="bg-muted max-sm:sr-only sm:order-2"></div>
+            <div role="cell" class="sm:order-1 sm:flex sm:justify-end sm:px-4 sm:py-6 md:px-8">
               <a routerLink="/registro" class="boton boton-primario w-full sm:w-auto">
                 Crear cuenta
               </a>
             </div>
-            <div role="cell" class="bg-muted max-sm:sr-only"></div>
-            <div role="cell" class="sm:px-4 sm:py-6 md:px-8">
+            <div role="cell" class="sm:order-3 sm:px-4 sm:py-6 md:px-8">
               <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
                 Reservar una hora
               </a>

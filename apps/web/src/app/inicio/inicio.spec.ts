@@ -151,7 +151,7 @@ describe('Inicio', () => {
       'Modificas hasta 6 horas antes',
     ];
     const tabla = () => elemento().querySelector('[role="table"]') as HTMLElement;
-    /** Las tres celdas de la fila de un rótulo, en el orden socio, rótulo, visitante. */
+    /** Las tres celdas de la fila de un rótulo, en el orden del DOM: rótulo, socio, visitante. */
     const fila = (rotulo: string) =>
       [...tabla().querySelectorAll('[role="row"]')]
         .find((r) => r.querySelector('[role="rowheader"]')?.textContent?.trim() === rotulo)
@@ -173,14 +173,16 @@ describe('Inicio', () => {
     it('cada afirmación va en su fila, frente a su par', async () => {
       await montar([]);
 
+      // El rótulo primero en el DOM: quien lee en orden oye la pregunta antes de
+      // las dos respuestas. En escritorio el CSS lo lleva al medio.
       expect([...(fila('El pago') ?? [])].map(legible)).toEqual([
-        'Sin pago al reservar: la hora ya está en tu cuota',
         'El pago',
+        'Sin pago al reservar: la hora ya está en tu cuota',
         'Pagas en línea al reservar',
       ]);
       expect([...(fila('Cancelar') ?? [])].map(legible)).toEqual([
-        'Cambias y cancelas desde "Mis reservas"',
         'Cancelar',
+        'Cambias y cancelas desde "Mis reservas"',
         'Cancelas con 24 horas y se devuelve todo',
       ]);
     });
@@ -189,7 +191,7 @@ describe('Inicio', () => {
       await montar([]);
 
       expect(legible(fila('Invitados')?.[2])).toBe('');
-      expect(legible(fila('Cambiar')?.[0])).toBe('');
+      expect(legible(fila('Cambiar')?.[1])).toBe('');
     });
 
     it('los dos caminos siguen llevando adonde llevaban', async () => {
