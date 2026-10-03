@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, resource, signal } from '@angular/core';
+import { Component, Directive, computed, inject, resource, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -22,6 +22,47 @@ import {
 } from '../reloj-del-club';
 import { nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
+
+/** Una hora de la grilla, con lo que pasa en cada cancha. */
+export interface Franja {
+  inicio: string;
+  fin: string;
+  libres: { cancha: Cancha; bloque: BloqueDisponible }[];
+  /**
+   * Las horas tomadas del propio socio que ya pasaron y sobre las que
+   * puede reportar que nadie las usó (T35).
+   *
+   * Van aparte de la cuenta de ocupadas porque son las únicas ocupadas
+   * que necesitan seguir siendo un elemento con un botón: agrupar por hora
+   * convirtió el resto en un número, y con ellas eso habría borrado la
+   * función sin que nadie lo notara hasta que el club preguntara por qué
+   * dejaron de llegar reportes.
+   */
+  reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
+  ocupadas: number;
+  enMantencion: number;
+  esPico: boolean;
+  /** Sin libres por haber pasado, que no es lo mismo que un club lleno. */
+  yaPaso: boolean;
+}
+
+/**
+ * Le pone tipo al `let-franja` de la plantilla de la franja.
+ *
+ * Sin esto el `ng-template` le da `any` y el compilador deja de revisar esa
+ * parte de la plantilla: en la revisión de TV5.1 un campo inventado,
+ * `franja.libresQueNoExisten`, compilaba igual. Con el `@for` de antes eso no
+ * pasaba.
+ */
+@Directive({ selector: 'ng-template[franjaTipada]' })
+export class FranjaTipada {
+  static ngTemplateContextGuard(
+    _directiva: FranjaTipada,
+    contexto: unknown,
+  ): contexto is { $implicit: Franja } {
+    return true;
+  }
+}
 
 /**
  * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
@@ -52,7 +93,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
 
 @Component({
   selector: 'app-grilla',
-  imports: [NgTemplateOutlet, Reservar, BarraFija, EstadoVacio, Insignia, Selector],
+  imports: [NgTemplateOutlet, FranjaTipada, Reservar, BarraFija, EstadoVacio, Insignia, Selector],
   host: {
     class: 'block',
     // La barra fija tapa la última fila de bloques si no se le deja aire, y el
@@ -227,7 +268,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
     }
 
     <!-- Una franja: se escribe una vez y se usa dentro y fuera del pliegue. -->
-    <ng-template #franjaTpl let-franja>
+    <ng-template #franjaTpl franjaTipada let-franja>
       <section class="mt-6 border-t border-border pt-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <!-- Las etiquetas van pegadas a propósito: un salto de línea entre
@@ -584,30 +625,7 @@ export class Grilla {
    * que esa hora se viera igual que una que el club no abre.
    */
   protected readonly porHora = computed(() => {
-    const horas = new Map<
-      string,
-      {
-        inicio: string;
-        fin: string;
-        libres: { cancha: Cancha; bloque: BloqueDisponible }[];
-        /**
-         * Las horas tomadas del propio socio que ya pasaron y sobre las que
-         * puede reportar que nadie las usó (T35).
-         *
-         * Van aparte de la cuenta de ocupadas porque son las únicas ocupadas
-         * que necesitan seguir siendo un elemento con un botón: agrupar por hora
-         * convirtió el resto en un número, y con ellas eso habría borrado la
-         * función sin que nadie lo notara hasta que el club preguntara por qué
-         * dejaron de llegar reportes.
-         */
-        reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
-        ocupadas: number;
-        enMantencion: number;
-        esPico: boolean;
-        /** Sin libres por haber pasado, que no es lo mismo que un club lleno. */
-        yaPaso: boolean;
-      }
-    >();
+    const horas = new Map<string, Franja>();
 
     for (const { cancha, bloques } of this.visibles()) {
       for (const bloque of bloques) {
