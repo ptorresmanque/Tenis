@@ -58,7 +58,7 @@ import { Insignia } from '../ui/insignia';
                      gente jugando al fondo"
         proporcion="16/9"
         [prioritaria]="true"
-        claseCaja="min-h-[32rem] sm:min-h-[34rem]"
+        claseCaja="min-h-[32rem] sm:min-h-[34rem] sm:max-h-[calc(100dvh-11rem)]"
       />
 
       <!--
@@ -124,9 +124,11 @@ import { Insignia } from '../ui/insignia';
       EL ZÓCALO — La próxima hora libre, como la barra inferior de una
       transmisión (TV3.1). Va pegado al hero y fuera de él, para que el hero se
       quede en sus cuatro elementos. En escritorio entra en la primera pantalla
-      desde unos 800px de alto: a 1366×768 queda cortado a la mitad (medido en la
-      revisión de TV3.1). Usa la primera de "Libre hoy" y los mismos mensajes de
-      carga, vacío y error, sin una consulta nueva.
+      desde 720px de alto, porque el hero se achica para dejarle sitio: los 11rem
+      del tope son la barra, el margen de arriba y el propio zócalo. Sin ese tope,
+      a 1366×768 la hora quedaba cortada a la mitad (revisión de TV3.1). Usa la
+      primera de "Libre hoy" sin una consulta nueva, y es el único que dice la
+      carga, el vacío y el error.
     -->
     <section class="-mx-4 sm:mx-0" aria-labelledby="proxima-libre">
       <!-- En el teléfono el rótulo va arriba, a todo el ancho y sin corte: al
@@ -210,37 +212,24 @@ import { Insignia } from '../ui/insignia';
       grandes sobre azul pleno porque es lo único que alguien tiene que poder
       leer de un vistazo, y en un carril horizontal porque seis horas apiladas en
       el teléfono son seis pantallazos de scroll.
+
+      Aparece solo si hay horas que listar. Cargando, sin horas o con la API
+      caída, el aviso lo da el zócalo: la banda repetía la misma frase debajo, y
+      con dos regiones vivas el lector de pantalla la anunciaba dos veces
+      (revisión de TV3.1).
     -->
-    <section
-      class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
-      aria-labelledby="libre-hoy"
-    >
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="libre-hoy" class="font-display text-2xl font-bold">Libre hoy</h2>
-        <a routerLink="/disponibilidad" class="text-sm font-semibold underline">
-          Ver todos los horarios
-        </a>
-      </div>
+    @if (libresDeHoy().length > 0) {
+      <section
+        class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+        aria-labelledby="libre-hoy"
+      >
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="libre-hoy" class="font-display text-2xl font-bold">Libre hoy</h2>
+          <a routerLink="/disponibilidad" class="text-sm font-semibold underline">
+            Ver todos los horarios
+          </a>
+        </div>
 
-      <div role="status" aria-live="polite" class="mt-4">
-        @if (grillas.isLoading()) {
-          <p class="text-on-campo/80">Buscando las horas de hoy…</p>
-        } @else if (grillas.error()) {
-          <p class="text-on-campo/80">
-            No pudimos cargar las horas de hoy.
-            <a routerLink="/disponibilidad" class="font-semibold underline">
-              Mira la disponibilidad
-            </a>
-          </p>
-        } @else if (libresDeHoy().length === 0) {
-          <p class="text-xl font-semibold">
-            Hoy ya no quedan horas libres.
-            <a routerLink="/disponibilidad" class="underline">Mira los próximos días.</a>
-          </p>
-        }
-      </div>
-
-      @if (libresDeHoy().length > 0) {
         <!-- Carril con anclaje: se hojea con el pulgar y cada hora queda
              encuadrada sola. Apilarlas sería volver a la lista. -->
         <!-- Sin márgenes negativos propios: la sección ya se sangra con los
@@ -276,8 +265,8 @@ import { Insignia } from '../ui/insignia';
             </li>
           }
         </ul>
-      }
-    </section>
+      </section>
+    }
 
     <!--
       BANDA 3 — Las canchas, en cifras y no en lista.

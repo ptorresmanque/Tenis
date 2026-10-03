@@ -191,4 +191,60 @@ describe('Inicio', () => {
       expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
     });
   });
+
+  /**
+   * "Libre hoy" aparece solo si hay horas que listar (revisión de TV3.1). Sin
+   * horas, cargando o con la API caída, el aviso lo da el zócalo: la banda
+   * repetía la misma frase debajo y el lector de pantalla la anunciaba dos veces.
+   */
+  describe('la banda "Libre hoy"', () => {
+    const banda = () => elemento().querySelector('[aria-labelledby="libre-hoy"]');
+    const veces = (frase: string) => texto().split(frase).length - 1;
+
+    it('con horas libres, las lista', async () => {
+      const enDosHoras = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      enDosHoras.setMinutes(0, 0, 0);
+      await montar([], () =>
+        Promise.resolve([
+          {
+            cancha: { id: 1, nombre: 'Cancha 1', superficie: 'CEMENTO', techada: false, iluminacion: true },
+            bloques: [
+              {
+                inicio: enDosHoras.toISOString(),
+                fin: new Date(enDosHoras.getTime() + 60 * 60 * 1000).toISOString(),
+                canchaId: 1,
+                montoClp: 12_000,
+                esPico: false,
+                bloqueado: false,
+                motivoBloqueo: null,
+                reservado: false,
+              },
+            ],
+          },
+        ] as GrillaDeCancha[]),
+      );
+
+      expect(banda()?.textContent).toContain(horaEnElClub(enDosHoras.toISOString()));
+    });
+
+    it('sin horas no aparece, y la frase del vacío se dice una sola vez', async () => {
+      await montar([]);
+
+      expect(banda()).toBeNull();
+      expect(veces('Hoy ya no quedan horas libres')).toBe(1);
+    });
+
+    it('con la API caída no aparece, y el error se dice una sola vez', async () => {
+      await montar([], () => Promise.reject(new Error('la API no respondió')));
+
+      expect(banda()).toBeNull();
+      expect(veces('No pudimos cargar')).toBe(1);
+    });
+
+    it('mientras busca no aparece: la espera la muestra el zócalo', async () => {
+      await montar([], () => new Promise(() => undefined), { esperar: false });
+
+      expect(banda()).toBeNull();
+    });
+  });
 });
