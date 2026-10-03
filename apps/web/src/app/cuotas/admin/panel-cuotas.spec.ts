@@ -40,9 +40,11 @@ describe('PanelDeCuotas', () => {
     ajustar: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (mes: MesDeCuotas) => {
+  const montar = async (mes: MesDeCuotas | Error) => {
     api = {
-      delMes: vi.fn().mockResolvedValue(mes),
+      delMes: vi.fn(() =>
+        mes instanceof Error ? Promise.reject(mes) : Promise.resolve(mes),
+      ),
       cobrar: vi.fn().mockResolvedValue(UNA),
       ajustar: vi.fn().mockResolvedValue(UNA),
     };
@@ -244,5 +246,12 @@ describe('PanelDeCuotas', () => {
     });
 
     expect(elemento().textContent).toContain('Ninguna cuota en este mes');
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si el mes no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(elemento().textContent).toContain('No se pudieron cargar las cuotas');
   });
 });

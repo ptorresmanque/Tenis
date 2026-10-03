@@ -62,7 +62,11 @@ const MESES = [
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
     }
 
-    @if (cuenta.value(); as datos) {
+    @if (cuenta.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudo cargar tu cuenta. Reintenta en un momento.
+      </p>
+    } @else if (cuenta.value(); as datos) {
       @if (datos.deudaClp > 0) {
         <p class="mt-4 text-lg">
           Debes
