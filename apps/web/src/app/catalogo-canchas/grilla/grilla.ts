@@ -281,10 +281,8 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
                de interfaz generada que el lint de franjas prohíbe. -->
           <h2 class="flex items-baseline font-display leading-none">
             <span
-              class="px-2 py-1 text-3xl font-bold tabular-nums"
-              [class]="
-                franja.esPico ? 'bg-warning-soft text-warning-strong' : 'bg-campo text-on-campo'
-              "
+              class="rotulo-hora px-2 py-1 text-3xl"
+              [class.rotulo-hora-pico]="franja.esPico"
               >{{ hora(franja.inicio) }}</span
             ><span class="ms-1 text-lg font-semibold text-muted-foreground"
               >–{{ hora(franja.fin) }}</span

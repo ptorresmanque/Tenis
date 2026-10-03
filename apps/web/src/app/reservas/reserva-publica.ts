@@ -61,8 +61,8 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
           </p>
 
           <p
-            class="mt-4 inline-flex px-3 py-1 font-display text-4xl font-bold tabular-nums"
-            [class]="datos.esPico ? 'bg-warning-soft text-warning-strong' : 'bg-campo text-on-campo'"
+            class="rotulo-hora mt-4 inline-flex px-3 py-1 text-4xl"
+            [class.rotulo-hora-pico]="datos.esPico"
           >
             {{ hora(datos.inicio) }}–{{ hora(datos.fin) }}
           </p>

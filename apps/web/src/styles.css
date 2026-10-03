@@ -647,6 +647,28 @@ html[data-tema='publico'][data-modo='oscuro'] {
     letter-spacing: -0.005em;
   }
 
+  /*
+    LA HORA EN UN RÓTULO (TV5.1, TV5.3).
+
+    Campo, o ámbar suave si es hora pico, en la condensada y con cifras de ancho
+    fijo. Lo usan la grilla, "Mis reservas" y la página pública de una reserva:
+    con la decisión copiada en tres plantillas, cambiar el color del pico pedía
+    acordarse de las tres (revisión de TV5.3). El tamaño y el relleno los pone
+    cada pantalla.
+  */
+  .rotulo-hora {
+    background-color: var(--color-campo);
+    color: var(--color-on-campo);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rotulo-hora-pico {
+    background-color: var(--color-warning-soft);
+    color: var(--color-warning-strong);
+  }
+
   .boton {
     display: inline-flex;
     align-items: center;

@@ -107,10 +107,8 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                  suave si es hora pico. Es el dato con el que alguien busca su
                  reserva. -->
             <p
-              class="mt-2 inline-flex px-2 py-1 font-display text-2xl font-bold tabular-nums"
-              [class]="
-                reserva.esPico ? 'bg-warning-soft text-warning-strong' : 'bg-campo text-on-campo'
-              "
+              class="rotulo-hora mt-2 inline-flex px-2 py-1 text-2xl"
+              [class.rotulo-hora-pico]="reserva.esPico"
             >
               {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
             </p>
