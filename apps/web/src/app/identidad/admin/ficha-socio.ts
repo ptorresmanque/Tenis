@@ -56,7 +56,7 @@ const CAMPOS: Record<string, string> = {
       [attr.aria-label]="'Ficha de ' + socio().usuario.nombre"
       (close)="cerrado.emit()"
     >
-      <h2 class="font-display text-xl font-semibold">
+      <h2 class="titular text-2xl">
         {{ socio().usuario.nombre }} {{ socio().usuario.apellido }}
       </h2>
       <p class="text-sm text-muted-foreground">{{ socio().usuario.email }}</p>

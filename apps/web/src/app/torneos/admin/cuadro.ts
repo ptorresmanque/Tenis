@@ -180,7 +180,7 @@ import { FotoDelPartido } from './foto-del-partido';
       (close)="programando.set(null)"
     >
       @if (programando(); as partido) {
-        <h4 id="titulo-programar" class="font-display text-lg font-semibold">
+        <h4 id="titulo-programar" class="titular text-2xl">
           Programar el partido
         </h4>
         <p class="mt-1 max-w-prose text-sm text-muted-foreground">
@@ -267,7 +267,7 @@ import { FotoDelPartido } from './foto-del-partido';
       (close)="cargando.set(null)"
     >
       @if (cargando(); as partido) {
-        <h4 id="titulo-resultado" class="font-display text-lg font-semibold">
+        <h4 id="titulo-resultado" class="titular text-2xl">
           {{ partido.jugadorA }} contra {{ partido.jugadorB }}
         </h4>
 

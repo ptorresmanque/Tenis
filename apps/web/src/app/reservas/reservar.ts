@@ -51,7 +51,7 @@ import {
       (close)="cerrar.emit()"
     >
       <section>
-        <h2 id="titulo-reserva" class="font-display text-xl font-bold">
+        <h2 id="titulo-reserva" class="titular text-2xl">
           {{ esSocio() ? 'Reservar tu hora' : 'Reservar y pagar' }}
         </h2>
 

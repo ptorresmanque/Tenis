@@ -385,7 +385,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
       (close)="confirmando.set(null)"
     >
       @if (confirmando(); as decision) {
-        <h2 id="titulo-confirmacion" class="font-display text-lg font-semibold">
+        <h2 id="titulo-confirmacion" class="titular text-2xl">
           {{ decision.accion === 'aprobar' ? 'Confirmar el pago' : 'Rechazar el pago' }}
         </h2>
 

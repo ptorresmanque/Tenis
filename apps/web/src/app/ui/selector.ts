@@ -20,6 +20,10 @@ let contador = 0;
  * flechas del teclado recorren el grupo, Tab entra y sale una sola vez, y el
  * lector anuncia "opción 2 de 5". El aspecto sale de `has-[:checked]:` sobre la
  * etiqueta, así que tampoco hay clases calculadas en TypeScript.
+ *
+ * La opción elegida se marca con el rótulo, la placa de la transmisión (TV2.3):
+ * tinta en claro, placa clara en oscuro. Es una pieza chica, que es lo único
+ * para lo que el rótulo sirve; el par de contraste está medido en los dos temas.
  */
 @Component({
   selector: 'app-selector',
@@ -67,7 +71,7 @@ let contador = 0;
           />
           <span>{{ opcion.etiqueta }}</span>
           @if (opcion.sub) {
-            <span class="text-base font-bold">{{ opcion.sub }}</span>
+            <span class="text-xl font-extrabold leading-none">{{ opcion.sub }}</span>
           }
         </label>
       }
@@ -99,12 +103,13 @@ export class Selector {
     // defecto que tenían los botones antes de que `.boton` fuera relative.
     return this.estilo() === 'chips'
       ? `relative flex min-w-16 shrink-0 cursor-pointer flex-col items-center gap-0.5
-         rounded-xl border border-border bg-card px-3 py-2 text-xs font-medium
-         text-muted-foreground
-         transition-colors has-[:checked]:border-primary has-[:checked]:bg-selected
-         has-[:checked]:text-primary ${foco}`
-      : `flex cursor-pointer items-center gap-1 rounded-md px-3 py-1.5 text-sm
-         font-medium text-muted-foreground transition-colors has-[:checked]:bg-card
-         has-[:checked]:text-primary has-[:checked]:shadow-sm ${foco}`;
+         rounded-xl border border-border bg-card px-3 py-2 font-display text-xs
+         font-bold uppercase tracking-wider text-muted-foreground
+         transition-colors has-[:checked]:border-rotulo has-[:checked]:bg-rotulo
+         has-[:checked]:text-on-rotulo ${foco}`
+      : `flex cursor-pointer items-center gap-1 rounded-md px-3 py-1.5 font-display
+         text-sm font-bold uppercase tracking-wide text-muted-foreground
+         transition-colors has-[:checked]:bg-rotulo has-[:checked]:text-on-rotulo
+         ${foco}`;
   });
 }
