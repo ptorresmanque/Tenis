@@ -943,11 +943,23 @@ describe('Franjas', () => {
     // una interfaz hecha en serie, y el detector de impeccable la cazó en D8.2.
     // La última era la del ítem activo del panel; desde TV2.5 el activo es un
     // rótulo, y esto impide que vuelva por otro lado.
+    // Los cuatro costados (s, e, l, r, y x para los dos) y también los anchos
+    // arbitrarios. Arriba y abajo no: la raya superior de las cifras es parte
+    // del lenguaje (TV3.4) y no es una franja al costado.
+    const FRANJA = /\bborder-[selrx]-(?:[2-8]\b|\[[^\]]+\])/;
     const infractores = plantillas()
-      .filter(({ contenido }) => /\bborder-[sel]-(?:[2-8])\b/.test(contenido))
+      .filter(({ contenido }) => FRANJA.test(contenido))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);
+  });
+
+  it('styles.css tampoco escribe una franja al costado', () => {
+    const franjas = css.match(
+      /border-(?:left|right|inline-start|inline-end|inline)(?:-width)?:\s*(?:[2-9]|\d{2})/g,
+    );
+
+    expect(franjas).toBeNull();
   });
 });
 
