@@ -159,17 +159,20 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
       } @else {
         <ul class="mt-3 space-y-3">
           @for (cancha of canchas.value(); track cancha.id) {
+            <!-- La desactivada se marca con el borde punteado y no con opacidad:
+                 apagada, su texto y sus botones quedaban bajo 4,5:1, y "Reactivar"
+                 y "Eliminar" se siguen usando. -->
             <li
               class="rounded-xl border border-border bg-card p-4 shadow-sm"
-              [class.opacity-60]="!cancha.activa"
+              [class.border-dashed]="!cancha.activa"
             >
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h3 class="font-display text-lg font-semibold">
                   {{ cancha.nombre }}
                 </h3>
                 @if (!cancha.activa) {
-                  <!-- Con palabras y no solo con la opacidad: apagado es una
-                       diferencia de color y no todos la ven. -->
+                  <!-- Con palabras y no solo con el borde: una línea punteada no
+                       dice por sí sola qué significa. -->
                   <span
                     class="rounded-md border border-muted-foreground px-2 py-0.5 text-xs
                            font-medium text-muted-foreground"

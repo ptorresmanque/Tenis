@@ -114,6 +114,16 @@ describe('AdminCanchasPanel', () => {
     expect(boton('Reactivar')).toBeDefined();
   });
 
+  it('a la cancha desactivada no la apaga la opacidad, que le baja el contraste', async () => {
+    // Con opacity-60, sobre el fondo del panel, el texto gris quedaba en 2,91:1,
+    // "Reactivar" en 3,13:1 y "Eliminar" en 2,76:1: la tarjeta seguía teniendo
+    // botones que se usan, así que tiene que leerse como cualquier otra.
+    await montar([{ ...CANCHA, activa: false }]);
+    const tarjeta = (fixture.nativeElement as HTMLElement).querySelector('li');
+
+    expect(tarjeta?.className).not.toMatch(/opacity-/);
+  });
+
   it('la cancha desactivada sigue en el panel, para poder reactivarla', async () => {
     await montar([{ ...CANCHA, activa: false }]);
 
