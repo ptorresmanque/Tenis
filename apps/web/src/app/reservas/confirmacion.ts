@@ -126,7 +126,7 @@ const MOTIVOS: Record<string, string> = {
 
           <button
             type="button"
-            class="boton boton-chico mt-4 bg-on-campo text-campo"
+            class="boton boton-chico boton-sobre-campo mt-4"
             (click)="copiar()"
           >
             <span class="icono text-base" aria-hidden="true">content_copy</span>

@@ -92,7 +92,7 @@ import { Insignia } from '../ui/insignia';
         <div class="mt-2 grid gap-3 sm:max-w-lg sm:grid-cols-2">
           <a
             routerLink="/disponibilidad"
-            class="boton bg-on-campo text-campo hover:opacity-90"
+            class="boton boton-sobre-campo"
           >
             Ver disponibilidad
           </a>
@@ -112,7 +112,7 @@ import { Insignia } from '../ui/insignia';
             -->
             <a
               routerLink="/registro"
-              class="boton border-2 border-on-campo text-on-campo"
+              class="boton boton-contorno-sobre-campo"
             >
               Crear cuenta
             </a>
@@ -210,7 +210,7 @@ import { Insignia } from '../ui/insignia';
               </p>
               <a
                 routerLink="/disponibilidad"
-                class="boton boton-chico mt-3 w-full bg-on-campo text-campo"
+                class="boton boton-chico boton-sobre-campo mt-3 w-full"
               >
                 Reservar
                 <span class="sr-only">
@@ -370,7 +370,7 @@ import { Insignia } from '../ui/insignia';
                 </li>
               }
             </ul>
-            <a routerLink="/registro" class="boton mt-8 w-full bg-on-campo text-campo">
+            <a routerLink="/registro" class="boton boton-sobre-campo mt-8 w-full">
               Crear cuenta
             </a>
           </div>
@@ -428,7 +428,7 @@ import { Insignia } from '../ui/insignia';
             Elige tu hora de esta semana
           }
         </h2>
-        <a routerLink="/disponibilidad" class="boton bg-on-campo text-campo">
+        <a routerLink="/disponibilidad" class="boton boton-sobre-campo">
           Ver disponibilidad
         </a>
       </div>

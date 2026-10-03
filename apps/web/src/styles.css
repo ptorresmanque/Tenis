@@ -670,6 +670,30 @@ html[data-tema='publico'][data-modo='oscuro'] {
     color: var(--color-on-primary);
   }
 
+  /* Sobre una banda de campo el botón invierte la banda: el fondo toma el color
+     del texto de la banda y la etiqueta, el de la banda. En los dos temas, porque
+     `campo` y `on-campo` ya cambian juntos. Antes se armaba a mano seis veces y
+     solo una tenía hover (TV2.1). */
+  .boton-sobre-campo {
+    background-color: var(--color-on-campo);
+    color: var(--color-campo);
+  }
+
+  .boton-contorno-sobre-campo {
+    border: 2px solid var(--color-on-campo);
+    color: var(--color-on-campo);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .boton-sobre-campo:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .boton-contorno-sobre-campo:hover:not(:disabled) {
+      background-color: color-mix(in srgb, var(--color-on-campo) 12%, transparent);
+    }
+  }
+
   @media (hover: hover) and (pointer: fine) {
     .boton-secundario:hover:not(:disabled),
     .boton-texto:hover:not(:disabled) {
@@ -742,9 +766,13 @@ html[data-tema='publico'][data-modo='oscuro'] {
     background-color: var(--color-muted);
     padding: 0.75rem 1rem;
     text-align: start;
-    font-size: 0.75rem;
+    /* La etiqueta de la columna en la condensada, como una tabla de posiciones
+       en una transmisión; los datos siguen en la letra de leer (TV2.1). Un
+       punto más grande que antes porque la condensada es más angosta. */
+    font-family: var(--font-display);
+    font-size: 0.8125rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-muted-foreground);
     position: sticky;

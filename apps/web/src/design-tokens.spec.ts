@@ -900,6 +900,33 @@ describe('Tablas', () => {
     // El `<th scope="row">` es una celda de datos: se estiliza con los `td`.
     expect(css).toMatch(/\.tabla td,\s*\n\s*\.tabla tbody th/);
   });
+
+  it('el encabezado de columna va en la letra de los rótulos', () => {
+    // Como una tabla de posiciones en una transmisión: la etiqueta de la columna
+    // en la condensada, y los datos en la letra de leer (TV2.1).
+    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
+
+    expect(encabezado).toMatch(/font-family:\s*var\(--font-display\)/);
+  });
+});
+
+describe('Botones', () => {
+  it('un botón sobre el campo usa su variante y no arma los colores a mano', () => {
+    // Seis botones se armaban con `bg-on-campo text-campo` a mano y solo uno
+    // tenía hover. La variante existe para que la fase 3, que llena la portada
+    // de bandas de campo, no repita la mezcla seis veces más (TV2.1).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [clases] of contenido.matchAll(/class="[^"]*\bboton\b[^"]*"/g)) {
+        if (/\b(bg|border|text)-on-campo\b|\btext-campo\b/.test(clases)) {
+          infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 80)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
 });
 
 describe('Acabado', () => {
