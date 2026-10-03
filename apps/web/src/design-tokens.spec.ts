@@ -937,6 +937,20 @@ describe('Botones', () => {
   });
 });
 
+describe('Franjas', () => {
+  it('nada se marca con una franja de color al costado', () => {
+    // La franja gruesa en el canto (`border-s-4`) es la marca más reconocible de
+    // una interfaz hecha en serie, y el detector de impeccable la cazó en D8.2.
+    // La última era la del ítem activo del panel; desde TV2.5 el activo es un
+    // rótulo, y esto impide que vuelva por otro lado.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /\bborder-[sel]-(?:[2-8])\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
+
 describe('Acabado', () => {
   it('ninguna transición usa la palabra all', () => {
     // `transition: all` anima también lo que nadie quiso animar —un `width` que
