@@ -452,15 +452,17 @@ import { Insignia } from '../ui/insignia';
             </div>
             <div
               role="columnheader"
-              class="bg-campo p-5 text-on-campo sm:order-1 sm:p-8 sm:text-end"
+              class="bg-campo p-4 text-on-campo sm:order-1 sm:p-8 sm:text-end"
             >
-              <h3 class="titular text-4xl sm:text-5xl">Socio</h3>
+              <!-- text-3xl en el teléfono: en text-4xl, "Visitante" sobresalía 7px
+                   de su media columna a 360. -->
+              <h3 class="titular text-3xl sm:text-5xl">Socio</h3>
               <p class="mt-2 text-on-campo/85">
                 Cuota mensual al día y la cancha sale sin costo.
               </p>
             </div>
-            <div role="columnheader" class="bg-campo-hondo p-5 text-on-campo sm:order-3 sm:p-8">
-              <h3 class="titular text-4xl sm:text-5xl">Visitante</h3>
+            <div role="columnheader" class="bg-campo-hondo p-4 text-on-campo sm:order-3 sm:p-8">
+              <h3 class="titular text-3xl sm:text-5xl">Visitante</h3>
               <p class="mt-2 text-on-campo/85">Sin cuenta y sin cuota: pagas la hora que juegas.</p>
             </div>
           </div>
