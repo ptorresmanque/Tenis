@@ -19,18 +19,8 @@ import {
   horaEnElClub,
   proximosDias,
 } from '../reloj-del-club';
+import { nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
-
-/**
- * Cómo se nombra cada motivo de bloqueo. El enum de la base no se muestra crudo:
- * "MANTENCION" en pantalla se lee como un error del sistema.
- */
-const MOTIVOS: Record<string, string> = {
-  MANTENCION: 'En mantención',
-  TORNEO: 'Torneo',
-  CLASE: 'Clase',
-  OTRO: 'No disponible',
-};
 
 /**
  * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
@@ -738,9 +728,7 @@ export class Grilla {
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
   protected readonly diaEnPalabras = diaEnPalabras;
 
-  protected motivo(motivo: BloqueDisponible['motivoBloqueo']): string {
-    return (motivo && MOTIVOS[motivo]) ?? 'No disponible';
-  }
+  protected readonly motivo = nombreDelMotivo;
 
   protected readonly superficie = nombreDeSuperficie;
 }
