@@ -133,31 +133,33 @@ describe('Inicio', () => {
     expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
   });
 
+  // Una hora libre en dos horas más, para el zócalo y para "Libre hoy".
+  const CANCHA = {
+    id: 3,
+    nombre: 'Cancha 3',
+    superficie: 'CEMENTO',
+    techada: false,
+    iluminacion: true,
+  } as GrillaDeCancha['cancha'];
+  const enDosHoras = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  enDosHoras.setMinutes(0, 0, 0);
+  const libreA = (inicio: Date) => ({
+    inicio: inicio.toISOString(),
+    fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
+    canchaId: 3,
+    montoClp: 12_000,
+    esPico: false,
+    bloqueado: false,
+    motivoBloqueo: null,
+    reservado: false,
+  });
+
   /**
    * El zócalo: la barra de la transmisión con la próxima hora libre, debajo del
    * hero (TV3.1). Es el dato por el que alguien entra a la portada, así que sus
    * cuatro estados se prueban: con hora, buscando, sin horas y con la API caída.
    */
   describe('el zócalo de la próxima hora libre', () => {
-    const CANCHA = {
-      id: 3,
-      nombre: 'Cancha 3',
-      superficie: 'CEMENTO',
-      techada: false,
-      iluminacion: true,
-    } as GrillaDeCancha['cancha'];
-    const enDosHoras = new Date(Date.now() + 2 * 60 * 60 * 1000);
-    enDosHoras.setMinutes(0, 0, 0);
-    const libreA = (inicio: Date) => ({
-      inicio: inicio.toISOString(),
-      fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
-      canchaId: 3,
-      montoClp: 12_000,
-      esPico: false,
-      bloqueado: false,
-      motivoBloqueo: null,
-      reservado: false,
-    });
     const zocalo = () =>
       elemento().querySelector('[aria-labelledby="proxima-libre"]') as HTMLElement;
 
@@ -202,27 +204,7 @@ describe('Inicio', () => {
     const veces = (frase: string) => texto().split(frase).length - 1;
 
     it('con horas libres, las lista', async () => {
-      const enDosHoras = new Date(Date.now() + 2 * 60 * 60 * 1000);
-      enDosHoras.setMinutes(0, 0, 0);
-      await montar([], () =>
-        Promise.resolve([
-          {
-            cancha: { id: 1, nombre: 'Cancha 1', superficie: 'CEMENTO', techada: false, iluminacion: true },
-            bloques: [
-              {
-                inicio: enDosHoras.toISOString(),
-                fin: new Date(enDosHoras.getTime() + 60 * 60 * 1000).toISOString(),
-                canchaId: 1,
-                montoClp: 12_000,
-                esPico: false,
-                bloqueado: false,
-                motivoBloqueo: null,
-                reservado: false,
-              },
-            ],
-          },
-        ] as GrillaDeCancha[]),
-      );
+      await montar([], () => Promise.resolve([{ cancha: CANCHA, bloques: [libreA(enDosHoras)] }]));
 
       expect(banda()?.textContent).toContain(horaEnElClub(enDosHoras.toISOString()));
     });
