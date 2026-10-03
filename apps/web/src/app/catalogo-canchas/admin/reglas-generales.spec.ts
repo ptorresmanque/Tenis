@@ -37,9 +37,11 @@ describe('ReglasGeneralesPanel', () => {
     ],
   };
 
-  const montar = async (reglas: typeof DEL_CLUB = DEL_CLUB) => {
+  const montar = async (reglas: typeof DEL_CLUB | Error = DEL_CLUB) => {
     api = {
-      general: vi.fn().mockResolvedValue(reglas),
+      general: vi.fn(() =>
+        reglas instanceof Error ? Promise.reject(reglas) : Promise.resolve(reglas),
+      ),
       fijarHorarios: vi.fn().mockResolvedValue([]),
       crearFranja: vi.fn().mockResolvedValue({}),
       borrarFranja: vi.fn().mockResolvedValue(undefined),
@@ -110,5 +112,12 @@ describe('ReglasGeneralesPanel', () => {
     await apretar('Guardar horario');
 
     expect(avisado).toHaveBeenCalled();
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si lo general no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar el horario y las tarifas generales');
   });
 });

@@ -96,6 +96,10 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
 
       @if (reglas.isLoading()) {
         <p class="mt-3 text-muted-foreground">Cargando…</p>
+      } @else if (reglas.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar las reglas del club. Reintenta en un momento.
+        </p>
       } @else if (valores(); as puestos) {
         <form class="mt-3" (ngSubmit)="guardar()">
           <div class="grid gap-4 sm:grid-cols-2">

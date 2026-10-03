@@ -431,8 +431,9 @@ export class Grilla {
   protected readonly grillas = resource({
     params: () => ({ fecha: this.fecha() }),
     loader: ({ params }) => this.disponibilidad.delDia(params.fecha),
-    // Con valor por defecto, `value()` nunca lanza y el template no necesita
-    // preguntar `hasValue()` antes de cada lectura.
+    // El valor por defecto evita el `undefined` mientras carga, pero **no** que
+    // `value()` lance cuando la carga falla: lo que lo lee fuera de la rama del
+    // error pregunta antes `hasValue()`.
     defaultValue: [],
   });
 
@@ -505,8 +506,9 @@ export class Grilla {
    */
   protected readonly visibles = computed(() => {
     const filtro = this.filtro();
+    const grillas = this.grillas.hasValue() ? this.grillas.value() : [];
 
-    return this.grillas.value().filter(({ cancha }) => {
+    return grillas.filter(({ cancha }) => {
       switch (filtro) {
         case 'techadas':
           return cancha.techada;
@@ -628,6 +630,9 @@ export class Grilla {
 
   /** El caso reportable de ese bloque, si el servidor lo listó. */
   protected reportable(bloque: BloqueDisponible) {
+    // Sin la lista no hay botón: es un agregado de la grilla y no vale tumbarla.
+    if (!this.reportables.hasValue()) return undefined;
+
     return this.reportables
       .value()
       .find(

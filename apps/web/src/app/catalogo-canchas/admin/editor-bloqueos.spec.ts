@@ -63,9 +63,11 @@ describe('EditorBloqueos', () => {
     pagoEnCurso: false,
   };
 
-  const montar = async (bloqueos: Bloqueo[], afectadas: HoraAfectada[] = []) => {
+  const montar = async (bloqueos: Bloqueo[] | Error, afectadas: HoraAfectada[] = []) => {
     api = {
-      bloqueos: vi.fn().mockResolvedValue(bloqueos),
+      bloqueos: vi.fn(() =>
+        bloqueos instanceof Error ? Promise.reject(bloqueos) : Promise.resolve(bloqueos),
+      ),
       simularCierre: vi.fn().mockResolvedValue({ afectadas }),
       cerrar: vi.fn().mockResolvedValue({ bloqueoId: 9, canceladas: afectadas }),
       borrarBloqueo: vi.fn().mockResolvedValue(undefined),
@@ -237,5 +239,12 @@ describe('EditorBloqueos', () => {
     expect(elemento().textContent).toContain(
       'El bloqueo tiene que terminar después de empezar.',
     );
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si los bloqueos no cargan, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(elemento().textContent).toContain('No se pudieron cargar los bloqueos');
   });
 });
