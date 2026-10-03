@@ -982,6 +982,43 @@ describe('Tablas', () => {
   });
 });
 
+describe('El panel en la A (Fase 7)', () => {
+  // Las carpetas ya migradas. Cada tarea de la Fase 7 suma la suya, y en el
+  // Checkpoint G la lista es el panel entero: la regla queda cuidando que una
+  // pantalla nueva no vuelva al título y a las secciones de antes.
+  const MIGRADAS = ['catalogo-canchas/admin/', 'configuracion/', 'reservas/admin/agenda.ts'];
+  const delPanel = () =>
+    plantillas().filter(({ archivo }) => MIGRADAS.some((ruta) => archivo.includes(ruta)));
+
+  it('el título de cada pantalla va en la cabecera del panel, en cursiva', () => {
+    const infractores = delPanel()
+      .filter(({ contenido }) => /<h1\b/.test(contenido))
+      .filter(
+        ({ contenido }) =>
+          !contenido.includes('class="cabecera-panel"') || !/<h1 class="titular\b/.test(contenido),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('cada sección visible se encabeza con el rótulo, no con un título suelto', () => {
+    // El sr-only queda afuera: es el nombre de una región para el lector de
+    // pantalla, y un rótulo que no se ve no tiene placa que pintar.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of delPanel()) {
+      for (const [etiqueta] of sinComentarios(contenido).matchAll(/<h2\b[^>]*>/g)) {
+        if (!/\b(rotulo-seccion|sr-only)\b/.test(etiqueta)) {
+          infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ')}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
 describe('Botones', () => {
   it('un botón sobre el campo usa su variante y no arma los colores a mano', () => {
     // Seis botones se armaban con `bg-on-campo text-campo` a mano. La variante

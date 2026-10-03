@@ -23,10 +23,10 @@ import { Administradores as ApiAdministradores } from './administradores.service
   imports: [Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
   template: `
     <section aria-labelledby="nombrar">
-      <h2 id="nombrar" class="font-display text-xl font-semibold">
+      <h2 id="nombrar" class="rotulo-seccion">
         Dar acceso al panel
       </h2>
-      <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+      <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         La persona necesita tener cuenta en el club. Con el panel abierto ve los
         teléfonos de quienes reservan y puede cambiar las reglas.
       </p>
@@ -56,7 +56,7 @@ import { Administradores as ApiAdministradores } from './administradores.service
 
     <section class="mt-8" aria-labelledby="con-acceso">
       <div class="flex flex-wrap items-center gap-3">
-        <h2 id="con-acceso" class="font-display text-xl font-semibold">
+        <h2 id="con-acceso" class="rotulo-seccion">
           Con acceso hoy
         </h2>
         <app-insignia variante="info" icono="shield_person">
