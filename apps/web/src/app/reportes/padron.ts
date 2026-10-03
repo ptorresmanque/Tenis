@@ -55,7 +55,9 @@ import { Reportes } from './reportes.service';
       </label>
     </div>
 
-    @if (reporte.value(); as datos) {
+    @if (reporte.error()) {
+      <p class="mt-6 text-destructive">No se pudo calcular el padrón. Reintenta en un momento.</p>
+    } @else if (reporte.value(); as datos) {
       <dl class="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         @for (dato of resumen(); track dato.etiqueta) {
           <div class="rounded-xl border border-border bg-card p-4 shadow-sm">

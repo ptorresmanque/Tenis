@@ -64,7 +64,9 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
       </label>
     </div>
 
-    @if (reporte.value(); as datos) {
+    @if (reporte.error()) {
+      <p class="mt-6 text-destructive">No se pudo calcular el ingreso. Reintenta en un momento.</p>
+    } @else if (reporte.value(); as datos) {
       @if (datos.filas.length === 0) {
         <app-estado-vacio
           class="mt-6 block"
