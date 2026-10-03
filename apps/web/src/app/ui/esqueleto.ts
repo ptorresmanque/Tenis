@@ -29,7 +29,7 @@ import { Component, input } from '@angular/core';
   `,
   styles: `
     div > div {
-      animation: latir 1.4s ease-in-out infinite;
+      animation: latir var(--duracion-latido) ease-in-out infinite;
     }
 
     @keyframes latir {

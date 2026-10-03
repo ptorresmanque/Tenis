@@ -162,6 +162,11 @@
   /* La entrada de contenido al cargar, más larga porque no bloquea a nadie:
      el usuario no está esperando que termine para hacer lo siguiente. */
   --duracion-entrada: 400ms;
+
+  /* Los bucles que nadie espera, y por eso se pasan de los 300ms: no responden
+     a un gesto, acompañan. El latido del esqueleto mientras llegan los datos.
+     La regla global de movimiento reducido lo apaga. */
+  --duracion-latido: 1.4s;
   /* El desfase entre un elemento y el siguiente en una entrada escalonada.
      Se topea el acumulado: con 40 elementos, el último entraría 2,4 s tarde. */
   --escalonado: 60ms;

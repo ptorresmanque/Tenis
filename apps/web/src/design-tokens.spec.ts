@@ -675,11 +675,13 @@ describe('Movimiento', () => {
   });
 
   it('ningún componente escribe una duración a mano', () => {
-    // `0ms` y `0.01ms` sí: son "no animes", no una velocidad elegida.
+    // `0ms` y `0.01ms` sí: son "no animes", no una velocidad elegida. Y en
+    // segundos también cuenta: hasta TV3.2 solo miraba milisegundos, y el
+    // `1.4s` del esqueleto pasaba sin que nadie lo hubiera decidido.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
-      const duraciones = /(?<![\d.])(?!0ms|0\.01ms)\d+(?:\.\d+)?ms\b/g;
+      const duraciones = /(?<![\w.-])(?!0ms|0\.01ms|0s)\d+(?:\.\d+)?m?s\b/g;
       for (const [uso] of sinComentarios(contenido).matchAll(duraciones)) {
         infractores.push(`${archivo}: ${uso}`);
       }
