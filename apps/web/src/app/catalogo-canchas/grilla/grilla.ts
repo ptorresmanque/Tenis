@@ -54,13 +54,15 @@ export interface Franja {
  * `franja.libresQueNoExisten`, compilaba igual. Con el `@for` de antes eso no
  * pasaba.
  */
-@Directive({ selector: 'ng-template[franjaTipada]' })
+@Directive({ selector: 'ng-template[appFranjaTipada]' })
 export class FranjaTipada {
   static ngTemplateContextGuard(
     _directiva: FranjaTipada,
     contexto: unknown,
   ): contexto is { $implicit: Franja } {
-    return true;
+    // El contexto de un ng-template es siempre un objeto; lo que importa es el
+    // tipo que esta firma le da al compilador.
+    return typeof contexto === 'object';
   }
 }
 
@@ -268,7 +270,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
     }
 
     <!-- Una franja: se escribe una vez y se usa dentro y fuera del pliegue. -->
-    <ng-template #franjaTpl franjaTipada let-franja>
+    <ng-template #franjaTpl appFranjaTipada let-franja>
       <section class="mt-6 border-t border-border pt-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <!-- Las etiquetas van pegadas a propósito: un salto de línea entre
