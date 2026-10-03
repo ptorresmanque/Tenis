@@ -46,27 +46,34 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
           Búscala por su folio en la agenda del día.
         </app-aviso>
       } @else if (reserva.value(); as datos) {
-        <div class="rounded-2xl border border-border bg-card p-6 text-center shadow-lg">
+        <!-- La misma forma que "Mis reservas" (TV5.3): la tarjeta sin borde, el
+             nombre como titular y la hora en su rótulo. -->
+        <div class="bg-card p-6 text-center shadow-md">
           <p>
             <app-insignia [variante]="estado().variante" [icono]="estado().icono">
               {{ estado().texto }}
             </app-insignia>
           </p>
 
-          <h1 class="mt-4 font-display text-3xl font-bold">{{ datos.nombre }}</h1>
-          <p class="mt-1 text-lg">{{ datos.cancha }}</p>
+          <h1 class="titular mt-4 text-4xl">{{ datos.nombre }}</h1>
+          <p class="mt-1 font-display text-lg font-bold tracking-wide uppercase">
+            {{ datos.cancha }}
+          </p>
 
-          <p class="mt-4 font-display text-4xl font-black text-primary">
+          <p
+            class="mt-4 inline-flex px-3 py-1 font-display text-4xl font-bold tabular-nums"
+            [class]="datos.esPico ? 'bg-warning-soft text-warning-strong' : 'bg-campo text-on-campo'"
+          >
             {{ hora(datos.inicio) }}–{{ hora(datos.fin) }}
           </p>
           <p class="text-muted-foreground">{{ dia(datos.inicio) }}</p>
 
           <dl class="mt-6 grid grid-cols-2 gap-3 text-start text-sm">
-            <div class="rounded-lg bg-muted p-3">
+            <div class="bg-muted p-3">
               <dt class="text-muted-foreground">Folio</dt>
               <dd class="font-mono font-semibold">{{ datos.folio }}</dd>
             </div>
-            <div class="rounded-lg bg-muted p-3">
+            <div class="bg-muted p-3">
               <dt class="text-muted-foreground">Entran</dt>
               <dd class="font-semibold">{{ cuantosEntran() }}</dd>
             </div>
@@ -74,7 +81,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
 
           @if (datos.esPico) {
             <p class="mt-3">
-              <app-insignia variante="info" icono="trending_up">Hora pico</app-insignia>
+              <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
             </p>
           }
         </div>
