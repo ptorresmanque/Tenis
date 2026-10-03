@@ -657,6 +657,24 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 
   /*
+    LA CABECERA DEL PANEL (TV7.1).
+
+    Una banda compacta, de 96px como máximo: el titular en cursiva a la
+    izquierda —con su insignia y su bajada— y **una sola acción principal** a la
+    derecha. La navegación de la pantalla va debajo, no adentro. Sin hero, sin
+    foto y sin animación: el panel es para trabajar (regla de la Fase 7).
+  */
+  .cabecera-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /*
     LA HORA EN UN RÓTULO (TV5.1, TV5.3).
 
     Campo, o ámbar suave si es hora pico, en la condensada y con cifras de ancho

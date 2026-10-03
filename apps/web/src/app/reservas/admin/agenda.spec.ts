@@ -70,6 +70,17 @@ describe('AgendaDelDia', () => {
     await montar([UNA]);
   });
 
+  it('la cabecera del panel lleva el título y una sola acción principal (TV7.1)', () => {
+    // La regla del panel: una banda compacta con el titular y **una** acción
+    // principal. La navegación entre días va debajo, fuera de la cabecera.
+    const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
+
+    expect(cabecera?.querySelector('h1')?.textContent).toContain('Reservas del día');
+    expect(cabecera?.querySelectorAll('.boton-primario').length).toBe(1);
+    expect(cabecera?.querySelector('.boton-primario')?.textContent).toContain('Nueva reserva');
+    expect(cabecera?.querySelector('[aria-label="Día anterior"]')).toBeNull();
+  });
+
   it('muestra la hora del club, la cancha, quién viene y su teléfono', () => {
     expect(texto()).toContain('08:00–09:00');
     expect(texto()).toContain('Cancha 1');

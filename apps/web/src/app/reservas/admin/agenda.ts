@@ -32,13 +32,24 @@ import { NuevaReserva } from './nueva-reserva';
   selector: 'app-agenda-del-dia',
   imports: [Aviso, EstadoVacio, Insignia, NuevaReserva],
   template: `
-    <div class="flex flex-wrap items-center gap-3">
-      <h1 class="font-display text-3xl font-bold">Reservas del día</h1>
-      <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
-           que alguien recargue por las dudas cada dos minutos. -->
-      <app-insignia variante="exito" icono="sensors">En vivo</app-insignia>
-    </div>
-    <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
+    <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
+         La navegación entre días va debajo. -->
+    <header class="cabecera-panel">
+      <div>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="titular text-4xl">Reservas del día</h1>
+          <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
+               que alguien recargue por las dudas cada dos minutos. -->
+          <app-insignia variante="exito" icono="sensors">En vivo</app-insignia>
+        </div>
+        <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
+      </div>
+
+      <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
+        <span class="icono text-base" aria-hidden="true">add</span>
+        Nueva reserva
+      </button>
+    </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
       <div class="flex items-center gap-1">
@@ -78,15 +89,6 @@ import { NuevaReserva } from './nueva-reserva';
           (change)="cambiarFecha($event)"
         />
       </div>
-
-      <button
-        type="button"
-        class="boton boton-primario ms-auto"
-        (click)="tomandoHora.set(true)"
-      >
-        <span class="icono text-base" aria-hidden="true">add</span>
-        Nueva reserva
-      </button>
     </div>
 
     @if (tomandoHora()) {
