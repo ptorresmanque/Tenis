@@ -149,12 +149,13 @@ describe('Inicio', () => {
       expect(cinta()?.textContent).toContain('Se juega desde el');
     });
 
-    it('una categoría llena lo dice, en vez de un "quedan 0"', async () => {
+    it('una categoría llena dice que hay lista de espera, como la sección de abajo', async () => {
       await montar([
         { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 0 }] },
       ]);
 
-      expect(cinta()?.textContent).toContain('4ª: sin cupos');
+      // "Sin cupos" a secas manda a no inscribirse a quien sí puede: entra en espera.
+      expect(cinta()?.textContent).toContain('4ª: sin cupos, se entra en lista de espera');
     });
 
     it('su rótulo lleva a la sección de abajo', async () => {

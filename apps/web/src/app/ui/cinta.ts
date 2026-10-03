@@ -5,8 +5,13 @@ import { Component, input, signal } from '@angular/core';
  *
  * **Se detiene de tres maneras**, porque lo que se mueve solo por más de cinco
  * segundos tiene que poder pararse (WCAG 2.2.2): con su botón, con el puntero
- * encima y con el foco adentro. El botón usa `aria-pressed` y no cambia de
- * nombre: "Detener la cinta" apretado dice que está detenida.
+ * sobre los mensajes y con el foco en el rótulo. El botón usa `aria-pressed` y no
+ * cambia de nombre: "Detener la cinta" apretado dice que está detenida.
+ *
+ * **El botón no la detiene por tener el foco ni el puntero encima.** En la
+ * primera versión sí, y "reanudar" no hacía nada: al hacer clic el botón queda
+ * enfocado y el puntero sigue ahí, así que la cinta seguía quieta hasta salir
+ * (revisión de TV3.2). El botón manda solo con su estado.
  *
  * **Los mensajes van dos veces** para que la vuelta no salte: el carril corre la
  * mitad de su ancho y la copia queda donde estaba el original. La copia lleva
@@ -28,8 +33,9 @@ import { Component, input, signal } from '@angular/core';
   template: `
     <section [attr.aria-label]="etiqueta()" class="bg-campo text-on-campo sm:flex">
       <div
-        class="flex items-center gap-2 bg-rotulo px-4 py-1.5 font-display text-sm font-bold
-               tracking-wider text-on-rotulo uppercase sm:shrink-0 sm:ps-5 sm:corte-fin"
+        class="rotulo flex items-center gap-2 bg-rotulo px-4 py-1.5 font-display text-sm
+               font-bold tracking-wider text-on-rotulo uppercase sm:shrink-0 sm:ps-5
+               sm:corte-fin"
       >
         <span class="icono text-base" aria-hidden="true">emoji_events</span>
         <ng-content />
@@ -91,14 +97,15 @@ import { Component, input, signal } from '@angular/core';
     }
 
     .carril[data-pausada],
-    :host(:focus-within) .carril {
+    .rotulo:focus-within + * .carril {
       animation-play-state: paused;
     }
 
     /* Solo con un puntero que se posa: en una pantalla táctil el "hover" queda
-       pegado después de tocar y la cinta no volvería a andar. */
+       pegado después de tocar y la cinta no volvería a andar. Y solo sobre la
+       pista, que es lo que se lee: no sobre el botón. */
     @media (hover: hover) {
-      :host(:hover) .carril {
+      .pista:hover .carril {
         animation-play-state: paused;
       }
     }

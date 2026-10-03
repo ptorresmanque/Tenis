@@ -199,7 +199,11 @@ import { Insignia } from '../ui/insignia';
         el rótulo dice "Inscripciones abiertas" a secas porque la frase entera no
         cabe fija en un teléfono.
       -->
-      <app-cinta class="-mx-4 mt-3 sm:mx-0" [etiqueta]="avisoDeTorneos()" [mensajes]="mensajesDeTorneos()">
+      <app-cinta
+        class="-mx-4 mt-3 sm:mx-0"
+        [etiqueta]="avisoDeTorneos()"
+        [mensajes]="mensajesDeTorneos()"
+      >
         <a href="#torneos-abiertos" class="underline-offset-4 hover:underline">
           Inscripciones abiertas
         </a>
@@ -564,7 +568,10 @@ export class Inicio {
       `${torneo.nombre}: inscripciones hasta el ${diaEnPalabras(torneo.cierreInscripcion)}`,
       ...torneo.categorias.map(
         ({ categoria, cupo, cuposLibres }) =>
-          `${categoria}: ${cuposLibres > 0 ? `quedan ${cuposLibres} de ${cupo} cupos` : 'sin cupos'}`,
+          `${categoria}: ` +
+          (cuposLibres > 0
+            ? `quedan ${cuposLibres} de ${cupo} cupos`
+            : 'sin cupos, se entra en lista de espera'),
       ),
       `Se juega desde el ${diaEnPalabras(torneo.fechaInicio)}`,
     ]),
