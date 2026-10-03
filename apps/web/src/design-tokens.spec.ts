@@ -988,6 +988,7 @@ describe('El panel en la A (Fase 7)', () => {
   // pantalla nueva no vuelva al título y a las secciones de antes.
   const MIGRADAS = [
     'catalogo-canchas/admin/',
+    'clases/admin/',
     'configuracion/',
     'cuotas/admin/',
     'identidad/admin/',

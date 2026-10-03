@@ -24,7 +24,7 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
     @if (ficha.value(); as clase) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
-          <h3 class="font-display font-semibold">Quién viene</h3>
+          <h3 class="font-display text-sm font-bold tracking-wider uppercase">Quién viene</h3>
           <app-insignia
             [variante]="clase.cupoTomado >= clase.cupoMaximo ? 'aviso' : 'neutro'"
             icono="group"
