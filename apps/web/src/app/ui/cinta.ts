@@ -59,7 +59,7 @@ import { Component, input, signal } from '@angular/core';
         <button
           type="button"
           class="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center
-                 text-on-campo hover:bg-on-campo/10 focus-visible:outline-on-campo"
+                 text-on-campo hover:bg-on-campo/10"
           [attr.aria-pressed]="pausada()"
           (click)="pausada.set(!pausada())"
         >

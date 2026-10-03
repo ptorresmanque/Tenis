@@ -787,6 +787,41 @@ describe('Tacto', () => {
   });
 });
 
+describe('Foco', () => {
+  /**
+   * El anillo de foco tiene que verse contra lo que rodea al control (WCAG
+   * 2.4.7). En claro, `--color-ring` y `--color-campo` son el mismo azul: sobre
+   * la banda azul el anillo no existía, y con teclado no se sabía dónde estaba el
+   * foco en el hero, en "Libre hoy" ni en el pie. Hallado en TV3.2.
+   */
+  // En los hijos y no en el contenedor: el anillo se dibuja afuera del control,
+  // sobre el fondo de quien lo contiene. El ítem activo del panel es bg-rotulo y
+  // su anillo cae sobre la barra clara; si la regla lo alcanzara, se borraría.
+  it('sobre el campo y sobre el rótulo, el anillo toma el color del texto', () => {
+    expect(css).toMatch(
+      /\.bg-campo > \*,\s*\.text-on-campo > \*\s*\{[^}]*--color-ring:\s*var\(--color-on-campo\)/,
+    );
+    expect(css).toMatch(/\.bg-rotulo > \*\s*\{[^}]*--color-ring:\s*var\(--color-on-rotulo\)/);
+  });
+
+  it('cada anillo se distingue de su fondo, en los dos temas', () => {
+    for (const [nombre, tema] of TEMAS) {
+      expect(
+        contraste(colorDe(tema, 'ring'), colorDe(tema, 'background')),
+        `el anillo sobre el fondo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contraste(colorDe(tema, 'on-campo'), colorDe(tema, 'campo')),
+        `el anillo sobre el campo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contraste(colorDe(tema, 'on-rotulo'), colorDe(tema, 'rotulo')),
+        `el anillo sobre el rótulo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
 describe('Esquinas', () => {
   // Un solo radio en todo el sitio: el lenguaje de transmisión es de esquinas
   // rectas (plan de transmisión, TV1.2). La forma de cumplirlo sin tocar las

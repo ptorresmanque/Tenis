@@ -425,6 +425,24 @@ html[data-tema='publico'][data-modo='oscuro'] {
     outline-offset: 2px;
   }
 
+  /* Sobre el campo y sobre el rótulo, el anillo es del color del texto. En
+     claro, --color-ring y --color-campo son el mismo azul, y el foco desaparecía
+     en el hero, en "Libre hoy" y en el pie (TV3.2). Se cuelga de las clases que
+     toda región azul ya lleva, así que una región nueva lo hereda sin acordarse.
+
+     En los hijos y no en el contenedor: el anillo se dibuja afuera del control,
+     sobre el fondo de quien lo contiene. Así manda el contenedor más cercano, y
+     un control que es él mismo bg-rotulo (el ítem activo del panel) conserva el
+     anillo azul que se ve sobre la barra clara. */
+  .bg-campo > *,
+  .text-on-campo > * {
+    --color-ring: var(--color-on-campo);
+  }
+
+  .bg-rotulo > * {
+    --color-ring: var(--color-on-rotulo);
+  }
+
   /*
     EL TEXTO PARA LECTOR DE PANTALLA NO EMPUJA LA PÁGINA.
 
