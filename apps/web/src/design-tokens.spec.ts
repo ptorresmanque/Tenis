@@ -391,14 +391,26 @@ describe('Tipografía', () => {
     expect(enlace).toContain('display=block');
   });
 
+  it('la familia de .icono es la que carga index.html', () => {
+    // Si el enlace y la regla nombran familias distintas, cada ícono se pinta
+    // como su nombre escrito: "calendar_month" en vez del calendario. Cargar una
+    // fuente que nadie usa no lo detecta el test de arriba.
+    const cargada = html.match(/family=(Material\+Symbols\+\w+)/)?.[1].replaceAll('+', ' ');
+    const usada = css.match(/\.icono\s*\{[^}]*?font-family:\s*'([^']+)'/)?.[1];
+
+    expect(cargada).toBeDefined();
+    expect(usada).toBe(cargada);
+  });
+
   it('los íconos usan clase propia y no la de Google', () => {
-    // `.material-symbols-outlined` de Google viene sin capa y le gana a toda
-    // utilidad de Tailwind: con esa clase, text-* sobre un ícono no hace nada.
-    // La clase propia .icono está en @layer base y sí se deja mandar.
+    // La clase de Google (`.material-symbols-outlined`, `-rounded` o `-sharp`,
+    // según la variante) viene sin capa y le gana a toda utilidad de Tailwind:
+    // con esa clase, text-* sobre un ícono no hace nada. La clase propia .icono
+    // está en @layer base y sí se deja mandar.
     expect(css).toContain('.icono');
 
     const infractores = plantillas()
-      .filter(({ contenido }) => contenido.includes('material-symbols-outlined'))
+      .filter(({ contenido }) => /material-symbols-(outlined|rounded|sharp)/.test(contenido))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);

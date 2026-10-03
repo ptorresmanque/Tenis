@@ -354,9 +354,12 @@ html[data-tema='publico'][data-modo='oscuro'] {
      cascada una regla sin capa le gana a cualquier @layer: con esa clase,
      text-2xl sobre un ícono no hace nada y todos salen de 24px. Acá no se
      declara font-size a propósito, para que las utilidades manden.
-     El ícono es una ligadura: sin aria-hidden el lector lee "check_circle". */
+     El ícono es una ligadura: sin aria-hidden el lector lee "check_circle".
+     La variante Sharp, rellena y en 500, es la de esquinas rectas: conversa con
+     el resto del lenguaje de transmisión (TV1.3). El relleno y el peso vienen
+     fijos en el enlace de index.html, no acá. */
   .icono {
-    font-family: 'Material Symbols Outlined';
+    font-family: 'Material Symbols Sharp';
     font-weight: normal;
     font-style: normal;
     line-height: 1;
