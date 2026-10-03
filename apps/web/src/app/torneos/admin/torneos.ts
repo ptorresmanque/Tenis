@@ -185,6 +185,10 @@ const enBlanco = () => ({
 
     @if (torneos.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los torneos…" />
+    } @else if (torneos.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar los torneos. Reintenta en un momento.
+      </p>
     } @else if (torneos.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
@@ -281,7 +285,11 @@ const enBlanco = () => ({
       De los puntos del campeón salen los de cada ronda.
     </p>
 
-    @if (categorias.value().length > 0) {
+    @if (categorias.error()) {
+      <p class="mt-3 text-destructive">
+        No se pudieron cargar las categorías. Reintenta en un momento.
+      </p>
+    } @else if (categorias.value().length > 0) {
       <ul class="mt-3 grid gap-2">
         @for (categoria of categorias.value(); track categoria.id) {
           <li
@@ -388,7 +396,7 @@ export class TorneosPanel {
 
   /** Los años que tienen algún torneo, del más nuevo al más viejo. */
   protected readonly anios = computed(() => [
-    ...new Set(this.torneos.value().map((t) => t.fechaInicio.slice(0, 4))),
+    ...new Set(this.cargados().map((t) => t.fechaInicio.slice(0, 4))),
   ]);
 
   /**
@@ -411,7 +419,12 @@ export class TorneosPanel {
 
   /** Cuántos hay en un grupo, para decirlo en el botón antes de apretarlo. */
   protected cuantos(grupo: Grupo): number {
-    return this.torneos.value().filter((t) => this.enElGrupo(t, grupo)).length;
+    return this.cargados().filter((t) => this.enElGrupo(t, grupo)).length;
+  }
+
+  /** Los filtros se pintan aunque la lista no cargue, y `value()` lanzaría. */
+  private cargados(): Torneo[] {
+    return this.torneos.hasValue() ? this.torneos.value() : [];
   }
 
   private enElGrupo(torneo: Torneo, grupo: Grupo): boolean {

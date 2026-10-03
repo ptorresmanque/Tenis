@@ -58,10 +58,17 @@ describe('TorneosPanel', () => {
     editarCategoria: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (torneos: Torneo[], categorias: CategoriaTorneo[]) => {
+  const montar = async (
+    torneos: Torneo[] | Error,
+    categorias: CategoriaTorneo[] | Error,
+  ) => {
     api = {
-      torneos: vi.fn().mockResolvedValue(torneos),
-      categorias: vi.fn().mockResolvedValue(categorias),
+      torneos: vi.fn(() =>
+        torneos instanceof Error ? Promise.reject(torneos) : Promise.resolve(torneos),
+      ),
+      categorias: vi.fn(() =>
+        categorias instanceof Error ? Promise.reject(categorias) : Promise.resolve(categorias),
+      ),
       crearTorneo: vi.fn().mockResolvedValue(TORNEO),
       crearCategoria: vi.fn().mockResolvedValue(CLUB_250),
       editarCategoria: vi.fn().mockResolvedValue(CLUB_250),
@@ -183,5 +190,13 @@ describe('TorneosPanel', () => {
     await montar([], [CLUB_250]);
 
     expect(texto()).toContain('Todavía no hay torneos');
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    await montar(new Error('la API no respondió'), new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar los torneos');
+    expect(texto()).toContain('No se pudieron cargar las categorías');
   });
 });

@@ -172,4 +172,22 @@ describe('JugadoresPanel', () => {
 
     expect(texto()).toContain('Todavía no hay jugadores');
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    const caida = () => Promise.reject(new Error('la API no respondió'));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Torneos, useValue: { jugadores: caida } },
+        { provide: Socios, useValue: { listado: caida } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(JugadoresPanel);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudieron cargar los jugadores');
+  });
 });

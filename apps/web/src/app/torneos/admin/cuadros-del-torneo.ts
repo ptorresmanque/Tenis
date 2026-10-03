@@ -37,6 +37,10 @@ import {
 
       @if (cuadros.isLoading()) {
         <p class="mt-2 text-sm text-muted-foreground">Cargando…</p>
+      } @else if (cuadros.error()) {
+        <p class="mt-2 text-sm text-destructive">
+          No se pudieron cargar las categorías del torneo. Reintenta en un momento.
+        </p>
       } @else if (cuadros.value().length === 0) {
         <p class="mt-2 max-w-prose text-sm text-muted-foreground">
           Este torneo todavía no corre ninguna categoría.
@@ -57,10 +61,12 @@ import {
                   [disabled]="trabajando()"
                   (change)="cambiarValor(cuadro.id, $event)"
                 >
-                  @for (valor of valores.value(); track valor.id) {
-                    <option [value]="valor.id">
-                      {{ valor.nombre }} ({{ valor.puntosCampeon }})
-                    </option>
+                  @if (valores.hasValue()) {
+                    @for (valor of valores.value(); track valor.id) {
+                      <option [value]="valor.id">
+                        {{ valor.nombre }} ({{ valor.puntosCampeon }})
+                      </option>
+                    }
                   }
                 </select>
               </label>
@@ -114,10 +120,12 @@ import {
           <span class="text-sm font-medium">Vale</span>
           <select class="campo mt-1" name="valor" [(ngModel)]="valorId">
             <option [value]="0" disabled>Elige uno</option>
-            @for (valor of valores.value(); track valor.id) {
-              <option [value]="valor.id">
-                {{ valor.nombre }} ({{ valor.puntosCampeon }} al campeón)
-              </option>
+            @if (valores.hasValue()) {
+              @for (valor of valores.value(); track valor.id) {
+                <option [value]="valor.id">
+                  {{ valor.nombre }} ({{ valor.puntosCampeon }} al campeón)
+                </option>
+              }
             }
           </select>
         </label>
@@ -142,7 +150,11 @@ import {
           Agregar
         </button>
 
-        @if (disponibles().length === 0 && !cuadros.isLoading()) {
+        @if (categorias.error()) {
+          <span class="text-sm text-destructive">
+            No se pudieron cargar las categorías del club.
+          </span>
+        } @else if (disponibles().length === 0 && !cuadros.isLoading()) {
           <span class="text-sm text-muted-foreground">
             Ya corre todas las categorías activas del club.
           </span>
@@ -186,7 +198,7 @@ export class CuadrosDelTorneo {
     defaultValue: [],
   });
 
-  private readonly categorias = resource({
+  protected readonly categorias = resource({
     loader: () => this.api.categoriasDeJuego(true),
     defaultValue: [] as CategoriaJuego[],
   });
@@ -204,11 +216,16 @@ export class CuadrosDelTorneo {
    * mirando la pantalla, y el servidor ya lo rechaza: acá se evita el viaje.
    */
   protected readonly disponibles = computed(() => {
+    // Se lee en el formulario, que se ve aunque alguna de las dos no haya cargado.
     const puestas = new Set(
-      this.cuadros.value().map((cuadro) => cuadro.categoriaJuegoId),
+      (this.cuadros.hasValue() ? this.cuadros.value() : []).map(
+        (cuadro) => cuadro.categoriaJuegoId,
+      ),
     );
 
-    return this.categorias.value().filter((c) => !puestas.has(c.id));
+    return (this.categorias.hasValue() ? this.categorias.value() : []).filter(
+      (c) => !puestas.has(c.id),
+    );
   });
 
   protected async agregar(): Promise<void> {
