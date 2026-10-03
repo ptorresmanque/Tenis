@@ -289,7 +289,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                 @if (detalleDe(categoria.id); as detalle) {
                 @if (detalle.partidos.length === 0) {
                   <div class="mt-3 rounded-lg border border-border bg-background p-3">
-                    <h3 class="text-sm font-semibold">Inscritos</h3>
+                    <h3 class="font-display text-sm font-bold tracking-wider uppercase">Inscritos</h3>
                     <p class="mt-1 text-sm text-muted-foreground">
                       {{ detalle.inscritos.join(', ') || 'Todavía nadie.' }}
                     </p>
@@ -301,7 +301,10 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   <div data-cuadro class="mt-3 flex gap-3 overflow-x-auto pb-2">
                     @for (ronda of porRonda(); track ronda.numero) {
                       <div class="min-w-48 shrink-0">
-                        <h3 class="text-sm font-semibold text-muted-foreground">
+                        <h3
+                          class="font-display text-sm font-semibold tracking-wider
+                                 text-muted-foreground uppercase"
+                        >
                           {{ ronda.nombre }}
                         </h3>
                         <ul class="mt-2 grid gap-2">
@@ -345,7 +348,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
 
               @if (torneoAbierto() === torneo.id && transmisiones.value().length > 0) {
                 <div class="mt-3">
-                  <h3 class="text-sm font-semibold">En vivo</h3>
+                  <h3 class="font-display text-sm font-bold tracking-wider uppercase">En vivo</h3>
                   <div class="grid gap-3 sm:grid-cols-2">
                     @for (transmision of transmisiones.value(); track transmision.id) {
                       <app-reproductor [transmision]="transmision" />

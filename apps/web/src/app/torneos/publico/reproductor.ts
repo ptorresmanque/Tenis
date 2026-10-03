@@ -55,6 +55,19 @@ import { Transmision } from '../torneos.service';
               play_circle
             </span>
           </span>
+          <!-- El rótulo de la transmisión (TV4.3): acá es literal, porque es una
+               transmisión de verdad. Con aria-hidden, porque el botón ya nombra la
+               cancha y el lector la oiría dos veces. -->
+          <span
+            data-rotulo
+            class="absolute top-3 left-0 flex items-center gap-1.5 bg-rotulo py-1 ps-3
+                   font-display text-sm font-bold tracking-wider text-on-rotulo uppercase
+                   corte-fin"
+            aria-hidden="true"
+          >
+            <span class="icono text-base" aria-hidden="true">videocam</span>
+            {{ transmision().cancha }}
+          </span>
           <span class="sr-only">
             Ver la transmisión de {{ transmision().cancha }}
           </span>
