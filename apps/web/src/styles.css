@@ -75,9 +75,17 @@
     cerca del negro que ni el negro puro se separa de él (1,22:1), y una placa
     que no se separa del fondo no es una placa. Plan de transmisión, TV1.4.
 
+    **Por eso el rótulo es solo para piezas chicas**: la cinta, el rótulo del
+    zócalo, una etiqueta. Nunca para una región —el pie, media sección—: en
+    oscuro sería una franja clara a todo el ancho, la zona más brillante de una
+    pantalla oscura, que es el defecto que obligó a separar `campo` de `primary`
+    en D6.2. Una región oscura lleva `campo`.
+
     La celda libre es la cancha libre en el marcador de la portada, sobre el
     campo. Son valores que la paleta ya tenía: menta con verde fuerte en claro,
     y en oscuro el verde con texto oscuro, porque ahí no aguanta blanco encima.
+    No es el verde sólido del mockup a propósito: #047857 sobre el campo da
+    1,46:1, y una celda que se puede apretar pide 3:1 contra lo que la rodea.
   */
   --color-rotulo: #0f172a;
   --color-on-rotulo: #ffffff;
