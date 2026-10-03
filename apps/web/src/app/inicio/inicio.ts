@@ -2,6 +2,7 @@ import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
+import { Marcador } from '../catalogo-canchas/marcador';
 import {
   diaEnPalabras,
   enPesos,
@@ -40,7 +41,7 @@ import { Insignia } from '../ui/insignia';
  */
 @Component({
   selector: 'app-inicio',
-  imports: [RouterLink, Cinta, Esqueleto, Foto, Insignia],
+  imports: [RouterLink, Cinta, Esqueleto, Foto, Insignia, Marcador],
   template: `
     <!--
       BANDA 1 — La foto y la promesa.
@@ -156,7 +157,7 @@ import { Insignia } from '../ui/insignia';
                 Mira la disponibilidad
               </a>
             </p>
-          } @else if (libresDeHoy()[0]; as libre) {
+          } @else if (proximaLibre(); as libre) {
             <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
             <div class="min-w-0 flex-1">
               <p class="font-display text-lg font-bold uppercase">{{ libre.cancha }}</p>
@@ -213,63 +214,29 @@ import { Insignia } from '../ui/insignia';
     <!--
       BANDA 2 — El marcador.
 
-      La razón de que exista la portada: qué horas quedan hoy. Va en cifras
-      grandes sobre azul pleno porque es lo único que alguien tiene que poder
-      leer de un vistazo, y en un carril horizontal porque seis horas apiladas en
-      el teléfono son seis pantallazos de scroll.
+      La razón de que exista la portada: qué horas quedan hoy. Desde TV3.3 es el
+      tablero de la transmisión, las horas contra las canchas: se lee de un
+      vistazo cuándo y dónde, y cada celda libre lleva a reservar como el
+      "Reservar" del carril al que reemplaza.
 
       Aparece solo si hay horas que listar. Cargando, sin horas o con la API
       caída, el aviso lo da el zócalo: la banda repetía la misma frase debajo, y
       con dos regiones vivas el lector de pantalla la anunciaba dos veces
       (revisión de TV3.1).
     -->
-    @if (libresDeHoy().length > 0) {
+    @if (proximaLibre()) {
       <section
         class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
         aria-labelledby="libre-hoy"
       >
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="libre-hoy" class="font-display text-2xl font-bold">Libre hoy</h2>
+          <h2 id="libre-hoy" class="titular text-4xl sm:text-5xl">Libre hoy</h2>
           <a routerLink="/disponibilidad" class="text-sm font-semibold underline">
             Ver todos los horarios
           </a>
         </div>
 
-        <!-- Carril con anclaje: se hojea con el pulgar y cada hora queda
-             encuadrada sola. Apilarlas sería volver a la lista. -->
-        <!-- Sin márgenes negativos propios: la sección ya se sangra con los
-             suyos, y un contenedor de scroll que además es más ancho que la
-             pantalla deja de contener a sus hijos y empuja al documento entero.
-             Medido: 1136px de desborde a 390px. -->
-        <ul
-          class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2
-                 sm:grid sm:grid-cols-3"
-        >
-          @for (libre of libresDeHoy(); track libre.inicio + libre.cancha) {
-            <li
-              class="min-w-[13rem] shrink-0 snap-start rounded-caja bg-on-campo/10 p-4
-                     sm:min-w-0"
-            >
-              <!-- El único blanco puro de la banda. Todo lo demás cede. -->
-              <p class="font-display text-marcador text-on-campo">
-                {{ hora(libre.inicio) }}
-              </p>
-              <p class="mt-1 font-semibold text-on-campo/90">{{ libre.cancha }}</p>
-              <p class="text-sm text-on-campo/75">
-                Socio sin costo · Arriendo {{ pesos(libre.montoClp) }}
-              </p>
-              <a
-                routerLink="/disponibilidad"
-                class="boton boton-chico boton-sobre-campo mt-3 w-full"
-              >
-                Reservar
-                <span class="sr-only">
-                  {{ libre.cancha }} a las {{ hora(libre.inicio) }}
-                </span>
-              </a>
-            </li>
-          }
-        </ul>
+        <app-marcador class="mt-5" [grillas]="grillasSeguras()" />
       </section>
     }
 
@@ -472,7 +439,7 @@ import { Insignia } from '../ui/insignia';
                px-6 text-center text-on-campo"
       >
         <h2 id="cierre" class="font-display text-3xl font-bold sm:text-4xl">
-          @if (libresDeHoy().length > 0) {
+          @if (proximaLibre()) {
             Todavía quedan horas para hoy
           } @else {
             Elige tu hora de esta semana
@@ -616,7 +583,7 @@ export class Inicio {
    * cada sección dijera "no pudimos cargar". Encontrado al probar el estado de
    * error del zócalo (TV3.1). Cada sección sigue preguntando por `error()`.
    */
-  private readonly grillasSeguras = computed(() =>
+  protected readonly grillasSeguras = computed(() =>
     this.grillas.hasValue() ? this.grillas.value() : [],
   );
 
@@ -655,19 +622,15 @@ export class Inicio {
   });
 
   /**
-   * Las próximas horas libres de hoy: **una por hora, no una por cancha**.
+   * La próxima hora libre de hoy, la del zócalo.
    *
-   * Sin deduplicar, a las 12:00 con ocho canchas libres la portada mostraba
-   * seis veces "12:00" y cambiaba solo el nombre de la cancha. Quien mira esto
-   * está preguntando *cuándo* puede jugar, no en cuál de las ocho canchas
-   * idénticas. Se muestra la primera cancha libre de cada hora y el resto se ve
-   * en la grilla, que es la pantalla que sí compara canchas.
+   * Hasta TV3.3 era la lista de "Libre hoy", una por hora y hasta seis. El
+   * marcador muestra ahora el día entero, así que acá queda solo la primera.
    */
-  protected readonly libresDeHoy = computed(() => {
+  protected readonly proximaLibre = computed(() => {
     const ahora = Date.now();
-    const vistas = new Set<string>();
 
-    return this.grillasSeguras()
+    const libres = this.grillasSeguras()
       .flatMap(({ cancha, bloques }) =>
         bloques
           .filter(
@@ -678,14 +641,9 @@ export class Inicio {
           )
           .map((bloque) => ({ ...bloque, cancha: cancha.nombre })),
       )
-      .sort((una, otra) => una.inicio.localeCompare(otra.inicio))
-      .filter((libre) => {
-        const hora = libre.inicio.slice(0, 16);
-        if (vistas.has(hora)) return false;
-        vistas.add(hora);
-        return true;
-      })
-      .slice(0, 6);
+      .sort((una, otra) => una.inicio.localeCompare(otra.inicio));
+
+    return libres[0] ?? null;
   });
 
   /**

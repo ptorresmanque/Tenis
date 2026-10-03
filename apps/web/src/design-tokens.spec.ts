@@ -915,9 +915,17 @@ describe('Tablas', () => {
     // propias líneas por fila: dos familias de tabla en el mismo panel, con
     // encabezados distintos y sin cifras tabulares. La primitiva es lo que hace
     // que el padrón y el reporte de ingresos se lean como el mismo sistema.
+    //
+    // La excepción es el marcador de la portada (TV3.3): no es una tabla de
+    // datos sino el tablero de la transmisión, sobre campo. La primitiva le
+    // pondría encabezado gris, una línea por fila y un hover gris, y habría que
+    // deshacer cada cosa a mano. Va por archivo, no por clase, para que no sea
+    // una puerta que cualquier tabla pueda usar.
     const infractores: string[] = [];
+    const excepciones = ['catalogo-canchas/marcador.ts'];
 
     for (const { archivo, contenido } of plantillas()) {
+      if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<table[^>]*>/g)) {
         if (!/class="[^"]*\btabla\b/.test(etiqueta)) {
           infractores.push(`${archivo}: ${etiqueta}`);
