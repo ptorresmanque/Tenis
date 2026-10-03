@@ -991,7 +991,9 @@ describe('El panel en la A (Fase 7)', () => {
     'clases/admin/',
     'configuracion/',
     'cuotas/admin/',
+    'estado/',
     'identidad/admin/',
+    'ranking/admin/',
     'reservas/admin/agenda.ts',
     'torneos/admin/',
   ];
