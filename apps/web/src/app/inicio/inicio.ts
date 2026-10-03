@@ -122,10 +122,11 @@ import { Insignia } from '../ui/insignia';
 
     <!--
       EL ZÓCALO — La próxima hora libre, como la barra inferior de una
-      transmisión (TV3.1). Va pegado al hero y fuera de él: el hero se queda en
-      sus cuatro elementos, y el dato por el que alguien entra se lee sin bajar en
-      escritorio. Usa la primera de "Libre hoy" y los mismos mensajes de carga,
-      vacío y error, sin una consulta nueva.
+      transmisión (TV3.1). Va pegado al hero y fuera de él, para que el hero se
+      quede en sus cuatro elementos. En escritorio entra en la primera pantalla
+      desde unos 800px de alto: a 1366×768 queda cortado a la mitad (medido en la
+      revisión de TV3.1). Usa la primera de "Libre hoy" y los mismos mensajes de
+      carga, vacío y error, sin una consulta nueva.
     -->
     <section class="-mx-4 sm:mx-0" aria-labelledby="proxima-libre">
       <!-- En el teléfono el rótulo va arriba, a todo el ancho y sin corte: al

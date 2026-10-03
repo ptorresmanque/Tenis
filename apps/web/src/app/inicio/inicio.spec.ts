@@ -43,7 +43,8 @@ describe('Inicio', () => {
   let fixture: ComponentFixture<Inicio>;
 
   const montar = async (
-    torneos: TorneoPublico[],
+    // Un Error es el calendario que no cargó.
+    torneos: TorneoPublico[] | Error,
     delDia: () => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
     { esperar } = { esperar: true },
   ) => {
@@ -53,7 +54,14 @@ describe('Inicio', () => {
         provideRouter([]),
         { provide: Disponibilidad, useValue: { delDia: vi.fn(delDia) } },
         { provide: Auth, useValue: { usuario: signal(null) } },
-        { provide: Torneos, useValue: { calendario: vi.fn().mockResolvedValue(torneos) } },
+        {
+          provide: Torneos,
+          useValue: {
+            calendario: vi.fn(() =>
+              torneos instanceof Error ? Promise.reject(torneos) : Promise.resolve(torneos),
+            ),
+          },
+        },
       ],
     });
 
@@ -115,6 +123,16 @@ describe('Inicio', () => {
     expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
     expect(texto()).not.toContain('Inscripciones abiertas');
   });
+
+  // `value()` de un resource lanza en estado de error: antes de TV3.1, esto
+  // rompía el pintado de la portada entera.
+  it('si el calendario no carga, la portada se pinta igual y solo calla los torneos', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(elemento().querySelector('#promesa')).not.toBeNull();
+    expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
+  });
+
   /**
    * El zócalo: la barra de la transmisión con la próxima hora libre, debajo del
    * hero (TV3.1). Es el dato por el que alguien entra a la portada, así que sus
