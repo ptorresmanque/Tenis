@@ -94,18 +94,22 @@ describe('TorneosPublicos', () => {
     soltarInscripcion: ReturnType<typeof vi.fn>;
   };
 
+  /** El doble de una consulta: con un `Error`, la promesa se rechaza. */
+  const responder = <T>(valor: T | Error) =>
+    vi.fn(() => (valor instanceof Error ? Promise.reject(valor) : Promise.resolve(valor)));
+
   const montar = async (
-    torneos: TorneoPublico[],
-    cuadro = CUADRO,
-    transmisiones: (typeof EN_VIVO)[] = [],
-    fotos: unknown[] = [],
+    torneos: TorneoPublico[] | Error,
+    cuadro: typeof CUADRO | Error = CUADRO,
+    transmisiones: (typeof EN_VIVO)[] | Error = [],
+    fotos: unknown[] | Error = [],
     soltada = { soltada: true },
   ) => {
     api = {
-      calendario: vi.fn().mockResolvedValue(torneos),
-      cuadroPublico: vi.fn().mockResolvedValue(cuadro),
-      transmisionesPublicas: vi.fn().mockResolvedValue(transmisiones),
-      fotos: vi.fn().mockResolvedValue(fotos),
+      calendario: responder(torneos),
+      cuadroPublico: responder(cuadro),
+      transmisionesPublicas: responder(transmisiones),
+      fotos: responder(fotos),
       soltarInscripcion: vi.fn().mockResolvedValue(soltada),
     };
 
@@ -396,5 +400,28 @@ describe('TorneosPublicos', () => {
     expect(
       elemento().querySelector('img')?.getAttribute('src'),
     ).toBe('/api/torneos/fotos/4/miniatura');
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si el calendario no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar el calendario');
+  });
+
+  it('si el cuadro no carga, lo dice bajo su categoría', async () => {
+    await montar([EN_INSCRIPCION], new Error('la API no respondió'));
+
+    await apretar('Ver quiénes juegan');
+
+    expect(texto()).toContain('No se pudo cargar el cuadro');
+  });
+
+  it('si las fotos y los lives no cargan, el cuadro se ve igual', async () => {
+    await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, new Error('la API no respondió'), new Error('la API no respondió'));
+
+    await apretar('Ver quiénes juegan');
+
+    expect(texto()).toContain('6-4 6-2');
   });
 });

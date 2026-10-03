@@ -62,6 +62,10 @@ const TIPOS: Record<TipoSolicitud, string> = {
 
     @if (solicitudes.isLoading()) {
       <p class="mt-4 text-muted-foreground">Cargando…</p>
+    } @else if (solicitudes.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar las solicitudes. Reintenta en un momento.
+      </p>
     } @else if (solicitudes.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

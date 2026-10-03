@@ -29,6 +29,10 @@ import { EditorHorarios } from './editor-horarios';
 
       @if (general.isLoading()) {
         <p class="mt-3 text-muted-foreground">Cargando…</p>
+      } @else if (general.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar el horario y las tarifas generales. Reintenta en un momento.
+        </p>
       } @else if (club(); as ambito) {
         <div class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm">
           <h3 class="subtitulo">Horario de apertura</h3>

@@ -42,7 +42,11 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
         club.
       </p>
 
-      @if (fotos.value().length > 0) {
+      @if (fotos.error()) {
+        <p class="mt-3 text-sm text-destructive">
+          No se pudieron cargar las fotos. Reintenta en un momento.
+        </p>
+      } @else if (fotos.value().length > 0) {
         <ul class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
           @for (foto of fotos.value(); track foto.id) {
             <li class="relative">

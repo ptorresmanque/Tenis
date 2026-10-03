@@ -91,6 +91,10 @@ import {
 
       @if (categorias.isLoading()) {
         <app-esqueleto class="block" [filas]="4" etiqueta="Cargando las categorías…" />
+      } @else if (categorias.error()) {
+        <p class="text-destructive">
+          No se pudieron cargar las categorías. Reintenta en un momento.
+        </p>
       } @else {
         <div class="overflow-x-auto rounded-xl border border-border bg-card">
           <!-- Densa, con el lugar más angosto en el teléfono y el botón sin cortes
@@ -194,7 +198,9 @@ export class CategoriasDeJuegoPanel {
    * huecos de diez—, y el valor se recalcula solo cuando la lista vuelve del servidor.
    */
   protected readonly orden = linkedSignal(() => {
-    const lugares = (this.categorias.value() ?? []).map((c) => c.orden);
+    const lugares = (this.categorias.hasValue() ? this.categorias.value() : []).map(
+      (c) => c.orden,
+    );
 
     return (lugares.length ? Math.max(...lugares) : 0) + PASO;
   });

@@ -49,7 +49,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
       <h1 class="titular text-4xl">Canchas del club</h1>
     </header>
 
-    @if (advertencias.value().length > 0) {
+    @if (advertencias.hasValue() && advertencias.value().length > 0) {
       <!-- Antes que la lista: es lo único de esta pantalla que cuesta plata si
            nadie lo mira. -->
       <section
@@ -166,6 +166,10 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
       @if (canchas.isLoading()) {
         <p class="mt-3 text-muted-foreground">Cargando…</p>
+      } @else if (canchas.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar las canchas. Reintenta en un momento.
+        </p>
       } @else {
         <ul class="mt-3 space-y-3">
           @for (cancha of canchas.value(); track cancha.id) {

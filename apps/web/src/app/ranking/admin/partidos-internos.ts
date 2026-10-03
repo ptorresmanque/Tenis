@@ -46,7 +46,11 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
       }
     </div>
 
-    @if (partidos.value().length === 0) {
+    @if (partidos.error()) {
+      <p class="mt-6 text-destructive">
+        No se pudieron cargar los partidos. Reintenta en un momento.
+      </p>
+    } @else if (partidos.value().length === 0) {
       <app-estado-vacio
         class="mt-6 block"
         icono="handshake"

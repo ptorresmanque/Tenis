@@ -42,9 +42,11 @@ describe('PadronPanel', () => {
   let fixture: ComponentFixture<PadronPanel>;
   let api: { padron: ReturnType<typeof vi.fn>; csv: ReturnType<typeof vi.fn> };
 
-  const montar = async (reporte: ReporteDePadron = REPORTE) => {
+  const montar = async (reporte: ReporteDePadron | Error = REPORTE) => {
     api = {
-      padron: vi.fn().mockResolvedValue(reporte),
+      padron: vi.fn(() =>
+        reporte instanceof Error ? Promise.reject(reporte) : Promise.resolve(reporte),
+      ),
       csv: vi.fn().mockReturnValue('/api/admin/reportes/padron.csv?x=1'),
     };
 
@@ -128,5 +130,12 @@ describe('PadronPanel', () => {
     fixture.detectChanges();
 
     expect((api.padron.mock.calls[1] as string[])[1]).toBe('2026-09-30');
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si el reporte no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo calcular el padrón');
   });
 });

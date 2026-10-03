@@ -59,7 +59,11 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
       Torneos
     </a>
 
-    @if (torneo(); as suyo) {
+    @if (torneos.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudo cargar el torneo. Reintenta en un momento.
+      </p>
+    } @else if (torneo(); as suyo) {
       <!-- La cabecera del panel (TV7.1), sin acción: cada pestaña trae las suyas,
            y las pestañas van debajo. -->
       <header class="cabecera-panel mt-1">

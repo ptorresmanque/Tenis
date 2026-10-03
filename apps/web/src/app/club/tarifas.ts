@@ -57,7 +57,11 @@ const DIAS = [
         su cuota mensual les da derecho a cancha.
       </p>
 
-      @if (tarifas.value(); as lista) {
+      @if (tarifas.error()) {
+        <p class="mt-4 text-destructive">
+          No se pudieron cargar las tarifas. Reintenta en un momento.
+        </p>
+      } @else if (tarifas.value(); as lista) {
         @if (lista.length > 0) {
           <!-- Como el tablero de una transmisión (TV4.1): la tarjeta sin borde, con
                su sombra, y el precio en la cifra condensada, que es lo que se busca. -->
@@ -134,7 +138,9 @@ export class Tarifas {
     defaultValue: { general: [], porCancha: [] },
   });
 
-  protected readonly aperturas = computed(() => this.horarios.value().general);
+  protected readonly aperturas = computed(() =>
+    this.horarios.hasValue() ? this.horarios.value().general : [],
+  );
 
   /**
    * Las canchas que no siguen el horario general.

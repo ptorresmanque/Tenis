@@ -103,7 +103,7 @@ import { NuevaReserva } from './nueva-reserva';
       <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
-    @if (reservas.value().length > 0) {
+    @if (reservas.hasValue() && reservas.value().length > 0) {
       <ul class="mt-6 grid gap-3 sm:grid-cols-3">
         @for (dato of resumenDelDia(); track dato.titulo) {
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -120,7 +120,7 @@ import { NuevaReserva } from './nueva-reserva';
     <div role="status" aria-live="polite" class="mt-6">
       @if (reservas.isLoading()) {
         <p class="text-muted-foreground">Buscando las reservas del día…</p>
-      } @else if (reservas.error()) {
+      } @else if (reservas.error() || clases.error()) {
         <p class="text-destructive">
           No se pudo cargar la agenda. Reintenta en un momento.
         </p>
@@ -235,16 +235,21 @@ export class AgendaDelDia {
     defaultValue: [] as ClaseDelDia[],
   });
 
-  /** El día completo, en orden de reloj: lo que ocupa la cancha, sea lo que sea. */
+  /**
+   * El día completo, en orden de reloj: lo que ocupa la cancha, sea lo que sea.
+   *
+   * Con `hasValue()` porque se lee también fuera de la rama del error, y cualquiera
+   * de las dos consultas puede fallar sola.
+   */
   protected readonly elDia = computed(() =>
     [
-      ...this.clases.value().map((clase) => ({
+      ...(this.clases.hasValue() ? this.clases.value() : []).map((clase) => ({
         clave: `clase-${clase.id}`,
         inicio: clase.inicio,
         clase,
         reserva: null as ReservaDelDia | null,
       })),
-      ...this.reservas.value().map((reserva) => ({
+      ...(this.reservas.hasValue() ? this.reservas.value() : []).map((reserva) => ({
         clave: `reserva-${reserva.id}`,
         inicio: reserva.inicio,
         clase: null as ClaseDelDia | null,

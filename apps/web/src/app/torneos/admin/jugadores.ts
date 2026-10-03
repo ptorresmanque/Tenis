@@ -98,6 +98,10 @@ import { Jugador, Torneos } from '../torneos.service';
 
     @if (jugadores.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los jugadores…" />
+    } @else if (jugadores.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar los jugadores. Reintenta en un momento.
+      </p>
     } @else if (jugadores.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
@@ -200,14 +204,14 @@ export class JugadoresPanel {
    * pero la lista sería una invitación a "anotar" a alguien que ya está anotado.
    */
   protected readonly sociosSinJugador = computed(() => {
+    // Se lee en el formulario, que se ve aunque alguna de las dos no haya cargado.
     const conJugador = new Set(
-      this.jugadores
-        .value()
+      (this.jugadores.hasValue() ? this.jugadores.value() : [])
         .map((jugador) => jugador.socioId)
         .filter((id): id is number => id !== null),
     );
 
-    return (this.socios.value()?.socios ?? []).filter(
+    return (this.socios.hasValue() ? this.socios.value().socios : []).filter(
       (socio) => !conJugador.has(socio.id),
     );
   });

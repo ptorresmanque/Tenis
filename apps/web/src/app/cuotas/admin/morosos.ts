@@ -33,6 +33,10 @@ import { Cuotas } from '../cuotas.service';
 
     @if (morosos.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los socios con deuda…" />
+    } @else if (morosos.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar los socios con deuda. Reintenta en un momento.
+      </p>
     } @else if (morosos.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

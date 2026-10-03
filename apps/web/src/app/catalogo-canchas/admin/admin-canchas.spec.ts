@@ -302,4 +302,29 @@ describe('AdminCanchasPanel', () => {
       expect(texto()).toContain('transmitir');
     });
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    const caida = () => Promise.reject(new Error('la API no respondió'));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AdminCanchas,
+          useValue: {
+            canchas: caida,
+            advertencias: caida,
+            general: caida,
+            configuracion: caida,
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(AdminCanchasPanel);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudieron cargar las canchas');
+  });
 });

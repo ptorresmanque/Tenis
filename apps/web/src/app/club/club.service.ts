@@ -25,16 +25,20 @@ export interface DatosDelClub {
 export class Club {
   private readonly recurso = httpResource<DatosDelClub>(() => '/api/club');
 
-  readonly datos = computed(
-    () =>
-      this.recurso.value() ?? {
-        // Mientras la primera consulta viaja: el nombre del club es lo único que
-        // se puede afirmar sin haberlo preguntado, y sale igual del logotipo.
-        nombre: 'FEDAL Tennis Center',
-        direccion: '',
-        telefono: '',
-        email: '',
-      },
+  readonly datos = computed(() =>
+    // `hasValue()` y no `value() ?? …`: `value()` lanza si la consulta falló, y esto
+    // lo lee el pie de todas las pantallas.
+    this.recurso.hasValue()
+      ? this.recurso.value()
+      : {
+          // Mientras la primera consulta viaja, o si falló: el nombre del club es lo
+          // único que se puede afirmar sin haberlo preguntado, y sale igual del
+          // logotipo.
+          nombre: 'FEDAL Tennis Center',
+          direccion: '',
+          telefono: '',
+          email: '',
+        },
   );
 
   /** A dónde escribir. Vacío si el club todavía no cargó un correo. */

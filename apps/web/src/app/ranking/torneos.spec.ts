@@ -50,14 +50,18 @@ describe('RankingDeTorneos', () => {
 
   let fixture: ComponentFixture<RankingDeTorneos>;
 
-  const montar = async (tabla: TablaDeTorneos = TABLA, quien: UsuarioActual | null = null) => {
+  const montar = async (
+    tabla: TablaDeTorneos | Error = TABLA,
+    quien: UsuarioActual | null = null,
+  ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         {
           provide: Ranking,
           useValue: {
-            torneos: vi.fn().mockResolvedValue(tabla),
+            torneos: () =>
+              tabla instanceof Error ? Promise.reject(tabla) : Promise.resolve(tabla),
             interno: vi.fn().mockResolvedValue({
               partidos: 0,
               ultimoPartido: null,
@@ -172,5 +176,12 @@ describe('RankingDeTorneos', () => {
     await montar();
 
     expect(texto()).toContain('Copa de verano · 4ª · Club 250');
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si el ranking no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar el ranking');
   });
 });

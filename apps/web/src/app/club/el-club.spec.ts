@@ -79,4 +79,34 @@ describe('ElClub', () => {
 
     expect(texto('horarios-y-contacto')).toContain('Pregunta en el mesón');
   });
+
+  // De main (PR #4): `value()` de un resource lanza en estado de error aunque
+  // tenga `defaultValue`.
+  it('si la API no responde, la página se pinta igual y lo dice en las tarifas', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: Disponibilidad,
+          useValue: { canchas: () => Promise.reject(new Error('la API no respondió')) },
+        },
+      ],
+    });
+
+    const pagina = TestBed.createComponent(ElClub);
+    pagina.detectChanges();
+    // El club, las tarifas y los horarios van directo por HTTP.
+    for (const peticion of TestBed.inject(HttpTestingController).match(() => true)) {
+      peticion.flush('caída', { status: 500, statusText: 'Internal Server Error' });
+    }
+    await pagina.whenStable();
+    pagina.detectChanges();
+
+    const contenido = (pagina.nativeElement as HTMLElement).textContent ?? '';
+    expect(contenido).toContain('Las canchas');
+    expect(contenido).toContain('No se pudieron cargar las tarifas');
+  });
 });

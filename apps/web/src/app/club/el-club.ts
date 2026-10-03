@@ -212,7 +212,10 @@ export class ElClub {
     defaultValue: [],
   });
 
-  protected readonly canchas = this.catalogo.value;
+  /** Si el catálogo no carga, la sección se calla: `value()` lanza en error. */
+  protected readonly canchas = computed(() =>
+    this.catalogo.hasValue() ? this.catalogo.value() : [],
+  );
 
   /**
    * Las canchas partidas por lo único que las distingue de verdad.

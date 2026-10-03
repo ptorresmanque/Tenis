@@ -37,11 +37,15 @@ describe('TransmisionesDelTorneo', () => {
   };
 
   const montar = async (
-    transmisiones: Transmision[],
-    canchas: CanchaAdmin[] = [CON_CAMARA, SIN_CAMARA],
+    transmisiones: Transmision[] | Error,
+    canchas: CanchaAdmin[] | Error = [CON_CAMARA, SIN_CAMARA],
   ) => {
     api = {
-      transmisiones: vi.fn().mockResolvedValue(transmisiones),
+      transmisiones: vi.fn(() =>
+        transmisiones instanceof Error
+          ? Promise.reject(transmisiones)
+          : Promise.resolve(transmisiones),
+      ),
       anunciarTransmision: vi.fn().mockResolvedValue(EN_VIVO),
       quitarTransmision: vi.fn().mockResolvedValue({ id: 3 }),
     };
@@ -50,7 +54,13 @@ describe('TransmisionesDelTorneo', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: Torneos, useValue: api },
-        { provide: AdminCanchas, useValue: { canchas: () => Promise.resolve(canchas) } },
+        {
+          provide: AdminCanchas,
+          useValue: {
+            canchas: () =>
+              canchas instanceof Error ? Promise.reject(canchas) : Promise.resolve(canchas),
+          },
+        },
       ],
     });
 
@@ -172,5 +182,14 @@ describe('TransmisionesDelTorneo', () => {
     await fixture.whenStable();
 
     expect(api.quitarTransmision).toHaveBeenCalledWith(5, 3);
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    await montar(new Error('la API no respondió'), new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar las transmisiones');
+    expect(texto()).toContain('No se pudieron cargar las canchas');
+    expect(texto()).not.toContain('Ninguna cancha está marcada con cámara');
   });
 });

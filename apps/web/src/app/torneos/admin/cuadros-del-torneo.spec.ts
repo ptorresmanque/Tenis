@@ -248,4 +248,27 @@ describe('CuadrosDelTorneo', () => {
       expect(texto()).toContain('recalcula el ranking');
     });
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    const caida = () => Promise.reject(new Error('la API no respondió'));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: Torneos,
+          useValue: { cuadrosDelTorneo: caida, categoriasDeJuego: caida, categorias: caida },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(CuadrosDelTorneo);
+    fixture.componentRef.setInput('torneoId', 1);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudieron cargar las categorías del torneo');
+    // Sin el catálogo no se sabe si quedan categorías por agregar.
+    expect(texto()).not.toContain('Ya corre todas');
+  });
 });

@@ -38,7 +38,11 @@ import { FotoDelPartido } from './foto-del-partido';
   selector: 'app-cuadro-torneo',
   imports: [FormsModule, Aviso, Insignia, FotoDelPartido],
   template: `
-    @if (cuadro.value(); as datos) {
+    @if (cuadro.error()) {
+      <p class="mt-3 text-sm text-destructive">
+        No se pudo cargar el cuadro. Reintenta en un momento.
+      </p>
+    } @else if (cuadro.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-center gap-2">
           <h2 class="rotulo-seccion">Cuadro</h2>
@@ -418,6 +422,9 @@ export class CuadroDelTorneo {
   });
 
   protected fotosDe(partidoId: number): Foto[] {
+    // Sin las fotos, el cuadro se dibuja igual: `value()` lanzaría si fallaron.
+    if (!this.fotos.hasValue()) return [];
+
     return this.fotos.value().filter((foto) => foto.partidoId === partidoId);
   }
 
@@ -426,6 +433,8 @@ export class CuadroDelTorneo {
   }
 
   protected activas() {
+    if (!this.canchas.hasValue()) return [];
+
     return this.canchas.value().filter((cancha) => cancha.activa);
   }
 

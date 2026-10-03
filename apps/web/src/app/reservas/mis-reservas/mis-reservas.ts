@@ -68,7 +68,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
          deja nodos de comentario dentro del ul y la pseudo-clase :empty no
          matchea. Sin esto, el border-y dibuja dos líneas pegadas debajo del
          estado vacío y parecen un error de render. -->
-    @if (reservas.value().length > 0) {
+    @if (reservas.hasValue() && reservas.value().length > 0) {
     <ul class="mt-6 divide-y divide-border border-y border-border">
       @for (reserva of reservas.value(); track reserva.id) {
         <li class="flex gap-4 py-5">

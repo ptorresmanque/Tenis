@@ -55,7 +55,11 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
 
     <!-- Los títulos de la A, como el del formulario de contacto de abajo (TV4.4). -->
     <h2 class="titular mt-16 text-5xl sm:text-6xl">Quiénes enseñan</h2>
-    @if (datos.value(); as info) {
+    @if (datos.error()) {
+      <p class="mt-3 text-destructive">
+        No se pudieron cargar las clases. Reintenta en un momento.
+      </p>
+    } @else if (datos.value(); as info) {
       @if (info.profesores.length === 0) {
         <p class="mt-2 text-muted-foreground">
           Estamos armando el equipo de profesores para la próxima temporada.

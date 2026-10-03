@@ -28,9 +28,11 @@ describe('FotosDelTorneo', () => {
     quitarFoto: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (fotos: Foto[]) => {
+  const montar = async (fotos: Foto[] | Error) => {
     api = {
-      fotos: vi.fn().mockResolvedValue(fotos),
+      fotos: vi.fn(() =>
+        fotos instanceof Error ? Promise.reject(fotos) : Promise.resolve(fotos),
+      ),
       subirFoto: vi.fn().mockResolvedValue(FOTO),
       quitarFoto: vi.fn().mockResolvedValue({ id: 3 }),
     };
@@ -148,5 +150,12 @@ describe('FotosDelTorneo', () => {
     await fixture.whenStable();
 
     expect(api.quitarFoto).toHaveBeenCalledWith(5, 3);
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si las fotos no cargan, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar las fotos');
   });
 });

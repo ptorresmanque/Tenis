@@ -29,7 +29,11 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
   selector: 'app-inscritos-torneo',
   imports: [FormsModule, Aviso, Insignia],
   template: `
-    @if (lista.value(); as datos) {
+    @if (lista.error()) {
+      <p class="mt-3 text-sm text-destructive">
+        No se pudieron cargar los inscritos. Reintenta en un momento.
+      </p>
+    } @else if (lista.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-center gap-2">
           <h2 class="rotulo-seccion">Inscritos</h2>
@@ -696,6 +700,9 @@ export class InscritosDelTorneo {
         ...(this.lista.value()?.enEspera ?? []),
       ].map((quien) => quien.jugadorId),
     );
+
+    // Si los jugadores no cargan, el selector queda vacío y la lista se ve igual.
+    if (!this.jugadores.hasValue()) return [];
 
     return this.jugadores.value().filter((jugador) => !yaEstan.has(jugador.id));
   });

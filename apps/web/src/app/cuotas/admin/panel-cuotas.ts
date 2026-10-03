@@ -54,7 +54,8 @@ function mesActual(): string {
         />
       </div>
 
-      @if (datos.value(); as mes) {
+      @if (datos.hasValue()) {
+        @let mes = datos.value();
         <dl class="flex flex-wrap gap-6">
           <div>
             <dt class="text-sm text-muted-foreground">Emitido</dt>
@@ -87,6 +88,10 @@ function mesActual(): string {
 
     @if (datos.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando las cuotas…" />
+    } @else if (datos.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar las cuotas. Reintenta en un momento.
+      </p>
     } @else if (cuotas().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

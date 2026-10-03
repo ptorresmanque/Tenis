@@ -32,9 +32,11 @@ describe('IngresoPanel', () => {
     csv: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (reporte: ReporteDeIngreso = REPORTE) => {
+  const montar = async (reporte: ReporteDeIngreso | Error = REPORTE) => {
     api = {
-      ingreso: vi.fn().mockResolvedValue(reporte),
+      ingreso: vi.fn(() =>
+        reporte instanceof Error ? Promise.reject(reporte) : Promise.resolve(reporte),
+      ),
       csv: vi.fn().mockReturnValue('/api/admin/reportes/ingreso.csv?x=1'),
     };
 
@@ -142,5 +144,12 @@ describe('IngresoPanel', () => {
 
     expect(texto()).toContain('No hubo ingresos');
     expect(elemento().querySelector('tbody')).toBeNull();
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si el reporte no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo calcular el ingreso');
   });
 });

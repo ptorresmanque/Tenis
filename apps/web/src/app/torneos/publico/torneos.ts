@@ -113,7 +113,11 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
       </app-aviso>
     }
 
-    @if (torneos.value(); as lista) {
+    @if (torneos.error()) {
+      <p class="mt-6 text-destructive">
+        No se pudo cargar el calendario de torneos. Reintenta en un momento.
+      </p>
+    } @else if (torneos.value(); as lista) {
       @if (lista.length === 0) {
         <app-estado-vacio
           class="mt-6 block"
@@ -336,17 +340,25 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                     }
                   </div>
                 }
+                } @else if (abierto() === categoria.id && cuadro.error()) {
+                  <p class="mt-3 text-sm text-destructive">
+                    No se pudo cargar el cuadro. Reintenta en un momento.
+                  </p>
                 }
               }
 
               <!-- Los lives, debajo del cuadro del torneo que se está mirando. El
                    requisito es verlos acá y no en YouTube, y el reproductor no carga
                    nada de Google hasta que alguien aprieta play. -->
-              @if (torneoAbierto() === torneo.id) {
+              @if (torneoAbierto() === torneo.id && fotos.hasValue()) {
                 <app-galeria [fotos]="fotos.value()" />
               }
 
-              @if (torneoAbierto() === torneo.id && transmisiones.value().length > 0) {
+              @if (
+                torneoAbierto() === torneo.id &&
+                transmisiones.hasValue() &&
+                transmisiones.value().length > 0
+              ) {
                 <div class="mt-3">
                   <h3 class="subtitulo">En vivo</h3>
                   <div class="grid gap-3 sm:grid-cols-2">
@@ -435,8 +447,8 @@ export class TorneosPublicos {
   });
 
   /** De qué torneo es el cuadro que se está mirando. */
-  protected readonly torneoAbierto = computed(
-    () => this.cuadro.value()?.torneoId ?? null,
+  protected readonly torneoAbierto = computed(() =>
+    this.cuadro.hasValue() ? this.cuadro.value().torneoId : null,
   );
 
   protected readonly cuadro = resource({
@@ -482,7 +494,9 @@ export class TorneosPublicos {
    * equivocado encima.
    */
   protected detalleDe(cuadroId: number): CuadroPublico | null {
-    const detalle = this.cuadro.value();
+    // Se pregunta por cada categoría de la lista: si el cuadro no cargó, `value()`
+    // lanzaría en todas.
+    const detalle = this.cuadro.hasValue() ? this.cuadro.value() : undefined;
 
     return this.abierto() === cuadroId && detalle?.id === cuadroId
       ? detalle

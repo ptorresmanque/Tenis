@@ -43,6 +43,10 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
 
     @if (pendientes.isLoading()) {
       <p class="mt-6 text-muted-foreground">Cargando…</p>
+    } @else if (pendientes.error()) {
+      <p class="mt-6 text-destructive">
+        No se pudieron cargar las horas reportadas. Reintenta en un momento.
+      </p>
     } @else if (pendientes.value(); as horas) {
       @if (horas.length === 0) {
         <app-estado-vacio
