@@ -60,7 +60,8 @@ import {
         </p>
 
         @if (!esSocio()) {
-          <p class="mt-2 font-display text-2xl font-bold text-accent-strong">
+          <!-- En azul y no en verde: el verde quedó para "libre" (decisión 6). -->
+          <p class="mt-2 font-display text-3xl font-bold text-primary">
             {{ pesos(bloque().montoClp) }}
           </p>
         }
@@ -68,7 +69,9 @@ import {
         <form class="mt-4 space-y-4" [formGroup]="formulario" (ngSubmit)="enviar()">
           @if (esSocio()) {
             <fieldset class="space-y-3">
-              <legend class="text-sm font-medium">¿Con quién vas a jugar?</legend>
+              <legend class="font-display text-sm font-bold tracking-wide uppercase">
+                ¿Con quién vas a jugar?
+              </legend>
               <p class="text-sm text-muted-foreground">
                 Otro socio no gasta cupo. Un invitado descuenta de tus invitados
                 del mes.
@@ -76,12 +79,12 @@ import {
 
               @for (acompanante of acompanantes(); track $index) {
                 <div class="flex items-center gap-2">
-                  <span class="flex-1 rounded-lg border border-border px-3 py-2 text-sm">
+                  <span class="flex-1 border border-border px-3 py-2 text-sm font-semibold">
                     {{ etiqueta(acompanante) }}
                   </span>
                   <button
                     type="button"
-                    class="cursor-pointer rounded-lg px-3 py-2 text-sm underline"
+                    class="boton boton-texto boton-chico"
                     (click)="quitar($index)"
                   >
                     Quitar
@@ -90,8 +93,10 @@ import {
               }
 
               <div class="flex flex-wrap gap-2">
+                <!-- Los campos y los botones del diálogo usan las primitivas (TV5.2):
+                     eran clases hechas a mano, de 40px de alto. -->
                 <select
-                  class="rounded-lg border border-border bg-card px-3 py-2"
+                  class="campo w-auto"
                   [value]="tipo()"
                   (change)="cambiarTipo($event)"
                   aria-label="Tipo de acompañante"
@@ -113,7 +118,7 @@ import {
                   @if (socios.error()) {
                     <p
                       role="alert"
-                      class="min-w-0 flex-1 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                      class="min-w-0 flex-1 bg-destructive/10 px-3 py-2 text-sm text-destructive"
                     >
                       No pudimos cargar la lista de socios.
                       <button
@@ -126,7 +131,7 @@ import {
                     </p>
                   } @else {
                     <select
-                      class="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2"
+                      class="campo w-auto min-w-0 flex-1"
                       aria-label="Socio con el que vas a jugar"
                       [value]="porAgregar()"
                       (change)="porAgregar.set($any($event.target).value)"
@@ -149,7 +154,7 @@ import {
                   }
                 } @else {
                   <input
-                    class="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2"
+                    class="campo w-auto min-w-0 flex-1"
                     placeholder="Nombre y apellido"
                     aria-label="Nombre del invitado"
                     [value]="porAgregar()"
@@ -158,7 +163,7 @@ import {
                 }
                 <button
                   type="button"
-                  class="cursor-pointer rounded-lg bg-muted px-3 py-2 font-medium disabled:cursor-not-allowed"
+                  class="boton boton-secundario"
                   [disabled]="porAgregar().trim() === ''"
                   (click)="agregar()"
                 >
@@ -173,7 +178,7 @@ import {
                 id="nombre"
                 formControlName="nombre"
                 autocomplete="name"
-                class="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2"
+                class="campo mt-1"
               />
             </div>
             <div>
@@ -183,7 +188,7 @@ import {
                 type="email"
                 formControlName="email"
                 autocomplete="email"
-                class="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2"
+                class="campo mt-1"
               />
             </div>
             <div>
@@ -192,7 +197,7 @@ import {
                 id="telefono"
                 formControlName="telefono"
                 autocomplete="tel"
-                class="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2"
+                class="campo mt-1"
               />
             </div>
           }
@@ -200,24 +205,18 @@ import {
           @if (error()) {
             <!-- El mensaje del servidor tal cual: ya viene escrito para la persona,
                  con el límite y cuándo se renueva. -->
-            <p role="alert" class="rounded-lg bg-destructive/10 p-3 text-destructive">
+            <p role="alert" class="bg-destructive/10 p-3 text-destructive">
               {{ error() }}
             </p>
           }
 
           <div class="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              class="cursor-pointer rounded-lg px-4 py-2 font-medium"
-              (click)="dialogo.close()"
-            >
+            <button type="button" class="boton boton-texto" (click)="dialogo.close()">
               Cancelar
             </button>
-            <button
-              type="submit"
-              class="cursor-pointer rounded-lg bg-accent-strong px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-              [disabled]="enviando()"
-            >
+            <!-- Primario y no verde (decisión 6 del plan): el verde quedó para
+                 "libre", y la acción principal es la misma en todo el sitio. -->
+            <button type="submit" class="boton boton-primario" [disabled]="enviando()">
               {{ enviando() ? 'Enviando…' : esSocio() ? 'Reservar' : 'Ir a pagar' }}
             </button>
           </div>
