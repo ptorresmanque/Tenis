@@ -20,11 +20,16 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
   selector: 'app-partidos-internos-panel',
   imports: [EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-2xl font-bold">Partidos entre socios</h1>
-    <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-      Los amistosos que un socio cargó y el rival no aceptó. Resolver acá deja el partido cerrado y
-      marcado como resuelto por el club.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: cada partido trae las suyas. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Partidos entre socios</h1>
+        <p class="mt-1 text-muted-foreground">
+          Los amistosos que un socio cargó y el rival no aceptó. Resolver acá deja el partido
+          cerrado y marcado como resuelto por el club.
+        </p>
+      </div>
+    </header>
 
     <div class="mt-4 flex flex-wrap gap-2">
       @for (opcion of FILTROS; track opcion.valor) {
@@ -57,7 +62,7 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
         @for (partido of partidos.value(); track partido.id) {
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p class="font-semibold">{{ partido.socioA }} contra {{ partido.socioB }}</p>
+              <p class="titulo-tarjeta">{{ partido.socioA }} contra {{ partido.socioB }}</p>
               <app-insignia variante="neutro" icono="flag">
                 {{ nombreEstado(partido.estado) }}
               </app-insignia>

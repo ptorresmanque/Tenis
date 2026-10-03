@@ -1,4 +1,5 @@
-import { Component, computed, inject, resource, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, Directive, computed, inject, resource, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -19,18 +20,51 @@ import {
   horaEnElClub,
   proximosDias,
 } from '../reloj-del-club';
+import { nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
 
+/** Una hora de la grilla, con lo que pasa en cada cancha. */
+export interface Franja {
+  inicio: string;
+  fin: string;
+  libres: { cancha: Cancha; bloque: BloqueDisponible }[];
+  /**
+   * Las horas tomadas del propio socio que ya pasaron y sobre las que
+   * puede reportar que nadie las usó (T35).
+   *
+   * Van aparte de la cuenta de ocupadas porque son las únicas ocupadas
+   * que necesitan seguir siendo un elemento con un botón: agrupar por hora
+   * convirtió el resto en un número, y con ellas eso habría borrado la
+   * función sin que nadie lo notara hasta que el club preguntara por qué
+   * dejaron de llegar reportes.
+   */
+  reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
+  ocupadas: number;
+  enMantencion: number;
+  esPico: boolean;
+  /** Sin libres por haber pasado, que no es lo mismo que un club lleno. */
+  yaPaso: boolean;
+}
+
 /**
- * Cómo se nombra cada motivo de bloqueo. El enum de la base no se muestra crudo:
- * "MANTENCION" en pantalla se lee como un error del sistema.
+ * Le pone tipo al `let-franja` de la plantilla de la franja.
+ *
+ * Sin esto el `ng-template` le da `any` y el compilador deja de revisar esa
+ * parte de la plantilla: en la revisión de TV5.1 un campo inventado,
+ * `franja.libresQueNoExisten`, compilaba igual. Con el `@for` de antes eso no
+ * pasaba.
  */
-const MOTIVOS: Record<string, string> = {
-  MANTENCION: 'En mantención',
-  TORNEO: 'Torneo',
-  CLASE: 'Clase',
-  OTRO: 'No disponible',
-};
+@Directive({ selector: 'ng-template[appFranjaTipada]' })
+export class FranjaTipada {
+  static ngTemplateContextGuard(
+    _directiva: FranjaTipada,
+    contexto: unknown,
+  ): contexto is { $implicit: Franja } {
+    // El contexto de un ng-template es siempre un objeto; lo que importa es el
+    // tipo que esta firma le da al compilador.
+    return typeof contexto === 'object';
+  }
+}
 
 /**
  * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
@@ -61,7 +95,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
 
 @Component({
   selector: 'app-grilla',
-  imports: [Reservar, BarraFija, EstadoVacio, Insignia, Selector],
+  imports: [NgTemplateOutlet, FranjaTipada, Reservar, BarraFija, EstadoVacio, Insignia, Selector],
   host: {
     class: 'block',
     // La barra fija tapa la última fila de bloques si no se le deja aire, y el
@@ -69,7 +103,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
     '[class.pb-28]': 'elegido() !== null',
   },
   template: `
-    <h1 class="font-display text-3xl font-bold">Disponibilidad</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Disponibilidad</h1>
 
     @if (moviendo() !== null) {
       <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" tiene
@@ -196,15 +230,61 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
       </p>
     }
 
-    @for (franja of porHora(); track franja.inicio) {
+    <!-- LAS HORAS QUE YA PASARON, PLEGADAS (decisión 9, TV5.1). A las 18:00 la
+         grilla abría con diez filas "Ya pasó" antes de la primera hora tomable.
+         No se quitan: ahí está el botón para reportar una hora no usada (T35), y
+         el título del grupo avisa cuando hay alguna. <details> y no un botón a
+         mano: el desplegable nativo trae el teclado y el estado para el lector. -->
+    @if (pasadas().length > 0) {
+      <details class="group mt-6 border-t border-border pt-4">
+        <summary
+          class="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2
+                 font-display text-lg font-bold tracking-wide text-muted-foreground uppercase
+                 [&::-webkit-details-marker]:hidden"
+        >
+          <span class="icono transition-transform group-open:rotate-90" aria-hidden="true">
+            chevron_right
+          </span>
+          {{ pasadas().length }}
+          {{ pasadas().length === 1 ? 'hora que ya pasó' : 'horas que ya pasaron' }}
+          @if (hayQueReportar()) {
+            <span class="font-sans text-sm font-semibold tracking-normal normal-case">
+              · puedes reportar las que no se usaron
+            </span>
+          }
+        </summary>
+        @for (franja of pasadas(); track franja.inicio) {
+          <ng-container
+            [ngTemplateOutlet]="franjaTpl"
+            [ngTemplateOutletContext]="{ $implicit: franja }"
+          />
+        }
+      </details>
+    }
+
+    @for (franja of vigentes(); track franja.inicio) {
+      <ng-container
+        [ngTemplateOutlet]="franjaTpl"
+        [ngTemplateOutletContext]="{ $implicit: franja }"
+      />
+    }
+
+    <!-- Una franja: se escribe una vez y se usa dentro y fuera del pliegue. -->
+    <ng-template #franjaTpl appFranjaTipada let-franja>
       <section class="mt-6 border-t border-border pt-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <!-- Las etiquetas van pegadas a propósito: un salto de línea entre
                ellas mete un espacio en blanco y en pantalla se lee "08:00 –09:00",
                con el guion suelto. -->
-          <h2 class="font-display leading-none">
-            <span class="text-marcador">{{ hora(franja.inicio) }}</span
-            ><span class="text-lg font-semibold text-muted-foreground"
+          <!-- La hora en un rótulo de color (TV5.1): campo, o ámbar suave si es
+               hora pico. No una franja lateral: esa barra en el canto es el tell
+               de interfaz generada que el lint de franjas prohíbe. -->
+          <h2 class="flex items-baseline font-display leading-none">
+            <span
+              class="rotulo-hora px-2 py-1 text-3xl"
+              [class.rotulo-hora-pico]="franja.esPico"
+              >{{ hora(franja.inicio) }}</span
+            ><span class="ms-1 text-lg font-semibold text-muted-foreground"
               >–{{ hora(franja.fin) }}</span
             >
           </h2>
@@ -238,16 +318,19 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
           <ul class="mt-3 flex flex-wrap gap-2">
             @for (libre of franja.libres; track libre.cancha.id; let i = $index) {
               <li class="bloque" [style.--i]="i">
+                <!-- El chip libre en el verde de "libre"; el elegido, en rótulo,
+                     como la opción marcada del selector (TV2.3 y TV5.1). -->
                 <button
                   type="button"
                   class="flex min-h-11 cursor-pointer items-center gap-2 rounded-control
-                         border px-3 py-2 text-sm font-semibold transition-colors"
+                         border px-3 py-2 font-display text-sm font-bold tracking-wide
+                         uppercase transition-colors"
                   [class.border-border]="!estaElegido(libre.bloque)"
                   [class.bg-accent-soft]="!estaElegido(libre.bloque)"
                   [class.text-accent-strong]="!estaElegido(libre.bloque)"
-                  [class.border-primary]="estaElegido(libre.bloque)"
-                  [class.bg-selected]="estaElegido(libre.bloque)"
-                  [class.text-primary]="estaElegido(libre.bloque)"
+                  [class.border-rotulo]="estaElegido(libre.bloque)"
+                  [class.bg-rotulo]="estaElegido(libre.bloque)"
+                  [class.text-on-rotulo]="estaElegido(libre.bloque)"
                   [attr.aria-label]="etiqueta(libre.cancha, libre.bloque)"
                   [attr.aria-pressed]="estaElegido(libre.bloque)"
                   (click)="elegir(libre.cancha, libre.bloque)"
@@ -280,10 +363,11 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
                   Ya reportaste esta hora.
                 </span>
               } @else {
+                <!-- La primitiva y no clases a mano (TV8.2): en 12px y sin .boton no
+                     tenía alto táctil ni la confirmación al apretar. -->
                 <button
                   type="button"
-                  class="cursor-pointer rounded-control border border-border px-2 py-1
-                         text-xs font-medium text-muted-foreground transition-colors"
+                  class="boton boton-texto boton-chico"
                   (click)="reportar(reporte.reservaId)"
                 >
                   Reportar hora no usada
@@ -317,7 +401,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
           </p>
         }
       </section>
-    }
+    </ng-template>
 
     <!-- Elegir y reservar quedaron separados: el bloque se marca, la barra dice
          qué se marcó y con cuánto, y recién "Reservar" abre el formulario. El
@@ -325,11 +409,16 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
     @if (elegido(); as eleccion) {
       <app-barra-fija>
         <div role="status" aria-live="polite">
-          <p class="font-display text-lg font-semibold">
+          <!-- Lo elegido, en rótulo (TV5.1): es la pieza que se lee de un vistazo
+               antes de apretar "Reservar". -->
+          <p
+            class="inline-flex bg-rotulo py-1 ps-3 font-display text-lg font-bold tracking-wide
+                   text-on-rotulo uppercase corte-fin"
+          >
             {{ eleccion.cancha.nombre }} ·
             {{ hora(eleccion.bloque.inicio) }}–{{ hora(eleccion.bloque.fin) }}
           </p>
-          <p class="text-sm text-muted-foreground">
+          <p class="mt-1 text-sm text-muted-foreground">
             Socio {{ tarifaDelSocio }} · Arriendo
             <span class="font-semibold text-accent-strong">
               {{ pesos(eleccion.bloque.montoClp) }}
@@ -539,30 +628,7 @@ export class Grilla {
    * que esa hora se viera igual que una que el club no abre.
    */
   protected readonly porHora = computed(() => {
-    const horas = new Map<
-      string,
-      {
-        inicio: string;
-        fin: string;
-        libres: { cancha: Cancha; bloque: BloqueDisponible }[];
-        /**
-         * Las horas tomadas del propio socio que ya pasaron y sobre las que
-         * puede reportar que nadie las usó (T35).
-         *
-         * Van aparte de la cuenta de ocupadas porque son las únicas ocupadas
-         * que necesitan seguir siendo un elemento con un botón: agrupar por hora
-         * convirtió el resto en un número, y con ellas eso habría borrado la
-         * función sin que nadie lo notara hasta que el club preguntara por qué
-         * dejaron de llegar reportes.
-         */
-        reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
-        ocupadas: number;
-        enMantencion: number;
-        esPico: boolean;
-        /** Sin libres por haber pasado, que no es lo mismo que un club lleno. */
-        yaPaso: boolean;
-      }
-    >();
+    const horas = new Map<string, Franja>();
 
     for (const { cancha, bloques } of this.visibles()) {
       for (const bloque of bloques) {
@@ -589,6 +655,27 @@ export class Grilla {
 
     return [...horas.values()].sort((una, otra) => una.inicio.localeCompare(otra.inicio));
   });
+
+  /** Las franjas que ya pasaron, que van plegadas (decisión 9 del plan, TV5.1). */
+  protected readonly pasadas = computed(() => this.porHora().filter((franja) => franja.yaPaso));
+
+  /** Las que todavía se pueden mirar con algo que hacer: van a la vista. */
+  protected readonly vigentes = computed(() => this.porHora().filter((franja) => !franja.yaPaso));
+
+  /**
+   * Si dentro del pliegue hay una hora propia que todavía se puede reportar.
+   *
+   * El grupo cerrado escondería el botón de T35, y un reporte que nadie
+   * encuentra es una función perdida: el título del grupo lo avisa.
+   */
+  protected readonly hayQueReportar = computed(() =>
+    this.pasadas().some(({ reportables }) =>
+      reportables.some(({ bloque }) => {
+        const reporte = this.reportable(bloque);
+        return reporte !== undefined && !reporte.yaReportada;
+      }),
+    ),
+  );
 
   /**
    * Lo que cuesta arrendar en esa hora.
@@ -743,9 +830,7 @@ export class Grilla {
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
   protected readonly diaEnPalabras = diaEnPalabras;
 
-  protected motivo(motivo: BloqueDisponible['motivoBloqueo']): string {
-    return (motivo && MOTIVOS[motivo]) ?? 'No disponible';
-  }
+  protected readonly motivo = nombreDelMotivo;
 
   protected readonly superficie = nombreDeSuperficie;
 }

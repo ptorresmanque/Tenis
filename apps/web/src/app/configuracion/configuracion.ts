@@ -12,12 +12,18 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   selector: 'app-configuracion',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <h1 class="font-display text-3xl font-bold">Configuración</h1>
-    <p class="mt-1 text-muted-foreground">
-      Las reglas con las que funciona el club y quién puede cambiarlas.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya, y
+         la navegación entre secciones va debajo. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Configuración</h1>
+        <p class="mt-1 text-muted-foreground">
+          Las reglas con las que funciona el club y quién puede cambiarlas.
+        </p>
+      </div>
+    </header>
 
-    <nav aria-label="Secciones de configuración" class="mt-6 border-b border-border">
+    <nav aria-label="Secciones de configuración" class="mt-4 border-b border-border">
       <ul class="flex flex-wrap gap-1">
         @for (seccion of SECCIONES; track seccion.ruta) {
           <li>
@@ -26,8 +32,8 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
               routerLinkActive
               ariaCurrentWhenActive="page"
               #activa="routerLinkActive"
-              class="flex min-h-12 items-center gap-2 border-b-2 px-4 text-sm font-medium
-                     transition-colors"
+              class="flex min-h-12 items-center gap-2 border-b-2 px-3 font-display text-sm
+                     font-bold tracking-wide uppercase transition-colors sm:px-4"
               [class]="
                 activa.isActive
                   ? 'border-primary text-primary'

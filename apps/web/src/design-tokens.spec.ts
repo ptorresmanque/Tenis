@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { VARIANTES_AVISO } from './app/ui/aviso';
@@ -116,6 +117,14 @@ const PARES_DE_TEXTO: readonly [string, string, string][] = [
  * paleta lleva más historia: los tres verdes, los tres ámbares y los grises de
  * la grilla tienen cada uno su razón documentada.
  */
+it('en oscuro, la celda libre del marcador no es una zona clara (TV6.1)', () => {
+  // El defecto que obligó a crear el campo en D6.2: en un tema oscuro, lo que
+  // ocupa área no puede ser lo más claro de la pantalla. El marcador pinta hasta
+  // cuarenta celdas libres; con el relleno en #34d399 eran 61.000px² a 0,50 de
+  // luminancia a las 17:30, más que todos los botones y rótulos juntos.
+  expect(luminancia(colorDe(OSCURO, 'celda-libre'))).toBeLessThan(0.1);
+});
+
 it('los dos bloques del tema oscuro son idénticos', () => {
   // El tema oscuro se declara dos veces: una para cuando lo pide el sistema y
   // otra para cuando lo pide el visitante con el conmutador. No hay forma de
@@ -174,6 +183,39 @@ describe.each(TEMAS)('Contraste del tema %s', (_, tema) => {
     // Si el campo y el fondo tuvieran la misma luminancia, la banda dejaría de
     // ser una banda. No es un mínimo de WCAG: es que la composición exista.
     expect(contraste(c('campo'), c('background'))).toBeGreaterThanOrEqual(1.3);
+  });
+
+  it('el texto de un rótulo se lee encima (4.5:1)', () => {
+    // El rótulo es la placa de la transmisión: la cinta, el rótulo del zócalo,
+    // el lado visitante del cara a cara (plan de transmisión, TV1.4).
+    expect(contraste(c('on-rotulo'), c('rotulo'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('el rótulo se distingue del fondo y de la banda plena', () => {
+    // Va pegado al campo —la cinta bajo el hero, el visitante junto al socio—,
+    // así que tiene que separarse de los dos. En oscuro esto descarta un rótulo
+    // más oscuro que la página: ni el negro puro llega a 1,3:1 contra #0a1b33,
+    // y por eso ahí el rótulo es una placa clara.
+    expect(contraste(c('rotulo'), c('background'))).toBeGreaterThanOrEqual(1.3);
+    expect(contraste(c('rotulo'), c('campo'))).toBeGreaterThanOrEqual(1.3);
+  });
+
+  it('la celda libre del marcador se distingue del campo y su texto se lee', () => {
+    // El marcador de la portada pinta las canchas libres sobre el campo. La celda
+    // es un control, así que pide el 3:1 de componente contra lo que la rodea.
+    // Desde TV6.1 lo carga el borde y no el relleno: en oscuro, un relleno que
+    // llegue a 3:1 contra el campo es claro, y cuarenta celdas claras eran la
+    // zona más brillante de la portada.
+    expect(contraste(c('borde-celda-libre'), c('campo'))).toBeGreaterThanOrEqual(3);
+    expect(contraste(c('on-celda-libre'), c('celda-libre'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('las dos capas del logotipo se leen sobre el campo', () => {
+    // El pie va en banda de campo (TV2.4). En claro, la capa "marca" del logotipo
+    // es el mismo azul del campo y desaparecería: sobre el campo usa su color
+    // para fondo oscuro, y la capa "texto" usa el texto de la banda.
+    expect(contraste(c('logo-marca-sobre-campo'), c('campo'))).toBeGreaterThanOrEqual(3);
+    expect(contraste(c('on-campo'), c('campo'))).toBeGreaterThanOrEqual(4.5);
   });
 
   it('las dos capas del logotipo se leen sobre el fondo', () => {
@@ -373,7 +415,12 @@ describe('Tipografía', () => {
   });
 
   it.each(familias())('index.html carga la fuente %s', (familia) => {
-    expect(html).toContain(`family=${familia.replaceAll(' ', '+')}`);
+    // El nombre tiene que terminar ahí: `family=Barlow` también aparece dentro de
+    // `family=Barlow+Condensed`, y sin este borde una familia que solo carga a su
+    // hermana condensada pasaba el test sin cargarse.
+    // El + se escapa: en la URL separa palabras, en una expresión regular repite.
+    const nombre = familia.replaceAll(' ', '\\+');
+    expect(html).toMatch(new RegExp(`family=${nombre}(?=[:&"'])`));
   });
 
   it('la fuente de íconos se carga y no con display=swap', () => {
@@ -385,14 +432,26 @@ describe('Tipografía', () => {
     expect(enlace).toContain('display=block');
   });
 
+  it('la familia de .icono es la que carga index.html', () => {
+    // Si el enlace y la regla nombran familias distintas, cada ícono se pinta
+    // como su nombre escrito: "calendar_month" en vez del calendario. Cargar una
+    // fuente que nadie usa no lo detecta el test de arriba.
+    const cargada = html.match(/family=(Material\+Symbols\+\w+)/)?.[1].replaceAll('+', ' ');
+    const usada = css.match(/\.icono\s*\{[^}]*?font-family:\s*'([^']+)'/)?.[1];
+
+    expect(cargada).toBeDefined();
+    expect(usada).toBe(cargada);
+  });
+
   it('los íconos usan clase propia y no la de Google', () => {
-    // `.material-symbols-outlined` de Google viene sin capa y le gana a toda
-    // utilidad de Tailwind: con esa clase, text-* sobre un ícono no hace nada.
-    // La clase propia .icono está en @layer base y sí se deja mandar.
+    // La clase de Google (`.material-symbols-outlined`, `-rounded` o `-sharp`,
+    // según la variante) viene sin capa y le gana a toda utilidad de Tailwind:
+    // con esa clase, text-* sobre un ícono no hace nada. La clase propia .icono
+    // está en @layer base y sí se deja mandar.
     expect(css).toContain('.icono');
 
     const infractores = plantillas()
-      .filter(({ contenido }) => contenido.includes('material-symbols-outlined'))
+      .filter(({ contenido }) => /material-symbols-(outlined|rounded|sharp)/.test(contenido))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);
@@ -626,11 +685,13 @@ describe('Movimiento', () => {
   });
 
   it('ningún componente escribe una duración a mano', () => {
-    // `0ms` y `0.01ms` sí: son "no animes", no una velocidad elegida.
+    // `0ms` y `0.01ms` sí: son "no animes", no una velocidad elegida. Y en
+    // segundos también cuenta: hasta TV3.2 solo miraba milisegundos, y el
+    // `1.4s` del esqueleto pasaba sin que nadie lo hubiera decidido.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
-      const duraciones = /(?<![\d.])(?!0ms|0\.01ms)\d+(?:\.\d+)?ms\b/g;
+      const duraciones = /(?<![\w.-])(?!0ms|0\.01ms|0s)\d+(?:\.\d+)?m?s\b/g;
       for (const [uso] of sinComentarios(contenido).matchAll(duraciones)) {
         infractores.push(`${archivo}: ${uso}`);
       }
@@ -736,6 +797,115 @@ describe('Tacto', () => {
   });
 });
 
+describe('Foco', () => {
+  /**
+   * El anillo de foco tiene que verse contra lo que rodea al control (WCAG
+   * 2.4.7). En claro, `--color-ring` y `--color-campo` son el mismo azul: sobre
+   * la banda azul el anillo no existía, y con teclado no se sabía dónde estaba el
+   * foco en el hero, en "Libre hoy" ni en el pie. Hallado en TV3.2.
+   */
+  // En los hijos y no en el contenedor: el anillo se dibuja afuera del control,
+  // sobre el fondo de quien lo contiene. El ítem activo del panel es bg-rotulo y
+  // su anillo cae sobre la barra clara; si la regla lo alcanzara, se borraría.
+  it('sobre el campo y sobre el rótulo, el anillo toma el color del texto', () => {
+    expect(css).toMatch(
+      /\.bg-campo > \*,\s*\.text-on-campo > \*\s*\{[^}]*--color-ring:\s*var\(--color-on-campo\)/,
+    );
+    expect(css).toMatch(/\.bg-rotulo > \*\s*\{[^}]*--color-ring:\s*var\(--color-on-rotulo\)/);
+  });
+
+  it('el campo hondo, el lado visitante del cara a cara, lleva el texto del campo (TV3.5)', () => {
+    for (const [nombre, tema] of TEMAS) {
+      expect(
+        contraste(colorDe(tema, 'on-campo'), colorDe(tema, 'campo-hondo')),
+        `texto sobre el campo hondo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('cada anillo se distingue de su fondo, en los dos temas', () => {
+    for (const [nombre, tema] of TEMAS) {
+      expect(
+        contraste(colorDe(tema, 'ring'), colorDe(tema, 'background')),
+        `el anillo sobre el fondo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contraste(colorDe(tema, 'on-campo'), colorDe(tema, 'campo')),
+        `el anillo sobre el campo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(3);
+      expect(
+        contraste(colorDe(tema, 'on-rotulo'), colorDe(tema, 'rotulo')),
+        `el anillo sobre el rótulo, en ${nombre}`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
+describe('Esquinas', () => {
+  // Un solo radio en todo el sitio: el lenguaje de transmisión es de esquinas
+  // rectas (plan de transmisión, TV1.2). La forma de cumplirlo sin tocar las
+  // plantillas que usan rounded-lg, rounded-xl y compañía es redefinir cada
+  // variable de radio de Tailwind al mismo valor. Por eso se leen las que trae el
+  // Tailwind instalado y no una lista escrita a mano: con la próxima versión, un
+  // radio nuevo haría fallar el test en vez de colarse redondeado.
+  const deTailwind = readFileSync(
+    createRequire(import.meta.url).resolve('tailwindcss/theme.css'),
+    'utf8',
+  );
+  const propios = new Map(
+    [...bloque('@theme {').matchAll(/^\s*(--radius(?:-[\w-]+)?):\s*([^;]+);/gm)].map(
+      ([, nombre, valor]) => [nombre, valor.trim()],
+    ),
+  );
+
+  it('redefine cada radio que trae Tailwind', () => {
+    const deFabrica = new Set([...deTailwind.matchAll(/(--radius(?:-[\w-]+)?):/g)].map(([, n]) => n));
+    const faltan = [...deFabrica].filter((nombre) => !propios.has(nombre));
+
+    expect(deFabrica.size).toBeGreaterThan(0);
+    expect(faltan).toEqual([]);
+  });
+
+  it('todos los radios valen lo mismo', () => {
+    expect(new Set(propios.values())).toEqual(new Set([propios.get('--radius-control')]));
+  });
+
+  it('ninguna regla de styles.css escribe un radio a mano', () => {
+    // Una regla con `border-radius: 0.5rem` no la alcanza ninguna variable: se
+    // queda redondeada aunque el sistema entero sea recto.
+    const aMano = [...css.matchAll(/border(?:-[a-z]+)*-radius:\s*([^;]+);/g)]
+      .map(([, valor]) => valor.trim())
+      .filter((valor) => !valor.startsWith('var(--radius'));
+
+    expect(aMano).toEqual([]);
+  });
+
+  it('ninguna plantilla usa un radio arbitrario', () => {
+    // `rounded-[10px]` es el único camino que le queda a una plantilla para
+    // saltarse el sistema, y no lo alcanza ninguna variable.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /\brounded(?:-[a-z]+)?-\[/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('rounded-full solo en elementos cuadrados: un avatar o un botón de ícono', () => {
+    // Un cuadrado con rounded-full es un círculo, y un avatar redondo es
+    // convención, no estilo. Una pastilla de texto es estilo, y en este lenguaje
+    // las etiquetas son rótulos rectos.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [clases] of contenido.matchAll(/(?:class|claseBoton)="[^"]*\brounded-full\b[^"]*"/g)) {
+        if (!/\bsize-\d/.test(clases)) infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 90)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
 describe('Fotos', () => {
   it('todo <app-foto> dice qué foto va ahí', () => {
     // La descripción hace dos trabajos: es el pedido que el club lee en
@@ -764,9 +934,17 @@ describe('Tablas', () => {
     // propias líneas por fila: dos familias de tabla en el mismo panel, con
     // encabezados distintos y sin cifras tabulares. La primitiva es lo que hace
     // que el padrón y el reporte de ingresos se lean como el mismo sistema.
+    //
+    // La excepción es el marcador de la portada (TV3.3): no es una tabla de
+    // datos sino el tablero de la transmisión, sobre campo. La primitiva le
+    // pondría encabezado gris, una línea por fila y un hover gris, y habría que
+    // deshacer cada cosa a mano. Va por archivo, no por clase, para que no sea
+    // una puerta que cualquier tabla pueda usar.
     const infractores: string[] = [];
+    const excepciones = ['catalogo-canchas/marcador.ts'];
 
     for (const { archivo, contenido } of plantillas()) {
+      if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<table[^>]*>/g)) {
         if (!/class="[^"]*\btabla\b/.test(etiqueta)) {
           infractores.push(`${archivo}: ${etiqueta}`);
@@ -793,6 +971,156 @@ describe('Tablas', () => {
     expect(encabezado).toMatch(/position:\s*sticky/);
     // El `<th scope="row">` es una celda de datos: se estiliza con los `td`.
     expect(css).toMatch(/\.tabla td,\s*\n\s*\.tabla tbody th/);
+  });
+
+  it('el encabezado de columna va en la letra de los rótulos', () => {
+    // Como una tabla de posiciones en una transmisión: la etiqueta de la columna
+    // en la condensada, y los datos en la letra de leer (TV2.1).
+    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
+
+    expect(encabezado).toMatch(/font-family:\s*var\(--font-display\)/);
+  });
+});
+
+describe('El panel en la A (Fase 7)', () => {
+  // Las carpetas ya migradas. Cada tarea de la Fase 7 suma la suya, y en el
+  // Checkpoint G la lista es el panel entero: la regla queda cuidando que una
+  // pantalla nueva no vuelva al título y a las secciones de antes.
+  const MIGRADAS = [
+    'catalogo-canchas/admin/',
+    'clases/admin/',
+    'configuracion/',
+    'cuotas/admin/',
+    'estado/',
+    'identidad/admin/',
+    'ranking/admin/',
+    'reportes/',
+    'reservas/admin/',
+    'torneos/admin/',
+  ];
+  const delPanel = () =>
+    plantillas()
+      .filter(({ archivo }) => MIGRADAS.some((ruta) => archivo.startsWith(ruta)))
+      .map(({ archivo, contenido }) => ({ archivo, contenido: sinComentarios(contenido) }));
+
+  it('el título de cada pantalla va en la cabecera del panel, en cursiva', () => {
+    // Adentro de la cabecera y no solo en el mismo archivo, y sin depender del
+    // orden de las clases: una cabecera con un margen de más no es una falta.
+    const cabecera = /<header\b[^>]*class="[^"]*\bcabecera-panel\b[^"]*"[^>]*>([\s\S]*?)<\/header>/;
+    const titular = /<h1\b[^>]*class="[^"]*\btitular\b/;
+
+    const infractores = delPanel()
+      .filter(({ contenido }) => /<h1\b/.test(contenido))
+      .filter(({ contenido }) => !titular.test(contenido.match(cabecera)?.[1] ?? ''))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('la bajada de la cabecera no lleva max-w-prose, que le gana al ancho de la primitiva', () => {
+    // Con max-w-prose la bajada se partía en tres líneas y la banda pasaba los 96px
+    // en nueve pantallas (revisión de TV7.9). El ancho lo pone .cabecera-panel p.
+    const infractores = delPanel()
+      .filter(({ contenido }) =>
+        [...contenido.matchAll(/<header\b[^>]*\bcabecera-panel\b[\s\S]*?<\/header>/g)].some(
+          ([bloque]) => /\bmax-w-prose\b/.test(bloque),
+        ),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('cada sección visible se encabeza con el rótulo, no con un título suelto', () => {
+    // La sección es la que se nombra con aria-labelledby, que es como la arma el
+    // panel. El h2 de una tarjeta —el nombre de quien escribió una consulta— o
+    // el de un diálogo no encabeza una sección y no lleva placa (TV7.4). El
+    // sr-only tampoco: es el nombre de una región para el lector de pantalla, y
+    // un rótulo que no se ve no tiene placa que pintar.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of delPanel()) {
+      for (const [, id] of contenido.matchAll(/<section\b[^>]*aria-labelledby="([^"]+)"/g)) {
+        const titulo = contenido.match(new RegExp(`<h2\\b[^>]*\\bid="${id}"[^>]*>`))?.[0];
+        if (titulo && !/\b(rotulo-seccion|sr-only)\b/.test(titulo)) {
+          infractores.push(`${archivo}: ${titulo.replace(/\s+/g, ' ')}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('Botones', () => {
+  it('ningún botón ni enlace se arma a mano con relleno y fondo o borde, sin .boton (TV8.2)', () => {
+    // TV2.3 encontró tres —"Ir a pagar" con su "Cancelar", "Crear cuenta" y
+    // "Sancionar"— que no heredaban nada de .boton: ni el alto táctil, ni la letra,
+    // ni el foco, ni la confirmación al apretar. TV2.4, TV5.2 y TV7.9 los migraron;
+    // esto cuida que no aparezca el cuarto.
+    //
+    // Quedan afuera los que no son una acción sino una opción que se marca
+    // (aria-pressed, como las horas libres de la grilla) o una pestaña (role="tab"):
+    // se dibujan como chip o como pestaña, no como botón.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of sinComentarios(contenido).matchAll(/<(?:button|a)\b[^>]*>/g)) {
+        const clases = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
+        if (/\bboton\b/.test(clases) || /aria-pressed|role="tab"/.test(etiqueta)) continue;
+
+        const relleno = /(?<![\w-])p[xy]?-\d/.test(clases);
+        const fondoOBorde = /(?<![\w:-])(bg-(?!transparent)[a-z]|border(?:-\d)?(?=\s|$))/.test(clases);
+        if (relleno && fondoOBorde) {
+          infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('un botón sobre el campo usa su variante y no arma los colores a mano', () => {
+    // Seis botones se armaban con `bg-on-campo text-campo` a mano. La variante
+    // existe para que la fase 3, que llena la portada de bandas de campo, no
+    // repita la mezcla seis veces más (TV2.1).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [clases] of contenido.matchAll(/class="[^"]*\bboton\b[^"]*"/g)) {
+        if (/\b(bg|border|text)-on-campo\b|\btext-campo\b/.test(clases)) {
+          infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 80)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('Franjas', () => {
+  it('nada se marca con una franja de color al costado', () => {
+    // La franja gruesa en el canto (`border-s-4`) es la marca más reconocible de
+    // una interfaz hecha en serie, y el detector de impeccable la cazó en D8.2.
+    // La última era la del ítem activo del panel; desde TV2.5 el activo es un
+    // rótulo, y esto impide que vuelva por otro lado.
+    // Los cuatro costados (s, e, l, r, y x para los dos) y también los anchos
+    // arbitrarios. Arriba y abajo no: la raya superior de las cifras es parte
+    // del lenguaje (TV3.4) y no es una franja al costado.
+    const FRANJA = /\bborder-[selrx]-(?:[2-8]\b|\[[^\]]+\])/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => FRANJA.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('styles.css tampoco escribe una franja al costado', () => {
+    const franjas = css.match(
+      /border-(?:left|right|inline-start|inline-end|inline)(?:-width)?:\s*(?:[2-9]|\d{2})/g,
+    );
+
+    expect(franjas).toBeNull();
   });
 });
 

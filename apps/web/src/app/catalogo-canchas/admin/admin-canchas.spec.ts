@@ -105,6 +105,28 @@ describe('AdminCanchasPanel', () => {
     expect(texto()).toContain('Arcilla');
   });
 
+  it('la cabecera del panel lleva el título y ninguna acción: agregar es una sección (TV7.2)', () => {
+    // La cabecera admite una sola acción principal, y esta pantalla no tiene
+    // una: cada sección trae la suya, y "Agregar" vive con su formulario.
+    const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
+
+    expect(cabecera?.querySelector('h1')?.textContent).toContain('Canchas del club');
+    expect(cabecera?.querySelectorAll('button, a').length).toBe(0);
+  });
+
+  it('cada sección se encabeza con un rótulo, también la alarma de tarifas (TV7.2)', async () => {
+    await montar([CANCHA], [
+      { canchaId: 1, nombre: 'Cancha 1', sinTarifa: ['2026-08-17T11:00:00.000Z'] },
+    ]);
+    const titulos = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('section > h2'),
+    ];
+
+    // Las cuatro: la alarma, lo general del club, agregar y la lista.
+    expect(titulos.length).toBe(4);
+    expect(titulos.every((h2) => h2.classList.contains('rotulo-seccion'))).toBe(true);
+  });
+
   it('a una cancha desactivada la nombra, no solo la apaga', async () => {
     // La opacidad es una diferencia de color, y no todos la ven. Sin la palabra,
     // el admin no distingue una cancha fuera de la grilla de una dentro.
@@ -112,6 +134,16 @@ describe('AdminCanchasPanel', () => {
 
     expect(texto()).toContain('Desactivada');
     expect(boton('Reactivar')).toBeDefined();
+  });
+
+  it('a la cancha desactivada no la apaga la opacidad, que le baja el contraste', async () => {
+    // Con opacity-60, sobre el fondo del panel, el texto gris quedaba en 2,91:1,
+    // "Reactivar" en 3,13:1 y "Eliminar" en 2,76:1: la tarjeta seguía teniendo
+    // botones que se usan, así que tiene que leerse como cualquier otra.
+    await montar([{ ...CANCHA, activa: false }]);
+    const tarjeta = (fixture.nativeElement as HTMLElement).querySelector('li');
+
+    expect(tarjeta?.className).not.toMatch(/opacity-/);
   });
 
   it('la cancha desactivada sigue en el panel, para poder reactivarla', async () => {

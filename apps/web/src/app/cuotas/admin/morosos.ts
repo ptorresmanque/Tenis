@@ -21,10 +21,15 @@ import { Cuotas } from '../cuotas.service';
   selector: 'app-morosos',
   imports: [Esqueleto, RouterLink, EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Socios con deuda</h1>
-    <p class="mt-1 max-w-prose text-muted-foreground">
-      Ordenados por lo que deben. Se cuenta por cuotas impagas, no por fechas.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: es una pantalla para mirar. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Socios con deuda</h1>
+        <p class="mt-1 text-muted-foreground">
+          Ordenados por lo que deben. Se cuenta por cuotas impagas, no por fechas.
+        </p>
+      </div>
+    </header>
 
     @if (morosos.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los socios con deuda…" />
@@ -41,7 +46,7 @@ import { Cuotas } from '../cuotas.service';
       />
     } @else {
       <p class="mt-4 text-lg">
-        <strong class="font-display text-2xl text-destructive">
+        <strong class="font-display text-3xl font-bold text-destructive tabular-nums">
           {{ pesos(totalClp()) }}
         </strong>
         por cobrar, de {{ morosos.value().length }}

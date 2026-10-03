@@ -25,11 +25,17 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
   selector: 'app-ingreso-panel',
   imports: [EstadoVacio, DescargarCsv],
   template: `
-    <h1 class="font-display text-2xl font-bold">Ingreso del club</h1>
-    <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-      Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
-      Las cuotas van a su mes, no al día en que el socio se puso al día.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
+         es lo que se lleva. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Ingreso del club</h1>
+        <p class="mt-1 text-muted-foreground">
+          Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
+          Las cuotas van a su mes, no al día en que el socio se puso al día.
+        </p>
+      </div>
+    </header>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
       <label class="grid gap-1 text-sm">

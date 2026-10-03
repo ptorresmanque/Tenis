@@ -40,8 +40,10 @@ import { FilaInterna, Ranking } from './ranking.service';
           detalle="En cuanto dos socios carguen uno y lo confirmen, la tabla aparece acá."
         />
       } @else {
+        <!-- En el teléfono, menos relleno por celda (TV4.5): con el de la primitiva,
+             cinco columnas no caben en 296px. -->
         <div class="mt-4 overflow-x-auto" data-tabla="activos">
-          <table class="tabla text-sm">
+          <table class="tabla text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
             <caption class="sr-only">
               Elo de los socios que jugaron en los últimos seis meses
             </caption>
@@ -57,7 +59,7 @@ import { FilaInterna, Ranking } from './ranking.service';
             <tbody>
               @for (fila of activos(); track fila.socioId) {
                 <tr>
-                  <td class="py-2 pr-3 font-semibold">{{ fila.puesto }}</td>
+                  <td class="font-display font-bold">{{ fila.puesto }}</td>
                   <!-- El nombre es el encabezado de fila y no el puesto: con empates
                        el puesto se repite, y uno que dice "1" en dos filas no
                        identifica ninguna. -->
@@ -65,12 +67,9 @@ import { FilaInterna, Ranking } from './ranking.service';
                     {{ fila.nombre }}
                   </th>
                   <td class="numero font-semibold">{{ fila.elo }}</td>
-                  <td class="py-2 pr-3 text-right text-muted-foreground">
-                    {{ fila.partidos }}
-                  </td>
-                  <td class="py-2 text-right text-muted-foreground">
-                    {{ fila.ganados }}
-                  </td>
+                  <!-- Sin rellenos a mano: la primitiva alinea las columnas (TV4.5). -->
+                  <td class="numero text-muted-foreground">{{ fila.partidos }}</td>
+                  <td class="numero text-muted-foreground">{{ fila.ganados }}</td>
                 </tr>
               }
             </tbody>
@@ -80,7 +79,9 @@ import { FilaInterna, Ranking } from './ranking.service';
 
       @if (inactivos().length > 0) {
         <section class="mt-8">
-          <h3 class="font-display text-base font-semibold">Sin jugar hace rato</h3>
+          <h3 class="font-display text-base font-bold tracking-wide uppercase">
+            Sin jugar hace rato
+          </h3>
           <p class="mt-1 max-w-prose text-sm text-muted-foreground">
             No juegan un partido confirmado desde antes del
             {{ enPalabras(datos.inactivosDesde) }}, así que salen de la tabla. Su puntaje los
@@ -88,7 +89,7 @@ import { FilaInterna, Ranking } from './ranking.service';
           </p>
 
           <div class="mt-3 overflow-x-auto" data-tabla="inactivos">
-            <table class="tabla text-sm">
+            <table class="tabla text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
               <caption class="sr-only">
                 Socios fuera de la tabla principal, con su Elo conservado
               </caption>
@@ -106,7 +107,7 @@ import { FilaInterna, Ranking } from './ranking.service';
                       {{ fila.nombre }}
                     </th>
                     <td class="numero">{{ fila.elo }}</td>
-                    <td class="py-2 text-right text-muted-foreground">
+                    <td class="numero text-muted-foreground">
                       {{ enPalabras(fila.ultimoPartido) }}
                     </td>
                   </tr>

@@ -51,9 +51,7 @@ const DIAS = [
   imports: [Insignia],
   template: `
     <section aria-labelledby="titulo-tarifas">
-      <h2 id="titulo-tarifas" class="font-display text-2xl font-semibold">
-        Tarifas y horarios
-      </h2>
+      <h2 id="titulo-tarifas" class="titular text-5xl sm:text-6xl">Tarifas y horarios</h2>
       <p class="mt-1 max-w-prose text-muted-foreground">
         Lo que cuesta arrendar una hora. <strong>Los socios no pagan por reservar</strong>:
         su cuota mensual les da derecho a cancha.
@@ -65,7 +63,9 @@ const DIAS = [
         </p>
       } @else if (tarifas.value(); as lista) {
         @if (lista.length > 0) {
-          <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
+          <!-- Como el tablero de una transmisión (TV4.1): la tarjeta sin borde, con
+               su sombra, y el precio en la cifra condensada, que es lo que se busca. -->
+          <div class="mt-4 overflow-x-auto bg-card shadow-md">
             <table class="tabla">
               <caption class="sr-only">
                 Tarifas de arriendo por hora, vigentes hoy
@@ -86,12 +86,14 @@ const DIAS = [
                     <td class="whitespace-nowrap">
                       {{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}
                       @if (tarifa.esPico) {
-                        <app-insignia variante="info" icono="trending_up">
+                        <!-- Ámbar, como el rótulo "Pico" del marcador de la portada: la
+                             misma idea no cambia de color de una página a otra. -->
+                        <app-insignia variante="aviso" icono="trending_up">
                           Hora pico
                         </app-insignia>
                       }
                     </td>
-                    <td class="font-semibold whitespace-nowrap">
+                    <td class="font-display text-xl font-bold whitespace-nowrap text-primary">
                       {{ pesos(tarifa.montoClp) }}
                     </td>
                   </tr>
@@ -103,7 +105,9 @@ const DIAS = [
       }
 
       @if (aperturas().length > 0) {
-        <h3 class="mt-6 font-display text-lg font-semibold">Horario de apertura</h3>
+        <h3 class="mt-8 font-display text-lg font-bold tracking-wide uppercase">
+          Horario de apertura
+        </h3>
         <ul class="mt-2 grid gap-1 text-muted-foreground sm:grid-cols-2">
           @for (dia of aperturas(); track dia.diaSemana) {
             <li>

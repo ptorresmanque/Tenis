@@ -50,15 +50,19 @@ import { usarTemaPublico } from './tema';
         <!-- Desde lg y no desde md: con sesión de socio el menú lleva ocho
              enlaces, que a 768px se salen 247px de la pantalla. Medido el
              2026-09-08 a ese ancho, que es el de una tablet vertical y el de una
-             ventana a media pantalla. A 1024 entran en una línea con holgura. -->
+             ventana a media pantalla.
+             En mayúscula (TV2.4) los ocho a 1024 partían "Mis reservas" y otros
+             tres en dos líneas: necesitaban 997px y había 992. Por eso no se
+             parten (whitespace-nowrap) y llevan menos relleno hasta xl. -->
         <nav aria-label="Principal" class="hidden gap-1 text-sm lg:flex">
           @for (item of navegacion(); track item.ruta) {
             <a
               [routerLink]="item.ruta"
               routerLinkActive="text-primary underline decoration-2 underline-offset-8"
               ariaCurrentWhenActive="page"
-              class="rounded-md px-3 py-2 font-medium text-muted-foreground
-                     transition-colors hover:bg-muted hover:text-foreground"
+              class="rounded-md px-2 py-2 font-display font-bold whitespace-nowrap
+                     uppercase tracking-wide text-muted-foreground transition-colors
+                     hover:bg-muted hover:text-foreground xl:px-3"
             >
               {{ item.etiqueta }}
             </a>
@@ -102,18 +106,10 @@ import { usarTemaPublico } from './tema';
               </button>
             </app-menu-desplegable>
           } @else {
-            <a
-              routerLink="/entrar"
-              class="hidden rounded-lg px-4 py-2 text-sm font-semibold text-primary
-                     transition-colors hover:bg-muted sm:block"
-            >
+            <a routerLink="/entrar" class="boton boton-texto hidden sm:inline-flex">
               Entrar
             </a>
-            <a
-              routerLink="/registro"
-              class="hidden rounded-lg bg-primary px-4 py-2 text-sm font-semibold
-                     text-on-primary transition-opacity hover:opacity-90 sm:block"
-            >
+            <a routerLink="/registro" class="boton boton-primario hidden sm:inline-flex">
               Crear cuenta
             </a>
           }
@@ -160,8 +156,8 @@ import { usarTemaPublico } from './tema';
             [routerLink]="item.ruta"
             routerLinkActive="bg-selected text-primary"
             ariaCurrentWhenActive="page"
-            class="flex min-h-12 items-center rounded-lg px-3 font-medium
-                   transition-colors hover:bg-muted"
+            class="flex min-h-12 items-center rounded-lg px-3 font-display text-lg
+                   font-bold uppercase tracking-wide transition-colors hover:bg-muted"
             (click)="panel.close()"
           >
             {{ item.etiqueta }}
@@ -193,20 +189,10 @@ import { usarTemaPublico } from './tema';
         </div>
       } @else {
         <div class="mt-6 grid gap-2 border-t border-border pt-6">
-          <a
-            routerLink="/entrar"
-            class="flex min-h-12 items-center justify-center rounded-lg border
-                   border-primary font-semibold text-primary"
-            (click)="panel.close()"
-          >
+          <a routerLink="/entrar" class="boton boton-secundario w-full" (click)="panel.close()">
             Entrar
           </a>
-          <a
-            routerLink="/registro"
-            class="flex min-h-12 items-center justify-center rounded-lg bg-primary
-                   font-semibold text-on-primary"
-            (click)="panel.close()"
-          >
+          <a routerLink="/registro" class="boton boton-primario w-full" (click)="panel.close()">
             Crear cuenta
           </a>
         </div>
@@ -217,11 +203,15 @@ import { usarTemaPublico } from './tema';
       <router-outlet />
     </main>
 
-    <footer class="mt-16 border-t border-border bg-card print:hidden">
+    <!-- El pie, en banda de campo y no de rótulo: en oscuro el rótulo es una
+         placa clara, y un pie claro a todo el ancho sería la zona más brillante
+         de la pantalla (revisión de TV1.4). El logotipo usa sus colores para
+         fondo oscuro, porque en claro su azul es el mismo del campo. -->
+    <footer class="logotipo-sobre-campo mt-16 bg-campo text-on-campo print:hidden">
       <div class="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <app-logotipo />
-          <p class="mt-3 max-w-xs text-sm text-muted-foreground">
+          <p class="mt-3 max-w-xs text-sm text-on-campo/80">
             Canchas duras, todas de la misma superficie. Reserva en línea.
           </p>
         </div>
@@ -230,10 +220,10 @@ import { usarTemaPublico } from './tema';
           <h2 id="pie-reservas" class="font-display text-sm font-bold uppercase">
             Reservas
           </h2>
-          <ul class="mt-3 grid gap-2 text-sm text-muted-foreground">
+          <ul class="mt-3 grid gap-2 text-sm text-on-campo/80">
             @for (item of navegacion(); track item.ruta) {
               <li>
-                <a [routerLink]="item.ruta" class="hover:text-primary">
+                <a [routerLink]="item.ruta" class="hover:text-on-campo hover:underline">
                   {{ item.etiqueta }}
                 </a>
               </li>
@@ -249,8 +239,8 @@ import { usarTemaPublico } from './tema';
              página solo para el pie. -->
         <div>
           <h2 class="font-display text-sm font-bold uppercase">Horarios</h2>
-          <p class="mt-3 text-sm text-muted-foreground">
-            <a routerLink="/el-club" class="underline hover:text-primary">
+          <p class="mt-3 text-sm text-on-campo/80">
+            <a routerLink="/el-club" class="underline hover:text-on-campo">
               Mira el horario de cada día
             </a>
           </p>
@@ -261,20 +251,20 @@ import { usarTemaPublico } from './tema';
              Cada línea aparece solo si tiene algo que decir. -->
         <div>
           <h2 class="font-display text-sm font-bold uppercase">Contacto</h2>
-          <ul class="mt-3 grid gap-1 text-sm text-muted-foreground">
+          <ul class="mt-3 grid gap-1 text-sm text-on-campo/80">
             @if (club().direccion) {
               <li>{{ club().direccion }}</li>
             }
             @if (club().telefono) {
               <li>
-                <a [href]="'tel:' + club().telefono" class="hover:text-primary">
+                <a [href]="'tel:' + club().telefono" class="hover:text-on-campo hover:underline">
                   {{ club().telefono }}
                 </a>
               </li>
             }
             @if (club().email) {
               <li>
-                <a [href]="'mailto:' + club().email" class="hover:text-primary">
+                <a [href]="'mailto:' + club().email" class="hover:text-on-campo hover:underline">
                   {{ club().email }}
                 </a>
               </li>
@@ -283,7 +273,7 @@ import { usarTemaPublico } from './tema';
         </div>
       </div>
 
-      <p class="border-t border-border px-4 py-6 text-center text-sm text-muted-foreground">
+      <p class="border-t border-on-campo/20 px-4 py-6 text-center text-sm text-on-campo/80">
         © 2026 FEDAL Tennis Center
       </p>
     </footer>

@@ -31,11 +31,16 @@ const TIPOS: Record<TipoSolicitud, string> = {
   selector: 'app-solicitudes',
   imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector],
   template: `
-    <h1 class="font-display text-3xl font-bold">Consultas al club</h1>
-    <p class="mt-1 max-w-prose text-muted-foreground">
-      Lo que llega del formulario del sitio. Quien quiere asociarse se convierte en
-      invitación desde acá.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: cada consulta trae las suyas. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Consultas al club</h1>
+        <p class="mt-1 text-muted-foreground">
+          Lo que llega del formulario del sitio. Quien quiere asociarse se convierte en
+          invitación desde acá.
+        </p>
+      </div>
+    </header>
 
     <app-selector
       class="mt-4 block"
@@ -91,7 +96,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
               </span>
             </div>
 
-            <h2 class="mt-2 font-display text-lg font-semibold">
+            <h2 class="mt-2 titulo-tarjeta">
               {{ solicitud.nombre }}
             </h2>
             <p class="text-sm text-muted-foreground">

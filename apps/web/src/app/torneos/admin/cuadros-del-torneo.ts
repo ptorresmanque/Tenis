@@ -32,8 +32,11 @@ import {
   selector: 'app-cuadros-del-torneo',
   imports: [FormsModule, Aviso, Insignia],
   template: `
-    <section class="mt-4 rounded-xl border border-border bg-muted/30 p-4">
-      <h3 class="font-display text-base font-semibold">Categorías del torneo</h3>
+    <section
+      class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
+      aria-labelledby="titulo-categorias-torneo"
+    >
+      <h2 id="titulo-categorias-torneo" class="rotulo-seccion">Categorías del torneo</h2>
 
       @if (cuadros.isLoading()) {
         <p class="mt-2 text-sm text-muted-foreground">Cargando…</p>

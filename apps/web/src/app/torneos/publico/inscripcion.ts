@@ -36,11 +36,10 @@ const enBlanco = () => ({
   selector: 'app-inscripcion-a-torneo',
   imports: [FormsModule, Aviso, Campo, CampoControl, RestriccionHoraria],
   template: `
-    <form
-      class="mt-3 rounded-lg border border-border bg-background p-4"
-      (ngSubmit)="inscribirse()"
-    >
-      <h3 class="font-display text-base font-semibold">Inscribirme</h3>
+    <!-- La forma de la A (TV4.2): la caja con sombra y sin borde, el título como
+         rótulo. Los campos, los pasos y el envío son los de siempre. -->
+    <form class="mt-4 bg-background p-5 shadow-md sm:p-6" (ngSubmit)="inscribirse()">
+      <h3 class="font-display text-lg font-bold tracking-wide uppercase">Inscribirme</h3>
       <p class="mt-1 max-w-prose text-sm text-muted-foreground">
         No hace falta tener cuenta. El club te llama a este teléfono si hay algún
         cambio, y no se publica en ninguna parte.
@@ -128,8 +127,8 @@ const enBlanco = () => ({
            que nunca pagó. Ahora el comprobante viaja en el mismo envío y el servidor
            rechaza la inscripción que llega sin él. -->
       @if (montoElegido() > 0) {
-        <fieldset class="mt-4 rounded-lg border border-border p-3">
-          <legend class="px-1 text-sm font-semibold">
+        <fieldset class="mt-4 border border-border p-4">
+          <legend class="px-1 font-display text-sm font-bold tracking-wide uppercase">
             Cómo vas a pagar los {{ enPesos(montoElegido()) }}
           </legend>
 
@@ -138,8 +137,13 @@ const enBlanco = () => ({
             subes el comprobante de tu transferencia.
           </p>
 
-          <div class="mt-2 grid gap-2">
-            <label class="flex items-center gap-2 text-sm">
+          <!-- Cada medio es una opción de 44px de alto que se toca entera: el radio
+               solo, de 16px, era el único blanco. La elegida se marca con el borde. -->
+          <div class="mt-3 grid gap-2">
+            <label
+              class="flex min-h-11 cursor-pointer items-center gap-3 border border-border px-3
+                     text-sm has-[:checked]:border-primary has-[:checked]:font-semibold"
+            >
               <input
                 type="radio"
                 name="medioPago"
@@ -149,7 +153,10 @@ const enBlanco = () => ({
               Pagar ahora con Webpay
             </label>
 
-            <label class="flex items-center gap-2 text-sm">
+            <label
+              class="flex min-h-11 cursor-pointer items-center gap-3 border border-border px-3
+                     text-sm has-[:checked]:border-primary has-[:checked]:font-semibold"
+            >
               <input
                 type="radio"
                 name="medioPago"
@@ -199,10 +206,8 @@ const enBlanco = () => ({
          el servidor. Antes no hay a qué inscripción cobrarle, y pedir la plata primero
          obligaría a devolverla si el cuadro ya estaba lleno. -->
     @if (porPagar(); as pendiente) {
-      <section class="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
-        <h3 class="font-display text-base font-semibold">
-          Falta pagar la inscripción
-        </h3>
+      <section class="mt-4 border border-primary/30 bg-primary/5 p-5">
+        <h3 class="font-display text-lg font-bold tracking-wide uppercase">Falta pagar la inscripción</h3>
         <p class="mt-1 max-w-prose text-sm">
           {{ pendiente.categoria }} cuesta
           <strong>{{ enPesos(pendiente.montoClp) }}</strong>. Tu lugar te espera

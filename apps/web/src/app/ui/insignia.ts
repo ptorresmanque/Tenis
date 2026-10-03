@@ -15,6 +15,11 @@ export type VarianteInsignia =
  * distingue quien tiene daltonismo rojo-verde, así que un estado comunicado solo
  * por color no se comunica. Ícono y texto lo dicen igual en blanco y negro.
  *
+ * Se pinta como un rótulo de transmisión: condensada, en mayúscula y con tracking
+ * (TV2.2). Mismo alto que antes, para no mover las filas de las tablas del panel,
+ * donde vive la mayoría de sus usos. La mayúscula es de CSS: el lector de pantalla
+ * oye el texto como está escrito.
+ *
  * Los fondos son el color al 10% sobre la tarjeta, que deja el texto por encima
  * de 4.5:1 en las seis. `libre` es la excepción y usa `accent-soft`, el fondo
  * sólido del bloque disponible de la grilla, medido en 4.83:1.
@@ -50,8 +55,8 @@ export const VARIANTES_INSIGNIA: Record<VarianteInsignia, { clases: string; icon
   selector: 'app-insignia',
   template: `
     <span
-      class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1
-             text-xs font-semibold"
+      class="inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1
+             font-display text-xs font-bold uppercase tracking-wider"
       [class]="variante_().clases"
     >
       <span class="icono text-sm" aria-hidden="true">{{ icono() || variante_().icono }}</span>

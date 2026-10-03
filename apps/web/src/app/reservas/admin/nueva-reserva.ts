@@ -42,7 +42,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
       class="w-full max-w-lg rounded-xl bg-card p-6 shadow-xl backdrop:bg-foreground/50"
       (close)="cerrar.emit()"
     >
-      <h2 class="font-display text-2xl font-bold">Nueva reserva</h2>
+      <h2 class="titular text-2xl">Nueva reserva</h2>
       <p class="mt-1 text-sm text-muted-foreground">
         Para el {{ fecha() }}. La hora queda confirmada al instante: el cobro del
         visitante se hace en el mesón.

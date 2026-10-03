@@ -68,6 +68,18 @@ describe('ReportesPanel', () => {
     await montar();
   });
 
+  it('"Sancionar" y "Descartar" son botones de la primitiva, no hechos a mano (TV7.9)', () => {
+    // Hechos a mano no heredaban nada de .boton: ni el alto, ni la letra, ni el
+    // foco, ni la confirmación al apretar (hallazgo de TV2.3).
+    const botones = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li button'));
+
+    expect(botones.map((b) => b.textContent?.trim().split(/\s/)[0])).toEqual([
+      'Sancionar',
+      'Descartar',
+    ]);
+    expect(botones.every((b) => b.classList.contains('boton'))).toBe(true);
+  });
+
   it('muestra la hora en la hora del club, la cancha y a quién se le reservó', () => {
     expect(texto()).toContain('08:00');
     expect(texto()).toContain('Cancha 1');

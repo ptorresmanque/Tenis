@@ -87,10 +87,10 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
   imports: [FormsModule],
   template: `
     <section class="mt-8" aria-labelledby="titulo-reglas">
-      <h2 id="titulo-reglas" class="font-display text-xl font-semibold">
+      <h2 id="titulo-reglas" class="rotulo-seccion">
         Reglas del club
       </h2>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <p class="mt-2 text-sm text-muted-foreground">
         Valen para todas las canchas. Cada una rige desde que se guarda.
       </p>
 

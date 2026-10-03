@@ -25,11 +25,16 @@ import { Jugador, Torneos } from '../torneos.service';
   selector: 'app-jugadores',
   imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector],
   template: `
-    <h1 class="font-display text-3xl font-bold">Jugadores</h1>
-    <p class="mt-1 max-w-prose text-muted-foreground">
-      Quiénes juegan los torneos del club. Un socio que ya jugó conserva su jugador y
-      con él sus puntos.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Jugadores</h1>
+        <p class="mt-1 text-muted-foreground">
+          Quiénes juegan los torneos del club. Un socio que ya jugó conserva su jugador y
+          con él sus puntos.
+        </p>
+      </div>
+    </header>
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -42,7 +47,7 @@ import { Jugador, Torneos } from '../torneos.service';
       class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="anotar()"
     >
-      <h2 class="font-display text-lg font-semibold">Anotar un jugador</h2>
+      <h2 class="rotulo-seccion">Anotar un jugador</h2>
 
       <app-selector
         class="mt-3 block"

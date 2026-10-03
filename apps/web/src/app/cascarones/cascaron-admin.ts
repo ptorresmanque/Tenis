@@ -48,6 +48,11 @@ import { MenuDesplegable } from './menu-desplegable';
         </span>
         </div>
 
+        <!-- El ítem activo es un rótulo, la placa de la transmisión, y ya no una
+             franja de color al costado (TV2.5): la franja era la marca de
+             interfaz en serie que cazó el detector en D8.2, y un test la prohíbe.
+             El hover va solo en los inactivos, acá y en el cajón: sobre el rótulo
+             pintaría un fondo claro bajo un texto blanco. -->
         <nav aria-label="Administración" class="flex-1 overflow-y-auto py-4">
           <ul class="grid gap-1">
             @for (item of ITEMS; track item.ruta) {
@@ -60,12 +65,12 @@ import { MenuDesplegable } from './menu-desplegable';
                   routerLinkActive
                   ariaCurrentWhenActive="page"
                   #activo="routerLinkActive"
-                  class="flex min-h-12 items-center gap-3 border-s-4 px-4 text-sm
-                         font-medium transition-colors"
+                  class="flex min-h-12 items-center gap-3 px-4 font-display text-sm
+                         font-bold tracking-wide uppercase transition-colors"
                   [class]="
                     activo.isActive
-                      ? 'border-primary bg-selected text-primary'
-                      : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+                      ? 'bg-rotulo text-on-rotulo'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   "
                 >
                   <span class="icono text-xl" aria-hidden="true">{{ item.icono }}</span>
@@ -170,10 +175,12 @@ import { MenuDesplegable } from './menu-desplegable';
               <li>
                 <a
                   [routerLink]="item.ruta"
-                  routerLinkActive="bg-selected text-primary"
+                  routerLinkActive
                   ariaCurrentWhenActive="page"
-                  class="flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm
-                         font-medium transition-colors hover:bg-muted"
+                  #enCajon="routerLinkActive"
+                  class="flex min-h-12 items-center gap-3 rounded-lg px-3 font-display
+                         text-sm font-bold tracking-wide uppercase transition-colors"
+                  [class]="enCajon.isActive ? 'bg-rotulo text-on-rotulo' : 'hover:bg-muted'"
                   (click)="cajon.close()"
                 >
                   <span class="icono text-xl" aria-hidden="true">{{ item.icono }}</span>

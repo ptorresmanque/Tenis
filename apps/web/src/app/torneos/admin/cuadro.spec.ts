@@ -171,6 +171,13 @@ describe('CuadroDelTorneo', () => {
     await montar(ARMADO);
   });
 
+  it('se titula con un h2, como las otras pestañas de la ficha', () => {
+    // En la ficha, cada pestaña cuelga del h1 con el nombre del torneo, y en
+    // Ajustes sus secciones ya eran h2: con h3 se saltaba un nivel y las
+    // pestañas no se oían iguales (revisión de TV7.6).
+    expect(elemento().querySelector('h2')?.textContent).toContain('Cuadro');
+  });
+
   it('dibuja las rondas con su nombre', () => {
     expect(texto()).toContain('Semifinal');
     expect(texto()).toContain('Final');
@@ -199,8 +206,8 @@ describe('CuadroDelTorneo', () => {
   });
 
   it('**el cuadro se dibuja entero desde el primer día, con la final incluida**', () => {
-    // Una mitad en blanco no dice nada; una dibujada dice a quién te toca si ganás.
-    const columnas = elemento().querySelectorAll('h4');
+    // Una mitad en blanco no dice nada; una dibujada dice a quién te toca si ganas.
+    const columnas = elemento().querySelectorAll('h3');
 
     expect(columnas).toHaveLength(2);
   });

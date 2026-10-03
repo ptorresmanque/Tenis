@@ -45,7 +45,7 @@ const MOTIVOS: Record<string, string> = {
           <p class="icono text-6xl text-accent-strong" aria-hidden="true">
             check_circle
           </p>
-          <h1 class="mt-3 font-display text-3xl font-bold">Reserva confirmada</h1>
+          <h1 class="titular mt-3 text-5xl">Reserva confirmada</h1>
           <p class="mt-2 text-muted-foreground">
             Tu hora quedó tomada. Muestra este folio en el club.
           </p>
@@ -67,8 +67,16 @@ const MOTIVOS: Record<string, string> = {
             No se pudo cargar el resumen ni el QR. Con el folio te atienden igual en el club.
           </app-aviso>
         } @else if (detalle.value(); as reserva) {
-          <div class="mt-8 rounded-xl border border-border bg-card p-6 shadow-sm">
-            <dl class="grid gap-3 sm:grid-cols-2">
+          <!-- El resumen en un zócalo (TV5.2): el rótulo cortado arriba y los cuatro
+               datos debajo, como la barra de la portada. -->
+          <div class="mt-8 bg-card shadow-md">
+            <h2
+              class="inline-flex bg-rotulo py-1.5 ps-4 font-display text-sm font-bold
+                     tracking-wider text-on-rotulo uppercase corte-fin"
+            >
+              Tu reserva
+            </h2>
+            <dl class="grid gap-3 p-6 sm:grid-cols-2">
               <div>
                 <dt class="text-sm text-muted-foreground">Cancha</dt>
                 <dd class="font-semibold">{{ reserva.cancha }}</dd>
@@ -97,13 +105,18 @@ const MOTIVOS: Record<string, string> = {
             <div
               class="mt-4 rounded-xl border border-border bg-card p-6 text-center shadow-sm"
             >
-              <h2 class="font-display text-lg font-semibold">Tu entrada a la cancha</h2>
+              <h2 class="font-display text-lg font-bold tracking-wide uppercase">
+                Tu entrada a la cancha
+              </h2>
               <p class="mt-1 text-sm text-muted-foreground">
                 Muéstralo en portería. Funciona sin conexión: guárdalo como foto.
               </p>
               <!-- El QR es decorativo para el lector de pantalla: lo que codifica
                    está escrito abajo como enlace, que es la versión que sí se puede
                    leer, copiar y compartir. -->
+              <!-- Para el detector de impeccable no tiene src: lo pone Angular con
+                   [src], y el @if de arriba asegura que el QR ya existe. -->
+              <!-- impeccable-disable-next-line broken-image -->
               <img [src]="imagen" alt="" class="mx-auto mt-4" width="240" height="240" />
               <p class="mt-2 text-xs break-all text-muted-foreground">
                 <a [href]="enlace()" class="underline">{{ enlace() }}</a>
@@ -124,7 +137,7 @@ const MOTIVOS: Record<string, string> = {
 
           <button
             type="button"
-            class="boton boton-chico mt-4 bg-on-campo text-campo"
+            class="boton boton-chico boton-sobre-campo mt-4"
             (click)="copiar()"
           >
             <span class="icono text-base" aria-hidden="true">content_copy</span>
@@ -133,15 +146,15 @@ const MOTIVOS: Record<string, string> = {
 
           <!-- Lo que pasó al copiar se dice, no se deja adivinar: el portapapeles
                no da ninguna señal visible por su cuenta. -->
-          <p role="status" aria-live="polite" class="mt-2 text-sm text-accent-strong">
+          <!-- En el texto del campo y no en verde: el verde sobre el azul daba
+               1,46:1 en claro, ilegible (medido en TV5.2). -->
+          <p role="status" aria-live="polite" class="mt-2 text-sm font-semibold text-on-campo">
             {{ avisoDeCopia() }}
           </p>
         </div>
 
         <section class="mt-8" aria-labelledby="antes-de-venir">
-          <h2 id="antes-de-venir" class="font-display text-xl font-semibold">
-            Antes de venir
-          </h2>
+          <h2 id="antes-de-venir" class="titular text-3xl">Antes de venir</h2>
           <ul class="mt-3 grid gap-3">
             @for (dato of ANTES_DE_VENIR(); track dato.titulo) {
               <li class="flex gap-3 rounded-xl border border-border bg-card p-4">
@@ -197,7 +210,7 @@ const MOTIVOS: Record<string, string> = {
         }
       } @else {
         <div class="text-center">
-          <h1 class="font-display text-3xl font-bold">La reserva no se completó</h1>
+          <h1 class="titular text-5xl">La reserva no se completó</h1>
         </div>
 
         <app-aviso variante="error" class="mt-6 block">{{ explicacion() }}</app-aviso>

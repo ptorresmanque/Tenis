@@ -30,9 +30,12 @@ const enBlanco = () => ({
   selector: 'app-transmisiones-del-torneo',
   imports: [FormsModule, Aviso],
   template: `
-    <section class="mt-4 rounded-xl border border-border bg-muted/30 p-4">
-      <h3 class="font-display text-base font-semibold">Transmisiones</h3>
-      <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+    <section
+      class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
+      aria-labelledby="titulo-transmisiones"
+    >
+      <h2 id="titulo-transmisiones" class="rotulo-seccion">Transmisiones</h2>
+      <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         Se transmite <strong>una cancha durante una jornada</strong>, no un partido:
         abre el live en YouTube y pega su enlace acá. Cada partido programado en esa
         cancha y a esa hora lo encuentra solo.

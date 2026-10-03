@@ -99,6 +99,20 @@ describe('Reservar', () => {
     expect(texto(fixture)).toContain('Correo');
   });
 
+  it('"Ir a pagar" es el botón primario del sitio, y "Cancelar" también usa la primitiva', () => {
+    // TV5.2: eran botones hechos a mano de 40px, bajo el mínimo táctil, e "Ir a
+    // pagar" era el único verde del sitio. Pasa a primario (decisión 6 del plan):
+    // el verde quedó para "libre".
+    const fixture = montar();
+    const botones = [...(fixture.nativeElement as HTMLElement).querySelectorAll('dialog button')];
+    const pagar = botones.find((b) => b.textContent?.includes('Ir a pagar'));
+    const cancelar = botones.find((b) => b.textContent?.trim() === 'Cancelar');
+
+    expect(pagar?.classList.contains('boton-primario')).toBe(true);
+    expect(pagar?.classList.contains('bg-accent-strong')).toBe(false);
+    expect(cancelar?.classList.contains('boton')).toBe(true);
+  });
+
   it('al socio le pide con quién juega, y no le muestra precio', () => {
     usuario.set({ socioId: 4 });
     const fixture = montar();

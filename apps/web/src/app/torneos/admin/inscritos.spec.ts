@@ -162,6 +162,13 @@ describe('InscritosDelTorneo', () => {
     await montar(LISTA);
   });
 
+  it('se titula con un h2, como las otras pestañas de la ficha', () => {
+    // En la ficha, cada pestaña cuelga del h1 con el nombre del torneo, y en
+    // Ajustes sus secciones ya eran h2: con h3 se saltaba un nivel y las
+    // pestañas no se oían iguales (revisión de TV7.6).
+    expect(elemento().querySelector('h2')?.textContent).toContain('Inscritos');
+  });
+
   it('dice cuántos lugares del cuadro están tomados', () => {
     expect(texto()).toContain('1 de 2');
     expect(texto()).toContain('Carolina Díaz');

@@ -283,10 +283,27 @@ describe('TorneosPublicos', () => {
   it('**el cuadro va en columnas que se desplazan, no en una tabla que se encoge**', async () => {
     // En 375px una tabla de cuatro rondas queda ilegible, y este cuadro se mira sobre
     // todo desde el teléfono, en el club.
+    //
+    // Reescrito en TV4.2: antes pedía que no hubiera ninguna tabla en la página, y
+    // desde entonces las categorías sí son una. Vigila lo mismo, ahora en el cuadro.
     await apretar('Ver quiénes juegan');
+    const cuadro = elemento().querySelector('[data-cuadro]');
 
-    expect(elemento().querySelector('table')).toBeNull();
-    expect(elemento().querySelector('.overflow-x-auto')).not.toBeNull();
+    expect(cuadro).not.toBeNull();
+    expect(cuadro?.querySelector('table')).toBeNull();
+    expect(cuadro?.matches('.overflow-x-auto')).toBe(true);
+  });
+
+  it('las categorías van como tabla de posiciones: categoría, inscripción y cupos', () => {
+    // TV4.2: mientras la inscripción está abierta, lo que se compara entre
+    // categorías es cuánto cuesta y cuánto lugar queda.
+    const tabla = elemento().querySelector('li table.tabla');
+    const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
+      th.textContent?.trim(),
+    );
+
+    expect(encabezados.slice(0, 3)).toEqual(['Categoría', 'Inscripción', 'Cupos']);
+    expect(tabla?.querySelector('tbody')?.textContent).toContain('$12.000');
   });
 
   it('el cuadro muestra el marcador y quién ganó', async () => {

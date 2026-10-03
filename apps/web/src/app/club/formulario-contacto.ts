@@ -39,9 +39,7 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
   imports: [FormsModule, Aviso, Campo, CampoControl],
   template: `
     <section aria-labelledby="titulo-contacto">
-      <h2 id="titulo-contacto" class="font-display text-2xl font-semibold">
-        Escríbenos
-      </h2>
+      <h2 id="titulo-contacto" class="titular text-5xl sm:text-6xl">Escríbenos</h2>
       <p class="mt-1 max-w-prose text-muted-foreground">
         Cuéntanos qué necesitas y te contestamos. No hace falta tener cuenta.
       </p>

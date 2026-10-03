@@ -40,7 +40,7 @@ const MESES = [
   selector: 'app-mi-cuenta',
   imports: [Aviso, EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Mi cuenta</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Mi cuenta</h1>
 
     @if (vueltaDelPago(); as estado) {
       @if (estado === 'listo') {
@@ -70,7 +70,7 @@ const MESES = [
       @if (datos.deudaClp > 0) {
         <p class="mt-4 text-lg">
           Debes
-          <strong class="font-display text-2xl text-destructive">
+          <strong class="font-display text-3xl text-destructive">
             {{ pesos(datos.deudaClp) }}
           </strong>
         </p>
@@ -88,12 +88,11 @@ const MESES = [
       } @else {
         <ul class="mt-4 grid gap-3">
           @for (cuota of datos.cuotas; track cuota.id) {
-            <li
-              class="flex flex-wrap items-center gap-3 rounded-xl border border-border
-                     bg-card p-4 shadow-sm"
-            >
+            <!-- La forma de la A (TV5.4): la tarjeta sin borde y el período en la
+                 condensada. El botón de pago y la vuelta de la pasarela no cambian. -->
+            <li class="flex flex-wrap items-center gap-3 bg-card p-4 shadow-md">
               <div class="min-w-0 flex-1">
-                <p class="font-display text-lg font-semibold">
+                <p class="font-display text-lg font-bold tracking-wide uppercase">
                   {{ nombrePeriodo(cuota) }}
                 </p>
                 <p class="text-sm text-muted-foreground">

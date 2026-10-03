@@ -16,16 +16,21 @@ export interface EstadoSalud {
   selector: 'app-estado',
   imports: [Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Estado del sistema</h1>
-    <p class="mt-1 text-muted-foreground">
-      Comprueba que la API y la base de datos responden.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: es una pantalla para mirar. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Estado del sistema</h1>
+        <p class="mt-1 text-muted-foreground">
+          Comprueba que la API y la base de datos responden.
+        </p>
+      </div>
+    </header>
 
     <section
       class="mt-6 rounded-xl border border-border bg-card p-6 shadow-md"
       aria-labelledby="titulo-bd"
     >
-      <h2 id="titulo-bd" class="text-sm font-semibold text-muted-foreground uppercase">
+      <h2 id="titulo-bd" class="rotulo-seccion">
         Base de datos
       </h2>
 

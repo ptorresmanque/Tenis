@@ -16,7 +16,7 @@ import { Component, input } from '@angular/core';
       <span class="icono text-4xl text-muted-foreground" aria-hidden="true">
         {{ icono() }}
       </span>
-      <p class="mt-3 font-display text-lg font-semibold">{{ titulo() }}</p>
+      <p class="mt-3 font-display text-xl font-bold uppercase tracking-wide">{{ titulo() }}</p>
       @if (detalle()) {
         <p class="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">
           {{ detalle() }}

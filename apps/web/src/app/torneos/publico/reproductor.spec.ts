@@ -75,6 +75,20 @@ describe('Reproductor', () => {
     expect(elemento().querySelector('button')?.textContent).toContain('Cancha 1');
   });
 
+  it('lleva su rótulo de transmisión, con la cancha (TV4.3)', () => {
+    expect(elemento().querySelector('[data-rotulo]')?.textContent).toContain('Cancha 1');
+  });
+
+  it('el rótulo no se suma al nombre del botón: se oye una vez', () => {
+    // Lo que llega al lector: todo lo que no cuelga de un aria-hidden.
+    const boton = elemento().querySelector('button')!.cloneNode(true) as HTMLElement;
+    boton.querySelectorAll('[aria-hidden="true"]').forEach((oculto) => oculto.remove());
+
+    expect(boton.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Ver la transmisión de Cancha 1',
+    );
+  });
+
   it('**avisa que el live va corrido**, para no prometer un partido', () => {
     expect(elemento().textContent).toContain('partido anterior');
   });

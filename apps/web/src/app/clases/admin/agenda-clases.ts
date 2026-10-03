@@ -48,8 +48,14 @@ const enBlanco = () => ({
   selector: 'app-agenda-clases',
   imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase],
   template: `
-    <h1 class="font-display text-3xl font-bold">Clases</h1>
-    <p class="mt-1 text-muted-foreground">{{ enPalabras(fecha()) }}</p>
+    <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
+         abajo, y la navegación entre días va debajo de la cabecera. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Clases</h1>
+        <p class="mt-1 text-muted-foreground">{{ enPalabras(fecha()) }}</p>
+      </div>
+    </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
       <div class="flex items-center gap-1">
@@ -171,8 +177,8 @@ const enBlanco = () => ({
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="agendar()"
     >
-      <h2 class="font-display text-lg font-semibold">Agendar una clase</h2>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <h2 class="rotulo-seccion">Agendar una clase</h2>
+      <p class="mt-2 text-sm text-muted-foreground">
         La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos
         antes de confirmar.
       </p>

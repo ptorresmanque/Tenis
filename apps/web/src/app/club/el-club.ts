@@ -43,7 +43,7 @@ import { Tarifas } from './tarifas';
       ></div>
 
       <div class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo sm:p-10">
-        <h1 id="el-club" class="font-display text-4xl font-black tracking-tight sm:text-6xl">
+        <h1 id="el-club" class="titular text-6xl sm:text-7xl lg:text-8xl">
           FEDAL Tennis Center
         </h1>
         <p class="max-w-prose text-lg text-on-campo/90">
@@ -62,7 +62,7 @@ import { Tarifas } from './tarifas';
       por eso y el nombre queda como etiqueta.
     -->
     <section class="mt-16" aria-labelledby="las-canchas">
-      <h2 id="las-canchas" class="font-display text-3xl font-bold">Las canchas</h2>
+      <h2 id="las-canchas" class="titular text-5xl sm:text-6xl">Las canchas</h2>
       <p class="mt-2 max-w-prose text-muted-foreground">
         Todas de superficie dura y velocidad media, como el Australian Open. Las dos
         centrales se llaman Basilea y Manacor, y el club no da más explicaciones.
@@ -71,19 +71,28 @@ import { Tarifas } from './tarifas';
       @if (canchas().length > 0) {
         <div class="mt-6 grid gap-8 md:grid-cols-2">
           @for (grupo of gruposDeCanchas(); track grupo.titulo) {
-            <div>
+            <!-- Cada grupo es una cifra de marcador con su raya, como las de la
+                 portada (TV4.1): cuántas hay y de qué tipo, de un vistazo. -->
+            <div class="border-t-4 border-primary pt-3">
               <p class="flex items-baseline gap-3">
                 <span class="font-display text-marcador text-primary">
                   {{ grupo.canchas.length }}
                 </span>
-                <span class="font-display text-xl font-bold">{{ grupo.titulo }}</span>
+                <span
+                  class="font-display text-xl font-bold tracking-wide text-muted-foreground
+                         uppercase"
+                >
+                  {{ grupo.titulo }}
+                </span>
               </p>
               <p class="mt-1 text-sm text-muted-foreground">{{ grupo.detalle }}</p>
 
               <ul class="mt-4 divide-y divide-border border-t border-border">
                 @for (cancha of grupo.canchas; track cancha.id) {
                   <li class="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <span class="font-semibold">{{ cancha.nombre }}</span>
+                    <span class="font-display text-lg font-bold tracking-wide uppercase">
+                      {{ cancha.nombre }}
+                    </span>
                     <span class="flex flex-wrap gap-2">
                       <app-insignia variante="info" icono="sports_tennis">
                         {{ superficie(cancha.superficie) }}
@@ -113,7 +122,7 @@ import { Tarifas } from './tarifas';
       class="-mx-4 mt-16 bg-campo px-4 py-10 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
       aria-labelledby="como-funciona"
     >
-      <h2 id="como-funciona" class="font-display text-3xl font-bold">Cómo se reserva</h2>
+      <h2 id="como-funciona" class="titular text-5xl sm:text-6xl">Cómo se reserva</h2>
 
       <ol class="mt-6 grid gap-8 md:grid-cols-3">
         @for (paso of PASOS; track paso.titulo; let i = $index) {
@@ -121,7 +130,9 @@ import { Tarifas } from './tarifas';
             <p class="font-display text-marcador-lg leading-none" aria-hidden="true">
               {{ i + 1 }}
             </p>
-            <h3 class="mt-2 font-display text-xl font-bold">{{ paso.titulo }}</h3>
+            <h3 class="mt-2 titulo-tarjeta">
+              {{ paso.titulo }}
+            </h3>
             <p class="mt-1 text-on-campo/85">{{ paso.detalle }}</p>
           </li>
         }
@@ -138,13 +149,15 @@ import { Tarifas } from './tarifas';
       a sí misma. Un dato del club se muestra una vez y sale de la configuración.
     -->
     <section class="mt-16" aria-labelledby="horarios-y-contacto">
-      <h2 id="horarios-y-contacto" class="font-display text-3xl font-bold">
+      <h2 id="horarios-y-contacto" class="titular text-5xl sm:text-6xl">
         Dónde encontrarnos
       </h2>
 
       <dl class="mt-6 grid gap-8 border-t border-border pt-6 sm:grid-cols-2">
         <div>
-          <dt class="flex items-center gap-2 font-display text-lg font-bold">
+          <dt
+            class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
+          >
             <span class="icono text-primary" aria-hidden="true">place</span>
             Dónde y cómo ubicarnos
           </dt>

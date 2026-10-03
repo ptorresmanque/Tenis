@@ -93,6 +93,15 @@ describe('CuadrosDelTorneo', () => {
     await montar([CUARTA]);
   });
 
+  it('se encabeza con un h2: es hermana de "Datos del torneo", no una parte suya', () => {
+    // Va entre el formulario de los datos y "Cancelar el torneo", los dos con h2.
+    // Con un h3, el lector de pantalla la anunciaba dentro de los datos, y desde
+    // TV7.6 se ve con la misma placa que sus hermanas (revisión de TV7.6).
+    const titulo = elemento().querySelector('section > h2');
+
+    expect(titulo?.textContent).toContain('Categorías del torneo');
+  });
+
   it('**no ofrece una categoría que el torneo ya corre**', () => {
     // El servidor la rechaza con un 409, y ofrecerla es mandar al admin a un error que
     // la pantalla ya sabía.
