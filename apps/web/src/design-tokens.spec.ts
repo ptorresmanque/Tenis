@@ -994,7 +994,8 @@ describe('El panel en la A (Fase 7)', () => {
     'estado/',
     'identidad/admin/',
     'ranking/admin/',
-    'reservas/admin/agenda.ts',
+    'reportes/',
+    'reservas/admin/',
     'torneos/admin/',
   ];
   const delPanel = () =>

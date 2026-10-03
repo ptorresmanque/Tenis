@@ -30,11 +30,17 @@ import {
   selector: 'app-ocupacion-panel',
   imports: [EstadoVacio, DescargarCsv],
   template: `
-    <h1 class="font-display text-2xl font-bold">Ocupación de cancha</h1>
-    <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-      Qué proporción de las horas que el club abrió se ocupó de verdad. Cuenta sobre los bloques que
-      existieron ese día según el horario de apertura, no sobre el día entero.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
+         es lo que se lleva. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Ocupación de cancha</h1>
+        <p class="mt-1 max-w-prose text-muted-foreground">
+          Qué proporción de las horas que el club abrió se ocupó de verdad. Cuenta sobre los bloques que
+          existieron ese día según el horario de apertura, no sobre el día entero.
+        </p>
+      </div>
+    </header>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
       <label class="grid gap-1 text-sm">

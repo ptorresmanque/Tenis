@@ -24,12 +24,18 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
   selector: 'app-no-uso-panel',
   imports: [EstadoVacio, DescargarCsv],
   template: `
-    <h1 class="font-display text-2xl font-bold">Horas reservadas y no usadas</h1>
-    <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-      Horas que alguien tomó y dejó vacías, sobre el total reservado del período. Solo cuentan las
-      que el club <strong>confirmó</strong> al resolver el reporte: uno pendiente es una acusación
-      que nadie miró todavía.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
+         es lo que se lleva. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Horas reservadas y no usadas</h1>
+        <p class="mt-1 max-w-prose text-muted-foreground">
+          Horas que alguien tomó y dejó vacías, sobre el total reservado del período. Solo cuentan las
+          que el club <strong>confirmó</strong> al resolver el reporte: uno pendiente es una acusación
+          que nadie miró todavía.
+        </p>
+      </div>
+    </header>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
       <label class="grid gap-1 text-sm">
