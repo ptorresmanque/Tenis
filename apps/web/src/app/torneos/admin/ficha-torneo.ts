@@ -241,10 +241,13 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
         <!-- **Cancelar es lo último de la pantalla y lo único destructivo.** Va con su
              borde rojo, separado del resto, y diciendo antes lo que no hace: el
              sistema no le devuelve la plata a nadie. -->
-        <section class="mt-6 rounded-xl border border-destructive/30 bg-card p-4">
+        <section
+          class="mt-6 rounded-xl border border-destructive/30 bg-card p-4"
+          aria-labelledby="titulo-cancelar"
+        >
           <!-- En rojo, como la alarma de las canchas: es la zona que no tiene
                vuelta atrás para los inscritos. -->
-          <h2 class="rotulo-seccion bg-destructive text-on-primary">
+          <h2 id="titulo-cancelar" class="rotulo-seccion bg-destructive text-on-primary">
             {{ suyo.estado === 'CANCELADO' ? 'Torneo cancelado' : 'Cancelar el torneo' }}
           </h2>
 

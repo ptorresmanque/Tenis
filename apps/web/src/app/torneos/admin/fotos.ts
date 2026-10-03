@@ -30,9 +30,12 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
   selector: 'app-fotos-del-torneo',
   imports: [FormsModule, Aviso],
   template: `
-    <section class="mt-4 rounded-xl border border-border bg-muted/30 p-4">
-      <h2 class="font-display text-base font-semibold">Fotos</h2>
-      <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+    <section
+      class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
+      aria-labelledby="titulo-fotos"
+    >
+      <h2 id="titulo-fotos" class="rotulo-seccion">Fotos</h2>
+      <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         Se ven <strong>sin necesidad de tener cuenta</strong>. Al subirlas se les quitan
         los datos que traen adentro —entre ellos el lugar donde se sacaron— y se guardan
         en dos tamaños, para que la galería no gaste los datos de quien la abre en el

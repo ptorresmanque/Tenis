@@ -32,7 +32,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
     @if (lista.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
-          <h2 class="font-display font-semibold">Inscritos</h2>
+          <h2 class="subtitulo">Inscritos</h2>
           <app-insignia
             [variante]="datos.inscritos.length >= datos.cupo ? 'aviso' : 'neutro'"
             icono="group"

@@ -993,11 +993,7 @@ describe('El panel en la A (Fase 7)', () => {
     'cuotas/admin/',
     'identidad/admin/',
     'reservas/admin/agenda.ts',
-    // TV7.6; TV7.7 lo cambia por la carpeta entera.
-    'torneos/admin/cuadro.ts',
-    'torneos/admin/cuadros-del-torneo.ts',
-    'torneos/admin/ficha-torneo.ts',
-    'torneos/admin/torneos.ts',
+    'torneos/admin/',
   ];
   const delPanel = () =>
     plantillas()
