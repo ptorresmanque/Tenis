@@ -136,6 +136,10 @@ describe('Grilla', () => {
     vi.useRealTimers();
   });
 
+  it('si todavía no pasó ninguna hora, no hay grupo plegado', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+  });
+
   it('muestra la hora de cada franja en la hora del club', () => {
     // 12:00Z en agosto son las 08:00 en Santiago. Con la hora del navegador o un
     // desfase fijo, el socio vería una hora que no es a la que juega.
@@ -229,6 +233,26 @@ describe('Grilla', () => {
     it('dice que esa hora ya pasó, en vez de que no quedan canchas', () => {
       // "Sin canchas libres" en cada hora de la mañana se lee como un club lleno.
       expect(texto()).toContain('Ya pasó');
+    });
+
+    // Decisión 9 del plan (TV5.1): a las 18:00 la grilla abría con diez filas
+    // "Ya pasó" antes de la primera hora tomable. Se pliegan, sin quitarlas.
+    it('las horas que ya pasaron se pliegan en un grupo que dice cuántas son', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const grupo = el.querySelector('details');
+
+      expect(grupo?.open).toBe(false);
+      expect(grupo?.querySelector('summary')?.textContent).toContain('2 horas que ya pasaron');
+      expect(grupo?.textContent).toContain('Ya pasó');
+    });
+
+    it('la primera franja a la vista es una que todavía se puede tomar', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const primeraAfuera = [...el.querySelectorAll('section')].find(
+        (seccion) => !seccion.closest('details'),
+      );
+
+      expect(primeraAfuera?.querySelector('.bloque button')).not.toBeNull();
     });
 
     it('el resumen tampoco la cuenta', () => {
@@ -401,6 +425,20 @@ describe('Grilla', () => {
       await montar(RESERVADO, {}, { socioId: 7, reportables: laReportable });
 
       expect(texto()).toContain('Reportar hora no usada');
+    });
+
+    it('plegada, la hora reportable sigue a un toque y el grupo lo anuncia', async () => {
+      // A las 10:40 la hora tomada de las 08:00 ya pasó y queda en el grupo.
+      vi.setSystemTime('2026-08-17T14:40:00.000Z');
+      await montar(RESERVADO, {}, { socioId: 7, reportables: laReportable });
+      const grupo = (fixture.nativeElement as HTMLElement).querySelector('details');
+
+      expect(grupo?.querySelector('summary')?.textContent).toContain('reportar');
+      expect(
+        [...(grupo?.querySelectorAll('button') ?? [])].some((b) =>
+          b.textContent?.includes('Reportar hora no usada'),
+        ),
+      ).toBe(true);
     });
 
     it('a quien no tiene ficha de socio no se lo ofrece', async () => {
