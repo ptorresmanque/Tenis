@@ -127,6 +127,10 @@ const CAMPOS: Record<string, string> = {
 
         @if (historial.isLoading()) {
           <p class="mt-2 text-sm text-muted-foreground">Cargando…</p>
+        } @else if (historial.error()) {
+          <p class="mt-2 text-sm text-destructive">
+            No se pudo cargar el historial. Reintenta en un momento.
+          </p>
         } @else if (historial.value().length === 0) {
           <p class="mt-2 text-sm text-muted-foreground">
             Nada desde que existe el registro.

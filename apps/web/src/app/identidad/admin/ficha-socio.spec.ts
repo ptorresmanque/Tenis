@@ -37,10 +37,12 @@ describe('FichaSocio', () => {
     historial: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (cambios: CambioDeFicha[] = []) => {
+  const montar = async (cambios: CambioDeFicha[] | Error = []) => {
     api = {
       editar: vi.fn().mockResolvedValue(SOCIA),
-      historial: vi.fn().mockResolvedValue(cambios),
+      historial: vi.fn(() =>
+        cambios instanceof Error ? Promise.reject(cambios) : Promise.resolve(cambios),
+      ),
     };
 
     TestBed.resetTestingModule();
@@ -137,5 +139,12 @@ describe('FichaSocio', () => {
     await guardar();
 
     expect(elemento().textContent).toContain('ya es de otra persona');
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si el historial no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(elemento().textContent).toContain('No se pudo cargar el historial');
   });
 });

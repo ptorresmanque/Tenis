@@ -182,4 +182,20 @@ describe('SociosPanel', () => {
 
     expect(texto()).toContain('No hay invitaciones pendientes');
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si el padrón no carga, lo dice', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Socios, useValue: { listado: () => Promise.reject(new Error('la API no respondió')) } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(SociosPanel);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudo cargar el padrón');
+  });
 });
