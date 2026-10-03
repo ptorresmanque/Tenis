@@ -363,10 +363,11 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
                   Ya reportaste esta hora.
                 </span>
               } @else {
+                <!-- La primitiva y no clases a mano (TV8.2): en 12px y sin .boton no
+                     tenía alto táctil ni la confirmación al apretar. -->
                 <button
                   type="button"
-                  class="cursor-pointer rounded-control border border-border px-2 py-1
-                         text-xs font-medium text-muted-foreground transition-colors"
+                  class="boton boton-texto boton-chico"
                   (click)="reportar(reporte.reservaId)"
                 >
                   Reportar hora no usada

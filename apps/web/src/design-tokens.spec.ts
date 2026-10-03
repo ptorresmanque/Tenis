@@ -1053,6 +1053,33 @@ describe('El panel en la A (Fase 7)', () => {
 });
 
 describe('Botones', () => {
+  it('ningún botón ni enlace se arma a mano con relleno y fondo o borde, sin .boton (TV8.2)', () => {
+    // TV2.3 encontró tres —"Ir a pagar" con su "Cancelar", "Crear cuenta" y
+    // "Sancionar"— que no heredaban nada de .boton: ni el alto táctil, ni la letra,
+    // ni el foco, ni la confirmación al apretar. TV2.4, TV5.2 y TV7.9 los migraron;
+    // esto cuida que no aparezca el cuarto.
+    //
+    // Quedan afuera los que no son una acción sino una opción que se marca
+    // (aria-pressed, como las horas libres de la grilla) o una pestaña (role="tab"):
+    // se dibujan como chip o como pestaña, no como botón.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of sinComentarios(contenido).matchAll(/<(?:button|a)\b[^>]*>/g)) {
+        const clases = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
+        if (/\bboton\b/.test(clases) || /aria-pressed|role="tab"/.test(etiqueta)) continue;
+
+        const relleno = /(?<![\w-])p[xy]?-\d/.test(clases);
+        const fondoOBorde = /(?<![\w:-])(bg-(?!transparent)[a-z]|border(?:-\d)?(?=\s|$))/.test(clases);
+        if (relleno && fondoOBorde) {
+          infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 70)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
   it('un botón sobre el campo usa su variante y no arma los colores a mano', () => {
     // Seis botones se armaban con `bg-on-campo text-campo` a mano. La variante
     // existe para que la fase 3, que llena la portada de bandas de campo, no
