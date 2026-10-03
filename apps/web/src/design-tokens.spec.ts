@@ -988,15 +988,19 @@ describe('El panel en la A (Fase 7)', () => {
   // pantalla nueva no vuelva al título y a las secciones de antes.
   const MIGRADAS = ['catalogo-canchas/admin/', 'configuracion/', 'reservas/admin/agenda.ts'];
   const delPanel = () =>
-    plantillas().filter(({ archivo }) => MIGRADAS.some((ruta) => archivo.includes(ruta)));
+    plantillas()
+      .filter(({ archivo }) => MIGRADAS.some((ruta) => archivo.startsWith(ruta)))
+      .map(({ archivo, contenido }) => ({ archivo, contenido: sinComentarios(contenido) }));
 
   it('el título de cada pantalla va en la cabecera del panel, en cursiva', () => {
+    // Adentro de la cabecera y no solo en el mismo archivo, y sin depender del
+    // orden de las clases: una cabecera con un margen de más no es una falta.
+    const cabecera = /<header\b[^>]*class="[^"]*\bcabecera-panel\b[^"]*"[^>]*>([\s\S]*?)<\/header>/;
+    const titular = /<h1\b[^>]*class="[^"]*\btitular\b/;
+
     const infractores = delPanel()
       .filter(({ contenido }) => /<h1\b/.test(contenido))
-      .filter(
-        ({ contenido }) =>
-          !contenido.includes('class="cabecera-panel"') || !/<h1 class="titular\b/.test(contenido),
-      )
+      .filter(({ contenido }) => !titular.test(contenido.match(cabecera)?.[1] ?? ''))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);
@@ -1008,7 +1012,7 @@ describe('El panel en la A (Fase 7)', () => {
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of delPanel()) {
-      for (const [etiqueta] of sinComentarios(contenido).matchAll(/<h2\b[^>]*>/g)) {
+      for (const [etiqueta] of contenido.matchAll(/<h2\b[^>]*>/g)) {
         if (!/\b(rotulo-seccion|sr-only)\b/.test(etiqueta)) {
           infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ')}`);
         }
