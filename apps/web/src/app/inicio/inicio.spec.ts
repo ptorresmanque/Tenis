@@ -133,6 +133,43 @@ describe('Inicio', () => {
     expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
   });
 
+  /**
+   * La cinta reemplaza al aviso de arriba con la misma condición (TV3.2): un
+   * rótulo fijo que lleva a la sección y mensajes que pasan con lo que hay que
+   * saber antes de bajar: hasta cuándo y cuánto lugar queda.
+   */
+  describe('la cinta del torneo', () => {
+    const cinta = () => elemento().querySelector('app-cinta');
+
+    it('dice hasta cuándo se inscribe y cuántos cupos quedan en cada categoría', async () => {
+      await montar([ABIERTO]);
+
+      expect(cinta()?.textContent).toContain('Copa Aniversario: inscripciones hasta el');
+      expect(cinta()?.textContent).toContain('4ª: quedan 3 de 8 cupos');
+      expect(cinta()?.textContent).toContain('Se juega desde el');
+    });
+
+    it('una categoría llena lo dice, en vez de un "quedan 0"', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 0 }] },
+      ]);
+
+      expect(cinta()?.textContent).toContain('4ª: sin cupos');
+    });
+
+    it('su rótulo lleva a la sección de abajo', async () => {
+      await montar([ABIERTO]);
+
+      expect(elemento().querySelector('app-cinta a[href="#torneos-abiertos"]')).not.toBeNull();
+    });
+
+    it('sin torneos abiertos no hay cinta', async () => {
+      await montar([]);
+
+      expect(cinta()).toBeNull();
+    });
+  });
+
   // Una hora libre en dos horas más, para el zócalo y para "Libre hoy".
   const CANCHA = {
     id: 3,

@@ -10,6 +10,7 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { Torneos } from '../torneos/torneos.service';
+import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
 import { Insignia } from '../ui/insignia';
@@ -39,7 +40,7 @@ import { Insignia } from '../ui/insignia';
  */
 @Component({
   selector: 'app-inicio',
-  imports: [RouterLink, Foto, Insignia, Esqueleto],
+  imports: [RouterLink, Cinta, Esqueleto, Foto, Insignia],
   template: `
     <!--
       BANDA 1 — La foto y la promesa.
@@ -181,28 +182,28 @@ import { Insignia } from '../ui/insignia';
 
     @if (abiertos().length > 0) {
       <!--
-        FRANJA — El torneo con la inscripción abierta.
+        LA CINTA — El torneo con la inscripción abierta.
 
         **La pidió el club**: quien entra a reservar una hora no baja hasta el
-        final, y una inscripción tiene fecha de cierre. Ancla a la sección en vez
-        de sacar a nadie de la portada.
+        final, y una inscripción tiene fecha de cierre. El rótulo ancla a la
+        sección en vez de sacar a nadie de la portada.
 
         Es su propia banda y no un quinto renglón del hero. taste § 4.7 prohíbe
         el texto chico bajo los botones —el hero es un momento, no una lista— y
         manda esas cosas a una sección propia debajo. Acá las dos reglas se
         cumplen: el club tiene su aviso sobre el pliegue y el hero queda en sus
         cuatro elementos.
+
+        Hasta TV3.2 era un aviso verde con una frase. Ahora es la cinta de la
+        transmisión, con la misma condición: la frase pasó a nombrar la región, y
+        el rótulo dice "Inscripciones abiertas" a secas porque la frase entera no
+        cabe fija en un teléfono.
       -->
-      <p class="mt-3">
-        <a
-          href="#torneos-abiertos"
-          class="flex flex-wrap items-center justify-center gap-2 rounded-caja
-                 bg-accent-soft px-4 py-3 font-semibold text-accent-strong"
-        >
-          <span class="icono" aria-hidden="true">emoji_events</span>
-          {{ avisoDeTorneos() }}
+      <app-cinta class="-mx-4 mt-3 sm:mx-0" [etiqueta]="avisoDeTorneos()" [mensajes]="mensajesDeTorneos()">
+        <a href="#torneos-abiertos" class="underline-offset-4 hover:underline">
+          Inscripciones abiertas
         </a>
-      </p>
+      </app-cinta>
     }
 
     <!--
@@ -552,6 +553,22 @@ export class Inicio {
           `${diaEnPalabras(abiertos[0].cierreInscripcion)}`
       : `${abiertos.length} torneos con la inscripción abierta`;
   });
+
+  /**
+   * Lo que pasa por la cinta: hasta cuándo, cuánto lugar queda y cuándo se
+   * juega. Los cupos son los mismos que la sección de abajo; la cinta los
+   * adelanta para quien no baja.
+   */
+  protected readonly mensajesDeTorneos = computed(() =>
+    this.abiertos().flatMap((torneo) => [
+      `${torneo.nombre}: inscripciones hasta el ${diaEnPalabras(torneo.cierreInscripcion)}`,
+      ...torneo.categorias.map(
+        ({ categoria, cupo, cuposLibres }) =>
+          `${categoria}: ${cuposLibres > 0 ? `quedan ${cuposLibres} de ${cupo} cupos` : 'sin cupos'}`,
+      ),
+      `Se juega desde el ${diaEnPalabras(torneo.fechaInicio)}`,
+    ]),
+  );
 
   protected readonly enPalabras = diaEnPalabras;
 

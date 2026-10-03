@@ -164,9 +164,11 @@
   --duracion-entrada: 400ms;
 
   /* Los bucles que nadie espera, y por eso se pasan de los 300ms: no responden
-     a un gesto, acompañan. El latido del esqueleto mientras llegan los datos.
-     La regla global de movimiento reducido lo apaga. */
+     a un gesto, acompañan. El latido del esqueleto mientras llegan los datos; la
+     cinta del torneo, que se detiene con su botón, el puntero o el foco (TV3.2).
+     El movimiento reducido apaga los dos. */
   --duracion-latido: 1.4s;
+  --duracion-cinta: 45s;
   /* El desfase entre un elemento y el siguiente en una entrada escalonada.
      Se topea el acumulado: con 40 elementos, el último entraría 2,4 s tarde. */
   --escalonado: 60ms;
