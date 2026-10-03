@@ -24,6 +24,11 @@ let contador = 0;
  * La opción elegida se marca con el rótulo, la placa de la transmisión (TV2.3):
  * tinta en claro, placa clara en oscuro. Es una pieza chica, que es lo único
  * para lo que el rótulo sirve; el par de contraste está medido en los dos temas.
+ *
+ * Los días van en mayúscula ("HOY 2") y los filtros segmentados no: en mayúscula
+ * "Con iluminación" y "Al aire libre" se parten en dos líneas en un teléfono de
+ * 375px, y sin ella los cuatro caben en una (333 de 343px, medido en la revisión
+ * de TV2.3).
  */
 @Component({
   selector: 'app-selector',
@@ -108,7 +113,7 @@ export class Selector {
          transition-colors has-[:checked]:border-rotulo has-[:checked]:bg-rotulo
          has-[:checked]:text-on-rotulo ${foco}`
       : `flex cursor-pointer items-center gap-1 rounded-md px-3 py-1.5 font-display
-         text-sm font-bold uppercase tracking-wide text-muted-foreground
+         text-sm font-bold text-muted-foreground
          transition-colors has-[:checked]:bg-rotulo has-[:checked]:text-on-rotulo
          ${foco}`;
   });
