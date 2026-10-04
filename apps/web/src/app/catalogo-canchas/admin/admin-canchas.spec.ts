@@ -30,6 +30,7 @@ describe('AdminCanchasPanel', () => {
         horaHasta: '18:00',
         esPico: false,
         montoClp: 12000,
+        montoClp90: null,
       },
     ],
   };
