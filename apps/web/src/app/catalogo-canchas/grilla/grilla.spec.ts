@@ -89,6 +89,8 @@ describe('Grilla', () => {
             yaReportada: boolean;
           }[]
         | Error;
+      /** Lo pagado que trae el enlace; por omisión, $16.000. */
+      reservaDelEnlace?: Promise<{ pagadoClp: number }>;
     } = {},
   ) => {
     mover = vi.fn().mockResolvedValue({});
@@ -109,7 +111,7 @@ describe('Grilla', () => {
     // Al mover, el día viene de la grilla que no cuenta la reserva que se mueve (T87).
     // El no-socio que cambia desde el enlace de su reserva (T88): pagó $16.000.
     delEnlace = {
-      porToken: vi.fn().mockResolvedValue({ pagadoClp: 16000 }),
+      porToken: vi.fn(() => opciones.reservaDelEnlace ?? Promise.resolve({ pagadoClp: 16000 })),
       grillaParaMover: vi.fn(() =>
         dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
       ),
@@ -930,6 +932,19 @@ describe('Grilla', () => {
         expect(delEnlace.mover).not.toHaveBeenCalled();
         expect(barra().textContent).toContain('no se devuelve la diferencia de $4.000');
         expect(botonDeLaBarra('Cambiar a esta hora')).toBeDefined();
+      });
+
+      it('**sin saber cuánto pagó, el clic no ofrece reservar una hora nueva** (revisión de T91)', async () => {
+        // La barra caía en la de reservar si lo pagado no llegaba —cargando, o la consulta
+        // falló—, y "Reservar" abría una reserva nueva en vez de cambiar la suya.
+        await montar(DIA, { moverToken: 'tok-123' }, {
+          reservaDelEnlace: Promise.reject(new Error('la API no respondió')),
+        });
+
+        await elegirPrimerBloque();
+
+        // Ni la barra de reservar ni una vacía: la hora no queda marcada.
+        expect((fixture.nativeElement as HTMLElement).querySelector('app-barra-fija')).toBeNull();
       });
 
       it('al confirmar, mueve por el enlace y vuelve a la página de la reserva con el resultado', async () => {

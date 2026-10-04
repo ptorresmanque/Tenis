@@ -401,8 +401,18 @@ export class BandaTipada {
          se marcó y con cuánto antes del botón. Desde el enlace, con plata en juego, dice
          la diferencia (T91). -->
     @if (elegido(); as eleccion) {
+      @let pagado = mover.pagadoPorElEnlace();
       <app-barra-fija>
-        @if (mover.pagadoPorElEnlace(); as pagado) {
+        <!-- Por el modo y no por lo pagado: desde el enlace, "Reservar" abriría una reserva
+             nueva en vez de cambiar la suya. -->
+        @if (mover.porToken() === null) {
+          <app-resumen-de-la-eleccion
+            [cancha]="eleccion.cancha"
+            [bloque]="eleccion.bloque"
+            (soltar)="elegido.set(null)"
+            (reservar)="reservar()"
+          />
+        } @else if (pagado !== null) {
           <app-resumen-del-cambio
             [cancha]="eleccion.cancha"
             [bloque]="eleccion.bloque"
@@ -410,13 +420,6 @@ export class BandaTipada {
             [enviando]="mover.enviando()"
             (soltar)="elegido.set(null)"
             (confirmar)="mover.cambiarPorEnlace(eleccion)"
-          />
-        } @else {
-          <app-resumen-de-la-eleccion
-            [cancha]="eleccion.cancha"
-            [bloque]="eleccion.bloque"
-            (soltar)="elegido.set(null)"
-            (reservar)="reservar()"
           />
         }
       </app-barra-fija>
@@ -730,6 +733,10 @@ export class Grilla {
     bloque: BloqueDisponible,
   ): Promise<void> {
     if (this.noSePuedeTomar(bloque)) return;
+
+    // Desde el enlace, sin saber cuánto pagó no hay diferencia que decirle: el clic espera
+    // a que llegue en vez de marcar una hora que no se puede confirmar.
+    if (this.mover.porToken() !== null && this.mover.pagadoPorElEnlace() === null) return;
 
     // Fuera de "mis reservas" el clic marca la hora: para reservarla, o —desde el
     // enlace— para ver la diferencia antes de confirmar el cambio (T91). Solo el socio
