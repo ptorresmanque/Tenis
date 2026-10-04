@@ -579,6 +579,155 @@ describe('Modificación y cancelación de reservas', () => {
       expect(movida.inicio).toEqual(MARTES_20);
     });
 
+    describe('cambiar la duración (T87)', () => {
+      // A las 18:00 del club y no a las 21:00 de `LUNES_20`: con 90 minutos, esa se
+      // pasaría del cierre de las 22:00.
+      const LUNES_18 = new Date(LUNES_20.getTime() - 3 * 60 * 60 * 1000);
+      const NOVENTA = 90 * 60 * 1000;
+
+      it('**el socio alarga su reserva de 1 hora a 1 hora y media, en la misma cancha y hora**', async () => {
+        const suya = await suReserva(LUNES_18);
+
+        const alargada = await modificacion.modificar(
+          suya.id,
+          { canchaId, inicio: LUNES_18, duracionMin: 90 },
+          admin,
+          horasAntes(LUNES_18, 30),
+        );
+
+        // La misma reserva, con su folio, y el fin corrido 30 minutos.
+        expect(alargada).toMatchObject({
+          id: suya.id,
+          folio: suya.folio,
+          inicio: LUNES_18,
+        });
+        expect(alargada.fin.getTime() - alargada.inicio.getTime()).toBe(
+          NOVENTA,
+        );
+      });
+
+      it('y la acorta de vuelta a 1 hora', async () => {
+        const suya = await prisma.reserva.update({
+          where: { id: (await suReserva(LUNES_18)).id },
+          data: { fin: new Date(LUNES_18.getTime() + NOVENTA) },
+        });
+
+        const acortada = await modificacion.modificar(
+          suya.id,
+          { canchaId, inicio: LUNES_18, duracionMin: 60 },
+          admin,
+          horasAntes(LUNES_18, 30),
+        );
+
+        expect(acortada.fin.getTime() - acortada.inicio.getTime()).toBe(
+          60 * 60 * 1000,
+        );
+      });
+
+      it('**alargarla sobre una hora tomada responde BLOQUE_TOMADO, no un error crudo**', async () => {
+        const suya = await suReserva(LUNES_18);
+        // La de las 19:00, de otra persona: los 30 minutos que se agregan caen encima.
+        await prisma.reserva.create({
+          data: {
+            folio: 'T87OTRA',
+            canchaId,
+            inicio: new Date(LUNES_18.getTime() + 60 * 60 * 1000),
+            fin: new Date(LUNES_18.getTime() + 2 * 60 * 60 * 1000),
+            estado: EstadoReserva.CONFIRMADA,
+            nombre: 'Otra persona',
+            email: 'otra@ejemplo.cl',
+            telefono: '',
+          },
+        });
+
+        await expect(
+          modificacion.modificar(
+            suya.id,
+            { canchaId, inicio: LUNES_18, duracionMin: 90 },
+            admin,
+            horasAntes(LUNES_18, 30),
+          ),
+        ).rejects.toMatchObject({
+          status: 409,
+          response: { motivo: 'BLOQUE_TOMADO' },
+        });
+      });
+
+      it('**pasarla a una hora pico se rechaza si ya tiene su cupo pico lleno**', async () => {
+        const pico = await prisma.cancha.create({
+          data: {
+            nombre: `${NOMBRE_CANCHA} pico`,
+            superficie: Superficie.CEMENTO,
+            horarios: {
+              create: [
+                { diaSemana: 1, horaApertura: '08:00', horaCierre: '22:00' },
+              ],
+            },
+            franjas: {
+              create: {
+                horaDesde: '08:00',
+                horaHasta: '22:00',
+                montoClp: 20000,
+                montoClp90: 27000,
+                esPico: true,
+                vigenteDesde: new Date('2026-01-01'),
+              },
+            },
+          },
+          select: { id: true },
+        });
+        const suya = await suReserva(LUNES_18);
+        // Sus dos pico de la semana, martes y miércoles: el cupo es de 2.
+        for (const dias of [1, 2]) {
+          const inicio = new Date(
+            LUNES_18.getTime() + dias * 24 * 60 * 60 * 1000,
+          );
+          await prisma.reserva.create({
+            data: {
+              folio: `T87P${dias}`,
+              canchaId,
+              inicio,
+              fin: new Date(inicio.getTime() + 60 * 60 * 1000),
+              esPico: true,
+              estado: EstadoReserva.CONFIRMADA,
+              socioId,
+              nombre: 'Socio',
+              email: 'socio@ejemplo.cl',
+              telefono: '',
+            },
+          });
+        }
+
+        await expect(
+          modificacion.modificar(
+            suya.id,
+            { canchaId: pico.id, inicio: LUNES_18, duracionMin: 90 },
+            admin,
+            horasAntes(LUNES_18, 30),
+          ),
+        ).rejects.toMatchObject({
+          status: 409,
+          response: { motivo: 'CUPO_PICO' },
+        });
+      });
+
+      it('sin duración en el pedido, la conserva', async () => {
+        const suya = await prisma.reserva.update({
+          where: { id: (await suReserva(LUNES_18)).id },
+          data: { fin: new Date(LUNES_18.getTime() + NOVENTA) },
+        });
+
+        const movida = await modificacion.modificar(
+          suya.id,
+          { canchaId: otraCanchaId, inicio: LUNES_18 },
+          admin,
+          horasAntes(LUNES_18, 30),
+        );
+
+        expect(movida.fin.getTime() - movida.inicio.getTime()).toBe(NOVENTA);
+      });
+    });
+
     it('mover dentro del mismo día sigue siendo posible', async () => {
       // La reserva no puede contarse a sí misma: si lo hiciera, el cupo diario de 1
       // haría imposible cambiar la hora dentro del mismo día, que es lo más común.
@@ -781,6 +930,45 @@ describe('Modificación y cancelación de reservas', () => {
       });
     });
 
+    it('**no se mueve una reserva con el pago todavía en curso** (T87)', async () => {
+      // Lo mismo que cancelar: el visitante está en Webpay y la hora cambia bajo sus pies.
+      const reserva = await prisma.reserva.create({
+        data: {
+          folio: 'T87PEND',
+          canchaId,
+          inicio: LUNES_20,
+          fin: new Date(LUNES_20.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.PENDIENTE_PAGO,
+          nombre: 'Visitante',
+          email: 'visitante@ejemplo.cl',
+          telefono: '+56900000000',
+        },
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `T87-pend-${reserva.id}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.PENDIENTE,
+          inicioBloqueOriginal: LUNES_20,
+        },
+      });
+
+      await expect(
+        modificacion.modificar(
+          reserva.id,
+          { canchaId: otraCanchaId, inicio: MARTES_20 },
+          admin,
+          horasAntes(LUNES_20, 30),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { motivo: 'PAGO_EN_CURSO' },
+      });
+    });
+
     it('cancelar dos veces no devuelve dos veces', async () => {
       const reserva = await unaReservaPagada();
 
@@ -836,6 +1024,68 @@ describe('Modificación y cancelación de reservas', () => {
 
     expect(resultado.huboDevolucion).toBe(false);
     expect(resultado.motivo).toBe('sin_pago');
+  });
+
+  describe('la grilla para mover (T87)', () => {
+    // El lunes de `LUNES_20` en el club, y a las 18:00: con 90 minutos, la de las 21:00
+    // se pasaría del cierre.
+    const FECHA = '2026-09-07';
+    const LUNES_18 = new Date(LUNES_20.getTime() - 3 * 60 * 60 * 1000);
+    const enSuCancha = (
+      grilla: { cancha: { id: number }; bloques: { inicio: Date }[] }[],
+    ) => grilla.find((g) => g.cancha.id === canchaId)!.bloques;
+
+    it('**no cuenta la reserva que se mueve: alargarla en el mismo lugar se ofrece**', async () => {
+      // Sin esto la grilla marcaba ocupada la hora y media de las 18:00 por culpa de la
+      // misma reserva que se quería alargar, y el caso principal de T87 no se podía elegir.
+      const suya = await unaReservaPagada(LUNES_18);
+
+      const grilla = await modificacion.grillaParaMover(
+        suya.id,
+        admin,
+        FECHA,
+        90,
+      );
+
+      expect(
+        enSuCancha(grilla).find(
+          (b) => b.inicio.getTime() === LUNES_18.getTime(),
+        ),
+      ).toMatchObject({ reservado: false });
+    });
+
+    it('las demás reservas siguen ocupando', async () => {
+      const suya = await unaReservaPagada(LUNES_18);
+      // La de las 19:00 es de otra persona: la hora y media de las 18:00 la pisa.
+      await unaReservaPagada(new Date(LUNES_18.getTime() + 60 * 60 * 1000));
+
+      const grilla = await modificacion.grillaParaMover(
+        suya.id,
+        admin,
+        FECHA,
+        90,
+      );
+
+      expect(
+        enSuCancha(grilla).find(
+          (b) => b.inicio.getTime() === LUNES_18.getTime(),
+        ),
+      ).toMatchObject({ reservado: true });
+    });
+
+    it('la de otro responde 404, como si no existiera', async () => {
+      // Si no, cualquiera podría probar números y ver qué hora ocupa cada reserva.
+      const ajena = await unaReservaPagada(LUNES_18);
+
+      await expect(
+        modificacion.grillaParaMover(
+          ajena.id,
+          { ...admin, esAdmin: false, socioId: 99999 },
+          FECHA,
+          90,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+    });
   });
 
   it('una reserva ajena no se puede tocar, y responde como si no existiera', async () => {

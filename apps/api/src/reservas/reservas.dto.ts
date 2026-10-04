@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
+import { fechaDelClub } from '../comun/tiempo';
 import { AcompananteDeclarado } from './cupo';
 import { leerDuracion } from './duracion';
 import { ReservaDeSocio } from './reservas.service';
@@ -27,13 +29,38 @@ export function reservaDeSocioDeCuerpo(cuerpo: unknown): ReservaDeSocio {
 export function destinoDeCuerpo(cuerpo: unknown): {
   canchaId: number;
   inicio: Date;
+  /** Sin ella, mover conserva la que la reserva ya tiene (T87). */
+  duracionMin?: DuracionMin;
 } {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
   return {
     canchaId: entero(datos.canchaId, 'La cancha'),
     inicio: instante(datos.inicio),
+    // Ausente o nula es "la misma": `leerDuracion` diría 60, y quien solo cambia de cancha
+    // una reserva de 1 hora y media la vería acortada.
+    duracionMin:
+      datos.duracionMin == null ? undefined : leerDuracion(datos.duracionMin),
   };
+}
+
+/**
+ * La fecha de una consulta de la grilla, "AAAA-MM-DD".
+ *
+ * Se valida al entrar y no se deja fallar adentro: una fecha ilegible es culpa de quien
+ * la pidió, y como error del servicio saldría con un 500 que hace creer que la API está
+ * rota. La usan la grilla pública y la de mover (T87).
+ */
+export function fechaDeConsulta(valor: unknown): string {
+  try {
+    if (typeof valor !== 'string') throw new Error();
+    fechaDelClub(valor);
+    return valor;
+  } catch {
+    throw new BadRequestException(
+      'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
+    );
+  }
 }
 
 function entero(valor: unknown, campo: string): number {

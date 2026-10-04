@@ -49,13 +49,15 @@ export class DisponibilidadPublicaService {
   async delDia(
     fecha: string,
     duracionMin: DuracionMin = 60,
+    /** La reserva que se está moviendo: su hora no le ocupa la grilla a ella misma (T87). */
+    excluyendo?: number,
   ): Promise<GrillaDeCancha[]> {
     const canchas = await this.catalogo.canchas();
 
     return Promise.all(
       canchas.map(async (cancha) => ({
         cancha,
-        bloques: await this.de(cancha.id, fecha, duracionMin),
+        bloques: await this.de(cancha.id, fecha, duracionMin, excluyendo),
       })),
     );
   }
@@ -71,6 +73,7 @@ export class DisponibilidadPublicaService {
     canchaId: number,
     fecha: string,
     duracionMin: DuracionMin = 60,
+    excluyendo?: number,
   ): Promise<BloqueConEstado[]> {
     const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
 
@@ -88,6 +91,7 @@ export class DisponibilidadPublicaService {
     const tomadas = await this.prisma.reserva.findMany({
       where: {
         canchaId,
+        id: excluyendo === undefined ? undefined : { not: excluyendo },
         estado: { in: ACTIVAS },
         inicio: { lt: bloques[bloques.length - 1].fin },
         fin: { gt: bloques[0].inicio },

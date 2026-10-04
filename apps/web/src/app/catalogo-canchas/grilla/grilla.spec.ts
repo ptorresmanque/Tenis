@@ -62,6 +62,7 @@ describe('Grilla', () => {
 
   let fixture: ComponentFixture<Grilla>;
   let mover: ReturnType<typeof vi.fn>;
+  let pedirDiaParaMover: ReturnType<typeof vi.fn>;
   let navegar: ReturnType<typeof vi.fn>;
   let reportables: ReturnType<typeof vi.fn>;
   let reportar: ReturnType<typeof vi.fn>;
@@ -98,12 +99,16 @@ describe('Grilla', () => {
     });
 
     pedirDia = vi.fn(() => (dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia)));
+    // Al mover, el día viene de la grilla que no cuenta la reserva que se mueve (T87).
+    pedirDiaParaMover = vi.fn(() =>
+      dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
+    );
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         { provide: Disponibilidad, useValue: { delDia: pedirDia } },
-        { provide: Reservas, useValue: { mover } },
+        { provide: Reservas, useValue: { mover, grillaParaMover: pedirDiaParaMover } },
         { provide: ReportesDelSocio, useValue: { reportables, reportar } },
         {
           provide: Auth,
@@ -525,10 +530,25 @@ describe('Grilla', () => {
       expect(sinPrecio).not.toMatch(/arriendo/i);
     });
 
-    it('al mover una reserva no ofrece elegir duración: mover la conserva', async () => {
-      await montar(DIA, { mover: '5' });
+    it('**al mover, el selector parte en la duración de la reserva y se puede cambiar** (T87)', async () => {
+      // "Mis reservas" manda `duracion=90` cuando la reserva es de 1 hora y media.
+      await montar(DIA, { mover: '5', duracion: '90' });
 
-      expect(radio('90')).toBeNull();
+      expect(radio('90')?.checked).toBe(true);
+      // De la grilla que no cuenta la reserva que se mueve, no de la pública: si no, la
+      // hora y media en el mismo lugar sale ocupada por ella misma.
+      expect(pedirDiaParaMover).toHaveBeenCalledWith(5, expect.any(String), 90);
+      expect(pedirDia).not.toHaveBeenCalled();
+
+      radio('60')!.click();
+      // Sin soltar el modo mover: la URL conserva `mover` y solo cambia la duración.
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({
+          queryParams: { duracion: null },
+          queryParamsHandling: 'merge',
+        }),
+      );
     });
   });
 
@@ -802,8 +822,28 @@ describe('Grilla', () => {
       expect(mover).toHaveBeenCalledWith(7, {
         canchaId: 1,
         inicio: '2026-08-17T12:00:00.000Z',
+        // La del bloque elegido: el que se movió a 1 hora y media la alarga (T87).
+        duracionMin: 60,
       });
       expect(navegar).toHaveBeenCalledWith(['/mis-reservas']);
+    });
+
+    it('**al mover con 1 hora y media, manda 90: la reserva se alarga** (T87)', async () => {
+      // Bloques de 90 minutos, como los pide la grilla con `duracion=90`.
+      const DE_90: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: DIA[0].bloques.map((b) => ({
+            ...b,
+            fin: new Date(new Date(b.inicio).getTime() + 90 * 60 * 1000).toISOString(),
+          })),
+        },
+      ];
+      await montar(DE_90, { mover: '7', duracion: '90' });
+
+      await elegirPrimerBloque();
+
+      expect(mover).toHaveBeenCalledWith(7, expect.objectContaining({ duracionMin: 90 }));
     });
 
     it('sin el parámetro, el clic elige el bloque en vez de mover nada', async () => {

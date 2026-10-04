@@ -18,6 +18,7 @@ import {
   enPesos,
   hoyEnElClub,
   horaEnElClub,
+  minutosDe,
   proximosDias,
 } from '../reloj-del-club';
 import { nombreDelMotivo } from '../motivos';
@@ -192,17 +193,15 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
 
     <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
 
-    @if (moviendo() === null) {
-      <!-- Al mover no se ofrece: mover conserva la duración de la reserva, y la que se
-           muestra es la que trae el enlace de "mis reservas". -->
-      <app-selector
-        class="mt-4 block"
-        etiqueta="Duración"
-        [opciones]="DURACIONES"
-        [valor]="'' + duracion()"
-        (valorChange)="elegirDuracion($event)"
-      />
-    }
+    <!-- También al mover (T87): parte en la de la reserva, que trae el enlace de "mis
+         reservas", y cambiarla es alargarla o acortarla. -->
+    <app-selector
+      class="mt-4 block"
+      etiqueta="Duración"
+      [opciones]="DURACIONES"
+      [valor]="'' + duracion()"
+      (valorChange)="elegirDuracion($event)"
+    />
 
     <!-- Los filtros salen de lo que la cancha ya declara —techada e
          iluminación—, así que filtran en el navegador sobre lo que ya llegó:
@@ -637,8 +636,17 @@ export class Grilla {
   protected readonly enviandoMovimiento = signal(false);
 
   protected readonly grillas = resource({
-    params: () => ({ fecha: this.fecha(), duracion: this.duracion() }),
-    loader: ({ params }) => this.disponibilidad.delDia(params.fecha, params.duracion),
+    params: () => ({
+      fecha: this.fecha(),
+      duracion: this.duracion(),
+      moviendo: this.moviendo(),
+    }),
+    // Al mover, la grilla que no cuenta la reserva que se mueve (T87): con la pública,
+    // alargarla en la misma cancha y hora salía ocupado por ella misma.
+    loader: ({ params }) =>
+      params.moviendo === null
+        ? this.disponibilidad.delDia(params.fecha, params.duracion)
+        : this.reservas.grillaParaMover(params.moviendo, params.fecha, params.duracion),
     // El valor por defecto evita el `undefined` mientras carga, pero **no** que
     // `value()` lance cuando la carga falla: lo que lo lee fuera de la rama del
     // error pregunta antes `hasValue()`.
@@ -993,6 +1001,8 @@ export class Grilla {
       await this.reservas.mover(reservaId, {
         canchaId: cancha.id,
         inicio: bloque.inicio,
+        // La del bloque, como al reservar: la grilla lo pidió de la duración elegida.
+        duracionMin: minutosDe(bloque),
       });
       await this.router.navigate(['/mis-reservas']);
     } catch (falla) {

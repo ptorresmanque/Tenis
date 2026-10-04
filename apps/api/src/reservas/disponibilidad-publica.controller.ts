@@ -1,12 +1,12 @@
 import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 
-import { fechaDelClub } from '../comun/tiempo';
-import { leerDuracion } from './duracion';
 import {
   BloqueConEstado,
   DisponibilidadPublicaService,
   GrillaDeCancha,
 } from './disponibilidad-publica.service';
+import { leerDuracion } from './duracion';
+import { fechaDeConsulta } from './reservas.dto';
 
 /**
  * La grilla que ve todo el mundo, ya con las reservas superpuestas.
@@ -21,25 +21,17 @@ export class DisponibilidadPublicaController {
   @Get('disponibilidad')
   disponibilidad(
     @Query('cancha') cancha: string | undefined,
-    @Query('fecha') fecha: string | undefined,
+    @Query('fecha') fechaPedida: string | undefined,
     @Query('duracion') duracion: string | undefined,
   ): Promise<BloqueConEstado[] | GrillaDeCancha[]> {
-    if (!fecha || !esFechaDelClub(fecha)) {
-      // Se valida acá y no se deja fallar adentro: una fecha ilegible es culpa de
-      // quien la pidió, y como error del servicio saldría con un 500 que hace creer
-      // que la API está rota.
-      throw new BadRequestException(
-        'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
-      );
-    }
-
-    // Sin cancha, el día entero. La portada y la grilla lo piden así para no
-    // hacer una consulta por cancha; con `cancha`, la respuesta es la de siempre
-    // y nada de lo que ya existe cambia.
+    const fecha = fechaDeConsulta(fechaPedida);
     // 1 hora o 1 hora y media (T82). Se valida antes de ramificar: una duración
     // ilegible es un 400 pida o no una cancha.
     const duracionMin = leerDuracion(duracion);
 
+    // Sin cancha, el día entero. La portada y la grilla lo piden así para no
+    // hacer una consulta por cancha; con `cancha`, la respuesta es la de siempre
+    // y nada de lo que ya existe cambia.
     if (cancha === undefined) return this.servicio.delDia(fecha, duracionMin);
 
     const canchaId = Number(cancha);
@@ -48,14 +40,5 @@ export class DisponibilidadPublicaController {
     }
 
     return this.servicio.de(canchaId, fecha, duracionMin);
-  }
-}
-
-function esFechaDelClub(fecha: string): boolean {
-  try {
-    fechaDelClub(fecha);
-    return true;
-  } catch {
-    return false;
   }
 }

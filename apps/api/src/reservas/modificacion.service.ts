@@ -21,6 +21,10 @@ import {
   reintentarSiHayDeadlock,
 } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  DisponibilidadPublicaService,
+  GrillaDeCancha,
+} from './disponibilidad-publica.service';
 import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 import {
@@ -66,7 +70,27 @@ export class ModificacionService {
     private readonly anulacion: AnulacionService,
     private readonly eventos: EventosDeReserva,
     private readonly reservasDeSocio: ReservasService,
+    private readonly disponibilidad: DisponibilidadPublicaService,
   ) {}
+
+  /**
+   * La grilla del día para mover esta reserva: la de siempre, sin contarla a ella (T87).
+   *
+   * Sin esto, alargar en la misma cancha y hora —el caso principal de cambiar la
+   * duración— no se podía elegir: la grilla marcaba ocupado el rango nuevo por culpa de
+   * la misma reserva. Solo para su dueño o un admin, por `suya`: a cualquiera le
+   * permitiría probar números y ver qué hora ocupa cada reserva.
+   */
+  async grillaParaMover(
+    reservaId: number,
+    yo: UsuarioActual,
+    fecha: string,
+    duracionMin: DuracionMin,
+  ): Promise<GrillaDeCancha[]> {
+    await this.suya(reservaId, yo);
+
+    return this.disponibilidad.delDia(fecha, duracionMin, reservaId);
+  }
 
   /**
    * Las reservas próximas del socio, con las dos ventanas ya resueltas.
@@ -149,12 +173,15 @@ export class ModificacionService {
    */
   async modificar(
     reservaId: number,
-    destino: { canchaId: number; inicio: Date },
+    destino: { canchaId: number; inicio: Date; duracionMin?: DuracionMin },
     yo: UsuarioActual,
     ahora = new Date(),
   ): Promise<Reserva> {
     const reserva = await this.suya(reservaId, yo);
     const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
+
+    // Igual que cancelar (T87): la hora no cambia bajo los pies de quien está en Webpay.
+    await this.exigirQueNoHayaPagoEnCurso(reserva.id);
 
     if (!sePuedeModificar(reserva.inicio, ahora, ventanas)) {
       throw new ConflictException({
@@ -165,12 +192,14 @@ export class ModificacionService {
       });
     }
 
-    // Mover conserva la duración (T82): el destino se busca en la grilla de lo que dura
-    // la reserva. Elegir otra duración al mover llega con T87.
+    // Sin duración en el pedido, la conserva (T82); con ella, la cambia (T87). El destino
+    // se busca en la grilla de esa duración, y el índice por rango decide si los minutos
+    // que se agregan chocan con otra reserva: alargar en el mismo lugar no choca consigo
+    // misma, porque el índice compara contra las otras filas.
     const bloque = await this.bloqueDisponible(
       destino.canchaId,
       destino.inicio,
-      duracionDe(reserva),
+      destino.duracionMin ?? duracionDe(reserva),
       ahora,
     );
 

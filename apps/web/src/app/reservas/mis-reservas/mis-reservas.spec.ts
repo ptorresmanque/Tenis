@@ -250,7 +250,7 @@ describe('MisReservas', () => {
   it('no ofrece cambiar la hora cuando ya pasó el plazo, y explica por qué', async () => {
     await montar([{ ...UNA, sePuedeModificar: false }]);
 
-    expect(texto()).not.toContain('Cambiar la hora');
+    expect(texto()).not.toContain('Cambiar hora o duración');
     expect(texto()).toContain('6 horas');
     // Cancelar sí se puede hasta el final: lo que cambia es si hay devolución.
     expect(boton('Cancelar')).toBeDefined();
@@ -261,7 +261,8 @@ describe('MisReservas', () => {
     // 90 minutos chocan con la reserva siguiente, y la API los rechazaría todos.
     const enlace = () =>
       Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a')).find(
-        (a) => (a.textContent ?? '').includes('Cambiar la hora'),
+        // "Hora o duración" desde T87: la misma grilla alarga o acorta la reserva.
+        (a) => (a.textContent ?? '').includes('Cambiar hora o duración'),
       )!;
 
     expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7');

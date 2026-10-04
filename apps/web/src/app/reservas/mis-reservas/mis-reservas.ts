@@ -154,7 +154,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                   class="boton boton-primario boton-chico"
                 >
                   <span class="icono text-base" aria-hidden="true">schedule</span>
-                  Cambiar la hora
+                  Cambiar hora o duración
                 </a>
               }
               <button
