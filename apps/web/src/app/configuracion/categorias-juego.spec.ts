@@ -33,9 +33,13 @@ describe('CategoriasDeJuegoPanel', () => {
     editar: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (categorias: CategoriaDeJuego[]) => {
+  const montar = async (categorias: CategoriaDeJuego[] | Error) => {
     api = {
-      listar: vi.fn().mockResolvedValue(categorias),
+      listar: vi.fn(() =>
+        categorias instanceof Error
+          ? Promise.reject(categorias)
+          : Promise.resolve(categorias),
+      ),
       crear: vi.fn().mockResolvedValue(HONOR),
       editar: vi.fn().mockResolvedValue(HONOR),
     };
@@ -170,5 +174,14 @@ describe('CategoriasDeJuegoPanel', () => {
     await escribirOrden(QUINTA.id, '60');
 
     expect(api.listar.mock.calls.length).toBeGreaterThan(consultasPrevias);
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si la lista no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'No se pudieron cargar las categorías',
+    );
   });
 });

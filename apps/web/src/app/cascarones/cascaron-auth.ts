@@ -18,14 +18,17 @@ import { usarTemaPublico } from './tema';
   template: `
     <header class="sticky top-0 z-40 border-b border-border bg-card">
       <div class="mx-auto flex h-16 max-w-6xl items-center px-4">
-        <!-- A 375px el descriptor y el enlace no caben juntos, y el enlace es
-             la única salida de esta pantalla: gana el enlace. -->
-        <app-logotipo claseDescriptor="hidden sm:block" />
+        <!-- A 375px el logotipo, el conmutador de tema y el enlace no caben
+             juntos: sumaban 360px en 343. Este atributo escondía el descriptor
+             del logotipo, que desapareció en D2.7, así que desde entonces no
+             escondía nada y la fila se salía 17px (el desborde que encontró
+             TV0.1). Gana el enlace, que es la única salida de esta pantalla: el
+             logotipo baja de alto en el teléfono (TV2.4). -->
+        <app-logotipo clase="h-7 sm:h-9" />
         <app-conmutador-de-tema class="ms-auto" />
         <a
           routerLink="/disponibilidad"
-          class="rounded-lg px-4 py-2 text-sm font-semibold whitespace-nowrap
-                 text-primary transition-colors hover:bg-muted"
+          class="boton boton-texto whitespace-nowrap"
         >
           Ver disponibilidad
         </a>

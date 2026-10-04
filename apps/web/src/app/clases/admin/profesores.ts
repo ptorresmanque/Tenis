@@ -30,11 +30,16 @@ const enBlanco = () => ({
   selector: 'app-profesores',
   imports: [FormsModule, Aviso, EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Profesores</h1>
-    <p class="mt-1 max-w-prose text-muted-foreground">
-      Quiénes dan clases, cómo se anuncian y por dónde los llama el club cuando una
-      clase se mueve.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Profesores</h1>
+        <p class="mt-1 text-muted-foreground">
+          Quiénes dan clases, cómo se anuncian y por dónde los llama el club cuando una
+          clase se mueve.
+        </p>
+      </div>
+    </header>
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -47,7 +52,7 @@ const enBlanco = () => ({
       class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="guardar()"
     >
-      <h2 class="font-display text-lg font-semibold">
+      <h2 class="rotulo-seccion">
         {{ editando() ? 'Editar ficha' : 'Anotar un profesor' }}
       </h2>
 
@@ -117,6 +122,10 @@ const enBlanco = () => ({
 
     @if (profesores.isLoading()) {
       <p class="mt-4 text-muted-foreground">Cargando…</p>
+    } @else if (profesores.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar los profesores. Reintenta en un momento.
+      </p>
     } @else if (profesores.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
@@ -132,7 +141,7 @@ const enBlanco = () => ({
                    bg-card p-4 shadow-sm"
           >
             <div class="min-w-0 flex-1">
-              <p class="font-display text-lg font-semibold">
+              <p class="titulo-tarjeta">
                 {{ profesor.nombreVisible }}
               </p>
               <p class="text-sm text-muted-foreground">

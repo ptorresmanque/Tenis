@@ -23,10 +23,10 @@ import { Administradores as ApiAdministradores } from './administradores.service
   imports: [Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
   template: `
     <section aria-labelledby="nombrar">
-      <h2 id="nombrar" class="font-display text-xl font-semibold">
+      <h2 id="nombrar" class="rotulo-seccion">
         Dar acceso al panel
       </h2>
-      <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+      <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         La persona necesita tener cuenta en el club. Con el panel abierto ve los
         teléfonos de quienes reservan y puede cambiar las reglas.
       </p>
@@ -56,16 +56,20 @@ import { Administradores as ApiAdministradores } from './administradores.service
 
     <section class="mt-8" aria-labelledby="con-acceso">
       <div class="flex flex-wrap items-center gap-3">
-        <h2 id="con-acceso" class="font-display text-xl font-semibold">
+        <h2 id="con-acceso" class="rotulo-seccion">
           Con acceso hoy
         </h2>
         <app-insignia variante="info" icono="shield_person">
-          {{ administradores.value()?.length ?? 0 }}
+          {{ cuantos() }}
         </app-insignia>
       </div>
 
       @if (administradores.isLoading()) {
         <app-esqueleto class="mt-3 block" [filas]="3" etiqueta="Cargando los administradores…" />
+      } @else if (administradores.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar los administradores. Reintenta en un momento.
+        </p>
       } @else {
         <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
           <table class="tabla">
@@ -131,8 +135,8 @@ export class AdministradoresPanel {
     loader: () => this.api.listar(),
   });
 
-  protected readonly cuantos = computed(
-    () => this.administradores.value()?.length ?? 0,
+  protected readonly cuantos = computed(() =>
+    this.administradores.hasValue() ? this.administradores.value().length : 0,
   );
 
   protected async nombrar(): Promise<void> {

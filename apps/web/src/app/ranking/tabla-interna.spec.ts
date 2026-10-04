@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { Ranking, TablaDelClub } from './ranking.service';
 import { TablaInterna } from './tabla-interna';
@@ -52,10 +52,17 @@ describe('TablaInterna', () => {
 
   let fixture: ComponentFixture<TablaInterna>;
 
-  const montar = async (tabla: TablaDelClub = TABLA) => {
+  const montar = async (tabla: TablaDelClub | Error = TABLA) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Ranking, useValue: { interno: vi.fn().mockResolvedValue(tabla) } }],
+      providers: [
+        {
+          provide: Ranking,
+          useValue: {
+            interno: () => (tabla instanceof Error ? Promise.reject(tabla) : Promise.resolve(tabla)),
+          },
+        },
+      ],
     });
 
     fixture = TestBed.createComponent(TablaInterna);
@@ -134,5 +141,12 @@ describe('TablaInterna', () => {
 
     expect(texto()).toContain('Todavía no hay partidos');
     expect(elemento().querySelector('[data-tabla="activos"]')).toBeNull();
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si la tabla no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar la tabla del club');
   });
 });

@@ -205,4 +205,19 @@ describe('MisPartidos', () => {
       expect(texto()).toContain('No se pudo');
     });
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la API no responde, lo dice en vez de reventar', async () => {
+    const caida = () => Promise.reject(new Error('la API no respondió'));
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: Ranking, useValue: { misPartidos: caida, rivales: caida } }],
+    });
+
+    fixture = TestBed.createComponent(MisPartidos);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(texto()).toContain('No se pudieron cargar tus partidos');
+  });
 });

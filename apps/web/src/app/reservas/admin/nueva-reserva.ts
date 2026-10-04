@@ -42,7 +42,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
       class="w-full max-w-lg rounded-xl bg-card p-6 shadow-xl backdrop:bg-foreground/50"
       (close)="cerrar.emit()"
     >
-      <h2 class="font-display text-2xl font-bold">Nueva reserva</h2>
+      <h2 class="titular text-2xl">Nueva reserva</h2>
       <p class="mt-1 text-sm text-muted-foreground">
         Para el {{ fecha() }}. La hora queda confirmada al instante: el cobro del
         visitante se hace en el mesón.
@@ -66,7 +66,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
             class="campo"
             (change)="canchaId.set(+$any($event.target).value)"
           >
-            @for (grilla of grillas.value(); track grilla.cancha.id) {
+            @for (grilla of grillasDelDia(); track grilla.cancha.id) {
               <option
                 [value]="grilla.cancha.id"
                 [selected]="grilla.cancha.id === canchaElegida()"
@@ -76,6 +76,11 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
             }
           </select>
         </app-campo>
+        @if (grillas.error()) {
+          <p class="text-sm text-destructive">
+            No se pudo cargar la disponibilidad. Reintenta en un momento.
+          </p>
+        }
 
         <app-campo etiqueta="Hora">
           <select
@@ -105,16 +110,22 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
               (change)="socioId.set(+$any($event.target).value)"
             >
               <option [value]="0">Elige un socio</option>
-              @for (socio of socios.value()?.socios ?? []; track socio.id) {
-                <option [value]="socio.id">
-                  {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                  {{ socio.usuario.apellido }}
-                </option>
+              @if (socios.hasValue()) {
+                @for (socio of socios.value().socios; track socio.id) {
+                  <option [value]="socio.id">
+                    {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
+                    {{ socio.usuario.apellido }}
+                  </option>
+                }
               }
             </select>
           </app-campo>
 
-          @if (cupo.value(); as datos) {
+          @if (cupo.error()) {
+            <p class="text-sm text-destructive">
+              No se pudo cargar el cupo del socio. Reintenta en un momento.
+            </p>
+          } @else if (cupo.value(); as datos) {
             <div class="rounded-xl border border-border bg-muted p-4">
               <p class="flex flex-wrap items-center gap-2 text-sm font-semibold">
                 Cupo de {{ datos.nombre }}
@@ -238,6 +249,11 @@ export class NuevaReserva {
     defaultValue: [],
   });
 
+  /** `value()` lanza si la grilla no cargó, y el formulario se pinta igual. */
+  protected readonly grillasDelDia = computed(() =>
+    this.grillas.hasValue() ? this.grillas.value() : [],
+  );
+
   protected readonly socios = resource({ loader: () => this.sociosApi.listado() });
 
   /** El cupo se pide al elegir socio: es lo que el club mira antes de decidir. */
@@ -258,7 +274,7 @@ export class NuevaReserva {
    * dependía de en qué orden llegara la grilla.
    */
   protected readonly canchaElegida = computed(
-    () => this.canchaId() || this.grillas.value()[0]?.cancha.id || 0,
+    () => this.canchaId() || this.grillasDelDia()[0]?.cancha.id || 0,
   );
 
   /**
@@ -270,9 +286,7 @@ export class NuevaReserva {
    * pública. Si el reloj del navegador anda mal, manda la API.
    */
   protected readonly libres = computed(() => {
-    const grilla = this.grillas
-      .value()
-      .find((una) => una.cancha.id === this.canchaElegida());
+    const grilla = this.grillasDelDia().find((una) => una.cancha.id === this.canchaElegida());
 
     return (grilla?.bloques ?? []).filter(
       (bloque) =>

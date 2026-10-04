@@ -38,10 +38,14 @@ import { FotoDelPartido } from './foto-del-partido';
   selector: 'app-cuadro-torneo',
   imports: [FormsModule, Aviso, Insignia, FotoDelPartido],
   template: `
-    @if (cuadro.value(); as datos) {
+    @if (cuadro.error()) {
+      <p class="mt-3 text-sm text-destructive">
+        No se pudo cargar el cuadro. Reintenta en un momento.
+      </p>
+    } @else if (cuadro.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
-        <div class="flex flex-wrap items-baseline gap-2">
-          <h3 class="font-display font-semibold">Cuadro</h3>
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="rotulo-seccion">Cuadro</h2>
           @if (datos.semillaSorteo !== null) {
             <!-- La semilla a la vista: si alguien pregunta por qué le tocó ese cruce,
                  el sorteo se puede rehacer con este número. -->
@@ -72,9 +76,9 @@ import { FotoDelPartido } from './foto-del-partido';
           <div class="mt-3 flex gap-4 overflow-x-auto pb-2">
             @for (ronda of porRonda(); track ronda.numero) {
               <div class="min-w-56 flex-1">
-                <h4 class="text-sm font-semibold text-muted-foreground">
+                <h3 class="subtitulo text-muted-foreground">
                   {{ ronda.nombre }}
-                </h4>
+                </h3>
                 <ul class="mt-2 grid gap-2">
                   @for (partido of ronda.partidos; track partido.id) {
                     <li class="rounded-lg border border-border bg-card p-2 text-sm">
@@ -85,7 +89,9 @@ import { FotoDelPartido } from './foto-del-partido';
                         {{ partido.jugadorB ?? nombreVacio(partido) }}
                       </p>
                       @if (partido.marcador) {
-                        <p class="text-xs text-muted-foreground">
+                        <!-- El resultado en la condensada y con cifras de ancho
+                             fijo, como en un marcador: es lo que se busca. -->
+                        <p class="font-display font-bold tabular-nums">
                           {{ partido.marcador }}
                         </p>
                       }
@@ -180,9 +186,9 @@ import { FotoDelPartido } from './foto-del-partido';
       (close)="programando.set(null)"
     >
       @if (programando(); as partido) {
-        <h4 id="titulo-programar" class="font-display text-lg font-semibold">
+        <h2 id="titulo-programar" class="titular text-2xl">
           Programar el partido
-        </h4>
+        </h2>
         <p class="mt-1 max-w-prose text-sm text-muted-foreground">
           Cerrar la cancha a esa hora es parte de programar: deja de ofrecerse en
           la grilla. El servidor rechaza el horario si alguno de los dos jugadores
@@ -267,9 +273,9 @@ import { FotoDelPartido } from './foto-del-partido';
       (close)="cargando.set(null)"
     >
       @if (cargando(); as partido) {
-        <h4 id="titulo-resultado" class="font-display text-lg font-semibold">
+        <h2 id="titulo-resultado" class="titular text-2xl">
           {{ partido.jugadorA }} contra {{ partido.jugadorB }}
-        </h4>
+        </h2>
 
         @if (deshace() > 0) {
           <!-- Lo que se confirma no es "¿seguro?", es este número: corregir una
@@ -416,6 +422,9 @@ export class CuadroDelTorneo {
   });
 
   protected fotosDe(partidoId: number): Foto[] {
+    // Sin las fotos, el cuadro se dibuja igual: `value()` lanzaría si fallaron.
+    if (!this.fotos.hasValue()) return [];
+
     return this.fotos.value().filter((foto) => foto.partidoId === partidoId);
   }
 
@@ -424,6 +433,8 @@ export class CuadroDelTorneo {
   }
 
   protected activas() {
+    if (!this.canchas.hasValue()) return [];
+
     return this.canchas.value().filter((cancha) => cancha.activa);
   }
 

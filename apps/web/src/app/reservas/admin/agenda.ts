@@ -32,13 +32,24 @@ import { NuevaReserva } from './nueva-reserva';
   selector: 'app-agenda-del-dia',
   imports: [Aviso, EstadoVacio, Insignia, NuevaReserva],
   template: `
-    <div class="flex flex-wrap items-center gap-3">
-      <h1 class="font-display text-3xl font-bold">Reservas del día</h1>
-      <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
-           que alguien recargue por las dudas cada dos minutos. -->
-      <app-insignia variante="exito" icono="sensors">En vivo</app-insignia>
-    </div>
-    <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
+    <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
+         La navegación entre días va debajo. -->
+    <header class="cabecera-panel">
+      <div>
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="titular text-4xl">Reservas del día</h1>
+          <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
+               que alguien recargue por las dudas cada dos minutos. -->
+          <app-insignia variante="exito" icono="sensors">En vivo</app-insignia>
+        </div>
+        <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
+      </div>
+
+      <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
+        <span class="icono text-base" aria-hidden="true">add</span>
+        Nueva reserva
+      </button>
+    </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
       <div class="flex items-center gap-1">
@@ -78,15 +89,6 @@ import { NuevaReserva } from './nueva-reserva';
           (change)="cambiarFecha($event)"
         />
       </div>
-
-      <button
-        type="button"
-        class="boton boton-primario ms-auto"
-        (click)="tomandoHora.set(true)"
-      >
-        <span class="icono text-base" aria-hidden="true">add</span>
-        Nueva reserva
-      </button>
     </div>
 
     @if (tomandoHora()) {
@@ -101,7 +103,7 @@ import { NuevaReserva } from './nueva-reserva';
       <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
-    @if (reservas.value().length > 0) {
+    @if (reservas.hasValue() && reservas.value().length > 0) {
       <ul class="mt-6 grid gap-3 sm:grid-cols-3">
         @for (dato of resumenDelDia(); track dato.titulo) {
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -118,7 +120,7 @@ import { NuevaReserva } from './nueva-reserva';
     <div role="status" aria-live="polite" class="mt-6">
       @if (reservas.isLoading()) {
         <p class="text-muted-foreground">Buscando las reservas del día…</p>
-      } @else if (reservas.error()) {
+      } @else if (reservas.error() || clases.error()) {
         <p class="text-destructive">
           No se pudo cargar la agenda. Reintenta en un momento.
         </p>
@@ -233,16 +235,21 @@ export class AgendaDelDia {
     defaultValue: [] as ClaseDelDia[],
   });
 
-  /** El día completo, en orden de reloj: lo que ocupa la cancha, sea lo que sea. */
+  /**
+   * El día completo, en orden de reloj: lo que ocupa la cancha, sea lo que sea.
+   *
+   * Con `hasValue()` porque se lee también fuera de la rama del error, y cualquiera
+   * de las dos consultas puede fallar sola.
+   */
   protected readonly elDia = computed(() =>
     [
-      ...this.clases.value().map((clase) => ({
+      ...(this.clases.hasValue() ? this.clases.value() : []).map((clase) => ({
         clave: `clase-${clase.id}`,
         inicio: clase.inicio,
         clase,
         reserva: null as ReservaDelDia | null,
       })),
-      ...this.reservas.value().map((reserva) => ({
+      ...(this.reservas.hasValue() ? this.reservas.value() : []).map((reserva) => ({
         clave: `reserva-${reserva.id}`,
         inicio: reserva.inicio,
         clase: null as ClaseDelDia | null,

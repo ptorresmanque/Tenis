@@ -3,7 +3,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
+import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
+import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
 import { Inicio } from './inicio';
@@ -41,19 +42,32 @@ describe('Inicio', () => {
 
   let fixture: ComponentFixture<Inicio>;
 
-  const montar = async (torneos: TorneoPublico[]) => {
+  const montar = async (
+    // Un Error es el calendario que no cargó.
+    torneos: TorneoPublico[] | Error,
+    delDia: () => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
+    { esperar } = { esperar: true },
+  ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
-        { provide: Disponibilidad, useValue: { delDia: vi.fn().mockResolvedValue([]) } },
+        { provide: Disponibilidad, useValue: { delDia: vi.fn(delDia) } },
         { provide: Auth, useValue: { usuario: signal(null) } },
-        { provide: Torneos, useValue: { calendario: vi.fn().mockResolvedValue(torneos) } },
+        {
+          provide: Torneos,
+          useValue: {
+            calendario: vi.fn(() =>
+              torneos instanceof Error ? Promise.reject(torneos) : Promise.resolve(torneos),
+            ),
+          },
+        },
       ],
     });
 
     fixture = TestBed.createComponent(Inicio);
-    await fixture.whenStable();
+    // Sin esperar: una carga que no termina nunca no deja a la portada estable.
+    if (esperar) await fixture.whenStable();
     fixture.detectChanges();
   };
 
@@ -108,5 +122,280 @@ describe('Inicio', () => {
 
     expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
     expect(texto()).not.toContain('Inscripciones abiertas');
+  });
+
+  // `value()` de un resource lanza en estado de error: antes de TV3.1, esto
+  // rompía el pintado de la portada entera.
+  it('si el calendario no carga, la portada se pinta igual y solo calla los torneos', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(elemento().querySelector('#promesa')).not.toBeNull();
+    expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
+  });
+
+  /**
+   * El cara a cara (TV3.5): socio contra visitante, fila por fila. Lo que se
+   * cuida es que diga **lo mismo que decían las dos listas, ni una afirmación
+   * más**, y que donde una no tiene par la celda quede vacía en vez de
+   * inventarle uno.
+   */
+  describe('el cara a cara', () => {
+    const OCHO = [
+      'Sin pago al reservar: la hora ya está en tu cuota',
+      'Cupo diario de cancha y horas en franja pico',
+      'Puedes traer invitados cada mes',
+      'Cambias y cancelas desde "Mis reservas"',
+      'Arriendo por hora, con el precio a la vista',
+      'Pagas en línea al reservar',
+      'Cancelas con 24 horas y se devuelve todo',
+      'Modificas hasta 6 horas antes',
+    ];
+    const tabla = () => elemento().querySelector('[role="table"]') as HTMLElement;
+    /** Las tres celdas de la fila de un rótulo, en el orden del DOM: rótulo, socio, visitante. */
+    const fila = (rotulo: string) =>
+      [...tabla().querySelectorAll('[role="row"]')]
+        .find((r) => r.querySelector('[role="rowheader"]')?.textContent?.trim() === rotulo)
+        ?.querySelectorAll('[role="cell"], [role="rowheader"]');
+    const legible = (celda: Element | undefined) => {
+      const copia = celda?.cloneNode(true) as HTMLElement | undefined;
+      copia?.querySelectorAll('[aria-hidden="true"]').forEach((oculto) => oculto.remove());
+      return copia?.textContent?.trim();
+    };
+
+    it('las ocho afirmaciones están, textuales, una vez cada una', async () => {
+      await montar([]);
+
+      for (const afirmacion of OCHO) {
+        expect(tabla().textContent?.split(afirmacion).length, afirmacion).toBe(2);
+      }
+    });
+
+    it('cada afirmación va en su fila, frente a su par', async () => {
+      await montar([]);
+
+      // El rótulo primero en el DOM: quien lee en orden oye la pregunta antes de
+      // las dos respuestas. En escritorio el CSS lo lleva al medio.
+      expect([...(fila('El pago') ?? [])].map(legible)).toEqual([
+        'El pago',
+        'Sin pago al reservar: la hora ya está en tu cuota',
+        'Pagas en línea al reservar',
+      ]);
+      expect([...(fila('Cancelar') ?? [])].map(legible)).toEqual([
+        'Cancelar',
+        'Cambias y cancelas desde "Mis reservas"',
+        'Cancelas con 24 horas y se devuelve todo',
+      ]);
+    });
+
+    it('donde una no tiene par, la celda queda vacía', async () => {
+      await montar([]);
+
+      expect(legible(fila('Invitados')?.[2])).toBe('');
+      expect(legible(fila('Cambiar')?.[1])).toBe('');
+    });
+
+    it('los dos caminos siguen llevando adonde llevaban', async () => {
+      await montar([]);
+      const enlaces = [...tabla().querySelectorAll('a')].map((a) => [
+        a.textContent?.trim(),
+        a.getAttribute('href'),
+      ]);
+
+      expect(enlaces).toEqual([
+        ['Crear cuenta', '/registro'],
+        ['Reservar una hora', '/disponibilidad'],
+      ]);
+    });
+  });
+
+  /**
+   * El torneo como cartel y tabla (TV3.4): el cartel dice qué y cuándo, la tabla
+   * cuánto cuesta y cuánto lugar queda en cada categoría. Los datos son los
+   * mismos de siempre; cambia cómo se leen.
+   */
+  // No tenían test hasta TV3.4, que les cambió la forma: es lo que cuida que las
+  // cifras sigan saliendo del catálogo y el precio del bloque más barato.
+  it('las canchas se dicen en tres cifras del catálogo, y "Desde" es el arriendo más barato', async () => {
+    const techada = { ...CANCHA, id: 4, nombre: 'Cancha 4', techada: true, iluminacion: false };
+    await montar([], () =>
+      Promise.resolve([
+        { cancha: CANCHA, bloques: [libreA(enDosHoras)] },
+        { cancha: techada, bloques: [{ ...libreA(enDosHoras), canchaId: 4, montoClp: 9_000 }] },
+      ]),
+    );
+    const banda = elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+    const cifras = [...banda.querySelectorAll('dd')].map((dd) => dd.textContent?.trim());
+
+    expect(cifras).toEqual(['2', '1', '1']);
+    expect(banda.textContent).toContain(enPesos(9_000));
+  });
+
+  describe('el torneo con la inscripción abierta', () => {
+    const seccion = () =>
+      elemento().querySelector('[aria-labelledby="torneos-abiertos"]') as HTMLElement;
+
+    it('el cartel nombra el torneo y dice hasta cuándo inscribirse', async () => {
+      await montar([ABIERTO]);
+
+      expect(seccion().querySelector('h3')?.textContent).toContain('Copa Aniversario');
+      expect(seccion().textContent).toContain('Te puedes inscribir hasta el');
+    });
+
+    it('una tabla por torneo: categoría, inscripción y cupos libres', async () => {
+      await montar([ABIERTO]);
+      const tabla = seccion().querySelector('table.tabla');
+      const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
+        th.textContent?.trim(),
+      );
+      const fila = [...(tabla?.querySelectorAll('tbody tr td') ?? [])].map((td) =>
+        td.textContent?.trim(),
+      );
+
+      expect(encabezados).toEqual(['Categoría', 'Inscripción', 'Cupos libres']);
+      expect(fila).toEqual(['4ª', '$12.000', '3 de 8']);
+    });
+
+    it('la categoría llena dice que se entra en lista de espera', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 0 }] },
+      ]);
+
+      expect(seccion().querySelector('tbody')?.textContent).toContain('Lista de espera');
+    });
+  });
+
+  /**
+   * La cinta reemplaza al aviso de arriba con la misma condición (TV3.2): un
+   * rótulo fijo que lleva a la sección y mensajes que pasan con lo que hay que
+   * saber antes de bajar: hasta cuándo y cuánto lugar queda.
+   */
+  describe('la cinta del torneo', () => {
+    const cinta = () => elemento().querySelector('app-cinta');
+
+    it('dice hasta cuándo se inscribe y cuántos cupos quedan en cada categoría', async () => {
+      await montar([ABIERTO]);
+
+      expect(cinta()?.textContent).toContain('Copa Aniversario: inscripciones hasta el');
+      expect(cinta()?.textContent).toContain('4ª: quedan 3 de 8 cupos');
+      expect(cinta()?.textContent).toContain('Se juega desde el');
+    });
+
+    it('una categoría llena dice que hay lista de espera, como la sección de abajo', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 0 }] },
+      ]);
+
+      // "Sin cupos" a secas manda a no inscribirse a quien sí puede: entra en espera.
+      expect(cinta()?.textContent).toContain('4ª: sin cupos, se entra en lista de espera');
+    });
+
+    it('su rótulo lleva a la sección de abajo', async () => {
+      await montar([ABIERTO]);
+
+      expect(elemento().querySelector('app-cinta a[href="#torneos-abiertos"]')).not.toBeNull();
+    });
+
+    it('sin torneos abiertos no hay cinta', async () => {
+      await montar([]);
+
+      expect(cinta()).toBeNull();
+    });
+  });
+
+  // Una hora libre en dos horas más, para el zócalo y para "Libre hoy".
+  const CANCHA = {
+    id: 3,
+    nombre: 'Cancha 3',
+    superficie: 'CEMENTO',
+    techada: false,
+    iluminacion: true,
+  } as GrillaDeCancha['cancha'];
+  const enDosHoras = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  enDosHoras.setMinutes(0, 0, 0);
+  const libreA = (inicio: Date) => ({
+    inicio: inicio.toISOString(),
+    fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
+    canchaId: 3,
+    montoClp: 12_000,
+    esPico: false,
+    bloqueado: false,
+    motivoBloqueo: null,
+    reservado: false,
+  });
+
+  /**
+   * El zócalo: la barra de la transmisión con la próxima hora libre, debajo del
+   * hero (TV3.1). Es el dato por el que alguien entra a la portada, así que sus
+   * cuatro estados se prueban: con hora, buscando, sin horas y con la API caída.
+   */
+  describe('el zócalo de la próxima hora libre', () => {
+    const zocalo = () =>
+      elemento().querySelector('[aria-labelledby="proxima-libre"]') as HTMLElement;
+
+    it('muestra la próxima hora libre de hoy, con su cancha, su precio y cómo tomarla', async () => {
+      await montar([], () => Promise.resolve([{ cancha: CANCHA, bloques: [libreA(enDosHoras)] }]));
+
+      expect(zocalo().textContent).toContain(horaEnElClub(enDosHoras.toISOString()));
+      expect(zocalo().textContent).toContain('Cancha 3');
+      expect(zocalo().textContent).toContain(enPesos(12_000));
+      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+    });
+
+    it('mientras busca, lo dice en vez de quedar en blanco', async () => {
+      // Una promesa que nunca se resuelve deja la carga abierta para siempre.
+      await montar([], () => new Promise(() => undefined), { esperar: false });
+
+      expect(zocalo().textContent).toContain('Buscando');
+    });
+
+    it('si hoy ya no quedan horas, ofrece los próximos días', async () => {
+      await montar([]);
+
+      expect(zocalo().textContent).toContain('Hoy ya no quedan horas libres');
+      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+    });
+
+    it('si no pudo cargar, lo dice y ofrece la disponibilidad', async () => {
+      await montar([], () => Promise.reject(new Error('la API no respondió')));
+
+      expect(zocalo().textContent).toContain('No pudimos cargar');
+      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+    });
+  });
+
+  /**
+   * "Libre hoy" aparece solo si hay horas que listar (revisión de TV3.1). Sin
+   * horas, cargando o con la API caída, el aviso lo da el zócalo: la banda
+   * repetía la misma frase debajo y el lector de pantalla la anunciaba dos veces.
+   */
+  describe('la banda "Libre hoy"', () => {
+    const banda = () => elemento().querySelector('[aria-labelledby="libre-hoy"]');
+    const veces = (frase: string) => texto().split(frase).length - 1;
+
+    it('con horas libres, las lista', async () => {
+      await montar([], () => Promise.resolve([{ cancha: CANCHA, bloques: [libreA(enDosHoras)] }]));
+
+      expect(banda()?.textContent).toContain(horaEnElClub(enDosHoras.toISOString()));
+    });
+
+    it('sin horas no aparece, y la frase del vacío se dice una sola vez', async () => {
+      await montar([]);
+
+      expect(banda()).toBeNull();
+      expect(veces('Hoy ya no quedan horas libres')).toBe(1);
+    });
+
+    it('con la API caída no aparece, y el error se dice una sola vez', async () => {
+      await montar([], () => Promise.reject(new Error('la API no respondió')));
+
+      expect(banda()).toBeNull();
+      expect(veces('No pudimos cargar')).toBe(1);
+    });
+
+    it('mientras busca no aparece: la espera la muestra el zócalo', async () => {
+      await montar([], () => new Promise(() => undefined), { esperar: false });
+
+      expect(banda()).toBeNull();
+    });
   });
 });

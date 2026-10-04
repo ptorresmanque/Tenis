@@ -2,6 +2,7 @@ import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
+import { Marcador } from '../catalogo-canchas/marcador';
 import {
   diaEnPalabras,
   enPesos,
@@ -10,6 +11,8 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { Torneos } from '../torneos/torneos.service';
+import { Cinta } from '../ui/cinta';
+import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
 import { Insignia } from '../ui/insignia';
 
@@ -38,7 +41,7 @@ import { Insignia } from '../ui/insignia';
  */
 @Component({
   selector: 'app-inicio',
-  imports: [RouterLink, Foto, Insignia],
+  imports: [RouterLink, Cinta, Esqueleto, Foto, Insignia, Marcador],
   template: `
     <!--
       BANDA 1 — La foto y la promesa.
@@ -57,7 +60,7 @@ import { Insignia } from '../ui/insignia';
                      gente jugando al fondo"
         proporcion="16/9"
         [prioritaria]="true"
-        claseCaja="min-h-[32rem] sm:min-h-[34rem]"
+        claseCaja="min-h-[32rem] sm:min-h-[34rem] sm:max-h-[calc(100dvh-11rem)]"
       />
 
       <!--
@@ -78,12 +81,10 @@ import { Insignia } from '../ui/insignia';
       <div
         class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo sm:p-10"
       >
-        <h1
-          id="promesa"
-          class="font-display text-4xl font-black tracking-tight text-balance
-                 sm:text-6xl lg:text-7xl"
-        >
-          Tu cancha, a un clic
+        <!-- En dos líneas a todo ancho, como en la propuesta: en una sola, a
+             1280px, el titular era una tira y dejaba de ser un titular. -->
+        <h1 id="promesa" class="titular text-6xl sm:text-7xl lg:text-8xl">
+          Tu cancha, <span class="block">a un clic</span>
         </h1>
         <p class="max-w-prose text-lg text-on-campo/90">
           Mira las horas libres de hoy y reserva sin llamar a nadie.
@@ -92,7 +93,7 @@ import { Insignia } from '../ui/insignia';
         <div class="mt-2 grid gap-3 sm:max-w-lg sm:grid-cols-2">
           <a
             routerLink="/disponibilidad"
-            class="boton bg-on-campo text-campo hover:opacity-90"
+            class="boton boton-sobre-campo"
           >
             Ver disponibilidad
           </a>
@@ -112,7 +113,7 @@ import { Insignia } from '../ui/insignia';
             -->
             <a
               routerLink="/registro"
-              class="boton border-2 border-on-campo text-on-campo"
+              class="boton boton-contorno-sobre-campo"
             >
               Crear cuenta
             </a>
@@ -121,107 +122,123 @@ import { Insignia } from '../ui/insignia';
       </div>
     </section>
 
+    <!--
+      EL ZÓCALO — La próxima hora libre, como la barra inferior de una
+      transmisión (TV3.1). Va pegado al hero y fuera de él, para que el hero se
+      quede en sus cuatro elementos. En escritorio entra en la primera pantalla
+      desde 720px de alto, porque el hero se achica para dejarle sitio: los 11rem
+      del tope son la barra, el margen de arriba y el propio zócalo. Sin ese tope,
+      a 1366×768 la hora quedaba cortada a la mitad (revisión de TV3.1). Usa la
+      primera de "Libre hoy" sin una consulta nueva, y es el único que dice la
+      carga, el vacío y el error.
+    -->
+    <section class="-mx-4 sm:mx-0" aria-labelledby="proxima-libre">
+      <!-- En el teléfono el rótulo va arriba, a todo el ancho y sin corte: al
+           costado se comía media fila y la hora quedaba en la otra mitad. -->
+      <div class="bg-card shadow-md sm:flex sm:items-stretch">
+        <h2
+          id="proxima-libre"
+          class="bg-rotulo px-4 py-1.5 font-display text-sm font-bold tracking-wider
+                 text-on-rotulo uppercase sm:flex sm:items-center sm:ps-5 sm:corte-fin"
+        >
+          Próxima hora libre
+        </h2>
+        <div
+          role="status"
+          aria-live="polite"
+          class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
+        >
+          @if (grillas.isLoading()) {
+            <app-esqueleto class="flex-1" [filas]="1" etiqueta="Buscando la próxima hora libre…" />
+          } @else if (grillas.error()) {
+            <p class="text-muted-foreground">
+              No pudimos cargar las horas de hoy.
+              <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
+                Mira la disponibilidad
+              </a>
+            </p>
+          } @else if (proximaLibre(); as libre) {
+            <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
+            <div class="min-w-0 flex-1">
+              <p class="font-display text-lg font-bold uppercase">{{ libre.cancha }}</p>
+              <p class="text-sm text-muted-foreground">
+                Arriendo {{ pesos(libre.montoClp) }}. Socio sin costo.
+              </p>
+            </div>
+            <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
+              Reservar
+              <span class="sr-only">{{ libre.cancha }} a las {{ hora(libre.inicio) }}</span>
+            </a>
+          } @else {
+            <p class="font-semibold">
+              Hoy ya no quedan horas libres.
+              <a routerLink="/disponibilidad" class="text-primary underline">
+                Mira los próximos días.
+              </a>
+            </p>
+          }
+        </div>
+      </div>
+    </section>
+
     @if (abiertos().length > 0) {
       <!--
-        FRANJA — El torneo con la inscripción abierta.
+        LA CINTA — El torneo con la inscripción abierta.
 
         **La pidió el club**: quien entra a reservar una hora no baja hasta el
-        final, y una inscripción tiene fecha de cierre. Ancla a la sección en vez
-        de sacar a nadie de la portada.
+        final, y una inscripción tiene fecha de cierre. El rótulo ancla a la
+        sección en vez de sacar a nadie de la portada.
 
         Es su propia banda y no un quinto renglón del hero. taste § 4.7 prohíbe
         el texto chico bajo los botones —el hero es un momento, no una lista— y
         manda esas cosas a una sección propia debajo. Acá las dos reglas se
         cumplen: el club tiene su aviso sobre el pliegue y el hero queda en sus
         cuatro elementos.
+
+        Hasta TV3.2 era un aviso verde con una frase. Ahora es la cinta de la
+        transmisión, con la misma condición: la frase pasó a nombrar la región, y
+        el rótulo dice "Inscripciones abiertas" a secas porque la frase entera no
+        cabe fija en un teléfono.
       -->
-      <p class="mt-3">
-        <a
-          href="#torneos-abiertos"
-          class="flex flex-wrap items-center justify-center gap-2 rounded-caja
-                 bg-accent-soft px-4 py-3 font-semibold text-accent-strong"
-        >
-          <span class="icono" aria-hidden="true">emoji_events</span>
-          {{ avisoDeTorneos() }}
+      <app-cinta
+        class="-mx-4 mt-3 sm:mx-0"
+        [etiqueta]="avisoDeTorneos()"
+        [mensajes]="mensajesDeTorneos()"
+      >
+        <a href="#torneos-abiertos" class="underline-offset-4 hover:underline">
+          Inscripciones abiertas
         </a>
-      </p>
+      </app-cinta>
     }
 
     <!--
       BANDA 2 — El marcador.
 
-      La razón de que exista la portada: qué horas quedan hoy. Va en cifras
-      grandes sobre azul pleno porque es lo único que alguien tiene que poder
-      leer de un vistazo, y en un carril horizontal porque seis horas apiladas en
-      el teléfono son seis pantallazos de scroll.
+      La razón de que exista la portada: qué horas quedan hoy. Desde TV3.3 es el
+      tablero de la transmisión, las horas contra las canchas: se lee de un
+      vistazo cuándo y dónde, y cada celda libre lleva a reservar como el
+      "Reservar" del carril al que reemplaza.
+
+      Aparece solo si hay horas que listar. Cargando, sin horas o con la API
+      caída, el aviso lo da el zócalo: la banda repetía la misma frase debajo, y
+      con dos regiones vivas el lector de pantalla la anunciaba dos veces
+      (revisión de TV3.1).
     -->
-    <section
-      class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
-      aria-labelledby="libre-hoy"
-    >
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="libre-hoy" class="font-display text-2xl font-bold">Libre hoy</h2>
-        <a routerLink="/disponibilidad" class="text-sm font-semibold underline">
-          Ver todos los horarios
-        </a>
-      </div>
+    @if (proximaLibre()) {
+      <section
+        class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+        aria-labelledby="libre-hoy"
+      >
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="libre-hoy" class="titular text-4xl sm:text-5xl">Libre hoy</h2>
+          <a routerLink="/disponibilidad" class="text-sm font-semibold underline">
+            Ver todos los horarios
+          </a>
+        </div>
 
-      <div role="status" aria-live="polite" class="mt-4">
-        @if (grillas.isLoading()) {
-          <p class="text-on-campo/80">Buscando las horas de hoy…</p>
-        } @else if (grillas.error()) {
-          <p class="text-on-campo/80">
-            No pudimos cargar las horas de hoy.
-            <a routerLink="/disponibilidad" class="font-semibold underline">
-              Mira la disponibilidad
-            </a>
-          </p>
-        } @else if (libresDeHoy().length === 0) {
-          <p class="text-xl font-semibold">
-            Hoy ya no quedan horas libres.
-            <a routerLink="/disponibilidad" class="underline">Mira los próximos días.</a>
-          </p>
-        }
-      </div>
-
-      @if (libresDeHoy().length > 0) {
-        <!-- Carril con anclaje: se hojea con el pulgar y cada hora queda
-             encuadrada sola. Apilarlas sería volver a la lista. -->
-        <!-- Sin márgenes negativos propios: la sección ya se sangra con los
-             suyos, y un contenedor de scroll que además es más ancho que la
-             pantalla deja de contener a sus hijos y empuja al documento entero.
-             Medido: 1136px de desborde a 390px. -->
-        <ul
-          class="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2
-                 sm:grid sm:grid-cols-3"
-        >
-          @for (libre of libresDeHoy(); track libre.inicio + libre.cancha) {
-            <li
-              class="min-w-[13rem] shrink-0 snap-start rounded-caja bg-on-campo/10 p-4
-                     sm:min-w-0"
-            >
-              <!-- El único blanco puro de la banda. Todo lo demás cede. -->
-              <p class="font-display text-marcador text-on-campo">
-                {{ hora(libre.inicio) }}
-              </p>
-              <p class="mt-1 font-semibold text-on-campo/90">{{ libre.cancha }}</p>
-              <p class="text-sm text-on-campo/75">
-                Socio sin costo · Arriendo {{ pesos(libre.montoClp) }}
-              </p>
-              <a
-                routerLink="/disponibilidad"
-                class="boton boton-chico mt-3 w-full bg-on-campo text-campo"
-              >
-                Reservar
-                <span class="sr-only">
-                  {{ libre.cancha }} a las {{ hora(libre.inicio) }}
-                </span>
-              </a>
-            </li>
-          }
-        </ul>
-      }
-    </section>
+        <app-marcador class="mt-5" [grillas]="grillasSeguras()" />
+      </section>
+    }
 
     <!--
       BANDA 3 — Las canchas, en cifras y no en lista.
@@ -229,36 +246,46 @@ import { Insignia } from '../ui/insignia';
       Ocho canchas en una lista de ocho filas es una tabla disfrazada. Lo que
       alguien necesita saber antes de venir son tres números, y esos van grandes.
     -->
-    <section class="mt-16 grid gap-6 lg:grid-cols-2 lg:items-start" aria-labelledby="canchas">
-      <!-- items-start y no items-center: en una grilla, una celda se estira al
-           alto de la fila, y una foto estirada pierde su proporción. -->
+    <section
+      class="mt-16 grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-center"
+      aria-labelledby="canchas"
+    >
+      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
       <app-foto
         descripcion="Una cancha vista desde el fondo, a la altura de la red, con la
                      superficie de cemento a la vista"
-        proporcion="3/2"
-        claseCaja="rounded-caja"
+        proporcion="4/3"
+        claseCaja="corte-foto"
       />
 
       <div>
-        <h2 id="canchas" class="font-display text-3xl font-bold">Nuestras canchas</h2>
-        <p class="mt-2 max-w-prose text-muted-foreground">
+        <h2 id="canchas" class="titular text-5xl sm:text-6xl">Nuestras canchas</h2>
+        <p class="mt-3 max-w-prose text-lg text-muted-foreground">
           Todas de la misma superficie dura, todo el año. Sin arcilla y sin pasto: la
           pelota pica igual en enero que en julio.
         </p>
 
-        <dl class="mt-6 grid grid-cols-3 gap-4">
+        <!-- Cifras de marcador con raya encima, como los números de un
+             tablero. Salen del catálogo, no de un texto escrito a mano. -->
+        <dl class="mt-8 grid grid-cols-3 gap-4">
           @for (dato of resumenDeCanchas(); track dato.etiqueta) {
-            <div>
-              <dt class="text-sm text-muted-foreground">{{ dato.etiqueta }}</dt>
-              <dd class="font-display text-marcador text-primary">{{ dato.valor }}</dd>
+            <div class="border-t-4 border-primary pt-3">
+              <dt
+                class="font-display text-sm font-semibold tracking-wider text-muted-foreground
+                       uppercase"
+              >
+                {{ dato.etiqueta }}
+              </dt>
+              <dd class="mt-1 font-display text-marcador text-primary">{{ dato.valor }}</dd>
             </div>
           }
         </dl>
 
         @if (desdeCuanto() !== null) {
-          <p class="mt-6 text-lg">
+          <!-- En azul y no en verde: el verde quedó para "libre" (decisión 6). -->
+          <p class="mt-8 text-lg">
             Desde
-            <strong class="font-display text-2xl text-accent-strong">
+            <strong class="font-display text-3xl text-primary">
               {{ pesos(desdeCuanto()!) }}
             </strong>
             la hora para quien no es socio.
@@ -277,10 +304,14 @@ import { Insignia } from '../ui/insignia';
         torneo puede quedar en INSCRIPCION con el plazo vencido hasta que el
         admin arma el cuadro, y mandar a alguien a un formulario que lo va a
         rechazar es peor que no anunciarlo.
+
+        Desde TV3.4 cada torneo es un cartel y una tabla: el cartel dice qué y
+        cuándo, sobre su foto; la tabla, cuánto cuesta y cuánto lugar queda en
+        cada categoría, que es lo que se compara.
       -->
       <section class="mt-16" aria-labelledby="torneos-abiertos">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="torneos-abiertos" class="font-display text-3xl font-bold">
+          <h2 id="torneos-abiertos" class="titular text-5xl sm:text-6xl">
             Inscripciones abiertas
           </h2>
           <a routerLink="/torneos" class="text-sm font-semibold text-primary underline">
@@ -288,53 +319,85 @@ import { Insignia } from '../ui/insignia';
           </a>
         </div>
 
-        <ul class="mt-6 grid gap-4 md:grid-cols-2">
+        <ul class="mt-6 grid gap-6">
           @for (torneo of abiertos(); track torneo.id) {
-            <!-- El fondo verde suave y no una barra de color en el canto: esa
-                 franja es el tell más reconocible de una interfaz generada, y el
-                 detector de impeccable la marca. -->
-            <li class="rounded-caja bg-accent-soft p-6">
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-display text-xl font-bold">{{ torneo.nombre }}</h3>
-                <app-insignia variante="exito" icono="how_to_reg">
+            <li class="grid overflow-hidden bg-card shadow-md lg:grid-cols-[1fr_1.25fr]">
+              <!-- EL CARTEL. La foto llena el fondo y el velo sube desde abajo,
+                   como el del hero, para que el texto claro se lea encima. -->
+              <div
+                class="relative isolate flex min-h-[21rem] flex-col justify-end gap-3 p-6
+                       text-on-campo sm:p-9 lg:min-h-[28rem]"
+              >
+                <app-foto
+                  class="absolute inset-0 -z-20"
+                  descripcion="Una jugadora lanza la pelota para sacar, con el cielo despejado
+                               detrás"
+                  proporcion="4/3"
+                  claseCaja="h-full"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-gradient-to-t from-campo via-campo/80
+                         to-campo/30"
+                  aria-hidden="true"
+                ></div>
+
+                <app-insignia class="self-start" variante="libre" icono="how_to_reg">
                   Inscripción abierta
                 </app-insignia>
+                <h3 class="titular text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
+                <p class="max-w-prose text-on-campo/90">
+                  Del {{ enPalabras(torneo.fechaInicio) }} al
+                  {{ enPalabras(torneo.fechaFin) }}. Te puedes inscribir hasta el
+                  {{ enPalabras(torneo.cierreInscripcion) }}.
+                </p>
               </div>
 
-              <p class="mt-1 text-sm text-muted-foreground">
-                {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
-              </p>
-              <p class="text-sm font-medium">
-                Te puedes inscribir hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
-              </p>
+              <!-- LA TABLA. **Una fila por categoría**: el valor y el cupo son de
+                   cada cuadro, así que un precio del torneo mentiría —Honor puede
+                   costar el doble que la 5ª el mismo fin de semana—. -->
+              <div class="flex flex-col p-4 sm:p-7">
+                <table class="tabla">
+                  <caption class="sr-only">
+                    Categorías de {{ torneo.nombre }}
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Categoría</th>
+                      <th scope="col">Inscripción</th>
+                      <th scope="col" class="numero">Cupos libres</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (categoria of torneo.categorias; track categoria.id) {
+                      <tr>
+                        <td class="font-display text-2xl font-extrabold text-primary">
+                          {{ categoria.categoria }}
+                        </td>
+                        <td>{{ precio(categoria.montoClp) }}</td>
+                        <td class="numero">
+                          @if (categoria.cuposLibres > 0) {
+                            {{ categoria.cuposLibres }} de {{ categoria.cupo }}
+                          } @else {
+                            <span class="font-semibold text-warning-strong">Lista de espera</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
 
-              <!-- **Una línea por categoría**: el valor y el cupo son de cada cuadro,
-                   así que un precio del torneo mentiría —Honor puede costar el doble
-                   que la 5ª el mismo fin de semana—. -->
-              <ul class="mt-3 grid gap-1">
-                @for (categoria of torneo.categorias; track categoria.id) {
-                  <li class="flex flex-wrap gap-x-2 text-sm">
-                    <strong>{{ categoria.categoria }}</strong>
-                    <span class="text-accent-strong">{{ precio(categoria.montoClp) }}</span>
-                    <span class="text-muted-foreground">
-                      @if (categoria.cuposLibres > 0) {
-                        · quedan {{ categoria.cuposLibres }} de {{ categoria.cupo }}
-                      } @else {
-                        · sin cupos, se entra en lista de espera
-                      }
-                    </span>
-                  </li>
-                }
-              </ul>
-
-              <a
-                routerLink="/torneos"
-                [queryParams]="{ inscripcion: torneo.id }"
-                class="boton boton-primario mt-4 w-full"
-              >
-                Inscribirme
-                <span class="sr-only">en {{ torneo.nombre }}</span>
-              </a>
+                <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
+                  <span class="text-muted-foreground">Socio o visitante</span>
+                  <a
+                    routerLink="/torneos"
+                    [queryParams]="{ inscripcion: torneo.id }"
+                    class="boton boton-primario"
+                  >
+                    Inscribirme
+                    <span class="sr-only">en {{ torneo.nombre }}</span>
+                  </a>
+                </div>
+              </div>
             </li>
           }
         </ul>
@@ -343,56 +406,114 @@ import { Insignia } from '../ui/insignia';
 
     @if (!hayCuenta()) {
       <!--
-        BANDA 5 — Los dos caminos, del mismo peso.
+        BANDA 5 — Los dos caminos, cara a cara.
 
-        Dos bloques de color pleno, uno al lado del otro, sin jerarquía entre
-        ellos. Es la decisión del club del 2026-09-08 puesta en la composición:
-        el arriendo es el 55% del ingreso y la captación de socios es lo que más
-        les urge, así que ninguno de los dos puede quedar como el chico.
+        Socio contra visitante, fila por fila, como un cara a cara antes de un
+        partido (TV3.5). Del mismo peso: es la decisión del club del 2026-09-08
+        —el arriendo es el 55% del ingreso y la captación de socios es lo que más
+        les urge—, y por eso las dos columnas miden igual y los dos botones son
+        primarios.
+
+        **Dice lo mismo que las dos listas que reemplaza, ni una afirmación más**:
+        donde una no tiene par, la celda queda vacía en vez de inventarle uno.
+
+        Es una tabla hecha con roles y no una tabla nativa: en el teléfono cada fila
+        se rearma con el rótulo arriba, y cambiarle el display a una tabla nativa
+        le quita la semántica en algunos lectores. Los roles explícitos la
+        conservan.
       -->
       <section class="mt-16" aria-labelledby="dos-caminos">
-        <h2 id="dos-caminos" class="sr-only">Socio o visitante</h2>
+        <h2 id="dos-caminos" class="titular text-center text-5xl sm:text-6xl">
+          Socio o visitante
+        </h2>
 
-        <div class="grid gap-4 md:grid-cols-2">
-          <div
-            class="relative isolate overflow-hidden rounded-region bg-campo
-                   p-8 text-on-campo"
-          >
-            <h3 class="font-display text-3xl font-bold">Socio</h3>
-            <p class="mt-1 text-on-campo/90">
-              Cuota mensual al día y la cancha sale sin costo.
-            </p>
-            <ul class="mt-6 grid gap-2">
-              @for (punto of PLAN_SOCIO; track punto) {
-                <li class="flex gap-2 text-sm">
-                  <span class="icono shrink-0" aria-hidden="true">check_circle</span>
-                  {{ punto }}
-                </li>
-              }
-            </ul>
-            <a routerLink="/registro" class="boton mt-8 w-full bg-on-campo text-campo">
-              Crear cuenta
-            </a>
+        <div role="table" aria-labelledby="dos-caminos" class="mt-8 bg-card shadow-md">
+          <!-- En el DOM el rótulo (y el sello, en el encabezado) va primero: quien
+               lee en orden oye la pregunta antes de las dos respuestas, y el
+               lector asocia cada celda con su encabezado por posición en el DOM.
+               En escritorio, order lo lleva al medio; en el teléfono ya queda
+               arriba sin reordenar nada. -->
+          <div role="row" class="grid grid-cols-2 sm:grid-cols-[1fr_auto_1fr]">
+            <!-- El sello: decoración en la costura de los dos colores. Queda en
+                 el árbol con sr-only en el teléfono para que la fila de encabezado
+                 tenga tantas celdas como las demás. -->
+            <div
+              role="columnheader"
+              class="flex items-center justify-center bg-gradient-to-r from-campo from-50%
+                     to-campo-hondo to-50% px-5 max-sm:sr-only sm:order-2"
+            >
+              <span
+                class="grid size-16 -skew-x-6 place-items-center bg-card font-display text-3xl
+                       font-extrabold text-foreground italic"
+                aria-hidden="true"
+              >
+                VS
+              </span>
+            </div>
+            <div
+              role="columnheader"
+              class="bg-campo p-4 text-on-campo sm:order-1 sm:p-8 sm:text-end"
+            >
+              <!-- text-3xl en el teléfono: en text-4xl, "Visitante" sobresalía 7px
+                   de su media columna a 360. -->
+              <h3 class="titular text-3xl sm:text-5xl">Socio</h3>
+              <p class="mt-2 text-on-campo/85">
+                Cuota mensual al día y la cancha sale sin costo.
+              </p>
+            </div>
+            <div role="columnheader" class="bg-campo-hondo p-4 text-on-campo sm:order-3 sm:p-8">
+              <h3 class="titular text-3xl sm:text-5xl">Visitante</h3>
+              <p class="mt-2 text-on-campo/85">Sin cuenta y sin cuota: pagas la hora que juegas.</p>
+            </div>
           </div>
 
-          <div class="rounded-region border-2 border-primary p-8">
-            <h3 class="font-display text-3xl font-bold text-primary">Visitante</h3>
-            <p class="mt-1 text-muted-foreground">
-              Sin cuenta y sin cuota: pagas la hora que juegas.
-            </p>
-            <ul class="mt-6 grid gap-2">
-              @for (punto of PLAN_VISITANTE; track punto) {
-                <li class="flex gap-2 text-sm">
-                  <span class="icono shrink-0 text-accent-strong" aria-hidden="true">
-                    check_circle
-                  </span>
-                  {{ punto }}
-                </li>
-              }
-            </ul>
-            <a routerLink="/disponibilidad" class="boton boton-primario mt-8 w-full">
-              Reservar una hora
-            </a>
+          @for (fila of CARA_A_CARA; track fila.rotulo) {
+            <div
+              role="row"
+              class="grid grid-cols-2 border-t border-border sm:grid-cols-[1fr_11rem_1fr]"
+            >
+              <div
+                role="rowheader"
+                class="col-span-2 flex items-center bg-muted px-5 py-2 font-display text-sm
+                       font-semibold tracking-wider text-muted-foreground uppercase sm:order-2
+                       sm:col-span-1 sm:justify-center sm:px-3"
+              >
+                {{ fila.rotulo }}
+              </div>
+              <div role="cell" class="px-5 py-4 font-semibold sm:order-1 sm:px-8 sm:text-end">
+                {{ fila.socio }}
+                @if (!fila.socio) {
+                  <span class="text-muted-foreground" aria-hidden="true">—</span>
+                }
+              </div>
+              <div role="cell" class="px-5 py-4 font-semibold sm:order-3 sm:px-8">
+                {{ fila.visitante }}
+                @if (!fila.visitante) {
+                  <span class="text-muted-foreground" aria-hidden="true">—</span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- En el teléfono, apilados: lado a lado, "Reservar una hora" se partía
+               en dos líneas a 375 y los dos a 360. Y entre sm y md con menos
+               relleno: a 640 la columna mide 216px. Las etiquetas no se tocan. -->
+          <div
+            role="row"
+            class="grid gap-3 border-t border-border p-5 sm:grid-cols-[1fr_11rem_1fr] sm:gap-0
+                   sm:p-0"
+          >
+            <div role="cell" class="bg-muted max-sm:sr-only sm:order-2"></div>
+            <div role="cell" class="sm:order-1 sm:flex sm:justify-end sm:px-4 sm:py-6 md:px-8">
+              <a routerLink="/registro" class="boton boton-primario w-full sm:w-auto">
+                Crear cuenta
+              </a>
+            </div>
+            <div role="cell" class="sm:order-3 sm:px-4 sm:py-6 md:px-8">
+              <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
+                Reservar una hora
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -415,20 +536,25 @@ import { Insignia } from '../ui/insignia';
         proporcion="3/2"
         claseCaja="min-h-[18rem]"
       />
-      <div class="absolute inset-0 bg-campo/85" aria-hidden="true"></div>
+      <!-- El velo de izquierda a derecha, como el de la propuesta: el titular se
+           lee sobre el campo casi pleno y la foto respira del otro lado. -->
+      <div
+        class="absolute inset-0 bg-gradient-to-r from-campo/95 to-campo/60"
+        aria-hidden="true"
+      ></div>
 
       <div
-        class="absolute inset-0 flex flex-col items-center justify-center gap-4
-               px-6 text-center text-on-campo"
+        class="absolute inset-0 flex flex-col items-start justify-center gap-6 px-6
+               text-on-campo sm:px-14"
       >
-        <h2 id="cierre" class="font-display text-3xl font-bold sm:text-4xl">
-          @if (libresDeHoy().length > 0) {
+        <h2 id="cierre" class="titular max-w-[12ch] text-5xl sm:text-7xl">
+          @if (proximaLibre()) {
             Todavía quedan horas para hoy
           } @else {
             Elige tu hora de esta semana
           }
         </h2>
-        <a routerLink="/disponibilidad" class="boton bg-on-campo text-campo">
+        <a routerLink="/disponibilidad" class="boton boton-sobre-campo">
           Ver disponibilidad
         </a>
       </div>
@@ -476,6 +602,11 @@ export class Inicio {
     defaultValue: [],
   });
 
+  /** Como `grillasSeguras`: `value()` lanza en estado de error. */
+  private readonly calendarioSeguro = computed(() =>
+    this.calendario.hasValue() ? this.calendario.value() : [],
+  );
+
   /**
    * Los torneos que aceptan inscripciones **hoy**.
    *
@@ -485,8 +616,7 @@ export class Inicio {
    * entera, como en el servidor.
    */
   protected readonly abiertos = computed(() =>
-    this.calendario
-      .value()
+    this.calendarioSeguro()
       .filter(
         (torneo) =>
           torneo.estado === 'INSCRIPCION' &&
@@ -503,6 +633,25 @@ export class Inicio {
           `${diaEnPalabras(abiertos[0].cierreInscripcion)}`
       : `${abiertos.length} torneos con la inscripción abierta`;
   });
+
+  /**
+   * Lo que pasa por la cinta: hasta cuándo, cuánto lugar queda y cuándo se
+   * juega. Los cupos son los mismos que la sección de abajo; la cinta los
+   * adelanta para quien no baja.
+   */
+  protected readonly mensajesDeTorneos = computed(() =>
+    this.abiertos().flatMap((torneo) => [
+      `${torneo.nombre}: inscripciones hasta el ${diaEnPalabras(torneo.cierreInscripcion)}`,
+      ...torneo.categorias.map(
+        ({ categoria, cupo, cuposLibres }) =>
+          `${categoria}: ` +
+          (cuposLibres > 0
+            ? `quedan ${cuposLibres} de ${cupo} cupos`
+            : 'sin cupos, se entra en lista de espera'),
+      ),
+      `Se juega desde el ${diaEnPalabras(torneo.fechaInicio)}`,
+    ]),
+  );
 
   protected readonly enPalabras = diaEnPalabras;
 
@@ -534,7 +683,20 @@ export class Inicio {
     defaultValue: [],
   });
 
-  private readonly canchas = computed(() => this.grillas.value().map(({ cancha }) => cancha));
+  /**
+   * Las grillas, leídas sin reventar.
+   *
+   * `value()` de un `resource` **lanza una excepción en estado de error**, aunque
+   * tenga `defaultValue`. Sin esto, si la API de disponibilidad no respondía, los
+   * `computed` que la leen rompían el pintado de la portada entera en vez de que
+   * cada sección dijera "no pudimos cargar". Encontrado al probar el estado de
+   * error del zócalo (TV3.1). Cada sección sigue preguntando por `error()`.
+   */
+  protected readonly grillasSeguras = computed(() =>
+    this.grillas.hasValue() ? this.grillas.value() : [],
+  );
+
+  private readonly canchas = computed(() => this.grillasSeguras().map(({ cancha }) => cancha));
 
   /**
    * Las tres cifras que alguien necesita antes de venir.
@@ -562,28 +724,22 @@ export class Inicio {
    * bloque: cambia por franja y por día. "Desde" es la palabra honesta.
    */
   protected readonly desdeCuanto = computed(() => {
-    const precios = this.grillas
-      .value()
+    const precios = this.grillasSeguras()
       .flatMap(({ bloques }) => bloques.filter((b) => !b.bloqueado).map((b) => b.montoClp));
 
     return precios.length > 0 ? Math.min(...precios) : null;
   });
 
   /**
-   * Las próximas horas libres de hoy: **una por hora, no una por cancha**.
+   * La próxima hora libre de hoy, la del zócalo.
    *
-   * Sin deduplicar, a las 12:00 con ocho canchas libres la portada mostraba
-   * seis veces "12:00" y cambiaba solo el nombre de la cancha. Quien mira esto
-   * está preguntando *cuándo* puede jugar, no en cuál de las ocho canchas
-   * idénticas. Se muestra la primera cancha libre de cada hora y el resto se ve
-   * en la grilla, que es la pantalla que sí compara canchas.
+   * Hasta TV3.3 era la lista de "Libre hoy", una por hora y hasta seis. El
+   * marcador muestra ahora el día entero, así que acá queda solo la primera.
    */
-  protected readonly libresDeHoy = computed(() => {
+  protected readonly proximaLibre = computed(() => {
     const ahora = Date.now();
-    const vistas = new Set<string>();
 
-    return this.grillas
-      .value()
+    const libres = this.grillasSeguras()
       .flatMap(({ cancha, bloques }) =>
         bloques
           .filter(
@@ -594,14 +750,9 @@ export class Inicio {
           )
           .map((bloque) => ({ ...bloque, cancha: cancha.nombre })),
       )
-      .sort((una, otra) => una.inicio.localeCompare(otra.inicio))
-      .filter((libre) => {
-        const hora = libre.inicio.slice(0, 16);
-        if (vistas.has(hora)) return false;
-        vistas.add(hora);
-        return true;
-      })
-      .slice(0, 6);
+      .sort((una, otra) => una.inicio.localeCompare(otra.inicio));
+
+    return libres[0] ?? null;
   });
 
   /**
@@ -613,18 +764,34 @@ export class Inicio {
    * una constante del navegador es prometer algo que el admin puede desmentir
    * esta tarde desde su panel.
    */
-  protected readonly PLAN_SOCIO = [
-    'Sin pago al reservar: la hora ya está en tu cuota',
-    'Cupo diario de cancha y horas en franja pico',
-    'Puedes traer invitados cada mes',
-    'Cambias y cancelas desde "Mis reservas"',
-  ];
-
-  protected readonly PLAN_VISITANTE = [
-    'Arriendo por hora, con el precio a la vista',
-    'Pagas en línea al reservar',
-    'Cancelas con 24 horas y se devuelve todo',
-    'Modificas hasta 6 horas antes',
+  /**
+   * Las ocho afirmaciones de las dos listas de antes, emparejadas por tema
+   * (TV3.5). Ninguna nueva: donde una no tiene par va `null` y la celda queda
+   * vacía. El rótulo es lo único que se agregó, y es la pregunta que cada fila
+   * contesta.
+   */
+  protected readonly CARA_A_CARA: readonly {
+    rotulo: string;
+    socio: string | null;
+    visitante: string | null;
+  }[] = [
+    {
+      rotulo: 'El pago',
+      socio: 'Sin pago al reservar: la hora ya está en tu cuota',
+      visitante: 'Pagas en línea al reservar',
+    },
+    {
+      rotulo: 'La cancha',
+      socio: 'Cupo diario de cancha y horas en franja pico',
+      visitante: 'Arriendo por hora, con el precio a la vista',
+    },
+    {
+      rotulo: 'Cancelar',
+      socio: 'Cambias y cancelas desde "Mis reservas"',
+      visitante: 'Cancelas con 24 horas y se devuelve todo',
+    },
+    { rotulo: 'Cambiar', socio: null, visitante: 'Modificas hasta 6 horas antes' },
+    { rotulo: 'Invitados', socio: 'Puedes traer invitados cada mes', visitante: null },
   ];
 
   protected readonly hora = horaEnElClub;

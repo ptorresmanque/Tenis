@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* Fuente de verdad: design-system/club-de-tenis/MASTER.md
-   Si cambiás un valor acá, cambialo allá. Los contrastes están medidos por
+   Si cambias un valor acá, cámbialo allá. Los contrastes están medidos por
    src/design-tokens.spec.ts: romper uno hace fallar la suite. */
 @theme {
   /* Azul de cancha dura (los dos azules del Australian Open) */
@@ -36,13 +36,22 @@
   --color-destructive: #dc2626;
   --color-destructive-strong: #b91c1c;
 
-  --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Public Sans', 'Work Sans', ui-sans-serif, sans-serif;
+  /* La letra de una transmisión: condensada para los títulos y las cifras, que
+     es la que cabe en un rótulo de televisión, y su versión de ancho normal para
+     leer. Son la misma familia, así que conversan sin esfuerzo. Plan de
+     transmisión, TV1.1. */
+  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', ui-sans-serif, sans-serif;
 
   /* El logotipo tiene dos tonos y por eso dos variables. Ver
      `public/logo-fedal.svg` y § 11 del plan de rediseño. */
   --color-logo-marca: #0b4f9e;
   --color-logo-texto: #0f172a;
+  /* La capa "marca" sobre una banda de campo, donde el azul de arriba sería el
+     mismo del fondo y desaparecería. Es el valor que el tema oscuro ya usa para
+     el logotipo, no un color nuevo: 3,1:1 sobre el campo claro y 4:1 sobre el
+     oscuro, medido. La capa "texto" usa el texto de la banda. TV2.4. */
+  --color-logo-marca-sobre-campo: #5ba7e8;
 
   /*
     EL CAMPO PLENO, QUE NO ES EL COLOR DE ACCIÓN.
@@ -60,6 +69,40 @@
   */
   --color-campo: #0b4f9e;
   --color-on-campo: #ffffff;
+  /* El campo hondo: el lado visitante del cara a cara (TV3.5). Media sección
+     no puede ir en rótulo, que en oscuro es una placa clara; va en el mismo azul,
+     un tono más profundo, y lleva el mismo texto. */
+  --color-campo-hondo: #083a74;
+
+  /*
+    EL RÓTULO, Y LA CELDA LIBRE DEL MARCADOR.
+
+    El rótulo es la placa de la transmisión: la cinta del torneo, el rótulo del
+    zócalo, el lado visitante del cara a cara. Es la superficie inversa del
+    tema: tinta con texto blanco en claro, placa clara con texto oscuro en
+    oscuro. Que en oscuro sea clara no es capricho: el fondo #0a1b33 está tan
+    cerca del negro que ni el negro puro se separa de él (1,22:1), y una placa
+    que no se separa del fondo no es una placa. Plan de transmisión, TV1.4.
+
+    **Por eso el rótulo es solo para piezas chicas**: la cinta, el rótulo del
+    zócalo, una etiqueta. Nunca para una región —el pie, media sección—: en
+    oscuro sería una franja clara a todo el ancho, la zona más brillante de una
+    pantalla oscura, que es el defecto que obligó a separar `campo` de `primary`
+    en D6.2. Una región oscura lleva `campo`.
+
+    La celda libre es la cancha libre en el marcador de la portada, sobre el
+    campo. Son valores que la paleta ya tenía: menta con verde fuerte en claro,
+    y en oscuro el verde con texto oscuro, porque ahí no aguanta blanco encima.
+    No es el verde sólido del mockup a propósito: #047857 sobre el campo da
+    1,46:1, y una celda que se puede apretar pide 3:1 contra lo que la rodea.
+  */
+  --color-rotulo: #0f172a;
+  --color-on-rotulo: #ffffff;
+  --color-celda-libre: #d1fae5;
+  --color-on-celda-libre: #047857;
+  /* El borde de la celda libre carga el 3:1 contra el campo (TV6.1). En claro es
+     el mismo color del relleno; en oscuro el relleno se apaga y el borde no. */
+  --color-borde-celda-libre: #d1fae5;
 
   /*
     LA ESCALA DE MARCADOR.
@@ -126,6 +169,13 @@
   /* La entrada de contenido al cargar, más larga porque no bloquea a nadie:
      el usuario no está esperando que termine para hacer lo siguiente. */
   --duracion-entrada: 400ms;
+
+  /* Los bucles que nadie espera, y por eso se pasan de los 300ms: no responden
+     a un gesto, acompañan. El latido del esqueleto mientras llegan los datos; la
+     cinta del torneo, que se detiene con su botón, el puntero o el foco (TV3.2).
+     El movimiento reducido apaga los dos. */
+  --duracion-latido: 1.4s;
+  --duracion-cinta: 45s;
   /* El desfase entre un elemento y el siguiente en una entrada escalonada.
      Se topea el acumulado: con 40 elementos, el último entraría 2,4 s tarde. */
   --escalonado: 60ms;
@@ -143,15 +193,35 @@
   --shadow-xl: 0 20px 25px rgb(11 41 79 / 0.16);
 
   /*
-    UN SOLO SISTEMA DE ESQUINAS.
+    UN SOLO RADIO, Y CASI RECTO.
 
-    Interactivo 8px, contenedor 16px, región 24px. Tres valores y ninguno más:
-    un botón de 6px al lado de una tarjeta de 12px al lado de un panel de 20px
-    es lo que hace que una interfaz se vea armada por turnos.
+    El lenguaje de transmisión es de esquinas rectas: un rótulo de televisión no
+    tiene curvas (plan de transmisión, TV1.2). 2px y no 0 para que el borde no
+    se vea cortado con tijera en pantallas de alta densidad.
+
+    Los tres nombres semánticos se quedan —control, caja, región— porque dicen
+    qué es cada cosa aunque hoy midan lo mismo. Y se redefine **cada radio de
+    Tailwind** al mismo valor: así las plantillas que usan rounded-lg o
+    rounded-xl se vuelven rectas sin tocarlas. `--radius` a secas es el que
+    Tailwind usa para `rounded` sin sufijo. Un test lee el theme.css del Tailwind
+    instalado y falla si aparece un radio que no esté acá.
+
+    `rounded-full` no lee ninguna variable y sigue siendo un círculo: solo va en
+    elementos cuadrados, que son avatares y botones de ícono.
   */
-  --radius-control: 0.5rem;
-  --radius-caja: 1rem;
-  --radius-region: 1.5rem;
+  --radius-control: 2px;
+  --radius-caja: 2px;
+  --radius-region: 2px;
+
+  --radius: 2px;
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+  --radius-3xl: 2px;
+  --radius-4xl: 2px;
 }
 
 /* La escala de espaciado del master (4/8/16/24/32/48/64px) coincide exactamente
@@ -240,6 +310,16 @@
        con 9,2:1. */
     --color-campo: #173f77;
     --color-on-campo: #eaf2fb;
+    --color-campo-hondo: #0f2b52;
+
+    /* La placa clara: ver el comentario del rótulo en @theme. */
+    --color-rotulo: #eaf2fb;
+    --color-on-rotulo: #0a1b33;
+    /* Relleno verde hondo, texto y borde claros (TV6.1): con el relleno en
+       #34d399, cuarenta celdas libres eran la zona más brillante de la portada. */
+    --color-celda-libre: #0b3d2c;
+    --color-on-celda-libre: #6ee7b7;
+    --color-borde-celda-libre: #34d399;
 
     /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
        caja sea más clara que el fondo. Se dejan negras y profundas para separar
@@ -299,6 +379,16 @@ html[data-tema='publico'][data-modo='oscuro'] {
        con 9,2:1. */
     --color-campo: #173f77;
     --color-on-campo: #eaf2fb;
+    --color-campo-hondo: #0f2b52;
+
+    /* La placa clara: ver el comentario del rótulo en @theme. */
+    --color-rotulo: #eaf2fb;
+    --color-on-rotulo: #0a1b33;
+    /* Relleno verde hondo, texto y borde claros (TV6.1): con el relleno en
+       #34d399, cuarenta celdas libres eran la zona más brillante de la portada. */
+    --color-celda-libre: #0b3d2c;
+    --color-on-celda-libre: #6ee7b7;
+    --color-borde-celda-libre: #34d399;
 
     /* Sobre fondo oscuro una sombra no se ve: la elevación la comunica que la
        caja sea más clara que el fondo. Se dejan negras y profundas para separar
@@ -330,9 +420,12 @@ html[data-tema='publico'][data-modo='oscuro'] {
      cascada una regla sin capa le gana a cualquier @layer: con esa clase,
      text-2xl sobre un ícono no hace nada y todos salen de 24px. Acá no se
      declara font-size a propósito, para que las utilidades manden.
-     El ícono es una ligadura: sin aria-hidden el lector lee "check_circle". */
+     El ícono es una ligadura: sin aria-hidden el lector lee "check_circle".
+     La variante Sharp, rellena y en 500, es la de esquinas rectas: conversa con
+     el resto del lenguaje de transmisión (TV1.3). El relleno y el peso vienen
+     fijos en el enlace de index.html, no acá. */
   .icono {
-    font-family: 'Material Symbols Outlined';
+    font-family: 'Material Symbols Sharp';
     font-weight: normal;
     font-style: normal;
     line-height: 1;
@@ -345,6 +438,24 @@ html[data-tema='publico'][data-modo='oscuro'] {
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
+  }
+
+  /* Sobre el campo y sobre el rótulo, el anillo es del color del texto. En
+     claro, --color-ring y --color-campo son el mismo azul, y el foco desaparecía
+     en el hero, en "Libre hoy" y en el pie (TV3.2). Se cuelga de las clases que
+     toda región azul ya lleva, así que una región nueva lo hereda sin acordarse.
+
+     En los hijos y no en el contenedor: el anillo se dibuja afuera del control,
+     sobre el fondo de quien lo contiene. Así manda el contenedor más cercano, y
+     un control que es él mismo bg-rotulo (el ítem activo del panel) conserva el
+     anillo azul que se ve sobre la barra clara. */
+  .bg-campo > *,
+  .text-on-campo > * {
+    --color-ring: var(--color-on-campo);
+  }
+
+  .bg-rotulo > * {
+    --color-ring: var(--color-on-rotulo);
   }
 
   /*
@@ -486,6 +597,22 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 }
 
+/* El corte en diagonal del final de un rótulo, como la pestaña de un zócalo de
+   televisión (TV3.1). Recorta el canto derecho, así que trae su propio relleno a
+   ese lado para que el corte no le muerda las letras. Es `@utility` y no una
+   clase de componentes porque se pide con variante: `sm:corte-fin`. */
+@utility corte-fin {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 0.875rem) 100%, 0 100%);
+  padding-inline-end: 2rem;
+}
+
+/* El mismo corte a escala de una foto (TV3.4): el canto derecho baja en
+   diagonal, como el borde de un gráfico de transmisión. Sin relleno: lo que
+   corta es imagen, no texto. */
+@utility corte-foto {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 3rem) 100%, 0 100%);
+}
+
 /*
   Las primitivas que no necesitan JavaScript.
 
@@ -503,6 +630,148 @@ html[data-tema='publico'][data-modo='oscuro'] {
   pisar el fondo sin pelear con la especificidad.
 */
 @layer components {
+  /*
+    EL TITULAR DE TRANSMISIÓN.
+
+    Cursiva, mayúscula y 800: es como se rotula un partido en la tele, y es lo que
+    más distingue a este lenguaje del folleto. **Solo en bandas y cabeceras**,
+    nunca en un párrafo, una tabla ni un formulario: en mayúscula cursiva un texto
+    largo se lee letra por letra. La interlínea apretada es porque son una o dos
+    líneas y quieren verse como un bloque.
+  */
+  /* El logotipo dentro de una banda de campo, como el pie (TV2.4). Redefine las
+     dos variables que lee el SVG, así que vale en los dos temas sin tocar el
+     componente. */
+  .logotipo-sobre-campo {
+    --color-logo-marca: var(--color-logo-marca-sobre-campo);
+    --color-logo-texto: var(--color-on-campo);
+  }
+
+  .titular {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    line-height: 0.88;
+    letter-spacing: -0.005em;
+  }
+
+  /*
+    LA CABECERA DEL PANEL (TV7.1).
+
+    Una banda compacta, de 96px como máximo: el titular en cursiva a la
+    izquierda —con su insignia y su bajada— y **una sola acción principal** a la
+    derecha. La navegación de la pantalla va debajo, no adentro. Sin hero, sin
+    foto y sin animación: el panel es para trabajar (regla de la Fase 7).
+  */
+  .cabecera-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    /* 10px y no 12: con una bajada de dos líneas, 12 dejaba la banda en 97px. */
+    padding-bottom: 0.625rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /*
+    La bajada de la cabecera, en 14px y hasta 48rem de ancho (unos 110 caracteres).
+
+    Con la letra de leer y max-w-prose, una bajada de dos frases se partía en dos o
+    tres líneas y la banda llegaba a 105px y a 129px en nueve pantallas: pasaba los
+    96 sin que nadie lo midiera (revisión de TV7.9). Así, la más larga, la de "Horas
+    no usadas", entra en dos líneas. Por eso las bajadas de las cabeceras no llevan
+    max-w-prose: como utilidad, le ganaría a esto.
+  */
+  .cabecera-panel p {
+    max-width: 48rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  /*
+    EL RÓTULO DE SECCIÓN (TV7.2).
+
+    El encabezado de cada sección del panel: la placa del rótulo con el corte en
+    diagonal, como la pestaña de un zócalo. Es primitiva porque la Fase 7 lo pone
+    en las veintidós pantallas del panel: copiado en cada plantilla, cambiar el
+    corte o el tamaño pediría acordarse de todas. El margen lo pone cada pantalla;
+    una alarma lo pinta de otro color con utilidades, que ganan por capa.
+  */
+  .rotulo-seccion {
+    @apply corte-fin;
+    display: inline-flex;
+    background-color: var(--color-rotulo);
+    color: var(--color-on-rotulo);
+    padding-block: 0.375rem;
+    padding-inline-start: 1rem;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /*
+    EL SUBTÍTULO (revisión de TV7.5).
+
+    El encabezado de un bloque dentro de una sección o de una tarjeta: la
+    condensada, chica y en mayúscula, sin placa. Va en el panel y en las fichas
+    públicas de torneos. Estaba copiado en diez lugares de seis archivos, con
+    los de torneos del panel por sumarse: cambiarle el tamaño pedía acordarse de
+    todos. El margen lo pone cada pantalla.
+  */
+  .subtitulo {
+    font-family: var(--font-display);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /*
+    EL TÍTULO DE UNA TARJETA (TV7.8).
+
+    El nombre de lo que la tarjeta muestra —una cancha, un profesor, un torneo,
+    una reserva—, en la condensada y en mayúscula, como el nombre de un jugador
+    en la transmisión. Iba copiado en siete lugares del sitio y del panel, y
+    TV7.8 sumaba el octavo. No es `.titular`: va derecho y sin cursiva, porque
+    se lee en una lista y no encabeza una banda.
+  */
+  .titulo-tarjeta {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+  }
+
+  /*
+    LA HORA EN UN RÓTULO (TV5.1, TV5.3).
+
+    Campo, o ámbar suave si es hora pico, en la condensada y con cifras de ancho
+    fijo. Lo usan la grilla, "Mis reservas" y la página pública de una reserva:
+    con la decisión copiada en tres plantillas, cambiar el color del pico pedía
+    acordarse de las tres (revisión de TV5.3). El tamaño y el relleno los pone
+    cada pantalla.
+  */
+  .rotulo-hora {
+    background-color: var(--color-campo);
+    color: var(--color-on-campo);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rotulo-hora-pico {
+    background-color: var(--color-warning-soft);
+    color: var(--color-warning-strong);
+  }
+
   .boton {
     display: inline-flex;
     align-items: center;
@@ -518,9 +787,18 @@ html[data-tema='publico'][data-modo='oscuro'] {
       elemento culpable es invisible. Diagnosticado el 2026-09-08 en la portada.
     */
     position: relative;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-control);
     padding: 0.75rem 1.5rem;
-    font-weight: 600;
+    /* La etiqueta en la condensada y en mayúscula, como un rótulo. La mayúscula
+       es de CSS y no del texto, y en Chrome el nombre accesible no cambia: sigue
+       siendo "Ver disponibilidad" (verificado el 2026-10-02). **Falta probarlo
+       con VoiceOver en un iPhone**, que es como reserva casi todo socio: WebKit
+       podría exponer el texto ya transformado y deletrear un "HOY". Está en el
+       Checkpoint B del plan de transmisión. */
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     /* Tailwind v4 dejó de forzarlo en <button>: sin esto sale con la flecha del
        sistema y no se lee como pulsable. El lint lo comprueba. */
     cursor: pointer;
@@ -577,6 +855,28 @@ html[data-tema='publico'][data-modo='oscuro'] {
     color: var(--color-on-primary);
   }
 
+  /* Sobre una banda de campo el botón invierte la banda: el fondo toma el color
+     del texto de la banda y la etiqueta, el de la banda. En los dos temas, porque
+     `campo` y `on-campo` ya cambian juntos. Antes se armaba a mano seis veces
+     con `bg-on-campo text-campo` (TV2.1). El hover lo trae `.boton`. */
+  .boton-sobre-campo {
+    background-color: var(--color-on-campo);
+    color: var(--color-campo);
+  }
+
+  .boton-contorno-sobre-campo {
+    border: 2px solid var(--color-on-campo);
+    color: var(--color-on-campo);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    /* El contorno suma un tinte de la banda: sin fondo propio, la opacidad del
+       hover de .boton casi no se nota sobre el campo. */
+    .boton-contorno-sobre-campo:hover:not(:disabled) {
+      background-color: color-mix(in srgb, var(--color-on-campo) 12%, transparent);
+    }
+  }
+
   @media (hover: hover) and (pointer: fine) {
     .boton-secundario:hover:not(:disabled),
     .boton-texto:hover:not(:disabled) {
@@ -594,7 +894,7 @@ html[data-tema='publico'][data-modo='oscuro'] {
   .campo {
     width: 100%;
     border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-control);
     background-color: var(--color-card);
     padding: 0.75rem 1rem;
     /* 16px exactos: con menos, Safari en iPhone hace zoom al enfocar. */
@@ -649,9 +949,13 @@ html[data-tema='publico'][data-modo='oscuro'] {
     background-color: var(--color-muted);
     padding: 0.75rem 1rem;
     text-align: start;
-    font-size: 0.75rem;
+    /* La etiqueta de la columna en la condensada, como una tabla de posiciones
+       en una transmisión; los datos siguen en la letra de leer (TV2.1). Un
+       punto más grande que antes porque la condensada es más angosta. */
+    font-family: var(--font-display);
+    font-size: 0.8125rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-muted-foreground);
     position: sticky;

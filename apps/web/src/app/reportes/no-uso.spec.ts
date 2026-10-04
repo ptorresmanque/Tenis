@@ -27,9 +27,11 @@ describe('NoUsoPanel', () => {
   let fixture: ComponentFixture<NoUsoPanel>;
   let api: { noUso: ReturnType<typeof vi.fn>; csv: ReturnType<typeof vi.fn> };
 
-  const montar = async (reporte: ReporteDeNoUso = REPORTE) => {
+  const montar = async (reporte: ReporteDeNoUso | Error = REPORTE) => {
     api = {
-      noUso: vi.fn().mockResolvedValue(reporte),
+      noUso: vi.fn(() =>
+        reporte instanceof Error ? Promise.reject(reporte) : Promise.resolve(reporte),
+      ),
       csv: vi.fn().mockReturnValue('/api/admin/reportes/no-uso.csv?x=1'),
     };
 
@@ -111,5 +113,12 @@ describe('NoUsoPanel', () => {
     await montar({ ...REPORTE, filas: [], reservadas: 0, noUsadas: 0 });
 
     expect(texto()).toContain('No hubo reservas');
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si el reporte no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron contar las horas no usadas');
   });
 });

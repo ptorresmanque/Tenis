@@ -94,18 +94,22 @@ describe('TorneosPublicos', () => {
     soltarInscripcion: ReturnType<typeof vi.fn>;
   };
 
+  /** El doble de una consulta: con un `Error`, la promesa se rechaza. */
+  const responder = <T>(valor: T | Error) =>
+    vi.fn(() => (valor instanceof Error ? Promise.reject(valor) : Promise.resolve(valor)));
+
   const montar = async (
-    torneos: TorneoPublico[],
-    cuadro = CUADRO,
-    transmisiones: (typeof EN_VIVO)[] = [],
-    fotos: unknown[] = [],
+    torneos: TorneoPublico[] | Error,
+    cuadro: typeof CUADRO | Error = CUADRO,
+    transmisiones: (typeof EN_VIVO)[] | Error = [],
+    fotos: unknown[] | Error = [],
     soltada = { soltada: true },
   ) => {
     api = {
-      calendario: vi.fn().mockResolvedValue(torneos),
-      cuadroPublico: vi.fn().mockResolvedValue(cuadro),
-      transmisionesPublicas: vi.fn().mockResolvedValue(transmisiones),
-      fotos: vi.fn().mockResolvedValue(fotos),
+      calendario: responder(torneos),
+      cuadroPublico: responder(cuadro),
+      transmisionesPublicas: responder(transmisiones),
+      fotos: responder(fotos),
       soltarInscripcion: vi.fn().mockResolvedValue(soltada),
     };
 
@@ -279,10 +283,27 @@ describe('TorneosPublicos', () => {
   it('**el cuadro va en columnas que se desplazan, no en una tabla que se encoge**', async () => {
     // En 375px una tabla de cuatro rondas queda ilegible, y este cuadro se mira sobre
     // todo desde el teléfono, en el club.
+    //
+    // Reescrito en TV4.2: antes pedía que no hubiera ninguna tabla en la página, y
+    // desde entonces las categorías sí son una. Vigila lo mismo, ahora en el cuadro.
     await apretar('Ver quiénes juegan');
+    const cuadro = elemento().querySelector('[data-cuadro]');
 
-    expect(elemento().querySelector('table')).toBeNull();
-    expect(elemento().querySelector('.overflow-x-auto')).not.toBeNull();
+    expect(cuadro).not.toBeNull();
+    expect(cuadro?.querySelector('table')).toBeNull();
+    expect(cuadro?.matches('.overflow-x-auto')).toBe(true);
+  });
+
+  it('las categorías van como tabla de posiciones: categoría, inscripción y cupos', () => {
+    // TV4.2: mientras la inscripción está abierta, lo que se compara entre
+    // categorías es cuánto cuesta y cuánto lugar queda.
+    const tabla = elemento().querySelector('li table.tabla');
+    const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
+      th.textContent?.trim(),
+    );
+
+    expect(encabezados.slice(0, 3)).toEqual(['Categoría', 'Inscripción', 'Cupos']);
+    expect(tabla?.querySelector('tbody')?.textContent).toContain('$12.000');
   });
 
   it('el cuadro muestra el marcador y quién ganó', async () => {
@@ -379,5 +400,28 @@ describe('TorneosPublicos', () => {
     expect(
       elemento().querySelector('img')?.getAttribute('src'),
     ).toBe('/api/torneos/fotos/4/miniatura');
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si el calendario no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar el calendario');
+  });
+
+  it('si el cuadro no carga, lo dice bajo su categoría', async () => {
+    await montar([EN_INSCRIPCION], new Error('la API no respondió'));
+
+    await apretar('Ver quiénes juegan');
+
+    expect(texto()).toContain('No se pudo cargar el cuadro');
+  });
+
+  it('si las fotos y los lives no cargan, el cuadro se ve igual', async () => {
+    await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, new Error('la API no respondió'), new Error('la API no respondió'));
+
+    await apretar('Ver quiénes juegan');
+
+    expect(texto()).toContain('6-4 6-2');
   });
 });

@@ -19,22 +19,26 @@ import { EditorHorarios } from './editor-horarios';
   imports: [EditorHorarios, EditorFranjas],
   template: `
     <section class="mt-8" aria-labelledby="titulo-general">
-      <h2 id="titulo-general" class="font-display text-xl font-semibold">
+      <h2 id="titulo-general" class="rotulo-seccion">
         Horario y tarifas generales
       </h2>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <p class="mt-2 text-sm text-muted-foreground">
         Rigen en toda cancha que no tenga lo suyo propio. Lo que una cancha define
         para sí misma le gana a esto.
       </p>
 
       @if (general.isLoading()) {
         <p class="mt-3 text-muted-foreground">Cargando…</p>
+      } @else if (general.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar el horario y las tarifas generales. Reintenta en un momento.
+        </p>
       } @else if (club(); as ambito) {
         <div class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-          <h3 class="text-sm font-semibold">Horario de apertura</h3>
+          <h3 class="subtitulo">Horario de apertura</h3>
           <app-editor-horarios [ambito]="ambito" (guardado)="recargar()" />
 
-          <h3 class="mt-4 text-sm font-semibold">Tarifas</h3>
+          <h3 class="mt-4 subtitulo">Tarifas</h3>
           <app-editor-franjas [ambito]="ambito" (cambiado)="recargar()" />
         </div>
       }

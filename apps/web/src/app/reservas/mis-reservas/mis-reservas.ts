@@ -33,7 +33,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
   selector: 'app-mis-reservas',
   imports: [RouterLink, Aviso, EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Mis reservas</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Mis reservas</h1>
 
     <div role="status" aria-live="polite" class="mt-4">
       @if (reservas.isLoading()) {
@@ -68,7 +68,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
          deja nodos de comentario dentro del ul y la pseudo-clase :empty no
          matchea. Sin esto, el border-y dibuja dos líneas pegadas debajo del
          estado vacío y parecen un error de render. -->
-    @if (reservas.value().length > 0) {
+    @if (reservas.hasValue() && reservas.value().length > 0) {
     <ul class="mt-6 divide-y divide-border border-y border-border">
       @for (reserva of reservas.value(); track reserva.id) {
         <li class="flex gap-4 py-5">
@@ -89,21 +89,27 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
 
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
-              <h2 class="font-display text-xl font-semibold">{{ reserva.cancha }}</h2>
+              <h2 class="titulo-tarjeta">
+                {{ reserva.cancha }}
+              </h2>
               @if (reserva.estado === 'PENDIENTE_PAGO') {
                 <app-insignia variante="aviso">Esperando el pago</app-insignia>
               } @else {
                 <app-insignia variante="exito">Confirmada</app-insignia>
               }
               @if (reserva.esPico) {
-                <app-insignia variante="info" icono="trending_up">Hora pico</app-insignia>
+                <!-- Ámbar, como el rótulo "Pico" del marcador y de las tarifas. -->
+                <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
               }
             </div>
 
-            <!-- La hora en la escala de marcador, igual que en la grilla: es el
-                 dato con el que alguien busca su reserva, y estaba en tamaño de
-                 párrafo entre el nombre de la cancha y el folio. -->
-            <p class="mt-1 font-display text-2xl font-bold">
+            <!-- La hora en un rótulo, como en la grilla (TV5.3): campo, o ámbar
+                 suave si es hora pico. Es el dato con el que alguien busca su
+                 reserva. -->
+            <p
+              class="rotulo-hora mt-2 inline-flex px-2 py-1 text-2xl"
+              [class.rotulo-hora-pico]="reserva.esPico"
+            >
               {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
             </p>
             <p class="text-muted-foreground">{{ dia(reserva.inicio) }}</p>

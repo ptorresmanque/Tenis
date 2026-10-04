@@ -25,11 +25,17 @@ import { Reportes } from './reportes.service';
   selector: 'app-padron-panel',
   imports: [EstadoVacio, DescargarCsv],
   template: `
-    <h1 class="font-display text-2xl font-bold">Padrón y morosidad</h1>
-    <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-      Cómo se mueve el padrón y cuánto se debe, mes a mes. La deuda de un mes son sus cuotas
-      emitidas que siguen sin cobrarse, así que baja sola cuando alguien se pone al día.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
+         es lo que se lleva. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Padrón y morosidad</h1>
+        <p class="mt-1 text-muted-foreground">
+          Cómo se mueve el padrón y cuánto se debe, mes a mes. La deuda de un mes son sus cuotas
+          emitidas que siguen sin cobrarse, así que baja sola cuando alguien se pone al día.
+        </p>
+      </div>
+    </header>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-2">
       <label class="grid gap-1 text-sm">
@@ -55,7 +61,9 @@ import { Reportes } from './reportes.service';
       </label>
     </div>
 
-    @if (reporte.value(); as datos) {
+    @if (reporte.error()) {
+      <p class="mt-6 text-destructive">No se pudo calcular el padrón. Reintenta en un momento.</p>
+    } @else if (reporte.value(); as datos) {
       <dl class="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         @for (dato of resumen(); track dato.etiqueta) {
           <div class="rounded-xl border border-border bg-card p-4 shadow-sm">

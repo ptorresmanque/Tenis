@@ -28,9 +28,13 @@ describe('ProfesoresPanel', () => {
     editar: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (profesores: Profesor[]) => {
+  const montar = async (profesores: Profesor[] | Error) => {
     api = {
-      listar: vi.fn().mockResolvedValue(profesores),
+      listar: vi.fn(() =>
+        profesores instanceof Error
+          ? Promise.reject(profesores)
+          : Promise.resolve(profesores),
+      ),
       crear: vi.fn().mockResolvedValue(ANA),
       editar: vi.fn().mockResolvedValue(ANA),
     };
@@ -165,5 +169,12 @@ describe('ProfesoresPanel', () => {
     await montar([]);
 
     expect(elemento().textContent).toContain('Todavía no hay profesores');
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la lista no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(elemento().textContent).toContain('No se pudieron cargar los profesores');
   });
 });

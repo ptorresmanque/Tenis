@@ -2,6 +2,7 @@ import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../../core/errores';
+import { Insignia } from '../../ui/insignia';
 import { hoyEnElClub, horaEnElClub } from '../reloj-del-club';
 import { nombreDeSuperficie, SUPERFICIES } from '../superficies';
 import {
@@ -40,21 +41,30 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     EditorFranjas,
     EditorBloqueos,
     ReglasGeneralesPanel,
+    Insignia,
   ],
   template: `
-    <h1 class="font-display text-3xl font-bold">Canchas del club</h1>
+    <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya. -->
+    <header class="cabecera-panel">
+      <h1 class="titular text-4xl">Canchas del club</h1>
+    </header>
 
-    @if (advertencias.value().length > 0) {
+    @if (advertencias.hasValue() && advertencias.value().length > 0) {
       <!-- Antes que la lista: es lo único de esta pantalla que cuesta plata si
            nadie lo mira. -->
       <section
         class="mt-4 rounded-xl border border-destructive bg-card p-4"
         aria-labelledby="titulo-advertencias"
       >
-        <h2 id="titulo-advertencias" class="font-display font-semibold text-destructive">
+        <!-- El rótulo de la alarma va en rojo: es la única sección que pide que
+             alguien haga algo hoy. -->
+        <h2
+          id="titulo-advertencias"
+          class="rotulo-seccion bg-destructive text-on-primary"
+        >
           Horas sin tarifa hoy
         </h2>
-        <p class="mt-1 text-sm text-muted-foreground">
+        <p class="mt-2 text-sm text-muted-foreground">
           Estas horas están abiertas y salen en $0. Casi siempre significa que
           falta una franja, no que el club las regale.
         </p>
@@ -75,7 +85,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     <app-reglas-generales (cambiado)="recargar()" />
 
     <section class="mt-8" aria-labelledby="titulo-nueva">
-      <h2 id="titulo-nueva" class="font-display text-xl font-semibold">
+      <h2 id="titulo-nueva" class="rotulo-seccion">
         Agregar una cancha
       </h2>
 
@@ -150,32 +160,34 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     </section>
 
     <section class="mt-8" aria-labelledby="titulo-listado">
-      <h2 id="titulo-listado" class="font-display text-xl font-semibold">
+      <h2 id="titulo-listado" class="rotulo-seccion">
         Canchas
       </h2>
 
       @if (canchas.isLoading()) {
         <p class="mt-3 text-muted-foreground">Cargando…</p>
+      } @else if (canchas.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar las canchas. Reintenta en un momento.
+        </p>
       } @else {
         <ul class="mt-3 space-y-3">
           @for (cancha of canchas.value(); track cancha.id) {
+            <!-- La desactivada se marca con el borde punteado y no con opacidad:
+                 apagada, su texto y sus botones quedaban bajo 4,5:1, y "Reactivar"
+                 y "Eliminar" se siguen usando. -->
             <li
               class="rounded-xl border border-border bg-card p-4 shadow-sm"
-              [class.opacity-60]="!cancha.activa"
+              [class.border-dashed]="!cancha.activa"
             >
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h3 class="font-display text-lg font-semibold">
+                <h3 class="titulo-tarjeta">
                   {{ cancha.nombre }}
                 </h3>
                 @if (!cancha.activa) {
-                  <!-- Con palabras y no solo con la opacidad: apagado es una
-                       diferencia de color y no todos la ven. -->
-                  <span
-                    class="rounded-md border border-muted-foreground px-2 py-0.5 text-xs
-                           font-medium text-muted-foreground"
-                  >
-                    Desactivada
-                  </span>
+                  <!-- Con palabras y no solo con el borde: una línea punteada no
+                       dice por sí sola qué significa. -->
+                  <app-insignia variante="neutro" icono="block">Desactivada</app-insignia>
                 }
 
                 <button
@@ -237,7 +249,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   <span class="sr-only">de {{ cancha.nombre }}</span>
                 </summary>
 
-                <h4 class="mt-3 text-sm font-semibold">Horario de apertura</h4>
+                <h4 class="mt-3 subtitulo">Horario de apertura</h4>
                 @if (cancha.horarios.length === 0) {
                   <p class="text-sm text-muted-foreground">
                     Sin horario propio: vale el general del club.
@@ -245,10 +257,10 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 }
                 <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
 
-                <h4 class="mt-3 text-sm font-semibold">Tarifas propias</h4>
+                <h4 class="mt-3 subtitulo">Tarifas propias</h4>
                 <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
 
-                <h4 class="mt-3 text-sm font-semibold">Bloqueos</h4>
+                <h4 class="mt-3 subtitulo">Bloqueos</h4>
                 <app-editor-bloqueos [cancha]="cancha" />
               </details>
             </li>

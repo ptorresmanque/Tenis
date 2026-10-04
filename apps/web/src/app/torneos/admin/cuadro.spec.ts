@@ -102,16 +102,26 @@ describe('CuadroDelTorneo', () => {
     { id: 9, nombre: 'Cancha vieja', activa: false },
   ];
 
-  const montar = async (cuadro: Cuadro) => {
+  const montar = async (
+    cuadro: Cuadro | Error,
+    {
+      fotos = FOTOS,
+      canchas = CANCHAS,
+    }: { fotos?: typeof FOTOS | Error; canchas?: typeof CANCHAS | Error } = {},
+  ) => {
     api = {
-      cuadro: vi.fn().mockResolvedValue(cuadro),
+      cuadro: vi.fn(() =>
+        cuadro instanceof Error ? Promise.reject(cuadro) : Promise.resolve(cuadro),
+      ),
       armarCuadro: vi.fn().mockResolvedValue(ARMADO),
       deshacerCuadro: vi.fn().mockResolvedValue({ torneoId: 5 }),
       consecuencias: vi.fn().mockResolvedValue({ deshace: 0 }),
       cargarResultado: vi.fn().mockResolvedValue({ id: 1, deshechos: 0 }),
       programarPartido: vi.fn().mockResolvedValue({ id: 1, bloqueoId: 7 }),
       desprogramarPartido: vi.fn().mockResolvedValue({ id: 1 }),
-      fotos: vi.fn().mockResolvedValue(FOTOS),
+      fotos: vi.fn(() =>
+        fotos instanceof Error ? Promise.reject(fotos) : Promise.resolve(fotos),
+      ),
     };
 
     TestBed.resetTestingModule();
@@ -120,7 +130,10 @@ describe('CuadroDelTorneo', () => {
         { provide: Torneos, useValue: api },
         {
           provide: AdminCanchas,
-          useValue: { canchas: () => Promise.resolve(CANCHAS) },
+          useValue: {
+            canchas: () =>
+              canchas instanceof Error ? Promise.reject(canchas) : Promise.resolve(canchas),
+          },
         },
       ],
     });
@@ -158,6 +171,13 @@ describe('CuadroDelTorneo', () => {
     await montar(ARMADO);
   });
 
+  it('se titula con un h2, como las otras pestañas de la ficha', () => {
+    // En la ficha, cada pestaña cuelga del h1 con el nombre del torneo, y en
+    // Ajustes sus secciones ya eran h2: con h3 se saltaba un nivel y las
+    // pestañas no se oían iguales (revisión de TV7.6).
+    expect(elemento().querySelector('h2')?.textContent).toContain('Cuadro');
+  });
+
   it('dibuja las rondas con su nombre', () => {
     expect(texto()).toContain('Semifinal');
     expect(texto()).toContain('Final');
@@ -186,8 +206,8 @@ describe('CuadroDelTorneo', () => {
   });
 
   it('**el cuadro se dibuja entero desde el primer día, con la final incluida**', () => {
-    // Una mitad en blanco no dice nada; una dibujada dice a quién te toca si ganás.
-    const columnas = elemento().querySelectorAll('h4');
+    // Una mitad en blanco no dice nada; una dibujada dice a quién te toca si ganas.
+    const columnas = elemento().querySelectorAll('h3');
 
     expect(columnas).toHaveLength(2);
   });
@@ -348,6 +368,14 @@ describe('CuadroDelTorneo', () => {
       fixture.detectChanges();
     };
 
+    it('si las canchas no cargan, el formulario se abre igual', async () => {
+      await montar(ARMADO, { canchas: new Error('la API no respondió') });
+
+      await apretar('Programar');
+
+      expect(elemento().querySelector('dialog[open]')).not.toBeNull();
+    });
+
     it('**el formulario va en un modal**, no en un bloque más bajo el cuadro', async () => {
       // Programar es una tarea con foco: se elige cancha, día y dos horas, y el
       // servidor puede rechazarlas por la restricción de un jugador. Con el formulario
@@ -461,6 +489,12 @@ describe('CuadroDelTorneo', () => {
       expect(api.fotos).toHaveBeenCalledWith(5);
     });
 
+    it('si las fotos no cargan, el cuadro se dibuja igual', async () => {
+      await montar(ARMADO, { fotos: new Error('la API no respondió') });
+
+      expect(texto()).toContain('Semifinal');
+    });
+
     it('cada partido muestra solo las suyas', () => {
       const miniaturas = Array.from(
         elemento().querySelectorAll('img'),
@@ -476,5 +510,12 @@ describe('CuadroDelTorneo', () => {
       // Uno por partido con sus dos jugadores; la final vacía no lleva.
       expect(campos).toHaveLength(2);
     });
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si el cuadro no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar el cuadro');
   });
 });

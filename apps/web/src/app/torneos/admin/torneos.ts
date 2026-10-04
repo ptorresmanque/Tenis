@@ -63,10 +63,13 @@ const enBlanco = () => ({
   selector: 'app-torneos',
   imports: [Esqueleto, FormsModule, RouterLink, Aviso, EstadoVacio, Insignia],
   template: `
-    <div class="flex flex-wrap items-start justify-between gap-3">
+    <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
+         crear; va como secundaria porque la principal es el "Crear torneo" del
+         formulario, y con las dos en azul lleno habría dos principales. -->
+    <header class="cabecera-panel">
       <div>
-        <h1 class="font-display text-3xl font-bold">Torneos</h1>
-        <p class="mt-1 max-w-prose text-muted-foreground">
+        <h1 class="titular text-4xl">Torneos</h1>
+        <p class="mt-1 text-muted-foreground">
           Los torneos del club y las categorías con que reparten puntos.
         </p>
       </div>
@@ -82,7 +85,7 @@ const enBlanco = () => ({
       >
         {{ creando() ? 'Cerrar' : 'Crear torneo' }}
       </button>
-    </div>
+    </header>
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -96,7 +99,7 @@ const enBlanco = () => ({
       class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="crearTorneo()"
     >
-      <h2 class="font-display text-lg font-semibold">Crear un torneo</h2>
+      <h2 class="rotulo-seccion">Crear un torneo</h2>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <label class="block sm:col-span-2">
@@ -185,6 +188,10 @@ const enBlanco = () => ({
 
     @if (torneos.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los torneos…" />
+    } @else if (torneos.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar los torneos. Reintenta en un momento.
+      </p>
     } @else if (torneos.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
@@ -198,7 +205,7 @@ const enBlanco = () => ({
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <a
-                class="font-display text-lg font-semibold text-primary"
+                class="titulo-tarjeta text-primary"
                 [routerLink]="['/administracion/torneos', torneo.id]"
               >
                 {{ torneo.nombre }}
@@ -276,12 +283,16 @@ const enBlanco = () => ({
     }
 
 
-    <h2 class="mt-8 font-display text-2xl font-bold">Categorías</h2>
-    <p class="mt-1 max-w-prose text-muted-foreground">
+    <h2 class="rotulo-seccion mt-8">Categorías</h2>
+    <p class="mt-2 max-w-prose text-muted-foreground">
       De los puntos del campeón salen los de cada ronda.
     </p>
 
-    @if (categorias.value().length > 0) {
+    @if (categorias.error()) {
+      <p class="mt-3 text-destructive">
+        No se pudieron cargar las categorías. Reintenta en un momento.
+      </p>
+    } @else if (categorias.value().length > 0) {
       <ul class="mt-3 grid gap-2">
         @for (categoria of categorias.value(); track categoria.id) {
           <li
@@ -388,7 +399,7 @@ export class TorneosPanel {
 
   /** Los años que tienen algún torneo, del más nuevo al más viejo. */
   protected readonly anios = computed(() => [
-    ...new Set(this.torneos.value().map((t) => t.fechaInicio.slice(0, 4))),
+    ...new Set(this.cargados().map((t) => t.fechaInicio.slice(0, 4))),
   ]);
 
   /**
@@ -411,7 +422,12 @@ export class TorneosPanel {
 
   /** Cuántos hay en un grupo, para decirlo en el botón antes de apretarlo. */
   protected cuantos(grupo: Grupo): number {
-    return this.torneos.value().filter((t) => this.enElGrupo(t, grupo)).length;
+    return this.cargados().filter((t) => this.enElGrupo(t, grupo)).length;
+  }
+
+  /** Los filtros se pintan aunque la lista no cargue, y `value()` lanzaría. */
+  private cargados(): Torneo[] {
+    return this.torneos.hasValue() ? this.torneos.value() : [];
   }
 
   private enElGrupo(torneo: Torneo, grupo: Grupo): boolean {

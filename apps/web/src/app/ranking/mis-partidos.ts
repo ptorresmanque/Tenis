@@ -21,14 +21,14 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
   selector: 'app-mis-partidos',
   imports: [Aviso, EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Mis partidos</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
     <p class="mt-2 max-w-prose text-muted-foreground">
       Los amistosos que juegas con otros socios. Cárgalos acá y, cuando el rival los confirme,
       entran al ranking interno.
     </p>
 
-    <section class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <h2 class="font-display text-lg font-semibold">Cargar un partido</h2>
+    <section class="mt-6 bg-card p-5 shadow-md">
+      <h2 class="font-display text-lg font-bold tracking-wide uppercase">Cargar un partido</h2>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <label class="grid gap-1 text-sm">
@@ -43,8 +43,10 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
             <!-- Con el número al lado: dos socios que se llaman igual no es un caso
                  raro en un club, y elegir al equivocado le crea un partido a un
                  tercero que después tiene que rechazarlo. -->
-            @for (quien of rivales.value(); track quien.socioId) {
-              <option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</option>
+            @if (rivales.hasValue()) {
+              @for (quien of rivales.value(); track quien.socioId) {
+                <option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</option>
+              }
             }
           </select>
         </label>
@@ -107,9 +109,13 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
       </button>
     </section>
 
-    <h2 class="mt-8 font-display text-lg font-semibold">Tus partidos</h2>
+    <h2 class="titular mt-10 text-4xl">Tus partidos</h2>
 
-    @if (partidos.value().length === 0) {
+    @if (partidos.error()) {
+      <p class="mt-3 text-destructive">
+        No se pudieron cargar tus partidos. Reintenta en un momento.
+      </p>
+    } @else if (partidos.value().length === 0) {
       <app-estado-vacio
         class="mt-3 block"
         icono="sports_tennis"
@@ -119,14 +125,13 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
     } @else {
       <ul class="mt-3 grid gap-3">
         @for (partido of partidos.value(); track partido.id) {
-          <li
-            class="rounded-xl border border-border bg-card p-4 shadow-sm"
-            [attr.data-partido]="partido.id"
-          >
+          <!-- Cada partido como un marcador de resultado (TV5.4): el resultado en
+               la condensada y el marcador grande a la derecha, en azul si ganaste. -->
+          <li class="bg-card p-4 shadow-md" [attr.data-partido]="partido.id">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <!-- "Perdiste con" y no "perdiste a": en español "perdiste a
                    Carolina" dice otra cosa, y bastante peor. -->
-              <p class="font-semibold">
+              <p class="font-display text-lg font-bold tracking-wide uppercase">
                 @if (partido.ganeYo) {
                   Le ganaste a {{ partido.rival }}
                 } @else {
@@ -136,14 +141,18 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
               <app-insignia [variante]="color(partido.estado)" icono="flag">
                 {{ nombreEstado(partido.estado) }}
               </app-insignia>
+              @if (partido.marcador) {
+                <p
+                  class="ms-auto font-display text-3xl font-bold tabular-nums"
+                  [class.text-primary]="partido.ganeYo"
+                  [class.text-muted-foreground]="!partido.ganeYo"
+                >
+                  {{ partido.marcador }}
+                </p>
+              }
             </div>
 
-            <p class="mt-1 text-sm text-muted-foreground">
-              {{ enPalabras(partido.jugadoEn) }}
-              @if (partido.marcador) {
-                · {{ partido.marcador }}
-              }
-            </p>
+            <p class="mt-1 text-sm text-muted-foreground">{{ enPalabras(partido.jugadoEn) }}</p>
 
             @if (partido.estado === 'RECHAZADO') {
               <p class="mt-1 text-sm text-muted-foreground">

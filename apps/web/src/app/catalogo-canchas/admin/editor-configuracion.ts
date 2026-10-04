@@ -87,15 +87,19 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
   imports: [FormsModule],
   template: `
     <section class="mt-8" aria-labelledby="titulo-reglas">
-      <h2 id="titulo-reglas" class="font-display text-xl font-semibold">
+      <h2 id="titulo-reglas" class="rotulo-seccion">
         Reglas del club
       </h2>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <p class="mt-2 text-sm text-muted-foreground">
         Valen para todas las canchas. Cada una rige desde que se guarda.
       </p>
 
       @if (reglas.isLoading()) {
         <p class="mt-3 text-muted-foreground">Cargando…</p>
+      } @else if (reglas.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar las reglas del club. Reintenta en un momento.
+        </p>
       } @else if (valores(); as puestos) {
         <form class="mt-3" (ngSubmit)="guardar()">
           <div class="grid gap-4 sm:grid-cols-2">

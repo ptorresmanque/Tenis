@@ -22,11 +22,16 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
   selector: 'app-reportes',
   imports: [EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Horas reportadas</h1>
-    <p class="mt-1 text-muted-foreground">
-      Un socio avisó que estas horas quedaron sin usar. Los reportes son anónimos:
-      el sistema no guarda ni muestra quién avisó.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Horas reportadas</h1>
+        <p class="mt-1 text-muted-foreground">
+          Un socio avisó que estas horas quedaron sin usar. Los reportes son anónimos:
+          el sistema no guarda ni muestra quién avisó.
+        </p>
+      </div>
+    </header>
 
     <p role="status" aria-live="polite" class="mt-3 text-sm">
       @if (error()) {
@@ -38,6 +43,10 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
 
     @if (pendientes.isLoading()) {
       <p class="mt-6 text-muted-foreground">Cargando…</p>
+    } @else if (pendientes.error()) {
+      <p class="mt-6 text-destructive">
+        No se pudieron cargar las horas reportadas. Reintenta en un momento.
+      </p>
     } @else if (pendientes.value(); as horas) {
       @if (horas.length === 0) {
         <app-estado-vacio
@@ -51,7 +60,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
           @for (reportada of horas; track reportada.reservaId) {
             <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
               <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 class="font-display text-lg font-semibold">
+                <h2 class="titulo-tarjeta">
                   {{ dia(reportada.inicio) }}, {{ hora(reportada.inicio) }}–{{ hora(reportada.fin) }}
                 </h2>
                 <span class="text-sm text-muted-foreground">{{ reportada.cancha }}</span>
@@ -82,12 +91,12 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
 
               <div class="mt-3 flex flex-wrap gap-2">
                 @if (reportada.socio) {
+                  <!-- La primitiva y no clases a mano (hallazgo de TV2.3): el contorno
+                       rojo es el de "Eliminar" en las canchas y "Revocar" en socios. -->
                   <button
                     type="button"
                     [disabled]="resolviendo()"
-                    class="cursor-pointer rounded-md border border-destructive px-3 py-1
-                           text-sm font-medium text-destructive transition-colors
-                           hover:bg-destructive/10 disabled:opacity-60"
+                    class="boton boton-secundario boton-chico border-destructive text-destructive"
                     (click)="resolver(reportada, 'SANCIONAR')"
                   >
                     Sancionar
@@ -98,8 +107,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
                 <button
                   type="button"
                   [disabled]="resolviendo()"
-                  class="cursor-pointer rounded-md border border-border px-3 py-1 text-sm
-                         font-medium transition-colors hover:bg-muted disabled:opacity-60"
+                  class="boton boton-texto boton-chico"
                   (click)="resolver(reportada, 'DESCARTAR')"
                 >
                   Descartar

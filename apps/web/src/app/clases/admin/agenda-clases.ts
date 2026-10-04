@@ -48,8 +48,14 @@ const enBlanco = () => ({
   selector: 'app-agenda-clases',
   imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase],
   template: `
-    <h1 class="font-display text-3xl font-bold">Clases</h1>
-    <p class="mt-1 text-muted-foreground">{{ enPalabras(fecha()) }}</p>
+    <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
+         abajo, y la navegación entre días va debajo de la cabecera. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Clases</h1>
+        <p class="mt-1 text-muted-foreground">{{ enPalabras(fecha()) }}</p>
+      </div>
+    </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
       <div class="flex items-center gap-1">
@@ -100,6 +106,10 @@ const enBlanco = () => ({
 
     @if (clases.isLoading()) {
       <p class="mt-4 text-muted-foreground">Cargando…</p>
+    } @else if (clases.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar las clases. Reintenta en un momento.
+      </p>
     } @else if (clases.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
@@ -167,8 +177,8 @@ const enBlanco = () => ({
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="agendar()"
     >
-      <h2 class="font-display text-lg font-semibold">Agendar una clase</h2>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <h2 class="rotulo-seccion">Agendar una clase</h2>
+      <p class="mt-2 text-sm text-muted-foreground">
         La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos
         antes de confirmar.
       </p>
@@ -188,13 +198,19 @@ const enBlanco = () => ({
           <span class="text-sm font-medium">Profesor</span>
           <select class="campo mt-1" name="profesorId" [(ngModel)]="datos.profesorId">
             <option [value]="0" disabled>Elige un profesor</option>
-            @for (profesor of profesores.value(); track profesor.id) {
-              <option [value]="profesor.id">
-                {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-              </option>
+            @if (profesores.hasValue()) {
+              @for (profesor of profesores.value(); track profesor.id) {
+                <option [value]="profesor.id">
+                  {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
+                </option>
+              }
             }
           </select>
-          @if (profesores.value().length === 0) {
+          @if (profesores.error()) {
+            <span class="text-sm text-destructive">
+              No se pudieron cargar los profesores.
+            </span>
+          } @else if (profesores.value().length === 0) {
             <span class="text-sm text-muted-foreground">
               No hay profesores activos: anota uno primero.
             </span>
@@ -362,7 +378,7 @@ export class AgendaDeClases {
    * criterio que con los profesores desactivados.
    */
   protected readonly canchasActivas = computed(() =>
-    this.canchas.value().filter((cancha) => cancha.activa),
+    (this.canchas.hasValue() ? this.canchas.value() : []).filter((cancha) => cancha.activa),
   );
 
   protected readonly opcionesDeNivel = Object.entries(NIVELES).map(

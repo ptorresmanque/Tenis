@@ -31,11 +31,16 @@ function mesActual(): string {
   selector: 'app-panel-cuotas',
   imports: [Esqueleto, Aviso, EstadoVacio, Insignia],
   template: `
-    <h1 class="font-display text-3xl font-bold">Cuotas del club</h1>
-    <p class="mt-1 max-w-prose text-muted-foreground">
-      La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes. La
-      incorporación aparece en el mes en que el socio entró.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: se cobra fila por fila. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Cuotas del club</h1>
+        <p class="mt-1 text-muted-foreground">
+          La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes. La
+          incorporación aparece en el mes en que el socio entró.
+        </p>
+      </div>
+    </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-4">
       <div>
@@ -49,23 +54,24 @@ function mesActual(): string {
         />
       </div>
 
-      @if (datos.value(); as mes) {
+      @if (datos.hasValue()) {
+        @let mes = datos.value();
         <dl class="flex flex-wrap gap-6">
           <div>
             <dt class="text-sm text-muted-foreground">Emitido</dt>
-            <dd class="font-display text-xl font-semibold">
+            <dd class="font-display text-2xl font-bold tabular-nums">
               {{ pesos(mes.totalEmitidoClp) }}
             </dd>
           </div>
           <div>
             <dt class="text-sm text-muted-foreground">Pagado</dt>
-            <dd class="font-display text-xl font-semibold text-accent-strong">
+            <dd class="font-display text-2xl font-bold text-accent-strong tabular-nums">
               {{ pesos(mes.totalPagadoClp) }}
             </dd>
           </div>
           <div>
             <dt class="text-sm text-muted-foreground">Por cobrar</dt>
-            <dd class="font-display text-xl font-semibold text-destructive">
+            <dd class="font-display text-2xl font-bold text-destructive tabular-nums">
               {{ pesos(porCobrar()) }}
             </dd>
           </div>
@@ -82,6 +88,10 @@ function mesActual(): string {
 
     @if (datos.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando las cuotas…" />
+    } @else if (datos.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar las cuotas. Reintenta en un momento.
+      </p>
     } @else if (cuotas().length === 0) {
       <app-estado-vacio
         class="mt-4 block"

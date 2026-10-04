@@ -96,9 +96,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
       ></div>
 
       <div class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo sm:p-10">
-        <h1 id="torneos" class="font-display text-4xl font-black tracking-tight sm:text-6xl">
-          Torneos
-        </h1>
+        <h1 id="torneos" class="titular text-6xl sm:text-7xl lg:text-8xl">Torneos</h1>
         <p class="max-w-prose text-lg text-on-campo/90">
           Lo que se juega este año en el club: cuándo es cada torneo, cuántos cupos
           quedan y cómo va el cuadro.
@@ -115,7 +113,11 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
       </app-aviso>
     }
 
-    @if (torneos.value(); as lista) {
+    @if (torneos.error()) {
+      <p class="mt-6 text-destructive">
+        No se pudo cargar el calendario de torneos. Reintenta en un momento.
+      </p>
+    } @else if (torneos.value(); as lista) {
       @if (lista.length === 0) {
         <app-estado-vacio
           class="mt-6 block"
@@ -124,94 +126,146 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
           detalle="El calendario se publica acá en cuanto el club lo cierra."
         />
       } @else {
-        <!-- Sin cajas: el torneo abierto se distingue por una barra de color en el
-             canto, que es más fuerte que un borde gris alrededor de todo. -->
-        <ul class="mt-8 grid gap-4">
+        <ul class="mt-8 grid gap-6">
           @for (torneo of lista; track torneo.id) {
-            <!-- El torneo abierto se distingue por su propio fondo y no por una
-                 barra de color en el canto: esa franja es el tell más reconocible
-                 de una interfaz generada. El verde suave dice lo mismo. -->
-            <li
-              class="rounded-caja p-5"
-              [class.bg-accent-soft]="torneo.estado === 'INSCRIPCION'"
-              [class.bg-muted]="torneo.estado !== 'INSCRIPCION'"
-            >
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 class="font-display text-2xl font-bold">{{ torneo.nombre }}</h2>
-                <app-insignia variante="info" icono="emoji_events">
-                  {{ torneo.categoria }}
-                </app-insignia>
-                <app-insignia
-                  [variante]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
-                  icono="flag"
-                >
-                  {{ nombreEstado(torneo.estado) }}
-                </app-insignia>
+            <li class="overflow-hidden bg-card shadow-md">
+              <!-- EL CARTEL (TV4.2). El torneo abierto va sobre el campo, que es lo
+                   que se mira primero; los demás, sobre gris. El estado no depende
+                   solo del color: lo dice la insignia. -->
+              <div
+                class="p-5 sm:p-7"
+                [class.bg-campo]="torneo.estado === 'INSCRIPCION'"
+                [class.text-on-campo]="torneo.estado === 'INSCRIPCION'"
+                [class.bg-muted]="torneo.estado !== 'INSCRIPCION'"
+              >
+                <!-- Insignias de fondo sólido: las translúcidas no se leen sobre el
+                     campo (lo midió TV3.4). -->
+                <div class="flex flex-wrap items-center gap-2">
+                  <app-insignia
+                    [variante]="torneo.estado === 'INSCRIPCION' ? 'libre' : 'neutro'"
+                    icono="flag"
+                  >
+                    {{ nombreEstado(torneo.estado) }}
+                  </app-insignia>
+                  <!-- Sin categoría de torneo, sin insignia: quedaba el puro ícono. -->
+                  @if (torneo.categoria) {
+                    <app-insignia variante="neutro" icono="emoji_events">
+                      {{ torneo.categoria }}
+                    </app-insignia>
+                  }
+                </div>
+
+                <h2 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h2>
+
+                <p class="mt-2 opacity-85">
+                  {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
+                  @if (torneo.superficie) {
+                    · {{ superficie(torneo.superficie) }}
+                  }
+                </p>
+                @if (torneo.estado === 'INSCRIPCION') {
+                  <p class="mt-1 font-semibold">
+                    Inscripción hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
+                  </p>
+                }
               </div>
 
-              <p class="mt-1 text-sm text-muted-foreground">
-                {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
-                @if (torneo.superficie) {
-                  · {{ superficie(torneo.superficie) }}
-                }
-              </p>
-
-              <!-- **Una línea por categoría y no una del torneo.** Honor cierra con
-                   8 y la 4ª con 32: "quedan 3 cupos" sin decir de qué categoría no le
-                   sirve a nadie para saber si se puede inscribir. -->
-              @if (torneo.categorias.length === 0) {
-                <p class="mt-1 text-sm text-muted-foreground">
-                  Todavía no se anunciaron las categorías.
-                </p>
-              } @else {
-                <ul class="mt-2 grid gap-1">
-                  @for (categoria of torneo.categorias; track categoria.id) {
-                    <li class="text-sm">
-                      <strong>{{ categoria.categoria }}</strong>
-                      <!-- **Cuánto cuesta cada categoría, no cuánto cuesta el
-                           torneo.** Honor puede costar el doble que la 5ª el mismo
-                           fin de semana, y el precio es lo que se pregunta justo
-                           después de si quedan cupos. -->
-                      @if (torneo.estado === 'INSCRIPCION') {
-                        · {{ precio(categoria.montoClp) }}
-                      }
-                      @if (torneo.estado === 'INSCRIPCION' && !categoria.armado) {
-                        @if (categoria.cuposLibres > 0) {
-                          · quedan {{ categoria.cuposLibres }}
-                          {{ categoria.cuposLibres === 1 ? 'cupo' : 'cupos' }} de
-                          {{ categoria.cupo }}
-                        } @else {
-                          · sin cupos, se entra en lista de espera
+              <div class="p-4 sm:p-7">
+                <!-- **Una fila por categoría y no una del torneo.** Honor cierra con
+                     8 y la 4ª con 32: "quedan 3 cupos" sin decir de qué categoría no
+                     le sirve a nadie para saber si se puede inscribir. Y el precio es
+                     de cada categoría: Honor puede costar el doble que la 5ª el mismo
+                     fin de semana. -->
+                @if (torneo.categorias.length === 0) {
+                  <p class="text-sm text-muted-foreground">
+                    Todavía no se anunciaron las categorías.
+                  </p>
+                } @else {
+                  <!-- Una tabla de posiciones (TV4.2). Con cuatro columnas puede no
+                       caber en un teléfono, y se desplaza adentro, no la página. -->
+                  <div class="overflow-x-auto">
+                    <!-- En el teléfono, menos relleno por celda: con el de siempre
+                         (1rem por lado), cuatro columnas no caben en 296px. -->
+                    <table class="tabla max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5">
+                      <caption class="sr-only">
+                        Categorías de {{ torneo.nombre }}
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Categoría</th>
+                          @if (torneo.estado === 'INSCRIPCION') {
+                            <th scope="col">Inscripción</th>
+                            <th scope="col">Cupos</th>
+                          } @else {
+                            <th scope="col">Cuadro</th>
+                          }
+                          <th scope="col"><span class="sr-only">Quiénes juegan</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (categoria of torneo.categorias; track categoria.id) {
+                          <tr>
+                            <td
+                              class="font-display text-xl font-extrabold text-primary
+                                     sm:text-2xl"
+                            >
+                              {{ categoria.categoria }}
+                            </td>
+                            @if (torneo.estado === 'INSCRIPCION') {
+                              <td>{{ precio(categoria.montoClp) }}</td>
+                              <td>
+                                @if (categoria.armado) {
+                                  cuadro armado
+                                } @else if (categoria.cuposLibres > 0) {
+                                  quedan {{ categoria.cuposLibres }}
+                                  {{ categoria.cuposLibres === 1 ? 'cupo' : 'cupos' }} de
+                                  {{ categoria.cupo }}
+                                } @else {
+                                  <span class="font-semibold text-warning-strong">
+                                    sin cupos, se entra en lista de espera
+                                  </span>
+                                }
+                              </td>
+                            } @else {
+                              <td>
+                                @if (categoria.armado) {
+                                  cuadro armado
+                                }
+                              </td>
+                            }
+                            <td class="numero">
+                              <!-- En el teléfono, solo el ícono: con su texto se partía en
+                                   dos líneas y la tabla no cabía igual. El nombre sigue
+                                   siendo el texto, para el lector y para el inventario. -->
+                              <button
+                                type="button"
+                                class="boton boton-secundario boton-chico max-sm:size-11 max-sm:p-0"
+                                [attr.aria-expanded]="abierto() === categoria.id"
+                                (click)="alternar(categoria.id)"
+                              >
+                                <span class="max-sm:sr-only">
+                                  {{
+                                    abierto() === categoria.id
+                                      ? 'Ocultar'
+                                      : 'Ver quiénes juegan'
+                                  }}
+                                </span>
+                                <span class="icono text-xl sm:hidden" aria-hidden="true">
+                                  {{ abierto() === categoria.id ? 'close' : 'groups' }}
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
                         }
-                      } @else if (categoria.armado) {
-                        · cuadro armado
-                      }
-                      <button
-                        type="button"
-                        class="boton boton-secundario boton-chico ms-2"
-                        [attr.aria-expanded]="abierto() === categoria.id"
-                        (click)="alternar(categoria.id)"
-                      >
-                        {{
-                          abierto() === categoria.id
-                            ? 'Ocultar'
-                            : 'Ver quiénes juegan'
-                        }}
-                      </button>
-                    </li>
-                  }
-                </ul>
-              }
+                      </tbody>
+                    </table>
+                  </div>
+                }
 
-              @if (torneo.estado === 'INSCRIPCION') {
-                <p class="mt-1 text-sm text-muted-foreground">
-                  Inscripción hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
-                </p>
-
-                @if (torneo.categorias.length > 0) {
+                @if (torneo.estado === 'INSCRIPCION' && torneo.categorias.length > 0) {
                   <button
                     type="button"
-                    class="boton boton-primario boton-chico mt-2"
+                    class="boton boton-primario mt-4"
                     [attr.aria-expanded]="inscribiendo() === torneo.id"
                     (click)="alternarInscripcion(torneo.id)"
                   >
@@ -230,7 +284,6 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                     />
                   }
                 }
-              }
 
               <!-- Se comprueba de quién es el cuadro que se tiene en la mano: al
                    cambiar de torneo se conserva el anterior hasta que llega el nuevo,
@@ -240,7 +293,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                 @if (detalleDe(categoria.id); as detalle) {
                 @if (detalle.partidos.length === 0) {
                   <div class="mt-3 rounded-lg border border-border bg-background p-3">
-                    <h3 class="text-sm font-semibold">Inscritos</h3>
+                    <h3 class="subtitulo">Inscritos</h3>
                     <p class="mt-1 text-sm text-muted-foreground">
                       {{ detalle.inscritos.join(', ') || 'Todavía nadie.' }}
                     </p>
@@ -249,10 +302,13 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   <!-- En columnas que se desplazan de lado y no una tabla que se
                        encoge: en 375px una tabla de cuatro rondas queda ilegible, y
                        este cuadro se mira sobre todo desde el teléfono, en el club. -->
-                  <div class="mt-3 flex gap-3 overflow-x-auto pb-2">
+                  <div data-cuadro class="mt-3 flex gap-3 overflow-x-auto pb-2">
                     @for (ronda of porRonda(); track ronda.numero) {
                       <div class="min-w-48 shrink-0">
-                        <h3 class="text-sm font-semibold text-muted-foreground">
+                        <h3
+                          class="font-display text-sm font-semibold tracking-wider
+                                 text-muted-foreground uppercase"
+                        >
                           {{ ronda.nombre }}
                         </h3>
                         <ul class="mt-2 grid gap-2">
@@ -284,19 +340,27 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                     }
                   </div>
                 }
+                } @else if (abierto() === categoria.id && cuadro.error()) {
+                  <p class="mt-3 text-sm text-destructive">
+                    No se pudo cargar el cuadro. Reintenta en un momento.
+                  </p>
                 }
               }
 
               <!-- Los lives, debajo del cuadro del torneo que se está mirando. El
                    requisito es verlos acá y no en YouTube, y el reproductor no carga
                    nada de Google hasta que alguien aprieta play. -->
-              @if (torneoAbierto() === torneo.id) {
+              @if (torneoAbierto() === torneo.id && fotos.hasValue()) {
                 <app-galeria [fotos]="fotos.value()" />
               }
 
-              @if (torneoAbierto() === torneo.id && transmisiones.value().length > 0) {
+              @if (
+                torneoAbierto() === torneo.id &&
+                transmisiones.hasValue() &&
+                transmisiones.value().length > 0
+              ) {
                 <div class="mt-3">
-                  <h3 class="text-sm font-semibold">En vivo</h3>
+                  <h3 class="subtitulo">En vivo</h3>
                   <div class="grid gap-3 sm:grid-cols-2">
                     @for (transmision of transmisiones.value(); track transmision.id) {
                       <app-reproductor [transmision]="transmision" />
@@ -304,6 +368,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   </div>
                 </div>
               }
+              </div>
             </li>
           }
         </ul>
@@ -382,8 +447,8 @@ export class TorneosPublicos {
   });
 
   /** De qué torneo es el cuadro que se está mirando. */
-  protected readonly torneoAbierto = computed(
-    () => this.cuadro.value()?.torneoId ?? null,
+  protected readonly torneoAbierto = computed(() =>
+    this.cuadro.hasValue() ? this.cuadro.value().torneoId : null,
   );
 
   protected readonly cuadro = resource({
@@ -413,8 +478,12 @@ export class TorneosPublicos {
   protected readonly superficie = nombreDeSuperficie;
 
   /** El precio de una categoría. Cero es gratis y se dice con la palabra. */
+  /**
+   * El valor de la inscripción, sin la palabra: desde TV4.2 va bajo la columna
+   * "Inscripción", y repetirla costaba el ancho que en un teléfono no hay.
+   */
   protected precio(montoClp: number): string {
-    return montoClp > 0 ? `inscripción ${enPesos(montoClp)}` : 'inscripción gratis';
+    return montoClp > 0 ? enPesos(montoClp) : 'gratis';
   }
 
   /**
@@ -425,7 +494,9 @@ export class TorneosPublicos {
    * equivocado encima.
    */
   protected detalleDe(cuadroId: number): CuadroPublico | null {
-    const detalle = this.cuadro.value();
+    // Se pregunta por cada categoría de la lista: si el cuadro no cargó, `value()`
+    // lanzaría en todas.
+    const detalle = this.cuadro.hasValue() ? this.cuadro.value() : undefined;
 
     return this.abierto() === cuadroId && detalle?.id === cuadroId
       ? detalle

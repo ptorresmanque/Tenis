@@ -30,15 +30,22 @@ const enBlanco = () => ({
   selector: 'app-transmisiones-del-torneo',
   imports: [FormsModule, Aviso],
   template: `
-    <section class="mt-4 rounded-xl border border-border bg-muted/30 p-4">
-      <h3 class="font-display text-base font-semibold">Transmisiones</h3>
-      <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+    <section
+      class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
+      aria-labelledby="titulo-transmisiones"
+    >
+      <h2 id="titulo-transmisiones" class="rotulo-seccion">Transmisiones</h2>
+      <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         Se transmite <strong>una cancha durante una jornada</strong>, no un partido:
         abre el live en YouTube y pega su enlace acá. Cada partido programado en esa
         cancha y a esa hora lo encuentra solo.
       </p>
 
-      @if (transmisiones.value().length > 0) {
+      @if (transmisiones.error()) {
+        <p class="mt-3 text-sm text-destructive">
+          No se pudieron cargar las transmisiones. Reintenta en un momento.
+        </p>
+      } @else if (transmisiones.value().length > 0) {
         <ul class="mt-3 grid gap-2">
           @for (transmision of transmisiones.value(); track transmision.id) {
             <li class="flex flex-wrap items-center gap-3 rounded-lg bg-card p-3">
@@ -100,7 +107,9 @@ const enBlanco = () => ({
               <option [value]="cancha.id">{{ cancha.nombre }}</option>
             }
           </select>
-          @if (conCamara().length === 0 && !canchas.isLoading()) {
+          @if (canchas.error()) {
+            <span class="text-sm text-destructive">No se pudieron cargar las canchas.</span>
+          } @else if (conCamara().length === 0 && !canchas.isLoading()) {
             <span class="text-sm text-muted-foreground">
               Ninguna cancha está marcada con cámara. Márcala en Canchas.
             </span>
@@ -188,6 +197,8 @@ export class TransmisionesDelTorneo {
   });
 
   protected conCamara() {
+    if (!this.canchas.hasValue()) return [];
+
     return this.canchas.value().filter((cancha) => cancha.tieneCamara);
   }
 

@@ -109,4 +109,20 @@ describe('SolicitudesPanel', () => {
 
     expect(elemento().textContent).toContain('Nada por responder');
   });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la bandeja no carga, lo dice', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Contacto, useValue: { bandeja: () => Promise.reject(new Error('la API no respondió')) } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(SolicitudesPanel);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elemento().textContent).toContain('No se pudieron cargar las solicitudes');
+  });
 });

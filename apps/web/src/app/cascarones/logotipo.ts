@@ -27,7 +27,7 @@ import { RouterLink } from '@angular/router';
     >
       <svg
         viewBox="0 0 1000 316.5"
-        class="h-9 w-auto"
+        class="w-auto"
         [class]="clase()"
         role="img"
         aria-hidden="true"
@@ -51,6 +51,10 @@ import { RouterLink } from '@angular/router';
 export class Logotipo {
   readonly destino = input('/');
 
-  /** Para ajustarle el alto donde la barra queda apretada. */
-  readonly clase = input('');
+  /**
+   * El alto, para ajustarlo donde la barra queda apretada. Reemplaza al de por
+   * omisión en vez de sumarse: con `h-9` fijo en el SVG, un `h-7` pasado acá
+   * competía con él y perdía, así que el input no achicaba nada (TV2.4).
+   */
+  readonly clase = input('h-9');
 }

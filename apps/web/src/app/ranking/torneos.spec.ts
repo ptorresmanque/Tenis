@@ -50,14 +50,18 @@ describe('RankingDeTorneos', () => {
 
   let fixture: ComponentFixture<RankingDeTorneos>;
 
-  const montar = async (tabla: TablaDeTorneos = TABLA, quien: UsuarioActual | null = null) => {
+  const montar = async (
+    tabla: TablaDeTorneos | Error = TABLA,
+    quien: UsuarioActual | null = null,
+  ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         {
           provide: Ranking,
           useValue: {
-            torneos: vi.fn().mockResolvedValue(tabla),
+            torneos: () =>
+              tabla instanceof Error ? Promise.reject(tabla) : Promise.resolve(tabla),
             interno: vi.fn().mockResolvedValue({
               partidos: 0,
               ultimoPartido: null,
@@ -109,6 +113,25 @@ describe('RankingDeTorneos', () => {
     expect(texto()).toContain('Copa de verano');
   });
 
+  it('**el podio se destaca**: del puesto 3 para arriba, con empates incluidos', async () => {
+    // TV4.5: es lo que alguien busca primero al abrir una tabla de posiciones.
+    // Por puesto y no por fila: con dos empatados en el 1, el tercero de la
+    // lista es el puesto 3 y también va en el podio. El cuarto, no.
+    await montar({
+      ...TABLA,
+      posiciones: [
+        ...TABLA.posiciones,
+        { puesto: 4, jugadorId: 4, nombre: 'Dani Cuatro', puntos: 90, torneos: 1 },
+      ],
+    });
+    const filas = [...elemento().querySelectorAll('tbody tr')];
+    const enPodio = filas.map((fila) => fila.hasAttribute('data-podio'));
+    const puestos = filas.map((fila) => Number(fila.querySelector('td')?.textContent?.trim()));
+
+    expect(puestos).toEqual([1, 1, 3, 4]);
+    expect(enPodio).toEqual([true, true, true, false]);
+  });
+
   it('va en una tabla de verdad, con encabezados', () => {
     // Acá sí es una tabla —filas y columnas comparables—, al revés que el cuadro,
     // que son llaves. Sin encabezados, un lector de pantalla lee cuatro números
@@ -153,5 +176,12 @@ describe('RankingDeTorneos', () => {
     await montar();
 
     expect(texto()).toContain('Copa de verano · 4ª · Club 250');
+  });
+
+  // `value()` de un resource lanza en estado de error.
+  it('si el ranking no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar el ranking');
   });
 });

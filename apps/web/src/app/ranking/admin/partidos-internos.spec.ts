@@ -29,9 +29,11 @@ describe('PartidosInternosPanel', () => {
     resolver: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (partidos: PartidoEnDisputa[] = [RECHAZADO]) => {
+  const montar = async (partidos: PartidoEnDisputa[] | Error = [RECHAZADO]) => {
     api = {
-      partidosInternos: vi.fn().mockResolvedValue(partidos),
+      partidosInternos: vi.fn(() =>
+        partidos instanceof Error ? Promise.reject(partidos) : Promise.resolve(partidos),
+      ),
       resolver: vi.fn().mockResolvedValue({ id: 7 }),
     };
 
@@ -112,5 +114,12 @@ describe('PartidosInternosPanel', () => {
     await montar([]);
 
     expect(texto()).toContain('No hay partidos en disputa');
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la lista no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar los partidos');
   });
 });

@@ -46,7 +46,7 @@ describe('FichaDeTorneo', () => {
 
   let fixture: ComponentFixture<FichaDeTorneo>;
 
-  const montar = async (torneos: Torneo[] = [TORNEO], id = '5') => {
+  const montar = async (torneos: Torneo[] | Error = [TORNEO], id = '5') => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -60,7 +60,9 @@ describe('FichaDeTorneo', () => {
         {
           provide: Torneos,
           useValue: {
-            torneos: vi.fn().mockResolvedValue(torneos),
+            torneos: vi.fn(() =>
+              torneos instanceof Error ? Promise.reject(torneos) : Promise.resolve(torneos),
+            ),
             inscripciones: vi.fn().mockResolvedValue({
               torneoId: 5,
               torneoCategoriaId: 7,
@@ -301,5 +303,13 @@ describe('FichaDeTorneo', () => {
 
       expect(texto()).toContain('no puede terminar antes de empezar');
     });
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la lista no carga, lo dice en vez de dar el torneo por borrado', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar el torneo');
+    expect(texto()).not.toContain('No encontramos ese torneo');
   });
 });

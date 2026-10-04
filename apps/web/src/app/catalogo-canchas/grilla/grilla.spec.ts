@@ -68,21 +68,27 @@ describe('Grilla', () => {
 
   /** `mover` es el id que llega por query string cuando se viene de "mis reservas". */
   const montar = async (
-    dia: GrillaDeCancha[],
+    dia: GrillaDeCancha[] | Error,
     parametros: Record<string, string> = {},
     opciones: {
       socioId?: number | null;
-      reportables?: {
-        reservaId: number;
-        canchaId: number;
-        inicio: string;
-        yaReportada: boolean;
-      }[];
+      reportables?:
+        | {
+            reservaId: number;
+            canchaId: number;
+            inicio: string;
+            yaReportada: boolean;
+          }[]
+        | Error;
     } = {},
   ) => {
     mover = vi.fn().mockResolvedValue({});
     navegar = vi.fn().mockResolvedValue(true);
-    reportables = vi.fn().mockResolvedValue(opciones.reportables ?? []);
+    reportables = vi.fn(() =>
+      opciones.reportables instanceof Error
+        ? Promise.reject(opciones.reportables)
+        : Promise.resolve(opciones.reportables ?? []),
+    );
     // El mensaje textual del servidor: la pantalla no inventa uno propio, así que
     // un doble con otro texto probaría algo que no existe.
     reportar = vi.fn().mockResolvedValue({
@@ -93,7 +99,12 @@ describe('Grilla', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(dia) } },
+        {
+          provide: Disponibilidad,
+          useValue: {
+            delDia: () => (dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia)),
+          },
+        },
         { provide: Reservas, useValue: { mover } },
         { provide: ReportesDelSocio, useValue: { reportables, reportar } },
         {
@@ -134,6 +145,10 @@ describe('Grilla', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('si todavía no pasó ninguna hora, no hay grupo plegado', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
   });
 
   it('muestra la hora de cada franja en la hora del club', () => {
@@ -229,6 +244,26 @@ describe('Grilla', () => {
     it('dice que esa hora ya pasó, en vez de que no quedan canchas', () => {
       // "Sin canchas libres" en cada hora de la mañana se lee como un club lleno.
       expect(texto()).toContain('Ya pasó');
+    });
+
+    // Decisión 9 del plan (TV5.1): a las 18:00 la grilla abría con diez filas
+    // "Ya pasó" antes de la primera hora tomable. Se pliegan, sin quitarlas.
+    it('las horas que ya pasaron se pliegan en un grupo que dice cuántas son', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const grupo = el.querySelector('details');
+
+      expect(grupo?.open).toBe(false);
+      expect(grupo?.querySelector('summary')?.textContent).toContain('2 horas que ya pasaron');
+      expect(grupo?.textContent).toContain('Ya pasó');
+    });
+
+    it('la primera franja a la vista es una que todavía se puede tomar', () => {
+      const el = fixture.nativeElement as HTMLElement;
+      const primeraAfuera = [...el.querySelectorAll('section')].find(
+        (seccion) => !seccion.closest('details'),
+      );
+
+      expect(primeraAfuera?.querySelector('.bloque button')).not.toBeNull();
     });
 
     it('el resumen tampoco la cuenta', () => {
@@ -374,6 +409,13 @@ describe('Grilla', () => {
     expect(texto()).toContain('no tiene canchas publicadas');
   });
 
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si la disponibilidad no carga, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudo cargar la disponibilidad');
+  });
+
   describe('reportar una hora no usada (T35)', () => {
     const RESERVADO: GrillaDeCancha[] = [
       {
@@ -403,12 +445,36 @@ describe('Grilla', () => {
       expect(texto()).toContain('Reportar hora no usada');
     });
 
+    it('plegada, la hora reportable sigue a un toque y el grupo lo anuncia', async () => {
+      // A las 10:40 la hora tomada de las 08:00 ya pasó y queda en el grupo.
+      vi.setSystemTime('2026-08-17T14:40:00.000Z');
+      await montar(RESERVADO, {}, { socioId: 7, reportables: laReportable });
+      const grupo = (fixture.nativeElement as HTMLElement).querySelector('details');
+
+      expect(grupo?.querySelector('summary')?.textContent).toContain('reportar');
+      expect(
+        [...(grupo?.querySelectorAll('button') ?? [])].some((b) =>
+          b.textContent?.includes('Reportar hora no usada'),
+        ),
+      ).toBe(true);
+    });
+
     it('a quien no tiene ficha de socio no se lo ofrece', async () => {
       // Ni siquiera se le pregunta al servidor: el endpoint es `@SoloSocio()` y
       // pedirlo sería un 403 en la consola de cada visitante.
       await montar(RESERVADO, {}, { socioId: null });
 
       expect(reportables).not.toHaveBeenCalled();
+      expect(texto()).not.toContain('Reportar hora no usada');
+    });
+
+    it('si la lista de reportables no carga, la grilla se pinta igual y sin el botón', async () => {
+      await montar(RESERVADO, {}, {
+        socioId: 7,
+        reportables: new Error('la API no respondió'),
+      });
+
+      expect(texto()).toContain('08:00');
       expect(texto()).not.toContain('Reportar hora no usada');
     });
 

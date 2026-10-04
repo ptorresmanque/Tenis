@@ -34,10 +34,10 @@ import {
   imports: [Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
   template: `
     <section aria-labelledby="agregar">
-      <h2 id="agregar" class="font-display text-xl font-semibold">
+      <h2 id="agregar" class="rotulo-seccion">
         Categorías de juego
       </h2>
-      <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+      <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         El nivel con que se inscribe un jugador. Cada torneo corre las que quiera, y
         cada una juega su propio cuadro. No confundir con la categoría del torneo —
         "Club 250", "Club 500"— que es la que reparte los puntos del ranking.
@@ -91,9 +91,17 @@ import {
 
       @if (categorias.isLoading()) {
         <app-esqueleto class="block" [filas]="4" etiqueta="Cargando las categorías…" />
+      } @else if (categorias.error()) {
+        <p class="text-destructive">
+          No se pudieron cargar las categorías. Reintenta en un momento.
+        </p>
       } @else {
         <div class="overflow-x-auto rounded-xl border border-border bg-card">
-          <table class="tabla">
+          <!-- Densa, con el lugar más angosto en el teléfono y el botón sin cortes
+               (TV7.3): con el aire de la tabla normal no cabía ni a 375, se
+               desplazaba 6px y partía "Volver a ofrecer" en dos líneas. Así
+               mide justo los 326px que quedan a 360. -->
+          <table class="tabla tabla-densa">
             <caption class="sr-only">
               Categorías de juego, de la más baja a la más alta
             </caption>
@@ -117,7 +125,7 @@ import {
                       type="number"
                       min="1"
                       max="1000"
-                      class="campo w-24"
+                      class="campo w-18 sm:w-24"
                       [value]="categoria.orden"
                       [disabled]="enviando()"
                       (change)="mover(categoria, $event)"
@@ -137,7 +145,7 @@ import {
 
                       <button
                         type="button"
-                        class="boton boton-secundario boton-chico"
+                        class="boton boton-secundario boton-chico whitespace-nowrap"
                         [disabled]="enviando()"
                         (click)="alternar(categoria)"
                       >
@@ -190,7 +198,9 @@ export class CategoriasDeJuegoPanel {
    * huecos de diez—, y el valor se recalcula solo cuando la lista vuelve del servidor.
    */
   protected readonly orden = linkedSignal(() => {
-    const lugares = (this.categorias.value() ?? []).map((c) => c.orden);
+    const lugares = (this.categorias.hasValue() ? this.categorias.value() : []).map(
+      (c) => c.orden,
+    );
 
     return (lugares.length ? Math.max(...lugares) : 0) + PASO;
   });

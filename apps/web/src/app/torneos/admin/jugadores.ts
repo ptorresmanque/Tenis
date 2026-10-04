@@ -25,11 +25,16 @@ import { Jugador, Torneos } from '../torneos.service';
   selector: 'app-jugadores',
   imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector],
   template: `
-    <h1 class="font-display text-3xl font-bold">Jugadores</h1>
-    <p class="mt-1 max-w-prose text-muted-foreground">
-      Quiénes juegan los torneos del club. Un socio que ya jugó conserva su jugador y
-      con él sus puntos.
-    </p>
+    <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
+    <header class="cabecera-panel">
+      <div>
+        <h1 class="titular text-4xl">Jugadores</h1>
+        <p class="mt-1 text-muted-foreground">
+          Quiénes juegan los torneos del club. Un socio que ya jugó conserva su jugador y
+          con él sus puntos.
+        </p>
+      </div>
+    </header>
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -42,7 +47,7 @@ import { Jugador, Torneos } from '../torneos.service';
       class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
       (ngSubmit)="anotar()"
     >
-      <h2 class="font-display text-lg font-semibold">Anotar un jugador</h2>
+      <h2 class="rotulo-seccion">Anotar un jugador</h2>
 
       <app-selector
         class="mt-3 block"
@@ -93,6 +98,10 @@ import { Jugador, Torneos } from '../torneos.service';
 
     @if (jugadores.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los jugadores…" />
+    } @else if (jugadores.error()) {
+      <p class="mt-4 text-destructive">
+        No se pudieron cargar los jugadores. Reintenta en un momento.
+      </p>
     } @else if (jugadores.value().length === 0) {
       <app-estado-vacio
         class="mt-4 block"
@@ -195,14 +204,14 @@ export class JugadoresPanel {
    * pero la lista sería una invitación a "anotar" a alguien que ya está anotado.
    */
   protected readonly sociosSinJugador = computed(() => {
+    // Se lee en el formulario, que se ve aunque alguna de las dos no haya cargado.
     const conJugador = new Set(
-      this.jugadores
-        .value()
+      (this.jugadores.hasValue() ? this.jugadores.value() : [])
         .map((jugador) => jugador.socioId)
         .filter((id): id is number => id !== null),
     );
 
-    return (this.socios.value()?.socios ?? []).filter(
+    return (this.socios.hasValue() ? this.socios.value().socios : []).filter(
       (socio) => !conJugador.has(socio.id),
     );
   });

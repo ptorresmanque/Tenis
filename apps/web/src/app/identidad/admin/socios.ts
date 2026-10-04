@@ -62,13 +62,16 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
     FichaSocio,
   ],
   template: `
-    <h1 class="font-display text-3xl font-bold">Socios del club</h1>
+    <!-- La cabecera del panel (TV7.1), sin acción: dar de alta es su sección. -->
+    <header class="cabecera-panel">
+      <h1 class="titular text-4xl">Socios del club</h1>
+    </header>
 
     <section class="mt-6" aria-labelledby="titulo-alta">
-      <h2 id="titulo-alta" class="font-display text-xl font-semibold">
+      <h2 id="titulo-alta" class="rotulo-seccion">
         Dar de alta un socio
       </h2>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <p class="mt-2 text-sm text-muted-foreground">
         Alcanza con el correo. Cuando esa persona cree su cuenta —con contraseña o
         con Google— le aparece la ficha de socio sola.
       </p>
@@ -122,11 +125,12 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
     </section>
 
     <section class="mt-8" aria-labelledby="titulo-pendientes">
-      <h2 id="titulo-pendientes" class="font-display text-xl font-semibold">
+      <h2 id="titulo-pendientes" class="rotulo-seccion">
         Invitaciones pendientes
       </h2>
 
-      @if (listado.value(); as datos) {
+      @if (listado.hasValue()) {
+        @let datos = listado.value();
         @if (datos.invitaciones.length === 0) {
           <p class="mt-2 text-sm text-muted-foreground">
             No hay invitaciones pendientes: todos los correos invitados ya tienen
@@ -162,9 +166,9 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
 
     <section class="mt-8" aria-labelledby="titulo-socios">
       <div class="flex flex-wrap items-center gap-3">
-        <h2 id="titulo-socios" class="font-display text-xl font-semibold">Socios</h2>
+        <h2 id="titulo-socios" class="rotulo-seccion">Socios</h2>
         <app-insignia variante="info" icono="group">
-          {{ listado.value()?.socios?.length ?? 0 }}
+          {{ listado.hasValue() ? listado.value().socios.length : 0 }}
         </app-insignia>
       </div>
 
@@ -191,6 +195,10 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
 
       @if (listado.isLoading()) {
         <app-esqueleto class="mt-3 block" [filas]="6" etiqueta="Cargando el padrón…" />
+      } @else if (listado.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudo cargar el padrón. Reintenta en un momento.
+        </p>
       } @else if (filtrados().length === 0) {
         <app-estado-vacio
           class="mt-4 block"
@@ -241,9 +249,11 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
                     {{ enDiaMes(socio.alDiaHasta) }}
                   </td>
                   <td>
+                    <!-- Sin cortes: en el teléfono la tabla se desplaza igual, y a
+                         su ancho mínimo partía "Ver ficha" en dos líneas (TV7.4). -->
                     <button
                       type="button"
-                      class="boton boton-secundario boton-chico"
+                      class="boton boton-secundario boton-chico whitespace-nowrap"
                       (click)="editando.set(socio)"
                     >
                       Ver ficha
@@ -312,7 +322,8 @@ export class SociosPanel {
     const texto = this.busqueda().trim().toLowerCase();
     const filtro = this.filtro();
 
-    return (this.listado.value()?.socios ?? []).filter((socio) => {
+    // Se lee también fuera de la rama del error, en la paginación.
+    return (this.listado.hasValue() ? this.listado.value().socios : []).filter((socio) => {
       const coincide =
         texto === '' ||
         `${socio.numeroSocio} ${socio.usuario.nombre} ${socio.usuario.apellido} ${socio.usuario.email}`

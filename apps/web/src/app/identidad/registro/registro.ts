@@ -25,7 +25,7 @@ interface CampoDelFormulario {
   selector: 'app-registro',
   imports: [ReactiveFormsModule, Aviso, Campo, CampoControl],
   template: `
-    <h1 class="font-display text-3xl font-bold">Crear cuenta</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
       Para reservar como visitante o vincular tu cuenta de socio.
     </p>

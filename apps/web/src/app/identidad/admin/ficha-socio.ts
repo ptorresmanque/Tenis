@@ -56,7 +56,7 @@ const CAMPOS: Record<string, string> = {
       [attr.aria-label]="'Ficha de ' + socio().usuario.nombre"
       (close)="cerrado.emit()"
     >
-      <h2 class="font-display text-xl font-semibold">
+      <h2 class="titular text-2xl">
         {{ socio().usuario.nombre }} {{ socio().usuario.apellido }}
       </h2>
       <p class="text-sm text-muted-foreground">{{ socio().usuario.email }}</p>
@@ -123,10 +123,14 @@ const CAMPOS: Record<string, string> = {
       </form>
 
       <section class="mt-6 border-t border-border pt-4" aria-labelledby="historial">
-        <h3 id="historial" class="font-display font-semibold">Qué se le cambió</h3>
+        <h3 id="historial" class="subtitulo">Qué se le cambió</h3>
 
         @if (historial.isLoading()) {
           <p class="mt-2 text-sm text-muted-foreground">Cargando…</p>
+        } @else if (historial.error()) {
+          <p class="mt-2 text-sm text-destructive">
+            No se pudo cargar el historial. Reintenta en un momento.
+          </p>
         } @else if (historial.value().length === 0) {
           <p class="mt-2 text-sm text-muted-foreground">
             Nada desde que existe el registro.

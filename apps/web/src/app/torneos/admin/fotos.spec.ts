@@ -28,9 +28,11 @@ describe('FotosDelTorneo', () => {
     quitarFoto: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (fotos: Foto[]) => {
+  const montar = async (fotos: Foto[] | Error) => {
     api = {
-      fotos: vi.fn().mockResolvedValue(fotos),
+      fotos: vi.fn(() =>
+        fotos instanceof Error ? Promise.reject(fotos) : Promise.resolve(fotos),
+      ),
       subirFoto: vi.fn().mockResolvedValue(FOTO),
       quitarFoto: vi.fn().mockResolvedValue({ id: 3 }),
     };
@@ -70,6 +72,13 @@ describe('FotosDelTorneo', () => {
 
   beforeEach(async () => {
     await montar([]);
+  });
+
+  it('se titula con un h2, como las otras pestañas de la ficha', () => {
+    // En la ficha, cada pestaña cuelga del h1 con el nombre del torneo, y en
+    // Ajustes sus secciones ya eran h2: con h3 se saltaba un nivel y las
+    // pestañas no se oían iguales (revisión de TV7.6).
+    expect(elemento().querySelector('section > h2')?.textContent).toContain('Fotos');
   });
 
   it('**dice que las fotos se ven sin cuenta**, al revés que el comprobante', () => {
@@ -141,5 +150,12 @@ describe('FotosDelTorneo', () => {
     await fixture.whenStable();
 
     expect(api.quitarFoto).toHaveBeenCalledWith(5, 3);
+  });
+
+  // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  it('si las fotos no cargan, lo dice', async () => {
+    await montar(new Error('la API no respondió'));
+
+    expect(texto()).toContain('No se pudieron cargar las fotos');
   });
 });
