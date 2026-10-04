@@ -18,8 +18,8 @@ import {
 
 import { Auth } from '../core/auth/auth';
 import { irAPagar } from '../core/pagos/ir-a-pagar';
-import { BloqueDisponible, Cancha, DuracionMin } from '../catalogo-canchas/disponibilidad';
-import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
+import { BloqueDisponible, Cancha } from '../catalogo-canchas/disponibilidad';
+import { enPesos, horaEnElClub, minutosDe } from '../catalogo-canchas/reloj-del-club';
 import {
   AcompananteNuevo,
   mensajeDeRechazo,
@@ -244,8 +244,6 @@ import {
 export class Reservar {
   readonly cancha = input.required<Cancha>();
   readonly bloque = input.required<BloqueDisponible>();
-  /** La que eligió en la grilla. El bloque ya la trae en su fin; la API la pide aparte. */
-  readonly duracion = input<DuracionMin>(60);
 
   readonly cerrar = output<void>();
   /** El folio y el token de la reserva recién creada, para la confirmación. */
@@ -395,7 +393,8 @@ export class Reservar {
         const reserva = await this.reservas.reservarComoSocio({
           canchaId: this.cancha().id,
           inicio: this.bloque().inicio,
-          duracionMin: this.duracion(),
+          // La duración la dice el bloque: la grilla lo pidió de 1 hora o de 1 hora y media.
+          duracionMin: minutosDe(this.bloque()),
           acompanantes: this.acompanantes(),
         });
 
@@ -404,7 +403,7 @@ export class Reservar {
         const pago = await this.reservas.reservarComoNoSocio({
           canchaId: this.cancha().id,
           inicio: this.bloque().inicio,
-          duracionMin: this.duracion(),
+          duracionMin: minutosDe(this.bloque()),
           ...this.formulario.getRawValue(),
         });
 

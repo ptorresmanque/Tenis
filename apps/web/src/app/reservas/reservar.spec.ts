@@ -47,11 +47,17 @@ describe('Reservar', () => {
     socios: vi.fn(),
   };
 
-  const montar = (duracion?: 60 | 90) => {
+  /** El de 1 hora y media: termina 90 minutos después de empezar. */
+  const deHoraYMedia: BloqueDisponible = {
+    ...bloque,
+    fin: '2026-08-17T15:30:00.000Z',
+    montoClp: 16000,
+  };
+
+  const montar = (elBloque: BloqueDisponible = bloque) => {
     const fixture = TestBed.createComponent(Reservar);
     fixture.componentRef.setInput('cancha', cancha);
-    fixture.componentRef.setInput('bloque', bloque);
-    if (duracion) fixture.componentRef.setInput('duracion', duracion);
+    fixture.componentRef.setInput('bloque', elBloque);
     fixture.detectChanges();
 
     return fixture;
@@ -255,11 +261,11 @@ describe('Reservar', () => {
     expect(cerrado).toBe(true);
   });
 
-  it('**manda la duración elegida en la grilla: el socio** (T83b)', async () => {
+  it('**manda la duración del bloque elegido: el socio** (T83b)', async () => {
     usuario.set({ socioId: 4 });
     reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
 
-    const fixture = montar(90);
+    const fixture = montar(deHoraYMedia);
     (fixture.nativeElement as HTMLElement)
       .querySelector('form')!
       .dispatchEvent(new Event('submit'));
@@ -284,7 +290,7 @@ describe('Reservar', () => {
       error: { motivo: 'BLOQUE_TOMADO', message: 'La tomaron.' },
     });
 
-    const fixture = montar(90);
+    const fixture = montar(deHoraYMedia);
     await fixture.whenStable();
     (fixture.nativeElement as HTMLElement)
       .querySelector('form')!
@@ -296,7 +302,7 @@ describe('Reservar', () => {
     );
   });
 
-  it('sin duración manda 1 hora, como siempre', async () => {
+  it('con un bloque de 1 hora manda 1 hora, como siempre', async () => {
     usuario.set({ socioId: 4 });
     reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
 

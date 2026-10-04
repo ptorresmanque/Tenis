@@ -14,6 +14,7 @@ import {
   fechaEnElClub,
   horaEnElClub,
   mesCortoEnElClub,
+  minutosDe,
 } from '../../catalogo-canchas/reloj-del-club';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -314,13 +315,10 @@ export class MisReservas {
 
   /**
    * Mover conserva la duración, así que la grilla tiene que buscar horas de esa duración.
-   * Nulo deja afuera el parámetro: 1 hora es la de siempre. Restar instantes alcanza
-   * porque Chile cambia la hora a medianoche, con el club cerrado.
+   * Nulo deja afuera el parámetro: 1 hora es la de siempre.
    */
   protected duracionDeLaGrilla(reserva: ReservaMia): 90 | null {
-    const minutos = (Date.parse(reserva.fin) - Date.parse(reserva.inicio)) / 60_000;
-
-    return minutos === 90 ? 90 : null;
+    return minutosDe(reserva) === 90 ? 90 : null;
   }
   protected dia(instante: string): string {
     return diaEnPalabras(fechaEnElClub(instante));

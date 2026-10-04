@@ -549,7 +549,6 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
       <app-reservar
         [cancha]="eleccion.cancha"
         [bloque]="eleccion.bloque"
-        [duracion]="duracion()"
         (cerrar)="reservando.set(null)"
         (reservado)="confirmar($event)"
       />
@@ -772,8 +771,7 @@ export class Grilla {
           franja.ocupadas++;
           if (this.reportable(bloque)) franja.reportables.push({ cancha, bloque });
         } else if (!yaEmpezo(bloque)) {
-          // Lo único que queda por lo que no se pueda tomar es el precio que falta.
-          if (this.noSePuedeTomar(bloque)) franja.soloSocios++;
+          if (this.noSeLeVende(bloque)) franja.soloSocios++;
           else franja.libres.push({ cancha, bloque });
         }
 
@@ -942,9 +940,13 @@ export class Grilla {
       bloque.bloqueado ||
       bloque.reservado ||
       yaEmpezo(bloque) ||
-      // Sin precio de esa duración no se le vende a quien no es socio (T79, T83b).
-      (bloque.montoClp === null && !this.esSocio())
+      this.noSeLeVende(bloque)
     );
+  }
+
+  /** Sin precio de esa duración no se le vende a quien no es socio (T79, T83b). */
+  private noSeLeVende(bloque: BloqueDisponible): boolean {
+    return bloque.montoClp === null && !this.esSocio();
   }
 
   /**

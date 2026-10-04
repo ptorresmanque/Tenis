@@ -2,7 +2,6 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { DuracionMin } from '../catalogo-canchas/disponibilidad';
 import { RedireccionAPasarela } from '../core/pagos/ir-a-pagar';
 
 /** Con quién juega el socio: otro socio por su número, o un invitado por su nombre. */
@@ -67,7 +66,8 @@ export class Reservas {
   reservarComoSocio(datos: {
     canchaId: number;
     inicio: string;
-    duracionMin: DuracionMin;
+    /** 60 o 90. Un número cualquiera, porque quien la valida es la API (T82). */
+    duracionMin: number;
     acompanantes: AcompananteNuevo[];
   }): Promise<ReservaConfirmada> {
     return firstValueFrom(
@@ -79,7 +79,7 @@ export class Reservas {
   reservarComoNoSocio(datos: {
     canchaId: number;
     inicio: string;
-    duracionMin: DuracionMin;
+    duracionMin: number;
     nombre: string;
     email: string;
     telefono: string;

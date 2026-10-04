@@ -111,6 +111,14 @@ export function mesCortoEnElClub(instante: string | Date): string {
   return MES_CORTO.format(new Date(instante)).replace('.', '').slice(0, 3);
 }
 
+/**
+ * Cuántos minutos dura un bloque o una reserva. Restar los instantes alcanza: Chile cambia
+ * la hora a medianoche, con el club cerrado, así que ningún tramo cruza el cambio.
+ */
+export function minutosDe({ inicio, fin }: { inicio: string; fin: string }): number {
+  return (Date.parse(fin) - Date.parse(inicio)) / 60_000;
+}
+
 export function enPesos(monto: number): string {
   return PESOS.format(monto);
 }
