@@ -171,7 +171,7 @@ export class OcupacionDeCancha {
           fecha,
           horaApertura: horario.horaApertura,
           horaCierre: horario.horaCierre,
-          duracionBloqueMin: TRAMO_MIN,
+          duracionMin: TRAMO_MIN,
           bloqueos: bloqueosDe.get(cancha.id) ?? [],
         });
 

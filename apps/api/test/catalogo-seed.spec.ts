@@ -63,16 +63,15 @@ describe('Catálogo de canchas', () => {
     it('trae los valores por defecto de SPEC.md § Configuración', async () => {
       const config = await prisma.configuracionClub.findFirst();
 
-      // `duracionBloqueMin` es la que convierte la grilla en 14 bloques o en 9:
-      // si el default cambia sin querer, T10 falla lejos de acá.
       expect(config).toMatchObject({
-        duracionBloqueMin: 60,
         cupoDiarioSocioReservas: 1,
         cupoPicoSemanalReservas: 2,
         invitadosPorMes: 4,
         horasMinModificacion: 6,
         horasReembolsoTotal: 24,
       });
+      // La duración la elige quien reserva: la columna ya no existe (T92).
+      expect(config).not.toHaveProperty('duracionBloqueMin');
     });
   });
 

@@ -495,7 +495,6 @@ model ConfiguracionClub {
   telefono  String @default("") @db.VarChar(40)
   email     String @default("") @db.VarChar(120)
 
-  duracionBloqueMin    Int @default(60) @map("duracion_bloque_min")
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).
@@ -506,7 +505,7 @@ model ConfiguracionClub {
   /// Cuántos días queda sin reservar el socio que tomó una hora y no la usó (T34).
   diasSancionNoUso     Int @default(15) @map("dias_sancion_no_uso")
 
-  /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras siete: el
+  /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras seis: el
   /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo
   /// que una tabla de precios con vigencia vendría a resolver.
   cuotaMensualClp Int @default(25000) @map("cuota_mensual_clp")

@@ -469,7 +469,7 @@ describe('evaluarReservaDeSocio', () => {
     });
 
     it('detecta el solapamiento aunque los bloques no empiecen a la misma hora', () => {
-      // Con `duracionBloqueMin` en 90, dos reservas que empiezan distinto se pisan
+      // Con reservas de 1 hora y media, dos que empiezan distinto se pisan
       // igual. Comparar solo la hora de inicio dejaría pasar el caso.
       const rechazo = evaluarReservaDeSocio(
         solicitud({

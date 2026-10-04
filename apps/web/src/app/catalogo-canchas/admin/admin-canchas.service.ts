@@ -117,7 +117,6 @@ export interface Advertencia {
  * `actualizadoEn`, que al panel no le sirven para nada.
  */
 export interface ReglasDelClub {
-  duracionBloqueMin: number;
   cupoDiarioSocioReservas: number;
   cupoPicoSemanalReservas: number;
   invitadosPorMes: number;

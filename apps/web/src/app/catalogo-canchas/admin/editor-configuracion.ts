@@ -1,9 +1,7 @@
 import {
   Component,
-  computed,
   inject,
   linkedSignal,
-  output,
   resource,
   signal,
 } from '@angular/core';
@@ -22,11 +20,6 @@ const REGLAS: {
   etiqueta: string;
   ayuda: string;
 }[] = [
-  {
-    campo: 'duracionBloqueMin',
-    etiqueta: 'Duración del bloque (minutos)',
-    ayuda: 'De cuánto es cada hora de cancha en la grilla.',
-  },
   {
     campo: 'cupoDiarioSocioReservas',
     etiqueta: 'Cupo diario del socio (reservas)',
@@ -128,16 +121,6 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
             }
           </div>
 
-          @if (cambiaLaDuracion()) {
-            <!-- Antes de guardar y no después: lo que asusta de este cambio es si
-                 se caen las reservas hechas, y esa pregunta se responde acá. -->
-            <p class="mt-4 rounded-lg border border-accent-strong bg-muted p-3 text-sm">
-              Cambiar la duración del bloque redibuja la grilla de todas las
-              canchas. Los bloques se calculan, así que no toca ninguna reserva
-              ya hecha: las que existen mantienen su hora.
-            </p>
-          }
-
           <button
             type="submit"
             [disabled]="guardando()"
@@ -160,9 +143,6 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
 })
 export class EditorConfiguracion {
   private readonly api = inject(AdminCanchas);
-
-  /** Lo que depende de las reglas y hay que releer: las advertencias de tarifa. */
-  readonly guardado = output<void>();
 
   protected readonly definiciones = REGLAS;
 
@@ -193,18 +173,6 @@ export class EditorConfiguracion {
     // Solo las reglas numéricas: la misma fila trae los datos de contacto del
     // club, que edita otra pantalla y que este formulario no debe pisar.
     computation: (cargadas) => (cargadas ? soloLasReglas(cargadas) : null),
-  });
-
-  /** Para el aviso: solo importa si la duración quedó distinta de la guardada. */
-  protected readonly cambiaLaDuracion = computed(() => {
-    const guardadas = this.reglas.value();
-    const enPantalla = this.valores();
-
-    return (
-      guardadas != null &&
-      enPantalla != null &&
-      enPantalla.duracionBloqueMin !== guardadas.duracionBloqueMin
-    );
   });
 
   protected cambiar(campo: keyof ReglasDelClub, valor: unknown): void {
@@ -245,10 +213,9 @@ export class EditorConfiguracion {
     try {
       await this.api.fijarConfiguracion(completas);
       this.aviso.set('Reglas guardadas. Rigen desde ahora.');
-      // Se relee del servidor en vez de creerle al formulario: así el aviso de la
-      // duración se apaga contra lo que quedó guardado de verdad.
+      // Se relee del servidor en vez de creerle al formulario: lo que queda en pantalla
+      // es lo que quedó guardado de verdad.
       this.reglas.reload();
-      this.guardado.emit();
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla));
     } finally {

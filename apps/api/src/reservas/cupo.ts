@@ -271,8 +271,8 @@ function participa(solicitud: SolicitudDeSocio, socioId: number): boolean {
 }
 
 /**
- * Por rango y no por hora de inicio: `duracionBloqueMin` es configurable, y con
- * bloques de 90 minutos dos reservas que empiezan a horas distintas se pisan igual.
+ * Por rango y no por hora de inicio: la grilla empieza cada media hora y las reservas
+ * duran 1 hora o 1 hora y media, así que dos que empiezan a horas distintas se pisan igual.
  *
  * Bordes abiertos arriba: el bloque que termina a las 20:00 no se pisa con el que
  * empieza a las 20:00, así que se puede jugar dos horas seguidas en canchas distintas.

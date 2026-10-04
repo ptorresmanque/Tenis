@@ -37,7 +37,6 @@ describe('Configuración del club', () => {
   // Lunes de agosto, sin cambio de hora de por medio. El club en UTC-4.
   // Y en el futuro: la API no reserva horas que ya empezaron. 2037 repite el
   // calendario de 2026, así que los días de la semana no cambian.
-  const LUNES = '2037-08-17';
   const A_LAS_10 = '2037-08-17T14:00:00.000Z';
   const A_LAS_11 = '2037-08-17T15:00:00.000Z';
 
@@ -202,10 +201,11 @@ describe('Configuración del club', () => {
         .expect(200);
 
       expect(respuesta.body).toMatchObject({
-        duracionBloqueMin: original.duracionBloqueMin,
         cupoDiarioSocioReservas: original.cupoDiarioSocioReservas,
         invitadosPorMes: original.invitadosPorMes,
       });
+      // Desde la duración elegible la duración la elige quien reserva (T92).
+      expect(respuesta.body).not.toHaveProperty('duracionBloqueMin');
     });
 
     it('guarda el cambio sin crear una segunda fila', async () => {
@@ -232,16 +232,10 @@ describe('Configuración del club', () => {
   });
 
   describe('validación', () => {
-    it('rechaza una duración de bloque de cero', async () => {
-      // Sin este 400, el 0 llega a `calcularBloques`, que lanza para no colgarse en
-      // un bucle infinito: la grilla del club entero responde 500 hasta que alguien
-      // entre a la base a arreglarlo a mano.
-      await patch({ duracionBloqueMin: 0 }).expect(400);
-    });
-
-    it('rechaza una duración de bloque absurda', async () => {
-      await patch({ duracionBloqueMin: 5 }).expect(400);
-      await patch({ duracionBloqueMin: 1000 }).expect(400);
+    it('la duración del bloque ya no es una regla: pedirla sola responde 400 (T92)', async () => {
+      // La elige quien reserva desde T78. Un panel viejo que la mande no tiene que
+      // creer que guardó algo.
+      await patch({ duracionBloqueMin: 90 }).expect(400);
     });
 
     it('rechaza cupos y ventanas negativos', async () => {
@@ -394,26 +388,6 @@ describe('Configuración del club', () => {
   });
 
   describe('la regla cambia en el acto', () => {
-    it('cambiar la duración del bloque ya no toca la grilla pública (T78)', async () => {
-      // Hasta T78 este test pedía lo contrario: la grilla era de una sola duración y la
-      // ponía la configuración. Desde la duración elegible la elige quien reserva y la
-      // grilla empieza cada media hora, así que `duracionBloqueMin` dejó de mandar y
-      // sale de la base en T92 (`SPEC-catalogo-canchas.md` § Duración elegible).
-      const antes = await request(servidor())
-        .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`)
-        .expect(200);
-      // De 08:00 a 12:00, una hora empezando cada media hora: 7 inicios.
-      expect((antes.body as unknown[]).length).toBe(7);
-
-      await patch({ duracionBloqueMin: 120 }).expect(200);
-
-      const despues = await request(servidor())
-        .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`)
-        .expect(200);
-
-      expect(despues.body).toEqual(antes.body);
-    });
-
     it('subir el cupo diario deja al socio reservar dos horas el mismo día', async () => {
       // **El criterio 13 de `SPEC-catalogo-canchas.md`**: la regla cambia sin tocar
       // código ni reiniciar. Si la configuración se leyera una vez al arrancar, este

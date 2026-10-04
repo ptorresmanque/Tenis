@@ -14,7 +14,7 @@ describe('calcularBloques', () => {
     fecha: '2026-08-17',
     horaApertura: '08:00',
     horaCierre: '22:00',
-    duracionBloqueMin: 60,
+    duracionMin: 60,
   };
 
   it('parte de la hora de apertura y encadena bloques hasta el cierre', () => {
@@ -39,7 +39,7 @@ describe('calcularBloques', () => {
     // El criterio de `ConfiguracionClub`: cambiar el número basta, sin migración.
     // 14 horas en bloques de 90 minutos dan 9 y sobra media hora, que se descarta:
     // media hora de cancha no se le puede vender a nadie.
-    const bloques = calcularBloques({ ...dia, duracionBloqueMin: 90 });
+    const bloques = calcularBloques({ ...dia, duracionMin: 90 });
 
     expect(bloques).toHaveLength(9);
     expect(bloques[8].fin.toISOString()).toBe('2026-08-18T01:30:00.000Z');
@@ -61,8 +61,8 @@ describe('calcularBloques', () => {
   it('rechaza una duración de bloque que no avanza', () => {
     // Sin esto, un 0 en la configuración cuelga el proceso en un bucle infinito
     // en vez de fallar en la petición que lo trajo.
-    expect(() => calcularBloques({ ...dia, duracionBloqueMin: 0 })).toThrow();
-    expect(() => calcularBloques({ ...dia, duracionBloqueMin: -60 })).toThrow();
+    expect(() => calcularBloques({ ...dia, duracionMin: 0 })).toThrow();
+    expect(() => calcularBloques({ ...dia, duracionMin: -60 })).toThrow();
   });
 
   it('un horario ilegible falla en vez de parecer un día cerrado', () => {
@@ -186,7 +186,7 @@ describe('calcularBloques', () => {
     it('de 1 hora y media: 26 inicios, el último a las 20:30', () => {
       const bloques = calcularBloques({
         ...cadaMediaHora,
-        duracionBloqueMin: 90,
+        duracionMin: 90,
       });
 
       expect(bloques).toHaveLength(26);
@@ -204,8 +204,8 @@ describe('calcularBloques', () => {
           motivo: 'MANTENCION',
         },
       ];
-      const bloqueados = (duracionBloqueMin: number) =>
-        calcularBloques({ ...cadaMediaHora, duracionBloqueMin, bloqueos })
+      const bloqueados = (duracionMin: number) =>
+        calcularBloques({ ...cadaMediaHora, duracionMin, bloqueos })
           .filter((b) => b.bloqueado)
           .map((b) => hora(b.inicio));
 
@@ -247,7 +247,7 @@ describe('calcularBloques', () => {
     it('rechaza una duración que no es múltiplo del paso', () => {
       // 45 minutos cada media hora dejaría inicios cuyo fin no cae en ningún borde.
       expect(() =>
-        calcularBloques({ ...cadaMediaHora, duracionBloqueMin: 45 }),
+        calcularBloques({ ...cadaMediaHora, duracionMin: 45 }),
       ).toThrow(/múltiplo/);
     });
 
@@ -263,10 +263,10 @@ describe('calcularBloques', () => {
       ];
 
       for (const caso of casos) {
-        for (const duracionBloqueMin of [60, 90]) {
+        for (const duracionMin of [60, 90]) {
           const bloques = calcularBloques({
             ...caso,
-            duracionBloqueMin,
+            duracionMin,
             pasoMin: 30,
           });
 
@@ -332,7 +332,7 @@ describe('calcularBloques', () => {
         fecha: '2026-04-04',
         horaApertura: '22:00',
         horaCierre: '24:00',
-        duracionBloqueMin: 60,
+        duracionMin: 60,
       });
 
       expect(sabado).toHaveLength(2);

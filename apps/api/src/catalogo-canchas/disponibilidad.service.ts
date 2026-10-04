@@ -120,9 +120,8 @@ export class DisponibilidadService {
       fecha,
       horaApertura: horario.horaApertura,
       horaCierre: horario.horaCierre,
-      // La duración la elige quien reserva y la grilla empieza cada media hora (T78):
-      // `duracionBloqueMin` de la configuración ya no manda sobre la grilla.
-      duracionBloqueMin: duracionMin,
+      // La duración la elige quien reserva y la grilla empieza cada media hora (T78).
+      duracionMin,
       pasoMin: PASO_DE_LA_GRILLA_MIN,
       bloqueos,
     });

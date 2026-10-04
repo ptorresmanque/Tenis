@@ -10,7 +10,6 @@ import { EditorConfiguracion } from './editor-configuracion';
  */
 describe('EditorConfiguracion', () => {
   const REGLAS: ReglasDelClub = {
-    duracionBloqueMin: 60,
     cupoDiarioSocioReservas: 1,
     cupoPicoSemanalReservas: 2,
     invitadosPorMes: 4,
@@ -82,9 +81,16 @@ describe('EditorConfiguracion', () => {
   it('llega con las reglas vigentes puestas, no con campos vacíos', () => {
     // Un formulario en blanco obliga a adivinar qué había antes, y guardar sin
     // querer cambiaría las seis reglas de una vez.
-    expect(campo('duracionBloqueMin').value).toBe('60');
+    expect(campo('cupoDiarioSocioReservas').value).toBe('1');
     expect(campo('invitadosPorMes').value).toBe('4');
     expect(campo('horasReembolsoTotal').value).toBe('24');
+  });
+
+  it('**ya no ofrece la duración del bloque: la elige quien reserva** (T92)', () => {
+    // Desde T78 la grilla empieza cada media hora y cada reserva dura 1 hora o 1 hora y
+    // media. Un campo que no manda sobre nada invita a cambiarlo y esperar un efecto.
+    expect(campo('duracionBloqueMin')).toBeNull();
+    expect(texto()).not.toContain('Duración del bloque');
   });
 
   it('guarda lo que quedó en el formulario', async () => {
@@ -94,18 +100,6 @@ describe('EditorConfiguracion', () => {
     expect(api.fijarConfiguracion).toHaveBeenCalledWith(
       expect.objectContaining({ invitadosPorMes: 6 }),
     );
-  });
-
-  it('avisa qué pasa al cambiar la duración del bloque, antes de guardar', async () => {
-    expect(texto()).not.toContain('redibuja la grilla');
-
-    await escribir('duracionBloqueMin', '90');
-
-    // Es el único cambio de esta pantalla que se ve en la grilla de todas las
-    // canchas. Y lo que más asusta —"¿se me caen las reservas?"— se responde acá,
-    // no después de guardar.
-    expect(texto()).toContain('redibuja la grilla');
-    expect(texto()).toContain('no toca ninguna reserva');
   });
 
   it('**los cupos dicen "reservas", no "horas"** (T84)', () => {
@@ -128,23 +122,12 @@ describe('EditorConfiguracion', () => {
 
   it('muestra el motivo que dio el servidor, no uno genérico', async () => {
     api.fijarConfiguracion.mockRejectedValue({
-      error: { message: 'La duración del bloque no puede pasar de 240.' },
+      error: { message: 'El cupo diario del socio tiene que ser un número entero desde 0.' },
     });
 
     await guardar();
 
-    expect(texto()).toContain('no puede pasar de 240');
-  });
-
-  it('al guardar avisa al panel, que relee lo que depende de las reglas', async () => {
-    // Cambiar la duración cambia qué horas quedan sin tarifa: la advertencia de
-    // arriba del panel se calcula sobre los bloques.
-    const avisado = vi.fn();
-    fixture.componentRef.instance.guardado.subscribe(avisado);
-
-    await guardar();
-
-    expect(avisado).toHaveBeenCalled();
+    expect(texto()).toContain('tiene que ser un número entero desde 0');
   });
 
   // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.

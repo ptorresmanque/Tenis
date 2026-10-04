@@ -153,7 +153,6 @@ export interface CambiosDeConfiguracion {
   direccion: string;
   telefono: string;
   email: string;
-  duracionBloqueMin: number;
   cupoDiarioSocioReservas: number;
   cupoPicoSemanalReservas: number;
   invitadosPorMes: number;
@@ -164,12 +163,6 @@ export interface CambiosDeConfiguracion {
 
 /**
  * Los límites de cada regla, y por qué.
- *
- * La duración de bloque es la única con mínimo y máximo, y no es cosmética: un 0
- * llega hasta `calcularBloques`, que lanza para no colgarse en un bucle infinito, y
- * la grilla del club entero responde 500 hasta que alguien entre a la base a
- * arreglarlo a mano. Por arriba, un bloque de más de cuatro horas no es una hora de
- * cancha sino un día completo, y casi siempre es un cero de más al tipear.
  *
  * Los cupos y las ventanas admiten 0 a propósito: cero invitados por mes es una
  * política posible, y cero reservas de cupo diario es como el club cierra las reservas
@@ -182,7 +175,6 @@ type ReglasNumericas = Omit<
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
-  duracionBloqueMin: [15, 240],
   cupoDiarioSocioReservas: [0],
   cupoPicoSemanalReservas: [0],
   invitadosPorMes: [0],
@@ -194,7 +186,6 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
 };
 
 const NOMBRES: Record<keyof ReglasNumericas, string> = {
-  duracionBloqueMin: 'La duración del bloque, en minutos,',
   cupoDiarioSocioReservas: 'El cupo diario del socio',
   cupoPicoSemanalReservas: 'El cupo semanal en horario pico',
   invitadosPorMes: 'Los invitados por mes',

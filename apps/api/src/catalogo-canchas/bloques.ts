@@ -31,7 +31,8 @@ export interface DiaDeCancha {
   /** Hora local del club, "HH:MM". */
   horaApertura: string;
   horaCierre: string;
-  duracionBloqueMin: number;
+  /** Lo que dura cada bloque: la que eligió quien reserva, o el tramo de un reporte. */
+  duracionMin: number;
   /**
    * Cada cuánto empieza un bloque. Por omisión, la duración: bloques pegados uno al
    * otro. Con un paso menor los rangos se pisan, y la grilla pasa a ser la lista de
@@ -46,7 +47,7 @@ export interface DiaDeCancha {
  * bloqueos. Pura: ni base de datos ni reloj del sistema.
  *
  * Los bloques **no se guardan** —ver `SPEC-catalogo-canchas.md` § Decisión—, así
- * que cambiar `duracionBloqueMin` cambia la grilla sin migrar un solo dato.
+ * que cambiar el horario o la duración cambia la grilla sin migrar un solo dato.
  *
  * La grilla avanza en el **reloj del club**, no sumando minutos al instante de
  * apertura: el admin promete "de 10 a 11" y eso es lo que el socio espera ver. La
@@ -54,21 +55,21 @@ export interface DiaDeCancha {
  * verdad, y así tiene que ser: el club cierra cuando el reloj marca las doce.
  */
 export function calcularBloques(dia: DiaDeCancha): Bloque[] {
-  const paso = dia.pasoMin ?? dia.duracionBloqueMin;
+  const paso = dia.pasoMin ?? dia.duracionMin;
 
-  if (dia.duracionBloqueMin <= 0 || paso <= 0) {
+  if (dia.duracionMin <= 0 || paso <= 0) {
     // Un 0 colgaría el proceso en un bucle infinito, y eso se ve como una API que no
     // responde y no como el error de datos que es.
     throw new Error(
-      `La duración (${dia.duracionBloqueMin}) y el paso (${paso}) deben ser positivos.`,
+      `La duración (${dia.duracionMin}) y el paso (${paso}) deben ser positivos.`,
     );
   }
 
-  if (dia.duracionBloqueMin % paso !== 0) {
+  if (dia.duracionMin % paso !== 0) {
     // El fin de cada bloque tiene que caer en un borde del paso: es lo que deja
     // calcular cada instante una sola vez, abajo.
     throw new Error(
-      `La duración (${dia.duracionBloqueMin}) tiene que ser múltiplo del paso (${paso}).`,
+      `La duración (${dia.duracionMin}) tiene que ser múltiplo del paso (${paso}).`,
     );
   }
 
@@ -93,7 +94,7 @@ export function calcularBloques(dia: DiaDeCancha): Bloque[] {
   }
 
   const bloqueos = dia.bloqueos ?? [];
-  const pasosPorBloque = dia.duracionBloqueMin / paso;
+  const pasosPorBloque = dia.duracionMin / paso;
 
   // Los últimos bordes no inician nada: un bloque que empieza ahí terminaría después
   // del cierre, y no se ofrece. Media hora de cancha no le sirve a nadie.

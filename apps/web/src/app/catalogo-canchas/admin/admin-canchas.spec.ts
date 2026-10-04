@@ -65,7 +65,6 @@ describe('AdminCanchasPanel', () => {
       // Y esto el editor de reglas, que va arriba de todo. Su propio spec es
       // `editor-configuracion.spec.ts`; acá solo tiene que poder montarse.
       configuracion: vi.fn().mockResolvedValue({
-        duracionBloqueMin: 60,
         cupoDiarioSocioReservas: 1,
         cupoPicoSemanalReservas: 2,
         invitadosPorMes: 4,
