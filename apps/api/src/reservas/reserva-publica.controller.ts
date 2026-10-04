@@ -147,8 +147,16 @@ function destinoDeLaVuelta(vuelta: VueltaDeDiferencia): string {
     return `${web()}/reservas/confirmacion?error=${vuelta.motivo ?? 'sin_token'}`;
   }
 
-  const cambio =
-    vuelta.estado === 'CAMBIADA' ? 'hecho' : (vuelta.motivo ?? 'rechazado');
+  const parametros = new URLSearchParams({
+    cambio:
+      vuelta.estado === 'CAMBIADA' ? 'hecho' : (vuelta.motivo ?? 'rechazado'),
+  });
 
-  return `${web()}/r/${vuelta.token}?cambio=${encodeURIComponent(cambio)}`;
+  // Cuánto se devolvió si la hora se tomó mientras se pagaba (T90): la página lo dice.
+  // Cero es que la devolución falló y quedó para revisión.
+  if (vuelta.devueltoClp !== undefined) {
+    parametros.set('devuelto', String(vuelta.devueltoClp));
+  }
+
+  return `${web()}/r/${vuelta.token}?${parametros.toString()}`;
 }

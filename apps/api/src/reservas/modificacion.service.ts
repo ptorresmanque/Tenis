@@ -745,7 +745,6 @@ function esBloqueOcupado(error: unknown): boolean {
   return error instanceof BloqueTomado || esViolacionDeUnicidad(error);
 }
 
-/** "$20.000", como lo escribe el club. */
 /** Una reserva cancelada o expirada ya no se mueve ni se cancela. */
 function activa(reserva: Reserva): Reserva {
   if (
@@ -764,6 +763,7 @@ function activa(reserva: Reserva): Reserva {
 /** A dónde va: cancha, inicio y, si cambia, la duración (T87). */
 type Destino = { canchaId: number; inicio: Date; duracionMin?: DuracionMin };
 
+/** "$20.000", como lo escribe el club. */
 function enPesos(monto: number): string {
   return `$${monto.toLocaleString('es-CL')}`;
 }

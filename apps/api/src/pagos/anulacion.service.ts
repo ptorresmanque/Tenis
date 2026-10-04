@@ -84,4 +84,23 @@ export class AnulacionService {
       );
     }
   }
+
+  /**
+   * Deja la transacción para revisión manual, con la marca que `pagos` ya usa para el
+   * monto que no cuadra. Para quien no pudo devolver y no puede dejar plata sin rastro
+   * (T90): la diferencia de un cambio que no se aplicó y cuya devolución falló.
+   */
+  async marcarParaRevision(
+    transaccionId: number,
+    motivo: string,
+  ): Promise<void> {
+    await this.prisma.transaccion.update({
+      where: { id: transaccionId },
+      data: { requiereRevision: true },
+    });
+
+    this.log.error(
+      `Transacción ${transaccionId} queda para revisión: ${motivo}`,
+    );
+  }
 }

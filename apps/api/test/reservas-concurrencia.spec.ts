@@ -229,6 +229,43 @@ describe('Reserva: un bloque, una reserva', () => {
       expect(intentos).toBe(2);
     });
 
+    it('**un choque con el índice dentro de una transacción interactiva no la aborta entera** (T90)', async () => {
+      // Lo que T90 necesita saber antes de diseñar: la vuelta de Webpay mueve la reserva
+      // adentro de la transacción que autoriza el pago. Si el destino se tomó mientras se
+      // pagaba, ese UPDATE choca con el índice. MariaDB revierte la sentencia y no la
+      // transacción: capturado el error, la misma transacción sigue escribiendo.
+      await reservas.crear(unaReserva({ inicio: a('08:00'), fin: a('09:00') }));
+      const quiere = await reservas.crear(
+        unaReserva({ inicio: a('10:00'), fin: a('11:00') }),
+      );
+      let choco = false;
+
+      await prisma.$transaction(async (tx) => {
+        try {
+          await tx.reserva.update({
+            where: { id: quiere.id },
+            data: { inicio: a('08:30'), fin: a('09:30') },
+          });
+        } catch (error) {
+          choco = esViolacionDeUnicidad(error);
+        }
+
+        await tx.reserva.update({
+          where: { id: quiere.id },
+          data: { nombre: 'Sigue viva' },
+        });
+      });
+
+      expect(choco).toBe(true);
+      expect(
+        await prisma.reserva.findUniqueOrThrow({ where: { id: quiere.id } }),
+      ).toMatchObject({
+        nombre: 'Sigue viva',
+        inicio: a('10:00'),
+        fin: a('11:00'),
+      });
+    });
+
     it('dos seguidas que solo se tocan en el borde conviven', async () => {
       await reservas.crear(unaReserva({ inicio: a('08:00'), fin: a('09:00') }));
 

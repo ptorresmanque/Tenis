@@ -1,7 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { EstadoTransaccion, Prisma } from '../generated/prisma/client';
+import {
+  EstadoReserva,
+  EstadoTransaccion,
+  Prisma,
+} from '../generated/prisma/client';
+import { AnulacionService } from '../pagos/anulacion.service';
 import { ConfirmacionService } from '../pagos/confirmacion.service';
+import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 
@@ -11,6 +17,8 @@ export interface VueltaDeDiferencia {
   /** El de la reserva, para volver a su página. Nulo si el pago no era de nadie. */
   token: string | null;
   motivo: string | null;
+  /** Lo devuelto cuando la hora se tomó mientras se pagaba (T90); cero si falló. */
+  devueltoClp?: number;
 }
 
 const SIN_CAMBIO_PENDIENTE = {
@@ -36,6 +44,7 @@ export class RetornoDeDiferencia {
     private readonly prisma: PrismaService,
     private readonly confirmacion: ConfirmacionService,
     private readonly eventos: EventosDeReserva,
+    private readonly anulacion: AnulacionService,
   ) {}
 
   /**
@@ -51,6 +60,7 @@ export class RetornoDeDiferencia {
         concepto: true,
         estado: true,
         requiereRevision: true,
+        montoClp: true,
       },
     });
 
@@ -97,8 +107,15 @@ export class RetornoDeDiferencia {
     if (resultado.estado === 'AUTORIZADA' && !resultado.requiereRevision) {
       const despues = await this.prisma.reserva.findUniqueOrThrow({
         where: { id: transaccion.conceptoId },
-        select: { inicio: true },
+        select: { inicio: true, cambioTransaccionId: true },
       });
+
+      // El efecto limpia `cambio*` al mover. Si sigue ahí, no pudo: la hora se tomó, se
+      // bloqueó o la reserva ya no está activa (T90). La reserva se queda donde estaba y
+      // la diferencia se devuelve entera, **después** de que la transacción confirmó.
+      if (despues.cambioTransaccionId === transaccion.id) {
+        return this.devolverLaDiferencia(transaccion, antes.token);
+      }
 
       // Los dos días cambian: la hora se fue de uno y llegó al otro.
       this.eventos.cambio(antes.inicio);
@@ -154,6 +171,35 @@ export class RetornoDeDiferencia {
   }
 
   /**
+   * La diferencia de un cambio que no se aplicó: se anula entera. Si la pasarela no la
+   * devuelve, la transacción queda para revisión manual y la reserva, intacta.
+   */
+  private async devolverLaDiferencia(
+    transaccion: { id: number; conceptoId: number },
+    token: string,
+  ): Promise<VueltaDeDiferencia> {
+    const { montoClp } = await this.prisma.transaccion.findUniqueOrThrow({
+      where: { id: transaccion.id },
+      select: { montoClp: true },
+    });
+    let devueltoClp = 0;
+
+    try {
+      await this.anulacion.anular(transaccion.id);
+      devueltoClp = montoClp;
+    } catch (falla) {
+      await this.anulacion.marcarParaRevision(
+        transaccion.id,
+        `la hora del cambio se tomó mientras se pagaba y no se pudo devolver: ${String(falla)}`,
+      );
+    }
+
+    await this.olvidarElCambio(transaccion.conceptoId, transaccion.id);
+
+    return { estado: 'SIN_CAMBIO', token, motivo: 'hora_tomada', devueltoClp };
+  }
+
+  /**
    * Lo que pasó con un pago que ya volvió antes. **La compra nunca es un cambio**, aunque
    * esté autorizada: con su token armado a mano en esta ruta, decir "cambio hecho" sería
    * mentir. Es la primera transacción de la reserva.
@@ -164,6 +210,7 @@ export class RetornoDeDiferencia {
       conceptoId: number;
       estado: EstadoTransaccion;
       requiereRevision: boolean;
+      montoClp: number;
     },
     token: string,
   ): Promise<VueltaDeDiferencia> {
@@ -173,14 +220,33 @@ export class RetornoDeDiferencia {
       select: { id: true },
     });
 
-    const cambiada =
-      transaccion.estado === EstadoTransaccion.AUTORIZADA &&
-      !transaccion.requiereRevision &&
-      compra?.id !== transaccion.id;
+    if (compra?.id === transaccion.id) {
+      return { estado: 'SIN_CAMBIO', token, motivo: 'no_corresponde' };
+    }
 
-    return cambiada
-      ? { estado: 'CAMBIADA', token, motivo: null }
-      : { estado: 'SIN_CAMBIO', token, motivo: 'no_corresponde' };
+    if (transaccion.requiereRevision) {
+      return { estado: 'SIN_CAMBIO', token, motivo: 'en_revision' };
+    }
+
+    switch (transaccion.estado) {
+      case EstadoTransaccion.AUTORIZADA:
+        return { estado: 'CAMBIADA', token, motivo: null };
+      // Anulada es la diferencia devuelta porque la hora se tomó (T90): la recarga
+      // dice lo mismo que la primera vez.
+      case EstadoTransaccion.ANULADA:
+        return {
+          estado: 'SIN_CAMBIO',
+          token,
+          motivo: 'hora_tomada',
+          devueltoClp: transaccion.montoClp,
+        };
+      default:
+        return {
+          estado: 'SIN_CAMBIO',
+          token,
+          motivo: transaccion.estado.toLowerCase(),
+        };
+    }
   }
 
   /**
@@ -202,8 +268,10 @@ export class RetornoDeDiferencia {
 /**
  * El efecto de negocio del pago: mueve la reserva al destino y limpia `cambio*`.
  *
- * Sin destino escrito no mueve nada. Que el destino ya no se pueda tomar —otra persona,
- * un bloqueo, un cierre— lo resuelve T90.
+ * **Si no puede, no lanza** (T90): la hora no se retuvo mientras se pagaba, y si otra
+ * persona la tomó, el club la bloqueó o la reserva ya no está activa, la reserva se queda
+ * donde estaba con `cambio*` escrito, y quien llamó devuelve la diferencia. Lanzar
+ * revertiría la autorización del pago que la pasarela ya cobró.
  */
 async function aplicarElCambio(
   tx: Prisma.TransactionClient,
@@ -225,14 +293,33 @@ async function aplicarElCambio(
     return;
   }
 
-  await tx.reserva.update({
-    where: { id: reservaId },
-    data: {
+  // Lo que el índice no ve: la reserva cancelada mientras se pagaba, y la cancha que el
+  // club bloqueó en el destino.
+  const bloqueada = await tx.bloqueo.count({
+    where: {
       canchaId: reserva.cambioCanchaId,
-      inicio: reserva.cambioInicio,
-      fin: reserva.cambioFin,
-      esPico: reserva.cambioEsPico ?? reserva.esPico,
-      ...SIN_CAMBIO_PENDIENTE,
+      inicio: { lt: reserva.cambioFin },
+      fin: { gt: reserva.cambioInicio },
     },
   });
+
+  if (reserva.estado !== EstadoReserva.CONFIRMADA || bloqueada > 0) return;
+
+  try {
+    await tx.reserva.update({
+      where: { id: reservaId },
+      data: {
+        canchaId: reserva.cambioCanchaId,
+        inicio: reserva.cambioInicio,
+        fin: reserva.cambioFin,
+        esPico: reserva.cambioEsPico ?? reserva.esPico,
+        ...SIN_CAMBIO_PENDIENTE,
+      },
+    });
+  } catch (error) {
+    // Otra reserva tomó la hora mientras se pagaba: el índice por rango lo rechaza. Se
+    // captura y la transacción sigue viva —MariaDB revierte la sentencia, no la
+    // transacción; está probado en `reservas-concurrencia`—.
+    if (!esViolacionDeUnicidad(error)) throw error;
+  }
 }
