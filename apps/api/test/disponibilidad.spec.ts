@@ -175,6 +175,42 @@ describe('GET /api/disponibilidad', () => {
     expect(bloques[0].inicio).toBe('2026-08-17T14:00:00.000Z');
   });
 
+  it('con duracion=90 ofrece hora y media, y sin precio donde la franja no la vende (T82)', async () => {
+    // La franja de 08:00 a 18:00 vende la hora y media; la de 18:00 a 22:00, no.
+    await prisma.franjaHoraria.updateMany({
+      where: { canchaId, horaDesde: '08:00' },
+      data: { montoClp90: 20000 },
+    });
+
+    const bloques = await pedir(
+      `cancha=${canchaId}&fecha=${LUNES}&duracion=90`,
+    );
+
+    // De 09:00 a 21:00, hora y media cada media hora: de las 09:00 a las 19:30.
+    expect(bloques).toHaveLength(22);
+    expect(bloques[0]).toMatchObject({
+      inicio: '2026-08-17T13:00:00.000Z',
+      fin: '2026-08-17T14:30:00.000Z',
+      montoClp: 20000,
+    });
+    // Las que empiezan desde las 18:00 son de la franja que no la vende.
+    expect(
+      bloques.filter((b) => b.montoClp === null).map((b) => b.inicio),
+    ).toEqual([
+      '2026-08-17T22:00:00.000Z',
+      '2026-08-17T22:30:00.000Z',
+      '2026-08-17T23:00:00.000Z',
+      '2026-08-17T23:30:00.000Z',
+    ]);
+  });
+
+  it('sin duración, la grilla es la de 1 hora de siempre (T82)', async () => {
+    const sin = await delLunes();
+    const con60 = await pedir(`cancha=${canchaId}&fecha=${LUNES}&duracion=60`);
+
+    expect(sin).toEqual(con60);
+  });
+
   it('marca los bloques que un bloqueo cubre, y dice por qué', async () => {
     await prisma.bloqueo.create({
       data: {
@@ -273,6 +309,12 @@ describe('GET /api/disponibilidad', () => {
       // `new Date` acepta el 30 de febrero y lo desborda al 2 de marzo: sin esto
       // la respuesta sería la del 2 de marzo sin que nada avisara.
       await fallar(`cancha=${canchaId}&fecha=2026-02-30`, 400);
+    });
+
+    it('rechaza una duración que no es 1 hora ni 1 hora y media (T82)', async () => {
+      await fallar(`cancha=${canchaId}&fecha=${LUNES}&duracion=45`, 400);
+      await fallar(`cancha=${canchaId}&fecha=${LUNES}&duracion=90abc`, 400);
+      await fallar(`fecha=${LUNES}&duracion=120`, 400);
     });
 
     it('rechaza una cancha que no es un número', async () => {

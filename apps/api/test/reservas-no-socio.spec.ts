@@ -193,6 +193,106 @@ describe('Reserva de no-socio con pago', () => {
     expect((segunda.body as { motivo: string }).motivo).toBe('BLOQUE_TOMADO');
   });
 
+  /** T82. El visitante elige 1 hora o 1 hora y media y paga el precio de esa duración. */
+  describe('con 1 hora y media', () => {
+    const conPrecioDeHoraYMedia = (montoClp90: number) =>
+      prisma.franjaHoraria.updateMany({
+        where: { canchaId },
+        data: { montoClp90 },
+      });
+    const pagado = async (reservaId: number) =>
+      (
+        await prisma.transaccion.findFirstOrThrow({
+          where: { concepto: 'RESERVA', conceptoId: reservaId },
+        })
+      ).montoClp;
+    const idDe = (respuesta: { body: unknown }) =>
+      (respuesta.body as { reservaId: number }).reservaId;
+
+    it('**cobra el precio de 1 hora y media y la reserva dura 90 minutos**', async () => {
+      await conPrecioDeHoraYMedia(16000);
+
+      const respuesta = await reservarYPagar({ duracionMin: 90 });
+
+      expect(respuesta.status).toBe(201);
+      const reserva = await prisma.reserva.findUniqueOrThrow({
+        where: { id: idDe(respuesta) },
+      });
+      expect(reserva.fin.getTime() - reserva.inicio.getTime()).toBe(
+        90 * 60 * 1000,
+      );
+      expect(await pagado(idDe(respuesta))).toBe(16000);
+    });
+
+    it('la que empieza en valle y termina en pico se cobra entera a valle', async () => {
+      await prisma.franjaHoraria.deleteMany({ where: { canchaId } });
+      await prisma.franjaHoraria.createMany({
+        data: [
+          {
+            canchaId,
+            horaDesde: '08:00',
+            horaHasta: '18:00',
+            montoClp: 12000,
+            montoClp90: 16000,
+            vigenteDesde: new Date('2026-01-01'),
+          },
+          {
+            canchaId,
+            horaDesde: '18:00',
+            horaHasta: '22:00',
+            esPico: true,
+            montoClp: 20000,
+            montoClp90: 27000,
+            vigenteDesde: new Date('2026-01-01'),
+          },
+        ],
+      });
+
+      // 17:30 a 19:00 del club: empieza en valle y termina en pico.
+      const respuesta = await reservarYPagar({
+        inicio: '2037-08-17T21:30:00.000Z',
+        duracionMin: 90,
+      });
+
+      expect(respuesta.status).toBe(201);
+      expect(await pagado(idDe(respuesta))).toBe(16000);
+      const reserva = await prisma.reserva.findUniqueOrThrow({
+        where: { id: idDe(respuesta) },
+      });
+      expect(reserva.esPico).toBe(false);
+    });
+
+    it('**donde la franja no tiene ese precio se rechaza, aunque se pida a mano**', async () => {
+      // La grilla no la ofrece, pero la API no confía en la grilla.
+      const respuesta = await reservarYPagar({ duracionMin: 90 });
+
+      expect(respuesta.status).toBe(409);
+      expect(respuesta.body).toMatchObject({
+        motivo: 'SIN_TARIFA',
+        message: 'Esa duración no se vende en ese horario.',
+      });
+      expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
+    });
+
+    it('una duración que no es 60 ni 90 responde 400', async () => {
+      for (const duracionMin of [45, 120, '90abc', [90], true]) {
+        const respuesta = await reservarYPagar({ duracionMin });
+        expect([duracionMin, respuesta.status]).toEqual([duracionMin, 400]);
+      }
+    });
+
+    it('sin duración, la reserva es de 1 hora, como siempre', async () => {
+      const respuesta = await reservarYPagar();
+      const reserva = await prisma.reserva.findUniqueOrThrow({
+        where: { id: idDe(respuesta) },
+      });
+
+      expect(reserva.fin.getTime() - reserva.inicio.getTime()).toBe(
+        60 * 60 * 1000,
+      );
+    });
+  });
+
   it('pago autorizado: la reserva queda confirmada y se ve el folio', async () => {
     const inicio = await reservarYPagar();
     const token = await tokenDe(inicio.body.reservaId);

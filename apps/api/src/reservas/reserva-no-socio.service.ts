@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
 import { hoyEnElClub } from '../comun/tiempo';
 import { ConceptoPago, EstadoReserva } from '../generated/prisma/client';
@@ -18,6 +19,8 @@ import { rechazarSiYaPaso } from './reservas.service';
 export interface ReservaDeNoSocio {
   canchaId: number;
   inicio: Date;
+  /** 1 hora o 1 hora y media (T82). Cobra el precio de esa duración. */
+  duracionMin: DuracionMin;
   nombre: string;
   email: string;
   telefono: string;
@@ -70,6 +73,7 @@ export class ReservaNoSocioService {
     const bloque = await this.bloqueCobrable(
       datos.canchaId,
       datos.inicio,
+      datos.duracionMin,
       ahora,
     );
 
@@ -213,9 +217,14 @@ export class ReservaNoSocioService {
    * Se toma del catálogo y no de lo que mande el cliente: una hora inventada, fuera
    * del horario, en mantención o que ya empezó se rechaza acá, antes de crear nada.
    */
-  private async bloqueCobrable(canchaId: number, inicio: Date, ahora: Date) {
+  private async bloqueCobrable(
+    canchaId: number,
+    inicio: Date,
+    duracionMin: DuracionMin,
+    ahora: Date,
+  ) {
     const fecha = hoyEnElClub(inicio).toISOString().slice(0, 10);
-    const bloques = await this.catalogo.de(canchaId, fecha);
+    const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
 
     if (!bloque) {
@@ -233,10 +242,18 @@ export class ReservaNoSocioService {
       });
     }
 
-    if (bloque.montoClp === null || bloque.montoClp <= 0) {
+    if (bloque.montoClp === null) {
+      // La hora y media en una franja sin ese precio (T79): ahí no se vende. La grilla
+      // no la ofrece, pero quien la pida a mano no puede comprarla igual.
+      throw new ConflictException({
+        motivo: 'SIN_TARIFA',
+        message: 'Esa duración no se vende en ese horario.',
+      });
+    }
+
+    if (bloque.montoClp <= 0) {
       // Sin tarifa que cobrar no hay reserva de no-socio: el panel del admin advierte
       // de estos bloques desde T13, y cobrar $0 sería regalar la cancha en silencio.
-      // Nulo es la hora y media en una franja sin ese precio (T79): tampoco se vende.
       throw new ConflictException({
         motivo: 'SIN_TARIFA',
         message: 'Esa hora todavía no tiene tarifa publicada.',

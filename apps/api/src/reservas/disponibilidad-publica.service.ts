@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import {
   BloqueDisponible,
   CanchaPublica,
@@ -45,13 +46,16 @@ export class DisponibilidadPublicaService {
    * usa la consulta suelta, así que las dos respuestas no pueden divergir: hay un
    * test que lo comprueba comparándolas.
    */
-  async delDia(fecha: string): Promise<GrillaDeCancha[]> {
+  async delDia(
+    fecha: string,
+    duracionMin: DuracionMin = 60,
+  ): Promise<GrillaDeCancha[]> {
     const canchas = await this.catalogo.canchas();
 
     return Promise.all(
       canchas.map(async (cancha) => ({
         cancha,
-        bloques: await this.de(cancha.id, fecha),
+        bloques: await this.de(cancha.id, fecha, duracionMin),
       })),
     );
   }
@@ -63,8 +67,12 @@ export class DisponibilidadPublicaService {
    * cuánto valen. Juntarlos es de `reservas`, que es el único módulo que lee esa
    * tabla (`SPEC-reservas.md` § Contrato).
    */
-  async de(canchaId: number, fecha: string): Promise<BloqueConEstado[]> {
-    const bloques = await this.catalogo.de(canchaId, fecha);
+  async de(
+    canchaId: number,
+    fecha: string,
+    duracionMin: DuracionMin = 60,
+  ): Promise<BloqueConEstado[]> {
+    const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
 
     if (bloques.length === 0) return [];
 

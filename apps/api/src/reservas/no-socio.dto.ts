@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { leerDuracion } from './duracion';
 import { ReservaDeNoSocio } from './reserva-no-socio.service';
 
 /**
@@ -15,6 +16,7 @@ export function reservaDeNoSocioDeCuerpo(cuerpo: unknown): ReservaDeNoSocio {
   return {
     canchaId: entero(datos.canchaId),
     inicio: instante(datos.inicio),
+    duracionMin: leerDuracion(datos.duracionMin),
     nombre: texto(datos.nombre, 'El nombre', 80),
     email: correo(datos.email),
     telefono: texto(datos.telefono, 'El teléfono', 20),

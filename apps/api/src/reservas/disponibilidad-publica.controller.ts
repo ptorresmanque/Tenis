@@ -1,6 +1,7 @@
 import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 
 import { fechaDelClub } from '../comun/tiempo';
+import { leerDuracion } from './duracion';
 import {
   BloqueConEstado,
   DisponibilidadPublicaService,
@@ -21,6 +22,7 @@ export class DisponibilidadPublicaController {
   disponibilidad(
     @Query('cancha') cancha: string | undefined,
     @Query('fecha') fecha: string | undefined,
+    @Query('duracion') duracion: string | undefined,
   ): Promise<BloqueConEstado[] | GrillaDeCancha[]> {
     if (!fecha || !esFechaDelClub(fecha)) {
       // Se valida acá y no se deja fallar adentro: una fecha ilegible es culpa de
@@ -34,14 +36,18 @@ export class DisponibilidadPublicaController {
     // Sin cancha, el día entero. La portada y la grilla lo piden así para no
     // hacer una consulta por cancha; con `cancha`, la respuesta es la de siempre
     // y nada de lo que ya existe cambia.
-    if (cancha === undefined) return this.servicio.delDia(fecha);
+    // 1 hora o 1 hora y media (T82). Se valida antes de ramificar: una duración
+    // ilegible es un 400 pida o no una cancha.
+    const duracionMin = leerDuracion(duracion);
+
+    if (cancha === undefined) return this.servicio.delDia(fecha, duracionMin);
 
     const canchaId = Number(cancha);
     if (!cancha || !Number.isInteger(canchaId) || canchaId <= 0) {
       throw new BadRequestException('El número de cancha no es un número.');
     }
 
-    return this.servicio.de(canchaId, fecha);
+    return this.servicio.de(canchaId, fecha, duracionMin);
   }
 }
 
