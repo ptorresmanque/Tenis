@@ -66,8 +66,8 @@ describe('AdminCanchasPanel', () => {
       // `editor-configuracion.spec.ts`; acá solo tiene que poder montarse.
       configuracion: vi.fn().mockResolvedValue({
         duracionBloqueMin: 60,
-        cupoDiarioSocioHoras: 1,
-        cupoPicoSemanalHoras: 2,
+        cupoDiarioSocioReservas: 1,
+        cupoPicoSemanalReservas: 2,
         invitadosPorMes: 4,
         horasMinModificacion: 6,
         horasReembolsoTotal: 24,

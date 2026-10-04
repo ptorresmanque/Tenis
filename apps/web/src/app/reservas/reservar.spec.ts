@@ -325,7 +325,9 @@ describe('Reservar', () => {
       status: 409,
       error: {
         motivo: 'CUPO_DIARIO',
-        message: 'Ya usaste tu cupo de hoy: 1 hora por día.',
+        message:
+          'Ya tienes tu reserva de ese día: el cupo es de 1 reserva por día. ' +
+          'Puedes reservar otro día.',
       },
     });
 
@@ -336,7 +338,7 @@ describe('Reservar', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(texto(fixture)).toContain('Ya usaste tu cupo de hoy');
+    expect(texto(fixture)).toContain('Ya tienes tu reserva de ese día');
   });
 });
 
@@ -345,9 +347,12 @@ describe('mensajeDeRechazo', () => {
     expect(
       mensajeDeRechazo({
         status: 409,
-        error: { motivo: 'CUPO_PICO', message: 'Ya usaste tus 2 horas pico.' },
+        error: { motivo: 'CUPO_PICO', message: 'Ya tienes tus 2 reservas en horario pico esa semana.' },
       }),
-    ).toEqual({ motivo: 'CUPO_PICO', mensaje: 'Ya usaste tus 2 horas pico.' });
+    ).toEqual({
+      motivo: 'CUPO_PICO',
+      mensaje: 'Ya tienes tus 2 reservas en horario pico esa semana.',
+    });
   });
 
   it('no muestra crudo lo que no es un rechazo conocido', () => {

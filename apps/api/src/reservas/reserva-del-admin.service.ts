@@ -19,9 +19,9 @@ export interface CupoDelSocio {
   /** La cuota al día: si no, el club decide si igual le toma la hora. */
   alDia: boolean;
   reservasDelDia: number;
-  cupoDiarioSocioHoras: number;
-  horasPicoDeLaSemana: number;
-  cupoPicoSemanalHoras: number;
+  cupoDiarioSocioReservas: number;
+  reservasPicoDeLaSemana: number;
+  cupoPicoSemanalReservas: number;
   invitadosDelMes: number;
   invitadosPorMes: number;
 }
@@ -83,8 +83,8 @@ export class ReservaDelAdminService {
       estado: socio.estado,
       alDia: fechaCivilDelClub(socio.alDiaHasta) >= fecha,
       ...cuenta,
-      cupoDiarioSocioHoras: config.cupoDiarioSocioHoras,
-      cupoPicoSemanalHoras: config.cupoPicoSemanalHoras,
+      cupoDiarioSocioReservas: config.cupoDiarioSocioReservas,
+      cupoPicoSemanalReservas: config.cupoPicoSemanalReservas,
       invitadosPorMes: config.invitadosPorMes,
     };
   }

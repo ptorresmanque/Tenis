@@ -10,9 +10,9 @@ export interface CupoDelSocio {
   estado: string;
   alDia: boolean;
   reservasDelDia: number;
-  cupoDiarioSocioHoras: number;
-  horasPicoDeLaSemana: number;
-  cupoPicoSemanalHoras: number;
+  cupoDiarioSocioReservas: number;
+  reservasPicoDeLaSemana: number;
+  cupoPicoSemanalReservas: number;
   invitadosDelMes: number;
   invitadosPorMes: number;
 }

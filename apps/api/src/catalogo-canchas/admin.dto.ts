@@ -154,8 +154,8 @@ export interface CambiosDeConfiguracion {
   telefono: string;
   email: string;
   duracionBloqueMin: number;
-  cupoDiarioSocioHoras: number;
-  cupoPicoSemanalHoras: number;
+  cupoDiarioSocioReservas: number;
+  cupoPicoSemanalReservas: number;
   invitadosPorMes: number;
   horasMinModificacion: number;
   horasReembolsoTotal: number;
@@ -172,7 +172,7 @@ export interface CambiosDeConfiguracion {
  * cancha sino un día completo, y casi siempre es un cero de más al tipear.
  *
  * Los cupos y las ventanas admiten 0 a propósito: cero invitados por mes es una
- * política posible, y cero horas de cupo diario es como el club cierra las reservas
+ * política posible, y cero reservas de cupo diario es como el club cierra las reservas
  * de socios sin tocar código.
  */
 /** Las reglas que son números: las de texto se validan aparte, por largo. */
@@ -183,8 +183,8 @@ type ReglasNumericas = Omit<
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   duracionBloqueMin: [15, 240],
-  cupoDiarioSocioHoras: [0],
-  cupoPicoSemanalHoras: [0],
+  cupoDiarioSocioReservas: [0],
+  cupoPicoSemanalReservas: [0],
   invitadosPorMes: [0],
   horasMinModificacion: [0],
   horasReembolsoTotal: [0],
@@ -195,8 +195,8 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
 
 const NOMBRES: Record<keyof ReglasNumericas, string> = {
   duracionBloqueMin: 'La duración del bloque, en minutos,',
-  cupoDiarioSocioHoras: 'El cupo diario del socio',
-  cupoPicoSemanalHoras: 'El cupo semanal en horario pico',
+  cupoDiarioSocioReservas: 'El cupo diario del socio',
+  cupoPicoSemanalReservas: 'El cupo semanal en horario pico',
   invitadosPorMes: 'Los invitados por mes',
   horasMinModificacion: 'Las horas mínimas para modificar',
   horasReembolsoTotal: 'Las horas para el reembolso total',

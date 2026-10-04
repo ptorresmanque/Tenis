@@ -28,13 +28,13 @@ const REGLAS: {
     ayuda: 'De cuánto es cada hora de cancha en la grilla.',
   },
   {
-    campo: 'cupoDiarioSocioHoras',
-    etiqueta: 'Cupo diario del socio (horas)',
-    ayuda: 'Cuántas horas puede reservar un socio en un mismo día.',
+    campo: 'cupoDiarioSocioReservas',
+    etiqueta: 'Cupo diario del socio (reservas)',
+    ayuda: 'Cuántas reservas puede tener un socio en un mismo día, de 1 hora o de 1 hora y media.',
   },
   {
-    campo: 'cupoPicoSemanalHoras',
-    etiqueta: 'Cupo semanal en horario pico (horas)',
+    campo: 'cupoPicoSemanalReservas',
+    etiqueta: 'Cupo semanal en horario pico (reservas)',
     ayuda: 'Se cuenta de lunes a domingo, solo sobre las franjas marcadas pico.',
   },
   {

@@ -118,8 +118,8 @@ export interface Advertencia {
  */
 export interface ReglasDelClub {
   duracionBloqueMin: number;
-  cupoDiarioSocioHoras: number;
-  cupoPicoSemanalHoras: number;
+  cupoDiarioSocioReservas: number;
+  cupoPicoSemanalReservas: number;
   invitadosPorMes: number;
   horasMinModificacion: number;
   horasReembolsoTotal: number;

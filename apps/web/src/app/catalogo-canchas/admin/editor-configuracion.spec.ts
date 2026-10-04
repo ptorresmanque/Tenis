@@ -11,8 +11,8 @@ import { EditorConfiguracion } from './editor-configuracion';
 describe('EditorConfiguracion', () => {
   const REGLAS: ReglasDelClub = {
     duracionBloqueMin: 60,
-    cupoDiarioSocioHoras: 1,
-    cupoPicoSemanalHoras: 2,
+    cupoDiarioSocioReservas: 1,
+    cupoPicoSemanalReservas: 2,
     invitadosPorMes: 4,
     horasMinModificacion: 6,
     horasReembolsoTotal: 24,
@@ -108,10 +108,18 @@ describe('EditorConfiguracion', () => {
     expect(texto()).toContain('no toca ninguna reserva');
   });
 
+  it('**los cupos dicen "reservas", no "horas"** (T84)', () => {
+    // Cuentan reservas: una de 1 hora y media también es una. "(horas)" haría que el
+    // club pusiera 2 creyendo que así el socio puede jugar 1 hora y media.
+    expect(texto()).toContain('Cupo diario del socio (reservas)');
+    expect(texto()).toContain('Cupo semanal en horario pico (reservas)');
+    expect(texto()).not.toMatch(/Cupo[^(]*\(horas\)/);
+  });
+
   it('no manda un campo vacío, ni lo convierte en cero', async () => {
     // `Number('')` es 0. Sin este freno, borrar el cupo diario y guardar dejaría al
-    // club en "cero horas por socio", que es cerrar las reservas sin querer.
-    await escribir('cupoDiarioSocioHoras', '');
+    // club en "cero reservas por socio", que es cerrar las reservas sin querer.
+    await escribir('cupoDiarioSocioReservas', '');
     await guardar();
 
     expect(api.fijarConfiguracion).not.toHaveBeenCalled();

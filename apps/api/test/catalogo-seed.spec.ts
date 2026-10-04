@@ -67,8 +67,8 @@ describe('Catálogo de canchas', () => {
       // si el default cambia sin querer, T10 falla lejos de acá.
       expect(config).toMatchObject({
         duracionBloqueMin: 60,
-        cupoDiarioSocioHoras: 1,
-        cupoPicoSemanalHoras: 2,
+        cupoDiarioSocioReservas: 1,
+        cupoPicoSemanalReservas: 2,
         invitadosPorMes: 4,
         horasMinModificacion: 6,
         horasReembolsoTotal: 24,

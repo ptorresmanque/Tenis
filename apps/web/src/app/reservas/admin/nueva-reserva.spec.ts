@@ -168,4 +168,62 @@ describe('NuevaReserva', () => {
       'No se pudo cargar el cupo',
     );
   });
+
+  it('**la ficha del cupo cuenta reservas, no horas** (T84)', async () => {
+    // Una hora y media es una reserva: "Horas de ese día: 1 de 1" le diría al mesón que
+    // el socio se pasó, cuando gastó exactamente su cupo.
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(DIA) } },
+        {
+          provide: Socios,
+          useValue: {
+            listado: () =>
+              Promise.resolve({
+                socios: [{ id: 3, numeroSocio: '002', usuario: { nombre: 'Matías', apellido: 'Rojas' } }],
+              }),
+          },
+        },
+        {
+          provide: ReservasDelAdmin,
+          useValue: {
+            cupoDe: () =>
+              Promise.resolve({
+                socioId: 3,
+                nombre: 'Matías Rojas',
+                numeroSocio: '002',
+                estado: 'ACTIVO',
+                alDia: true,
+                reservasDelDia: 1,
+                cupoDiarioSocioReservas: 1,
+                reservasPicoDeLaSemana: 0,
+                cupoPicoSemanalReservas: 2,
+                invitadosDelMes: 0,
+                invitadosPorMes: 4,
+              }),
+            crear: vi.fn(),
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const socio = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+      'select[name="socio"]',
+    )!;
+    socio.value = '3';
+    socio.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const texto = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
+    expect(texto).toContain('Reservas de ese día: 1 de 1');
+    expect(texto).toContain('Reservas pico de la semana: 0 de 2');
+    expect(texto).not.toMatch(/Horas (de ese día|pico)/);
+  });
 });

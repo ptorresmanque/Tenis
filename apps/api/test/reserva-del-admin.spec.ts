@@ -238,7 +238,8 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
     // Positivo y no "cualquier número": un cupo en 0 dejaría la pantalla del
     // mesón diciendo que el socio no puede reservar nunca.
     expect(
-      (antes.body as { cupoDiarioSocioHoras: number }).cupoDiarioSocioHoras,
+      (antes.body as { cupoDiarioSocioReservas: number })
+        .cupoDiarioSocioReservas,
     ).toBeGreaterThan(0);
 
     await request(app.getHttpServer())

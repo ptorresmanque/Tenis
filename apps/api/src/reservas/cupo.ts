@@ -44,14 +44,14 @@ export interface SolicitudDeSocio {
   /** Fecha civil del club, "AAAA-MM-DD". */
   hoyEnElClub: string;
   config: {
-    cupoDiarioSocioHoras: number;
-    cupoPicoSemanalHoras: number;
+    cupoDiarioSocioReservas: number;
+    cupoPicoSemanalReservas: number;
     invitadosPorMes: number;
   };
   /** Reservas activas que el socio ya tiene ese día. */
   reservasDelDia: number;
-  /** Horas pico activas que ya tiene esta semana, lunes a domingo. */
-  horasPicoDeLaSemana: number;
+  /** Reservas pico activas que ya tiene esa semana, lunes a domingo. */
+  reservasPicoDeLaSemana: number;
   /** Invitados externos que ya registró en el mes del bloque. */
   invitadosDelMes: number;
   /**
@@ -146,25 +146,28 @@ export function evaluarReservaDeSocio(
     };
   }
 
-  if (solicitud.reservasDelDia >= config.cupoDiarioSocioHoras) {
+  if (solicitud.reservasDelDia >= config.cupoDiarioSocioReservas) {
+    // "Ese día" y no "hoy": el cupo es del día en que se juega. Quien ya tiene su hora
+    // del miércoles puede tomar la del jueves ahora mismo; prometerle "mañana" lo haría
+    // esperar por nada (T84).
     return {
       tipo: 'CUPO_DIARIO',
       mensaje:
-        `Ya usaste tu cupo de hoy: ${enHoras(config.cupoDiarioSocioHoras)} por día. ` +
-        'Tu próxima hora la puedes reservar mañana.',
+        `Ya tienes ${tusReservas(solicitud.reservasDelDia)} de ese día: el cupo es de ` +
+        `${enReservas(config.cupoDiarioSocioReservas)} por día. Puedes reservar otro día.`,
     };
   }
 
   if (
     bloque.esPico &&
-    solicitud.horasPicoDeLaSemana >= config.cupoPicoSemanalHoras
+    solicitud.reservasPicoDeLaSemana >= config.cupoPicoSemanalReservas
   ) {
     return {
       tipo: 'CUPO_PICO',
       mensaje:
-        `Ya usaste tus ${enHoras(config.cupoPicoSemanalHoras)} en horario pico de ` +
-        'esta semana. El cupo se renueva el lunes, y los horarios fuera de pico ' +
-        'siguen disponibles.',
+        `Ya tienes ${tusReservas(solicitud.reservasPicoDeLaSemana)} en horario pico esa ` +
+        `semana: el cupo es de ${enReservas(config.cupoPicoSemanalReservas)} pico por ` +
+        'semana, de lunes a domingo. Los horarios fuera de pico siguen disponibles.',
     };
   }
 
@@ -295,8 +298,13 @@ function sigueSancionado(socio: SocioQueReserva, hoyEnElClub: string): boolean {
   );
 }
 
-function enHoras(cantidad: number): string {
-  return cantidad === 1 ? '1 hora' : `${cantidad} horas`;
+/** Los cupos cuentan reservas, no horas: la hora y media también es una (T84). */
+function enReservas(cantidad: number): string {
+  return cantidad === 1 ? '1 reserva' : `${cantidad} reservas`;
+}
+
+function tusReservas(cantidad: number): string {
+  return cantidad === 1 ? 'tu reserva' : `tus ${cantidad} reservas`;
 }
 
 const MESES = [

@@ -203,7 +203,7 @@ describe('Configuración del club', () => {
 
       expect(respuesta.body).toMatchObject({
         duracionBloqueMin: original.duracionBloqueMin,
-        cupoDiarioSocioHoras: original.cupoDiarioSocioHoras,
+        cupoDiarioSocioReservas: original.cupoDiarioSocioReservas,
         invitadosPorMes: original.invitadosPorMes,
       });
     });
@@ -225,7 +225,7 @@ describe('Configuración del club', () => {
 
       expect(respuesta.body).toMatchObject({
         invitadosPorMes: 6,
-        cupoDiarioSocioHoras: original.cupoDiarioSocioHoras,
+        cupoDiarioSocioReservas: original.cupoDiarioSocioReservas,
         horasReembolsoTotal: original.horasReembolsoTotal,
       });
     });
@@ -245,14 +245,14 @@ describe('Configuración del club', () => {
     });
 
     it('rechaza cupos y ventanas negativos', async () => {
-      await patch({ cupoDiarioSocioHoras: -1 }).expect(400);
+      await patch({ cupoDiarioSocioReservas: -1 }).expect(400);
       await patch({ invitadosPorMes: -1 }).expect(400);
       await patch({ horasMinModificacion: -1 }).expect(400);
     });
 
     it('rechaza lo que no es entero', async () => {
-      await patch({ cupoDiarioSocioHoras: 1.5 }).expect(400);
-      await patch({ cupoDiarioSocioHoras: '2' }).expect(400);
+      await patch({ cupoDiarioSocioReservas: 1.5 }).expect(400);
+      await patch({ cupoDiarioSocioReservas: '2' }).expect(400);
     });
 
     it('un cuerpo sin ningún campo conocido no pasa por válido', async () => {
@@ -418,11 +418,11 @@ describe('Configuración del club', () => {
       // **El criterio 13 de `SPEC-catalogo-canchas.md`**: la regla cambia sin tocar
       // código ni reiniciar. Si la configuración se leyera una vez al arrancar, este
       // test fallaría con el 409 del cupo.
-      await patch({ cupoDiarioSocioHoras: 1 }).expect(200);
+      await patch({ cupoDiarioSocioReservas: 1 }).expect(200);
       await reservar(A_LAS_10).expect(201);
       await reservar(A_LAS_11).expect(409);
 
-      await patch({ cupoDiarioSocioHoras: 2 }).expect(200);
+      await patch({ cupoDiarioSocioReservas: 2 }).expect(200);
 
       await reservar(A_LAS_11).expect(201);
       expect(await prisma.reserva.count({ where: { socioId, canchaId } })).toBe(

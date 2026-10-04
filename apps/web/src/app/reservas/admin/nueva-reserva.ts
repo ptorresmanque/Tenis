@@ -137,12 +137,12 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
               </p>
               <ul class="mt-2 grid gap-1 text-sm text-muted-foreground">
                 <li>
-                  Horas de ese día: {{ datos.reservasDelDia }} de
-                  {{ datos.cupoDiarioSocioHoras }}
+                  Reservas de ese día: {{ datos.reservasDelDia }} de
+                  {{ datos.cupoDiarioSocioReservas }}
                 </li>
                 <li>
-                  Horas pico de la semana: {{ datos.horasPicoDeLaSemana }} de
-                  {{ datos.cupoPicoSemanalHoras }}
+                  Reservas pico de la semana: {{ datos.reservasPicoDeLaSemana }} de
+                  {{ datos.cupoPicoSemanalReservas }}
                 </li>
                 <li>
                   Invitados del mes: {{ datos.invitadosDelMes }} de

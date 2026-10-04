@@ -496,8 +496,10 @@ model ConfiguracionClub {
   email     String @default("") @db.VarChar(120)
 
   duracionBloqueMin    Int @default(60) @map("duracion_bloque_min")
-  cupoDiarioSocioHoras Int @default(1) @map("cupo_diario_socio_horas")
-  cupoPicoSemanalHoras Int @default(2) @map("cupo_pico_semanal_horas")
+  /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
+  cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
+  /// Reservas pico por semana, de lunes a domingo (T84).
+  cupoPicoSemanalReservas Int @default(2) @map("cupo_pico_semanal_reservas")
   invitadosPorMes      Int @default(4) @map("invitados_por_mes")
   horasMinModificacion Int @default(6) @map("horas_min_modificacion")
   horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")

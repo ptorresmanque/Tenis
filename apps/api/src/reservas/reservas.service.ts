@@ -114,8 +114,9 @@ export class ReservasService {
     try {
       // **Evaluar y crear en la misma transacción, con las reservas del socio
       // bloqueadas.** Sin esto, dos pestañas apretando "Reservar" a la vez leen las dos
-      // "cero horas hoy" y las dos pasan: el bloque no se duplica —de eso se encarga el
-      // índice único— pero el socio termina con dos horas y otro se queda sin cupo.
+      // "cero reservas ese día" y las dos pasan: el bloque no se duplica —de eso se
+      // encarga el índice único— pero el socio termina con dos horas y otro se queda sin
+      // cupo.
       const reserva = await this.conElSocioBloqueado(socio.id, async (tx) => {
         const rechazo = await this.evaluarParaSocio({
           socio,
@@ -188,7 +189,7 @@ export class ReservasService {
    *
    * Al crear se llama **dentro de la transacción que bloqueó la ficha del socio**, con
    * `db` apuntando a ella: así el conteo ve lo que esa transacción tiene tomado y dos
-   * peticiones simultáneas no leen las dos "cero horas hoy". Al mover no hace falta: la
+   * peticiones simultáneas no leen las dos "cero reservas ese día". Al mover no hace falta: la
    * reserva ya existe y el bloque lo defiende el índice único.
    */
   async evaluarParaSocio(entrada: {
@@ -210,7 +211,7 @@ export class ReservasService {
 
     const [
       reservasDelDia,
-      horasPicoDeLaSemana,
+      reservasPicoDeLaSemana,
       invitadosDelMes,
       ocupados,
       incorporacionPendiente,
@@ -234,7 +235,7 @@ export class ReservasService {
       hoyEnElClub: fechaCivilDelClub(new Date()),
       config,
       reservasDelDia,
-      horasPicoDeLaSemana,
+      reservasPicoDeLaSemana,
       invitadosDelMes,
       incorporacionPendiente,
       acompanantes,
@@ -349,17 +350,17 @@ export class ReservasService {
     fecha: string,
   ): Promise<{
     reservasDelDia: number;
-    horasPicoDeLaSemana: number;
+    reservasPicoDeLaSemana: number;
     invitadosDelMes: number;
   }> {
-    const [reservasDelDia, horasPicoDeLaSemana, invitadosDelMes] =
+    const [reservasDelDia, reservasPicoDeLaSemana, invitadosDelMes] =
       await Promise.all([
         this.contarDelDia(this.prisma, socioId, fecha),
         this.contarPicoDeLaSemana(this.prisma, socioId, fecha),
         this.contarInvitadosDelMes(this.prisma, socioId, fecha),
       ]);
 
-    return { reservasDelDia, horasPicoDeLaSemana, invitadosDelMes };
+    return { reservasDelDia, reservasPicoDeLaSemana, invitadosDelMes };
   }
 
   /**
@@ -521,7 +522,7 @@ export class ReservasService {
   }
 
   /**
-   * Horas pico activas del socio en la semana del bloque, **lunes a domingo**.
+   * Reservas pico activas del socio en la semana del bloque, **lunes a domingo**.
    *
    * La semana se recorta en hora del club: contra el calendario UTC, las reservas del
    * domingo por la noche caerían en la semana siguiente y el cupo se renovaría solo.

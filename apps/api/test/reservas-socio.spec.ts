@@ -231,12 +231,13 @@ describe('POST /api/reservas — reserva de socio', () => {
 
     expect(respuesta.status).toBe(409);
     expect(respuesta.body.motivo).toBe('CUPO_DIARIO');
-    expect(respuesta.body.message).toMatch(/1 hora/);
-    expect(respuesta.body.message).toMatch(/mañana/i);
+    // Cuenta reservas, no horas (T84), y no promete "mañana": el cupo es del día de juego.
+    expect(respuesta.body.message).toMatch(/1 reserva por día/);
+    expect(respuesta.body.message).toMatch(/otro día/);
   });
 
-  it('la tercera hora pico de la semana se rechaza', async () => {
-    // Las dos primeras horas pico las pone la base directamente: el cupo diario
+  it('la tercera reserva pico de la semana se rechaza', async () => {
+    // Las dos primeras reservas pico las pone la base directamente: el cupo diario
     // impide tomarlas por la API el mismo día, y lo que se prueba acá es el semanal.
     for (const dia of ['2037-08-18', '2037-08-19']) {
       await prisma.reserva.create({
@@ -261,7 +262,7 @@ describe('POST /api/reservas — reserva de socio', () => {
     expect(respuesta.body.motivo).toBe('CUPO_PICO');
   });
 
-  it('las horas pico gastadas no impiden reservar en horario valle', async () => {
+  it('las reservas pico gastadas no impiden reservar en horario valle', async () => {
     for (const dia of ['2037-08-18', '2037-08-19']) {
       await prisma.reserva.create({
         data: {
@@ -644,7 +645,7 @@ describe('POST /api/reservas — reserva de socio', () => {
     // está en el código.
     await prisma.configuracionClub.update({
       where: { id: 1 },
-      data: { cupoDiarioSocioHoras: 2 },
+      data: { cupoDiarioSocioReservas: 2 },
     });
 
     try {
@@ -655,7 +656,7 @@ describe('POST /api/reservas — reserva de socio', () => {
     } finally {
       await prisma.configuracionClub.update({
         where: { id: 1 },
-        data: { cupoDiarioSocioHoras: 1 },
+        data: { cupoDiarioSocioReservas: 1 },
       });
     }
   });
