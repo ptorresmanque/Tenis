@@ -22,6 +22,7 @@ import { ReservaDelAdminController } from './reserva-del-admin.controller';
 import { ReservaDelAdminService } from './reserva-del-admin.service';
 import { ReservaPublicaController } from './reserva-publica.controller';
 import { ReservaPublicaService } from './reserva-publica.service';
+import { RetornoDeDiferencia } from './retorno-diferencia.service';
 import { ReservaRepository } from './reserva.repository';
 import { ReservasController } from './reservas.controller';
 import { ReservasService } from './reservas.service';
@@ -51,6 +52,7 @@ import { ReservasService } from './reservas.service';
     ModificacionService,
     DisponibilidadPublicaService,
     ReservaPublicaService,
+    RetornoDeDiferencia,
     ReservaDelAdminService,
     AgendaService,
     ReportesService,

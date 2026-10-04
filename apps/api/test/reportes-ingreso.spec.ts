@@ -418,6 +418,31 @@ describe('GET /api/admin/reportes/ingreso', () => {
     });
   });
 
+  describe('la diferencia de un cambio (T89)', () => {
+    it('**suma la compra y la diferencia a la hora de la reserva**', async () => {
+      // Alargar de 1 hora a 1 hora y media pagando $4.000 más: son dos transacciones del
+      // mismo arriendo, y las dos son plata de esa hora.
+      const reservaId = await arriendoJugado({
+        dia: '2026-08-22',
+        hora: '20:00',
+        canchaId: canchaTechada,
+        montoClp: 12000,
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `${MARCA}-dif-${Math.random().toString(36).slice(2, 10)}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reservaId,
+          montoClp: 4000,
+          estado: EstadoTransaccion.AUTORIZADA,
+          pasarela: 'doble',
+        },
+      });
+
+      expect((await reporte('2026-08-01', '2026-08-31')).totalClp).toBe(16000);
+    });
+  });
+
   describe('las devoluciones', () => {
     it('**una devolución resta del período de la hora devuelta**', async () => {
       // Devolver pasa la transacción a ANULADA, así que el peso deja de sumar en el

@@ -5,9 +5,12 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
+  Redirect,
 } from '@nestjs/common';
 
+import { api, web } from '../comun/urls';
 import { leerDuracion } from './duracion';
 import { ModificacionService } from './modificacion.service';
 import {
@@ -15,6 +18,10 @@ import {
   ReservaPublicaService,
 } from './reserva-publica.service';
 import { destinoDeCuerpo, fechaDeConsulta } from './reservas.dto';
+import {
+  RetornoDeDiferencia,
+  VueltaDeDiferencia,
+} from './retorno-diferencia.service';
 
 /**
  * El destino del QR: una reserva, vista por su token.
@@ -39,6 +46,7 @@ export class ReservaPublicaController {
   constructor(
     private readonly servicio: ReservaPublicaService,
     private readonly modificacion: ModificacionService,
+    private readonly retornoDeDiferencia: RetornoDeDiferencia,
   ) {}
 
   @Get('publica/:token')
@@ -58,6 +66,49 @@ export class ReservaPublicaController {
       tokenConForma(token),
       destinoDeCuerpo(cuerpo),
     );
+  }
+
+  /**
+   * Paga la diferencia de un cambio desde el enlace (T89): responde a dónde ir a pagar.
+   * La reserva no se mueve hasta la vuelta de Webpay, y el monto lo calcula el servidor.
+   */
+  @Post('publica/:token/diferencia')
+  async pagarDiferencia(
+    @Param('token') token: string,
+    @Body() cuerpo: unknown,
+  ) {
+    const pago = await this.modificacion.pagarDiferenciaPorToken(
+      tokenConForma(token),
+      destinoDeCuerpo(cuerpo),
+      `${api()}/reservas/retorno-diferencia`,
+    );
+
+    // Lo que necesita el navegador para ir a la pasarela, y nada de los ids internos.
+    return {
+      montoClp: pago.montoClp,
+      urlRedireccion: pago.urlRedireccion,
+      tokenPasarela: pago.tokenPasarela,
+    };
+  }
+
+  /** La vuelta de Webpay del pago de una diferencia: a la página de la reserva. */
+  @Get('retorno-diferencia')
+  @Redirect()
+  async retornoDiferencia(
+    @Query('token_ws') tokenWs: string | undefined,
+    @Query('TBK_TOKEN') tokenAnulado: string | undefined,
+    @Query('TBK_ORDEN_COMPRA') ordenAnulada: string | undefined,
+  ) {
+    // Sin `token_ws` vuelve quien apretó "anular compra" en Webpay, igual que en la
+    // vuelta del pago original.
+    const vuelta = tokenWs
+      ? await this.retornoDeDiferencia.confirmar(tokenWs)
+      : {
+          ...(await this.retornoDeDiferencia.anular(ordenAnulada ?? '')),
+          motivo: tokenAnulado ? 'anulado' : 'sin_token',
+        };
+
+    return { url: destinoDeLaVuelta(vuelta) };
   }
 
   /** La grilla para mover desde el enlace, sin contar la reserva (T88). */
@@ -85,4 +136,19 @@ function tokenConForma(token: string): string {
   }
 
   return token;
+}
+
+/**
+ * La página de la reserva, con lo que pasó: `cambio=hecho` o el motivo. Sin reserva
+ * conocida, la confirmación de siempre con su error.
+ */
+function destinoDeLaVuelta(vuelta: VueltaDeDiferencia): string {
+  if (vuelta.token === null) {
+    return `${web()}/reservas/confirmacion?error=${vuelta.motivo ?? 'sin_token'}`;
+  }
+
+  const cambio =
+    vuelta.estado === 'CAMBIADA' ? 'hecho' : (vuelta.motivo ?? 'rechazado');
+
+  return `${web()}/r/${vuelta.token}?cambio=${encodeURIComponent(cambio)}`;
 }

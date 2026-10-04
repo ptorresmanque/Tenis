@@ -13,6 +13,7 @@ import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ModificacionService } from '../src/reservas/modificacion.service';
+import { RetornoDeDiferencia } from '../src/reservas/retorno-diferencia.service';
 import { PrismaService as Prisma } from '../src/prisma/prisma.service';
 
 /**
@@ -24,6 +25,7 @@ import { PrismaService as Prisma } from '../src/prisma/prisma.service';
 describe('Modificación y cancelación de reservas', () => {
   let modulo: TestingModule;
   let modificacion: ModificacionService;
+  let retornoDeDiferencia: RetornoDeDiferencia;
   let pasarela: PasarelaFake;
   let prisma: Prisma;
   let canchaId: number;
@@ -141,6 +143,7 @@ describe('Modificación y cancelación de reservas', () => {
 
     await modulo.init();
     modificacion = modulo.get(ModificacionService);
+    retornoDeDiferencia = modulo.get(RetornoDeDiferencia);
     pasarela = modulo.get(PasarelaPago);
     prisma = modulo.get(PrismaService);
   });
@@ -1275,7 +1278,7 @@ describe('Modificación y cancelación de reservas', () => {
       (
         await prisma.cancha.create({
           data: {
-            nombre: `${NOMBRE_CANCHA} 90`,
+            nombre: `${NOMBRE_CANCHA} 90 ${Math.random().toString(36).slice(2, 7)}`,
             superficie: Superficie.CEMENTO,
             horarios: {
               create: [
@@ -1430,6 +1433,127 @@ describe('Modificación y cancelación de reservas', () => {
       await expect(
         modificacion.cancelar(reserva.id, admin, horasAntes(LUNES_18, 30)),
       ).rejects.toMatchObject({ response: { motivo: 'PAGO_EN_CURSO' } });
+    });
+
+    describe('la vuelta de Webpay (T89b)', () => {
+      /** Alarga a 1 hora y media y deja el pago de la diferencia esperando su vuelta. */
+      const alargarYPagar = async () => {
+        const cancha = await unaCanchaConHoraYMedia();
+        const reserva = await unaHoraPagadaEn(cancha);
+        const pago = await modificacion.pagarDiferenciaPorToken(
+          reserva.token,
+          { canchaId: cancha, inicio: LUNES_18, duracionMin: 90 },
+          URL_DE_VUELTA,
+          horasAntes(LUNES_18, 30),
+        );
+
+        return { reserva, pago };
+      };
+      const laReserva = (id: number) =>
+        prisma.reserva.findUniqueOrThrow({ where: { id } });
+
+      it('**autorizada, la reserva pasa a 1 hora y media: mismo folio, y el cambio se limpia**', async () => {
+        const { reserva, pago } = await alargarYPagar();
+
+        const vuelta = await retornoDeDiferencia.confirmar(pago.tokenPasarela);
+
+        expect(vuelta).toEqual({
+          estado: 'CAMBIADA',
+          token: reserva.token,
+          motivo: null,
+        });
+        const despues = await laReserva(reserva.id);
+        expect(despues).toMatchObject({
+          folio: reserva.folio,
+          estado: EstadoReserva.CONFIRMADA,
+          inicio: LUNES_18,
+          fin: new Date(LUNES_18.getTime() + 90 * 60 * 1000),
+          cambioCanchaId: null,
+          cambioInicio: null,
+          cambioFin: null,
+        });
+      });
+
+      it('**rechazada, la reserva queda igual en cancha, hora, duración y estado**', async () => {
+        const { reserva, pago } = await alargarYPagar();
+        pasarela.respuesta = 'RECHAZADA';
+
+        const vuelta = await retornoDeDiferencia.confirmar(pago.tokenPasarela);
+
+        expect(vuelta.estado).toBe('SIN_CAMBIO');
+        expect(await laReserva(reserva.id)).toMatchObject({
+          canchaId: reserva.canchaId,
+          inicio: reserva.inicio,
+          fin: reserva.fin,
+          estado: EstadoReserva.CONFIRMADA,
+          cambioInicio: null,
+        });
+      });
+
+      it('**anulada en Webpay, la reserva queda igual**', async () => {
+        const { reserva, pago } = await alargarYPagar();
+        const { referencia } = await prisma.transaccion.findUniqueOrThrow({
+          where: { id: pago.transaccionId },
+        });
+
+        const vuelta = await retornoDeDiferencia.anular(referencia);
+
+        expect(vuelta).toEqual({
+          estado: 'SIN_CAMBIO',
+          token: reserva.token,
+          motivo: 'anulado',
+        });
+        expect(await laReserva(reserva.id)).toMatchObject({
+          canchaId: reserva.canchaId,
+          inicio: reserva.inicio,
+          fin: reserva.fin,
+          estado: EstadoReserva.CONFIRMADA,
+          cambioInicio: null,
+        });
+      });
+
+      it('una segunda vuelta del mismo pago no vuelve a mover nada', async () => {
+        const { reserva, pago } = await alargarYPagar();
+        await retornoDeDiferencia.confirmar(pago.tokenPasarela);
+
+        const otra = await retornoDeDiferencia.confirmar(pago.tokenPasarela);
+
+        expect(otra.estado).toBe('CAMBIADA');
+        expect((await laReserva(reserva.id)).fin).toEqual(
+          new Date(LUNES_18.getTime() + 90 * 60 * 1000),
+        );
+      });
+
+      it('**cancelar con 24 horas o más después de pagar la diferencia devuelve las dos; con menos, ninguna**', async () => {
+        const primera = await alargarYPagar();
+        await retornoDeDiferencia.confirmar(primera.pago.tokenPasarela);
+
+        const conTiempo = await modificacion.cancelar(
+          primera.reserva.id,
+          admin,
+          // Contra el bloque comprado, el de las 21:00: la diferencia no corrió la ventana.
+          horasAntes(LUNES_20, 30),
+        );
+
+        expect(conTiempo.huboDevolucion).toBe(true);
+        expect(pasarela.anulaciones.map(({ montoClp }) => montoClp)).toEqual([
+          12000, 4000,
+        ]);
+
+        pasarela.reiniciar();
+        await prisma.reserva.deleteMany({ where: { id: primera.reserva.id } });
+        const segunda = await alargarYPagar();
+        await retornoDeDiferencia.confirmar(segunda.pago.tokenPasarela);
+
+        const sinTiempo = await modificacion.cancelar(
+          segunda.reserva.id,
+          admin,
+          horasAntes(LUNES_20, 12),
+        );
+
+        expect(sinTiempo.huboDevolucion).toBe(false);
+        expect(pasarela.anulaciones).toHaveLength(0);
+      });
     });
 
     it('el rechazo del cambio directo dice cuánto falta, para ofrecer pagarlo', async () => {
