@@ -13,8 +13,8 @@
  * una sola columna y el club vuelve exactamente a lo que este archivo intenta evitar:
  * copiar a mano. El estándar dice coma, pero el estándar no es quien abre el archivo.
  *
- * No hay ambigüedad con los decimales porque acá no hay decimales: pesos enteros,
- * cuentas de bloques y porcentajes redondeados.
+ * Los decimales van con coma (ver `comoCelda`), y no chocan con el separador por la
+ * misma razón: el separador es el punto y coma.
  */
 export const SEPARADOR = ';';
 
@@ -53,7 +53,9 @@ export function aCsv(encabezados: string[], filas: Celda[][]): string {
  */
 function comoCelda(valor: Celda): string {
   if (valor === null) return '';
-  if (typeof valor === 'number') return String(valor);
+  // Coma decimal: es lo que Excel en español lee como número. Con punto, la media
+  // hora de la ocupación (T77) se abre como texto o como fecha y la columna no suma.
+  if (typeof valor === 'number') return String(valor).replace('.', ',');
 
   const necesitaComillas =
     valor.includes(SEPARADOR) || valor.includes('"') || /[\r\n]/.test(valor);

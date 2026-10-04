@@ -62,6 +62,13 @@ describe('CSV', () => {
       expect(lineas(aCsv(['Monto'], [[320000]]))[1]).toBe('320000');
     });
 
+    it('un decimal va con coma, que es lo que Excel en español lee como número', () => {
+      // T77: la ocupación se mide en medias horas. Con punto, "0.5" se abre como texto
+      // o como fecha, y la columna deja de sumar.
+      expect(lineas(aCsv(['Horas'], [[0.5]]))[1]).toBe('0,5');
+      expect(lineas(aCsv(['Horas'], [[12.5]]))[1]).toBe('12,5');
+    });
+
     it('un nulo queda como celda vacía, no como la palabra null', () => {
       expect(lineas(aCsv(['Ocupación'], [[null]]))[1]).toBe('');
     });

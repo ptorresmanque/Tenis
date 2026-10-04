@@ -22,7 +22,7 @@ import {
  * castiga al club por mantener la cancha, y contarla como ocupada le inventa un uso que
  * no tuvo. Por eso sale del denominador y la pantalla lo dice.
  *
- * El denominador son los bloques que existieron según el horario de apertura de cada
+ * El denominador son las horas que existieron según el horario de apertura de cada
  * día, no un día de veinticuatro horas: la ocupación de un día en que la cancha abrió
  * cuatro horas se mide sobre cuatro.
  */
@@ -36,7 +36,7 @@ import {
       <div>
         <h1 class="titular text-4xl">Ocupación de cancha</h1>
         <p class="mt-1 text-muted-foreground">
-          Qué proporción de las horas que el club abrió se ocupó de verdad. Cuenta sobre los bloques que
+          Qué proporción de las horas que el club abrió se ocupó de verdad. Cuenta sobre las horas que
           existieron ese día según el horario de apertura, no sobre el día entero.
         </p>
       </div>
@@ -112,12 +112,12 @@ import {
                   <th scope="row">
                     {{ fila.etiqueta }}
                   </th>
-                  <td class="numero">{{ fila.ocupados }}</td>
+                  <td class="numero">{{ enHoras(fila.ocupados) }}</td>
                   <td class="py-2 pr-3 text-right text-muted-foreground">
-                    {{ fila.libres }}
+                    {{ enHoras(fila.libres) }}
                   </td>
                   <td class="py-2 pr-3 text-right text-muted-foreground">
-                    {{ fila.cerrados }}
+                    {{ enHoras(fila.cerrados) }}
                   </td>
                   <td class="numero font-semibold">
                     {{ enPorcentaje(fila) }}
@@ -128,9 +128,9 @@ import {
             <tfoot>
               <tr>
                 <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="numero font-semibold">{{ datos.ocupados }}</td>
-                <td class="numero">{{ datos.libres }}</td>
-                <td class="numero">{{ datos.cerrados }}</td>
+                <td class="numero font-semibold">{{ enHoras(datos.ocupados) }}</td>
+                <td class="numero">{{ enHoras(datos.libres) }}</td>
+                <td class="numero">{{ enHoras(datos.cerrados) }}</td>
                 <td class="numero font-semibold">
                   {{ enPorcentaje(datos) }}
                 </td>
@@ -200,6 +200,11 @@ export class OcupacionPanel {
    */
   protected enPorcentaje(fila: Pick<FilaDeOcupacion, 'porcentajeOcupacion'>): string {
     return fila.porcentajeOcupacion === null ? 'Sin horas' : `${fila.porcentajeOcupacion} %`;
+  }
+
+  /** Las horas con coma decimal: desde T77 se miden medias horas, y acá "1,5" es como se escribe. */
+  protected enHoras(horas: number): string {
+    return horas.toLocaleString('es-CL');
   }
 
   /** Pasa por el reloj del club: el ISO llega en UTC y el día puede no coincidir. */

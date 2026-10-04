@@ -41,7 +41,7 @@ describe('GET /api/admin/reportes/ocupacion', () => {
 
   interface Fila {
     etiqueta: string;
-    bloques: number;
+    horas: number;
     ocupados: number;
     cerrados: number;
     libres: number;
@@ -49,7 +49,7 @@ describe('GET /api/admin/reportes/ocupacion', () => {
   }
 
   interface Reporte {
-    bloques: number;
+    horas: number;
     ocupados: number;
     cerrados: number;
     libres: number;
@@ -210,12 +210,12 @@ describe('GET /api/admin/reportes/ocupacion', () => {
   });
 
   describe('el denominador', () => {
-    it('**un día con la cancha abierta 4 horas se mide sobre 4 bloques, no sobre 24**', async () => {
+    it('**un día con la cancha abierta 4 horas se mide sobre 4 horas, no sobre 24**', async () => {
       // El criterio obligatorio. Sin esto, una cancha que abre medio día parece vacía
       // y el club decide una inversión mirando un número inventado.
       await abrirDe('10:00', '14:00');
 
-      expect((await miFila())?.bloques).toBe(4);
+      expect((await miFila())?.horas).toBe(4);
     });
 
     it('sin horario propio, la cancha usa el general del club', async () => {
@@ -223,14 +223,14 @@ describe('GET /api/admin/reportes/ocupacion', () => {
       // pueda haber dejado otra suite en la base compartida.
       await abrirElClubDe('09:00', '11:00');
 
-      expect((await miFila())?.bloques).toBe(2);
+      expect((await miFila())?.horas).toBe(2);
     });
 
     it('el horario propio de la cancha gana al general del club', async () => {
       await abrirElClubDe('08:00', '22:00');
       await abrirDe('10:00', '12:00');
 
-      expect((await miFila())?.bloques).toBe(2);
+      expect((await miFila())?.horas).toBe(2);
     });
   });
 
@@ -249,10 +249,31 @@ describe('GET /api/admin/reportes/ocupacion', () => {
       expect(mia?.porcentajeOcupacion).toBe(25);
     });
 
-    it('una reserva de dos horas ocupa dos bloques', async () => {
+    it('una reserva de dos horas ocupa dos horas', async () => {
       await reservar('10:00', 2);
 
       expect((await miFila())?.ocupados).toBe(2);
+    });
+
+    it('**una reserva que empieza a la media hora ocupa una hora, no dos** (T77)', async () => {
+      // Con inicios cada media hora, 10:30–11:30 toca dos horas del reloj. Medido por
+      // bloques de una hora, el reporte la contaba dos veces.
+      await reservar('10:30');
+
+      const mia = await miFila();
+
+      expect(mia?.ocupados).toBe(1);
+      expect(mia?.libres).toBe(3);
+      expect(mia?.porcentajeOcupacion).toBe(25);
+    });
+
+    it('un cierre de media hora cierra media hora (T77)', async () => {
+      await bloquear('11:00', MotivoBloqueo.MANTENCION, 0.5);
+
+      const mia = await miFila();
+
+      expect(mia?.cerrados).toBe(0.5);
+      expect(mia?.horas).toBe(4);
     });
 
     it('**las clases cuentan como ocupación**', async () => {
@@ -265,7 +286,7 @@ describe('GET /api/admin/reportes/ocupacion', () => {
 
       expect(mia?.ocupados).toBe(1);
       expect(mia?.cerrados).toBe(0);
-      expect(mia?.bloques).toBe(4);
+      expect(mia?.horas).toBe(4);
     });
 
     it('**una hora en mantención no cuenta como ocupada ni como libre**', async () => {
@@ -346,10 +367,10 @@ describe('GET /api/admin/reportes/ocupacion', () => {
         .expect(200);
       const suyo = respuesta.body as Reporte;
 
-      const suma = (cual: 'bloques' | 'ocupados' | 'cerrados' | 'libres') =>
+      const suma = (cual: 'horas' | 'ocupados' | 'cerrados' | 'libres') =>
         suyo.filas.reduce((total, fila) => total + fila[cual], 0);
 
-      expect(suma('bloques')).toBe(suyo.bloques);
+      expect(suma('horas')).toBe(suyo.horas);
       expect(suma('ocupados')).toBe(suyo.ocupados);
       expect(suma('cerrados')).toBe(suyo.cerrados);
       expect(suma('libres')).toBe(suyo.libres);
@@ -390,7 +411,7 @@ describe('GET /api/admin/reportes/ocupacion', () => {
       // cero ni un bucle que no termina.
       await abrirDe('10:00', '12:00');
 
-      expect((await miFila())?.bloques).toBe(2);
+      expect((await miFila())?.horas).toBe(2);
     });
   });
 });
