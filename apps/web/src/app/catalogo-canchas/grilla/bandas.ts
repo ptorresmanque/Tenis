@@ -1,6 +1,20 @@
 import { BloqueDisponible, Cancha, GrillaDeCancha } from '../disponibilidad';
 import { enPesos, horaEnElClub } from '../reloj-del-club';
 
+/**
+ * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
+ * hora sino su cuota mensual.
+ *
+ * En un solo lugar porque aparece en el bloque, en la etiqueta accesible y en la
+ * barra de abajo: el día que el club cobre la hora pico al socio, un "sin costo"
+ * suelto habría quedado en dos de los tres y nadie lo notaría hasta que reclamen.
+ *
+ * No viene del servidor a propósito. `BloqueDisponible.montoClp` es la tarifa del
+ * no-socio, y el contrato de `catalogo-canchas` no tiene ni tiene por qué tener un
+ * precio por tipo de persona.
+ */
+export const TARIFA_DEL_SOCIO = 'sin costo';
+
 /** Un inicio de la grilla —08:00–09:00, 08:30–09:30…—, con lo que pasa en cada cancha. */
 export interface Franja {
   inicio: string;

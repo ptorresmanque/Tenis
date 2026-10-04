@@ -44,8 +44,10 @@ import {
   agruparPorInicio,
   Banda,
   precioDeLaHora,
+  TARIFA_DEL_SOCIO,
   yaEmpezo,
 } from './bandas';
+import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
 
 /**
@@ -68,20 +70,6 @@ export class BandaTipada {
   }
 }
 
-/**
- * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
- * hora sino su cuota mensual.
- *
- * En un solo lugar porque aparece en el bloque, en la etiqueta accesible y en la
- * barra de abajo: el día que el club cobre la hora pico al socio, un "sin costo"
- * suelto habría quedado en dos de los tres y nadie lo notaría hasta que reclamen.
- *
- * No viene del servidor a propósito. `BloqueDisponible.montoClp` es la tarifa del
- * no-socio, y el contrato de `catalogo-canchas` no tiene ni tiene por qué tener un
- * precio por tipo de persona.
- */
-const TARIFA_DEL_SOCIO = 'sin costo';
-
 @Component({
   selector: 'app-grilla',
   imports: [
@@ -91,6 +79,7 @@ const TARIFA_DEL_SOCIO = 'sin costo';
     BarraFija,
     EstadoVacio,
     Insignia,
+    ResumenDeLaEleccion,
     ResumenDelCambio,
     Selector,
   ],
@@ -472,13 +461,12 @@ const TARIFA_DEL_SOCIO = 'sin costo';
       </section>
     </ng-template>
 
-    <!-- Elegir y reservar quedaron separados: el bloque se marca, la barra dice
-         qué se marcó y con cuánto, y recién "Reservar" abre el formulario. El
-         diálogo que ya existía sigue siendo el que pide acompañantes y cobra. -->
+    <!-- Elegir y reservar quedaron separados: el bloque se marca y la barra dice qué
+         se marcó y con cuánto antes del botón. Desde el enlace, con plata en juego, dice
+         la diferencia (T91). -->
     @if (elegido(); as eleccion) {
-      @if (pagadoPorElEnlace(); as pagado) {
-        <!-- Desde el enlace, con plata en juego: la diferencia antes del botón (T91). -->
-        <app-barra-fija>
+      <app-barra-fija>
+        @if (pagadoPorElEnlace(); as pagado) {
           <app-resumen-del-cambio
             [cancha]="eleccion.cancha"
             [bloque]="eleccion.bloque"
@@ -487,43 +475,15 @@ const TARIFA_DEL_SOCIO = 'sin costo';
             (soltar)="elegido.set(null)"
             (confirmar)="cambiarPorEnlace()"
           />
-        </app-barra-fija>
-      } @else {
-        <app-barra-fija>
-          <div role="status" aria-live="polite">
-            <!-- Lo elegido, en rótulo (TV5.1): es la pieza que se lee de un vistazo
-                 antes de apretar "Reservar". -->
-            <p
-              class="inline-flex bg-rotulo py-1 ps-3 font-display text-lg font-bold tracking-wide
-                     text-on-rotulo uppercase corte-fin"
-            >
-              {{ eleccion.cancha.nombre }} ·
-              {{ hora(eleccion.bloque.inicio) }}–{{ hora(eleccion.bloque.fin) }}
-            </p>
-            <p class="mt-1 text-sm text-muted-foreground">
-              Socio {{ tarifaDelSocio }}
-              @if (eleccion.bloque.montoClp !== null) {
-                · Arriendo
-                <span class="font-semibold text-accent-strong">
-                  {{ pesos(eleccion.bloque.montoClp) }}
-                </span>
-              }
-              @if (eleccion.bloque.esPico) {
-                · Hora pico
-              }
-            </p>
-          </div>
-
-          <div class="flex gap-2">
-            <button type="button" class="boton boton-texto" (click)="elegido.set(null)">
-              Soltar
-            </button>
-            <button type="button" class="boton boton-primario" (click)="reservar()">
-              Reservar
-            </button>
-          </div>
-        </app-barra-fija>
-      }
+        } @else {
+          <app-resumen-de-la-eleccion
+            [cancha]="eleccion.cancha"
+            [bloque]="eleccion.bloque"
+            (soltar)="elegido.set(null)"
+            (reservar)="reservar()"
+          />
+        }
+      </app-barra-fija>
     }
 
     @if (reservando(); as eleccion) {
