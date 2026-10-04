@@ -167,6 +167,38 @@ describe('Modificación y cancelación de reservas', () => {
       expect(movida.inicio).toEqual(MARTES_20);
     });
 
+    it('**mover una reserva de 1 hora y media la deja de 1 hora y media** (T82)', async () => {
+      // Hasta que T87 deje elegir la duración al mover, moverla la conserva. Antes el
+      // destino se buscaba en la grilla de 1 hora y la reserva quedaba de 60 minutos
+      // sin que nadie lo notara.
+      const lunes18 = new Date('2026-09-07T21:00:00.000Z');
+      const martes18 = new Date('2026-09-08T21:00:00.000Z');
+      const larga = await prisma.reserva.create({
+        data: {
+          folio: 'T82LARGA',
+          canchaId,
+          inicio: lunes18,
+          fin: new Date(lunes18.getTime() + 90 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          nombre: 'Socio',
+          email: 'socio@ejemplo.cl',
+          telefono: '',
+        },
+      });
+
+      const movida = await modificacion.modificar(
+        larga.id,
+        { canchaId, inicio: martes18 },
+        admin,
+        horasAntes(lunes18, 30),
+      );
+
+      expect(movida.inicio).toEqual(martes18);
+      expect(movida.fin.getTime() - movida.inicio.getTime()).toBe(
+        90 * 60 * 1000,
+      );
+    });
+
     it('a menos de 6 horas del inicio, no', async () => {
       const reserva = await unaReservaPagada();
 

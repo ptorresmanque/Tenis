@@ -60,6 +60,16 @@ function lecturaDelReloj(instante: Date): number {
   );
 }
 
+/**
+ * Cuántos minutos marca el reloj del club entre dos instantes (T82).
+ *
+ * Es como se reserva: "de 23:00 a 24:00" es una hora aunque, la noche en que Chile
+ * atrasa el reloj, pasen dos de verdad. Restar los instantes daría 120.
+ */
+export function minutosDeRelojEntre(inicio: Date, fin: Date): number {
+  return (lecturaDelReloj(fin) - lecturaDelReloj(inicio)) / (60 * 1000);
+}
+
 /** "HH:MM" en 00:00–24:00. Las 24:00 son la medianoche del día siguiente. */
 const HORA_VALIDA = /^([01]\d|2[0-4]):([0-5]\d)$/;
 

@@ -1,4 +1,9 @@
-import { hoyEnElClub, instanteEnElClub, mesEnElClub } from './tiempo';
+import {
+  hoyEnElClub,
+  instanteEnElClub,
+  mesEnElClub,
+  minutosDeRelojEntre,
+} from './tiempo';
 
 /**
  * La fecha civil del club decide si un socio está al día. Si se calcula en UTC, a
@@ -155,5 +160,31 @@ describe('instanteEnElClub', () => {
 
     // Y el 29 de febrero de un año bisiesto sí existe. En verano, por eso 11:00Z.
     expect(instante('2028-02-29', '08:00')).toBe('2028-02-29T11:00:00.000Z');
+  });
+});
+
+/**
+ * Cuánto dura algo en el reloj del club, que es como se reserva (T82). Restar los
+ * instantes falla justo la noche en que Chile atrasa el reloj: "23:00 a 24:00" son dos
+ * horas reales y una hora de reserva.
+ */
+describe('minutosDeRelojEntre', () => {
+  it('una hora y media cualquiera son 90', () => {
+    expect(
+      minutosDeRelojEntre(
+        new Date('2026-08-17T14:00:00.000Z'),
+        new Date('2026-08-17T15:30:00.000Z'),
+      ),
+    ).toBe(90);
+  });
+
+  it('**la noche que se atrasa el reloj, de 23:00 a 24:00 sigue siendo una hora**', () => {
+    // 23:00 de la primera pasada (UTC-3) a 24:00 (UTC-4): dos horas reales.
+    expect(
+      minutosDeRelojEntre(
+        new Date('2026-04-05T02:00:00.000Z'),
+        new Date('2026-04-05T04:00:00.000Z'),
+      ),
+    ).toBe(60);
   });
 });

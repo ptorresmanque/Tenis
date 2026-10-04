@@ -6,8 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
-import { hoyEnElClub } from '../comun/tiempo';
+import { hoyEnElClub, minutosDeRelojEntre } from '../comun/tiempo';
 import {
   EstadoReserva,
   EstadoTransaccion,
@@ -164,9 +165,12 @@ export class ModificacionService {
       });
     }
 
+    // Mover conserva la duración (T82): el destino se busca en la grilla de lo que dura
+    // la reserva. Elegir otra duración al mover llega con T87.
     const bloque = await this.bloqueDisponible(
       destino.canchaId,
       destino.inicio,
+      duracionDe(reserva),
       ahora,
     );
 
@@ -473,9 +477,14 @@ export class ModificacionService {
     return reserva;
   }
 
-  private async bloqueDisponible(canchaId: number, inicio: Date, ahora: Date) {
+  private async bloqueDisponible(
+    canchaId: number,
+    inicio: Date,
+    duracionMin: DuracionMin,
+    ahora: Date,
+  ) {
     const fecha = hoyEnElClub(inicio).toISOString().slice(0, 10);
-    const bloques = await this.catalogo.de(canchaId, fecha);
+    const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
 
     if (!bloque) {
@@ -499,6 +508,23 @@ export class ModificacionService {
 
     return bloque;
   }
+}
+
+/**
+ * Lo que dura una reserva en el reloj del club: 60 o 90 minutos (T82).
+ *
+ * En el reloj y no restando instantes: la noche en que se atrasa la hora, una reserva de
+ * 23:00 a 24:00 dura dos horas de verdad y sigue siendo de una hora. Cualquier otro valor
+ * es un dato que no debería existir, y se dice fuerte en vez de adivinar uno.
+ */
+function duracionDe(reserva: { inicio: Date; fin: Date }): DuracionMin {
+  const minutos = minutosDeRelojEntre(reserva.inicio, reserva.fin);
+
+  if (minutos === 60 || minutos === 90) return minutos;
+
+  throw new Error(
+    `La reserva dura ${minutos} minutos de reloj; solo existen de 60 y de 90.`,
+  );
 }
 
 /**

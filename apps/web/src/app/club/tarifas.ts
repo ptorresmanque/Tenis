@@ -70,7 +70,10 @@ const DIAS = [
                375 px y, desplazada hacia el lado, escondía justo los precios. La tarjeta
                lleva el horario en el rótulo de la grilla —la misma idea se ve igual en las
                dos páginas— y los dos precios en la cifra condensada, que es lo que se busca. -->
-          <ul class="mt-4 grid gap-3 sm:hidden">
+          <ul
+            class="mt-4 grid gap-3 sm:hidden"
+            aria-label="Tarifas de arriendo por 1 hora y por 1 hora y media, vigentes hoy"
+          >
             @for (tarifa of lista; track clave(tarifa)) {
               <li data-tarifa-tarjeta class="bg-card p-4 shadow-md">
                 <div class="flex flex-wrap items-center gap-2">
