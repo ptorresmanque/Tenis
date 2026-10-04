@@ -20,6 +20,12 @@ export function esViolacionDeUnicidad(error: unknown): boolean {
 const CODIGO_CONFLICTO = 'P2034';
 
 /**
+ * Medido en T76 con ocho canchas disputadas a la vez: 640 escrituras pidieron 183
+ * reintentos en total y ninguna agotó los cinco.
+ */
+const INTENTOS_ANTE_DEADLOCK = 5;
+
+/**
  * Repite el trabajo si la base lo abortó por un deadlock. Cualquier otro error pasa.
  *
  * Existe por el único `WITHOUT OVERLAPS` de `reserva` (T76): para saber si un rango se
@@ -35,7 +41,6 @@ const CODIGO_CONFLICTO = 'P2034';
  */
 export async function reintentarSiHayDeadlock<T>(
   trabajo: () => Promise<T>,
-  intentos = 5,
 ): Promise<T> {
   for (let intento = 1; ; intento++) {
     try {
@@ -45,7 +50,7 @@ export async function reintentarSiHayDeadlock<T>(
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === CODIGO_CONFLICTO;
 
-      if (!esConflicto || intento >= intentos) throw error;
+      if (!esConflicto || intento >= INTENTOS_ANTE_DEADLOCK) throw error;
 
       // Unos milisegundos al azar: los dos que chocaron reintentarían a la vez y
       // volverían a chocar.
