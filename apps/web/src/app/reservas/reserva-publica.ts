@@ -111,7 +111,11 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
           <div class="mt-6 text-center">
             <a
               routerLink="/disponibilidad"
-              [queryParams]="{ moverToken: token(), duracion: duracionDeLaGrilla() }"
+              [queryParams]="{
+                moverToken: token(),
+                fecha: fechaDelClub(datos.inicio),
+                duracion: duracionDeLaGrilla(),
+              }"
               class="boton boton-primario"
             >
               <span class="icono text-base" aria-hidden="true">schedule</span>
@@ -243,6 +247,8 @@ export class ReservaPublicaPagina {
   });
 
   protected readonly hora = horaEnElClub;
+  /** Para el enlace de cambiar: la grilla abre en el día de la reserva y no en hoy. */
+  protected readonly fechaDelClub = fechaEnElClub;
 
   protected dia(instante: string): string {
     return diaEnPalabras(fechaEnElClub(instante));

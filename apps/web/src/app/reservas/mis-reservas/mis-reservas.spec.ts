@@ -265,11 +265,14 @@ describe('MisReservas', () => {
         (a) => (a.textContent ?? '').includes('Cambiar hora o duración'),
       )!;
 
-    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7');
+    // Con el día de la reserva: la grilla abre ahí y no en hoy.
+    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7&fecha=2026-09-07');
 
     await montar([{ ...UNA, fin: '2026-09-07T13:30:00.000Z' }]);
 
-    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7&duracion=90');
+    expect(enlace().getAttribute('href')).toBe(
+      '/disponibilidad?mover=7&fecha=2026-09-07&duracion=90',
+    );
   });
 
   it('antes de confirmar avisa que no hay plata que devolver', async () => {

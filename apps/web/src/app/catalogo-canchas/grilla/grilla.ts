@@ -1,5 +1,13 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, Directive, computed, inject, resource, signal } from '@angular/core';
+import {
+  Component,
+  Directive,
+  computed,
+  inject,
+  linkedSignal,
+  resource,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
@@ -579,7 +587,20 @@ export class Grilla {
   private readonly ruta = inject(ActivatedRoute);
   private readonly parametros = toSignal(this.ruta.queryParamMap);
 
-  protected readonly fecha = signal(hoyEnElClub());
+  /** Solo la fecha de la URL: cambiar la duración rehace la URL y no tiene que mover el día. */
+  private readonly fechaDeLaUrl = computed(() => this.parametros()?.get('fecha') ?? null);
+
+  /**
+   * El día que se mira. Arranca en el de la URL si viene —el enlace de mover lleva el de la
+   * reserva, para alargarla sin ir a buscar su día— y si no, en hoy. Una fecha pasada o mal
+   * escrita también cae en hoy: la grilla no vende horas que ya pasaron.
+   */
+  protected readonly fecha = linkedSignal(() => {
+    const pedida = this.fechaDeLaUrl();
+    const hoy = hoyEnElClub();
+
+    return pedida && /^\d{4}-\d{2}-\d{2}$/.test(pedida) && pedida >= hoy ? pedida : hoy;
+  });
 
   /**
    * La reserva que se está reubicando, si se llegó desde "mis reservas".

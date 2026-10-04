@@ -143,7 +143,8 @@ describe('ReservaPublicaPagina', () => {
       await montar({ ...UNA, sePuedeCambiar: true });
 
       expect(enlaceACambiar()?.getAttribute('href')).toBe(
-        '/disponibilidad?moverToken=un-token-cualquiera',
+        // Con el día de la reserva: la grilla abre ahí y no en hoy.
+        '/disponibilidad?moverToken=un-token-cualquiera&fecha=2026-08-17',
       );
       expect(texto()).toContain('no se devuelve la diferencia');
     });
@@ -152,7 +153,7 @@ describe('ReservaPublicaPagina', () => {
       await montar({ ...UNA, fin: '2026-08-17T13:30:00.000Z', sePuedeCambiar: true });
 
       expect(enlaceACambiar()?.getAttribute('href')).toBe(
-        '/disponibilidad?moverToken=un-token-cualquiera&duracion=90',
+        '/disponibilidad?moverToken=un-token-cualquiera&fecha=2026-08-17&duracion=90',
       );
     });
 

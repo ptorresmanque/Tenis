@@ -150,7 +150,11 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
               @if (reserva.sePuedeModificar) {
                 <a
                   routerLink="/disponibilidad"
-                  [queryParams]="{ mover: reserva.id, duracion: duracionDeLaGrilla(reserva) }"
+                  [queryParams]="{
+                    mover: reserva.id,
+                    fecha: fechaDelClub(reserva.inicio),
+                    duracion: duracionDeLaGrilla(reserva),
+                  }"
                   class="boton boton-primario boton-chico"
                 >
                   <span class="icono text-base" aria-hidden="true">schedule</span>
@@ -312,6 +316,8 @@ export class MisReservas {
   }
 
   protected readonly hora = horaEnElClub;
+  /** Para el enlace de cambiar: la grilla abre en el día de la reserva y no en hoy. */
+  protected readonly fechaDelClub = fechaEnElClub;
 
   /**
    * Mover conserva la duración, así que la grilla tiene que buscar horas de esa duración.

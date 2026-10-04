@@ -834,6 +834,31 @@ describe('Grilla', () => {
       expect(texto()).toContain('Elige la nueva hora');
     });
 
+    it('**abre en el día de la reserva que se mueve, no en hoy**', async () => {
+      // El enlace de mover lleva la fecha: alargar una reserva de otro día obligaba a
+      // buscar su día antes de poder elegir.
+      await montar(DIA, { mover: '7', fecha: '2037-09-14' });
+
+      expect(pedirDiaParaMover).toHaveBeenCalledWith(7, '2037-09-14', 60);
+    });
+
+    it('**desde el enlace también: abre en el día de la reserva**', async () => {
+      await montar(DIA, { moverToken: 'tok-123', fecha: '2037-09-14', duracion: '90' });
+
+      expect(delEnlace.grillaParaMover).toHaveBeenCalledWith('tok-123', '2037-09-14', 90);
+    });
+
+    it('una fecha pasada o mal escrita en la URL cae en hoy', async () => {
+      // La grilla no vende horas que ya pasaron, y un enlace roto no puede dejarla vacía.
+      await montar(DIA, { fecha: '2020-01-01' });
+      await montar(DIA, { fecha: 'mañana' });
+
+      const hoy = pedirDia.mock.calls[0][0] as string;
+      expect(hoy).not.toBe('2020-01-01');
+      expect(hoy).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(pedirDia).toHaveBeenCalledWith(hoy, 60);
+    });
+
     it('al elegir un bloque libre mueve la reserva y vuelve a mis reservas', async () => {
       await montar(DIA, { mover: '7' });
 
