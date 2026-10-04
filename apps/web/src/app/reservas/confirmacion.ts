@@ -290,9 +290,9 @@ export class ConfirmacionReserva {
    * reserva, y escribirlos acá sería una segunda verdad que nadie actualiza.
    *
    * El último cambia según quién mira: **el socio cancela solo y el visitante sin
-   * cuenta no**. El QR es de solo lectura por decisión, y quien reservó sin
-   * registrarse no tiene "Mis reservas" donde entrar; mandarlo ahí sería pasearlo
-   * por una pantalla vacía.
+   * cuenta no**. El enlace del QR cambia la hora o la duración pero no cancela, por
+   * decisión (T88), y quien reservó sin registrarse no tiene "Mis reservas" donde
+   * entrar; mandarlo ahí sería pasearlo por una pantalla vacía.
    */
   protected readonly ANTES_DE_VENIR = computed(() => [
     {
@@ -316,10 +316,11 @@ export class ConfirmacionReserva {
       : {
           icono: 'call',
           titulo: 'Para cambiarla o cancelarla',
-          detalle: this.club().email
-            ? `Escribe a ${this.club().email} con tu folio, o llama al club. Sin ` +
-              'cuenta no se puede hacer desde la web.'
-            : 'Llama al club con tu folio: sin cuenta no se puede hacer desde la web.',
+          detalle:
+            'Para cambiar la hora o la duración, abre el enlace de tu entrada. ' +
+            (this.club().email
+              ? `Para cancelarla, escribe a ${this.club().email} con tu folio o llama al club.`
+              : 'Para cancelarla, llama al club con tu folio.'),
         },
   ]);
 

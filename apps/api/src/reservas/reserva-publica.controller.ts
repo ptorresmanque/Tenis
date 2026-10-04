@@ -31,15 +31,17 @@ import {
  * autenticarse. Lo que hace de credencial es el token, y por eso no se dicta ni se
  * muestra fuera del enlace.
  *
- * **Solo lectura, y no por ahora: por decisión.** El token no cancela. Es un enlace
- * que se reenvía por WhatsApp, que queda en el historial del teléfono del mesón y
- * que cualquiera que lo vea de reojo puede usar; con poder de cancelación, perder de
- * vista la pantalla un segundo sería perder la hora. Quien reservó sin cuenta cancela
- * llamando al club, y el club lo hace desde la agenda del día.
+ * **Mueve, y no cancela: por decisión** (2026-10-03, T88). Quien pagó en línea cambia
+ * desde acá la hora o la duración, y paga la diferencia si la hay. Cancelar no: el
+ * enlace se reenvía por WhatsApp, queda en el historial del teléfono del mesón y
+ * cualquiera que lo vea de reojo puede usarlo; perder de vista la pantalla un segundo
+ * sería perder la hora. Quien reservó sin cuenta cancela llamando al club, y el club lo
+ * hace desde la agenda del día. El costo de mover con el enlace está en
+ * `SPEC-reservas.md`.
  *
- * Si alguna vez se agrega escritura acá, tiene que ser con una decisión explícita
- * detrás. El test `no acepta escritura, ni siquiera con el token correcto` está para
- * que ese cambio no pase de contrabando.
+ * Cualquier otra escritura acá tiene que venir con una decisión explícita detrás. El
+ * test `no cancela, ni siquiera con el token correcto` está para que ese cambio no
+ * pase de contrabando.
  */
 @Controller('reservas')
 export class ReservaPublicaController {

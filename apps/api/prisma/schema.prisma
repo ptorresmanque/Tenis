@@ -890,7 +890,7 @@ model InscripcionClase {
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —
   /// `IF(estado = 'CANCELADA', NULL, socio_id)`, ver la migración— con el mismo
-  /// truco que `inicio_activo` en `Reserva`: el único no puede ir sobre
+  /// truco que `cancha_activa` en `Reserva`: el único no puede ir sobre
   /// `(clase_id, socio_id)` a secas porque un socio que canceló tiene que poder
   /// volver a inscribirse, y su fila sigue ahí para el historial.
   socioActivo Int? @map("socio_activo")
@@ -1221,7 +1221,7 @@ model InscripcionTorneo {
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —
   /// `IF(estado = 'RETIRADA', NULL, jugador_id)`— con el mismo truco que
-  /// `inicio_activo` en `Reserva` y `socio_activo` en `InscripcionClase`: el único no
+  /// `cancha_activa` en `Reserva` y `socio_activo` en `InscripcionClase`: el único no
   /// puede ir sobre `(torneo_id, jugador_id)` a secas porque quien se retira por una
   /// lesión y se recupera antes del cierre tiene que poder volver, y su fila se queda
   /// para que el club vea que se bajó.

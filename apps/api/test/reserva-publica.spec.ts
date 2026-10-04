@@ -160,7 +160,7 @@ describe('GET /api/reservas/publica/:token', () => {
       .expect(404);
   });
 
-  it('no acepta escritura, ni siquiera con el token correcto', async () => {
+  it('no cancela, ni siquiera con el token correcto', async () => {
     // Decisión tomada: **el QR no cancela**. El enlace se reenvía por WhatsApp y
     // queda en el historial del teléfono del mesón; con poder de cancelación,
     // perderlo de vista un segundo sería perder la hora. Quien reservó sin cuenta
