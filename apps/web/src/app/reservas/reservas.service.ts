@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { DuracionMin } from '../catalogo-canchas/disponibilidad';
 import { RedireccionAPasarela } from '../core/pagos/ir-a-pagar';
 
 /** Con quién juega el socio: otro socio por su número, o un invitado por su nombre. */
@@ -66,6 +67,7 @@ export class Reservas {
   reservarComoSocio(datos: {
     canchaId: number;
     inicio: string;
+    duracionMin: DuracionMin;
     acompanantes: AcompananteNuevo[];
   }): Promise<ReservaConfirmada> {
     return firstValueFrom(
@@ -77,6 +79,7 @@ export class Reservas {
   reservarComoNoSocio(datos: {
     canchaId: number;
     inicio: string;
+    duracionMin: DuracionMin;
     nombre: string;
     email: string;
     telefono: string;

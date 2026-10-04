@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
 import { hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
 import {
@@ -41,6 +42,8 @@ export interface ReservaDeSocio {
   canchaId: number;
   /** Instante de inicio del bloque, tal como lo devuelve la disponibilidad. */
   inicio: Date;
+  /** 1 hora o 1 hora y media (T83b). El socio no paga, así que no necesita precio. */
+  duracionMin: DuracionMin;
   acompanantes: AcompananteDeclarado[];
 }
 
@@ -90,6 +93,7 @@ export class ReservasService {
       datos.inicio,
       ahora,
       tomableHasta,
+      datos.duracionMin,
     );
 
     const socio = await this.prisma.socio.findUniqueOrThrow({
@@ -431,8 +435,10 @@ export class ReservasService {
     inicio: Date,
     ahora: Date,
     tomableHasta: TomableHasta,
+    // 60 por omisión: el mesón todavía no elige la duración. Lo hace T85.
+    duracionMin: DuracionMin = 60,
   ): Promise<{ inicio: Date; fin: Date; esPico: boolean }> {
-    const bloques = await this.disponibilidad.de(canchaId, fecha);
+    const bloques = await this.disponibilidad.de(canchaId, fecha, duracionMin);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
 
     if (!bloque) {

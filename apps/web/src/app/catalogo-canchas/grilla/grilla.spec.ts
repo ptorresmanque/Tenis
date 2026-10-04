@@ -65,6 +65,7 @@ describe('Grilla', () => {
   let navegar: ReturnType<typeof vi.fn>;
   let reportables: ReturnType<typeof vi.fn>;
   let reportar: ReturnType<typeof vi.fn>;
+  let pedirDia: ReturnType<typeof vi.fn>;
 
   /** `mover` es el id que llega por query string cuando se viene de "mis reservas". */
   const montar = async (
@@ -96,15 +97,12 @@ describe('Grilla', () => {
         'Gracias. Tu reporte es anónimo y lo revisa la administración del club.',
     });
 
+    pedirDia = vi.fn(() => (dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia)));
+
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        {
-          provide: Disponibilidad,
-          useValue: {
-            delDia: () => (dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia)),
-          },
-        },
+        { provide: Disponibilidad, useValue: { delDia: pedirDia } },
         { provide: Reservas, useValue: { mover } },
         { provide: ReportesDelSocio, useValue: { reportables, reportar } },
         {
@@ -414,6 +412,123 @@ describe('Grilla', () => {
       expect(filas[0]).toContain('Ya pasó');
       expect(filas[1]).toContain('Cancha 1');
       expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+    });
+  });
+
+  /**
+   * T83b. Se reserva 1 hora o 1 hora y media. La duración vive en la URL —como el modo
+   * "mover"— para que recargar o compartir el enlace no la pierda.
+   */
+  describe('la duración', () => {
+    const radio = (valor: string) =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+        `input[type="radio"][value="${valor}"]`,
+      );
+    const SIN_HORA_Y_MEDIA: GrillaDeCancha[] = [
+      {
+        cancha: DIA[0].cancha,
+        bloques: [
+          {
+            inicio: '2026-08-17T21:00:00.000Z',
+            fin: '2026-08-17T22:30:00.000Z',
+            canchaId: 1,
+            montoClp: null,
+            esPico: false,
+            bloqueado: false,
+            motivoBloqueo: null,
+            reservado: false,
+          },
+          {
+            inicio: '2026-08-17T12:00:00.000Z',
+            fin: '2026-08-17T13:30:00.000Z',
+            canchaId: 1,
+            montoClp: 16000,
+            esPico: false,
+            bloqueado: false,
+            motivoBloqueo: null,
+            reservado: false,
+          },
+        ],
+      },
+    ];
+    const etiquetas = () =>
+      bloques().map((b) => b.querySelector('button')?.getAttribute('aria-label') ?? '');
+
+    it('sin duración en la URL pide la grilla de 1 hora', () => {
+      expect(pedirDia).toHaveBeenCalledWith(expect.any(String), 60);
+      expect(radio('60')?.checked).toBe(true);
+    });
+
+    it('**con ?duracion=90 pide la grilla de 1 hora y media**', async () => {
+      await montar(DIA, { duracion: '90' });
+
+      expect(pedirDia).toHaveBeenCalledWith(expect.any(String), 90);
+      expect(radio('90')?.checked).toBe(true);
+    });
+
+    it('elegir 1 hora y media la deja en la URL, y volver a 1 hora la saca', () => {
+      radio('90')!.click();
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({
+          queryParams: { duracion: 90 },
+          queryParamsHandling: 'merge',
+        }),
+      );
+
+      radio('60')!.click();
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { duracion: null } }),
+      );
+    });
+
+    it('**al visitante no se le ofrece un inicio sin precio de 1 hora y media**', async () => {
+      // Sin `montoClp90` la franja no le vende la hora y media a quien no es socio (T79).
+      await montar(SIN_HORA_Y_MEDIA, { duracion: '90' });
+
+      expect(etiquetas()).toEqual([expect.stringContaining('de 08:00 a 09:30')]);
+      // Y la fila no dice "sin canchas libres", que sería falso: la cancha está libre.
+      expect(texto()).toContain('No se arrienda por 1 hora y media a esta hora');
+      expect(texto()).not.toContain('Sin canchas libres');
+    });
+
+    it('si en todo el día no hay hora y media para el visitante, lo dice una vez y ofrece la salida', async () => {
+      // Sin esto eran 27 filas con el mismo "no se arrienda": un callejón, como el filtro
+      // que no deja canchas.
+      const SIN_NINGUNA: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: SIN_HORA_Y_MEDIA[0].bloques.map((b) => ({ ...b, montoClp: null })),
+        },
+      ];
+      await montar(SIN_NINGUNA, { duracion: '90' });
+
+      expect(texto()).toContain('Este día no se arrienda 1 hora y media');
+      expect(texto()).not.toContain('No se arrienda por 1 hora y media a esta hora');
+
+      const salida = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Ver horas de 1 hora',
+      )!;
+      salida.click();
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { duracion: null } }),
+      );
+    });
+
+    it('al socio sí, porque no paga: y la etiqueta no le inventa un arriendo', async () => {
+      await montar(SIN_HORA_Y_MEDIA, { duracion: '90' }, { socioId: 7 });
+
+      expect(etiquetas()).toHaveLength(2);
+      const sinPrecio = etiquetas().find((e) => e.includes('de 17:00 a 18:30'))!;
+      expect(sinPrecio).not.toMatch(/arriendo/i);
+    });
+
+    it('al mover una reserva no ofrece elegir duración: mover la conserva', async () => {
+      await montar(DIA, { mover: '5' });
+
+      expect(radio('90')).toBeNull();
     });
   });
 
@@ -779,6 +894,18 @@ describe('Grilla', () => {
 
       expect(fixture.nativeElement.querySelector('app-barra-fija')).toBeNull();
       expect(fixture.nativeElement.querySelector('app-reservar')).toBeNull();
+    });
+
+    it('cambiar la duración suelta lo elegido: su fin y su precio eran de la otra', async () => {
+      await elegirPrimerBloque();
+
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLInputElement>('input[type="radio"][value="90"]')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-barra-fija')).toBeNull();
     });
 
     it('si la reserva ya no existe, lo dice con las palabras del servidor', async () => {

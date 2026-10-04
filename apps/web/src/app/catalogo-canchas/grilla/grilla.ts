@@ -12,7 +12,7 @@ import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
-import { BloqueDisponible, Cancha, Disponibilidad } from '../disponibilidad';
+import { BloqueDisponible, Cancha, Disponibilidad, DuracionMin } from '../disponibilidad';
 import {
   diaEnPalabras,
   enPesos,
@@ -41,6 +41,11 @@ export interface Franja {
   reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
   ocupadas: number;
   enMantencion: number;
+  /**
+   * Libres que a quien no es socio no se le venden: 1 hora y media en una franja sin ese
+   * precio (T79). Se cuentan para decirlo, en vez de que la fila diga "sin canchas libres".
+   */
+  soloSocios: number;
   esPico: boolean;
   /** Sin libres por haber pasado, que no es lo mismo que un club lleno. */
   yaPaso: boolean;
@@ -59,7 +64,12 @@ export interface Banda {
   /** Lo que oye el lector de pantalla en vez de "08 h". */
   nombre: string;
   franjas: Franja[];
-  /** El precio de todos sus inicios con canchas libres, o nulo si difieren o no hay. */
+  /**
+   * Si todos sus inicios con canchas libres dicen el mismo precio. Si no, cada fila dice
+   * el suyo y la banda calla.
+   */
+  precioComun: boolean;
+  /** Ese precio común; nulo si es que no se arrienda, con lo que la banda dice solo "socio". */
   precio: string | null;
   /** Si todos sus inicios son pico, o ninguno; nulo si difieren y lo dice cada fila. */
   pico: boolean | null;
@@ -182,6 +192,18 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
 
     <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
 
+    @if (moviendo() === null) {
+      <!-- Al mover no se ofrece: mover conserva la duración de la reserva, y la que se
+           muestra es la que trae el enlace de "mis reservas". -->
+      <app-selector
+        class="mt-4 block"
+        etiqueta="Duración"
+        [opciones]="DURACIONES"
+        [valor]="'' + duracion()"
+        (valorChange)="elegirDuracion($event)"
+      />
+    }
+
     <!-- Los filtros salen de lo que la cancha ya declara —techada e
          iluminación—, así que filtran en el navegador sobre lo que ya llegó:
          una consulta más al servidor no traería nada nuevo. -->
@@ -226,6 +248,22 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
             (click)="filtro.set('todas')"
           >
             Ver todas las canchas
+          </button>
+        </app-estado-vacio>
+      } @else if (sinHoraYMediaEnElDia()) {
+        <!-- Lo mismo que el filtro que no deja canchas: sin esto eran 27 filas con el
+             mismo "no se arrienda", y la salida no estaba en ninguna. -->
+        <app-estado-vacio
+          icono="schedule"
+          titulo="Este día no se arrienda 1 hora y media"
+          detalle="El club no la ofrece este día a quien no es socio."
+        >
+          <button
+            type="button"
+            class="boton boton-primario"
+            (click)="elegirDuracion('60')"
+          >
+            Ver horas de 1 hora
           </button>
         </app-estado-vacio>
       } @else {
@@ -286,7 +324,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
       </details>
     }
 
-    @for (banda of vigentes(); track banda.hora) {
+    @for (banda of sinHoraYMediaEnElDia() ? [] : vigentes(); track banda.hora) {
       <ng-container
         [ngTemplateOutlet]="bandaTpl"
         [ngTemplateOutletContext]="{ $implicit: banda }"
@@ -312,15 +350,17 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
           </h2>
 
           <!-- Lo que los dos inicios dicen igual se dice una vez (T83a). -->
-          @if (banda.precio !== null || banda.pico === true) {
+          @if (banda.precioComun || banda.pico === true) {
             <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
-              @if (banda.precio !== null) {
+              @if (banda.precioComun) {
                 <span class="text-muted-foreground">Socio {{ tarifaDelSocio }}</span>
-                <span class="text-muted-foreground" aria-hidden="true">·</span>
-                <span class="text-muted-foreground">
-                  Arriendo
-                  <strong class="text-accent-strong">{{ banda.precio }}</strong>
-                </span>
+                @if (banda.precio !== null) {
+                  <span class="text-muted-foreground" aria-hidden="true">·</span>
+                  <span class="text-muted-foreground">
+                    Arriendo
+                    <strong class="text-accent-strong">{{ banda.precio }}</strong>
+                  </span>
+                }
               }
               @if (banda.pico === true) {
                 <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
@@ -349,15 +389,21 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
                 {{ franja.libres.length }}
                 {{ franja.libres.length === 1 ? 'libre' : 'libres' }}
               </span>
-              @if (banda.precio === null) {
+              @if (!banda.precioComun) {
                 <!-- Este inicio cae en otra franja que su hermano: dice lo suyo. -->
                 <span class="text-sm text-muted-foreground">
-                  Socio {{ tarifaDelSocio }} · Arriendo
-                  <strong class="text-accent-strong">
-                    {{ precioDeLaHora(franja.libres) }}
-                  </strong>
+                  Socio {{ tarifaDelSocio }}
+                  @if (precioDeLaHora(franja.libres); as precio) {
+                    · Arriendo <strong class="text-accent-strong">{{ precio }}</strong>
+                  }
                 </span>
               }
+            } @else if (franja.soloSocios > 0 && !franja.yaPaso) {
+              <!-- Hay canchas libres, pero esta duración no se le vende a quien no es
+                   socio: "sin canchas libres" sería falso. -->
+              <span class="text-sm font-medium text-muted-foreground">
+                No se arrienda por 1 hora y media a esta hora
+              </span>
             } @else {
               <span class="text-sm font-medium text-muted-foreground">
                 {{ franja.yaPaso ? 'Ya pasó' : 'Sin canchas libres' }}
@@ -475,10 +521,13 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
             {{ hora(eleccion.bloque.inicio) }}–{{ hora(eleccion.bloque.fin) }}
           </p>
           <p class="mt-1 text-sm text-muted-foreground">
-            Socio {{ tarifaDelSocio }} · Arriendo
-            <span class="font-semibold text-accent-strong">
-              {{ pesos(eleccion.bloque.montoClp) }}
-            </span>
+            Socio {{ tarifaDelSocio }}
+            @if (eleccion.bloque.montoClp !== null) {
+              · Arriendo
+              <span class="font-semibold text-accent-strong">
+                {{ pesos(eleccion.bloque.montoClp) }}
+              </span>
+            }
             @if (eleccion.bloque.esPico) {
               · Hora pico
             }
@@ -500,6 +549,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
       <app-reservar
         [cancha]="eleccion.cancha"
         [bloque]="eleccion.bloque"
+        [duracion]="duracion()"
         (cerrar)="reservando.set(null)"
         (reservado)="confirmar($event)"
       />
@@ -553,7 +603,8 @@ export class Grilla {
   private readonly reportes = inject(ReportesDelSocio);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
-  private readonly parametros = toSignal(inject(ActivatedRoute).queryParamMap);
+  private readonly ruta = inject(ActivatedRoute);
+  private readonly parametros = toSignal(this.ruta.queryParamMap);
 
   protected readonly fecha = signal(hoyEnElClub());
 
@@ -569,13 +620,26 @@ export class Grilla {
     return Number.isInteger(id) && id > 0 ? id : null;
   });
 
+  /**
+   * Cuánto dura la reserva que se busca (T83b). Vive en la URL, como `mover`: recargar no
+   * la pierde y el enlace compartido muestra lo mismo. Sin el parámetro, 1 hora.
+   */
+  protected readonly duracion = computed<DuracionMin>(() =>
+    this.parametros()?.get('duracion') === '90' ? 90 : 60,
+  );
+
+  protected readonly DURACIONES = [
+    { valor: '60', etiqueta: '1 hora' },
+    { valor: '90', etiqueta: '1 hora y media' },
+  ];
+
   protected readonly errorAlMover = signal<string | null>(null);
   protected readonly avisoDeReporte = signal<string | null>(null);
   protected readonly enviandoMovimiento = signal(false);
 
   protected readonly grillas = resource({
-    params: () => ({ fecha: this.fecha() }),
-    loader: ({ params }) => this.disponibilidad.delDia(params.fecha),
+    params: () => ({ fecha: this.fecha(), duracion: this.duracion() }),
+    loader: ({ params }) => this.disponibilidad.delDia(params.fecha, params.duracion),
     // El valor por defecto evita el `undefined` mientras carga, pero **no** que
     // `value()` lance cuando la carga falla: lo que lo lee fuera de la rama del
     // error pregunta antes `hasValue()`.
@@ -698,6 +762,7 @@ export class Grilla {
           reportables: [],
           ocupadas: 0,
           enMantencion: 0,
+          soloSocios: 0,
           esPico: bloque.esPico,
           yaPaso: yaEmpezo(bloque),
         };
@@ -706,7 +771,11 @@ export class Grilla {
         else if (bloque.reservado) {
           franja.ocupadas++;
           if (this.reportable(bloque)) franja.reportables.push({ cancha, bloque });
-        } else if (!yaEmpezo(bloque)) franja.libres.push({ cancha, bloque });
+        } else if (!yaEmpezo(bloque)) {
+          // Lo único que queda por lo que no se pueda tomar es el precio que falta.
+          if (this.noSePuedeTomar(bloque)) franja.soloSocios++;
+          else franja.libres.push({ cancha, bloque });
+        }
 
         horas.set(bloque.inicio, franja);
       }
@@ -734,6 +803,7 @@ export class Grilla {
       const precios = new Set(
         franjas.filter((f) => f.libres.length > 0).map((f) => this.precioDeLaHora(f.libres)),
       );
+      const precioComun = precios.size === 1;
       const picos = new Set(franjas.map((f) => f.esPico));
       const mantenciones = new Set(franjas.map((f) => f.enMantencion));
       const mantencion = mantenciones.size === 1 ? [...mantenciones][0] : 0;
@@ -742,7 +812,8 @@ export class Grilla {
         hora,
         nombre: `A las ${Number(hora)}`,
         franjas,
-        precio: precios.size === 1 ? [...precios][0] : null,
+        precioComun,
+        precio: precioComun ? [...precios][0] : null,
         pico: picos.size === 1 ? [...picos][0] : null,
         enMantencion: mantencion > 0 ? mantencion : null,
       };
@@ -762,6 +833,20 @@ export class Grilla {
   protected readonly vigentes = computed(() =>
     this.bandas().filter((banda) => banda.franjas.some((franja) => !franja.yaPaso)),
   );
+
+  /**
+   * Al visitante no le queda en el día ningún inicio de 1 hora y media que se le venda, y
+   * alguno estaba libre: lo que falta es el precio, no canchas (T83b). `soloSocios` no
+   * cuenta nada para el socio ni con 1 hora.
+   */
+  protected readonly sinHoraYMediaEnElDia = computed(() => {
+    const quedan = this.porHora().filter((franja) => !franja.yaPaso);
+
+    return (
+      quedan.some((franja) => franja.soloSocios > 0) &&
+      quedan.every((franja) => franja.libres.length === 0)
+    );
+  });
 
   /**
    * Si dentro del pliegue hay una hora propia que todavía se puede reportar.
@@ -788,8 +873,15 @@ export class Grilla {
    * por cancha, se dice "desde" y el monto de cada una viaja en su etiqueta
    * accesible, que es donde ya estaba.
    */
-  protected precioDeLaHora(libres: { bloque: BloqueDisponible }[]): string {
-    const montos = [...new Set(libres.map(({ bloque }) => bloque.montoClp))];
+  protected precioDeLaHora(libres: { bloque: BloqueDisponible }[]): string | null {
+    const montos = [
+      ...new Set(
+        libres.map(({ bloque }) => bloque.montoClp).filter((monto) => monto !== null),
+      ),
+    ];
+
+    // Ninguna con precio: es la hora y media que solo ve el socio, y no hay arriendo.
+    if (montos.length === 0) return null;
 
     return montos.length === 1
       ? enPesos(montos[0])
@@ -846,7 +938,13 @@ export class Grilla {
   }
 
   protected noSePuedeTomar(bloque: BloqueDisponible): boolean {
-    return bloque.bloqueado || bloque.reservado || yaEmpezo(bloque);
+    return (
+      bloque.bloqueado ||
+      bloque.reservado ||
+      yaEmpezo(bloque) ||
+      // Sin precio de esa duración no se le vende a quien no es socio (T79, T83b).
+      (bloque.montoClp === null && !this.esSocio())
+    );
   }
 
   /**
@@ -862,8 +960,9 @@ export class Grilla {
 
     return (
       `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
-      `${this.hora(bloque.fin)}, socio ${TARIFA_DEL_SOCIO}, ` +
-      `arriendo ${this.pesos(bloque.montoClp)}` +
+      `${this.hora(bloque.fin)}, socio ${TARIFA_DEL_SOCIO}` +
+      // Sin precio de esa duración no hay arriendo que anunciar: solo lo ve el socio.
+      (bloque.montoClp !== null ? `, arriendo ${this.pesos(bloque.montoClp)}` : '') +
       (bloque.esPico ? ', hora pico' : '')
     );
   }
@@ -915,6 +1014,18 @@ export class Grilla {
     this.elegido.set(null);
     void this.router.navigate(['/reservas/confirmacion'], {
       queryParams: { folio: reserva.folio, t: reserva.token },
+    });
+  }
+
+  protected elegirDuracion(valor: string): void {
+    // Lo marcado era un bloque de la otra duración: su fin y su precio ya no valen.
+    this.elegido.set(null);
+    void this.router.navigate([], {
+      relativeTo: this.ruta,
+      // Nulo la saca de la URL: 1 hora es la de siempre y no necesita decirse.
+      queryParams: { duracion: valor === '90' ? 90 : null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 

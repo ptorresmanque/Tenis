@@ -256,6 +256,21 @@ describe('MisReservas', () => {
     expect(boton('Cancelar')).toBeDefined();
   });
 
+  it('cambiar la hora de una reserva de 1 hora y media busca horas de 1 hora y media', async () => {
+    // Mover conserva la duración: una grilla de 1 hora le ofrecería inicios donde los
+    // 90 minutos chocan con la reserva siguiente, y la API los rechazaría todos.
+    const enlace = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a')).find(
+        (a) => (a.textContent ?? '').includes('Cambiar la hora'),
+      )!;
+
+    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7');
+
+    await montar([{ ...UNA, fin: '2026-09-07T13:30:00.000Z' }]);
+
+    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7&duracion=90');
+  });
+
   it('antes de confirmar avisa que no hay plata que devolver', async () => {
     await apretar('Cancelar');
 

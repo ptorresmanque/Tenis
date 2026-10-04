@@ -47,10 +47,11 @@ describe('Reservar', () => {
     socios: vi.fn(),
   };
 
-  const montar = () => {
+  const montar = (duracion?: 60 | 90) => {
     const fixture = TestBed.createComponent(Reservar);
     fixture.componentRef.setInput('cancha', cancha);
     fixture.componentRef.setInput('bloque', bloque);
+    if (duracion) fixture.componentRef.setInput('duracion', duracion);
     fixture.detectChanges();
 
     return fixture;
@@ -252,6 +253,62 @@ describe('Reservar', () => {
     await fixture.whenStable();
 
     expect(cerrado).toBe(true);
+  });
+
+  it('**manda la duración elegida en la grilla: el socio** (T83b)', async () => {
+    usuario.set({ socioId: 4 });
+    reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
+
+    const fixture = montar(90);
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+      expect.objectContaining({ duracionMin: 90 }),
+    );
+  });
+
+  it('**y el visitante** (T83b)', async () => {
+    usuario.set({
+      socioId: null,
+      nombre: 'Patricio',
+      apellido: 'Manquepillán',
+      email: 'patricio@ejemplo.cl',
+      telefono: '+56 9 1111 2222',
+    });
+    // Rechazado a propósito: así no sale a la pasarela, que en jsdom no existe.
+    reservas.reservarComoNoSocio.mockRejectedValue({
+      status: 409,
+      error: { motivo: 'BLOQUE_TOMADO', message: 'La tomaron.' },
+    });
+
+    const fixture = montar(90);
+    await fixture.whenStable();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(reservas.reservarComoNoSocio).toHaveBeenCalledWith(
+      expect.objectContaining({ duracionMin: 90 }),
+    );
+  });
+
+  it('sin duración manda 1 hora, como siempre', async () => {
+    usuario.set({ socioId: 4 });
+    reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
+
+    const fixture = montar();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+      expect.objectContaining({ duracionMin: 60 }),
+    );
   });
 
   it('el rechazo del servidor se muestra tal como viene escrito', async () => {

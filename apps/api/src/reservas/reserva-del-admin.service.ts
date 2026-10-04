@@ -160,6 +160,8 @@ export class ReservaDelAdminService {
       {
         canchaId: datos.canchaId,
         inicio: datos.inicio,
+        // El mesón elige la duración en T85; hasta entonces, 1 hora como siempre.
+        duracionMin: 60,
         acompanantes: datos.acompanantes ?? [],
       },
       ahora,

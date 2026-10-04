@@ -18,7 +18,7 @@ import {
 
 import { Auth } from '../core/auth/auth';
 import { irAPagar } from '../core/pagos/ir-a-pagar';
-import { BloqueDisponible, Cancha } from '../catalogo-canchas/disponibilidad';
+import { BloqueDisponible, Cancha, DuracionMin } from '../catalogo-canchas/disponibilidad';
 import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
 import {
   AcompananteNuevo,
@@ -59,10 +59,13 @@ import {
           {{ cancha().nombre }} · {{ hora(bloque().inicio) }}–{{ hora(bloque().fin) }}
         </p>
 
-        @if (!esSocio()) {
+        <!-- Sin precio no llega: la grilla no le ofrece al visitante una duración que esa
+             franja no vende (T83b). -->
+        @let arriendo = bloque().montoClp;
+        @if (!esSocio() && arriendo !== null) {
           <!-- En azul y no en verde: el verde quedó para "libre" (decisión 6). -->
           <p class="mt-2 font-display text-3xl font-bold text-primary">
-            {{ pesos(bloque().montoClp) }}
+            {{ pesos(arriendo) }}
           </p>
         }
 
@@ -241,6 +244,8 @@ import {
 export class Reservar {
   readonly cancha = input.required<Cancha>();
   readonly bloque = input.required<BloqueDisponible>();
+  /** La que eligió en la grilla. El bloque ya la trae en su fin; la API la pide aparte. */
+  readonly duracion = input<DuracionMin>(60);
 
   readonly cerrar = output<void>();
   /** El folio y el token de la reserva recién creada, para la confirmación. */
@@ -390,6 +395,7 @@ export class Reservar {
         const reserva = await this.reservas.reservarComoSocio({
           canchaId: this.cancha().id,
           inicio: this.bloque().inicio,
+          duracionMin: this.duracion(),
           acompanantes: this.acompanantes(),
         });
 
@@ -398,6 +404,7 @@ export class Reservar {
         const pago = await this.reservas.reservarComoNoSocio({
           canchaId: this.cancha().id,
           inicio: this.bloque().inicio,
+          duracionMin: this.duracion(),
           ...this.formulario.getRawValue(),
         });
 

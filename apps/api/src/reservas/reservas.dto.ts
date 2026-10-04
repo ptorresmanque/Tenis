@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { AcompananteDeclarado } from './cupo';
+import { leerDuracion } from './duracion';
 import { ReservaDeSocio } from './reservas.service';
 
 /**
@@ -17,6 +18,7 @@ export function reservaDeSocioDeCuerpo(cuerpo: unknown): ReservaDeSocio {
   return {
     canchaId: entero(datos.canchaId, 'La cancha'),
     inicio: instante(datos.inicio),
+    duracionMin: leerDuracion(datos.duracionMin),
     acompanantes: acompanantes(datos.acompanantes),
   };
 }

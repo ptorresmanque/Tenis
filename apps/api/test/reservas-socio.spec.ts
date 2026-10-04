@@ -205,6 +205,25 @@ describe('POST /api/reservas — reserva de socio', () => {
     ).toMatchObject({ telefono: '+56911112222' });
   });
 
+  it('**el socio reserva 1 hora y media, aunque la franja no la venda a quien no es socio** (T83b)', async () => {
+    // El socio no paga la hora, así que el precio de 1 hora y media no le hace falta.
+    const respuesta = await reservar(unaReserva({ duracionMin: 90 }));
+
+    expect(respuesta.status).toBe(201);
+    const reserva = await prisma.reserva.findUniqueOrThrow({
+      where: { id: (respuesta.body as { id: number }).id },
+    });
+    expect(reserva.fin.getTime() - reserva.inicio.getTime()).toBe(
+      90 * 60 * 1000,
+    );
+  });
+
+  it('una duración ilegible responde 400 también al socio (T83b)', async () => {
+    const respuesta = await reservar(unaReserva({ duracionMin: 45 }));
+
+    expect(respuesta.status).toBe(400);
+  });
+
   it('la segunda reserva del día se rechaza con el límite y cuándo se renueva', async () => {
     await reservar(unaReserva());
 

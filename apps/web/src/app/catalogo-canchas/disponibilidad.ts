@@ -11,12 +11,19 @@ export interface Cancha {
   iluminacion: boolean;
 }
 
+/** Lo que dura una reserva: 1 hora o 1 hora y media (T83b). */
+export type DuracionMin = 60 | 90;
+
 /** Espejo de `BloqueDisponible` en la API. Las fechas llegan como ISO en UTC. */
 export interface BloqueDisponible {
   inicio: string;
   fin: string;
   canchaId: number;
-  montoClp: number;
+  /**
+   * Lo que paga quien no es socio. Nulo con 1 hora y media en una franja que no la vende
+   * (T79): ahí la grilla no se la ofrece al visitante, y al socio sí, porque no paga.
+   */
+  montoClp: number | null;
   esPico: boolean;
   bloqueado: boolean;
   motivoBloqueo: string | null;
@@ -53,9 +60,11 @@ export class Disponibilidad {
    * exactamente lo mismo que preguntar cancha por cancha —hay un test de la API
    * que compara las dos respuestas—.
    */
-  delDia(fecha: string): Promise<GrillaDeCancha[]> {
+  delDia(fecha: string, duracionMin: DuracionMin = 60): Promise<GrillaDeCancha[]> {
     return firstValueFrom(
-      this.http.get<GrillaDeCancha[]>('/api/disponibilidad', { params: { fecha } }),
+      this.http.get<GrillaDeCancha[]>('/api/disponibilidad', {
+        params: { fecha, duracion: duracionMin },
+      }),
     );
   }
 }
