@@ -78,7 +78,7 @@ export class RetornoDeDiferencia {
 
     // Ya resuelta: es una recarga de la página de vuelta, y se responde con lo que pasó.
     if (transaccion.estado !== EstadoTransaccion.PENDIENTE) {
-      return this.yaResuelta(transaccion, antes.token);
+      return this.yaResuelta(transaccion, antes);
     }
 
     // **Solo se confirma el pago del cambio en curso.** Otro —una diferencia que un pedido
@@ -212,8 +212,9 @@ export class RetornoDeDiferencia {
       requiereRevision: boolean;
       montoClp: number;
     },
-    token: string,
+    reserva: { token: string; cambioTransaccionId: number | null },
   ): Promise<VueltaDeDiferencia> {
+    const { token } = reserva;
     const compra = await this.prisma.transaccion.findFirst({
       where: { concepto: 'RESERVA', conceptoId: transaccion.conceptoId },
       orderBy: { id: 'asc' },
@@ -230,6 +231,18 @@ export class RetornoDeDiferencia {
 
     switch (transaccion.estado) {
       case EstadoTransaccion.AUTORIZADA:
+        // Cobrada y con `cambio*` todavía apuntándole: el efecto no pudo mover y la
+        // devolución no terminó —la primera vuelta la está esperando, o el proceso se
+        // cayó antes—. Se devuelve acá; anular es idempotente y con lock, así que no
+        // sale dos veces.
+        //
+        // `ponytail: si nadie recarga después de una caída, la diferencia queda cobrada
+        // sin rastro hasta que la persona llame. La salida es que el barrido reintente
+        // las autorizadas que `cambio*` sigue nombrando.`
+        if (reserva.cambioTransaccionId === transaccion.id) {
+          return this.devolverLaDiferencia(transaccion, token);
+        }
+
         return { estado: 'CAMBIADA', token, motivo: null };
       // Anulada es la diferencia devuelta porque la hora se tomó (T90): la recarga
       // dice lo mismo que la primera vez.

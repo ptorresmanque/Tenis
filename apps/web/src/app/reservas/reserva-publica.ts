@@ -218,6 +218,15 @@ export class ReservaPublicaPagina {
       };
     }
 
+    // El monto que volvió no cuadra: Webpay cobró, el cambio no se aplicó y el club lo
+    // revisa. Decir "no se completó" sería negar un cobro que la persona ve en su banco.
+    if (cambio === 'en_revision') {
+      return {
+        variante: 'aviso' as const,
+        texto: 'Recibimos tu pago, pero quedó en revisión con el club: tu reserva sigue igual.',
+      };
+    }
+
     if (cambio === 'anulado') {
       return {
         variante: 'info' as const,

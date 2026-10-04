@@ -185,6 +185,14 @@ describe('ReservaPublicaPagina', () => {
       expect(texto()).not.toContain('te devolvimos');
     });
 
+    it('**cobrado y en revisión no dice que el pago no se completó**', async () => {
+      // El monto que no cuadra: Webpay cobró y el club tiene que mirarlo (revisión de T91).
+      await montar(UNA, undefined, { cambio: 'en_revision' });
+
+      expect(texto()).toContain('quedó en revisión con el club');
+      expect(texto()).not.toContain('no se completó');
+    });
+
     it('anulado en Webpay: la reserva sigue igual', async () => {
       await montar(UNA, undefined, { cambio: 'anulado' });
 

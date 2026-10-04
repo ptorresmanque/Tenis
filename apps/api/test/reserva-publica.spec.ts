@@ -471,6 +471,88 @@ describe('GET /api/reservas/publica/:token', () => {
         new RegExp(`/r/${reserva.token}\\?cambio=hora_tomada&devuelto=4000$`),
       );
     });
+
+    it('**autorizada sin mover y sin devolver todavía no es "hecho": se devuelve en la recarga** (revisión de T90)', async () => {
+      // Lo que ve una recarga mientras la primera vuelta espera la devolución, o la que
+      // llega después de que el proceso se cayó entre el commit y la devolución.
+      const cancha = await prisma.cancha.create({
+        data: {
+          nombre: `${NOMBRE_CANCHA} 90 recarga`,
+          superficie: Superficie.CEMENTO,
+          activa: true,
+          horarios: {
+            create: [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({
+              diaSemana,
+              horaApertura: '08:00',
+              horaCierre: '22:00',
+            })),
+          },
+          franjas: {
+            create: {
+              horaDesde: '08:00',
+              horaHasta: '22:00',
+              montoClp: 12000,
+              montoClp90: 16000,
+              vigenteDesde: new Date('2026-01-01'),
+            },
+          },
+        },
+        select: { id: true },
+      });
+      const inicio = new Date('2037-09-14T21:00:00.000Z');
+      const reserva = await prisma.reserva.create({
+        data: {
+          folio: 'QT90REC',
+          canchaId: cancha.id,
+          inicio,
+          fin: new Date(inicio.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          nombre: 'Camila Rojas',
+          email: `camila${DOMINIO}`,
+          telefono: '+56955556666',
+        },
+        select: { id: true, token: true },
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `QR-T90R-${reserva.id}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.AUTORIZADA,
+          inicioBloqueOriginal: inicio,
+        },
+      });
+      const pago = await request(app.getHttpServer())
+        .post(`/api/reservas/publica/${reserva.token}/diferencia`)
+        .send({
+          canchaId: cancha.id,
+          inicio: inicio.toISOString(),
+          duracionMin: 90,
+        })
+        .expect(201);
+      const { tokenPasarela } = pago.body as { tokenPasarela: string };
+      // Webpay cobró y la base lo anotó, pero la hora ya no estaba y la devolución no
+      // alcanzó a salir: `cambio*` sigue apuntando a este pago.
+      await app.get(PasarelaPago).confirmar(tokenPasarela);
+      await prisma.transaccion.update({
+        where: { tokenPasarela },
+        data: { estado: EstadoTransaccion.AUTORIZADA },
+      });
+
+      const vuelta = await request(app.getHttpServer())
+        .get(`/api/reservas/retorno-diferencia?token_ws=${tokenPasarela}`)
+        .expect(302);
+
+      expect(vuelta.headers.location).toMatch(
+        new RegExp(`/r/${reserva.token}\\?cambio=hora_tomada&devuelto=4000$`),
+      );
+      const diferencia = await prisma.transaccion.findUniqueOrThrow({
+        where: { tokenPasarela },
+      });
+      expect(diferencia.estado).toBe(EstadoTransaccion.ANULADA);
+    });
   });
 
   it('la reserva cancelada se puede mirar, y lo dice', async () => {
