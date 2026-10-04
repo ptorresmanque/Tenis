@@ -1512,6 +1512,99 @@ describe('Modificación y cancelación de reservas', () => {
         });
       });
 
+      describe('el destino es del pago que lo paga (revisión de T89)', () => {
+        // Dos pedidos a la vez desde el mismo enlace pasan los dos el chequeo de "pago en
+        // curso" antes de que exista alguna transacción. Sin atar el destino a su pago,
+        // pagar el barato movía la reserva al destino del caro.
+        const otroDestinoSinPagar = async (
+          reservaId: number,
+          cancha: number,
+        ) => {
+          const inicio = new Date(LUNES_18.getTime() - 2 * 60 * 60 * 1000);
+          const otro = await prisma.transaccion.create({
+            data: {
+              referencia: `T89-otro-${reservaId}-${Date.now()}`,
+              concepto: ConceptoPago.RESERVA,
+              conceptoId: reservaId,
+              montoClp: 15000,
+              pasarela: 'doble',
+              estado: EstadoTransaccion.PENDIENTE,
+            },
+          });
+          await prisma.reserva.update({
+            where: { id: reservaId },
+            data: {
+              cambioCanchaId: cancha,
+              cambioInicio: inicio,
+              cambioFin: new Date(inicio.getTime() + 90 * 60 * 1000),
+              cambioTransaccionId: otro.id,
+            },
+          });
+
+          return otro;
+        };
+
+        it('**pagar la diferencia de un destino que ya no es el pedido no mueve la reserva ni se cobra**', async () => {
+          const { reserva, pago } = await alargarYPagar();
+          await otroDestinoSinPagar(reserva.id, reserva.canchaId);
+
+          const vuelta = await retornoDeDiferencia.confirmar(
+            pago.tokenPasarela,
+          );
+
+          expect(vuelta).toMatchObject({
+            estado: 'SIN_CAMBIO',
+            motivo: 'no_corresponde',
+          });
+          expect(await laReserva(reserva.id)).toMatchObject({
+            inicio: reserva.inicio,
+            fin: reserva.fin,
+          });
+          // Sin commit en la pasarela no hay cobro: la transacción sigue PENDIENTE y la
+          // expira el barrido.
+          expect(
+            await prisma.transaccion.findUniqueOrThrow({
+              where: { id: pago.transaccionId },
+            }),
+          ).toMatchObject({ estado: EstadoTransaccion.PENDIENTE });
+          expect(pasarela.confirmaciones).not.toContain(pago.tokenPasarela);
+        });
+
+        it('el token de la compra por esta ruta no dice "cambio hecho"', async () => {
+          // La compra ya está autorizada: con su token armado a mano en la ruta de la
+          // diferencia, decir que el cambio se hizo sería mentir.
+          const { reserva } = await alargarYPagar();
+          const compra = await prisma.transaccion.findFirstOrThrow({
+            where: { conceptoId: reserva.id },
+            orderBy: { id: 'asc' },
+          });
+
+          const vuelta = await retornoDeDiferencia.confirmar(
+            compra.tokenPasarela!,
+          );
+
+          expect(vuelta).toMatchObject({
+            estado: 'SIN_CAMBIO',
+            motivo: 'no_corresponde',
+          });
+        });
+
+        it('la anulación de otro pago no borra el cambio vigente', async () => {
+          const { reserva, pago } = await alargarYPagar();
+          const otro = await otroDestinoSinPagar(reserva.id, reserva.canchaId);
+          const { referencia } = await prisma.transaccion.findUniqueOrThrow({
+            where: { id: pago.transaccionId },
+          });
+
+          await retornoDeDiferencia.anular(referencia);
+
+          // El destino del pago vigente sigue ahí, con su pago.
+          const despues = await laReserva(reserva.id);
+          expect(despues.cambioTransaccionId).toBe(otro.id);
+          expect(despues.cambioInicio).not.toBeNull();
+        });
+      });
+
       it('una segunda vuelta del mismo pago no vuelve a mover nada', async () => {
         const { reserva, pago } = await alargarYPagar();
         await retornoDeDiferencia.confirmar(pago.tokenPasarela);

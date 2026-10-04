@@ -254,16 +254,6 @@ export class ModificacionService {
       });
     }
 
-    await this.prisma.reserva.update({
-      where: { id: reserva.id },
-      data: {
-        cambioCanchaId: bloque.canchaId,
-        cambioInicio: bloque.inicio,
-        cambioFin: bloque.fin,
-        cambioEsPico: bloque.esPico,
-      },
-    });
-
     const compra = await this.prisma.transaccion.findFirstOrThrow({
       where: {
         concepto: 'RESERVA',
@@ -281,6 +271,21 @@ export class ModificacionService {
       montoClp: cuenta.diferencia,
       inicioBloqueOriginal: compra.inicioBloqueOriginal ?? reserva.inicio,
       urlRetorno,
+    });
+
+    // **Después del pago y con su id**, antes de responder la URL de Webpay: nadie paga
+    // sin que el destino esté escrito, y el destino queda atado a este pago. Dos pedidos a
+    // la vez pasan los dos el chequeo de "pago en curso"; sin el id, el último en escribir
+    // dejaba su destino, y pagar el barato movía la reserva al destino del caro.
+    await this.prisma.reserva.update({
+      where: { id: reserva.id },
+      data: {
+        cambioCanchaId: bloque.canchaId,
+        cambioInicio: bloque.inicio,
+        cambioFin: bloque.fin,
+        cambioEsPico: bloque.esPico,
+        cambioTransaccionId: pago.transaccionId,
+      },
     });
 
     return { ...pago, montoClp: cuenta.diferencia };

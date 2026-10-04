@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { Prisma } from '../generated/prisma/client';
+import { EstadoTransaccion, Prisma } from '../generated/prisma/client';
 import { ConfirmacionService } from '../pagos/confirmacion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
@@ -18,6 +18,7 @@ const SIN_CAMBIO_PENDIENTE = {
   cambioInicio: null,
   cambioFin: null,
   cambioEsPico: null,
+  cambioTransaccionId: null,
 };
 
 /**
@@ -44,10 +45,16 @@ export class RetornoDeDiferencia {
   async confirmar(tokenPasarela: string): Promise<VueltaDeDiferencia> {
     const transaccion = await this.prisma.transaccion.findUnique({
       where: { tokenPasarela },
-      select: { conceptoId: true },
+      select: {
+        id: true,
+        conceptoId: true,
+        concepto: true,
+        estado: true,
+        requiereRevision: true,
+      },
     });
 
-    if (!transaccion) {
+    if (!transaccion || transaccion.concepto !== 'RESERVA') {
       this.log.warn(
         'Volvió el pago de una diferencia con un token que no reconocemos.',
       );
@@ -56,12 +63,33 @@ export class RetornoDeDiferencia {
 
     const antes = await this.prisma.reserva.findUniqueOrThrow({
       where: { id: transaccion.conceptoId },
-      select: { token: true, inicio: true },
+      select: { token: true, inicio: true, cambioTransaccionId: true },
     });
+
+    // Ya resuelta: es una recarga de la página de vuelta, y se responde con lo que pasó.
+    if (transaccion.estado !== EstadoTransaccion.PENDIENTE) {
+      return this.yaResuelta(transaccion, antes.token);
+    }
+
+    // **Solo se confirma el pago del cambio en curso.** Otro —una diferencia que un pedido
+    // simultáneo dejó sin destino, o el pago original llamado por esta ruta— no se
+    // confirma: sin commit en Webpay no hay cobro, y el barrido lo expira. Confirmarlo
+    // sería cobrar sin mover nada.
+    if (antes.cambioTransaccionId !== transaccion.id) {
+      this.log.warn(
+        `El pago ${transaccion.id} volvió por la ruta de la diferencia sin ser el ` +
+          'cambio en curso de su reserva. No se confirma.',
+      );
+      return {
+        estado: 'SIN_CAMBIO',
+        token: antes.token,
+        motivo: 'no_corresponde',
+      };
+    }
 
     const resultado = await this.confirmacion.confirmar(
       tokenPasarela,
-      (tx, pago) => aplicarElCambio(tx, pago.conceptoId),
+      (tx, pago) => aplicarElCambio(tx, pago.conceptoId, pago.id),
     );
 
     // Con el monto que no cuadra, `pagos` la deja AUTORIZADA para revisión y sin aplicar
@@ -79,7 +107,7 @@ export class RetornoDeDiferencia {
       return { estado: 'CAMBIADA', token: antes.token, motivo: null };
     }
 
-    await this.olvidarElCambio(transaccion.conceptoId);
+    await this.olvidarElCambio(transaccion.conceptoId, transaccion.id);
 
     return {
       estado: 'SIN_CAMBIO',
@@ -104,14 +132,14 @@ export class RetornoDeDiferencia {
   async anular(referencia: string): Promise<VueltaDeDiferencia> {
     const transaccion = await this.prisma.transaccion.findUnique({
       where: { referencia },
-      select: { conceptoId: true },
+      select: { id: true, conceptoId: true, concepto: true },
     });
 
-    if (!transaccion) {
+    if (!transaccion || transaccion.concepto !== 'RESERVA') {
       return { estado: 'SIN_CAMBIO', token: null, motivo: 'anulado' };
     }
 
-    await this.olvidarElCambio(transaccion.conceptoId);
+    await this.olvidarElCambio(transaccion.conceptoId, transaccion.id);
 
     const reserva = await this.prisma.reserva.findUnique({
       where: { id: transaccion.conceptoId },
@@ -125,10 +153,47 @@ export class RetornoDeDiferencia {
     };
   }
 
-  /** Las columnas `cambio*` se limpian en la vuelta, sea cual sea (`SPEC-reservas.md`). */
-  private async olvidarElCambio(reservaId: number): Promise<void> {
+  /**
+   * Lo que pasó con un pago que ya volvió antes. **La compra nunca es un cambio**, aunque
+   * esté autorizada: con su token armado a mano en esta ruta, decir "cambio hecho" sería
+   * mentir. Es la primera transacción de la reserva.
+   */
+  private async yaResuelta(
+    transaccion: {
+      id: number;
+      conceptoId: number;
+      estado: EstadoTransaccion;
+      requiereRevision: boolean;
+    },
+    token: string,
+  ): Promise<VueltaDeDiferencia> {
+    const compra = await this.prisma.transaccion.findFirst({
+      where: { concepto: 'RESERVA', conceptoId: transaccion.conceptoId },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+
+    const cambiada =
+      transaccion.estado === EstadoTransaccion.AUTORIZADA &&
+      !transaccion.requiereRevision &&
+      compra?.id !== transaccion.id;
+
+    return cambiada
+      ? { estado: 'CAMBIADA', token, motivo: null }
+      : { estado: 'SIN_CAMBIO', token, motivo: 'no_corresponde' };
+  }
+
+  /**
+   * Las columnas `cambio*` se limpian en la vuelta (`SPEC-reservas.md`), si son de este
+   * pago.
+   */
+  private async olvidarElCambio(
+    reservaId: number,
+    transaccionId: number,
+  ): Promise<void> {
+    // Solo si el cambio es de este pago: la vuelta de otro no borra el cambio vigente.
     await this.prisma.reserva.updateMany({
-      where: { id: reservaId },
+      where: { id: reservaId, cambioTransaccionId: transaccionId },
       data: SIN_CAMBIO_PENDIENTE,
     });
   }
@@ -143,12 +208,16 @@ export class RetornoDeDiferencia {
 async function aplicarElCambio(
   tx: Prisma.TransactionClient,
   reservaId: number,
+  transaccionId: number,
 ): Promise<void> {
   const reserva = await tx.reserva.findUniqueOrThrow({
     where: { id: reservaId },
   });
 
+  // De nuevo adentro de la transacción: entre el chequeo de afuera y este momento, otro
+  // pedido pudo dejar su destino.
   if (
+    reserva.cambioTransaccionId !== transaccionId ||
     reserva.cambioCanchaId === null ||
     reserva.cambioInicio === null ||
     reserva.cambioFin === null

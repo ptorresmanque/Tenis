@@ -675,6 +675,10 @@ model Reserva {
   cambioInicio   DateTime? @map("cambio_inicio")
   cambioFin      DateTime? @map("cambio_fin")
   cambioEsPico   Boolean?  @map("cambio_es_pico")
+  /// La transacción que paga ese destino (revisión de T89). La vuelta de Webpay solo
+  /// mueve la reserva si el pago que vuelve es este: dos pedidos a la vez desde el mismo
+  /// enlace dejarían si no el destino del caro pagado con la diferencia del barato.
+  cambioTransaccionId Int? @map("cambio_transaccion_id")
 
   /// Nulo = no-socio. Su pago vive en `Transaccion` con `concepto: RESERVA` y
   /// `conceptoId` = este id; no se guarda el vínculo inverso para que no haya dos
