@@ -58,7 +58,7 @@ describe('franjaPara', () => {
     });
 
     it('**sin precio de 1 hora y media no se vende: nulo, y no cero ni el de 1 hora**', () => {
-      // Un cero regalaría la cancha y "1,5 × la hora" sería cobrar un precio que el
+      // Un cero se vería como "$0" en la grilla y "1,5 × la hora" sería cobrar un precio que el
       // club nunca decidió. El pico sigue saliendo de la franja: el socio sí puede
       // reservarla, y le cuenta contra el cupo pico igual.
       expect(aLasDiez([franja({ esPico: true, montoClp90: null })])).toEqual({

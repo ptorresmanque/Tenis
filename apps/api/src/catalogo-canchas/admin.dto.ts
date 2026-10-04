@@ -363,7 +363,8 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
     // Cero es legítimo: una cancha puede ser gratis para el club. Negativo no:
     // sería una tarifa que le paga al cliente.
     montoClp: entero(datos.montoClp, 'El monto', 0),
-    // Omitido o nulo es "no se vende", y no un cero: un cero regalaría la cancha.
+    // Omitido o nulo es "no se vende". Un cero también termina en SIN_TARIFA al
+    // reservar, pero la grilla lo mostraría como "$0": el nulo dice lo que es.
     montoClp90:
       datos.montoClp90 === undefined || datos.montoClp90 === null
         ? null

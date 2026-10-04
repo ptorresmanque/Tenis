@@ -178,8 +178,9 @@ export class EditorFranjas {
     this.error.set(null);
 
     if (this.nueva.montoClp90 !== null && this.nueva.montoClp90 <= 0) {
-      // Cero sería "se vende gratis", y al lado del vacío —"no se vende"— nadie
-      // distingue las dos cosas. Si no se vende, el campo queda vacío.
+      // Para quien no es socio, cero y vacío dicen lo mismo: la reserva rechaza toda
+      // tarifa de $0 con SIN_TARIFA. Dos formas de decir "no se vende" son una de más,
+      // y la que queda es la que se ve en la lista: el campo vacío.
       this.error.set(
         'El precio de 1 hora y media tiene que ser mayor que cero. Para no venderla, deja el precio vacío.',
       );

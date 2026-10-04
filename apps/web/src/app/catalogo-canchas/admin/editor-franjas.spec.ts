@@ -145,7 +145,8 @@ describe('EditorFranjas', () => {
     });
 
     it('**un precio de 1 hora y media en cero no llega al servidor**', async () => {
-      // Cero sería "se vende gratis", y se confunde con el vacío, que es "no se vende".
+      // Para el visitante cero y vacío son lo mismo —la reserva rechaza $0 con
+      // SIN_TARIFA—, y el panel ofrece una sola forma de decirlo: el vacío.
       await escribir('monto90-7', '0');
       await enviar();
 
