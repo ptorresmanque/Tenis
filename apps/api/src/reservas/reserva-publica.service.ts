@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { EstadoReserva } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { pagadoPor } from './pagado';
+import { sePuedeModificar } from './ventanas';
 
 /**
  * Lo que ve quien abre el enlace del QR.
@@ -22,6 +24,13 @@ export interface ReservaPublica {
   estado: EstadoReserva;
   /** Cuántos entran además del titular, sin decir quiénes son. */
   acompanantes: number;
+  /**
+   * Lo pagado, sumando todos los pagos (T88). Es un dato para que la grilla muestre la
+   * diferencia antes de cambiar; quien la cobra o no la cobra es el servidor, al mover.
+   */
+  pagadoClp: number;
+  /** Si el enlace ofrece "Cambiar hora o duración": activa, de visitante y a tiempo. */
+  sePuedeCambiar: boolean;
 }
 
 @Injectable()
@@ -35,10 +44,12 @@ export class ReservaPublicaService {
    * "ese enlace existía pero la reserva se canceló" ya sería contar algo de una
    * reserva ajena a quien probó una URL al azar.
    */
-  async porToken(token: string): Promise<ReservaPublica> {
+  async porToken(token: string, ahora = new Date()): Promise<ReservaPublica> {
     const reserva = await this.prisma.reserva.findUnique({
       where: { token },
       select: {
+        id: true,
+        socioId: true,
         folio: true,
         inicio: true,
         fin: true,
@@ -54,6 +65,7 @@ export class ReservaPublicaService {
       throw new NotFoundException('No encontramos esa reserva.');
     }
 
+    const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
     return {
       folio: reserva.folio,
       cancha: reserva.cancha.nombre,
@@ -63,6 +75,13 @@ export class ReservaPublicaService {
       esPico: reserva.esPico,
       estado: reserva.estado,
       acompanantes: reserva._count.acompanantes,
+      pagadoClp: await pagadoPor(this.prisma, reserva.id),
+      // Las mismas condiciones que el servidor exige al mover por el enlace: el botón no
+      // promete lo que la API va a rechazar.
+      sePuedeCambiar:
+        reserva.estado === EstadoReserva.CONFIRMADA &&
+        reserva.socioId === null &&
+        sePuedeModificar(reserva.inicio, ahora, ventanas),
     };
   }
 }

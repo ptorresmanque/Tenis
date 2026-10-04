@@ -3,7 +3,12 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { EstadoReserva, Superficie } from '../src/generated/prisma/client';
+import {
+  ConceptoPago,
+  EstadoReserva,
+  EstadoTransaccion,
+  Superficie,
+} from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -163,10 +168,12 @@ describe('GET /api/reservas/publica/:token', () => {
       .post(`/api/reservas/publica/${token}`)
       .expect(404);
 
+    // Desde T88 el PATCH existe —el no-socio cambia su hora desde el enlace—, pero mueve
+    // y nada más: un cuerpo que no dice cancha ni hora es un 400, no una cancelación.
     await request(app.getHttpServer())
       .patch(`/api/reservas/publica/${token}`)
       .send({ estado: 'CANCELADA' })
-      .expect(404);
+      .expect(400);
 
     // Y la reserva sigue como estaba: los intentos no la tocaron.
     const despues = await request(app.getHttpServer())
@@ -176,6 +183,78 @@ describe('GET /api/reservas/publica/:token', () => {
     expect((despues.body as { estado: string }).estado).toBe(
       EstadoReserva.CONFIRMADA,
     );
+  });
+
+  it('**cambiar por el enlace con un token que no existe da 404, igual que la página** (T88)', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/reservas/publica/00000000-0000-4000-8000-000000000000')
+      .send({ canchaId, inicio: '2026-09-10T18:00:00.000Z' })
+      .expect(404);
+  });
+
+  it('**trae lo pagado, sumando todos los pagos autorizados** (T88)', async () => {
+    // Para que la grilla muestre la diferencia como dato; el servidor la recalcula al mover.
+    const reserva = await unaReserva();
+    const { id } = await prisma.reserva.findUniqueOrThrow({
+      where: { token: reserva.token },
+      select: { id: true },
+    });
+    for (const [i, montoClp] of [12000, 4000].entries()) {
+      await prisma.transaccion.create({
+        data: {
+          referencia: `QR-T88-${id}-${i}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: id,
+          montoClp,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.AUTORIZADA,
+        },
+      });
+    }
+
+    const respuesta = await request(app.getHttpServer())
+      .get(`/api/reservas/publica/${reserva.token}`)
+      .expect(200);
+
+    // Del 10 de septiembre de 2026, ya pasada: no se puede cambiar.
+    expect(respuesta.body).toMatchObject({
+      pagadoClp: 16000,
+      sePuedeCambiar: false,
+    });
+  });
+
+  it('**ofrece cambiarla si es de visitante, está activa y falta más que la ventana** (T88)', async () => {
+    const enElFuturo = (estado: EstadoReserva, folio: string) =>
+      prisma.reserva.create({
+        data: {
+          folio,
+          canchaId,
+          inicio: new Date('2037-09-10T18:00:00.000Z'),
+          fin: new Date('2037-09-10T19:00:00.000Z'),
+          estado,
+          nombre: 'Camila Rojas',
+          email: `camila${DOMINIO}`,
+          telefono: '+56955556666',
+        },
+        select: { token: true },
+      });
+    const sePuede = async (token: string) =>
+      (
+        (
+          await request(app.getHttpServer())
+            .get(`/api/reservas/publica/${token}`)
+            .expect(200)
+        ).body as { sePuedeCambiar: boolean }
+      ).sePuedeCambiar;
+
+    const activa = await enElFuturo(EstadoReserva.CONFIRMADA, 'QT88ACT');
+    expect(await sePuede(activa.token)).toBe(true);
+
+    await prisma.reserva.update({
+      where: { token: activa.token },
+      data: { estado: EstadoReserva.CANCELADA },
+    });
+    expect(await sePuede(activa.token)).toBe(false);
   });
 
   it('la reserva cancelada se puede mirar, y lo dice', async () => {

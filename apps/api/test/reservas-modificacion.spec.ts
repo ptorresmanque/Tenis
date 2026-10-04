@@ -51,13 +51,19 @@ describe('Modificación y cancelación de reservas', () => {
     new Date(instante.getTime() - horas * 60 * 60 * 1000);
 
   /** Una reserva de no-socio ya pagada, con su transacción autorizada. */
-  const unaReservaPagada = async (inicio = LUNES_20) => {
+  const unaReservaPagada = async (
+    inicio = LUNES_20,
+    compra: { minutos: 60 | 90; montoClp: number } = {
+      minutos: 60,
+      montoClp: 12000,
+    },
+  ) => {
     const reserva = await prisma.reserva.create({
       data: {
         folio: `T24${Math.random().toString(36).slice(2, 7).toUpperCase()}`,
         canchaId,
         inicio,
-        fin: new Date(inicio.getTime() + 60 * 60 * 1000),
+        fin: new Date(inicio.getTime() + compra.minutos * 60 * 1000),
         estado: EstadoReserva.CONFIRMADA,
         nombre: 'Visitante',
         email: 'visitante@ejemplo.cl',
@@ -67,7 +73,7 @@ describe('Modificación y cancelación de reservas', () => {
 
     const inicio_ = await pasarela.iniciar({
       referencia: `T24-${reserva.id}`,
-      montoClp: 12000,
+      montoClp: compra.montoClp,
       urlRetorno: 'https://club.local/retorno',
     });
     await pasarela.confirmar(inicio_.tokenPasarela);
@@ -77,7 +83,7 @@ describe('Modificación y cancelación de reservas', () => {
         referencia: `T24-${reserva.id}-${Date.now()}`,
         concepto: ConceptoPago.RESERVA,
         conceptoId: reserva.id,
-        montoClp: 12000,
+        montoClp: compra.montoClp,
         pasarela: 'doble',
         estado: EstadoTransaccion.AUTORIZADA,
         tokenPasarela: inicio_.tokenPasarela,
@@ -328,7 +334,7 @@ describe('Modificación y cancelación de reservas', () => {
     });
   });
 
-  describe('una reserva pagada no cambia de tarifa al moverse', () => {
+  describe('mover una reserva pagada: la diferencia (T88)', () => {
     /** Una cancha cuya hora de las 21:00 vale $20.000, no $12.000. */
     const unaCanchaCara = async () => {
       const cara = await prisma.cancha.create({
@@ -387,10 +393,68 @@ describe('Modificación y cancelación de reservas', () => {
         ),
       ).rejects.toMatchObject({
         response: {
-          motivo: 'CAMBIA_LA_TARIFA',
-          message: expect.stringContaining('20.000'),
+          // Reemplaza a `CAMBIA_LA_TARIFA` (T88): ya no se rechaza todo cambio de
+          // precio, solo el que deja algo por pagar. Lo cobra T89.
+          motivo: 'DIFERENCIA_POR_PAGAR',
+          message: expect.stringMatching(/20\.000.*12\.000.*8\.000/),
         },
       });
+    });
+
+    it('**a una hora más barata se mueve, y no se devuelve nada**', async () => {
+      // La regla del club (2026-10-03): la diferencia a favor no se devuelve. Antes de
+      // T88 este cambio se rechazaba, igual que el de una hora más cara.
+      const reserva = await unaReservaPagada();
+      const barata = await prisma.cancha.create({
+        data: {
+          nombre: `${NOMBRE_CANCHA} barata`,
+          superficie: Superficie.CEMENTO,
+          horarios: {
+            create: [
+              { diaSemana: 2, horaApertura: '08:00', horaCierre: '22:00' },
+            ],
+          },
+          franjas: {
+            create: {
+              horaDesde: '08:00',
+              horaHasta: '22:00',
+              montoClp: 8000,
+              vigenteDesde: new Date('2026-01-01'),
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      const movida = await modificacion.modificar(
+        reserva.id,
+        { canchaId: barata.id, inicio: MARTES_20 },
+        admin,
+        horasAntes(LUNES_20, 30),
+      );
+
+      expect(movida.canchaId).toBe(barata.id);
+      expect(pasarela.anulaciones).toHaveLength(0);
+    });
+
+    it('**achicar de 1 hora y media a 1 hora se permite, sin devolución**', async () => {
+      const LUNES_18 = new Date(LUNES_20.getTime() - 3 * 60 * 60 * 1000);
+      const reserva = await unaReservaPagada(LUNES_18, {
+        minutos: 90,
+        montoClp: 16000,
+      });
+
+      const achicada = await modificacion.modificar(
+        reserva.id,
+        { canchaId, inicio: LUNES_18, duracionMin: 60 },
+        admin,
+        horasAntes(LUNES_18, 30),
+      );
+
+      expect(achicada.fin.getTime() - achicada.inicio.getTime()).toBe(
+        60 * 60 * 1000,
+      );
+      expect(pasarela.anulaciones).toHaveLength(0);
     });
 
     it('la reserva del socio se mueve igual: no pagó nada que cuadrar', async () => {
@@ -1024,6 +1088,153 @@ describe('Modificación y cancelación de reservas', () => {
 
     expect(resultado.huboDevolucion).toBe(false);
     expect(resultado.motivo).toBe('sin_pago');
+  });
+
+  describe('desde el enlace, por token (T88)', () => {
+    const LUNES_18 = new Date(LUNES_20.getTime() - 3 * 60 * 60 * 1000);
+
+    it('**el no-socio achica su reserva desde el enlace, sin devolución**', async () => {
+      const reserva = await unaReservaPagada(LUNES_18, {
+        minutos: 90,
+        montoClp: 16000,
+      });
+
+      const achicada = await modificacion.modificarPorToken(
+        reserva.token,
+        { canchaId, inicio: LUNES_18, duracionMin: 60 },
+        horasAntes(LUNES_18, 30),
+      );
+
+      expect(achicada).toMatchObject({ id: reserva.id, folio: reserva.folio });
+      expect(achicada.fin.getTime() - achicada.inicio.getTime()).toBe(
+        60 * 60 * 1000,
+      );
+      expect(pasarela.anulaciones).toHaveLength(0);
+    });
+
+    it('un token que no existe responde 404', async () => {
+      await expect(
+        modificacion.modificarPorToken(
+          '00000000-0000-4000-8000-000000000000',
+          { canchaId, inicio: LUNES_18 },
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('la reserva de un socio no se cambia por el enlace: se cambia desde "mis reservas"', async () => {
+      // El enlace se reenvía por WhatsApp; el socio tiene sesión, y con ella sus reglas.
+      const socio = await prisma.usuario.create({
+        data: {
+          email: `socio-enlace-${Date.now()}@t24mover.cl`,
+          nombre: 'Socio',
+          apellido: 'Del enlace',
+          emailVerificado: true,
+          socio: {
+            create: {
+              numeroSocio: `T88-${Date.now()}`,
+              estado: EstadoSocio.ACTIVO,
+              fechaIngreso: new Date('2026-01-01'),
+              alDiaHasta: new Date('2027-01-01'),
+            },
+          },
+        },
+        select: { socio: { select: { id: true } } },
+      });
+      const suya = await prisma.reserva.create({
+        data: {
+          folio: 'T88SOC',
+          canchaId,
+          inicio: LUNES_18,
+          fin: new Date(LUNES_18.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          socioId: socio.socio!.id,
+          nombre: 'Socio',
+          email: 'socio@ejemplo.cl',
+          telefono: '',
+        },
+      });
+
+      await expect(
+        modificacion.modificarPorToken(
+          suya.token,
+          { canchaId: otraCanchaId, inicio: LUNES_18 },
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({ status: 403 });
+
+      await prisma.usuario.deleteMany({
+        where: { email: { endsWith: '@t24mover.cl' } },
+      });
+    });
+
+    it('rige la ventana de 6 horas', async () => {
+      const reserva = await unaReservaPagada(LUNES_18);
+
+      await expect(
+        modificacion.modificarPorToken(
+          reserva.token,
+          { canchaId: otraCanchaId, inicio: LUNES_18 },
+          horasAntes(LUNES_18, 2),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { motivo: 'FUERA_DE_PLAZO' },
+      });
+    });
+
+    it('rige el rechazo de un pago en curso', async () => {
+      const reserva = await prisma.reserva.create({
+        data: {
+          folio: 'T88PEND',
+          canchaId,
+          inicio: LUNES_18,
+          fin: new Date(LUNES_18.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.PENDIENTE_PAGO,
+          nombre: 'Visitante',
+          email: 'visitante@ejemplo.cl',
+          telefono: '+56900000000',
+        },
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `T88-pend-${reserva.id}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.PENDIENTE,
+          inicioBloqueOriginal: LUNES_18,
+        },
+      });
+
+      await expect(
+        modificacion.modificarPorToken(
+          reserva.token,
+          { canchaId: otraCanchaId, inicio: LUNES_18 },
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { motivo: 'PAGO_EN_CURSO' },
+      });
+    });
+
+    it('la grilla por el enlace no cuenta la reserva que se mueve', async () => {
+      const reserva = await unaReservaPagada(LUNES_18);
+
+      const grilla = await modificacion.grillaParaMoverPorToken(
+        reserva.token,
+        '2026-09-07',
+        90,
+      );
+
+      expect(
+        grilla
+          .find((g) => g.cancha.id === canchaId)!
+          .bloques.find((b) => b.inicio.getTime() === LUNES_18.getTime()),
+      ).toMatchObject({ reservado: false });
+    });
   });
 
   describe('la grilla para mover (T87)', () => {

@@ -26,6 +26,7 @@ import {
   GrillaDeCancha,
 } from './disponibilidad-publica.service';
 import { EventosDeReserva } from './eventos';
+import { pagadoPor } from './pagado';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 import {
   ACTIVAS,
@@ -173,11 +174,44 @@ export class ModificacionService {
    */
   async modificar(
     reservaId: number,
-    destino: { canchaId: number; inicio: Date; duracionMin?: DuracionMin },
+    destino: Destino,
     yo: UsuarioActual,
     ahora = new Date(),
   ): Promise<Reserva> {
-    const reserva = await this.suya(reservaId, yo);
+    return this.mover(await this.suya(reservaId, yo), destino, ahora);
+  }
+
+  /**
+   * Lo mismo, desde el enlace de la reserva y sin sesión (T88): el token es la llave.
+   *
+   * Mover y nada más: **por el enlace no se cancela**. Se reenvía por WhatsApp y queda
+   * en el historial del teléfono del mesón; con poder de cancelación, perderlo de vista
+   * un segundo sería perder la hora.
+   */
+  async modificarPorToken(
+    token: string,
+    destino: Destino,
+    ahora = new Date(),
+  ): Promise<Reserva> {
+    return this.mover(await this.delEnlace(token), destino, ahora);
+  }
+
+  /** La grilla para mover desde el enlace, sin contar la reserva (T87, T88). */
+  async grillaParaMoverPorToken(
+    token: string,
+    fecha: string,
+    duracionMin: DuracionMin,
+  ): Promise<GrillaDeCancha[]> {
+    const reserva = await this.delEnlace(token);
+
+    return this.disponibilidad.delDia(fecha, duracionMin, reserva.id);
+  }
+
+  private async mover(
+    reserva: Reserva,
+    destino: Destino,
+    ahora: Date,
+  ): Promise<Reserva> {
     const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
 
     // Igual que cancelar (T87): la hora no cambia bajo los pies de quien está en Webpay.
@@ -203,7 +237,7 @@ export class ModificacionService {
       ahora,
     );
 
-    await this.exigirQueLaTarifaCuadre(reserva.id, bloque.montoClp);
+    await this.exigirQueNoQuedeDiferencia(reserva.id, bloque.montoClp);
 
     try {
       const movida = await this.moverContraSusCupos(reserva, destino, bloque);
@@ -400,32 +434,23 @@ export class ModificacionService {
   }
 
   /**
-   * Una hora ya pagada solo se mueve a otra que valga lo mismo.
+   * Una hora pagada se mueve a otra si lo pagado alcanza (T88).
    *
-   * Sin esta regla, mover de una franja valle a una pico entrega una hora de $20.000
-   * al precio de una de $12.000, y si después se cancela dentro de plazo se devuelven
-   * los $12.000 por algo que se vendía más caro.
-   *
-   * **Se rechaza en vez de cobrar la diferencia**: cobrar de nuevo es otro paso por la
-   * pasarela, con su retorno, su idempotencia y su reembolso parcial —que el club no
-   * tiene, porque `SPEC-pagos.md` solo admite devolución total—. Cancelar y reservar
-   * de nuevo hace lo mismo con las piezas que ya existen.
+   * **La diferencia es el precio nuevo menos lo pagado**, la suma de todos los pagos.
+   * Cero o negativa: se mueve y no se devuelve nada, que es la regla del club
+   * (2026-10-03). Positiva: falta plata, y por ahora se rechaza con
+   * `DIFERENCIA_POR_PAGAR`; T89 la cobra por Webpay. Reemplaza a `CAMBIA_LA_TARIFA`, que
+   * rechazaba cualquier cambio de precio, también el que bajaba.
    */
-  private async exigirQueLaTarifaCuadre(
+  private async exigirQueNoQuedeDiferencia(
     reservaId: number,
     montoDelBloque: number | null,
   ): Promise<void> {
-    const pago = await this.prisma.transaccion.findFirst({
-      where: {
-        concepto: 'RESERVA',
-        conceptoId: reservaId,
-        estado: EstadoTransaccion.AUTORIZADA,
-      },
-      select: { montoClp: true },
-    });
+    const pagado = await pagadoPor(this.prisma, reservaId);
 
-    // El socio no compra su hora, la descuenta de su cupo: no hay nada que cuadrar.
-    if (!pago || pago.montoClp === montoDelBloque) return;
+    // El socio no compra su hora, la descuenta de su cupo; el visitante del mesón la
+    // paga en el mostrador. Ninguno tiene nada que cuadrar.
+    if (pagado === 0) return;
 
     if (montoDelBloque === null) {
       // La hora y media en una franja que no la vende (T79): para quien paga, esa hora
@@ -436,12 +461,16 @@ export class ModificacionService {
       });
     }
 
+    const diferencia = montoDelBloque - pagado;
+
+    if (diferencia <= 0) return;
+
     throw new ConflictException({
-      motivo: 'CAMBIA_LA_TARIFA',
+      motivo: 'DIFERENCIA_POR_PAGAR',
       message:
-        `Esa hora vale ${enPesos(montoDelBloque)} y esta reserva se pagó ` +
-        `${enPesos(pago.montoClp)}. Para cambiar de tarifa hay que cancelar y ` +
-        'reservar de nuevo.',
+        `Esa hora vale ${enPesos(montoDelBloque)} y pagaste ${enPesos(pagado)}: ` +
+        `cambiarte a ella cuesta ${enPesos(diferencia)} más, y eso todavía no se puede ` +
+        `pagar en línea. Elige una que valga ${enPesos(pagado)} o menos.`,
     });
   }
 
@@ -501,17 +530,31 @@ export class ModificacionService {
       throw new NotFoundException('No encontramos esa reserva.');
     }
 
-    if (
-      reserva.estado !== EstadoReserva.CONFIRMADA &&
-      reserva.estado !== EstadoReserva.PENDIENTE_PAGO
-    ) {
+    return activa(reserva);
+  }
+
+  /**
+   * La reserva del enlace, si es de un visitante y sigue activa (T88).
+   *
+   * **La del socio no se cambia por el enlace**: tiene sesión, y desde "mis reservas"
+   * rigen sus reglas con su identidad. Abierto, cualquiera que recibiera el enlace
+   * reenviado podría mover la hora de un socio.
+   */
+  private async delEnlace(token: string): Promise<Reserva> {
+    const reserva = await this.prisma.reserva.findUnique({ where: { token } });
+
+    if (!reserva) {
+      throw new NotFoundException('No encontramos esa reserva.');
+    }
+
+    if (reserva.socioId !== null) {
       throw new ForbiddenException({
-        motivo: 'YA_NO_ESTA_ACTIVA',
-        message: 'Esa reserva ya no está activa.',
+        motivo: 'ES_DE_SOCIO',
+        message: 'Esta reserva es de un socio: se cambia desde "mis reservas".',
       });
     }
 
-    return reserva;
+    return activa(reserva);
   }
 
   private async bloqueDisponible(
@@ -578,6 +621,24 @@ function esBloqueOcupado(error: unknown): boolean {
 }
 
 /** "$20.000", como lo escribe el club. */
+/** Una reserva cancelada o expirada ya no se mueve ni se cancela. */
+function activa(reserva: Reserva): Reserva {
+  if (
+    reserva.estado !== EstadoReserva.CONFIRMADA &&
+    reserva.estado !== EstadoReserva.PENDIENTE_PAGO
+  ) {
+    throw new ForbiddenException({
+      motivo: 'YA_NO_ESTA_ACTIVA',
+      message: 'Esa reserva ya no está activa.',
+    });
+  }
+
+  return reserva;
+}
+
+/** A dónde va: cancha, inicio y, si cambia, la duración (T87). */
+type Destino = { canchaId: number; inicio: Date; duracionMin?: DuracionMin };
+
 function enPesos(monto: number): string {
   return `$${monto.toLocaleString('es-CL')}`;
 }
