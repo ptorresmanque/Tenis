@@ -21,7 +21,6 @@ import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import {
   BloqueDisponible,
   Cancha,
@@ -29,14 +28,7 @@ import {
   DuracionMin,
   GrillaDeCancha,
 } from '../disponibilidad';
-import {
-  diaEnPalabras,
-  enPesos,
-  hoyEnElClub,
-  horaEnElClub,
-  minutosDe,
-  proximosDias,
-} from '../reloj-del-club';
+import { enPesos, hoyEnElClub, horaEnElClub, minutosDe } from '../reloj-del-club';
 import { nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
 import {
@@ -47,6 +39,7 @@ import {
   TARIFA_DEL_SOCIO,
   yaEmpezo,
 } from './bandas';
+import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
 import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
 
@@ -77,11 +70,11 @@ export class BandaTipada {
     BandaTipada,
     Reservar,
     BarraFija,
+    ControlesDelDia,
     EstadoVacio,
     Insignia,
     ResumenDeLaEleccion,
     ResumenDelCambio,
-    Selector,
   ],
   host: {
     class: 'block',
@@ -117,67 +110,12 @@ export class BandaTipada {
       </p>
     }
 
-    <div class="mt-4 flex flex-wrap items-end gap-4">
-      <!-- La semana a un toque. El calendario sigue estando al lado para ir más
-           lejos: siete chips cubren lo que la gente reserva de verdad, y el resto
-           no justifica un calendario propio pudiendo usar el del sistema.
-
-           A ancho completo: compartiendo fila con el campo de fecha, los siete
-           chips no llegaban a encogerse. -->
-      <app-selector
-        class="w-full"
-        etiqueta="Día"
-        estilo="chips"
-        [opciones]="chipsDeDia()"
-        [valor]="fecha()"
-        (valorChange)="fecha.set($event)"
-      />
-
-      <div>
-        <label for="fecha" class="block text-sm font-medium">Otro día</label>
-        <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
-             etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
-        <input
-          id="fecha"
-          type="date"
-          class="campo mt-1 w-auto cursor-pointer py-2 transition-colors
-                 hover:border-primary"
-          [value]="fecha()"
-          (change)="cambiarFecha($event)"
-        />
-      </div>
-    </div>
-
-    <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
-
-    <!-- También al mover (T87): parte en la de la reserva, que trae el enlace de "mis
-         reservas", y cambiarla es alargarla o acortarla. -->
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Duración"
-      [opciones]="DURACIONES"
-      [valor]="'' + duracion()"
-      (valorChange)="elegirDuracion($event)"
+    <app-controles-del-dia
+      [(fecha)]="fecha"
+      [duracion]="duracion()"
+      [(filtro)]="filtro"
+      (cambiarDuracion)="elegirDuracion($event)"
     />
-
-    <!-- Los filtros salen de lo que la cancha ya declara —techada e
-         iluminación—, así que filtran en el navegador sobre lo que ya llegó:
-         una consulta más al servidor no traería nada nuevo. -->
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Filtrar canchas"
-      [opciones]="FILTROS"
-      [valor]="filtro()"
-      (valorChange)="filtro.set($event)"
-    />
-
-    <!-- La leyenda no es decoración: los tres estados se distinguen por color,
-         forma e ícono, y esto es lo que dice qué significa cada uno. -->
-    <ul class="mt-4 flex flex-wrap gap-2">
-      <li><app-insignia variante="libre">Libre</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="lock">Ocupado</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="build">En mantención</app-insignia></li>
-    </ul>
 
     <!-- Los cambios de estado se anuncian: quien usa lector de pantalla no ve
          que la grilla se repobló. -->
@@ -582,11 +520,6 @@ export class Grilla {
     this.parametros()?.get('duracion') === '90' ? 90 : 60,
   );
 
-  protected readonly DURACIONES = [
-    { valor: '60', etiqueta: '1 hora' },
-    { valor: '90', etiqueta: '1 hora y media' },
-  ];
-
   /**
    * La reserva que se mueve desde su enlace, sin sesión (T88): el token es la llave. Como
    * `mover`, vive en la URL.
@@ -681,36 +614,12 @@ export class Grilla {
 
   protected readonly filtro = signal('todas');
 
-  protected readonly FILTROS = [
-    { valor: 'todas', etiqueta: 'Todas' },
-    { valor: 'techadas', etiqueta: 'Techadas' },
-    { valor: 'iluminacion', etiqueta: 'Con iluminación' },
-    { valor: 'aire-libre', etiqueta: 'Al aire libre' },
-  ];
-
-  /**
-   * Las canchas que pasan el filtro.
-   *
-   * "Al aire libre" es lo contrario de techada y no un atributo propio: si fuera
-   * un tercer campo del modelo, tarde o temprano existiría una cancha marcada
-   * como techada y al aire libre a la vez.
-   */
+  /** Las canchas que pasan el filtro: ver `pasaElFiltro`. */
   protected readonly visibles = computed(() => {
     const filtro = this.filtro();
     const grillas = this.grillas.hasValue() ? this.grillas.value() : [];
 
-    return grillas.filter(({ cancha }) => {
-      switch (filtro) {
-        case 'techadas':
-          return cancha.techada;
-        case 'iluminacion':
-          return cancha.iluminacion;
-        case 'aire-libre':
-          return !cancha.techada;
-        default:
-          return true;
-      }
-    });
+    return grillas.filter(({ cancha }) => pasaElFiltro(cancha, filtro));
   });
 
   /** El día por inicio: ver `agruparPorInicio`. */
@@ -770,15 +679,6 @@ export class Grilla {
   );
 
   protected readonly precioDeLaHora = precioDeLaHora;
-
-  /** Los siete chips de la tira de días, empezando por hoy. */
-  protected readonly chipsDeDia = computed(() =>
-    proximosDias(7).map((dia) => ({
-      valor: dia.fecha,
-      etiqueta: dia.etiqueta,
-      sub: dia.numero,
-    })),
-  );
 
   protected estaElegido(bloque: BloqueDisponible): boolean {
     const eleccion = this.elegido();
@@ -982,20 +882,9 @@ export class Grilla {
     return this.disponibilidad.delDia(fecha, duracion);
   }
 
-  protected cambiarFecha(evento: Event): void {
-    const valor = (evento.target as HTMLInputElement).value;
-
-    // El input vacío —se puede borrar con el teclado— no dispara una consulta
-    // que la API va a rechazar.
-    if (valor) {
-      this.fecha.set(valor);
-    }
-  }
-
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
-  protected readonly diaEnPalabras = diaEnPalabras;
 
   protected readonly motivo = nombreDelMotivo;
 
