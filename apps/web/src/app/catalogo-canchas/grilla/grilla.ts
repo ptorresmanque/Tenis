@@ -13,10 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
-import { irAPagar } from '../../core/pagos/ir-a-pagar';
 import { ReportesDelSocio } from '../../reservas/reportes.service';
-import { ReservasPublicas } from '../../reservas/reserva-publica.service';
-import { mensajeDeRechazo, Reservas } from '../../reservas/reservas.service';
 import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -26,9 +23,8 @@ import {
   Cancha,
   Disponibilidad,
   DuracionMin,
-  GrillaDeCancha,
 } from '../disponibilidad';
-import { enPesos, hoyEnElClub, horaEnElClub, minutosDe } from '../reloj-del-club';
+import { enPesos, hoyEnElClub, horaEnElClub } from '../reloj-del-club';
 import { nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
 import {
@@ -40,6 +36,7 @@ import {
   yaEmpezo,
 } from './bandas';
 import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
+import { MoverReserva } from './mover-reserva';
 import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
 
@@ -76,6 +73,7 @@ export class BandaTipada {
     ResumenDeLaEleccion,
     ResumenDelCambio,
   ],
+  providers: [MoverReserva],
   host: {
     class: 'block',
     // La barra fija tapa la última fila de bloques si no se le deja aire, y el
@@ -85,13 +83,13 @@ export class BandaTipada {
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Disponibilidad</h1>
 
-    @if (enModoMover()) {
+    @if (mover.activo()) {
       <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" o desde
            el enlace tiene que saber que el próximo clic mueve su hora en vez de tomar
            una nueva. Y quien pagó, la regla de la plata, antes de elegir (T88). -->
       <p class="mt-3 rounded-lg bg-muted p-3 font-medium">
         Elige la nueva hora para tu reserva. La que tenías queda liberada.
-        @if (pagadoPorElEnlace(); as pagado) {
+        @if (mover.pagadoPorElEnlace(); as pagado) {
           Pagaste {{ pesos(pagado) }}: si la nueva vale menos, no se devuelve la
           diferencia.
         }
@@ -104,7 +102,7 @@ export class BandaTipada {
       </p>
     }
 
-    @if (errorAlMover(); as falla) {
+    @if (mover.error(); as falla) {
       <p role="alert" class="mt-3 rounded-lg bg-destructive/10 p-3 text-destructive">
         {{ falla }}
       </p>
@@ -404,14 +402,14 @@ export class BandaTipada {
          la diferencia (T91). -->
     @if (elegido(); as eleccion) {
       <app-barra-fija>
-        @if (pagadoPorElEnlace(); as pagado) {
+        @if (mover.pagadoPorElEnlace(); as pagado) {
           <app-resumen-del-cambio
             [cancha]="eleccion.cancha"
             [bloque]="eleccion.bloque"
             [pagadoClp]="pagado"
-            [enviando]="enviandoMovimiento()"
+            [enviando]="mover.enviando()"
             (soltar)="elegido.set(null)"
-            (confirmar)="cambiarPorEnlace()"
+            (confirmar)="mover.cambiarPorEnlace(eleccion)"
           />
         } @else {
           <app-resumen-de-la-eleccion
@@ -477,8 +475,7 @@ export class BandaTipada {
 })
 export class Grilla {
   private readonly disponibilidad = inject(Disponibilidad);
-  private readonly reservas = inject(Reservas);
-  private readonly enlace = inject(ReservasPublicas);
+  protected readonly mover = inject(MoverReserva);
   private readonly reportes = inject(ReportesDelSocio);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
@@ -501,18 +498,6 @@ export class Grilla {
   });
 
   /**
-   * La reserva que se está reubicando, si se llegó desde "mis reservas".
-   *
-   * El modo viaja en la URL y no en un servicio compartido: así sobrevive a un
-   * refresco y a compartir el enlace, y quien no viene de ahí no paga nada.
-   */
-  protected readonly moviendo = computed(() => {
-    const id = Number(this.parametros()?.get('mover'));
-
-    return Number.isInteger(id) && id > 0 ? id : null;
-  });
-
-  /**
    * Cuánto dura la reserva que se busca (T83b). Vive en la URL, como `mover`: recargar no
    * la pierde y el enlace compartido muestra lo mismo. Sin el parámetro, 1 hora.
    */
@@ -520,41 +505,19 @@ export class Grilla {
     this.parametros()?.get('duracion') === '90' ? 90 : 60,
   );
 
-  /**
-   * La reserva que se mueve desde su enlace, sin sesión (T88): el token es la llave. Como
-   * `mover`, vive en la URL.
-   */
-  protected readonly moviendoPorToken = computed(
-    () => this.parametros()?.get('moverToken') || null,
-  );
-
-  /** Si el próximo clic mueve una reserva en vez de elegir una hora nueva. */
-  protected readonly enModoMover = computed(
-    () => this.moviendo() !== null || this.moviendoPorToken() !== null,
-  );
-
-  /** Lo que pagó quien mueve desde el enlace, para decirle la regla antes de elegir. */
-  private readonly reservaDelEnlace = resource({
-    params: () => this.moviendoPorToken() ?? undefined,
-    loader: ({ params: token }) => this.enlace.porToken(token),
-  });
-
-  protected readonly pagadoPorElEnlace = computed(() =>
-    this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().pagadoClp : null,
-  );
-
-  protected readonly errorAlMover = signal<string | null>(null);
   protected readonly avisoDeReporte = signal<string | null>(null);
-  protected readonly enviandoMovimiento = signal(false);
 
   protected readonly grillas = resource({
     params: () => ({
       fecha: this.fecha(),
       duracion: this.duracion(),
-      moviendo: this.moviendo(),
-      moviendoPorToken: this.moviendoPorToken(),
+      porId: this.mover.porId(),
+      porToken: this.mover.porToken(),
     }),
-    loader: ({ params }) => this.pedirDia(params),
+    // Al mover, el día sin contar la reserva que se mueve: ver `MoverReserva.grillaDelDia`.
+    loader: ({ params }) =>
+      this.mover.grillaDelDia(params) ??
+      this.disponibilidad.delDia(params.fecha, params.duracion),
     // El valor por defecto evita el `undefined` mientras carga, pero **no** que
     // `value()` lance cuando la carga falla: lo que lo lee fuera de la rama del
     // error pregunta antes `hasValue()`.
@@ -743,8 +706,8 @@ export class Grilla {
    * porque le gasta al socio un cupo semanal del que solo tiene dos.
    */
   protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
-    const que = this.enModoMover() ? 'Mover tu reserva a' : 'Elegir';
-    const pagado = this.pagadoPorElEnlace();
+    const que = this.mover.activo() ? 'Mover tu reserva a' : 'Elegir';
+    const pagado = this.mover.pagadoPorElEnlace();
 
     // Desde el enlace, quien ya pagó oye lo que le costaría el cambio, no la tarifa del
     // socio ni el arriendo: es la pregunta que trae (T91).
@@ -768,68 +731,15 @@ export class Grilla {
   ): Promise<void> {
     if (this.noSePuedeTomar(bloque)) return;
 
-    const reservaId = this.moviendo();
-
     // Fuera de "mis reservas" el clic marca la hora: para reservarla, o —desde el
     // enlace— para ver la diferencia antes de confirmar el cambio (T91). Solo el socio
     // mueve al tiro: no paga, y no hay plata que decirle antes.
-    if (reservaId === null) {
+    if (this.mover.porId() === null) {
       this.elegido.set({ cancha, bloque });
       return;
     }
 
-    // Un solo movimiento en vuelo: con la red lenta, quien no ve reacción toca otro
-    // bloque, y dos PATCH dejan la reserva donde responda el último, no donde eligió.
-    if (this.enviandoMovimiento()) return;
-
-    this.enviandoMovimiento.set(true);
-    this.errorAlMover.set(null);
-
-    try {
-      await this.reservas.mover(reservaId, destinoDe(cancha, bloque));
-      await this.router.navigate(['/mis-reservas']);
-    } catch (falla) {
-      // Se queda en la grilla a propósito: la hora que eligió no se pudo, pero las
-      // otras siguen ahí y volver atrás para reintentar sería un paso de más.
-      this.errorAlMover.set(mensajeDeRechazo(falla).mensaje);
-    } finally {
-      this.enviandoMovimiento.set(false);
-    }
-  }
-
-  /**
-   * Confirma el cambio desde el enlace (T91), con la hora marcada en la barra.
-   *
-   * Si vale más que lo pagado, va a pagar la diferencia: la reserva se mueve recién
-   * cuando Webpay autoriza, y la vuelta lleva a su página (T89). Si no, se mueve al tiro
-   * y no se devuelve nada. La diferencia la recalcula el servidor; lo de acá decide solo
-   * a qué ruta ir, y si el servidor no está de acuerdo, lo dice su rechazo.
-   */
-  protected async cambiarPorEnlace(): Promise<void> {
-    const token = this.moviendoPorToken();
-    const eleccion = this.elegido();
-    const pagado = this.pagadoPorElEnlace();
-
-    if (token === null || eleccion === null || pagado === null) return;
-    if (this.enviandoMovimiento()) return;
-
-    this.enviandoMovimiento.set(true);
-    this.errorAlMover.set(null);
-    const destino = destinoDe(eleccion.cancha, eleccion.bloque);
-
-    try {
-      if ((eleccion.bloque.montoClp ?? 0) > pagado) {
-        irAPagar(await this.enlace.pagarDiferencia(token, destino));
-      } else {
-        await this.enlace.mover(token, destino);
-        // A la página de la reserva, que es su "mis reservas", con lo que pasó.
-        await this.router.navigate(['/r', token], { queryParams: { cambio: 'hecho' } });
-      }
-    } catch (falla) {
-      this.errorAlMover.set(mensajeDeRechazo(falla).mensaje);
-    } finally {
-      this.enviandoMovimiento.set(false);
-    }
+    await this.mover.moverAlTiro({ cancha, bloque });
   }
 
   /**
@@ -859,29 +769,6 @@ export class Grilla {
     });
   }
 
-  /**
-   * El día que muestra la grilla. Al mover, sin contar la reserva que se mueve (T87): con
-   * la pública, alargarla en la misma cancha y hora salía ocupado por ella misma.
-   */
-  private pedirDia(consulta: {
-    fecha: string;
-    duracion: DuracionMin;
-    moviendo: number | null;
-    moviendoPorToken: string | null;
-  }): Promise<GrillaDeCancha[]> {
-    const { fecha, duracion } = consulta;
-
-    if (consulta.moviendo !== null) {
-      return this.reservas.grillaParaMover(consulta.moviendo, fecha, duracion);
-    }
-
-    if (consulta.moviendoPorToken !== null) {
-      return this.enlace.grillaParaMover(consulta.moviendoPorToken, fecha, duracion);
-    }
-
-    return this.disponibilidad.delDia(fecha, duracion);
-  }
-
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
@@ -889,16 +776,6 @@ export class Grilla {
   protected readonly motivo = nombreDelMotivo;
 
   protected readonly superficie = nombreDeSuperficie;
-}
-
-/** A dónde va un cambio: la cancha, el inicio y la duración del bloque elegido. */
-function destinoDe(cancha: Cancha, bloque: BloqueDisponible) {
-  return {
-    canchaId: cancha.id,
-    inicio: bloque.inicio,
-    // La del bloque, como al reservar: la grilla lo pidió de la duración elegida.
-    duracionMin: minutosDe(bloque),
-  };
 }
 
 /** "Vale $12.000: …" dicho a mitad de una frase. */
