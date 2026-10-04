@@ -421,8 +421,13 @@ model FranjaHoraria {
   horaDesde String @map("hora_desde") @db.VarChar(5)
   horaHasta String @map("hora_hasta") @db.VarChar(5)
 
-  esPico   Boolean @default(false) @map("es_pico")
-  montoClp Int     @map("monto_clp")
+  esPico     Boolean @default(false) @map("es_pico")
+  /// El precio de 1 hora para el no-socio.
+  montoClp   Int     @map("monto_clp")
+  /// El precio de 1 hora y media (T79). **Nulo = esa duración no se vende a no-socios
+  /// en esta franja**: ni cero, que regalaría la cancha, ni 1,5 veces la hora, que
+  /// sería cobrar un precio que el club no decidió. Al socio sí se le ofrece: no paga.
+  montoClp90 Int?    @map("monto_clp_90")
 
   /// Vigencia como fechas civiles: una tarifa nueva empieza un día, no a una hora.
   /// Cambiar el monto crea una franja nueva y cierra la anterior, así el precio de
@@ -457,8 +462,8 @@ model Bloqueo {
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
-  cancha Cancha @relation(fields: [canchaId], references: [id], onDelete: Cascade)
-  clase  Clase?
+  cancha  Cancha   @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  clase   Clase?
   /// El partido de torneo que cerró esta cancha (T67), si lo hay.
   partido Partido?
 
@@ -1064,8 +1069,8 @@ enum EstadoTorneo {
 
 /// Un torneo del club.
 model Torneo {
-  id          Int    @id @default(autoincrement())
-  nombre      String @db.VarChar(120)
+  id     Int    @id @default(autoincrement())
+  nombre String @db.VarChar(120)
 
   /// Informativa: en qué se juega. Nula si el club todavía no lo decidió o se juega
   /// en varias.
@@ -1157,7 +1162,7 @@ model InscripcionTorneo {
   /// ranking: es lo que le permite separar a dos que ya jugaron la final el mes pasado.
   siembra Int?
 
-  estado     EstadoInscripcionTorneo @default(INSCRITA)
+  estado EstadoInscripcionTorneo @default(INSCRITA)
 
   /// **Eje aparte de `estado`**: una inscripción puede estar en el cuadro y sin pagar.
   ///
@@ -1196,7 +1201,7 @@ model InscripcionTorneo {
   /// Por qué el admin lo rechazó. Lo lee quien llama al jugador para explicarle.
   motivoRechazo String? @map("motivo_rechazo") @db.VarChar(200)
 
-  inscritaEn DateTime                @default(now()) @map("inscrita_en")
+  inscritaEn DateTime @default(now()) @map("inscrita_en")
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —
   /// `IF(estado = 'RETIRADA', NULL, jugador_id)`— con el mismo truco que
@@ -1206,9 +1211,9 @@ model InscripcionTorneo {
   /// para que el club vea que se bajó.
   jugadorActivo Int? @map("jugador_activo")
 
-  torneo          Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
-  jugador         Jugador         @relation(fields: [jugadorId], references: [id])
-  torneoCategoria TorneoCategoria @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
+  torneo          Torneo               @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jugador         Jugador              @relation(fields: [jugadorId], references: [id])
+  torneoCategoria TorneoCategoria      @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
   restricciones   RestriccionHoraria[]
 
   @@unique([torneoId, jugadorActivo], map: "inscripcion_jugador_activo")
@@ -1355,17 +1360,16 @@ model Partido {
   torneo          Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   torneoCategoria TorneoCategoria @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
   bloqueo         Bloqueo?        @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
-  fotos    FotoTorneo[]
-  jugadorA Jugador? @relation("PartidosComoA", fields: [jugadorAId], references: [id])
-  jugadorB Jugador? @relation("PartidosComoB", fields: [jugadorBId], references: [id])
-  ganador  Jugador? @relation("PartidosGanados", fields: [ganadorId], references: [id])
+  fotos           FotoTorneo[]
+  jugadorA        Jugador?        @relation("PartidosComoA", fields: [jugadorAId], references: [id])
+  jugadorB        Jugador?        @relation("PartidosComoB", fields: [jugadorBId], references: [id])
+  ganador         Jugador?        @relation("PartidosGanados", fields: [ganadorId], references: [id])
 
   @@unique([torneoCategoriaId, ronda, posicion])
   @@index([torneoId])
   @@index([programadoInicio])
   @@map("partido")
 }
-
 
 /// Cuándo se sacó la foto respecto del torneo. Ver T69.
 enum MomentoFoto {
@@ -1381,8 +1385,8 @@ enum MomentoFoto {
 /// la cancha—. `partidoId` y `momento` son ejes independientes, así que la tercera sale
 /// sin inventar nada: es de un partido y es de antes.
 model FotoTorneo {
-  id       Int  @id @default(autoincrement())
-  torneoId Int  @map("torneo_id")
+  id        Int  @id @default(autoincrement())
+  torneoId  Int  @map("torneo_id")
   /// Nulo en las generales del torneo.
   partidoId Int? @map("partido_id")
 

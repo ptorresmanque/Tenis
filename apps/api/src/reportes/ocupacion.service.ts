@@ -185,6 +185,8 @@ export class OcupacionDeCancha {
               fecha,
               canchaId: cancha.id,
               inicio: bloque.inicio,
+              // Solo se usa el pico, que no depende de la duración.
+              duracionMin: 60,
               franjas,
             }).esPico,
             estado: estadoDelBloque(bloque, ocupantes),

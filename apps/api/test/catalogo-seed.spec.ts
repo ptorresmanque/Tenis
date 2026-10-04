@@ -208,6 +208,19 @@ describe('Catálogo de canchas', () => {
       expect(franjas.some((f) => !f.esPico)).toBe(true);
     });
 
+    it('trae precio de 1 hora y media en cada franja, mayor que el de 1 hora (T79)', async () => {
+      // Sin él, la demo no puede mostrar la hora y media a un visitante: una franja
+      // sin `montoClp90` no la vende.
+      const franjas = await prisma.franjaHoraria.findMany({
+        where: paraTodaCancha,
+      });
+
+      for (const franja of franjas) {
+        expect(franja.montoClp90).not.toBeNull();
+        expect(franja.montoClp90!).toBeGreaterThan(franja.montoClp);
+      }
+    });
+
     it('cobra más en pico que en valle', async () => {
       const franjas = await prisma.franjaHoraria.findMany({
         where: paraTodaCancha,

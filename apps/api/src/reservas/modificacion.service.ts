@@ -372,7 +372,7 @@ export class ModificacionService {
    */
   private async exigirQueLaTarifaCuadre(
     reservaId: number,
-    montoDelBloque: number,
+    montoDelBloque: number | null,
   ): Promise<void> {
     const pago = await this.prisma.transaccion.findFirst({
       where: {
@@ -385,6 +385,15 @@ export class ModificacionService {
 
     // El socio no compra su hora, la descuenta de su cupo: no hay nada que cuadrar.
     if (!pago || pago.montoClp === montoDelBloque) return;
+
+    if (montoDelBloque === null) {
+      // La hora y media en una franja que no la vende (T79): para quien paga, esa hora
+      // no existe, igual que al reservar.
+      throw new ConflictException({
+        motivo: 'SIN_TARIFA',
+        message: 'Esa duración no se vende en ese horario.',
+      });
+    }
 
     throw new ConflictException({
       motivo: 'CAMBIA_LA_TARIFA',

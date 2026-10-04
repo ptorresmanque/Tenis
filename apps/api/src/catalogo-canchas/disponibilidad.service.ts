@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { fechaDelClub } from '../comun/tiempo';
 import { PrismaService } from '../prisma/prisma.service';
-import { calcularBloques, PASO_DE_LA_GRILLA_MIN } from './bloques';
+import { calcularBloques, DuracionMin, PASO_DE_LA_GRILLA_MIN } from './bloques';
 import { franjaPara } from './franjas';
 
 /** Lo que `reservas` y la grilla consumen. `SPEC-catalogo-canchas.md` § Contrato. */
@@ -10,8 +10,11 @@ export interface BloqueDisponible {
   inicio: Date;
   fin: Date;
   canchaId: number;
-  /** Tarifa para el no-socio. Informativa: al reservar se recalcula. */
-  montoClp: number;
+  /**
+   * Tarifa para el no-socio. Informativa: al reservar se recalcula. Nula solo con 1
+   * hora y media donde la franja no tiene ese precio: ahí no se vende (T79).
+   */
+  montoClp: number | null;
   /** Lo usa `reservas` para el cupo pico semanal del socio. */
   esPico: boolean;
   bloqueado: boolean;
@@ -50,7 +53,11 @@ export class DisponibilidadService {
    * Los bloques de una cancha en un día. No sabe de reservas: eso es de
    * `reservas`, que superpone las suyas sobre esto.
    */
-  async de(canchaId: number, fecha: string): Promise<BloqueDisponible[]> {
+  async de(
+    canchaId: number,
+    fecha: string,
+    duracionMin: DuracionMin = 60,
+  ): Promise<BloqueDisponible[]> {
     const dia = fechaDelClub(fecha);
     const diaSemana = dia.getUTCDay();
 
@@ -113,9 +120,9 @@ export class DisponibilidadService {
       fecha,
       horaApertura: horario.horaApertura,
       horaCierre: horario.horaCierre,
-      // Una hora, empezando cada media hora (T78). La hora y media llega con T82, y
+      // La duración la elige quien reserva y la grilla empieza cada media hora (T78):
       // `duracionBloqueMin` de la configuración ya no manda sobre la grilla.
-      duracionBloqueMin: 60,
+      duracionBloqueMin: duracionMin,
       pasoMin: PASO_DE_LA_GRILLA_MIN,
       bloqueos,
     });
@@ -123,7 +130,13 @@ export class DisponibilidadService {
     return bloques.map((bloque) => ({
       ...bloque,
       canchaId,
-      ...franjaPara({ fecha, canchaId, inicio: bloque.inicio, franjas }),
+      ...franjaPara({
+        fecha,
+        canchaId,
+        inicio: bloque.inicio,
+        duracionMin,
+        franjas,
+      }),
     }));
   }
 }

@@ -1,4 +1,5 @@
 import { fechaDelClub, instanteEnElClub } from '../comun/tiempo';
+import type { DuracionMin } from './bloques';
 
 /** Una fila de `franja_horaria`, tal como vuelve de la base. */
 export interface FranjaCandidata {
@@ -12,6 +13,8 @@ export interface FranjaCandidata {
   horaHasta: string;
   esPico: boolean;
   montoClp: number;
+  /** Nulo = la hora y media no se vende en esta franja. */
+  montoClp90: number | null;
   /** Fechas civiles, como vuelven de las columnas `DATE`. */
   vigenteDesde: Date;
   vigenteHasta: Date | null;
@@ -19,7 +22,11 @@ export interface FranjaCandidata {
 
 /** Lo que un bloque cuesta y si limita el cupo del socio. Siempre juntos. */
 export interface Tarifa {
-  montoClp: number;
+  /**
+   * Nulo solo con 1 hora y media en una franja sin ese precio: esa duración no se le
+   * vende al no-socio ahí. Con 1 hora es siempre un número.
+   */
+  montoClp: number | null;
   esPico: boolean;
 }
 
@@ -29,6 +36,8 @@ export interface BloqueATarifar {
   canchaId: number;
   /** Instante en que empieza el bloque. */
   inicio: Date;
+  /** De qué precio de la franja se trata. El pico no depende de esto. */
+  duracionMin: DuracionMin;
   franjas: FranjaCandidata[];
 }
 
@@ -105,9 +114,14 @@ export function franjaPara(bloque: BloqueATarifar): Tarifa {
   // Un objeto nuevo cada vez, también para el caso sin franja: una constante
   // compartida la muta el primer llamador que le ajuste el monto, y desde ahí
   // todos los bloques sin tarifa valen lo que ese haya escrito.
-  return ganadora
-    ? { montoClp: ganadora.montoClp, esPico: ganadora.esPico }
-    : { montoClp: 0, esPico: false };
+  // Sin franja vale cero en las dos duraciones, como siempre: el panel lo advierte.
+  if (!ganadora) return { montoClp: 0, esPico: false };
+
+  return {
+    montoClp:
+      bloque.duracionMin === 90 ? ganadora.montoClp90 : ganadora.montoClp,
+    esPico: ganadora.esPico,
+  };
 }
 
 function leGana(franja: FranjaCandidata, otra: FranjaCandidata): boolean {

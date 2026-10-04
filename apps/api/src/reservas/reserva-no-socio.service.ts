@@ -233,16 +233,17 @@ export class ReservaNoSocioService {
       });
     }
 
-    if (bloque.montoClp <= 0) {
+    if (bloque.montoClp === null || bloque.montoClp <= 0) {
       // Sin tarifa que cobrar no hay reserva de no-socio: el panel del admin advierte
       // de estos bloques desde T13, y cobrar $0 sería regalar la cancha en silencio.
+      // Nulo es la hora y media en una franja sin ese precio (T79): tampoco se vende.
       throw new ConflictException({
         motivo: 'SIN_TARIFA',
         message: 'Esa hora todavía no tiene tarifa publicada.',
       });
     }
 
-    return bloque;
+    return { ...bloque, montoClp: bloque.montoClp };
   }
 
   private async crearPendiente(

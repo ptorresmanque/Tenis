@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { DisponibilidadService } from '../src/catalogo-canchas/disponibilidad.service';
 import { EstadoSocio } from '../src/generated/prisma/client';
 import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -471,6 +472,128 @@ describe('Administración de canchas', () => {
 
       const bloques = lunes.body as { montoClp: number; esPico: boolean }[];
       expect(bloques[0]).toMatchObject({ montoClp: 33000, esPico: true });
+    });
+
+    it('guarda el precio de 1 hora y media, y sin él queda nulo (T79)', async () => {
+      const cancha = await nuevaCancha();
+      const franja = (parche: Record<string, unknown>) =>
+        request(servidor())
+          .post('/api/admin/franjas')
+          .set('Cookie', admin)
+          .send({
+            canchaId: cancha.id,
+            horaDesde: '10:00',
+            horaHasta: '12:00',
+            montoClp: 12000,
+            vigenteDesde: '2026-01-01',
+            ...parche,
+          })
+          .expect(201);
+
+      const con = await franja({ montoClp90: 16000 });
+      const sin = await franja({ horaDesde: '12:00', horaHasta: '14:00' });
+
+      expect((con.body as { montoClp90: number | null }).montoClp90).toBe(
+        16000,
+      );
+      expect((sin.body as { montoClp90: number | null }).montoClp90).toBeNull();
+    });
+
+    it('**completar el precio de 1 hora y media cierra la franja anterior y crea otra** (T79)', async () => {
+      // Es un cambio de precio como cualquier otro: el monto de una reserva ya pagada
+      // se justifica con la tarifa que regía, así que la vieja no se edita ni se borra.
+      const cancha = await nuevaCancha();
+      const tramo = {
+        canchaId: cancha.id,
+        horaDesde: '10:00',
+        horaHasta: '12:00',
+        montoClp: 12000,
+      };
+
+      await request(servidor())
+        .post('/api/admin/franjas')
+        .set('Cookie', admin)
+        .send({ ...tramo, vigenteDesde: '2026-01-01' })
+        .expect(201);
+      await request(servidor())
+        .post('/api/admin/franjas')
+        .set('Cookie', admin)
+        .send({ ...tramo, montoClp90: 16000, vigenteDesde: '2026-09-01' })
+        .expect(201);
+
+      const franjas = await prisma.franjaHoraria.findMany({
+        where: { canchaId: cancha.id },
+        orderBy: { vigenteDesde: 'asc' },
+      });
+
+      expect(
+        franjas.map((f) => [
+          f.montoClp90,
+          f.vigenteHasta?.toISOString() ?? null,
+        ]),
+      ).toEqual([
+        [null, '2026-08-31T00:00:00.000Z'],
+        [16000, null],
+      ]);
+    });
+
+    it('rechaza un precio de 1 hora y media negativo (T79)', async () => {
+      const cancha = await nuevaCancha();
+
+      await request(servidor())
+        .post('/api/admin/franjas')
+        .set('Cookie', admin)
+        .send({
+          canchaId: cancha.id,
+          horaDesde: '10:00',
+          horaHasta: '12:00',
+          montoClp: 12000,
+          montoClp90: -1,
+          vigenteDesde: '2026-01-01',
+        })
+        .expect(400);
+    });
+
+    it('el catálogo cobra la hora y media donde tiene precio y la deja sin vender donde no (T79)', async () => {
+      const cancha = await nuevaCancha();
+
+      await request(servidor())
+        .put(`/api/admin/canchas/${cancha.id}/horarios`)
+        .set('Cookie', admin)
+        .send([{ diaSemana: 1, horaApertura: '10:00', horaCierre: '14:00' }])
+        .expect(200);
+      for (const [horaDesde, horaHasta, montoClp90] of [
+        ['10:00', '12:00', 16000],
+        ['12:00', '14:00', null],
+      ] as const) {
+        await request(servidor())
+          .post('/api/admin/franjas')
+          .set('Cookie', admin)
+          .send({
+            canchaId: cancha.id,
+            horaDesde,
+            horaHasta,
+            montoClp: 12000,
+            montoClp90,
+            vigenteDesde: '2026-01-01',
+          })
+          .expect(201);
+      }
+
+      const bloques = await app
+        .get(DisponibilidadService)
+        .de(cancha.id, '2026-08-17', 90);
+
+      // De 10:00 a 14:00, hora y media cada media hora: 10:00 a 12:30. Las que
+      // empiezan antes de las 12:00 tienen precio; las de después, no se venden.
+      expect(bloques.map((b) => b.montoClp)).toEqual([
+        16000,
+        16000,
+        16000,
+        16000,
+        null,
+        null,
+      ]);
     });
 
     it('rechaza un monto negativo', async () => {

@@ -330,6 +330,8 @@ export interface DatosFranja {
   horaHasta: string;
   esPico: boolean;
   montoClp: number;
+  /** Nulo = la hora y media no se vende en esta franja (T79). */
+  montoClp90: number | null;
   vigenteDesde: Date;
   vigenteHasta: Date | null;
 }
@@ -361,6 +363,11 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
     // Cero es legítimo: una cancha puede ser gratis para el club. Negativo no:
     // sería una tarifa que le paga al cliente.
     montoClp: entero(datos.montoClp, 'El monto', 0),
+    // Omitido o nulo es "no se vende", y no un cero: un cero regalaría la cancha.
+    montoClp90:
+      datos.montoClp90 === undefined || datos.montoClp90 === null
+        ? null
+        : entero(datos.montoClp90, 'El monto de 1 hora y media', 0),
     vigenteDesde: fechaDeCuerpo(datos.vigenteDesde, 'La vigencia'),
     vigenteHasta:
       datos.vigenteHasta === undefined || datos.vigenteHasta === null

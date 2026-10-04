@@ -66,9 +66,23 @@ const APERTURA = [
  * necesidad haría creer que la resolución de T11 se probó con datos reales.
  */
 const FRANJAS = [
-  { horaDesde: '08:00', horaHasta: '18:00', esPico: false, montoClp: 12000 },
+  {
+    horaDesde: '08:00',
+    horaHasta: '18:00',
+    esPico: false,
+    montoClp: 12000,
+    // Con descuento sobre una hora y media a precio de hora: es lo que motiva vender
+    // las dos duraciones por separado (T79).
+    montoClp90: 16000,
+  },
   // Pico: después del trabajo, que es cuando todos quieren jugar.
-  { horaDesde: '18:00', horaHasta: '22:00', esPico: true, montoClp: 20000 },
+  {
+    horaDesde: '18:00',
+    horaHasta: '22:00',
+    esPico: true,
+    montoClp: 20000,
+    montoClp90: 27000,
+  },
 ];
 
 /** Las franjas rigen desde antes de cualquier reserva que se pueda hacer hoy. */

@@ -20,6 +20,7 @@ describe('franjaPara', () => {
     horaHasta: '18:00',
     esPico: false,
     montoClp: 12000,
+    montoClp90: null,
     vigenteDesde: new Date('2026-01-01T00:00:00.000Z'),
     vigenteHasta: null,
     ...parche,
@@ -31,8 +32,74 @@ describe('franjaPara', () => {
       fecha: LUNES,
       canchaId: 7,
       inicio: new Date('2026-08-17T14:00:00.000Z'),
+      duracionMin: 60,
       franjas,
     });
+
+  /**
+   * T79. Cada franja tiene un precio por duración, y se cobra el de la franja donde
+   * empieza la reserva (`SPEC-catalogo-canchas.md` § El precio: dos montos por franja).
+   */
+  describe('con 1 hora y media', () => {
+    const aLasDiez = (franjas: FranjaCandidata[]) =>
+      franjaPara({
+        fecha: LUNES,
+        canchaId: 7,
+        inicio: new Date('2026-08-17T14:00:00.000Z'),
+        duracionMin: 90,
+        franjas,
+      });
+
+    it('cobra el precio de 1 hora y media de la franja', () => {
+      expect(aLasDiez([franja({ montoClp90: 16000 })])).toEqual({
+        montoClp: 16000,
+        esPico: false,
+      });
+    });
+
+    it('**sin precio de 1 hora y media no se vende: nulo, y no cero ni el de 1 hora**', () => {
+      // Un cero regalaría la cancha y "1,5 × la hora" sería cobrar un precio que el
+      // club nunca decidió. El pico sigue saliendo de la franja: el socio sí puede
+      // reservarla, y le cuenta contra el cupo pico igual.
+      expect(aLasDiez([franja({ esPico: true, montoClp90: null })])).toEqual({
+        montoClp: null,
+        esPico: true,
+      });
+    });
+
+    it('sin ninguna franja vale cero, igual que la de 1 hora', () => {
+      expect(aLasDiez([])).toEqual({ montoClp: 0, esPico: false });
+    });
+
+    it('con 1 hora cobra el de 1 hora aunque la franja tenga los dos', () => {
+      expect(
+        alasDiez([franja({ montoClp: 12000, montoClp90: 16000 })]),
+      ).toEqual({ montoClp: 12000, esPico: false });
+    });
+
+    it('la que empieza en valle y termina en pico se cobra entera a valle', () => {
+      // 17:30 a 19:00: empieza en la valle de 08:00 a 18:00 y termina en la pico.
+      const valle = franja({ id: 1, montoClp90: 16000 });
+      const pico = franja({
+        id: 2,
+        horaDesde: '18:00',
+        horaHasta: '22:00',
+        esPico: true,
+        montoClp: 20000,
+        montoClp90: 27000,
+      });
+
+      expect(
+        franjaPara({
+          fecha: LUNES,
+          canchaId: 7,
+          inicio: new Date('2026-08-17T21:30:00.000Z'),
+          duracionMin: 90,
+          franjas: [valle, pico],
+        }),
+      ).toEqual({ montoClp: 16000, esPico: false });
+    });
+  });
 
   it('un bloque sin ninguna franja que lo cubra es gratis y no es pico', () => {
     // El admin lo ve como advertencia en el panel (T13): casi siempre significa

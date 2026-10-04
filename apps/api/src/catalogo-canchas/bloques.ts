@@ -7,6 +7,9 @@ import { horaDeReloj, instanteEnElClub, minutosDeReloj } from '../comun/tiempo';
  */
 export const PASO_DE_LA_GRILLA_MIN = 30;
 
+/** Lo que dura una reserva: 1 hora o 1 hora y media, fijas (T79). */
+export type DuracionMin = 60 | 90;
+
 /** Un rango en que la cancha no se puede usar. Instantes, ya en UTC. */
 export interface RangoBloqueado {
   inicio: Date;
