@@ -185,13 +185,14 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   diasSancionNoUso: [1, 365],
 };
 
+/** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
 const NOMBRES: Record<keyof ReglasNumericas, string> = {
   cupoDiarioSocioReservas: 'El cupo diario del socio',
   cupoPicoSemanalReservas: 'El cupo semanal en horario pico',
-  invitadosPorMes: 'Los invitados por mes',
-  horasMinModificacion: 'Las horas mínimas para modificar',
-  horasReembolsoTotal: 'Las horas para el reembolso total',
-  diasSancionNoUso: 'Los días de sanción por una hora no usada',
+  invitadosPorMes: 'El número de invitados por mes',
+  horasMinModificacion: 'El mínimo de horas para modificar',
+  horasReembolsoTotal: 'El plazo del reembolso total, en horas,',
+  diasSancionNoUso: 'La sanción por una hora no usada, en días,',
 };
 
 /**

@@ -244,6 +244,26 @@ describe('Configuración del club', () => {
       await patch({ horasMinModificacion: -1 }).expect(400);
     });
 
+    it('**el mensaje concuerda en número con la regla que nombra**', async () => {
+      // "Los invitados por mes tiene que ser…" es lo que el admin leía antes: el sujeto
+      // en plural y el verbo en singular, que arma `entero` para todos los campos.
+      const mensaje = async (cuerpo: object) =>
+        ((await patch(cuerpo).expect(400)).body as { message: string }).message;
+
+      expect(await mensaje({ invitadosPorMes: -1 })).toBe(
+        'El número de invitados por mes tiene que ser un número entero desde 0.',
+      );
+      expect(await mensaje({ horasMinModificacion: -1 })).toBe(
+        'El mínimo de horas para modificar tiene que ser un número entero desde 0.',
+      );
+      expect(await mensaje({ horasReembolsoTotal: -1 })).toBe(
+        'El plazo del reembolso total, en horas, tiene que ser un número entero desde 0.',
+      );
+      expect(await mensaje({ diasSancionNoUso: 400 })).toBe(
+        'La sanción por una hora no usada, en días, no puede pasar de 365.',
+      );
+    });
+
     it('rechaza lo que no es entero', async () => {
       await patch({ cupoDiarioSocioReservas: 1.5 }).expect(400);
       await patch({ cupoDiarioSocioReservas: '2' }).expect(400);

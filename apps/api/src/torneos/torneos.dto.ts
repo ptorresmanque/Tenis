@@ -97,7 +97,7 @@ export function leerCategoria(cuerpo: unknown): CategoriaNueva {
     // nada y una tabla que no se mueve.
     puntosCampeon: entero(
       datos.puntosCampeon,
-      'Los puntos del campeón',
+      'El puntaje del campeón',
       1,
       10000,
     ),
@@ -167,7 +167,7 @@ export function leerCambioDeCategoria(
   if (datos.puntosCampeon !== undefined) {
     cambio.puntosCampeon = entero(
       datos.puntosCampeon,
-      'Los puntos del campeón',
+      'El puntaje del campeón',
       1,
       10000,
     );
