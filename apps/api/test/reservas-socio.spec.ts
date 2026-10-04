@@ -232,8 +232,9 @@ describe('POST /api/reservas — reserva de socio', () => {
     expect(respuesta.status).toBe(409);
     expect(respuesta.body.motivo).toBe('CUPO_DIARIO');
     // Cuenta reservas, no horas (T84), y no promete "mañana": el cupo es del día de juego.
-    expect(respuesta.body.message).toMatch(/1 reserva por día/);
-    expect(respuesta.body.message).toMatch(/otro día/);
+    const { message } = respuesta.body as { message: string };
+    expect(message).toMatch(/1 reserva por día/);
+    expect(message).toMatch(/otro día/);
   });
 
   it('la tercera reserva pico de la semana se rechaza', async () => {

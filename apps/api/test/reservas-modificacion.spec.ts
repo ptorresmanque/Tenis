@@ -400,7 +400,7 @@ describe('Modificación y cancelación de reservas', () => {
           // Reemplaza a `CAMBIA_LA_TARIFA` (T88): ya no se rechaza todo cambio de
           // precio, solo el que deja algo por pagar. Lo cobra T89.
           motivo: 'DIFERENCIA_POR_PAGAR',
-          message: expect.stringMatching(/20\.000.*12\.000.*8\.000/),
+          message: expect.stringMatching(/20\.000.*12\.000.*8\.000/) as string,
         },
       });
     });
