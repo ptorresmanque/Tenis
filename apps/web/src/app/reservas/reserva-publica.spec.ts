@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { Club } from '../club/club.service';
@@ -27,6 +28,8 @@ describe('ReservaPublicaPagina', () => {
     esPico: false,
     estado: 'CONFIRMADA',
     acompanantes: 1,
+    pagadoClp: 12000,
+    sePuedeCambiar: false,
   };
 
   let fixture: ComponentFixture<ReservaPublicaPagina>;
@@ -38,6 +41,7 @@ describe('ReservaPublicaPagina', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         {
           provide: ReservasPublicas,
           useValue: {
@@ -122,6 +126,36 @@ describe('ReservaPublicaPagina', () => {
     expect(botones).toHaveLength(0);
     expect(texto()).toContain('desde este enlace no se puede');
     expect(texto()).toContain('hola@fedaltenis.cl');
+  });
+
+  describe('cambiar desde el enlace (T88)', () => {
+    const enlaceACambiar = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a')).find((a) =>
+        (a.textContent ?? '').includes('Cambiar hora o duración'),
+      );
+
+    it('**a tiempo, ofrece cambiar la hora o la duración, y avisa antes que no se devuelve la diferencia**', async () => {
+      await montar({ ...UNA, sePuedeCambiar: true });
+
+      expect(enlaceACambiar()?.getAttribute('href')).toBe(
+        '/disponibilidad?moverToken=un-token-cualquiera',
+      );
+      expect(texto()).toContain('no se devuelve la diferencia');
+    });
+
+    it('la de 1 hora y media abre la grilla de 1 hora y media', async () => {
+      await montar({ ...UNA, fin: '2026-08-17T13:30:00.000Z', sePuedeCambiar: true });
+
+      expect(enlaceACambiar()?.getAttribute('href')).toBe(
+        '/disponibilidad?moverToken=un-token-cualquiera&duracion=90',
+      );
+    });
+
+    it('fuera de plazo, o de un socio, no lo ofrece', async () => {
+      await montar({ ...UNA, sePuedeCambiar: false });
+
+      expect(enlaceACambiar()).toBeUndefined();
+    });
   });
 
   it('sin correo cargado la frase sigue teniendo sentido', async () => {

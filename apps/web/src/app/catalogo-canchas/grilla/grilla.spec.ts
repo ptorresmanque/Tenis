@@ -5,6 +5,7 @@ import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReportesDelSocio } from '../../reservas/reportes.service';
+import { ReservasPublicas } from '../../reservas/reserva-publica.service';
 import { Reservas } from '../../reservas/reservas.service';
 import { Auth } from '../../core/auth/auth';
 import { Disponibilidad, GrillaDeCancha } from '../disponibilidad';
@@ -63,6 +64,11 @@ describe('Grilla', () => {
   let fixture: ComponentFixture<Grilla>;
   let mover: ReturnType<typeof vi.fn>;
   let pedirDiaParaMover: ReturnType<typeof vi.fn>;
+  let delEnlace: {
+    porToken: ReturnType<typeof vi.fn>;
+    grillaParaMover: ReturnType<typeof vi.fn>;
+    mover: ReturnType<typeof vi.fn>;
+  };
   let navegar: ReturnType<typeof vi.fn>;
   let reportables: ReturnType<typeof vi.fn>;
   let reportar: ReturnType<typeof vi.fn>;
@@ -100,6 +106,14 @@ describe('Grilla', () => {
 
     pedirDia = vi.fn(() => (dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia)));
     // Al mover, el día viene de la grilla que no cuenta la reserva que se mueve (T87).
+    // El no-socio que cambia desde el enlace de su reserva (T88): pagó $16.000.
+    delEnlace = {
+      porToken: vi.fn().mockResolvedValue({ pagadoClp: 16000 }),
+      grillaParaMover: vi.fn(() =>
+        dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
+      ),
+      mover: vi.fn().mockResolvedValue({}),
+    };
     pedirDiaParaMover = vi.fn(() =>
       dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
     );
@@ -109,6 +123,7 @@ describe('Grilla', () => {
       providers: [
         { provide: Disponibilidad, useValue: { delDia: pedirDia } },
         { provide: Reservas, useValue: { mover, grillaParaMover: pedirDiaParaMover } },
+        { provide: ReservasPublicas, useValue: delEnlace },
         { provide: ReportesDelSocio, useValue: { reportables, reportar } },
         {
           provide: Auth,
@@ -844,6 +859,40 @@ describe('Grilla', () => {
       await elegirPrimerBloque();
 
       expect(mover).toHaveBeenCalledWith(7, expect.objectContaining({ duracionMin: 90 }));
+    });
+
+    describe('desde el enlace de la reserva, sin sesión (T88)', () => {
+      it('pide la grilla del enlace, que no cuenta la reserva, y no la pública', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        expect(delEnlace.grillaParaMover).toHaveBeenCalledWith(
+          'tok-123',
+          expect.any(String),
+          60,
+        );
+        expect(pedirDia).not.toHaveBeenCalled();
+      });
+
+      it('**dice cuánto pagó y que no se devuelve la diferencia, antes de elegir**', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        expect(texto()).toContain('Pagaste $16.000');
+        expect(texto()).toContain('no se devuelve la diferencia');
+      });
+
+      it('al elegir, mueve por el enlace y vuelve a la página de la reserva', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        await elegirPrimerBloque();
+
+        expect(delEnlace.mover).toHaveBeenCalledWith('tok-123', {
+          canchaId: 1,
+          inicio: '2026-08-17T12:00:00.000Z',
+          duracionMin: 60,
+        });
+        expect(mover).not.toHaveBeenCalled();
+        expect(navegar).toHaveBeenCalledWith(['/r', 'tok-123']);
+      });
     });
 
     it('sin el parámetro, el clic elige el bloque en vez de mover nada', async () => {

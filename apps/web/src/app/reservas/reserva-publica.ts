@@ -1,9 +1,11 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 import {
   diaEnPalabras,
   fechaEnElClub,
   horaEnElClub,
+  minutosDe,
 } from '../catalogo-canchas/reloj-del-club';
 import { Club } from '../club/club.service';
 import { Aviso } from '../ui/aviso';
@@ -35,7 +37,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
  */
 @Component({
   selector: 'app-reserva-publica',
-  imports: [Aviso, Insignia],
+  imports: [Aviso, Insignia, RouterLink],
   template: `
     <section class="mx-auto max-w-md py-10">
       @if (reserva.isLoading()) {
@@ -93,12 +95,30 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
           </app-aviso>
         }
 
+        @if (datos.sePuedeCambiar) {
+          <!-- Cambiar sí, desde T88: el visitante no tiene cuenta, y esta página es su
+               "mis reservas". La regla de la plata se dice acá, antes del clic. -->
+          <div class="mt-6 text-center">
+            <a
+              routerLink="/disponibilidad"
+              [queryParams]="{ moverToken: token(), duracion: duracionDeLaGrilla() }"
+              class="boton boton-primario"
+            >
+              <span class="icono text-base" aria-hidden="true">schedule</span>
+              Cambiar hora o duración
+            </a>
+            <p class="mt-2 text-sm text-muted-foreground">
+              Si la nueva vale menos de lo que pagaste, no se devuelve la diferencia.
+            </p>
+          </div>
+        }
+
         <!-- Esta página **no cancela**, por decisión: el enlace se reenvía y queda
              en pantallas ajenas, y con poder de cancelación perderlo de vista sería
              perder la hora. Lo que sí corresponde es decir por dónde se cancela, en
              vez de dejar a alguien buscando un botón que no existe. -->
         <p class="mt-4 text-center text-sm text-muted-foreground">
-          ¿Hay que cambiar o cancelar esta hora?
+          ¿Hay que cancelar esta hora?
           @if (club().email) {
             Escribe a
             <a
@@ -144,6 +164,13 @@ export class ReservaPublicaPagina {
     const cuantos = (this.reserva.value()?.acompanantes ?? 0) + 1;
 
     return cuantos === 1 ? '1 persona' : `${cuantos} personas`;
+  });
+
+  /** La grilla de mover busca horas de la misma duración (T87). Nulo: 1 hora. */
+  protected readonly duracionDeLaGrilla = computed(() => {
+    const datos = this.reserva.value();
+
+    return datos && minutosDe(datos) === 90 ? 90 : null;
   });
 
   protected readonly hora = horaEnElClub;

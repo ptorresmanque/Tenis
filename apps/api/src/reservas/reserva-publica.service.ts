@@ -29,7 +29,10 @@ export interface ReservaPublica {
    * diferencia antes de cambiar; quien la cobra o no la cobra es el servidor, al mover.
    */
   pagadoClp: number;
-  /** Si el enlace ofrece "Cambiar hora o duración": activa, de visitante y a tiempo. */
+  /**
+   * Si el enlace ofrece "Cambiar hora o duración": confirmada, de un visitante que pagó
+   * en línea, y a tiempo. La del mesón se cambia en el mesón.
+   */
   sePuedeCambiar: boolean;
 }
 
@@ -66,6 +69,7 @@ export class ReservaPublicaService {
     }
 
     const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
+    const pagado = await pagadoPor(this.prisma, reserva.id);
     return {
       folio: reserva.folio,
       cancha: reserva.cancha.nombre,
@@ -75,12 +79,14 @@ export class ReservaPublicaService {
       esPico: reserva.esPico,
       estado: reserva.estado,
       acompanantes: reserva._count.acompanantes,
-      pagadoClp: await pagadoPor(this.prisma, reserva.id),
+      pagadoClp: pagado,
       // Las mismas condiciones que el servidor exige al mover por el enlace: el botón no
-      // promete lo que la API va a rechazar.
+      // promete lo que la API va a rechazar. Confirmada y sin nada pagado en línea es una
+      // reserva del mesón.
       sePuedeCambiar:
         reserva.estado === EstadoReserva.CONFIRMADA &&
         reserva.socioId === null &&
+        pagado > 0 &&
         sePuedeModificar(reserva.inicio, ahora, ventanas),
     };
   }

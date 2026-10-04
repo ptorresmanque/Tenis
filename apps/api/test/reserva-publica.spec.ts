@@ -223,7 +223,7 @@ describe('GET /api/reservas/publica/:token', () => {
     });
   });
 
-  it('**ofrece cambiarla si es de visitante, está activa y falta más que la ventana** (T88)', async () => {
+  it('**ofrece cambiarla si es de visitante, pagada en línea, activa y a tiempo** (T88)', async () => {
     const enElFuturo = (estado: EstadoReserva, folio: string) =>
       prisma.reserva.create({
         data: {
@@ -248,6 +248,23 @@ describe('GET /api/reservas/publica/:token', () => {
       ).sePuedeCambiar;
 
     const activa = await enElFuturo(EstadoReserva.CONFIRMADA, 'QT88ACT');
+    // Sin pago en línea es una reserva del mesón: se cambia en el mesón, no por el enlace.
+    expect(await sePuede(activa.token)).toBe(false);
+
+    const { id } = await prisma.reserva.findUniqueOrThrow({
+      where: { token: activa.token },
+      select: { id: true },
+    });
+    await prisma.transaccion.create({
+      data: {
+        referencia: `QR-T88-act-${id}`,
+        concepto: ConceptoPago.RESERVA,
+        conceptoId: id,
+        montoClp: 12000,
+        pasarela: 'doble',
+        estado: EstadoTransaccion.AUTORIZADA,
+      },
+    });
     expect(await sePuede(activa.token)).toBe(true);
 
     await prisma.reserva.update({

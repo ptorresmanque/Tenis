@@ -1168,6 +1168,35 @@ describe('Modificación y cancelación de reservas', () => {
       });
     });
 
+    it('**la del mesón no se cambia por el enlace: se pagó en el mostrador y el sistema no sabe cuánto**', async () => {
+      // Sin esto, quien pagó $12.000 en efectivo por 1 hora se pasaba desde el enlace a
+      // una hora y media pico sin pagar nada: para el servidor había pagado cero, y cero
+      // es "nada que cuadrar". Encontrado al probar T88 en el navegador.
+      const delMeson = await prisma.reserva.create({
+        data: {
+          folio: 'T88MESON',
+          canchaId,
+          inicio: LUNES_18,
+          fin: new Date(LUNES_18.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          nombre: 'Llegó al mesón',
+          email: '',
+          telefono: '+56900000000',
+        },
+      });
+
+      await expect(
+        modificacion.modificarPorToken(
+          delMeson.token,
+          { canchaId, inicio: LUNES_18, duracionMin: 90 },
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({
+        status: 403,
+        response: { motivo: 'SE_TOMO_EN_EL_MESON' },
+      });
+    });
+
     it('rige la ventana de 6 horas', async () => {
       const reserva = await unaReservaPagada(LUNES_18);
 

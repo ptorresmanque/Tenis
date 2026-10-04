@@ -534,11 +534,17 @@ export class ModificacionService {
   }
 
   /**
-   * La reserva del enlace, si es de un visitante y sigue activa (T88).
+   * La reserva del enlace, si es de un visitante que pagó en línea y sigue activa (T88).
    *
    * **La del socio no se cambia por el enlace**: tiene sesión, y desde "mis reservas"
    * rigen sus reglas con su identidad. Abierto, cualquiera que recibiera el enlace
    * reenviado podría mover la hora de un socio.
+   *
+   * **La del mesón tampoco**: se pagó en el mostrador y el sistema no sabe cuánto. Para
+   * la regla de la diferencia habría pagado cero, y cero es "nada que cuadrar": quien
+   * pagó una hora en efectivo se pasaba sola a una hora y media pico. Se reconoce por no
+   * tener ninguna transacción; la reserva en línea tiene al menos una, aunque esté
+   * pendiente, y entonces lo que corresponde decir es "pago en curso".
    */
   private async delEnlace(token: string): Promise<Reserva> {
     const reserva = await this.prisma.reserva.findUnique({ where: { token } });
@@ -551,6 +557,18 @@ export class ModificacionService {
       throw new ForbiddenException({
         motivo: 'ES_DE_SOCIO',
         message: 'Esta reserva es de un socio: se cambia desde "mis reservas".',
+      });
+    }
+
+    const transacciones = await this.prisma.transaccion.count({
+      where: { concepto: 'RESERVA', conceptoId: reserva.id },
+    });
+
+    if (transacciones === 0) {
+      throw new ForbiddenException({
+        motivo: 'SE_TOMO_EN_EL_MESON',
+        message:
+          'Esta reserva se tomó en el mesón: para cambiarla, habla con el club.',
       });
     }
 

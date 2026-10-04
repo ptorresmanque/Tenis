@@ -6,13 +6,20 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { ReportesDelSocio } from '../../reservas/reportes.service';
+import { ReservasPublicas } from '../../reservas/reserva-publica.service';
 import { mensajeDeRechazo, Reservas } from '../../reservas/reservas.service';
 import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
-import { BloqueDisponible, Cancha, Disponibilidad, DuracionMin } from '../disponibilidad';
+import {
+  BloqueDisponible,
+  Cancha,
+  Disponibilidad,
+  DuracionMin,
+  GrillaDeCancha,
+} from '../disponibilidad';
 import {
   diaEnPalabras,
   enPesos,
@@ -140,11 +147,16 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Disponibilidad</h1>
 
-    @if (moviendo() !== null) {
-      <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" tiene
-           que saber que el proximo clic mueve su hora en vez de tomar una nueva. -->
+    @if (enModoMover()) {
+      <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" o desde
+           el enlace tiene que saber que el próximo clic mueve su hora en vez de tomar
+           una nueva. Y quien pagó, la regla de la plata, antes de elegir (T88). -->
       <p class="mt-3 rounded-lg bg-muted p-3 font-medium">
         Elige la nueva hora para tu reserva. La que tenías queda liberada.
+        @if (pagadoPorElEnlace(); as pagado) {
+          Pagaste {{ pesos(pagado) }}: si la nueva vale menos, no se devuelve la
+          diferencia.
+        }
       </p>
     }
 
@@ -598,6 +610,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
 export class Grilla {
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly reservas = inject(Reservas);
+  private readonly enlace = inject(ReservasPublicas);
   private readonly reportes = inject(ReportesDelSocio);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
@@ -631,6 +644,29 @@ export class Grilla {
     { valor: '90', etiqueta: '1 hora y media' },
   ];
 
+  /**
+   * La reserva que se mueve desde su enlace, sin sesión (T88): el token es la llave. Como
+   * `mover`, vive en la URL.
+   */
+  protected readonly moviendoPorToken = computed(
+    () => this.parametros()?.get('moverToken') || null,
+  );
+
+  /** Si el próximo clic mueve una reserva en vez de elegir una hora nueva. */
+  protected readonly enModoMover = computed(
+    () => this.moviendo() !== null || this.moviendoPorToken() !== null,
+  );
+
+  /** Lo que pagó quien mueve desde el enlace, para decirle la regla antes de elegir. */
+  private readonly reservaDelEnlace = resource({
+    params: () => this.moviendoPorToken() ?? undefined,
+    loader: ({ params: token }) => this.enlace.porToken(token),
+  });
+
+  protected readonly pagadoPorElEnlace = computed(() =>
+    this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().pagadoClp : null,
+  );
+
   protected readonly errorAlMover = signal<string | null>(null);
   protected readonly avisoDeReporte = signal<string | null>(null);
   protected readonly enviandoMovimiento = signal(false);
@@ -640,13 +676,9 @@ export class Grilla {
       fecha: this.fecha(),
       duracion: this.duracion(),
       moviendo: this.moviendo(),
+      moviendoPorToken: this.moviendoPorToken(),
     }),
-    // Al mover, la grilla que no cuenta la reserva que se mueve (T87): con la pública,
-    // alargarla en la misma cancha y hora salía ocupado por ella misma.
-    loader: ({ params }) =>
-      params.moviendo === null
-        ? this.disponibilidad.delDia(params.fecha, params.duracion)
-        : this.reservas.grillaParaMover(params.moviendo, params.fecha, params.duracion),
+    loader: ({ params }) => this.pedirDia(params),
     // El valor por defecto evita el `undefined` mientras carga, pero **no** que
     // `value()` lance cuando la carga falla: lo que lo lee fuera de la rama del
     // error pregunta antes `hasValue()`.
@@ -966,7 +998,7 @@ export class Grilla {
    * porque le gasta al socio un cupo semanal del que solo tiene dos.
    */
   protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
-    const que = this.moviendo() !== null ? 'Mover tu reserva a' : 'Elegir';
+    const que = this.enModoMover() ? 'Mover tu reserva a' : 'Elegir';
 
     return (
       `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
@@ -984,8 +1016,9 @@ export class Grilla {
     if (this.noSePuedeTomar(bloque)) return;
 
     const reservaId = this.moviendo();
+    const token = this.moviendoPorToken();
 
-    if (reservaId === null) {
+    if (reservaId === null && token === null) {
       this.elegido.set({ cancha, bloque });
       return;
     }
@@ -998,13 +1031,21 @@ export class Grilla {
     this.errorAlMover.set(null);
 
     try {
-      await this.reservas.mover(reservaId, {
+      const destino = {
         canchaId: cancha.id,
         inicio: bloque.inicio,
         // La del bloque, como al reservar: la grilla lo pidió de la duración elegida.
         duracionMin: minutosDe(bloque),
-      });
-      await this.router.navigate(['/mis-reservas']);
+      };
+
+      if (token !== null) {
+        // Desde el enlace se vuelve a la página de la reserva, que es su "mis reservas".
+        await this.enlace.mover(token, destino);
+        await this.router.navigate(['/r', token]);
+      } else if (reservaId !== null) {
+        await this.reservas.mover(reservaId, destino);
+        await this.router.navigate(['/mis-reservas']);
+      }
     } catch (falla) {
       // Se queda en la grilla a propósito: la hora que eligió no se pudo, pero las
       // otras siguen ahí y volver atrás para reintentar sería un paso de más.
@@ -1039,6 +1080,29 @@ export class Grilla {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  /**
+   * El día que muestra la grilla. Al mover, sin contar la reserva que se mueve (T87): con
+   * la pública, alargarla en la misma cancha y hora salía ocupado por ella misma.
+   */
+  private pedirDia(consulta: {
+    fecha: string;
+    duracion: DuracionMin;
+    moviendo: number | null;
+    moviendoPorToken: string | null;
+  }): Promise<GrillaDeCancha[]> {
+    const { fecha, duracion } = consulta;
+
+    if (consulta.moviendo !== null) {
+      return this.reservas.grillaParaMover(consulta.moviendo, fecha, duracion);
+    }
+
+    if (consulta.moviendoPorToken !== null) {
+      return this.enlace.grillaParaMover(consulta.moviendoPorToken, fecha, duracion);
+    }
+
+    return this.disponibilidad.delDia(fecha, duracion);
   }
 
   protected cambiarFecha(evento: Event): void {
