@@ -196,6 +196,34 @@ describe('GET /api/disponibilidad — con las reservas superpuestas', () => {
       ).toMatchObject({ estado: EstadoReserva.EXPIRADA });
     });
 
+    it('**también libera la que expiró otra consulta**', async () => {
+      // El barrido es global y la liberación es por cancha y día. Si otra consulta —el
+      // lunes, otra cancha, o la misma grilla del día con sus ocho canchas en paralelo—
+      // expiró la transacción primero, esta encontraba "cero expiradas" y se iba sin
+      // liberar: la reserva quedaba PENDIENTE_PAGO y la hora tomada para siempre.
+      // Encontrado el 2026-10-04 con una reserva de prueba que no se liberaba.
+      const reserva = await prisma.reserva.create({
+        data: unaReserva({ estado: EstadoReserva.PENDIENTE_PAGO }),
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `T23YAEXP${Date.now()}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.EXPIRADA,
+          creadaEn: new Date(Date.now() - (MINUTOS_PARA_EXPIRAR + 1) * 60_000),
+        },
+      });
+
+      const bloque = (await bloqueDeLas10()) as { reservado: boolean };
+      expect(bloque.reservado).toBe(false);
+      expect(
+        await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),
+      ).toMatchObject({ estado: EstadoReserva.EXPIRADA });
+    });
+
     it('avisa al panel del admin que esa hora se liberó (T26)', async () => {
       // El panel se repuebla con los avisos del servidor. Si el barrido libera el
       // bloque en silencio, el club sigue viendo "Esperando el pago" por una hora que

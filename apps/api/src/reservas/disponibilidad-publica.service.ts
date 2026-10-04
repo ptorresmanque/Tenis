@@ -133,7 +133,13 @@ export class DisponibilidadPublicaService {
     desde: Date,
     hasta: Date,
   ): Promise<void> {
-    if ((await this.expiracion.barrer()) === 0) return;
+    // **Sin cortar si este barrido no expiró nada.** El barrido es global y la
+    // liberación es por cancha y día: si otra consulta expiró la transacción primero
+    // —otro día, otra cancha, o las ocho canchas de la grilla del día en paralelo—, el
+    // corte dejaba la reserva PENDIENTE_PAGO y la hora tomada para siempre. Lo que
+    // decide es el estado de la transacción, que se mira abajo. El costo es una
+    // consulta indexada por cancha que casi siempre vuelve vacía.
+    await this.expiracion.barrer();
 
     const enEspera = await this.prisma.reserva.findMany({
       where: {
