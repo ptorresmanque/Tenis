@@ -385,7 +385,8 @@ describe('Administración de canchas', () => {
         .get(`/api/disponibilidad?cancha=${cancha.id}&fecha=2026-08-17`)
         .expect(200);
 
-      expect(lunes.body).toHaveLength(4);
+      // De 10:00 a 14:00, una hora empezando cada media hora: 7 inicios.
+      expect(lunes.body).toHaveLength(7);
     });
 
     it('reemplaza de verdad: el horario viejo no queda dando vueltas', async () => {
@@ -549,9 +550,13 @@ describe('Administración de canchas', () => {
         respuesta.body as { canchaId: number; sinTarifa: string[] }[]
       ).find((a) => a.canchaId === cancha.id);
 
-      // Solo las 07:00: las 06:00 las cubre la tarifa propia y las 08:00 la
-      // general del club, que empieza justo ahí.
-      expect(mia?.sinTarifa).toEqual(['2026-08-17T11:00:00.000Z']);
+      // Las 07:00 y las 07:30: las 06:00 y las 06:30 las cubre la tarifa propia y las
+      // 08:00 la general del club, que empieza justo ahí. La de 07:30 también se avisa
+      // (T78): una reserva que empieza ahí no tiene franja que la cobre.
+      expect(mia?.sinTarifa).toEqual([
+        '2026-08-17T11:00:00.000Z',
+        '2026-08-17T11:30:00.000Z',
+      ]);
     });
 
     it('no advierte de una cancha con todas sus horas cubiertas', async () => {

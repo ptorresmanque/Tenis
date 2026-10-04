@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { calcularBloques } from '../catalogo-canchas/bloques';
+import {
+  calcularBloques,
+  PASO_DE_LA_GRILLA_MIN,
+} from '../catalogo-canchas/bloques';
 import { franjaPara } from '../catalogo-canchas/franjas';
 import { comoFechaCivil, fechaDelClub } from '../comun/tiempo';
 import { EstadoReserva } from '../generated/prisma/client';
@@ -29,8 +32,11 @@ export interface ReporteDeOcupacion {
   calculadoEn: string;
 }
 
-/** El tramo con que se mide: el paso de la grilla desde T78, en que se reserva cada media hora. */
-const TRAMO_MIN = 30;
+/**
+ * El tramo con que se mide es el paso de la grilla: una reserva empieza y termina en
+ * sus bordes, así que cada tramo está ocupado entero o libre entero.
+ */
+const TRAMO_MIN = PASO_DE_LA_GRILLA_MIN;
 
 /**
  * Cuánta cancha se usó y cuánta se desperdició.

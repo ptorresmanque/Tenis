@@ -321,7 +321,8 @@ describe('Configuración del club', () => {
         .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${MARTES}`)
         .expect(200);
 
-      expect((bloques.body as unknown[]).length).toBe(4);
+      // De 09:00 a 13:00, una hora empezando cada media hora: 7 inicios.
+      expect((bloques.body as unknown[]).length).toBe(7);
     });
 
     it('reemplaza el horario general entero, no le suma días', async () => {
@@ -393,12 +394,16 @@ describe('Configuración del club', () => {
   });
 
   describe('la regla cambia en el acto', () => {
-    it('cambiar la duración del bloque redibuja la grilla pública', async () => {
+    it('cambiar la duración del bloque ya no toca la grilla pública (T78)', async () => {
+      // Hasta T78 este test pedía lo contrario: la grilla era de una sola duración y la
+      // ponía la configuración. Desde la duración elegible la elige quien reserva y la
+      // grilla empieza cada media hora, así que `duracionBloqueMin` dejó de mandar y
+      // sale de la base en T92 (`SPEC-catalogo-canchas.md` § Duración elegible).
       const antes = await request(servidor())
         .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`)
         .expect(200);
-      // 08:00 a 12:00 en bloques de 60: cuatro horas.
-      expect((antes.body as unknown[]).length).toBe(4);
+      // De 08:00 a 12:00, una hora empezando cada media hora: 7 inicios.
+      expect((antes.body as unknown[]).length).toBe(7);
 
       await patch({ duracionBloqueMin: 120 }).expect(200);
 
@@ -406,8 +411,7 @@ describe('Configuración del club', () => {
         .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`)
         .expect(200);
 
-      // Sin migrar un solo dato: los bloques se calculan, no se guardan.
-      expect((despues.body as unknown[]).length).toBe(2);
+      expect(despues.body).toEqual(antes.body);
     });
 
     it('subir el cupo diario deja al socio reservar dos horas el mismo día', async () => {

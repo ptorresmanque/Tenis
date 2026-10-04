@@ -163,6 +163,36 @@ describe('Reserva de no-socio con pago', () => {
     expect(segunda.body.motivo).toBe('BLOQUE_TOMADO');
   });
 
+  it('un visitante reserva empezando a la media hora (T78)', async () => {
+    const respuesta = await reservarYPagar({
+      inicio: '2037-08-17T14:30:00.000Z',
+    });
+
+    expect(respuesta.status).toBe(201);
+    const reserva = await prisma.reserva.findUniqueOrThrow({
+      where: { id: (respuesta.body as { reservaId: number }).reservaId },
+    });
+    // 10:30 a 11:30 del club: una hora, aunque no empiece en punto.
+    expect([reserva.inicio.toISOString(), reserva.fin.toISOString()]).toEqual([
+      '2037-08-17T14:30:00.000Z',
+      '2037-08-17T15:30:00.000Z',
+    ]);
+  });
+
+  it('la hora que pisa a medias otra ya tomada se rechaza como tomada (T78)', async () => {
+    // 10:00–11:00 contra 10:30–11:30: no empiezan a la misma hora y se pisan igual.
+    // Lo ataja el índice por rango de T76, no una consulta previa.
+    await reservarYPagar();
+
+    const segunda = await reservarYPagar({
+      inicio: '2037-08-17T14:30:00.000Z',
+      email: 'otro@ejemplo.cl',
+    });
+
+    expect(segunda.status).toBe(409);
+    expect((segunda.body as { motivo: string }).motivo).toBe('BLOQUE_TOMADO');
+  });
+
   it('pago autorizado: la reserva queda confirmada y se ve el folio', async () => {
     const inicio = await reservarYPagar();
     const token = await tokenDe(inicio.body.reservaId);

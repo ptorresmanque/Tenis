@@ -246,13 +246,17 @@ describe('POST /api/admin/cierres', () => {
   it('**cierra la cancha, cancela las dos reservas, devuelve lo pagado y avisa**', async () => {
     const horas = await bloques();
     const reservaPagada = await reservarYPagar(horas[0].inicio);
+    // La hora siguiente, la que empieza cuando termina la primera. Por hora y no por
+    // posición: desde T78 la grilla empieza cada media hora, y `horas[1]` se pisa con
+    // `horas[0]`.
+    const siguiente = horas.find((b) => b.inicio === horas[0].fin)!;
 
     await request(app.getHttpServer())
       .post('/api/reservas')
       .set('Cookie', cookieSocio)
       .send({
         canchaId,
-        inicio: horas[1].inicio,
+        inicio: siguiente.inicio,
         acompanantes: [{ nombre: 'Invitada del cierre' }],
       })
       .expect(201);

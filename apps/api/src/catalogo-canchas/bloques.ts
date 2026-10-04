@@ -1,5 +1,12 @@
 import { horaDeReloj, instanteEnElClub, minutosDeReloj } from '../comun/tiempo';
 
+/**
+ * Cada cuánto puede empezar una reserva (T78). La grilla pública y la ocupación de
+ * `reportes` miden con este paso: si cambiara uno sin el otro, el reporte contaría por
+ * tramos que no coinciden con lo que se vende.
+ */
+export const PASO_DE_LA_GRILLA_MIN = 30;
+
 /** Un rango en que la cancha no se puede usar. Instantes, ya en UTC. */
 export interface RangoBloqueado {
   inicio: Date;
@@ -22,6 +29,12 @@ export interface DiaDeCancha {
   horaApertura: string;
   horaCierre: string;
   duracionBloqueMin: number;
+  /**
+   * Cada cuánto empieza un bloque. Por omisión, la duración: bloques pegados uno al
+   * otro. Con un paso menor los rangos se pisan, y la grilla pasa a ser la lista de
+   * inicios posibles —08:00–09:00, 08:30–09:30…—, que es como se reserva desde T78.
+   */
+  pasoMin?: number;
   bloqueos?: RangoBloqueado[];
 }
 
@@ -38,11 +51,21 @@ export interface DiaDeCancha {
  * verdad, y así tiene que ser: el club cierra cuando el reloj marca las doce.
  */
 export function calcularBloques(dia: DiaDeCancha): Bloque[] {
-  if (dia.duracionBloqueMin <= 0) {
-    // Un 0 en la configuración colgaría el proceso en un bucle infinito, y eso se
-    // ve como una API que no responde y no como el error de datos que es.
+  const paso = dia.pasoMin ?? dia.duracionBloqueMin;
+
+  if (dia.duracionBloqueMin <= 0 || paso <= 0) {
+    // Un 0 colgaría el proceso en un bucle infinito, y eso se ve como una API que no
+    // responde y no como el error de datos que es.
     throw new Error(
-      `La duración de bloque debe ser positiva, no ${dia.duracionBloqueMin}.`,
+      `La duración (${dia.duracionBloqueMin}) y el paso (${paso}) deben ser positivos.`,
+    );
+  }
+
+  if (dia.duracionBloqueMin % paso !== 0) {
+    // El fin de cada bloque tiene que caer en un borde del paso: es lo que deja
+    // calcular cada instante una sola vez, abajo.
+    throw new Error(
+      `La duración (${dia.duracionBloqueMin}) tiene que ser múltiplo del paso (${paso}).`,
     );
   }
 
@@ -58,21 +81,21 @@ export function calcularBloques(dia: DiaDeCancha): Bloque[] {
     );
   }
 
-  // Los bordes del reloj, convertidos una sola vez: el fin de un bloque es el
-  // inicio del siguiente, y calcularlo dos veces es trabajo de más y una ocasión
-  // para que dos números que tienen que ser iguales dejen de serlo.
+  // Los bordes del reloj, uno por paso, convertidos una sola vez: el fin de un bloque
+  // es el inicio de otro, y calcularlo dos veces es trabajo de más y una ocasión para
+  // que dos números que tienen que ser iguales dejen de serlo.
   const bordes: Date[] = [];
-  for (let m = apertura; m <= cierre; m += dia.duracionBloqueMin) {
+  for (let m = apertura; m <= cierre; m += paso) {
     bordes.push(instanteEnElClub(dia.fecha, horaDeReloj(m)));
   }
 
   const bloqueos = dia.bloqueos ?? [];
+  const pasosPorBloque = dia.duracionBloqueMin / paso;
 
-  // Un borde de más que bloques: el último tramo, si no cabe entero antes del
-  // cierre, se queda sin par y no se ofrece. Media hora de cancha no le sirve a
-  // nadie.
-  return bordes.slice(0, -1).map((inicio, i) => {
-    const fin = bordes[i + 1];
+  // Los últimos bordes no inician nada: un bloque que empieza ahí terminaría después
+  // del cierre, y no se ofrece. Media hora de cancha no le sirve a nadie.
+  return bordes.slice(0, -pasosPorBloque).map((inicio, i) => {
+    const fin = bordes[i + pasosPorBloque];
 
     // Se superpone si empieza antes de que el otro termine y termina después de
     // que el otro empiece. Los bordes exactos no cuentan: un bloqueo que termina

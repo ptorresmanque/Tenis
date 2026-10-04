@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { fechaDelClub } from '../comun/tiempo';
 import { PrismaService } from '../prisma/prisma.service';
-import { calcularBloques } from './bloques';
+import { calcularBloques, PASO_DE_LA_GRILLA_MIN } from './bloques';
 import { franjaPara } from './franjas';
 
 /** Lo que `reservas` y la grilla consumen. `SPEC-catalogo-canchas.md` § Contrato. */
@@ -65,8 +65,7 @@ export class DisponibilidadService {
       throw new NotFoundException('No hay una cancha activa con ese número.');
     }
 
-    const [config, horarios, bloqueos, franjas] = await Promise.all([
-      this.prisma.configuracionClub.findFirstOrThrow(),
+    const [horarios, bloqueos, franjas] = await Promise.all([
       // `in: [id, null]` no sirve: Prisma no mezcla nulos con valores. El de la
       // cancha y el general del club, que es el que tiene `cancha_id` nulo.
       // El orden importa: `horario_apertura` no tiene único sobre (cancha, día)
@@ -114,7 +113,10 @@ export class DisponibilidadService {
       fecha,
       horaApertura: horario.horaApertura,
       horaCierre: horario.horaCierre,
-      duracionBloqueMin: config.duracionBloqueMin,
+      // Una hora, empezando cada media hora (T78). La hora y media llega con T82, y
+      // `duracionBloqueMin` de la configuración ya no manda sobre la grilla.
+      duracionBloqueMin: 60,
+      pasoMin: PASO_DE_LA_GRILLA_MIN,
       bloqueos,
     });
 

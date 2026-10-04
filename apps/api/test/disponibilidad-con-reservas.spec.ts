@@ -110,6 +110,26 @@ describe('GET /api/disponibilidad — con las reservas superpuestas', () => {
     expect((await bloqueDeLas10()).reservado).toBe(true);
   });
 
+  it('una reserva de 10:00 a 11:00 toma también los inicios de 09:30 y 10:30 (T78)', async () => {
+    // Con inicios cada media hora, la grilla marca tomada toda hora que se pise con
+    // una reserva, no solo la que empieza con ella. Ofrecer las 10:30 libre sería
+    // invitar a pagar una hora que el índice va a rechazar.
+    await prisma.reserva.create({ data: unaReserva() });
+
+    const respuesta = await request(app.getHttpServer()).get(
+      `/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`,
+    );
+    const tomadas = (respuesta.body as { inicio: string; reservado: boolean }[])
+      .filter((b) => b.reservado)
+      .map((b) => b.inicio);
+
+    expect(tomadas).toEqual([
+      '2026-08-17T13:30:00.000Z',
+      '2026-08-17T14:00:00.000Z',
+      '2026-08-17T14:30:00.000Z',
+    ]);
+  });
+
   it('una reserva esperando pago también lo ocupa', async () => {
     // Mientras el no-socio está en Webpay, esa hora no se le ofrece a nadie más.
     await prisma.reserva.create({

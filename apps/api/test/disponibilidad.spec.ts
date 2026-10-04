@@ -114,8 +114,10 @@ describe('GET /api/disponibilidad', () => {
   const delLunes = () => pedir(`cancha=${canchaId}&fecha=${LUNES}`);
 
   it('responde sin sesión, con el horario propio de la cancha', async () => {
-    // 12 y no 14: gana el horario de la cancha sobre el general del club.
-    expect(await delLunes()).toHaveLength(12);
+    // De 09:00 a 21:00, una hora empezando cada media hora (T78): 23 inicios, de las
+    // 09:00 a las 20:00. Y no 27, que es lo que daría el general del club: gana el
+    // horario de la cancha.
+    expect(await delLunes()).toHaveLength(23);
   });
 
   it('devuelve cada bloque con su hora, su precio y si es pico', async () => {
@@ -146,7 +148,7 @@ describe('GET /api/disponibilidad', () => {
     // El martes esta cancha no tiene horario suyo: vale el del club, 08:00–22:00.
     const bloques = await pedir(`cancha=${canchaId}&fecha=${MARTES}`);
 
-    expect(bloques).toHaveLength(14);
+    expect(bloques).toHaveLength(27);
     expect(bloques[0].inicio).toBe('2026-08-18T12:00:00.000Z');
     // Las tarifas propias siguen siendo suyas: no se heredan del horario.
     expect(bloques[0].montoClp).toBe(15000);
@@ -168,7 +170,8 @@ describe('GET /api/disponibilidad', () => {
 
     const bloques = await delLunes();
 
-    expect(bloques).toHaveLength(10);
+    // De 10:00 a 20:00, cada media hora: 19 inicios.
+    expect(bloques).toHaveLength(19);
     expect(bloques[0].inicio).toBe('2026-08-17T14:00:00.000Z');
   });
 
@@ -185,9 +188,14 @@ describe('GET /api/disponibilidad', () => {
 
     const bloques = await delLunes();
 
+    // Riego de 10:00 a 12:00: quedan tomados los cinco inicios cuya hora lo toca, de
+    // las 09:30 a las 11:30. El de 09:00 termina justo a las 10:00 y no lo toca.
     expect(bloques.filter((b) => b.bloqueado).map((b) => b.inicio)).toEqual([
+      '2026-08-17T13:30:00.000Z',
       '2026-08-17T14:00:00.000Z',
+      '2026-08-17T14:30:00.000Z',
       '2026-08-17T15:00:00.000Z',
+      '2026-08-17T15:30:00.000Z',
     ]);
     expect(bloques.find((b) => b.bloqueado)?.motivoBloqueo).toBe('MANTENCION');
   });
