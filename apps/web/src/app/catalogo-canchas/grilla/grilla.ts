@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
+import { irAPagar } from '../../core/pagos/ir-a-pagar';
 import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { ReservasPublicas } from '../../reservas/reserva-publica.service';
 import { mensajeDeRechazo, Reservas } from '../../reservas/reservas.service';
@@ -37,6 +38,7 @@ import {
   precioDeLaHora,
   yaEmpezo,
 } from './bandas';
+import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
 
 /**
  * Le pone tipo al `let-banda` de la plantilla de la banda.
@@ -74,7 +76,16 @@ const TARIFA_DEL_SOCIO = 'sin costo';
 
 @Component({
   selector: 'app-grilla',
-  imports: [NgTemplateOutlet, BandaTipada, Reservar, BarraFija, EstadoVacio, Insignia, Selector],
+  imports: [
+    NgTemplateOutlet,
+    BandaTipada,
+    Reservar,
+    BarraFija,
+    EstadoVacio,
+    Insignia,
+    ResumenDelCambio,
+    Selector,
+  ],
   host: {
     class: 'block',
     // La barra fija tapa la última fila de bloques si no se le deja aire, y el
@@ -457,40 +468,54 @@ const TARIFA_DEL_SOCIO = 'sin costo';
          qué se marcó y con cuánto, y recién "Reservar" abre el formulario. El
          diálogo que ya existía sigue siendo el que pide acompañantes y cobra. -->
     @if (elegido(); as eleccion) {
-      <app-barra-fija>
-        <div role="status" aria-live="polite">
-          <!-- Lo elegido, en rótulo (TV5.1): es la pieza que se lee de un vistazo
-               antes de apretar "Reservar". -->
-          <p
-            class="inline-flex bg-rotulo py-1 ps-3 font-display text-lg font-bold tracking-wide
-                   text-on-rotulo uppercase corte-fin"
-          >
-            {{ eleccion.cancha.nombre }} ·
-            {{ hora(eleccion.bloque.inicio) }}–{{ hora(eleccion.bloque.fin) }}
-          </p>
-          <p class="mt-1 text-sm text-muted-foreground">
-            Socio {{ tarifaDelSocio }}
-            @if (eleccion.bloque.montoClp !== null) {
-              · Arriendo
-              <span class="font-semibold text-accent-strong">
-                {{ pesos(eleccion.bloque.montoClp) }}
-              </span>
-            }
-            @if (eleccion.bloque.esPico) {
-              · Hora pico
-            }
-          </p>
-        </div>
+      @if (pagadoPorElEnlace(); as pagado) {
+        <!-- Desde el enlace, con plata en juego: la diferencia antes del botón (T91). -->
+        <app-barra-fija>
+          <app-resumen-del-cambio
+            [cancha]="eleccion.cancha"
+            [bloque]="eleccion.bloque"
+            [pagadoClp]="pagado"
+            [enviando]="enviandoMovimiento()"
+            (soltar)="elegido.set(null)"
+            (confirmar)="cambiarPorEnlace()"
+          />
+        </app-barra-fija>
+      } @else {
+        <app-barra-fija>
+          <div role="status" aria-live="polite">
+            <!-- Lo elegido, en rótulo (TV5.1): es la pieza que se lee de un vistazo
+                 antes de apretar "Reservar". -->
+            <p
+              class="inline-flex bg-rotulo py-1 ps-3 font-display text-lg font-bold tracking-wide
+                     text-on-rotulo uppercase corte-fin"
+            >
+              {{ eleccion.cancha.nombre }} ·
+              {{ hora(eleccion.bloque.inicio) }}–{{ hora(eleccion.bloque.fin) }}
+            </p>
+            <p class="mt-1 text-sm text-muted-foreground">
+              Socio {{ tarifaDelSocio }}
+              @if (eleccion.bloque.montoClp !== null) {
+                · Arriendo
+                <span class="font-semibold text-accent-strong">
+                  {{ pesos(eleccion.bloque.montoClp) }}
+                </span>
+              }
+              @if (eleccion.bloque.esPico) {
+                · Hora pico
+              }
+            </p>
+          </div>
 
-        <div class="flex gap-2">
-          <button type="button" class="boton boton-texto" (click)="elegido.set(null)">
-            Soltar
-          </button>
-          <button type="button" class="boton boton-primario" (click)="reservar()">
-            Reservar
-          </button>
-        </div>
-      </app-barra-fija>
+          <div class="flex gap-2">
+            <button type="button" class="boton boton-texto" (click)="elegido.set(null)">
+              Soltar
+            </button>
+            <button type="button" class="boton boton-primario" (click)="reservar()">
+              Reservar
+            </button>
+          </div>
+        </app-barra-fija>
+      }
     }
 
     @if (reservando(); as eleccion) {
@@ -838,12 +863,20 @@ export class Grilla {
    */
   protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
     const que = this.enModoMover() ? 'Mover tu reserva a' : 'Elegir';
+    const pagado = this.pagadoPorElEnlace();
+
+    // Desde el enlace, quien ya pagó oye lo que le costaría el cambio, no la tarifa del
+    // socio ni el arriendo: es la pregunta que trae (T91).
+    const costo =
+      pagado !== null && bloque.montoClp !== null
+        ? `, ${minuscula(textoDeLaDiferencia(bloque.montoClp, pagado))}`
+        : `, socio ${TARIFA_DEL_SOCIO}` +
+          // Sin precio de esa duración no hay arriendo que anunciar: solo lo ve el socio.
+          (bloque.montoClp !== null ? `, arriendo ${this.pesos(bloque.montoClp)}` : '');
 
     return (
       `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
-      `${this.hora(bloque.fin)}, socio ${TARIFA_DEL_SOCIO}` +
-      // Sin precio de esa duración no hay arriendo que anunciar: solo lo ve el socio.
-      (bloque.montoClp !== null ? `, arriendo ${this.pesos(bloque.montoClp)}` : '') +
+      `${this.hora(bloque.fin)}${costo}` +
       (bloque.esPico ? ', hora pico' : '')
     );
   }
@@ -855,9 +888,11 @@ export class Grilla {
     if (this.noSePuedeTomar(bloque)) return;
 
     const reservaId = this.moviendo();
-    const token = this.moviendoPorToken();
 
-    if (reservaId === null && token === null) {
+    // Fuera de "mis reservas" el clic marca la hora: para reservarla, o —desde el
+    // enlace— para ver la diferencia antes de confirmar el cambio (T91). Solo el socio
+    // mueve al tiro: no paga, y no hay plata que decirle antes.
+    if (reservaId === null) {
       this.elegido.set({ cancha, bloque });
       return;
     }
@@ -870,24 +905,46 @@ export class Grilla {
     this.errorAlMover.set(null);
 
     try {
-      const destino = {
-        canchaId: cancha.id,
-        inicio: bloque.inicio,
-        // La del bloque, como al reservar: la grilla lo pidió de la duración elegida.
-        duracionMin: minutosDe(bloque),
-      };
-
-      if (token !== null) {
-        // Desde el enlace se vuelve a la página de la reserva, que es su "mis reservas".
-        await this.enlace.mover(token, destino);
-        await this.router.navigate(['/r', token]);
-      } else if (reservaId !== null) {
-        await this.reservas.mover(reservaId, destino);
-        await this.router.navigate(['/mis-reservas']);
-      }
+      await this.reservas.mover(reservaId, destinoDe(cancha, bloque));
+      await this.router.navigate(['/mis-reservas']);
     } catch (falla) {
       // Se queda en la grilla a propósito: la hora que eligió no se pudo, pero las
       // otras siguen ahí y volver atrás para reintentar sería un paso de más.
+      this.errorAlMover.set(mensajeDeRechazo(falla).mensaje);
+    } finally {
+      this.enviandoMovimiento.set(false);
+    }
+  }
+
+  /**
+   * Confirma el cambio desde el enlace (T91), con la hora marcada en la barra.
+   *
+   * Si vale más que lo pagado, va a pagar la diferencia: la reserva se mueve recién
+   * cuando Webpay autoriza, y la vuelta lleva a su página (T89). Si no, se mueve al tiro
+   * y no se devuelve nada. La diferencia la recalcula el servidor; lo de acá decide solo
+   * a qué ruta ir, y si el servidor no está de acuerdo, lo dice su rechazo.
+   */
+  protected async cambiarPorEnlace(): Promise<void> {
+    const token = this.moviendoPorToken();
+    const eleccion = this.elegido();
+    const pagado = this.pagadoPorElEnlace();
+
+    if (token === null || eleccion === null || pagado === null) return;
+    if (this.enviandoMovimiento()) return;
+
+    this.enviandoMovimiento.set(true);
+    this.errorAlMover.set(null);
+    const destino = destinoDe(eleccion.cancha, eleccion.bloque);
+
+    try {
+      if ((eleccion.bloque.montoClp ?? 0) > pagado) {
+        irAPagar(await this.enlace.pagarDiferencia(token, destino));
+      } else {
+        await this.enlace.mover(token, destino);
+        // A la página de la reserva, que es su "mis reservas", con lo que pasó.
+        await this.router.navigate(['/r', token], { queryParams: { cambio: 'hecho' } });
+      }
+    } catch (falla) {
       this.errorAlMover.set(mensajeDeRechazo(falla).mensaje);
     } finally {
       this.enviandoMovimiento.set(false);
@@ -962,4 +1019,19 @@ export class Grilla {
   protected readonly motivo = nombreDelMotivo;
 
   protected readonly superficie = nombreDeSuperficie;
+}
+
+/** A dónde va un cambio: la cancha, el inicio y la duración del bloque elegido. */
+function destinoDe(cancha: Cancha, bloque: BloqueDisponible) {
+  return {
+    canchaId: cancha.id,
+    inicio: bloque.inicio,
+    // La del bloque, como al reservar: la grilla lo pidió de la duración elegida.
+    duracionMin: minutosDe(bloque),
+  };
+}
+
+/** "Vale $12.000: …" dicho a mitad de una frase. */
+function minuscula(texto: string): string {
+  return texto.charAt(0).toLowerCase() + texto.slice(1).replace(/\.$/, '');
 }

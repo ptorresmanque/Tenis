@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 
 import {
   diaEnPalabras,
+  enPesos,
   fechaEnElClub,
   horaEnElClub,
   minutosDe,
@@ -48,6 +49,15 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
           Búscala por su folio en la agenda del día.
         </app-aviso>
       } @else if (reserva.value(); as datos) {
+        @if (resultadoDelCambio(); as resultado) {
+          <!-- Lo que pasó con el cambio, al volver de Webpay o de la grilla (T91). Arriba
+               de la tarjeta: es lo primero que la persona quiere saber, y la tarjeta de
+               abajo ya muestra la hora como quedó, con el mismo folio. -->
+          <app-aviso [variante]="resultado.variante" class="mb-4 block">
+            {{ resultado.texto }}
+          </app-aviso>
+        }
+
         <!-- La misma forma que "Mis reservas" (TV5.3): la tarjeta sin borde, el
              nombre como titular y la hora en su rótulo. -->
         <div class="bg-card p-6 text-center shadow-md">
@@ -140,6 +150,10 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
 export class ReservaPublicaPagina {
   /** Llega de la URL: `/r/:token`, con `withComponentInputBinding`. */
   readonly token = input.required<string>();
+  /** Lo que pasó con el cambio (T91): `?cambio=hecho`, `hora_tomada`, `anulado`… */
+  readonly cambio = input<string>();
+  /** Lo devuelto si la hora se tomó mientras se pagaba; "0" es que quedó en revisión. */
+  readonly devuelto = input<string>();
 
   private readonly api = inject(ReservasPublicas);
 
@@ -171,6 +185,52 @@ export class ReservaPublicaPagina {
     const datos = this.reserva.value();
 
     return datos && minutosDe(datos) === 90 ? 90 : null;
+  });
+
+  /**
+   * El aviso del resultado. "Hecho" dice la hora como quedó, que es la de la tarjeta; lo
+   * demás dice que la reserva sigue igual, que es lo que más importa saber.
+   */
+  protected readonly resultadoDelCambio = computed(() => {
+    const datos = this.reserva.value();
+    const cambio = this.cambio();
+
+    if (!datos || !cambio) return null;
+
+    if (cambio === 'hecho') {
+      return {
+        variante: 'exito' as const,
+        texto: `Listo: tu reserva quedó de ${this.hora(datos.inicio)} a ${this.hora(datos.fin)}.`,
+      };
+    }
+
+    if (cambio === 'hora_tomada') {
+      const devuelto = Number(this.devuelto());
+
+      return {
+        variante: 'aviso' as const,
+        texto:
+          devuelto > 0
+            ? `Esa hora se tomó mientras pagabas: te devolvimos ${enPesos(devuelto)} y tu ` +
+              'reserva sigue igual.'
+            : 'Esa hora se tomó mientras pagabas, y tu reserva sigue igual. La devolución de ' +
+              'la diferencia quedó en revisión con el club.',
+      };
+    }
+
+    if (cambio === 'anulado') {
+      return {
+        variante: 'info' as const,
+        texto:
+          'Anulaste el pago: tu reserva sigue igual. Si quieres intentarlo de nuevo, espera ' +
+          'unos minutos.',
+      };
+    }
+
+    return {
+      variante: 'aviso' as const,
+      texto: 'El pago no se completó: tu reserva sigue igual.',
+    };
   });
 
   protected readonly hora = horaEnElClub;

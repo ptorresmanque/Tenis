@@ -68,6 +68,7 @@ describe('Grilla', () => {
     porToken: ReturnType<typeof vi.fn>;
     grillaParaMover: ReturnType<typeof vi.fn>;
     mover: ReturnType<typeof vi.fn>;
+    pagarDiferencia: ReturnType<typeof vi.fn>;
   };
   let navegar: ReturnType<typeof vi.fn>;
   let reportables: ReturnType<typeof vi.fn>;
@@ -113,6 +114,10 @@ describe('Grilla', () => {
         dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
       ),
       mover: vi.fn().mockResolvedValue({}),
+      pagarDiferencia: vi.fn().mockRejectedValue({
+        status: 409,
+        error: { motivo: 'BLOQUE_TOMADO', message: 'Esa hora ya está tomada. Elige otra.' },
+      }),
     };
     pedirDiaParaMover = vi.fn(() =>
       dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
@@ -880,10 +885,33 @@ describe('Grilla', () => {
         expect(texto()).toContain('no se devuelve la diferencia');
       });
 
-      it('al elegir, mueve por el enlace y vuelve a la página de la reserva', async () => {
+      const barra = () =>
+        (fixture.nativeElement as HTMLElement).querySelector('app-barra-fija') as HTMLElement;
+      const botonDeLaBarra = (texto: string) =>
+        [...barra().querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)!;
+      const apretar = async (boton: HTMLButtonElement) => {
+        boton.click();
+        await fixture.whenStable();
+        fixture.detectChanges();
+      };
+
+      it('**el clic no mueve al tiro: antes de confirmar dice que no se devuelve la diferencia** (T91)', async () => {
+        // Pagó $16.000 y la de las 08:00 vale $12.000: el cambio pierde $4.000, y eso se
+        // dice antes del clic que lo hace.
         await montar(DIA, { moverToken: 'tok-123' });
 
         await elegirPrimerBloque();
+
+        expect(delEnlace.mover).not.toHaveBeenCalled();
+        expect(barra().textContent).toContain('no se devuelve la diferencia de $4.000');
+        expect(botonDeLaBarra('Cambiar a esta hora')).toBeDefined();
+      });
+
+      it('al confirmar, mueve por el enlace y vuelve a la página de la reserva con el resultado', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+        await elegirPrimerBloque();
+
+        await apretar(botonDeLaBarra('Cambiar a esta hora'));
 
         expect(delEnlace.mover).toHaveBeenCalledWith('tok-123', {
           canchaId: 1,
@@ -891,7 +919,42 @@ describe('Grilla', () => {
           duracionMin: 60,
         });
         expect(mover).not.toHaveBeenCalled();
-        expect(navegar).toHaveBeenCalledWith(['/r', 'tok-123']);
+        expect(navegar).toHaveBeenCalledWith(['/r', 'tok-123'], {
+          queryParams: { cambio: 'hecho' },
+        });
+      });
+
+      it('**si vale más, dice cuánto paga y el botón lleva a pagar la diferencia** (T91)', async () => {
+        const CARA: GrillaDeCancha[] = DIA.map((grilla) => ({
+          ...grilla,
+          bloques: grilla.bloques.map((b) => ({ ...b, montoClp: 20000 })),
+        }));
+        await montar(CARA, { moverToken: 'tok-123' });
+        await elegirPrimerBloque();
+
+        expect(barra().textContent).toContain('Pagas $4.000 de diferencia');
+
+        await apretar(botonDeLaBarra('Pagar $4.000'));
+
+        // Pagar, no mover: la reserva se mueve recién cuando Webpay autoriza (T89).
+        expect(delEnlace.pagarDiferencia).toHaveBeenCalledWith('tok-123', {
+          canchaId: 1,
+          inicio: '2026-08-17T12:00:00.000Z',
+          duracionMin: 60,
+        });
+        expect(delEnlace.mover).not.toHaveBeenCalled();
+        // El servidor manda: si rechaza, lo dice y la persona sigue en la grilla.
+        expect(texto()).toContain('Esa hora ya está tomada');
+      });
+
+      it('la etiqueta de cada hora ya dice lo que costaría el cambio', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        expect(
+          (fixture.nativeElement as HTMLElement)
+            .querySelector('.bloque button')
+            ?.getAttribute('aria-label'),
+        ).toContain('no se devuelve la diferencia de $4.000');
       });
     });
 

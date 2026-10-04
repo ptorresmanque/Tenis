@@ -3,6 +3,7 @@ import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { DuracionMin, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
+import { RedireccionAPasarela } from '../core/pagos/ir-a-pagar';
 
 /** Espejo de `ReservaPublica` en la API. Es a propósito menos que la ficha entera. */
 export interface ReservaPublica {
@@ -48,6 +49,22 @@ export class ReservasPublicas {
       this.http.get<GrillaDeCancha[]>(
         `/api/reservas/publica/${encodeURIComponent(token)}/grilla`,
         { params: { fecha, duracion: duracionMin } },
+      ),
+    );
+  }
+
+  /**
+   * Inicia el pago de la diferencia de un cambio (T89): responde a dónde ir a pagar. El
+   * monto lo calcula el servidor; la reserva se mueve cuando Webpay autoriza.
+   */
+  pagarDiferencia(
+    token: string,
+    destino: { canchaId: number; inicio: string; duracionMin: number },
+  ): Promise<RedireccionAPasarela & { montoClp: number }> {
+    return firstValueFrom(
+      this.http.post<RedireccionAPasarela & { montoClp: number }>(
+        `/api/reservas/publica/${encodeURIComponent(token)}/diferencia`,
+        destino,
       ),
     );
   }

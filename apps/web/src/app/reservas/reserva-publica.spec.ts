@@ -37,6 +37,8 @@ describe('ReservaPublicaPagina', () => {
   const montar = async (
     respuesta: ReservaPublica | Error,
     email = 'hola@fedaltenis.cl',
+    /** Lo que trae la vuelta de Webpay en la URL (T91): `cambio` y `devuelto`. */
+    vuelta: Record<string, string> = {},
   ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -68,6 +70,9 @@ describe('ReservaPublicaPagina', () => {
 
     fixture = TestBed.createComponent(ReservaPublicaPagina);
     fixture.componentRef.setInput('token', 'un-token-cualquiera');
+    for (const [nombre, valor] of Object.entries(vuelta)) {
+      fixture.componentRef.setInput(nombre, valor);
+    }
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -155,6 +160,43 @@ describe('ReservaPublicaPagina', () => {
       await montar({ ...UNA, sePuedeCambiar: false });
 
       expect(enlaceACambiar()).toBeUndefined();
+    });
+  });
+
+  describe('lo que pasó con el cambio, al volver de Webpay (T91)', () => {
+    it('**hecho: lo dice con la hora nueva, en la página de la misma reserva**', async () => {
+      await montar(UNA, undefined, { cambio: 'hecho' });
+
+      expect(texto()).toContain('Listo: tu reserva quedó de 08:00 a 09:00');
+      expect(texto()).toContain('AB23CDE');
+    });
+
+    it('**la hora se tomó mientras pagaba: dice cuánto se devolvió**', async () => {
+      await montar(UNA, undefined, { cambio: 'hora_tomada', devuelto: '4000' });
+
+      expect(texto()).toContain('Esa hora se tomó mientras pagabas');
+      expect(texto()).toContain('te devolvimos $4.000');
+    });
+
+    it('y si la devolución no salió, que quedó en revisión con el club', async () => {
+      await montar(UNA, undefined, { cambio: 'hora_tomada', devuelto: '0' });
+
+      expect(texto()).toContain('quedó en revisión');
+      expect(texto()).not.toContain('te devolvimos');
+    });
+
+    it('anulado en Webpay: la reserva sigue igual', async () => {
+      await montar(UNA, undefined, { cambio: 'anulado' });
+
+      expect(texto()).toContain('Anulaste el pago');
+      expect(texto()).toContain('tu reserva sigue igual');
+    });
+
+    it('sin nada en la URL no dice nada', async () => {
+      await montar(UNA);
+
+      expect(texto()).not.toContain('tu reserva sigue igual');
+      expect(texto()).not.toContain('Listo:');
     });
   });
 
