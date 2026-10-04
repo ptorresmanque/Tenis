@@ -1266,6 +1266,189 @@ describe('Modificación y cancelación de reservas', () => {
     });
   });
 
+  describe('pagar la diferencia desde el enlace (T89)', () => {
+    const LUNES_18 = new Date(LUNES_20.getTime() - 3 * 60 * 60 * 1000);
+    const URL_DE_VUELTA = 'https://club.local/api/reservas/retorno-diferencia';
+
+    /** Una cancha que vende la hora y media: $12.000 la hora, $16.000 la hora y media. */
+    const unaCanchaConHoraYMedia = async () =>
+      (
+        await prisma.cancha.create({
+          data: {
+            nombre: `${NOMBRE_CANCHA} 90`,
+            superficie: Superficie.CEMENTO,
+            horarios: {
+              create: [
+                { diaSemana: 1, horaApertura: '08:00', horaCierre: '22:00' },
+              ],
+            },
+            franjas: {
+              create: {
+                horaDesde: '08:00',
+                horaHasta: '22:00',
+                montoClp: 12000,
+                montoClp90: 16000,
+                vigenteDesde: new Date('2026-01-01'),
+              },
+            },
+          },
+          select: { id: true },
+        })
+      ).id;
+
+    /**
+     * La reserva de 1 hora en esa cancha, pagada en línea. Se compró a las 21:00 y ya se
+     * movió a las 18:00: así el `inicioBloqueOriginal` de la compra no coincide con la hora
+     * nueva, y el test distingue cuál hereda la diferencia.
+     */
+    const unaHoraPagadaEn = async (cancha: number) => {
+      const reserva = await unaReservaPagada(LUNES_20);
+      return prisma.reserva.update({
+        where: { id: reserva.id },
+        data: {
+          canchaId: cancha,
+          inicio: LUNES_18,
+          fin: new Date(LUNES_18.getTime() + 60 * 60 * 1000),
+        },
+      });
+    };
+
+    it('**alargar a 1 hora y media cobra exactamente la diferencia, y la reserva sigue en su hora**', async () => {
+      const cancha = await unaCanchaConHoraYMedia();
+      const reserva = await unaHoraPagadaEn(cancha);
+
+      const pago = await modificacion.pagarDiferenciaPorToken(
+        reserva.token,
+        { canchaId: cancha, inicio: LUNES_18, duracionMin: 90 },
+        URL_DE_VUELTA,
+        horasAntes(LUNES_18, 30),
+      );
+
+      // $16.000 la hora y media menos los $12.000 pagados: $4.000, no $16.000.
+      expect(pago.montoClp).toBe(4000);
+      expect(pasarela.ordenes.at(-1)).toMatchObject({
+        montoClp: 4000,
+        urlRetorno: URL_DE_VUELTA,
+      });
+
+      const diferencia = await prisma.transaccion.findUniqueOrThrow({
+        where: { id: pago.transaccionId },
+      });
+      // Con el `inicioBloqueOriginal` de la compra: pagar la diferencia no corre la
+      // ventana de reembolso.
+      expect(diferencia).toMatchObject({
+        estado: EstadoTransaccion.PENDIENTE,
+        montoClp: 4000,
+        conceptoId: reserva.id,
+        inicioBloqueOriginal: LUNES_20,
+      });
+
+      // Hasta que el pago se autorice, la reserva sigue en su hora de 1 hora, y el
+      // destino espera en `cambio*`.
+      const despues = await prisma.reserva.findUniqueOrThrow({
+        where: { id: reserva.id },
+      });
+      expect(despues.fin.getTime() - despues.inicio.getTime()).toBe(
+        60 * 60 * 1000,
+      );
+      expect(despues).toMatchObject({
+        estado: EstadoReserva.CONFIRMADA,
+        cambioCanchaId: cancha,
+        cambioInicio: LUNES_18,
+        cambioFin: new Date(LUNES_18.getTime() + 90 * 60 * 1000),
+      });
+    });
+
+    it('sin nada que pagar no inicia ningún pago: ese cambio se hace directo', async () => {
+      const reserva = await unaReservaPagada(LUNES_18, {
+        minutos: 90,
+        montoClp: 16000,
+      });
+
+      await expect(
+        modificacion.pagarDiferenciaPorToken(
+          reserva.token,
+          { canchaId, inicio: LUNES_18, duracionMin: 60 },
+          URL_DE_VUELTA,
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { motivo: 'SIN_DIFERENCIA' },
+      });
+      expect(pasarela.ordenes).toHaveLength(1);
+    });
+
+    it('**no cobra por una hora que ya tiene otra reserva**', async () => {
+      // La hora nueva no se retiene mientras se paga (T90), pero cobrar por una que ya
+      // está tomada es cobrar sabiendo que habrá que devolver.
+      const cancha = await unaCanchaConHoraYMedia();
+      const reserva = await unaHoraPagadaEn(cancha);
+      await prisma.reserva.create({
+        data: {
+          folio: 'T89OTRA',
+          canchaId: cancha,
+          inicio: new Date(LUNES_18.getTime() + 60 * 60 * 1000),
+          fin: new Date(LUNES_18.getTime() + 2 * 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          nombre: 'Otra persona',
+          email: 'otra@ejemplo.cl',
+          telefono: '',
+        },
+      });
+
+      await expect(
+        modificacion.pagarDiferenciaPorToken(
+          reserva.token,
+          { canchaId: cancha, inicio: LUNES_18, duracionMin: 90 },
+          URL_DE_VUELTA,
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { motivo: 'BLOQUE_TOMADO' },
+      });
+    });
+
+    it('mientras se paga la diferencia, la reserva no se mueve ni se cancela', async () => {
+      const cancha = await unaCanchaConHoraYMedia();
+      const reserva = await unaHoraPagadaEn(cancha);
+      await modificacion.pagarDiferenciaPorToken(
+        reserva.token,
+        { canchaId: cancha, inicio: LUNES_18, duracionMin: 90 },
+        URL_DE_VUELTA,
+        horasAntes(LUNES_18, 30),
+      );
+
+      await expect(
+        modificacion.modificarPorToken(
+          reserva.token,
+          { canchaId: otraCanchaId, inicio: LUNES_18 },
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({ response: { motivo: 'PAGO_EN_CURSO' } });
+      await expect(
+        modificacion.cancelar(reserva.id, admin, horasAntes(LUNES_18, 30)),
+      ).rejects.toMatchObject({ response: { motivo: 'PAGO_EN_CURSO' } });
+    });
+
+    it('el rechazo del cambio directo dice cuánto falta, para ofrecer pagarlo', async () => {
+      const cancha = await unaCanchaConHoraYMedia();
+      const reserva = await unaHoraPagadaEn(cancha);
+
+      await expect(
+        modificacion.modificarPorToken(
+          reserva.token,
+          { canchaId: cancha, inicio: LUNES_18, duracionMin: 90 },
+          horasAntes(LUNES_18, 30),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { motivo: 'DIFERENCIA_POR_PAGAR', diferenciaClp: 4000 },
+      });
+    });
+  });
+
   describe('la grilla para mover (T87)', () => {
     // El lunes de `LUNES_20` en el club, y a las 18:00: con 90 minutos, la de las 21:00
     // se pasaría del cierre.

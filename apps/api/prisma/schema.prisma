@@ -666,6 +666,16 @@ model Reserva {
   /// cupo sin que haya hecho nada. Mismo criterio que el monto de `Transaccion`.
   esPico Boolean @default(false) @map("es_pico")
 
+  /// El destino de un cambio que espera el pago de la diferencia (T89). Lo aplica la
+  /// vuelta de Webpay y ahí se limpia; si el pago expira, quedan escritas pero
+  /// **inertes**: "hay un cambio en curso" lo dice la transacción PENDIENTE, nunca estas
+  /// columnas, y el próximo cambio las sobrescribe. `cambioEsPico` congela la categoría
+  /// del destino, igual que `esPico`.
+  cambioCanchaId Int?      @map("cambio_cancha_id")
+  cambioInicio   DateTime? @map("cambio_inicio")
+  cambioFin      DateTime? @map("cambio_fin")
+  cambioEsPico   Boolean?  @map("cambio_es_pico")
+
   /// Nulo = no-socio. Su pago vive en `Transaccion` con `concepto: RESERVA` y
   /// `conceptoId` = este id; no se guarda el vínculo inverso para que no haya dos
   /// fuentes que puedan discrepar.

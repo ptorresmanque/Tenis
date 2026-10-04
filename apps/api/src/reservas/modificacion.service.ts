@@ -16,6 +16,7 @@ import {
 } from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
 import { AnulacionService } from '../pagos/anulacion.service';
+import { PagoIniciado, PagosService } from '../pagos/pagos.service';
 import {
   esViolacionDeUnicidad,
   reintentarSiHayDeadlock,
@@ -72,6 +73,7 @@ export class ModificacionService {
     private readonly eventos: EventosDeReserva,
     private readonly reservasDeSocio: ReservasService,
     private readonly disponibilidad: DisponibilidadPublicaService,
+    private readonly pagos: PagosService,
   ) {}
 
   /**
@@ -207,11 +209,88 @@ export class ModificacionService {
     return this.disponibilidad.delDia(fecha, duracionMin, reserva.id);
   }
 
-  private async mover(
-    reserva: Reserva,
+  /**
+   * Inicia el pago de la diferencia de un cambio desde el enlace (T89).
+   *
+   * **La reserva no se mueve acá**: sigue CONFIRMADA en su hora, y el destino espera en
+   * las columnas `cambio*` hasta que la vuelta de Webpay autorice. La transacción de la
+   * diferencia lleva el `inicioBloqueOriginal` de la compra: pagarla no corre la ventana
+   * de reembolso. Mientras esté PENDIENTE, la reserva no se mueve ni se cancela
+   * (`PAGO_EN_CURSO`).
+   */
+  async pagarDiferenciaPorToken(
+    token: string,
     destino: Destino,
-    ahora: Date,
-  ): Promise<Reserva> {
+    urlRetorno: string,
+    ahora = new Date(),
+  ): Promise<PagoIniciado & { montoClp: number }> {
+    const reserva = await this.delEnlace(token);
+    const bloque = await this.destinoValido(reserva, destino, ahora);
+    const cuenta = await this.diferenciaPara(reserva.id, bloque.montoClp);
+
+    if (cuenta === null || cuenta.diferencia <= 0) {
+      throw new ConflictException({
+        motivo: 'SIN_DIFERENCIA',
+        message: 'Ese cambio no tiene nada que pagar: se hace directo.',
+      });
+    }
+
+    // La hora nueva no se retiene mientras se paga (T90), pero cobrar por una que ya
+    // tiene otra reserva es cobrar sabiendo que habrá que devolver.
+    const ocupada = await this.prisma.reserva.count({
+      where: {
+        canchaId: bloque.canchaId,
+        id: { not: reserva.id },
+        estado: { in: ACTIVAS },
+        inicio: { lt: bloque.fin },
+        fin: { gt: bloque.inicio },
+      },
+    });
+
+    if (ocupada > 0) {
+      throw new ConflictException({
+        motivo: 'BLOQUE_TOMADO',
+        message: 'Esa hora ya está tomada. Elige otra.',
+      });
+    }
+
+    await this.prisma.reserva.update({
+      where: { id: reserva.id },
+      data: {
+        cambioCanchaId: bloque.canchaId,
+        cambioInicio: bloque.inicio,
+        cambioFin: bloque.fin,
+        cambioEsPico: bloque.esPico,
+      },
+    });
+
+    const compra = await this.prisma.transaccion.findFirstOrThrow({
+      where: {
+        concepto: 'RESERVA',
+        conceptoId: reserva.id,
+        estado: EstadoTransaccion.AUTORIZADA,
+      },
+      orderBy: { id: 'asc' },
+      select: { inicioBloqueOriginal: true },
+    });
+
+    const pago = await this.pagos.iniciar({
+      concepto: 'RESERVA',
+      conceptoId: reserva.id,
+      // Lo calcula el servidor, nunca el cliente: el precio nuevo menos lo pagado.
+      montoClp: cuenta.diferencia,
+      inicioBloqueOriginal: compra.inicioBloqueOriginal ?? reserva.inicio,
+      urlRetorno,
+    });
+
+    return { ...pago, montoClp: cuenta.diferencia };
+  }
+
+  /**
+   * Que el destino se pueda pedir: la reserva sin pago en curso, a tiempo, y la hora en
+   * el horario de la cancha y sin bloquear. Lo comparten mover y pagar la diferencia.
+   */
+  private async destinoValido(reserva: Reserva, destino: Destino, ahora: Date) {
     const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
 
     // Igual que cancelar (T87): la hora no cambia bajo los pies de quien está en Webpay.
@@ -230,12 +309,20 @@ export class ModificacionService {
     // se busca en la grilla de esa duración, y el índice por rango decide si los minutos
     // que se agregan chocan con otra reserva: alargar en el mismo lugar no choca consigo
     // misma, porque el índice compara contra las otras filas.
-    const bloque = await this.bloqueDisponible(
+    return this.bloqueDisponible(
       destino.canchaId,
       destino.inicio,
       destino.duracionMin ?? duracionDe(reserva),
       ahora,
     );
+  }
+
+  private async mover(
+    reserva: Reserva,
+    destino: Destino,
+    ahora: Date,
+  ): Promise<Reserva> {
+    const bloque = await this.destinoValido(reserva, destino, ahora);
 
     await this.exigirQueNoQuedeDiferencia(reserva.id, bloque.montoClp);
 
@@ -446,11 +533,32 @@ export class ModificacionService {
     reservaId: number,
     montoDelBloque: number | null,
   ): Promise<void> {
+    const cuenta = await this.diferenciaPara(reservaId, montoDelBloque);
+
+    if (cuenta === null || cuenta.diferencia <= 0) return;
+
+    // Se rechaza y no se cobra acá: pagar es otra ruta (`pagarDiferenciaPorToken`), así
+    // nadie paga sin haber visto antes el monto, que viaja en la respuesta (T89).
+    throw new ConflictException({
+      motivo: 'DIFERENCIA_POR_PAGAR',
+      diferenciaClp: cuenta.diferencia,
+      message:
+        `Esa hora vale ${enPesos(cuenta.precio)} y pagaste ${enPesos(cuenta.pagado)}: ` +
+        `cambiarte a ella cuesta ${enPesos(cuenta.diferencia)} más.`,
+    });
+  }
+
+  /**
+   * El precio nuevo menos lo pagado. Nulo es "nada que cuadrar": el socio no compra su
+   * hora y el visitante del mesón la pagó en el mostrador.
+   */
+  private async diferenciaPara(
+    reservaId: number,
+    montoDelBloque: number | null,
+  ): Promise<{ precio: number; pagado: number; diferencia: number } | null> {
     const pagado = await pagadoPor(this.prisma, reservaId);
 
-    // El socio no compra su hora, la descuenta de su cupo; el visitante del mesón la
-    // paga en el mostrador. Ninguno tiene nada que cuadrar.
-    if (pagado === 0) return;
+    if (pagado === 0) return null;
 
     if (montoDelBloque === null) {
       // La hora y media en una franja que no la vende (T79): para quien paga, esa hora
@@ -461,17 +569,11 @@ export class ModificacionService {
       });
     }
 
-    const diferencia = montoDelBloque - pagado;
-
-    if (diferencia <= 0) return;
-
-    throw new ConflictException({
-      motivo: 'DIFERENCIA_POR_PAGAR',
-      message:
-        `Esa hora vale ${enPesos(montoDelBloque)} y pagaste ${enPesos(pagado)}: ` +
-        `cambiarte a ella cuesta ${enPesos(diferencia)} más, y eso todavía no se puede ` +
-        `pagar en línea. Elige una que valga ${enPesos(pagado)} o menos.`,
-    });
+    return {
+      precio: montoDelBloque,
+      pagado,
+      diferencia: montoDelBloque - pagado,
+    };
   }
 
   /**
