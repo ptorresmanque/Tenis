@@ -150,11 +150,16 @@ export function evaluarReservaDeSocio(
     // "Ese día" y no "hoy": el cupo es del día en que se juega. Quien ya tiene su hora
     // del miércoles puede tomar la del jueves ahora mismo; prometerle "mañana" lo haría
     // esperar por nada (T84).
+    //
+    // Cero es otra cosa: es como el club cierra las reservas de socios (admin.dto), y
+    // "ya tienes tus 0 reservas… reserva otro día" serían tres mentiras.
     return {
       tipo: 'CUPO_DIARIO',
       mensaje:
-        `Ya tienes ${tusReservas(solicitud.reservasDelDia)} de ese día: el cupo es de ` +
-        `${enReservas(config.cupoDiarioSocioReservas)} por día. Puedes reservar otro día.`,
+        config.cupoDiarioSocioReservas === 0
+          ? 'El club no está tomando reservas de socios por ahora.'
+          : `Ya tienes ${tusReservas(solicitud.reservasDelDia)} de ese día: el cupo es de ` +
+            `${enReservas(config.cupoDiarioSocioReservas)} por día. Puedes reservar otro día.`,
     };
   }
 
@@ -165,9 +170,13 @@ export function evaluarReservaDeSocio(
     return {
       tipo: 'CUPO_PICO',
       mensaje:
-        `Ya tienes ${tusReservas(solicitud.reservasPicoDeLaSemana)} en horario pico esa ` +
-        `semana: el cupo es de ${enReservas(config.cupoPicoSemanalReservas)} pico por ` +
-        'semana, de lunes a domingo. Los horarios fuera de pico siguen disponibles.',
+        config.cupoPicoSemanalReservas === 0
+          ? 'El club no está tomando reservas de socios en horario pico. Los horarios ' +
+            'fuera de pico siguen disponibles.'
+          : `Ya tienes ${tusReservas(solicitud.reservasPicoDeLaSemana)} en horario pico ` +
+            `esa semana: el cupo es de ${enReservas(config.cupoPicoSemanalReservas)} ` +
+            'pico por semana, de lunes a domingo. Los horarios fuera de pico siguen ' +
+            'disponibles.',
     };
   }
 

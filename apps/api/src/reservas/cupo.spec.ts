@@ -178,9 +178,62 @@ describe('evaluarReservaDeSocio', () => {
     it('**no le promete "mañana" a quien reserva otro día** (T84)', () => {
       // El cupo es del día en que se juega, no del día en que se reserva: quien ya tiene
       // su hora del miércoles puede tomar la del jueves ahora mismo, sin esperar.
-      const rechazo = evaluarReservaDeSocio(solicitud({ reservasDelDia: 1 }));
+      const MIERCOLES_19 = new Date('2026-08-19T23:00:00.000Z');
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          bloque: {
+            inicio: MIERCOLES_19,
+            fin: new Date('2026-08-20T00:00:00.000Z'),
+            esPico: false,
+          },
+          reservasDelDia: 1,
+        }),
+      );
 
-      expect(rechazo?.mensaje).not.toMatch(/mañana/i);
+      expect(rechazo?.tipo).toBe('CUPO_DIARIO');
+      expect(rechazo?.mensaje).not.toMatch(/mañana|hoy/i);
+    });
+
+    it('**con el cupo diario en cero dice que el club cerró, no "tus 0 reservas"** (T84)', () => {
+      // Cero es como el club cierra las reservas de socios sin tocar código (admin.dto).
+      // "Ya tienes tus 0 reservas… puedes reservar otro día" serían tres mentiras.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          config: {
+            cupoDiarioSocioReservas: 0,
+            cupoPicoSemanalReservas: 2,
+            invitadosPorMes: 4,
+          },
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('CUPO_DIARIO');
+      expect(rechazo?.mensaje).toBe(
+        'El club no está tomando reservas de socios por ahora.',
+      );
+    });
+
+    it('con el cupo pico en cero, dice que el pico está cerrado y que el resto no', () => {
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          bloque: {
+            inicio: LUNES_19,
+            fin: new Date('2026-08-18T00:00:00.000Z'),
+            esPico: true,
+          },
+          config: {
+            cupoDiarioSocioReservas: 1,
+            cupoPicoSemanalReservas: 0,
+            invitadosPorMes: 4,
+          },
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('CUPO_PICO');
+      expect(rechazo?.mensaje).toBe(
+        'El club no está tomando reservas de socios en horario pico. Los horarios ' +
+          'fuera de pico siguen disponibles.',
+      );
     });
 
     it('si el club bajó el cupo, dice las que tiene y no las que permite (T84)', () => {
