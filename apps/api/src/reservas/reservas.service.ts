@@ -14,6 +14,7 @@ import {
   TipoCuota,
 } from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
+import { reintentarSiHayDeadlock } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AcompananteDeclarado,
@@ -247,11 +248,16 @@ export class ReservasService {
     socioId: number,
     trabajo: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
-      await this.bloquearAlSocio(tx, socioId);
+    // La transacción entera se repite si la base la aborta por deadlock: el índice
+    // por rango de `reserva` bloquea tramos (T76), y lo que se haya evaluado o escrito
+    // adentro se revirtió con ella, así que repetirla es empezar de cero.
+    return reintentarSiHayDeadlock(() =>
+      this.prisma.$transaction(async (tx) => {
+        await this.bloquearAlSocio(tx, socioId);
 
-      return trabajo(tx);
-    });
+        return trabajo(tx);
+      }),
+    );
   }
 
   /**

@@ -1,13 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AppModule } from '../src/app.module';
-import { EstadoReserva, Superficie } from '../src/generated/prisma/client';
+import {
+  EstadoReserva,
+  Prisma,
+  Superficie,
+} from '../src/generated/prisma/client';
 import { esViolacionDeUnicidad } from '../src/prisma/errores';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   BloqueTomado,
   ReservaRepository,
 } from '../src/reservas/reserva.repository';
+import { ReservasService } from '../src/reservas/reservas.service';
 
 /**
  * T21. La integridad de `reservas`, impuesta por la base y no por el código.
@@ -133,6 +138,117 @@ describe('Reserva: un bloque, una reserva', () => {
     expect(await prisma.reserva.count({ where: { canchaId } })).toBe(1);
   });
 
+  describe('por rango y no por hora de inicio (T76)', () => {
+    // Con inicios cada media hora y reservas de 60 y 90 minutos, dos que se pisan
+    // pueden empezar a horas distintas. El único sobre `inicio_activo` las dejaba
+    // pasar a las dos: es la doble reserva de `SPEC.md` § Riesgos, por otra puerta.
+    const a = (hora: string) => new Date(`2026-09-01T${hora}:00.000Z`);
+
+    it('dos reservas simultáneas que se cruzan sin empezar a la misma hora: una gana', async () => {
+      // **Test obligatorio** (`SPEC-reservas.md` § Success Criteria 6).
+      const resultados = await Promise.allSettled([
+        reservas.crear(unaReserva({ inicio: a('08:00'), fin: a('09:30') })),
+        reservas.crear(unaReserva({ inicio: a('09:00'), fin: a('10:00') })),
+      ]);
+
+      expect(resultados.filter((r) => r.status === 'fulfilled')).toHaveLength(
+        1,
+      );
+      const rechazo = resultados.find((r) => r.status === 'rejected');
+      expect(rechazo?.reason).toBeInstanceOf(BloqueTomado);
+      expect(await prisma.reserva.count({ where: { canchaId } })).toBe(1);
+    });
+
+    it('con ocho canchas disputadas a la vez, nadie ve un deadlock', async () => {
+      // El único `WITHOUT OVERLAPS` revisa el cruce bloqueando un tramo del índice, y
+      // bajo carga dos escrituras de canchas distintas se esperan una a la otra:
+      // MariaDB aborta a una (P2034). Sin reintento le llegaba un 500 a un tercio de
+      // los que reservaban, y a veces fallaban los dos y la cancha quedaba vacía.
+      // Medido en T76; el índice anterior no lo tenía porque no bloqueaba tramos.
+      const otras = await Promise.all(
+        [1, 2, 3, 4, 5, 6, 7].map((n) =>
+          prisma.cancha.create({
+            data: {
+              nombre: `${NOMBRE_CANCHA} carga ${n}`,
+              superficie: Superficie.CEMENTO,
+            },
+            select: { id: true },
+          }),
+        ),
+      );
+      const canchas = [canchaId, ...otras.map((c) => c.id)];
+
+      for (let ronda = 0; ronda < 5; ronda++) {
+        await prisma.reserva.deleteMany({
+          where: { canchaId: { in: canchas } },
+        });
+
+        const resultados = await Promise.allSettled(
+          canchas.flatMap((id) => [
+            reservas.crear(
+              unaReserva({ canchaId: id, inicio: a('08:00'), fin: a('09:30') }),
+            ),
+            reservas.crear(
+              unaReserva({ canchaId: id, inicio: a('09:00'), fin: a('10:00') }),
+            ),
+          ]),
+        );
+
+        const rechazos = resultados.filter((r) => r.status === 'rejected');
+        expect(rechazos.map((r) => (r.reason as Error).name)).toEqual(
+          canchas.map(() => 'BloqueTomado'),
+        );
+        for (const id of canchas) {
+          expect(await prisma.reserva.count({ where: { canchaId: id } })).toBe(
+            1,
+          );
+        }
+      }
+    });
+
+    it('la transacción del socio se repite entera si la base la aborta por deadlock', async () => {
+      // Por `conElSocioBloqueado` pasan reservar y mover del socio. Ahí no reintenta el
+      // repositorio —está dentro de una transacción ajena— sino quien la abrió.
+      const socio = await socioDePrueba();
+      let intentos = 0;
+
+      const resultado = await modulo
+        .get(ReservasService)
+        .conElSocioBloqueado(socio.id, () => {
+          intentos += 1;
+          if (intentos === 1) {
+            throw new Prisma.PrismaClientKnownRequestError(
+              'Transaction failed due to a write conflict or a deadlock',
+              { code: 'P2034', clientVersion: '7.9.1' },
+            );
+          }
+          return Promise.resolve('reservada');
+        });
+
+      expect(resultado).toBe('reservada');
+      expect(intentos).toBe(2);
+    });
+
+    it('dos seguidas que solo se tocan en el borde conviven', async () => {
+      await reservas.crear(unaReserva({ inicio: a('08:00'), fin: a('09:00') }));
+
+      await expect(
+        reservas.crear(unaReserva({ inicio: a('09:00'), fin: a('10:00') })),
+      ).resolves.toBeDefined();
+    });
+
+    it('una cancelada no estorba a otra que la pisa en parte', async () => {
+      const cancelada = await reservas.crear(
+        unaReserva({ inicio: a('08:00'), fin: a('09:30') }),
+      );
+      await reservas.cancelar(cancelada.id);
+
+      await expect(
+        reservas.crear(unaReserva({ inicio: a('09:00'), fin: a('10:00') })),
+      ).resolves.toBeDefined();
+    });
+  });
+
   it('una reserva cancelada libera el bloque para una nueva', async () => {
     const primera = await reservas.crear(unaReserva());
 
@@ -141,7 +257,7 @@ describe('Reserva: un bloque, una reserva', () => {
 
     expect(segunda.id).not.toBe(primera.id);
     // Las dos filas conviven: la cancelada queda para el historial y la nueva ocupa
-    // el bloque. Es lo que prueba que el único mira `inicio_activo` y no `inicio`.
+    // el bloque. Es lo que prueba que el único mira `cancha_activa` y no `cancha_id`.
     expect(await prisma.reserva.count({ where: { canchaId } })).toBe(2);
   });
 

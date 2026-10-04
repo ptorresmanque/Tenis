@@ -614,15 +614,20 @@ enum EstadoReserva {
 
 /// Quién ocupa qué cancha y cuándo.
 ///
-/// **La unicidad del bloque la impone la base, no el código** (T2). El índice único
-/// no va sobre `(cancha_id, inicio)` a secas: una cancelada tiene que liberar la hora
-/// y su fila sigue ahí para el historial. Va sobre `inicio_activo`, una columna
-/// generada que vale `inicio` mientras la reserva ocupa el bloque y NULL cuando no —
-/// en MySQL dos NULL no chocan, así que conviven todas las canceladas y a lo sumo una
-/// activa. Está escrita a mano en la migración, como el CHECK de `ConfiguracionClub`:
-/// Prisma no modela columnas generadas, y que la derive la base es justamente el
-/// punto. Una columna que el código tiene que acordarse de anular al cancelar es una
-/// que alguien va a olvidar, y el síntoma sería un bloque que no vuelve a estar libre.
+/// **La unicidad la impone la base, no el código** (T2, y por rango desde T76). Dos
+/// reservas activas de la misma cancha no pueden cruzarse en el tiempo, aunque
+/// empiecen a horas distintas: con 60 y 90 minutos cada media hora, 08:00–09:30 y
+/// 09:00–10:00 se pisan. Lo impone `reserva_sin_cruce`, un único `WITHOUT OVERLAPS`
+/// de MariaDB sobre `(cancha_activa, periodo)`. Prisma no modela períodos ni esa
+/// forma de único, así que está escrito a mano en la migración `reserva_sin_cruce`,
+/// como el CHECK de `ConfiguracionClub`, y abajo aparece **mal descrito a propósito**.
+///
+/// Una cancelada tiene que liberar la hora y su fila sigue ahí para el historial: por
+/// eso la clave no es `cancha_id` sino `cancha_activa`, una columna generada que vale
+/// NULL cuando la reserva ya no ocupa nada, y dos NULL no chocan. Que la derive la
+/// base es justamente el punto: una columna que el código tiene que acordarse de
+/// anular al cancelar es una que alguien va a olvidar, y el síntoma sería una hora que
+/// no vuelve a estar libre.
 model Reserva {
   id Int @id @default(autoincrement())
 
@@ -677,20 +682,22 @@ model Reserva {
   canceladaPorBloqueoId Int? @map("cancelada_por_bloqueo_id")
 
   /// **La escribe la base, nunca la aplicación.** Es una columna generada —
-  /// `IF(estado IN (PENDIENTE_PAGO, CONFIRMADA), inicio, NULL)`, ver la migración— y
-  /// MySQL rechaza cualquier INSERT o UPDATE que le mande un valor. Se declara acá
-  /// solo para que el índice único de abajo exista en el schema y el guardia de
-  /// migraciones no la vea como un cambio sin migrar.
-  inicioActivo DateTime? @map("inicio_activo")
+  /// `IF(estado IN (PENDIENTE_PAGO, CONFIRMADA), cancha_id, NULL)`, ver la migración—
+  /// y MySQL rechaza cualquier INSERT o UPDATE que le mande un valor. Se declara acá
+  /// solo para que el guardia de migraciones no la vea como un cambio sin migrar.
+  canchaActiva Int? @map("cancha_activa")
 
   cancha       Cancha               @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   socio        Socio?               @relation(fields: [socioId], references: [id], onDelete: SetNull)
   acompanantes AcompananteReserva[]
   reportes     ReporteNoUso[]
 
-  /// Un bloque, una reserva activa. Las canceladas y expiradas tienen
-  /// `inicio_activo` nulo y en MySQL dos nulos no chocan, así que conviven todas.
-  @@unique([canchaId, inicioActivo], map: "reserva_bloque_activo")
+  /// **No es un único común: es el `WITHOUT OVERLAPS` de la migración.** Prisma lo
+  /// lee como `(cancha_activa, fin, inicio)` y se declara así solo para que el guardia
+  /// de migraciones no proponga borrarlo. Si una migración futura llega a recrearlo
+  /// desde acá, saldría como único común y dejaría pasar rangos cruzados: el test de
+  /// rangos cruzados de `reservas-concurrencia.spec.ts` es el que lo delataría.
+  @@unique([canchaActiva, fin, inicio], map: "reserva_sin_cruce")
   @@index([canchaId, inicio])
   @@index([socioId, inicio])
   /// El panel del admin pide el día entero, de todas las canchas: filtra por `inicio`

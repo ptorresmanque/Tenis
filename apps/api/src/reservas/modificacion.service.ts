@@ -15,7 +15,10 @@ import {
 } from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
 import { AnulacionService } from '../pagos/anulacion.service';
-import { esViolacionDeUnicidad } from '../prisma/errores';
+import {
+  esViolacionDeUnicidad,
+  reintentarSiHayDeadlock,
+} from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
@@ -284,7 +287,9 @@ export class ModificacionService {
         },
       });
 
-    if (reserva.socioId === null) return escribir(this.prisma);
+    if (reserva.socioId === null) {
+      return reintentarSiHayDeadlock(() => escribir(this.prisma));
+    }
 
     return this.reservasDeSocio.conElSocioBloqueado(
       reserva.socioId,
