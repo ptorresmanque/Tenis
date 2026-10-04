@@ -66,27 +66,73 @@ const DIAS = [
         </p>
       } @else if (tarifas.value(); as lista) {
         @if (lista.length > 0) {
-          <!-- Como el tablero de una transmisión (TV4.1): la tarjeta sin borde, con
-               su sombra, y el precio en la cifra condensada, que es lo que se busca. -->
-          <div class="mt-4 overflow-x-auto bg-card shadow-md">
+          <!-- EN EL TELÉFONO, UNA TARJETA POR FRANJA. La tabla de cinco columnas no cabe a
+               375 px y, desplazada hacia el lado, escondía justo los precios. La tarjeta
+               lleva el horario en el rótulo de la grilla —la misma idea se ve igual en las
+               dos páginas— y los dos precios en la cifra condensada, que es lo que se busca. -->
+          <ul class="mt-4 grid gap-3 sm:hidden">
+            @for (tarifa of lista; track clave(tarifa)) {
+              <li data-tarifa-tarjeta class="bg-card p-4 shadow-md">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span
+                    class="rotulo-hora px-2 py-1 font-display text-2xl leading-none"
+                    [class.rotulo-hora-pico]="tarifa.esPico"
+                    >{{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}</span
+                  >
+                  @if (tarifa.esPico) {
+                    <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+                  }
+                </div>
+
+                <dl class="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <dt class="text-sm text-muted-foreground">1 hora</dt>
+                    <dd class="font-display text-2xl font-bold text-primary">
+                      {{ pesos(tarifa.montoClp) }}
+                    </dd>
+                  </div>
+                  @if (tarifa.montoClp90 !== null) {
+                    <div>
+                      <dt class="text-sm text-muted-foreground">1 hora y media</dt>
+                      <dd class="font-display text-2xl font-bold text-primary">
+                        {{ pesos(tarifa.montoClp90) }}
+                      </dd>
+                    </div>
+                  } @else {
+                    <!-- Sin el precio, la tarjeta no inventa un guion ni un cero (T81). El
+                         grupo entero es para lectores: una <dl> solo admite pares. -->
+                    <div class="sr-only">
+                      <dt>1 hora y media</dt>
+                      <dd>No se arrienda por hora y media</dd>
+                    </div>
+                  }
+                </dl>
+
+                <p class="mt-2 text-sm text-muted-foreground">{{ dondeYCuando(tarifa) }}</p>
+              </li>
+            }
+          </ul>
+
+          <!-- Desde 640 px, la tabla. Como el tablero de una transmisión (TV4.1): la tarjeta
+               sin borde, con su sombra, y el precio en la cifra condensada. Los precios van
+               justo después del horario: es lo que se viene a buscar. -->
+          <div class="mt-4 hidden overflow-x-auto bg-card shadow-md sm:block">
             <table class="tabla">
               <caption class="sr-only">
                 Tarifas de arriendo por 1 hora y por 1 hora y media, vigentes hoy
               </caption>
               <thead>
                 <tr>
-                  <th scope="col">Cancha</th>
-                  <th scope="col">Días</th>
                   <th scope="col">Horario</th>
                   <th scope="col">1 hora</th>
                   <th scope="col">1 hora y media</th>
+                  <th scope="col">Cancha</th>
+                  <th scope="col">Días</th>
                 </tr>
               </thead>
               <tbody>
                 @for (tarifa of lista; track clave(tarifa)) {
                   <tr>
-                    <td>{{ tarifa.cancha ?? 'Todas' }}</td>
-                    <td>{{ cuandoRige(tarifa.diaSemana) }}</td>
                     <td class="whitespace-nowrap">
                       {{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}
                       @if (tarifa.esPico) {
@@ -110,6 +156,8 @@ const DIAS = [
                         <span class="sr-only">No se arrienda por hora y media</span>
                       }
                     </td>
+                    <td>{{ tarifa.cancha ?? 'Todas' }}</td>
+                    <td>{{ cuandoRige(tarifa.diaSemana) }}</td>
                   </tr>
                 }
               </tbody>
@@ -187,5 +235,20 @@ export class Tarifas {
 
   protected cuandoRige(dia: number | null): string {
     return dia === null ? 'Todos' : this.nombreDia(dia);
+  }
+
+  /**
+   * La línea de la tarjeta: "Todas las canchas, todos los días" o "Cancha 3, los sábados".
+   *
+   * En plural, como se dice: "sábado" y "domingo" ganan la ese; "lunes" a "viernes" ya la
+   * traen.
+   */
+  protected dondeYCuando(tarifa: Tarifa): string {
+    const donde = tarifa.cancha ?? 'Todas las canchas';
+
+    if (tarifa.diaSemana === null) return `${donde}, todos los días`;
+
+    const dia = this.nombreDia(tarifa.diaSemana).toLowerCase();
+    return `${donde}, los ${dia.endsWith('o') ? `${dia}s` : dia}`;
   }
 }
