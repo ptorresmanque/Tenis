@@ -12,6 +12,7 @@ import {
   Superficie,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { EventosDeReserva } from '../src/reservas/eventos';
 
 /**
  * La página pública de la reserva: el destino del QR de portería.
@@ -366,14 +367,21 @@ describe('GET /api/reservas/publica/:token', () => {
 
       expect(pago.body).toMatchObject({ montoClp: 4000 });
       const { tokenPasarela } = pago.body as { tokenPasarela: string };
+      // El panel del admin ve el cambio sin recargar (Checkpoint S).
+      const avisos: { fecha: string }[] = [];
+      const suscripcion = app
+        .get(EventosDeReserva)
+        .flujo.subscribe((aviso) => avisos.push(aviso));
 
       const vuelta = await request(app.getHttpServer())
         .get(`/api/reservas/retorno-diferencia?token_ws=${tokenPasarela}`)
         .expect(302);
+      suscripcion.unsubscribe();
 
       expect(vuelta.headers.location).toMatch(
         new RegExp(`/r/${reserva.token}\\?cambio=hecho$`),
       );
+      expect(avisos).toContainEqual({ fecha: '2037-09-14' });
       const despues = await prisma.reserva.findUniqueOrThrow({
         where: { id: reserva.id },
       });
