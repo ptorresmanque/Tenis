@@ -11,6 +11,9 @@ import { Tarifas } from './tarifas';
  * escrito en la plantilla que contradecía al de verdad.
  */
 describe('Tarifas', () => {
+  /** El componente montado: las consultas van acá adentro y no a todo `document`. */
+  let raiz: HTMLElement;
+
   async function montar() {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
@@ -29,13 +32,13 @@ describe('Tarifas', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    return (fixture.nativeElement as HTMLElement).textContent?.replace(/\s+/g, ' ') ?? '';
+    raiz = fixture.nativeElement as HTMLElement;
+    return raiz.textContent?.replace(/\s+/g, ' ') ?? '';
   }
 
   /** Lo que se ve en cada fila de la tabla, celda por celda, sin lo que es solo para lectores. */
   function celdasVisibles(): string[][] {
-    const tabla = document.querySelector('app-tarifas table') ?? document.querySelector('table')!;
-    return Array.from(tabla.querySelectorAll('tbody tr')).map((fila) =>
+    return Array.from(raiz.querySelectorAll('tbody tr')).map((fila) =>
       Array.from(fila.querySelectorAll('td')).map((celda) => {
         const copia = celda.cloneNode(true) as HTMLElement;
         copia.querySelectorAll('.sr-only').forEach((nodo) => nodo.remove());
