@@ -89,6 +89,44 @@ describe('Modificación y cancelación de reservas', () => {
     return reserva;
   };
 
+  /**
+   * El segundo pago de una reserva: la diferencia que cobrará T89 al alargarla. Nace con
+   * el `inicioBloqueOriginal` de la compra, así que no corre la ventana de reembolso.
+   */
+  const conLaDiferenciaPagada = async (reserva: {
+    id: number;
+    inicio: Date;
+  }) => {
+    const orden = await pasarela.iniciar({
+      referencia: `T86-${reserva.id}`,
+      montoClp: 4000,
+      urlRetorno: 'https://club.local/retorno',
+    });
+    await pasarela.confirmar(orden.tokenPasarela);
+
+    await prisma.transaccion.create({
+      data: {
+        referencia: `T86-${reserva.id}-${Date.now()}`,
+        concepto: ConceptoPago.RESERVA,
+        conceptoId: reserva.id,
+        montoClp: 4000,
+        pasarela: 'doble',
+        estado: EstadoTransaccion.AUTORIZADA,
+        tokenPasarela: orden.tokenPasarela,
+        inicioBloqueOriginal: reserva.inicio,
+      },
+    });
+  };
+
+  const estadosDeSusPagos = async (reservaId: number) =>
+    (
+      await prisma.transaccion.findMany({
+        where: { concepto: ConceptoPago.RESERVA, conceptoId: reservaId },
+        orderBy: { id: 'asc' },
+        select: { estado: true },
+      })
+    ).map(({ estado }) => estado);
+
   beforeAll(async () => {
     modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PasarelaPago)
@@ -673,6 +711,74 @@ describe('Modificación y cancelación de reservas', () => {
       expect(
         await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),
       ).toMatchObject({ estado: EstadoReserva.PENDIENTE_PAGO });
+    });
+
+    describe('con la diferencia pagada: dos pagos (T86)', () => {
+      it('**con 24 horas o más anula los dos: devolver es todo lo pagado**', async () => {
+        const reserva = await unaReservaPagada();
+        await conLaDiferenciaPagada(reserva);
+
+        const resultado = await modificacion.cancelar(
+          reserva.id,
+          admin,
+          horasAntes(LUNES_20, 30),
+        );
+
+        expect(resultado.huboDevolucion).toBe(true);
+        expect(pasarela.anulaciones.map(({ montoClp }) => montoClp)).toEqual([
+          12000, 4000,
+        ]);
+        expect(await estadosDeSusPagos(reserva.id)).toEqual([
+          EstadoTransaccion.ANULADA,
+          EstadoTransaccion.ANULADA,
+        ]);
+      });
+
+      it('con menos de 24 horas no anula ninguno', async () => {
+        const reserva = await unaReservaPagada();
+        await conLaDiferenciaPagada(reserva);
+
+        const resultado = await modificacion.cancelar(
+          reserva.id,
+          admin,
+          horasAntes(LUNES_20, 12),
+        );
+
+        expect(resultado.huboDevolucion).toBe(false);
+        expect(pasarela.anulaciones).toHaveLength(0);
+      });
+
+      it('**si falla la segunda devolución, no se cancela a medias; el reintento devuelve la que faltaba**', async () => {
+        const reserva = await unaReservaPagada();
+        await conLaDiferenciaPagada(reserva);
+        pasarela.fallarEnLaAnulacionNumero = 2;
+
+        await expect(
+          modificacion.cancelar(reserva.id, admin, horasAntes(LUNES_20, 30)),
+        ).rejects.toBeDefined();
+
+        // La persona sigue con su cancha; la primera devolución ya salió.
+        expect(
+          await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),
+        ).toMatchObject({ estado: EstadoReserva.CONFIRMADA });
+
+        pasarela.fallarEnLaAnulacionNumero = null;
+        const reintento = await modificacion.cancelar(
+          reserva.id,
+          admin,
+          horasAntes(LUNES_20, 29),
+        );
+
+        // Ni dos veces la primera ni la segunda olvidada.
+        expect(reintento.huboDevolucion).toBe(true);
+        expect(pasarela.anulaciones.map(({ montoClp }) => montoClp)).toEqual([
+          12000, 4000,
+        ]);
+        expect(await estadosDeSusPagos(reserva.id)).toEqual([
+          EstadoTransaccion.ANULADA,
+          EstadoTransaccion.ANULADA,
+        ]);
+      });
     });
 
     it('cancelar dos veces no devuelve dos veces', async () => {

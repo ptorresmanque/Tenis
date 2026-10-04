@@ -216,22 +216,27 @@ export class ModificacionService {
 
     await this.exigirQueNoHayaPagoEnCurso(reserva.id);
 
-    const pago = await this.prisma.transaccion.findFirst({
+    // **Todos los pagos, no "el" pago** (T86): la compra y, si la alargó, la diferencia
+    // que cobró T89. Devolver es anular cada uno, entero (`SPEC-pagos.md` § Reembolso).
+    const pagos = await this.prisma.transaccion.findMany({
       where: {
         concepto: 'RESERVA',
         conceptoId: reserva.id,
         estado: EstadoTransaccion.AUTORIZADA,
       },
       select: { id: true, inicioBloqueOriginal: true },
+      orderBy: { id: 'asc' },
     });
+    const compra = pagos.at(0);
 
     // El bloque que se compró y no el reagendado: sin esa distinción, mover la
     // reserva a la semana siguiente y cancelar acto seguido cobraría una devolución
-    // que no correspondía (`SPEC-pagos.md` § Reembolso).
+    // que no correspondía (`SPEC-pagos.md` § Reembolso). La diferencia nace con el mismo
+    // `inicioBloqueOriginal`, así que la decisión es una sola: todos o ninguno.
     const devolver =
-      pago !== null &&
+      compra !== undefined &&
       correspondeReembolso(
-        pago.inicioBloqueOriginal ?? reserva.inicio,
+        compra.inicioBloqueOriginal ?? reserva.inicio,
         ahora,
         ventanas,
       );
@@ -239,8 +244,11 @@ export class ModificacionService {
     // **Primero la plata, después el estado**, el mismo orden que T19 fijó para
     // anular. Al revés, una pasarela caída dejaría la reserva CANCELADA sin
     // devolución, y el reintento respondería "ya estaba cancelada": la persona se
-    // queda sin cancha y sin su dinero.
-    if (devolver) await this.anulacion.anular(pago.id);
+    // queda sin cancha y sin su dinero. Si falla la segunda, la primera ya salió y
+    // queda ANULADA: el reintento solo ve la que falta.
+    if (devolver) {
+      for (const pago of pagos) await this.anulacion.anular(pago.id);
+    }
 
     if (!(await this.reservas.cancelar(reserva.id))) {
       throw new ConflictException({
@@ -258,7 +266,7 @@ export class ModificacionService {
       folio: reserva.folio,
       huboDevolucion: false,
       // El socio no paga por reservar: cancelar le devuelve el cupo, no plata.
-      motivo: pago
+      motivo: compra
         ? `Las devoluciones son con ${ventanas.horasReembolsoTotal} horas o más de anticipación.`
         : 'sin_pago',
     };

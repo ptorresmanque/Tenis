@@ -164,7 +164,7 @@ export class CierreDeCanchaService {
     for (const reserva of afectadas.filter((r) => r.pagada)) {
       // **Devolución total, sin evaluar la ventana de 24 horas**: canceló el club y
       // no la persona, y cobrarle una hora que le quitaron es indefendible.
-      await this.anularElPagoDe(reserva.id);
+      await this.anularLoPagadoPor(reserva.id);
     }
 
     // Se repite entera si la base la aborta por deadlock: cancelar saca filas del
@@ -295,17 +295,19 @@ export class CierreDeCanchaService {
     }
   }
 
-  private async anularElPagoDe(reservaId: number): Promise<void> {
-    const pago = await this.prisma.transaccion.findFirst({
+  /** La compra y, si la alargó, la diferencia de T89: cada pago, entero (T86). */
+  private async anularLoPagadoPor(reservaId: number): Promise<void> {
+    const pagos = await this.prisma.transaccion.findMany({
       where: {
         concepto: 'RESERVA',
         conceptoId: reservaId,
         estado: EstadoTransaccion.AUTORIZADA,
       },
       select: { id: true },
+      orderBy: { id: 'asc' },
     });
 
-    if (pago) await this.anulacion.anular(pago.id);
+    for (const pago of pagos) await this.anulacion.anular(pago.id);
   }
 
   /** Qué reservas de las canceladas ya conocíamos, con su ficha para el aviso. */

@@ -8,6 +8,7 @@ import { EnviadorCorreo } from '../src/identidad/correo';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import {
+  ConceptoPago,
   EstadoReserva,
   EstadoSocio,
   EstadoTransaccion,
@@ -332,6 +333,73 @@ describe('POST /api/admin/cierres', () => {
     });
     expect(pago.estado).toBe(EstadoTransaccion.ANULADA);
     expect(pasarela.anulaciones).toHaveLength(1);
+  });
+
+  describe('con la diferencia pagada: dos pagos (T86)', () => {
+    /** El segundo pago, el que cobrará T89 al alargar la reserva. */
+    const conLaDiferenciaPagada = async (reservaId: number) => {
+      const orden = await pasarela.iniciar({
+        referencia: `T86-cierre-${reservaId}`,
+        montoClp: 4000,
+        urlRetorno: 'https://club.local/retorno',
+      });
+      await pasarela.confirmar(orden.tokenPasarela);
+
+      const { inicio } = await prisma.reserva.findUniqueOrThrow({
+        where: { id: reservaId },
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `T86-cierre-${reservaId}-${Date.now()}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reservaId,
+          montoClp: 4000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.AUTORIZADA,
+          tokenPasarela: orden.tokenPasarela,
+          inicioBloqueOriginal: inicio,
+        },
+      });
+    };
+
+    it('**cerrar la cancha anula los dos pagos**', async () => {
+      const horas = await bloques();
+      const reservaId = await reservarYPagar(horas[0].inicio);
+      await conLaDiferenciaPagada(reservaId);
+
+      await request(app.getHttpServer())
+        .post('/api/admin/cierres')
+        .set('Cookie', cookieAdmin)
+        .send(cierre('08:00', '12:00'))
+        .expect(201);
+
+      const pagos = await prisma.transaccion.findMany({
+        where: { concepto: ConceptoPago.RESERVA, conceptoId: reservaId },
+      });
+      expect(pagos.map((p) => p.estado)).toEqual([
+        EstadoTransaccion.ANULADA,
+        EstadoTransaccion.ANULADA,
+      ]);
+      expect(pasarela.anulaciones).toHaveLength(2);
+    });
+
+    it('si falla la segunda devolución, no cierra: ni bloqueo ni reserva cancelada', async () => {
+      const horas = await bloques();
+      const reservaId = await reservarYPagar(horas[0].inicio);
+      await conLaDiferenciaPagada(reservaId);
+      pasarela.fallarEnLaAnulacionNumero = 2;
+
+      const respuesta = await request(app.getHttpServer())
+        .post('/api/admin/cierres')
+        .set('Cookie', cookieAdmin)
+        .send(cierre('08:00', '12:00'));
+
+      expect(respuesta.status).not.toBe(201);
+      expect(await prisma.bloqueo.count({ where: { canchaId } })).toBe(0);
+      expect(
+        await prisma.reserva.findUniqueOrThrow({ where: { id: reservaId } }),
+      ).toMatchObject({ estado: EstadoReserva.CONFIRMADA });
+    });
   });
 
   it('el socio recupera su cupo del día y puede volver a reservar', async () => {
