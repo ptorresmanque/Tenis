@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import { EstadoSocio } from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,6 +30,11 @@ export interface CupoDelSocio {
 export interface ReservaDelAdmin {
   canchaId: number;
   inicio: Date;
+  /**
+   * 1 hora o 1 hora y media (T85). Se ofrece aunque la franja no tenga precio de 1 hora
+   * y media: el socio no paga, y el visitante paga en el mostrador.
+   */
+  duracionMin: DuracionMin;
   /** A nombre de un socio del club. Sin esto, es una reserva de visitante. */
   socioId?: number | null;
   /** Datos del visitante, cuando no hay socio. */
@@ -103,6 +109,7 @@ export class ReservaDelAdminService {
         {
           canchaId: datos.canchaId,
           inicio: datos.inicio,
+          duracionMin: datos.duracionMin,
           nombre: datos.nombre ?? '',
           email: datos.email ?? '',
           telefono: datos.telefono ?? '',
@@ -160,8 +167,7 @@ export class ReservaDelAdminService {
       {
         canchaId: datos.canchaId,
         inicio: datos.inicio,
-        // El mesón elige la duración en T85; hasta entonces, 1 hora como siempre.
-        duracionMin: 60,
+        duracionMin: datos.duracionMin,
         acompanantes: datos.acompanantes ?? [],
       },
       ahora,

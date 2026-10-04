@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
+import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
@@ -82,6 +82,16 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
           </p>
         }
 
+        <!-- Antes de la hora, porque decide qué horas quedan libres. Se ofrece la hora y
+             media aunque la franja no tenga su precio: el socio no paga, y el visitante
+             paga en el mostrador (T85). -->
+        <app-selector
+          etiqueta="Duración"
+          [opciones]="DURACIONES"
+          [valor]="'' + duracion()"
+          (valorChange)="elegirDuracion($event)"
+        />
+
         <app-campo etiqueta="Hora">
           <select
             appCampoControl
@@ -89,9 +99,9 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
             class="campo"
             (change)="inicio.set($any($event.target).value)"
           >
-            <option value="">Elige una hora libre</option>
+            <option value="" [selected]="inicio() === ''">Elige una hora libre</option>
             @for (bloque of libres(); track bloque.inicio) {
-              <option [value]="bloque.inicio">
+              <option [value]="bloque.inicio" [selected]="bloque.inicio === inicio()">
                 {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
                 @if (bloque.esPico) {
                   · hora pico
@@ -231,7 +241,13 @@ export class NuevaReserva {
     { valor: 'visitante', etiqueta: 'Un visitante' },
   ];
 
+  protected readonly DURACIONES = [
+    { valor: '60', etiqueta: '1 hora' },
+    { valor: '90', etiqueta: '1 hora y media' },
+  ];
+
   protected readonly paraQuien = signal('socio');
+  protected readonly duracion = signal<DuracionMin>(60);
   protected readonly canchaId = signal(0);
   protected readonly inicio = signal('');
   protected readonly socioId = signal(0);
@@ -244,8 +260,8 @@ export class NuevaReserva {
   protected readonly error = signal<string | null>(null);
 
   protected readonly grillas = resource({
-    params: () => ({ fecha: this.fecha() }),
-    loader: ({ params }) => this.disponibilidad.delDia(params.fecha),
+    params: () => ({ fecha: this.fecha(), duracion: this.duracion() }),
+    loader: ({ params }) => this.disponibilidad.delDia(params.fecha, params.duracion),
     defaultValue: [],
   });
 
@@ -302,6 +318,13 @@ export class NuevaReserva {
     queueMicrotask(() => this.dialogo().nativeElement.showModal());
   }
 
+  protected elegirDuracion(valor: string): void {
+    this.duracion.set(valor === '90' ? 90 : 60);
+    // La hora elegida era de la otra lista: con 1 hora y media puede chocar con la
+    // reserva siguiente, o pasarse del cierre.
+    this.inicio.set('');
+  }
+
   protected async crear(): Promise<void> {
     this.error.set(null);
 
@@ -316,6 +339,7 @@ export class NuevaReserva {
       const { folio } = await this.api.crear({
         canchaId: this.canchaElegida(),
         inicio: this.inicio(),
+        duracionMin: this.duracion(),
         ...(this.paraQuien() === 'socio'
           ? {
               socioId: this.socioId(),

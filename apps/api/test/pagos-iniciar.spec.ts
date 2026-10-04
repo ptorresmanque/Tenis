@@ -146,9 +146,10 @@ describe('PagosService.iniciar', () => {
     // que un monto del cliente se rechace: ese borde es el endpoint de T23, donde el
     // DTO directamente no acepta el campo. Acá no hay cliente todavía.
     const bloques = await disponibilidad.de(await primeraCanchaId(), LUNES);
-    const bloque = bloques.find((b) => !b.bloqueado && b.montoClp > 0);
+    const bloque = bloques.find((b) => !b.bloqueado && (b.montoClp ?? 0) > 0);
 
-    if (!bloque) {
+    // Nulo no llega con 1 hora (T79), pero el tipo lo admite y `iniciar` pide un número.
+    if (!bloque || bloque.montoClp === null) {
       throw new Error('El catálogo del seed no dejó ningún bloque con tarifa.');
     }
 

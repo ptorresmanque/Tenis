@@ -375,18 +375,22 @@ export class ReservasService {
     datos: {
       canchaId: number;
       inicio: Date;
+      duracionMin: DuracionMin;
       nombre: string;
       email: string;
       telefono: string;
     },
     ahora = new Date(),
   ): Promise<ReservaCreada> {
+    // Sin mirar el precio: se cobra en el mostrador, así que la franja sin precio de 1
+    // hora y media no lo impide (T85).
     const bloque = await this.bloqueDeLaGrilla(
       datos.canchaId,
       fechaCivilDelClub(datos.inicio),
       datos.inicio,
       ahora,
       'fin',
+      datos.duracionMin,
     );
 
     try {
@@ -436,8 +440,7 @@ export class ReservasService {
     inicio: Date,
     ahora: Date,
     tomableHasta: TomableHasta,
-    // 60 por omisión: el mesón todavía no elige la duración. Lo hace T85.
-    duracionMin: DuracionMin = 60,
+    duracionMin: DuracionMin,
   ): Promise<{ inicio: Date; fin: Date; esPico: boolean }> {
     const bloques = await this.disponibilidad.de(canchaId, fecha, duracionMin);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());

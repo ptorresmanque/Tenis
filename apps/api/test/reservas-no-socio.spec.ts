@@ -412,13 +412,16 @@ describe('Reserva de no-socio con pago', () => {
     const transaccionesAntes = await prisma.transaccion.count();
 
     await expect(
-      app
-        .get(ReservaNoSocioService)
-        .iniciar(
-          { canchaId, inicio: new Date(A_LAS_10), ...datosDelVisitante },
-          'http://localhost/api/reservas/retorno',
-          ahora,
-        ),
+      app.get(ReservaNoSocioService).iniciar(
+        {
+          canchaId,
+          inicio: new Date(A_LAS_10),
+          duracionMin: 60,
+          ...datosDelVisitante,
+        },
+        'http://localhost/api/reservas/retorno',
+        ahora,
+      ),
     ).rejects.toMatchObject({
       status: 409,
       response: {

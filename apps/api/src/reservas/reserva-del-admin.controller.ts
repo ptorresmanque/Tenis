@@ -11,6 +11,7 @@ import {
 
 import { esFechaDelClub } from '../comun/tiempo';
 import { SoloAdmin } from '../identidad/guards';
+import { leerDuracion } from './duracion';
 import {
   CupoDelSocio,
   ReservaDelAdminService,
@@ -102,6 +103,7 @@ function reservaDelAdminDeCuerpo(cuerpo: unknown) {
   return {
     canchaId,
     inicio,
+    duracionMin: leerDuracion(datos.duracionMin),
     socioId,
     nombre,
     email: texto(datos.email),

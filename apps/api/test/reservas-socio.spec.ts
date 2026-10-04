@@ -262,6 +262,42 @@ describe('POST /api/reservas — reserva de socio', () => {
     expect(respuesta.body.motivo).toBe('CUPO_PICO');
   });
 
+  it('**dos pico de 1 hora y media caben en un cupo pico de 2: cuenta reservas, no horas** (T85)', async () => {
+    // Contando horas serían 3 de 2 y la segunda se rechazaría. La primera la pone la
+    // base el martes: el club de este spec abre solo los lunes.
+    await prisma.reserva.create({
+      data: {
+        folio: 'PICO90A',
+        canchaId,
+        inicio: new Date('2037-08-18T23:00:00.000Z'),
+        fin: new Date('2037-08-19T00:30:00.000Z'),
+        esPico: true,
+        estado: EstadoReserva.CONFIRMADA,
+        socioId,
+        nombre: 'Socio titular',
+        email: `socio-titular${DOMINIO}`,
+        telefono: '',
+      },
+    });
+
+    const respuesta = await reservar(
+      unaReserva({ inicio: A_LAS_19, duracionMin: 90 }),
+    );
+
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('la segunda reserva del día se rechaza también cuando la primera fue de 1 hora y media (T85)', async () => {
+    expect((await reservar(unaReserva({ duracionMin: 90 }))).status).toBe(201);
+
+    const segunda = await reservar(
+      unaReserva({ inicio: '2037-08-17T17:00:00.000Z' }),
+    );
+
+    expect(segunda.status).toBe(409);
+    expect((segunda.body as { motivo: string }).motivo).toBe('CUPO_DIARIO');
+  });
+
   it('las reservas pico gastadas no impiden reservar en horario valle', async () => {
     for (const dia of ['2037-08-18', '2037-08-19']) {
       await prisma.reserva.create({
@@ -617,6 +653,7 @@ describe('POST /api/reservas — reserva de socio', () => {
         {
           canchaId,
           inicio: new Date(A_LAS_10),
+          duracionMin: 60,
           acompanantes: [{ nombre: 'Ana Invitada' }],
         },
         ahora,

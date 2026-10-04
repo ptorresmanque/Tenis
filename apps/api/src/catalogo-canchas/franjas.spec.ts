@@ -126,6 +126,7 @@ describe('franjaPara', () => {
     const alasSeis = franjaPara({
       fecha: LUNES,
       canchaId: 7,
+      duracionMin: 60,
       inicio: new Date('2026-08-17T22:00:00.000Z'),
       franjas: [franja({ horaDesde: '08:00', horaHasta: '18:00' })],
     });
@@ -191,6 +192,7 @@ describe('franjaPara', () => {
       const lunesPorLaNoche = franjaPara({
         fecha: LUNES,
         canchaId: 7,
+        duracionMin: 60,
         inicio: new Date('2026-08-18T01:00:00.000Z'),
         franjas: [
           franja({
@@ -273,6 +275,7 @@ describe('franjaPara', () => {
     const antesDelPico = franjaPara({
       fecha: '2026-04-05',
       canchaId: 7,
+      duracionMin: 60,
       inicio: new Date('2026-04-05T21:00:00.000Z'),
       franjas: [
         franja({

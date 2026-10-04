@@ -20,6 +20,8 @@ export interface CupoDelSocio {
 export interface ReservaDelAdmin {
   canchaId: number;
   inicio: string;
+  /** 60 o 90 (T85). La valida la API. */
+  duracionMin: number;
   socioId?: number | null;
   nombre?: string;
   email?: string;
