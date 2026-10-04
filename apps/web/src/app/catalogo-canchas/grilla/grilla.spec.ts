@@ -357,6 +357,51 @@ describe('Grilla', () => {
       expect(filas[1]).toContain('Hora pico');
     });
 
+    it('**la mantención se dice una vez en la banda cuando sus dos inicios la comparten**', async () => {
+      // Decisión del club del 2026-10-03: "2 en mantención" en cada fila era la línea que
+      // más se repetía. Si las dos filas tienen lo mismo cerrado, lo dice la banda.
+      const enMantencion = { bloqueado: true, motivoBloqueo: 'MANTENCION' };
+      await montar([
+        ...MEDIAS_HORAS,
+        {
+          cancha: { ...CANCHA, id: 2, nombre: 'Cancha 2' },
+          bloques: [
+            bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', enMantencion),
+            bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z', enMantencion),
+          ],
+        },
+      ]);
+
+      const ocho = bandas()[0];
+
+      expect(enTexto(ocho).match(/en mantención/g)).toHaveLength(1);
+      for (const fila of ocho.querySelectorAll('[data-inicio]')) {
+        expect(enTexto(fila)).not.toContain('en mantención');
+      }
+    });
+
+    it('si los dos inicios no tienen lo mismo cerrado, lo dice cada fila', async () => {
+      await montar([
+        ...MEDIAS_HORAS,
+        {
+          cancha: { ...CANCHA, id: 2, nombre: 'Cancha 2' },
+          bloques: [
+            bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', {
+              bloqueado: true,
+              motivoBloqueo: 'MANTENCION',
+            }),
+            bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z'),
+          ],
+        },
+      ]);
+
+      const filas = [...bandas()[0].querySelectorAll('[data-inicio]')].map(enTexto);
+
+      expect(filas[0]).toContain('1 en mantención');
+      expect(filas[1]).not.toContain('en mantención');
+      expect(enTexto(bandas()[0]).match(/en mantención/g)).toHaveLength(1);
+    });
+
     it('con el :00 pasado y el :30 por venir, la banda queda a la vista y marca el pasado', async () => {
       // Las 08:10 del club: el de las 08:00 ya empezó y el de las 08:30 no.
       vi.setSystemTime('2026-08-17T12:10:00.000Z');

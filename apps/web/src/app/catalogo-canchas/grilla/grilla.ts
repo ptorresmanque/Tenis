@@ -63,6 +63,11 @@ export interface Banda {
   precio: string | null;
   /** Si todos sus inicios son pico, o ninguno; nulo si difieren y lo dice cada fila. */
   pico: boolean | null;
+  /**
+   * Las canchas en mantención, cuando sus inicios tienen las mismas; nulo si difieren o no
+   * hay ninguna. Decisión del club del 2026-10-03: era la línea que más se repetía.
+   */
+  enMantencion: number | null;
 }
 
 /**
@@ -324,6 +329,13 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
           }
         </div>
 
+        @if (banda.enMantencion !== null) {
+          <p class="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground">
+            <span class="icono text-base" aria-hidden="true">build</span>
+            {{ banda.enMantencion }} en mantención
+          </p>
+        }
+
         @for (franja of banda.franjas; track franja.inicio) {
         <div class="mt-4" [attr.data-inicio]="franja.inicio">
           <!-- Las etiquetas van pegadas a propósito: un salto de línea entre ellas
@@ -425,7 +437,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
         <!-- Lo que no se puede tomar se cuenta, no se esconde: que a las 19:00
              haya seis ocupadas es información, y borrarla haría que esa hora se
              viera igual que una que el club no abre. -->
-        @if (franja.ocupadas > 0 || franja.enMantencion > 0) {
+        @if (franja.ocupadas > 0 || (franja.enMantencion > 0 && banda.enMantencion === null)) {
           <p class="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
             @if (franja.ocupadas > 0) {
               <span class="inline-flex items-center gap-1">
@@ -434,7 +446,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
                 {{ franja.ocupadas === 1 ? 'ocupada' : 'ocupadas' }}
               </span>
             }
-            @if (franja.enMantencion > 0) {
+            @if (franja.enMantencion > 0 && banda.enMantencion === null) {
               <span class="inline-flex items-center gap-1">
                 <span class="icono text-base" aria-hidden="true">build</span>
                 {{ franja.enMantencion }} en mantención
@@ -723,6 +735,8 @@ export class Grilla {
         franjas.filter((f) => f.libres.length > 0).map((f) => this.precioDeLaHora(f.libres)),
       );
       const picos = new Set(franjas.map((f) => f.esPico));
+      const mantenciones = new Set(franjas.map((f) => f.enMantencion));
+      const mantencion = mantenciones.size === 1 ? [...mantenciones][0] : 0;
 
       return {
         hora,
@@ -730,6 +744,7 @@ export class Grilla {
         franjas,
         precio: precios.size === 1 ? [...precios][0] : null,
         pico: picos.size === 1 ? [...picos][0] : null,
+        enMantencion: mantencion > 0 ? mantencion : null,
       };
     });
   });
