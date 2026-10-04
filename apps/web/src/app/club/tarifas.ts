@@ -13,6 +13,8 @@ interface Tarifa {
   horaHasta: string;
   esPico: boolean;
   montoClp: number;
+  /** Nulo: la hora y media no se vende en esa franja (T81). */
+  montoClp90: number | null;
 }
 
 interface HorarioDelDia {
@@ -53,7 +55,8 @@ const DIAS = [
     <section aria-labelledby="titulo-tarifas">
       <h2 id="titulo-tarifas" class="titular text-5xl sm:text-6xl">Tarifas y horarios</h2>
       <p class="mt-1 max-w-prose text-muted-foreground">
-        Lo que cuesta arrendar una hora. <strong>Los socios no pagan por reservar</strong>:
+        Lo que cuesta arrendar 1 hora o 1 hora y media.
+        <strong>Los socios no pagan por reservar</strong>:
         su cuota mensual les da derecho a cancha.
       </p>
 
@@ -68,14 +71,15 @@ const DIAS = [
           <div class="mt-4 overflow-x-auto bg-card shadow-md">
             <table class="tabla">
               <caption class="sr-only">
-                Tarifas de arriendo por hora, vigentes hoy
+                Tarifas de arriendo por 1 hora y por 1 hora y media, vigentes hoy
               </caption>
               <thead>
                 <tr>
                   <th scope="col">Cancha</th>
                   <th scope="col">Días</th>
                   <th scope="col">Horario</th>
-                  <th scope="col">Valor por hora</th>
+                  <th scope="col">1 hora</th>
+                  <th scope="col">1 hora y media</th>
                 </tr>
               </thead>
               <tbody>
@@ -95,6 +99,16 @@ const DIAS = [
                     </td>
                     <td class="font-display text-xl font-bold whitespace-nowrap text-primary">
                       {{ pesos(tarifa.montoClp) }}
+                    </td>
+                    <td class="font-display text-xl font-bold whitespace-nowrap text-primary">
+                      @if (tarifa.montoClp90 !== null) {
+                        {{ pesos(tarifa.montoClp90) }}
+                      } @else {
+                        <!-- Vacía a la vista: un guion o un cero invitarían a pedir algo
+                             que no se vende (T81). El lector de pantalla sí lo dice: una
+                             celda "en blanco" no le explica nada a quien la escucha. -->
+                        <span class="sr-only">No se arrienda por hora y media</span>
+                      }
                     </td>
                   </tr>
                 }
