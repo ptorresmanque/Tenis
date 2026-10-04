@@ -275,6 +275,103 @@ describe('Grilla', () => {
     });
   });
 
+  /**
+   * T83a. Con inicios cada media hora la grilla medía el doble (27 bandas, 8.243 px a
+   * 375 px en T78). Decisión del club del 2026-10-03: una banda por hora del reloj, con
+   * sus inicios :00 y :30 adentro. Nada se esconde.
+   */
+  describe('una banda por hora', () => {
+    const CANCHA = DIA[0].cancha;
+    const bloque = (
+      inicio: string,
+      fin: string,
+      parche: Partial<GrillaDeCancha['bloques'][number]> = {},
+    ) => ({
+      inicio,
+      fin,
+      canchaId: 1,
+      montoClp: 12000,
+      esPico: false,
+      bloqueado: false,
+      motivoBloqueo: null,
+      reservado: false,
+      ...parche,
+    });
+    // 12:00Z es las 08:00 del club en agosto.
+    const MEDIAS_HORAS: GrillaDeCancha[] = [
+      {
+        cancha: CANCHA,
+        bloques: [
+          bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z'),
+          bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z'),
+          bloque('2026-08-17T13:00:00.000Z', '2026-08-17T14:00:00.000Z'),
+          // 17:00 en valle y 17:30 ya en la franja pico, que empieza a las 17:30.
+          bloque('2026-08-17T21:00:00.000Z', '2026-08-17T22:00:00.000Z'),
+          bloque('2026-08-17T21:30:00.000Z', '2026-08-17T22:30:00.000Z', {
+            montoClp: 20000,
+            esPico: true,
+          }),
+        ],
+      },
+    ];
+    const bandas = () =>
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll('section')].filter(
+        (seccion) => !seccion.closest('details'),
+      );
+    const enTexto = (nodo: Element) => nodo.textContent?.replace(/\s+/g, ' ') ?? '';
+
+    beforeEach(async () => {
+      await montar(MEDIAS_HORAS);
+    });
+
+    it('**los inicios de y media van dentro de la banda de su hora**', () => {
+      expect(bandas()).toHaveLength(3);
+
+      const ocho = enTexto(bandas()[0]);
+      expect(ocho).toContain('08:00–09:00');
+      expect(ocho).toContain('08:30–09:30');
+      expect(ocho.indexOf('08:00–09:00')).toBeLessThan(ocho.indexOf('08:30–09:30'));
+    });
+
+    it('la banda nombra su hora una vez', () => {
+      const encabezado = bandas()[0].querySelector('h2');
+
+      expect(enTexto(encabezado!)).toContain('08 h');
+    });
+
+    it('**el precio y "socio sin costo" se dicen una vez cuando los inicios coinciden**', () => {
+      const ocho = enTexto(bandas()[0]);
+
+      expect(ocho.match(/Arriendo/g)).toHaveLength(1);
+      expect(ocho.match(/Socio sin costo/g)).toHaveLength(1);
+    });
+
+    it('si el de y media cae en otra franja, el precio y el pico los dice su fila', () => {
+      const cinco = bandas()[2];
+      const filas = [...cinco.querySelectorAll('[data-inicio]')].map(enTexto);
+
+      expect(filas).toHaveLength(2);
+      expect(filas[0]).toContain('$12.000');
+      expect(filas[0]).not.toContain('Hora pico');
+      expect(filas[1]).toContain('$20.000');
+      expect(filas[1]).toContain('Hora pico');
+    });
+
+    it('con el :00 pasado y el :30 por venir, la banda queda a la vista y marca el pasado', async () => {
+      // Las 08:10 del club: el de las 08:00 ya empezó y el de las 08:30 no.
+      vi.setSystemTime('2026-08-17T12:10:00.000Z');
+      await montar(MEDIAS_HORAS);
+
+      const ocho = bandas()[0];
+      const filas = [...ocho.querySelectorAll('[data-inicio]')].map(enTexto);
+
+      expect(enTexto(ocho.querySelector('h2')!)).toContain('08 h');
+      expect(filas[0]).toContain('Ya pasó');
+      expect(filas[1]).toContain('Cancha 1');
+      expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+    });
+  });
+
   it('el selector de día también se anuncia como clickeable', () => {
     const fecha = (fixture.nativeElement as HTMLElement).querySelector(
       'input[type="date"]',

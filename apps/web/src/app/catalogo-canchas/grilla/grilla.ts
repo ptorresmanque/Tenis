@@ -23,7 +23,7 @@ import {
 import { nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
 
-/** Una hora de la grilla, con lo que pasa en cada cancha. */
+/** Un inicio de la grilla —08:00–09:00, 08:30–09:30…—, con lo que pasa en cada cancha. */
 export interface Franja {
   inicio: string;
   fin: string;
@@ -47,19 +47,38 @@ export interface Franja {
 }
 
 /**
- * Le pone tipo al `let-franja` de la plantilla de la franja.
+ * Una hora del reloj del club, con sus inicios adentro (T83a).
+ *
+ * Con inicios cada media hora la grilla eran 27 bandas: una por inicio. El club eligió
+ * el 2026-10-03 agruparlas por hora, y lo que dicen igual los dos inicios —el precio,
+ * "socio sin costo", el pico— se dice una vez en la banda.
+ */
+export interface Banda {
+  /** La hora del reloj, "08". También la clave: un día no repite hora. */
+  hora: string;
+  /** Lo que oye el lector de pantalla en vez de "08 h". */
+  nombre: string;
+  franjas: Franja[];
+  /** El precio de todos sus inicios con canchas libres, o nulo si difieren o no hay. */
+  precio: string | null;
+  /** Si todos sus inicios son pico, o ninguno; nulo si difieren y lo dice cada fila. */
+  pico: boolean | null;
+}
+
+/**
+ * Le pone tipo al `let-banda` de la plantilla de la banda.
  *
  * Sin esto el `ng-template` le da `any` y el compilador deja de revisar esa
  * parte de la plantilla: en la revisión de TV5.1 un campo inventado,
  * `franja.libresQueNoExisten`, compilaba igual. Con el `@for` de antes eso no
  * pasaba.
  */
-@Directive({ selector: 'ng-template[appFranjaTipada]' })
-export class FranjaTipada {
+@Directive({ selector: 'ng-template[appBandaTipada]' })
+export class BandaTipada {
   static ngTemplateContextGuard(
-    _directiva: FranjaTipada,
+    _directiva: BandaTipada,
     contexto: unknown,
-  ): contexto is { $implicit: Franja } {
+  ): contexto is { $implicit: Banda } {
     // El contexto de un ng-template es siempre un objeto; lo que importa es el
     // tipo que esta firma le da al compilador.
     return typeof contexto === 'object';
@@ -95,7 +114,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
 
 @Component({
   selector: 'app-grilla',
-  imports: [NgTemplateOutlet, FranjaTipada, Reservar, BarraFija, EstadoVacio, Insignia, Selector],
+  imports: [NgTemplateOutlet, BandaTipada, Reservar, BarraFija, EstadoVacio, Insignia, Selector],
   host: {
     class: 'block',
     // La barra fija tapa la última fila de bloques si no se le deja aire, y el
@@ -253,66 +272,89 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
             </span>
           }
         </summary>
-        @for (franja of pasadas(); track franja.inicio) {
+        @for (banda of pasadas(); track banda.hora) {
           <ng-container
-            [ngTemplateOutlet]="franjaTpl"
-            [ngTemplateOutletContext]="{ $implicit: franja }"
+            [ngTemplateOutlet]="bandaTpl"
+            [ngTemplateOutletContext]="{ $implicit: banda }"
           />
         }
       </details>
     }
 
-    @for (franja of vigentes(); track franja.inicio) {
+    @for (banda of vigentes(); track banda.hora) {
       <ng-container
-        [ngTemplateOutlet]="franjaTpl"
-        [ngTemplateOutletContext]="{ $implicit: franja }"
+        [ngTemplateOutlet]="bandaTpl"
+        [ngTemplateOutletContext]="{ $implicit: banda }"
       />
     }
 
-    <!-- Una franja: se escribe una vez y se usa dentro y fuera del pliegue. -->
-    <ng-template #franjaTpl appFranjaTipada let-franja>
+    <!-- Una banda: se escribe una vez y se usa dentro y fuera del pliegue. -->
+    <ng-template #bandaTpl appBandaTipada let-banda>
       <section class="mt-6 border-t border-border pt-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <!-- Las etiquetas van pegadas a propósito: un salto de línea entre
-               ellas mete un espacio en blanco y en pantalla se lee "08:00 –09:00",
-               con el guion suelto. -->
-          <!-- La hora en un rótulo de color (TV5.1): campo, o ámbar suave si es
-               hora pico. No una franja lateral: esa barra en el canto es el tell
-               de interfaz generada que el lint de franjas prohíbe. -->
-          <h2 class="flex items-baseline font-display leading-none">
+          <!-- La hora en un rótulo de color (TV5.1): campo, o ámbar suave si toda la
+               hora es pico. No una franja lateral: esa barra en el canto es el tell
+               de interfaz generada que el lint de franjas prohíbe. "08 h" se oye mal;
+               el lector oye "A las 8". Relativo por la trampa del sr-only. -->
+          <h2 class="relative font-display leading-none">
             <span
               class="rotulo-hora px-2 py-1 text-3xl"
-              [class.rotulo-hora-pico]="franja.esPico"
-              >{{ hora(franja.inicio) }}</span
-            ><span class="ms-1 text-lg font-semibold text-muted-foreground"
-              >–{{ hora(franja.fin) }}</span
+              [class.rotulo-hora-pico]="banda.pico === true"
+              aria-hidden="true"
+              >{{ banda.hora }} h</span
             >
+            <span class="sr-only">{{ banda.nombre }}</span>
           </h2>
 
-          <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
+          <!-- Lo que los dos inicios dicen igual se dice una vez (T83a). -->
+          @if (banda.precio !== null || banda.pico === true) {
+            <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
+              @if (banda.precio !== null) {
+                <span class="text-muted-foreground">Socio {{ tarifaDelSocio }}</span>
+                <span class="text-muted-foreground" aria-hidden="true">·</span>
+                <span class="text-muted-foreground">
+                  Arriendo
+                  <strong class="text-accent-strong">{{ banda.precio }}</strong>
+                </span>
+              }
+              @if (banda.pico === true) {
+                <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+              }
+            </p>
+          }
+        </div>
+
+        @for (franja of banda.franjas; track franja.inicio) {
+        <div class="mt-4" [attr.data-inicio]="franja.inicio">
+          <!-- Las etiquetas van pegadas a propósito: un salto de línea entre ellas
+               mete un espacio en blanco y en pantalla se lee "08:00 –09:00". -->
+          <p class="flex flex-wrap items-baseline gap-x-2">
+            <span class="font-display text-xl font-bold"
+              >{{ hora(franja.inicio) }}–{{ hora(franja.fin) }}</span
+            >
             @if (franja.libres.length > 0) {
-              <span class="font-semibold text-accent-strong">
+              <span class="text-sm font-semibold text-accent-strong">
                 {{ franja.libres.length }}
                 {{ franja.libres.length === 1 ? 'libre' : 'libres' }}
               </span>
-              <span class="text-muted-foreground">Socio {{ tarifaDelSocio }}</span>
-              <span class="text-muted-foreground" aria-hidden="true">·</span>
-              <span class="text-muted-foreground">
-                Arriendo
-                <strong class="text-accent-strong">
-                  {{ precioDeLaHora(franja.libres) }}
-                </strong>
-              </span>
+              @if (banda.precio === null) {
+                <!-- Este inicio cae en otra franja que su hermano: dice lo suyo. -->
+                <span class="text-sm text-muted-foreground">
+                  Socio {{ tarifaDelSocio }} · Arriendo
+                  <strong class="text-accent-strong">
+                    {{ precioDeLaHora(franja.libres) }}
+                  </strong>
+                </span>
+              }
             } @else {
-              <span class="font-medium text-muted-foreground">
+              <span class="text-sm font-medium text-muted-foreground">
                 {{ franja.yaPaso ? 'Ya pasó' : 'Sin canchas libres' }}
               </span>
             }
-            @if (franja.esPico) {
+            @if (banda.pico === null && franja.esPico) {
               <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
             }
           </p>
-        </div>
 
         @if (franja.libres.length > 0) {
           <ul class="mt-3 flex flex-wrap gap-2">
@@ -399,6 +441,8 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
               </span>
             }
           </p>
+        }
+        </div>
         }
       </section>
     </ng-template>
@@ -623,6 +667,9 @@ export class Grilla {
    * 112 tarjetas, que a dos columnas dan 56 filas y **10.223px de alto en un
    * teléfono**. Por hora son catorce bandas.
    *
+   * Desde T78 se reserva cada media hora, así que esto da un elemento por **inicio**
+   * —27 en un día de 08:00 a 22:00— y `bandas` los junta por hora del reloj (T83a).
+   *
    * Las canchas que no se pueden tomar no desaparecen: se cuentan. Saber que a
    * las 19:00 hay seis ocupadas y ninguna libre es información, y borrarla haría
    * que esa hora se viera igual que una que el club no abre.
@@ -656,11 +703,50 @@ export class Grilla {
     return [...horas.values()].sort((una, otra) => una.inicio.localeCompare(otra.inicio));
   });
 
-  /** Las franjas que ya pasaron, que van plegadas (decisión 9 del plan, TV5.1). */
-  protected readonly pasadas = computed(() => this.porHora().filter((franja) => franja.yaPaso));
+  /**
+   * Los inicios agrupados por hora del reloj del club (T83a): 14 bandas y no 27.
+   *
+   * Lo que los dos inicios de una hora dicen igual —el precio de sus canchas libres y si
+   * son pico— sube a la banda. Si el de y media cae en otra franja, cada fila dice lo suyo
+   * y la banda calla: un precio de banda que no vale para una de sus filas sería mentira.
+   */
+  protected readonly bandas = computed(() => {
+    const porHora = new Map<string, Franja[]>();
+
+    for (const franja of this.porHora()) {
+      const hora = horaEnElClub(franja.inicio).slice(0, 2);
+      porHora.set(hora, [...(porHora.get(hora) ?? []), franja]);
+    }
+
+    return [...porHora].map(([hora, franjas]): Banda => {
+      const precios = new Set(
+        franjas.filter((f) => f.libres.length > 0).map((f) => this.precioDeLaHora(f.libres)),
+      );
+      const picos = new Set(franjas.map((f) => f.esPico));
+
+      return {
+        hora,
+        nombre: `A las ${Number(hora)}`,
+        franjas,
+        precio: precios.size === 1 ? [...precios][0] : null,
+        pico: picos.size === 1 ? [...picos][0] : null,
+      };
+    });
+  });
+
+  /**
+   * Las horas que ya pasaron, que van plegadas (decisión 9 del plan, TV5.1). Una banda se
+   * pliega entera solo si pasaron todos sus inicios: con el :00 pasado y el :30 por venir
+   * queda a la vista, y su :00 dice "Ya pasó".
+   */
+  protected readonly pasadas = computed(() =>
+    this.bandas().filter((banda) => banda.franjas.every((franja) => franja.yaPaso)),
+  );
 
   /** Las que todavía se pueden mirar con algo que hacer: van a la vista. */
-  protected readonly vigentes = computed(() => this.porHora().filter((franja) => !franja.yaPaso));
+  protected readonly vigentes = computed(() =>
+    this.bandas().filter((banda) => banda.franjas.some((franja) => !franja.yaPaso)),
+  );
 
   /**
    * Si dentro del pliegue hay una hora propia que todavía se puede reportar.
@@ -669,11 +755,13 @@ export class Grilla {
    * encuentra es una función perdida: el título del grupo lo avisa.
    */
   protected readonly hayQueReportar = computed(() =>
-    this.pasadas().some(({ reportables }) =>
-      reportables.some(({ bloque }) => {
-        const reporte = this.reportable(bloque);
-        return reporte !== undefined && !reporte.yaReportada;
-      }),
+    this.pasadas().some((banda) =>
+      banda.franjas.some(({ reportables }) =>
+        reportables.some(({ bloque }) => {
+          const reporte = this.reportable(bloque);
+          return reporte !== undefined && !reporte.yaReportada;
+        }),
+      ),
     ),
   );
 
