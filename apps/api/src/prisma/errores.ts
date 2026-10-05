@@ -15,3 +15,46 @@ export function esViolacionDeUnicidad(error: unknown): boolean {
     error.code === CODIGO_UNICIDAD
   );
 }
+
+/** "Write conflict or deadlock": la base abortó la transacción y pide repetirla. */
+const CODIGO_CONFLICTO = 'P2034';
+
+/**
+ * Medido en T76 con ocho canchas disputadas a la vez: 640 escrituras pidieron 183
+ * reintentos en total y ninguna agotó los cinco.
+ */
+const INTENTOS_ANTE_DEADLOCK = 5;
+
+/**
+ * Repite el trabajo si la base lo abortó por un deadlock. Cualquier otro error pasa.
+ *
+ * Existe por el único `WITHOUT OVERLAPS` de `reserva` (T76): para saber si un rango se
+ * cruza con otro, MariaDB bloquea un tramo del índice, y dos escrituras simultáneas
+ * —aunque sean de canchas distintas— pueden quedar esperándose una a la otra. Bajo
+ * carga le pasó a un tercio de los intentos. El deadlock no deja nada escrito, así que
+ * repetir es seguro; y la segunda vez el intento termina bien o choca de verdad con un
+ * duplicado, que es la respuesta que corresponde.
+ *
+ * **El trabajo tiene que ser la transacción entera**, no una consulta suelta dentro de
+ * ella: MariaDB revierte la transacción completa, y repetir solo el último paso sobre
+ * una transacción abortada no tiene sentido.
+ */
+export async function reintentarSiHayDeadlock<T>(
+  trabajo: () => Promise<T>,
+): Promise<T> {
+  for (let intento = 1; ; intento++) {
+    try {
+      return await trabajo();
+    } catch (error) {
+      const esConflicto =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === CODIGO_CONFLICTO;
+
+      if (!esConflicto || intento >= INTENTOS_ANTE_DEADLOCK) throw error;
+
+      // Unos milisegundos al azar: los dos que chocaron reintentarían a la vez y
+      // volverían a chocar.
+      await new Promise((listo) => setTimeout(listo, Math.random() * 20));
+    }
+  }
+}

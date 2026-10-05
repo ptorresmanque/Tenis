@@ -47,10 +47,17 @@ describe('Reservar', () => {
     socios: vi.fn(),
   };
 
-  const montar = () => {
+  /** El de 1 hora y media: termina 90 minutos después de empezar. */
+  const deHoraYMedia: BloqueDisponible = {
+    ...bloque,
+    fin: '2026-08-17T15:30:00.000Z',
+    montoClp: 16000,
+  };
+
+  const montar = (elBloque: BloqueDisponible = bloque) => {
     const fixture = TestBed.createComponent(Reservar);
     fixture.componentRef.setInput('cancha', cancha);
-    fixture.componentRef.setInput('bloque', bloque);
+    fixture.componentRef.setInput('bloque', elBloque);
     fixture.detectChanges();
 
     return fixture;
@@ -254,6 +261,62 @@ describe('Reservar', () => {
     expect(cerrado).toBe(true);
   });
 
+  it('**manda la duración del bloque elegido: el socio** (T83b)', async () => {
+    usuario.set({ socioId: 4 });
+    reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
+
+    const fixture = montar(deHoraYMedia);
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+      expect.objectContaining({ duracionMin: 90 }),
+    );
+  });
+
+  it('**y el visitante** (T83b)', async () => {
+    usuario.set({
+      socioId: null,
+      nombre: 'Patricio',
+      apellido: 'Manquepillán',
+      email: 'patricio@ejemplo.cl',
+      telefono: '+56 9 1111 2222',
+    });
+    // Rechazado a propósito: así no sale a la pasarela, que en jsdom no existe.
+    reservas.reservarComoNoSocio.mockRejectedValue({
+      status: 409,
+      error: { motivo: 'BLOQUE_TOMADO', message: 'La tomaron.' },
+    });
+
+    const fixture = montar(deHoraYMedia);
+    await fixture.whenStable();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(reservas.reservarComoNoSocio).toHaveBeenCalledWith(
+      expect.objectContaining({ duracionMin: 90 }),
+    );
+  });
+
+  it('con un bloque de 1 hora manda 1 hora, como siempre', async () => {
+    usuario.set({ socioId: 4 });
+    reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
+
+    const fixture = montar();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+
+    expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+      expect.objectContaining({ duracionMin: 60 }),
+    );
+  });
+
   it('el rechazo del servidor se muestra tal como viene escrito', async () => {
     // El mensaje del backend ya dice el límite y cuándo se renueva; reescribirlo acá
     // sería mantener dos versiones de la misma regla, y una quedaría vieja.
@@ -262,7 +325,9 @@ describe('Reservar', () => {
       status: 409,
       error: {
         motivo: 'CUPO_DIARIO',
-        message: 'Ya usaste tu cupo de hoy: 1 hora por día.',
+        message:
+          'Ya tienes tu reserva de ese día: el cupo es de 1 reserva por día. ' +
+          'Puedes reservar otro día.',
       },
     });
 
@@ -273,7 +338,7 @@ describe('Reservar', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(texto(fixture)).toContain('Ya usaste tu cupo de hoy');
+    expect(texto(fixture)).toContain('Ya tienes tu reserva de ese día');
   });
 });
 
@@ -282,9 +347,12 @@ describe('mensajeDeRechazo', () => {
     expect(
       mensajeDeRechazo({
         status: 409,
-        error: { motivo: 'CUPO_PICO', message: 'Ya usaste tus 2 horas pico.' },
+        error: { motivo: 'CUPO_PICO', message: 'Ya tienes tus 2 reservas en horario pico esa semana.' },
       }),
-    ).toEqual({ motivo: 'CUPO_PICO', mensaje: 'Ya usaste tus 2 horas pico.' });
+    ).toEqual({
+      motivo: 'CUPO_PICO',
+      mensaje: 'Ya tienes tus 2 reservas en horario pico esa semana.',
+    });
   });
 
   it('no muestra crudo lo que no es un rechazo conocido', () => {

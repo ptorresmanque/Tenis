@@ -29,12 +29,12 @@ describe('evaluarReservaDeSocio', () => {
     },
     hoyEnElClub: HOY,
     config: {
-      cupoDiarioSocioHoras: 1,
-      cupoPicoSemanalHoras: 2,
+      cupoDiarioSocioReservas: 1,
+      cupoPicoSemanalReservas: 2,
       invitadosPorMes: 4,
     },
     reservasDelDia: 0,
-    horasPicoDeLaSemana: 0,
+    reservasPicoDeLaSemana: 0,
     invitadosDelMes: 0,
     incorporacionPendiente: false,
     acompanantes: [{ nombre: 'Ana Invitada' }],
@@ -168,11 +168,52 @@ describe('evaluarReservaDeSocio', () => {
 
       expect(rechazo?.tipo).toBe('CUPO_DIARIO');
       // "Límite alcanzado" a secas obliga a adivinar cuál es el límite y hasta cuándo.
-      expect(rechazo?.mensaje).toMatch(/1 hora/);
-      expect(rechazo?.mensaje).toMatch(/mañana/i);
+      // Cuenta reservas y no horas desde T84: la hora y media también es una.
+      expect(rechazo?.mensaje).toBe(
+        'Ya tienes tu reserva de ese día: el cupo es de 1 reserva por día. ' +
+          'Puedes reservar otro día.',
+      );
     });
 
-    it('la tercera hora pico de la semana se rechaza', () => {
+    it('**no le promete "mañana" a quien reserva otro día** (T84)', () => {
+      // El cupo es del día en que se juega, no del día en que se reserva: quien ya tiene
+      // su hora del miércoles puede tomar la del jueves ahora mismo, sin esperar.
+      const MIERCOLES_19 = new Date('2026-08-19T23:00:00.000Z');
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          bloque: {
+            inicio: MIERCOLES_19,
+            fin: new Date('2026-08-20T00:00:00.000Z'),
+            esPico: false,
+          },
+          reservasDelDia: 1,
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('CUPO_DIARIO');
+      expect(rechazo?.mensaje).not.toMatch(/mañana|hoy/i);
+    });
+
+    it('**con el cupo diario en cero dice que el club cerró, no "tus 0 reservas"** (T84)', () => {
+      // Cero es como el club cierra las reservas de socios sin tocar código (admin.dto).
+      // "Ya tienes tus 0 reservas… puedes reservar otro día" serían tres mentiras.
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          config: {
+            cupoDiarioSocioReservas: 0,
+            cupoPicoSemanalReservas: 2,
+            invitadosPorMes: 4,
+          },
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('CUPO_DIARIO');
+      expect(rechazo?.mensaje).toBe(
+        'El club no está tomando reservas de socios por ahora.',
+      );
+    });
+
+    it('con el cupo pico en cero, dice que el pico está cerrado y que el resto no', () => {
       const rechazo = evaluarReservaDeSocio(
         solicitud({
           bloque: {
@@ -180,40 +221,74 @@ describe('evaluarReservaDeSocio', () => {
             fin: new Date('2026-08-18T00:00:00.000Z'),
             esPico: true,
           },
-          horasPicoDeLaSemana: 2,
+          config: {
+            cupoDiarioSocioReservas: 1,
+            cupoPicoSemanalReservas: 0,
+            invitadosPorMes: 4,
+          },
         }),
       );
 
       expect(rechazo?.tipo).toBe('CUPO_PICO');
-      expect(rechazo?.mensaje).toMatch(/lunes/i);
+      expect(rechazo?.mensaje).toBe(
+        'El club no está tomando reservas de socios en horario pico. Los horarios ' +
+          'fuera de pico siguen disponibles.',
+      );
     });
 
-    it('las horas pico gastadas no bloquean un bloque valle', () => {
+    it('si el club bajó el cupo, dice las que tiene y no las que permite (T84)', () => {
+      const rechazo = evaluarReservaDeSocio(solicitud({ reservasDelDia: 2 }));
+
+      expect(rechazo?.mensaje).toMatch(
+        /^Ya tienes tus 2 reservas de ese día: el cupo es de 1 reserva/,
+      );
+    });
+
+    it('la tercera reserva pico de la semana se rechaza', () => {
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({
+          bloque: {
+            inicio: LUNES_19,
+            fin: new Date('2026-08-18T00:00:00.000Z'),
+            esPico: true,
+          },
+          reservasPicoDeLaSemana: 2,
+        }),
+      );
+
+      expect(rechazo?.tipo).toBe('CUPO_PICO');
+      expect(rechazo?.mensaje).toBe(
+        'Ya tienes tus 2 reservas en horario pico esa semana: el cupo es de 2 reservas ' +
+          'pico por semana, de lunes a domingo. Los horarios fuera de pico siguen disponibles.',
+      );
+    });
+
+    it('las reservas pico gastadas no bloquean un bloque valle', () => {
       // Solo cuentan los bloques con `esPico`. Si el cupo pico frenara una hora valle,
       // el socio que juega temprano quedaría sin poder reservar por algo que no usó.
       expect(
-        evaluarReservaDeSocio(solicitud({ horasPicoDeLaSemana: 5 })),
+        evaluarReservaDeSocio(solicitud({ reservasPicoDeLaSemana: 5 })),
       ).toBeNull();
     });
 
-    it('el cupo sale de la configuración: con 3 horas pico, la tercera pasa', () => {
+    it('el cupo sale de la configuración: con 3 reservas pico, la tercera pasa', () => {
       // El criterio de verificación de T22: cambiar el número cambia el
       // comportamiento sin tocar código.
-      const conTresHoras = solicitud({
+      const conTresReservas = solicitud({
         bloque: {
           inicio: LUNES_19,
           fin: new Date('2026-08-18T00:00:00.000Z'),
           esPico: true,
         },
-        horasPicoDeLaSemana: 2,
+        reservasPicoDeLaSemana: 2,
         config: {
-          cupoDiarioSocioHoras: 1,
-          cupoPicoSemanalHoras: 3,
+          cupoDiarioSocioReservas: 1,
+          cupoPicoSemanalReservas: 3,
           invitadosPorMes: 4,
         },
       });
 
-      expect(evaluarReservaDeSocio(conTresHoras)).toBeNull();
+      expect(evaluarReservaDeSocio(conTresReservas)).toBeNull();
     });
 
     it('el cupo diario también sale de la configuración', () => {
@@ -222,8 +297,8 @@ describe('evaluarReservaDeSocio', () => {
           solicitud({
             reservasDelDia: 1,
             config: {
-              cupoDiarioSocioHoras: 2,
-              cupoPicoSemanalHoras: 2,
+              cupoDiarioSocioReservas: 2,
+              cupoPicoSemanalReservas: 2,
               invitadosPorMes: 4,
             },
           }),
@@ -349,8 +424,8 @@ describe('evaluarReservaDeSocio', () => {
           solicitud({
             invitadosDelMes: 4,
             config: {
-              cupoDiarioSocioHoras: 1,
-              cupoPicoSemanalHoras: 2,
+              cupoDiarioSocioReservas: 1,
+              cupoPicoSemanalReservas: 2,
               invitadosPorMes: 8,
             },
           }),
@@ -394,7 +469,7 @@ describe('evaluarReservaDeSocio', () => {
     });
 
     it('detecta el solapamiento aunque los bloques no empiecen a la misma hora', () => {
-      // Con `duracionBloqueMin` en 90, dos reservas que empiezan distinto se pisan
+      // Con reservas de 1 hora y media, dos que empiezan distinto se pisan
       // igual. Comparar solo la hora de inicio dejaría pasar el caso.
       const rechazo = evaluarReservaDeSocio(
         solicitud({
@@ -560,7 +635,7 @@ describe('evaluarReservaDeSocio', () => {
             esPico: true,
           },
           reservasDelDia: 1,
-          horasPicoDeLaSemana: 2,
+          reservasPicoDeLaSemana: 2,
         }),
       );
 

@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
 import { hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
 import {
@@ -14,6 +15,7 @@ import {
   TipoCuota,
 } from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
+import { reintentarSiHayDeadlock } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AcompananteDeclarado,
@@ -40,6 +42,8 @@ export interface ReservaDeSocio {
   canchaId: number;
   /** Instante de inicio del bloque, tal como lo devuelve la disponibilidad. */
   inicio: Date;
+  /** 1 hora o 1 hora y media (T83b). El socio no paga, así que no necesita precio. */
+  duracionMin: DuracionMin;
   acompanantes: AcompananteDeclarado[];
 }
 
@@ -89,6 +93,7 @@ export class ReservasService {
       datos.inicio,
       ahora,
       tomableHasta,
+      datos.duracionMin,
     );
 
     const socio = await this.prisma.socio.findUniqueOrThrow({
@@ -109,8 +114,9 @@ export class ReservasService {
     try {
       // **Evaluar y crear en la misma transacción, con las reservas del socio
       // bloqueadas.** Sin esto, dos pestañas apretando "Reservar" a la vez leen las dos
-      // "cero horas hoy" y las dos pasan: el bloque no se duplica —de eso se encarga el
-      // índice único— pero el socio termina con dos horas y otro se queda sin cupo.
+      // "cero reservas ese día" y las dos pasan: el bloque no se duplica —de eso se
+      // encarga el índice único— pero el socio termina con dos horas y otro se queda sin
+      // cupo.
       const reserva = await this.conElSocioBloqueado(socio.id, async (tx) => {
         const rechazo = await this.evaluarParaSocio({
           socio,
@@ -183,7 +189,7 @@ export class ReservasService {
    *
    * Al crear se llama **dentro de la transacción que bloqueó la ficha del socio**, con
    * `db` apuntando a ella: así el conteo ve lo que esa transacción tiene tomado y dos
-   * peticiones simultáneas no leen las dos "cero horas hoy". Al mover no hace falta: la
+   * peticiones simultáneas no leen las dos "cero reservas ese día". Al mover no hace falta: la
    * reserva ya existe y el bloque lo defiende el índice único.
    */
   async evaluarParaSocio(entrada: {
@@ -205,7 +211,7 @@ export class ReservasService {
 
     const [
       reservasDelDia,
-      horasPicoDeLaSemana,
+      reservasPicoDeLaSemana,
       invitadosDelMes,
       ocupados,
       incorporacionPendiente,
@@ -229,7 +235,7 @@ export class ReservasService {
       hoyEnElClub: fechaCivilDelClub(new Date()),
       config,
       reservasDelDia,
-      horasPicoDeLaSemana,
+      reservasPicoDeLaSemana,
       invitadosDelMes,
       incorporacionPendiente,
       acompanantes,
@@ -247,11 +253,16 @@ export class ReservasService {
     socioId: number,
     trabajo: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    return this.prisma.$transaction(async (tx) => {
-      await this.bloquearAlSocio(tx, socioId);
+    // La transacción entera se repite si la base la aborta por deadlock: el índice
+    // por rango de `reserva` bloquea tramos (T76), y lo que se haya evaluado o escrito
+    // adentro se revirtió con ella, así que repetirla es empezar de cero.
+    return reintentarSiHayDeadlock(() =>
+      this.prisma.$transaction(async (tx) => {
+        await this.bloquearAlSocio(tx, socioId);
 
-      return trabajo(tx);
-    });
+        return trabajo(tx);
+      }),
+    );
   }
 
   /**
@@ -339,17 +350,17 @@ export class ReservasService {
     fecha: string,
   ): Promise<{
     reservasDelDia: number;
-    horasPicoDeLaSemana: number;
+    reservasPicoDeLaSemana: number;
     invitadosDelMes: number;
   }> {
-    const [reservasDelDia, horasPicoDeLaSemana, invitadosDelMes] =
+    const [reservasDelDia, reservasPicoDeLaSemana, invitadosDelMes] =
       await Promise.all([
         this.contarDelDia(this.prisma, socioId, fecha),
         this.contarPicoDeLaSemana(this.prisma, socioId, fecha),
         this.contarInvitadosDelMes(this.prisma, socioId, fecha),
       ]);
 
-    return { reservasDelDia, horasPicoDeLaSemana, invitadosDelMes };
+    return { reservasDelDia, reservasPicoDeLaSemana, invitadosDelMes };
   }
 
   /**
@@ -364,18 +375,22 @@ export class ReservasService {
     datos: {
       canchaId: number;
       inicio: Date;
+      duracionMin: DuracionMin;
       nombre: string;
       email: string;
       telefono: string;
     },
     ahora = new Date(),
   ): Promise<ReservaCreada> {
+    // Sin mirar el precio: se cobra en el mostrador, así que la franja sin precio de 1
+    // hora y media no lo impide (T85).
     const bloque = await this.bloqueDeLaGrilla(
       datos.canchaId,
       fechaCivilDelClub(datos.inicio),
       datos.inicio,
       ahora,
       'fin',
+      datos.duracionMin,
     );
 
     try {
@@ -425,8 +440,9 @@ export class ReservasService {
     inicio: Date,
     ahora: Date,
     tomableHasta: TomableHasta,
+    duracionMin: DuracionMin,
   ): Promise<{ inicio: Date; fin: Date; esPico: boolean }> {
-    const bloques = await this.disponibilidad.de(canchaId, fecha);
+    const bloques = await this.disponibilidad.de(canchaId, fecha, duracionMin);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
 
     if (!bloque) {
@@ -509,7 +525,7 @@ export class ReservasService {
   }
 
   /**
-   * Horas pico activas del socio en la semana del bloque, **lunes a domingo**.
+   * Reservas pico activas del socio en la semana del bloque, **lunes a domingo**.
    *
    * La semana se recorta en hora del club: contra el calendario UTC, las reservas del
    * domingo por la noche caerían en la semana siguiente y el cupo se renovaría solo.

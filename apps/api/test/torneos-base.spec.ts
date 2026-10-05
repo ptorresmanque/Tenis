@@ -283,11 +283,16 @@ describe('Torneos: jugadores, categorías y torneos', () => {
       .send({ nombre: 'Club sin puntos' })
       .expect(400);
 
-    await request(app.getHttpServer())
+    const negativo = await request(app.getHttpServer())
       .post('/api/admin/categorias-torneo')
       .set('Cookie', cookieAdmin)
       .send({ nombre: 'Club negativo', puntosCampeon: -1 })
       .expect(400);
+
+    // Con el sujeto en singular, como el verbo que pone `entero`.
+    expect((negativo.body as { message: string }).message).toBe(
+      'El puntaje del campeón tiene que ser un número entero desde 1.',
+    );
   });
 
   it('el torneo nace en inscripción, que es lo único que se puede hacer con él', async () => {

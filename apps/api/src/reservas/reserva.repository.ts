@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 
 import { EstadoReserva, Prisma, Reserva } from '../generated/prisma/client';
-import { esViolacionDeUnicidad } from '../prisma/errores';
+import {
+  esViolacionDeUnicidad,
+  reintentarSiHayDeadlock,
+} from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 
@@ -67,8 +70,8 @@ export class ReservaRepository {
   ): Promise<Reserva> {
     datos.acompanantes?.forEach(exigirSocioOInvitado);
 
-    try {
-      const reserva = await (tx ?? this.prisma).reserva.create({
+    const escribir = (db: Prisma.TransactionClient | PrismaService) =>
+      db.reserva.create({
         data: {
           folio: nuevoFolio(),
           canchaId: datos.canchaId,
@@ -90,6 +93,14 @@ export class ReservaRepository {
             : undefined,
         },
       });
+
+    try {
+      // Dentro de una transacción ajena no se puede reintentar acá: si hay deadlock,
+      // la base revierte la transacción entera y la repite quien la abrió (ver
+      // `conElSocioBloqueado`). Sola, sí: un deadlock no dejó nada escrito.
+      const reserva = await (tx
+        ? escribir(tx)
+        : reintentarSiHayDeadlock(() => escribir(this.prisma)));
 
       // Acá y no en cada servicio: por este método pasan todas las reservas que
       // nacen, así que el panel en vivo no depende de que quien agregue un camino
@@ -114,15 +125,19 @@ export class ReservaRepository {
    * esto las dos escribirían `canceladaEn`, la segunda pisando la hora de la primera.
    */
   async cancelar(id: number): Promise<boolean> {
-    const { count } = await this.prisma.reserva.updateMany({
-      where: {
-        id,
-        estado: {
-          in: [EstadoReserva.PENDIENTE_PAGO, EstadoReserva.CONFIRMADA],
+    // Con reintento: al pasar a CANCELADA, `cancha_activa` queda en NULL y la fila
+    // sale del tramo del índice por rango, que otra escritura puede tener tomado.
+    const { count } = await reintentarSiHayDeadlock(() =>
+      this.prisma.reserva.updateMany({
+        where: {
+          id,
+          estado: {
+            in: [EstadoReserva.PENDIENTE_PAGO, EstadoReserva.CONFIRMADA],
+          },
         },
-      },
-      data: { estado: EstadoReserva.CANCELADA, canceladaEn: new Date() },
-    });
+        data: { estado: EstadoReserva.CANCELADA, canceladaEn: new Date() },
+      }),
+    );
 
     if (count > 0) await this.avisar(id);
 
@@ -131,10 +146,12 @@ export class ReservaRepository {
 
   /** El pago no llegó a tiempo (T19): la hora vuelve a estar a la venta. */
   async expirar(id: number): Promise<boolean> {
-    const { count } = await this.prisma.reserva.updateMany({
-      where: { id, estado: EstadoReserva.PENDIENTE_PAGO },
-      data: { estado: EstadoReserva.EXPIRADA },
-    });
+    const { count } = await reintentarSiHayDeadlock(() =>
+      this.prisma.reserva.updateMany({
+        where: { id, estado: EstadoReserva.PENDIENTE_PAGO },
+        data: { estado: EstadoReserva.EXPIRADA },
+      }),
+    );
 
     if (count > 0) await this.avisar(id);
 

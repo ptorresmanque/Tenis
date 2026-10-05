@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { DuracionMin, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
 import { RedireccionAPasarela } from '../core/pagos/ir-a-pagar';
 
 /** Con quién juega el socio: otro socio por su número, o un invitado por su nombre. */
@@ -66,6 +67,8 @@ export class Reservas {
   reservarComoSocio(datos: {
     canchaId: number;
     inicio: string;
+    /** 60 o 90. Un número cualquiera, porque quien la valida es la API (T82). */
+    duracionMin: number;
     acompanantes: AcompananteNuevo[];
   }): Promise<ReservaConfirmada> {
     return firstValueFrom(
@@ -77,6 +80,7 @@ export class Reservas {
   reservarComoNoSocio(datos: {
     canchaId: number;
     inicio: string;
+    duracionMin: number;
     nombre: string;
     email: string;
     telefono: string;
@@ -97,8 +101,28 @@ export class Reservas {
   }
 
   /** Mueve una reserva a otro bloque de la grilla. */
-  mover(id: number, destino: { canchaId: number; inicio: string }): Promise<unknown> {
+  mover(
+    id: number,
+    /** `duracionMin`, 60 o 90, cambia lo que dura (T87). La valida la API. */
+    destino: { canchaId: number; inicio: string; duracionMin: number },
+  ): Promise<unknown> {
     return firstValueFrom(this.http.patch(`/api/reservas/${id}`, destino));
+  }
+
+  /**
+   * El día para mover esta reserva: la grilla de siempre, sin contarla a ella (T87). Con
+   * la pública, alargarla en la misma cancha y hora salía ocupado por ella misma.
+   */
+  grillaParaMover(
+    id: number,
+    fecha: string,
+    duracionMin: DuracionMin,
+  ): Promise<GrillaDeCancha[]> {
+    return firstValueFrom(
+      this.http.get<GrillaDeCancha[]>(`/api/reservas/${id}/grilla`, {
+        params: { fecha, duracion: duracionMin },
+      }),
+    );
   }
 
   /** Cancela. Si corresponde devolución, la hace el servidor: acá solo se informa. */

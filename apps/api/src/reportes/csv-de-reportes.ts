@@ -28,7 +28,7 @@ export function ocupacionACsv(reporte: ReporteDeOcupacion): string {
   return aCsv(
     [
       nombreDelCorte(reporte.corte),
-      'Bloques',
+      'Horas',
       'Ocupados',
       'Libres',
       'Cerrados',
@@ -37,7 +37,7 @@ export function ocupacionACsv(reporte: ReporteDeOcupacion): string {
     [
       ...reporte.filas.map((fila): Celda[] => [
         fila.etiqueta,
-        fila.bloques,
+        fila.horas,
         fila.ocupados,
         fila.libres,
         fila.cerrados,
@@ -45,7 +45,7 @@ export function ocupacionACsv(reporte: ReporteDeOcupacion): string {
       ]),
       [
         'Total',
-        reporte.bloques,
+        reporte.horas,
         reporte.ocupados,
         reporte.libres,
         reporte.cerrados,

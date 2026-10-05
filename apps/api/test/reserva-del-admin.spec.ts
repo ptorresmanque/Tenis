@@ -196,6 +196,70 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
     });
   });
 
+  describe('la duración (T85)', () => {
+    const NOVENTA_MIN = 90 * 60 * 1000;
+    const minutosDe = async (id: number) => {
+      const { inicio, fin } = await prisma.reserva.findUniqueOrThrow({
+        where: { id },
+        select: { inicio: true, fin: true },
+      });
+
+      return fin.getTime() - inicio.getTime();
+    };
+
+    it('**el mesón toma 1 hora y media para un visitante, aunque la franja no la venda en línea**', async () => {
+      // La franja de este spec no tiene precio de 1 hora y media: en línea no se vende,
+      // pero el mesón cobra en el mostrador y no hay pasarela que lo impida.
+      const respuesta = await request(app.getHttpServer())
+        .post('/api/admin/reservas')
+        .set('Cookie', cookieAdmin)
+        .send({
+          canchaId,
+          inicio: bloques[0].inicio,
+          duracionMin: 90,
+          nombre: 'Quien llegó al mesón',
+        });
+
+      expect(respuesta.status).toBe(201);
+      expect(await minutosDe((respuesta.body as { id: number }).id)).toBe(
+        NOVENTA_MIN,
+      );
+    });
+
+    it('y a nombre de un socio', async () => {
+      const respuesta = await request(app.getHttpServer())
+        .post('/api/admin/reservas')
+        .set('Cookie', cookieAdmin)
+        .send({
+          canchaId,
+          inicio: bloques[0].inicio,
+          duracionMin: 90,
+          socioId,
+          acompanantes: [{ nombre: 'Invitado del mesón' }],
+        });
+
+      expect(respuesta.status).toBe(201);
+      expect(await minutosDe((respuesta.body as { id: number }).id)).toBe(
+        NOVENTA_MIN,
+      );
+    });
+
+    it('una duración que no es 60 ni 90 responde 400 y no anota nada', async () => {
+      await request(app.getHttpServer())
+        .post('/api/admin/reservas')
+        .set('Cookie', cookieAdmin)
+        .send({
+          canchaId,
+          inicio: bloques[0].inicio,
+          duracionMin: 45,
+          nombre: 'Quien llegó al mesón',
+        })
+        .expect(400);
+
+      expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
+    });
+  });
+
   it('**consume el cupo del socio, igual que si reservara él**', async () => {
     // La decisión de § 5.2. Si el mesón pudiera saltarse el cupo, el socio
     // descubriría que perdió su hora del día por una reserva que no pidió.
@@ -238,7 +302,8 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
     // Positivo y no "cualquier número": un cupo en 0 dejaría la pantalla del
     // mesón diciendo que el socio no puede reservar nunca.
     expect(
-      (antes.body as { cupoDiarioSocioHoras: number }).cupoDiarioSocioHoras,
+      (antes.body as { cupoDiarioSocioReservas: number })
+        .cupoDiarioSocioReservas,
     ).toBeGreaterThan(0);
 
     await request(app.getHttpServer())
@@ -271,6 +336,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
         {
           canchaId,
           inicio: new Date(bloques[0].inicio),
+          duracionMin: 60,
           nombre: 'Llegó al club',
           telefono: '+56911112222',
         },
@@ -285,6 +351,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
         {
           canchaId,
           inicio: new Date(bloques[0].inicio),
+          duracionMin: 60,
           socioId,
           acompanantes: [{ nombre: 'Invitado del mesón' }],
         },
@@ -300,6 +367,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
           {
             canchaId,
             inicio: new Date(bloques[0].inicio),
+            duracionMin: 60,
             nombre: 'Llegó tarde',
             telefono: '+56911112222',
           },

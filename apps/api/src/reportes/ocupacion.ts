@@ -58,6 +58,14 @@ export interface BloqueMedido {
   techada: boolean;
   esPico: boolean;
   estado: EstadoBloque;
+  /**
+   * Cuánto pesa en el reporte, en horas de reloj.
+   *
+   * Desde T77 se mide en tramos de media hora, porque las reservas empiezan cada media
+   * hora y una de 10:30 a 11:30 tocaría dos bloques de una hora. Pero el reporte habla
+   * en horas: contar tramos mostraría 8 donde el club abrió 4.
+   */
+  horas: number;
 }
 
 /**
@@ -78,7 +86,8 @@ export function esCorteDeOcupacion(valor: unknown): valor is CorteDeOcupacion {
 
 export interface FilaDeOcupacion {
   etiqueta: string;
-  bloques: number;
+  /** Las horas que la cancha estuvo abierta, cerradas incluidas. */
+  horas: number;
   ocupados: number;
   cerrados: number;
   libres: number;
@@ -114,17 +123,17 @@ export function agruparOcupacion(
     const etiqueta = etiquetaDe(bloque, corte);
     const fila = porEtiqueta.get(etiqueta) ?? {
       etiqueta,
-      bloques: 0,
+      horas: 0,
       ocupados: 0,
       cerrados: 0,
       libres: 0,
       porcentajeOcupacion: null,
     };
 
-    fila.bloques += 1;
-    if (bloque.estado === 'OCUPADO') fila.ocupados += 1;
-    if (bloque.estado === 'CERRADO') fila.cerrados += 1;
-    if (bloque.estado === 'LIBRE') fila.libres += 1;
+    fila.horas += bloque.horas;
+    if (bloque.estado === 'OCUPADO') fila.ocupados += bloque.horas;
+    if (bloque.estado === 'CERRADO') fila.cerrados += bloque.horas;
+    if (bloque.estado === 'LIBRE') fila.libres += bloque.horas;
 
     porEtiqueta.set(etiqueta, fila);
   }
@@ -153,11 +162,11 @@ export function agruparOcupacion(
  * y lo que pasó fue que la cancha estuvo cerrada.
  */
 export function porcentajeDeOcupacion(cuenta: {
-  bloques: number;
+  horas: number;
   ocupados: number;
   cerrados: number;
 }): number | null {
-  const ofrecidos = cuenta.bloques - cuenta.cerrados;
+  const ofrecidos = cuenta.horas - cuenta.cerrados;
 
   return ofrecidos === 0
     ? null

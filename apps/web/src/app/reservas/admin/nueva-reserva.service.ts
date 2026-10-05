@@ -10,9 +10,9 @@ export interface CupoDelSocio {
   estado: string;
   alDia: boolean;
   reservasDelDia: number;
-  cupoDiarioSocioHoras: number;
-  horasPicoDeLaSemana: number;
-  cupoPicoSemanalHoras: number;
+  cupoDiarioSocioReservas: number;
+  reservasPicoDeLaSemana: number;
+  cupoPicoSemanalReservas: number;
   invitadosDelMes: number;
   invitadosPorMes: number;
 }
@@ -20,6 +20,8 @@ export interface CupoDelSocio {
 export interface ReservaDelAdmin {
   canchaId: number;
   inicio: string;
+  /** 60 o 90 (T85). La valida la API. */
+  duracionMin: number;
   socioId?: number | null;
   nombre?: string;
   email?: string;

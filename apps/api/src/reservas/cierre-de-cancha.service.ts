@@ -12,6 +12,7 @@ import { MINUTOS_PARA_EXPIRAR } from '../pagos/expiracion';
 import { AnulacionService } from '../pagos/anulacion.service';
 import type { Prisma } from '../generated/prisma/client';
 import { EstadoReserva, EstadoTransaccion } from '../generated/prisma/client';
+import { reintentarSiHayDeadlock } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 import { ACTIVAS } from './reservas.service';
@@ -163,38 +164,43 @@ export class CierreDeCanchaService {
     for (const reserva of afectadas.filter((r) => r.pagada)) {
       // **Devolución total, sin evaluar la ventana de 24 horas**: canceló el club y
       // no la persona, y cobrarle una hora que le quitaron es indefendible.
-      await this.anularElPagoDe(reserva.id);
+      await this.anularLoPagadoPor(reserva.id);
     }
 
-    const { bloqueoId, ids } = await this.prisma.$transaction(async (tx) => {
-      const bloqueo = await tx.bloqueo.create({ data: datos });
+    // Se repite entera si la base la aborta por deadlock: cancelar saca filas del
+    // índice por rango de `reserva` (T76). Adentro no hay nada externo —las
+    // devoluciones ya se hicieron arriba—, así que repetirla no devuelve dos veces.
+    const { bloqueoId, ids } = await reintentarSiHayDeadlock(() =>
+      this.prisma.$transaction(async (tx) => {
+        const bloqueo = await tx.bloqueo.create({ data: datos });
 
-      await tambienEnLaTransaccion?.(tx, bloqueo.id);
+        await tambienEnLaTransaccion?.(tx, bloqueo.id);
 
-      // Se vuelve a consultar dentro de la transacción y no se reusa la lista de
-      // arriba: entre el cálculo y el cierre cabe una reserva nueva, y dejarla viva
-      // debajo del bloqueo es el bug que esta operación viene a cerrar.
-      const debajo = await tx.reserva.findMany({
-        where: {
-          canchaId: datos.canchaId,
-          estado: { in: ACTIVAS },
-          inicio: { lt: datos.fin },
-          fin: { gt: datos.inicio },
-        },
-        select: { id: true },
-      });
+        // Se vuelve a consultar dentro de la transacción y no se reusa la lista de
+        // arriba: entre el cálculo y el cierre cabe una reserva nueva, y dejarla viva
+        // debajo del bloqueo es el bug que esta operación viene a cerrar.
+        const debajo = await tx.reserva.findMany({
+          where: {
+            canchaId: datos.canchaId,
+            estado: { in: ACTIVAS },
+            inicio: { lt: datos.fin },
+            fin: { gt: datos.inicio },
+          },
+          select: { id: true },
+        });
 
-      await tx.reserva.updateMany({
-        where: { id: { in: debajo.map((r) => r.id) } },
-        data: {
-          estado: EstadoReserva.CANCELADA,
-          canceladaEn: new Date(),
-          canceladaPorBloqueoId: bloqueo.id,
-        },
-      });
+        await tx.reserva.updateMany({
+          where: { id: { in: debajo.map((r) => r.id) } },
+          data: {
+            estado: EstadoReserva.CANCELADA,
+            canceladaEn: new Date(),
+            canceladaPorBloqueoId: bloqueo.id,
+          },
+        });
 
-      return { bloqueoId: bloqueo.id, ids: debajo.map((r) => r.id) };
-    });
+        return { bloqueoId: bloqueo.id, ids: debajo.map((r) => r.id) };
+      }),
+    );
 
     const canceladas = await this.fichasDe(ids, afectadas);
 
@@ -289,17 +295,19 @@ export class CierreDeCanchaService {
     }
   }
 
-  private async anularElPagoDe(reservaId: number): Promise<void> {
-    const pago = await this.prisma.transaccion.findFirst({
+  /** La compra y, si la alargó, la diferencia de T89: cada pago, entero (T86). */
+  private async anularLoPagadoPor(reservaId: number): Promise<void> {
+    const pagos = await this.prisma.transaccion.findMany({
       where: {
         concepto: 'RESERVA',
         conceptoId: reservaId,
         estado: EstadoTransaccion.AUTORIZADA,
       },
       select: { id: true },
+      orderBy: { id: 'asc' },
     });
 
-    if (pago) await this.anulacion.anular(pago.id);
+    for (const pago of pagos) await this.anulacion.anular(pago.id);
   }
 
   /** Qué reservas de las canceladas ya conocíamos, con su ficha para el aviso. */

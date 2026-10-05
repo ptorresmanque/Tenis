@@ -250,10 +250,29 @@ describe('MisReservas', () => {
   it('no ofrece cambiar la hora cuando ya pasó el plazo, y explica por qué', async () => {
     await montar([{ ...UNA, sePuedeModificar: false }]);
 
-    expect(texto()).not.toContain('Cambiar la hora');
+    expect(texto()).not.toContain('Cambiar hora o duración');
     expect(texto()).toContain('6 horas');
     // Cancelar sí se puede hasta el final: lo que cambia es si hay devolución.
     expect(boton('Cancelar')).toBeDefined();
+  });
+
+  it('cambiar la hora de una reserva de 1 hora y media busca horas de 1 hora y media', async () => {
+    // Mover conserva la duración: una grilla de 1 hora le ofrecería inicios donde los
+    // 90 minutos chocan con la reserva siguiente, y la API los rechazaría todos.
+    const enlace = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a')).find(
+        // "Hora o duración" desde T87: la misma grilla alarga o acorta la reserva.
+        (a) => (a.textContent ?? '').includes('Cambiar hora o duración'),
+      )!;
+
+    // Con el día de la reserva: la grilla abre ahí y no en hoy.
+    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7&fecha=2026-09-07');
+
+    await montar([{ ...UNA, fin: '2026-09-07T13:30:00.000Z' }]);
+
+    expect(enlace().getAttribute('href')).toBe(
+      '/disponibilidad?mover=7&fecha=2026-09-07&duracion=90',
+    );
   });
 
   it('antes de confirmar avisa que no hay plata que devolver', async () => {

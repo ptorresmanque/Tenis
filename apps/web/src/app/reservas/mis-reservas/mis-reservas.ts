@@ -14,6 +14,7 @@ import {
   fechaEnElClub,
   horaEnElClub,
   mesCortoEnElClub,
+  minutosDe,
 } from '../../catalogo-canchas/reloj-del-club';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -149,11 +150,15 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
               @if (reserva.sePuedeModificar) {
                 <a
                   routerLink="/disponibilidad"
-                  [queryParams]="{ mover: reserva.id }"
+                  [queryParams]="{
+                    mover: reserva.id,
+                    fecha: fechaDelClub(reserva.inicio),
+                    duracion: duracionDeLaGrilla(reserva),
+                  }"
                   class="boton boton-primario boton-chico"
                 >
                   <span class="icono text-base" aria-hidden="true">schedule</span>
-                  Cambiar la hora
+                  Cambiar hora o duración
                 </a>
               }
               <button
@@ -311,6 +316,16 @@ export class MisReservas {
   }
 
   protected readonly hora = horaEnElClub;
+  /** Para el enlace de cambiar: la grilla abre en el día de la reserva y no en hoy. */
+  protected readonly fechaDelClub = fechaEnElClub;
+
+  /**
+   * Mover conserva la duración, así que la grilla tiene que buscar horas de esa duración.
+   * Nulo deja afuera el parámetro: 1 hora es la de siempre.
+   */
+  protected duracionDeLaGrilla(reserva: ReservaMia): 90 | null {
+    return minutosDe(reserva) === 90 ? 90 : null;
+  }
   protected dia(instante: string): string {
     return diaEnPalabras(fechaEnElClub(instante));
   }

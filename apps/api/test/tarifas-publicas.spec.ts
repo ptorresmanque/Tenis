@@ -36,6 +36,7 @@ describe('GET /api/tarifas y GET /api/horarios', () => {
       horaHasta: string;
       esPico: boolean;
       montoClp: number;
+      montoClp90: number | null;
     }[];
   };
 
@@ -86,6 +87,7 @@ describe('GET /api/tarifas y GET /api/horarios', () => {
               horaDesde: '18:00',
               horaHasta: '20:00',
               montoClp: 22000,
+              montoClp90: 30000,
               esPico: true,
               vigenteDesde: new Date('2026-01-01'),
             },
@@ -125,6 +127,19 @@ describe('GET /api/tarifas y GET /api/horarios', () => {
       esPico: true,
       cancha: NOMBRE_CANCHA,
     });
+  });
+
+  it('trae el precio de 1 hora y media donde existe, y nulo donde no (T81)', async () => {
+    // Nulo y no inventado: la página publica solo el de 1 hora en esa franja, porque
+    // ahí la hora y media no se vende (`SPEC-catalogo-canchas.md` § Las tarifas son
+    // públicas).
+    const lista = await tarifas();
+    const suyas = lista.filter((f) => f.canchaId === canchaId);
+
+    expect(suyas.map((f) => [f.horaDesde, f.montoClp, f.montoClp90])).toEqual([
+      ['09:00', 14000, null],
+      ['18:00', 22000, 30000],
+    ]);
   });
 
   it('**las franjas cerradas no salen**: la pregunta pública es qué vale hoy', async () => {

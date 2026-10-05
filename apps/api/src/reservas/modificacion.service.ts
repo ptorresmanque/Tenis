@@ -6,8 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
-import { hoyEnElClub } from '../comun/tiempo';
+import { hoyEnElClub, minutosDeRelojEntre } from '../comun/tiempo';
 import {
   EstadoReserva,
   EstadoTransaccion,
@@ -15,9 +16,18 @@ import {
 } from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
 import { AnulacionService } from '../pagos/anulacion.service';
-import { esViolacionDeUnicidad } from '../prisma/errores';
+import { PagoIniciado, PagosService } from '../pagos/pagos.service';
+import {
+  esViolacionDeUnicidad,
+  reintentarSiHayDeadlock,
+} from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  DisponibilidadPublicaService,
+  GrillaDeCancha,
+} from './disponibilidad-publica.service';
 import { EventosDeReserva } from './eventos';
+import { pagadoPor } from './pagado';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 import {
   ACTIVAS,
@@ -62,7 +72,28 @@ export class ModificacionService {
     private readonly anulacion: AnulacionService,
     private readonly eventos: EventosDeReserva,
     private readonly reservasDeSocio: ReservasService,
+    private readonly disponibilidad: DisponibilidadPublicaService,
+    private readonly pagos: PagosService,
   ) {}
+
+  /**
+   * La grilla del día para mover esta reserva: la de siempre, sin contarla a ella (T87).
+   *
+   * Sin esto, alargar en la misma cancha y hora —el caso principal de cambiar la
+   * duración— no se podía elegir: la grilla marcaba ocupado el rango nuevo por culpa de
+   * la misma reserva. Solo para su dueño o un admin, por `suya`: a cualquiera le
+   * permitiría probar números y ver qué hora ocupa cada reserva.
+   */
+  async grillaParaMover(
+    reservaId: number,
+    yo: UsuarioActual,
+    fecha: string,
+    duracionMin: DuracionMin,
+  ): Promise<GrillaDeCancha[]> {
+    await this.suya(reservaId, yo);
+
+    return this.disponibilidad.delDia(fecha, duracionMin, reservaId);
+  }
 
   /**
    * Las reservas próximas del socio, con las dos ventanas ya resueltas.
@@ -145,12 +176,130 @@ export class ModificacionService {
    */
   async modificar(
     reservaId: number,
-    destino: { canchaId: number; inicio: Date },
+    destino: Destino,
     yo: UsuarioActual,
     ahora = new Date(),
   ): Promise<Reserva> {
-    const reserva = await this.suya(reservaId, yo);
+    return this.mover(await this.suya(reservaId, yo), destino, ahora);
+  }
+
+  /**
+   * Lo mismo, desde el enlace de la reserva y sin sesión (T88): el token es la llave.
+   *
+   * Mover y nada más: **por el enlace no se cancela**. Se reenvía por WhatsApp y queda
+   * en el historial del teléfono del mesón; con poder de cancelación, perderlo de vista
+   * un segundo sería perder la hora.
+   */
+  async modificarPorToken(
+    token: string,
+    destino: Destino,
+    ahora = new Date(),
+  ): Promise<Reserva> {
+    return this.mover(await this.delEnlace(token), destino, ahora);
+  }
+
+  /** La grilla para mover desde el enlace, sin contar la reserva (T87, T88). */
+  async grillaParaMoverPorToken(
+    token: string,
+    fecha: string,
+    duracionMin: DuracionMin,
+  ): Promise<GrillaDeCancha[]> {
+    const reserva = await this.delEnlace(token);
+
+    return this.disponibilidad.delDia(fecha, duracionMin, reserva.id);
+  }
+
+  /**
+   * Inicia el pago de la diferencia de un cambio desde el enlace (T89).
+   *
+   * **La reserva no se mueve acá**: sigue CONFIRMADA en su hora, y el destino espera en
+   * las columnas `cambio*` hasta que la vuelta de Webpay autorice. La transacción de la
+   * diferencia lleva el `inicioBloqueOriginal` de la compra: pagarla no corre la ventana
+   * de reembolso. Mientras esté PENDIENTE, la reserva no se mueve ni se cancela
+   * (`PAGO_EN_CURSO`).
+   */
+  async pagarDiferenciaPorToken(
+    token: string,
+    destino: Destino,
+    urlRetorno: string,
+    ahora = new Date(),
+  ): Promise<PagoIniciado & { montoClp: number }> {
+    const reserva = await this.delEnlace(token);
+    const bloque = await this.destinoValido(reserva, destino, ahora);
+    const cuenta = await this.diferenciaPara(reserva.id, bloque.montoClp);
+
+    if (cuenta === null || cuenta.diferencia <= 0) {
+      throw new ConflictException({
+        motivo: 'SIN_DIFERENCIA',
+        message: 'Ese cambio no tiene nada que pagar: se hace directo.',
+      });
+    }
+
+    // La hora nueva no se retiene mientras se paga (T90), pero cobrar por una que ya
+    // tiene otra reserva es cobrar sabiendo que habrá que devolver.
+    const ocupada = await this.prisma.reserva.count({
+      where: {
+        canchaId: bloque.canchaId,
+        id: { not: reserva.id },
+        estado: { in: ACTIVAS },
+        inicio: { lt: bloque.fin },
+        fin: { gt: bloque.inicio },
+      },
+    });
+
+    if (ocupada > 0) {
+      throw new ConflictException({
+        motivo: 'BLOQUE_TOMADO',
+        message: 'Esa hora ya está tomada. Elige otra.',
+      });
+    }
+
+    const compra = await this.prisma.transaccion.findFirstOrThrow({
+      where: {
+        concepto: 'RESERVA',
+        conceptoId: reserva.id,
+        estado: EstadoTransaccion.AUTORIZADA,
+      },
+      orderBy: { id: 'asc' },
+      select: { inicioBloqueOriginal: true },
+    });
+
+    const pago = await this.pagos.iniciar({
+      concepto: 'RESERVA',
+      conceptoId: reserva.id,
+      // Lo calcula el servidor, nunca el cliente: el precio nuevo menos lo pagado.
+      montoClp: cuenta.diferencia,
+      inicioBloqueOriginal: compra.inicioBloqueOriginal ?? reserva.inicio,
+      urlRetorno,
+    });
+
+    // **Después del pago y con su id**, antes de responder la URL de Webpay: nadie paga
+    // sin que el destino esté escrito, y el destino queda atado a este pago. Dos pedidos a
+    // la vez pasan los dos el chequeo de "pago en curso"; sin el id, el último en escribir
+    // dejaba su destino, y pagar el barato movía la reserva al destino del caro.
+    await this.prisma.reserva.update({
+      where: { id: reserva.id },
+      data: {
+        cambioCanchaId: bloque.canchaId,
+        cambioInicio: bloque.inicio,
+        cambioFin: bloque.fin,
+        cambioEsPico: bloque.esPico,
+        cambioTransaccionId: pago.transaccionId,
+      },
+    });
+
+    return { ...pago, montoClp: cuenta.diferencia };
+  }
+
+  /**
+   * Que el destino se pueda pedir: la reserva sin pago en curso, a tiempo, y la hora en
+   * el horario de la cancha y sin bloquear. Lo comparten mover y pagar la diferencia.
+   */
+  private async destinoValido(reserva: Reserva, destino: Destino, ahora: Date) {
     const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
+
+    // Igual que cancelar (T87): la hora no cambia bajo los pies de quien está en Webpay.
+    await this.exigirQueNoHayaPagoEnCurso(reserva.id);
 
     if (!sePuedeModificar(reserva.inicio, ahora, ventanas)) {
       throw new ConflictException({
@@ -161,13 +310,26 @@ export class ModificacionService {
       });
     }
 
-    const bloque = await this.bloqueDisponible(
+    // Sin duración en el pedido, la conserva (T82); con ella, la cambia (T87). El destino
+    // se busca en la grilla de esa duración, y el índice por rango decide si los minutos
+    // que se agregan chocan con otra reserva: alargar en el mismo lugar no choca consigo
+    // misma, porque el índice compara contra las otras filas.
+    return this.bloqueDisponible(
       destino.canchaId,
       destino.inicio,
+      destino.duracionMin ?? duracionDe(reserva),
       ahora,
     );
+  }
 
-    await this.exigirQueLaTarifaCuadre(reserva.id, bloque.montoClp);
+  private async mover(
+    reserva: Reserva,
+    destino: Destino,
+    ahora: Date,
+  ): Promise<Reserva> {
+    const bloque = await this.destinoValido(reserva, destino, ahora);
+
+    await this.exigirQueNoQuedeDiferencia(reserva.id, bloque.montoClp);
 
     try {
       const movida = await this.moverContraSusCupos(reserva, destino, bloque);
@@ -209,22 +371,27 @@ export class ModificacionService {
 
     await this.exigirQueNoHayaPagoEnCurso(reserva.id);
 
-    const pago = await this.prisma.transaccion.findFirst({
+    // **Todos los pagos, no "el" pago** (T86): la compra y, si la alargó, la diferencia
+    // que cobró T89. Devolver es anular cada uno, entero (`SPEC-pagos.md` § Reembolso).
+    const pagos = await this.prisma.transaccion.findMany({
       where: {
         concepto: 'RESERVA',
         conceptoId: reserva.id,
         estado: EstadoTransaccion.AUTORIZADA,
       },
       select: { id: true, inicioBloqueOriginal: true },
+      orderBy: { id: 'asc' },
     });
+    const compra = pagos.at(0);
 
     // El bloque que se compró y no el reagendado: sin esa distinción, mover la
     // reserva a la semana siguiente y cancelar acto seguido cobraría una devolución
-    // que no correspondía (`SPEC-pagos.md` § Reembolso).
+    // que no correspondía (`SPEC-pagos.md` § Reembolso). La diferencia nace con el mismo
+    // `inicioBloqueOriginal`, así que la decisión es una sola: todos o ninguno.
     const devolver =
-      pago !== null &&
+      compra !== undefined &&
       correspondeReembolso(
-        pago.inicioBloqueOriginal ?? reserva.inicio,
+        compra.inicioBloqueOriginal ?? reserva.inicio,
         ahora,
         ventanas,
       );
@@ -232,8 +399,11 @@ export class ModificacionService {
     // **Primero la plata, después el estado**, el mismo orden que T19 fijó para
     // anular. Al revés, una pasarela caída dejaría la reserva CANCELADA sin
     // devolución, y el reintento respondería "ya estaba cancelada": la persona se
-    // queda sin cancha y sin su dinero.
-    if (devolver) await this.anulacion.anular(pago.id);
+    // queda sin cancha y sin su dinero. Si falla la segunda, la primera ya salió y
+    // queda ANULADA: el reintento solo ve la que falta.
+    if (devolver) {
+      for (const pago of pagos) await this.anulacion.anular(pago.id);
+    }
 
     if (!(await this.reservas.cancelar(reserva.id))) {
       throw new ConflictException({
@@ -251,7 +421,7 @@ export class ModificacionService {
       folio: reserva.folio,
       huboDevolucion: false,
       // El socio no paga por reservar: cancelar le devuelve el cupo, no plata.
-      motivo: pago
+      motivo: compra
         ? `Las devoluciones son con ${ventanas.horasReembolsoTotal} horas o más de anticipación.`
         : 'sin_pago',
     };
@@ -284,7 +454,9 @@ export class ModificacionService {
         },
       });
 
-    if (reserva.socioId === null) return escribir(this.prisma);
+    if (reserva.socioId === null) {
+      return reintentarSiHayDeadlock(() => escribir(this.prisma));
+    }
 
     return this.reservasDeSocio.conElSocioBloqueado(
       reserva.socioId,
@@ -354,40 +526,59 @@ export class ModificacionService {
   }
 
   /**
-   * Una hora ya pagada solo se mueve a otra que valga lo mismo.
+   * Una hora pagada se mueve a otra si lo pagado alcanza (T88).
    *
-   * Sin esta regla, mover de una franja valle a una pico entrega una hora de $20.000
-   * al precio de una de $12.000, y si después se cancela dentro de plazo se devuelven
-   * los $12.000 por algo que se vendía más caro.
-   *
-   * **Se rechaza en vez de cobrar la diferencia**: cobrar de nuevo es otro paso por la
-   * pasarela, con su retorno, su idempotencia y su reembolso parcial —que el club no
-   * tiene, porque `SPEC-pagos.md` solo admite devolución total—. Cancelar y reservar
-   * de nuevo hace lo mismo con las piezas que ya existen.
+   * **La diferencia es el precio nuevo menos lo pagado**, la suma de todos los pagos.
+   * Cero o negativa: se mueve y no se devuelve nada, que es la regla del club
+   * (2026-10-03). Positiva: falta plata, y por ahora se rechaza con
+   * `DIFERENCIA_POR_PAGAR`; T89 la cobra por Webpay. Reemplaza a `CAMBIA_LA_TARIFA`, que
+   * rechazaba cualquier cambio de precio, también el que bajaba.
    */
-  private async exigirQueLaTarifaCuadre(
+  private async exigirQueNoQuedeDiferencia(
     reservaId: number,
-    montoDelBloque: number,
+    montoDelBloque: number | null,
   ): Promise<void> {
-    const pago = await this.prisma.transaccion.findFirst({
-      where: {
-        concepto: 'RESERVA',
-        conceptoId: reservaId,
-        estado: EstadoTransaccion.AUTORIZADA,
-      },
-      select: { montoClp: true },
-    });
+    const cuenta = await this.diferenciaPara(reservaId, montoDelBloque);
 
-    // El socio no compra su hora, la descuenta de su cupo: no hay nada que cuadrar.
-    if (!pago || pago.montoClp === montoDelBloque) return;
+    if (cuenta === null || cuenta.diferencia <= 0) return;
 
+    // Se rechaza y no se cobra acá: pagar es otra ruta (`pagarDiferenciaPorToken`), así
+    // nadie paga sin haber visto antes el monto, que viaja en la respuesta (T89).
     throw new ConflictException({
-      motivo: 'CAMBIA_LA_TARIFA',
+      motivo: 'DIFERENCIA_POR_PAGAR',
+      diferenciaClp: cuenta.diferencia,
       message:
-        `Esa hora vale ${enPesos(montoDelBloque)} y esta reserva se pagó ` +
-        `${enPesos(pago.montoClp)}. Para cambiar de tarifa hay que cancelar y ` +
-        'reservar de nuevo.',
+        `Esa hora vale ${enPesos(cuenta.precio)} y pagaste ${enPesos(cuenta.pagado)}: ` +
+        `cambiarte a ella cuesta ${enPesos(cuenta.diferencia)} más.`,
     });
+  }
+
+  /**
+   * El precio nuevo menos lo pagado. Nulo es "nada que cuadrar": el socio no compra su
+   * hora y el visitante del mesón la pagó en el mostrador.
+   */
+  private async diferenciaPara(
+    reservaId: number,
+    montoDelBloque: number | null,
+  ): Promise<{ precio: number; pagado: number; diferencia: number } | null> {
+    const pagado = await pagadoPor(this.prisma, reservaId);
+
+    if (pagado === 0) return null;
+
+    if (montoDelBloque === null) {
+      // La hora y media en una franja que no la vende (T79): para quien paga, esa hora
+      // no existe, igual que al reservar.
+      throw new ConflictException({
+        motivo: 'SIN_TARIFA',
+        message: 'Esa duración no se vende en ese horario.',
+      });
+    }
+
+    return {
+      precio: montoDelBloque,
+      pagado,
+      diferencia: montoDelBloque - pagado,
+    };
   }
 
   /**
@@ -446,22 +637,59 @@ export class ModificacionService {
       throw new NotFoundException('No encontramos esa reserva.');
     }
 
-    if (
-      reserva.estado !== EstadoReserva.CONFIRMADA &&
-      reserva.estado !== EstadoReserva.PENDIENTE_PAGO
-    ) {
+    return activa(reserva);
+  }
+
+  /**
+   * La reserva del enlace, si es de un visitante que pagó en línea y sigue activa (T88).
+   *
+   * **La del socio no se cambia por el enlace**: tiene sesión, y desde "mis reservas"
+   * rigen sus reglas con su identidad. Abierto, cualquiera que recibiera el enlace
+   * reenviado podría mover la hora de un socio.
+   *
+   * **La del mesón tampoco**: se pagó en el mostrador y el sistema no sabe cuánto. Para
+   * la regla de la diferencia habría pagado cero, y cero es "nada que cuadrar": quien
+   * pagó una hora en efectivo se pasaba sola a una hora y media pico. Se reconoce por no
+   * tener ninguna transacción; la reserva en línea tiene al menos una, aunque esté
+   * pendiente, y entonces lo que corresponde decir es "pago en curso".
+   */
+  private async delEnlace(token: string): Promise<Reserva> {
+    const reserva = await this.prisma.reserva.findUnique({ where: { token } });
+
+    if (!reserva) {
+      throw new NotFoundException('No encontramos esa reserva.');
+    }
+
+    if (reserva.socioId !== null) {
       throw new ForbiddenException({
-        motivo: 'YA_NO_ESTA_ACTIVA',
-        message: 'Esa reserva ya no está activa.',
+        motivo: 'ES_DE_SOCIO',
+        message: 'Esta reserva es de un socio: se cambia desde "mis reservas".',
       });
     }
 
-    return reserva;
+    const transacciones = await this.prisma.transaccion.count({
+      where: { concepto: 'RESERVA', conceptoId: reserva.id },
+    });
+
+    if (transacciones === 0) {
+      throw new ForbiddenException({
+        motivo: 'SE_TOMO_EN_EL_MESON',
+        message:
+          'Esta reserva se tomó en el mesón: para cambiarla, habla con el club.',
+      });
+    }
+
+    return activa(reserva);
   }
 
-  private async bloqueDisponible(canchaId: number, inicio: Date, ahora: Date) {
+  private async bloqueDisponible(
+    canchaId: number,
+    inicio: Date,
+    duracionMin: DuracionMin,
+    ahora: Date,
+  ) {
     const fecha = hoyEnElClub(inicio).toISOString().slice(0, 10);
-    const bloques = await this.catalogo.de(canchaId, fecha);
+    const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
 
     if (!bloque) {
@@ -488,6 +716,23 @@ export class ModificacionService {
 }
 
 /**
+ * Lo que dura una reserva en el reloj del club: 60 o 90 minutos (T82).
+ *
+ * En el reloj y no restando instantes: la noche en que se atrasa la hora, una reserva de
+ * 23:00 a 24:00 dura dos horas de verdad y sigue siendo de una hora. Cualquier otro valor
+ * es un dato que no debería existir, y se dice fuerte en vez de adivinar uno.
+ */
+function duracionDe(reserva: { inicio: Date; fin: Date }): DuracionMin {
+  const minutos = minutosDeRelojEntre(reserva.inicio, reserva.fin);
+
+  if (minutos === 60 || minutos === 90) return minutos;
+
+  throw new Error(
+    `La reserva dura ${minutos} minutos de reloj; solo existen de 60 y de 90.`,
+  );
+}
+
+/**
  * El `update` chocó contra el índice del bloque activo.
  *
  * `ReservaRepository` traduce el error al crear, pero acá se actualiza una fila que ya
@@ -499,6 +744,24 @@ function esBloqueOcupado(error: unknown): boolean {
   // chequeo de P2002 acá sería una segunda versión de la misma regla.
   return error instanceof BloqueTomado || esViolacionDeUnicidad(error);
 }
+
+/** Una reserva cancelada o expirada ya no se mueve ni se cancela. */
+function activa(reserva: Reserva): Reserva {
+  if (
+    reserva.estado !== EstadoReserva.CONFIRMADA &&
+    reserva.estado !== EstadoReserva.PENDIENTE_PAGO
+  ) {
+    throw new ForbiddenException({
+      motivo: 'YA_NO_ESTA_ACTIVA',
+      message: 'Esa reserva ya no está activa.',
+    });
+  }
+
+  return reserva;
+}
+
+/** A dónde va: cancha, inicio y, si cambia, la duración (T87). */
+type Destino = { canchaId: number; inicio: Date; duracionMin?: DuracionMin };
 
 /** "$20.000", como lo escribe el club. */
 function enPesos(monto: number): string {

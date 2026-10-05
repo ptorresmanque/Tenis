@@ -63,16 +63,15 @@ describe('Catálogo de canchas', () => {
     it('trae los valores por defecto de SPEC.md § Configuración', async () => {
       const config = await prisma.configuracionClub.findFirst();
 
-      // `duracionBloqueMin` es la que convierte la grilla en 14 bloques o en 9:
-      // si el default cambia sin querer, T10 falla lejos de acá.
       expect(config).toMatchObject({
-        duracionBloqueMin: 60,
-        cupoDiarioSocioHoras: 1,
-        cupoPicoSemanalHoras: 2,
+        cupoDiarioSocioReservas: 1,
+        cupoPicoSemanalReservas: 2,
         invitadosPorMes: 4,
         horasMinModificacion: 6,
         horasReembolsoTotal: 24,
       });
+      // La duración la elige quien reserva: la columna ya no existe (T92).
+      expect(config).not.toHaveProperty('duracionBloqueMin');
     });
   });
 
@@ -206,6 +205,19 @@ describe('Catálogo de canchas', () => {
       // con solo pico todo el día limita el cupo y la demo no tiene camino feliz.
       expect(franjas.some((f) => f.esPico)).toBe(true);
       expect(franjas.some((f) => !f.esPico)).toBe(true);
+    });
+
+    it('trae precio de 1 hora y media en cada franja, mayor que el de 1 hora (T79)', async () => {
+      // Sin él, la demo no puede mostrar la hora y media a un visitante: una franja
+      // sin `montoClp90` no la vende.
+      const franjas = await prisma.franjaHoraria.findMany({
+        where: paraTodaCancha,
+      });
+
+      for (const franja of franjas) {
+        expect(franja.montoClp90).not.toBeNull();
+        expect(franja.montoClp90!).toBeGreaterThan(franja.montoClp);
+      }
     });
 
     it('cobra más en pico que en valle', async () => {

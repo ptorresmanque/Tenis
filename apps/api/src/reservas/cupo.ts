@@ -44,14 +44,14 @@ export interface SolicitudDeSocio {
   /** Fecha civil del club, "AAAA-MM-DD". */
   hoyEnElClub: string;
   config: {
-    cupoDiarioSocioHoras: number;
-    cupoPicoSemanalHoras: number;
+    cupoDiarioSocioReservas: number;
+    cupoPicoSemanalReservas: number;
     invitadosPorMes: number;
   };
   /** Reservas activas que el socio ya tiene ese día. */
   reservasDelDia: number;
-  /** Horas pico activas que ya tiene esta semana, lunes a domingo. */
-  horasPicoDeLaSemana: number;
+  /** Reservas pico activas que ya tiene esa semana, lunes a domingo. */
+  reservasPicoDeLaSemana: number;
   /** Invitados externos que ya registró en el mes del bloque. */
   invitadosDelMes: number;
   /**
@@ -146,25 +146,37 @@ export function evaluarReservaDeSocio(
     };
   }
 
-  if (solicitud.reservasDelDia >= config.cupoDiarioSocioHoras) {
+  if (solicitud.reservasDelDia >= config.cupoDiarioSocioReservas) {
+    // "Ese día" y no "hoy": el cupo es del día en que se juega. Quien ya tiene su hora
+    // del miércoles puede tomar la del jueves ahora mismo; prometerle "mañana" lo haría
+    // esperar por nada (T84).
+    //
+    // Cero es otra cosa: es como el club cierra las reservas de socios (admin.dto), y
+    // "ya tienes tus 0 reservas… reserva otro día" serían tres mentiras.
     return {
       tipo: 'CUPO_DIARIO',
       mensaje:
-        `Ya usaste tu cupo de hoy: ${enHoras(config.cupoDiarioSocioHoras)} por día. ` +
-        'Tu próxima hora la puedes reservar mañana.',
+        config.cupoDiarioSocioReservas === 0
+          ? 'El club no está tomando reservas de socios por ahora.'
+          : `Ya tienes ${tusReservas(solicitud.reservasDelDia)} de ese día: el cupo es de ` +
+            `${enReservas(config.cupoDiarioSocioReservas)} por día. Puedes reservar otro día.`,
     };
   }
 
   if (
     bloque.esPico &&
-    solicitud.horasPicoDeLaSemana >= config.cupoPicoSemanalHoras
+    solicitud.reservasPicoDeLaSemana >= config.cupoPicoSemanalReservas
   ) {
     return {
       tipo: 'CUPO_PICO',
       mensaje:
-        `Ya usaste tus ${enHoras(config.cupoPicoSemanalHoras)} en horario pico de ` +
-        'esta semana. El cupo se renueva el lunes, y los horarios fuera de pico ' +
-        'siguen disponibles.',
+        config.cupoPicoSemanalReservas === 0
+          ? 'El club no está tomando reservas de socios en horario pico. Los horarios ' +
+            'fuera de pico siguen disponibles.'
+          : `Ya tienes ${tusReservas(solicitud.reservasPicoDeLaSemana)} en horario pico ` +
+            `esa semana: el cupo es de ${enReservas(config.cupoPicoSemanalReservas)} ` +
+            'pico por semana, de lunes a domingo. Los horarios fuera de pico siguen ' +
+            'disponibles.',
     };
   }
 
@@ -259,8 +271,8 @@ function participa(solicitud: SolicitudDeSocio, socioId: number): boolean {
 }
 
 /**
- * Por rango y no por hora de inicio: `duracionBloqueMin` es configurable, y con
- * bloques de 90 minutos dos reservas que empiezan a horas distintas se pisan igual.
+ * Por rango y no por hora de inicio: la grilla empieza cada media hora y las reservas
+ * duran 1 hora o 1 hora y media, así que dos que empiezan a horas distintas se pisan igual.
  *
  * Bordes abiertos arriba: el bloque que termina a las 20:00 no se pisa con el que
  * empieza a las 20:00, así que se puede jugar dos horas seguidas en canchas distintas.
@@ -295,8 +307,13 @@ function sigueSancionado(socio: SocioQueReserva, hoyEnElClub: string): boolean {
   );
 }
 
-function enHoras(cantidad: number): string {
-  return cantidad === 1 ? '1 hora' : `${cantidad} horas`;
+/** Los cupos cuentan reservas, no horas: la hora y media también es una (T84). */
+function enReservas(cantidad: number): string {
+  return cantidad === 1 ? '1 reserva' : `${cantidad} reservas`;
+}
+
+function tusReservas(cantidad: number): string {
+  return cantidad === 1 ? 'tu reserva' : `tus ${cantidad} reservas`;
 }
 
 const MESES = [

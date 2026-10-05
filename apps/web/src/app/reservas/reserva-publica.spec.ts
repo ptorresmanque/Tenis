@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { Club } from '../club/club.service';
@@ -27,6 +28,8 @@ describe('ReservaPublicaPagina', () => {
     esPico: false,
     estado: 'CONFIRMADA',
     acompanantes: 1,
+    pagadoClp: 12000,
+    sePuedeCambiar: false,
   };
 
   let fixture: ComponentFixture<ReservaPublicaPagina>;
@@ -34,10 +37,13 @@ describe('ReservaPublicaPagina', () => {
   const montar = async (
     respuesta: ReservaPublica | Error,
     email = 'hola@fedaltenis.cl',
+    /** Lo que trae la vuelta de Webpay en la URL (T91): `cambio` y `devuelto`. */
+    vuelta: Record<string, string> = {},
   ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         {
           provide: ReservasPublicas,
           useValue: {
@@ -64,6 +70,9 @@ describe('ReservaPublicaPagina', () => {
 
     fixture = TestBed.createComponent(ReservaPublicaPagina);
     fixture.componentRef.setInput('token', 'un-token-cualquiera');
+    for (const [nombre, valor] of Object.entries(vuelta)) {
+      fixture.componentRef.setInput(nombre, valor);
+    }
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -122,6 +131,82 @@ describe('ReservaPublicaPagina', () => {
     expect(botones).toHaveLength(0);
     expect(texto()).toContain('desde este enlace no se puede');
     expect(texto()).toContain('hola@fedaltenis.cl');
+  });
+
+  describe('cambiar desde el enlace (T88)', () => {
+    const enlaceACambiar = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a')).find((a) =>
+        (a.textContent ?? '').includes('Cambiar hora o duración'),
+      );
+
+    it('**a tiempo, ofrece cambiar la hora o la duración, y avisa antes que no se devuelve la diferencia**', async () => {
+      await montar({ ...UNA, sePuedeCambiar: true });
+
+      expect(enlaceACambiar()?.getAttribute('href')).toBe(
+        // Con el día de la reserva: la grilla abre ahí y no en hoy.
+        '/disponibilidad?moverToken=un-token-cualquiera&fecha=2026-08-17',
+      );
+      expect(texto()).toContain('no se devuelve la diferencia');
+    });
+
+    it('la de 1 hora y media abre la grilla de 1 hora y media', async () => {
+      await montar({ ...UNA, fin: '2026-08-17T13:30:00.000Z', sePuedeCambiar: true });
+
+      expect(enlaceACambiar()?.getAttribute('href')).toBe(
+        '/disponibilidad?moverToken=un-token-cualquiera&fecha=2026-08-17&duracion=90',
+      );
+    });
+
+    it('fuera de plazo, o de un socio, no lo ofrece', async () => {
+      await montar({ ...UNA, sePuedeCambiar: false });
+
+      expect(enlaceACambiar()).toBeUndefined();
+    });
+  });
+
+  describe('lo que pasó con el cambio, al volver de Webpay (T91)', () => {
+    it('**hecho: lo dice con la hora nueva, en la página de la misma reserva**', async () => {
+      await montar(UNA, undefined, { cambio: 'hecho' });
+
+      expect(texto()).toContain('Listo: tu reserva quedó de 08:00 a 09:00');
+      expect(texto()).toContain('AB23CDE');
+    });
+
+    it('**la hora se tomó mientras pagaba: dice cuánto se devolvió**', async () => {
+      await montar(UNA, undefined, { cambio: 'hora_tomada', devuelto: '4000' });
+
+      expect(texto()).toContain('Esa hora se tomó mientras pagabas');
+      expect(texto()).toContain('te devolvimos $4.000');
+    });
+
+    it('y si la devolución no salió, que quedó en revisión con el club', async () => {
+      await montar(UNA, undefined, { cambio: 'hora_tomada', devuelto: '0' });
+
+      expect(texto()).toContain('quedó en revisión');
+      expect(texto()).not.toContain('te devolvimos');
+    });
+
+    it('**cobrado y en revisión no dice que el pago no se completó**', async () => {
+      // El monto que no cuadra: Webpay cobró y el club tiene que mirarlo (revisión de T91).
+      await montar(UNA, undefined, { cambio: 'en_revision' });
+
+      expect(texto()).toContain('quedó en revisión con el club');
+      expect(texto()).not.toContain('no se completó');
+    });
+
+    it('anulado en Webpay: la reserva sigue igual', async () => {
+      await montar(UNA, undefined, { cambio: 'anulado' });
+
+      expect(texto()).toContain('Anulaste el pago');
+      expect(texto()).toContain('tu reserva sigue igual');
+    });
+
+    it('sin nada en la URL no dice nada', async () => {
+      await montar(UNA);
+
+      expect(texto()).not.toContain('tu reserva sigue igual');
+      expect(texto()).not.toContain('Listo:');
+    });
   });
 
   it('sin correo cargado la frase sigue teniendo sentido', async () => {

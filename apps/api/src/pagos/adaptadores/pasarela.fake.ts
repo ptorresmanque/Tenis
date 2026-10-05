@@ -45,6 +45,13 @@ export class PasarelaFake extends PasarelaPago {
   fallarEnConfirmacionRepetida = false;
   /** Simula una devolución que la pasarela no acepta. */
   fallarAlAnular = false;
+  /**
+   * Que falle solo la devolución número n, contando desde 1, y pasen las de antes.
+   *
+   * Para la reserva con dos pagos —la compra y la diferencia de T89—: la primera
+   * devolución sale y la segunda no (T86).
+   */
+  fallarEnLaAnulacionNumero: number | null = null;
 
   private readonly porToken = new Map<string, OrdenPago>();
   private readonly autorizados = new Set<string>();
@@ -109,7 +116,10 @@ export class PasarelaFake extends PasarelaPago {
   }
 
   anular(tokenPasarela: string, montoClp: number): Promise<void> {
-    if (this.fallarAlAnular) {
+    if (
+      this.fallarAlAnular ||
+      this.anulaciones.length + 1 === this.fallarEnLaAnulacionNumero
+    ) {
       return Promise.reject(new Error('La pasarela no aceptó la devolución.'));
     }
 
@@ -135,6 +145,7 @@ export class PasarelaFake extends PasarelaPago {
     this.fallarAlIniciar = false;
     this.fallarEnConfirmacionRepetida = false;
     this.fallarAlAnular = false;
+    this.fallarEnLaAnulacionNumero = null;
     this.porToken.clear();
     this.autorizados.clear();
   }

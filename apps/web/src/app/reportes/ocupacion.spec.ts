@@ -16,7 +16,7 @@ describe('OcupacionPanel', () => {
     desde: '2026-08-01',
     hasta: '2026-08-31',
     corte: 'condicion',
-    bloques: 100,
+    horas: 100,
     ocupados: 60,
     cerrados: 20,
     libres: 20,
@@ -24,7 +24,7 @@ describe('OcupacionPanel', () => {
     filas: [
       {
         etiqueta: 'Techada',
-        bloques: 60,
+        horas: 60,
         ocupados: 45,
         cerrados: 10,
         libres: 5,
@@ -32,7 +32,7 @@ describe('OcupacionPanel', () => {
       },
       {
         etiqueta: 'Abierta',
-        bloques: 40,
+        horas: 40,
         ocupados: 15,
         cerrados: 10,
         libres: 15,
@@ -104,7 +104,7 @@ describe('OcupacionPanel', () => {
       filas: [
         {
           etiqueta: 'Techada',
-          bloques: 5,
+          horas: 5,
           ocupados: 0,
           cerrados: 5,
           libres: 0,
@@ -114,6 +114,25 @@ describe('OcupacionPanel', () => {
     });
 
     expect(filas()[0]).toEqual(['Techada', '0', '0', '5', 'Sin horas']);
+  });
+
+  it('la media hora se escribe con coma', async () => {
+    // T77: la ocupación se mide en medias horas, y "0.5" no es como se escribe acá.
+    await montar({
+      ...REPORTE,
+      filas: [
+        {
+          etiqueta: 'Techada',
+          horas: 4,
+          ocupados: 1.5,
+          cerrados: 0.5,
+          libres: 2,
+          porcentajeOcupacion: 43,
+        },
+      ],
+    });
+
+    expect(filas()[0]).toEqual(['Techada', '1,5', '2', '0,5', '43 %']);
   });
 
   it('arranca por condición, que es la pregunta que motiva el módulo', () => {
@@ -133,7 +152,7 @@ describe('OcupacionPanel', () => {
   it('un período sin bloques lo dice, en vez de mostrar una tabla vacía', async () => {
     await montar({
       ...REPORTE,
-      bloques: 0,
+      horas: 0,
       ocupados: 0,
       cerrados: 0,
       libres: 0,

@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { calcularBloques } from '../catalogo-canchas/bloques';
+import {
+  calcularBloques,
+  PASO_DE_LA_GRILLA_MIN,
+} from '../catalogo-canchas/bloques';
 import { franjaPara } from '../catalogo-canchas/franjas';
 import { comoFechaCivil, fechaDelClub } from '../comun/tiempo';
 import { EstadoReserva } from '../generated/prisma/client';
@@ -18,7 +21,8 @@ export interface ReporteDeOcupacion {
   desde: string;
   hasta: string;
   corte: CorteDeOcupacion;
-  bloques: number;
+  /** Todo se informa en horas de reloj, con medias horas si las hay. */
+  horas: number;
   ocupados: number;
   cerrados: number;
   libres: number;
@@ -29,9 +33,15 @@ export interface ReporteDeOcupacion {
 }
 
 /**
+ * El tramo con que se mide es el paso de la grilla: una reserva empieza y termina en
+ * sus bordes, así que cada tramo está ocupado entero o libre entero.
+ */
+const TRAMO_MIN = PASO_DE_LA_GRILLA_MIN;
+
+/**
  * Cuánta cancha se usó y cuánta se desperdició.
  *
- * **El denominador son los bloques que existieron de verdad**, según el horario de
+ * **El denominador son las horas que existieron de verdad**, según el horario de
  * apertura de cada cancha en cada día: la ocupación de un día en que la cancha abrió
  * cuatro horas no se mide contra veinticuatro. Se calcula con `calcularBloques`, la
  * misma función que dibuja la grilla que el socio ve, para que el reporte no pueda
@@ -44,7 +54,7 @@ export class OcupacionDeCancha {
   /**
    * Cuántos días se pueden pedir de una vez.
    *
-   * Un año son unos veinticinco mil bloques en memoria; cinco años, la vista se cae
+   * Un año son unos cincuenta mil tramos en memoria; cinco años, la vista se cae
    * sin decir por qué. Un tope explícito con su mensaje es mejor que un timeout.
    */
   private static readonly DIAS_MAXIMOS = 366;
@@ -58,12 +68,14 @@ export class OcupacionDeCancha {
     const medidos = await this.medirBloques(dias);
 
     const cuenta = (cual: BloqueMedido['estado']) =>
-      medidos.filter((bloque) => bloque.estado === cual).length;
+      medidos
+        .filter((bloque) => bloque.estado === cual)
+        .reduce((horas, bloque) => horas + bloque.horas, 0);
     // El total sale de la **misma** función que cada fila: si el porcentaje se
     // calculara acá aparte, un cambio en la regla dejaría un total que no cuadra con
     // sus propias filas.
     const total = {
-      bloques: medidos.length,
+      horas: medidos.reduce((horas, bloque) => horas + bloque.horas, 0),
       ocupados: cuenta('OCUPADO'),
       cerrados: cuenta('CERRADO'),
       libres: cuenta('LIBRE'),
@@ -92,35 +104,33 @@ export class OcupacionDeCancha {
     const ultimo = fechaDelClub(dias[dias.length - 1]);
     const dia = 24 * 60 * 60 * 1000;
 
-    const [config, canchas, horarios, bloqueos, reservas, franjas] =
-      await Promise.all([
-        this.prisma.configuracionClub.findFirstOrThrow(),
-        // Las activas: el reporte contesta "cómo andan mis canchas", y una dada de
-        // baja ya no es una cancha del club aunque su historial siga ahí.
-        this.prisma.cancha.findMany({
-          where: { activa: true },
-          select: { id: true, nombre: true, techada: true },
-        }),
-        this.prisma.horarioApertura.findMany({ orderBy: { id: 'desc' } }),
-        // Con un día de margen a cada lado: el día civil del club no coincide con el
-        // UTC y un bloqueo puede empezar la víspera.
-        this.prisma.bloqueo.findMany({
-          where: {
-            inicio: { lt: new Date(ultimo.getTime() + 2 * dia) },
-            fin: { gt: new Date(primero.getTime() - dia) },
-          },
-          select: { canchaId: true, inicio: true, fin: true, motivo: true },
-        }),
-        this.prisma.reserva.findMany({
-          where: {
-            estado: EstadoReserva.CONFIRMADA,
-            inicio: { lt: new Date(ultimo.getTime() + 2 * dia) },
-            fin: { gt: new Date(primero.getTime() - dia) },
-          },
-          select: { canchaId: true, inicio: true, fin: true },
-        }),
-        this.prisma.franjaHoraria.findMany(),
-      ]);
+    const [canchas, horarios, bloqueos, reservas, franjas] = await Promise.all([
+      // Las activas: el reporte contesta "cómo andan mis canchas", y una dada de
+      // baja ya no es una cancha del club aunque su historial siga ahí.
+      this.prisma.cancha.findMany({
+        where: { activa: true },
+        select: { id: true, nombre: true, techada: true },
+      }),
+      this.prisma.horarioApertura.findMany({ orderBy: { id: 'desc' } }),
+      // Con un día de margen a cada lado: el día civil del club no coincide con el
+      // UTC y un bloqueo puede empezar la víspera.
+      this.prisma.bloqueo.findMany({
+        where: {
+          inicio: { lt: new Date(ultimo.getTime() + 2 * dia) },
+          fin: { gt: new Date(primero.getTime() - dia) },
+        },
+        select: { canchaId: true, inicio: true, fin: true, motivo: true },
+      }),
+      this.prisma.reserva.findMany({
+        where: {
+          estado: EstadoReserva.CONFIRMADA,
+          inicio: { lt: new Date(ultimo.getTime() + 2 * dia) },
+          fin: { gt: new Date(primero.getTime() - dia) },
+        },
+        select: { canchaId: true, inicio: true, fin: true },
+      }),
+      this.prisma.franjaHoraria.findMany(),
+    ]);
 
     // Indexados por cancha una sola vez. Filtrar dentro del bucle recorría todas las
     // reservas del rango por cada par (día, cancha): con un año y ocho canchas son
@@ -144,7 +154,7 @@ export class OcupacionDeCancha {
       for (const cancha of canchas) {
         // El horario propio de la cancha gana al del club, y el más reciente gana
         // entre iguales: la misma precedencia que usa la grilla. Sin horario, ese día
-        // no abre, y no abrir no es tener cero ocupación: es no tener bloques.
+        // no abre, y no abrir no es tener cero ocupación: es no tener horas.
         const horario =
           horarios.find(
             (uno) => uno.diaSemana === diaSemana && uno.canchaId === cancha.id,
@@ -155,11 +165,13 @@ export class OcupacionDeCancha {
 
         if (!horario) continue;
 
+        // Tramos de media hora y no la grilla que ve el socio (T77): una reserva de
+        // 10:30 a 11:30 tocaría dos bloques de una hora y se contaría dos veces.
         const suyos = calcularBloques({
           fecha,
           horaApertura: horario.horaApertura,
           horaCierre: horario.horaCierre,
-          duracionBloqueMin: config.duracionBloqueMin,
+          duracionMin: TRAMO_MIN,
           bloqueos: bloqueosDe.get(cancha.id) ?? [],
         });
 
@@ -173,9 +185,12 @@ export class OcupacionDeCancha {
               fecha,
               canchaId: cancha.id,
               inicio: bloque.inicio,
+              // Solo se usa el pico, que no depende de la duración.
+              duracionMin: 60,
               franjas,
             }).esPico,
             estado: estadoDelBloque(bloque, ocupantes),
+            horas: TRAMO_MIN / 60,
           });
         }
       }

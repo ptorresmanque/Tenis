@@ -5,6 +5,7 @@ import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReportesDelSocio } from '../../reservas/reportes.service';
+import { ReservasPublicas } from '../../reservas/reserva-publica.service';
 import { Reservas } from '../../reservas/reservas.service';
 import { Auth } from '../../core/auth/auth';
 import { Disponibilidad, GrillaDeCancha } from '../disponibilidad';
@@ -62,9 +63,17 @@ describe('Grilla', () => {
 
   let fixture: ComponentFixture<Grilla>;
   let mover: ReturnType<typeof vi.fn>;
+  let pedirDiaParaMover: ReturnType<typeof vi.fn>;
+  let delEnlace: {
+    porToken: ReturnType<typeof vi.fn>;
+    grillaParaMover: ReturnType<typeof vi.fn>;
+    mover: ReturnType<typeof vi.fn>;
+    pagarDiferencia: ReturnType<typeof vi.fn>;
+  };
   let navegar: ReturnType<typeof vi.fn>;
   let reportables: ReturnType<typeof vi.fn>;
   let reportar: ReturnType<typeof vi.fn>;
+  let pedirDia: ReturnType<typeof vi.fn>;
 
   /** `mover` es el id que llega por query string cuando se viene de "mis reservas". */
   const montar = async (
@@ -80,6 +89,8 @@ describe('Grilla', () => {
             yaReportada: boolean;
           }[]
         | Error;
+      /** Lo pagado que trae el enlace; por omisión, $16.000. */
+      reservaDelEnlace?: Promise<{ pagadoClp: number }>;
     } = {},
   ) => {
     mover = vi.fn().mockResolvedValue({});
@@ -96,16 +107,30 @@ describe('Grilla', () => {
         'Gracias. Tu reporte es anónimo y lo revisa la administración del club.',
     });
 
+    pedirDia = vi.fn(() => (dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia)));
+    // Al mover, el día viene de la grilla que no cuenta la reserva que se mueve (T87).
+    // El no-socio que cambia desde el enlace de su reserva (T88): pagó $16.000.
+    delEnlace = {
+      porToken: vi.fn(() => opciones.reservaDelEnlace ?? Promise.resolve({ pagadoClp: 16000 })),
+      grillaParaMover: vi.fn(() =>
+        dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
+      ),
+      mover: vi.fn().mockResolvedValue({}),
+      pagarDiferencia: vi.fn().mockRejectedValue({
+        status: 409,
+        error: { motivo: 'BLOQUE_TOMADO', message: 'Esa hora ya está tomada. Elige otra.' },
+      }),
+    };
+    pedirDiaParaMover = vi.fn(() =>
+      dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
+    );
+
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        {
-          provide: Disponibilidad,
-          useValue: {
-            delDia: () => (dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia)),
-          },
-        },
-        { provide: Reservas, useValue: { mover } },
+        { provide: Disponibilidad, useValue: { delDia: pedirDia } },
+        { provide: Reservas, useValue: { mover, grillaParaMover: pedirDiaParaMover } },
+        { provide: ReservasPublicas, useValue: delEnlace },
         { provide: ReportesDelSocio, useValue: { reportables, reportar } },
         {
           provide: Auth,
@@ -272,6 +297,280 @@ describe('Grilla', () => {
       );
 
       expect(resumen?.textContent).toBe('1 hora disponible en 1 cancha.');
+    });
+  });
+
+  /**
+   * T83a. Con inicios cada media hora la grilla medía el doble (27 bandas, 8.243 px a
+   * 375 px en T78). Decisión del club del 2026-10-03: una banda por hora del reloj, con
+   * sus inicios :00 y :30 adentro. Nada se esconde.
+   */
+  describe('una banda por hora', () => {
+    const CANCHA = DIA[0].cancha;
+    const bloque = (
+      inicio: string,
+      fin: string,
+      parche: Partial<GrillaDeCancha['bloques'][number]> = {},
+    ) => ({
+      inicio,
+      fin,
+      canchaId: 1,
+      montoClp: 12000,
+      esPico: false,
+      bloqueado: false,
+      motivoBloqueo: null,
+      reservado: false,
+      ...parche,
+    });
+    // 12:00Z es las 08:00 del club en agosto.
+    const MEDIAS_HORAS: GrillaDeCancha[] = [
+      {
+        cancha: CANCHA,
+        bloques: [
+          bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z'),
+          bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z'),
+          bloque('2026-08-17T13:00:00.000Z', '2026-08-17T14:00:00.000Z'),
+          // 17:00 en valle y 17:30 ya en la franja pico, que empieza a las 17:30.
+          bloque('2026-08-17T21:00:00.000Z', '2026-08-17T22:00:00.000Z'),
+          bloque('2026-08-17T21:30:00.000Z', '2026-08-17T22:30:00.000Z', {
+            montoClp: 20000,
+            esPico: true,
+          }),
+        ],
+      },
+    ];
+    const bandas = () =>
+      [...(fixture.nativeElement as HTMLElement).querySelectorAll('section')].filter(
+        (seccion) => !seccion.closest('details'),
+      );
+    const enTexto = (nodo: Element) => nodo.textContent?.replace(/\s+/g, ' ') ?? '';
+
+    beforeEach(async () => {
+      await montar(MEDIAS_HORAS);
+    });
+
+    it('**los inicios de y media van dentro de la banda de su hora**', () => {
+      expect(bandas()).toHaveLength(3);
+
+      const ocho = enTexto(bandas()[0]);
+      expect(ocho).toContain('08:00–09:00');
+      expect(ocho).toContain('08:30–09:30');
+      expect(ocho.indexOf('08:00–09:00')).toBeLessThan(ocho.indexOf('08:30–09:30'));
+    });
+
+    it('la banda nombra su hora una vez', () => {
+      const encabezado = bandas()[0].querySelector('h2');
+
+      expect(enTexto(encabezado!)).toContain('08 h');
+    });
+
+    it('**el precio y "socio sin costo" se dicen una vez cuando los inicios coinciden**', () => {
+      const ocho = enTexto(bandas()[0]);
+
+      expect(ocho.match(/Arriendo/g)).toHaveLength(1);
+      expect(ocho.match(/Socio sin costo/g)).toHaveLength(1);
+    });
+
+    it('si el de y media cae en otra franja, el precio y el pico los dice su fila', () => {
+      const cinco = bandas()[2];
+      const filas = [...cinco.querySelectorAll('[data-inicio]')].map(enTexto);
+
+      expect(filas).toHaveLength(2);
+      expect(filas[0]).toContain('$12.000');
+      expect(filas[0]).not.toContain('Hora pico');
+      expect(filas[1]).toContain('$20.000');
+      expect(filas[1]).toContain('Hora pico');
+    });
+
+    it('**la mantención se dice una vez en la banda cuando sus dos inicios la comparten**', async () => {
+      // Decisión del club del 2026-10-03: "2 en mantención" en cada fila era la línea que
+      // más se repetía. Si las dos filas tienen lo mismo cerrado, lo dice la banda.
+      const enMantencion = { bloqueado: true, motivoBloqueo: 'MANTENCION' };
+      await montar([
+        ...MEDIAS_HORAS,
+        {
+          cancha: { ...CANCHA, id: 2, nombre: 'Cancha 2' },
+          bloques: [
+            bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', enMantencion),
+            bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z', enMantencion),
+          ],
+        },
+      ]);
+
+      const ocho = bandas()[0];
+
+      expect(enTexto(ocho).match(/en mantención/g)).toHaveLength(1);
+      for (const fila of ocho.querySelectorAll('[data-inicio]')) {
+        expect(enTexto(fila)).not.toContain('en mantención');
+      }
+    });
+
+    it('si los dos inicios no tienen lo mismo cerrado, lo dice cada fila', async () => {
+      await montar([
+        ...MEDIAS_HORAS,
+        {
+          cancha: { ...CANCHA, id: 2, nombre: 'Cancha 2' },
+          bloques: [
+            bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', {
+              bloqueado: true,
+              motivoBloqueo: 'MANTENCION',
+            }),
+            bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z'),
+          ],
+        },
+      ]);
+
+      const filas = [...bandas()[0].querySelectorAll('[data-inicio]')].map(enTexto);
+
+      expect(filas[0]).toContain('1 en mantención');
+      expect(filas[1]).not.toContain('en mantención');
+      expect(enTexto(bandas()[0]).match(/en mantención/g)).toHaveLength(1);
+    });
+
+    it('con el :00 pasado y el :30 por venir, la banda queda a la vista y marca el pasado', async () => {
+      // Las 08:10 del club: el de las 08:00 ya empezó y el de las 08:30 no.
+      vi.setSystemTime('2026-08-17T12:10:00.000Z');
+      await montar(MEDIAS_HORAS);
+
+      const ocho = bandas()[0];
+      const filas = [...ocho.querySelectorAll('[data-inicio]')].map(enTexto);
+
+      expect(enTexto(ocho.querySelector('h2')!)).toContain('08 h');
+      expect(filas[0]).toContain('Ya pasó');
+      expect(filas[1]).toContain('Cancha 1');
+      expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+    });
+  });
+
+  /**
+   * T83b. Se reserva 1 hora o 1 hora y media. La duración vive en la URL —como el modo
+   * "mover"— para que recargar o compartir el enlace no la pierda.
+   */
+  describe('la duración', () => {
+    const radio = (valor: string) =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+        `input[type="radio"][value="${valor}"]`,
+      );
+    const SIN_HORA_Y_MEDIA: GrillaDeCancha[] = [
+      {
+        cancha: DIA[0].cancha,
+        bloques: [
+          {
+            inicio: '2026-08-17T21:00:00.000Z',
+            fin: '2026-08-17T22:30:00.000Z',
+            canchaId: 1,
+            montoClp: null,
+            esPico: false,
+            bloqueado: false,
+            motivoBloqueo: null,
+            reservado: false,
+          },
+          {
+            inicio: '2026-08-17T12:00:00.000Z',
+            fin: '2026-08-17T13:30:00.000Z',
+            canchaId: 1,
+            montoClp: 16000,
+            esPico: false,
+            bloqueado: false,
+            motivoBloqueo: null,
+            reservado: false,
+          },
+        ],
+      },
+    ];
+    const etiquetas = () =>
+      bloques().map((b) => b.querySelector('button')?.getAttribute('aria-label') ?? '');
+
+    it('sin duración en la URL pide la grilla de 1 hora', () => {
+      expect(pedirDia).toHaveBeenCalledWith(expect.any(String), 60);
+      expect(radio('60')?.checked).toBe(true);
+    });
+
+    it('**con ?duracion=90 pide la grilla de 1 hora y media**', async () => {
+      await montar(DIA, { duracion: '90' });
+
+      expect(pedirDia).toHaveBeenCalledWith(expect.any(String), 90);
+      expect(radio('90')?.checked).toBe(true);
+    });
+
+    it('elegir 1 hora y media la deja en la URL, y volver a 1 hora la saca', () => {
+      radio('90')!.click();
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({
+          queryParams: { duracion: 90 },
+          queryParamsHandling: 'merge',
+        }),
+      );
+
+      radio('60')!.click();
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { duracion: null } }),
+      );
+    });
+
+    it('**al visitante no se le ofrece un inicio sin precio de 1 hora y media**', async () => {
+      // Sin `montoClp90` la franja no le vende la hora y media a quien no es socio (T79).
+      await montar(SIN_HORA_Y_MEDIA, { duracion: '90' });
+
+      expect(etiquetas()).toEqual([expect.stringContaining('de 08:00 a 09:30')]);
+      // Y la fila no dice "sin canchas libres", que sería falso: la cancha está libre.
+      expect(texto()).toContain('No se arrienda por 1 hora y media a esta hora');
+      expect(texto()).not.toContain('Sin canchas libres');
+    });
+
+    it('si en todo el día no hay hora y media para el visitante, lo dice una vez y ofrece la salida', async () => {
+      // Sin esto eran 27 filas con el mismo "no se arrienda": un callejón, como el filtro
+      // que no deja canchas.
+      const SIN_NINGUNA: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: SIN_HORA_Y_MEDIA[0].bloques.map((b) => ({ ...b, montoClp: null })),
+        },
+      ];
+      await montar(SIN_NINGUNA, { duracion: '90' });
+
+      expect(texto()).toContain('Este día no se arrienda 1 hora y media');
+      expect(texto()).not.toContain('No se arrienda por 1 hora y media a esta hora');
+
+      const salida = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
+        (b) => b.textContent?.trim() === 'Ver horas de 1 hora',
+      )!;
+      salida.click();
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { duracion: null } }),
+      );
+    });
+
+    it('al socio sí, porque no paga: y la etiqueta no le inventa un arriendo', async () => {
+      await montar(SIN_HORA_Y_MEDIA, { duracion: '90' }, { socioId: 7 });
+
+      expect(etiquetas()).toHaveLength(2);
+      const sinPrecio = etiquetas().find((e) => e.includes('de 17:00 a 18:30'))!;
+      expect(sinPrecio).not.toMatch(/arriendo/i);
+    });
+
+    it('**al mover, el selector parte en la duración de la reserva y se puede cambiar** (T87)', async () => {
+      // "Mis reservas" manda `duracion=90` cuando la reserva es de 1 hora y media.
+      await montar(DIA, { mover: '5', duracion: '90' });
+
+      expect(radio('90')?.checked).toBe(true);
+      // De la grilla que no cuenta la reserva que se mueve, no de la pública: si no, la
+      // hora y media en el mismo lugar sale ocupada por ella misma.
+      expect(pedirDiaParaMover).toHaveBeenCalledWith(5, expect.any(String), 90);
+      expect(pedirDia).not.toHaveBeenCalled();
+
+      radio('60')!.click();
+      // Sin soltar el modo mover: la URL conserva `mover` y solo cambia la duración.
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({
+          queryParams: { duracion: null },
+          queryParamsHandling: 'merge',
+        }),
+      );
     });
   });
 
@@ -537,6 +836,31 @@ describe('Grilla', () => {
       expect(texto()).toContain('Elige la nueva hora');
     });
 
+    it('**abre en el día de la reserva que se mueve, no en hoy**', async () => {
+      // El enlace de mover lleva la fecha: alargar una reserva de otro día obligaba a
+      // buscar su día antes de poder elegir.
+      await montar(DIA, { mover: '7', fecha: '2037-09-14' });
+
+      expect(pedirDiaParaMover).toHaveBeenCalledWith(7, '2037-09-14', 60);
+    });
+
+    it('**desde el enlace también: abre en el día de la reserva**', async () => {
+      await montar(DIA, { moverToken: 'tok-123', fecha: '2037-09-14', duracion: '90' });
+
+      expect(delEnlace.grillaParaMover).toHaveBeenCalledWith('tok-123', '2037-09-14', 90);
+    });
+
+    it('una fecha pasada o mal escrita en la URL cae en hoy', async () => {
+      // La grilla no vende horas que ya pasaron, y un enlace roto no puede dejarla vacía.
+      await montar(DIA, { fecha: '2020-01-01' });
+      await montar(DIA, { fecha: 'mañana' });
+
+      const hoy = pedirDia.mock.calls[0][0] as string;
+      expect(hoy).not.toBe('2020-01-01');
+      expect(hoy).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(pedirDia).toHaveBeenCalledWith(hoy, 60);
+    });
+
     it('al elegir un bloque libre mueve la reserva y vuelve a mis reservas', async () => {
       await montar(DIA, { mover: '7' });
 
@@ -545,8 +869,133 @@ describe('Grilla', () => {
       expect(mover).toHaveBeenCalledWith(7, {
         canchaId: 1,
         inicio: '2026-08-17T12:00:00.000Z',
+        // La del bloque elegido: el que se movió a 1 hora y media la alarga (T87).
+        duracionMin: 60,
       });
       expect(navegar).toHaveBeenCalledWith(['/mis-reservas']);
+    });
+
+    it('**al mover con 1 hora y media, manda 90: la reserva se alarga** (T87)', async () => {
+      // Bloques de 90 minutos, como los pide la grilla con `duracion=90`.
+      const DE_90: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: DIA[0].bloques.map((b) => ({
+            ...b,
+            fin: new Date(new Date(b.inicio).getTime() + 90 * 60 * 1000).toISOString(),
+          })),
+        },
+      ];
+      await montar(DE_90, { mover: '7', duracion: '90' });
+
+      await elegirPrimerBloque();
+
+      expect(mover).toHaveBeenCalledWith(7, expect.objectContaining({ duracionMin: 90 }));
+    });
+
+    describe('desde el enlace de la reserva, sin sesión (T88)', () => {
+      it('pide la grilla del enlace, que no cuenta la reserva, y no la pública', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        expect(delEnlace.grillaParaMover).toHaveBeenCalledWith(
+          'tok-123',
+          expect.any(String),
+          60,
+        );
+        expect(pedirDia).not.toHaveBeenCalled();
+      });
+
+      it('**dice cuánto pagó y que no se devuelve la diferencia, antes de elegir**', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        expect(texto()).toContain('Pagaste $16.000');
+        expect(texto()).toContain('no se devuelve la diferencia');
+      });
+
+      const barra = () =>
+        (fixture.nativeElement as HTMLElement).querySelector('app-barra-fija') as HTMLElement;
+      const botonDeLaBarra = (texto: string) =>
+        [...barra().querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)!;
+      const apretar = async (boton: HTMLButtonElement) => {
+        boton.click();
+        await fixture.whenStable();
+        fixture.detectChanges();
+      };
+
+      it('**el clic no mueve al tiro: antes de confirmar dice que no se devuelve la diferencia** (T91)', async () => {
+        // Pagó $16.000 y la de las 08:00 vale $12.000: el cambio pierde $4.000, y eso se
+        // dice antes del clic que lo hace.
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        await elegirPrimerBloque();
+
+        expect(delEnlace.mover).not.toHaveBeenCalled();
+        expect(barra().textContent).toContain('no se devuelve la diferencia de $4.000');
+        expect(botonDeLaBarra('Cambiar a esta hora')).toBeDefined();
+      });
+
+      it('**sin saber cuánto pagó, el clic no ofrece reservar una hora nueva** (revisión de T91)', async () => {
+        // La barra caía en la de reservar si lo pagado no llegaba —cargando, o la consulta
+        // falló—, y "Reservar" abría una reserva nueva en vez de cambiar la suya.
+        await montar(DIA, { moverToken: 'tok-123' }, {
+          reservaDelEnlace: Promise.reject(new Error('la API no respondió')),
+        });
+
+        await elegirPrimerBloque();
+
+        // Ni la barra de reservar ni una vacía: la hora no queda marcada.
+        expect((fixture.nativeElement as HTMLElement).querySelector('app-barra-fija')).toBeNull();
+      });
+
+      it('al confirmar, mueve por el enlace y vuelve a la página de la reserva con el resultado', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+        await elegirPrimerBloque();
+
+        await apretar(botonDeLaBarra('Cambiar a esta hora'));
+
+        expect(delEnlace.mover).toHaveBeenCalledWith('tok-123', {
+          canchaId: 1,
+          inicio: '2026-08-17T12:00:00.000Z',
+          duracionMin: 60,
+        });
+        expect(mover).not.toHaveBeenCalled();
+        expect(navegar).toHaveBeenCalledWith(['/r', 'tok-123'], {
+          queryParams: { cambio: 'hecho' },
+        });
+      });
+
+      it('**si vale más, dice cuánto paga y el botón lleva a pagar la diferencia** (T91)', async () => {
+        const CARA: GrillaDeCancha[] = DIA.map((grilla) => ({
+          ...grilla,
+          bloques: grilla.bloques.map((b) => ({ ...b, montoClp: 20000 })),
+        }));
+        await montar(CARA, { moverToken: 'tok-123' });
+        await elegirPrimerBloque();
+
+        expect(barra().textContent).toContain('Pagas $4.000 de diferencia');
+
+        await apretar(botonDeLaBarra('Pagar $4.000'));
+
+        // Pagar, no mover: la reserva se mueve recién cuando Webpay autoriza (T89).
+        expect(delEnlace.pagarDiferencia).toHaveBeenCalledWith('tok-123', {
+          canchaId: 1,
+          inicio: '2026-08-17T12:00:00.000Z',
+          duracionMin: 60,
+        });
+        expect(delEnlace.mover).not.toHaveBeenCalled();
+        // El servidor manda: si rechaza, lo dice y la persona sigue en la grilla.
+        expect(texto()).toContain('Esa hora ya está tomada');
+      });
+
+      it('la etiqueta de cada hora ya dice lo que costaría el cambio', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        expect(
+          (fixture.nativeElement as HTMLElement)
+            .querySelector('.bloque button')
+            ?.getAttribute('aria-label'),
+        ).toContain('no se devuelve la diferencia de $4.000');
+      });
     });
 
     it('sin el parámetro, el clic elige el bloque en vez de mover nada', async () => {
@@ -637,6 +1086,18 @@ describe('Grilla', () => {
 
       expect(fixture.nativeElement.querySelector('app-barra-fija')).toBeNull();
       expect(fixture.nativeElement.querySelector('app-reservar')).toBeNull();
+    });
+
+    it('cambiar la duración suelta lo elegido: su fin y su precio eran de la otra', async () => {
+      await elegirPrimerBloque();
+
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLInputElement>('input[type="radio"][value="90"]')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-barra-fija')).toBeNull();
     });
 
     it('si la reserva ya no existe, lo dice con las palabras del servidor', async () => {

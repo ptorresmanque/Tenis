@@ -153,9 +153,8 @@ export interface CambiosDeConfiguracion {
   direccion: string;
   telefono: string;
   email: string;
-  duracionBloqueMin: number;
-  cupoDiarioSocioHoras: number;
-  cupoPicoSemanalHoras: number;
+  cupoDiarioSocioReservas: number;
+  cupoPicoSemanalReservas: number;
   invitadosPorMes: number;
   horasMinModificacion: number;
   horasReembolsoTotal: number;
@@ -165,14 +164,8 @@ export interface CambiosDeConfiguracion {
 /**
  * Los límites de cada regla, y por qué.
  *
- * La duración de bloque es la única con mínimo y máximo, y no es cosmética: un 0
- * llega hasta `calcularBloques`, que lanza para no colgarse en un bucle infinito, y
- * la grilla del club entero responde 500 hasta que alguien entre a la base a
- * arreglarlo a mano. Por arriba, un bloque de más de cuatro horas no es una hora de
- * cancha sino un día completo, y casi siempre es un cero de más al tipear.
- *
  * Los cupos y las ventanas admiten 0 a propósito: cero invitados por mes es una
- * política posible, y cero horas de cupo diario es como el club cierra las reservas
+ * política posible, y cero reservas de cupo diario es como el club cierra las reservas
  * de socios sin tocar código.
  */
 /** Las reglas que son números: las de texto se validan aparte, por largo. */
@@ -182,9 +175,8 @@ type ReglasNumericas = Omit<
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
-  duracionBloqueMin: [15, 240],
-  cupoDiarioSocioHoras: [0],
-  cupoPicoSemanalHoras: [0],
+  cupoDiarioSocioReservas: [0],
+  cupoPicoSemanalReservas: [0],
   invitadosPorMes: [0],
   horasMinModificacion: [0],
   horasReembolsoTotal: [0],
@@ -193,14 +185,14 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   diasSancionNoUso: [1, 365],
 };
 
+/** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
 const NOMBRES: Record<keyof ReglasNumericas, string> = {
-  duracionBloqueMin: 'La duración del bloque, en minutos,',
-  cupoDiarioSocioHoras: 'El cupo diario del socio',
-  cupoPicoSemanalHoras: 'El cupo semanal en horario pico',
-  invitadosPorMes: 'Los invitados por mes',
-  horasMinModificacion: 'Las horas mínimas para modificar',
-  horasReembolsoTotal: 'Las horas para el reembolso total',
-  diasSancionNoUso: 'Los días de sanción por una hora no usada',
+  cupoDiarioSocioReservas: 'El cupo diario del socio',
+  cupoPicoSemanalReservas: 'El cupo semanal en horario pico',
+  invitadosPorMes: 'El número de invitados por mes',
+  horasMinModificacion: 'El mínimo de horas para modificar',
+  horasReembolsoTotal: 'El plazo del reembolso total, en horas,',
+  diasSancionNoUso: 'La sanción por una hora no usada, en días,',
 };
 
 /**
@@ -330,6 +322,8 @@ export interface DatosFranja {
   horaHasta: string;
   esPico: boolean;
   montoClp: number;
+  /** Nulo = la hora y media no se vende en esta franja (T79). */
+  montoClp90: number | null;
   vigenteDesde: Date;
   vigenteHasta: Date | null;
 }
@@ -361,6 +355,12 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
     // Cero es legítimo: una cancha puede ser gratis para el club. Negativo no:
     // sería una tarifa que le paga al cliente.
     montoClp: entero(datos.montoClp, 'El monto', 0),
+    // Omitido o nulo es "no se vende". Un cero también termina en SIN_TARIFA al
+    // reservar, pero la grilla lo mostraría como "$0": el nulo dice lo que es.
+    montoClp90:
+      datos.montoClp90 === undefined || datos.montoClp90 === null
+        ? null
+        : entero(datos.montoClp90, 'El monto de 1 hora y media', 0),
     vigenteDesde: fechaDeCuerpo(datos.vigenteDesde, 'La vigencia'),
     vigenteHasta:
       datos.vigenteHasta === undefined || datos.vigenteHasta === null

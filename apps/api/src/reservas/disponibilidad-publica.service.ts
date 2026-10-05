@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import type { DuracionMin } from '../catalogo-canchas/bloques';
 import {
   BloqueDisponible,
   CanchaPublica,
@@ -45,13 +46,18 @@ export class DisponibilidadPublicaService {
    * usa la consulta suelta, así que las dos respuestas no pueden divergir: hay un
    * test que lo comprueba comparándolas.
    */
-  async delDia(fecha: string): Promise<GrillaDeCancha[]> {
+  async delDia(
+    fecha: string,
+    duracionMin: DuracionMin = 60,
+    /** La reserva que se está moviendo: su hora no le ocupa la grilla a ella misma (T87). */
+    excluyendo?: number,
+  ): Promise<GrillaDeCancha[]> {
     const canchas = await this.catalogo.canchas();
 
     return Promise.all(
       canchas.map(async (cancha) => ({
         cancha,
-        bloques: await this.de(cancha.id, fecha),
+        bloques: await this.de(cancha.id, fecha, duracionMin, excluyendo),
       })),
     );
   }
@@ -63,8 +69,13 @@ export class DisponibilidadPublicaService {
    * cuánto valen. Juntarlos es de `reservas`, que es el único módulo que lee esa
    * tabla (`SPEC-reservas.md` § Contrato).
    */
-  async de(canchaId: number, fecha: string): Promise<BloqueConEstado[]> {
-    const bloques = await this.catalogo.de(canchaId, fecha);
+  async de(
+    canchaId: number,
+    fecha: string,
+    duracionMin: DuracionMin = 60,
+    excluyendo?: number,
+  ): Promise<BloqueConEstado[]> {
+    const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
 
     if (bloques.length === 0) return [];
 
@@ -80,6 +91,7 @@ export class DisponibilidadPublicaService {
     const tomadas = await this.prisma.reserva.findMany({
       where: {
         canchaId,
+        id: excluyendo === undefined ? undefined : { not: excluyendo },
         estado: { in: ACTIVAS },
         inicio: { lt: bloques[bloques.length - 1].fin },
         fin: { gt: bloques[0].inicio },
@@ -121,7 +133,13 @@ export class DisponibilidadPublicaService {
     desde: Date,
     hasta: Date,
   ): Promise<void> {
-    if ((await this.expiracion.barrer()) === 0) return;
+    // **Sin cortar si este barrido no expiró nada.** El barrido es global y la
+    // liberación es por cancha y día: si otra consulta expiró la transacción primero
+    // —otro día, otra cancha, o las ocho canchas de la grilla del día en paralelo—, el
+    // corte dejaba la reserva PENDIENTE_PAGO y la hora tomada para siempre. Lo que
+    // decide es el estado de la transacción, que se mira abajo. El costo es una
+    // consulta indexada por cancha que casi siempre vuelve vacía.
+    await this.expiracion.barrer();
 
     const enEspera = await this.prisma.reserva.findMany({
       where: {

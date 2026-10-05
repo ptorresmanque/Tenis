@@ -37,7 +37,6 @@ describe('Configuración del club', () => {
   // Lunes de agosto, sin cambio de hora de por medio. El club en UTC-4.
   // Y en el futuro: la API no reserva horas que ya empezaron. 2037 repite el
   // calendario de 2026, así que los días de la semana no cambian.
-  const LUNES = '2037-08-17';
   const A_LAS_10 = '2037-08-17T14:00:00.000Z';
   const A_LAS_11 = '2037-08-17T15:00:00.000Z';
 
@@ -202,10 +201,11 @@ describe('Configuración del club', () => {
         .expect(200);
 
       expect(respuesta.body).toMatchObject({
-        duracionBloqueMin: original.duracionBloqueMin,
-        cupoDiarioSocioHoras: original.cupoDiarioSocioHoras,
+        cupoDiarioSocioReservas: original.cupoDiarioSocioReservas,
         invitadosPorMes: original.invitadosPorMes,
       });
+      // Desde la duración elegible la duración la elige quien reserva (T92).
+      expect(respuesta.body).not.toHaveProperty('duracionBloqueMin');
     });
 
     it('guarda el cambio sin crear una segunda fila', async () => {
@@ -225,34 +225,48 @@ describe('Configuración del club', () => {
 
       expect(respuesta.body).toMatchObject({
         invitadosPorMes: 6,
-        cupoDiarioSocioHoras: original.cupoDiarioSocioHoras,
+        cupoDiarioSocioReservas: original.cupoDiarioSocioReservas,
         horasReembolsoTotal: original.horasReembolsoTotal,
       });
     });
   });
 
   describe('validación', () => {
-    it('rechaza una duración de bloque de cero', async () => {
-      // Sin este 400, el 0 llega a `calcularBloques`, que lanza para no colgarse en
-      // un bucle infinito: la grilla del club entero responde 500 hasta que alguien
-      // entre a la base a arreglarlo a mano.
-      await patch({ duracionBloqueMin: 0 }).expect(400);
-    });
-
-    it('rechaza una duración de bloque absurda', async () => {
-      await patch({ duracionBloqueMin: 5 }).expect(400);
-      await patch({ duracionBloqueMin: 1000 }).expect(400);
+    it('la duración del bloque ya no es una regla: pedirla sola responde 400 (T92)', async () => {
+      // La elige quien reserva desde T78. Un panel viejo que la mande no tiene que
+      // creer que guardó algo.
+      await patch({ duracionBloqueMin: 90 }).expect(400);
     });
 
     it('rechaza cupos y ventanas negativos', async () => {
-      await patch({ cupoDiarioSocioHoras: -1 }).expect(400);
+      await patch({ cupoDiarioSocioReservas: -1 }).expect(400);
       await patch({ invitadosPorMes: -1 }).expect(400);
       await patch({ horasMinModificacion: -1 }).expect(400);
     });
 
+    it('**el mensaje concuerda en número con la regla que nombra**', async () => {
+      // "Los invitados por mes tiene que ser…" es lo que el admin leía antes: el sujeto
+      // en plural y el verbo en singular, que arma `entero` para todos los campos.
+      const mensaje = async (cuerpo: object) =>
+        ((await patch(cuerpo).expect(400)).body as { message: string }).message;
+
+      expect(await mensaje({ invitadosPorMes: -1 })).toBe(
+        'El número de invitados por mes tiene que ser un número entero desde 0.',
+      );
+      expect(await mensaje({ horasMinModificacion: -1 })).toBe(
+        'El mínimo de horas para modificar tiene que ser un número entero desde 0.',
+      );
+      expect(await mensaje({ horasReembolsoTotal: -1 })).toBe(
+        'El plazo del reembolso total, en horas, tiene que ser un número entero desde 0.',
+      );
+      expect(await mensaje({ diasSancionNoUso: 400 })).toBe(
+        'La sanción por una hora no usada, en días, no puede pasar de 365.',
+      );
+    });
+
     it('rechaza lo que no es entero', async () => {
-      await patch({ cupoDiarioSocioHoras: 1.5 }).expect(400);
-      await patch({ cupoDiarioSocioHoras: '2' }).expect(400);
+      await patch({ cupoDiarioSocioReservas: 1.5 }).expect(400);
+      await patch({ cupoDiarioSocioReservas: '2' }).expect(400);
     });
 
     it('un cuerpo sin ningún campo conocido no pasa por válido', async () => {
@@ -321,7 +335,8 @@ describe('Configuración del club', () => {
         .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${MARTES}`)
         .expect(200);
 
-      expect((bloques.body as unknown[]).length).toBe(4);
+      // De 09:00 a 13:00, una hora empezando cada media hora: 7 inicios.
+      expect((bloques.body as unknown[]).length).toBe(7);
     });
 
     it('reemplaza el horario general entero, no le suma días', async () => {
@@ -393,32 +408,15 @@ describe('Configuración del club', () => {
   });
 
   describe('la regla cambia en el acto', () => {
-    it('cambiar la duración del bloque redibuja la grilla pública', async () => {
-      const antes = await request(servidor())
-        .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`)
-        .expect(200);
-      // 08:00 a 12:00 en bloques de 60: cuatro horas.
-      expect((antes.body as unknown[]).length).toBe(4);
-
-      await patch({ duracionBloqueMin: 120 }).expect(200);
-
-      const despues = await request(servidor())
-        .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`)
-        .expect(200);
-
-      // Sin migrar un solo dato: los bloques se calculan, no se guardan.
-      expect((despues.body as unknown[]).length).toBe(2);
-    });
-
     it('subir el cupo diario deja al socio reservar dos horas el mismo día', async () => {
       // **El criterio 13 de `SPEC-catalogo-canchas.md`**: la regla cambia sin tocar
       // código ni reiniciar. Si la configuración se leyera una vez al arrancar, este
       // test fallaría con el 409 del cupo.
-      await patch({ cupoDiarioSocioHoras: 1 }).expect(200);
+      await patch({ cupoDiarioSocioReservas: 1 }).expect(200);
       await reservar(A_LAS_10).expect(201);
       await reservar(A_LAS_11).expect(409);
 
-      await patch({ cupoDiarioSocioHoras: 2 }).expect(200);
+      await patch({ cupoDiarioSocioReservas: 2 }).expect(200);
 
       await reservar(A_LAS_11).expect(201);
       expect(await prisma.reserva.count({ where: { socioId, canchaId } })).toBe(

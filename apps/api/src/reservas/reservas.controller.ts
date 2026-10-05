@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 
 import { Autenticado, SoloSocio, Yo } from '../identidad/guards';
@@ -14,7 +15,12 @@ import { Autenticado, SoloSocio, Yo } from '../identidad/guards';
 // una firma decorada no puede importarse como valor. Mismo caso que `yo.controller`.
 import type { UsuarioActual } from '../identidad/usuario-actual';
 import { ModificacionService } from './modificacion.service';
-import { destinoDeCuerpo, reservaDeSocioDeCuerpo } from './reservas.dto';
+import { leerDuracion } from './duracion';
+import {
+  destinoDeCuerpo,
+  fechaDeConsulta,
+  reservaDeSocioDeCuerpo,
+} from './reservas.dto';
 import { ReservasService } from './reservas.service';
 
 @Controller('reservas')
@@ -45,6 +51,23 @@ export class ReservasController {
   @Autenticado()
   mias(@Yo() yo: UsuarioActual) {
     return this.modificacion.mias(yo);
+  }
+
+  /** La grilla del día para mover esta reserva, sin contarla a ella (T87). */
+  @Get(':id/grilla')
+  @Autenticado()
+  grillaParaMover(
+    @Yo() yo: UsuarioActual,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('fecha') fecha: string | undefined,
+    @Query('duracion') duracion: string | undefined,
+  ) {
+    return this.modificacion.grillaParaMover(
+      id,
+      yo,
+      fechaDeConsulta(fecha),
+      leerDuracion(duracion),
+    );
   }
 
   /** Mover la hora. De quién es la reserva lo decide el servicio. */

@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { Insignia } from '../../ui/insignia';
 import { enPesos, hoyEnElClub } from '../reloj-del-club';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
 
@@ -9,6 +10,8 @@ interface FranjaNueva {
   horaHasta: string;
   esPico: boolean;
   montoClp: number;
+  /** Vacío es nulo: la hora y media no se vende en esta franja (T79). */
+  montoClp90: number | null;
 }
 
 const EN_BLANCO: FranjaNueva = {
@@ -16,6 +19,8 @@ const EN_BLANCO: FranjaNueva = {
   horaHasta: '18:00',
   esPico: false,
   montoClp: 12000,
+  // Vacío a propósito: un precio sugerido se aceptaría sin mirarlo, y es plata.
+  montoClp90: null,
 };
 
 /**
@@ -28,19 +33,29 @@ const EN_BLANCO: FranjaNueva = {
  */
 @Component({
   selector: 'app-editor-franjas',
-  imports: [FormsModule],
+  imports: [FormsModule, Insignia],
   template: `
     @if (ambito().franjas.length > 0) {
       <ul class="text-sm text-muted-foreground">
         @for (franja of ambito().franjas; track franja.id) {
           <li class="flex flex-wrap items-center gap-2 py-0.5">
             <span>
-              {{ franja.horaDesde }}–{{ franja.horaHasta }}:
+              {{ franja.horaDesde }}–{{ franja.horaHasta }}: 1 hora
               {{ pesos(franja.montoClp) }}
+              @if (franja.montoClp90 !== null) {
+                · 1 hora y media {{ pesos(franja.montoClp90) }}
+              }
               @if (franja.esPico) {
                 · hora pico
               }
             </span>
+            @if (franja.montoClp90 === null) {
+              <!-- Sin ese precio, quien no es socio no puede reservar 1 hora y media en
+                   esta franja (T79). Es una omisión casi siempre, no una decisión. -->
+              <app-insignia variante="aviso" icono="warning">
+                Falta el precio de 1 hora y media
+              </app-insignia>
+            }
             <button
               type="button"
               class="boton boton-texto boton-chico text-destructive"
@@ -91,7 +106,7 @@ const EN_BLANCO: FranjaNueva = {
       </div>
 
       <div>
-        <label [for]="'monto-' + clave()" class="block font-medium">Precio</label>
+        <label [for]="'monto-' + clave()" class="block font-medium">Precio 1 hora</label>
         <input
           type="number"
           min="0"
@@ -100,6 +115,22 @@ const EN_BLANCO: FranjaNueva = {
           [name]="'franja-monto-' + clave()"
           class="campo campo-chico mt-1 w-28"
           [(ngModel)]="nueva.montoClp"
+        />
+      </div>
+
+      <div>
+        <label [for]="'monto90-' + clave()" class="block font-medium">
+          Precio 1 hora y media
+        </label>
+        <input
+          type="number"
+          min="1"
+          step="500"
+          placeholder="No se vende"
+          [id]="'monto90-' + clave()"
+          [name]="'franja-monto90-' + clave()"
+          class="campo campo-chico mt-1 w-28"
+          [(ngModel)]="nueva.montoClp90"
         />
       </div>
 
@@ -145,6 +176,17 @@ export class EditorFranjas {
 
   protected async agregar(): Promise<void> {
     this.error.set(null);
+
+    if (this.nueva.montoClp90 !== null && this.nueva.montoClp90 <= 0) {
+      // Para quien no es socio, cero y vacío dicen lo mismo: la reserva rechaza toda
+      // tarifa de $0 con SIN_TARIFA. Dos formas de decir "no se vende" son una de más,
+      // y la que queda es la que se ve en la lista: el campo vacío.
+      this.error.set(
+        'El precio de 1 hora y media tiene que ser mayor que cero. Para no venderla, deja el precio vacío.',
+      );
+      return;
+    }
+
     this.guardando.set(true);
 
     try {

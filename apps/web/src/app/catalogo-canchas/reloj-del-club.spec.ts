@@ -7,6 +7,7 @@ import {
   horaEnElClub,
   hoyEnElClub,
   mesCortoEnElClub,
+  minutosDe,
   proximosDias,
 } from './reloj-del-club';
 
@@ -116,5 +117,16 @@ describe('diaEnPalabras', () => {
 
   it('no se corre un día: a medianoche UTC en Santiago todavía es ayer', () => {
     expect(diaEnPalabras('2026-11-10')).toContain('martes');
+  });
+});
+
+describe('minutosDe', () => {
+  it('lee lo que dura un bloque o una reserva de su inicio y su fin (T83b)', () => {
+    expect(minutosDe({ inicio: '2026-10-05T22:00:00.000Z', fin: '2026-10-05T23:30:00.000Z' })).toBe(
+      90,
+    );
+    expect(minutosDe({ inicio: '2026-10-05T22:00:00.000Z', fin: '2026-10-05T23:00:00.000Z' })).toBe(
+      60,
+    );
   });
 });

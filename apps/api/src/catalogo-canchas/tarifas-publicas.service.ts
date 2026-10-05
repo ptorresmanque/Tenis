@@ -19,7 +19,13 @@ export interface TarifaPublica {
   horaDesde: string;
   horaHasta: string;
   esPico: boolean;
+  /** El precio de 1 hora. */
   montoClp: number;
+  /**
+   * El de 1 hora y media (T81). Nulo cuando la franja no lo tiene: ahí esa duración no
+   * se vende, y la página publica solo el de 1 hora en vez de inventar un guion o un cero.
+   */
+  montoClp90: number | null;
 }
 
 /**
@@ -56,6 +62,7 @@ export class TarifasPublicasService {
         horaHasta: true,
         esPico: true,
         montoClp: true,
+        montoClp90: true,
         cancha: { select: { nombre: true } },
       },
     });
@@ -74,6 +81,7 @@ export class TarifasPublicasService {
         horaHasta: true,
         esPico: true,
         montoClp: true,
+        montoClp90: true,
       },
     });
 

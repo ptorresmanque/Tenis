@@ -162,7 +162,10 @@ import { Insignia } from '../ui/insignia';
             <div class="min-w-0 flex-1">
               <p class="font-display text-lg font-bold uppercase">{{ libre.cancha }}</p>
               <p class="text-sm text-muted-foreground">
-                Arriendo {{ pesos(libre.montoClp) }}. Socio sin costo.
+                @if (libre.montoClp !== null) {
+                  Arriendo {{ pesos(libre.montoClp) }}.
+                }
+                Socio sin costo.
               </p>
             </div>
             <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
@@ -725,7 +728,9 @@ export class Inicio {
    */
   protected readonly desdeCuanto = computed(() => {
     const precios = this.grillasSeguras()
-      .flatMap(({ bloques }) => bloques.filter((b) => !b.bloqueado).map((b) => b.montoClp));
+      .flatMap(({ bloques }) => bloques.filter((b) => !b.bloqueado).map((b) => b.montoClp))
+      // Nulo solo lo da la hora y media sin precio, y la portada pide la de 1 hora.
+      .filter((monto) => monto !== null);
 
     return precios.length > 0 ? Math.min(...precios) : null;
   });

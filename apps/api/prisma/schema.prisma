@@ -421,8 +421,14 @@ model FranjaHoraria {
   horaDesde String @map("hora_desde") @db.VarChar(5)
   horaHasta String @map("hora_hasta") @db.VarChar(5)
 
-  esPico   Boolean @default(false) @map("es_pico")
-  montoClp Int     @map("monto_clp")
+  esPico     Boolean @default(false) @map("es_pico")
+  /// El precio de 1 hora para el no-socio.
+  montoClp   Int     @map("monto_clp")
+  /// El precio de 1 hora y media (T79). **Nulo = esa duración no se vende a no-socios
+  /// en esta franja**: ni cero, que la grilla mostraría como "$0" aunque la reserva lo
+  /// rechace, ni 1,5 veces la hora, que sería cobrar un precio que el club no decidió.
+  /// Al socio sí se le ofrece: no paga.
+  montoClp90 Int?    @map("monto_clp_90")
 
   /// Vigencia como fechas civiles: una tarifa nueva empieza un día, no a una hora.
   /// Cambiar el monto crea una franja nueva y cierra la anterior, así el precio de
@@ -489,16 +495,17 @@ model ConfiguracionClub {
   telefono  String @default("") @db.VarChar(40)
   email     String @default("") @db.VarChar(120)
 
-  duracionBloqueMin    Int @default(60) @map("duracion_bloque_min")
-  cupoDiarioSocioHoras Int @default(1) @map("cupo_diario_socio_horas")
-  cupoPicoSemanalHoras Int @default(2) @map("cupo_pico_semanal_horas")
+  /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
+  cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
+  /// Reservas pico por semana, de lunes a domingo (T84).
+  cupoPicoSemanalReservas Int @default(2) @map("cupo_pico_semanal_reservas")
   invitadosPorMes      Int @default(4) @map("invitados_por_mes")
   horasMinModificacion Int @default(6) @map("horas_min_modificacion")
   horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")
   /// Cuántos días queda sin reservar el socio que tomó una hora y no la usó (T34).
   diasSancionNoUso     Int @default(15) @map("dias_sancion_no_uso")
 
-  /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras siete: el
+  /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras seis: el
   /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo
   /// que una tabla de precios con vigencia vendría a resolver.
   cuotaMensualClp Int @default(25000) @map("cuota_mensual_clp")
@@ -614,15 +621,20 @@ enum EstadoReserva {
 
 /// Quién ocupa qué cancha y cuándo.
 ///
-/// **La unicidad del bloque la impone la base, no el código** (T2). El índice único
-/// no va sobre `(cancha_id, inicio)` a secas: una cancelada tiene que liberar la hora
-/// y su fila sigue ahí para el historial. Va sobre `inicio_activo`, una columna
-/// generada que vale `inicio` mientras la reserva ocupa el bloque y NULL cuando no —
-/// en MySQL dos NULL no chocan, así que conviven todas las canceladas y a lo sumo una
-/// activa. Está escrita a mano en la migración, como el CHECK de `ConfiguracionClub`:
-/// Prisma no modela columnas generadas, y que la derive la base es justamente el
-/// punto. Una columna que el código tiene que acordarse de anular al cancelar es una
-/// que alguien va a olvidar, y el síntoma sería un bloque que no vuelve a estar libre.
+/// **La unicidad la impone la base, no el código** (T2, y por rango desde T76). Dos
+/// reservas activas de la misma cancha no pueden cruzarse en el tiempo, aunque
+/// empiecen a horas distintas: con 60 y 90 minutos cada media hora, 08:00–09:30 y
+/// 09:00–10:00 se pisan. Lo impone `reserva_sin_cruce`, un único `WITHOUT OVERLAPS`
+/// de MariaDB sobre `(cancha_activa, periodo)`. Prisma no modela períodos ni esa
+/// forma de único, así que está escrito a mano en la migración `reserva_sin_cruce`,
+/// como el CHECK de `ConfiguracionClub`, y abajo aparece **mal descrito a propósito**.
+///
+/// Una cancelada tiene que liberar la hora y su fila sigue ahí para el historial: por
+/// eso la clave no es `cancha_id` sino `cancha_activa`, una columna generada que vale
+/// NULL cuando la reserva ya no ocupa nada, y dos NULL no chocan. Que la derive la
+/// base es justamente el punto: una columna que el código tiene que acordarse de
+/// anular al cancelar es una que alguien va a olvidar, y el síntoma sería una hora que
+/// no vuelve a estar libre.
 model Reserva {
   id Int @id @default(autoincrement())
 
@@ -653,6 +665,20 @@ model Reserva {
   /// cupo sin que haya hecho nada. Mismo criterio que el monto de `Transaccion`.
   esPico Boolean @default(false) @map("es_pico")
 
+  /// El destino de un cambio que espera el pago de la diferencia (T89). Lo aplica la
+  /// vuelta de Webpay y ahí se limpia; si el pago expira, quedan escritas pero
+  /// **inertes**: "hay un cambio en curso" lo dice la transacción PENDIENTE, nunca estas
+  /// columnas, y el próximo cambio las sobrescribe. `cambioEsPico` congela la categoría
+  /// del destino, igual que `esPico`.
+  cambioCanchaId Int?      @map("cambio_cancha_id")
+  cambioInicio   DateTime? @map("cambio_inicio")
+  cambioFin      DateTime? @map("cambio_fin")
+  cambioEsPico   Boolean?  @map("cambio_es_pico")
+  /// La transacción que paga ese destino (revisión de T89). La vuelta de Webpay solo
+  /// mueve la reserva si el pago que vuelve es este: dos pedidos a la vez desde el mismo
+  /// enlace dejarían si no el destino del caro pagado con la diferencia del barato.
+  cambioTransaccionId Int? @map("cambio_transaccion_id")
+
   /// Nulo = no-socio. Su pago vive en `Transaccion` con `concepto: RESERVA` y
   /// `conceptoId` = este id; no se guarda el vínculo inverso para que no haya dos
   /// fuentes que puedan discrepar.
@@ -677,20 +703,22 @@ model Reserva {
   canceladaPorBloqueoId Int? @map("cancelada_por_bloqueo_id")
 
   /// **La escribe la base, nunca la aplicación.** Es una columna generada —
-  /// `IF(estado IN (PENDIENTE_PAGO, CONFIRMADA), inicio, NULL)`, ver la migración— y
-  /// MySQL rechaza cualquier INSERT o UPDATE que le mande un valor. Se declara acá
-  /// solo para que el índice único de abajo exista en el schema y el guardia de
-  /// migraciones no la vea como un cambio sin migrar.
-  inicioActivo DateTime? @map("inicio_activo")
+  /// `IF(estado IN (PENDIENTE_PAGO, CONFIRMADA), cancha_id, NULL)`, ver la migración—
+  /// y MySQL rechaza cualquier INSERT o UPDATE que le mande un valor. Se declara acá
+  /// solo para que el guardia de migraciones no la vea como un cambio sin migrar.
+  canchaActiva Int? @map("cancha_activa")
 
   cancha       Cancha               @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   socio        Socio?               @relation(fields: [socioId], references: [id], onDelete: SetNull)
   acompanantes AcompananteReserva[]
   reportes     ReporteNoUso[]
 
-  /// Un bloque, una reserva activa. Las canceladas y expiradas tienen
-  /// `inicio_activo` nulo y en MySQL dos nulos no chocan, así que conviven todas.
-  @@unique([canchaId, inicioActivo], map: "reserva_bloque_activo")
+  /// **No es un único común: es el `WITHOUT OVERLAPS` de la migración.** Prisma lo
+  /// lee como `(cancha_activa, fin, inicio)` y se declara así solo para que el guardia
+  /// de migraciones no proponga borrarlo. Si una migración futura llega a recrearlo
+  /// desde acá, saldría como único común y dejaría pasar rangos cruzados: el test de
+  /// rangos cruzados de `reservas-concurrencia.spec.ts` es el que lo delataría.
+  @@unique([canchaActiva, fin, inicio], map: "reserva_sin_cruce")
   @@index([canchaId, inicio])
   @@index([socioId, inicio])
   /// El panel del admin pide el día entero, de todas las canchas: filtra por `inicio`
@@ -862,7 +890,7 @@ model InscripcionClase {
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —
   /// `IF(estado = 'CANCELADA', NULL, socio_id)`, ver la migración— con el mismo
-  /// truco que `inicio_activo` en `Reserva`: el único no puede ir sobre
+  /// truco que `cancha_activa` en `Reserva`: el único no puede ir sobre
   /// `(clase_id, socio_id)` a secas porque un socio que canceló tiene que poder
   /// volver a inscribirse, y su fila sigue ahí para el historial.
   socioActivo Int? @map("socio_activo")
@@ -1193,7 +1221,7 @@ model InscripcionTorneo {
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —
   /// `IF(estado = 'RETIRADA', NULL, jugador_id)`— con el mismo truco que
-  /// `inicio_activo` en `Reserva` y `socio_activo` en `InscripcionClase`: el único no
+  /// `cancha_activa` en `Reserva` y `socio_activo` en `InscripcionClase`: el único no
   /// puede ir sobre `(torneo_id, jugador_id)` a secas porque quien se retira por una
   /// lesión y se recupera antes del cierre tiene que poder volver, y su fila se queda
   /// para que el club vea que se bajó.

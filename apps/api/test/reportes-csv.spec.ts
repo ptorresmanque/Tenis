@@ -528,12 +528,12 @@ describe('Reportes: no uso, padrón y CSV', () => {
     });
 
     it('el de la ocupación también', async () => {
-      const json = await pedir<{ bloques: number; ocupados: number }>(
+      const json = await pedir<{ horas: number; ocupados: number }>(
         'ocupacion',
       );
       const csv = await pedirCsv('ocupacion');
 
-      expect(celda(csv, 'Total', 1)).toBe(String(json.bloques));
+      expect(celda(csv, 'Total', 1)).toBe(String(json.horas));
       expect(celda(csv, 'Total', 2)).toBe(String(json.ocupados));
     });
 

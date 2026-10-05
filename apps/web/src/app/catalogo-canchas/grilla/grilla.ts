@@ -1,101 +1,79 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, Directive, computed, inject, resource, signal } from '@angular/core';
+import {
+  Component,
+  Directive,
+  computed,
+  inject,
+  linkedSignal,
+  resource,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { ReportesDelSocio } from '../../reservas/reportes.service';
-import { mensajeDeRechazo, Reservas } from '../../reservas/reservas.service';
 import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
-import { BloqueDisponible, Cancha, Disponibilidad } from '../disponibilidad';
 import {
-  diaEnPalabras,
-  enPesos,
-  hoyEnElClub,
-  horaEnElClub,
-  proximosDias,
-} from '../reloj-del-club';
+  BloqueDisponible,
+  Cancha,
+  Disponibilidad,
+  DuracionMin,
+} from '../disponibilidad';
+import { enPesos, hoyEnElClub, horaEnElClub } from '../reloj-del-club';
 import { nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
-
-/** Una hora de la grilla, con lo que pasa en cada cancha. */
-export interface Franja {
-  inicio: string;
-  fin: string;
-  libres: { cancha: Cancha; bloque: BloqueDisponible }[];
-  /**
-   * Las horas tomadas del propio socio que ya pasaron y sobre las que
-   * puede reportar que nadie las usó (T35).
-   *
-   * Van aparte de la cuenta de ocupadas porque son las únicas ocupadas
-   * que necesitan seguir siendo un elemento con un botón: agrupar por hora
-   * convirtió el resto en un número, y con ellas eso habría borrado la
-   * función sin que nadie lo notara hasta que el club preguntara por qué
-   * dejaron de llegar reportes.
-   */
-  reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
-  ocupadas: number;
-  enMantencion: number;
-  esPico: boolean;
-  /** Sin libres por haber pasado, que no es lo mismo que un club lleno. */
-  yaPaso: boolean;
-}
+import {
+  agruparPorHora,
+  agruparPorInicio,
+  Banda,
+  precioDeLaHora,
+  TARIFA_DEL_SOCIO,
+  yaEmpezo,
+} from './bandas';
+import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
+import { MoverReserva } from './mover-reserva';
+import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
+import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
 
 /**
- * Le pone tipo al `let-franja` de la plantilla de la franja.
+ * Le pone tipo al `let-banda` de la plantilla de la banda.
  *
  * Sin esto el `ng-template` le da `any` y el compilador deja de revisar esa
  * parte de la plantilla: en la revisión de TV5.1 un campo inventado,
  * `franja.libresQueNoExisten`, compilaba igual. Con el `@for` de antes eso no
  * pasaba.
  */
-@Directive({ selector: 'ng-template[appFranjaTipada]' })
-export class FranjaTipada {
+@Directive({ selector: 'ng-template[appBandaTipada]' })
+export class BandaTipada {
   static ngTemplateContextGuard(
-    _directiva: FranjaTipada,
+    _directiva: BandaTipada,
     contexto: unknown,
-  ): contexto is { $implicit: Franja } {
+  ): contexto is { $implicit: Banda } {
     // El contexto de un ng-template es siempre un objeto; lo que importa es el
     // tipo que esta firma le da al compilador.
     return typeof contexto === 'object';
   }
 }
 
-/**
- * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
- * hora sino su cuota mensual.
- *
- * En un solo lugar porque aparece en el bloque, en la etiqueta accesible y en la
- * barra de abajo: el día que el club cobre la hora pico al socio, un "sin costo"
- * suelto habría quedado en dos de los tres y nadie lo notaría hasta que reclamen.
- *
- * No viene del servidor a propósito. `BloqueDisponible.montoClp` es la tarifa del
- * no-socio, y el contrato de `catalogo-canchas` no tiene ni tiene por qué tener un
- * precio por tipo de persona.
- */
-const TARIFA_DEL_SOCIO = 'sin costo';
-
-/**
- * Si la hora ya empezó, según el reloj de quien mira.
- *
- * La API rechaza reservar una hora que ya empezó (`BLOQUE_EN_EL_PASADO`), y la
- * grilla no ofrece lo que la API va a rechazar: a las 16:40 ofrecía la de las
- * 08:00. El filtro va acá y no en la disponibilidad pública porque el mesón lee el
- * mismo endpoint y sí puede tomar la hora que está corriendo. Si el reloj del
- * navegador anda mal, manda la API.
- */
-function yaEmpezo(bloque: BloqueDisponible): boolean {
-  return new Date(bloque.inicio).getTime() <= Date.now();
-}
-
 @Component({
   selector: 'app-grilla',
-  imports: [NgTemplateOutlet, FranjaTipada, Reservar, BarraFija, EstadoVacio, Insignia, Selector],
+  imports: [
+    NgTemplateOutlet,
+    BandaTipada,
+    Reservar,
+    BarraFija,
+    ControlesDelDia,
+    EstadoVacio,
+    Insignia,
+    ResumenDeLaEleccion,
+    ResumenDelCambio,
+  ],
+  providers: [MoverReserva],
   host: {
     class: 'block',
     // La barra fija tapa la última fila de bloques si no se le deja aire, y el
@@ -105,11 +83,16 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Disponibilidad</h1>
 
-    @if (moviendo() !== null) {
-      <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" tiene
-           que saber que el proximo clic mueve su hora en vez de tomar una nueva. -->
+    @if (mover.activo()) {
+      <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" o desde
+           el enlace tiene que saber que el próximo clic mueve su hora en vez de tomar
+           una nueva. Y quien pagó, la regla de la plata, antes de elegir (T88). -->
       <p class="mt-3 rounded-lg bg-muted p-3 font-medium">
         Elige la nueva hora para tu reserva. La que tenías queda liberada.
+        @if (mover.pagadoPorElEnlace(); as pagado) {
+          Pagaste {{ pesos(pagado) }}: si la nueva vale menos, no se devuelve la
+          diferencia.
+        }
       </p>
     }
 
@@ -119,63 +102,18 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
       </p>
     }
 
-    @if (errorAlMover(); as falla) {
+    @if (mover.error(); as falla) {
       <p role="alert" class="mt-3 rounded-lg bg-destructive/10 p-3 text-destructive">
         {{ falla }}
       </p>
     }
 
-    <div class="mt-4 flex flex-wrap items-end gap-4">
-      <!-- La semana a un toque. El calendario sigue estando al lado para ir más
-           lejos: siete chips cubren lo que la gente reserva de verdad, y el resto
-           no justifica un calendario propio pudiendo usar el del sistema.
-
-           A ancho completo: compartiendo fila con el campo de fecha, los siete
-           chips no llegaban a encogerse. -->
-      <app-selector
-        class="w-full"
-        etiqueta="Día"
-        estilo="chips"
-        [opciones]="chipsDeDia()"
-        [valor]="fecha()"
-        (valorChange)="fecha.set($event)"
-      />
-
-      <div>
-        <label for="fecha" class="block text-sm font-medium">Otro día</label>
-        <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
-             etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
-        <input
-          id="fecha"
-          type="date"
-          class="campo mt-1 w-auto cursor-pointer py-2 transition-colors
-                 hover:border-primary"
-          [value]="fecha()"
-          (change)="cambiarFecha($event)"
-        />
-      </div>
-    </div>
-
-    <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
-
-    <!-- Los filtros salen de lo que la cancha ya declara —techada e
-         iluminación—, así que filtran en el navegador sobre lo que ya llegó:
-         una consulta más al servidor no traería nada nuevo. -->
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Filtrar canchas"
-      [opciones]="FILTROS"
-      [valor]="filtro()"
-      (valorChange)="filtro.set($event)"
+    <app-controles-del-dia
+      [(fecha)]="fecha"
+      [duracion]="duracion()"
+      [(filtro)]="filtro"
+      (cambiarDuracion)="elegirDuracion($event)"
     />
-
-    <!-- La leyenda no es decoración: los tres estados se distinguen por color,
-         forma e ícono, y esto es lo que dice qué significa cada uno. -->
-    <ul class="mt-4 flex flex-wrap gap-2">
-      <li><app-insignia variante="libre">Libre</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="lock">Ocupado</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="build">En mantención</app-insignia></li>
-    </ul>
 
     <!-- Los cambios de estado se anuncian: quien usa lector de pantalla no ve
          que la grilla se repobló. -->
@@ -202,6 +140,22 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
             (click)="filtro.set('todas')"
           >
             Ver todas las canchas
+          </button>
+        </app-estado-vacio>
+      } @else if (sinHoraYMediaEnElDia()) {
+        <!-- Lo mismo que el filtro que no deja canchas: sin esto eran 27 filas con el
+             mismo "no se arrienda", y la salida no estaba en ninguna. -->
+        <app-estado-vacio
+          icono="schedule"
+          titulo="Este día no se arrienda 1 hora y media"
+          detalle="El club no la ofrece este día a quien no es socio."
+        >
+          <button
+            type="button"
+            class="boton boton-primario"
+            (click)="elegirDuracion('60')"
+          >
+            Ver horas de 1 hora
           </button>
         </app-estado-vacio>
       } @else {
@@ -253,66 +207,104 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
             </span>
           }
         </summary>
-        @for (franja of pasadas(); track franja.inicio) {
+        @for (banda of pasadas(); track banda.hora) {
           <ng-container
-            [ngTemplateOutlet]="franjaTpl"
-            [ngTemplateOutletContext]="{ $implicit: franja }"
+            [ngTemplateOutlet]="bandaTpl"
+            [ngTemplateOutletContext]="{ $implicit: banda }"
           />
         }
       </details>
     }
 
-    @for (franja of vigentes(); track franja.inicio) {
+    @for (banda of sinHoraYMediaEnElDia() ? [] : vigentes(); track banda.hora) {
       <ng-container
-        [ngTemplateOutlet]="franjaTpl"
-        [ngTemplateOutletContext]="{ $implicit: franja }"
+        [ngTemplateOutlet]="bandaTpl"
+        [ngTemplateOutletContext]="{ $implicit: banda }"
       />
     }
 
-    <!-- Una franja: se escribe una vez y se usa dentro y fuera del pliegue. -->
-    <ng-template #franjaTpl appFranjaTipada let-franja>
+    <!-- Una banda: se escribe una vez y se usa dentro y fuera del pliegue. -->
+    <ng-template #bandaTpl appBandaTipada let-banda>
       <section class="mt-6 border-t border-border pt-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <!-- Las etiquetas van pegadas a propósito: un salto de línea entre
-               ellas mete un espacio en blanco y en pantalla se lee "08:00 –09:00",
-               con el guion suelto. -->
-          <!-- La hora en un rótulo de color (TV5.1): campo, o ámbar suave si es
-               hora pico. No una franja lateral: esa barra en el canto es el tell
-               de interfaz generada que el lint de franjas prohíbe. -->
-          <h2 class="flex items-baseline font-display leading-none">
+          <!-- La hora en un rótulo de color (TV5.1): campo, o ámbar suave si toda la
+               hora es pico. No una franja lateral: esa barra en el canto es el tell
+               de interfaz generada que el lint de franjas prohíbe. "08 h" se oye mal;
+               el lector oye "A las 8". Relativo por la trampa del sr-only. -->
+          <h2 class="relative font-display leading-none">
             <span
               class="rotulo-hora px-2 py-1 text-3xl"
-              [class.rotulo-hora-pico]="franja.esPico"
-              >{{ hora(franja.inicio) }}</span
-            ><span class="ms-1 text-lg font-semibold text-muted-foreground"
-              >–{{ hora(franja.fin) }}</span
+              [class.rotulo-hora-pico]="banda.pico === true"
+              aria-hidden="true"
+              >{{ banda.hora }} h</span
             >
+            <span class="sr-only">{{ banda.nombre }}</span>
           </h2>
 
-          <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
+          <!-- Lo que los dos inicios dicen igual se dice una vez (T83a). -->
+          @if (banda.precioComun || banda.pico === true) {
+            <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
+              @if (banda.precioComun) {
+                <span class="text-muted-foreground">Socio {{ tarifaDelSocio }}</span>
+                @if (banda.precio !== null) {
+                  <span class="text-muted-foreground" aria-hidden="true">·</span>
+                  <span class="text-muted-foreground">
+                    Arriendo
+                    <strong class="text-accent-strong">{{ banda.precio }}</strong>
+                  </span>
+                }
+              }
+              @if (banda.pico === true) {
+                <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+              }
+            </p>
+          }
+        </div>
+
+        @if (banda.enMantencion !== null) {
+          <p class="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground">
+            <span class="icono text-base" aria-hidden="true">build</span>
+            {{ banda.enMantencion }} en mantención
+          </p>
+        }
+
+        @for (franja of banda.franjas; track franja.inicio) {
+        <div class="mt-4" [attr.data-inicio]="franja.inicio">
+          <!-- Las etiquetas van pegadas a propósito: un salto de línea entre ellas
+               mete un espacio en blanco y en pantalla se lee "08:00 –09:00". -->
+          <p class="flex flex-wrap items-baseline gap-x-2">
+            <span class="font-display text-xl font-bold"
+              >{{ hora(franja.inicio) }}–{{ hora(franja.fin) }}</span
+            >
             @if (franja.libres.length > 0) {
-              <span class="font-semibold text-accent-strong">
+              <span class="text-sm font-semibold text-accent-strong">
                 {{ franja.libres.length }}
                 {{ franja.libres.length === 1 ? 'libre' : 'libres' }}
               </span>
-              <span class="text-muted-foreground">Socio {{ tarifaDelSocio }}</span>
-              <span class="text-muted-foreground" aria-hidden="true">·</span>
-              <span class="text-muted-foreground">
-                Arriendo
-                <strong class="text-accent-strong">
-                  {{ precioDeLaHora(franja.libres) }}
-                </strong>
+              @if (!banda.precioComun) {
+                <!-- Este inicio cae en otra franja que su hermano: dice lo suyo. -->
+                <span class="text-sm text-muted-foreground">
+                  Socio {{ tarifaDelSocio }}
+                  @if (precioDeLaHora(franja.libres); as precio) {
+                    · Arriendo <strong class="text-accent-strong">{{ precio }}</strong>
+                  }
+                </span>
+              }
+            } @else if (franja.soloSocios > 0 && !franja.yaPaso) {
+              <!-- Hay canchas libres, pero esta duración no se le vende a quien no es
+                   socio: "sin canchas libres" sería falso. -->
+              <span class="text-sm font-medium text-muted-foreground">
+                No se arrienda por 1 hora y media a esta hora
               </span>
             } @else {
-              <span class="font-medium text-muted-foreground">
+              <span class="text-sm font-medium text-muted-foreground">
                 {{ franja.yaPaso ? 'Ya pasó' : 'Sin canchas libres' }}
               </span>
             }
-            @if (franja.esPico) {
+            @if (banda.pico === null && franja.esPico) {
               <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
             }
           </p>
-        </div>
 
         @if (franja.libres.length > 0) {
           <ul class="mt-3 flex flex-wrap gap-2">
@@ -383,7 +375,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
         <!-- Lo que no se puede tomar se cuenta, no se esconde: que a las 19:00
              haya seis ocupadas es información, y borrarla haría que esa hora se
              viera igual que una que el club no abre. -->
-        @if (franja.ocupadas > 0 || franja.enMantencion > 0) {
+        @if (franja.ocupadas > 0 || (franja.enMantencion > 0 && banda.enMantencion === null)) {
           <p class="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
             @if (franja.ocupadas > 0) {
               <span class="inline-flex items-center gap-1">
@@ -392,7 +384,7 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
                 {{ franja.ocupadas === 1 ? 'ocupada' : 'ocupadas' }}
               </span>
             }
-            @if (franja.enMantencion > 0) {
+            @if (franja.enMantencion > 0 && banda.enMantencion === null) {
               <span class="inline-flex items-center gap-1">
                 <span class="icono text-base" aria-hidden="true">build</span>
                 {{ franja.enMantencion }} en mantención
@@ -400,43 +392,36 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
             }
           </p>
         }
+        </div>
+        }
       </section>
     </ng-template>
 
-    <!-- Elegir y reservar quedaron separados: el bloque se marca, la barra dice
-         qué se marcó y con cuánto, y recién "Reservar" abre el formulario. El
-         diálogo que ya existía sigue siendo el que pide acompañantes y cobra. -->
+    <!-- Elegir y reservar quedaron separados: el bloque se marca y la barra dice qué
+         se marcó y con cuánto antes del botón. Desde el enlace, con plata en juego, dice
+         la diferencia (T91). -->
     @if (elegido(); as eleccion) {
+      @let pagado = mover.pagadoPorElEnlace();
       <app-barra-fija>
-        <div role="status" aria-live="polite">
-          <!-- Lo elegido, en rótulo (TV5.1): es la pieza que se lee de un vistazo
-               antes de apretar "Reservar". -->
-          <p
-            class="inline-flex bg-rotulo py-1 ps-3 font-display text-lg font-bold tracking-wide
-                   text-on-rotulo uppercase corte-fin"
-          >
-            {{ eleccion.cancha.nombre }} ·
-            {{ hora(eleccion.bloque.inicio) }}–{{ hora(eleccion.bloque.fin) }}
-          </p>
-          <p class="mt-1 text-sm text-muted-foreground">
-            Socio {{ tarifaDelSocio }} · Arriendo
-            <span class="font-semibold text-accent-strong">
-              {{ pesos(eleccion.bloque.montoClp) }}
-            </span>
-            @if (eleccion.bloque.esPico) {
-              · Hora pico
-            }
-          </p>
-        </div>
-
-        <div class="flex gap-2">
-          <button type="button" class="boton boton-texto" (click)="elegido.set(null)">
-            Soltar
-          </button>
-          <button type="button" class="boton boton-primario" (click)="reservar()">
-            Reservar
-          </button>
-        </div>
+        <!-- Por el modo y no por lo pagado: desde el enlace, "Reservar" abriría una reserva
+             nueva en vez de cambiar la suya. -->
+        @if (mover.porToken() === null) {
+          <app-resumen-de-la-eleccion
+            [cancha]="eleccion.cancha"
+            [bloque]="eleccion.bloque"
+            (soltar)="elegido.set(null)"
+            (reservar)="reservar()"
+          />
+        } @else if (pagado !== null) {
+          <app-resumen-del-cambio
+            [cancha]="eleccion.cancha"
+            [bloque]="eleccion.bloque"
+            [pagadoClp]="pagado"
+            [enviando]="mover.enviando()"
+            (soltar)="elegido.set(null)"
+            (confirmar)="mover.cambiarPorEnlace(eleccion)"
+          />
+        }
       </app-barra-fija>
     }
 
@@ -493,33 +478,49 @@ function yaEmpezo(bloque: BloqueDisponible): boolean {
 })
 export class Grilla {
   private readonly disponibilidad = inject(Disponibilidad);
-  private readonly reservas = inject(Reservas);
+  protected readonly mover = inject(MoverReserva);
   private readonly reportes = inject(ReportesDelSocio);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
-  private readonly parametros = toSignal(inject(ActivatedRoute).queryParamMap);
+  private readonly ruta = inject(ActivatedRoute);
+  private readonly parametros = toSignal(this.ruta.queryParamMap);
 
-  protected readonly fecha = signal(hoyEnElClub());
+  /** Solo la fecha de la URL: cambiar la duración rehace la URL y no tiene que mover el día. */
+  private readonly fechaDeLaUrl = computed(() => this.parametros()?.get('fecha') ?? null);
 
   /**
-   * La reserva que se está reubicando, si se llegó desde "mis reservas".
-   *
-   * El modo viaja en la URL y no en un servicio compartido: así sobrevive a un
-   * refresco y a compartir el enlace, y quien no viene de ahí no paga nada.
+   * El día que se mira. Arranca en el de la URL si viene —el enlace de mover lleva el de la
+   * reserva, para alargarla sin ir a buscar su día— y si no, en hoy. Una fecha pasada o mal
+   * escrita también cae en hoy: la grilla no vende horas que ya pasaron.
    */
-  protected readonly moviendo = computed(() => {
-    const id = Number(this.parametros()?.get('mover'));
+  protected readonly fecha = linkedSignal(() => {
+    const pedida = this.fechaDeLaUrl();
+    const hoy = hoyEnElClub();
 
-    return Number.isInteger(id) && id > 0 ? id : null;
+    return pedida && /^\d{4}-\d{2}-\d{2}$/.test(pedida) && pedida >= hoy ? pedida : hoy;
   });
 
-  protected readonly errorAlMover = signal<string | null>(null);
+  /**
+   * Cuánto dura la reserva que se busca (T83b). Vive en la URL, como `mover`: recargar no
+   * la pierde y el enlace compartido muestra lo mismo. Sin el parámetro, 1 hora.
+   */
+  protected readonly duracion = computed<DuracionMin>(() =>
+    this.parametros()?.get('duracion') === '90' ? 90 : 60,
+  );
+
   protected readonly avisoDeReporte = signal<string | null>(null);
-  protected readonly enviandoMovimiento = signal(false);
 
   protected readonly grillas = resource({
-    params: () => ({ fecha: this.fecha() }),
-    loader: ({ params }) => this.disponibilidad.delDia(params.fecha),
+    params: () => ({
+      fecha: this.fecha(),
+      duracion: this.duracion(),
+      porId: this.mover.porId(),
+      porToken: this.mover.porToken(),
+    }),
+    // Al mover, el día sin contar la reserva que se mueve: ver `MoverReserva.grillaDelDia`.
+    loader: ({ params }) =>
+      this.mover.grillaDelDia(params) ??
+      this.disponibilidad.delDia(params.fecha, params.duracion),
     // El valor por defecto evita el `undefined` mientras carga, pero **no** que
     // `value()` lance cuando la carga falla: lo que lo lee fuera de la rama del
     // error pregunta antes `hasValue()`.
@@ -579,88 +580,52 @@ export class Grilla {
 
   protected readonly filtro = signal('todas');
 
-  protected readonly FILTROS = [
-    { valor: 'todas', etiqueta: 'Todas' },
-    { valor: 'techadas', etiqueta: 'Techadas' },
-    { valor: 'iluminacion', etiqueta: 'Con iluminación' },
-    { valor: 'aire-libre', etiqueta: 'Al aire libre' },
-  ];
-
-  /**
-   * Las canchas que pasan el filtro.
-   *
-   * "Al aire libre" es lo contrario de techada y no un atributo propio: si fuera
-   * un tercer campo del modelo, tarde o temprano existiría una cancha marcada
-   * como techada y al aire libre a la vez.
-   */
+  /** Las canchas que pasan el filtro: ver `pasaElFiltro`. */
   protected readonly visibles = computed(() => {
     const filtro = this.filtro();
     const grillas = this.grillas.hasValue() ? this.grillas.value() : [];
 
-    return grillas.filter(({ cancha }) => {
-      switch (filtro) {
-        case 'techadas':
-          return cancha.techada;
-        case 'iluminacion':
-          return cancha.iluminacion;
-        case 'aire-libre':
-          return !cancha.techada;
-        default:
-          return true;
-      }
-    });
+    return grillas.filter(({ cancha }) => pasaElFiltro(cancha, filtro));
   });
+
+  /** El día por inicio: ver `agruparPorInicio`. */
+  protected readonly porHora = computed(() =>
+    agruparPorInicio(this.visibles(), {
+      reportable: (bloque) => this.reportable(bloque) !== undefined,
+      noSeLeVende: (bloque) => this.noSeLeVende(bloque),
+    }),
+  );
+
+  /** Los inicios juntos por hora del reloj: ver `agruparPorHora`. */
+  protected readonly bandas = computed(() => agruparPorHora(this.porHora()));
 
   /**
-   * El día entero, agrupado por hora y no por cancha.
-   *
-   * **Es el cambio de eje que decidió el club el 2026-09-08**, y la razón está
-   * en la pregunta que trae el socio: *cuándo* puedo jugar. Agrupada por cancha,
-   * esa pregunta se responde recorriendo ocho listas y comparándolas de memoria;
-   * agrupada por hora se responde de un vistazo.
-   *
-   * Lo que arregla de paso: con ocho canchas y catorce bloques, la pantalla eran
-   * 112 tarjetas, que a dos columnas dan 56 filas y **10.223px de alto en un
-   * teléfono**. Por hora son catorce bandas.
-   *
-   * Las canchas que no se pueden tomar no desaparecen: se cuentan. Saber que a
-   * las 19:00 hay seis ocupadas y ninguna libre es información, y borrarla haría
-   * que esa hora se viera igual que una que el club no abre.
+   * Las horas que ya pasaron, que van plegadas (decisión 9 del plan, TV5.1). Una banda se
+   * pliega entera solo si pasaron todos sus inicios: con el :00 pasado y el :30 por venir
+   * queda a la vista, y su :00 dice "Ya pasó".
    */
-  protected readonly porHora = computed(() => {
-    const horas = new Map<string, Franja>();
-
-    for (const { cancha, bloques } of this.visibles()) {
-      for (const bloque of bloques) {
-        const franja = horas.get(bloque.inicio) ?? {
-          inicio: bloque.inicio,
-          fin: bloque.fin,
-          libres: [],
-          reportables: [],
-          ocupadas: 0,
-          enMantencion: 0,
-          esPico: bloque.esPico,
-          yaPaso: yaEmpezo(bloque),
-        };
-
-        if (bloque.bloqueado) franja.enMantencion++;
-        else if (bloque.reservado) {
-          franja.ocupadas++;
-          if (this.reportable(bloque)) franja.reportables.push({ cancha, bloque });
-        } else if (!yaEmpezo(bloque)) franja.libres.push({ cancha, bloque });
-
-        horas.set(bloque.inicio, franja);
-      }
-    }
-
-    return [...horas.values()].sort((una, otra) => una.inicio.localeCompare(otra.inicio));
-  });
-
-  /** Las franjas que ya pasaron, que van plegadas (decisión 9 del plan, TV5.1). */
-  protected readonly pasadas = computed(() => this.porHora().filter((franja) => franja.yaPaso));
+  protected readonly pasadas = computed(() =>
+    this.bandas().filter((banda) => banda.franjas.every((franja) => franja.yaPaso)),
+  );
 
   /** Las que todavía se pueden mirar con algo que hacer: van a la vista. */
-  protected readonly vigentes = computed(() => this.porHora().filter((franja) => !franja.yaPaso));
+  protected readonly vigentes = computed(() =>
+    this.bandas().filter((banda) => banda.franjas.some((franja) => !franja.yaPaso)),
+  );
+
+  /**
+   * Al visitante no le queda en el día ningún inicio de 1 hora y media que se le venda, y
+   * alguno estaba libre: lo que falta es el precio, no canchas (T83b). `soloSocios` no
+   * cuenta nada para el socio ni con 1 hora.
+   */
+  protected readonly sinHoraYMediaEnElDia = computed(() => {
+    const quedan = this.porHora().filter((franja) => !franja.yaPaso);
+
+    return (
+      quedan.some((franja) => franja.soloSocios > 0) &&
+      quedan.every((franja) => franja.libres.length === 0)
+    );
+  });
 
   /**
    * Si dentro del pliegue hay una hora propia que todavía se puede reportar.
@@ -669,38 +634,17 @@ export class Grilla {
    * encuentra es una función perdida: el título del grupo lo avisa.
    */
   protected readonly hayQueReportar = computed(() =>
-    this.pasadas().some(({ reportables }) =>
-      reportables.some(({ bloque }) => {
-        const reporte = this.reportable(bloque);
-        return reporte !== undefined && !reporte.yaReportada;
-      }),
+    this.pasadas().some((banda) =>
+      banda.franjas.some(({ reportables }) =>
+        reportables.some(({ bloque }) => {
+          const reporte = this.reportable(bloque);
+          return reporte !== undefined && !reporte.yaReportada;
+        }),
+      ),
     ),
   );
 
-  /**
-   * Lo que cuesta arrendar en esa hora.
-   *
-   * Casi siempre es un solo monto para todas las canchas, y entonces se dice una
-   * vez arriba en vez de repetirlo en cada chip. Cuando el club cobra distinto
-   * por cancha, se dice "desde" y el monto de cada una viaja en su etiqueta
-   * accesible, que es donde ya estaba.
-   */
-  protected precioDeLaHora(libres: { bloque: BloqueDisponible }[]): string {
-    const montos = [...new Set(libres.map(({ bloque }) => bloque.montoClp))];
-
-    return montos.length === 1
-      ? enPesos(montos[0])
-      : `desde ${enPesos(Math.min(...montos))}`;
-  }
-
-  /** Los siete chips de la tira de días, empezando por hoy. */
-  protected readonly chipsDeDia = computed(() =>
-    proximosDias(7).map((dia) => ({
-      valor: dia.fecha,
-      etiqueta: dia.etiqueta,
-      sub: dia.numero,
-    })),
-  );
+  protected readonly precioDeLaHora = precioDeLaHora;
 
   protected estaElegido(bloque: BloqueDisponible): boolean {
     const eleccion = this.elegido();
@@ -743,7 +687,17 @@ export class Grilla {
   }
 
   protected noSePuedeTomar(bloque: BloqueDisponible): boolean {
-    return bloque.bloqueado || bloque.reservado || yaEmpezo(bloque);
+    return (
+      bloque.bloqueado ||
+      bloque.reservado ||
+      yaEmpezo(bloque) ||
+      this.noSeLeVende(bloque)
+    );
+  }
+
+  /** Sin precio de esa duración no se le vende a quien no es socio (T79, T83b). */
+  private noSeLeVende(bloque: BloqueDisponible): boolean {
+    return bloque.montoClp === null && !this.esSocio();
   }
 
   /**
@@ -755,12 +709,21 @@ export class Grilla {
    * porque le gasta al socio un cupo semanal del que solo tiene dos.
    */
   protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
-    const que = this.moviendo() !== null ? 'Mover tu reserva a' : 'Elegir';
+    const que = this.mover.activo() ? 'Mover tu reserva a' : 'Elegir';
+    const pagado = this.mover.pagadoPorElEnlace();
+
+    // Desde el enlace, quien ya pagó oye lo que le costaría el cambio, no la tarifa del
+    // socio ni el arriendo: es la pregunta que trae (T91).
+    const costo =
+      pagado !== null && bloque.montoClp !== null
+        ? `, ${minuscula(textoDeLaDiferencia(bloque.montoClp, pagado))}`
+        : `, socio ${TARIFA_DEL_SOCIO}` +
+          // Sin precio de esa duración no hay arriendo que anunciar: solo lo ve el socio.
+          (bloque.montoClp !== null ? `, arriendo ${this.pesos(bloque.montoClp)}` : '');
 
     return (
       `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
-      `${this.hora(bloque.fin)}, socio ${TARIFA_DEL_SOCIO}, ` +
-      `arriendo ${this.pesos(bloque.montoClp)}` +
+      `${this.hora(bloque.fin)}${costo}` +
       (bloque.esPico ? ', hora pico' : '')
     );
   }
@@ -771,33 +734,19 @@ export class Grilla {
   ): Promise<void> {
     if (this.noSePuedeTomar(bloque)) return;
 
-    const reservaId = this.moviendo();
+    // Desde el enlace, sin saber cuánto pagó no hay diferencia que decirle: el clic espera
+    // a que llegue en vez de marcar una hora que no se puede confirmar.
+    if (this.mover.porToken() !== null && this.mover.pagadoPorElEnlace() === null) return;
 
-    if (reservaId === null) {
+    // Fuera de "mis reservas" el clic marca la hora: para reservarla, o —desde el
+    // enlace— para ver la diferencia antes de confirmar el cambio (T91). Solo el socio
+    // mueve al tiro: no paga, y no hay plata que decirle antes.
+    if (this.mover.porId() === null) {
       this.elegido.set({ cancha, bloque });
       return;
     }
 
-    // Un solo movimiento en vuelo: con la red lenta, quien no ve reacción toca otro
-    // bloque, y dos PATCH dejan la reserva donde responda el último, no donde eligió.
-    if (this.enviandoMovimiento()) return;
-
-    this.enviandoMovimiento.set(true);
-    this.errorAlMover.set(null);
-
-    try {
-      await this.reservas.mover(reservaId, {
-        canchaId: cancha.id,
-        inicio: bloque.inicio,
-      });
-      await this.router.navigate(['/mis-reservas']);
-    } catch (falla) {
-      // Se queda en la grilla a propósito: la hora que eligió no se pudo, pero las
-      // otras siguen ahí y volver atrás para reintentar sería un paso de más.
-      this.errorAlMover.set(mensajeDeRechazo(falla).mensaje);
-    } finally {
-      this.enviandoMovimiento.set(false);
-    }
+    await this.mover.moverAlTiro({ cancha, bloque });
   }
 
   /**
@@ -815,22 +764,28 @@ export class Grilla {
     });
   }
 
-  protected cambiarFecha(evento: Event): void {
-    const valor = (evento.target as HTMLInputElement).value;
-
-    // El input vacío —se puede borrar con el teclado— no dispara una consulta
-    // que la API va a rechazar.
-    if (valor) {
-      this.fecha.set(valor);
-    }
+  protected elegirDuracion(valor: string): void {
+    // Lo marcado era un bloque de la otra duración: su fin y su precio ya no valen.
+    this.elegido.set(null);
+    void this.router.navigate([], {
+      relativeTo: this.ruta,
+      // Nulo la saca de la URL: 1 hora es la de siempre y no necesita decirse.
+      queryParams: { duracion: valor === '90' ? 90 : null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
-  protected readonly diaEnPalabras = diaEnPalabras;
 
   protected readonly motivo = nombreDelMotivo;
 
   protected readonly superficie = nombreDeSuperficie;
+}
+
+/** "Vale $12.000: …" dicho a mitad de una frase. */
+function minuscula(texto: string): string {
+  return texto.charAt(0).toLowerCase() + texto.slice(1).replace(/\.$/, '');
 }

@@ -41,7 +41,8 @@ export const CORTES_DE_OCUPACION: Record<CorteDeOcupacion, string> = {
 
 export interface FilaDeOcupacion {
   etiqueta: string;
-  bloques: number;
+  /** En horas de reloj, con medias horas si las hay (T77). */
+  horas: number;
   ocupados: number;
   cerrados: number;
   libres: number;
@@ -53,7 +54,7 @@ export interface ReporteDeOcupacion {
   desde: string;
   hasta: string;
   corte: CorteDeOcupacion;
-  bloques: number;
+  horas: number;
   ocupados: number;
   cerrados: number;
   libres: number;

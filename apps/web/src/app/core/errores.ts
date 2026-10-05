@@ -2,8 +2,8 @@
  * El mensaje que mandó el servidor, listo para mostrar.
  *
  * Se prefiere al genérico porque dice qué arreglar: "Ya hay una cancha con ese
- * nombre" o "La duración del bloque no puede pasar de 240" resuelven el problema,
- * y "algo salió mal" obliga a adivinar.
+ * nombre" o "El club necesita un nombre" resuelven el problema, y "algo salió mal"
+ * obliga a adivinar.
  *
  * `message` puede venir como texto o como lista —`ValidationPipe` de Nest devuelve
  * un arreglo cuando falla más de un campo—, y de ahí las dos ramas.

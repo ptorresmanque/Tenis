@@ -168,11 +168,15 @@ describe('Bloqueos por mantención', () => {
 
     await bloquear().expect(201);
 
-    // 10:00 y 11:00 del club son 14:00Z y 15:00Z en agosto.
+    // Mantención de 10:00 a 12:00 del club (14:00Z a 16:00Z en agosto): se cierran los
+    // cinco inicios cuya hora la toca, de las 09:30 a las 11:30 (T78).
     const despues = await grillaDelLunes();
     expect(despues.filter((b) => b.bloqueado).map((b) => b.inicio)).toEqual([
+      '2026-08-17T13:30:00.000Z',
       '2026-08-17T14:00:00.000Z',
+      '2026-08-17T14:30:00.000Z',
       '2026-08-17T15:00:00.000Z',
+      '2026-08-17T15:30:00.000Z',
     ]);
     expect(despues.find((b) => b.bloqueado)?.motivoBloqueo).toBe('MANTENCION');
   });
@@ -249,8 +253,9 @@ describe('Bloqueos por mantención', () => {
 
     const bloques = await grillaDelLunes();
 
-    // Desde las 10:00 del lunes, todo lo que queda del día cae adentro.
-    expect(bloques.filter((b) => !b.bloqueado)).toHaveLength(2);
+    // Desde las 10:00 del lunes, todo lo que queda del día cae adentro. Libres quedan
+    // los tres inicios que terminan a más tardar a las 10:00: 08:00, 08:30 y 09:00.
+    expect(bloques.filter((b) => !b.bloqueado)).toHaveLength(3);
   });
 
   describe('rangos que no sirven', () => {

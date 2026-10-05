@@ -110,6 +110,26 @@ describe('GET /api/disponibilidad — con las reservas superpuestas', () => {
     expect((await bloqueDeLas10()).reservado).toBe(true);
   });
 
+  it('una reserva de 10:00 a 11:00 toma también los inicios de 09:30 y 10:30 (T78)', async () => {
+    // Con inicios cada media hora, la grilla marca tomada toda hora que se pise con
+    // una reserva, no solo la que empieza con ella. Ofrecer las 10:30 libre sería
+    // invitar a pagar una hora que el índice va a rechazar.
+    await prisma.reserva.create({ data: unaReserva() });
+
+    const respuesta = await request(app.getHttpServer()).get(
+      `/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`,
+    );
+    const tomadas = (respuesta.body as { inicio: string; reservado: boolean }[])
+      .filter((b) => b.reservado)
+      .map((b) => b.inicio);
+
+    expect(tomadas).toEqual([
+      '2026-08-17T13:30:00.000Z',
+      '2026-08-17T14:00:00.000Z',
+      '2026-08-17T14:30:00.000Z',
+    ]);
+  });
+
   it('una reserva esperando pago también lo ocupa', async () => {
     // Mientras el no-socio está en Webpay, esa hora no se le ofrece a nadie más.
     await prisma.reserva.create({
@@ -171,6 +191,34 @@ describe('GET /api/disponibilidad — con las reservas superpuestas', () => {
           where: { id: transaccion.id },
         }),
       ).toMatchObject({ estado: EstadoTransaccion.EXPIRADA });
+      expect(
+        await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),
+      ).toMatchObject({ estado: EstadoReserva.EXPIRADA });
+    });
+
+    it('**también libera la que expiró otra consulta**', async () => {
+      // El barrido es global y la liberación es por cancha y día. Si otra consulta —el
+      // lunes, otra cancha, o la misma grilla del día con sus ocho canchas en paralelo—
+      // expiró la transacción primero, esta encontraba "cero expiradas" y se iba sin
+      // liberar: la reserva quedaba PENDIENTE_PAGO y la hora tomada para siempre.
+      // Encontrado el 2026-10-04 con una reserva de prueba que no se liberaba.
+      const reserva = await prisma.reserva.create({
+        data: unaReserva({ estado: EstadoReserva.PENDIENTE_PAGO }),
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `T23YAEXP${Date.now()}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.EXPIRADA,
+          creadaEn: new Date(Date.now() - (MINUTOS_PARA_EXPIRAR + 1) * 60_000),
+        },
+      });
+
+      const bloque = (await bloqueDeLas10()) as { reservado: boolean };
+      expect(bloque.reservado).toBe(false);
       expect(
         await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),
       ).toMatchObject({ estado: EstadoReserva.EXPIRADA });

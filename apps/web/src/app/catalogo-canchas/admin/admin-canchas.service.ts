@@ -18,7 +18,10 @@ export interface Franja {
   horaDesde: string;
   horaHasta: string;
   esPico: boolean;
+  /** El precio de 1 hora. */
   montoClp: number;
+  /** El de 1 hora y media. Nulo: esa duración no se le vende a quien no es socio (T79). */
+  montoClp90: number | null;
 }
 
 /**
@@ -114,9 +117,8 @@ export interface Advertencia {
  * `actualizadoEn`, que al panel no le sirven para nada.
  */
 export interface ReglasDelClub {
-  duracionBloqueMin: number;
-  cupoDiarioSocioHoras: number;
-  cupoPicoSemanalHoras: number;
+  cupoDiarioSocioReservas: number;
+  cupoPicoSemanalReservas: number;
   invitadosPorMes: number;
   horasMinModificacion: number;
   horasReembolsoTotal: number;
@@ -237,6 +239,7 @@ export class AdminCanchas {
     horaHasta: string;
     esPico: boolean;
     montoClp: number;
+    montoClp90: number | null;
     vigenteDesde: string;
   }): Promise<Franja> {
     return firstValueFrom(this.http.post<Franja>('/api/admin/franjas', franja));

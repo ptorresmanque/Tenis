@@ -14,7 +14,7 @@ describe('calcularBloques', () => {
     fecha: '2026-08-17',
     horaApertura: '08:00',
     horaCierre: '22:00',
-    duracionBloqueMin: 60,
+    duracionMin: 60,
   };
 
   it('parte de la hora de apertura y encadena bloques hasta el cierre', () => {
@@ -39,7 +39,7 @@ describe('calcularBloques', () => {
     // El criterio de `ConfiguracionClub`: cambiar el número basta, sin migración.
     // 14 horas en bloques de 90 minutos dan 9 y sobra media hora, que se descarta:
     // media hora de cancha no se le puede vender a nadie.
-    const bloques = calcularBloques({ ...dia, duracionBloqueMin: 90 });
+    const bloques = calcularBloques({ ...dia, duracionMin: 90 });
 
     expect(bloques).toHaveLength(9);
     expect(bloques[8].fin.toISOString()).toBe('2026-08-18T01:30:00.000Z');
@@ -61,8 +61,8 @@ describe('calcularBloques', () => {
   it('rechaza una duración de bloque que no avanza', () => {
     // Sin esto, un 0 en la configuración cuelga el proceso en un bucle infinito
     // en vez de fallar en la petición que lo trajo.
-    expect(() => calcularBloques({ ...dia, duracionBloqueMin: 0 })).toThrow();
-    expect(() => calcularBloques({ ...dia, duracionBloqueMin: -60 })).toThrow();
+    expect(() => calcularBloques({ ...dia, duracionMin: 0 })).toThrow();
+    expect(() => calcularBloques({ ...dia, duracionMin: -60 })).toThrow();
   });
 
   it('un horario ilegible falla en vez de parecer un día cerrado', () => {
@@ -151,6 +151,155 @@ describe('calcularBloques', () => {
   });
 
   /**
+   * T78. Se reserva empezando cada media hora: la grilla ya no es una fila de bloques
+   * pegados sino la lista de inicios posibles, cada uno con su fin. Ver
+   * `SPEC-catalogo-canchas.md` § La grilla: un inicio cada media hora.
+   */
+  describe('un inicio cada media hora', () => {
+    const hora = (instante: Date) =>
+      instante.toLocaleTimeString('es-CL', {
+        timeZone: 'America/Santiago',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    const cadaMediaHora = { ...dia, pasoMin: 30 };
+
+    it('de 1 hora: 27 inicios de 08:00 a 21:00, y ninguno termina después del cierre', () => {
+      const bloques = calcularBloques(cadaMediaHora);
+
+      expect(bloques).toHaveLength(27);
+      expect([hora(bloques[0].inicio), hora(bloques[0].fin)]).toEqual([
+        '08:00',
+        '09:00',
+      ]);
+      expect([hora(bloques[1].inicio), hora(bloques[1].fin)]).toEqual([
+        '08:30',
+        '09:30',
+      ]);
+      expect([hora(bloques[26].inicio), hora(bloques[26].fin)]).toEqual([
+        '21:00',
+        '22:00',
+      ]);
+    });
+
+    it('de 1 hora y media: 26 inicios, el último a las 20:30', () => {
+      const bloques = calcularBloques({
+        ...cadaMediaHora,
+        duracionMin: 90,
+      });
+
+      expect(bloques).toHaveLength(26);
+      expect([hora(bloques[25].inicio), hora(bloques[25].fin)]).toEqual([
+        '20:30',
+        '22:00',
+      ]);
+    });
+
+    it('un bloqueo de 10:00 a 12:00 marca los inicios cuyo rango lo toca, ni uno más', () => {
+      const bloqueos = [
+        {
+          inicio: new Date('2026-08-17T14:00:00.000Z'), // 10:00 en Santiago
+          fin: new Date('2026-08-17T16:00:00.000Z'), // 12:00
+          motivo: 'MANTENCION',
+        },
+      ];
+      const bloqueados = (duracionMin: number) =>
+        calcularBloques({ ...cadaMediaHora, duracionMin, bloqueos })
+          .filter((b) => b.bloqueado)
+          .map((b) => hora(b.inicio));
+
+      // El de 09:00 termina justo a las 10:00 y el de 12:00 empieza justo al final:
+      // los bordes exactos no cuentan.
+      expect(bloqueados(60)).toEqual([
+        '09:30',
+        '10:00',
+        '10:30',
+        '11:00',
+        '11:30',
+      ]);
+      expect(bloqueados(90)).toEqual([
+        '09:00',
+        '09:30',
+        '10:00',
+        '10:30',
+        '11:00',
+        '11:30',
+      ]);
+    });
+
+    it('un bloqueo de media hora marca todos los inicios que lo tocan, no solo el que empieza con él', () => {
+      const bloqueos = [
+        {
+          inicio: new Date('2026-08-17T15:00:00.000Z'), // 11:00
+          fin: new Date('2026-08-17T15:30:00.000Z'), // 11:30
+          motivo: 'MANTENCION',
+        },
+      ];
+
+      const bloqueados = calcularBloques({ ...cadaMediaHora, bloqueos })
+        .filter((b) => b.bloqueado)
+        .map((b) => hora(b.inicio));
+
+      expect(bloqueados).toEqual(['10:30', '11:00']);
+    });
+
+    it('rechaza una duración que no es múltiplo del paso', () => {
+      // 45 minutos cada media hora dejaría inicios cuyo fin no cae en ningún borde.
+      expect(() =>
+        calcularBloques({ ...cadaMediaHora, duracionMin: 45 }),
+      ).toThrow(/múltiplo/);
+    });
+
+    it('**en los dos domingos de cambio de hora, y en el sábado que repite las 23:00, ningún rango termina antes de empezar**', () => {
+      // Obligatorio (`SPEC-catalogo-canchas.md` § Success Criteria 5). Con inicios cada
+      // media hora, los rangos se pisan entre sí y el fin de uno ya no es el inicio del
+      // siguiente: un error de zona horaria podría dejar un fin antes de su inicio.
+      const casos = [
+        { fecha: '2026-04-05', horaApertura: '09:00', horaCierre: '20:00' },
+        { fecha: '2026-09-06', horaApertura: '09:00', horaCierre: '20:00' },
+        { fecha: '2026-04-04', horaApertura: '22:00', horaCierre: '24:00' },
+        { fecha: '2026-09-05', horaApertura: '22:00', horaCierre: '24:00' },
+      ];
+
+      for (const caso of casos) {
+        for (const duracionMin of [60, 90]) {
+          const bloques = calcularBloques({
+            ...caso,
+            duracionMin,
+            pasoMin: 30,
+          });
+
+          for (const bloque of bloques) {
+            expect([caso.fecha, bloque.fin > bloque.inicio]).toEqual([
+              caso.fecha,
+              true,
+            ]);
+          }
+        }
+      }
+
+      const atrasa = calcularBloques({
+        ...dia,
+        ...casos[0],
+        pasoMin: 30,
+      });
+      expect(atrasa).toHaveLength(21);
+      expect(atrasa[0].inicio.toISOString()).toBe('2026-04-05T13:00:00.000Z');
+      expect(atrasa[20].fin.toISOString()).toBe('2026-04-06T00:00:00.000Z');
+
+      const adelanta = calcularBloques({
+        ...dia,
+        ...casos[1],
+        pasoMin: 30,
+      });
+      expect(adelanta).toHaveLength(21);
+      expect(adelanta[0].inicio.toISOString()).toBe('2026-09-06T12:00:00.000Z');
+      expect(adelanta[20].fin.toISOString()).toBe('2026-09-06T23:00:00.000Z');
+    });
+  });
+
+  /**
    * El test obligatorio de `SPEC-catalogo-canchas.md` § Zona horaria. No basta con
    * contar bloques: la cantidad sale igual con un desfase fijo, porque en Chile el
    * salto ocurre a medianoche. Lo que delata el error es el instante de cada uno.
@@ -183,7 +332,7 @@ describe('calcularBloques', () => {
         fecha: '2026-04-04',
         horaApertura: '22:00',
         horaCierre: '24:00',
-        duracionBloqueMin: 60,
+        duracionMin: 60,
       });
 
       expect(sabado).toHaveLength(2);

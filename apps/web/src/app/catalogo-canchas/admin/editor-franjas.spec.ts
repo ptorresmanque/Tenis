@@ -28,6 +28,7 @@ describe('EditorFranjas', () => {
         horaHasta: '22:00',
         esPico: true,
         montoClp: 20000,
+        montoClp90: null,
       },
     ],
   };
@@ -92,6 +93,66 @@ describe('EditorFranjas', () => {
         vigenteDesde: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       }),
     );
+  });
+
+  /** T80. Cada franja tiene un precio de 1 hora y otro de 1 hora y media. */
+  describe('el precio de 1 hora y media', () => {
+    const escribir = async (id: string, valor: string) => {
+      const campo = elemento().querySelector<HTMLInputElement>(`#${id}`)!;
+      campo.value = valor;
+      campo.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    };
+    const enviar = async () => {
+      elemento().querySelector('form')?.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+    const texto = () => elemento().textContent?.replace(/\s+/g, ' ') ?? '';
+
+    it('lista los dos precios de cada tarifa', async () => {
+      await montar({
+        ...CANCHA,
+        franjas: [{ ...CANCHA.franjas[0], montoClp90: 27000 }],
+      });
+
+      expect(texto()).toContain('1 hora $20.000');
+      expect(texto()).toContain('1 hora y media $27.000');
+      expect(texto()).not.toContain('Falta el precio');
+    });
+
+    it('**una tarifa sin precio de 1 hora y media lo advierte**', () => {
+      // Sin ese precio la hora y media no se le vende a quien no es socio en esa
+      // franja (T79). Que el panel lo diga es lo que evita descubrirlo por un reclamo.
+      expect(texto()).toContain('Falta el precio de 1 hora y media');
+    });
+
+    it('la tarifa nueva va sin precio de 1 hora y media si el campo queda vacío', async () => {
+      await enviar();
+
+      expect(api.crearFranja).toHaveBeenCalledWith(
+        expect.objectContaining({ montoClp: 12000, montoClp90: null }),
+      );
+    });
+
+    it('la tarifa nueva lleva el precio de 1 hora y media que se escribió', async () => {
+      await escribir('monto90-7', '16000');
+      await enviar();
+
+      expect(api.crearFranja).toHaveBeenCalledWith(
+        expect.objectContaining({ montoClp: 12000, montoClp90: 16000 }),
+      );
+    });
+
+    it('**un precio de 1 hora y media en cero no llega al servidor**', async () => {
+      // Para el visitante cero y vacío son lo mismo —la reserva rechaza $0 con
+      // SIN_TARIFA—, y el panel ofrece una sola forma de decirlo: el vacío.
+      await escribir('monto90-7', '0');
+      await enviar();
+
+      expect(api.crearFranja).not.toHaveBeenCalled();
+      expect(texto()).toContain('deja el precio vacío');
+    });
   });
 
   it('quitar una tarifa la borra por su número', async () => {

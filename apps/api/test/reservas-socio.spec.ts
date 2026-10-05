@@ -205,6 +205,25 @@ describe('POST /api/reservas — reserva de socio', () => {
     ).toMatchObject({ telefono: '+56911112222' });
   });
 
+  it('**el socio reserva 1 hora y media, aunque la franja no la venda a quien no es socio** (T83b)', async () => {
+    // El socio no paga la hora, así que el precio de 1 hora y media no le hace falta.
+    const respuesta = await reservar(unaReserva({ duracionMin: 90 }));
+
+    expect(respuesta.status).toBe(201);
+    const reserva = await prisma.reserva.findUniqueOrThrow({
+      where: { id: (respuesta.body as { id: number }).id },
+    });
+    expect(reserva.fin.getTime() - reserva.inicio.getTime()).toBe(
+      90 * 60 * 1000,
+    );
+  });
+
+  it('una duración ilegible responde 400 también al socio (T83b)', async () => {
+    const respuesta = await reservar(unaReserva({ duracionMin: 45 }));
+
+    expect(respuesta.status).toBe(400);
+  });
+
   it('la segunda reserva del día se rechaza con el límite y cuándo se renueva', async () => {
     await reservar(unaReserva());
 
@@ -212,12 +231,14 @@ describe('POST /api/reservas — reserva de socio', () => {
 
     expect(respuesta.status).toBe(409);
     expect(respuesta.body.motivo).toBe('CUPO_DIARIO');
-    expect(respuesta.body.message).toMatch(/1 hora/);
-    expect(respuesta.body.message).toMatch(/mañana/i);
+    // Cuenta reservas, no horas (T84), y no promete "mañana": el cupo es del día de juego.
+    const { message } = respuesta.body as { message: string };
+    expect(message).toMatch(/1 reserva por día/);
+    expect(message).toMatch(/otro día/);
   });
 
-  it('la tercera hora pico de la semana se rechaza', async () => {
-    // Las dos primeras horas pico las pone la base directamente: el cupo diario
+  it('la tercera reserva pico de la semana se rechaza', async () => {
+    // Las dos primeras reservas pico las pone la base directamente: el cupo diario
     // impide tomarlas por la API el mismo día, y lo que se prueba acá es el semanal.
     for (const dia of ['2037-08-18', '2037-08-19']) {
       await prisma.reserva.create({
@@ -242,7 +263,43 @@ describe('POST /api/reservas — reserva de socio', () => {
     expect(respuesta.body.motivo).toBe('CUPO_PICO');
   });
 
-  it('las horas pico gastadas no impiden reservar en horario valle', async () => {
+  it('**dos pico de 1 hora y media caben en un cupo pico de 2: cuenta reservas, no horas** (T85)', async () => {
+    // Contando horas serían 3 de 2 y la segunda se rechazaría. La primera la pone la
+    // base el martes: el club de este spec abre solo los lunes.
+    await prisma.reserva.create({
+      data: {
+        folio: 'PICO90A',
+        canchaId,
+        inicio: new Date('2037-08-18T23:00:00.000Z'),
+        fin: new Date('2037-08-19T00:30:00.000Z'),
+        esPico: true,
+        estado: EstadoReserva.CONFIRMADA,
+        socioId,
+        nombre: 'Socio titular',
+        email: `socio-titular${DOMINIO}`,
+        telefono: '',
+      },
+    });
+
+    const respuesta = await reservar(
+      unaReserva({ inicio: A_LAS_19, duracionMin: 90 }),
+    );
+
+    expect(respuesta.status).toBe(201);
+  });
+
+  it('la segunda reserva del día se rechaza también cuando la primera fue de 1 hora y media (T85)', async () => {
+    expect((await reservar(unaReserva({ duracionMin: 90 }))).status).toBe(201);
+
+    const segunda = await reservar(
+      unaReserva({ inicio: '2037-08-17T17:00:00.000Z' }),
+    );
+
+    expect(segunda.status).toBe(409);
+    expect((segunda.body as { motivo: string }).motivo).toBe('CUPO_DIARIO');
+  });
+
+  it('las reservas pico gastadas no impiden reservar en horario valle', async () => {
     for (const dia of ['2037-08-18', '2037-08-19']) {
       await prisma.reserva.create({
         data: {
@@ -597,6 +654,7 @@ describe('POST /api/reservas — reserva de socio', () => {
         {
           canchaId,
           inicio: new Date(A_LAS_10),
+          duracionMin: 60,
           acompanantes: [{ nombre: 'Ana Invitada' }],
         },
         ahora,
@@ -625,7 +683,7 @@ describe('POST /api/reservas — reserva de socio', () => {
     // está en el código.
     await prisma.configuracionClub.update({
       where: { id: 1 },
-      data: { cupoDiarioSocioHoras: 2 },
+      data: { cupoDiarioSocioReservas: 2 },
     });
 
     try {
@@ -636,7 +694,7 @@ describe('POST /api/reservas — reserva de socio', () => {
     } finally {
       await prisma.configuracionClub.update({
         where: { id: 1 },
-        data: { cupoDiarioSocioHoras: 1 },
+        data: { cupoDiarioSocioReservas: 1 },
       });
     }
   });
