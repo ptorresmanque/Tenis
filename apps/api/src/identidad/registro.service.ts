@@ -136,24 +136,29 @@ export class RegistroService {
       return;
     }
 
-    // **Sin `await` a propósito.** A un correo sin cuenta no se le manda nada, así
-    // que esperar el envío alargaría la respuesta solo cuando la cuenta existe, y
-    // un sendmail caído respondería error solo en ese caso. Es el mismo cuidado que
-    // el hash de `registrar`: los dos caminos tardan lo mismo y responden igual. Si
-    // no sale, queda en el log y la persona puede pedir otro.
+    // **Después de responder, a propósito.** A un correo sin cuenta no se le manda
+    // nada, así que esperar el envío alargaría la respuesta solo cuando la cuenta
+    // existe, y un sendmail caído respondería error solo en ese caso. Es el mismo
+    // cuidado que el hash de `registrar`: lo caro queda fuera de la diferencia.
     //
-    // Dentro de un `then` y no llamado directo: un adaptador que falle antes de
-    // devolver la promesa —el de sendmail revisa los encabezados así— también
-    // tiene que caer en el `catch` y no en la respuesta.
-    void Promise.resolve()
-      .then(() =>
-        this.correo.enviar(correoDeVerificacion(email, 'Hola,', token)),
-      )
-      .catch((falla: unknown) => {
-        this.log.error(
-          `No salió el enlace de verificación nuevo para ${email}: ${String(falla)}`,
-        );
-      });
+    // `setImmediate` y no una promesa sin `await`: un `then` corre antes de que se
+    // escriba la respuesta, y con él la parte síncrona del adaptador —armar el
+    // mensaje y lanzar sendmail—. Lo que sigue distinguiendo los dos caminos es que
+    // el UPDATE escriba o no una fila, del mismo orden que en el registro.
+    setImmediate(() => void this.mandarEnlace(email, token));
+  }
+
+  /** El envío de `pedirEnlaceNuevo`, que nadie espera: si falla, queda en el log. */
+  private async mandarEnlace(email: string, token: string): Promise<void> {
+    try {
+      await this.correo.enviar(correoDeVerificacion(email, 'Hola,', token));
+    } catch (falla) {
+      // Sin esto, una falla de sendmail sería un rechazo sin manejar y botaría el
+      // proceso. La persona puede pedir otro enlace.
+      this.log.error(
+        `No salió el enlace de verificación nuevo para ${email}: ${String(falla)}`,
+      );
+    }
   }
 
   /** Marca el correo como verificado. Devuelve false si el enlace no sirve. */
