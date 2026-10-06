@@ -1,9 +1,25 @@
+import { readFileSync } from 'node:fs';
+import { parseEnv } from 'node:util';
+
 import { PrismaClient } from './generated/prisma/client';
+import { hashear, problemaDeContrasena } from './identidad/contrasena';
+import { DatosRegistro, leerRegistro } from './identidad/registro.dto';
+import { PrismaService } from './prisma/prisma.service';
 
 /**
- * Datos de arranque: lo que una base recién migrada necesita para que la app funcione,
- * a diferencia de los datos de demostración de prisma/seed*.ts. Vive en src/ para que
- * el build lo compile: en el servidor no hay ts-node.
+ * Deja lista para usarse una base recién migrada, sin el seed de demostración: ese
+ * crea cuentas con una contraseña publicada en un repo público y no corre nunca fuera
+ * de desarrollo. Lo corre el agente de despliegue después de cada `migrate deploy`
+ * (tasks/plan-despliegue.md, D2 y D3):
+ *
+ *   ADMIN_INICIAL=/ruta/admin-inicial.env npm run arranque -w apps/api
+ *
+ * Siembra lo que la app necesita para funcionar y, si ADMIN_INICIAL trae la ruta de un
+ * archivo, crea el primer admin con lo que dice ese archivo:
+ *
+ *   ADMIN_CORREO, ADMIN_NOMBRE, ADMIN_APELLIDO, ADMIN_CLAVE y, opcional, ADMIN_TELEFONO
+ *
+ * Idempotente: corre en cada release.
  */
 
 interface CategoriaDeJuego {
@@ -65,5 +81,92 @@ export async function asegurarConfiguracionClub(
     where: { id: 1 },
     create: { id: 1 },
     update: {},
+  });
+}
+
+/**
+ * Lee el admin-inicial.env con las mismas reglas que un registro: el correo en
+ * minúsculas y con formato, nombre y apellido obligatorios, y la contraseña con el
+ * largo mínimo y fuera de la lista de filtradas.
+ */
+function leerAdminInicial(ruta: string): DatosRegistro {
+  const campos = parseEnv(readFileSync(ruta, 'utf8'));
+
+  try {
+    const datos = leerRegistro({
+      email: campos.ADMIN_CORREO,
+      contrasena: campos.ADMIN_CLAVE,
+      nombre: campos.ADMIN_NOMBRE,
+      apellido: campos.ADMIN_APELLIDO,
+      telefono: campos.ADMIN_TELEFONO,
+    });
+    const problema = problemaDeContrasena(datos.contrasena);
+    if (problema) {
+      throw new Error(problema);
+    }
+    return datos;
+  } catch (error) {
+    throw new Error(`${ruta}: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * Crea el admin o, si el correo ya tiene cuenta, la deja como admin. **Nunca cambia la
+ * clave de una cuenta que ya existe**: el arranque corre en cada release, y el archivo
+ * con la clave inicial puede seguir en el servidor o haberse reescrito.
+ */
+async function crearAdminInicial(
+  prisma: PrismaClient,
+  datos: DatosRegistro,
+): Promise<void> {
+  await prisma.usuario.upsert({
+    where: { email: datos.email },
+    create: {
+      email: datos.email,
+      nombre: datos.nombre,
+      apellido: datos.apellido,
+      telefono: datos.telefono,
+      passwordHash: await hashear(datos.contrasena),
+      // No hay a quién mandarle el enlace antes de que exista el primer admin.
+      emailVerificado: true,
+      esAdmin: true,
+    },
+    update: { esAdmin: true },
+  });
+}
+
+/** Devuelve lo que se hizo, para el log del agente. */
+export async function arrancar(
+  prisma: PrismaClient,
+  rutaAdmin: string | undefined,
+): Promise<string> {
+  // Antes de tocar la base: un archivo mal escrito no deja el arranque a medias.
+  const admin = rutaAdmin ? leerAdminInicial(rutaAdmin) : null;
+
+  await asegurarConfiguracionClub(prisma);
+  await sembrarCategoriasDeJuego(prisma);
+
+  if (!admin) {
+    return 'Arranque listo, sin admin inicial: ADMIN_INICIAL viene vacío.';
+  }
+  await crearAdminInicial(prisma, admin);
+  return `Arranque listo, con ${admin.email} como admin.`;
+}
+
+async function main(): Promise<void> {
+  // Como main.ts: el .env de la app, que en el servidor es un symlink al del ambiente.
+  process.loadEnvFile(`${__dirname}/../.env`);
+  const prisma = new PrismaService();
+  try {
+    console.log(await arrancar(prisma, process.env.ADMIN_INICIAL));
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
   });
 }
