@@ -3,7 +3,13 @@
 // como en el runner de GitHub, se salta; ahí lo cubre la verificación de D4.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -41,6 +47,14 @@ async function apache(ambiente) {
   // no se lo queda.
   escribir(join(docroot, 'api/salud'), 'api');
   escribir(join(docroot, 'api/yo'), 'null');
+  // Una redirección generada después del .htaccess, como la de /api/auth/google en
+  // Passenger. Hecha con mod_rewrite, porque en el servidor real mod_expires sí les pone
+  // encabezados a esas (la 301 a HTTPS de QA los traía); un Redirect de la configuración
+  // del servidor llega antes del .htaccess y un CGI arma sus encabezados por otro camino.
+  escribir(
+    join(docroot, 'api/auth/.htaccess'),
+    'RewriteEngine On\nRewriteRule ^google$ https://accounts.google.com/ [R=302,L]\n',
+  );
   escribir(join(docroot, 'api/torneos/fotos/1/imagen'), 'jpg');
 
   const passwd = join(dir, 'passwd');
@@ -60,7 +74,8 @@ async function apache(ambiente) {
   const https = await puertoLibre();
   const modulos = [
     'mpm_prefork', 'unixd', 'authn_core', 'authn_file', 'authz_core', 'authz_user',
-    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'expires', 'rewrite', 'socache_shmcb',
+    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'expires', 'rewrite',
+    'socache_shmcb',
     'ssl',
   ];
   const conf = join(dir, 'httpd.conf');
@@ -165,6 +180,14 @@ describe('htaccess.qa', { skip: saltar }, () => {
     assert.match(respuesta.cabecera, /cache-control: no-store/);
     assert.doesNotMatch(respuesta.cabecera, /max-age=/);
     assert.doesNotMatch(respuesta.cabecera, /^expires:/m);
+  });
+
+  test('tampoco quedan en caché una redirección ni un error de la API', () => {
+    for (const ruta of ['/api/auth/google', '/api/no-existe']) {
+      const respuesta = qa(ruta);
+      assert.doesNotMatch(respuesta.cabecera, /max-age=[1-9]/, ruta);
+      assert.doesNotMatch(respuesta.cabecera, /^expires:/m, ruta);
+    }
   });
 
   test('las fotos de los torneos y los chunks sí quedan en caché', () => {
