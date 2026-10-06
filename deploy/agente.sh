@@ -9,7 +9,8 @@
 # El resultado queda en entrante/estado, que GitHub Actions lee por FTPS, y el detalle,
 # en logs/agente.log.
 #
-# Corre en bash 3.2 (macOS, para el test) y en el bash de CloudLinux.
+# Corre en bash 3.2 (macOS, para el test) y en el bash de CloudLinux. El test cambia dos
+# cosas por variables de entorno: AGENTE_URL_SALUD y AGENTE_ESPERA_REINICIO.
 set -euo pipefail
 
 ambiente=${1:-}
@@ -139,7 +140,7 @@ respaldar() {
 }
 
 salud() {
-  local opciones=(-fsS --max-time 30) intento
+  local opciones=(-fsS -o /dev/null --max-time 30) intento
   if [ -f "$base/salud.netrc" ]; then opciones+=(--netrc-file "$base/salud.netrc"); fi
   for intento in 1 2 3 4 5; do
     sleep "$espera_reinicio"
@@ -185,9 +186,10 @@ if [ "$(sha256sum "$archivo" | cut -d' ' -f1)" != "$suma" ]; then
   exit 1
 fi
 
-rel="$releases/$sha"
-rm -rf "$rel"
-mkdir -p "$rel"
+# Una carpeta nueva por intento, aunque el sha sea el del release activo: así nunca se
+# borra ni se reescribe lo que está sirviendo, y re-ejecutar un deploy repara uno dañado.
+mkdir -p "$releases"
+rel=$(mktemp -d "$releases/$sha.XXXXXX")
 tar -xzf "$archivo" -C "$rel"
 ln -sfn "$base/.env" "$rel/apps/api/.env"
 cd "$rel"
@@ -219,7 +221,7 @@ if [ -d "$base/current" ] && [ ! -L "$base/current" ]; then
   anterior=releases/inicial
 fi
 activado=si
-ln -sfn "releases/$sha" "$base/current"
+ln -sfn "releases/${rel##*/}" "$base/current"
 publicar_web "$rel"
 reiniciar
 

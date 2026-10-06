@@ -96,7 +96,9 @@ function correr(srv, env = {}) {
 }
 
 const estado = (srv) => readFileSync(join(srv.base, 'entrante/estado'), 'utf8');
-const activo = (srv) => readlinkSync(join(srv.base, 'current'));
+/** El sha del release activo: cada intento se instala en releases/<sha>.<sufijo>. */
+const activo = (srv) =>
+  readlinkSync(join(srv.base, 'current')).replace(/^releases\/([^.]+)\..*$/, '$1');
 const enDocroot = (srv, ruta) => join(srv.docroot, ruta);
 
 test('sin "listo" no hace nada', () => {
@@ -119,9 +121,9 @@ test('un release nuevo queda activo, con la web publicada y estado ok', () => {
 
   assert.equal(resultado.status, 0, resultado.stderr);
   assert.equal(estado(srv), 'a1a1a1a1 ok\n');
-  assert.equal(activo(srv), 'releases/a1a1a1a1');
+  assert.equal(activo(srv), 'a1a1a1a1');
   assert.equal(
-    readlinkSync(join(srv.base, 'releases/a1a1a1a1/apps/api/.env')),
+    readlinkSync(join(srv.base, 'current/apps/api/.env')),
     join(srv.base, '.env'),
   );
   assert.equal(readFileSync(enDocroot(srv, 'index.html'), 'utf8'), 'A');
@@ -160,7 +162,7 @@ test('si /api/salud falla, el release anterior sigue activo y estado dice error'
   const resultado = correr(srv);
 
   assert.notEqual(resultado.status, 0);
-  assert.equal(activo(srv), 'releases/a1a1a1a1');
+  assert.equal(activo(srv), 'a1a1a1a1');
   assert.match(estado(srv), /^b2b2b2b2 error\n/);
   assert.match(estado(srv), /salud/);
   assert.equal(readFileSync(enDocroot(srv, 'index.html'), 'utf8'), 'A');
@@ -178,7 +180,7 @@ test('un archivo que llegó incompleto (sha256 distinto) no se instala', () => {
   assert.notEqual(resultado.status, 0);
   assert.match(estado(srv), /^a1a1a1a1 error\n/);
   assert.match(estado(srv), /sha256/);
-  assert.equal(existsSync(join(srv.base, 'releases/a1a1a1a1')), false);
+  assert.equal(existsSync(join(srv.base, 'releases')), false);
   assert.equal(existsSync(join(srv.base, 'entrante/listo')), false);
 });
 
@@ -203,7 +205,20 @@ test('si npm ci falla, nada cambia de lo que está activo', () => {
 
   assert.notEqual(resultado.status, 0);
   assert.match(estado(srv), /^b2b2b2b2 error\n/);
-  assert.equal(activo(srv), 'releases/a1a1a1a1');
+  assert.equal(activo(srv), 'a1a1a1a1');
+  assert.equal(readFileSync(enDocroot(srv, 'index.html'), 'utf8'), 'a1a1a1a1');
+});
+
+test('volver a desplegar el sha activo no toca el release que está sirviendo', () => {
+  const srv = servidor();
+  subirRelease(srv, 'a1a1a1a1');
+  correr(srv);
+  subirRelease(srv, 'a1a1a1a1');
+
+  const resultado = correr(srv, { FALLA_EN: 'ci' });
+
+  assert.notEqual(resultado.status, 0);
+  assert.ok(existsSync(join(srv.base, 'current/node_modules')));
   assert.equal(readFileSync(enDocroot(srv, 'index.html'), 'utf8'), 'a1a1a1a1');
 });
 
@@ -216,7 +231,7 @@ test('lo que el agente no puso sobrevive a dos releases seguidos', () => {
 
   correr(srv);
 
-  assert.equal(activo(srv), 'releases/b2b2b2b2');
+  assert.equal(activo(srv), 'b2b2b2b2');
   assert.equal(readFileSync(enDocroot(srv, 'ajeno.txt'), 'utf8'), 'lo puso alguien a mano');
   assert.equal(readFileSync(enDocroot(srv, 'api/.htaccess'), 'utf8'), 'PassengerAppRoot');
   assert.equal(
@@ -277,7 +292,8 @@ test('quedan los últimos 3 releases', () => {
     correr(srv);
   }
 
-  assert.deepEqual(readdirSync(join(srv.base, 'releases')).sort(), [
+  const shas = readdirSync(join(srv.base, 'releases')).map((dir) => dir.split('.')[0]);
+  assert.deepEqual(shas.sort(), [
     'b2b2b2b2',
     'c3c3c3c3',
     'd4d4d4d4',
@@ -299,8 +315,12 @@ test('el agente se reemplaza por el que trae el release', () => {
 test('si otra corrida tiene el candado, esta no instala nada', async () => {
   const srv = servidor();
   subirRelease(srv, 'a1a1a1a1');
-  const candado = spawn('flock', [join(srv.base, '.agente.lock'), 'sleep', '5']);
-  await new Promise((listo) => setTimeout(listo, 300));
+  const archivoCandado = join(srv.base, '.agente.lock');
+  const candado = spawn('flock', [archivoCandado, 'sleep', '5']);
+  // Espera a que el candado esté tomado de verdad, no un tiempo fijo.
+  while (spawnSync('flock', ['-n', archivoCandado, 'true']).status === 0) {
+    await new Promise((listo) => setTimeout(listo, 20));
+  }
 
   const resultado = correr(srv);
   candado.kill();
