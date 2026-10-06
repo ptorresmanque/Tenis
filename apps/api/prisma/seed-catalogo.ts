@@ -3,6 +3,7 @@ import {
   PrismaClient,
   Superficie,
 } from '../src/generated/prisma/client';
+import { asegurarConfiguracionClub } from '../src/arranque';
 import { instanteEnElClub } from '../src/comun/tiempo';
 
 /**
@@ -89,15 +90,9 @@ const FRANJAS = [
 const VIGENTE_DESDE = new Date('2026-01-01T00:00:00.000Z');
 
 export async function sembrarCatalogo(prisma: PrismaClient): Promise<void> {
-  // `update: {}` a diferencia del resto del seed: las canchas y las tarifas son
-  // datos de demo que conviene restaurar en cada corrida, pero la configuración es
-  // operativa —el admin la ajusta en serio desde el panel— y el seed solo tiene que
-  // garantizar que la fila exista.
-  await prisma.configuracionClub.upsert({
-    where: { id: 1 },
-    create: { id: 1 },
-    update: {},
-  });
+  // Las canchas y las tarifas son datos de demo que conviene restaurar en cada corrida;
+  // la configuración es operativa y solo tiene que existir, como en producción.
+  await asegurarConfiguracionClub(prisma);
 
   // La cancha 3 llevaba el "(techada)" en el nombre cuando era la única. Renombrarla
   // y no recrearla: la base de desarrollo tiene reservas colgando de ese id, y un

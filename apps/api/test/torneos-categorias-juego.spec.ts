@@ -3,10 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import {
-  CATEGORIAS_DE_JUEGO,
-  sembrarCategoriasDeJuego,
-} from '../prisma/seed-torneos';
+import { CATEGORIAS_DE_JUEGO, sembrarCategoriasDeJuego } from '../src/arranque';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**

@@ -1,0 +1,41 @@
+# fedal.cl. Lo instala deploy/agente.sh en cada release: editarlo en el servidor no
+# sirve, porque el próximo release lo reemplaza. Se prueba en deploy/htaccess.test.mjs.
+#
+# Rige también para public_html/qa.fedal.cl/, salvo la reescritura: QA trae su propio
+# RewriteEngine.
+
+Options -Indexes
+
+# index.html nombra los chunks de su release, y el agente borra los del anterior: si el
+# navegador lo guardara, pediría archivos que ya no existen.
+<Files "index.html">
+  Header set Cache-Control "no-cache"
+</Files>
+
+# La configuración global del servidor les pone caché a las respuestas con mod_expires, y
+# ningún .htaccess de la cuenta lo pide (D4): a /api/yo, medido con curl, un mes. /api/yo es
+# lo que le dice a la web quién tiene sesión: el navegador guardaba el "nadie" de antes del
+# login y, después de entrar, la web seguía mostrando "Entrar". Y a una redirección, como la
+# de /api/auth/google, le pone lo mismo: el navegador repetiría un mes la ida a Google con
+# un state ya usado. En /api, la caché la decide la API: mod_expires no la toca, y lo que no
+# trae Cache-Control propio sale con no-store. Las fotos de torneo traen el suyo (un año).
+<If "%{REQUEST_URI} =~ m#^/api/#">
+  ExpiresActive Off
+</If>
+Header set Cache-Control "no-store" "expr=%{REQUEST_URI} =~ m#^/api/# && %{REQUEST_URI} !~ m#^/api/torneos/fotos/#"
+
+RewriteEngine On
+
+# Todo a HTTPS: este servidor no ofrece "Forzar redirección HTTPS" en cPanel. Se exime
+# /.well-known/, que AutoSSL puede validar por HTTP.
+RewriteCond %{HTTPS} !=on
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+# /api es de Passenger, que lo configura en api/.htaccess (lo escribe el Selector).
+RewriteRule ^api(/|$) - [L]
+
+# Las rutas de la SPA: lo que no es un archivo ni una carpeta carga index.html.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
