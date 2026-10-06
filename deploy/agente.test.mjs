@@ -13,6 +13,7 @@ import {
   readFileSync,
   readdirSync,
   readlinkSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -193,6 +194,19 @@ test('un "listo" con un sha que no es hexadecimal no toca nada fuera de entrante
   assert.notEqual(resultado.status, 0);
   assert.match(estado(srv), /^listo-invalido error\n/);
   assert.equal(existsSync(join(srv.base, 'releases')), false);
+});
+
+test('sin el .env del ambiente falla al tiro y dice dónde lo busca', () => {
+  const srv = servidor();
+  rmSync(join(srv.base, '.env'));
+  subirRelease(srv, 'a1a1a1a1');
+
+  const resultado = correr(srv);
+
+  assert.notEqual(resultado.status, 0);
+  assert.match(estado(srv), /^a1a1a1a1 error\n/);
+  assert.match(estado(srv), new RegExp(`falta ${join(srv.base, '.env')}`));
+  assert.equal(existsSync(join(srv.home, 'npm.log')), false);
 });
 
 test('si npm ci falla, nada cambia de lo que está activo', () => {

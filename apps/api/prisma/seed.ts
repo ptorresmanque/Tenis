@@ -2,7 +2,7 @@ import { EstadoSocio, PrismaClient } from '../src/generated/prisma/client';
 import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { sembrarCatalogo } from './seed-catalogo';
-import { sembrarCategoriasDeJuego } from './seed-torneos';
+import { sembrarCategoriasDeJuego } from '../src/arranque';
 
 /**
  * Datos de demo de `identidad` (T4). Idempotente: se corre tantas veces como haga

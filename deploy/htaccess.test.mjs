@@ -3,7 +3,13 @@
 // como en el runner de GitHub, se salta; ahí lo cubre la verificación de D4.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -40,6 +46,16 @@ async function apache(ambiente) {
   // En el servidor, /api lo atiende Passenger. Acá basta un archivo para ver que la SPA
   // no se lo queda.
   escribir(join(docroot, 'api/salud'), 'api');
+  escribir(join(docroot, 'api/yo'), 'null');
+  // Una redirección generada después del .htaccess, como la de /api/auth/google en
+  // Passenger. Hecha con mod_rewrite, porque en el servidor real mod_expires sí les pone
+  // encabezados a esas (la 301 a HTTPS de QA los traía); un Redirect de la configuración
+  // del servidor llega antes del .htaccess y un CGI arma sus encabezados por otro camino.
+  escribir(
+    join(docroot, 'api/auth/.htaccess'),
+    'RewriteEngine On\nRewriteRule ^google$ https://accounts.google.com/ [R=302,L]\n',
+  );
+  escribir(join(docroot, 'api/torneos/fotos/1/imagen'), 'jpg');
 
   const passwd = join(dir, 'passwd');
   execFileSync('htpasswd', ['-cbB', passwd, 'fedal', 'clave']);
@@ -58,7 +74,9 @@ async function apache(ambiente) {
   const https = await puertoLibre();
   const modulos = [
     'mpm_prefork', 'unixd', 'authn_core', 'authn_file', 'authz_core', 'authz_user',
-    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'rewrite', 'socache_shmcb', 'ssl',
+    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'expires', 'rewrite',
+    'socache_shmcb',
+    'ssl',
   ];
   const conf = join(dir, 'httpd.conf');
   writeFileSync(
@@ -75,6 +93,12 @@ async function apache(ambiente) {
       `ErrorLog "${dir}/error.log"`,
       `DocumentRoot "${docroot}"`,
       `DirectoryIndex index.html`,
+      // Como la configuración global del servidor (D4, 2026-10-06), que ningún .htaccess
+      // de la cuenta pide: las páginas salen con 7 días de caché y /api/yo, medido con
+      // curl, con un mes (mod_expires: Cache-Control y Expires).
+      `Header set Cache-Control "max-age=604800, must-revalidate"`,
+      `ExpiresActive On`,
+      `ExpiresDefault "access plus 1 month"`,
       `<Directory "${docroot}">`,
       // Como un hosting que lista carpetas por defecto: solo el .htaccess lo impide.
       `  Options Indexes SymLinksIfOwnerMatch`,
@@ -151,6 +175,26 @@ describe('htaccess.qa', { skip: saltar }, () => {
     assert.equal(qa('/api/salud').cuerpo, 'api');
   });
 
+  test('la API no queda en caché, aunque el servidor le ponga un mes', () => {
+    const respuesta = qa('/api/yo');
+    assert.match(respuesta.cabecera, /cache-control: no-store/);
+    assert.doesNotMatch(respuesta.cabecera, /max-age=/);
+    assert.doesNotMatch(respuesta.cabecera, /^expires:/m);
+  });
+
+  test('tampoco quedan en caché una redirección ni un error de la API', () => {
+    for (const ruta of ['/api/auth/google', '/api/no-existe']) {
+      const respuesta = qa(ruta);
+      assert.doesNotMatch(respuesta.cabecera, /max-age=[1-9]/, ruta);
+      assert.doesNotMatch(respuesta.cabecera, /^expires:/m, ruta);
+    }
+  });
+
+  test('las fotos de los torneos y los chunks sí quedan en caché', () => {
+    assert.match(qa('/api/torneos/fotos/1/imagen').cabecera, /max-age=604800/);
+    assert.match(qa('/chunk-A.js').cabecera, /max-age=604800/);
+  });
+
   test('/.well-known/ responde sin clave, para que AutoSSL renueve', () => {
     const respuesta = qa('/.well-known/acme-challenge/token', { clave: false });
     assert.equal(respuesta.estado, 200);
@@ -210,6 +254,13 @@ describe('htaccess.prod', { skip: saltar }, () => {
 
   test('/api no pasa por la SPA', () => {
     assert.equal(prod('/api/salud').cuerpo, 'api');
+  });
+
+  test('la API no queda en caché, aunque el servidor le ponga un mes', () => {
+    const respuesta = prod('/api/yo');
+    assert.match(respuesta.cabecera, /cache-control: no-store/);
+    assert.doesNotMatch(respuesta.cabecera, /max-age=/);
+    assert.doesNotMatch(respuesta.cabecera, /^expires:/m);
   });
 
   test('una carpeta sin index.html no se lista', () => {

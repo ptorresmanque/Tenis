@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { sembrarCategoriasDeJuego } from '../prisma/seed-torneos';
+import { sembrarCategoriasDeJuego } from '../src/arranque';
 import {
   ConceptoPago,
   EstadoPagoInscripcion,
