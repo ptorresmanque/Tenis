@@ -111,27 +111,52 @@ function leerAdminInicial(ruta: string): DatosRegistro {
 }
 
 /**
- * Crea el admin o, si el correo ya tiene cuenta, la deja como admin. **Nunca cambia la
- * clave de una cuenta que ya existe**: el arranque corre en cada release, y el archivo
- * con la clave inicial puede seguir en el servidor o haberse reescrito.
+ * Crea el admin o, si el correo ya tiene una cuenta verificada, la deja como admin.
+ * **Nunca cambia la clave de una cuenta que ya existe**: el arranque corre en cada
+ * release, y el archivo con la clave inicial puede seguir en el servidor o haberse
+ * reescrito.
+ *
+ * **Una cuenta sin el correo verificado no se promueve.** Cualquiera puede registrarse
+ * con el correo que el club va a usar como admin, y el login no exige verificarlo:
+ * promoverla dejaría de admin a quien se registró primero, con su clave.
  */
 async function crearAdminInicial(
   prisma: PrismaClient,
   datos: DatosRegistro,
 ): Promise<void> {
-  await prisma.usuario.upsert({
+  const existente = await prisma.usuario.findUnique({
     where: { email: datos.email },
-    create: {
-      email: datos.email,
-      nombre: datos.nombre,
-      apellido: datos.apellido,
-      telefono: datos.telefono,
-      passwordHash: await hashear(datos.contrasena),
-      // No hay a quién mandarle el enlace antes de que exista el primer admin.
-      emailVerificado: true,
-      esAdmin: true,
-    },
-    update: { esAdmin: true },
+    select: { esAdmin: true, emailVerificado: true },
+  });
+
+  if (!existente) {
+    await prisma.usuario.create({
+      data: {
+        email: datos.email,
+        nombre: datos.nombre,
+        apellido: datos.apellido,
+        telefono: datos.telefono,
+        passwordHash: await hashear(datos.contrasena),
+        // No hay a quién mandarle el enlace antes de que exista el primer admin.
+        emailVerificado: true,
+        esAdmin: true,
+      },
+    });
+    return;
+  }
+  if (existente.esAdmin) {
+    return;
+  }
+  if (!existente.emailVerificado) {
+    throw new Error(
+      `${datos.email} ya tiene una cuenta y su correo no está verificado, así que no ` +
+        'queda como admin: cualquiera puede registrarse con un correo ajeno. Verifica ' +
+        'el correo de esa cuenta o pon otro en admin-inicial.env.',
+    );
+  }
+  await prisma.usuario.update({
+    where: { email: datos.email },
+    data: { esAdmin: true },
   });
 }
 

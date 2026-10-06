@@ -8,6 +8,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { arrancar, CATEGORIAS_DE_JUEGO } from '../src/arranque';
+import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -138,7 +139,27 @@ describe('Arranque de una base para QA y producción', () => {
     ).toBe(6);
   });
 
-  it('una cuenta que ya existía queda como admin, con su clave intacta', async () => {
+  it('una cuenta sin el correo verificado no queda como admin', async () => {
+    // Cualquiera puede registrarse con el correo que el club va a usar como admin, y el
+    // login no exige verificarlo: si el arranque la promoviera, quedaría de admin con la
+    // clave de quien se registró primero.
+    await prisma.usuario.create({
+      data: {
+        email: CORREO,
+        nombre: 'Alguien',
+        apellido: 'Que Se Adelantó',
+        passwordHash: await hashear('la clave de quien se adelantó'),
+      },
+    });
+
+    await expect(arrancar(prisma, adminValido())).rejects.toThrow(/verificado/);
+
+    expect(
+      (await prisma.usuario.findUnique({ where: { email: CORREO } }))?.esAdmin,
+    ).toBe(false);
+  });
+
+  it('una cuenta verificada que ya existía queda como admin, con su clave intacta', async () => {
     await arrancar(prisma, adminValido());
     await prisma.usuario.update({
       where: { email: CORREO },
