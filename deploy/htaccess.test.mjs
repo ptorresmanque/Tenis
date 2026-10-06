@@ -60,7 +60,8 @@ async function apache(ambiente) {
   const https = await puertoLibre();
   const modulos = [
     'mpm_prefork', 'unixd', 'authn_core', 'authn_file', 'authz_core', 'authz_user',
-    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'rewrite', 'socache_shmcb', 'ssl',
+    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'expires', 'rewrite', 'socache_shmcb',
+    'ssl',
   ];
   const conf = join(dir, 'httpd.conf');
   writeFileSync(
@@ -77,9 +78,12 @@ async function apache(ambiente) {
       `ErrorLog "${dir}/error.log"`,
       `DocumentRoot "${docroot}"`,
       `DirectoryIndex index.html`,
-      // Como la configuración global del servidor (D4, 2026-10-06): 7 días de caché a
-      // toda respuesta exitosa, la API incluida. Ningún .htaccess de la cuenta lo pone.
+      // Como la configuración global del servidor (D4, 2026-10-06), que ningún .htaccess
+      // de la cuenta pide: las páginas salen con 7 días de caché y /api/yo, medido con
+      // curl, con un mes (mod_expires: Cache-Control y Expires).
       `Header set Cache-Control "max-age=604800, must-revalidate"`,
+      `ExpiresActive On`,
+      `ExpiresDefault "access plus 1 month"`,
       `<Directory "${docroot}">`,
       // Como un hosting que lista carpetas por defecto: solo el .htaccess lo impide.
       `  Options Indexes SymLinksIfOwnerMatch`,
@@ -156,10 +160,11 @@ describe('htaccess.qa', { skip: saltar }, () => {
     assert.equal(qa('/api/salud').cuerpo, 'api');
   });
 
-  test('la API no queda en caché, aunque el servidor le ponga 7 días', () => {
+  test('la API no queda en caché, aunque el servidor le ponga un mes', () => {
     const respuesta = qa('/api/yo');
     assert.match(respuesta.cabecera, /cache-control: no-store/);
-    assert.doesNotMatch(respuesta.cabecera, /max-age=604800/);
+    assert.doesNotMatch(respuesta.cabecera, /max-age=/);
+    assert.doesNotMatch(respuesta.cabecera, /^expires:/m);
   });
 
   test('las fotos de los torneos y los chunks sí quedan en caché', () => {
@@ -228,10 +233,11 @@ describe('htaccess.prod', { skip: saltar }, () => {
     assert.equal(prod('/api/salud').cuerpo, 'api');
   });
 
-  test('la API no queda en caché, aunque el servidor le ponga 7 días', () => {
+  test('la API no queda en caché, aunque el servidor le ponga un mes', () => {
     const respuesta = prod('/api/yo');
     assert.match(respuesta.cabecera, /cache-control: no-store/);
-    assert.doesNotMatch(respuesta.cabecera, /max-age=604800/);
+    assert.doesNotMatch(respuesta.cabecera, /max-age=/);
+    assert.doesNotMatch(respuesta.cabecera, /^expires:/m);
   });
 
   test('una carpeta sin index.html no se lista', () => {

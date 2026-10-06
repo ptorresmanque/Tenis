@@ -23,12 +23,13 @@ Header always set X-Robots-Tag "noindex, nofollow"
   Header set Cache-Control "no-cache"
 </Files>
 
-# La configuración global del servidor le pone "max-age=604800" (7 días) a toda respuesta
-# exitosa, también a las de la API, y ningún .htaccess de la cuenta lo pide (D4). /api/yo
-# es lo que le dice a la web quién tiene sesión: el navegador guardaba el "nadie" de antes
-# del login y, después de entrar, la web seguía mostrando "Entrar". Las fotos de torneo no
-# cambian para un mismo id: esas sí quedan en caché.
+# La configuración global del servidor les pone caché a las respuestas exitosas, y ningún
+# .htaccess de la cuenta lo pide (D4): a /api/yo, medido con curl, un mes (Cache-Control y
+# Expires, de mod_expires). /api/yo es lo que le dice a la web quién tiene sesión: el
+# navegador guardaba el "nadie" de antes del login y, después de entrar, la web seguía
+# mostrando "Entrar". Las fotos de torneo no cambian para un mismo id: esas sí quedan.
 Header set Cache-Control "no-store" "expr=%{REQUEST_URI} =~ m#^/api/# && %{REQUEST_URI} !~ m#^/api/torneos/fotos/#"
+Header unset Expires "expr=%{REQUEST_URI} =~ m#^/api/# && %{REQUEST_URI} !~ m#^/api/torneos/fotos/#"
 
 # Propio y no heredado: así las reglas del .htaccess de public_html no entran aquí.
 RewriteEngine On
