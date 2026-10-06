@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "postinstall": "prisma generate",
-    "prebuild": "rm -rf dist",
+    "prebuild": "rm -rf dist && prisma generate",
     "build": "nest build",
     "postbuild": "node -e \"require('node:fs').accessSync('dist/main.js')\" || (echo 'La salida del build no está en dist/main.js: algo fuera de src/ entró al tsconfig de build.' && exit 1)",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

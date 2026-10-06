@@ -21,6 +21,10 @@ sha=$(git rev-parse --short=12 HEAD)
 armado=$(mktemp -d)
 trap 'rm -rf "$armado"' EXIT
 
+# Antes del build: si falla, no queda un release anterior que parezca el de este commit.
+salida=dist/release
+rm -rf "$salida"
+
 npm run build
 
 # Lista blanca: lo que no se nombra acá no viaja. Sin node_modules, que el agente
@@ -39,18 +43,16 @@ cp -R apps/web/dist/web/browser "$armado/web"
 cp -R deploy "$armado/"
 find "$armado/deploy" -name '*.test.*' -delete
 
-salida=dist/release
-rm -rf "$salida"
 mkdir -p "$salida"
 archivo="$salida/release-$sha.tar.gz"
 
 # El tar de macOS agrega archivos ._ y atributos extendidos que el tar GNU del servidor
 # no entiende. Las opciones para no guardarlos solo existen en bsdtar.
 export COPYFILE_DISABLE=1
-sin_metadatos=''
-if tar --version | grep -q bsdtar; then
-  sin_metadatos='--no-mac-metadata --no-xattrs'
-fi
+case "$(tar --version)" in
+  *bsdtar*) sin_metadatos='--no-mac-metadata --no-xattrs' ;;
+  *) sin_metadatos='' ;;
+esac
 # shellcheck disable=SC2086  # $sin_metadatos son dos opciones o ninguna
 tar $sin_metadatos -czf "$archivo" -C "$armado" .
 

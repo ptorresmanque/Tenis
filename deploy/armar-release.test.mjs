@@ -49,8 +49,9 @@ function repoFalso() {
   escribir('node_modules/rxjs/index.js');
   escribir('docs/pauta.md');
   escribir('deploy/agente.sh');
-  mkdirSync(join(raiz, 'deploy'), { recursive: true });
   copyFileSync(SCRIPT, join(raiz, 'deploy/armar-release.sh'));
+  // Este mismo test entra al repo falso para comprobar que los *.test.* de deploy/ no
+  // viajan en el release.
   copyFileSync(
     new URL(import.meta.url).pathname,
     join(raiz, 'deploy/armar-release.test.mjs'),
@@ -127,6 +128,21 @@ test('no arma un release desde un árbol con cambios sin commitear', () => {
 
   assert.notEqual(resultado.status, 0);
   assert.match(resultado.stderr, /sin commitear/);
+  assert.equal(existsSync(join(raiz, 'dist/release')), false);
+});
+
+test('si el build falla, no queda un release anterior que parezca el actual', () => {
+  const { raiz, git } = repoFalso();
+  armar(raiz);
+  writeFileSync(
+    join(raiz, 'package.json'),
+    JSON.stringify({ scripts: { build: 'exit 1' } }),
+  );
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'roto');
+
+  const resultado = armar(raiz);
+
+  assert.notEqual(resultado.status, 0);
   assert.equal(existsSync(join(raiz, 'dist/release')), false);
 });
 
