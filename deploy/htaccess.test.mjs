@@ -40,6 +40,8 @@ async function apache(ambiente) {
   // En el servidor, /api lo atiende Passenger. Acá basta un archivo para ver que la SPA
   // no se lo queda.
   escribir(join(docroot, 'api/salud'), 'api');
+  escribir(join(docroot, 'api/yo'), 'null');
+  escribir(join(docroot, 'api/torneos/fotos/1/imagen'), 'jpg');
 
   const passwd = join(dir, 'passwd');
   execFileSync('htpasswd', ['-cbB', passwd, 'fedal', 'clave']);
@@ -75,6 +77,9 @@ async function apache(ambiente) {
       `ErrorLog "${dir}/error.log"`,
       `DocumentRoot "${docroot}"`,
       `DirectoryIndex index.html`,
+      // Como la configuración global del servidor (D4, 2026-10-06): 7 días de caché a
+      // toda respuesta exitosa, la API incluida. Ningún .htaccess de la cuenta lo pone.
+      `Header set Cache-Control "max-age=604800, must-revalidate"`,
       `<Directory "${docroot}">`,
       // Como un hosting que lista carpetas por defecto: solo el .htaccess lo impide.
       `  Options Indexes SymLinksIfOwnerMatch`,
@@ -151,6 +156,17 @@ describe('htaccess.qa', { skip: saltar }, () => {
     assert.equal(qa('/api/salud').cuerpo, 'api');
   });
 
+  test('la API no queda en caché, aunque el servidor le ponga 7 días', () => {
+    const respuesta = qa('/api/yo');
+    assert.match(respuesta.cabecera, /cache-control: no-store/);
+    assert.doesNotMatch(respuesta.cabecera, /max-age=604800/);
+  });
+
+  test('las fotos de los torneos y los chunks sí quedan en caché', () => {
+    assert.match(qa('/api/torneos/fotos/1/imagen').cabecera, /max-age=604800/);
+    assert.match(qa('/chunk-A.js').cabecera, /max-age=604800/);
+  });
+
   test('/.well-known/ responde sin clave, para que AutoSSL renueve', () => {
     const respuesta = qa('/.well-known/acme-challenge/token', { clave: false });
     assert.equal(respuesta.estado, 200);
@@ -210,6 +226,12 @@ describe('htaccess.prod', { skip: saltar }, () => {
 
   test('/api no pasa por la SPA', () => {
     assert.equal(prod('/api/salud').cuerpo, 'api');
+  });
+
+  test('la API no queda en caché, aunque el servidor le ponga 7 días', () => {
+    const respuesta = prod('/api/yo');
+    assert.match(respuesta.cabecera, /cache-control: no-store/);
+    assert.doesNotMatch(respuesta.cabecera, /max-age=604800/);
   });
 
   test('una carpeta sin index.html no se lista', () => {
