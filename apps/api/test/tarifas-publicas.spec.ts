@@ -47,7 +47,7 @@ describe('GET /api/tarifas y GET /api/horarios', () => {
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
   });

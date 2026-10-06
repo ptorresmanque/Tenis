@@ -61,7 +61,7 @@ describe('GET /api/disponibilidad — con las reservas superpuestas', () => {
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
     prisma = app.get(PrismaService);
   });
 

@@ -71,7 +71,7 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
   });

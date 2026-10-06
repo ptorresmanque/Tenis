@@ -106,7 +106,7 @@ describe('GET /api/reservas/mias, PATCH y DELETE', () => {
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
   });

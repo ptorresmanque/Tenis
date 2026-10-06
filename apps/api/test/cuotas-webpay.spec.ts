@@ -119,7 +119,7 @@ describe('El socio paga su cuota en línea', () => {
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
     pasarela = app.get(PasarelaPago);

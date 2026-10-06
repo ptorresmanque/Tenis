@@ -40,10 +40,7 @@ describe('El pago de la inscripción a un torneo', () => {
    * Todas las peticiones del test salen de la misma IP y comparten el contador. Que
    * haya que perdonarlas es, en sí, la prueba de que los dos frenos están puestos.
    */
-  const LLAVES = [
-    'inscripcion|::ffff:127.0.0.1',
-    'comprobante|::ffff:127.0.0.1',
-  ];
+  const LLAVES = ['inscripcion|127.0.0.1', 'comprobante|127.0.0.1'];
 
   let torneoId: number;
   let cuadroPagado: number;
@@ -162,7 +159,7 @@ describe('El pago de la inscripción a un torneo', () => {
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
     await sembrarCategoriasDeJuego(prisma);
