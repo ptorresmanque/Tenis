@@ -4,7 +4,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { instanteEnElClub } from '../src/comun/tiempo';
-import { sembrarCategoriasDeJuego } from '../prisma/seed-torneos';
+import { sembrarCategoriasDeJuego } from '../src/arranque';
 import { MotivoBloqueo, Superficie } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 

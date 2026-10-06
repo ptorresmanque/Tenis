@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import request from 'supertest';
 
-import { sembrarCategoriasDeJuego } from '../prisma/seed-torneos';
+import { sembrarCategoriasDeJuego } from '../src/arranque';
 import { AppModule } from '../src/app.module';
 import { carpetaDeSubidas } from '../src/comun/imagenes';
 import { hashear } from '../src/identidad/contrasena';
