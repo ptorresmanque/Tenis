@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "trap 'kill 0' EXIT; env -u PORT npm run dev -w apps/api & npm run dev -w apps/web & wait",
     "build": "npm run build -w apps/api && npm run build -w apps/web",
-    "test": "npm test -w apps/api && npm test -w apps/web",
+    "test": "npm test -w apps/api && npm test -w apps/web && node --test 'deploy/*.test.mjs'",
     "lint": "npm run lint --workspaces --if-present",
     "seed": "npm run seed -w apps/api",
     "e2e": "playwright test"
