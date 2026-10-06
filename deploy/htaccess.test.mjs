@@ -49,20 +49,29 @@ async function apache(ambiente) {
     htaccess.replace(/AuthUserFile ".*"/, `AuthUserFile "${passwd}"`),
   );
 
-  const puerto = await puertoLibre();
+  // HTTP y HTTPS, como el servidor: la redirección y la clave dependen de %{HTTPS}.
+  execFileSync('openssl', [
+    'req', '-x509', '-nodes', '-newkey', 'rsa:2048', '-days', '1', '-subj', '/CN=qa.fedal.cl',
+    '-keyout', join(dir, 'clave.pem'), '-out', join(dir, 'certificado.pem'),
+  ], { stdio: 'ignore' });
+  const http = await puertoLibre();
+  const https = await puertoLibre();
   const modulos = [
     'mpm_prefork', 'unixd', 'authn_core', 'authn_file', 'authz_core', 'authz_user',
-    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'rewrite',
+    'auth_basic', 'autoindex', 'dir', 'mime', 'headers', 'rewrite', 'socache_shmcb', 'ssl',
   ];
   const conf = join(dir, 'httpd.conf');
   writeFileSync(
     conf,
     [
       `ServerRoot "/usr"`,
-      `Listen 127.0.0.1:${puerto}`,
+      `Listen 127.0.0.1:${http}`,
+      `Listen 127.0.0.1:${https}`,
       ...modulos.map((m) => `LoadModule ${m}_module ${MODULOS}/mod_${m}.so`),
       `ServerName localhost`,
       `PidFile "${dir}/httpd.pid"`,
+      // Con dos puertos, Apache crea un mutex: que sea aquí y no en /var/run.
+      `DefaultRuntimeDir "${dir}"`,
       `ErrorLog "${dir}/error.log"`,
       `DocumentRoot "${docroot}"`,
       `DirectoryIndex index.html`,
@@ -72,27 +81,34 @@ async function apache(ambiente) {
       `  AllowOverride All`,
       `  Require all granted`,
       `</Directory>`,
+      `<VirtualHost 127.0.0.1:${https}>`,
+      `  SSLEngine on`,
+      `  SSLCertificateFile "${dir}/certificado.pem"`,
+      `  SSLCertificateKeyFile "${dir}/clave.pem"`,
+      `</VirtualHost>`,
     ].join('\n'),
   );
 
   const proceso = spawn('/usr/sbin/httpd', ['-X', '-f', conf]);
-  const url = `http://127.0.0.1:${puerto}`;
+  const urls = { http: `http://127.0.0.1:${http}`, https: `https://127.0.0.1:${https}` };
   for (let intento = 0; intento < 50; intento += 1) {
     try {
-      execFileSync('curl', ['-s', '-o', '/dev/null', url]);
+      execFileSync('curl', ['-sk', '-o', '/dev/null', urls.https]);
       break;
     } catch {
       await new Promise((listo) => setTimeout(listo, 100));
     }
   }
-  return { url, cerrar: () => proceso.kill() };
+  return { urls, cerrar: () => proceso.kill() };
 }
 
-/** GET con curl, que sí deja fijar el Host. */
-function pedir(url, ruta, { host, clave = false } = {}) {
-  const args = ['-s', '-i', '-H', `Host: ${host}`];
+/** GET con curl, que sí deja fijar el Host. Por HTTPS, salvo que se pida HTTP. */
+function pedir(urls, ruta, { host, clave = false, protocolo = 'https' } = {}) {
+  const args = ['-sk', '-i', '-H', `Host: ${host}`];
   if (clave) args.push('-u', 'fedal:clave');
-  const salida = execFileSync('curl', [...args, `${url}${ruta}`], { encoding: 'utf8' });
+  const salida = execFileSync('curl', [...args, `${urls[protocolo]}${ruta}`], {
+    encoding: 'utf8',
+  });
   const [cabecera, ...cuerpo] = salida.split('\r\n\r\n');
   return {
     estado: Number(cabecera.split(' ')[1]),
@@ -104,7 +120,7 @@ function pedir(url, ruta, { host, clave = false } = {}) {
 describe('htaccess.qa', { skip: saltar }, () => {
   let servidor;
   const qa = (ruta, opciones = {}) =>
-    pedir(servidor.url, ruta, { host: 'qa.fedal.cl', clave: true, ...opciones });
+    pedir(servidor.urls, ruta, { host: 'qa.fedal.cl', clave: true, ...opciones });
 
   test('levanta Apache', async () => {
     servidor = await apache('qa');
@@ -148,11 +164,32 @@ describe('htaccess.qa', { skip: saltar }, () => {
   test('una carpeta sin index.html no se lista', () => {
     assert.equal(qa('/media/').estado, 403);
   });
+
+  test('por HTTP redirige a HTTPS antes de pedir la clave, que no viaja en claro', () => {
+    const respuesta = qa('/socio/reservas', { clave: false, protocolo: 'http' });
+    assert.equal(respuesta.estado, 301);
+    assert.match(respuesta.cabecera, /location: https:\/\/qa\.fedal\.cl\/socio\/reservas/);
+    assert.doesNotMatch(respuesta.cabecera, /www-authenticate/);
+  });
+
+  test('por HTTP, /api también redirige', () => {
+    assert.equal(qa('/api/salud', { clave: false, protocolo: 'http' }).estado, 301);
+  });
+
+  test('por HTTP, /.well-known/ responde sin redirigir, para AutoSSL', () => {
+    const respuesta = qa('/.well-known/acme-challenge/token', {
+      clave: false,
+      protocolo: 'http',
+    });
+    assert.equal(respuesta.estado, 200);
+    assert.equal(respuesta.cuerpo, 'token');
+  });
 });
 
 describe('htaccess.prod', { skip: saltar }, () => {
   let servidor;
-  const prod = (ruta) => pedir(servidor.url, ruta, { host: 'fedal.cl' });
+  const prod = (ruta, opciones = {}) =>
+    pedir(servidor.urls, ruta, { host: 'fedal.cl', ...opciones });
 
   test('levanta Apache', async () => {
     servidor = await apache('prod');
@@ -177,5 +214,15 @@ describe('htaccess.prod', { skip: saltar }, () => {
 
   test('una carpeta sin index.html no se lista', () => {
     assert.equal(prod('/media/').estado, 403);
+  });
+
+  test('por HTTP redirige a HTTPS', () => {
+    const respuesta = prod('/socio/reservas', { protocolo: 'http' });
+    assert.equal(respuesta.estado, 301);
+    assert.match(respuesta.cabecera, /location: https:\/\/fedal\.cl\/socio\/reservas/);
+  });
+
+  test('por HTTP, /.well-known/ responde sin redirigir, para AutoSSL', () => {
+    assert.equal(prod('/.well-known/acme-challenge/token', { protocolo: 'http' }).cuerpo, 'token');
   });
 });

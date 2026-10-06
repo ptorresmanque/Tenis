@@ -14,6 +14,12 @@ Options -Indexes
 
 RewriteEngine On
 
+# Todo a HTTPS: este servidor no ofrece "Forzar redirección HTTPS" en cPanel. Se exime
+# /.well-known/, que AutoSSL puede validar por HTTP.
+RewriteCond %{HTTPS} !=on
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
 # /api es de Passenger, que lo configura en api/.htaccess (lo escribe el Selector).
 RewriteRule ^api(/|$) - [L]
 
