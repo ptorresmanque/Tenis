@@ -122,6 +122,10 @@ respaldar() {
     ].join("\n") + "\n");
     console.log(url.pathname.slice(1));
   ' "$base/.env" "$opciones")
+  # El dump trae los datos personales de los socios: se crea legible solo por la cuenta,
+  # antes de escribir una línea. El > de abajo lo trunca sin cambiarle el modo.
+  : > "$destino"
+  chmod 600 "$destino"
   if ! mysqldump --defaults-extra-file="$opciones" --single-transaction --no-tablespaces \
     "$db" | gzip > "$destino"; then
     rm -f "$opciones" "$destino"

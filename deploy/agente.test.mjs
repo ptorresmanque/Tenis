@@ -13,6 +13,7 @@ import {
   readFileSync,
   readdirSync,
   readlinkSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -246,6 +247,8 @@ test('respalda la base antes de migrar, sin la clave en la línea de comandos', 
   const respaldos = readdirSync(join(srv.base, 'respaldos'));
   assert.equal(respaldos.length, 1);
   assert.match(respaldos[0], /-a1a1a1a1\.sql\.gz$/);
+  // Es un dump con los datos personales de los socios: solo lo lee la cuenta.
+  assert.equal(statSync(join(srv.base, 'respaldos', respaldos[0])).mode & 0o777, 0o600);
   const dump = execFileSync('gunzip', ['-c', join(srv.base, 'respaldos', respaldos[0])], {
     encoding: 'utf8',
   });
