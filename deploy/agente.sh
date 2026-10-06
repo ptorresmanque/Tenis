@@ -42,7 +42,8 @@ manifiesto="$base/web.manifiesto"
 [ -f "$entrante/listo" ] || exit 0
 
 # En cron el PATH es /usr/bin:/bin: el node del Selector no está ahí.
-export PATH="/opt/alt/alt-nodejs22/root/usr/bin:$PATH" TZ=UTC LC_ALL=C
+export PATH="/opt/alt/alt-nodejs22/root/usr/bin:$PATH" TZ=UTC LC_ALL=C \
+  NPM_CONFIG_UPDATE_NOTIFIER=false
 
 # Una corrida por ambiente a la vez, porque un deploy dura más que el minuto del cron.
 # flock suelta el candado cuando el proceso muere, así que nunca queda trabado.
@@ -172,6 +173,13 @@ trap al_salir EXIT
 
 if [ "$sha" = listo-invalido ]; then
   paso "listo trae un sha o un sha256 que no son válidos: '$invalido'"
+  exit 1
+fi
+
+# Sin el .env, prisma generate falla recién al final de npm ci, minutos después y con un
+# mensaje que no dice qué falta.
+if [ ! -f "$base/.env" ]; then
+  paso "falta $base/.env: la app y prisma leen de ahí su configuración (plan § 2)"
   exit 1
 fi
 
