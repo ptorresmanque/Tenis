@@ -1,0 +1,39 @@
+# qa.fedal.cl. Lo instala deploy/agente.sh en cada release: editarlo en el servidor no
+# sirve, porque el próximo release lo reemplaza. Por lo mismo, no activar "Privacidad de
+# directorios" de cPanel sobre esta carpeta: escribe aquí y se perdería. Se prueba en
+# deploy/htaccess.test.mjs.
+
+Options -Indexes
+
+# Solo con la clave de QA (plan § 0.9), salvo /.well-known/, por donde AutoSSL valida el
+# dominio para renovar el certificado.
+<If "%{REQUEST_URI} !~ m#^/\.well-known/#">
+  AuthType Basic
+  AuthName "QA FEDAL"
+  AuthUserFile "/home/fedalcl/.htpasswds/public_html/qa.fedal.cl/passwd"
+  Require valid-user
+</If>
+
+Header always set X-Robots-Tag "noindex, nofollow"
+
+# index.html nombra los chunks de su release, y el agente borra los del anterior: si el
+# navegador lo guardara, pediría archivos que ya no existen.
+<Files "index.html">
+  Header set Cache-Control "no-cache"
+</Files>
+
+# Propio y no heredado: así las reglas del .htaccess de public_html no entran aquí.
+RewriteEngine On
+
+# El document root está dentro de public_html, así que QA también respondería en
+# fedal.cl/qa.fedal.cl/. Solo se sirve con su nombre.
+RewriteCond %{HTTP_HOST} !^qa\.fedal\.cl(:[0-9]+)?$ [NC]
+RewriteRule ^ - [F]
+
+# /api es de Passenger, que lo configura en api/.htaccess (lo escribe el Selector).
+RewriteRule ^api(/|$) - [L]
+
+# Las rutas de la SPA: lo que no es un archivo ni una carpeta carga index.html.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
