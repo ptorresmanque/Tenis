@@ -20,7 +20,6 @@
     "seed": "TZ=UTC node --env-file=.env -r ts-node/register prisma/seed.ts",
     "arranque": "TZ=UTC node dist/arranque.js",
     "webpay": "TZ=UTC node --env-file=.env -r ts-node/register scripts/probar-webpay.ts",
-    "pretest": "TZ=UTC node --env-file=.env scripts/preparar-bd-test.mjs",
     "test": "TZ=UTC node --experimental-vm-modules --env-file=.env ../../node_modules/jest/bin/jest.js",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -54,6 +53,7 @@
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.0.0",
     "jest": "^30.0.0",
+    "mariadb": "^3.4.5",
     "prettier": "^3.4.2",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
@@ -78,6 +78,8 @@
     "testRegex": ".*\\.spec\\.ts$",
     "testTimeout": 20000,
     "maxWorkers": 1,
+    "globalSetup": "<rootDir>/../scripts/preparar-bd-test.mjs",
+    "globalTeardown": "<rootDir>/../scripts/soltar-bd-test.mjs",
     "setupFiles": [
       "<rootDir>/../test/setup-env.ts"
     ],
