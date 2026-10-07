@@ -465,9 +465,9 @@ describe('Torneos: jugadores, categorías y torneos', () => {
       const publicos = await request(app.getHttpServer())
         .get('/api/torneos/publicos?anio=2026')
         .expect(200);
-      expect(
-        (publicos.body as { id: number }[]).some((t) => t.id === id),
-      ).toBe(false);
+      expect((publicos.body as { id: number }[]).some((t) => t.id === id)).toBe(
+        false,
+      );
     });
 
     it('**y desde ahí nadie se inscribe**, que es de lo que servía el estado', async () => {

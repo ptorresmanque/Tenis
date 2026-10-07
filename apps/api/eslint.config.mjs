@@ -33,6 +33,18 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       "prettier/prettier": ["error", { endOfLine: "auto" }],
+      // Sacar una propiedad copiando el resto —`const { clave: _, ...resto } = x`— es la
+      // forma de armar un objeto sin ella; la variable que se descarta no es un olvido.
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
+    },
+  },
+  {
+    // En los specs, `expect(doble.metodo).toHaveBeenCalled()` es como Jest revisa las
+    // llamadas: el método no se invoca suelto y no hay `this` que perder. La propia
+    // documentación de typescript-eslint sugiere apagarla en los tests de Jest.
+    files: ['**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 );

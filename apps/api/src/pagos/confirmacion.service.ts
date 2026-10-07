@@ -7,7 +7,7 @@ import {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { transicionar } from './estados';
-import { PasarelaPago } from './pasarela.port';
+import { PasarelaPago, ResultadoPago } from './pasarela.port';
 
 /**
  * Lo que hay que hacer cuando el pago se confirma: confirmar la reserva, marcar la
@@ -69,7 +69,7 @@ export class ConfirmacionService {
       return this.resultadoGuardado(transaccion);
     }
 
-    let resultado;
+    let resultado: ResultadoPago;
     try {
       resultado = await this.pasarela.confirmar(tokenPasarela);
     } catch (error) {

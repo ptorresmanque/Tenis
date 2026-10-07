@@ -33,7 +33,6 @@ describe('POST /api/reservas — reserva de socio', () => {
   // Lunes de agosto: sin cambio de hora de por medio. El club en UTC-4.
   // Y en el futuro: la API no reserva horas que ya empezaron. 2037 repite el
   // calendario de 2026, así que los días de la semana no cambian.
-  const LUNES = '2037-08-17';
   const A_LAS_10 = '2037-08-17T14:00:00.000Z';
   const A_LAS_11 = '2037-08-17T15:00:00.000Z';
   const A_LAS_19 = '2037-08-17T23:00:00.000Z';
@@ -74,11 +73,20 @@ describe('POST /api/reservas — reserva de socio', () => {
     return (respuesta.headers['set-cookie'] as unknown as string[])[0];
   };
 
-  const reservar = (cuerpo: Record<string, unknown>, conCookie = cookie) =>
-    request(app.getHttpServer())
+  /** Lo que estos tests leen de la respuesta. supertest la entrega como `any`. */
+  const reservar = async (
+    cuerpo: Record<string, unknown>,
+    conCookie = cookie,
+  ) => {
+    const respuesta = await request(app.getHttpServer())
       .post('/api/reservas')
       .set('Cookie', conCookie)
       .send(cuerpo);
+
+    return respuesta as Omit<typeof respuesta, 'body'> & {
+      body: { id: number; folio: string; motivo: string; message: string };
+    };
+  };
 
   const unaReserva = (parche: Record<string, unknown> = {}) => ({
     canchaId,

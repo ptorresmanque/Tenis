@@ -280,8 +280,7 @@ describe('Reportes de hora no usada', () => {
     // mismo entre las 20:00 y la medianoche; **mudó la ventana rota en vez de
     // cerrarla**, y estos dos tests seguían fallando tres horas cada noche. Preguntar
     // por el día al que pertenece lo que se sembró es cierto a cualquier hora.
-    const elDiaDeLaReserva = () =>
-      comoFechaCivil(hoyEnElClub(HACE_TRES_HORAS));
+    const elDiaDeLaReserva = () => comoFechaCivil(hoyEnElClub(HACE_TRES_HORAS));
 
     const reportables = (cookie = testigo) =>
       request(servidor())
