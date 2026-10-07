@@ -36,10 +36,14 @@ describe('GET /api/disponibilidad — con las reservas superpuestas', () => {
       `/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`,
     );
 
-    return respuesta.body.find(
-      (b: { inicio: string }) =>
-        new Date(b.inicio).getTime() === A_LAS_10.getTime(),
-    );
+    // supertest entrega el cuerpo como `any`; esto es lo que leen estos tests.
+    return (
+      respuesta.body as {
+        inicio: string;
+        reservado: boolean;
+        montoClp: number;
+      }[]
+    ).find((b) => new Date(b.inicio).getTime() === A_LAS_10.getTime())!;
   };
 
   const unaReserva = (parche: Record<string, unknown> = {}) => ({

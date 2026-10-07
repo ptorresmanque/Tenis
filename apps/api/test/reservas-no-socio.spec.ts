@@ -3,11 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import {
-  EstadoReserva,
-  EstadoTransaccion,
-  Superficie,
-} from '../src/generated/prisma/client';
+import { EstadoReserva, Superficie } from '../src/generated/prisma/client';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -40,10 +36,21 @@ describe('Reserva de no-socio con pago', () => {
     telefono: '+56955556666',
   };
 
-  const reservarYPagar = (parche: Record<string, unknown> = {}) =>
-    request(app.getHttpServer())
+  /** Lo que estos tests leen de la respuesta. supertest la entrega como `any`. */
+  const reservarYPagar = async (parche: Record<string, unknown> = {}) => {
+    const respuesta = await request(app.getHttpServer())
       .post('/api/reservas/no-socio')
       .send({ canchaId, inicio: A_LAS_10, ...datosDelVisitante, ...parche });
+
+    return respuesta as Omit<typeof respuesta, 'body'> & {
+      body: {
+        urlRedireccion: string;
+        folio: string;
+        reservaId: number;
+        motivo: string;
+      };
+    };
+  };
 
   const volverDeWebpay = (token: string) =>
     request(app.getHttpServer()).get(`/api/reservas/retorno?token_ws=${token}`);
@@ -62,9 +69,9 @@ describe('Reserva de no-socio con pago', () => {
       `/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES}`,
     );
 
-    return !respuesta.body.find(
-      (b: { inicio: string }) => b.inicio === A_LAS_10,
-    ).reservado;
+    return !(respuesta.body as { inicio: string; reservado: boolean }[]).find(
+      (b) => b.inicio === A_LAS_10,
+    )!.reservado;
   };
 
   beforeAll(async () => {

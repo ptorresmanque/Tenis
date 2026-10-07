@@ -115,7 +115,9 @@ describe('Sesión, login y logout', () => {
       const respuesta = await malaClave(correo);
 
       expect(respuesta.status).toBe(429);
-      expect(respuesta.body.message).toMatch(/quince minutos/i);
+      expect((respuesta.body as { message: string }).message).toMatch(
+        /quince minutos/i,
+      );
     });
 
     it('bloqueada la cuenta, la contraseña correcta tampoco entra', async () => {
