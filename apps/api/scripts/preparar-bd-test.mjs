@@ -38,30 +38,29 @@ export default async function prepararBdTest() {
     user: decodeURIComponent(servidor.username),
     password: decodeURIComponent(servidor.password),
   });
-  const [{ tomado, quienLoTiene }] = await conexion.query(
-    'SELECT GET_LOCK(?, 0) AS tomado, IS_USED_LOCK(?) AS quienLoTiene',
-    [CANDADO, CANDADO],
-  );
-
-  if (Number(tomado) !== 1) {
-    await conexion.end();
-    throw new Error(
-      'Hay otra corrida de los tests usando tenis_test ' +
-        `(conexión ${quienLoTiene} de MariaDB). Espera a que termine: dos a la ` +
-        'vez se borran los datos una a la otra.',
-    );
-  }
-
-  // Lo lee `soltar-bd-test.mjs`: Jest comparte los globales del setup con el teardown.
-  globalThis.candadoBdTest = conexion;
-
   try {
+    const [{ tomado, quienLoTiene }] = await conexion.query(
+      'SELECT GET_LOCK(?, 0) AS tomado, IS_USED_LOCK(?) AS quienLoTiene',
+      [CANDADO, CANDADO],
+    );
+
+    if (Number(tomado) !== 1) {
+      throw new Error(
+        'Hay otra corrida de los tests usando tenis_test ' +
+          `(conexión ${quienLoTiene} de MariaDB). Espera a que termine: dos a la ` +
+          'vez se borran los datos una a la otra.',
+      );
+    }
+
     migrar(urlTest);
   } catch (error) {
     // Sin esto la conexión abierta deja a Jest colgado después del error.
     await conexion.end();
     throw error;
   }
+
+  // Lo lee `soltar-bd-test.mjs`: Jest comparte los globales del setup con el teardown.
+  globalThis.candadoBdTest = conexion;
 }
 
 function migrar(urlTest) {
