@@ -182,6 +182,16 @@ describe('Administración de canchas', () => {
     it('rechaza un nombre vacío', async () => {
       await crear(admin, { nombre: '   ' }).expect(400);
     });
+
+    it('rechaza un nombre demasiado largo diciendo hasta dónde', async () => {
+      const respuesta = await crear(admin, { nombre: 'a'.repeat(192) }).expect(
+        400,
+      );
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'Acorta el nombre: tiene más de 191 caracteres.',
+      );
+    });
   });
 
   describe('edición', () => {
