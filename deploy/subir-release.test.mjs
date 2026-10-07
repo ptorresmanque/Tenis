@@ -39,13 +39,22 @@ const netrc = args.includes('--netrc-file')
 fs.appendFileSync(llamadas, JSON.stringify({ args, netrc }) + '\\n');
 const url = args.find((a) => a.startsWith('ftp://'));
 const ruta = new URL(url).pathname;
+const comandos = args.filter((a, i) => args[i - 1] === '-Q');
+const ejecutar = (comando) => {
+  const sinAsterisco = comando.replace(/^\\*/, '');
+  if (sinAsterisco.startsWith('DELE ')) {
+    const archivo = path.join(servidor, sinAsterisco.slice(5));
+    if (fs.existsSync(archivo)) fs.unlinkSync(archivo);
+    else if (!comando.startsWith('*')) process.exit(21);
+  }
+};
+comandos.filter((c) => !c.startsWith('-')).forEach(ejecutar);
 const subida = args.includes('-T') ? args[args.indexOf('-T') + 1] : null;
 if (subida) {
   const nombre = ruta.endsWith('/') ? path.basename(subida) : path.basename(ruta);
   fs.copyFileSync(subida, path.join(servidor, nombre));
-  const q = args.filter((a, i) => args[i - 1] === '-Q');
-  const desde = q.find((c) => c.startsWith('-RNFR '));
-  const hacia = q.find((c) => c.startsWith('-RNTO '));
+  const desde = comandos.find((c) => c.startsWith('-RNFR '));
+  const hacia = comandos.find((c) => c.startsWith('-RNTO '));
   if (desde && hacia) {
     fs.renameSync(path.join(servidor, desde.slice(6)), path.join(servidor, hacia.slice(6)));
   }
@@ -170,6 +179,18 @@ test('si el agente no lo activó, sale con error y muestra lo que dijo', () => {
 test('un estado de otro release no cuenta: sin respuesta, se rinde al tope', () => {
   const entorno = preparar();
   writeFileSync(join(entorno.servidor, 'estado'), '000000000000 ok\n');
+
+  const resultado = subir(entorno, { AGENTE: 'nada', SUBIR_ESPERA_MAX: '0' });
+
+  assert.equal(resultado.status, 1);
+  assert.match(resultado.stderr, /no respondió/);
+});
+
+test('volver a desplegar el mismo sha no se fía del estado de la vez anterior', () => {
+  // Es lo que pasa al re-ejecutar un run para volver atrás: el estado viejo ya nombra
+  // este sha, y leerlo antes de que el agente actúe daría por activo algo que no lo está.
+  const entorno = preparar();
+  writeFileSync(join(entorno.servidor, 'estado'), `${SHA} ok\n`);
 
   const resultado = subir(entorno, { AGENTE: 'nada', SUBIR_ESPERA_MAX: '0' });
 

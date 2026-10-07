@@ -36,7 +36,10 @@ ftps() { curl -sS --ssl-reqd --netrc-file "$netrc" "$@"; }
 servidor="ftp://$FTP_HOST"
 
 echo "Subiendo el release $sha"
-ftps -T "$archivo" "$servidor/"
+# Primero se borra el estado anterior (el * hace que no falle si no hay). Al volver a
+# desplegar el mismo sha, que es como se vuelve atrás, el viejo ya lo nombra: leerlo daría
+# por activo, o por fallido, un release que el agente todavía no toca.
+ftps -Q '*DELE estado' -T "$archivo" "$servidor/"
 # "listo" va al final y aparece de una vez: se sube con otro nombre y después se renombra,
 # así el agente nunca lo lee a medio escribir.
 ftps -T dist/release/listo "$servidor/listo.tmp" -Q '-RNFR listo.tmp' -Q '-RNTO listo'
