@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { firstValueFrom } from 'rxjs';
 
+import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Campo, CampoControl } from '../../ui/campo';
 
@@ -157,16 +158,12 @@ export class RecuperarContrasena {
     try {
       await pedirAlServidor();
     } catch (falla: unknown) {
-      // El texto del servidor solo cuando le dice a la persona qué hacer: corregir
-      // (400) o esperar (429). Lo demás sería "Internal server error".
-      const respuesta = falla as { status?: number; error?: { message?: unknown } };
-      const mensaje = respuesta?.error?.message;
-
       this.error.set(
-        (respuesta?.status === 400 || respuesta?.status === 429) &&
-          typeof mensaje === 'string'
-          ? mensaje
-          : 'No pudimos hacerlo ahora. Prueba de nuevo en un momento.',
+        mensajeDelServidor(
+          falla,
+          'No pudimos hacerlo ahora. Prueba de nuevo en un momento.',
+          [400, 429],
+        ),
       );
     } finally {
       this.enviando.set(false);

@@ -3,8 +3,6 @@ import {
   Body,
   Controller,
   HttpCode,
-  HttpException,
-  HttpStatus,
   Post,
   Req,
 } from '@nestjs/common';
@@ -35,14 +33,11 @@ export class RecuperacionController {
 
     // Se cuenta exista o no la cuenta: si solo contaran los que mandan un correo,
     // el 429 llegaría antes justo a los correos que tienen cuenta.
-    if (this.pedidos.bloqueado(llave)) {
-      throw new HttpException(
-        `Ya pediste varios enlaces. Espera ${VENTANA_MS / 60_000} minutos y revisa ` +
-          'tu correo, también la carpeta de spam.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-    this.pedidos.anotarFallo(llave);
+    this.pedidos.contarPedido(
+      llave,
+      `Ya pediste varios enlaces. Espera ${VENTANA_MS / 60_000} minutos y revisa ` +
+        'tu correo, también la carpeta de spam.',
+    );
 
     await this.servicio.pedir(email);
 

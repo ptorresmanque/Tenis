@@ -6,6 +6,7 @@ import {
   minutosDeReloj,
 } from '../comun/tiempo';
 import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
+import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
 
 /**
  * Validación del borde del panel de administración, con el patrón de
@@ -15,23 +16,6 @@ import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
  * el admin quien escribe, pero un horario mal tipeado corre la grilla del club
  * entero y un monto negativo se convierte en una tarifa que le paga al cliente.
  */
-
-const LARGO_MAXIMO = 191; // El ancho de las columnas VARCHAR del schema.
-
-function texto(valor: unknown, campo: string): string {
-  const limpio = typeof valor === 'string' ? valor.trim() : '';
-
-  if (!limpio) {
-    throw new BadRequestException(`Falta ${campo}.`);
-  }
-  if (limpio.length > LARGO_MAXIMO) {
-    throw new BadRequestException(
-      `Acorta ${campo}: tiene más de ${LARGO_MAXIMO} caracteres.`,
-    );
-  }
-
-  return limpio;
-}
 
 function booleano(valor: unknown, campo: string): boolean {
   if (typeof valor !== 'boolean') {

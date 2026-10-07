@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { web } from '../comun/urls';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashear, problemaDeContrasena } from './contrasena';
-import { EnviadorCorreo } from './correo';
+import { EnviadorCorreo, enviarOAnotar } from './correo';
 import { hashDeToken, nuevoToken } from './token';
 
 /**
@@ -118,9 +118,11 @@ export class RecuperacionService {
    * fragmento no viaja al servidor, así que no queda en el log de acceso de Apache ni
    * en el Referer que se llevan las fuentes de Google que carga cada página.
    */
-  private async enviar(email: string, token: string): Promise<void> {
-    try {
-      await this.correo.enviar({
+  private enviar(email: string, token: string): Promise<void> {
+    // Si no sale, al log: la persona puede pedir otro enlace.
+    return enviarOAnotar(
+      this.correo,
+      {
         para: email,
         asunto: 'Elige una contraseña nueva — FEDAL Tennis Center',
         cuerpo:
@@ -128,13 +130,9 @@ export class RecuperacionService {
           `${web()}/nueva-contrasena#token=${token}\n\n` +
           `Vence en una hora y sirve una sola vez. Si no lo pediste tú, ignora ` +
           `este correo: tu contraseña no cambia.\n`,
-      });
-    } catch (falla) {
-      // Sin esto, una falla de sendmail sería un rechazo sin manejar y botaría el
-      // proceso. La persona puede pedir otro enlace.
-      this.log.error(
-        `No salió el enlace para cambiar la contraseña de ${email}: ${String(falla)}`,
-      );
-    }
+      },
+      this.log,
+      `No salió el enlace para cambiar la contraseña de ${email}`,
+    );
   }
 }

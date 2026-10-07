@@ -2,8 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  HttpException,
-  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
@@ -43,18 +41,11 @@ export class ContactoPublicoController {
   recibir(@Body() cuerpo: unknown, @Req() req: Request) {
     const llave = `contacto|${req.ip ?? 'sin-ip'}`;
 
-    if (this.envios.bloqueado(llave)) {
-      throw new HttpException(
-        `Recibimos varias consultas tuyas. Espera ${VENTANA_MS / 60_000} minutos ` +
-          'antes de mandar otra, o llámanos al club.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    // Se anota antes de guardar: si la validación rechaza el cuerpo, ese intento
-    // igual consumió cuota. Al revés, mandar basura sería gratis y el freno no
-    // frenaría nada.
-    this.envios.anotarFallo(llave);
+    this.envios.contarPedido(
+      llave,
+      `Recibimos varias consultas tuyas. Espera ${VENTANA_MS / 60_000} minutos ` +
+        'antes de mandar otra, o llámanos al club.',
+    );
 
     return this.servicio.recibir(leerSolicitud(cuerpo));
   }

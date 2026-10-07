@@ -13,9 +13,14 @@ export interface DatosRegistro {
 // llegue el enlace de verificación.
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const LARGO_MAXIMO = 191; // El ancho de las columnas VARCHAR del schema.
+export const LARGO_MAXIMO = 191; // El ancho de las columnas VARCHAR del schema.
 
-function texto(valor: unknown, campo: string, obligatorio = true): string {
+/** Un texto de un cuerpo, sin espacios a los lados y que quepa en su columna. */
+export function texto(
+  valor: unknown,
+  campo: string,
+  obligatorio = true,
+): string {
   const limpio = typeof valor === 'string' ? valor.trim() : '';
 
   if (obligatorio && !limpio) {

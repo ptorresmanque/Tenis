@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpException,
-  HttpStatus,
-  Post,
-  Query,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
 import { web } from '../comun/urls';
@@ -50,14 +40,11 @@ export class RegistroController {
 
     // Se cuenta exista o no la cuenta: si solo contaran los pedidos que mandan un
     // correo, el 429 llegaría antes justo a los correos que tienen cuenta.
-    if (this.pedidos.bloqueado(llave)) {
-      throw new HttpException(
-        `Ya pediste varios enlaces. Espera ${VENTANA_MS / 60_000} minutos y revisa ` +
-          'tu correo, también la carpeta de spam.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-    this.pedidos.anotarFallo(llave);
+    this.pedidos.contarPedido(
+      llave,
+      `Ya pediste varios enlaces. Espera ${VENTANA_MS / 60_000} minutos y revisa ` +
+        'tu correo, también la carpeta de spam.',
+    );
 
     await this.servicio.pedirEnlaceNuevo(email);
 

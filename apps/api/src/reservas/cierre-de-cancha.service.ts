@@ -7,7 +7,7 @@ import {
 
 import type { DatosBloqueo } from '../catalogo-canchas/admin.dto';
 import { ZONA_DEL_CLUB } from '../comun/tiempo';
-import { EnviadorCorreo } from '../identidad/correo';
+import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
 import { MINUTOS_PARA_EXPIRAR } from '../pagos/expiracion';
 import { AnulacionService } from '../pagos/anulacion.service';
 import type { Prisma } from '../generated/prisma/client';
@@ -274,8 +274,11 @@ export class CierreDeCanchaService {
       ? 'Te devolvimos lo que pagaste, completo.'
       : 'Recuperaste tu cupo del día: puedes tomar otra hora cuando quieras.';
 
-    try {
-      await this.correo.enviar({
+    // Un correo que no sale no puede deshacer una cancelación que ya ocurrió. Queda
+    // en el log con el folio, que es lo que el club necesita para llamar por teléfono.
+    await enviarOAnotar(
+      this.correo,
+      {
         para: reserva.email,
         asunto: `Tu hora en ${cancha?.nombre ?? 'el club'} quedó cancelada`,
         cuerpo:
@@ -285,14 +288,10 @@ export class CierreDeCanchaService {
           `así que tu reserva ${reserva.folio} quedó cancelada.\n\n` +
           `${devolucion}\n\n` +
           'Lamentamos el cambio. Si necesitas ayuda para reagendar, escríbenos.\n',
-      });
-    } catch (falla) {
-      // Un correo que no sale no puede deshacer una cancelación que ya ocurrió. Queda
-      // en el log con el folio, que es lo que el club necesita para llamar por teléfono.
-      this.log.error(
-        `No se pudo avisar la cancelación de ${reserva.folio}: ${String(falla)}`,
-      );
-    }
+      },
+      this.log,
+      `No se pudo avisar la cancelación de ${reserva.folio}`,
+    );
   }
 
   /** La compra y, si la alargó, la diferencia de T89: cada pago, entero (T86). */

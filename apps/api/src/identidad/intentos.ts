@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 
 /**
  * Cuántos intentos fallidos se toleran antes de cerrar la puerta, y por cuánto tiempo.
@@ -52,6 +52,21 @@ export class IntentosFallidos {
     this.fallos.set(llave, [...this.recientes(llave, ahora), ahora]);
 
     if (this.fallos.size > LLAVES_MAXIMAS) this.podar(ahora);
+  }
+
+  /**
+   * El freno de los pedidos públicos: cuenta **cada pedido**, no solo los fallidos,
+   * y al agotar la cuota responde 429 con ese mensaje.
+   *
+   * Se anota antes de atender: si la validación rechaza el cuerpo, ese intento igual
+   * consumió cuota. Al revés, mandar basura sería gratis y el freno no frenaría nada.
+   */
+  contarPedido(llave: string, mensaje: string): void {
+    if (this.bloqueado(llave)) {
+      throw new HttpException(mensaje, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    this.anotarFallo(llave);
   }
 
   /** Cuántas llaves tiene en memoria. Para vigilar que la poda haga su trabajo. */

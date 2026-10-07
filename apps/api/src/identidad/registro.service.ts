@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashear, problemaDeContrasena } from './contrasena';
-import { CorreoSaliente, EnviadorCorreo } from './correo';
+import { CorreoSaliente, EnviadorCorreo, enviarOAnotar } from './correo';
 import { DatosRegistro } from './registro.dto';
 import { InvitacionesService } from './socios/invitaciones.service';
 import { hashDeToken, nuevoToken } from './token';
@@ -87,14 +87,21 @@ export class RegistroService {
         throw error;
       }
 
-      await this.enviarOAnotar({
-        para: datos.email,
-        asunto: 'Alguien intentó registrarse con tu correo',
-        cuerpo:
-          `Hola,\n\nYa hay una cuenta de FEDAL Tennis Center con este correo, así que ` +
-          `no creamos otra.\n\nSi fuiste tú, entra con tu contraseña. Si no la ` +
-          `recuerdas, pide recuperarla desde la pantalla de ingreso.\n`,
-      });
+      // Si no sale, al log y no un error, como el de verificación de abajo: si
+      // fallara solo uno de los dos caminos, un sendmail caído diría quién tiene
+      // cuenta.
+      await enviarOAnotar(
+        this.correo,
+        {
+          para: datos.email,
+          asunto: 'Alguien intentó registrarse con tu correo',
+          cuerpo:
+            `Hola,\n\nYa hay una cuenta de FEDAL Tennis Center con este correo, así que ` +
+            `no creamos otra.\n\nSi fuiste tú, entra con tu contraseña. Si no la ` +
+            `recuerdas, pide recuperarla desde la pantalla de ingreso.\n`,
+        },
+        this.log,
+      );
       return;
     }
 
@@ -107,8 +114,11 @@ export class RegistroService {
     // invitado diría quién es socio a cualquiera que pruebe direcciones.
     await this.invitaciones.asociarSiInvitado(creado.id, datos.email);
 
-    await this.enviarOAnotar(
+    // El enlace se pide de nuevo desde /verificar-correo si este no sale.
+    await enviarOAnotar(
+      this.correo,
       correoDeVerificacion(datos.email, `Hola ${datos.nombre},`, token),
+      this.log,
     );
   }
 
@@ -147,27 +157,12 @@ export class RegistroService {
     // el UPDATE escriba o no una fila, del mismo orden que en el registro.
     setImmediate(
       () =>
-        void this.enviarOAnotar(correoDeVerificacion(email, 'Hola,', token)),
+        void enviarOAnotar(
+          this.correo,
+          correoDeVerificacion(email, 'Hola,', token),
+          this.log,
+        ),
     );
-  }
-
-  /**
-   * Manda el correo y, si no sale, lo deja en el log en vez de fallar.
-   *
-   * Cuando se envía, la cuenta ya está escrita: responder error diría "no pudimos
-   * crear la cuenta" sobre una que existe, y si fallara solo uno de los caminos de
-   * `registrar`, un sendmail caído diría quién tiene cuenta. El enlace se pide de
-   * nuevo desde /verificar-correo. En `pedirEnlaceNuevo`, que no espera el envío,
-   * además evita un rechazo sin manejar, que botaría el proceso.
-   */
-  private async enviarOAnotar(correo: CorreoSaliente): Promise<void> {
-    try {
-      await this.correo.enviar(correo);
-    } catch (falla) {
-      this.log.error(
-        `No salió "${correo.asunto}" para ${correo.para}: ${String(falla)}`,
-      );
-    }
   }
 
   /** Marca el correo como verificado. Devuelve false si el enlace no sirve. */
