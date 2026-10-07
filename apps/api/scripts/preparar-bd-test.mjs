@@ -134,4 +134,19 @@ function migrar(urlTest) {
     stdio: ['pipe', 'inherit', 'inherit'],
     env: { ...process.env, DATABASE_URL: urlTest },
   });
+
+  // Lo que producción siempre tiene: la fila de configuración del club y las categorías
+  // de juego, que el agente siembra con este mismo arranque después de cada migración
+  // (D3). Sin esto, un spec que las necesita pasa o falla según el orden en que corran
+  // los demás: con la base recién creada del CI, fallaban cuatro (D6). Va en otro
+  // proceso con ts-node por lo mismo de arriba, y solo transpilando, que tarda 0,3 s.
+  execFileSync('node', ['-r', 'ts-node/register', 'src/arranque.ts'], {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      DATABASE_URL: urlTest,
+      ADMIN_INICIAL: '',
+      TS_NODE_TRANSPILE_ONLY: 'true',
+    },
+  });
 }
