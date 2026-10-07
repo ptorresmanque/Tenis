@@ -27,7 +27,7 @@ describe('POST /api/torneos/:id/inscripcion', () => {
    * así que sin perdonarla entre tests el sexto test recibe un 429 por culpa del
    * quinto. Que haga falta esto es, en sí, la prueba de que el freno está puesto.
    */
-  const LLAVE = 'inscripcion|::ffff:127.0.0.1';
+  const LLAVE = 'inscripcion|127.0.0.1';
 
   const MARCA = 'Copa abierta';
   const APELLIDO = 'DeLaCalle';
@@ -120,7 +120,7 @@ describe('POST /api/torneos/:id/inscripcion', () => {
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
     envios = app.get(IntentosFallidos);
