@@ -45,6 +45,12 @@ model Usuario {
   verificacionTokenHash String?   @unique @map("verificacion_token_hash")
   verificacionExpiraEn  DateTime? @map("verificacion_expira_en")
 
+  /// Lo mismo para el enlace que deja elegir una contraseña nueva. Columnas aparte:
+  /// la verificación vence en un día y solo sirve sin verificar; esta, en una hora y
+  /// para cualquier cuenta.
+  recuperacionTokenHash String?   @unique @map("recuperacion_token_hash")
+  recuperacionExpiraEn  DateTime? @map("recuperacion_expira_en")
+
   creadoEn      DateTime @default(now()) @map("creado_en")
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 

@@ -70,6 +70,11 @@ describe('Rutas protegidas', () => {
     expect(buscar(url)?.guards).toContain(soloAdmin);
   });
 
+  it('recuperar-contrasena se abre con sesión: el enlace del correo puede abrirse en cualquier navegador', () => {
+    expect(buscar('recuperar-contrasena')?.guards).toEqual([]);
+    expect(buscar('nueva-contrasena')?.guards).toEqual([]);
+  });
+
   it('registro es solo para quien no tiene sesión', () => {
     expect(buscar('registro')?.guards).toContain(soloVisitantes);
   });
@@ -91,6 +96,8 @@ describe('Cada ruta en su cascarón', () => {
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],
+    ['recuperar-contrasena', CascaronAuth],
+    ['nueva-contrasena', CascaronAuth],
     ['administracion/reservas', CascaronAdmin],
     ['administracion/canchas', CascaronAdmin],
     ['administracion/socios', CascaronAdmin],

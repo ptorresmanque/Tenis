@@ -105,6 +105,23 @@ export const routes: Routes = [
           import('./identidad/registro/registro').then((m) => m.Registro),
       },
       {
+        path: 'recuperar-contrasena',
+        title: 'Recuperar contraseña — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./identidad/recuperar-contrasena/recuperar-contrasena').then(
+            (m) => m.RecuperarContrasena,
+          ),
+      },
+      {
+        // El enlace del correo. Misma pantalla, otra ruta: ver RecuperarContrasena.
+        path: 'nueva-contrasena',
+        title: 'Contraseña nueva — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./identidad/recuperar-contrasena/recuperar-contrasena').then(
+            (m) => m.RecuperarContrasena,
+          ),
+      },
+      {
         // Sin `soloVisitantes`: entrar no exige el correo verificado, así que
         // quien ya tiene sesión también puede necesitar el enlace.
         path: 'verificar-correo',

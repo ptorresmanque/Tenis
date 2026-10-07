@@ -75,6 +75,13 @@ const RECHAZOS: Record<string, string> = {
       </p>
 
       <p class="text-sm text-muted-foreground">
+        ¿Olvidaste tu contraseña?
+        <a routerLink="/recuperar-contrasena" class="font-semibold text-primary underline">
+          Elige una nueva
+        </a>
+      </p>
+
+      <p class="text-sm text-muted-foreground">
         ¿No te llegó el correo para verificar tu cuenta?
         <a routerLink="/verificar-correo" class="font-semibold text-primary underline">
           Pide otro
