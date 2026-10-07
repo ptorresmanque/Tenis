@@ -10,7 +10,8 @@ import { Campo, CampoControl } from '../../ui/campo';
 
 /**
  * Recuperar la contraseña, en dos pasos: en /recuperar-contrasena pide el correo, y en
- * /nueva-contrasena, con el `?token=` del enlace que llegó, la contraseña nueva.
+ * /nueva-contrasena, con el `#token=` del enlace que llegó, la contraseña nueva. En el
+ * fragmento y no en la consulta para que no llegue al servidor ni al Referer.
  *
  * Dos rutas y no una con y sin token: ir de una a otra crea la pantalla de nuevo, y
  * con una sola Angular la reutilizaría con el token viejo.
@@ -110,8 +111,10 @@ export class RecuperarContrasena {
   private readonly http = inject(HttpClient);
   private readonly formularios = inject(FormBuilder).nonNullable;
 
-  /** El que trae el enlace del correo. */
-  protected readonly token = inject(ActivatedRoute).snapshot.queryParamMap.get('token');
+  /** El que trae el enlace del correo, después del `#`. */
+  protected readonly token = new URLSearchParams(
+    inject(ActivatedRoute).snapshot.fragment ?? '',
+  ).get('token');
 
   protected readonly pedido = this.formularios.group({
     email: ['', [Validators.required, Validators.email]],

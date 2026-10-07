@@ -111,7 +111,13 @@ export class RecuperacionService {
     });
   }
 
-  /** El envío de `pedir`, que nadie espera: si falla, queda en el log. */
+  /**
+   * El envío de `pedir`, que nadie espera: si falla, queda en el log.
+   *
+   * El token va en el fragmento (`#token=`) y no en la consulta (`?token=`): el
+   * fragmento no viaja al servidor, así que no queda en el log de acceso de Apache ni
+   * en el Referer que se llevan las fuentes de Google que carga cada página.
+   */
   private async enviar(email: string, token: string): Promise<void> {
     try {
       await this.correo.enviar({
@@ -119,7 +125,7 @@ export class RecuperacionService {
         asunto: 'Elige una contraseña nueva — FEDAL Tennis Center',
         cuerpo:
           `Hola,\n\nPara elegir una contraseña nueva, abre este enlace:\n\n` +
-          `${web()}/nueva-contrasena?token=${token}\n\n` +
+          `${web()}/nueva-contrasena#token=${token}\n\n` +
           `Vence en una hora y sirve una sola vez. Si no lo pediste tú, ignora ` +
           `este correo: tu contraseña no cambia.\n`,
       });

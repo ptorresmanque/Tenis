@@ -91,7 +91,7 @@ describe('Recuperación de contraseña', () => {
 
   /** El token del último correo, sacado del enlace como lo abriría la persona. */
   const tokenDelUltimoCorreo = (): string => {
-    const enlace = /\/nueva-contrasena\?token=([\w-]+)/.exec(
+    const enlace = /\/nueva-contrasena#token=([\w-]+)/.exec(
       enviados.at(-1)?.cuerpo ?? '',
     );
     if (!enlace) {

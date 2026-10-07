@@ -1,20 +1,22 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { RecuperarContrasena } from './recuperar-contrasena';
 
 /**
  * Recuperar la contraseña. Sin token, pide el correo; con el token del enlace, pide la
- * contraseña nueva.
+ * contraseña nueva. El token llega en el fragmento (`#token=`), que no viaja al
+ * servidor: así no queda en el log de acceso ni en el Referer.
  */
 describe('RecuperarContrasena', () => {
   let fixture: ComponentFixture<RecuperarContrasena>;
   let http: HttpTestingController;
 
-  const montar = (consulta: Record<string, string> = {}) => {
+  /** `fragmento` es lo que va después del `#` en el enlace del correo. */
+  const montar = (fragmento: string | null = null) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -23,7 +25,7 @@ describe('RecuperarContrasena', () => {
         provideHttpClientTesting(),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { queryParamMap: convertToParamMap(consulta) } },
+          useValue: { snapshot: { fragment: fragmento } },
         },
       ],
     });
@@ -62,7 +64,7 @@ describe('RecuperarContrasena', () => {
   });
 
   it('con el token del enlace, manda la contraseña nueva y avisa que quedó cambiada', async () => {
-    montar({ token: 'tok-123' });
+    montar('token=tok-123');
 
     enviarCon('input[type="password"]', 'saque cruzado al fondo');
     const peticion = http.expectOne('/api/auth/restablecer');
@@ -78,7 +80,7 @@ describe('RecuperarContrasena', () => {
   });
 
   it('si el enlace no sirve, muestra el motivo del servidor y ofrece pedir otro', async () => {
-    montar({ token: 'vencido' });
+    montar('token=vencido');
 
     enviarCon('input[type="password"]', 'saque cruzado al fondo');
     http
