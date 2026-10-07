@@ -137,6 +137,19 @@ describe('Registro con email y contraseña', () => {
       await registrar({ ...cuerpoValido, nombre: '   ' }).expect(400);
     });
 
+    it('rechaza un nombre más largo que la columna, con un mensaje que se lee bien', async () => {
+      // La web muestra este texto tal cual: decía "el nombre es demasiado largo.",
+      // con minúscula, y sin decir hasta dónde.
+      const respuesta = await registrar({
+        ...cuerpoValido,
+        nombre: 'a'.repeat(192),
+      }).expect(400);
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'Acorta el nombre: tiene más de 191 caracteres.',
+      );
+    });
+
     it('rechaza un cuerpo sin los campos obligatorios', async () => {
       await registrar({}).expect(400);
     });

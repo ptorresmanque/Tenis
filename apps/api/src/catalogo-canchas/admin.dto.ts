@@ -25,7 +25,9 @@ function texto(valor: unknown, campo: string): string {
     throw new BadRequestException(`Falta ${campo}.`);
   }
   if (limpio.length > LARGO_MAXIMO) {
-    throw new BadRequestException(`${campo} es demasiado largo.`);
+    throw new BadRequestException(
+      `Acorta ${campo}: tiene más de ${LARGO_MAXIMO} caracteres.`,
+    );
   }
 
   return limpio;
