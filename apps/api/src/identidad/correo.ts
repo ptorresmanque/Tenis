@@ -76,11 +76,14 @@ export function armarMensaje(
  *
  * `-t` toma el destinatario del encabezado `To`, `-i` evita que una línea con solo un
  * punto corte el mensaje y `-f` pone al remitente como dirección de rebote.
+ *
+ * Diez segundos de `espera` sobran: Exim deja el mensaje en su cola y vuelve al tiro.
  */
 export class EnviadorPorSendmail extends EnviadorCorreo {
   constructor(
     private readonly remitente: string,
     private readonly sendmail = '/usr/sbin/sendmail',
+    private readonly espera = 10_000,
   ) {
     super();
   }
@@ -90,17 +93,29 @@ export class EnviadorPorSendmail extends EnviadorCorreo {
     const rebote = /<([^>]+)>/.exec(this.remitente)?.[1] ?? this.remitente;
 
     return new Promise((resolver, rechazar) => {
+      // `timeout` lo mata con SIGTERM si no termina: colgado, dejaría esperando
+      // para siempre a quien envía.
       const proceso = spawn(this.sendmail, ['-t', '-i', '-f', rebote], {
         stdio: ['pipe', 'ignore', 'pipe'],
+        timeout: this.espera,
       });
       let error = '';
       proceso.stderr.on('data', (trozo: Buffer) => (error += trozo.toString()));
       proceso.on('error', rechazar);
-      proceso.on('close', (codigo) => {
-        if (codigo === 0) {
-          resolver();
-        } else {
-          rechazar(new Error(`sendmail salió con ${codigo}: ${error.trim()}`));
+      // Si sendmail sale sin leer, la escritura da EPIPE. Sin quien lo escuche, es una
+      // excepción sin manejar y bota la API entera.
+      proceso.stdin.on('error', rechazar);
+      // El éxito se decide al salir sendmail, no al cerrarse sus salidas: Exim entrega
+      // desde un hijo que puede heredarlas, y esperarlo sería esperar la entrega
+      // entera. La falla sí espera el cierre, para llevar todo lo que dijo.
+      proceso.on('exit', (codigo) => {
+        if (codigo === 0) resolver();
+      });
+      proceso.on('close', (codigo, senal) => {
+        if (codigo !== 0) {
+          rechazar(
+            new Error(`sendmail salió con ${codigo ?? senal}: ${error.trim()}`),
+          );
         }
       });
       proceso.stdin.end(mensaje);

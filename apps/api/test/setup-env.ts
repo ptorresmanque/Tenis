@@ -18,3 +18,8 @@ if (!process.env.DATABASE_URL.includes('tenis_test')) {
       'Abortando antes de tocar datos que no son de prueba.',
   );
 }
+
+// Los tests nunca mandan correo de verdad, aunque el .env de quien los corre traiga
+// CORREO_REMITENTE (D5): con él, cada registro de prueba saldría por el sendmail del
+// equipo hacia correos inventados.
+delete process.env.CORREO_REMITENTE;

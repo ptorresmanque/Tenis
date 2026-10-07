@@ -19,7 +19,7 @@ describe('Correo saliente', () => {
   const REMITENTE = 'FEDAL Tennis Center <no-responder@fedal.cl>';
   const CORREO: CorreoSaliente = {
     para: 'socia@ejemplo.cl',
-    asunto: 'Verifica tu correo — Club de Tenis',
+    asunto: 'Verifica tu correo — FEDAL Tennis Center',
     cuerpo: 'Hola Ñuñoa,\n\nAbre este enlace para terminar tu inscripción.\n',
   };
 
@@ -59,7 +59,7 @@ describe('Correo saliente', () => {
 
     expect(mensaje.encabezado('From')).toBe(REMITENTE);
     expect(mensaje.encabezado('To')).toBe('socia@ejemplo.cl');
-    expect(mensaje.asunto).toBe('Verifica tu correo — Club de Tenis');
+    expect(mensaje.asunto).toBe('Verifica tu correo — FEDAL Tennis Center');
     expect(mensaje.encabezado('Content-Type')).toBe(
       'text/plain; charset=utf-8',
     );
@@ -110,6 +110,47 @@ describe('Correo saliente', () => {
       new EnviadorPorSendmail(REMITENTE, ruta).enviar(CORREO),
     ).rejects.toThrow(/sendmail salió con 75: no hay ruta al destino/);
   });
+
+  /** Un ejecutable con el guion que se le pase, para las fallas raras. */
+  function guion(contenido: string): string {
+    const ruta = join(mkdtempSync(join(tmpdir(), 'sendmail-')), 'sendmail');
+    writeFileSync(ruta, `#!/bin/sh\n${contenido}\n`);
+    chmodSync(ruta, 0o755);
+    return ruta;
+  }
+
+  it('si sendmail sale sin leer el mensaje, el envío falla sin botar el proceso', async () => {
+    // Sin escuchar el error de la escritura, el EPIPE es una excepción sin manejar y
+    // Node bota la API entera. Un mensaje largo lo hace pasar siempre: no cabe en el
+    // buffer de la tubería y la escritura sigue cuando sendmail ya salió.
+    const largo = { ...CORREO, cuerpo: 'Tenis en arcilla. '.repeat(20_000) };
+
+    await expect(
+      new EnviadorPorSendmail(REMITENTE, guion('exit 1')).enviar(largo),
+    ).rejects.toThrow();
+  });
+
+  it('si sendmail no termina, se corta y el envío falla', async () => {
+    // Colgado, dejaba esperando para siempre a quien enviaba: el registro no
+    // respondía nunca. `exec` para que el colgado sea sendmail mismo y no un hijo.
+    const colgado = guion('cat > /dev/null\nexec sleep 30');
+
+    await expect(
+      new EnviadorPorSendmail(REMITENTE, colgado, 300).enviar(CORREO),
+    ).rejects.toThrow(/sendmail salió con SIGTERM/);
+  });
+
+  it('no espera a lo que sendmail deja corriendo de fondo, como la entrega de Exim', async () => {
+    // Exim acepta el mensaje, sale, y entrega desde un proceso hijo. Si ese hijo
+    // hereda la salida de errores, esperar a que se cierre sería esperar la entrega
+    // entera en cada registro.
+    const conHijo = guion('cat > /dev/null\nsleep 5 &\nexit 0');
+    const inicio = Date.now();
+
+    await new EnviadorPorSendmail(REMITENTE, conHijo).enviar(CORREO);
+
+    expect(Date.now() - inicio).toBeLessThan(2000);
+  }, 10_000);
 
   it('sin CORREO_REMITENTE escribe en el log; con él, envía por sendmail', () => {
     expect(elegirEnviador({})).toBeInstanceOf(EnviadorPorConsola);

@@ -87,7 +87,7 @@ export class RegistroService {
         throw error;
       }
 
-      await this.correo.enviar({
+      await this.enviarOAnotar({
         para: datos.email,
         asunto: 'Alguien intentó registrarse con tu correo',
         cuerpo:
@@ -107,7 +107,7 @@ export class RegistroService {
     // invitado diría quién es socio a cualquiera que pruebe direcciones.
     await this.invitaciones.asociarSiInvitado(creado.id, datos.email);
 
-    await this.correo.enviar(
+    await this.enviarOAnotar(
       correoDeVerificacion(datos.email, `Hola ${datos.nombre},`, token),
     );
   }
@@ -145,18 +145,27 @@ export class RegistroService {
     // escriba la respuesta, y con él la parte síncrona del adaptador —armar el
     // mensaje y lanzar sendmail—. Lo que sigue distinguiendo los dos caminos es que
     // el UPDATE escriba o no una fila, del mismo orden que en el registro.
-    setImmediate(() => void this.mandarEnlace(email, token));
+    setImmediate(
+      () =>
+        void this.enviarOAnotar(correoDeVerificacion(email, 'Hola,', token)),
+    );
   }
 
-  /** El envío de `pedirEnlaceNuevo`, que nadie espera: si falla, queda en el log. */
-  private async mandarEnlace(email: string, token: string): Promise<void> {
+  /**
+   * Manda el correo y, si no sale, lo deja en el log en vez de fallar.
+   *
+   * Cuando se envía, la cuenta ya está escrita: responder error diría "no pudimos
+   * crear la cuenta" sobre una que existe, y si fallara solo uno de los caminos de
+   * `registrar`, un sendmail caído diría quién tiene cuenta. El enlace se pide de
+   * nuevo desde /verificar-correo. En `pedirEnlaceNuevo`, que no espera el envío,
+   * además evita un rechazo sin manejar, que botaría el proceso.
+   */
+  private async enviarOAnotar(correo: CorreoSaliente): Promise<void> {
     try {
-      await this.correo.enviar(correoDeVerificacion(email, 'Hola,', token));
+      await this.correo.enviar(correo);
     } catch (falla) {
-      // Sin esto, una falla de sendmail sería un rechazo sin manejar y botaría el
-      // proceso. La persona puede pedir otro enlace.
       this.log.error(
-        `No salió el enlace de verificación nuevo para ${email}: ${String(falla)}`,
+        `No salió "${correo.asunto}" para ${correo.para}: ${String(falla)}`,
       );
     }
   }
