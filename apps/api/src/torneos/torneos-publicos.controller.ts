@@ -276,15 +276,11 @@ export class TorneosPublicosController {
     // freno es CPU regalada a quien quiera pedirla.
     const llave = `comprobante|${req.ip ?? 'sin-ip'}`;
 
-    if (this.envios.bloqueado(llave)) {
-      throw new HttpException(
-        `Recibimos varios comprobantes tuyos. Espera ${VENTANA_MS / 60_000} ` +
-          'minutos, o llámanos al club.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    this.envios.anotarFallo(llave);
+    this.envios.contarPedido(
+      llave,
+      `Recibimos varios comprobantes tuyos. Espera ${VENTANA_MS / 60_000} ` +
+        'minutos, o llámanos al club.',
+    );
 
     if (!archivo) {
       throw new BadRequestException('Adjunta la imagen del comprobante.');

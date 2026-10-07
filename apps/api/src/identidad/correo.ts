@@ -19,6 +19,27 @@ export abstract class EnviadorCorreo {
 }
 
 /**
+ * Manda el correo y, si no sale, lo deja en el log en vez de fallar.
+ *
+ * Para los correos que se mandan con el trabajo ya hecho: una falla de sendmail no
+ * puede deshacer una cuenta creada ni una cancelación, y responder error diría que no
+ * ocurrieron. Donde nadie espera el envío, además evita un rechazo sin manejar, que
+ * botaría el proceso. `siFalla` es lo que necesita quien lea el log para actuar.
+ */
+export async function enviarOAnotar(
+  enviador: EnviadorCorreo,
+  correo: CorreoSaliente,
+  log: Logger,
+  siFalla = `No salió "${correo.asunto}" para ${correo.para}`,
+): Promise<void> {
+  try {
+    await enviador.enviar(correo);
+  } catch (falla) {
+    log.error(`${siFalla}: ${String(falla)}`);
+  }
+}
+
+/**
  * Adaptador de desarrollo y de los tests: escribe el correo en el log del servidor.
  * Es el que se usa cuando el `.env` no trae CORREO_REMITENTE.
  */

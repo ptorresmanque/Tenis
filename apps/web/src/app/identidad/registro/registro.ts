@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { firstValueFrom } from 'rxjs';
 
+import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Campo, CampoControl } from '../../ui/campo';
 
@@ -123,16 +124,12 @@ export class Registro {
       );
       this.enviado.set(respuesta.mensaje);
     } catch (falla: unknown) {
-      // Solo se muestra el texto del servidor cuando es un rechazo de validación:
-      // ahí explica qué corregir. Un 500 diría "Internal server error", que no le
-      // sirve a nadie y suena a que la persona hizo algo mal.
-      const respuesta = falla as { status?: number; error?: { message?: unknown } };
-      const mensaje = respuesta?.error?.message;
-
       this.error.set(
-        respuesta?.status === 400 && typeof mensaje === 'string'
-          ? mensaje
-          : 'No pudimos crear la cuenta. Prueba de nuevo en un momento.',
+        mensajeDelServidor(
+          falla,
+          'No pudimos crear la cuenta. Prueba de nuevo en un momento.',
+          [400],
+        ),
       );
     } finally {
       this.enviando.set(false);

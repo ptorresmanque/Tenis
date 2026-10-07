@@ -100,4 +100,17 @@ describe('IntentosFallidos', () => {
     expect(intentos.bloqueado('otro@club.cl|10.0.0.1', AHORA)).toBe(false);
     expect(intentos.bloqueado('socia@club.cl|10.0.0.9', AHORA)).toBe(false);
   });
+
+  it('el freno de los pedidos públicos cuenta cada uno y al agotarlos responde 429', () => {
+    for (let i = 0; i < FALLOS_TOLERADOS; i++) {
+      intentos.contarPedido(llave, 'Espera un rato.');
+    }
+
+    expect(() => intentos.contarPedido(llave, 'Espera un rato.')).toThrow(
+      expect.objectContaining({
+        message: 'Espera un rato.',
+        status: 429,
+      }) as Error,
+    );
+  });
 });
