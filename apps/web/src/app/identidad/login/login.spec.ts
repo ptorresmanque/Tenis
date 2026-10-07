@@ -18,4 +18,17 @@ describe('Login', () => {
       (fixture.nativeElement as HTMLElement).querySelector('a[href="/verificar-correo"]'),
     ).not.toBeNull();
   });
+
+  it('ofrece recuperar la contraseña a quien la olvidó', () => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: Auth, useValue: {} }],
+    });
+
+    const fixture = TestBed.createComponent(Login);
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('a[href="/recuperar-contrasena"]'),
+    ).not.toBeNull();
+  });
 });

@@ -5,6 +5,8 @@ import { GoogleController } from './google/google.controller';
 import { GoogleOAuth } from './google/google.oauth';
 import { ProveedorGoogle } from './google/google.port';
 import { GoogleService } from './google/google.service';
+import { RecuperacionController } from './recuperacion.controller';
+import { RecuperacionService } from './recuperacion.service';
 import { RegistroController } from './registro.controller';
 import { RegistroService } from './registro.service';
 import { SesionController } from './sesion/sesion.controller';
@@ -28,6 +30,7 @@ import { YoController } from './yo.controller';
     ContactoPublicoController,
     SolicitudesController,
     RegistroController,
+    RecuperacionController,
     SesionController,
     GoogleController,
     YoController,
@@ -40,6 +43,7 @@ import { YoController } from './yo.controller';
     CambiosDeSocio,
     FichaDeSocioService,
     RegistroService,
+    RecuperacionService,
     SesionService,
     InvitacionesService,
     IntentosFallidos,
