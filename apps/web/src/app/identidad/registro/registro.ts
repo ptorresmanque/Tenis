@@ -1,7 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { firstValueFrom } from 'rxjs';
 
@@ -23,23 +22,12 @@ interface CampoDelFormulario {
 
 @Component({
   selector: 'app-registro',
-  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
+  imports: [ReactiveFormsModule, Aviso, Campo, CampoControl],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
       Para reservar como visitante o vincular tu cuenta de socio.
     </p>
-
-    @if (verificado() === '1') {
-      <app-aviso variante="exito" class="mt-6 block">
-        Tu correo quedó verificado. Ya puedes entrar con tu contraseña.
-      </app-aviso>
-    } @else if (verificado() === '0') {
-      <app-aviso variante="error" class="mt-6 block">
-        Ese enlace de verificación no sirve: puede haber vencido o ya haberse usado.
-        <a routerLink="/verificar-correo" class="font-semibold underline">Pide uno nuevo</a>.
-      </app-aviso>
-    }
 
     @if (enviado()) {
       <app-aviso variante="exito" titulo="Cuenta creada" class="mt-6 block">
@@ -81,11 +69,6 @@ interface CampoDelFormulario {
 })
 export class Registro {
   private readonly http = inject(HttpClient);
-
-  /** Lo deja el enlace del correo tras pasar por la API. */
-  protected readonly verificado = signal(
-    inject(ActivatedRoute).snapshot.queryParamMap.get('verificado'),
-  );
 
   protected readonly formulario = inject(FormBuilder).nonNullable.group({
     nombre: ['', Validators.required],

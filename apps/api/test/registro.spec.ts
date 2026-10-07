@@ -269,6 +269,19 @@ describe('Registro con email y contraseña', () => {
       expect(usuario?.emailVerificado).toBe(true);
     });
 
+    it('el enlace lleva a /verificar-correo, que se abre también con la sesión iniciada', async () => {
+      // Antes llevaba a /registro, que es solo para quien no tiene sesión: quien se
+      // registró, entró y abrió el correo después volvía al inicio sin saber si
+      // había quedado verificado.
+      await registrar(cuerpoValido);
+
+      const respuesta = await verificarCon(enlaceDelUltimoCorreo()).expect(302);
+
+      expect(respuesta.headers.location).toMatch(
+        /\/verificar-correo\?verificado=1$/,
+      );
+    });
+
     it('el enlace no sirve dos veces', async () => {
       await registrar(cuerpoValido);
       const enlace = enlaceDelUltimoCorreo();

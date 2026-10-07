@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { VerificarCorreo } from './verificar-correo';
@@ -75,5 +75,44 @@ describe('VerificarCorreo', () => {
 
     expect(texto()).not.toContain('Internal server error');
     expect(texto()).toContain('No pudimos');
+  });
+});
+
+/**
+ * El enlace del correo pasa por la API y termina acá con el resultado. Antes terminaba
+ * en /registro, que es solo para quien no tiene sesión.
+ */
+describe('VerificarCorreo, al volver del enlace del correo', () => {
+  const montar = (verificado: string) => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({ verificado }) } },
+        },
+      ],
+    });
+
+    const fixture = TestBed.createComponent(VerificarCorreo);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  };
+
+  it('si sirvió, dice que el correo quedó verificado y no ofrece pedir otro', () => {
+    const elemento = montar('1');
+
+    expect(elemento.textContent).toContain('Tu correo quedó verificado');
+    expect(elemento.querySelector('form')).toBeNull();
+  });
+
+  it('si no sirvió, lo dice y deja el formulario para pedir otro ahí mismo', () => {
+    const elemento = montar('0');
+
+    expect(elemento.textContent).toContain('Ese enlace de verificación no sirve');
+    expect(elemento.querySelector('form')).not.toBeNull();
   });
 });
