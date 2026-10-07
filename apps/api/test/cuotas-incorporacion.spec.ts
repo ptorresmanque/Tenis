@@ -85,6 +85,24 @@ describe('La cuota de incorporación', () => {
     };
   };
 
+  /**
+   * Alguien del padrón que entró años antes de la puesta en marcha. Es propio del spec y
+   * no uno del seed de demostración: con la base recién creada del CI, el seed no estaba,
+   * y sembrarlo aquí dejaba socios con cuotas que se colaban en los reportes de otros
+   * specs (D6).
+   */
+  const unSocioQueYaEstaba = async () => {
+    await crearCuenta('antiguo');
+    await invitar('antiguo').expect(201);
+    const socioId = await elSocioDe('antiguo');
+    await prisma.socio.update({
+      where: { id: socioId },
+      data: { fechaIngreso: new Date('2020-03-01T00:00:00.000Z') },
+    });
+
+    return socioId;
+  };
+
   const laIncorporacionDe = (socioId: number) =>
     prisma.cuota.findFirst({
       where: { socioId, tipo: TipoCuota.INCORPORACION },
@@ -312,33 +330,18 @@ describe('La cuota de incorporación', () => {
   it('**los socios que ya estaban no reciben incorporación**', async () => {
     // El club arranca con su padrón, y esa gente la pagó hace años fuera del sistema.
     // El corte es `cobraIncorporacionDesde`, que nace el día de la puesta en marcha.
-    const delSeed = await prisma.socio.findFirstOrThrow({
-      where: { usuario: { email: { endsWith: '@clubdetenis.cl' } } },
-      select: { id: true },
-    });
+    const yaEstaba = await unSocioQueYaEstaba();
 
     await mirarElMes();
 
-    expect(await laIncorporacionDe(delSeed.id)).toBeNull();
+    expect(await laIncorporacionDe(yaEstaba)).toBeNull();
   });
 
   it('y tampoco los bloquea: su deuda no existe', async () => {
     // El otro lado de la moneda. Sin esto, poner en marcha el sistema dejaría al
     // padrón entero sin poder reservar por un cobro que ya habían hecho.
-    const delSeed = await prisma.socio.findFirstOrThrow({
-      where: { usuario: { email: { endsWith: '@clubdetenis.cl' } } },
-      select: { usuario: { select: { email: true } } },
-    });
-
-    const respuesta = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .send({
-        email: delSeed.usuario.email,
-        contrasena: 'raqueta lluviosa 44',
-      });
-
-    // Si la cuenta del seed no tiene esa contraseña, el test no aplica y no miente.
-    if (respuesta.status !== 204) return;
+    await unSocioQueYaEstaba();
+    const cookie = await entrar('antiguo');
 
     const manana = new Date(Date.now() + 24 * 60 * 60 * 1000)
       .toISOString()
@@ -350,10 +353,7 @@ describe('La cuota de incorporación', () => {
 
     const intento = await request(app.getHttpServer())
       .post('/api/reservas')
-      .set(
-        'Cookie',
-        (respuesta.headers['set-cookie'] as unknown as string[])[0],
-      )
+      .set('Cookie', cookie)
       .send({
         canchaId,
         inicio: bloque.inicio,
