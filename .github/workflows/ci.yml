@@ -1,0 +1,88 @@
+# Las compuertas de cada PR hacia main o qa (tasks/plan-despliegue.md, D6): lint, tests de
+# la API contra MariaDB, tests de la web y de deploy/, y el build. El deploy (D7 y D8) las
+# llama con workflow_call, así que nada se despliega sin pasar exactamente por estas.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, qa]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compuertas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # La misma versión que el hosting (ficha del servidor: 10.6). La base es efímera y no
+    # tiene datos, así que su clave va aquí y no como secreto: el repo es público, y un PR
+    # desde un fork no recibe secretos, así que con uno su CI fallaría siempre.
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: raiz
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -praiz"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Las tres bases de apps/api/.env.example. El usuario solo tiene permisos sobre ellas,
+      # como en desarrollo: la shadow tiene que existir de antemano.
+      - name: Crear las bases de la API
+        run: |
+          docker exec ${{ job.services.mariadb.id }} mysql -uroot -praiz -e "
+            CREATE DATABASE tenis_dev    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            CREATE DATABASE tenis_test   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            CREATE DATABASE tenis_shadow CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            CREATE USER 'tenis'@'%' IDENTIFIED BY 'tenis';
+            GRANT ALL PRIVILEGES ON tenis_dev.*    TO 'tenis'@'%';
+            GRANT ALL PRIVILEGES ON tenis_test.*   TO 'tenis'@'%';
+            GRANT ALL PRIVILEGES ON tenis_shadow.* TO 'tenis'@'%';"
+
+      # Antes de npm ci: el postinstall de la API corre prisma generate, y prisma.config.ts
+      # lee este archivo. Los tests lo cargan con --env-file.
+      - name: Escribir el .env de la API
+        run: |
+          cat > apps/api/.env <<'EOF'
+          DATABASE_URL="mysql://tenis:tenis@127.0.0.1:3306/tenis_dev"
+          SHADOW_DATABASE_URL="mysql://tenis:tenis@127.0.0.1:3306/tenis_shadow"
+          PORT=3001
+          WEB_ORIGIN="http://localhost:4200"
+          API_PUBLIC_URL="http://localhost:3001/api"
+          EOF
+
+      - run: npm ci
+
+      # El lint de la API corre con --fix: un error que se arregla solo pasaría en silencio.
+      # Si el lint deja cambios, el código del PR no estaba limpio.
+      - name: Lint
+        run: |
+          npm run lint
+          git diff --exit-code || {
+            echo '::error::El lint dejó cambios: corre npm run lint y commitea lo que corrija.'
+            exit 1
+          }
+
+      - name: Tests (API, web y deploy/)
+        run: npm test
+
+      - name: Build
+        run: npm run build
