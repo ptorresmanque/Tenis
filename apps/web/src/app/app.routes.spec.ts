@@ -74,6 +74,13 @@ describe('Rutas protegidas', () => {
     expect(buscar('registro')?.guards).toContain(soloVisitantes);
   });
 
+  it('verificar-correo se abre con sesión: ahí llega el enlace del correo', () => {
+    // Entrar no exige el correo verificado, así que quien abre el enlace puede
+    // tener la sesión iniciada. Con `soloVisitantes`, volvería al inicio sin ver
+    // el resultado.
+    expect(buscar('verificar-correo')?.guards).toEqual([]);
+  });
+
   it('la disponibilidad no está protegida: el visitante sin cuenta es el caso normal', () => {
     // Sin esto, la prueba de arriba pasaría igual con todo el sitio cerrado.
     expect(buscar('disponibilidad')?.guards).toEqual([]);

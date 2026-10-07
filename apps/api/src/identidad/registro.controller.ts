@@ -76,8 +76,10 @@ export class RegistroController {
     const verificado = token ? await this.servicio.verificar(token) : false;
 
     // Redirige a la SPA en vez de responder JSON: este enlace lo abre una persona
-    // desde su cliente de correo, no un programa.
+    // desde su cliente de correo, no un programa. A /verificar-correo y no a
+    // /registro, que es solo para quien no tiene sesión: entrar no exige el correo
+    // verificado, así que quien abre el enlace puede haber entrado antes.
     const web = process.env.WEB_ORIGIN ?? 'http://localhost:4200';
-    res.redirect(`${web}/registro?verificado=${verificado ? 1 : 0}`);
+    res.redirect(`${web}/verificar-correo?verificado=${verificado ? 1 : 0}`);
   }
 }
