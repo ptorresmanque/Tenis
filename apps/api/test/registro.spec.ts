@@ -5,6 +5,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { CorreoSaliente, EnviadorCorreo } from '../src/identidad/correo';
+import { IntentosFallidos } from '../src/identidad/intentos';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -22,10 +23,13 @@ describe('Registro con email y contraseña', () => {
   const CONTRASENA = 'raqueta lluviosa 44';
 
   const enviados: CorreoSaliente[] = [];
+  // Cómo termina el envío. Por defecto, bien; un test lo cambia para simular un
+  // sendmail que falla o que no responde.
+  let terminarEnvio = (): Promise<void> => Promise.resolve();
   const enviadorDoble: EnviadorCorreo = {
     enviar: (correo) => {
       enviados.push(correo);
-      return Promise.resolve();
+      return terminarEnvio();
     },
   };
 
@@ -59,6 +63,7 @@ describe('Registro con email y contraseña', () => {
       where: { email: { endsWith: DOMINIO } },
     });
     enviados.length = 0;
+    terminarEnvio = () => Promise.resolve();
   });
 
   // getHttpServer() devuelve `any`; el tipo que supertest espera se saca de él mismo.
@@ -285,6 +290,116 @@ describe('Registro con email y contraseña', () => {
       // acá dejaría a un desconocido disparando verificaciones de una cuenta ajena.
       expect(enviados).toHaveLength(1);
       expect(enviados[0].cuerpo).not.toContain('token=');
+    });
+
+    describe('pedir un enlace nuevo', () => {
+      const pedirEnlace = (correo: string) =>
+        request(servidor())
+          .post('/api/auth/reenviar-verificacion')
+          .send({ email: correo });
+
+      beforeEach(() => {
+        // El freno vive en memoria y lo comparte todo el archivo: sin esto, los
+        // pedidos de un test se suman a los del siguiente. Las cuatro formas en que
+        // Express puede reportar el localhost, igual que en contacto.spec.ts.
+        const pedidos = app.get(IntentosFallidos);
+        for (const ip of ['::ffff:127.0.0.1', '127.0.0.1', '::1', 'sin-ip']) {
+          pedidos.perdonar(`verificacion|${email}|${ip}`);
+        }
+      });
+
+      it('con el enlace vencido, el nuevo deja el correo verificado', async () => {
+        await registrar(cuerpoValido);
+        await prisma.usuario.update({
+          where: { email },
+          data: { verificacionExpiraEn: new Date(Date.now() - 1000) },
+        });
+        enviados.length = 0;
+
+        await pedirEnlace(email).expect(201);
+
+        expect(enviados).toHaveLength(1);
+        expect(enviados[0].para).toBe(email);
+        await verificarCon(enlaceDelUltimoCorreo()).expect(302);
+        const usuario = await prisma.usuario.findUnique({ where: { email } });
+        expect(usuario?.emailVerificado).toBe(true);
+      });
+
+      it('el enlace anterior deja de servir', async () => {
+        await registrar(cuerpoValido);
+        const anterior = enlaceDelUltimoCorreo();
+
+        await pedirEnlace(email).expect(201);
+
+        // Si los dos siguieran vivos, pedir uno nuevo no cortaría un enlace que
+        // llegó a otras manos.
+        const respuesta = await verificarCon(anterior).expect(302);
+        expect(respuesta.headers.location).toContain('verificado=0');
+      });
+
+      it('responde lo mismo a un correo sin cuenta, y no le manda nada', async () => {
+        await registrar(cuerpoValido);
+        enviados.length = 0;
+
+        const conCuenta = await pedirEnlace(email).expect(201);
+        const sinCuenta = await pedirEnlace(`nadie${DOMINIO}`).expect(201);
+
+        expect(sinCuenta.body).toEqual(conCuenta.body);
+        expect(enviados.map((correo) => correo.para)).toEqual([email]);
+      });
+
+      it('a una cuenta ya verificada no le manda otro enlace', async () => {
+        await registrar(cuerpoValido);
+        await verificarCon(enlaceDelUltimoCorreo());
+        enviados.length = 0;
+
+        await pedirEnlace(email).expect(201);
+
+        expect(enviados).toHaveLength(0);
+      });
+
+      it('responde lo mismo aunque el envío falle', async () => {
+        await registrar(cuerpoValido);
+        const bien = await pedirEnlace(email).expect(201);
+        terminarEnvio = () => Promise.reject(new Error('sendmail salió con 1'));
+
+        const mal = await pedirEnlace(email).expect(201);
+
+        // Un error solo cuando hay cuenta sería otra forma de decir quién la tiene.
+        expect(mal.body).toEqual(bien.body);
+      });
+
+      it('no espera a que el correo termine de salir', async () => {
+        await registrar(cuerpoValido);
+        // Un envío que no termina mientras dura el pedido. Si la respuesta lo
+        // esperara, lo que tarda sendmail diría qué correos tienen cuenta: a los que
+        // no tienen no se les manda nada y responden al tiro.
+        let soltar = () => {};
+        terminarEnvio = () =>
+          new Promise<void>((resolver) => (soltar = resolver));
+
+        try {
+          await pedirEnlace(email).timeout(2000).expect(201);
+        } finally {
+          // Si la respuesta sí lo esperaba, esto la libera y la app puede cerrarse.
+          soltar();
+        }
+      });
+
+      it('rechaza un correo con formato inválido', async () => {
+        await pedirEnlace('no-es-un-correo').expect(400);
+      });
+
+      it('al sexto pedido seguido responde 429, sin dejar afuera a otros correos', async () => {
+        // Correo propio: este test agota su cuota y el `beforeEach` no la limpia.
+        const correo = `freno${DOMINIO}`;
+        for (let i = 0; i < 5; i++) {
+          await pedirEnlace(correo).expect(201);
+        }
+
+        await pedirEnlace(correo).expect(429);
+        await pedirEnlace(email).expect(201);
+      });
     });
   });
 });

@@ -28,6 +28,18 @@ function texto(valor: unknown, campo: string, obligatorio = true): string {
   return limpio;
 }
 
+/** El correo de un cuerpo, en minúsculas y sin espacios, como se guarda. */
+export function leerCorreo(cuerpo: unknown): string {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  const email = texto(datos.email, 'el correo').toLowerCase();
+  if (!FORMATO_EMAIL.test(email)) {
+    throw new BadRequestException('El correo no tiene un formato válido.');
+  }
+
+  return email;
+}
+
 /**
  * Valida y normaliza el cuerpo del registro en el borde. Nada de lo que entra por
  * acá se toca sin pasar por esta función.
@@ -38,10 +50,7 @@ function texto(valor: unknown, campo: string, obligatorio = true): string {
 export function leerRegistro(cuerpo: unknown): DatosRegistro {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
-  const email = texto(datos.email, 'el correo').toLowerCase();
-  if (!FORMATO_EMAIL.test(email)) {
-    throw new BadRequestException('El correo no tiene un formato válido.');
-  }
+  const email = leerCorreo(datos);
 
   if (typeof datos.contrasena !== 'string' || !datos.contrasena) {
     throw new BadRequestException('Falta la contraseña.');

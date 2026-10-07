@@ -89,8 +89,8 @@ describe('Grilla', () => {
             yaReportada: boolean;
           }[]
         | Error;
-      /** Lo pagado que trae el enlace; por omisión, $16.000. */
-      reservaDelEnlace?: Promise<{ pagadoClp: number }>;
+      /** Lo pagado que trae el enlace; por omisión, $16.000. Un `Error` la hace fallar. */
+      reservaDelEnlace?: { pagadoClp: number } | Error;
     } = {},
   ) => {
     mover = vi.fn().mockResolvedValue({});
@@ -111,7 +111,13 @@ describe('Grilla', () => {
     // Al mover, el día viene de la grilla que no cuenta la reserva que se mueve (T87).
     // El no-socio que cambia desde el enlace de su reserva (T88): pagó $16.000.
     delEnlace = {
-      porToken: vi.fn(() => opciones.reservaDelEnlace ?? Promise.resolve({ pagadoClp: 16000 })),
+      // El rechazo se crea al llamar y no antes, como en `reportables`: uno creado de
+      // antemano queda sin manejar hasta que alguien lo pide, y Vitest lo cuenta como error.
+      porToken: vi.fn(() =>
+        opciones.reservaDelEnlace instanceof Error
+          ? Promise.reject(opciones.reservaDelEnlace)
+          : Promise.resolve(opciones.reservaDelEnlace ?? { pagadoClp: 16000 }),
+      ),
       grillaParaMover: vi.fn(() =>
         dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
       ),
@@ -938,7 +944,7 @@ describe('Grilla', () => {
         // La barra caía en la de reservar si lo pagado no llegaba —cargando, o la consulta
         // falló—, y "Reservar" abría una reserva nueva en vez de cambiar la suya.
         await montar(DIA, { moverToken: 'tok-123' }, {
-          reservaDelEnlace: Promise.reject(new Error('la API no respondió')),
+          reservaDelEnlace: new Error('la API no respondió'),
         });
 
         await elegirPrimerBloque();
