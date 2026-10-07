@@ -41,6 +41,11 @@ Requisitos: Node.js 22 o superior y MariaDB.
 5. Levanta la API y la aplicación web juntas: `npm run dev`. La web queda en
    `http://localhost:4200` y reenvía `/api` a la interfaz de programación.
 
+`npm run dev` deja la API al día con el código antes de levantarla: regenera el cliente de Prisma
+y aplica a la base de desarrollo las migraciones pendientes. Después de un `git pull` que trae
+una migración no hace falta nada más; sin esto, la API no compilaba o respondía 500 por una
+columna que la base no tenía.
+
 Sin credenciales de Webpay, los pagos usan el ambiente de integración de Transbank con sus
 credenciales públicas de prueba.
 
@@ -48,7 +53,7 @@ credenciales públicas de prueba.
 
 | Comando | Qué hace |
 | :--- | :--- |
-| `npm run dev` | Levanta la API y la web en modo desarrollo |
+| `npm run dev` | Pone al día el cliente de Prisma y las migraciones, y levanta la API y la web |
 | `npm test` | Ejecuta las pruebas de la API y de la web |
 | `npm run lint` | Revisa el estilo de ambos proyectos |
 | `npm run build` | Compila la API y la web para producción |
