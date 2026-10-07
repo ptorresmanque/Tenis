@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
+import { web } from '../comun/urls';
 import { IntentosFallidos, VENTANA_MS } from './intentos';
 import { leerCorreo, leerRegistro } from './registro.dto';
 import { RegistroService } from './registro.service';
@@ -79,7 +80,6 @@ export class RegistroController {
     // desde su cliente de correo, no un programa. A /verificar-correo y no a
     // /registro, que es solo para quien no tiene sesión: entrar no exige el correo
     // verificado, así que quien abre el enlace puede haber entrado antes.
-    const web = process.env.WEB_ORIGIN ?? 'http://localhost:4200';
-    res.redirect(`${web}/verificar-correo?verificado=${verificado ? 1 : 0}`);
+    res.redirect(`${web()}/verificar-correo?verificado=${verificado ? 1 : 0}`);
   }
 }
