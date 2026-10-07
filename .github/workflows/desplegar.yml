@@ -1,0 +1,87 @@
+# Un push a qa despliega en qa.fedal.cl (D7), y uno a main, en fedal.cl (D8), pero solo
+# desde el lanzamiento (tasks/plan-despliegue.md). A las dos ramas se llega solo por PR,
+# porque están protegidas, así que el push es el merge de un PR que ya pasó el CI. Las
+# compuertas corren igual sobre el commit exacto que se va a desplegar.
+#
+# Para volver atrás: re-ejecutar desde GitHub el run de un commit anterior, o hacer
+# git revert en un PR. El agente instala de nuevo un sha que ya conoce.
+name: Desplegar
+
+on:
+  push:
+    branches: [qa, main]
+
+permissions:
+  contents: read
+
+# Un deploy a la vez por rama, y nunca se cancela uno a medio subir. El que llega después
+# espera, y si llegan varios, queda solo el último.
+concurrency:
+  group: desplegar-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compuertas:
+    uses: ./.github/workflows/ci.yml
+
+  # qa despliega siempre. main, solo con la variable de repo PRODUCCION_ACTIVA=true: hasta
+  # el lanzamiento no existe, y un push a main pasa por las compuertas sin tocar fedal.cl,
+  # que sigue con el sitio anterior. Cada rama usa su environment, y cada environment solo
+  # acepta su rama, así que los secretos de producción no salen de main.
+  desplegar:
+    needs: compuertas
+    if: >-
+      github.ref == 'refs/heads/qa' ||
+      (github.ref == 'refs/heads/main' && vars.PRODUCCION_ACTIVA == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'produccion' || 'qa' }}
+      url: ${{ github.ref == 'refs/heads/main' && 'https://fedal.cl' || 'https://qa.fedal.cl' }}
+    env:
+      SITIO: ${{ github.ref == 'refs/heads/main' && 'fedal.cl' || 'qa.fedal.cl' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # prisma generate (en el postinstall y en el prebuild) lee prisma.config.ts, que pide
+      # un DATABASE_URL. No se conecta: cualquier URL sirve.
+      - name: Escribir el .env del build
+        run: echo 'DATABASE_URL="mysql://build:build@127.0.0.1:3306/tenis_dev"' > apps/api/.env
+
+      - run: npm ci
+
+      - name: Armar el release
+        run: deploy/armar-release.sh
+
+      # Los secretos son del environment del ambiente: la cuenta FTP de qa solo ve
+      # fedal/qa/entrante, y la de producción, fedal/prod/entrante.
+      - name: Subir y esperar al agente
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USUARIO: ${{ secrets.FTP_USUARIO }}
+          FTP_CLAVE: ${{ secrets.FTP_CLAVE }}
+        run: deploy/subir-release.sh
+
+      # El agente ya revisó la salud desde el servidor; esto la revisa desde afuera, como la
+      # ve quien entra al sitio. QA pide clave HTTP y su environment la trae; producción no
+      # la tiene. La clave va en un netrc, no en la línea de comandos.
+      - name: Revisar la salud desde afuera
+        env:
+          QA_USUARIO_HTTP: ${{ secrets.QA_USUARIO_HTTP }}
+          QA_CLAVE_HTTP: ${{ secrets.QA_CLAVE_HTTP }}
+        run: |
+          opciones=()
+          if [ -n "$QA_USUARIO_HTTP" ]; then
+            netrc="$RUNNER_TEMP/salud.netrc"
+            trap 'rm -f "$netrc"' EXIT
+            printf 'machine %s login %s password %s\n' \
+              "$SITIO" "$QA_USUARIO_HTTP" "$QA_CLAVE_HTTP" > "$netrc"
+            opciones=(--netrc-file "$netrc")
+          fi
+          curl -fsS --retry 3 --retry-delay 5 "${opciones[@]}" "https://$SITIO/api/salud"
