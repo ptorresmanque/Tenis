@@ -90,6 +90,7 @@ describe('Cada ruta en su cascarón', () => {
     ['el-club', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
+    ['verificar-correo', CascaronAuth],
     ['administracion/reservas', CascaronAdmin],
     ['administracion/canchas', CascaronAdmin],
     ['administracion/socios', CascaronAdmin],

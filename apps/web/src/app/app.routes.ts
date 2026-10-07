@@ -104,6 +104,16 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./identidad/registro/registro').then((m) => m.Registro),
       },
+      {
+        // Sin `soloVisitantes`: entrar no exige el correo verificado, así que
+        // quien ya tiene sesión también puede necesitar el enlace.
+        path: 'verificar-correo',
+        title: 'Verificar correo — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./identidad/verificar-correo/verificar-correo').then(
+            (m) => m.VerificarCorreo,
+          ),
+      },
     ],
   },
   {

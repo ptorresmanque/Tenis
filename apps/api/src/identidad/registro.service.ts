@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashear, problemaDeContrasena } from './contrasena';
-import { EnviadorCorreo } from './correo';
+import { CorreoSaliente, EnviadorCorreo } from './correo';
 import { DatosRegistro } from './registro.dto';
 import { InvitacionesService } from './socios/invitaciones.service';
 import { hashDeToken, nuevoToken } from './token';
@@ -18,8 +18,29 @@ function enlaceDeVerificacion(token: string): string {
   return `${api}/auth/verificar?token=${token}`;
 }
 
+function vencimientoDelEnlace(): Date {
+  return new Date(Date.now() + HORAS_DE_VIGENCIA_DEL_ENLACE * 60 * 60 * 1000);
+}
+
+function correoDeVerificacion(
+  para: string,
+  saludo: string,
+  token: string,
+): CorreoSaliente {
+  return {
+    para,
+    asunto: 'Verifica tu correo — FEDAL Tennis Center',
+    cuerpo:
+      `${saludo}\n\nPara terminar de crear tu cuenta, abre este ` +
+      `enlace:\n\n${enlaceDeVerificacion(token)}\n\nEl enlace vence en ` +
+      `${HORAS_DE_VIGENCIA_DEL_ENLACE} horas.\n`,
+  };
+}
+
 @Injectable()
 export class RegistroService {
+  private readonly log = new Logger('Registro');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly correo: EnviadorCorreo,
@@ -55,9 +76,7 @@ export class RegistroService {
           telefono: datos.telefono,
           passwordHash,
           verificacionTokenHash: hashDeToken(token),
-          verificacionExpiraEn: new Date(
-            Date.now() + HORAS_DE_VIGENCIA_DEL_ENLACE * 60 * 60 * 1000,
-          ),
+          verificacionExpiraEn: vencimientoDelEnlace(),
         },
         select: { id: true },
       });
@@ -72,7 +91,7 @@ export class RegistroService {
         para: datos.email,
         asunto: 'Alguien intentó registrarse con tu correo',
         cuerpo:
-          `Hola,\n\nYa hay una cuenta del Club de Tenis con este correo, así que ` +
+          `Hola,\n\nYa hay una cuenta de FEDAL Tennis Center con este correo, así que ` +
           `no creamos otra.\n\nSi fuiste tú, entra con tu contraseña. Si no la ` +
           `recuerdas, pide recuperarla desde la pantalla de ingreso.\n`,
       });
@@ -88,14 +107,58 @@ export class RegistroService {
     // invitado diría quién es socio a cualquiera que pruebe direcciones.
     await this.invitaciones.asociarSiInvitado(creado.id, datos.email);
 
-    await this.correo.enviar({
-      para: datos.email,
-      asunto: 'Verifica tu correo — Club de Tenis',
-      cuerpo:
-        `Hola ${datos.nombre},\n\nPara terminar de crear tu cuenta, abre este ` +
-        `enlace:\n\n${enlaceDeVerificacion(token)}\n\nEl enlace vence en ` +
-        `${HORAS_DE_VIGENCIA_DEL_ENLACE} horas.\n`,
+    await this.correo.enviar(
+      correoDeVerificacion(datos.email, `Hola ${datos.nombre},`, token),
+    );
+  }
+
+  /**
+   * Le manda un enlace de verificación nuevo a una cuenta que todavía no verifica
+   * su correo: el primero venció, o no salió al registrarse. El anterior deja de
+   * servir, porque en la cuenta cabe un solo token.
+   *
+   * No devuelve nada, por lo mismo que `registrar`.
+   */
+  async pedirEnlaceNuevo(email: string): Promise<void> {
+    const token = nuevoToken();
+
+    // Un solo UPDATE, el mismo exista o no la cuenta. Buscarla primero y escribir
+    // solo si existe sumaría una consulta justo en el caso que hay que esconder.
+    const { count } = await this.prisma.usuario.updateMany({
+      where: { email, emailVerificado: false },
+      data: {
+        verificacionTokenHash: hashDeToken(token),
+        verificacionExpiraEn: vencimientoDelEnlace(),
+      },
     });
+
+    if (count === 0) {
+      return;
+    }
+
+    // **Después de responder, a propósito.** A un correo sin cuenta no se le manda
+    // nada, así que esperar el envío alargaría la respuesta solo cuando la cuenta
+    // existe, y un sendmail caído respondería error solo en ese caso. Es el mismo
+    // cuidado que el hash de `registrar`: lo caro queda fuera de la diferencia.
+    //
+    // `setImmediate` y no una promesa sin `await`: un `then` corre antes de que se
+    // escriba la respuesta, y con él la parte síncrona del adaptador —armar el
+    // mensaje y lanzar sendmail—. Lo que sigue distinguiendo los dos caminos es que
+    // el UPDATE escriba o no una fila, del mismo orden que en el registro.
+    setImmediate(() => void this.mandarEnlace(email, token));
+  }
+
+  /** El envío de `pedirEnlaceNuevo`, que nadie espera: si falla, queda en el log. */
+  private async mandarEnlace(email: string, token: string): Promise<void> {
+    try {
+      await this.correo.enviar(correoDeVerificacion(email, 'Hola,', token));
+    } catch (falla) {
+      // Sin esto, una falla de sendmail sería un rechazo sin manejar y botaría el
+      // proceso. La persona puede pedir otro enlace.
+      this.log.error(
+        `No salió el enlace de verificación nuevo para ${email}: ${String(falla)}`,
+      );
+    }
   }
 
   /** Marca el correo como verificado. Devuelve false si el enlace no sirve. */

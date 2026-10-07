@@ -47,7 +47,7 @@ describe('Configuración del club', () => {
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
-    await app.init();
+    await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
 
@@ -283,8 +283,8 @@ describe('Configuración del club', () => {
      * día de la semana, y eso lo lee toda la suite.
      *
      * **Se restaura desde el seed y no desde una foto tomada al empezar.** La base de
-     * prueba no se vuelve a sembrar entre corridas —`pretest` migra y borra
-     * transacciones, nada más—, así que un Ctrl-C o un timeout en el medio de este
+     * prueba no se vuelve a sembrar entre corridas —`preparar-bd-test.mjs` migra y
+     * borra transacciones, nada más—, así que un Ctrl-C o un timeout en el medio de este
      * bloque dejaría el club con un día abierto para siempre; y la corrida siguiente
      * fotografiaría ese daño y lo restauraría fielmente. `sembrarCatalogo` es
      * idempotente y conserva los ids, así que sirve de restauración y de cura: se

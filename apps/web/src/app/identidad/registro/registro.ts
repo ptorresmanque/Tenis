@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { firstValueFrom } from 'rxjs';
 
@@ -23,7 +23,7 @@ interface CampoDelFormulario {
 
 @Component({
   selector: 'app-registro',
-  imports: [ReactiveFormsModule, Aviso, Campo, CampoControl],
+  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -37,7 +37,7 @@ interface CampoDelFormulario {
     } @else if (verificado() === '0') {
       <app-aviso variante="error" class="mt-6 block">
         Ese enlace de verificación no sirve: puede haber vencido o ya haberse usado.
-        Regístrate de nuevo para recibir otro.
+        <a routerLink="/verificar-correo" class="font-semibold underline">Pide uno nuevo</a>.
       </app-aviso>
     }
 

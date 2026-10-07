@@ -73,6 +73,13 @@ const RECHAZOS: Record<string, string> = {
           Crea una
         </a>
       </p>
+
+      <p class="text-sm text-muted-foreground">
+        ¿No te llegó el correo para verificar tu cuenta?
+        <a routerLink="/verificar-correo" class="font-semibold text-primary underline">
+          Pide otro
+        </a>
+      </p>
     </form>
 
     <div class="mt-6 grid gap-3">
