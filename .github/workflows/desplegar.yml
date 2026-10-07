@@ -1,0 +1,71 @@
+# Un push a qa despliega en qa.fedal.cl (tasks/plan-despliegue.md, D7). A qa solo se llega
+# por PR, porque la rama está protegida, así que este push es el merge de un PR que ya pasó
+# el CI. Las compuertas corren igual sobre el commit exacto que se va a desplegar.
+#
+# Para volver atrás: re-ejecutar desde GitHub el run de un commit anterior, o hacer
+# git revert en un PR hacia qa. El agente instala de nuevo un sha que ya conoce.
+name: Desplegar
+
+on:
+  push:
+    branches: [qa]
+
+permissions:
+  contents: read
+
+# Un deploy a la vez por rama, y nunca se cancela uno a medio subir. El que llega después
+# espera, y si llegan varios, queda solo el último.
+concurrency:
+  group: desplegar-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compuertas:
+    uses: ./.github/workflows/ci.yml
+
+  qa:
+    needs: compuertas
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: qa
+      url: https://qa.fedal.cl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # prisma generate (en el postinstall y en el prebuild) lee prisma.config.ts, que pide
+      # un DATABASE_URL. No se conecta: cualquier URL sirve.
+      - name: Escribir el .env del build
+        run: echo 'DATABASE_URL="mysql://build:build@127.0.0.1:3306/tenis_dev"' > apps/api/.env
+
+      - run: npm ci
+
+      - name: Armar el release
+        run: deploy/armar-release.sh
+
+      - name: Subir y esperar al agente
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USUARIO: ${{ secrets.FTP_USUARIO }}
+          FTP_CLAVE: ${{ secrets.FTP_CLAVE }}
+        run: deploy/subir-release.sh
+
+      # El agente ya revisó la salud desde el servidor; esto la revisa desde afuera, como la
+      # ve el cliente. La clave HTTP va en un netrc, no en la línea de comandos.
+      - name: Revisar la salud desde afuera
+        env:
+          QA_USUARIO_HTTP: ${{ secrets.QA_USUARIO_HTTP }}
+          QA_CLAVE_HTTP: ${{ secrets.QA_CLAVE_HTTP }}
+        run: |
+          netrc="$RUNNER_TEMP/salud.netrc"
+          trap 'rm -f "$netrc"' EXIT
+          printf 'machine qa.fedal.cl login %s password %s\n' \
+            "$QA_USUARIO_HTTP" "$QA_CLAVE_HTTP" > "$netrc"
+          curl -fsS --retry 3 --retry-delay 5 --netrc-file "$netrc" \
+            https://qa.fedal.cl/api/salud
