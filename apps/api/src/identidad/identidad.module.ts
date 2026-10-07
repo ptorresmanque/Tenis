@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { EnviadorCorreo, EnviadorPorConsola } from './correo';
+import { EnviadorCorreo, elegirEnviador } from './correo';
 import { GoogleController } from './google/google.controller';
 import { GoogleOAuth } from './google/google.oauth';
 import { ProveedorGoogle } from './google/google.port';
@@ -45,7 +45,8 @@ import { YoController } from './yo.controller';
     IntentosFallidos,
     GoogleService,
     { provide: ProveedorGoogle, useClass: GoogleOAuth },
-    { provide: EnviadorCorreo, useClass: EnviadorPorConsola },
+    // Con CORREO_REMITENTE en el .env, por sendmail; sin él, al log (D5).
+    { provide: EnviadorCorreo, useFactory: () => elegirEnviador(process.env) },
   ],
   // Lo consumirán los guards de T8 y todo módulo que necesite saber quién mira.
   // `EnviadorCorreo` sale del módulo porque `reservas` avisa cancelaciones (T36).

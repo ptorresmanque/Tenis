@@ -174,6 +174,31 @@ describe('Registro con email y contraseña', () => {
     });
   });
 
+  describe('si el correo no sale', () => {
+    beforeEach(() => {
+      terminarEnvio = () => Promise.reject(new Error('sendmail salió con 75'));
+    });
+
+    it('la cuenta queda creada y la respuesta es la de siempre', async () => {
+      // Antes respondía 500, y la web decía "No pudimos crear la cuenta" sobre una
+      // cuenta que sí existe. El enlace se pide de nuevo desde /verificar-correo.
+      const respuesta = await registrar(cuerpoValido).expect(201);
+
+      expect((respuesta.body as { mensaje: string }).mensaje).toContain(
+        'te llega un enlace',
+      );
+      expect(await prisma.usuario.count({ where: { email } })).toBe(1);
+    });
+
+    it('a un correo que ya tenía cuenta le responde igual', async () => {
+      const nueva = await registrar(cuerpoValido).expect(201);
+      const repetida = await registrar(cuerpoValido).expect(201);
+
+      // Si solo uno de los dos caminos fallara, sendmail caído diría quién tiene cuenta.
+      expect(repetida.body).toEqual(nueva.body);
+    });
+  });
+
   describe('la contraseña no se filtra', () => {
     it('no aparece en la respuesta del registro exitoso', async () => {
       const respuesta = await registrar(cuerpoValido).expect(201);
