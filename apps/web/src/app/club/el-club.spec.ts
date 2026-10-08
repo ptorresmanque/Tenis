@@ -22,7 +22,14 @@ describe('ElClub', () => {
   const cancha = (id: number, techada: boolean): Cancha =>
     ({ id, nombre: `Cancha ${id}`, superficie: 'CEMENTO', techada, iluminacion: true }) as Cancha;
 
-  const VACIO: DatosDelClub = { nombre: 'FEDAL Tennis Center', direccion: '', telefono: '', email: '' };
+  const VACIO: DatosDelClub = {
+    nombre: 'FEDAL Tennis Center',
+    direccion: '',
+    telefono: '',
+    email: '',
+    latitud: null,
+    longitud: null,
+  };
 
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {
     TestBed.resetTestingModule();
@@ -108,5 +115,42 @@ describe('ElClub', () => {
     const contenido = (pagina.nativeElement as HTMLElement).textContent ?? '';
     expect(contenido).toContain('Las canchas');
     expect(contenido).toContain('No se pudieron cargar las tarifas');
+  });
+
+  /** T101. El mapa, si el club cargó su ubicación (T100). */
+  describe('el mapa', () => {
+    const CON_UBICACION: DatosDelClub = { ...VACIO, latitud: -33.4372, longitud: -70.6506 };
+    const mapa = () =>
+      fixture.nativeElement.querySelector('iframe') as HTMLIFrameElement | null;
+    const enlace = (texto: string) =>
+      Array.from(fixture.nativeElement.querySelectorAll('a') as NodeListOf<HTMLAnchorElement>).find(
+        (a) => a.textContent?.includes(texto),
+      );
+
+    it('**con ubicación, el mapa de OpenStreetMap está en "Dónde encontrarnos"**', async () => {
+      await montar([], CON_UBICACION);
+
+      expect(seccion('horarios-y-contacto').contains(mapa())).toBe(true);
+      expect(mapa()?.src).toContain('openstreetmap.org/export/embed.html');
+      // Que se lea qué es, y que no se cargue hasta que se llegue a él.
+      expect(mapa()?.title).toContain('FEDAL Tennis Center');
+      expect(mapa()?.getAttribute('loading')).toBe('lazy');
+    });
+
+    it('ofrece cómo llegar con Google Maps y con Waze, en otra pestaña', async () => {
+      await montar([], CON_UBICACION);
+
+      expect(enlace('Google Maps')?.href).toContain('google.com/maps/dir/');
+      expect(enlace('Waze')?.href).toContain('waze.com/ul');
+      expect(enlace('Waze')?.target).toBe('_blank');
+      expect(enlace('Waze')?.rel).toContain('noopener');
+    });
+
+    it('sin ubicación no hay mapa ni cómo llegar', async () => {
+      await montar([]);
+
+      expect(mapa()).toBeNull();
+      expect(enlace('Cómo llegar')).toBeUndefined();
+    });
   });
 });
