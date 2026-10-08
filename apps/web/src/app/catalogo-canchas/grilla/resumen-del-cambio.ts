@@ -78,7 +78,8 @@ export class ResumenDelCambio {
 
   /** "Pagar $4.000" lleva a Webpay; cualquier otro cambio se hace al tiro. */
   protected readonly accion = computed(() => {
-    const falta = this.monto() - (this.pagadoClp() ?? this.monto());
+    const pagado = this.pagadoClp();
+    const falta = pagado === null ? 0 : this.monto() - pagado;
 
     return falta > 0 ? `Pagar ${enPesos(falta)}` : 'Cambiar a esta hora';
   });

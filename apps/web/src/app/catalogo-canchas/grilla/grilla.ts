@@ -79,8 +79,11 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
       </p>
     }
 
+    <!-- Cambiar de día suelta lo marcado: la barra no dice la fecha, y "Reservar" tomaría
+         la hora del día anterior con la tabla de otro a la vista. -->
     <app-controles-del-dia
       [(fecha)]="fecha"
+      (fechaChange)="elegido.set(null)"
       [duracion]="duracion()"
       [(filtro)]="filtro"
       (cambiarDuracion)="elegirDuracion($event)"
@@ -389,14 +392,21 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
           />
         }
         @if (mover.activo()) {
-          <app-resumen-del-cambio
-            [cancha]="eleccion.cancha"
-            [bloque]="eleccion.bloque"
-            [pagadoClp]="mover.pagadoPorElEnlace()"
-            [enviando]="mover.enviando()"
-            (soltar)="elegido.set(null)"
-            (confirmar)="confirmarCambio(eleccion)"
-          />
+          <!-- Desde el enlace, solo con lo pagado a la vista: sin eso, el resumen le diría
+               al visitante lo que se le dice al socio. Por el modo y no por lo pagado: con
+               la barra de reservar, "Reservar" abriría una reserva nueva en vez de cambiar
+               la suya. -->
+          @let pagado = mover.pagadoPorElEnlace();
+          @if (mover.porId() !== null || pagado !== null) {
+            <app-resumen-del-cambio
+              [cancha]="eleccion.cancha"
+              [bloque]="eleccion.bloque"
+              [pagadoClp]="pagado"
+              [enviando]="mover.enviando()"
+              (soltar)="elegido.set(null)"
+              (confirmar)="confirmarCambio(eleccion)"
+            />
+          }
         } @else {
           <app-resumen-de-la-eleccion
             [cancha]="eleccion.cancha"

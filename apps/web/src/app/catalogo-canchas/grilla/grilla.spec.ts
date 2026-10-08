@@ -1395,6 +1395,20 @@ describe('Grilla', () => {
       expect(fixture.nativeElement.querySelector('app-barra-fija')).toBeNull();
     });
 
+    it('**cambiar de día suelta lo elegido: la barra no dice la fecha** (revisión de T104)', async () => {
+      // Con la celda de hoy marcada y la tabla de mañana a la vista, "Reservar" tomaba la
+      // hora de hoy sin que nada en pantalla lo dijera.
+      await elegirPrimerBloque();
+
+      el()
+        .querySelector<HTMLInputElement>('app-controles-del-dia input[type="radio"]:not(:checked)')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(el().querySelector('app-barra-fija')).toBeNull();
+    });
+
     it('si la reserva ya no existe, lo dice con las palabras del servidor', async () => {
       // Un 404 al mover significa "no encontramos esa reserva" —la cancelaron desde
       // otro dispositivo, o el enlace quedó viejo—, no que el bloque haya dejado de
