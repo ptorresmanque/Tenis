@@ -303,6 +303,110 @@ describe('AdminCanchasPanel', () => {
     });
   });
 
+  describe('la ficha de la cancha (T96)', () => {
+    const raiz = () => fixture.nativeElement as HTMLElement;
+    // Por prefijo, como la cámara: el botón lleva el nombre de la cancha para el lector.
+    const botonQueEmpieza = (etiqueta: string) =>
+      Array.from(raiz().querySelectorAll('button')).find((b) =>
+        b.textContent?.trim().startsWith(etiqueta),
+      );
+    const campo = <T extends HTMLElement>(selector: string) =>
+      raiz().querySelector(selector) as T;
+
+    const abrir = async () => {
+      botonQueEmpieza('Editar ficha')?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    const escribirNombre = async (nombre: string) => {
+      const input = campo<HTMLInputElement>('#ficha-nombre-1');
+      input.value = nombre;
+      input.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    };
+
+    const guardar = async () => {
+      botonQueEmpieza('Guardar la ficha')?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('abre con los datos de la cancha y guarda nombre, superficie, techo e iluminación', async () => {
+      await abrir();
+      expect(campo<HTMLInputElement>('#ficha-nombre-1').value).toBe('Cancha 1');
+
+      await escribirNombre('Cancha Central');
+      const techada = campo<HTMLInputElement>('#ficha-techada-1');
+      techada.click();
+      await fixture.whenStable();
+      await guardar();
+
+      expect(api.editar).toHaveBeenCalledWith(1, {
+        nombre: 'Cancha Central',
+        superficie: 'ARCILLA',
+        techada: true,
+        iluminacion: true,
+      });
+      // Relee la lista: el nombre nuevo tiene que salir en el panel.
+      expect(api.canchas).toHaveBeenCalledTimes(2);
+      expect(campo('#ficha-nombre-1')).toBeNull();
+    });
+
+    it('un nombre repetido lo dice junto al campo, y el campo queda marcado', async () => {
+      api.editar.mockRejectedValue({
+        status: 409,
+        error: { message: 'Ya hay una cancha con ese nombre.' },
+      });
+
+      await abrir();
+      await escribirNombre('Cancha 2');
+      await guardar();
+
+      const input = campo<HTMLInputElement>('#ficha-nombre-1');
+      const ayuda = campo(`#${input.getAttribute('aria-describedby')}`);
+      expect(ayuda.textContent).toContain('Ya hay una cancha con ese nombre.');
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('sin nombre no llega al servidor', async () => {
+      await abrir();
+      await escribirNombre('   ');
+      await guardar();
+
+      expect(api.editar).not.toHaveBeenCalled();
+      expect(texto()).toContain('Ponle un nombre a la cancha.');
+    });
+
+    it('cancelar cierra sin guardar', async () => {
+      await abrir();
+      await escribirNombre('Otro nombre');
+      botonQueEmpieza('Cancelar')?.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(api.editar).not.toHaveBeenCalled();
+      expect(campo('#ficha-nombre-1')).toBeNull();
+    });
+
+    it('al guardar, el foco vuelve al botón que la abrió, aunque la lista se relea', async () => {
+      await abrir();
+      await escribirNombre('Cancha Central');
+      await guardar();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(document.activeElement).toBe(campo('#editar-ficha-1'));
+    });
+
+    it('al abrir, el foco va al nombre: es lo que se viene a cambiar', async () => {
+      await abrir();
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(campo('#ficha-nombre-1'));
+    });
+  });
+
   // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
   it('si la API no responde, lo dice en vez de reventar', async () => {
     const caida = () => Promise.reject(new Error('la API no respondió'));

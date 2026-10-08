@@ -213,6 +213,21 @@ describe('Administración de canchas', () => {
       });
     });
 
+    it('renombrar a un nombre que ya usa otra cancha responde 409 con un mensaje, no un 500 (T96)', async () => {
+      await nuevaCancha();
+      const otra = await nuevaCancha({ nombre: `${NOMBRE} B` });
+
+      const respuesta = await request(servidor())
+        .patch(`/api/admin/canchas/${otra.id}`)
+        .set('Cookie', admin)
+        .send({ nombre: NOMBRE })
+        .expect(409);
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'Ya hay una cancha con ese nombre.',
+      );
+    });
+
     it('responde 404 por una cancha que no existe', async () => {
       await request(servidor())
         .patch('/api/admin/canchas/999999')
