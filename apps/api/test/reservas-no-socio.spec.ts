@@ -34,6 +34,8 @@ describe('Reserva de no-socio con pago', () => {
     nombre: 'Camila Visitante',
     email: 'camila@ejemplo.cl',
     telefono: '+56955556666',
+    // Con quién juega: de 1 a 3 nombres desde T107.
+    acompanantes: [{ nombre: 'Beto Rival' }],
   };
 
   /** Lo que estos tests leen de la respuesta. supertest la entrega como `any`. */
@@ -456,6 +458,13 @@ describe('Reserva de no-socio con pago', () => {
 
     expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
     expect(await prisma.transaccion.count()).toBe(transaccionesAntes);
+  });
+
+  it('**sin decir con quién juega no llega a la pasarela** (T107)', async () => {
+    const respuesta = await reservarYPagar({ acompanantes: [] });
+
+    expect(respuesta.status).toBe(400);
+    expect(pasarela.ordenes).toHaveLength(0);
   });
 
   it('rechaza datos de contacto incompletos antes de tocar la pasarela', async () => {

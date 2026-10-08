@@ -112,6 +112,7 @@ describe('POST /api/admin/cierres', () => {
         nombre: 'Visitante Pagador',
         email: `pagador${DOMINIO}`,
         telefono: '+56900000000',
+        acompanantes: [{ nombre: 'Rival Visitante' }],
       })
       .expect(201);
 
@@ -588,6 +589,7 @@ describe('POST /api/admin/cierres', () => {
         nombre: 'Visitante A Medias',
         email: `medias${DOMINIO}`,
         telefono: '+56900000000',
+        acompanantes: [{ nombre: 'Rival Visitante' }],
       })
       .expect(201);
 
@@ -620,6 +622,7 @@ describe('POST /api/admin/cierres', () => {
         nombre: 'Visitante A Medias',
         email: `medias${DOMINIO}`,
         telefono: '+56900000000',
+        acompanantes: [{ nombre: 'Rival Visitante' }],
       })
       .expect(201);
 

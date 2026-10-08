@@ -26,17 +26,22 @@ export function reservaDeNoSocioDeCuerpo(cuerpo: unknown): ReservaDeNoSocio {
 }
 
 /**
- * Con quién juega el visitante: **solo nombres escritos**, de 0 a 3 (T105).
+ * Con quién juega el visitante: **solo nombres escritos**, de 1 a 3 (T105, T107).
  *
  * No elige socios de una lista: mostrarle el padrón a alguien sin cuenta sería exponer
  * datos de los socios (decisión del club, 2026-10-08). Por eso un `socioId` o un
  * número de socio no se aceptan acá.
- *
- * ponytail: todavía puede no declarar a nadie. El mínimo de uno llega en T107, junto con
- * el formulario que los pide: exigirlo antes rompería la reserva del visitante en QA.
  */
 function acompanantes(valor: unknown): { nombre: string }[] {
-  if (valor === undefined || valor === null) return [];
+  if (
+    valor === undefined ||
+    valor === null ||
+    (Array.isArray(valor) && valor.length === 0)
+  ) {
+    throw new BadRequestException(
+      'Escribe el nombre de al menos una persona con la que vas a jugar.',
+    );
+  }
 
   if (!Array.isArray(valor)) {
     throw new BadRequestException(

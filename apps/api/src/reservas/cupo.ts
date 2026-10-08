@@ -188,8 +188,8 @@ export function evaluarReservaDeSocio(
     return {
       tipo: 'SIN_ACOMPANANTE',
       mensaje:
-        'Declara con quién vas a jugar: otro socio del club, o un invitado que ' +
-        'descuenta de tus invitados del mes.',
+        'Declara con quién vas a jugar: otro socio del club, o un invitado. Con ' +
+        'invitados, la reserva gasta una de tus reservas con invitados del mes.',
     };
   }
 

@@ -312,6 +312,10 @@ describe('evaluarReservaDeSocio', () => {
       const rechazo = evaluarReservaDeSocio(solicitud({ acompanantes: [] }));
 
       expect(rechazo?.tipo).toBe('SIN_ACOMPANANTE');
+      // Desde A5 el cupo cuenta reservas con invitados, no personas: el mensaje lo dice
+      // igual que el formulario (revisión de T106).
+      expect(rechazo?.mensaje).toContain('reservas con invitados del mes');
+      expect(rechazo?.mensaje).not.toContain('descuenta de tus invitados');
     });
 
     it('declararse a sí mismo no cuenta', () => {

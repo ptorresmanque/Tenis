@@ -1,11 +1,11 @@
 import { reservaDeNoSocioDeCuerpo } from './no-socio.dto';
 
 /**
- * T105. Con quién juega el visitante: solo nombres escritos. No elige socios de una
+ * T105 y T107. Con quién juega el visitante: de 1 a 3 nombres escritos. No elige socios de una
  * lista, porque mostrarle el padrón a alguien sin cuenta sería exponer datos de los
  * socios (decisión del club, 2026-10-08).
  */
-describe('reservaDeNoSocioDeCuerpo: con quién juega (T105)', () => {
+describe('reservaDeNoSocioDeCuerpo: con quién juega (T105, T107)', () => {
   const base = {
     canchaId: 3,
     inicio: '2037-08-17T14:00:00.000Z',
@@ -45,8 +45,18 @@ describe('reservaDeNoSocioDeCuerpo: con quién juega (T105)', () => {
     ).toThrow('Escribe el nombre de cada persona con la que vas a jugar.');
   });
 
-  it('por ahora puede no declarar a nadie: el mínimo llega en T107, con el formulario', () => {
-    // Exigirlo antes rompería la reserva del visitante en QA hasta que la pantalla lo pida.
-    expect(reservaDeNoSocioDeCuerpo(base).acompanantes).toEqual([]);
+  it('**sin decir con quién juega responde 400** (T107)', () => {
+    // El mínimo que T105 dejó para cuando el formulario lo pidiera: ahora lo pide.
+    expect(() => reservaDeNoSocioDeCuerpo(base)).toThrow(
+      'Escribe el nombre de al menos una persona con la que vas a jugar.',
+    );
+  });
+
+  it('una lista vacía tampoco alcanza', () => {
+    expect(() =>
+      reservaDeNoSocioDeCuerpo({ ...base, acompanantes: [] }),
+    ).toThrow(
+      'Escribe el nombre de al menos una persona con la que vas a jugar.',
+    );
   });
 });
