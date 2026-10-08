@@ -27,7 +27,7 @@ const DIAS = [
 
 const CANCHA_EN_BLANCO: CanchaNueva = {
   nombre: '',
-  superficie: 'ARCILLA',
+  superficie: 'CEMENTO',
   techada: false,
   tieneCamara: false,
   iluminacion: false,
