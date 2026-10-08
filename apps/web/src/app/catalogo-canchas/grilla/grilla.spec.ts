@@ -161,11 +161,27 @@ describe('Grilla', () => {
     fixture.detectChanges();
   };
 
-  const texto = () => fixture.nativeElement.textContent as string;
-  const bloques = () =>
-    Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('.bloque'),
-    );
+  const el = () => fixture.nativeElement as HTMLElement;
+  const texto = () => el().textContent as string;
+  const enTexto = (nodo: Element) => nodo.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  /** Las celdas que se pueden elegir: en la tabla, solo las que tienen canchas libres son botón. */
+  const celdas = () => [...el().querySelectorAll<HTMLButtonElement>('table button')];
+  const etiquetas = () => celdas().map((celda) => celda.getAttribute('aria-label') ?? '');
+  /** Las filas a la vista, con la hora de inicio que dice su encabezado. */
+  const filas = () => [...el().querySelectorAll('table tbody tr')];
+  const inicios = () =>
+    filas().map((fila) => enTexto(fila.querySelector('th[scope="row"]')!).slice(0, 5));
+  const filaDe = (inicio: string) =>
+    filas().find((fila) => fila.querySelector('th')?.textContent?.includes(inicio))!;
+  /** Los encabezados de columna sin el ícono, que en el DOM es una palabra: "roofing". */
+  const columnas = () =>
+    [...el().querySelectorAll('table thead th[scope="col"]')]
+      .map((th) => {
+        const copia = th.cloneNode(true) as Element;
+        copia.querySelectorAll('.icono').forEach((icono) => icono.remove());
+        return enTexto(copia);
+      })
+      .slice(1);
 
   beforeEach(async () => {
     // Las 07:00 del club el día del fixture, antes de todos sus bloques: la grilla
@@ -182,47 +198,53 @@ describe('Grilla', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
   });
 
-  it('muestra la hora de cada franja en la hora del club', () => {
+  it('cada fila es una hora de inicio, en la hora del club', () => {
     // 12:00Z en agosto son las 08:00 en Santiago. Con la hora del navegador o un
     // desfase fijo, el socio vería una hora que no es a la que juega.
-    expect(texto()).toContain('08:00–09:00');
+    expect(inicios()).toEqual(['08:00', '10:00', '18:00']);
   });
 
-  it('muestra el precio en el bloque, antes de hacer clic', () => {
-    expect(texto()).toContain('$12.000');
-    expect(texto()).toContain('$20.000');
+  it('**muestra el precio en la celda, antes de hacer clic**', () => {
+    // Lo que el club pidió para la opción C (T103): el precio a la vista en cada celda,
+    // no en un encabezado que hay que ir a buscar.
+    expect(enTexto(celdas()[0])).toContain('$12.000');
+    expect(enTexto(celdas()[1])).toContain('$20.000');
   });
 
-  it('separa lo que paga el socio de lo que paga quien arrienda', () => {
-    // Un monto suelto no dice a quién le toca. El socio leía "$12.000" en una hora
-    // que para él es gratis, y el visitante no sabía si ese precio era el suyo.
-    //
-    // "sin costo" y no "$0" desde el rediseño (plan § 5.1): un cero con signo de
+  it('al visitante, cada celda le dice el arriendo, y lo del socio una vez arriba', () => {
+    // Un monto suelto no dice a quién le toca: el visitante no sabía si ese precio era el
+    // suyo. "sin costo" y no "$0" desde el rediseño (plan § 5.1): un cero con signo de
     // pesos se lee como un precio que alguien todavía no calculó.
-    //
-    // Desde que la grilla se agrupa por hora, las dos tarifas viven en el
-    // encabezado de la franja y no en cada chip: el precio es de la hora, no de
-    // la cancha, y repetirlo en cada una de las ocho era decir ocho veces lo
-    // mismo. Lo que este test protege sigue siendo lo mismo: que las dos se vean
-    // antes de hacer clic.
-    const franja = (fixture.nativeElement as HTMLElement).querySelector('section');
-    const texto = franja?.textContent ?? '';
+    const arriba = el().querySelector('[data-tarifas]');
 
-    expect(texto).toContain('Socio');
-    expect(texto).toContain('sin costo');
-    expect(texto).toContain('Arriendo');
-    expect(texto).toContain('$12.000');
+    expect(enTexto(arriba!)).toContain('Arriendo de 1 hora por cancha');
+    expect(enTexto(arriba!)).toContain('socio sin costo');
+    expect(enTexto(el().querySelector('table')!)).not.toContain('sin costo');
   });
 
-  it('dice las dos tarifas también a quien navega por teclado', () => {
-    const etiqueta = bloques()[0]
-      .querySelector('button')
-      ?.getAttribute('aria-label');
+  it('**al socio, "sin costo" una vez arriba y en cada celda cuántas libres** (A8)', async () => {
+    // El socio no paga la hora: un precio en cada celda le diría ocho veces algo que no es
+    // para él, y le escondería lo único que busca, que es dónde queda lugar.
+    await montar(DIA, {}, { socioId: 7 });
 
-    // La etiqueta es lo único que oye quien no ve el bloque: si trae un solo monto,
-    // le llega justo la mitad que la tarea vino a arreglar.
-    expect(etiqueta).toContain('socio sin costo');
-    expect(etiqueta).toContain('arriendo $12.000');
+    expect(enTexto(el().querySelector('[data-tarifas]')!)).toContain('Socio sin costo');
+    expect(enTexto(el().querySelector('table')!)).not.toContain('$');
+    expect(enTexto(celdas()[0])).toContain('1 libre');
+  });
+
+  it('la etiqueta de la celda dice el tipo, la hora, cuántas libres y el precio', () => {
+    // La etiqueta es lo único que oye quien no ve la tabla: si no dice el tipo, "08:00,
+    // $12.000" no le cuenta de qué columna es.
+    expect(etiquetas()[0]).toBe(
+      'Elegir cancha al aire libre de 08:00 a 09:00, 1 libre, arriendo $12.000',
+    );
+  });
+
+  it('al socio la etiqueta le dice "socio sin costo", sin un arriendo que no paga', async () => {
+    await montar(DIA, {}, { socioId: 7 });
+
+    expect(etiquetas()[0]).toContain('socio sin costo');
+    expect(etiquetas()[0]).not.toContain('arriendo');
   });
 
   it('la etiqueta también avisa que es hora pico', () => {
@@ -230,29 +252,117 @@ describe('Grilla', () => {
     // no existe para quien usa lector de pantalla. Y la hora pico no es decoración:
     // le gasta al socio un cupo semanal del que solo tiene dos.
     //
-    // Los chips son ahora uno por cancha libre, así que de los tres bloques del
-    // fixture solo llegan los dos que se pueden tomar: el de las 08:00 y el de
-    // las 10:00, que es el de hora pico.
-    const etiquetas = bloques().map((b) =>
-      b.querySelector('button')?.getAttribute('aria-label'),
-    );
-
-    expect(etiquetas[1]).toContain('hora pico');
-    expect(etiquetas[0]).not.toContain('hora pico');
+    // De los tres bloques del fixture solo son botón los dos que se pueden tomar: el de
+    // las 08:00 y el de las 18:00, que es el de hora pico.
+    expect(etiquetas()[1]).toContain('hora pico');
+    expect(etiquetas()[0]).not.toContain('hora pico');
   });
 
-  it('solo se lista lo que se puede tomar, y se ve clickeable', () => {
-    // Antes la grilla pintaba también lo ocupado y lo bloqueado como tarjetas, y
-    // el test comprobaba que esas no tuvieran cursor. Agrupada por hora, lo que
-    // no se puede tomar dejó de ser un elemento y pasó a ser una cuenta, así que
-    // el caso negativo desapareció por construcción: **lo único que se lista es
-    // lo que se puede apretar.**
-    const chips = bloques();
-
-    expect(chips.length).toBe(2);
-    for (const chip of chips) {
-      expect(chip.querySelector('button')?.classList.contains('cursor-pointer')).toBe(true);
+  it('solo es botón la celda que tiene canchas libres, y se ve clickeable', () => {
+    // Lo que no se puede tomar dice por qué con palabras, y no es un botón que no hace
+    // nada: la celda de las 10:00, en mantención, no se aprieta.
+    expect(celdas()).toHaveLength(2);
+    for (const celda of celdas()) {
+      expect(celda.classList.contains('cursor-pointer')).toBe(true);
+      // 44px de alto: el mínimo táctil del master.
+      expect(celda.classList.contains('min-h-11')).toBe(true);
     }
+    expect(filaDe('10:00').querySelector('button')).toBeNull();
+  });
+
+  /**
+   * T103. La opción C: una columna por tipo de cancha que el club tenga (A8), para comparar
+   * techada con abierta de un vistazo.
+   */
+  describe('una columna por tipo de cancha', () => {
+    const TECHADA = {
+      id: 2,
+      nombre: 'Cancha techada',
+      superficie: 'CEMENTO' as const,
+      techada: true,
+      iluminacion: true,
+    };
+    const DOS_TIPOS: GrillaDeCancha[] = [
+      DIA[0],
+      {
+        cancha: TECHADA,
+        bloques: DIA[0].bloques.map((b) => ({
+          ...b,
+          canchaId: 2,
+          montoClp: b.montoClp === null ? null : b.montoClp + 3000,
+        })),
+      },
+    ];
+
+    it('si todas las canchas son al aire libre, la tabla tiene una sola columna', () => {
+      expect(columnas()).toEqual(['Al aire libre']);
+    });
+
+    it('**con techadas, una columna para cada tipo, las abiertas primero**', async () => {
+      await montar(DOS_TIPOS);
+
+      expect(columnas()).toEqual(['Al aire libre', 'Techada']);
+    });
+
+    it('cada celda dice el precio de su tipo: la techada puede costar distinto (T98)', async () => {
+      await montar(DOS_TIPOS);
+
+      const ocho = [...filaDe('08:00').querySelectorAll('td')].map(enTexto);
+      expect(ocho[0]).toContain('$12.000');
+      expect(ocho[1]).toContain('$15.000');
+    });
+
+    it('si las canchas de un tipo cuestan distinto, la celda dice "desde"', async () => {
+      await montar([
+        DIA[0],
+        {
+          cancha: { ...DIA[0].cancha, id: 3, nombre: 'Cancha 3' },
+          bloques: DIA[0].bloques.map((b) => ({ ...b, canchaId: 3, montoClp: 14000 })),
+        },
+      ]);
+
+      expect(enTexto(celdas()[0])).toContain('desde $12.000');
+      expect(enTexto(celdas()[0])).toContain('2 libres');
+    });
+
+    it('**elegir la celda marca la primera cancha libre de ese tipo, en el orden del club** (A8)', async () => {
+      // El orden del club es el de la lista que manda la API, no el del id ni el del nombre.
+      await montar([
+        {
+          cancha: { ...DIA[0].cancha, id: 3, nombre: 'Cancha 3' },
+          bloques: DIA[0].bloques.map((b) => ({ ...b, canchaId: 3 })),
+        },
+        DOS_TIPOS[1],
+        DIA[0],
+      ]);
+
+      filaDe('08:00').querySelectorAll('button')[0].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(enTexto(el().querySelector('app-barra-fija')!)).toContain('Cancha 3');
+    });
+
+    it('la celda elegida se marca, también para el lector de pantalla', async () => {
+      await montar(DOS_TIPOS);
+      const [abierta, techada] = filaDe('08:00').querySelectorAll('button');
+
+      techada.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(techada.getAttribute('aria-pressed')).toBe('true');
+      expect(abierta.getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('la tabla dice qué es cada columna y cada fila', async () => {
+      // `th` con `scope`: el lector de pantalla anuncia "Techada, 08:00" al entrar a la
+      // celda, en vez de un monto suelto.
+      await montar(DOS_TIPOS);
+
+      expect(el().querySelectorAll('thead th[scope="col"]')).toHaveLength(3);
+      expect(filaDe('08:00').querySelector('th[scope="row"]')).not.toBeNull();
+    });
   });
 
   describe('a media mañana', () => {
@@ -265,36 +375,33 @@ describe('Grilla', () => {
     });
 
     it('no ofrece una hora que ya empezó', () => {
-      const etiquetas = bloques().map((b) =>
-        b.querySelector('button')?.getAttribute('aria-label'),
-      );
-
-      expect(etiquetas).toEqual([expect.stringContaining('de 18:00 a 19:00')]);
+      expect(etiquetas()).toEqual([expect.stringContaining('de 18:00 a 19:00')]);
     });
 
     it('dice que esa hora ya pasó, en vez de que no quedan canchas', () => {
-      // "Sin canchas libres" en cada hora de la mañana se lee como un club lleno.
+      // "Sin libres" en cada hora de la mañana se lee como un club lleno.
       expect(texto()).toContain('Ya pasó');
     });
 
     // Decisión 9 del plan (TV5.1): a las 18:00 la grilla abría con diez filas
     // "Ya pasó" antes de la primera hora tomable. Se pliegan, sin quitarlas.
-    it('las horas que ya pasaron se pliegan en un grupo que dice cuántas son', () => {
-      const el = fixture.nativeElement as HTMLElement;
-      const grupo = el.querySelector('details');
+    it('las horas que ya pasaron se pliegan en un grupo que dice de cuándo a cuándo', () => {
+      // Desde T103 hay una fila por inicio, cada media hora: "20 horas que ya pasaron" a las
+      // 18:00 serían diez horas del reloj. El rango no se presta a esa confusión.
+      const grupo = el().querySelector('details');
 
       expect(grupo?.open).toBe(false);
-      expect(grupo?.querySelector('summary')?.textContent).toContain('2 horas que ya pasaron');
+      expect(enTexto(grupo!.querySelector('summary')!)).toContain(
+        'Horas que ya pasaron, de 08:00 a 10:00',
+      );
       expect(grupo?.textContent).toContain('Ya pasó');
+      // Fuera de la tabla: dentro serían filas enteras que dicen lo mismo en cada celda.
+      expect(grupo?.querySelector('table')).toBeNull();
     });
 
-    it('la primera franja a la vista es una que todavía se puede tomar', () => {
-      const el = fixture.nativeElement as HTMLElement;
-      const primeraAfuera = [...el.querySelectorAll('section')].find(
-        (seccion) => !seccion.closest('details'),
-      );
-
-      expect(primeraAfuera?.querySelector('.bloque button')).not.toBeNull();
+    it('la primera fila a la vista es una que todavía se puede tomar', () => {
+      expect(inicios()[0]).toBe('18:00');
+      expect(filas()[0].querySelector('button')).not.toBeNull();
     });
 
     it('el resumen tampoco la cuenta', () => {
@@ -307,11 +414,11 @@ describe('Grilla', () => {
   });
 
   /**
-   * T83a. Con inicios cada media hora la grilla medía el doble (27 bandas, 8.243 px a
-   * 375 px en T78). Decisión del club del 2026-10-03: una banda por hora del reloj, con
-   * sus inicios :00 y :30 adentro. Nada se esconde.
+   * T83a y T103. Con inicios cada media hora, cada inicio es una fila de la tabla: la
+   * opción C cabe en tres pantallas de teléfono sin juntarlos por hora, que es lo que
+   * hacían las bandas de T83a. Nada se esconde.
    */
-  describe('una banda por hora', () => {
+  describe('una fila por inicio', () => {
     const CANCHA = DIA[0].cancha;
     const bloque = (
       inicio: string,
@@ -345,73 +452,30 @@ describe('Grilla', () => {
         ],
       },
     ];
-    const bandas = () =>
-      [...(fixture.nativeElement as HTMLElement).querySelectorAll('section')].filter(
-        (seccion) => !seccion.closest('details'),
-      );
-    const enTexto = (nodo: Element) => nodo.textContent?.replace(/\s+/g, ' ') ?? '';
 
     beforeEach(async () => {
       await montar(MEDIAS_HORAS);
     });
 
-    it('**los inicios de y media van dentro de la banda de su hora**', () => {
-      expect(bandas()).toHaveLength(3);
-
-      const ocho = enTexto(bandas()[0]);
-      expect(ocho).toContain('08:00–09:00');
-      expect(ocho).toContain('08:30–09:30');
-      expect(ocho.indexOf('08:00–09:00')).toBeLessThan(ocho.indexOf('08:30–09:30'));
+    it('**el inicio de y media es su propia fila, en orden** (reemplaza a la banda por hora)', () => {
+      expect(inicios()).toEqual(['08:00', '08:30', '09:00', '17:00', '17:30']);
     });
 
-    it('la banda nombra su hora una vez', () => {
-      const encabezado = bandas()[0].querySelector('h2');
-
-      expect(enTexto(encabezado!)).toContain('08 h');
+    it('**"socio sin costo" se dice una vez, arriba de la tabla** (reemplaza al precio común de la banda)', () => {
+      expect(texto().match(/socio sin costo/gi)).toHaveLength(1);
     });
 
-    it('**el precio y "socio sin costo" se dicen una vez cuando los inicios coinciden**', () => {
-      const ocho = enTexto(bandas()[0]);
-
-      expect(ocho.match(/Arriendo/g)).toHaveLength(1);
-      expect(ocho.match(/Socio sin costo/g)).toHaveLength(1);
+    it('**la fila de pico lo dice en su encabezado, y la de valle no** (reemplaza al pico de la banda)', () => {
+      expect(enTexto(filaDe('17:00'))).toContain('$12.000');
+      expect(enTexto(filaDe('17:00').querySelector('th')!)).not.toContain('pico');
+      expect(enTexto(filaDe('17:30'))).toContain('$20.000');
+      expect(enTexto(filaDe('17:30').querySelector('th')!)).toContain('pico');
     });
 
-    it('si el de y media cae en otra franja, el precio y el pico los dice su fila', () => {
-      const cinco = bandas()[2];
-      const filas = [...cinco.querySelectorAll('[data-inicio]')].map(enTexto);
-
-      expect(filas).toHaveLength(2);
-      expect(filas[0]).toContain('$12.000');
-      expect(filas[0]).not.toContain('Hora pico');
-      expect(filas[1]).toContain('$20.000');
-      expect(filas[1]).toContain('Hora pico');
-    });
-
-    it('**la mantención se dice una vez en la banda cuando sus dos inicios la comparten**', async () => {
-      // Decisión del club del 2026-10-03: "2 en mantención" en cada fila era la línea que
-      // más se repetía. Si las dos filas tienen lo mismo cerrado, lo dice la banda.
-      const enMantencion = { bloqueado: true, motivoBloqueo: 'MANTENCION' };
-      await montar([
-        ...MEDIAS_HORAS,
-        {
-          cancha: { ...CANCHA, id: 2, nombre: 'Cancha 2' },
-          bloques: [
-            bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', enMantencion),
-            bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z', enMantencion),
-          ],
-        },
-      ]);
-
-      const ocho = bandas()[0];
-
-      expect(enTexto(ocho).match(/en mantención/g)).toHaveLength(1);
-      for (const fila of ocho.querySelectorAll('[data-inicio]')) {
-        expect(enTexto(fila)).not.toContain('en mantención');
-      }
-    });
-
-    it('si los dos inicios no tienen lo mismo cerrado, lo dice cada fila', async () => {
+    it('con canchas libres, la mantención de otra no ocupa la celda (reemplaza a la mantención de la banda)', async () => {
+      // La decisión del club del 2026-10-03 era no repetir "2 en mantención" fila por fila.
+      // En la tabla va más lejos: si hay libres, lo que importa es cuántas, no por qué las
+      // otras no están.
       await montar([
         ...MEDIAS_HORAS,
         {
@@ -421,16 +485,36 @@ describe('Grilla', () => {
               bloqueado: true,
               motivoBloqueo: 'MANTENCION',
             }),
-            bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z'),
           ],
         },
       ]);
 
-      const filas = [...bandas()[0].querySelectorAll('[data-inicio]')].map(enTexto);
+      expect(enTexto(filaDe('08:00'))).toContain('1 libre');
+      expect(enTexto(filaDe('08:00'))).not.toContain('mantención');
+    });
 
-      expect(filas[0]).toContain('1 en mantención');
-      expect(filas[1]).not.toContain('en mantención');
-      expect(enTexto(bandas()[0]).match(/en mantención/g)).toHaveLength(1);
+    it('si toda la columna está en mantención, la celda lo dice (reemplaza a la mantención por fila)', async () => {
+      await montar([
+        {
+          cancha: CANCHA,
+          bloques: [
+            bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', {
+              bloqueado: true,
+              motivoBloqueo: 'MANTENCION',
+            }),
+          ],
+        },
+      ]);
+
+      expect(enTexto(filaDe('08:00').querySelector('td')!)).toBe('En mantención');
+    });
+
+    it('una celda sin libres porque está todo tomado dice "Sin libres"', async () => {
+      await montar([
+        { cancha: CANCHA, bloques: [bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', { reservado: true })] },
+      ]);
+
+      expect(enTexto(filaDe('08:00').querySelector('td')!)).toBe('Sin libres');
     });
 
     /**
@@ -449,52 +533,79 @@ describe('Grilla', () => {
             ],
           },
         ]);
-      const filas = () => [...bandas()[0].querySelectorAll('[data-inicio]')];
 
       it('**una clase se dice clase y enlaza a las clases**, no "en mantención"', async () => {
         await conCancha2({ bloqueado: true, motivoBloqueo: 'CLASE' });
 
-        expect(enTexto(filas()[0])).toContain('1 en clase');
-        expect(enTexto(bandas()[0])).not.toContain('mantención');
+        const celda = filaDe('08:00').querySelector('td')!;
+        expect(enTexto(celda)).toContain('1 en clase');
+        expect(enTexto(celda)).not.toContain('mantención');
         // El destino declarado y no el href: el Router de este spec es un doble con solo
         // `navigate`, y con él RouterLink no arma la URL. El href se vio en el navegador.
-        const enlace = filas()[0].querySelector('a');
+        // Fuera del botón de la celda: un enlace dentro de un botón no se puede apretar.
+        const enlace = celda.querySelector('a');
         expect(enlace?.getAttribute('routerlink')).toBe('/clases');
-        expect(enTexto(enlace!)).toContain('Ver clases');
+        expect(enlace?.closest('button')).toBeNull();
+      });
+
+      it('una celda llena por una clase dice "Sin libres" y enlaza igual', async () => {
+        await montar([
+          {
+            cancha: CANCHA,
+            bloques: [
+              bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', {
+                bloqueado: true,
+                motivoBloqueo: 'CLASE',
+              }),
+            ],
+          },
+        ]);
+
+        const celda = filaDe('08:00').querySelector('td')!;
+        expect(enTexto(celda)).toContain('Sin libres');
+        expect(celda.querySelector('a')?.getAttribute('routerlink')).toBe('/clases');
       });
 
       it('un partido de torneo se dice torneo', async () => {
         await conCancha2({ bloqueado: true, motivoBloqueo: 'TORNEO' });
 
-        expect(enTexto(filas()[0])).toContain('1 en torneo');
-        expect(enTexto(bandas()[0])).not.toContain('mantención');
+        expect(enTexto(filaDe('08:00'))).toContain('1 en torneo');
+        expect(enTexto(filaDe('08:00'))).not.toContain('mantención');
       });
 
       it('la clase va en su fila: el inicio de y media no la tiene', async () => {
         await conCancha2({ bloqueado: true, motivoBloqueo: 'CLASE' });
 
-        expect(enTexto(filas()[1])).not.toContain('en clase');
+        expect(enTexto(filaDe('08:30'))).not.toContain('en clase');
       });
 
-      it('un cierre por otro motivo sigue contándose con la mantención', async () => {
-        await conCancha2({ bloqueado: true, motivoBloqueo: 'OTRO' });
+      it('un cierre por otro motivo se dice mantención, ni clase ni torneo', async () => {
+        await montar([
+          {
+            cancha: CANCHA,
+            bloques: [
+              bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', {
+                bloqueado: true,
+                motivoBloqueo: 'OTRO',
+              }),
+            ],
+          },
+        ]);
 
-        expect(enTexto(filas()[0])).toContain('1 en mantención');
+        expect(enTexto(filaDe('08:00').querySelector('td')!)).toBe('En mantención');
       });
     });
 
-    it('con el :00 pasado y el :30 por venir, la banda queda a la vista y marca el pasado', async () => {
-      // Las 08:10 del club: el de las 08:00 ya empezó y el de las 08:30 no.
+    it('a las 08:10, el inicio de las 08:00 se pliega y el de las 08:30 abre la tabla', async () => {
+      // Reemplaza a "la banda queda a la vista y marca el pasado": sin bandas, cada inicio
+      // se pliega solo cuando empieza.
       vi.setSystemTime('2026-08-17T12:10:00.000Z');
       await montar(MEDIAS_HORAS);
 
-      const ocho = bandas()[0];
-      const filas = [...ocho.querySelectorAll('[data-inicio]')].map(enTexto);
-
-      expect(enTexto(ocho.querySelector('h2')!)).toContain('08 h');
-      expect(filas[0]).toContain('Ya pasó');
-      expect(filas[1]).toContain('Cancha 1');
-      expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+      expect(inicios()[0]).toBe('08:30');
+      expect(enTexto(el().querySelector('details summary')!)).toContain(
+        'La hora de las 08:00 ya pasó',
+      );
     });
   });
 
@@ -534,8 +645,6 @@ describe('Grilla', () => {
         ],
       },
     ];
-    const etiquetas = () =>
-      bloques().map((b) => b.querySelector('button')?.getAttribute('aria-label') ?? '');
 
     it('sin duración en la URL pide la grilla de 1 hora', () => {
       expect(pedirDia).toHaveBeenCalledWith(expect.any(String), 60);
@@ -571,9 +680,11 @@ describe('Grilla', () => {
       await montar(SIN_HORA_Y_MEDIA, { duracion: '90' });
 
       expect(etiquetas()).toEqual([expect.stringContaining('de 08:00 a 09:30')]);
-      // Y la fila no dice "sin canchas libres", que sería falso: la cancha está libre.
-      expect(texto()).toContain('No se arrienda por 1 hora y media a esta hora');
-      expect(texto()).not.toContain('Sin canchas libres');
+      // Y la celda no dice "sin libres", que sería falso: la cancha está libre.
+      expect(enTexto(filaDe('17:00').querySelector('td')!)).toBe(
+        'No se arrienda por 1 hora y media',
+      );
+      expect(enTexto(el().querySelector('table')!)).not.toContain('Sin libres');
     });
 
     it('si en todo el día no hay hora y media para el visitante, lo dice una vez y ofrece la salida', async () => {
@@ -588,7 +699,7 @@ describe('Grilla', () => {
       await montar(SIN_NINGUNA, { duracion: '90' });
 
       expect(texto()).toContain('Este día no se arrienda 1 hora y media');
-      expect(texto()).not.toContain('No se arrienda por 1 hora y media a esta hora');
+      expect(texto()).not.toContain('No se arrienda por 1 hora y media');
 
       const salida = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find(
         (b) => b.textContent?.trim() === 'Ver horas de 1 hora',
@@ -638,38 +749,39 @@ describe('Grilla', () => {
     expect(fecha?.classList.contains('cursor-pointer')).toBe(true);
   });
 
-  it('avisa cuál es hora pico', () => {
-    expect(texto()).toContain('Hora pico');
+  it('avisa cuál es hora pico, en la fila y en la leyenda', () => {
+    expect(enTexto(filaDe('18:00').querySelector('th')!)).toContain('pico');
+    expect(enTexto(el().querySelector('app-controles-del-dia')!)).toContain('Hora pico');
   });
 
   it('dice el estado con palabras, no solo con color', () => {
     // El par verde/rojo es justo el que no distingue quien tiene daltonismo
     // rojo-verde: si el estado solo estuviera en el color, la pantalla mentiría.
-    expect(texto()).toContain('Libre');
-    expect(texto()).toContain('En mantención');
+    const leyenda = enTexto(el().querySelector('app-controles-del-dia ul')!);
+    expect(leyenda).toContain('Libre');
+    expect(leyenda).toContain('Sin libres');
     // Y nunca el enum crudo de la base, que se lee como una falla del sistema.
     expect(texto()).not.toContain('MANTENCION');
   });
 
-  it('lo que no se puede tomar se cuenta con palabras, no con un color', () => {
-    // El par verde/rojo es justo el que no distingue quien tiene daltonismo
-    // rojo-verde. Antes eso se resolvía con un borde punteado sobre la tarjeta;
-    // ahora que lo ocupado es una cuenta, se resuelve con la palabra y su ícono.
-    expect(texto()).toContain('en mantención');
+  it('una celda que no se puede tomar dice por qué con palabras, no con un color', () => {
+    // Antes eso se resolvía con un borde punteado sobre la tarjeta; en la tabla, la celda
+    // gris dice la razón.
+    expect(enTexto(filaDe('10:00').querySelector('td')!)).toBe('En mantención');
   });
 
   it('no ofrece precio de un bloque que no se puede tomar', () => {
     // Un precio junto a "En mantención" invita a intentar reservarlo.
-    expect(bloques()[1].textContent).not.toContain('$');
+    expect(enTexto(filaDe('10:00'))).not.toContain('$');
   });
 
-  it('numera los bloques para el stagger, sin pasar del tope', () => {
+  it('numera las celdas por fila para el stagger, sin pasar del tope', () => {
     // El `--i` es lo que escalona la entrada. El tope vive en el CSS; acá se fija
-    // que el índice llegue, porque sin él todos entran a la vez.
-    // Uno por chip libre dentro de su franja, que es la unidad que entra junta.
-    expect(bloques().map((b) => b.getAttribute('style'))).toEqual([
+    // que el índice llegue, porque sin él todos entran a la vez. Va por fila: las celdas
+    // de una misma hora entran juntas.
+    expect(celdas().map((celda) => celda.getAttribute('style'))).toEqual([
       expect.stringContaining('--i: 0'),
-      expect.stringContaining('--i: 0'),
+      expect.stringContaining('--i: 2'),
     ]);
   });
 
@@ -702,16 +814,15 @@ describe('Grilla', () => {
       await montar(DOS_CANCHAS);
       await elegirFiltro('techadas');
 
-      expect(texto()).toContain('Cancha techada');
-      expect(texto()).not.toContain('Cancha 1');
+      // La tabla no nombra canchas: lo que el filtro deja se ve en las columnas.
+      expect(columnas()).toEqual(['Techada']);
     });
 
     it('"al aire libre" es lo contrario de techada, no un campo aparte', async () => {
       await montar(DOS_CANCHAS);
       await elegirFiltro('aire-libre');
 
-      expect(texto()).toContain('Cancha 1');
-      expect(texto()).not.toContain('Cancha techada');
+      expect(columnas()).toEqual(['Al aire libre']);
     });
 
     it('el resumen cuenta lo que se ve, no lo que quedó filtrado', async () => {
@@ -737,7 +848,7 @@ describe('Grilla', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(texto()).toContain('Cancha 1');
+      expect(columnas()).toEqual(['Al aire libre']);
     });
   });
 
@@ -793,6 +904,13 @@ describe('Grilla', () => {
         yaReportada: false,
       },
     ];
+
+    // Las 09:10 del club: la hora tomada de las 08:00 ya terminó, que es cuando el servidor
+    // la lista. Desde T103 el botón vive entre las horas que ya pasaron: una fila de la
+    // tabla es para elegir, y lo que se reporta ya no se puede elegir.
+    beforeEach(() => {
+      vi.setSystemTime('2026-08-17T13:10:00.000Z');
+    });
 
     it('el socio ve el botón sobre la hora tomada que ya pasó', async () => {
       await montar(RESERVADO, {}, { socioId: 7, reportables: laReportable });
@@ -877,11 +995,7 @@ describe('Grilla', () => {
     // bloqueos y lo que está tomado. Traer aquí a quien viene de "mis reservas" es
     // más barato —y más consistente— que un segundo selector dentro de la tarjeta.
     const elegirPrimerBloque = async () => {
-      (
-        (fixture.nativeElement as HTMLElement).querySelector(
-          '.bloque button',
-        ) as HTMLButtonElement
-      ).click();
+      celdas()[0].click();
       await fixture.whenStable();
       fixture.detectChanges();
     };
@@ -1046,11 +1160,7 @@ describe('Grilla', () => {
       it('la etiqueta de cada hora ya dice lo que costaría el cambio', async () => {
         await montar(DIA, { moverToken: 'tok-123' });
 
-        expect(
-          (fixture.nativeElement as HTMLElement)
-            .querySelector('.bloque button')
-            ?.getAttribute('aria-label'),
-        ).toContain('no se devuelve la diferencia de $4.000');
+        expect(etiquetas()[0]).toContain('no se devuelve la diferencia de $4.000');
       });
     });
 
@@ -1184,13 +1294,10 @@ describe('Grilla', () => {
         }),
       );
 
-      const botones = (fixture.nativeElement as HTMLElement).querySelectorAll(
-        '.bloque button',
-      );
-      // Los dos chips libres del día: agrupada por hora, la grilla solo lista
-      // lo que se puede tomar, así que el segundo clic va al índice 1.
-      (botones[0] as HTMLButtonElement).click();
-      (botones[1] as HTMLButtonElement).click();
+      // Las dos celdas libres del día: la de las 08:00 y la de las 18:00.
+      const [primera, segunda] = celdas();
+      primera.click();
+      segunda.click();
 
       expect(mover).toHaveBeenCalledTimes(1);
 

@@ -1,5 +1,5 @@
 import { BloqueDisponible, Cancha, GrillaDeCancha } from '../disponibilidad';
-import { enPesos, horaEnElClub } from '../reloj-del-club';
+import { enPesos } from '../reloj-del-club';
 
 /**
  * Lo que el bloque dice de la tarifa del socio: nada de plata, porque no paga la
@@ -51,35 +51,6 @@ export interface Franja {
 }
 
 /**
- * Una hora del reloj del club, con sus inicios adentro (T83a).
- *
- * Con inicios cada media hora la grilla eran 27 bandas: una por inicio. El club eligió
- * el 2026-10-03 agruparlas por hora, y lo que dicen igual los dos inicios —el precio,
- * "socio sin costo", el pico— se dice una vez en la banda.
- */
-export interface Banda {
-  /** La hora del reloj, "08". También la clave: un día no repite hora. */
-  hora: string;
-  /** Lo que oye el lector de pantalla en vez de "08 h". */
-  nombre: string;
-  franjas: Franja[];
-  /**
-   * Si todos sus inicios con canchas libres dicen el mismo precio. Si no, cada fila dice
-   * el suyo y la banda calla.
-   */
-  precioComun: boolean;
-  /** Ese precio común; nulo si es que no se arrienda, con lo que la banda dice solo "socio". */
-  precio: string | null;
-  /** Si todos sus inicios son pico, o ninguno; nulo si difieren y lo dice cada fila. */
-  pico: boolean | null;
-  /**
-   * Las canchas en mantención, cuando sus inicios tienen las mismas; nulo si difieren o no
-   * hay ninguna. Decisión del club del 2026-10-03: era la línea que más se repetía.
-   */
-  enMantencion: number | null;
-}
-
-/**
  * Si la hora ya empezó, según el reloj de quien mira.
  *
  * La API rechaza reservar una hora que ya empezó (`BLOQUE_EN_EL_PASADO`), y la
@@ -104,7 +75,7 @@ export function yaEmpezo(bloque: BloqueDisponible): boolean {
  * tarjetas, que a dos columnas dan 56 filas y **10.223px de alto en un teléfono**.
  *
  * Desde T78 se reserva cada media hora, así que esto da un elemento por **inicio** —27 en
- * un día de 08:00 a 22:00— y `agruparPorHora` los junta por hora del reloj (T83a).
+ * un día de 08:00 a 22:00—, y desde T103 cada uno es una fila de la tabla (`tablaDelDia`).
  *
  * Las canchas que no se pueden tomar no desaparecen: se cuentan. Saber que a las 19:00 hay
  * seis ocupadas y ninguna libre es información, y borrarla haría que esa hora se viera
@@ -158,48 +129,11 @@ export function agruparPorInicio(
 }
 
 /**
- * Los inicios agrupados por hora del reloj del club (T83a): 14 bandas y no 27.
+ * Lo que cuesta arrendar en esa hora, en las canchas de una celda de la tabla.
  *
- * Lo que los dos inicios de una hora dicen igual —el precio de sus canchas libres y si son
- * pico— sube a la banda. Si el de y media cae en otra franja, cada fila dice lo suyo y la
- * banda calla: un precio de banda que no vale para una de sus filas sería mentira.
- */
-export function agruparPorHora(franjas: Franja[]): Banda[] {
-  const porHora = new Map<string, Franja[]>();
-
-  for (const franja of franjas) {
-    const hora = horaEnElClub(franja.inicio).slice(0, 2);
-    porHora.set(hora, [...(porHora.get(hora) ?? []), franja]);
-  }
-
-  return [...porHora].map(([hora, deLaHora]): Banda => {
-    const precios = new Set(
-      deLaHora.filter((f) => f.libres.length > 0).map((f) => precioDeLaHora(f.libres)),
-    );
-    const precioComun = precios.size === 1;
-    const picos = new Set(deLaHora.map((f) => f.esPico));
-    const mantenciones = new Set(deLaHora.map((f) => f.enMantencion));
-    const mantencion = mantenciones.size === 1 ? [...mantenciones][0] : 0;
-
-    return {
-      hora,
-      nombre: `A las ${Number(hora)}`,
-      franjas: deLaHora,
-      precioComun,
-      precio: precioComun ? [...precios][0] : null,
-      pico: picos.size === 1 ? [...picos][0] : null,
-      enMantencion: mantencion > 0 ? mantencion : null,
-    };
-  });
-}
-
-/**
- * Lo que cuesta arrendar en esa hora.
- *
- * Casi siempre es un solo monto para todas las canchas, y entonces se dice una
- * vez arriba en vez de repetirlo en cada chip. Cuando el club cobra distinto
- * por cancha, se dice "desde" y el monto de cada una viaja en su etiqueta
- * accesible, que es donde ya estaba.
+ * Casi siempre es un solo monto para todas. Cuando el club cobra distinto por
+ * cancha, la celda dice "desde" y el monto exacto lo dice la barra de abajo, con
+ * la cancha que quedó marcada.
  */
 export function precioDeLaHora(libres: { bloque: BloqueDisponible }[]): string | null {
   const montos = [

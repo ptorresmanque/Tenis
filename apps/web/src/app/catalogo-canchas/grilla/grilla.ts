@@ -1,7 +1,5 @@
-import { NgTemplateOutlet } from '@angular/common';
 import {
   Component,
-  Directive,
   computed,
   inject,
   linkedSignal,
@@ -17,7 +15,6 @@ import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import {
   BloqueDisponible,
   Cancha,
@@ -27,50 +24,21 @@ import {
 import { enPesos, hoyEnElClub, horaEnElClub } from '../reloj-del-club';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
-import {
-  agruparPorHora,
-  agruparPorInicio,
-  Banda,
-  precioDeLaHora,
-  TARIFA_DEL_SOCIO,
-  yaEmpezo,
-} from './bandas';
+import { TARIFA_DEL_SOCIO, yaEmpezo } from './bandas';
 import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
 import { MoverReserva } from './mover-reserva';
 import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
-
-/**
- * Le pone tipo al `let-banda` de la plantilla de la banda.
- *
- * Sin esto el `ng-template` le da `any` y el compilador deja de revisar esa
- * parte de la plantilla: en la revisión de TV5.1 un campo inventado,
- * `franja.libresQueNoExisten`, compilaba igual. Con el `@for` de antes eso no
- * pasaba.
- */
-@Directive({ selector: 'ng-template[appBandaTipada]' })
-export class BandaTipada {
-  static ngTemplateContextGuard(
-    _directiva: BandaTipada,
-    contexto: unknown,
-  ): contexto is { $implicit: Banda } {
-    // El contexto de un ng-template es siempre un objeto; lo que importa es el
-    // tipo que esta firma le da al compilador.
-    return typeof contexto === 'object';
-  }
-}
+import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
 
 @Component({
   selector: 'app-grilla',
   imports: [
-    NgTemplateOutlet,
     RouterLink,
-    BandaTipada,
     Reservar,
     BarraFija,
     ControlesDelDia,
     EstadoVacio,
-    Insignia,
     ResumenDeLaEleccion,
     ResumenDelCambio,
   ],
@@ -168,28 +136,28 @@ export class BandaTipada {
     </div>
 
     <!--
-      EL DÍA, POR HORA.
+      EL DÍA, EN TABLA (T103).
 
-      Cada banda es una hora y dentro van las canchas libres como chips. Antes
-      esto eran ocho secciones de catorce tarjetas cada una: 112 tarjetas, 56
-      filas en un teléfono, 10.223px de alto para responder "¿a qué hora puedo
-      jugar?". El eje lo cambió el club el 2026-09-08 y la razón es la pregunta,
-      no el tamaño: agrupada por cancha, esa pregunta obliga a recorrer ocho
-      listas y compararlas de memoria.
+      La opción C que eligió el club el 2026-10-08: una fila por hora de inicio y una
+      columna por tipo de cancha, con el precio en cada celda. Antes fueron tarjetas por
+      cancha (10.223px en un teléfono) y después bandas por hora con chips por cancha;
+      la pregunta que trae quien llega es "a qué hora y cuánto", y la tabla la contesta
+      sin abrir nada. La cancha puntual se elige en la barra de abajo.
     -->
-    @if (visibles().length > 0 && porHora().length === 0) {
-      <!-- Agrupando por hora, un día sin bloques deja la pantalla en blanco: sin
-           esto, "el club no abre este día" se leería como una falla de carga. -->
+    @if (visibles().length > 0 && tabla().filas.length === 0) {
+      <!-- Sin filas, la pantalla quedaría en blanco: sin esto, "el club no abre este día"
+           se leería como una falla de carga. -->
       <p class="mt-6 text-muted-foreground">
         El club no abre este día.
       </p>
     }
 
     <!-- LAS HORAS QUE YA PASARON, PLEGADAS (decisión 9, TV5.1). A las 18:00 la
-         grilla abría con diez filas "Ya pasó" antes de la primera hora tomable.
+         tabla abriría con veinte filas "Ya pasó" antes de la primera hora tomable.
          No se quitan: ahí está el botón para reportar una hora no usada (T35), y
-         el título del grupo avisa cuando hay alguna. <details> y no un botón a
-         mano: el desplegable nativo trae el teclado y el estado para el lector. -->
+         el título del grupo avisa cuando hay alguna. Fuera de la tabla: dentro serían
+         filas que dicen lo mismo en cada celda. <details> y no un botón a mano: el
+         desplegable nativo trae el teclado y el estado para el lector. -->
     @if (pasadas().length > 0) {
       <details class="group mt-6 border-t border-border pt-4">
         <summary
@@ -200,225 +168,208 @@ export class BandaTipada {
           <span class="icono transition-transform group-open:rotate-90" aria-hidden="true">
             chevron_right
           </span>
-          {{ pasadas().length }}
-          {{ pasadas().length === 1 ? 'hora que ya pasó' : 'horas que ya pasaron' }}
+          {{ tituloDeLasPasadas() }}
           @if (hayQueReportar()) {
             <span class="font-sans text-sm font-semibold tracking-normal normal-case">
-              · puedes reportar las que no se usaron
+              · puedes reportar horas que no se usaron
             </span>
           }
         </summary>
-        @for (banda of pasadas(); track banda.hora) {
-          <ng-container
-            [ngTemplateOutlet]="bandaTpl"
-            [ngTemplateOutletContext]="{ $implicit: banda }"
-          />
-        }
+        <ul>
+          @for (fila of pasadas(); track fila.inicio) {
+            <li class="mt-3">
+              <!-- Las etiquetas van pegadas a propósito: un salto de línea entre ellas
+                   mete un espacio en blanco y en pantalla se lee "08:00 –09:00". -->
+              <p class="text-sm text-muted-foreground">
+                <span class="font-display text-base font-bold text-foreground"
+                  >{{ hora(fila.inicio) }}–{{ hora(fila.fin) }}</span
+                >
+                · Ya pasó
+              </p>
+
+              <!-- Las horas propias que ya pasaron siguen siendo un elemento con su
+                   botón, no un número: es la única forma de que el socio pueda decir
+                   que nadie usó esa cancha (T35). -->
+              @for (caso of fila.reportables; track caso.cancha.id) {
+                @if (reportable(caso.bloque); as reporte) {
+                  <div class="mt-2 flex flex-wrap items-center gap-3 rounded-caja bg-muted p-3">
+                    <span class="font-semibold">{{ caso.cancha.nombre }}</span>
+                    @if (reporte.yaReportada) {
+                      <span class="text-sm text-muted-foreground">
+                        Ya reportaste esta hora.
+                      </span>
+                    } @else {
+                      <!-- La primitiva y no clases a mano (TV8.2): en 12px y sin .boton no
+                           tenía alto táctil ni la confirmación al apretar. -->
+                      <button
+                        type="button"
+                        class="boton boton-texto boton-chico"
+                        (click)="reportar(reporte.reservaId)"
+                      >
+                        Reportar hora no usada
+                        <span class="sr-only">
+                          de las {{ hora(caso.bloque.inicio) }} en {{ caso.cancha.nombre }}
+                        </span>
+                      </button>
+                    }
+                  </div>
+                }
+              }
+            </li>
+          }
+        </ul>
       </details>
     }
 
-    @for (banda of sinHoraYMediaEnElDia() ? [] : vigentes(); track banda.hora) {
-      <ng-container
-        [ngTemplateOutlet]="bandaTpl"
-        [ngTemplateOutletContext]="{ $implicit: banda }"
-      />
-    }
+    @if (!sinHoraYMediaEnElDia() && vigentes().length > 0) {
+      <!-- Lo que paga cada uno se dice una vez, arriba (A8): repetido en cada celda era
+           decir veintisiete veces lo mismo. Al socio la celda no le muestra plata, que no
+           paga, sino cuántas quedan; al visitante, el arriendo. -->
+      <p data-tarifas class="mt-6 text-sm text-muted-foreground">
+        @if (esSocio()) {
+          Socio <strong class="text-accent-strong">{{ tarifaDelSocio }}</strong> · cada
+          casilla dice cuántas canchas quedan libres.
+        } @else {
+          Arriendo de {{ duracion() === 90 ? '1 hora y media' : '1 hora' }} por cancha ·
+          socio {{ tarifaDelSocio }}
+        }
+      </p>
 
-    <!-- Una banda: se escribe una vez y se usa dentro y fuera del pliegue. -->
-    <ng-template #bandaTpl appBandaTipada let-banda>
-      <section class="mt-6 border-t border-border pt-5">
-        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <!-- La hora en un rótulo de color (TV5.1): campo, o ámbar suave si toda la
-               hora es pico. No una franja lateral: esa barra en el canto es el tell
-               de interfaz generada que el lint de franjas prohíbe. "08 h" se oye mal;
-               el lector oye "A las 8". Relativo por la trampa del sr-only. -->
-          <h2 class="relative font-display leading-none">
-            <span
-              class="rotulo-hora px-2 py-1 text-3xl"
-              [class.rotulo-hora-pico]="banda.pico === true"
-              aria-hidden="true"
-              >{{ banda.hora }} h</span
+      <!-- table-fixed y celdas que se envuelven: a 375px no hay scroll horizontal ni con
+           "desde $12.000" en las dos columnas. Con tope en escritorio: a todo el ancho,
+           cada celda era una barra verde de 470px. -->
+      <table
+        class="mt-2 w-full max-w-2xl table-fixed border-separate border-spacing-x-1
+               border-spacing-y-1.5"
+      >
+        <caption class="sr-only">Canchas libres por hora de inicio y tipo de cancha</caption>
+        <!-- Pegado bajo la cabecera del sitio, que mide 64px: a la fila veinte nadie se
+             acuerda de cuál columna era la techada. -->
+        <thead>
+          <tr>
+            <th
+              scope="col"
+              class="sticky top-16 z-10 w-16 bg-background py-2 text-start font-display
+                     text-xs font-bold tracking-wide text-muted-foreground uppercase"
             >
-            <span class="sr-only">{{ banda.nombre }}</span>
-          </h2>
-
-          <!-- Lo que los dos inicios dicen igual se dice una vez (T83a). -->
-          @if (banda.precioComun || banda.pico === true) {
-            <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
-              @if (banda.precioComun) {
-                <span class="text-muted-foreground">Socio {{ tarifaDelSocio }}</span>
-                @if (banda.precio !== null) {
-                  <span class="text-muted-foreground" aria-hidden="true">·</span>
-                  <span class="text-muted-foreground">
-                    Arriendo
-                    <strong class="text-accent-strong">{{ banda.precio }}</strong>
+              Inicio
+            </th>
+            @for (tipo of tabla().columnas; track tipo) {
+              <th
+                scope="col"
+                class="sticky top-16 z-10 bg-background px-1 py-2 text-start font-display
+                       text-xs font-bold tracking-wide text-muted-foreground uppercase"
+              >
+                <span class="inline-flex items-center gap-1">
+                  @if (tipo === 'techada') {
+                    <span class="icono text-base" aria-hidden="true">roofing</span>
+                  }
+                  {{ nombreDelTipo[tipo] }}
+                </span>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (fila of vigentes(); track fila.inicio; let i = $index) {
+            <tr>
+              <!-- El pico marca la fila: ámbar y la palabra, no solo el color. -->
+              <th
+                scope="row"
+                class="py-2 text-start align-top font-display text-lg leading-none font-bold
+                       tabular-nums"
+                [class.text-warning-strong]="fila.pico === true"
+              >
+                {{ hora(fila.inicio) }}
+                @if (fila.pico === true) {
+                  <span
+                    class="mt-1 flex items-center gap-0.5 font-sans text-xs font-semibold"
+                  >
+                    <span class="icono text-sm" aria-hidden="true">trending_up</span>
+                    pico
                   </span>
                 }
+              </th>
+              @for (celda of fila.celdas; track celda.tipo) {
+                <td class="align-top">
+                  @if (celda.libres.length > 0) {
+                    <!-- El precio en tamaño de marcador: es lo que el club pidió que se
+                         viera. La libre en el verde de "libre"; la elegida, en rótulo, como
+                         la opción marcada del selector (TV2.3 y TV5.1). -->
+                    <button
+                      type="button"
+                      class="bloque flex min-h-11 w-full cursor-pointer flex-col items-start
+                             justify-center gap-0.5 rounded-control border px-2 py-1.5
+                             text-start"
+                      [class.border-transparent]="!estaElegida(celda)"
+                      [class.bg-accent-soft]="!estaElegida(celda)"
+                      [class.text-accent-strong]="!estaElegida(celda)"
+                      [class.border-rotulo]="estaElegida(celda)"
+                      [class.bg-rotulo]="estaElegida(celda)"
+                      [class.text-on-rotulo]="estaElegida(celda)"
+                      [style.--i]="i"
+                      [attr.aria-label]="etiqueta(fila, celda)"
+                      [attr.aria-pressed]="estaElegida(celda)"
+                      (click)="elegir(celda.libres[0].cancha, celda.libres[0].bloque)"
+                    >
+                      @if (!esSocio() && celda.precio) {
+                        <span class="font-display text-2xl leading-none font-extrabold tabular-nums">
+                          {{ celda.precio }}
+                        </span>
+                      }
+                      <!-- Al socio, cuántas quedan es lo único que la celda le dice: va en
+                           grande, donde al visitante va el precio. -->
+                      <span
+                        class="inline-flex items-center gap-0.5 font-semibold"
+                        [class.text-xs]="!esSocio()"
+                        [class.font-display]="esSocio()"
+                        [class.text-lg]="esSocio()"
+                      >
+                        @if (estaElegida(celda)) {
+                          <span class="icono text-sm" aria-hidden="true">check_circle</span>
+                        }
+                        {{ celda.libres.length }}
+                        {{ celda.libres.length === 1 ? 'libre' : 'libres' }}
+                        @if (fila.pico === null && celda.esPico) {
+                          · pico
+                        }
+                      </span>
+                    </button>
+                  } @else {
+                    <p
+                      class="flex min-h-11 items-center rounded-control bg-muted px-2 py-1.5
+                             text-xs font-medium text-muted-foreground"
+                    >
+                      {{ porQueNoHay(celda) }}
+                    </p>
+                  }
+
+                  <!-- T97. La clase se nombra y se enlaza: a quien llega nuevo le dice que a
+                       esta hora hay una clase que le puede servir. Fuera del botón: un
+                       enlace dentro de un botón no se puede apretar. -->
+                  @if (celda.enClase > 0) {
+                    <a
+                      routerLink="/clases"
+                      class="mt-1 inline-flex min-h-6 items-center gap-1 text-xs font-semibold
+                             text-primary underline"
+                    >
+                      <span class="icono text-sm" aria-hidden="true">{{ iconos['CLASE'] }}</span>
+                      {{ celda.enClase }} en clase<span class="sr-only">, ver las clases</span>
+                    </a>
+                  }
+                  @if (celda.enTorneo > 0) {
+                    <p class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <span class="icono text-sm" aria-hidden="true">{{ iconos['TORNEO'] }}</span>
+                      {{ celda.enTorneo }} en torneo
+                    </p>
+                  }
+                </td>
               }
-              @if (banda.pico === true) {
-                <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
-              }
-            </p>
+            </tr>
           }
-        </div>
-
-        @if (banda.enMantencion !== null) {
-          <p class="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground">
-            <span class="icono text-base" aria-hidden="true">{{ iconos['MANTENCION'] }}</span>
-            {{ banda.enMantencion }} en mantención
-          </p>
-        }
-
-        @for (franja of banda.franjas; track franja.inicio) {
-        <div class="mt-4" [attr.data-inicio]="franja.inicio">
-          <!-- Las etiquetas van pegadas a propósito: un salto de línea entre ellas
-               mete un espacio en blanco y en pantalla se lee "08:00 –09:00". -->
-          <p class="flex flex-wrap items-baseline gap-x-2">
-            <span class="font-display text-xl font-bold"
-              >{{ hora(franja.inicio) }}–{{ hora(franja.fin) }}</span
-            >
-            @if (franja.libres.length > 0) {
-              <span class="text-sm font-semibold text-accent-strong">
-                {{ franja.libres.length }}
-                {{ franja.libres.length === 1 ? 'libre' : 'libres' }}
-              </span>
-              @if (!banda.precioComun) {
-                <!-- Este inicio cae en otra franja que su hermano: dice lo suyo. -->
-                <span class="text-sm text-muted-foreground">
-                  Socio {{ tarifaDelSocio }}
-                  @if (precioDeLaHora(franja.libres); as precio) {
-                    · Arriendo <strong class="text-accent-strong">{{ precio }}</strong>
-                  }
-                </span>
-              }
-            } @else if (franja.soloSocios > 0 && !franja.yaPaso) {
-              <!-- Hay canchas libres, pero esta duración no se le vende a quien no es
-                   socio: "sin canchas libres" sería falso. -->
-              <span class="text-sm font-medium text-muted-foreground">
-                No se arrienda por 1 hora y media a esta hora
-              </span>
-            } @else {
-              <span class="text-sm font-medium text-muted-foreground">
-                {{ franja.yaPaso ? 'Ya pasó' : 'Sin canchas libres' }}
-              </span>
-            }
-            @if (banda.pico === null && franja.esPico) {
-              <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
-            }
-          </p>
-
-        @if (franja.libres.length > 0) {
-          <ul class="mt-3 flex flex-wrap gap-2">
-            @for (libre of franja.libres; track libre.cancha.id; let i = $index) {
-              <li class="bloque" [style.--i]="i">
-                <!-- El chip libre en el verde de "libre"; el elegido, en rótulo,
-                     como la opción marcada del selector (TV2.3 y TV5.1). -->
-                <button
-                  type="button"
-                  class="flex min-h-11 cursor-pointer items-center gap-2 rounded-control
-                         border px-3 py-2 font-display text-sm font-bold tracking-wide
-                         uppercase transition-colors"
-                  [class.border-border]="!estaElegido(libre.bloque)"
-                  [class.bg-accent-soft]="!estaElegido(libre.bloque)"
-                  [class.text-accent-strong]="!estaElegido(libre.bloque)"
-                  [class.border-rotulo]="estaElegido(libre.bloque)"
-                  [class.bg-rotulo]="estaElegido(libre.bloque)"
-                  [class.text-on-rotulo]="estaElegido(libre.bloque)"
-                  [attr.aria-label]="etiqueta(libre.cancha, libre.bloque)"
-                  [attr.aria-pressed]="estaElegido(libre.bloque)"
-                  (click)="elegir(libre.cancha, libre.bloque)"
-                >
-                  @if (estaElegido(libre.bloque)) {
-                    <span class="icono text-base" aria-hidden="true">check_circle</span>
-                  }
-                  {{ libre.cancha.nombre }}
-                  @if (libre.cancha.techada) {
-                    <span class="icono text-base" aria-hidden="true" title="Techada">
-                      roofing
-                    </span>
-                  }
-                </button>
-              </li>
-            }
-          </ul>
-        }
-
-        <!-- Las horas propias que ya pasaron siguen siendo un elemento con su
-             botón, no un número: es la única forma de que el socio pueda decir
-             que nadie usó esa cancha (T35). El resto de las ocupadas se cuenta
-             abajo. -->
-        @for (caso of franja.reportables; track caso.cancha.id) {
-          @if (reportable(caso.bloque); as reporte) {
-            <div class="mt-3 flex flex-wrap items-center gap-3 rounded-caja bg-muted p-3">
-              <span class="font-semibold">{{ caso.cancha.nombre }}</span>
-              @if (reporte.yaReportada) {
-                <span class="text-sm text-muted-foreground">
-                  Ya reportaste esta hora.
-                </span>
-              } @else {
-                <!-- La primitiva y no clases a mano (TV8.2): en 12px y sin .boton no
-                     tenía alto táctil ni la confirmación al apretar. -->
-                <button
-                  type="button"
-                  class="boton boton-texto boton-chico"
-                  (click)="reportar(reporte.reservaId)"
-                >
-                  Reportar hora no usada
-                  <span class="sr-only">
-                    de las {{ hora(caso.bloque.inicio) }} en {{ caso.cancha.nombre }}
-                  </span>
-                </button>
-              }
-            </div>
-          }
-        }
-
-        <!-- Lo que no se puede tomar se cuenta, no se esconde: que a las 19:00
-             haya seis ocupadas es información, y borrarla haría que esa hora se
-             viera igual que una que el club no abre. -->
-        @if (
-          franja.ocupadas > 0 ||
-          franja.enClase > 0 ||
-          franja.enTorneo > 0 ||
-          (franja.enMantencion > 0 && banda.enMantencion === null)
-        ) {
-          <p class="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
-            @if (franja.ocupadas > 0) {
-              <span class="inline-flex items-center gap-1">
-                <span class="icono text-base" aria-hidden="true">lock</span>
-                {{ franja.ocupadas }}
-                {{ franja.ocupadas === 1 ? 'ocupada' : 'ocupadas' }}
-              </span>
-            }
-            <!-- T97. La clase se nombra y se enlaza: a quien llega nuevo le dice que a esta
-                 hora hay una clase que le puede servir. Antes se leía "en mantención". -->
-            @if (franja.enClase > 0) {
-              <span class="inline-flex items-center gap-1">
-                <span class="icono text-base" aria-hidden="true">{{ iconos['CLASE'] }}</span>
-                {{ franja.enClase }} en clase ·
-                <a routerLink="/clases" class="font-semibold text-primary underline">
-                  Ver clases
-                </a>
-              </span>
-            }
-            @if (franja.enTorneo > 0) {
-              <span class="inline-flex items-center gap-1">
-                <span class="icono text-base" aria-hidden="true">{{ iconos['TORNEO'] }}</span>
-                {{ franja.enTorneo }} en torneo
-              </span>
-            }
-            @if (franja.enMantencion > 0 && banda.enMantencion === null) {
-              <span class="inline-flex items-center gap-1">
-                <span class="icono text-base" aria-hidden="true">{{ iconos['MANTENCION'] }}</span>
-                {{ franja.enMantencion }} en mantención
-              </span>
-            }
-          </p>
-        }
-        </div>
-        }
-      </section>
-    </ng-template>
+        </tbody>
+      </table>
+    }
 
     <!-- Elegir y reservar quedaron separados: el bloque se marca y la barra dice qué
          se marcó y con cuánto antes del botón. Desde el enlace, con plata en juego, dice
@@ -475,17 +426,15 @@ export class BandaTipada {
       }
     }
 
-    /* Que la tarjeta responde al mouse hay que mostrarlo, no solo saberlo: el
-       cursor lo dice sobre el botón y esto lo dice sobre el bloque entero.
+    /* Que la celda responde al mouse hay que mostrarlo, no solo saberlo: el cursor
+       lo dice y esto lo confirma.
 
-       Va en CSS y no con las variantes hover de Tailwind porque el borde y la
-       sombra viven en el li mientras que el hover que importa es el del botón de
-       adentro —el bloque tomado no tiene que iluminarse—, y porque el bloque
-       arrastra hasta 720ms de retardo por el stagger: heredarlo dejaría el hover
-       llegando tarde. Solo color de borde y sombra, así que nada cambia de tamaño
-       y la cuadrícula no salta al pasar el ratón. */
+       Va en CSS y no con las variantes hover de Tailwind porque la celda arrastra
+       hasta 720ms de retardo por el stagger, y un \`transition-colors\` lo heredaría:
+       el hover llegaría tarde. Solo color de borde y sombra, así que nada cambia de
+       tamaño y la tabla no salta al pasar el ratón. La elegida no se ilumina. */
     @media (hover: hover) and (pointer: fine) {
-      .bloque:has(button:not(:disabled):hover) {
+      .bloque:not([aria-pressed='true']):hover {
         border-color: var(--color-primary);
         box-shadow: var(--shadow-md);
       }
@@ -569,7 +518,7 @@ export class Grilla {
     defaultValue: [],
   });
 
-  private readonly esSocio = computed(
+  protected readonly esSocio = computed(
     () => this.auth.usuario()?.socioId != null,
   );
 
@@ -611,42 +560,48 @@ export class Grilla {
     return grillas.filter(({ cancha }) => pasaElFiltro(cancha, filtro));
   });
 
-  /** El día por inicio: ver `agruparPorInicio`. */
-  protected readonly porHora = computed(() =>
-    agruparPorInicio(this.visibles(), {
+  /** El día como tabla de inicio por tipo de cancha: ver `tablaDelDia`. */
+  protected readonly tabla = computed(() =>
+    tablaDelDia(this.visibles(), {
       reportable: (bloque) => this.reportable(bloque) !== undefined,
       noSeLeVende: (bloque) => this.noSeLeVende(bloque),
     }),
   );
 
-  /** Los inicios juntos por hora del reloj: ver `agruparPorHora`. */
-  protected readonly bandas = computed(() => agruparPorHora(this.porHora()));
+  /** Las filas que ya pasaron, que van plegadas fuera de la tabla (decisión 9, TV5.1). */
+  protected readonly pasadas = computed(() =>
+    this.tabla().filas.filter((fila) => fila.yaPaso),
+  );
+
+  /** Las que todavía se pueden tomar: son la tabla. */
+  protected readonly vigentes = computed(() =>
+    this.tabla().filas.filter((fila) => !fila.yaPaso),
+  );
 
   /**
-   * Las horas que ya pasaron, que van plegadas (decisión 9 del plan, TV5.1). Una banda se
-   * pliega entera solo si pasaron todos sus inicios: con el :00 pasado y el :30 por venir
-   * queda a la vista, y su :00 dice "Ya pasó".
+   * Con una fila por inicio, contarlas engaña: a las 18:00 serían "20 horas que ya pasaron"
+   * por diez horas del reloj. El rango no.
    */
-  protected readonly pasadas = computed(() =>
-    this.bandas().filter((banda) => banda.franjas.every((franja) => franja.yaPaso)),
-  );
+  protected readonly tituloDeLasPasadas = computed(() => {
+    const pasadas = this.pasadas();
+    const primera = this.hora(pasadas[0].inicio);
 
-  /** Las que todavía se pueden mirar con algo que hacer: van a la vista. */
-  protected readonly vigentes = computed(() =>
-    this.bandas().filter((banda) => banda.franjas.some((franja) => !franja.yaPaso)),
-  );
+    return pasadas.length === 1
+      ? `La hora de las ${primera} ya pasó`
+      : `Horas que ya pasaron, de ${primera} a ${this.hora(pasadas[pasadas.length - 1].inicio)}`;
+  });
 
   /**
    * Al visitante no le queda en el día ningún inicio de 1 hora y media que se le venda, y
-   * alguno estaba libre: lo que falta es el precio, no canchas (T83b). `soloSocios` no
-   * cuenta nada para el socio ni con 1 hora.
+   * alguno estaba libre: lo que falta es el precio, no canchas (T83b). Al socio nunca le
+   * pasa, ni con 1 hora: a él no se le deja de vender nada.
    */
   protected readonly sinHoraYMediaEnElDia = computed(() => {
-    const quedan = this.porHora().filter((franja) => !franja.yaPaso);
+    const celdas = this.vigentes().flatMap((fila) => fila.celdas);
 
     return (
-      quedan.some((franja) => franja.soloSocios > 0) &&
-      quedan.every((franja) => franja.libres.length === 0)
+      celdas.some((celda) => celda.sinLibres === 'no-se-arrienda') &&
+      celdas.every((celda) => celda.libres.length === 0)
     );
   });
 
@@ -657,25 +612,40 @@ export class Grilla {
    * encuentra es una función perdida: el título del grupo lo avisa.
    */
   protected readonly hayQueReportar = computed(() =>
-    this.pasadas().some((banda) =>
-      banda.franjas.some(({ reportables }) =>
-        reportables.some(({ bloque }) => {
-          const reporte = this.reportable(bloque);
-          return reporte !== undefined && !reporte.yaReportada;
-        }),
-      ),
+    this.pasadas().some(({ reportables }) =>
+      reportables.some(({ bloque }) => {
+        const reporte = this.reportable(bloque);
+        return reporte !== undefined && !reporte.yaReportada;
+      }),
     ),
   );
 
-  protected readonly precioDeLaHora = precioDeLaHora;
-
-  protected estaElegido(bloque: BloqueDisponible): boolean {
+  /** Si lo marcado en la barra es una de las canchas libres de esa celda. */
+  protected estaElegida(celda: Celda): boolean {
     const eleccion = this.elegido();
 
-    return (
-      eleccion?.bloque.inicio === bloque.inicio &&
-      eleccion?.bloque.canchaId === bloque.canchaId
+    return celda.libres.some(
+      ({ bloque }) =>
+        eleccion?.bloque.inicio === bloque.inicio &&
+        eleccion?.bloque.canchaId === bloque.canchaId,
     );
+  }
+
+  /** Por qué una celda no tiene libres, dicho en la celda misma. */
+  protected porQueNoHay(celda: Celda): string {
+    switch (celda.sinLibres) {
+      case 'ya-paso':
+        return 'Ya pasó';
+      case 'no-se-arrienda':
+        // Hay canchas libres, pero esta duración no se le vende a quien no es socio:
+        // "sin libres" sería falso.
+        return 'No se arrienda por 1 hora y media';
+      case 'llena':
+        return 'Sin libres';
+      default:
+        // Todas en mantención, o el tipo no abre a esta hora.
+        return celda.enMantencion > 0 ? 'En mantención' : 'Cerrada';
+    }
   }
 
   protected reservar(): void {
@@ -724,31 +694,43 @@ export class Grilla {
   }
 
   /**
-   * Lo que oye quien navega por teclado antes de abrir el formulario.
+   * Lo que oye quien navega por teclado antes de elegir la celda.
    *
    * **Reemplaza al contenido del botón**, así que lo que no esté acá no existe para
-   * quien usa lector de pantalla: van las dos tarifas —con un solo monto le llega
-   * justo la mitad que falta para decidir— y la hora pico, que no es decoración
-   * porque le gasta al socio un cupo semanal del que solo tiene dos.
+   * quien usa lector de pantalla: el tipo de cancha —"$12.000" solo no dice de qué
+   * columna es—, cuántas quedan, lo que le cuesta a quien mira y la hora pico, que no es
+   * decoración porque le gasta al socio un cupo semanal del que solo tiene dos.
+   *
+   * Empieza igual que la etiqueta de los chips de antes, "Elegir … de 08:00 a 09:00": la
+   * e2e del eje de la demo lee la hora y el arriendo de ahí.
    */
-  protected etiqueta(cancha: Cancha, bloque: BloqueDisponible): string {
+  protected etiqueta(fila: FilaDeLaTabla, celda: Celda): string {
     const que = this.mover.activo() ? 'Mover tu reserva a' : 'Elegir';
-    const pagado = this.mover.pagadoPorElEnlace();
-
-    // Desde el enlace, quien ya pagó oye lo que le costaría el cambio, no la tarifa del
-    // socio ni el arriendo: es la pregunta que trae (T91).
-    const costo =
-      pagado !== null && bloque.montoClp !== null
-        ? `, ${minuscula(textoDeLaDiferencia(bloque.montoClp, pagado))}`
-        : `, socio ${TARIFA_DEL_SOCIO}` +
-          // Sin precio de esa duración no hay arriendo que anunciar: solo lo ve el socio.
-          (bloque.montoClp !== null ? `, arriendo ${this.pesos(bloque.montoClp)}` : '');
+    const cuantas = celda.libres.length;
 
     return (
-      `${que} ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
-      `${this.hora(bloque.fin)}${costo}` +
-      (bloque.esPico ? ', hora pico' : '')
+      `${que} cancha ${NOMBRE_EN_LA_FRASE[celda.tipo]} de ${this.hora(fila.inicio)} a ` +
+      `${this.hora(fila.fin)}, ${cuantas} ${cuantas === 1 ? 'libre' : 'libres'}, ` +
+      this.costo(celda) +
+      (celda.esPico ? ', hora pico' : '')
     );
+  }
+
+  /** Lo que le cuesta la celda a quien mira, para su etiqueta. */
+  private costo(celda: Celda): string {
+    const monto = celda.libres[0].bloque.montoClp;
+    const pagado = this.mover.pagadoPorElEnlace();
+
+    // Desde el enlace, quien ya pagó oye lo que le costaría el cambio a la cancha que se
+    // marcaría, que es la primera: es la pregunta que trae (T91).
+    if (pagado !== null && monto !== null) {
+      return minuscula(textoDeLaDiferencia(monto, pagado));
+    }
+
+    // Sin precio de esa duración no hay arriendo que anunciar: solo lo ve el socio.
+    return this.esSocio() || celda.precio === null
+      ? `socio ${TARIFA_DEL_SOCIO}`
+      : `arriendo ${celda.precio}`;
   }
 
   protected async elegir(
@@ -803,11 +785,24 @@ export class Grilla {
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
   protected readonly iconos = ICONOS_DE_MOTIVO;
+  protected readonly nombreDelTipo = NOMBRE_DEL_TIPO;
 
   protected readonly motivo = nombreDelMotivo;
 
   protected readonly superficie = nombreDeSuperficie;
 }
+
+/** El encabezado de cada columna. */
+const NOMBRE_DEL_TIPO: Record<TipoDeCancha, string> = {
+  abierta: 'Al aire libre',
+  techada: 'Techada',
+};
+
+/** El tipo dicho después de "cancha", en la etiqueta de la celda. */
+const NOMBRE_EN_LA_FRASE: Record<TipoDeCancha, string> = {
+  abierta: 'al aire libre',
+  techada: 'techada',
+};
 
 /** "Vale $12.000: …" dicho a mitad de una frase. */
 function minuscula(texto: string): string {
