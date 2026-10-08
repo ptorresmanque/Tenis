@@ -134,9 +134,13 @@ export class Clases {
    *
    * Las saltadas no se guardan aparte: son las fechas de la regla que no tienen clase.
    *
+   * Entre la revisión y cada cierre queda una ventana de milisegundos, la misma que tiene la
+   * clase suelta entre su simulación y su confirmación: una reserva tomada justo ahí la
+   * cancela la cascada, que vuelve a consultar dentro de su transacción.
+   *
    * ponytail: no es atómica entre fechas. Cada una cierra en su transacción porque las
    * devoluciones salen a la pasarela, que no entra en una transacción de la base. Si una
-   * fecha falla a mitad de camino —una reserva tomada en el último milisegundo—, las
+   * fecha falla a mitad de camino —un pago que empezó en ese momento, un cierre nuevo—, las
    * anteriores quedan agendadas y atadas a la serie, y el error lo dice.
    */
   async agendarSerie(
