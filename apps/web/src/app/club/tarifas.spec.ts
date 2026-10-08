@@ -121,6 +121,40 @@ describe('Tarifas', () => {
     expect(tarjetas[1]).toContain('Cancha 3, los lunes');
   });
 
+  /**
+   * T99. Con una tarifa general solo para techadas, la general "de todas" ya no cubre a
+   * las techadas en ese horario: decir "Todas" sería prometerle a una techada un precio
+   * que no paga. Cada fila dice lo que de verdad cubre.
+   */
+  it('**con las techadas a otro precio, cada fila dice a cuáles canchas aplica** (T99)', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const fixture = TestBed.createComponent(Tarifas);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/tarifas').flush([
+      { canchaId: null, cancha: null, techada: null, diaSemana: null, horaDesde: '08:00', horaHasta: '18:00', esPico: false, montoClp: 12_000, montoClp90: 16_000 },
+      { canchaId: null, cancha: null, techada: true, diaSemana: null, horaDesde: '08:00', horaHasta: '18:00', esPico: false, montoClp: 15_000, montoClp90: 20_000 },
+      { canchaId: null, cancha: null, techada: null, diaSemana: null, horaDesde: '18:00', horaHasta: '22:00', esPico: true, montoClp: 20_000, montoClp90: 27_000 },
+    ]);
+    http.expectOne('/api/horarios').flush({ general: [], porCancha: [] });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    raiz = fixture.nativeElement as HTMLElement;
+
+    const filas = celdasVisibles();
+    expect(filas).toHaveLength(3);
+    expect(filas.find((f) => f[1] === '$12.000')?.[3]).toBe('Canchas al aire libre');
+    expect(filas.find((f) => f[1] === '$15.000')?.[3]).toBe('Canchas techadas');
+    // En el horario donde nadie distingue, la general sigue siendo de todas.
+    expect(filas.find((f) => f[1] === '$20.000')?.[3]).toBe('Todas las canchas');
+
+    const tarjetas = Array.from(raiz.querySelectorAll('[data-tarifa-tarjeta]')).map(aLaVista);
+    expect(tarjetas.find((t) => t.includes('$15.000'))).toContain(
+      'Canchas techadas, todos los días',
+    );
+  });
+
   it('la tarjeta de una franja sin hora y media muestra solo el precio de 1 hora', async () => {
     await montar();
 

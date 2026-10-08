@@ -25,6 +25,7 @@ describe('AdminCanchasPanel', () => {
       {
         id: 1,
         canchaId: 1,
+        techada: null,
         diaSemana: null,
         horaDesde: '08:00',
         horaHasta: '18:00',

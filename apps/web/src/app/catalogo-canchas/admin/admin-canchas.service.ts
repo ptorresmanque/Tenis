@@ -14,6 +14,8 @@ export interface Horario {
 export interface Franja {
   id: number;
   canchaId: number | null;
+  /** En la general: nulo = toda cancha, true = solo techadas, false = solo abiertas (T98). */
+  techada: boolean | null;
   diaSemana: number | null;
   horaDesde: string;
   horaHasta: string;
@@ -234,6 +236,7 @@ export class AdminCanchas {
 
   crearFranja(franja: {
     canchaId: number | null;
+    techada: boolean | null;
     diaSemana: number | null;
     horaDesde: string;
     horaHasta: string;
