@@ -179,6 +179,16 @@ describe('Administración de canchas', () => {
       await crear(admin, { superficie: 'CESPED_MARCIANO' }).expect(400);
     });
 
+    it('al rechazar una superficie las lista con cemento primero, la de las ocho canchas del club (T94)', async () => {
+      const respuesta = await crear(admin, {
+        superficie: 'CESPED_MARCIANO',
+      }).expect(400);
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'La superficie tiene que ser una de: CEMENTO, ARCILLA, PASTO_SINTETICO.',
+      );
+    });
+
     it('rechaza un nombre vacío', async () => {
       await crear(admin, { nombre: '   ' }).expect(400);
     });

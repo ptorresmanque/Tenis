@@ -105,6 +105,20 @@ describe('AdminCanchasPanel', () => {
     expect(texto()).toContain('Arcilla');
   });
 
+  it('la cancha nueva ofrece Cemento primero y ya elegido: las ocho del club son de cemento (T94)', async () => {
+    await fixture.whenStable();
+    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
+      'select#superficie',
+    )!;
+
+    expect(Array.from(select.options).map((o) => o.textContent?.trim())).toEqual([
+      'Cemento',
+      'Arcilla',
+      'Pasto sintético',
+    ]);
+    expect(select.value).toBe('CEMENTO');
+  });
+
   it('la cabecera del panel lleva el título y ninguna acción: agregar es una sección (TV7.2)', () => {
     // La cabecera admite una sola acción principal, y esta pantalla no tiene
     // una: cada sección trae la suya, y "Agregar" vive con su formulario.
