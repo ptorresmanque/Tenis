@@ -245,4 +245,29 @@ describe('AgendaDeClases', () => {
     expect(texto()).toContain('No se pudieron cargar las clases');
     expect(texto()).toContain('No se pudieron cargar los profesores');
   });
+
+  /** T115. La agenda también agenda series: el formulario vive en `NuevaSerie`. */
+  describe('las series', () => {
+    it('**ofrece agendar una serie, con las canchas activas y los profesores**', () => {
+      const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
+
+      expect(serie).not.toBeNull();
+      expect(serie.componentInstance.canchas()).toEqual([
+        { id: 2, nombre: 'Cancha 1', activa: true },
+      ]);
+      expect(serie.componentInstance.profesores()).toHaveLength(1);
+    });
+
+    it('al agendarla, la agenda lo dice y vuelve a cargar el día', async () => {
+      const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
+
+      serie.componentInstance.agendada.emit('Serie agendada: 18 clases.');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(texto()).toContain('Serie agendada: 18 clases.');
+      expect(api.delDia).toHaveBeenCalledTimes(2);
+    });
+  });
 });
+

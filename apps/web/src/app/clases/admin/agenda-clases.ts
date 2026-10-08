@@ -24,6 +24,7 @@ import {
 } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { InscritosDeLaClase } from './inscritos';
+import { NuevaSerie } from './nueva-serie';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -46,7 +47,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-agenda-clases',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase, NuevaSerie],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
          abajo, y la navegación entre días va debajo de la cabecera. -->
@@ -332,6 +333,15 @@ const enBlanco = () => ({
         </div>
       </div>
     }
+
+    <!-- La serie (T115), en su propio componente: escribirla, revisarla fecha por fecha
+         y agendarla son tres pasos que no caben en el formulario de la clase suelta. -->
+    <app-nueva-serie
+      class="mt-6"
+      [canchas]="canchasActivas()"
+      [profesores]="profesores.hasValue() ? profesores.value() : []"
+      (agendada)="serieAgendada($event)"
+    />
   `,
 })
 export class AgendaDeClases {
@@ -441,6 +451,13 @@ export class AgendaDeClases {
       await this.api.cancelar(clase.id, motivo);
       this.aviso.set('Clase cancelada. La cancha vuelve a estar disponible.');
     });
+  }
+
+  /** La serie quedó agendada: se dice cuánto y se recarga el día, que puede tener una. */
+  protected serieAgendada(resumen: string): void {
+    this.error.set(null);
+    this.aviso.set(resumen);
+    this.version.update((v) => v + 1);
   }
 
   protected cambiarFecha(evento: Event): void {
