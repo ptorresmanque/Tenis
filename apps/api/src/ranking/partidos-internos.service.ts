@@ -3,15 +3,27 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
 import { comoFechaCivil } from '../comun/tiempo';
 import { EstadoPartidoInterno, EstadoSocio } from '../generated/prisma/client';
+import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
 import type { UsuarioActual } from '../identidad/usuario-actual';
+import { web } from '../comun/urls';
+import { firmaDelClub } from '../reservas/correos';
 import { NOMBRE_DEL_SOCIO, nombreDeSocio } from './nombres';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PartidoInternoNuevo } from './partidos-internos.dto';
+
+/** El día del partido. `jugadoEn` es un `DATE`: llega como medianoche UTC del día civil. */
+const DIA_JUGADO = new Intl.DateTimeFormat('es-CL', {
+  timeZone: 'UTC',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
 
 /** Un partido como lo ve uno de los dos que jugaron. */
 export interface PartidoMio {
@@ -61,16 +73,20 @@ const FICHA = {
  * sus victorias, y deja de ser creíble el primer mes. Por eso quien carga es siempre
  * `socioA` —sale de la sesión, no del cuerpo— y quien contesta es siempre `socioB`.
  *
- * **La confirmación es un botón en "mis partidos" y no un correo.** El spec la
- * describe llegando por correo; el proyecto no tiene envío de correo todavía, así que
- * el aviso vive donde viven todos los demás: en la pantalla. El día que haya correo,
- * este es el lugar desde donde se manda.
+ * **La confirmación es un botón en "mis partidos"**, y desde T110 el rival recibe además un
+ * correo que se lo avisa: sin ese empujón, el partido esperaba hasta que el rival entrara
+ * por otra razón.
  *
  * Este servicio **no calcula Elo**. Deja los partidos y su estado; T56 los recorre.
  */
 @Injectable()
 export class PartidosInternos {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly log = new Logger('Correo');
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly correo: EnviadorCorreo,
+  ) {}
 
   /**
    * Un socio carga un partido que jugó.
@@ -116,7 +132,71 @@ export class PartidosInternos {
       select: { id: true, estado: true },
     });
 
+    // Después de crearlo: el partido queda cargado aunque el correo no salga.
+    await this.avisarAlRival(partido.id);
+
     return partido;
+  }
+
+  /**
+   * El correo al rival de un partido recién cargado (T110): quién lo cargó, quién ganó y
+   * dónde confirmarlo. A quien lo cargó no le llega nada: ya sabe lo que hizo.
+   *
+   * Si algo falla —la consulta o el envío— queda en el log y el partido sigue cargado.
+   */
+  private async avisarAlRival(partidoId: number): Promise<void> {
+    try {
+      const [partido, club] = await Promise.all([
+        this.prisma.partidoInterno.findUniqueOrThrow({
+          where: { id: partidoId },
+          select: {
+            marcador: true,
+            jugadoEn: true,
+            ganadorSocioId: true,
+            socioBId: true,
+            socioA: { select: NOMBRE_DEL_SOCIO },
+            socioB: {
+              select: {
+                usuario: {
+                  select: { nombre: true, apellido: true, email: true },
+                },
+              },
+            },
+            ganador: { select: NOMBRE_DEL_SOCIO },
+          },
+        }),
+        this.prisma.configuracionClub.findFirstOrThrow(),
+      ]);
+
+      const quienCargo = nombreDeSocio(partido.socioA);
+      const quienGano =
+        partido.ganadorSocioId === partido.socioBId
+          ? 'ganaste tú'
+          : `ganó ${nombreDeSocio(partido.ganador)}`;
+
+      await enviarOAnotar(
+        this.correo,
+        {
+          para: partido.socioB.usuario.email,
+          asunto: `${quienCargo} cargó un partido contigo`,
+          cuerpo:
+            `Hola ${partido.socioB.usuario.nombre}:\n\n` +
+            `${quienCargo} cargó el partido que jugaron el ` +
+            `${DIA_JUGADO.format(partido.jugadoEn)}: ${quienGano}` +
+            `${partido.marcador ? `, ${partido.marcador}` : ''}.\n\n` +
+            'No suma al ranking hasta que lo confirmes. Si está bien, confírmalo; si no, ' +
+            'recházalo. Las dos cosas se hacen en "Mis partidos":\n' +
+            `${web()}/mis-partidos\n\n` +
+            firmaDelClub(club),
+        },
+        this.log,
+        `No salió el aviso del partido ${partidoId}`,
+      );
+    } catch (falla) {
+      this.log.error(
+        `No se pudo armar el aviso del partido ${partidoId}: ${String(falla)}`,
+      );
+    }
   }
 
   /**

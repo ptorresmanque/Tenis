@@ -4,6 +4,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { hoyEnElClub } from '../src/comun/tiempo';
+import { CorreoSaliente, EnviadorCorreo } from '../src/identidad/correo';
 import {
   EstadoPartidoInterno,
   EstadoSocio,
@@ -33,6 +34,10 @@ describe('Partidos internos entre socios', () => {
     socioId: number;
     usuarioId: number;
   }
+
+  /** Los correos que salieron (T110). `falla` simula un sendmail caído. */
+  const enviados: CorreoSaliente[] = [];
+  let falla: Error | null = null;
 
   let ana: Quien;
   let beto: Quien;
@@ -180,7 +185,16 @@ describe('Partidos internos entre socios', () => {
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(EnviadorCorreo)
+      .useValue({
+        enviar: (correo: CorreoSaliente) => {
+          if (falla) return Promise.reject(falla);
+          enviados.push(correo);
+          return Promise.resolve();
+        },
+      })
+      .compile();
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
@@ -201,6 +215,9 @@ describe('Partidos internos entre socios', () => {
     beto = await alguien('beto');
     cata = await alguien('cata');
     jefe = await alguien('jefe', { esAdmin: true });
+    // Los registros de arriba mandan su verificación: lo que se mira es lo que viene después.
+    enviados.length = 0;
+    falla = null;
   });
 
   describe('cargar', () => {
@@ -266,6 +283,56 @@ describe('Partidos internos entre socios', () => {
           jugadoEn: hoy(),
         })
         .expect(401);
+    });
+  });
+
+  /**
+   * T110. El rival se entera por correo de que tiene un partido por confirmar: sin el
+   * empujón, el partido esperaba en "Mis partidos" hasta que el rival entrara por otra razón.
+   */
+  describe('el aviso al rival (T110)', () => {
+    it('**cargar un partido le manda un correo al rival, y ninguno a quien lo cargó**', async () => {
+      await cargar(ana).expect(201);
+
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0].para).toBe(`beto${DOMINIO}`);
+      expect(enviados[0].asunto).toBe(
+        `ana ${APELLIDO} cargó un partido contigo`,
+      );
+      expect(enviados[0].cuerpo).toContain(`ganó ana ${APELLIDO}, 6-4 6-2`);
+      expect(enviados[0].cuerpo).toContain(
+        'No suma al ranking hasta que lo confirmes',
+      );
+      expect(enviados[0].cuerpo).toContain('/mis-partidos');
+    });
+
+    it('si ganó el rival, se lo dice a él', async () => {
+      await cargar(ana, { ganadorSocioId: beto.socioId }).expect(201);
+
+      expect(enviados[0].cuerpo).toContain('ganaste tú, 6-4 6-2');
+    });
+
+    it('sin marcador, dice solo quién ganó', async () => {
+      await cargar(ana, { marcador: null }).expect(201);
+
+      expect(enviados[0].cuerpo).toContain(`ganó ana ${APELLIDO}.`);
+    });
+
+    it('**si el correo falla, el partido queda cargado**', async () => {
+      falla = new Error('sendmail no responde');
+
+      const respuesta = await cargar(ana).expect(201);
+
+      const id = (respuesta.body as { id: number }).id;
+      expect(
+        await prisma.partidoInterno.findUnique({ where: { id } }),
+      ).not.toBeNull();
+    });
+
+    it('un partido que no se pudo cargar no avisa nada', async () => {
+      await cargar(ana, { rivalSocioId: ana.socioId }).expect(400);
+
+      expect(enviados).toHaveLength(0);
     });
   });
 
