@@ -15,6 +15,7 @@ import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
+import { Selector } from '../../ui/selector';
 import {
   BloqueDisponible,
   Cancha,
@@ -39,15 +40,16 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
     BarraFija,
     ControlesDelDia,
     EstadoVacio,
+    Selector,
     ResumenDeLaEleccion,
     ResumenDelCambio,
   ],
   providers: [MoverReserva],
   host: {
     class: 'block',
-    // La barra fija tapa la última fila de bloques si no se le deja aire, y el
-    // checklist del master lo prohíbe.
-    '[class.pb-28]': 'elegido() !== null',
+    // La barra fija tapa la última fila si no se le deja aire, y el checklist del master
+    // lo prohíbe. Con los chips de cancha (T104) mide 216px a 375 de ancho.
+    '[class.pb-56]': 'elegido() !== null',
   },
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Disponibilidad</h1>
@@ -77,8 +79,11 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
       </p>
     }
 
+    <!-- Cambiar de día suelta lo marcado: la barra no dice la fecha, y "Reservar" tomaría
+         la hora del día anterior con la tabla de otro a la vista. -->
     <app-controles-del-dia
       [(fecha)]="fecha"
+      (fechaChange)="elegido.set(null)"
       [duracion]="duracion()"
       [(filtro)]="filtro"
       (cambiarDuracion)="elegirDuracion($event)"
@@ -310,7 +315,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                       [style.--i]="i"
                       [attr.aria-label]="etiqueta(fila, celda)"
                       [attr.aria-pressed]="estaElegida(celda)"
-                      (click)="elegir(celda.libres[0].cancha, celda.libres[0].bloque)"
+                      (click)="elegirCelda(celda)"
                     >
                       @if (!esSocio() && celda.precio) {
                         <span class="font-display text-2xl leading-none font-extrabold tabular-nums">
@@ -371,29 +376,44 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
       </table>
     }
 
-    <!-- Elegir y reservar quedaron separados: el bloque se marca y la barra dice qué
-         se marcó y con cuánto antes del botón. Desde el enlace, con plata en juego, dice
-         la diferencia (T91). -->
+    <!-- Elegir y reservar quedaron separados: la celda se marca y la barra dice qué cancha
+         quedó y con cuánto antes del botón. Si la celda tiene más de una libre, ahí se
+         cambia (T104). Al mover, la barra confirma el cambio: desde el enlace, con la
+         diferencia (T91); desde "mis reservas", sin plata. -->
     @if (elegido(); as eleccion) {
-      @let pagado = mover.pagadoPorElEnlace();
       <app-barra-fija>
-        <!-- Por el modo y no por lo pagado: desde el enlace, "Reservar" abriría una reserva
-             nueva en vez de cambiar la suya. -->
-        @if (mover.porToken() === null) {
+        @if (eleccion.libres.length > 1) {
+          <app-selector
+            class="w-full"
+            etiqueta="Cancha"
+            [opciones]="canchasDeLaCelda()"
+            [valor]="'' + eleccion.cancha.id"
+            (valorChange)="cambiarDeCancha($event)"
+          />
+        }
+        @if (mover.activo()) {
+          <!-- Desde el enlace, solo con lo pagado a la vista: sin eso, el resumen le diría
+               al visitante lo que se le dice al socio. Por el modo y no por lo pagado: con
+               la barra de reservar, "Reservar" abriría una reserva nueva en vez de cambiar
+               la suya. -->
+          @let pagado = mover.pagadoPorElEnlace();
+          @if (mover.porId() !== null || pagado !== null) {
+            <app-resumen-del-cambio
+              [cancha]="eleccion.cancha"
+              [bloque]="eleccion.bloque"
+              [pagadoClp]="pagado"
+              [enviando]="mover.enviando()"
+              (soltar)="elegido.set(null)"
+              (confirmar)="confirmarCambio(eleccion)"
+            />
+          }
+        } @else {
           <app-resumen-de-la-eleccion
             [cancha]="eleccion.cancha"
             [bloque]="eleccion.bloque"
+            [esSocio]="esSocio()"
             (soltar)="elegido.set(null)"
             (reservar)="reservar()"
-          />
-        } @else if (pagado !== null) {
-          <app-resumen-del-cambio
-            [cancha]="eleccion.cancha"
-            [bloque]="eleccion.bloque"
-            [pagadoClp]="pagado"
-            [enviando]="mover.enviando()"
-            (soltar)="elegido.set(null)"
-            (confirmar)="mover.cambiarPorEnlace(eleccion)"
           />
         }
       </app-barra-fija>
@@ -538,11 +558,21 @@ export class Grilla {
     }.`;
   });
 
-  /** El bloque marcado en la grilla, el que muestra la barra de abajo. */
-  protected readonly elegido = signal<{
-    cancha: Cancha;
-    bloque: BloqueDisponible;
-  } | null>(null);
+  /**
+   * La cancha marcada, la que muestra la barra de abajo, con las libres de su celda: entre
+   * esas se puede cambiar en la barra (T104).
+   */
+  protected readonly elegido = signal<
+    (Libre & { libres: Libre[] }) | null
+  >(null);
+
+  /** Las libres de la celda marcada, como chips de la barra. */
+  protected readonly canchasDeLaCelda = computed(() =>
+    (this.elegido()?.libres ?? []).map(({ cancha }) => ({
+      valor: String(cancha.id),
+      etiqueta: cancha.nombre,
+    })),
+  );
 
   /** El que ya pasó por "Reservar" y tiene el formulario abierto encima. */
   protected readonly reservando = signal<{
@@ -733,25 +763,33 @@ export class Grilla {
       : `arriendo ${celda.precio}`;
   }
 
-  protected async elegir(
-    cancha: Cancha,
-    bloque: BloqueDisponible,
-  ): Promise<void> {
-    if (this.noSePuedeTomar(bloque)) return;
-
+  /**
+   * Marca la celda: la cancha de la reserva que se mueve si está libre ahí, y si no, la
+   * primera libre en el orden del club (A8). La barra deja cambiarla.
+   */
+  protected elegirCelda(celda: Celda): void {
     // Desde el enlace, sin saber cuánto pagó no hay diferencia que decirle: el clic espera
     // a que llegue en vez de marcar una hora que no se puede confirmar.
     if (this.mover.porToken() !== null && this.mover.pagadoPorElEnlace() === null) return;
 
-    // Fuera de "mis reservas" el clic marca la hora: para reservarla, o —desde el
-    // enlace— para ver la diferencia antes de confirmar el cambio (T91). Solo el socio
-    // mueve al tiro: no paga, y no hay plata que decirle antes.
-    if (this.mover.porId() === null) {
-      this.elegido.set({ cancha, bloque });
-      return;
-    }
+    const suya = celda.libres.find(({ cancha }) => cancha.nombre === this.mover.cancha());
 
-    await this.mover.moverAlTiro({ cancha, bloque });
+    this.elegido.set({ ...(suya ?? celda.libres[0]), libres: celda.libres });
+  }
+
+  protected cambiarDeCancha(id: string): void {
+    this.elegido.update((eleccion) => {
+      const otra = eleccion?.libres.find(({ cancha }) => String(cancha.id) === id);
+
+      return eleccion && otra ? { ...eleccion, ...otra } : eleccion;
+    });
+  }
+
+  /** El socio mueve sin pagar; desde el enlace, con la diferencia de por medio (T91). */
+  protected confirmarCambio(eleccion: Libre): void {
+    void (this.mover.porId() !== null
+      ? this.mover.moverAlTiro(eleccion)
+      : this.mover.cambiarPorEnlace(eleccion));
   }
 
   /**
@@ -791,6 +829,9 @@ export class Grilla {
 
   protected readonly superficie = nombreDeSuperficie;
 }
+
+/** Una cancha libre de una celda, con su bloque. */
+type Libre = Celda['libres'][number];
 
 /** El encabezado de cada columna. */
 const NOMBRE_DEL_TIPO: Record<TipoDeCancha, string> = {

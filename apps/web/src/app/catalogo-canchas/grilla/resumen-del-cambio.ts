@@ -2,6 +2,7 @@ import { Component, computed, input, output } from '@angular/core';
 
 import { BloqueDisponible, Cancha } from '../disponibilidad';
 import { enPesos, horaEnElClub } from '../reloj-del-club';
+import { TARIFA_DEL_SOCIO } from './bandas';
 
 /**
  * Lo que cuesta pasarse a una hora para quien ya pagó (T91): la diferencia exacta, o el
@@ -17,10 +18,13 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
 }
 
 /**
- * La barra de abajo cuando quien cambia su reserva desde el enlace ya pagó (T91).
+ * La barra de abajo cuando se cambia una reserva: desde el enlace, con lo que ya se pagó
+ * (T91), o desde "mis reservas", el socio, que no paga (T104).
  *
- * El clic en la grilla marca la hora y esto la confirma: el cambio tiene plata en juego,
- * y la diferencia —o lo que no se devuelve— se dice **antes** del botón que lo hace.
+ * El clic en la grilla marca la hora y esto la confirma. Desde el enlace el cambio tiene
+ * plata en juego, y la diferencia —o lo que no se devuelve— se dice **antes** del botón
+ * que lo hace. Al socio se le confirma igual: la celda elige un tipo de cancha y no una
+ * cancha, y la barra es donde ve cuál quedó y la puede cambiar.
  * `contents` en el host: sus dos bloques son hijos del flex de `app-barra-fija`, igual
  * que los de la barra de reservar.
  */
@@ -54,22 +58,28 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
 export class ResumenDelCambio {
   readonly cancha = input.required<Cancha>();
   readonly bloque = input.required<BloqueDisponible>();
-  readonly pagadoClp = input.required<number>();
+  /** Lo que pagó por el enlace; nulo si quien cambia es el socio, que no paga. */
+  readonly pagadoClp = input.required<number | null>();
   readonly enviando = input(false);
 
   readonly soltar = output<void>();
   readonly confirmar = output<void>();
 
-  /** Lo que vale la hora elegida. Sin precio no llega: la grilla no se la ofrece. */
+  /** Lo que vale la hora elegida. Sin precio solo le llega al socio, que no paga. */
   private readonly monto = computed(() => this.bloque().montoClp ?? 0);
 
-  protected readonly diferencia = computed(() =>
-    textoDeLaDiferencia(this.monto(), this.pagadoClp()),
-  );
+  protected readonly diferencia = computed(() => {
+    const pagado = this.pagadoClp();
+
+    return pagado === null
+      ? `Socio ${TARIFA_DEL_SOCIO}.`
+      : textoDeLaDiferencia(this.monto(), pagado);
+  });
 
   /** "Pagar $4.000" lleva a Webpay; cualquier otro cambio se hace al tiro. */
   protected readonly accion = computed(() => {
-    const falta = this.monto() - this.pagadoClp();
+    const pagado = this.pagadoClp();
+    const falta = pagado === null ? 0 : this.monto() - pagado;
 
     return falta > 0 ? `Pagar ${enPesos(falta)}` : 'Cambiar a esta hora';
   });
