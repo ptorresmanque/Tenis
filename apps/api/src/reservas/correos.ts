@@ -179,6 +179,7 @@ export class AvisosDeReserva {
           ),
           deSocio: reserva.socioId !== null,
         },
+        // La misma fila trae los datos del club y sus ventanas de cambio y devolución.
         club,
         club,
         web(),
