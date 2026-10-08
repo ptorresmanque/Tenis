@@ -963,8 +963,14 @@ describe('Tablas', () => {
     // pondría encabezado gris, una línea por fila y un hover gris, y habría que
     // deshacer cada cosa a mano. Va por archivo, no por clase, para que no sea
     // una puerta que cualquier tabla pueda usar.
+    //
+    // La otra es la disponibilidad (T103), por lo mismo: es un tablero de botones de
+    // 44px, uno por celda, separados entre sí. La primitiva los juntaría con
+    // `border-collapse`, les sumaría 2rem de relleno por celda —a 375px no caben dos
+    // columnas—, pegaría el encabezado bajo la cabecera del sitio y pintaría la fila
+    // entera de gris al pasar el ratón por un botón.
     const infractores: string[] = [];
-    const excepciones = ['catalogo-canchas/marcador.ts'];
+    const excepciones = ['catalogo-canchas/marcador.ts', 'catalogo-canchas/grilla/grilla.ts'];
 
     for (const { archivo, contenido } of plantillas()) {
       if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
