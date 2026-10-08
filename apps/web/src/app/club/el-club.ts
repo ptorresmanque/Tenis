@@ -157,63 +157,65 @@ import { Tarifas } from './tarifas';
       </h2>
 
       <div class="mt-6 grid gap-8 border-t border-border pt-6 sm:grid-cols-2">
-      <dl>
-        <div>
-          <dt
-            class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
-          >
-            <span class="icono text-primary" aria-hidden="true">place</span>
-            Dónde y cómo ubicarnos
-          </dt>
-          <dd class="mt-2 grid gap-1 text-muted-foreground">
-            @if (club().direccion) {
-              <span>{{ club().direccion }}</span>
-            }
-            @if (club().telefono) {
-              <a [href]="'tel:' + club().telefono" class="underline hover:text-primary">
-                {{ club().telefono }}
-              </a>
-            }
-            @if (club().email) {
-              <a [href]="'mailto:' + club().email" class="underline hover:text-primary">
-                {{ club().email }}
-              </a>
-            }
-            <!-- Con la configuración en blanco no queda una ficha a medias: queda
-                 una frase que sirve igual. -->
-            @if (!club().direccion && !club().telefono && !club().email) {
-              <span>Pregunta en el mesón: te atienden todos los días.</span>
-            }
-          </dd>
-        </div>
-      </dl>
-
-      @if (mapa(); as mapa) {
-        <!-- T101. OpenStreetMap y no Google: cargar el mapa no le pasa a nadie la IP de
-             quien mira. Google Maps y Waze van como enlaces, que la persona elige abrir. -->
-        <div>
-          <iframe
-            [src]="mapa.incrustado"
-            [title]="'Mapa con la ubicación de ' + club().nombre"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            class="aspect-[4/3] w-full border border-border"
-          ></iframe>
-          <p class="mt-3 flex flex-wrap gap-3">
-            <a
-              [href]="mapa.googleMaps"
-              target="_blank"
-              rel="noopener"
-              class="boton boton-secundario"
+        <dl>
+          <div>
+            <dt
+              class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
             >
-              Cómo llegar con Google Maps
-            </a>
-            <a [href]="mapa.waze" target="_blank" rel="noopener" class="boton boton-secundario">
-              Cómo llegar con Waze
-            </a>
-          </p>
-        </div>
-      }
+              <span class="icono text-primary" aria-hidden="true">place</span>
+              Dónde y cómo ubicarnos
+            </dt>
+            <dd class="mt-2 grid gap-1 text-muted-foreground">
+              @if (club().direccion) {
+                <span>{{ club().direccion }}</span>
+              }
+              @if (club().telefono) {
+                <a [href]="'tel:' + club().telefono" class="underline hover:text-primary">
+                  {{ club().telefono }}
+                </a>
+              }
+              @if (club().email) {
+                <a [href]="'mailto:' + club().email" class="underline hover:text-primary">
+                  {{ club().email }}
+                </a>
+              }
+              <!-- Con la configuración en blanco no queda una ficha a medias: queda
+                   una frase que sirve igual. -->
+              @if (!club().direccion && !club().telefono && !club().email) {
+                <span>Pregunta en el mesón: te atienden todos los días.</span>
+              }
+            </dd>
+          </div>
+        </dl>
+
+        @if (mapa(); as mapa) {
+          <!-- T101. OpenStreetMap y no Google: cargar el mapa no le pasa a nadie la IP de
+               quien mira. Google Maps y Waze van como enlaces, que la persona elige abrir. -->
+          <div>
+            <iframe
+              [src]="mapa.incrustado"
+              [title]="'Mapa con la ubicación de ' + club().nombre"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              class="aspect-[4/3] w-full border border-border"
+            ></iframe>
+            <p class="mt-3 flex flex-wrap gap-3">
+              <a
+                [href]="mapa.googleMaps"
+                target="_blank"
+                rel="noopener"
+                class="boton boton-secundario"
+              >
+                Cómo llegar con Google Maps
+                <span class="sr-only">(se abre en otra pestaña)</span>
+              </a>
+              <a [href]="mapa.waze" target="_blank" rel="noopener" class="boton boton-secundario">
+                Cómo llegar con Waze
+                <span class="sr-only">(se abre en otra pestaña)</span>
+              </a>
+            </p>
+          </div>
+        }
       </div>
     </section>
 
