@@ -274,7 +274,8 @@ import { usarTemaPublico } from './tema';
       </div>
 
       <p class="border-t border-on-campo/20 px-4 py-6 text-center text-sm text-on-campo/80">
-        © 2026 FEDAL Tennis Center
+        © 2026 FEDAL Tennis Center ·
+        <a routerLink="/privacidad" class="underline hover:text-on-campo">Política de privacidad</a>
       </p>
     </footer>
   `,

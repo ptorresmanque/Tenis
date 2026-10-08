@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CategoriaPublica, Torneos } from '../torneos.service';
@@ -43,7 +44,7 @@ describe('InscripcionATorneo', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Torneos, useValue: api }],
+      providers: [provideRouter([]), { provide: Torneos, useValue: api }],
     });
 
     fixture = TestBed.createComponent(InscripcionATorneo);
@@ -132,6 +133,15 @@ describe('InscripcionATorneo', () => {
 
   it('**dice que el teléfono no se publica**, porque es lo que la gente duda', () => {
     expect(texto()).toContain('no se publica');
+  });
+
+  it('**avisa qué se publica antes de inscribirse**, porque inscribirse es consentirlo', () => {
+    // Decidido por el club el 2026-10-07: quien juega acepta que se publiquen su
+    // nombre, sus resultados, las fotos y las transmisiones. Eso vale solo si se
+    // lo dijeron antes de apretar el botón.
+    expect(texto()).toMatch(/se publican tu nombre, tus resultados, las fotos y las transmisiones/i);
+    // En otra pestaña: en esta, se perdería lo que la persona ya escribió.
+    expect(elemento().querySelector('form a[href="/privacidad"]')?.getAttribute('target')).toBe('_blank');
   });
 
   it('manda los datos con los espacios recortados', async () => {
