@@ -317,6 +317,14 @@ export class Clases {
         },
       });
 
+      // Si otro admin canceló una mientras tanto, se deshace todo y se reintenta: borrar
+      // el bloqueo de una clase que ya no se canceló acá dejaría su hora libre.
+      if (count !== clases.length) {
+        throw new ConflictException(
+          'Alguna clase de la serie cambió mientras tanto. Reintenta.',
+        );
+      }
+
       await tx.bloqueo.deleteMany({
         where: {
           id: {

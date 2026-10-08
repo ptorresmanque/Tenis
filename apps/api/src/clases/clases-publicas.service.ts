@@ -35,7 +35,6 @@ export interface ProfesorPublico {
   especialidad: string;
 }
 
-/** Una clase de la semana, como la ve quien todavía no es del club. */
 /**
  * Una serie de clases, como la anuncia el club (T117): una tarjeta en vez de una por fecha.
  * Los días, el horario y hasta cuándo; el cupo es el más chico entre sus clases que vienen,
@@ -55,6 +54,7 @@ export interface SeriePublica {
   cuposLibres: number;
 }
 
+/** Una clase de la semana, como la ve quien todavía no es del club. */
 export interface ClasePublica {
   id: number;
   cancha: string;
