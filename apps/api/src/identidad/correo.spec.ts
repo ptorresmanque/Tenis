@@ -168,6 +168,10 @@ describe('Correo saliente', () => {
    * con CORREO_DESVIO, todo le llega a una sola casilla de prueba.
    */
   describe('desvío de QA', () => {
+    // El espía del log se suelta aunque el test falle: si no, sigue tapando los avisos
+    // de los tests que vienen después.
+    afterEach(() => jest.restoreAllMocks());
+
     /** Un enviador que guarda lo que le pasan, en vez de mandarlo. */
     function capturador() {
       const enviados: CorreoSaliente[] = [];
@@ -217,7 +221,6 @@ describe('Correo saliente', () => {
       expect(aviso).toHaveBeenCalledWith(
         expect.stringContaining('pruebas@fedal.cl'),
       );
-      aviso.mockRestore();
     });
 
     it('vacía, no desvía: una línea "CORREO_DESVIO=" a medio borrar no puede mandar todo a ninguna parte', () => {
