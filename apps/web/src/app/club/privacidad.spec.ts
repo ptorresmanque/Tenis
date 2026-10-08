@@ -33,8 +33,25 @@ describe('Política de privacidad', () => {
     ['la transferencia internacional', 'Estados Unidos'],
     ['las decisiones automatizadas', 'Decisiones automatizadas'],
     ['cuánto se guardan los pagos', '6 años'],
+    // Versión 1.1 (T118): lo que trajo la quinta parte.
+    ['el mapa de "El club" y a quién se lo pide el navegador', 'OpenStreetMap'],
+    ['los botones para llegar, que abren otro servicio', 'Waze'],
+    ['la confirmación de la reserva', 'confirmación de tu reserva'],
+    ['el aviso de cada cambio de una reserva', 'cada cambio de tu reserva'],
+    ['el recordatorio de la cuota', 'recordatorio de tu cuota'],
+    ['el aviso al rival de un partido interno', 'partido interno'],
+    ['que el socio vuelve a ver a sus invitados', 'te los sugerimos'],
   ])('nombra %s', (_, frase) => {
     expect(texto()).toContain(frase);
+  });
+
+  it('la versión 1.1 es la que nombra lo nuevo', () => {
+    expect(texto()).toContain('Versión 1.1');
+  });
+
+  it('el cupo de invitados se describe como funciona desde A5: por reservas', () => {
+    expect(texto()).toContain('reservas con invitados por mes');
+    expect(texto()).not.toContain('e invitados por mes');
   });
 
   it('el correo de contacto se puede apretar', () => {

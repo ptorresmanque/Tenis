@@ -79,10 +79,29 @@ interface Tratamiento {
         minutos mientras entras con Google. No usamos cookies de publicidad ni de analítica.
       </p>
       <p class="mt-3">
-        <strong>Correos:</strong> solo te enviamos avisos del sistema, como la verificación
-        de tu correo, tus reservas, tus pagos y la recuperación de tu contraseña. No te
-        enviamos publicidad.
+        <strong>Correos:</strong> solo te enviamos avisos del sistema, cada uno porque lo
+        necesitas para usar el club. No te enviamos publicidad.
       </p>
+      <ul class="mt-2 grid list-disc gap-1 ps-5">
+        <li>La verificación de tu correo y la recuperación de tu contraseña.</li>
+        <li>
+          La confirmación de tu reserva, con el enlace a tu reserva y cómo cambiarla, para
+          que sepas que quedó tomada y cómo llegar.
+        </li>
+        <li>
+          Si reservas sin ser socio, un aviso por cada cambio de tu reserva, hecho desde tu
+          enlace o por el club, para que te enteres si alguien con tu enlace la movió.
+        </li>
+        <li>
+          Si eres socio, el recordatorio de tu cuota: unos días antes de fin de mes y, si
+          quedó impaga, desde el día 1, para que no te quedes sin poder reservar.
+        </li>
+        <li>
+          Si otro socio carga un partido interno que jugó contigo, un aviso para que lo
+          confirmes o lo rechaces. Lleva su nombre y el resultado que cargó.
+        </li>
+        <li>Si el club cierra la cancha o agenda una clase en tu hora, el aviso de que se canceló.</li>
+      </ul>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">3. Decisiones automatizadas</h2>
       <p class="mt-3">Algunas reglas del club las aplica el sistema sin que intervenga una persona:</p>
@@ -98,7 +117,7 @@ interface Tratamiento {
         </li>
         <li>
           El sistema no deja pasar de los cupos del club: reservas por día, reservas en
-          horario punta por semana e invitados por mes.
+          horario punta por semana y reservas con invitados por mes.
         </li>
       </ul>
       <p class="mt-3">
@@ -137,6 +156,13 @@ interface Tratamiento {
           navegador le pide a YouTube la miniatura de cada video. El reproductor se carga
           recién cuando aprietas play, y usa la versión de YouTube que no instala cookies
           hasta que reproduces el video.
+        </li>
+        <li>
+          <strong>OpenStreetMap (Reino Unido), en la página "El club":</strong> el mapa con la
+          ubicación del club se carga desde OpenStreetMap, así que tu navegador le pide las
+          imágenes del mapa y, con eso, ve tu dirección IP. No le enviamos ningún dato tuyo.
+          Los botones "Cómo llegar" abren Google Maps o Waze (Google, Estados Unidos) solo si
+          los aprietas.
         </li>
         <li>
           <strong>Público en el sitio:</strong> los resultados, cuadros, ranking, fotos y
@@ -211,8 +237,8 @@ interface Tratamiento {
 })
 export class Privacidad {
   /** Cambiar el texto es subir la versión y la fecha. */
-  protected readonly version = '1.0';
-  protected readonly vigenteDesde = '7 de octubre de 2026';
+  protected readonly version = '1.1';
+  protected readonly vigenteDesde = '8 de octubre de 2026';
   protected readonly correo = 'contacto@fedal.cl';
 
   protected readonly tratamientos: Tratamiento[] = [
@@ -236,11 +262,13 @@ export class Privacidad {
     {
       cuando: 'Reservas una cancha',
       datos:
-        'Nombre, correo y teléfono de quien reserva; fecha, hora y cancha; el nombre de tus ' +
-        'acompañantes; y los reportes de no uso, cuando otro socio informa que una cancha ' +
-        'reservada no se ocupó.',
+        'Nombre, correo y teléfono de quien reserva; fecha, hora y cancha; el nombre de quienes ' +
+        'juegan contigo, de una a tres personas; y los reportes de no uso, cuando otro socio ' +
+        'informa que una cancha reservada no se ocupó.',
       paraQue:
-        'Gestionar tu reserva, avisarte si cambia o se cancela, y cuidar el buen uso de las canchas.',
+        'Gestionar tu reserva, confirmártela y avisarte si cambia o se cancela, contar el cupo ' +
+        'de invitados del socio y cuidar el buen uso de las canchas. Si eres socio, los nombres ' +
+        'de tus invitados anteriores te los sugerimos la próxima vez que reserves: solo tú los ves.',
       base: 'Contrato.',
     },
     {
