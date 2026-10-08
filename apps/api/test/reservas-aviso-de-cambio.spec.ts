@@ -232,6 +232,18 @@ describe('El aviso de cambio de la reserva de un visitante', () => {
     expect(enviados[0].cuerpo).toContain('de 20:00 a 21:00');
   });
 
+  it('volver a elegir la misma hora no avisa un cambio que no hubo', async () => {
+    // La grilla de mover no cuenta la propia reserva, así que su hora aparece libre.
+    const reserva = await reservaDeVisitante();
+
+    await request(servidor())
+      .patch(`/api/reservas/publica/${reserva.token}`)
+      .send({ canchaId, inicio: aLas('18:00') })
+      .expect(200);
+
+    expect(enviados).toHaveLength(0);
+  });
+
   it('la reserva de un socio no recibe este aviso: la ve en "Mis reservas"', async () => {
     const socio = await prisma.usuario.create({
       data: {
