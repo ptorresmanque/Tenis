@@ -231,6 +231,49 @@ describe('Configuración del club', () => {
     });
   });
 
+  /**
+   * T100. El admin pega el enlace de Google Maps del club, o sus coordenadas; el servidor
+   * guarda dos números y el sitio los publica para el mapa.
+   */
+  describe('la ubicación del club (T100)', () => {
+    const LUGAR =
+      'https://www.google.com/maps/place/FEDAL/@-33.4400,-70.6550,15z/' +
+      'data=!3m1!4b1!4m6!3m5!1s0x0:0x0!8m2!3d-33.4372!4d-70.6506!16s';
+
+    it('**guarda la que se pega de Google Maps y la publica en /api/club**', async () => {
+      const respuesta = await patch({ ubicacion: LUGAR }).expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        latitud: -33.4372,
+        longitud: -70.6506,
+      });
+
+      const club = await request(servidor()).get('/api/club').expect(200);
+      expect(club.body).toMatchObject({
+        latitud: -33.4372,
+        longitud: -70.6506,
+      });
+    });
+
+    it('vaciarla la borra, y el sitio deja de mostrar el mapa', async () => {
+      await patch({ ubicacion: LUGAR }).expect(200);
+
+      const respuesta = await patch({ ubicacion: '' }).expect(200);
+
+      expect(respuesta.body).toMatchObject({ latitud: null, longitud: null });
+    });
+
+    it('un enlace corto responde 400 diciendo qué pegar en su lugar', async () => {
+      const respuesta = await patch({
+        ubicacion: 'https://maps.app.goo.gl/AbCdEf123',
+      }).expect(400);
+
+      expect((respuesta.body as { message: string }).message).toMatch(
+        /enlace corto/,
+      );
+    });
+  });
+
   describe('validación', () => {
     it('la duración del bloque ya no es una regla: pedirla sola responde 400 (T92)', async () => {
       // La elige quien reserva desde T78. Un panel viejo que la mande no tiene que

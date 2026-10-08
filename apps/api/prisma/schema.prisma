@@ -507,6 +507,13 @@ model ConfiguracionClub {
   telefono  String @default("") @db.VarChar(40)
   email     String @default("") @db.VarChar(120)
 
+  /// Dónde está el club, para el mapa de "El club" y el "Cómo llegar" de los correos
+  /// (T100). Nulas hasta que el admin las cargue; sin ellas el sitio no muestra mapa.
+  /// Float y no Decimal: Decimal llega como objeto y el JSON lo manda como texto; los
+  /// seis decimales —unos 10 cm— los fija `leerUbicacion` al guardar.
+  latitud  Float?
+  longitud Float?
+
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).
