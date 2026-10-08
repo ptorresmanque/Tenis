@@ -352,9 +352,11 @@ model Cuota {
 // devuelve un Date con fecha inventada que invita justo al bug de zona que T10
 // tiene que evitar.
 
+/// Cemento primero (T94): es la superficie de las ocho canchas del club, y el orden de
+/// este enum es el de la lista que el panel ofrece y el del mensaje de la API.
 enum Superficie {
-  ARCILLA
   CEMENTO
+  ARCILLA
   PASTO_SINTETICO
 }
 

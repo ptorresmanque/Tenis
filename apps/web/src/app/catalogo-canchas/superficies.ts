@@ -10,11 +10,13 @@ import { Cancha } from './disponibilidad';
  * socio pregunte.
  *
  * El `<select>` del panel se arma desde acá con `Object.entries`: la lista de
- * opciones y la de nombres no pueden discrepar si son la misma.
+ * opciones y la de nombres no pueden discrepar si son la misma. Por eso el orden de
+ * las claves es el de las opciones: cemento primero, que es la superficie de las
+ * ocho canchas del club (T94).
  */
 export const SUPERFICIES: Record<Cancha['superficie'], string> = {
-  ARCILLA: 'Arcilla',
   CEMENTO: 'Cemento',
+  ARCILLA: 'Arcilla',
   PASTO_SINTETICO: 'Pasto sintético',
 };
 
