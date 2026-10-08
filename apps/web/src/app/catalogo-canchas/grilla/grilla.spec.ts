@@ -90,7 +90,7 @@ describe('Grilla', () => {
           }[]
         | Error;
       /** Lo pagado que trae el enlace; por omisión, $16.000. Un `Error` la hace fallar. */
-      reservaDelEnlace?: { pagadoClp: number } | Error;
+      reservaDelEnlace?: { pagadoClp: number; cancha?: string } | Error;
     } = {},
   ) => {
     mover = vi.fn().mockResolvedValue({});
@@ -196,6 +196,89 @@ describe('Grilla', () => {
 
   it('si todavía no pasó ninguna hora, no hay grupo plegado', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+  });
+
+  /**
+   * T104. Elegir una celda elige un tipo y una hora; la cancha puntual se elige en la barra,
+   * entre las libres de esa celda (A8 del plan).
+   */
+  describe('la barra de la celda elegida', () => {
+    const TRES: GrillaDeCancha[] = [
+      {
+        cancha: { ...DIA[0].cancha, id: 3, nombre: 'Cancha 3' },
+        bloques: DIA[0].bloques.map((b) => ({ ...b, canchaId: 3, montoClp: 14000 })),
+      },
+      DIA[0],
+    ];
+    const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
+    const chips = () => [...barra().querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+    const nombreDelChip = (chip: HTMLInputElement) => enTexto(chip.closest('label')!);
+    const elegirLaDeLas8 = async () => {
+      filaDe('08:00').querySelector('button')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**ofrece las canchas libres de la celda como chips, con la primera marcada**', async () => {
+      await montar(TRES);
+      await elegirLaDeLas8();
+
+      expect(chips().map(nombreDelChip)).toEqual(['Cancha 3', 'Cancha 1']);
+      expect(chips()[0].checked).toBe(true);
+    });
+
+    it('**cambiar de cancha en la barra cambia la cancha y el precio que se paga**', async () => {
+      // "desde $12.000" en la celda: la 3 cuesta $14.000 y la 1, $12.000. Lo que se paga
+      // es lo de la cancha marcada, y la barra lo dice antes de "Reservar".
+      await montar(TRES);
+      await elegirLaDeLas8();
+      expect(enTexto(barra())).toContain('$14.000');
+
+      chips()[1].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(enTexto(barra())).toContain('Cancha 1');
+      expect(enTexto(barra())).toContain('$12.000');
+      expect(enTexto(barra())).not.toContain('$14.000');
+    });
+
+    it('lo que se reserva es la cancha que quedó marcada', async () => {
+      HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+        this.open = true;
+      });
+      await montar(TRES);
+      await elegirLaDeLas8();
+      chips()[1].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      [...barra().querySelectorAll('button')]
+        .find((boton) => boton.textContent?.trim() === 'Reservar')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const formulario = fixture.debugElement.query((nodo) => nodo.name === 'app-reservar');
+      expect(formulario.componentInstance.cancha().nombre).toBe('Cancha 1');
+    });
+
+    it('con una sola cancha libre no hay chips: la barra la nombra y basta', async () => {
+      await elegirLaDeLas8();
+
+      expect(chips()).toHaveLength(0);
+      expect(enTexto(barra())).toContain('Cancha 1');
+    });
+
+    it('al visitante, el arriendo en grande; al socio, "sin costo" y ningún monto', async () => {
+      await elegirLaDeLas8();
+      expect(enTexto(barra().querySelector('[data-precio]')!)).toBe('$12.000');
+
+      await montar(DIA, {}, { socioId: 7 });
+      await elegirLaDeLas8();
+      expect(enTexto(barra())).toContain('Socio sin costo');
+      expect(enTexto(barra())).not.toContain('$');
+    });
   });
 
   it('cada fila es una hora de inicio, en la hora del club', () => {
@@ -999,6 +1082,14 @@ describe('Grilla', () => {
       await fixture.whenStable();
       fixture.detectChanges();
     };
+    const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
+    const botonDeLaBarra = (texto: string) =>
+      [...barra().querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)!;
+    const apretar = async (boton: HTMLElement) => {
+      boton.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
 
     it('avisa que se está cambiando una hora ya reservada', async () => {
       await montar(DIA, { mover: '7' });
@@ -1031,10 +1122,18 @@ describe('Grilla', () => {
       expect(pedirDia).toHaveBeenCalledWith(hoy, 60);
     });
 
-    it('al elegir un bloque libre mueve la reserva y vuelve a mis reservas', async () => {
+    it('**el socio elige la celda, la barra confirma el cambio y vuelve a mis reservas** (T104)', async () => {
+      // Antes el clic movía al tiro. Con la tabla, el clic elige un tipo de cancha y no una
+      // cancha: la barra dice cuál quedó marcada y deja cambiarla antes de mover.
       await montar(DIA, { mover: '7' });
 
       await elegirPrimerBloque();
+
+      expect(mover).not.toHaveBeenCalled();
+      expect(barra().textContent).toContain('Cancha 1');
+      expect(barra().textContent).toContain('Socio sin costo');
+
+      await apretar(botonDeLaBarra('Cambiar a esta hora'));
 
       expect(mover).toHaveBeenCalledWith(7, {
         canchaId: 1,
@@ -1059,8 +1158,47 @@ describe('Grilla', () => {
       await montar(DE_90, { mover: '7', duracion: '90' });
 
       await elegirPrimerBloque();
+      await apretar(botonDeLaBarra('Cambiar a esta hora'));
 
       expect(mover).toHaveBeenCalledWith(7, expect.objectContaining({ duracionMin: 90 }));
+    });
+
+    /** Dos abiertas libres a las 08:00, la 3 primero en el orden del club. */
+    const DOS_ABIERTAS: GrillaDeCancha[] = [
+      {
+        cancha: { ...DIA[0].cancha, id: 3, nombre: 'Cancha 3' },
+        bloques: DIA[0].bloques.map((b) => ({ ...b, canchaId: 3 })),
+      },
+      DIA[0],
+    ];
+
+    it('**al mover, la barra preelige la cancha de la reserva si está libre en la celda** (T104)', async () => {
+      // Alargar una hora a 1 hora y media tiene que dejarla donde estaba: con la primera
+      // libre, el socio terminaba en otra cancha sin haberlo pedido.
+      await montar(DOS_ABIERTAS, { mover: '7', cancha: 'Cancha 1' });
+
+      await elegirPrimerBloque();
+      await apretar(botonDeLaBarra('Cambiar a esta hora'));
+
+      expect(mover).toHaveBeenCalledWith(7, expect.objectContaining({ canchaId: 1 }));
+    });
+
+    it('si su cancha no está libre en esa celda, preelige la primera del club', async () => {
+      await montar(DOS_ABIERTAS, { mover: '7', cancha: 'Cancha 9' });
+
+      await elegirPrimerBloque();
+
+      expect(barra().textContent).toContain('Cancha 3');
+    });
+
+    it('desde el enlace, la cancha de la reserva la dice la reserva misma', async () => {
+      await montar(DOS_ABIERTAS, { moverToken: 'tok-123' }, {
+        reservaDelEnlace: { pagadoClp: 16000, cancha: 'Cancha 1' },
+      });
+
+      await elegirPrimerBloque();
+
+      expect(barra().textContent).toContain('Cancha 1');
     });
 
     describe('desde el enlace de la reserva, sin sesión (T88)', () => {
@@ -1082,15 +1220,6 @@ describe('Grilla', () => {
         expect(texto()).toContain('no se devuelve la diferencia');
       });
 
-      const barra = () =>
-        (fixture.nativeElement as HTMLElement).querySelector('app-barra-fija') as HTMLElement;
-      const botonDeLaBarra = (texto: string) =>
-        [...barra().querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)!;
-      const apretar = async (boton: HTMLButtonElement) => {
-        boton.click();
-        await fixture.whenStable();
-        fixture.detectChanges();
-      };
 
       it('**el clic no mueve al tiro: antes de confirmar dice que no se devuelve la diferencia** (T91)', async () => {
         // Pagó $16.000 y la de las 08:00 vale $12.000: el cambio pierde $4.000, y eso se
@@ -1277,6 +1406,7 @@ describe('Grilla', () => {
       });
 
       await elegirPrimerBloque();
+      await apretar(botonDeLaBarra('Cambiar a esta hora'));
 
       expect(texto()).toContain('No encontramos esa reserva');
       expect(texto()).not.toContain('horario de la cancha');
@@ -1294,10 +1424,11 @@ describe('Grilla', () => {
         }),
       );
 
-      // Las dos celdas libres del día: la de las 08:00 y la de las 18:00.
-      const [primera, segunda] = celdas();
-      primera.click();
-      segunda.click();
+      // Con la red lenta, quien no ve reacción vuelve a apretar.
+      await elegirPrimerBloque();
+      const confirmar = botonDeLaBarra('Cambiar a esta hora');
+      confirmar.click();
+      confirmar.click();
 
       expect(mover).toHaveBeenCalledTimes(1);
 
@@ -1312,6 +1443,7 @@ describe('Grilla', () => {
       });
 
       await elegirPrimerBloque();
+      await apretar(botonDeLaBarra('Cambiar a esta hora'));
 
       expect(texto()).toContain('acaban de tomar');
       expect(navegar).not.toHaveBeenCalled();
