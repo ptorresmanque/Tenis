@@ -24,6 +24,7 @@ import {
   Rechazo,
   SocioQueReserva,
 } from './cupo';
+import { AvisosDeReserva } from './correos';
 import { invitadosAnteriores, mesDelClub } from './invitados';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 
@@ -64,6 +65,7 @@ export class ReservasService {
     private readonly prisma: PrismaService,
     private readonly disponibilidad: DisponibilidadService,
     private readonly reservas: ReservaRepository,
+    private readonly avisos: AvisosDeReserva,
   ) {}
 
   /**
@@ -151,6 +153,10 @@ export class ReservasService {
           tx,
         );
       });
+
+      // Después de la transacción: la confirmación cuenta una reserva que ya existe, y un
+      // correo que no sale no la deshace (T108). También para la que toma el mesón.
+      await this.avisos.confirmacion(reserva.id);
 
       return {
         id: reserva.id,
