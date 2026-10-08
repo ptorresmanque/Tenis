@@ -32,7 +32,14 @@ export interface Franja {
    */
   reportables: { cancha: Cancha; bloque: BloqueDisponible }[];
   ocupadas: number;
+  /** Cerradas por mantención o por un motivo que no es clase ni torneo. */
   enMantencion: number;
+  /**
+   * Cerradas por una clase o un partido de torneo (T97). Aparte de la mantención: a
+   * quien llega nuevo, "en clase" le dice que a esa hora hay algo que le puede servir.
+   */
+  enClase: number;
+  enTorneo: number;
   /**
    * Libres que a quien no es socio no se le venden: 1 hora y media en una franja sin ese
    * precio (T79). Se cuentan para decirlo, en vez de que la fila diga "sin canchas libres".
@@ -124,13 +131,18 @@ export function agruparPorInicio(
         reportables: [],
         ocupadas: 0,
         enMantencion: 0,
+        enClase: 0,
+        enTorneo: 0,
         soloSocios: 0,
         esPico: bloque.esPico,
         yaPaso: yaEmpezo(bloque),
       };
 
-      if (bloque.bloqueado) franja.enMantencion++;
-      else if (bloque.reservado) {
+      if (bloque.bloqueado) {
+        if (bloque.motivoBloqueo === 'CLASE') franja.enClase++;
+        else if (bloque.motivoBloqueo === 'TORNEO') franja.enTorneo++;
+        else franja.enMantencion++;
+      } else if (bloque.reservado) {
         franja.ocupadas++;
         if (quienMira.reportable(bloque)) franja.reportables.push({ cancha, bloque });
       } else if (!yaEmpezo(bloque)) {

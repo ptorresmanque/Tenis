@@ -9,7 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -25,7 +25,7 @@ import {
   DuracionMin,
 } from '../disponibilidad';
 import { enPesos, hoyEnElClub, horaEnElClub } from '../reloj-del-club';
-import { nombreDelMotivo } from '../motivos';
+import { ICONOS_DE_MOTIVO, nombreDelMotivo } from '../motivos';
 import { nombreDeSuperficie } from '../superficies';
 import {
   agruparPorHora,
@@ -64,6 +64,7 @@ export class BandaTipada {
   selector: 'app-grilla',
   imports: [
     NgTemplateOutlet,
+    RouterLink,
     BandaTipada,
     Reservar,
     BarraFija,
@@ -375,13 +376,35 @@ export class BandaTipada {
         <!-- Lo que no se puede tomar se cuenta, no se esconde: que a las 19:00
              haya seis ocupadas es información, y borrarla haría que esa hora se
              viera igual que una que el club no abre. -->
-        @if (franja.ocupadas > 0 || (franja.enMantencion > 0 && banda.enMantencion === null)) {
+        @if (
+          franja.ocupadas > 0 ||
+          franja.enClase > 0 ||
+          franja.enTorneo > 0 ||
+          (franja.enMantencion > 0 && banda.enMantencion === null)
+        ) {
           <p class="mt-2 flex flex-wrap gap-2 text-sm text-muted-foreground">
             @if (franja.ocupadas > 0) {
               <span class="inline-flex items-center gap-1">
                 <span class="icono text-base" aria-hidden="true">lock</span>
                 {{ franja.ocupadas }}
                 {{ franja.ocupadas === 1 ? 'ocupada' : 'ocupadas' }}
+              </span>
+            }
+            <!-- T97. La clase se nombra y se enlaza: a quien llega nuevo le dice que a esta
+                 hora hay una clase que le puede servir. Antes se leía "en mantención". -->
+            @if (franja.enClase > 0) {
+              <span class="inline-flex items-center gap-1">
+                <span class="icono text-base" aria-hidden="true">{{ iconos['CLASE'] }}</span>
+                {{ franja.enClase }} en clase ·
+                <a routerLink="/clases" class="font-semibold text-primary underline">
+                  Ver clases
+                </a>
+              </span>
+            }
+            @if (franja.enTorneo > 0) {
+              <span class="inline-flex items-center gap-1">
+                <span class="icono text-base" aria-hidden="true">{{ iconos['TORNEO'] }}</span>
+                {{ franja.enTorneo }} en torneo
               </span>
             }
             @if (franja.enMantencion > 0 && banda.enMantencion === null) {
@@ -779,6 +802,7 @@ export class Grilla {
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
+  protected readonly iconos = ICONOS_DE_MOTIVO;
 
   protected readonly motivo = nombreDelMotivo;
 

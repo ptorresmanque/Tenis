@@ -433,6 +433,56 @@ describe('Grilla', () => {
       expect(enTexto(bandas()[0]).match(/en mantención/g)).toHaveLength(1);
     });
 
+    /**
+     * T97. Una hora cerrada por una clase o por un torneo se contaba como mantención: quien
+     * llegaba nuevo veía "en mantención" justo donde había una clase que le podía servir.
+     */
+    describe('las clases y los torneos se nombran (T97)', () => {
+      const conCancha2 = (parche: Partial<GrillaDeCancha['bloques'][number]>) =>
+        montar([
+          ...MEDIAS_HORAS,
+          {
+            cancha: { ...CANCHA, id: 2, nombre: 'Cancha 2' },
+            bloques: [
+              bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', parche),
+              bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z'),
+            ],
+          },
+        ]);
+      const filas = () => [...bandas()[0].querySelectorAll('[data-inicio]')];
+
+      it('**una clase se dice clase y enlaza a las clases**, no "en mantención"', async () => {
+        await conCancha2({ bloqueado: true, motivoBloqueo: 'CLASE' });
+
+        expect(enTexto(filas()[0])).toContain('1 en clase');
+        expect(enTexto(bandas()[0])).not.toContain('mantención');
+        // El destino declarado y no el href: el Router de este spec es un doble con solo
+        // `navigate`, y con él RouterLink no arma la URL. El href se vio en el navegador.
+        const enlace = filas()[0].querySelector('a');
+        expect(enlace?.getAttribute('routerlink')).toBe('/clases');
+        expect(enTexto(enlace!)).toContain('Ver clases');
+      });
+
+      it('un partido de torneo se dice torneo', async () => {
+        await conCancha2({ bloqueado: true, motivoBloqueo: 'TORNEO' });
+
+        expect(enTexto(filas()[0])).toContain('1 en torneo');
+        expect(enTexto(bandas()[0])).not.toContain('mantención');
+      });
+
+      it('la clase va en su fila: el inicio de y media no la tiene', async () => {
+        await conCancha2({ bloqueado: true, motivoBloqueo: 'CLASE' });
+
+        expect(enTexto(filas()[1])).not.toContain('en clase');
+      });
+
+      it('un cierre por otro motivo sigue contándose con la mantención', async () => {
+        await conCancha2({ bloqueado: true, motivoBloqueo: 'OTRO' });
+
+        expect(enTexto(filas()[0])).toContain('1 en mantención');
+      });
+    });
+
     it('con el :00 pasado y el :30 por venir, la banda queda a la vista y marca el pasado', async () => {
       // Las 08:10 del club: el de las 08:00 ya empezó y el de las 08:30 no.
       vi.setSystemTime('2026-08-17T12:10:00.000Z');

@@ -2,7 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
-import { nombreDelMotivo } from './motivos';
+import { ICONOS_DE_MOTIVO, nombreDelMotivo } from './motivos';
 import { enPesos, horaEnElClub } from './reloj-del-club';
 
 type Celda =
@@ -10,13 +10,6 @@ type Celda =
   | { estado: 'ocupada' }
   | { estado: 'bloqueada'; motivo: string; icono: string }
   | { estado: 'cerrada' };
-
-/** El ícono de cada motivo, para que la celda bloqueada no dependa del color. */
-const ICONOS_DE_MOTIVO: Record<string, string> = {
-  MANTENCION: 'build',
-  TORNEO: 'emoji_events',
-  CLASE: 'school',
-};
 
 function celdaDe(bloque: BloqueDisponible | undefined): Celda {
   if (!bloque) return { estado: 'cerrada' };
