@@ -24,7 +24,7 @@ import {
   Rechazo,
   SocioQueReserva,
 } from './cupo';
-import { mesDelClub } from './invitados';
+import { invitadosAnteriores, mesDelClub } from './invitados';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 
 /**
@@ -335,6 +335,27 @@ export class ReservasService {
         return { socioId: socio.id };
       }),
     );
+  }
+
+  /**
+   * Los invitados que el socio declaró en sus reservas, para sugerírselos al reservar
+   * (T106). Solo los externos: un compañero socio se elige de la lista de socios.
+   *
+   * Por id descendente, que es el orden en que se declararon: el acompañante se crea con
+   * su reserva y no se edita. Incluye los de reservas canceladas, porque el invitado
+   * sigue siendo alguien con quien el socio juega.
+   */
+  async misInvitados(socioId: number): Promise<string[]> {
+    const filas = await this.prisma.acompananteReserva.findMany({
+      where: { reserva: { socioId }, nombre: { not: null } },
+      select: { nombre: true },
+      orderBy: { id: 'desc' },
+      // ponytail: las 200 declaraciones más recientes; un invitado que no aparece en
+      // ellas lleva años sin venir. Paginar si algún socio llega a echarlo de menos.
+      take: 200,
+    });
+
+    return invitadosAnteriores(filas.flatMap(({ nombre }) => nombre ?? []));
   }
 
   /**

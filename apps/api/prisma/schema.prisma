@@ -804,8 +804,8 @@ model AcompananteReserva {
   reservaId Int  @map("reserva_id")
   socioId   Int? @map("socio_id")
 
-  /// Solo un nombre: el invitado no tiene ficha propia (pregunta abierta 13). Muere
-  /// con la reserva y no se reutiliza.
+  /// Solo un nombre: el invitado no tiene ficha propia (pregunta abierta 13). El
+  /// nombre se le vuelve a sugerir al mismo socio al reservar (T106), y nada más.
   nombre String?
 
   reserva Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
