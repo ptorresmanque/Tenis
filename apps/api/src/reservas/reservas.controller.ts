@@ -56,8 +56,7 @@ export class ReservasController {
   /**
    * Los invitados que el socio declaró antes, para sugerírselos al reservar (T106).
    *
-   * Solo los suyos: los nombres que declaró otro socio son datos de terceros. Va antes de
-   * las rutas con `:id` para que nadie lea "mis-invitados" como un id.
+   * Solo los suyos: los nombres que declaró otro socio son datos de terceros.
    */
   @Get('mis-invitados')
   @SoloSocio()
