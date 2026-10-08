@@ -63,7 +63,7 @@ export class DisponibilidadService {
 
     const cancha = await this.prisma.cancha.findFirst({
       where: { id: canchaId, activa: true },
-      select: { id: true },
+      select: { id: true, techada: true },
     });
 
     if (!cancha) {
@@ -132,6 +132,7 @@ export class DisponibilidadService {
       ...franjaPara({
         fecha,
         canchaId,
+        techada: cancha.techada,
         inicio: bloque.inicio,
         duracionMin,
         franjas,
