@@ -15,6 +15,7 @@ describe('franjaPara', () => {
   const franja = (parche: Partial<FranjaCandidata> = {}): FranjaCandidata => ({
     id: 1,
     canchaId: null,
+    techada: null,
     diaSemana: null,
     horaDesde: '08:00',
     horaHasta: '18:00',
@@ -31,6 +32,7 @@ describe('franjaPara', () => {
     franjaPara({
       fecha: LUNES,
       canchaId: 7,
+      techada: false,
       inicio: new Date('2026-08-17T14:00:00.000Z'),
       duracionMin: 60,
       franjas,
@@ -45,6 +47,7 @@ describe('franjaPara', () => {
       franjaPara({
         fecha: LUNES,
         canchaId: 7,
+        techada: false,
         inicio: new Date('2026-08-17T14:00:00.000Z'),
         duracionMin: 90,
         franjas,
@@ -93,6 +96,7 @@ describe('franjaPara', () => {
         franjaPara({
           fecha: LUNES,
           canchaId: 7,
+          techada: false,
           inicio: new Date('2026-08-17T21:30:00.000Z'),
           duracionMin: 90,
           franjas: [valle, pico],
@@ -126,6 +130,7 @@ describe('franjaPara', () => {
     const alasSeis = franjaPara({
       fecha: LUNES,
       canchaId: 7,
+      techada: false,
       duracionMin: 60,
       inicio: new Date('2026-08-17T22:00:00.000Z'),
       franjas: [franja({ horaDesde: '08:00', horaHasta: '18:00' })],
@@ -192,6 +197,7 @@ describe('franjaPara', () => {
       const lunesPorLaNoche = franjaPara({
         fecha: LUNES,
         canchaId: 7,
+        techada: false,
         duracionMin: 60,
         inicio: new Date('2026-08-18T01:00:00.000Z'),
         franjas: [
@@ -256,6 +262,106 @@ describe('franjaPara', () => {
     });
   });
 
+  /**
+   * T98. Una tarifa general puede valer solo para las techadas o solo para las abiertas.
+   * Precedencia (A1 del plan): cancha propia > tipo de cancha > todas; dentro de cada
+   * nivel, el día le gana a "todos los días".
+   */
+  describe('por tipo de cancha (T98)', () => {
+    const enCancha = (
+      techada: boolean,
+      franjas: FranjaCandidata[],
+      duracionMin: 60 | 90 = 60,
+    ) =>
+      franjaPara({
+        fecha: LUNES,
+        canchaId: 7,
+        techada,
+        inicio: new Date('2026-08-17T14:00:00.000Z'),
+        duracionMin,
+        franjas,
+      });
+
+    const todas = franja({ id: 1, montoClp: 12000, montoClp90: 16000 });
+    const techadas = franja({
+      id: 2,
+      techada: true,
+      montoClp: 15000,
+      montoClp90: 20000,
+    });
+
+    it('**la de techadas cobra en la techada, y la abierta sigue con la de todas**', () => {
+      expect(enCancha(true, [todas, techadas])).toMatchObject({
+        montoClp: 15000,
+      });
+      expect(enCancha(false, [todas, techadas])).toMatchObject({
+        montoClp: 12000,
+      });
+    });
+
+    it('también con 1 hora y media: cada tipo cobra su precio de esa duración', () => {
+      expect(enCancha(true, [todas, techadas], 90)).toMatchObject({
+        montoClp: 20000,
+      });
+      expect(enCancha(false, [todas, techadas], 90)).toMatchObject({
+        montoClp: 16000,
+      });
+    });
+
+    it('la de abiertas no aplica a una techada', () => {
+      expect(
+        enCancha(true, [franja({ techada: false, montoClp: 9000 })]),
+      ).toEqual({ montoClp: 0, esPico: false });
+    });
+
+    it('la tarifa propia de la cancha le gana a la de su tipo', () => {
+      expect(
+        enCancha(true, [
+          techadas,
+          franja({ id: 3, canchaId: 7, montoClp: 18000 }),
+        ]),
+      ).toMatchObject({ montoClp: 18000 });
+    });
+
+    it('**la de su tipo le gana a la de todas los lunes**: el techo pesa más que el día', () => {
+      // A1. La ganadora tiene el id menor: si el tipo no pesara, ganaría la del lunes por
+      // especificidad y el test lo diría.
+      expect(
+        enCancha(true, [
+          franja({ id: 1, techada: true, montoClp: 15000 }),
+          franja({ id: 2, diaSemana: 1, montoClp: 30000 }),
+        ]),
+      ).toMatchObject({ montoClp: 15000 });
+    });
+
+    it('dentro del tipo, la del día le gana a la de todos los días', () => {
+      expect(
+        enCancha(true, [
+          franja({ id: 2, techada: true, montoClp: 15000 }),
+          franja({ id: 1, techada: true, diaSemana: 1, montoClp: 17000 }),
+        ]),
+      ).toMatchObject({ montoClp: 17000 });
+    });
+
+    it('el pico sale de la misma franja que el precio, también la de tipo', () => {
+      const picoTechado = franja({
+        id: 2,
+        techada: true,
+        esPico: true,
+        montoClp: 15000,
+      });
+
+      expect(enCancha(true, [todas, picoTechado])).toEqual({
+        montoClp: 15000,
+        esPico: true,
+      });
+      expect(enCancha(false, [todas, picoTechado])).toEqual({
+        montoClp: 12000,
+        esPico: false,
+      });
+    });
+  });
+
   it('el precio y el pico vienen siempre de la misma franja', () => {
     // El criterio que da sentido a la tarea. La ganadora es la de la cancha, cara
     // y pico; la perdedora es barata y valle. Resolverlos por separado devolvería
@@ -275,6 +381,7 @@ describe('franjaPara', () => {
     const antesDelPico = franjaPara({
       fecha: '2026-04-05',
       canchaId: 7,
+      techada: false,
       duracionMin: 60,
       inicio: new Date('2026-04-05T21:00:00.000Z'),
       franjas: [
