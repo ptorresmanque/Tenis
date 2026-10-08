@@ -112,6 +112,7 @@ model Socio {
   acompanamientos AcompananteReserva[]
   reportes        ReporteNoUso[]
   cuotas          Cuota[]
+  recordatorios   RecordatorioCuota[]
   clases          InscripcionClase[]
   jugador         Jugador?
 
@@ -340,6 +341,33 @@ model Cuota {
   @@unique([socioId, tipo, periodo])
   @@index([periodo, estado])
   @@map("cuota")
+}
+
+/// Qué recordatorio de cuota es (T111): el aviso de la cuota que viene, desde 5 días antes
+/// de fin de mes, o el de la que quedó impaga, desde el día 1.
+enum TipoRecordatorio {
+  PREVIO
+  VENCIDA
+}
+
+/// Un recordatorio de cuota ya mandado (T111).
+///
+/// **El único sobre (socio, período, tipo) es lo que impide mandar dos veces**, y se escribe
+/// antes de mandar: si el proceso muere a mitad de la tanda, el que quedó registrado no se
+/// repite. Se elige perder un correo antes que cobrarle dos veces el mismo mes a alguien.
+model RecordatorioCuota {
+  id      Int              @id @default(autoincrement())
+  socioId Int              @map("socio_id")
+  /// "AAAA-MM": el mes que viene para el previo, el mes en curso para el vencido.
+  periodo String           @db.VarChar(7)
+  tipo    TipoRecordatorio
+
+  enviadoEn DateTime @default(now()) @map("enviado_en")
+
+  socio Socio @relation(fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@unique([socioId, periodo, tipo])
+  @@map("recordatorio_cuota")
 }
 
 // ── catalogo-canchas ─────────────────────────────────────────────────────────
