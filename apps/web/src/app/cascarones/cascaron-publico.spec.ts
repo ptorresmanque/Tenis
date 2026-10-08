@@ -78,6 +78,18 @@ describe('Cascarón público: la navegación', () => {
     );
   }
 
+  it('el pie enlaza la política de privacidad, con sesión o sin ella', () => {
+    // La Ley 21.719 pide que la política esté a la vista, y Google la busca en el
+    // sitio antes de aprobar el login. El pie está en todas las páginas públicas.
+    for (const usuario of [null, SOCIA]) {
+      const pie = (montarCon(usuario).nativeElement as HTMLElement).querySelector('footer');
+
+      expect(pie?.querySelector('a[href="/privacidad"]')?.textContent).toContain(
+        'Política de privacidad',
+      );
+    }
+  });
+
   it('le ofrece crear cuenta a quien no ha entrado', () => {
     expect(enlacesCon(null)).toContain('Crear cuenta');
   });

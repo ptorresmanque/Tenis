@@ -1,5 +1,6 @@
 import { Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { irAPagar } from '../../core/pagos/ir-a-pagar';
@@ -34,7 +35,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-inscripcion-a-torneo',
-  imports: [FormsModule, Aviso, Campo, CampoControl, RestriccionHoraria],
+  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, RestriccionHoraria],
   template: `
     <!-- La forma de la A (TV4.2): la caja con sombra y sin borde, el título como
          rótulo. Los campos, los pasos y el envío son los de siempre. -->
@@ -186,6 +187,15 @@ const enBlanco = () => ({
           }
         </fieldset>
       }
+
+      <!-- Inscribirse es consentir la publicación (decidido por el club el
+           2026-10-07), así que se dice antes del botón y no en la letra chica. -->
+      <p class="mt-4 max-w-prose text-sm text-muted-foreground">
+        En el sitio se publican tu nombre, tus resultados, las fotos y las transmisiones de
+        los partidos, y al inscribirte das tu consentimiento para eso. Puedes retirarlo
+        cuando quieras: lo explica la
+        <a routerLink="/privacidad" target="_blank" class="underline">política de privacidad</a>.
+      </p>
 
       <button
         type="submit"

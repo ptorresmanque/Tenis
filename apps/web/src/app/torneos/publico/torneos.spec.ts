@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -115,7 +116,7 @@ describe('TorneosPublicos', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Torneos, useValue: api }],
+      providers: [provideRouter([]), { provide: Torneos, useValue: api }],
     });
 
     fixture = TestBed.createComponent(TorneosPublicos);
