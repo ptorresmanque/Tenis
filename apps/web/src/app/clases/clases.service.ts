@@ -29,6 +29,8 @@ export interface ClaseDelDia {
   estado: 'PROGRAMADA' | 'REALIZADA' | 'CANCELADA';
   cupoMaximo: number;
   notas: string | null;
+  /** La serie que la agendó, o nulo si es suelta (T117). */
+  serieId: number | null;
 }
 
 /** Lo que el formulario manda para agendar. Horas del club, como las escribe el admin. */
@@ -94,6 +96,23 @@ export interface ClasePublica {
   inicio: string;
   fin: string;
   nivel: NivelClase;
+  cuposLibres: number;
+}
+
+/**
+ * Una serie de clases como la anuncia el club (T117): una tarjeta, no una clase por fecha. El
+ * cupo es el más chico entre sus clases que vienen; `hasta`, la fecha de la última.
+ */
+export interface SeriePublica {
+  id: number;
+  profesor: string;
+  cancha: string;
+  nivel: NivelClase;
+  /** De 0 (domingo) a 6 (sábado). */
+  diasSemana: number[];
+  horaDesde: string;
+  horaHasta: string;
+  hasta: string;
   cuposLibres: number;
 }
 
@@ -163,12 +182,14 @@ export class Clases {
   publicas(desde?: string): Promise<{
     profesores: ProfesorPublico[];
     clases: ClasePublica[];
+    series: SeriePublica[];
   }> {
     return firstValueFrom(
-      this.http.get<{ profesores: ProfesorPublico[]; clases: ClasePublica[] }>(
-        '/api/clases/publicas',
-        { params: desde ? { desde } : {} },
-      ),
+      this.http.get<{
+        profesores: ProfesorPublico[];
+        clases: ClasePublica[];
+        series: SeriePublica[];
+      }>('/api/clases/publicas', { params: desde ? { desde } : {} }),
     );
   }
 
@@ -292,6 +313,23 @@ export class Clases {
       this.http.post<{ id: number }>(
         `/api/admin/clases/${id}/realizacion`,
         asistieron === null ? {} : { asistieron },
+      ),
+    );
+  }
+
+  /**
+   * Cancela la clase de ese día y las siguientes de la serie (T117): sus horas vuelven a la
+   * grilla y las anteriores quedan como estaban. El motivo es obligatorio.
+   */
+  cancelarSerieDesde(
+    serieId: number,
+    desde: string,
+    motivo: string,
+  ): Promise<{ canceladas: number }> {
+    return firstValueFrom(
+      this.http.post<{ canceladas: number }>(
+        `/api/admin/clases/series/${serieId}/cancelacion`,
+        { desde, motivo },
       ),
     );
   }

@@ -77,16 +77,45 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         </ul>
       }
 
-      <h2 class="titular mt-16 text-5xl sm:text-6xl">Esta semana</h2>
+      <!-- T117. Una serie es una tarjeta: "martes y jueves, 19:00", no una clase por fecha.
+           La inscripción es a la serie completa, así que el cupo es el de su clase más llena. -->
+      @if (info.series.length > 0) {
+        <h2 class="titular mt-16 text-5xl sm:text-6xl">Todas las semanas</h2>
+        <ul class="mt-4 divide-y divide-border border-y border-border">
+          @for (serie of info.series; track serie.id) {
+            <li class="flex flex-wrap items-center gap-3 py-4">
+              <span class="font-display text-2xl font-bold">
+                {{ diasDeLaSerie(serie.diasSemana) }}, {{ serie.horaDesde }}–{{ serie.horaHasta }}
+              </span>
+              <app-insignia variante="info" icono="school">{{ nivel(serie.nivel) }}</app-insignia>
+              <span class="text-sm text-muted-foreground">
+                {{ serie.profesor }} · {{ serie.cancha }} · hasta el {{ fechaCorta(serie.hasta) }}
+              </span>
 
-      @if (info.clases.length === 0) {
+              @if (serie.cuposLibres === 0) {
+                <app-insignia variante="neutro" icono="block" class="ms-auto">Sin cupos</app-insignia>
+              } @else {
+                <app-insignia variante="libre" icono="event_available" class="ms-auto">
+                  {{ serie.cuposLibres }} {{ serie.cuposLibres === 1 ? 'cupo' : 'cupos' }}
+                </app-insignia>
+              }
+            </li>
+          }
+        </ul>
+      }
+
+      @if (info.clases.length > 0 || info.series.length === 0) {
+        <h2 class="titular mt-16 text-5xl sm:text-6xl">Esta semana</h2>
+      }
+
+      @if (info.clases.length === 0 && info.series.length === 0) {
         <app-estado-vacio
           class="mt-3 block"
           icono="event_busy"
           titulo="No hay clases programadas esta semana"
           detalle="Escríbenos y te avisamos cuando se abra el próximo grupo."
         />
-      } @else {
+      } @else if (info.clases.length > 0) {
         @for (dia of porDia(); track dia.fecha) {
           <!-- Cada día lo encabeza un rótulo de transmisión, con su corte (TV4.4). -->
           <h3
@@ -165,4 +194,30 @@ export class ClasesPublicas {
   protected nivel(clave: NivelClase): string {
     return NIVELES[clave] ?? clave;
   }
+
+  protected readonly diasDeLaSerie = diasDeLaSerie;
+
+  /** "15 de diciembre", de una fecha civil. */
+  protected fechaCorta(fecha: string): string {
+    return FECHA_CORTA.format(new Date(`${fecha}T12:00:00.000Z`));
+  }
+}
+
+const NOMBRES_DE_DIA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
+const FECHA_CORTA = new Intl.DateTimeFormat('es-CL', {
+  timeZone: 'UTC',
+  day: 'numeric',
+  month: 'long',
+});
+
+/**
+ * "Martes y jueves", en el orden de la semana del club, que empieza el lunes. El domingo
+ * va al final: 0 en la API, pero el último día para quien lee el horario.
+ */
+export function diasDeLaSerie(dias: number[]): string {
+  const enOrden = [...dias].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+  const texto = LISTA.format(enOrden.map((dia) => NOMBRES_DE_DIA[dia]));
+
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
 }

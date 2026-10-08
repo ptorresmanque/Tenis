@@ -30,11 +30,12 @@ export class ClasesPublicasController {
         ? desde
         : hoyEnElClub().toISOString().slice(0, 10);
 
-    const [profesores, clases] = await Promise.all([
+    const [profesores, clases, series] = await Promise.all([
       this.clases.profesores(),
       this.clases.delaSemana(arranque),
+      this.clases.series(arranque),
     ]);
 
-    return { profesores, clases };
+    return { profesores, clases, series };
   }
 }

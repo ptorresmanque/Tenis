@@ -27,6 +27,7 @@ describe('AgendaDeClases', () => {
     estado: 'PROGRAMADA',
     cupoMaximo: 6,
     notas: null,
+    serieId: null,
   };
 
   const TOMADA: HoraAfectada = {
@@ -47,6 +48,7 @@ describe('AgendaDeClases', () => {
     simular: ReturnType<typeof vi.fn>;
     agendar: ReturnType<typeof vi.fn>;
     cancelar: ReturnType<typeof vi.fn>;
+    cancelarSerieDesde: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (clases: ClaseDelDia[], afectadas: HoraAfectada[] = []) => {
@@ -55,6 +57,7 @@ describe('AgendaDeClases', () => {
       simular: vi.fn().mockResolvedValue({ afectadas }),
       agendar: vi.fn().mockResolvedValue({ id: 1, bloqueoId: 2, canceladas: [] }),
       cancelar: vi.fn().mockResolvedValue({ id: 7 }),
+      cancelarSerieDesde: vi.fn().mockResolvedValue({ canceladas: 5 }),
     };
 
     TestBed.resetTestingModule();
@@ -267,6 +270,33 @@ describe('AgendaDeClases', () => {
 
       expect(texto()).toContain('Serie agendada: 18 clases.');
       expect(api.delDia).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  /** T117. Una clase de una serie se puede cancelar con las que le siguen. */
+  describe('cancelar la serie desde una fecha', () => {
+    it('en una clase suelta no se ofrece', () => {
+      expect(texto()).not.toContain('Cancelar desde esta fecha');
+    });
+
+    it('**en una clase de una serie, cancela esa y las siguientes, con el motivo**', async () => {
+      await montar([{ ...CLASE, serieId: 9 }]);
+      vi.spyOn(window, 'prompt').mockReturnValue('Fin de temporada');
+
+      await apretar('Cancelar desde esta fecha');
+
+      // El día de la clase, en hora del club: 21:00Z del 17 de agosto son las 17:00 del 17.
+      expect(api.cancelarSerieDesde).toHaveBeenCalledWith(9, '2026-08-17', 'Fin de temporada');
+      expect(texto()).toContain('Se cancelaron 5 clases de la serie');
+    });
+
+    it('sin motivo no cancela nada', async () => {
+      await montar([{ ...CLASE, serieId: 9 }]);
+      vi.spyOn(window, 'prompt').mockReturnValue('   ');
+
+      await apretar('Cancelar desde esta fecha');
+
+      expect(api.cancelarSerieDesde).not.toHaveBeenCalled();
     });
   });
 });

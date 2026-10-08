@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { fechaDelClub, instanteEnElClub } from '../comun/tiempo';
+import { fechaDelClub, hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
 import { EstadoClase, EstadoInscripcion } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -36,6 +36,25 @@ export interface ProfesorPublico {
 }
 
 /** Una clase de la semana, como la ve quien todavía no es del club. */
+/**
+ * Una serie de clases, como la anuncia el club (T117): una tarjeta en vez de una por fecha.
+ * Los días, el horario y hasta cuándo; el cupo es el más chico entre sus clases que vienen,
+ * porque la inscripción es a la serie completa (T116).
+ */
+export interface SeriePublica {
+  id: number;
+  profesor: string;
+  cancha: string;
+  nivel: string;
+  /** De 0 (domingo) a 6 (sábado). */
+  diasSemana: number[];
+  horaDesde: string;
+  horaHasta: string;
+  /** La fecha civil de su última clase programada: si se canceló desde un día, se acorta. */
+  hasta: string;
+  cuposLibres: number;
+}
+
 export interface ClasePublica {
   id: number;
   cancha: string;
@@ -87,6 +106,9 @@ export class ClasesPublicas {
       where: {
         estado: EstadoClase.PROGRAMADA,
         inicio: { gte: semana.desde, lt: semana.hasta },
+        // Las de una serie van en su tarjeta (T117): repetirlas acá sería decir lo mismo
+        // una vez por fecha.
+        serieId: null,
       },
       orderBy: [{ inicio: 'asc' }, { id: 'asc' }],
       select: {
@@ -126,6 +148,79 @@ export class ClasesPublicas {
       // Nunca negativo: si el club subió a alguien por encima del cupo, "quedan -1"
       // no es una respuesta que nadie pueda usar.
       cuposLibres: Math.max(clase.cupoMaximo - clase._count.inscripciones, 0),
+    }));
+  }
+
+  /**
+   * Las series con clases por delante desde ese día (T117), una por tarjeta.
+   *
+   * ponytail: trae las clases que vienen de cada serie para el cupo y la última fecha; con el
+   * tope de 6 meses son a lo más unas 50 por serie. Si el club llega a tener muchas series,
+   * calcularlo con un `groupBy`.
+   */
+  async series(desde: string): Promise<SeriePublica[]> {
+    const inicio = instanteEnElClub(desde, '00:00');
+    const queVienen = {
+      estado: EstadoClase.PROGRAMADA,
+      inicio: { gte: inicio },
+    };
+
+    const series = await this.prisma.serieDeClases.findMany({
+      where: { clases: { some: queVienen } },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        diasSemana: true,
+        horaDesde: true,
+        horaHasta: true,
+        nivel: true,
+        cancha: { select: { nombre: true } },
+        profesor: { select: { nombreVisible: true } },
+        clases: {
+          where: queVienen,
+          orderBy: { inicio: 'asc' },
+          select: {
+            inicio: true,
+            cupoMaximo: true,
+            _count: {
+              select: {
+                inscripciones: {
+                  where: {
+                    estado: {
+                      in: [
+                        EstadoInscripcion.INSCRITA,
+                        EstadoInscripcion.ASISTIO,
+                        EstadoInscripcion.FALTO,
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return series.map((serie) => ({
+      id: serie.id,
+      profesor: serie.profesor.nombreVisible,
+      cancha: serie.cancha.nombre,
+      nivel: serie.nivel,
+      diasSemana: serie.diasSemana.split(',').map(Number),
+      horaDesde: serie.horaDesde,
+      horaHasta: serie.horaHasta,
+      hasta: hoyEnElClub(serie.clases[serie.clases.length - 1].inicio)
+        .toISOString()
+        .slice(0, 10),
+      cuposLibres: Math.max(
+        Math.min(
+          ...serie.clases.map(
+            (clase) => clase.cupoMaximo - clase._count.inscripciones,
+          ),
+        ),
+        0,
+      ),
     }));
   }
 }
