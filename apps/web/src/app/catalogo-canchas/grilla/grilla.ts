@@ -317,7 +317,14 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                           {{ celda.precio }}
                         </span>
                       }
-                      <span class="inline-flex items-center gap-0.5 text-xs font-semibold">
+                      <!-- Al socio, cuántas quedan es lo único que la celda le dice: va en
+                           grande, donde al visitante va el precio. -->
+                      <span
+                        class="inline-flex items-center gap-0.5 font-semibold"
+                        [class.text-xs]="!esSocio()"
+                        [class.font-display]="esSocio()"
+                        [class.text-lg]="esSocio()"
+                      >
                         @if (estaElegida(celda)) {
                           <span class="icono text-sm" aria-hidden="true">check_circle</span>
                         }
