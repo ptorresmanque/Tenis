@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
@@ -393,6 +393,14 @@ describe('Tipografía', () => {
   // la fuente de respaldo del sistema. Nada falla, nadie se entera, y el
   // diseño se ve distinto en producción que en Stitch.
   const html = readFileSync(join(process.cwd(), 'src/index.html'), 'utf8');
+  const fuentes = readFileSync(join(process.cwd(), 'src/fuentes.css'), 'utf8');
+
+  /** Cada @font-face de fuentes.css: su familia, su font-display y sus archivos. */
+  const caras = [...fuentes.matchAll(/@font-face\s*\{([^}]*)\}/g)].map(([, cuerpo]) => ({
+    familia: cuerpo.match(/font-family:\s*'([^']+)'/)?.[1],
+    display: cuerpo.match(/font-display:\s*([\w-]+)/)?.[1],
+    archivos: [...cuerpo.matchAll(/url\('?([^')]+)'?\)/g)].map(([, ruta]) => ruta),
+  }));
 
   function familias(): string[] {
     const declaradas = new Set<string>();
@@ -414,33 +422,48 @@ describe('Tipografía', () => {
     expect(familias().length).toBeGreaterThan(0);
   });
 
-  it.each(familias())('index.html carga la fuente %s', (familia) => {
-    // El nombre tiene que terminar ahí: `family=Barlow` también aparece dentro de
-    // `family=Barlow+Condensed`, y sin este borde una familia que solo carga a su
-    // hermana condensada pasaba el test sin cargarse.
-    // El + se escapa: en la URL separa palabras, en una expresión regular repite.
-    const nombre = familia.replaceAll(' ', '\\+');
-    expect(html).toMatch(new RegExp(`family=${nombre}(?=[:&"'])`));
+  it.each(familias())('fuentes.css carga la fuente %s', (familia) => {
+    // Se compara el nombre entero: `Barlow` también aparece dentro de
+    // `Barlow Condensed`, y una familia que solo carga a su hermana condensada
+    // no puede pasar el test sin cargarse.
+    expect(caras.map((cara) => cara.familia)).toContain(familia);
+  });
+
+  it('las fuentes salen del propio sitio y no de Google', () => {
+    // Cada fuente pedida a fonts.googleapis.com le pasaba a Google la IP de quien
+    // entraba, en cualquier página y sin que eligiera nada (ver la política de
+    // privacidad).
+    expect(html + fuentes).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
+  });
+
+  it('cada archivo que nombra fuentes.css existe', () => {
+    // El build de Angular resuelve los url() relativos, y uno que no existe deja
+    // a la familia con la fuente de respaldo sin que nadie lo vea en desarrollo.
+    const archivos = caras.flatMap((cara) => cara.archivos);
+
+    expect(archivos.length).toBeGreaterThan(0);
+    for (const archivo of archivos) {
+      expect(existsSync(join(process.cwd(), 'src', archivo)), archivo).toBe(true);
+    }
   });
 
   it('la fuente de íconos se carga y no con display=swap', () => {
     // Material Symbols dibuja con ligaduras: con swap el usuario ve escrito
     // "check_circle" hasta que la fuente carga.
-    const enlace = html.match(/https:\/\/[^"']*Material\+Symbols[^"']*/)?.[0];
+    const iconos = caras.find((cara) => cara.familia?.startsWith('Material Symbols'));
 
-    expect(enlace).toBeDefined();
-    expect(enlace).toContain('display=block');
+    expect(iconos).toBeDefined();
+    expect(iconos?.display).toBe('block');
   });
 
-  it('la familia de .icono es la que carga index.html', () => {
-    // Si el enlace y la regla nombran familias distintas, cada ícono se pinta
+  it('la familia de .icono es la que carga fuentes.css', () => {
+    // Si el @font-face y la regla nombran familias distintas, cada ícono se pinta
     // como su nombre escrito: "calendar_month" en vez del calendario. Cargar una
     // fuente que nadie usa no lo detecta el test de arriba.
-    const cargada = html.match(/family=(Material\+Symbols\+\w+)/)?.[1].replaceAll('+', ' ');
     const usada = css.match(/\.icono\s*\{[^}]*?font-family:\s*'([^']+)'/)?.[1];
 
-    expect(cargada).toBeDefined();
-    expect(usada).toBe(cargada);
+    expect(usada).toBeDefined();
+    expect(caras.map((cara) => cara.familia)).toContain(usada);
   });
 
   it('los íconos usan clase propia y no la de Google', () => {

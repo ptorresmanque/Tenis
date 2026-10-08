@@ -1,0 +1,104 @@
+/* Las fuentes se sirven desde el propio sitio y no desde Google Fonts: así quien
+   entra no le pasa su IP a Google (ver la política de privacidad). Son los mismos
+   archivos que entregaba Google, solo el subconjunto latin, que cubre el español
+   entero. Angular les pone hash al nombre, así que el caché largo no estorba.
+   Licencias en fuentes/: OFL para Barlow, Apache 2.0 para Material Symbols. */
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fuentes/barlow-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fuentes/barlow-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fuentes/barlow-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fuentes/barlow-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./fuentes/barlow-condensed-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./fuentes/barlow-condensed-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fuentes/barlow-condensed-700-cursiva.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./fuentes/barlow-condensed-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: italic;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./fuentes/barlow-condensed-800-cursiva.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./fuentes/barlow-condensed-800.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('./fuentes/barlow-condensed-900.woff2') format('woff2');
+}
+
+/* display: block y no swap: el ícono es una ligadura, con swap el usuario ve
+   escrito "check_circle" hasta que la fuente carga. El archivo trae fijos el
+   relleno, el peso 500, el grado y el tamaño óptico de 24. */
+@font-face {
+  font-family: 'Material Symbols Sharp';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('./fuentes/material-symbols-sharp.woff2') format('woff2');
+}
