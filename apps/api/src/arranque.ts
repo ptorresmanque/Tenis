@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
 
+import { hoyEnElClub } from './comun/tiempo';
 import { PrismaClient } from './generated/prisma/client';
 import { hashear, problemaDeContrasena } from './identidad/contrasena';
 import { DatosRegistro, leerRegistro } from './identidad/registro.dto';
@@ -73,13 +74,19 @@ export async function sembrarCategoriasDeJuego(
 /**
  * La fila única de configuración del club. `update: {}` porque es operativa —el admin
  * la ajusta en serio desde el panel—: solo hay que garantizar que exista.
+ *
+ * El corte de la incorporación va explícito, con el día del club. El DEFAULT de la
+ * columna toma el reloj de la base: en una base en UTC, de 21:00 a medianoche ya es
+ * mañana, y quien se diera de alta esa noche entraría antes del corte y no debería
+ * la incorporación.
  */
 export async function asegurarConfiguracionClub(
   prisma: PrismaClient,
+  ahora = new Date(),
 ): Promise<void> {
   await prisma.configuracionClub.upsert({
     where: { id: 1 },
-    create: { id: 1 },
+    create: { id: 1, cobraIncorporacionDesde: hoyEnElClub(ahora) },
     update: {},
   });
 }
