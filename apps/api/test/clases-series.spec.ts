@@ -6,7 +6,9 @@ import { AppModule } from '../src/app.module';
 import { instanteEnElClub } from '../src/comun/tiempo';
 import {
   ConceptoPago,
+  EstadoInscripcion,
   EstadoReserva,
+  EstadoSocio,
   EstadoTransaccion,
   MotivoBloqueo,
   NivelClase,
@@ -15,6 +17,7 @@ import {
 import { CorreoSaliente, EnviadorCorreo } from '../src/identidad/correo';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
+import { Inscripciones } from '../src/clases/inscripciones.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
@@ -449,6 +452,195 @@ describe('POST /api/admin/clases/series/simulacion', () => {
         .set('Cookie', cookieUsuario)
         .send(serie())
         .expect(403);
+    });
+  });
+
+  /**
+   * T116. Inscribir en la serie completa (decisión 8): una inscripción en cada clase que
+   * viene, en una transacción. Salirse cancela solo las que vienen (A10).
+   */
+  describe('inscribir en la serie (T116)', () => {
+    let serieId: number;
+    let clases: { id: number; fecha: string }[];
+
+    const socio = async (quien: string) => {
+      const usuario = await prisma.usuario.create({
+        data: {
+          email: `${quien}${DOMINIO}`,
+          nombre: quien,
+          apellido: 'De la serie',
+          socio: {
+            create: {
+              numeroSocio: `SER-${quien}-${Date.now()}`,
+              estado: EstadoSocio.ACTIVO,
+              fechaIngreso: new Date('2026-01-01'),
+              alDiaHasta: new Date('2040-01-01'),
+            },
+          },
+        },
+        select: { socio: { select: { id: true } } },
+      });
+
+      return usuario.socio!.id;
+    };
+
+    const enLaSerie = (
+      cuerpo: Record<string, unknown>,
+      ruta = 'inscripciones',
+    ) =>
+      request(servidor())
+        .post(`/api/admin/clases/series/${serieId}/${ruta}`)
+        .set('Cookie', cookieAdmin)
+        .send(cuerpo);
+
+    const inscripcionesDe = (socioId: number) =>
+      prisma.inscripcionClase.findMany({
+        where: { socioId, clase: { serieId } },
+        orderBy: { clase: { inicio: 'asc' } },
+        select: { claseId: true, estado: true },
+      });
+
+    beforeEach(async () => {
+      await prisma.usuario.deleteMany({
+        where: {
+          email: { endsWith: DOMINIO },
+          NOT: { email: { in: [`jefa${DOMINIO}`, `curioso${DOMINIO}`] } },
+        },
+      });
+      // Cupo 2: alcanza para ver una clase llena con dos inscritos.
+      const respuesta = await request(servidor())
+        .post('/api/admin/clases/series')
+        .set('Cookie', cookieAdmin)
+        .send(serie({ cupoMaximo: 2 }))
+        .expect(201);
+      ({ id: serieId, clases } = respuesta.body as {
+        id: number;
+        clases: { id: number; fecha: string }[];
+      });
+    });
+
+    it('**inscribir en una serie de 18 clases deja 18 inscripciones**', async () => {
+      const ana = await socio('ana');
+
+      const respuesta = await enLaSerie({ socioId: ana }).expect(201);
+
+      expect(respuesta.body).toEqual({ inscritas: 18, yaEstaba: 0 });
+      expect(await inscripcionesDe(ana)).toHaveLength(18);
+    });
+
+    it('un alumno de afuera también, con su nombre y su teléfono', async () => {
+      await enLaSerie({
+        nombre: 'Pedro Afuera',
+        telefono: '+56911112222',
+      }).expect(201);
+
+      expect(
+        await prisma.inscripcionClase.count({
+          where: { nombre: 'Pedro Afuera', clase: { serieId } },
+        }),
+      ).toBe(18);
+    });
+
+    it('**si una clase está llena, no inscribe en ninguna y dice cuál**', async () => {
+      // El 22 de octubre se llenó con dos inscritos sueltos.
+      const llena = clases.find((clase) => clase.fecha === '2037-10-22')!;
+      for (const quien of ['bea', 'carla']) {
+        await request(servidor())
+          .post(`/api/admin/clases/${llena.id}/inscripciones`)
+          .set('Cookie', cookieAdmin)
+          .send({ socioId: await socio(quien) })
+          .expect(201);
+      }
+      const ana = await socio('ana');
+
+      const respuesta = await enLaSerie({ socioId: ana }).expect(409);
+
+      expect((respuesta.body as { message: string }).message).toContain(
+        'jueves 22 de octubre',
+      );
+      expect(await inscripcionesDe(ana)).toHaveLength(0);
+    });
+
+    it('**un socio ya inscrito en una clase suelta de la serie no queda duplicado**', async () => {
+      const ana = await socio('ana');
+      await request(servidor())
+        .post(`/api/admin/clases/${clases[3].id}/inscripciones`)
+        .set('Cookie', cookieAdmin)
+        .send({ socioId: ana })
+        .expect(201);
+
+      const respuesta = await enLaSerie({ socioId: ana }).expect(201);
+
+      expect(respuesta.body).toEqual({ inscritas: 17, yaEstaba: 1 });
+      expect(await inscripcionesDe(ana)).toHaveLength(18);
+    });
+
+    it('**salirse el 1 de diciembre conserva las inscripciones y asistencias anteriores**', async () => {
+      const ana = await socio('ana');
+      await enLaSerie({ socioId: ana }).expect(201);
+      // La primera clase ya se dio y vino.
+      await prisma.inscripcionClase.updateMany({
+        where: { socioId: ana, claseId: clases[0].id },
+        data: { estado: EstadoInscripcion.ASISTIO },
+      });
+
+      const { canceladas } = await app
+        .get(Inscripciones)
+        .salirDeLaSerie(
+          serieId,
+          { socioId: ana, nombre: null, telefono: null },
+          instanteEnElClub('2037-12-01', '00:00'),
+        );
+
+      const despues = await inscripcionesDe(ana);
+      const fechaDe = (claseId: number) =>
+        clases.find((clase) => clase.id === claseId)!.fecha;
+      expect(
+        despues
+          .filter((i) => fechaDe(i.claseId) < '2037-12-01')
+          .map((i) => i.estado),
+      ).toEqual([
+        EstadoInscripcion.ASISTIO,
+        ...Array<EstadoInscripcion>(12).fill(EstadoInscripcion.INSCRITA),
+      ]);
+      expect(
+        despues
+          .filter((i) => fechaDe(i.claseId) >= '2037-12-01')
+          .every((i) => i.estado === EstadoInscripcion.CANCELADA),
+      ).toBe(true);
+      expect(canceladas).toBe(5);
+    });
+
+    it('salirse por la ruta del panel cancela las que vienen', async () => {
+      const ana = await socio('ana');
+      await enLaSerie({ socioId: ana }).expect(201);
+
+      const respuesta = await enLaSerie(
+        { socioId: ana },
+        'inscripciones/cancelacion',
+      ).expect(201);
+
+      expect(respuesta.body).toEqual({ canceladas: 18 });
+    });
+
+    it('la ficha de una clase dice de qué serie es, y el socio de cada inscrito', async () => {
+      const ana = await socio('ana');
+      await enLaSerie({ socioId: ana }).expect(201);
+
+      const ficha = await request(servidor())
+        .get(`/api/admin/clases/${clases[0].id}`)
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      expect(ficha.body).toMatchObject({
+        serieId,
+        inscritos: [expect.objectContaining({ socioId: ana })],
+      });
+    });
+
+    it('una serie que no existe responde 404', async () => {
+      serieId = 999_999;
+      await enLaSerie({ socioId: 1 }).expect(404);
     });
   });
 });

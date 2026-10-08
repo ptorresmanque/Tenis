@@ -73,6 +73,27 @@ export class ClasesController {
   }
 
   /**
+   * Inscribe a un socio o a un alumno de afuera en cada clase que viene de la serie (T116).
+   * Si alguna está llena, no inscribe en ninguna y dice cuál.
+   */
+  @Post('series/:id/inscripciones')
+  inscribirEnLaSerie(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.inscripciones.inscribirEnLaSerie(id, leerInscripcion(cuerpo));
+  }
+
+  /** Lo saca de la serie: cancela solo las clases que vienen, no las que ya pasaron. */
+  @Post('series/:id/inscripciones/cancelacion')
+  salirDeLaSerie(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.inscripciones.salirDeLaSerie(id, leerInscripcion(cuerpo));
+  }
+
+  /**
    * Agenda la serie, con la decisión de cada fecha que tiene algo encima: `cancelar` o
    * `saltar` (T114). Una fecha con choque y sin decisión rechaza la serie entera.
    */
