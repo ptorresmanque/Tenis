@@ -32,8 +32,10 @@ const REGLAS: {
   },
   {
     campo: 'invitadosPorMes',
-    etiqueta: 'Invitados por mes',
-    ayuda: 'Jugar con otro socio del club no descuenta de este cupo.',
+    etiqueta: 'Reservas con invitados por mes',
+    ayuda:
+      'Una reserva con uno, dos o tres invitados cuenta como una. Jugar solo con socios ' +
+      'del club no la gasta.',
   },
   {
     campo: 'horasMinModificacion',

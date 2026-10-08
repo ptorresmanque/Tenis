@@ -129,6 +129,14 @@ describe('Reservar', () => {
     expect(texto(fixture)).not.toContain('$12.000');
   });
 
+  it('al socio le dice que una reserva con invitados gasta un cupo, traiga uno o tres (T105)', () => {
+    usuario.set({ socioId: 4 });
+    const fixture = montar();
+
+    expect(texto(fixture)).toContain('una de tus reservas con invitados del mes');
+    expect(texto(fixture)).toContain('traiga uno o tres');
+  });
+
   it('al socio se lo elige de una lista, no se teclea su número', async () => {
     // Tecleado a mano, el error aparece recién al enviar —"no hay ningún socio con
     // ese número"— y para entonces ya se eligió la cancha y la hora.

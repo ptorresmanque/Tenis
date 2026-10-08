@@ -142,6 +142,22 @@ describe('Reserva de no-socio con pago', () => {
     });
   });
 
+  it('los acompañantes del visitante quedan guardados con la reserva (T105)', async () => {
+    const respuesta = await reservarYPagar({
+      acompanantes: [{ nombre: 'Ana Pérez' }, { nombre: 'Beto' }],
+    });
+
+    expect(respuesta.status).toBe(201);
+    const guardados = await prisma.acompananteReserva.findMany({
+      where: { reservaId: respuesta.body.reservaId },
+      orderBy: { id: 'asc' },
+    });
+    expect(guardados.map((a) => [a.nombre, a.socioId])).toEqual([
+      ['Ana Pérez', null],
+      ['Beto', null],
+    ]);
+  });
+
   it('el monto lo calcula el servidor y el del cliente se ignora', async () => {
     // `SPEC.md` § Boundaries: nunca confiar en un precio que venga del cliente. Es el
     // guardia que T16 dejó anotado para acá, donde por fin hay un borde real.
@@ -425,6 +441,7 @@ describe('Reserva de no-socio con pago', () => {
           inicio: new Date(A_LAS_10),
           duracionMin: 60,
           ...datosDelVisitante,
+          acompanantes: [],
         },
         'http://localhost/api/reservas/retorno',
         ahora,

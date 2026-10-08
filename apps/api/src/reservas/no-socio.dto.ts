@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { leerDuracion } from './duracion';
 import { ReservaDeNoSocio } from './reserva-no-socio.service';
+import { MAXIMO_ACOMPANANTES } from './reservas.dto';
 
 /**
  * Lo que el visitante manda para reservar: qué hora quiere y cómo ubicarlo.
@@ -20,7 +21,46 @@ export function reservaDeNoSocioDeCuerpo(cuerpo: unknown): ReservaDeNoSocio {
     nombre: texto(datos.nombre, 'El nombre', 80),
     email: correo(datos.email),
     telefono: texto(datos.telefono, 'El teléfono', 20),
+    acompanantes: acompanantes(datos.acompanantes),
   };
+}
+
+/**
+ * Con quién juega el visitante: **solo nombres escritos**, de 0 a 3 (T105).
+ *
+ * No elige socios de una lista: mostrarle el padrón a alguien sin cuenta sería exponer
+ * datos de los socios (decisión del club, 2026-10-08). Por eso un `socioId` o un
+ * número de socio no se aceptan acá.
+ *
+ * ponytail: todavía puede no declarar a nadie. El mínimo de uno llega en T107, junto con
+ * el formulario que los pide: exigirlo antes rompería la reserva del visitante en QA.
+ */
+function acompanantes(valor: unknown): { nombre: string }[] {
+  if (valor === undefined || valor === null) return [];
+
+  if (!Array.isArray(valor)) {
+    throw new BadRequestException(
+      'Los acompañantes tienen que venir en una lista.',
+    );
+  }
+
+  if (valor.length > MAXIMO_ACOMPANANTES) {
+    throw new BadRequestException(
+      `Puedes declarar hasta ${MAXIMO_ACOMPANANTES} personas.`,
+    );
+  }
+
+  return valor.map((crudo) => {
+    const nombre = (crudo as { nombre?: unknown } | null)?.nombre;
+
+    if (typeof nombre !== 'string' || nombre.trim() === '') {
+      throw new BadRequestException(
+        'Escribe el nombre de cada persona con la que vas a jugar.',
+      );
+    }
+
+    return { nombre: texto(nombre, 'El nombre de cada acompañante', 80) };
+  });
 }
 
 function entero(valor: unknown): number {

@@ -52,8 +52,12 @@ export interface SolicitudDeSocio {
   reservasDelDia: number;
   /** Reservas pico activas que ya tiene esa semana, lunes a domingo. */
   reservasPicoDeLaSemana: number;
-  /** Invitados externos que ya registró en el mes del bloque. */
-  invitadosDelMes: number;
+  /**
+   * Reservas activas del mes del bloque en las que ya declaró al menos un invitado
+   * externo. Cuenta reservas y no personas: un dobles con tres invitados gasta una
+   * (A5, decisión del club del 2026-10-08).
+   */
+  reservasConInvitadosDelMes: number;
   /**
    * Le falta pagar la cuota de incorporación (T42).
    *
@@ -212,49 +216,28 @@ export function evaluarReservaDeSocio(
     };
   }
 
-  // Los de esta reserva se suman a los que ya lleva: mirando solo el historial, quien
-  // tiene dos cupos libres podría declarar tres invitados de una vez y el mes cerraría
-  // con cinco registrados.
-  const invitados = solicitud.acompanantes.filter(esInvitadoExterno).length;
+  // Una reserva con invitados gasta un cupo, traiga uno o tres (A5): el cupo cuenta
+  // reservas, no personas. Una solo con socios no gasta nada.
+  const traeInvitados = solicitud.acompanantes.some(esInvitadoExterno);
 
-  if (solicitud.invitadosDelMes + invitados > config.invitadosPorMes) {
+  if (
+    traeInvitados &&
+    solicitud.reservasConInvitadosDelMes + 1 > config.invitadosPorMes
+  ) {
     return {
       tipo: 'CUPO_INVITADOS',
       mensaje:
-        `${cuantosYCuantosQuedan(solicitud.invitadosDelMes, invitados, config.invitadosPorMes)} ` +
+        `Llevas ${solicitud.reservasConInvitadosDelMes} de ` +
+        `${config.invitadosPorMes} reservas con invitados este mes. ` +
         // La renovación se mide contra el mes del bloque y no contra hoy, que es el
         // mes contra el que se contó el cupo: quien reserva en agosto una hora de
         // septiembre con su cupo de septiembre agotado tiene que leer "1 de octubre".
         `El cupo se renueva el ${primeroDelMesSiguiente(bloque.inicio)}, ` +
-        'y jugar con otro socio del club no gasta invitados.',
+        'y jugar solo con socios del club no lo gasta.',
     };
   }
 
   return null;
-}
-
-/**
- * Por qué no alcanza, en los dos casos en que puede no alcanzar.
- *
- * Con el cupo agotado basta decir cuántos lleva. Pero quien lleva 2 de 4 y declara 3 de
- * una vez leería "Llevas 2 de 4 invitados este mes" junto a un rechazo, y eso se ve
- * como una falla del sistema: ve dos cupos libres y que igual no lo dejan.
- */
-function cuantosYCuantosQuedan(
-  usados: number,
-  declarados: number,
-  limite: number,
-): string {
-  const quedan = Math.max(limite - usados, 0);
-
-  if (quedan === 0) {
-    return `Llevas ${usados} de ${limite} invitados este mes.`;
-  }
-
-  return (
-    `Estás declarando ${declarados} invitados y solo te ` +
-    `${quedan === 1 ? 'queda 1' : `quedan ${quedan}`} de tus ${limite} de este mes.`
-  );
 }
 
 /** Un nombre y no un `socioId`: el socio acompañante no gasta cupo de nadie. */

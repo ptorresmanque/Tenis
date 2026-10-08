@@ -24,6 +24,8 @@ export interface ReservaDeNoSocio {
   nombre: string;
   email: string;
   telefono: string;
+  /** Con quién juega: solo nombres (T105). No gastan cupo de nadie. */
+  acompanantes: { nombre: string }[];
 }
 
 export interface PagoDeReservaIniciado {
@@ -277,6 +279,7 @@ export class ReservaNoSocioService {
         nombre: datos.nombre,
         email: datos.email,
         telefono: datos.telefono,
+        acompanantes: datos.acompanantes,
       });
     } catch (error) {
       if (error instanceof BloqueTomado) {
