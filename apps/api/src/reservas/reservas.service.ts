@@ -327,8 +327,8 @@ export class ReservasService {
             motivo: 'ACOMPANANTE_NO_ACTIVO',
             message:
               `El socio ${acompanante.numeroSocio} no tiene la membresía activa: ` +
-              'no puede entrar como acompañante. Puedes declararlo como invitado, ' +
-              'que descuenta de tus invitados del mes.',
+              'no puede entrar como acompañante. Puedes declararlo como invitado: la ' +
+              'reserva gastará una de tus reservas con invitados del mes.',
           });
         }
 

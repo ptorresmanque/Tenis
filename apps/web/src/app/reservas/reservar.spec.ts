@@ -45,6 +45,7 @@ describe('Reservar', () => {
     reservarComoSocio: vi.fn(),
     reservarComoNoSocio: vi.fn(),
     socios: vi.fn(),
+    misInvitados: vi.fn(),
   };
 
   /** El de 1 hora y media: termina 90 minutos después de empezar. */
@@ -65,6 +66,33 @@ describe('Reservar', () => {
 
   const texto = (fixture: ReturnType<typeof montar>) =>
     (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+  /** Escribe en el campo de con quién juega y aprieta "Agregar". */
+  const agregar = async (fixture: ReturnType<typeof montar>, nombre: string) => {
+    const elemento = fixture.nativeElement as HTMLElement;
+    const campo = elemento.querySelector<HTMLInputElement>('#acompanante')!;
+    campo.value = nombre;
+    campo.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    [...elemento.querySelectorAll('button')]
+      .find((boton) => boton.textContent?.trim() === 'Agregar')!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+
+  const enviar = async (fixture: ReturnType<typeof montar>) => {
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+
+  const sugerencias = (fixture: ReturnType<typeof montar>) =>
+    [...(fixture.nativeElement as HTMLElement).querySelectorAll('datalist option')].map(
+      (opcion) => `${(opcion as HTMLOptionElement).value} (${(opcion as HTMLOptionElement).label})`,
+    );
 
   beforeEach(() => {
     // jsdom no implementa el diálogo nativo: `showModal` y `close` no existen y el
@@ -88,6 +116,8 @@ describe('Reservar', () => {
       { numeroSocio: '008', nombre: 'Ana Fuentes' },
       { numeroSocio: '012', nombre: 'Bruno Salas' },
     ]);
+    reservas.misInvitados.mockReset();
+    reservas.misInvitados.mockResolvedValue(['Juan Pérez']);
 
     TestBed.configureTestingModule({
       providers: [
@@ -137,84 +167,213 @@ describe('Reservar', () => {
     expect(texto(fixture)).toContain('traiga uno o tres');
   });
 
-  it('al socio se lo elige de una lista, no se teclea su número', async () => {
-    // Tecleado a mano, el error aparece recién al enviar —"no hay ningún socio con
-    // ese número"— y para entonces ya se eligió la cancha y la hora.
-    usuario.set({ socioId: 4 });
-    const fixture = montar();
-    await fixture.whenStable();
-    fixture.detectChanges();
+  /**
+   * T107. Un solo campo, con sugerencias: los socios del club y los invitados anteriores
+   * del socio (T106), marcados como tales. Lo que no está en ninguna lista queda como
+   * invitado nuevo. Antes eran un selector de tipo y dos campos distintos.
+   */
+  describe('con quién juega el socio (T107)', () => {
+    const montarSocio = async () => {
+      usuario.set({ socioId: 4 });
+      reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
+      const fixture = montar();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture;
+    };
 
-    const elemento = fixture.nativeElement as HTMLElement;
-    const tipo = elemento.querySelector<HTMLSelectElement>(
-      'select[aria-label="Tipo de acompañante"]',
-    )!;
-    tipo.value = 'socio';
-    tipo.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    it('el campo sugiere los socios del club con su número y sus invitados anteriores', async () => {
+      // El número va en la sugerencia: dos socios pueden llamarse igual, y tecleado a mano
+      // el error aparecía recién al enviar.
+      const fixture = await montarSocio();
 
-    const select = elemento.querySelector<HTMLSelectElement>(
-      'select[aria-label="Socio con el que vas a jugar"]',
-    )!;
+      expect(sugerencias(fixture)).toEqual([
+        'Ana Fuentes · N.º 008 (Socio del club)',
+        'Bruno Salas · N.º 012 (Socio del club)',
+        'Juan Pérez (Invitado anterior)',
+      ]);
+    });
 
-    expect(select).not.toBeNull();
-    expect(select.textContent).toContain('Ana Fuentes');
-    expect(select.textContent).toContain('008');
+    it('**agrega un socio, un invitado anterior y uno nuevo, y no puede agregar un cuarto**', async () => {
+      const fixture = await montarSocio();
+
+      await agregar(fixture, 'Ana Fuentes · N.º 008');
+      await agregar(fixture, 'Juan Pérez');
+      await agregar(fixture, 'Carla Nueva');
+
+      // El tercero cierra la lista: el campo se va y dice por qué.
+      const elemento = fixture.nativeElement as HTMLElement;
+      expect(elemento.querySelector('#acompanante')).toBeNull();
+      expect(texto(fixture)).toContain('3 es el máximo por reserva');
+
+      await enviar(fixture);
+
+      expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acompanantes: [
+            { numeroSocio: '008' },
+            { nombre: 'Juan Pérez' },
+            { nombre: 'Carla Nueva' },
+          ],
+        }),
+      );
+    });
+
+    it('la lista dice quién es socio y quién invitado: así se ve cómo se leyó cada nombre', async () => {
+      const fixture = await montarSocio();
+
+      await agregar(fixture, 'Ana Fuentes · N.º 008');
+      await agregar(fixture, 'Carla Nueva');
+
+      expect(texto(fixture)).toContain('Ana Fuentes · socio N.º 008');
+      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+    });
+
+    it('un socio escrito a mano, sin elegirlo de la lista, entra como socio y no gasta cupo', async () => {
+      // Como invitado le gastaría una reserva con invitados del mes por alguien que es
+      // socio. Mayúsculas y tildes no importan, igual que en los invitados anteriores.
+      const fixture = await montarSocio();
+
+      await agregar(fixture, 'ana fuentes');
+      await enviar(fixture);
+
+      expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+        expect.objectContaining({ acompanantes: [{ numeroSocio: '008' }] }),
+      );
+    });
+
+    it('un socio ya agregado deja de sugerirse', async () => {
+      const fixture = await montarSocio();
+
+      await agregar(fixture, 'Ana Fuentes · N.º 008');
+      await agregar(fixture, 'Juan Pérez');
+
+      expect(sugerencias(fixture)).toEqual(['Bruno Salas · N.º 012 (Socio del club)']);
+    });
+
+    it('Enter en el campo agrega a la persona, no envía la reserva', async () => {
+      const fixture = await montarSocio();
+      const campo = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+        '#acompanante',
+      )!;
+      campo.value = 'Carla Nueva';
+      campo.dispatchEvent(new Event('input'));
+      campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(reservas.reservarComoSocio).not.toHaveBeenCalled();
+      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+    });
+
+    it('lo escrito sin apretar "Agregar" también cuenta al reservar', async () => {
+      // "Agregar" es un paso que se salta fácil: sin esto, la reserva fallaba por no
+      // declarar a nadie con el nombre escrito a la vista.
+      const fixture = await montarSocio();
+      const campo = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+        '#acompanante',
+      )!;
+      campo.value = 'Carla Nueva';
+      campo.dispatchEvent(new Event('input'));
+
+      await enviar(fixture);
+
+      expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+        expect.objectContaining({ acompanantes: [{ nombre: 'Carla Nueva' }] }),
+      );
+    });
+
+    it('sin nadie declarado no llama a la API: lo dice antes', async () => {
+      const fixture = await montarSocio();
+
+      await enviar(fixture);
+
+      expect(reservas.reservarComoSocio).not.toHaveBeenCalled();
+      expect(texto(fixture)).toContain('al menos una persona');
+    });
+
+    it('si la lista de socios no carga, lo dice y deja reintentar', async () => {
+      // Una consulta fallida no es un club sin socios: sin la lista, un socio escrito a
+      // mano quedaría como invitado y gastaría cupo, y hay que decirlo.
+      reservas.socios.mockRejectedValue(new Error('sin red'));
+      const fixture = await montarSocio();
+
+      expect(texto(fixture)).toContain('No pudimos cargar la lista de socios');
+      expect(sugerencias(fixture)).toEqual(['Juan Pérez (Invitado anterior)']);
+
+      // Y el reintento vuelve a preguntar: sin eso, el aviso es un callejón sin salida.
+      reservas.socios.mockResolvedValue([{ numeroSocio: '008', nombre: 'Ana Fuentes' }]);
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+        .find((boton) => boton.textContent?.includes('Reintentar'))!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(sugerencias(fixture)).toContain('Ana Fuentes · N.º 008 (Socio del club)');
+    });
+
+    it('si sus invitados anteriores no cargan, el campo sigue sirviendo sin ellos', async () => {
+      reservas.misInvitados.mockRejectedValue(new Error('sin red'));
+      const fixture = await montarSocio();
+
+      expect(sugerencias(fixture)).toHaveLength(2);
+      await agregar(fixture, 'Carla Nueva');
+      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+    });
   });
 
-  it('si la lista de socios no carga, lo dice y deja reintentar', async () => {
-    // Una consulta fallida no es un club sin socios. Decir "no hay otros socios"
-    // ahí es afirmar algo falso del padrón y esconder que basta con reintentar.
-    reservas.socios.mockRejectedValue(new Error('sin red'));
-    usuario.set({ socioId: 4 });
+  /** T107. El visitante escribe de 1 a 3 nombres: sin sugerencias, que serían el padrón. */
+  describe('con quién juega el visitante (T107)', () => {
+    const conDatos = () =>
+      usuario.set({
+        socioId: null,
+        nombre: 'Patricio',
+        apellido: 'Manquepillán',
+        email: 'patricio@ejemplo.cl',
+        telefono: '+56 9 1111 2222',
+      });
 
-    const fixture = montar();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    it('escribe los nombres sin sugerencias, y no se le piden socios ni invitados anteriores', async () => {
+      conDatos();
+      const fixture = montar();
+      await fixture.whenStable();
+      fixture.detectChanges();
 
-    const elemento = fixture.nativeElement as HTMLElement;
-    const tipo = elemento.querySelector<HTMLSelectElement>(
-      'select[aria-label="Tipo de acompañante"]',
-    )!;
-    tipo.value = 'socio';
-    tipo.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+      const campo = (fixture.nativeElement as HTMLElement).querySelector('#acompanante');
+      expect(campo).not.toBeNull();
+      expect(campo?.getAttribute('list')).toBeNull();
+      expect(reservas.socios).not.toHaveBeenCalled();
+      expect(reservas.misInvitados).not.toHaveBeenCalled();
+    });
 
-    expect(texto(fixture)).toContain('No pudimos cargar la lista de socios');
-    expect(texto(fixture)).not.toContain('No hay otros socios');
-    expect(
-      elemento.querySelector('select[aria-label="Socio con el que vas a jugar"]'),
-    ).toBeNull();
+    it('**no puede ir a pagar sin al menos un nombre**', async () => {
+      conDatos();
+      const fixture = montar();
+      await fixture.whenStable();
 
-    // Y el reintento vuelve a preguntar: sin eso, el aviso es un callejón sin salida.
-    reservas.socios.mockResolvedValue([
-      { numeroSocio: '008', nombre: 'Ana Fuentes' },
-    ]);
-    Array.from(elemento.querySelectorAll('button'))
-      .find((boton) => boton.textContent?.includes('Reintentar'))!
-      .click();
-    await fixture.whenStable();
-    fixture.detectChanges();
+      await enviar(fixture);
 
-    expect(texto(fixture)).toContain('Ana Fuentes');
-  });
+      expect(reservas.reservarComoNoSocio).not.toHaveBeenCalled();
+      expect(texto(fixture)).toContain('al menos una persona');
+    });
 
-  it('el invitado se sigue escribiendo a mano: el club no lo conoce', async () => {
-    usuario.set({ socioId: 4 });
-    const fixture = montar();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    it('manda los nombres que escribió', async () => {
+      conDatos();
+      // Rechazado a propósito: así no sale a la pasarela, que en jsdom no existe.
+      reservas.reservarComoNoSocio.mockRejectedValue({
+        status: 409,
+        error: { motivo: 'BLOQUE_TOMADO', message: 'La tomaron.' },
+      });
+      const fixture = montar();
+      await fixture.whenStable();
 
-    // "Invitado" es el tipo por omisión, así que lo que hay es el campo de texto.
-    const elemento = fixture.nativeElement as HTMLElement;
-    expect(
-      elemento.querySelector('input[aria-label="Nombre del invitado"]'),
-    ).not.toBeNull();
-    expect(
-      elemento.querySelector('select[aria-label="Socio con el que vas a jugar"]'),
-    ).toBeNull();
+      await agregar(fixture, 'Beto Rival');
+      await enviar(fixture);
+
+      expect(reservas.reservarComoNoSocio).toHaveBeenCalledWith(
+        expect.objectContaining({ acompanantes: [{ nombre: 'Beto Rival' }] }),
+      );
+    });
   });
 
   it('a quien ya entró no se le vuelven a pedir sus datos', async () => {
@@ -274,10 +433,8 @@ describe('Reservar', () => {
     reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
 
     const fixture = montar(deHoraYMedia);
-    (fixture.nativeElement as HTMLElement)
-      .querySelector('form')!
-      .dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
+    await agregar(fixture, 'Carla Nueva');
+    await enviar(fixture);
 
     expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
       expect.objectContaining({ duracionMin: 90 }),
@@ -300,10 +457,8 @@ describe('Reservar', () => {
 
     const fixture = montar(deHoraYMedia);
     await fixture.whenStable();
-    (fixture.nativeElement as HTMLElement)
-      .querySelector('form')!
-      .dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
+    await agregar(fixture, 'Beto Rival');
+    await enviar(fixture);
 
     expect(reservas.reservarComoNoSocio).toHaveBeenCalledWith(
       expect.objectContaining({ duracionMin: 90 }),
@@ -315,10 +470,8 @@ describe('Reservar', () => {
     reservas.reservarComoSocio.mockResolvedValue({ folio: 'F', token: 't' });
 
     const fixture = montar();
-    (fixture.nativeElement as HTMLElement)
-      .querySelector('form')!
-      .dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
+    await agregar(fixture, 'Carla Nueva');
+    await enviar(fixture);
 
     expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
       expect.objectContaining({ duracionMin: 60 }),
@@ -340,11 +493,8 @@ describe('Reservar', () => {
     });
 
     const fixture = montar();
-    (fixture.nativeElement as HTMLElement)
-      .querySelector('form')!
-      .dispatchEvent(new Event('submit'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await agregar(fixture, 'Carla Nueva');
+    await enviar(fixture);
 
     expect(texto(fixture)).toContain('Ya tienes tu reserva de ese día');
   });

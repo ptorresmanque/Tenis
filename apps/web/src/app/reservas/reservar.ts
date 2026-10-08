@@ -1,9 +1,11 @@
 import {
+  afterNextRender,
   Component,
   effect,
   computed,
   ElementRef,
   inject,
+  Injector,
   input,
   output,
   resource,
@@ -24,7 +26,11 @@ import {
   AcompananteNuevo,
   mensajeDeRechazo,
   Reservas,
+  SocioDelDirectorio,
 } from './reservas.service';
+
+/** El mismo tope que la API (`MAXIMO_ACOMPANANTES` en `reservas.dto.ts`, T105). */
+const MAXIMO_ACOMPANANTES = 3;
 
 /**
  * El formulario de reserva, para socio y para visitante.
@@ -70,111 +76,7 @@ import {
         }
 
         <form class="mt-4 space-y-4" [formGroup]="formulario" (ngSubmit)="enviar()">
-          @if (esSocio()) {
-            <fieldset class="space-y-3">
-              <legend class="font-display text-sm font-bold tracking-wide uppercase">
-                ¿Con quién vas a jugar?
-              </legend>
-              <p class="text-sm text-muted-foreground">
-                Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta
-                una de tus reservas con invitados del mes, traiga uno o tres.
-              </p>
-
-              @for (acompanante of acompanantes(); track $index) {
-                <div class="flex items-center gap-2">
-                  <span class="flex-1 border border-border px-3 py-2 text-sm font-semibold">
-                    {{ etiqueta(acompanante) }}
-                  </span>
-                  <button
-                    type="button"
-                    class="boton boton-texto boton-chico"
-                    (click)="quitar($index)"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              }
-
-              <div class="flex flex-wrap gap-2">
-                <!-- Los campos y los botones del diálogo usan las primitivas (TV5.2):
-                     eran clases hechas a mano, de 40px de alto. -->
-                <select
-                  class="campo w-auto"
-                  [value]="tipo()"
-                  (change)="cambiarTipo($event)"
-                  aria-label="Tipo de acompañante"
-                >
-                  <option value="invitado">Invitado</option>
-                  <option value="socio">Socio del club</option>
-                </select>
-
-                <!-- Al socio se lo elige de la lista y al invitado se lo escribe: el
-                     número de socio no se lo sabe nadie de memoria, y tecleado a mano
-                     el error recién aparece al enviar, con "no hay ningún socio con
-                     ese número". Al invitado, en cambio, el club no lo conoce: no hay
-                     lista de donde sacarlo. -->
-                @if (tipo() === 'socio') {
-                  <!-- La lista que no cargó no es una lista vacía. Decir "no hay
-                       otros socios" cuando lo que falló fue la consulta es afirmar
-                       algo falso sobre el padrón del club, y deja a quien reserva
-                       sin saber que basta con reintentar. -->
-                  @if (socios.error()) {
-                    <p
-                      role="alert"
-                      class="min-w-0 flex-1 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                    >
-                      No pudimos cargar la lista de socios.
-                      <button
-                        type="button"
-                        class="cursor-pointer font-semibold underline"
-                        (click)="socios.reload()"
-                      >
-                        Reintentar
-                      </button>
-                    </p>
-                  } @else {
-                    <select
-                      class="campo w-auto min-w-0 flex-1"
-                      aria-label="Socio con el que vas a jugar"
-                      [value]="porAgregar()"
-                      (change)="porAgregar.set($any($event.target).value)"
-                    >
-                      <option value="">
-                        {{
-                          socios.isLoading()
-                            ? 'Buscando socios…'
-                            : sinSociosDisponibles()
-                              ? 'No hay otros socios para elegir'
-                              : 'Elige un socio'
-                        }}
-                      </option>
-                      @for (socio of sociosDisponibles(); track socio.numeroSocio) {
-                        <option [value]="socio.numeroSocio">
-                          {{ socio.nombre }} · N.º {{ socio.numeroSocio }}
-                        </option>
-                      }
-                    </select>
-                  }
-                } @else {
-                  <input
-                    class="campo w-auto min-w-0 flex-1"
-                    placeholder="Nombre y apellido"
-                    aria-label="Nombre del invitado"
-                    [value]="porAgregar()"
-                    (input)="porAgregar.set($any($event.target).value)"
-                  />
-                }
-                <button
-                  type="button"
-                  class="boton boton-secundario"
-                  [disabled]="porAgregar().trim() === ''"
-                  (click)="agregar()"
-                >
-                  Agregar
-                </button>
-              </div>
-            </fieldset>
-          } @else {
+          @if (!esSocio()) {
             <div>
               <label for="nombre" class="block text-sm font-medium">Nombre</label>
               <input
@@ -205,6 +107,98 @@ import {
             </div>
           }
 
+          <!-- Con quién juega, de 1 a 3 (T107). Un solo campo: al socio le sugiere los
+               socios del club y sus invitados anteriores; lo que no está en ninguna lista
+               queda como invitado nuevo. Al visitante, sin sugerencias: serían el padrón. -->
+          <fieldset class="space-y-3">
+            <legend class="font-display text-sm font-bold tracking-wide uppercase">
+              ¿Con quién vas a jugar?
+            </legend>
+            <p class="text-sm text-muted-foreground">
+              @if (esSocio()) {
+                Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta
+                una de tus reservas con invitados del mes, traiga uno o tres.
+              } @else {
+                Escribe el nombre de cada persona, de una a tres.
+              }
+            </p>
+
+            <!-- Cómo se leyó cada nombre, a la vista: un socio escrito a mano que quedó
+                 como invitado se corrige acá, antes de gastar cupo. -->
+            @for (acompanante of acompanantes(); track $index) {
+              <div class="flex items-center gap-2">
+                <span class="flex-1 border border-border px-3 py-2 text-sm font-semibold">
+                  {{ etiqueta(acompanante) }}
+                </span>
+                <button
+                  type="button"
+                  class="boton boton-texto boton-chico"
+                  (click)="quitar($index)"
+                >
+                  Quitar<span class="sr-only"> a {{ etiqueta(acompanante) }}</span>
+                </button>
+              </div>
+            }
+
+            @if (acompanantes().length < maximo) {
+              <div class="flex flex-wrap gap-2">
+                <!-- datalist y no un combobox hecho a mano: el navegador trae el filtro
+                     mientras se escribe, el teclado y el lector de pantalla. El socio va
+                     con su número porque dos pueden llamarse igual. Enter agrega y no
+                     envía: con el formulario, Enter reservaba con la mitad escrita. -->
+                <input
+                  #campo
+                  id="acompanante"
+                  class="campo w-auto min-w-0 flex-1"
+                  autocomplete="off"
+                  placeholder="Nombre y apellido"
+                  [attr.aria-label]="
+                    esSocio() ? 'Nombre de un socio o de un invitado' : 'Nombre de quien juega contigo'
+                  "
+                  [attr.list]="esSocio() ? 'sugerencias-acompanante' : null"
+                  [value]="porAgregar()"
+                  (input)="porAgregar.set($any($event.target).value)"
+                  (keydown.enter)="$event.preventDefault(); agregar()"
+                />
+                @if (esSocio()) {
+                  <datalist id="sugerencias-acompanante">
+                    @for (sugerencia of sugerencias(); track sugerencia.valor) {
+                      <option [value]="sugerencia.valor" [label]="sugerencia.tipo"></option>
+                    }
+                  </datalist>
+                }
+                <button
+                  type="button"
+                  class="boton boton-secundario"
+                  [disabled]="porAgregar().trim() === ''"
+                  (click)="agregar()"
+                >
+                  Agregar
+                </button>
+              </div>
+            } @else {
+              <p class="text-sm text-muted-foreground">
+                Listo: {{ maximo }} es el máximo por reserva.
+              </p>
+            }
+
+            <!-- La lista que no cargó no es una lista vacía, y sin ella un socio escrito a
+                 mano quedaría como invitado y gastaría cupo: se dice, con la salida. -->
+            @if (esSocio() && socios.error()) {
+              <p role="alert" class="bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                No pudimos cargar la lista de socios: uno escrito a mano quedaría como
+                invitado.
+                <button
+                  type="button"
+                  class="cursor-pointer font-semibold underline"
+                  (click)="socios.reload()"
+                >
+                  Reintentar
+                </button>
+              </p>
+            }
+          </fieldset>
+
           @if (error()) {
             <!-- El mensaje del servidor tal cual: ya viene escrito para la persona,
                  con el límite y cuándo se renueva. -->
@@ -219,7 +213,12 @@ import {
             </button>
             <!-- Primario y no verde (decisión 6 del plan): el verde quedó para
                  "libre", y la acción principal es la misma en todo el sitio. -->
-            <button type="submit" class="boton boton-primario" [disabled]="enviando()">
+            <button
+              #confirmar
+              type="submit"
+              class="boton boton-primario"
+              [disabled]="enviando()"
+            >
               {{ enviando() ? 'Enviando…' : esSocio() ? 'Reservar' : 'Ir a pagar' }}
             </button>
           </div>
@@ -261,16 +260,20 @@ export class Reservar {
   );
 
   protected readonly acompanantes = signal<AcompananteNuevo[]>([]);
-  protected readonly tipo = signal<'invitado' | 'socio'>('invitado');
   protected readonly porAgregar = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly enviando = signal(false);
+  protected readonly maximo = MAXIMO_ACOMPANANTES;
+
+  private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');
+  private readonly confirmar = viewChild.required<ElementRef<HTMLButtonElement>>('confirmar');
+  private readonly injector = inject(Injector);
 
   /**
-   * Los socios del club, para elegir de una lista.
+   * Los socios del club, para sugerirlos.
    *
-   * Solo se pide si quien mira es socio: el visitante no declara acompañantes y el
-   * endpoint le respondería 403.
+   * Solo se pide si quien mira es socio: el visitante no ve el padrón y el endpoint le
+   * respondería 403.
    */
   protected readonly socios = resource({
     params: () => (this.esSocio() ? {} : undefined),
@@ -278,29 +281,49 @@ export class Reservar {
     defaultValue: [],
   });
 
-  /** Los que todavía no están en la lista: agregar dos veces al mismo no es válido. */
-  protected readonly sociosDisponibles = computed(() => {
+  /** Los invitados que el socio declaró antes (T106), también para sugerirlos. */
+  private readonly invitadosAnteriores = resource({
+    params: () => (this.esSocio() ? {} : undefined),
+    loader: () => this.reservas.misInvitados(),
+    defaultValue: [],
+  });
+
+  /**
+   * Los que todavía no están en la lista: agregar dos veces al mismo no es válido.
+   *
+   * `hasValue` antes de `value`: un resource que falló lanza al leerlo, aunque tenga valor
+   * por defecto.
+   */
+  private readonly sociosDisponibles = computed(() => {
     const puestos = new Set(
       this.acompanantes()
         .map((acompanante) => acompanante.numeroSocio)
         .filter((numero) => numero !== undefined),
     );
+    const socios = this.socios.hasValue() ? this.socios.value() : [];
 
-    return this.socios.value().filter((socio) => !puestos.has(socio.numeroSocio));
+    return socios.filter((socio) => !puestos.has(socio.numeroSocio));
   });
 
-  /**
-   * No quedan socios que ofrecer, y es porque no los hay.
-   *
-   * La consulta fallida se descuenta acá y no solo en la plantilla: con la lista
-   * vacía por un error, esto respondería que el club no tiene más socios.
-   */
-  protected readonly sinSociosDisponibles = computed(
-    () =>
-      !this.socios.isLoading() &&
-      this.socios.error() === undefined &&
-      this.sociosDisponibles().length === 0,
-  );
+  /** Lo que sugiere el campo: los socios que quedan y los invitados anteriores que faltan. */
+  protected readonly sugerencias = computed(() => {
+    const puestos = new Set(
+      this.acompanantes().flatMap(({ nombre }) => (nombre ? [clave(nombre)] : [])),
+    );
+    const invitados = this.invitadosAnteriores.hasValue()
+      ? this.invitadosAnteriores.value()
+      : [];
+
+    return [
+      ...this.sociosDisponibles().map((socio) => ({
+        valor: comoSugerencia(socio),
+        tipo: 'Socio del club',
+      })),
+      ...invitados
+        .filter((nombre) => !puestos.has(clave(nombre)))
+        .map((nombre) => ({ valor: nombre, tipo: 'Invitado anterior' })),
+    ];
+  });
 
   constructor() {
     // `showModal()` y no el atributo `open`: solo la primera vuelve el resto de la
@@ -340,49 +363,80 @@ export class Reservar {
     telefono: ['', [Validators.required]],
   });
 
+  /**
+   * Agrega lo escrito: el socio que nombra, si nombra a uno, y si no, un invitado. Después
+   * el foco vuelve al campo para el siguiente, o al botón de reservar si ya son tres.
+   */
   protected agregar(): void {
-    const valor = this.porAgregar().trim();
-    if (valor === '') return;
+    const valor = this.porAgregar().trim().replace(/\s+/g, ' ');
+    if (valor === '' || this.acompanantes().length >= MAXIMO_ACOMPANANTES) return;
+
+    const socio = this.esSocio() ? this.socioQueNombra(valor) : undefined;
 
     this.acompanantes.update((lista) => [
       ...lista,
-      this.tipo() === 'socio' ? { numeroSocio: valor } : { nombre: valor },
+      socio ? { numeroSocio: socio.numeroSocio } : { nombre: valor },
     ]);
     this.porAgregar.set('');
+    this.error.set(null);
+
+    afterNextRender(
+      () => (this.campo() ?? this.confirmar()).nativeElement.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /**
+   * El socio que lo escrito nombra: el de la sugerencia elegida, o el único que se llama
+   * así. Escrito a mano sigue siendo socio: como invitado le gastaría cupo por alguien
+   * que no lo gasta. Si dos se llaman igual, sin el número no se sabe cuál, y queda como
+   * invitado a la vista de la lista para corregirlo.
+   */
+  private socioQueNombra(valor: string): SocioDelDirectorio | undefined {
+    const disponibles = this.sociosDisponibles();
+    const elegido = disponibles.find((socio) => comoSugerencia(socio) === valor);
+    if (elegido) return elegido;
+
+    const homonimos = disponibles.filter((socio) => clave(socio.nombre) === clave(valor));
+
+    return homonimos.length === 1 ? homonimos[0] : undefined;
   }
 
   protected quitar(indice: number): void {
     this.acompanantes.update((lista) => lista.filter((_, i) => i !== indice));
   }
 
-  protected cambiarTipo(evento: Event): void {
-    this.tipo.set(
-      (evento.target as HTMLSelectElement).value === 'socio' ? 'socio' : 'invitado',
-    );
-    // Lo tecleado para un invitado no es un número de socio ni al revés: arrastrarlo
-    // al otro campo agrega a alguien que nadie eligió.
-    this.porAgregar.set('');
-  }
-
-  /** Cómo se lee un acompañante ya agregado. Al socio se lo nombra, no se lo numera. */
+  /**
+   * Cómo se lee un acompañante ya agregado. Al socio se lo nombra con su número; al
+   * invitado se lo marca, para que se vea cómo quedó leído lo que se escribió.
+   */
   protected etiqueta(acompanante: AcompananteNuevo): string {
-    if (!acompanante.numeroSocio) return acompanante.nombre ?? '';
+    if (!acompanante.numeroSocio) {
+      return this.esSocio() ? `${acompanante.nombre} · invitado` : (acompanante.nombre ?? '');
+    }
 
-    const socio = this.socios
-      .value()
-      .find((candidato) => candidato.numeroSocio === acompanante.numeroSocio);
+    const socios = this.socios.hasValue() ? this.socios.value() : [];
+    const socio = socios.find((candidato) => candidato.numeroSocio === acompanante.numeroSocio);
 
     return socio
-      ? `${socio.nombre} · N.º ${acompanante.numeroSocio}`
-      : `Socio ${acompanante.numeroSocio}`;
+      ? `${socio.nombre} · socio N.º ${acompanante.numeroSocio}`
+      : `Socio N.º ${acompanante.numeroSocio}`;
   }
 
   protected async enviar(): Promise<void> {
     this.error.set(null);
 
+    // "Agregar" es un paso que se salta fácil: lo escrito a la vista también cuenta.
+    if (this.porAgregar().trim() !== '') this.agregar();
+
     if (!this.esSocio() && this.formulario.invalid) {
       this.formulario.markAllAsTouched();
       this.error.set('Revisa tu nombre, correo y teléfono.');
+      return;
+    }
+
+    if (this.acompanantes().length === 0) {
+      this.error.set('Escribe con quién vas a jugar: al menos una persona.');
       return;
     }
 
@@ -405,6 +459,9 @@ export class Reservar {
           inicio: this.bloque().inicio,
           duracionMin: minutosDe(this.bloque()),
           ...this.formulario.getRawValue(),
+          acompanantes: this.acompanantes().flatMap(({ nombre }) =>
+            nombre ? [{ nombre }] : [],
+          ),
         });
 
         // A la pasarela por POST: Webpay no abre el formulario de pago con un GET.
@@ -419,4 +476,19 @@ export class Reservar {
 
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
+}
+
+/** Cómo se sugiere un socio: con su número, porque dos pueden llamarse igual. */
+function comoSugerencia(socio: SocioDelDirectorio): string {
+  return `${socio.nombre} · N.º ${socio.numeroSocio}`;
+}
+
+/** Un nombre sin mayúsculas, tildes ni espacios de más, para compararlo con otro. */
+function clave(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('es')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
