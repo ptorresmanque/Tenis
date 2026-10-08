@@ -260,8 +260,9 @@ model Profesor {
   /// Lo que el club le paga la hora. Referencia interna: no se publica.
   tarifaHoraClp Int?    @map("tarifa_hora_clp")
 
-  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario Usuario?        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   clases  Clase[]
+  series  SerieDeClases[]
 
   @@map("profesor")
 }
@@ -386,6 +387,7 @@ model Cancha {
   bloqueos      Bloqueo[]
   reservas      Reserva[]
   clases        Clase[]
+  series        SerieDeClases[]
   transmisiones Transmision[]
 
   @@map("cancha")
@@ -860,16 +862,56 @@ model Clase {
   canceladaEn       DateTime? @map("cancelada_en")
   motivoCancelacion String?   @map("motivo_cancelacion")
 
+  /// La serie que la agendó (T113), si viene de una. Cada clase de la serie es una fila
+  /// propia: la asistencia, los inscritos y la cancelación siguen siendo por clase.
+  serieId Int? @map("serie_id")
+
   creadaEn DateTime @default(now()) @map("creada_en")
 
   profesor      Profesor           @relation(fields: [profesorId], references: [id])
   cancha        Cancha             @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   bloqueo       Bloqueo?           @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
+  serie         SerieDeClases?     @relation(fields: [serieId], references: [id], onDelete: SetNull)
   inscripciones InscripcionClase[]
 
   @@index([inicio])
   @@index([canchaId, inicio])
+  @@index([serieId])
   @@map("clase")
+}
+
+/// Una serie de clases recurrentes (T113): "martes y jueves de 19 a 20, del 14 de octubre
+/// al 15 de diciembre". Dura como máximo 6 meses (A10).
+///
+/// Guarda la regla y no las fechas: las fechas son las clases que generó. La hora va como
+/// reloj del club ("19:00") y no como instante, porque una serie que cruza el cambio de
+/// horario tiene que quedar a las 19:00 antes y después.
+model SerieDeClases {
+  id         Int @id @default(autoincrement())
+  profesorId Int @map("profesor_id")
+  canchaId   Int @map("cancha_id")
+
+  /// Los días de la semana, de 0 (domingo) a 6 (sábado), separados por coma: "2,4".
+  diasSemana String @map("dias_semana") @db.VarChar(13)
+  horaDesde  String @map("hora_desde") @db.Char(5)
+  horaHasta  String @map("hora_hasta") @db.Char(5)
+  /// Fechas civiles del club, las dos incluidas.
+  desde      DateTime @db.Date
+  hasta      DateTime @db.Date
+
+  cupoMaximo Int        @map("cupo_maximo")
+  nivel      NivelClase
+  notas      String?
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  profesor Profesor @relation(fields: [profesorId], references: [id])
+  cancha   Cancha   @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  clases   Clase[]
+
+  @@index([canchaId])
+  @@index([profesorId])
+  @@map("serie_de_clases")
 }
 
 enum EstadoInscripcion {

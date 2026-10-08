@@ -478,7 +478,7 @@ export function instanteDeCuerpo(
   }
 }
 
-function diaValido(valor: unknown): number {
+export function diaValido(valor: unknown): number {
   const dia = entero(valor, 'El día', 0);
 
   if (dia > 6) {
@@ -494,7 +494,7 @@ function diaValido(valor: unknown): number {
  * y una tarifa que empieza a regir un día distinto del que el admin escribió es
  * un cobro equivocado.
  */
-function fechaDeCuerpo(valor: unknown, campo: string): Date {
+export function fechaDeCuerpo(valor: unknown, campo: string): Date {
   try {
     return fechaDelClub(typeof valor === 'string' ? valor : '');
   } catch {
