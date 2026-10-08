@@ -107,9 +107,12 @@ describe('Datos del club y administradores', () => {
       // cuántos invitados por mes tiene un socio y cuánto dura la sanción.
       const publico = await request(servidor()).get('/api/club').expect(200);
 
+      // La ubicación sí es pública (T100): es para el mapa de "El club".
       expect(Object.keys(publico.body as object).sort()).toEqual([
         'direccion',
         'email',
+        'latitud',
+        'longitud',
         'nombre',
         'telefono',
       ]);

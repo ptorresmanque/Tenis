@@ -8,6 +8,9 @@ export interface DatosDelClub {
   direccion: string;
   telefono: string;
   email: string;
+  /** Para el mapa de "El club" (T100). Nulas mientras el admin no la cargue. */
+  latitud: number | null;
+  longitud: number | null;
 }
 
 /**
@@ -28,7 +31,14 @@ export class ClubPublicoController {
   @Get()
   async datos(): Promise<DatosDelClub> {
     const club = await this.prisma.configuracionClub.findFirstOrThrow({
-      select: { nombre: true, direccion: true, telefono: true, email: true },
+      select: {
+        nombre: true,
+        direccion: true,
+        telefono: true,
+        email: true,
+        latitud: true,
+        longitud: true,
+      },
     });
 
     return club;

@@ -7,6 +7,7 @@ import {
 } from '../comun/tiempo';
 import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
+import { leerUbicacion } from './ubicacion';
 
 /**
  * Validación del borde del panel de administración, con el patrón de
@@ -139,6 +140,9 @@ export interface CambiosDeConfiguracion {
   direccion: string;
   telefono: string;
   email: string;
+  /** De lo que el admin pega en "ubicacion" (T100). Nulas = sin mapa. */
+  latitud: number | null;
+  longitud: number | null;
   cupoDiarioSocioReservas: number;
   cupoPicoSemanalReservas: number;
   invitadosPorMes: number;
@@ -157,7 +161,7 @@ export interface CambiosDeConfiguracion {
 /** Las reglas que son números: las de texto se validan aparte, por largo. */
 type ReglasNumericas = Omit<
   CambiosDeConfiguracion,
-  'nombre' | 'direccion' | 'telefono' | 'email'
+  'nombre' | 'direccion' | 'telefono' | 'email' | 'latitud' | 'longitud'
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -216,6 +220,18 @@ export function leerCambiosDeConfiguracion(
     }
 
     Object.assign(cambios, { [campo]: datos[campo].trim().slice(0, largo) });
+  }
+
+  // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
+  // coordenadas— y se guarda como dos números. Vacío la borra.
+  if (datos.ubicacion !== undefined) {
+    if (typeof datos.ubicacion !== 'string') {
+      throw new BadRequestException('La ubicación tiene que ser texto.');
+    }
+
+    const ubicacion = leerUbicacion(datos.ubicacion);
+    cambios.latitud = ubicacion?.latitud ?? null;
+    cambios.longitud = ubicacion?.longitud ?? null;
   }
 
   // El nombre es lo único que no puede quedar vacío: es el título de cada página

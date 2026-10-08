@@ -32,6 +32,14 @@ const DATOS = [
     ayuda: 'A donde escribe quien reservó sin cuenta y necesita cancelar.',
     tipo: 'email',
   },
+  {
+    campo: 'ubicacion' as const,
+    etiqueta: 'Ubicación en el mapa',
+    ayuda:
+      'Pega el enlace de Google Maps del club o sus coordenadas. Para copiarlas, en ' +
+      'Google Maps haz clic derecho sobre el club y toca los números de arriba.',
+    tipo: 'text',
+  },
 ];
 
 type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
@@ -39,10 +47,10 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
 /**
  * Los datos del club, que hasta la fase 7 estaban escritos en las plantillas.
  *
- * **Los cuatro se publican.** El pie de página, la página "El club" y la pantalla de
+ * **Los cinco se publican.** El pie de página, la página "El club" y la pantalla de
  * portería los leen de `GET /api/club`, así que lo que se escriba acá se ve en el
  * sitio en la siguiente carga. Un campo en blanco no deja un hueco: la línea
- * desaparece de donde se muestre.
+ * desaparece de donde se muestre, y sin ubicación no hay mapa (T100).
  *
  * El logotipo no está: es un archivo y necesita dónde guardarse, que es una decisión
  * de infraestructura y no de esta pantalla.
@@ -124,6 +132,13 @@ export class DatosDelClub {
       direccion: this.editado().direccion ?? guardadoEnElServidor?.direccion ?? '',
       telefono: this.editado().telefono ?? guardadoEnElServidor?.telefono ?? '',
       email: this.editado().email ?? guardadoEnElServidor?.email ?? '',
+      // La guardada se muestra como coordenadas, que es lo que se puede volver a
+      // pegar: el enlace original no se guarda, solo sus dos números.
+      ubicacion:
+        this.editado().ubicacion ??
+        (guardadoEnElServidor?.latitud != null
+          ? `${guardadoEnElServidor.latitud}, ${guardadoEnElServidor.longitud}`
+          : ''),
     };
   }
 
@@ -145,7 +160,7 @@ export class DatosDelClub {
     this.guardando.set(true);
 
     try {
-      // Se manda el formulario entero y no solo lo tocado: son cuatro campos de
+      // Se manda el formulario entero y no solo lo tocado: son cinco campos de
       // texto y el endpoint es un PATCH, así que el ahorro no paga la rama extra.
       await this.api.fijarDatosDelClub(this.formulario());
       this.club.reload();
