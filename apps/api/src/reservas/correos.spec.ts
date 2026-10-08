@@ -1,4 +1,9 @@
-import { confirmacionDeReserva, DatosDelClub, firmaDelClub } from './correos';
+import {
+  avisoDeCambio,
+  confirmacionDeReserva,
+  DatosDelClub,
+  firmaDelClub,
+} from './correos';
 
 /**
  * T108. Lo que dice el correo de confirmación, y la firma que comparten todos los correos
@@ -93,6 +98,51 @@ describe('correos de la reserva', () => {
       expect(confirmacion().cuerpo.startsWith('Hola Camila Visitante:')).toBe(
         true,
       );
+    });
+  });
+
+  /** T109. Cada cambio de la reserva de un visitante se avisa a su correo. */
+  describe('el aviso de cambio', () => {
+    const aviso = () =>
+      avisoDeCambio(
+        {
+          ...RESERVA,
+          cancha: 'Cancha 2',
+          fin: new Date('2037-08-17T15:30:00.000Z'),
+        },
+        {
+          cancha: 'Cancha 1',
+          inicio: new Date('2037-08-17T13:00:00.000Z'),
+          fin: new Date('2037-08-17T14:00:00.000Z'),
+        },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+    it('**dice la hora de antes y la de después, con su cancha y su duración**', () => {
+      const { cuerpo } = aviso();
+
+      expect(cuerpo).toContain(
+        'Antes: Cancha 1, lunes, 17 de agosto, de 09:00 a 10:00 (1 hora)',
+      );
+      expect(cuerpo).toContain(
+        'Ahora: Cancha 2, lunes, 17 de agosto, de 10:00 a 11:30 (1 hora y media)',
+      );
+    });
+
+    it('**dice que escriba si no pidió el cambio**: quien tenga el enlace reenviado puede moverla', () => {
+      expect(aviso().cuerpo).toContain('Si no pediste este cambio, escríbenos');
+    });
+
+    it('lleva el enlace de la reserva y la firma', () => {
+      const { cuerpo } = aviso();
+
+      expect(cuerpo).toContain('https://fedal.cl/r/un-token-largo');
+      expect(cuerpo.endsWith(firmaDelClub(CLUB))).toBe(true);
+    });
+
+    it('el asunto nombra el folio', () => {
+      expect(aviso().asunto).toBe('Tu reserva ABC1234 cambió');
     });
   });
 
