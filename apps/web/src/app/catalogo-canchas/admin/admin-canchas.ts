@@ -1,4 +1,12 @@
-import { Component, inject, resource, signal } from '@angular/core';
+import {
+  Component,
+  effect,
+  ElementRef,
+  inject,
+  resource,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../../core/errores';
@@ -24,6 +32,12 @@ const DIAS = [
   'Viernes',
   'Sábado',
 ];
+
+/** Lo que se corrige de una cancha que ya existe (T96). */
+type FichaDeCancha = Pick<
+  CanchaAdmin,
+  'nombre' | 'superficie' | 'techada' | 'iluminacion'
+>;
 
 const CANCHA_EN_BLANCO: CanchaNueva = {
   nombre: '',
@@ -164,7 +178,9 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
         Canchas
       </h2>
 
-      @if (canchas.isLoading()) {
+      <!-- Solo la primera carga: al recargar tras una acción la lista se queda donde
+           está. Reemplazada por "Cargando…", se llevaba el botón que tenía el foco. -->
+      @if (canchas.status() === 'loading') {
         <p class="mt-3 text-muted-foreground">Cargando…</p>
       } @else if (canchas.error()) {
         <p class="mt-3 text-destructive">
@@ -192,7 +208,18 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
                 <button
                   type="button"
+                  [id]="'editar-ficha-' + cancha.id"
                   class="boton boton-secundario boton-chico ms-auto"
+                  [attr.aria-expanded]="editando() === cancha.id"
+                  (click)="abrirFicha(cancha)"
+                >
+                  Editar ficha
+                  <span class="sr-only">de {{ cancha.nombre }}</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="boton boton-secundario boton-chico"
                   (click)="alternarCamara(cancha)"
                 >
                   {{ cancha.tieneCamara ? 'Quitar la cámara' : 'Marcar con cámara' }}
@@ -217,6 +244,96 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   Eliminar
                 </button>
               </div>
+
+              @if (editando() === cancha.id) {
+                <!-- T96. Corregir la ficha sin borrar la cancha: borrarla se llevaría su
+                     historial. Techada importa además por la tarifa de su tipo (T98). -->
+                <form
+                  class="mt-3 flex flex-wrap items-end gap-3 border-t border-border pt-3"
+                  (ngSubmit)="guardarFicha(cancha)"
+                >
+                  <div>
+                    <label
+                      [attr.for]="'ficha-nombre-' + cancha.id"
+                      class="block text-sm font-medium"
+                      >Nombre</label
+                    >
+                    <input
+                      #campoNombre
+                      [id]="'ficha-nombre-' + cancha.id"
+                      name="nombre"
+                      required
+                      class="campo mt-1"
+                      [attr.aria-invalid]="errorFicha() ? true : null"
+                      [attr.aria-describedby]="'ficha-error-' + cancha.id"
+                      [(ngModel)]="ficha.nombre"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      [attr.for]="'ficha-superficie-' + cancha.id"
+                      class="block text-sm font-medium"
+                      >Superficie</label
+                    >
+                    <select
+                      [id]="'ficha-superficie-' + cancha.id"
+                      name="superficie"
+                      class="campo mt-1"
+                      [(ngModel)]="ficha.superficie"
+                    >
+                      @for (opcion of superficies; track opcion[0]) {
+                        <option [value]="opcion[0]">{{ opcion[1] }}</option>
+                      }
+                    </select>
+                  </div>
+
+                  <label class="flex items-center gap-2 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      [id]="'ficha-techada-' + cancha.id"
+                      name="techada"
+                      [(ngModel)]="ficha.techada"
+                    />
+                    Techada
+                  </label>
+
+                  <label class="flex items-center gap-2 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="iluminacion"
+                      [(ngModel)]="ficha.iluminacion"
+                    />
+                    Con iluminación
+                  </label>
+
+                  <button
+                    type="submit"
+                    [disabled]="guardando()"
+                    class="boton boton-primario boton-chico"
+                  >
+                    Guardar la ficha
+                    <span class="sr-only">de {{ cancha.nombre }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="boton boton-texto boton-chico"
+                    (click)="cerrarFicha(cancha.id)"
+                  >
+                    Cancelar
+                  </button>
+
+                  <!-- Junto al campo y no en el aviso de arriba: el nombre repetido es
+                       lo que hay que corregir, y el aviso queda a una pantalla de acá. -->
+                  <p
+                    [id]="'ficha-error-' + cancha.id"
+                    aria-live="polite"
+                    class="w-full text-sm text-destructive"
+                  >
+                    {{ errorFicha() }}
+                  </p>
+                </form>
+              }
 
               <p class="mt-1 text-sm text-muted-foreground">
                 {{ nombreSuperficie(cancha.superficie) }}
@@ -281,17 +398,34 @@ export class AdminCanchasPanel {
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
-  /** Se recarga al cambiar, que es lo que refresca la lista tras cada acción. */
-  private readonly version = signal(0);
+  /** La cancha cuya ficha está abierta. Una a la vez: se viene a corregir una. */
+  protected readonly editando = signal<number | null>(null);
+  // Solo sus cuatro campos, y no una copia de la cancha en blanco: con `tieneCamara`
+  // adentro, guardar el nombre le apagaba la cámara a la cancha.
+  protected readonly ficha: FichaDeCancha = {
+    nombre: '',
+    superficie: 'CEMENTO',
+    techada: false,
+    iluminacion: false,
+  };
+  protected readonly errorFicha = signal<string | null>(null);
+
+  private readonly campoNombre =
+    viewChild<ElementRef<HTMLInputElement>>('campoNombre');
+  private readonly anfitrion = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  constructor() {
+    // Al abrir la ficha, el foco va al nombre: es lo que se viene a cambiar, y sin esto
+    // quien usa teclado queda en el botón, arriba del formulario que acaba de abrir.
+    effect(() => this.campoNombre()?.nativeElement.focus());
+  }
 
   protected readonly canchas = resource({
-    params: () => ({ version: this.version() }),
     loader: () => this.api.canchas(),
     defaultValue: [],
   });
 
   protected readonly advertencias = resource({
-    params: () => ({ version: this.version() }),
     loader: () => this.api.advertencias(hoyEnElClub()),
     defaultValue: [],
   });
@@ -361,6 +495,56 @@ export class AdminCanchasPanel {
     }
   }
 
+  protected abrirFicha(cancha: CanchaAdmin): void {
+    const { nombre, superficie, techada, iluminacion } = cancha;
+    Object.assign(this.ficha, { nombre, superficie, techada, iluminacion });
+    this.errorFicha.set(null);
+    this.editando.set(cancha.id);
+  }
+
+  protected cerrarFicha(id: number): void {
+    this.editando.set(null);
+    // Cerrar sin devolver el foco lo manda al principio del documento, como en el menú
+    // desplegable: quien usa teclado tendría que recorrer el panel entero para volver.
+    this.anfitrion.nativeElement
+      .querySelector<HTMLElement>(`#editar-ficha-${id}`)
+      ?.focus();
+  }
+
+  /**
+   * Guarda nombre, superficie, techo e iluminación de una vez.
+   *
+   * El nombre repetido lo rechaza el servidor con 409 —el nombre es único en la base—
+   * y su mensaje se muestra junto al campo.
+   */
+  protected async guardarFicha(cancha: CanchaAdmin): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.errorFicha.set(null);
+
+    const nombre = this.ficha.nombre.trim();
+    if (!nombre) {
+      this.errorFicha.set('Ponle un nombre a la cancha.');
+      return;
+    }
+
+    this.guardando.set(true);
+    try {
+      await this.api.editar(cancha.id, { ...this.ficha, nombre });
+      this.aviso.set(
+        nombre === cancha.nombre
+          ? `Se guardó la ficha de ${nombre}.`
+          : `${cancha.nombre} ahora se llama ${nombre}.`,
+      );
+      this.cerrarFicha(cancha.id);
+      this.recargar();
+    } catch (falla) {
+      this.errorFicha.set(mensajeDelServidor(falla));
+    } finally {
+      this.guardando.set(false);
+    }
+  }
+
   /**
    * Borra la cancha, después de preguntar.
    *
@@ -394,9 +578,16 @@ export class AdminCanchasPanel {
     }
   }
 
-  /** Relee canchas y advertencias: una tarifa nueva puede apagar una advertencia. */
+  /**
+   * Relee canchas y advertencias: una tarifa nueva puede apagar una advertencia.
+   *
+   * Con `reload()` y no cambiando un parámetro: así el recurso queda en `reloading` y
+   * conserva la lista mientras relee. Con un parámetro nuevo pasaba a `loading`, la
+   * lista se vaciaba y el botón que tenía el foco desaparecía con ella (T96).
+   */
   protected recargar(): void {
-    this.version.update((v) => v + 1);
+    this.canchas.reload();
+    this.advertencias.reload();
   }
 
   protected nombreDia(dia: number): string {
