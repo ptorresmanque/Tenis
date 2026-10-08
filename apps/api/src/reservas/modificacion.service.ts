@@ -26,6 +26,7 @@ import {
   DisponibilidadPublicaService,
   GrillaDeCancha,
 } from './disponibilidad-publica.service';
+import { AvisosDeReserva } from './correos';
 import { EventosDeReserva } from './eventos';
 import { pagadoPor } from './pagado';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
@@ -74,6 +75,7 @@ export class ModificacionService {
     private readonly reservasDeSocio: ReservasService,
     private readonly disponibilidad: DisponibilidadPublicaService,
     private readonly pagos: PagosService,
+    private readonly avisos: AvisosDeReserva,
   ) {}
 
   /**
@@ -340,6 +342,9 @@ export class ModificacionService {
       // Los dos días cambian: la hora se fue de uno y llegó al otro.
       this.eventos.cambio(reserva.inicio);
       this.eventos.cambio(movida.inicio);
+      // A su correo, con la hora de antes y la de después (T109): por el enlace, cualquiera
+      // que lo tenga puede moverla, y el club también. El aviso decide si es de visitante.
+      await this.avisos.cambio(movida.id, reserva);
 
       return movida;
     } catch (error) {
