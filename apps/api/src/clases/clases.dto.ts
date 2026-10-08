@@ -100,6 +100,38 @@ export function leerSerie(cuerpo: unknown): SerieNueva {
   };
 }
 
+/**
+ * Qué hacer con una fecha de la serie que tiene algo encima (decisión 9): cancelar las
+ * reservas, como una clase suelta, o saltar esa clase. Saltar vale también para una fecha
+ * libre: un feriado.
+ */
+export type Decision = 'cancelar' | 'saltar';
+
+/** Las decisiones del admin, por fecha civil del club ("AAAA-MM-DD"). */
+export type Decisiones = Record<string, Decision>;
+
+/** Lee las decisiones de la serie. Que cada fecha sea de la serie lo revisa `repartirFechas`. */
+export function leerDecisiones(valor: unknown): Decisiones {
+  if (valor === undefined || valor === null) return {};
+
+  if (typeof valor !== 'object' || Array.isArray(valor)) {
+    throw new BadRequestException(
+      'Las decisiones van por fecha: { "AAAA-MM-DD": "saltar" }.',
+    );
+  }
+
+  return Object.fromEntries(
+    Object.entries(valor).map(([fecha, decision]) => {
+      if (decision !== 'cancelar' && decision !== 'saltar') {
+        throw new BadRequestException(
+          `Para el ${fecha} la decisión es "cancelar" o "saltar".`,
+        );
+      }
+      return [fecha, decision];
+    }),
+  );
+}
+
 /** Adónde se mueve una clase. La cancha puede cambiar; el resto de la ficha no. */
 export interface Movimiento {
   canchaId?: number;
