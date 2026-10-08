@@ -196,6 +196,14 @@ export class AvisosDeReserva {
           select: { nombre: true },
         });
 
+        // Elegir de nuevo la misma hora no cambia nada: la grilla de mover muestra libre la
+        // hora propia, y un "cambió" con el antes igual al ahora solo asusta.
+        const igual =
+          cancha.nombre === reserva.cancha &&
+          antes.inicio.getTime() === reserva.inicio.getTime() &&
+          antes.fin.getTime() === reserva.fin.getTime();
+        if (igual) return null;
+
         return avisoDeCambio(
           reserva,
           { ...antes, cancha: cancha.nombre },
