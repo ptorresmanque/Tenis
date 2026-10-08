@@ -422,9 +422,13 @@ model HorarioApertura {
 /// produce un socio al que se le descuenta cupo pico en una hora que se cobra valle.
 model FranjaHoraria {
   id        Int  @id @default(autoincrement())
-  canchaId  Int? @map("cancha_id")
+  canchaId  Int?     @map("cancha_id")
+  /// Solo en la tarifa general (T98): nulo = toda cancha, true = solo las techadas,
+  /// false = solo las abiertas. Una franja de una cancha lo lleva nulo: el panel rechaza
+  /// las dos cosas juntas, porque sería una regla que nunca aplica o que sobra.
+  techada   Boolean?
   /// Nulo = todos los días.
-  diaSemana Int? @map("dia_semana")
+  diaSemana Int?     @map("dia_semana")
 
   horaDesde String @map("hora_desde") @db.VarChar(5)
   horaHasta String @map("hora_hasta") @db.VarChar(5)

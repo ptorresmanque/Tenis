@@ -319,6 +319,8 @@ function horaDeCuerpo(valor: unknown, campo: string): string {
 
 export interface DatosFranja {
   canchaId: number | null;
+  /** Solo en la tarifa general: nulo = toda cancha (T98). */
+  techada: boolean | null;
   diaSemana: number | null;
   horaDesde: string;
   horaHasta: string;
@@ -342,11 +344,26 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
     );
   }
 
+  const canchaId =
+    datos.canchaId === undefined || datos.canchaId === null
+      ? null
+      : entero(datos.canchaId, 'La cancha', 1);
+  const techada =
+    datos.techada === undefined || datos.techada === null
+      ? null
+      : booleano(datos.techada, 'Techada');
+
+  // T98. El tipo es para la tarifa general: en una de cancha, o coincide con la cancha
+  // y sobra, o no coincide y la tarifa nunca aplica. Las dos son un error del panel.
+  if (canchaId !== null && techada !== null) {
+    throw new BadRequestException(
+      'Una tarifa de una sola cancha no lleva tipo: ya se sabe si es techada.',
+    );
+  }
+
   return {
-    canchaId:
-      datos.canchaId === undefined || datos.canchaId === null
-        ? null
-        : entero(datos.canchaId, 'La cancha', 1),
+    canchaId,
+    techada,
     diaSemana:
       datos.diaSemana === undefined || datos.diaSemana === null
         ? null

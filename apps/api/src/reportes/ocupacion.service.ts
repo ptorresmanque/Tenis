@@ -184,6 +184,7 @@ export class OcupacionDeCancha {
             esPico: franjaPara({
               fecha,
               canchaId: cancha.id,
+              techada: cancha.techada,
               inicio: bloque.inicio,
               // Solo se usa el pico, que no depende de la duración.
               duracionMin: 60,
