@@ -79,6 +79,12 @@ export const routes: Routes = [
         loadComponent: () => import('./club/el-club').then((m) => m.ElClub),
       },
       {
+        // Sin guard: Google la abre sin sesión para aprobar el login con Google.
+        path: 'privacidad',
+        title: 'Política de privacidad — FEDAL Tennis Center',
+        loadComponent: () => import('./club/privacidad').then((m) => m.Privacidad),
+      },
+      {
         // Corta a propósito: es lo que se codifica en el QR, y cada carácter de
         // más es un módulo más de dibujo para leer en el mesón.
         path: 'r/:token',

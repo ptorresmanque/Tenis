@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { firstValueFrom } from 'rxjs';
 
@@ -23,7 +24,7 @@ interface CampoDelFormulario {
 
 @Component({
   selector: 'app-registro',
-  imports: [ReactiveFormsModule, Aviso, Campo, CampoControl],
+  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -56,6 +57,11 @@ interface CampoDelFormulario {
         @if (error(); as motivo) {
           <app-aviso variante="error">{{ motivo }}</app-aviso>
         }
+
+        <p class="text-sm text-muted-foreground">
+          Las cuentas son para mayores de 18 años. Lee cómo cuidamos tus datos en la
+          <a routerLink="/privacidad" target="_blank" class="underline">política de privacidad</a>.
+        </p>
 
         <button
           type="submit"

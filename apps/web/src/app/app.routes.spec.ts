@@ -90,6 +90,10 @@ describe('Rutas protegidas', () => {
     // Sin esto, la prueba de arriba pasaría igual con todo el sitio cerrado.
     expect(buscar('disponibilidad')?.guards).toEqual([]);
   });
+
+  it('la política de privacidad se lee sin sesión: Google la abre para aprobar el login', () => {
+    expect(buscar('privacidad')?.guards).toEqual([]);
+  });
 });
 
 describe('Cada ruta en su cascarón', () => {
@@ -100,6 +104,7 @@ describe('Cada ruta en su cascarón', () => {
     ['mi-cuenta', CascaronPublico],
     ['reservas/confirmacion', CascaronPublico],
     ['el-club', CascaronPublico],
+    ['privacidad', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],
