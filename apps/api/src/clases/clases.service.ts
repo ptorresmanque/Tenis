@@ -13,8 +13,13 @@ import {
   CierreDeCanchaService,
   type ReservaAfectada,
 } from '../reservas/cierre-de-cancha.service';
-import type { ClaseNueva, Movimiento, SerieNueva } from './clases.dto';
-import { clasesDeLaSerie } from './series';
+import type {
+  ClaseNueva,
+  Decisiones,
+  Movimiento,
+  SerieNueva,
+} from './clases.dto';
+import { clasesDeLaSerie, type FechaDeLaSerie, repartirFechas } from './series';
 
 /** Una clase de la agenda, como la mira quien atiende el mesón. */
 export interface ClaseDelDia {
@@ -31,18 +36,12 @@ export interface ClaseDelDia {
   notas: string | null;
 }
 
-/** Una fecha de una serie simulada (T113): lo que el admin decide antes de agendar. */
-export interface FechaDeLaSerie {
-  fecha: string;
-  inicio: Date;
-  fin: Date;
-  /**
-   * Por qué la cancha no se puede cerrar a esa hora: fuera del horario, u otra clase,
-   * torneo o mantención encima. Nulo si está libre de cierres.
-   */
-  choque: string | null;
-  /** Las reservas que la clase cancelaría, como en la clase suelta. */
-  afectadas: ReservaAfectada[];
+/** Lo que deja una serie agendada (T114): sus clases, las fechas saltadas y lo cancelado. */
+export interface SerieAgendada {
+  id: number;
+  clases: { id: number; fecha: string }[];
+  saltadas: string[];
+  canceladas: ReservaAfectada[];
 }
 
 export interface ClaseAgendada {
@@ -125,7 +124,63 @@ export class Clases {
     return fechas;
   }
 
-  async agendar(datos: ClaseNueva): Promise<ClaseAgendada> {
+  /**
+   * Agenda la serie con las decisiones del admin (T114).
+   *
+   * **Se vuelve a simular al confirmar**, contra la base de ahora y no contra lo que el
+   * admin miró: si apareció una reserva en una fecha sin decisión, `repartirFechas` rechaza
+   * la serie entera antes de escribir nada. Después, cada fecha pasa por `agendar`, la misma
+   * cascada de una clase suelta: cancela, devuelve y avisa.
+   *
+   * Las saltadas no se guardan aparte: son las fechas de la regla que no tienen clase.
+   *
+   * ponytail: no es atómica entre fechas. Cada una cierra en su transacción porque las
+   * devoluciones salen a la pasarela, que no entra en una transacción de la base. Si una
+   * fecha falla a mitad de camino —una reserva tomada en el último milisegundo—, las
+   * anteriores quedan agendadas y atadas a la serie, y el error lo dice.
+   */
+  async agendarSerie(
+    serie: SerieNueva,
+    decisiones: Decisiones,
+  ): Promise<SerieAgendada> {
+    const fechas = await this.simularSerie(serie);
+    const { agendar, saltadas } = repartirFechas(fechas, decisiones);
+
+    const { id } = await this.prisma.serieDeClases.create({
+      data: {
+        profesorId: serie.profesorId,
+        canchaId: serie.canchaId,
+        diasSemana: serie.diasSemana.join(','),
+        horaDesde: serie.horaDesde,
+        horaHasta: serie.horaHasta,
+        desde: new Date(`${serie.desde}T00:00:00.000Z`),
+        hasta: new Date(`${serie.hasta}T00:00:00.000Z`),
+        cupoMaximo: serie.cupoMaximo,
+        nivel: serie.nivel,
+        notas: serie.notas,
+      },
+      select: { id: true },
+    });
+
+    const clases: SerieAgendada['clases'] = [];
+    const canceladas: ReservaAfectada[] = [];
+
+    for (const clase of clasesDeLaSerie(serie)) {
+      if (!agendar.includes(clase.fecha)) continue;
+
+      const agendada = await this.agendar(clase, id);
+      clases.push({ id: agendada.id, fecha: clase.fecha });
+      canceladas.push(...agendada.canceladas);
+    }
+
+    return { id, clases, saltadas, canceladas };
+  }
+
+  /** @param serieId La serie que la agenda, si viene de una (T114). */
+  async agendar(
+    datos: ClaseNueva,
+    serieId: number | null = null,
+  ): Promise<ClaseAgendada> {
     const profesor = await this.elProfesor(datos.profesorId);
     await this.exigirRangoUsable(datos.canchaId, datos.fecha, datos);
 
@@ -144,6 +199,7 @@ export class Clases {
             nivel: datos.nivel,
             notas: datos.notas,
             bloqueoId: bloqueo,
+            serieId,
           },
           select: { id: true },
         });

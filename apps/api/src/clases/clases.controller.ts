@@ -18,6 +18,7 @@ import {
   leerCancelacion,
   leerClaseNueva,
   leerInscripcion,
+  leerDecisiones,
   leerMovimiento,
   leerSerie,
 } from './clases.dto';
@@ -69,6 +70,20 @@ export class ClasesController {
   @HttpCode(200)
   async simularSerie(@Body() cuerpo: unknown) {
     return { fechas: await this.clases.simularSerie(leerSerie(cuerpo)) };
+  }
+
+  /**
+   * Agenda la serie, con la decisión de cada fecha que tiene algo encima: `cancelar` o
+   * `saltar` (T114). Una fecha con choque y sin decisión rechaza la serie entera.
+   */
+  @Post('series')
+  agendarSerie(@Body() cuerpo: unknown) {
+    const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+    return this.clases.agendarSerie(
+      leerSerie(cuerpo),
+      leerDecisiones(datos.decisiones),
+    );
   }
 
   /**

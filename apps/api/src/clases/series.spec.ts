@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { ZONA_DEL_CLUB } from '../comun/tiempo';
-import { leerSerie } from './clases.dto';
-import { clasesDeLaSerie, fechasDeLaSerie } from './series';
+import { leerDecisiones, leerSerie } from './clases.dto';
+import { clasesDeLaSerie, fechasDeLaSerie, repartirFechas } from './series';
 
 /**
  * T113. Una serie de clases ("martes y jueves de 19 a 20, hasta el 15 de diciembre") es una
@@ -140,6 +140,110 @@ describe('series de clases', () => {
         leerSerie({ ...SERIE, diasSemana: [JUEVES, MARTES, JUEVES] })
           .diasSemana,
       ).toEqual([MARTES, JUEVES]);
+    });
+  });
+
+  /**
+   * T114. Al agendar, cada fecha con algo encima necesita una decisión del admin: cancelar lo
+   * que haya o saltar esa clase (decisión 9). Nada se cancela sin estar en la lista que vio.
+   */
+  describe('repartirFechas', () => {
+    const libre = (fecha: string) => ({ fecha, choque: null, afectadas: [] });
+    const conReserva = (fecha: string, folio: string, pagoEnCurso = false) => ({
+      fecha,
+      choque: null,
+      afectadas: [{ folio, pagoEnCurso }],
+    });
+    const cerrada = (fecha: string) => ({
+      fecha,
+      choque: 'Esa cancha ya está cerrada en ese rango: Cambio de red.',
+      afectadas: [],
+    });
+
+    it('sin choques, todas se agendan', () => {
+      expect(
+        repartirFechas([libre('2037-10-15'), libre('2037-10-20')], {}),
+      ).toEqual({
+        agendar: ['2037-10-15', '2037-10-20'],
+        saltadas: [],
+      });
+    });
+
+    it('**"cancelar" agenda la fecha encima de la reserva; "saltar" la deja fuera**', () => {
+      expect(
+        repartirFechas(
+          [
+            conReserva('2037-10-20', 'AAA111'),
+            conReserva('2037-10-22', 'BBB222'),
+          ],
+          { '2037-10-20': 'cancelar', '2037-10-22': 'saltar' },
+        ),
+      ).toEqual({ agendar: ['2037-10-20'], saltadas: ['2037-10-22'] });
+    });
+
+    it('**una fecha con reservas y sin decisión rechaza la serie, diciendo cuál y con qué folios**', () => {
+      expect(() =>
+        repartirFechas(
+          [libre('2037-10-15'), conReserva('2037-10-20', 'AAA111')],
+          {},
+        ),
+      ).toThrow(/martes 20 de octubre.*AAA111/);
+    });
+
+    it('una fecha con la cancha cerrada solo se puede saltar: el cierre no se cancela desde acá', () => {
+      expect(() =>
+        repartirFechas([cerrada('2037-10-22')], { '2037-10-22': 'cancelar' }),
+      ).toThrow(/jueves 22 de octubre.*solo se puede saltar/);
+      expect(
+        repartirFechas([cerrada('2037-10-22')], { '2037-10-22': 'saltar' }),
+      ).toEqual({
+        agendar: [],
+        saltadas: ['2037-10-22'],
+      });
+    });
+
+    it('una fecha libre también se puede saltar: un feriado, por ejemplo', () => {
+      expect(
+        repartirFechas([libre('2037-10-15')], { '2037-10-15': 'saltar' }),
+      ).toEqual({
+        agendar: [],
+        saltadas: ['2037-10-15'],
+      });
+    });
+
+    it('cancelar sobre un pago en curso no se puede: lo dice y ofrece saltar', () => {
+      expect(() =>
+        repartirFechas([conReserva('2037-10-20', 'AAA111', true)], {
+          '2037-10-20': 'cancelar',
+        }),
+      ).toThrow(/pago en curso/);
+    });
+
+    it('una decisión para una fecha que no es de la serie es un error del pedido', () => {
+      expect(() =>
+        repartirFechas([libre('2037-10-15')], { '2037-10-16': 'saltar' }),
+      ).toThrow(BadRequestException);
+    });
+  });
+
+  describe('leerDecisiones', () => {
+    it('sin decisiones es un objeto vacío', () => {
+      expect(leerDecisiones(undefined)).toEqual({});
+    });
+
+    it('acepta "cancelar" y "saltar" por fecha', () => {
+      expect(
+        leerDecisiones({ '2037-10-20': 'cancelar', '2037-10-22': 'saltar' }),
+      ).toEqual({
+        '2037-10-20': 'cancelar',
+        '2037-10-22': 'saltar',
+      });
+    });
+
+    it('otra palabra responde 400', () => {
+      expect(() => leerDecisiones({ '2037-10-20': 'mover' })).toThrow(
+        /cancelar.*saltar/,
+      );
     });
   });
 });
