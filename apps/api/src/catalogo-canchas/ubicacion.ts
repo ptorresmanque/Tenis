@@ -6,6 +6,7 @@ export interface Ubicacion {
 }
 
 const NUMERO = String.raw`(-?\d+(?:\.\d+)?)`;
+const LARGO_MAXIMO = 2048;
 
 /**
  * De dónde sacar el par, en orden de confianza.
@@ -34,6 +35,14 @@ const FORMATOS = [
 export function leerUbicacion(texto: string): Ubicacion | null {
   const limpio = texto.trim();
   if (!limpio) return null;
+
+  // Antes de cualquier expresión: una ráfaga de espacios hace retroceder la última en
+  // tiempo cuadrático, y ningún enlace de Google Maps pasa de un par de miles.
+  if (limpio.length > LARGO_MAXIMO) {
+    throw new BadRequestException(
+      'Eso es demasiado largo para ser un enlace de Google Maps.',
+    );
+  }
 
   // "Compartir" en Google Maps entrega estos, y no traen coordenadas: seguirlos
   // exigiría pedirle la página a Google desde el servidor.

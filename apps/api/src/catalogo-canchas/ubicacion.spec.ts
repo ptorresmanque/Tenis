@@ -65,6 +65,17 @@ describe('leerUbicacion', () => {
     expect(() => leerUbicacion('-33.4, -270.6')).toThrow(BadRequestException);
   });
 
+  it('rechaza un texto demasiado largo antes de buscarle coordenadas', () => {
+    // Una ráfaga de espacios hace retroceder la última expresión en tiempo cuadrático:
+    // 50.000 bastan para dejar la API pensando. Ningún enlace de Google Maps se acerca.
+    const inicio = Date.now();
+
+    expect(() => leerUbicacion(`1${' '.repeat(50_000)}x`)).toThrow(
+      /demasiado largo/,
+    );
+    expect(Date.now() - inicio).toBeLessThan(100);
+  });
+
   it('rechaza un texto del que no salen dos números, y dice qué pegar', () => {
     expect(() => leerUbicacion('Avenida Siempre Viva 742')).toThrow(
       /Pega el enlace de Google Maps/,
