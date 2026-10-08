@@ -14,6 +14,8 @@ export interface TarifaPublica {
   /** Nulo = rige en todas las canchas. */
   canchaId: number | null;
   cancha: string | null;
+  /** En la general: nulo = toda cancha, true = solo techadas, false = solo abiertas (T98). */
+  techada: boolean | null;
   /** Nulo = todos los días. */
   diaSemana: number | null;
   horaDesde: string;
@@ -57,6 +59,7 @@ export class TarifasPublicasService {
       orderBy: [{ canchaId: 'asc' }, { horaDesde: 'asc' }],
       select: {
         canchaId: true,
+        techada: true,
         diaSemana: true,
         horaDesde: true,
         horaHasta: true,
@@ -76,6 +79,7 @@ export class TarifasPublicasService {
       orderBy: { horaDesde: 'asc' },
       select: {
         canchaId: true,
+        techada: true,
         diaSemana: true,
         horaDesde: true,
         horaHasta: true,
