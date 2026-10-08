@@ -53,6 +53,18 @@ export class ReservasController {
     return this.modificacion.mias(yo);
   }
 
+  /**
+   * Los invitados que el socio declaró antes, para sugerírselos al reservar (T106).
+   *
+   * Solo los suyos: los nombres que declaró otro socio son datos de terceros. Va antes de
+   * las rutas con `:id` para que nadie lea "mis-invitados" como un id.
+   */
+  @Get('mis-invitados')
+  @SoloSocio()
+  misInvitados(@Yo() yo: UsuarioActual) {
+    return this.reservas.misInvitados(yo.socioId!);
+  }
+
   /** La grilla del día para mover esta reserva, sin contarla a ella (T87). */
   @Get(':id/grilla')
   @Autenticado()
