@@ -1188,3 +1188,45 @@ describe('Acabado', () => {
     expect(Number(salida)).toBeLessThan(Number(entrada));
   });
 });
+
+/**
+ * T95. El favicon es la D del logotipo, con la silueta, en blanco sobre el azul de la
+ * marca. Hasta acá era el de Angular, que venía con el esqueleto de T1.
+ */
+describe('Favicon', () => {
+  const publico = (archivo: string) => join(process.cwd(), 'public', archivo);
+  const html = readFileSync(join(process.cwd(), 'src/index.html'), 'utf8');
+
+  it('index.html declara el SVG, el .ico de respaldo y el ícono del iPhone', () => {
+    expect(html).toContain('<link rel="icon" href="favicon.svg" type="image/svg+xml">');
+    expect(html).toContain('<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">');
+    expect(html).toContain('<link rel="apple-touch-icon" href="apple-touch-icon.png">');
+  });
+
+  it('el SVG lleva solo la D y pesa menos de 4 KB: el trazo entero del logo eran 18', () => {
+    const svg = readFileSync(publico('favicon.svg'), 'utf8');
+
+    expect(svg.length).toBeLessThan(4096);
+    // El azul de la marca: el de "FE" y el del rótulo de la hora.
+    expect(svg.toLowerCase()).toContain('#0b4f9e');
+  });
+
+  it('el .ico trae 16, 32 y 48 en PNG, y no los BMP del de Angular', () => {
+    const ico = readFileSync(publico('favicon.ico'));
+    const imagenes = Array.from({ length: ico.readUInt16LE(4) }, (_, i) => {
+      const entrada = 6 + 16 * i;
+      const desde = ico.readUInt32LE(entrada + 12);
+      return {
+        lado: ico[entrada] || 256,
+        png: ico.subarray(desde, desde + 4).toString('hex') === '89504e47',
+      };
+    });
+
+    expect(imagenes.map((i) => i.lado).sort((a, b) => a - b)).toEqual([16, 32, 48]);
+    expect(imagenes.every((i) => i.png)).toBe(true);
+  });
+
+  it('el ícono del iPhone existe: sin él, iOS arma uno con una captura de la página', () => {
+    expect(existsSync(publico('apple-touch-icon.png'))).toBe(true);
+  });
+});
