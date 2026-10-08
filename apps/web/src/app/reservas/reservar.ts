@@ -76,8 +76,8 @@ import {
                 ¿Con quién vas a jugar?
               </legend>
               <p class="text-sm text-muted-foreground">
-                Otro socio no gasta cupo. Un invitado descuenta de tus invitados
-                del mes.
+                Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta
+                una de tus reservas con invitados del mes, traiga uno o tres.
               </p>
 
               @for (acompanante of acompanantes(); track $index) {

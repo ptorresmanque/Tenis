@@ -12,6 +12,7 @@ import {
 import { esFechaDelClub } from '../comun/tiempo';
 import { SoloAdmin } from '../identidad/guards';
 import { leerDuracion } from './duracion';
+import { leerAcompanantes } from './reservas.dto';
 import {
   CupoDelSocio,
   ReservaDelAdminService,
@@ -108,8 +109,7 @@ function reservaDelAdminDeCuerpo(cuerpo: unknown) {
     nombre,
     email: texto(datos.email),
     telefono: texto(datos.telefono),
-    acompanantes: Array.isArray(datos.acompanantes)
-      ? (datos.acompanantes as { socioId?: number; nombre?: string }[])
-      : [],
+    // El mismo borde que la reserva del socio: hasta 3, cada uno socio o invitado (T105).
+    acompanantes: leerAcompanantes(datos.acompanantes),
   };
 }

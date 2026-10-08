@@ -534,6 +534,34 @@ describe('POST /api/reservas — reserva de socio', () => {
       expect(rechazo.message).toMatch(/4 de 4/);
     });
 
+    it('**una reserva con tres invitados cuenta como una** (A5, el club, 2026-10-08)', async () => {
+      // Dos reservas con un invitado y una con tres: contando personas son cinco y se
+      // rechazaba; contando reservas son tres y la cuarta entra.
+      await gastarInvitados(2);
+      await prisma.reserva.create({
+        data: {
+          folio: 'INV08D',
+          canchaId,
+          inicio: new Date('2037-08-20T14:00:00.000Z'),
+          fin: new Date('2037-08-20T15:00:00.000Z'),
+          estado: EstadoReserva.CONFIRMADA,
+          socioId,
+          nombre: 'Socio titular',
+          email: `socio-titular${DOMINIO}`,
+          telefono: '',
+          acompanantes: {
+            create: [
+              { nombre: 'Ana' },
+              { nombre: 'Beto' },
+              { nombre: 'Carla' },
+            ],
+          },
+        },
+      });
+
+      expect((await reservar(unaReserva())).status).toBe(201);
+    });
+
     it('el cuarto todavía pasa', async () => {
       await gastarInvitados(3);
 

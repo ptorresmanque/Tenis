@@ -285,7 +285,7 @@ describe('NuevaReserva', () => {
                 cupoDiarioSocioReservas: 1,
                 reservasPicoDeLaSemana: 0,
                 cupoPicoSemanalReservas: 2,
-                invitadosDelMes: 0,
+                reservasConInvitadosDelMes: 0,
                 invitadosPorMes: 4,
               }),
             crear: vi.fn(),
@@ -310,6 +310,8 @@ describe('NuevaReserva', () => {
     const texto = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('Reservas de ese día: 1 de 1');
     expect(texto).toContain('Reservas pico de la semana: 0 de 2');
+    // El cupo cuenta reservas con invitados, no personas (A5, T105).
+    expect(texto).toContain('Reservas con invitados del mes: 0 de 4');
     expect(texto).not.toMatch(/Horas (de ese día|pico)/);
   });
 });

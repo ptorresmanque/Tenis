@@ -518,6 +518,8 @@ model ConfiguracionClub {
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).
   cupoPicoSemanalReservas Int @default(2) @map("cupo_pico_semanal_reservas")
+  /// Reservas con invitados por mes, no invitados (A5, 2026-10-08): una reserva con uno, dos
+  /// o tres invitados gasta una. El nombre quedó del tiempo en que contaba personas.
   invitadosPorMes      Int @default(4) @map("invitados_por_mes")
   horasMinModificacion Int @default(6) @map("horas_min_modificacion")
   horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")

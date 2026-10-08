@@ -155,7 +155,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
                   {{ datos.cupoPicoSemanalReservas }}
                 </li>
                 <li>
-                  Invitados del mes: {{ datos.invitadosDelMes }} de
+                  Reservas con invitados del mes: {{ datos.reservasConInvitadosDelMes }} de
                   {{ datos.invitadosPorMes }}
                 </li>
               </ul>
@@ -166,7 +166,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
                no es una puerta para saltársela. -->
           <app-campo
             etiqueta="Con quién juega"
-            ayuda="Un invitado descuenta de sus invitados del mes."
+            ayuda="Con invitados, la reserva gasta una de sus reservas con invitados del mes."
           >
             <input
               appCampoControl

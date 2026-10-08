@@ -35,7 +35,7 @@ describe('evaluarReservaDeSocio', () => {
     },
     reservasDelDia: 0,
     reservasPicoDeLaSemana: 0,
-    invitadosDelMes: 0,
+    reservasConInvitadosDelMes: 0,
     incorporacionPendiente: false,
     acompanantes: [{ nombre: 'Ana Invitada' }],
     ocupados: [],
@@ -334,14 +334,18 @@ describe('evaluarReservaDeSocio', () => {
     // Solo cuentan los externos: el socio acompañante es un registro, no un invitado,
     // y ya tiene su propia membresía pagada.
     it('el quinto invitado del mes se rechaza', () => {
-      const rechazo = evaluarReservaDeSocio(solicitud({ invitadosDelMes: 4 }));
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({ reservasConInvitadosDelMes: 4 }),
+      );
 
       expect(rechazo?.tipo).toBe('CUPO_INVITADOS');
     });
 
     it('el mensaje dice cuántos lleva, cuál es el límite y cuándo se renueva', () => {
       // "Límite alcanzado" a secas obliga a llamar al club para saber cuántos van.
-      const rechazo = evaluarReservaDeSocio(solicitud({ invitadosDelMes: 4 }));
+      const rechazo = evaluarReservaDeSocio(
+        solicitud({ reservasConInvitadosDelMes: 4 }),
+      );
 
       expect(rechazo?.mensaje).toMatch(/4 de 4/);
       expect(rechazo?.mensaje).toMatch(/1 de septiembre/i);
@@ -349,7 +353,7 @@ describe('evaluarReservaDeSocio', () => {
 
     it('el cuarto invitado del mes todavía pasa', () => {
       expect(
-        evaluarReservaDeSocio(solicitud({ invitadosDelMes: 3 })),
+        evaluarReservaDeSocio(solicitud({ reservasConInvitadosDelMes: 3 })),
       ).toBeNull();
     });
 
@@ -366,46 +370,40 @@ describe('evaluarReservaDeSocio', () => {
             fin: new Date('2026-09-05T23:00:00.000Z'),
             esPico: false,
           },
-          invitadosDelMes: 4,
+          reservasConInvitadosDelMes: 4,
         }),
       );
 
       expect(rechazo?.mensaje).toMatch(/1 de octubre/i);
     });
 
-    it('cuando declara más de los que le quedan, el mensaje dice cuántos declaró', () => {
-      // "Llevas 2 de 4" junto a un rechazo se lee como una falla del sistema: la
-      // persona ve que le sobran dos cupos y que igual no la dejan reservar.
-      const rechazo = evaluarReservaDeSocio(
-        solicitud({
-          invitadosDelMes: 2,
-          acompanantes: [
-            { nombre: 'Ana' },
-            { nombre: 'Beto' },
-            { nombre: 'Carla' },
-          ],
-        }),
-      );
-
-      expect(rechazo?.mensaje).toMatch(/3 invitados/);
-      expect(rechazo?.mensaje).toMatch(/2 de tus 4/);
+    it('**una reserva con tres invitados gasta un solo cupo** (A5, el club, 2026-10-08)', () => {
+      // El cupo cuenta reservas con invitados, no personas: un dobles con tres invitados
+      // es una reserva. Con la regla anterior, 3 usados + 3 declarados pasaban de 4.
+      expect(
+        evaluarReservaDeSocio(
+          solicitud({
+            reservasConInvitadosDelMes: 3,
+            acompanantes: [
+              { nombre: 'Ana' },
+              { nombre: 'Beto' },
+              { nombre: 'Carla' },
+            ],
+          }),
+        ),
+      ).toBeNull();
     });
 
-    it('cuenta los invitados de esta misma reserva, no solo los anteriores', () => {
-      // Le quedan dos y declara tres de una vez. Mirando solo el historial pasaría, y
-      // el mes terminaría con cinco invitados registrados.
+    it('con el cupo usado entero, una reserva con un solo invitado ya no entra', () => {
       const rechazo = evaluarReservaDeSocio(
         solicitud({
-          invitadosDelMes: 2,
-          acompanantes: [
-            { nombre: 'Ana' },
-            { nombre: 'Beto' },
-            { nombre: 'Carla' },
-          ],
+          reservasConInvitadosDelMes: 4,
+          acompanantes: [{ nombre: 'Ana' }],
         }),
       );
 
       expect(rechazo?.tipo).toBe('CUPO_INVITADOS');
+      expect(rechazo?.mensaje).toMatch(/4 de 4 reservas con invitados/);
     });
 
     it('los socios acompañantes no gastan invitados', () => {
@@ -413,7 +411,10 @@ describe('evaluarReservaDeSocio', () => {
       // que hace que el límite no se lea como "no puedes reservar más este mes".
       expect(
         evaluarReservaDeSocio(
-          solicitud({ invitadosDelMes: 4, acompanantes: [{ socioId: 8 }] }),
+          solicitud({
+            reservasConInvitadosDelMes: 4,
+            acompanantes: [{ socioId: 8 }],
+          }),
         ),
       ).toBeNull();
     });
@@ -422,7 +423,7 @@ describe('evaluarReservaDeSocio', () => {
       expect(
         evaluarReservaDeSocio(
           solicitud({
-            invitadosDelMes: 4,
+            reservasConInvitadosDelMes: 4,
             config: {
               cupoDiarioSocioReservas: 1,
               cupoPicoSemanalReservas: 2,
@@ -650,7 +651,7 @@ describe('evaluarReservaDeSocio', () => {
       // mensual no se arregla con nada hasta el día 1.
       const rechazo = evaluarReservaDeSocio(
         solicitud({
-          invitadosDelMes: 4,
+          reservasConInvitadosDelMes: 4,
           acompanantes: [{ socioId: 8 }, { nombre: 'Ana Invitada' }],
           ocupados: [
             {
