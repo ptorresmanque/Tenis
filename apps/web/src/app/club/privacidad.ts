@@ -85,8 +85,8 @@ interface Tratamiento {
       <ul class="mt-2 grid list-disc gap-1 ps-5">
         <li>La verificación de tu correo y la recuperación de tu contraseña.</li>
         <li>
-          La confirmación de tu reserva, con el enlace para verla y cambiarla, para que
-          sepas que quedó tomada y cómo llegar.
+          La confirmación de tu reserva, con el enlace a tu reserva y cómo cambiarla, para
+          que sepas que quedó tomada y cómo llegar.
         </li>
         <li>
           Si reservas sin ser socio, un aviso por cada cambio de tu reserva, hecho desde tu
