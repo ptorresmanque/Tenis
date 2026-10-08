@@ -2,10 +2,14 @@ import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { Logger } from '@nestjs/common';
+
 import {
   armarMensaje,
   CorreoSaliente,
   elegirEnviador,
+  EnviadorConDesvio,
+  EnviadorCorreo,
   EnviadorPorConsola,
   EnviadorPorSendmail,
 } from './correo';
@@ -157,5 +161,72 @@ describe('Correo saliente', () => {
     expect(elegirEnviador({ CORREO_REMITENTE: REMITENTE })).toBeInstanceOf(
       EnviadorPorSendmail,
     );
+  });
+
+  /**
+   * T93. QA manda los mismos correos que producción, y su base puede tener gente real:
+   * con CORREO_DESVIO, todo le llega a una sola casilla de prueba.
+   */
+  describe('desvío de QA', () => {
+    // El espía del log se suelta aunque el test falle: si no, sigue tapando los avisos
+    // de los tests que vienen después.
+    afterEach(() => jest.restoreAllMocks());
+
+    /** Un enviador que guarda lo que le pasan, en vez de mandarlo. */
+    function capturador() {
+      const enviados: CorreoSaliente[] = [];
+      const enviador = new (class extends EnviadorCorreo {
+        enviar(correo: CorreoSaliente): Promise<void> {
+          enviados.push(correo);
+          return Promise.resolve();
+        }
+      })();
+      return { enviador, enviados };
+    }
+
+    it('manda a la casilla de desvío, con el destinatario original al frente del asunto', async () => {
+      const { enviador, enviados } = capturador();
+
+      await new EnviadorConDesvio(enviador, 'pruebas@fedal.cl').enviar(CORREO);
+
+      expect(enviados).toEqual([
+        {
+          para: 'pruebas@fedal.cl',
+          asunto:
+            '[para: socia@ejemplo.cl] Verifica tu correo — FEDAL Tennis Center',
+          cuerpo: CORREO.cuerpo,
+        },
+      ]);
+    });
+
+    it('con CORREO_DESVIO envuelve al adaptador que toque, sendmail incluido', () => {
+      expect(
+        elegirEnviador({ CORREO_DESVIO: 'pruebas@fedal.cl' }),
+      ).toBeInstanceOf(EnviadorConDesvio);
+      expect(
+        elegirEnviador({
+          CORREO_REMITENTE: REMITENTE,
+          CORREO_DESVIO: 'pruebas@fedal.cl',
+        }),
+      ).toBeInstanceOf(EnviadorConDesvio);
+    });
+
+    it('lo anota en el log al arrancar, para que se note si quedó puesto en producción', () => {
+      const aviso = jest
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+
+      elegirEnviador({ CORREO_DESVIO: 'pruebas@fedal.cl' });
+
+      expect(aviso).toHaveBeenCalledWith(
+        expect.stringContaining('pruebas@fedal.cl'),
+      );
+    });
+
+    it('vacía, no desvía: una línea "CORREO_DESVIO=" a medio borrar no puede mandar todo a ninguna parte', () => {
+      expect(elegirEnviador({ CORREO_DESVIO: '  ' })).toBeInstanceOf(
+        EnviadorPorConsola,
+      );
+    });
   });
 });

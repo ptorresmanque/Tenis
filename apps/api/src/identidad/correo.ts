@@ -144,9 +144,43 @@ export class EnviadorPorSendmail extends EnviadorCorreo {
   }
 }
 
-/** Con CORREO_REMITENTE en el `.env`, el correo sale de verdad; sin él, va al log. */
+/**
+ * Manda todo a una sola casilla, con el destinatario original al frente del asunto (T93).
+ *
+ * Es para QA: manda los mismos correos que producción, y su base puede tener socios de
+ * verdad. Así el cliente prueba cada correo sin que le llegue a nadie de afuera.
+ */
+export class EnviadorConDesvio extends EnviadorCorreo {
+  constructor(
+    private readonly enviador: EnviadorCorreo,
+    private readonly casilla: string,
+  ) {
+    super();
+  }
+
+  enviar(correo: CorreoSaliente): Promise<void> {
+    return this.enviador.enviar({
+      para: this.casilla,
+      asunto: `[para: ${correo.para}] ${correo.asunto}`,
+      cuerpo: correo.cuerpo,
+    });
+  }
+}
+
+/**
+ * Con CORREO_REMITENTE en el `.env`, el correo sale de verdad; sin él, va al log. Con
+ * CORREO_DESVIO, además, todo va a esa casilla: **solo en el `.env` de QA**.
+ */
 export function elegirEnviador(env: NodeJS.ProcessEnv): EnviadorCorreo {
-  return env.CORREO_REMITENTE
+  const enviador = env.CORREO_REMITENTE
     ? new EnviadorPorSendmail(env.CORREO_REMITENTE)
     : new EnviadorPorConsola();
+  const desvio = env.CORREO_DESVIO?.trim();
+
+  if (!desvio) return enviador;
+
+  // Una vez, al arrancar: si la variable se cuela en producción, los socios dejan de
+  // recibir sus correos sin que nada falle, y esta línea es la única pista.
+  new Logger('Correo').warn(`Todo el correo se desvía a ${desvio}.`);
+  return new EnviadorConDesvio(enviador, desvio);
 }
