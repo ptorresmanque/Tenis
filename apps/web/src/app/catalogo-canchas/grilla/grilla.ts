@@ -264,7 +264,7 @@ export class BandaTipada {
 
         @if (banda.enMantencion !== null) {
           <p class="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground">
-            <span class="icono text-base" aria-hidden="true">build</span>
+            <span class="icono text-base" aria-hidden="true">{{ iconos['MANTENCION'] }}</span>
             {{ banda.enMantencion }} en mantención
           </p>
         }
@@ -409,7 +409,7 @@ export class BandaTipada {
             }
             @if (franja.enMantencion > 0 && banda.enMantencion === null) {
               <span class="inline-flex items-center gap-1">
-                <span class="icono text-base" aria-hidden="true">build</span>
+                <span class="icono text-base" aria-hidden="true">{{ iconos['MANTENCION'] }}</span>
                 {{ franja.enMantencion }} en mantención
               </span>
             }
