@@ -100,6 +100,45 @@ export interface ResultadoAgendar {
 }
 
 /**
+ * Una serie de clases, como la escribe el admin (T113): la ficha de una clase, los días
+ * de la semana —0 es domingo— y el rango de fechas. Dura como máximo 6 meses.
+ */
+export interface SerieNueva {
+  canchaId: number;
+  profesorId: number;
+  diasSemana: number[];
+  horaDesde: string;
+  horaHasta: string;
+  desde: string;
+  hasta: string;
+  cupoMaximo: number;
+  nivel: NivelClase;
+  notas?: string;
+}
+
+/** Una fecha que la serie generaría, con lo que tiene encima (T113). */
+export interface FechaDeLaSerie {
+  fecha: string;
+  inicio: string;
+  fin: string;
+  /** La cancha cerrada a esa hora, o fuera del horario. Esa fecha solo se puede saltar. */
+  choque: string | null;
+  /** Las reservas que la clase cancelaría. */
+  afectadas: HoraAfectada[];
+}
+
+/** Qué hacer con una fecha que tiene algo encima, o con una libre que se quiere saltar. */
+export type DecisionDeFecha = 'cancelar' | 'saltar';
+
+/** Lo que deja una serie agendada (T114). */
+export interface SerieAgendada {
+  id: number;
+  clases: { id: number; fecha: string }[];
+  saltadas: string[];
+  canceladas: HoraAfectada[];
+}
+
+/**
  * Las clases del club.
  *
  * **Agendar cierra la cancha**, y por eso tiene simulación: antes de confirmar, el
@@ -148,6 +187,32 @@ export class Clases {
   agendar(clase: ClaseNueva): Promise<ResultadoAgendar> {
     return firstValueFrom(
       this.http.post<ResultadoAgendar>('/api/admin/clases', clase),
+    );
+  }
+
+  /** Lo que la serie generaría, fecha por fecha. No escribe nada (T113). */
+  simularSerie(serie: SerieNueva): Promise<{ fechas: FechaDeLaSerie[] }> {
+    return firstValueFrom(
+      this.http.post<{ fechas: FechaDeLaSerie[] }>(
+        '/api/admin/clases/series/simulacion',
+        serie,
+      ),
+    );
+  }
+
+  /**
+   * Agenda la serie con la decisión de cada fecha que la necesita (T114). El servidor
+   * vuelve a simular: si apareció una reserva en una fecha sin decisión, la rechaza entera.
+   */
+  agendarSerie(
+    serie: SerieNueva,
+    decisiones: Record<string, DecisionDeFecha>,
+  ): Promise<SerieAgendada> {
+    return firstValueFrom(
+      this.http.post<SerieAgendada>('/api/admin/clases/series', {
+        ...serie,
+        decisiones,
+      }),
     );
   }
 
