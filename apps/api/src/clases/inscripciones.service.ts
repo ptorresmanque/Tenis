@@ -158,11 +158,23 @@ export class Inscripciones {
       const ids = clases.map((clase) => clase.id).sort((a, b) => a - b);
       await tx.$queryRaw`SELECT id FROM clase WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`;
 
+      // Se vuelven a leer bajo el cerrojo: entre la consulta de arriba y el `FOR UPDATE`
+      // una clase pudo cancelarse o cambiar de cupo, y se inscribiría con lo que ya no es.
+      const vigentes = await tx.clase.findMany({
+        where: {
+          id: { in: ids },
+          estado: EstadoClase.PROGRAMADA,
+          inicio: { gt: ahora },
+        },
+        orderBy: { inicio: 'asc' },
+        select: { id: true, inicio: true, cupoMaximo: true },
+      });
+
       const nuevas: number[] = [];
       const llenas: Date[] = [];
       let yaEstaba = 0;
 
-      for (const clase of clases) {
+      for (const clase of vigentes) {
         if (await this.estaInscrito(tx, clase.id, quien)) {
           yaEstaba++;
           continue;
