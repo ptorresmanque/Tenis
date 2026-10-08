@@ -1,6 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { entero, instanteDeCuerpo } from '../catalogo-canchas/admin.dto';
+import {
+  diaValido,
+  entero,
+  fechaDeCuerpo,
+  instanteDeCuerpo,
+} from '../catalogo-canchas/admin.dto';
 import { NivelClase } from '../generated/prisma/client';
 
 /** Una clase por agendar, con el rango ya resuelto a instantes. */
@@ -14,6 +19,85 @@ export interface ClaseNueva {
   cupoMaximo: number;
   nivel: NivelClase;
   notas: string | null;
+}
+
+/**
+ * Una serie de clases (T113): la ficha de una clase, más los días de la semana y el rango
+ * de fechas. Las horas quedan como reloj del club; cada fecha las convierte a instantes.
+ */
+export interface SerieNueva {
+  canchaId: number;
+  profesorId: number;
+  /** De 0 (domingo) a 6 (sábado), sin repetidos y en orden. */
+  diasSemana: number[];
+  horaDesde: string;
+  horaHasta: string;
+  /** Fechas civiles del club, "AAAA-MM-DD", las dos incluidas. */
+  desde: string;
+  hasta: string;
+  cupoMaximo: number;
+  nivel: NivelClase;
+  notas: string | null;
+}
+
+/** El tope de una serie (A10): seis meses. Más largo, se agenda otra. */
+const MESES_MAXIMOS = 6;
+
+/**
+ * Lee la serie del formulario.
+ *
+ * Lo de cada clase —cancha, profesor, horas, cupo, nivel, notas— se valida leyendo la
+ * primera fecha como una clase suelta: así la serie no tiene reglas propias que se
+ * desalineen de las de la clase.
+ */
+export function leerSerie(cuerpo: unknown): SerieNueva {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  if (!Array.isArray(datos.diasSemana) || datos.diasSemana.length === 0) {
+    throw new BadRequestException('Elige al menos un día de la semana.');
+  }
+  const diasSemana = [...new Set(datos.diasSemana.map(diaValido))].sort(
+    (a, b) => a - b,
+  );
+
+  const desde = fechaDeCuerpo(datos.desde, 'El inicio de la serie');
+  const hasta = fechaDeCuerpo(datos.hasta, 'El término de la serie');
+
+  if (hasta < desde) {
+    throw new BadRequestException(
+      'La serie tiene que terminar después de empezar.',
+    );
+  }
+
+  // `Date.UTC` con el mes pasado de 11 rueda solo al año siguiente.
+  const tope = new Date(
+    Date.UTC(
+      desde.getUTCFullYear(),
+      desde.getUTCMonth() + MESES_MAXIMOS,
+      desde.getUTCDate(),
+    ),
+  );
+  if (hasta > tope) {
+    throw new BadRequestException(
+      `Una serie dura como máximo ${MESES_MAXIMOS} meses: para más, agenda otra después.`,
+    );
+  }
+
+  const fecha = (dia: Date) => dia.toISOString().slice(0, 10);
+  const muestra = leerClaseNueva({ ...datos, fecha: fecha(desde) });
+
+  return {
+    canchaId: muestra.canchaId,
+    profesorId: muestra.profesorId,
+    diasSemana,
+    horaDesde: datos.horaDesde as string,
+    horaHasta: datos.horaHasta as string,
+    desde: fecha(desde),
+    hasta: fecha(hasta),
+    cupoMaximo: muestra.cupoMaximo,
+    nivel: muestra.nivel,
+    notas: muestra.notas,
+  };
 }
 
 /** Adónde se mueve una clase. La cancha puede cambiar; el resto de la ficha no. */

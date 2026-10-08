@@ -19,6 +19,7 @@ import {
   leerClaseNueva,
   leerInscripcion,
   leerMovimiento,
+  leerSerie,
 } from './clases.dto';
 
 /**
@@ -58,6 +59,16 @@ export class ClasesController {
   @Post()
   agendar(@Body() cuerpo: unknown) {
     return this.clases.agendar(leerClaseNueva(cuerpo));
+  }
+
+  /**
+   * Lo que una serie generaría, fecha por fecha: a quién le quitaría la hora y qué otra
+   * cosa ya ocupa la cancha (T113). Sin escribir nada, como la simulación de una clase.
+   */
+  @Post('series/simulacion')
+  @HttpCode(200)
+  async simularSerie(@Body() cuerpo: unknown) {
+    return { fechas: await this.clases.simularSerie(leerSerie(cuerpo)) };
   }
 
   /**

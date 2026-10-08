@@ -13,7 +13,8 @@ import {
   CierreDeCanchaService,
   type ReservaAfectada,
 } from '../reservas/cierre-de-cancha.service';
-import type { ClaseNueva, Movimiento } from './clases.dto';
+import type { ClaseNueva, Movimiento, SerieNueva } from './clases.dto';
+import { clasesDeLaSerie } from './series';
 
 /** Una clase de la agenda, como la mira quien atiende el mesón. */
 export interface ClaseDelDia {
@@ -28,6 +29,20 @@ export interface ClaseDelDia {
   estado: EstadoClase;
   cupoMaximo: number;
   notas: string | null;
+}
+
+/** Una fecha de una serie simulada (T113): lo que el admin decide antes de agendar. */
+export interface FechaDeLaSerie {
+  fecha: string;
+  inicio: Date;
+  fin: Date;
+  /**
+   * Por qué la cancha no se puede cerrar a esa hora: fuera del horario, u otra clase,
+   * torneo o mantención encima. Nulo si está libre de cierres.
+   */
+  choque: string | null;
+  /** Las reservas que la clase cancelaría, como en la clase suelta. */
+  afectadas: ReservaAfectada[];
 }
 
 export interface ClaseAgendada {
@@ -67,6 +82,47 @@ export class Clases {
     await this.exigirRangoUsable(datos.canchaId, datos.fecha, datos);
 
     return this.cierres.afectadas(this.comoBloqueo(datos, datos.canchaId));
+  }
+
+  /**
+   * Lo que una serie generaría, fecha por fecha, sin escribir nada (T113).
+   *
+   * Un choque es un dato de su fecha y no un error de la serie: el admin decide fecha por
+   * fecha si la salta o cancela lo que haya (decisión 9, T114).
+   *
+   * ponytail: dos o tres consultas por fecha. Con el tope de 6 meses son unas 50 fechas para
+   * una serie de dos días a la semana, y hasta 180 si es diaria; si eso se nota, juntar las
+   * reservas y los bloqueos de todo el rango en una consulta.
+   */
+  async simularSerie(serie: SerieNueva): Promise<FechaDeLaSerie[]> {
+    await this.elProfesor(serie.profesorId);
+
+    const fechas: FechaDeLaSerie[] = [];
+
+    for (const clase of clasesDeLaSerie(serie)) {
+      const choque = await this.choqueDelRango(
+        clase.canchaId,
+        clase.fecha,
+        clase,
+      );
+      // Fuera del horario no hay bloqueo posible, y por eso tampoco reservas que cancelar.
+      const afectadas =
+        choque instanceof NotFoundException
+          ? []
+          : await this.cierres.afectadas(
+              this.comoBloqueo(clase, clase.canchaId),
+            );
+
+      fechas.push({
+        fecha: clase.fecha,
+        inicio: clase.inicio,
+        fin: clase.fin,
+        choque: choque?.message ?? null,
+        afectadas,
+      });
+    }
+
+    return fechas;
   }
 
   async agendar(datos: ClaseNueva): Promise<ClaseAgendada> {
@@ -275,6 +331,26 @@ export class Clases {
     rango: { inicio: Date; fin: Date },
     exceptoBloqueoId: number | null = null,
   ): Promise<void> {
+    const choque = await this.choqueDelRango(
+      canchaId,
+      fecha,
+      rango,
+      exceptoBloqueoId,
+    );
+
+    if (choque) throw choque;
+  }
+
+  /**
+   * Lo mismo que `exigirRangoUsable`, pero devuelve el rechazo en vez de lanzarlo: la serie
+   * lo muestra junto a su fecha (T113) y sigue con las demás.
+   */
+  private async choqueDelRango(
+    canchaId: number,
+    fecha: string,
+    rango: { inicio: Date; fin: Date },
+    exceptoBloqueoId: number | null = null,
+  ): Promise<NotFoundException | ConflictException | null> {
     const bloques = await this.disponibilidad.de(canchaId, fecha);
     const dentro = bloques.filter(
       (bloque) => bloque.inicio >= rango.inicio && bloque.fin <= rango.fin,
@@ -287,7 +363,7 @@ export class Clases {
       dentro[0].inicio.getTime() !== rango.inicio.getTime() ||
       dentro[dentro.length - 1].fin.getTime() !== rango.fin.getTime()
     ) {
-      throw new NotFoundException(
+      return new NotFoundException(
         'Esa hora no está en el horario de la cancha.',
       );
     }
@@ -302,11 +378,11 @@ export class Clases {
       select: { motivo: true, descripcion: true },
     });
 
-    if (choque) {
-      throw new ConflictException(
-        `Esa cancha ya está cerrada en ese rango: ${choque.descripcion ?? choque.motivo.toLowerCase()}.`,
-      );
-    }
+    return choque
+      ? new ConflictException(
+          `Esa cancha ya está cerrada en ese rango: ${choque.descripcion ?? choque.motivo.toLowerCase()}.`,
+        )
+      : null;
   }
 
   private async elProfesor(id: number): Promise<{ nombreVisible: string }> {
