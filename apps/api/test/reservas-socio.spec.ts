@@ -8,6 +8,7 @@ import {
   EstadoSocio,
   Superficie,
 } from '../src/generated/prisma/client';
+import { CorreoSaliente, EnviadorCorreo } from '../src/identidad/correo';
 import { UsuarioActual } from '../src/identidad/usuario-actual';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ReservasService } from '../src/reservas/reservas.service';
@@ -26,6 +27,9 @@ describe('POST /api/reservas — reserva de socio', () => {
   let canchaId: number;
   let socioId: number;
   let cookie: string;
+
+  /** Los correos que salieron: la confirmación de T108. */
+  const enviados: CorreoSaliente[] = [];
 
   const NOMBRE_CANCHA = 'Cancha T22';
   const DOMINIO = '@t22.ejemplo.cl';
@@ -98,7 +102,15 @@ describe('POST /api/reservas — reserva de socio', () => {
   beforeAll(async () => {
     const modulo = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(EnviadorCorreo)
+      .useValue({
+        enviar: (correo: CorreoSaliente) => {
+          enviados.push(correo);
+          return Promise.resolve();
+        },
+      })
+      .compile();
 
     app = modulo.createNestApplication();
     app.setGlobalPrefix('api');
@@ -178,6 +190,32 @@ describe('POST /api/reservas — reserva de socio', () => {
     });
 
     cookie = await entrar(`socio-titular${DOMINIO}`);
+    // El registro de arriba manda su verificación: lo que importa es lo que viene después.
+    enviados.length = 0;
+  });
+
+  /** T108. Al socio la confirmación le sale al crear la reserva: no paga. */
+  describe('el correo de confirmación (T108)', () => {
+    it('**la reserva del socio genera una confirmación, a su correo, con el enlace**', async () => {
+      const respuesta = await reservar(unaReserva());
+
+      const reserva = await prisma.reserva.findUniqueOrThrow({
+        where: { id: respuesta.body.id },
+      });
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0].para).toBe(`socio-titular${DOMINIO}`);
+      expect(enviados[0].cuerpo).toContain(reserva.folio);
+      expect(enviados[0].cuerpo).toContain(`/r/${reserva.token}`);
+      expect(enviados[0].cuerpo).toContain('"Mis reservas"');
+    });
+
+    it('una reserva rechazada no manda nada', async () => {
+      await reservar(unaReserva());
+      // La segunda del día se rechaza por el cupo diario.
+      await reservar(unaReserva({ inicio: A_LAS_11 }));
+
+      expect(enviados).toHaveLength(1);
+    });
   });
 
   it('el socio al día reserva sin pagar', async () => {

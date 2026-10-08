@@ -320,6 +320,8 @@ describe('POST /api/admin/clases', () => {
 
   it('**agendar sobre una hora reservada la cancela y le avisa a quien la tenía**', async () => {
     const reservaId = await reservar(instante('18:00'));
+    // Su confirmación (T108) va a la misma casilla: lo que se busca es el aviso.
+    enviados.length = 0;
 
     const { canceladas } = await agendada();
 

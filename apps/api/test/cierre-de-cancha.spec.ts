@@ -261,6 +261,8 @@ describe('POST /api/admin/cierres', () => {
         acompanantes: [{ nombre: 'Invitada del cierre' }],
       })
       .expect(201);
+    // Las dos reservas mandaron su confirmación (T108): lo que se cuenta es el aviso.
+    enviados.length = 0;
 
     const respuesta = await request(app.getHttpServer())
       .post('/api/admin/cierres')
@@ -471,6 +473,8 @@ describe('POST /api/admin/cierres', () => {
     // Sin esto, la prueba de arriba pasaría igual cancelando la agenda entera.
     const horas = await bloques();
     await reservarYPagar(horas[0].inicio);
+    // La confirmación de la reserva (T108) no es un aviso del cierre.
+    enviados.length = 0;
 
     await request(app.getHttpServer())
       .post('/api/admin/cierres')
