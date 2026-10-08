@@ -40,6 +40,9 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
         }
+        @if (aviso(); as texto) {
+          <app-aviso variante="exito" class="mt-2 block">{{ texto }}</app-aviso>
+        }
 
         @if (clase.inscritos.length === 0) {
           <p class="mt-2 text-sm text-muted-foreground">
@@ -94,6 +97,18 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
                   >
                     Sacar de la clase
                   </button>
+                  <!-- T116. Saca de esta y de las que vienen: las que ya pasaron quedan
+                       con su asistencia. -->
+                  @if (clase.serieId !== null) {
+                    <button
+                      type="button"
+                      class="boton boton-texto boton-chico"
+                      [disabled]="trabajando()"
+                      (click)="sacarDeLaSerie(clase.serieId, quien)"
+                    >
+                      Sacar de la serie
+                    </button>
+                  }
                 }
               </li>
             }
@@ -143,6 +158,18 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
             <button type="submit" class="boton boton-secundario boton-chico" [disabled]="trabajando()">
               Inscribir
             </button>
+            <!-- T116. En cada clase que viene de la serie, en una transacción: si alguna
+                 está llena, el servidor no inscribe en ninguna y dice cuál. -->
+            @if (clase.serieId !== null) {
+              <button
+                type="button"
+                class="boton boton-secundario boton-chico"
+                [disabled]="trabajando()"
+                (click)="inscribirEnLaSerie(clase.serieId)"
+              >
+                Inscribir en toda la serie
+              </button>
+            }
           </div>
 
           @if (clase.estado === 'PROGRAMADA' && clase.inscritos.length > 0) {
@@ -200,6 +227,7 @@ export class InscritosDeLaClase {
 
   protected readonly trabajando = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -237,17 +265,56 @@ export class InscritosDeLaClase {
   });
 
   protected async inscribir(): Promise<void> {
-    const quien: QuienSeInscribe =
-      this.tipo() === 'socio'
-        ? { socioId: Number(this.socioId) }
-        : { nombre: this.nombre, telefono: this.telefono };
+    const quien = this.quienSeInscribe();
 
     await this.intentar(async () => {
       await this.api.inscribir(this.claseId(), quien);
-      this.socioId = 0;
-      this.nombre = '';
-      this.telefono = '';
+      this.limpiarFormulario();
     });
+  }
+
+  /** En cada clase que viene de la serie (T116). */
+  protected async inscribirEnLaSerie(serieId: number): Promise<void> {
+    const quien = this.quienSeInscribe();
+
+    await this.intentar(async () => {
+      const { inscritas, yaEstaba } = await this.api.inscribirEnLaSerie(serieId, quien);
+      this.limpiarFormulario();
+      this.aviso.set(
+        `Inscrito en ${inscritas} ${inscritas === 1 ? 'clase' : 'clases'} de la serie` +
+          (yaEstaba > 0 ? `; en ${yaEstaba} ya estaba.` : '.'),
+      );
+    });
+  }
+
+  /**
+   * Lo saca de la serie: el socio por su ficha, el alumno de afuera por su nombre y su
+   * teléfono, que es como lo reconoce el servidor.
+   */
+  protected async sacarDeLaSerie(serieId: number, quien: Inscrito): Promise<void> {
+    const persona: QuienSeInscribe =
+      quien.socioId !== null
+        ? { socioId: quien.socioId }
+        : { nombre: quien.nombre, telefono: quien.telefono };
+
+    await this.intentar(async () => {
+      const { canceladas } = await this.api.salirDeLaSerie(serieId, persona);
+      this.aviso.set(
+        `Salió de la serie: se ${canceladas === 1 ? 'canceló 1 clase que venía' : `cancelaron ${canceladas} clases que venían`}.`,
+      );
+    });
+  }
+
+  private quienSeInscribe(): QuienSeInscribe {
+    return this.tipo() === 'socio'
+      ? { socioId: Number(this.socioId) }
+      : { nombre: this.nombre, telefono: this.telefono };
+  }
+
+  private limpiarFormulario(): void {
+    this.socioId = 0;
+    this.nombre = '';
+    this.telefono = '';
   }
 
   /** Quiénes vinieron, mientras el club pasa lista y todavía no cierra. */
@@ -285,6 +352,7 @@ export class InscritosDeLaClase {
 
   private async intentar(accion: () => Promise<unknown>): Promise<void> {
     this.error.set(null);
+    this.aviso.set(null);
     this.trabajando.set(true);
 
     try {

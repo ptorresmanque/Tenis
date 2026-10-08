@@ -25,9 +25,11 @@ describe('InscritosDeLaClase', () => {
     cupoMaximo: 2,
     cupoTomado: 1,
     notas: null,
+    serieId: null,
     inscritos: [
       {
         id: 11,
+        socioId: 1,
         nombre: 'Camila Socia',
         telefono: '+56911112222',
         esSocio: true,
@@ -44,6 +46,8 @@ describe('InscritosDeLaClase', () => {
     inscribir: ReturnType<typeof vi.fn>;
     bajar: ReturnType<typeof vi.fn>;
     realizar: ReturnType<typeof vi.fn>;
+    inscribirEnLaSerie: ReturnType<typeof vi.fn>;
+    salirDeLaSerie: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (ficha: FichaDeClase | Error) => {
@@ -54,6 +58,8 @@ describe('InscritosDeLaClase', () => {
       inscribir: vi.fn().mockResolvedValue({ id: 12 }),
       bajar: vi.fn().mockResolvedValue({ id: 11 }),
       realizar: vi.fn().mockResolvedValue({ id: 7 }),
+      inscribirEnLaSerie: vi.fn().mockResolvedValue({ inscritas: 17, yaEstaba: 1 }),
+      salirDeLaSerie: vi.fn().mockResolvedValue({ canceladas: 5 }),
     };
 
     TestBed.resetTestingModule();
@@ -272,4 +278,80 @@ describe('InscritosDeLaClase', () => {
 
     expect(texto()).toContain('Camila Socia');
   });
+
+  /** T116. En una clase de una serie, se inscribe y se sale de la serie completa. */
+  describe('la serie', () => {
+    const DE_UNA_SERIE: FichaDeClase = { ...FICHA, serieId: 9 };
+
+    it('en una clase suelta no ofrece la serie', () => {
+      expect(texto()).not.toContain('toda la serie');
+      expect(texto()).not.toContain('Sacar de la serie');
+    });
+
+    it('**inscribe al socio elegido en toda la serie y dice en cuántas clases**', async () => {
+      await montar(DE_UNA_SERIE);
+      const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
+      select.value = '3';
+      select.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+
+      await apretar('Inscribir en toda la serie');
+
+      expect(api.inscribirEnLaSerie).toHaveBeenCalledWith(9, { socioId: 3 });
+      expect(api.inscribir).not.toHaveBeenCalled();
+      expect(texto()).toContain('Inscrito en 17 clases de la serie; en 1 ya estaba.');
+    });
+
+    it('**sacar de la serie cancela las clases que vienen**', async () => {
+      await montar(DE_UNA_SERIE);
+
+      await apretar('Sacar de la serie');
+
+      expect(api.salirDeLaSerie).toHaveBeenCalledWith(9, { socioId: 1 });
+      expect(texto()).toContain('Salió de la serie: se cancelaron 5 clases que venían.');
+    });
+
+    it('al alumno de afuera se lo reconoce por su nombre y su teléfono', async () => {
+      await montar({
+        ...DE_UNA_SERIE,
+        inscritos: [
+          {
+            ...FICHA.inscritos[0],
+            socioId: null,
+            esSocio: false,
+            numeroSocio: null,
+            nombre: 'Pedro Afuera',
+            telefono: '+56933334444',
+          },
+        ],
+      });
+
+      await apretar('Sacar de la serie');
+
+      expect(api.salirDeLaSerie).toHaveBeenCalledWith(9, {
+        nombre: 'Pedro Afuera',
+        telefono: '+56933334444',
+      });
+    });
+
+    it('si una clase de la serie está llena, lo dice con las palabras del servidor', async () => {
+      await montar(DE_UNA_SERIE);
+      api.inscribirEnLaSerie.mockRejectedValue({
+        status: 409,
+        error: {
+          message:
+            'No hay cupo en la clase del jueves 22 de octubre: no se inscribió en ninguna clase de la serie.',
+        },
+      });
+      const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
+      select.value = '3';
+      select.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+
+      await apretar('Inscribir en toda la serie');
+
+      expect(texto()).toContain('jueves 22 de octubre');
+    });
+  });
 });
+

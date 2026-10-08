@@ -48,6 +48,8 @@ export type EstadoInscripcion = 'INSCRITA' | 'CANCELADA' | 'ASISTIO' | 'FALTO';
 /** Quién viene a la clase, como lo lee el club. */
 export interface Inscrito {
   id: number;
+  /** El socio, para sacarlo de la serie (T116); nulo si es un alumno de afuera. */
+  socioId: number | null;
   nombre: string;
   telefono: string;
   esSocio: boolean;
@@ -68,6 +70,8 @@ export interface FichaDeClase {
   cupoMaximo: number;
   cupoTomado: number;
   notas: string | null;
+  /** La serie que la agendó (T113), o nulo si es una clase suelta. */
+  serieId: number | null;
   inscritos: Inscrito[];
 }
 
@@ -236,6 +240,32 @@ export class Clases {
     return firstValueFrom(
       this.http.post<{ id: number }>(
         `/api/admin/clases/${claseId}/inscripciones`,
+        quien,
+      ),
+    );
+  }
+
+  /**
+   * Inscribe en cada clase que viene de la serie (T116). Si una está llena, el servidor no
+   * inscribe en ninguna y dice cuál.
+   */
+  inscribirEnLaSerie(
+    serieId: number,
+    quien: QuienSeInscribe,
+  ): Promise<{ inscritas: number; yaEstaba: number }> {
+    return firstValueFrom(
+      this.http.post<{ inscritas: number; yaEstaba: number }>(
+        `/api/admin/clases/series/${serieId}/inscripciones`,
+        quien,
+      ),
+    );
+  }
+
+  /** Lo saca de la serie: cancela las clases que vienen, no las que ya pasaron (T116). */
+  salirDeLaSerie(serieId: number, quien: QuienSeInscribe): Promise<{ canceladas: number }> {
+    return firstValueFrom(
+      this.http.post<{ canceladas: number }>(
+        `/api/admin/clases/series/${serieId}/inscripciones/cancelacion`,
         quien,
       ),
     );
