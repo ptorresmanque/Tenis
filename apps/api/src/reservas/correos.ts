@@ -1,20 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { DatosDelClub, firmaDelClub } from '../comun/club';
 import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import { web } from '../comun/urls';
 import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
 import { PrismaService } from '../prisma/prisma.service';
 import { VentanasDelClub } from './ventanas';
-
-/** Lo que la firma necesita del club: lo que el admin carga en "Datos del club". */
-export interface DatosDelClub {
-  nombre: string;
-  direccion: string;
-  telefono: string;
-  email: string;
-  latitud: number | null;
-  longitud: number | null;
-}
 
 /** Una reserva recién confirmada, con lo que su correo dice. */
 export interface ReservaParaAvisar {
@@ -46,27 +37,6 @@ const HORA = new Intl.DateTimeFormat('es-CL', {
 });
 
 const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
-
-/**
- * La firma de todo correo del club (T108; la reutilizan T109 a T112).
- *
- * Lo que el club no cargó no aparece, ni como línea vacía ni como separador suelto. "Cómo
- * llegar" va a Google Maps con el destino puesto, como el botón de "El club" (T101): en un
- * correo es lo que se abre desde el teléfono camino a la cancha.
- */
-export function firmaDelClub(club: DatosDelClub): string {
-  const contacto = [club.telefono, club.email].filter(Boolean).join(' · ');
-  const comoLlegar =
-    club.latitud !== null && club.longitud !== null
-      ? 'Cómo llegar: https://www.google.com/maps/dir/?api=1&destination=' +
-        `${club.latitud},${club.longitud}`
-      : '';
-
-  // "-- " con el espacio: es el separador de firma que los clientes de correo reconocen.
-  return ['-- ', club.nombre, club.direccion, contacto, comoLlegar]
-    .filter(Boolean)
-    .join('\n');
-}
 
 /**
  * La confirmación de una reserva (T108): qué, cuándo, con quién, el enlace y la regla de

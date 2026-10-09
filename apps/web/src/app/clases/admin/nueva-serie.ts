@@ -53,14 +53,11 @@ const enBlanco = () => ({
   imports: [FormsModule, Aviso],
   host: { class: 'block' },
   template: `
-    <form
-      class="rounded-xl border border-border bg-card p-4 shadow-sm"
-      (ngSubmit)="revisar()"
-    >
+    <form class="rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="revisar()">
       <h2 class="rotulo-seccion">Agendar una serie</h2>
       <p class="mt-2 text-sm text-muted-foreground">
-        Una clase por cada día marcado entre las dos fechas, hasta 6 meses. Antes de
-        agendar te mostramos cada fecha y lo que tiene encima.
+        Una clase por cada día marcado entre las dos fechas, hasta 6 meses. Antes de agendar te
+        mostramos cada fecha y lo que tiene encima.
       </p>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -257,9 +254,8 @@ export class NuevaSerie {
   private readonly api = inject(Clases);
 
   readonly canchas = input.required<{ id: number; nombre: string }[]>();
-  readonly profesores = input.required<
-    { id: number; nombreVisible: string; especialidad: string }[]
-  >();
+  readonly profesores =
+    input.required<{ id: number; nombreVisible: string; especialidad: string }[]>();
 
   /** El resumen de lo que se agendó, para que la agenda lo diga y se recargue. */
   readonly agendada = output<string>();
@@ -309,8 +305,7 @@ export class NuevaSerie {
 
     const decisiones = this.decisiones();
     const pendientes = (this.fechas() ?? []).filter(
-      (fila) =>
-        (fila.choque !== null || fila.afectadas.length > 0) && !decisiones[fila.fecha],
+      (fila) => (fila.choque !== null || fila.afectadas.length > 0) && !decisiones[fila.fecha],
     );
 
     if (pendientes.length === 0) return null;
@@ -343,10 +338,16 @@ export class NuevaSerie {
     if (this.motivoParaNoAgendar() !== null) return;
 
     await this.intentar(async () => {
-      const { clases, saltadas, canceladas } = await this.api.agendarSerie(
-        this.serie(),
-        this.decisiones(),
-      );
+      const { clases, saltadas, canceladas } = await this.api
+        .agendarSerie(this.serie(), this.decisiones())
+        .catch(async (falla: unknown) => {
+          // Algo apareció encima desde la revisión: se vuelve a revisar sola, para que la
+          // fecha nueva esté en la tabla, y el mensaje del servidor dice cuál es.
+          if ((falla as { error?: { motivo?: string } }).error?.motivo === 'FALTA_DECIDIR') {
+            await this.revisarDeNuevo();
+          }
+          throw falla;
+        });
 
       this.agendada.emit(
         `Serie agendada: ${clases.length} ${clases.length === 1 ? 'clase' : 'clases'}.` +
@@ -355,7 +356,9 @@ export class NuevaSerie {
             : '') +
           (canceladas.length > 0
             ? ` Avisamos a ${canceladas.length} ${
-                canceladas.length === 1 ? 'persona que tenía su hora' : 'personas que tenían su hora'
+                canceladas.length === 1
+                  ? 'persona que tenía su hora'
+                  : 'personas que tenían su hora'
               }.`
             : ''),
       );
@@ -363,6 +366,25 @@ export class NuevaSerie {
       this.fechas.set(null);
       this.revisada = null;
     });
+  }
+
+  /**
+   * Vuelve a simular la serie ya revisada. Lo decidido se mantiene solo en las fechas que
+   * siguen igual: si una cambió, cancelar podría alcanzar una reserva que el admin no vio.
+   */
+  private async revisarDeNuevo(): Promise<void> {
+    const antes = new Map((this.fechas() ?? []).map((fila) => [fila.fecha, JSON.stringify(fila)]));
+    const { fechas } = await this.api.simularSerie(this.serie());
+    const iguales = new Set(
+      fechas
+        .filter((fila) => antes.get(fila.fecha) === JSON.stringify(fila))
+        .map((fila) => fila.fecha),
+    );
+
+    this.fechas.set(fechas);
+    this.decisiones.update((actuales) =>
+      Object.fromEntries(Object.entries(actuales).filter(([fecha]) => iguales.has(fecha))),
+    );
   }
 
   private serie(): SerieNueva {
