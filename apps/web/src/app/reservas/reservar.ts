@@ -28,6 +28,7 @@ import {
   Reservas,
   SocioDelDirectorio,
 } from './reservas.service';
+import { TelefonoDirective } from '../ui/telefono';
 
 /** El mismo tope que la API (`MAXIMO_ACOMPANANTES` en `reservas.dto.ts`, T105). */
 const MAXIMO_ACOMPANANTES = 3;
@@ -41,7 +42,7 @@ const MAXIMO_ACOMPANANTES = 3;
  */
 @Component({
   selector: 'app-reservar',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, TelefonoDirective],
   template: `
     <!-- Elemento dialog nativo y no un div con overlay: el navegador se encarga del
          foco atrapado, del cierre con Escape, del fondo inerte y del backdrop.
@@ -98,12 +99,15 @@ const MAXIMO_ACOMPANANTES = 3;
             </div>
             <div>
               <label for="telefono" class="block text-sm font-medium">Teléfono</label>
-              <input
-                id="telefono"
-                formControlName="telefono"
-                autocomplete="tel"
-                class="campo mt-1"
-              />
+              <span class="campo-con-prefijo mt-1">
+                <span class="prefijo" aria-hidden="true">+56</span>
+                <input
+                  appTelefono
+                  id="telefono"
+                  formControlName="telefono"
+                  class="campo"
+                />
+              </span>
             </div>
           }
 

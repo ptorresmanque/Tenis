@@ -153,7 +153,8 @@ describe('InscripcionATorneo', () => {
       {
         nombre: 'Rodrigo',
         apellido: 'Soto',
-        telefono: '+56 9 8765 4321',
+        // Lo que escribió, en la forma que guarda la API (T121).
+        telefono: '56987654321',
         procedencia: 'Club de Ñuñoa',
         categoriaJuegoId: 20,
         // La 4ª es gratis en este torneo: no hay medio de pago que elegir.

@@ -20,6 +20,7 @@ import { Campo, CampoControl } from '../../ui/campo';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { ReservasDelAdmin } from './nueva-reserva.service';
+import { TelefonoDirective } from '../../ui/telefono';
 
 /**
  * La hora que el club toma por teléfono o con alguien en el mostrador.
@@ -34,7 +35,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
  */
 @Component({
   selector: 'app-nueva-reserva',
-  imports: [FormsModule, Aviso, Campo, CampoControl, Insignia, Selector],
+  imports: [FormsModule, Aviso, Campo, CampoControl, Insignia, Selector, TelefonoDirective],
   template: `
     <dialog
       #dialogo
@@ -183,13 +184,16 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
 
           <div class="grid gap-4 sm:grid-cols-2">
             <app-campo etiqueta="Teléfono">
-              <input
-                appCampoControl
-                name="telefono"
-                type="tel"
-                class="campo"
-                [(ngModel)]="telefono"
-              />
+              <span class="campo-con-prefijo">
+                <span class="prefijo" aria-hidden="true">+56</span>
+                <input
+                  appTelefono
+                  appCampoControl
+                  name="telefono"
+                  class="campo"
+                  [(ngModel)]="telefono"
+                />
+              </span>
             </app-campo>
             <app-campo etiqueta="Correo">
               <input

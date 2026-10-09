@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Campo, CampoControl } from '../../ui/campo';
+import { TelefonoDirective } from '../../ui/telefono';
 
 interface RespuestaRegistro {
   mensaje: string;
@@ -24,7 +25,7 @@ interface CampoDelFormulario {
 
 @Component({
   selector: 'app-registro',
-  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
+  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl, TelefonoDirective],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -43,14 +44,28 @@ interface CampoDelFormulario {
             [ayuda]="campo.ayuda ?? ''"
             [obligatorio]="!campo.opcional"
           >
-            <input
-              appCampoControl
-              [type]="campo.tipo"
-              [formControlName]="campo.nombre"
-              [autocomplete]="campo.autocomplete"
-              [required]="!campo.opcional"
-              class="campo"
-            />
+            @if (campo.tipo === 'tel') {
+              <!-- El +56 fijo y solo los 9 dígitos (T121). -->
+              <span class="campo-con-prefijo">
+                <span class="prefijo" aria-hidden="true">+56</span>
+                <input
+                  appCampoControl
+                  appTelefono
+                  [formControlName]="campo.nombre"
+                  [required]="!campo.opcional"
+                  class="campo"
+                />
+              </span>
+            } @else {
+              <input
+                appCampoControl
+                [type]="campo.tipo"
+                [formControlName]="campo.nombre"
+                [autocomplete]="campo.autocomplete"
+                [required]="!campo.opcional"
+                class="campo"
+              />
+            }
           </app-campo>
         }
 
