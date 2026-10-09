@@ -5,6 +5,7 @@ import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
 import { Campo, CampoControl } from '../ui/campo';
+import { TelefonoDirective } from '../ui/telefono';
 
 /** Cada dato con su etiqueta y por qué se pide. El orden es el de la pantalla. */
 const DATOS = [
@@ -23,7 +24,7 @@ const DATOS = [
   {
     campo: 'telefono' as const,
     etiqueta: 'Teléfono',
-    ayuda: 'Con código de país, para que se pueda tocar y llamar.',
+    ayuda: 'Los 9 dígitos: el +56 ya va.',
     tipo: 'tel',
   },
   {
@@ -57,7 +58,7 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
  */
 @Component({
   selector: 'app-datos-del-club',
-  imports: [FormsModule, Aviso, Campo, CampoControl],
+  imports: [FormsModule, Aviso, Campo, CampoControl, TelefonoDirective],
   template: `
     <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
       @if (club.error()) {
@@ -72,14 +73,29 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
           [ayuda]="dato.ayuda"
           [obligatorio]="dato.campo === 'nombre'"
         >
-          <input
-            appCampoControl
-            class="campo"
-            [name]="dato.campo"
-            [type]="dato.tipo"
-            [ngModel]="formulario()[dato.campo]"
-            (ngModelChange)="escribir(dato.campo, $event)"
-          />
+          @if (dato.tipo === 'tel') {
+            <!-- El +56 fijo y solo los 9 dígitos (T121). -->
+            <span class="campo-con-prefijo">
+              <span class="prefijo">+56</span>
+              <input
+                appCampoControl
+                appTelefono
+                class="campo"
+                [name]="dato.campo"
+                [ngModel]="formulario()[dato.campo]"
+                (ngModelChange)="escribir(dato.campo, $event)"
+              />
+            </span>
+          } @else {
+            <input
+              appCampoControl
+              class="campo"
+              [name]="dato.campo"
+              [type]="dato.tipo"
+              [ngModel]="formulario()[dato.campo]"
+              (ngModelChange)="escribir(dato.campo, $event)"
+            />
+          }
         </app-campo>
       }
 

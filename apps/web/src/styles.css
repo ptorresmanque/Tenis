@@ -969,6 +969,31 @@ html[data-tema='publico'][data-modo='oscuro'] {
     cursor: not-allowed;
   }
 
+  /* El teléfono (T121): el +56 fijo, pegado al campo, como una sola caja. El span va
+     antes del input con `appTelefono`, que solo acepta los 9 dígitos. */
+  .campo-con-prefijo {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .campo-con-prefijo > .prefijo {
+    display: flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    border: 1px solid var(--color-border);
+    border-right: 0;
+    border-radius: var(--radius-control);
+    background-color: var(--color-muted);
+    color: var(--color-muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Las esquinas que se tocan conservan su radio: con 2px la unión no se ve, y un radio
+     escrito a mano es justo lo que design-tokens.spec.ts no deja pasar. */
+  .campo-con-prefijo > .campo {
+    min-width: 0;
+  }
+
   .tabla {
     width: 100%;
     border-collapse: collapse;

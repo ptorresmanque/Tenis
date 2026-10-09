@@ -398,7 +398,8 @@ describe('Reservar', () => {
 
     expect(valor('nombre')).toBe('Patricio Manquepillán');
     expect(valor('email')).toBe('patricio@ejemplo.cl');
-    expect(valor('telefono')).toBe('+56 9 1111 2222');
+    // Los 9 dígitos: el +56 va fijo al lado del campo (T121).
+    expect(valor('telefono')).toBe('911112222');
   });
 
   it('el visitante con datos incompletos no llega a la pasarela', async () => {

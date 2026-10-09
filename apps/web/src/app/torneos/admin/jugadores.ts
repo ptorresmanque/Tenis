@@ -10,6 +10,7 @@ import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { Jugador, Torneos } from '../torneos.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
+import { TelefonoDirective } from '../../ui/telefono';
 
 /**
  * Quiénes juegan torneos.
@@ -24,7 +25,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
  */
 @Component({
   selector: 'app-jugadores',
-  imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe],
+  imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -82,12 +83,15 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
           </label>
           <label class="flex-1">
             <span class="text-sm font-medium">Teléfono</span>
-            <input
-              class="campo mt-1"
-              type="tel"
-              name="telefono"
-              [(ngModel)]="datos.telefono"
-            />
+            <span class="campo-con-prefijo mt-1">
+              <span class="prefijo">+56</span>
+              <input
+                appTelefono
+                class="campo"
+                name="telefono"
+                [(ngModel)]="datos.telefono"
+              />
+            </span>
           </label>
         }
 

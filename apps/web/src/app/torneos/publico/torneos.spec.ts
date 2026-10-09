@@ -50,6 +50,9 @@ describe('TorneosPublicos', () => {
     ganador: 'Ana Uno',
     marcador: '6-4 6-2',
     walkover: false,
+    inicio: null,
+    fin: null,
+    cancha: null,
   };
 
   const CUADRO: CuadroPublico = {
@@ -58,7 +61,10 @@ describe('TorneosPublicos', () => {
     nombre: 'Copa de verano',
     categoria: 'Club 250',
     estado: 'CUADRO_ARMADO',
-    inscritos: ['Ana Uno', 'Beto Dos'],
+    inscritos: [
+      { nombre: 'Ana Uno', pago: null },
+      { nombre: 'Beto Dos', pago: null },
+    ],
     partidos: [
       SEMIFINAL,
       { ...SEMIFINAL, posicion: 2, ganador: null, marcador: null },

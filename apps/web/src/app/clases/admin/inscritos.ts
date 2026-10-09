@@ -8,6 +8,7 @@ import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
+import { TelefonoDirective } from '../../ui/telefono';
 
 /**
  * Quién viene a una clase.
@@ -20,7 +21,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
  */
 @Component({
   selector: 'app-inscritos',
-  imports: [FormsModule, Aviso, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe],
+  imports: [FormsModule, Aviso, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
   template: `
     @if (ficha.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -147,12 +148,15 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
               </label>
               <label class="flex-1">
                 <span class="text-sm font-medium">Teléfono</span>
-                <input
-                  class="campo campo-chico mt-1"
-                  type="tel"
-                  name="telefono"
-                  [(ngModel)]="telefono"
-                />
+                <span class="campo-con-prefijo mt-1">
+                  <span class="prefijo">+56</span>
+                  <input
+                    appTelefono
+                    class="campo campo-chico"
+                    name="telefono"
+                    [(ngModel)]="telefono"
+                  />
+                </span>
               </label>
             }
 
