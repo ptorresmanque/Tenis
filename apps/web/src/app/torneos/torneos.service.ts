@@ -129,6 +129,8 @@ export interface InscripcionTorneo {
   tieneComprobante: boolean;
   /** A quién llamar si el comprobante no cuadra. Solo en el panel. */
   telefono: string | null;
+  /** A dónde escribirle (T127). Solo en el panel; nulo si se anotó sin uno. */
+  email: string | null;
 }
 
 /** La lista de un **cuadro**, en tres grupos porque son tres cosas distintas. */
@@ -316,6 +318,7 @@ export class Torneos {
       apellido: string;
       telefono: string;
       procedencia: string;
+      email: string;
       categoriaJuegoId: number;
       /** Vacío cuando la categoría es gratis: ahí no hay nada que elegir. */
       medioPago: '' | 'WEBPAY' | 'TRANSFERENCIA';
@@ -498,7 +501,7 @@ export class Torneos {
   /** Pasado el cupo el servidor deja al jugador en espera, no lo rechaza. */
   inscribir(
     cuadroId: number,
-    quien: { jugadorId: number } | { socioId: number },
+    quien: ({ jugadorId: number } | { socioId: number }) & { email?: string },
   ): Promise<{ id: number; estado: EstadoInscripcionTorneo }> {
     return firstValueFrom(
       this.http.post<{ id: number; estado: EstadoInscripcionTorneo }>(
