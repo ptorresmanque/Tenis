@@ -37,7 +37,9 @@ import { horaATexto, proveerFechaYHora, textoAHora } from './fecha-y-hora';
       (valueChange)="elegir($event)"
       (blur)="alTocar()"
     />
-    <mat-timepicker-toggle [for]="reloj" aria-label="Elegir la hora" />
+    @if (conBoton()) {
+      <mat-timepicker-toggle [for]="reloj" aria-label="Elegir la hora" />
+    }
     <mat-timepicker #reloj [interval]="intervalo()" />
   `,
 })
@@ -51,6 +53,11 @@ export class CampoHora implements ControlValueAccessor {
   readonly intervalo = input('30min');
   readonly claseCampo = input('');
   readonly describedBy = input<string>();
+  /**
+   * El botón del reloj. Se puede quitar en una fila apretada: el campo abre la lista solo,
+   * con un clic o con la flecha abajo, así que el botón es una ayuda y no la única vía.
+   */
+  readonly conBoton = input(true);
 
   readonly valor = model('');
 
