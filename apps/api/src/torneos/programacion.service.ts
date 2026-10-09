@@ -10,6 +10,7 @@ import { fechaDelClub } from '../comun/tiempo';
 import { MotivoBloqueo, type Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CierreDeCanchaService } from '../reservas/cierre-de-cancha.service';
+import { AvisosDeTorneo, horaDe } from './correos';
 import { PrograMacionPedida } from './programacion.dto';
 import { chocaConAlguna, enPalabras } from './restricciones';
 
@@ -36,6 +37,7 @@ export class ProgramacionDePartidos {
     private readonly prisma: PrismaService,
     private readonly cierres: CierreDeCanchaService,
     private readonly disponibilidad: DisponibilidadService,
+    private readonly avisos: AvisosDeTorneo,
   ) {}
 
   /**
@@ -84,6 +86,10 @@ export class ProgramacionDePartidos {
       },
     );
 
+    // A los dos jugadores, con lo de antes si ya tenía hora (T133). Con todo escrito:
+    // el correo no puede deshacer la programación.
+    await this.avisos.cambioDePartido(partidoId, horaDe(partido));
+
     return { id: partidoId, bloqueoId };
   }
 
@@ -101,6 +107,9 @@ export class ProgramacionDePartidos {
     }
 
     await this.liberar(this.prisma, partidoId, partido.bloqueoId);
+
+    // "Tu partido quedó sin hora" (T133), con la hora que tenía.
+    await this.avisos.cambioDePartido(partidoId, horaDe(partido));
 
     return { id: partidoId };
   }
@@ -250,6 +259,11 @@ export class ProgramacionDePartidos {
         jugadorAId: true,
         jugadorBId: true,
         bloqueoId: true,
+        programadoInicio: true,
+        programadoFin: true,
+        bloqueo: {
+          select: { canchaId: true, cancha: { select: { nombre: true } } },
+        },
         torneoCategoria: {
           select: { categoriaJuego: { select: { nombre: true } } },
         },
