@@ -103,6 +103,7 @@ interface Lado {
                           <span class="sr-only">, ganó</span>
                         }
                         @if (setsDe(partido); as sets) {
+                          <span class="sr-only">, sets:</span>
                           <span data-sets class="flex gap-1.5 font-display text-base tabular-nums">
                             @for (juegos of sets[lado.indice]; track $index) {
                               <span>{{ juegos }}</span>
