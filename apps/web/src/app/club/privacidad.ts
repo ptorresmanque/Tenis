@@ -103,6 +103,16 @@ interface Tratamiento {
         <li>
           Si el club cierra la cancha o agenda una clase en tu hora, el aviso de que se canceló.
         </li>
+        <li>
+          Si te inscribes en un torneo, la confirmación de tu inscripción; el aviso de que el pago
+          de tu inscripción quedó confirmado o rechazado, con el motivo; el aviso de que el cuadro
+          se armó o cambió, con tu primer partido; y cada vez que el club programa, cambia o quita
+          la hora de uno de tus partidos.
+        </li>
+        <li>
+          Si eres administrador del club, el aviso de cada comprobante de transferencia que llega
+          para revisar, con el nombre de quien se inscribió, la categoría y el monto.
+        </li>
       </ul>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">3. Decisiones automatizadas</h2>
@@ -136,7 +146,7 @@ interface Tratamiento {
         junto a un adulto responsable. Cuando ese adulto anota a un menor, como acompañante en una
         reserva, en una clase o en un torneo, declara ser su padre, madre o tutor y da el
         consentimiento por él. Del menor guardamos solo su nombre y, en clases y torneos, el
-        teléfono de contacto que entregue el adulto.
+        teléfono de contacto que entregue el adulto; en torneos, también el correo.
       </p>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">5. Con quién compartimos tus datos</h2>
@@ -240,15 +250,16 @@ interface Tratamiento {
 })
 export class Privacidad {
   /** Cambiar el texto es subir la versión y la fecha. */
-  protected readonly version = '1.1';
-  protected readonly vigenteDesde = '8 de octubre de 2026';
+  protected readonly version = '1.2';
+  protected readonly vigenteDesde = '9 de octubre de 2026';
   protected readonly correo = 'contacto@fedal.cl';
 
   protected readonly tratamientos: Tratamiento[] = [
     {
       cuando: 'Creas tu cuenta',
       datos:
-        'Nombre, apellido, correo, teléfono y contraseña. La contraseña se guarda cifrada ' +
+        'Nombre, apellido, correo, teléfono (chileno: +56 y nueve dígitos) y contraseña. ' +
+        'La contraseña se guarda cifrada ' +
         'de forma irreversible: nadie puede leerla, ni siquiera el club. Si entras con ' +
         'Google, además, el identificador que Google nos entrega y la confirmación de tu correo.',
       paraQue: 'Identificarte, darte acceso y enviarte los avisos del sistema.',
@@ -293,13 +304,16 @@ export class Privacidad {
     {
       cuando: 'Te inscribes en un torneo',
       datos:
-        'Nombre, apellidos, teléfono, el club o lugar de dónde vienes, categoría, los ' +
-        'horarios en que no puedes jugar, el pago y el comprobante; después, tus ' +
+        'Nombre, apellidos, teléfono, correo, el club o lugar de dónde vienes, categoría, ' +
+        'los horarios en que no puedes jugar, el pago y el comprobante; después, tus ' +
         'resultados, los cuadros y el ranking, y las fotos y transmisiones de los ' +
-        'partidos. El teléfono no se publica.',
+        'partidos. Si tienes sesión, el formulario se llena con los datos de tu cuenta, y ' +
+        'si eres socio puedes inscribirte con los de tu ficha. El teléfono y el correo no ' +
+        'se publican.',
       paraQue:
-        'Organizar el torneo y publicar en el sitio tu nombre, tus resultados, el ranking, ' +
-        'las fotos y las transmisiones.',
+        'Organizar el torneo, escribirte sobre tu inscripción y tus partidos, y publicar en ' +
+        'el sitio tu nombre, si tu inscripción está pagada o pendiente, tus resultados, el ' +
+        'ranking, las fotos y las transmisiones.',
       base:
         'Contrato (la inscripción) y tu consentimiento para la publicación, que das al ' +
         'inscribirte. El formulario de inscripción te lo informa.',
