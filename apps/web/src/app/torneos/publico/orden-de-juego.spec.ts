@@ -176,6 +176,16 @@ describe('OrdenDeJuego', () => {
       expect(marcados().every((t) => t.textContent?.includes('Tomás Fuentes'))).toBe(true);
     });
 
+    it('**el nombre encontrado va resaltado**, con su fondo y su margen', async () => {
+      // Una clase con punto en un [class.x] se corta en el punto: px-0.5 llegaba como
+      // px-0, sin aviso. Lo encontró el /review mirando el navegador.
+      await buscar('fuen');
+
+      const resaltado = marcados()[0].querySelector('.bg-accent-soft');
+      expect(resaltado?.textContent).toContain('Tomás Fuentes');
+      expect(resaltado?.classList).toContain('px-1');
+    });
+
     it('también por el nombre, sin importar tildes ni mayúsculas', async () => {
       await buscar('TOMAS');
 

@@ -142,7 +142,7 @@ interface DiaDeJuego {
         >
           <span
             [class.bg-accent-soft]="coincide(jugador)"
-            [class.px-0.5]="coincide(jugador)"
+            [class.px-1]="coincide(jugador)"
           >
             {{ jugador ?? 'Por definir' }}
           </span>
