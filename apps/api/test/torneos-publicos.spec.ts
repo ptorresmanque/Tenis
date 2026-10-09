@@ -115,6 +115,9 @@ describe('GET /api/torneos/publicos', () => {
         ronda: number;
         ronda_nombre: string;
         jugadorA: string | null;
+        jugadorB: string | null;
+        siembraA: number | null;
+        siembraB: number | null;
         ganador: string | null;
         marcador: string | null;
         inicio: string | null;
@@ -372,6 +375,46 @@ describe('GET /api/torneos/publicos', () => {
     expect(jugado?.marcador).toBe('6-4 6-2');
     expect(jugado?.ganador).toContain(APELLIDO);
     expect(jugado?.ronda_nombre).toBe('Semifinal');
+  });
+
+  it('**cada partido trae la siembra de sus dos jugadores**: el árbol la muestra (opción B)', async () => {
+    // Es pública, como en el cuadro del mural y en el de la ATP. Se siembra a todos, en el
+    // orden en que se inscribieron.
+    const inscritos = await prisma.inscripcionTorneo.findMany({
+      where: { torneoCategoriaId: cuadroId },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        jugador: { select: { nombre: true, apellido: true } },
+      },
+    });
+    const siembra = new Map<string, number>();
+    for (const [i, inscrito] of inscritos.entries()) {
+      await prisma.inscripcionTorneo.update({
+        where: { id: inscrito.id },
+        data: { siembra: i + 1 },
+      });
+      siembra.set(
+        `${inscrito.jugador.nombre} ${inscrito.jugador.apellido}`,
+        i + 1,
+      );
+    }
+    await request(app.getHttpServer())
+      .post(`/api/admin/cuadros/${cuadroId}/armar`)
+      .set('Cookie', cookieAdmin)
+      .expect(201);
+
+    const primeraRonda = (await cuadro()).partidos.filter((p) => p.ronda === 1);
+
+    expect(primeraRonda.length).toBeGreaterThan(0);
+    for (const partido of primeraRonda) {
+      expect(partido.siembraA).toBe(
+        siembra.get(partido.jugadorA ?? '') ?? null,
+      );
+      expect(partido.siembraB).toBe(
+        siembra.get(partido.jugadorB ?? '') ?? null,
+      );
+    }
   });
 
   it('**un partido programado trae el día, la hora y la cancha** (T134)', async () => {

@@ -17,6 +17,8 @@ describe('OrdenDeJuego', () => {
     posicion: 1,
     jugadorA: null,
     jugadorB: null,
+    siembraA: null,
+    siembraB: null,
     ganador: null,
     marcador: null,
     walkover: false,

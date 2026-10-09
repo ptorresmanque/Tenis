@@ -51,6 +51,9 @@ export interface PartidoPublico {
   posicion: number;
   jugadorA: string | null;
   jugadorB: string | null;
+  /** La siembra de cada uno, o nula. Pública, como en el cuadro del mural: el árbol la muestra. */
+  siembraA: number | null;
+  siembraB: number | null;
   ganador: string | null;
   marcador: string | null;
   walkover: boolean;
@@ -211,6 +214,8 @@ export class TorneosPublicos {
           orderBy: [{ inscritaEn: 'asc' }, { id: 'asc' }],
           select: {
             estadoPago: true,
+            jugadorId: true,
+            siembra: true,
             jugador: { select: { nombre: true, apellido: true } },
           },
         },
@@ -221,6 +226,8 @@ export class TorneosPublicos {
             posicion: true,
             marcador: true,
             walkover: true,
+            jugadorAId: true,
+            jugadorBId: true,
             jugadorA: { select: { nombre: true, apellido: true } },
             jugadorB: { select: { nombre: true, apellido: true } },
             ganador: { select: { nombre: true, apellido: true } },
@@ -234,6 +241,13 @@ export class TorneosPublicos {
 
     if (!cuadro)
       throw new NotFoundException('No hay un cuadro con ese número.');
+
+    // La siembra es de la inscripción y no del partido: se busca por jugador.
+    const siembras = new Map(
+      cuadro.inscripciones.map((fila) => [fila.jugadorId, fila.siembra]),
+    );
+    const siembraDe = (jugadorId: number | null) =>
+      jugadorId === null ? null : (siembras.get(jugadorId) ?? null);
 
     const rondas = cuadro.partidos.reduce(
       (mayor, partido) => Math.max(mayor, partido.ronda),
@@ -258,6 +272,8 @@ export class TorneosPublicos {
         posicion: partido.posicion,
         jugadorA: nombre(partido.jugadorA),
         jugadorB: nombre(partido.jugadorB),
+        siembraA: siembraDe(partido.jugadorAId),
+        siembraB: siembraDe(partido.jugadorBId),
         ganador: nombre(partido.ganador),
         marcador: partido.marcador,
         walkover: partido.walkover,
