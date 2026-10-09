@@ -212,7 +212,8 @@ export function leerCancelacion(cuerpo: unknown): string {
     );
   }
 
-  return motivo.slice(0, 200);
+  // El largo de la columna `motivo_cancelacion`, VARCHAR(191): con más, un 500.
+  return motivo.slice(0, 191);
 }
 
 function leerRango(datos: Record<string, unknown>): {

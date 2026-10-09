@@ -359,8 +359,8 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       });
     });
 
-    it('**unas notas de 300 caracteres se guardan enteras en la serie y en sus clases**', async () => {
-      const notas = 'Revés a dos manos. '.repeat(16).slice(0, 300);
+    it('**unas notas de 500 caracteres, el tope, se guardan enteras en la serie y en sus clases**', async () => {
+      const notas = 'ñ'.repeat(500);
 
       const respuesta = await agendar(serie({ notas })).expect(201);
       const agendada = respuesta.body as SerieAgendada;

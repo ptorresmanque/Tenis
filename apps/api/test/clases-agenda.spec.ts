@@ -268,9 +268,9 @@ describe('POST /api/admin/clases', () => {
     expect(bloqueo.fin).toEqual(guardada.fin);
   });
 
-  it('**unas notas de 300 caracteres se guardan enteras, sin un 500**', async () => {
+  it('**unas notas de 500 caracteres, el tope, se guardan enteras, sin un 500**', async () => {
     // La validación acepta hasta 500; la columna tiene que aguantar lo mismo.
-    const notas = 'Revés a dos manos. '.repeat(16).slice(0, 300);
+    const notas = 'ñ'.repeat(500);
 
     const { id } = await agendada(clase('18:00', '19:00', { notas }));
 
@@ -391,6 +391,20 @@ describe('POST /api/admin/clases', () => {
     expect(cancelada.bloqueoId).toBeNull();
 
     expect(bloqueDe(await bloques(), '18:00')?.bloqueado).toBe(false);
+  });
+
+  it('**un motivo de 200 caracteres se recorta al largo de la columna, sin un 500**', async () => {
+    // El panel lo pide con `window.prompt`, que no tiene tope.
+    const { id } = await agendada();
+
+    await request(app.getHttpServer())
+      .post(`/api/admin/clases/${id}/cancelacion`)
+      .set('Cookie', cookieAdmin)
+      .send({ motivo: 'ñ'.repeat(200) })
+      .expect(200);
+
+    const cancelada = await prisma.clase.findUniqueOrThrow({ where: { id } });
+    expect(cancelada.motivoCancelacion).toBe('ñ'.repeat(191));
   });
 
   it('**las reservas que la clase canceló no vuelven al cancelarse la clase**', async () => {
