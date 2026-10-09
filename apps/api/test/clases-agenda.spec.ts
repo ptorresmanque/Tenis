@@ -268,6 +268,16 @@ describe('POST /api/admin/clases', () => {
     expect(bloqueo.fin).toEqual(guardada.fin);
   });
 
+  it('**unas notas de 300 caracteres se guardan enteras, sin un 500**', async () => {
+    // La validación acepta hasta 500; la columna tiene que aguantar lo mismo.
+    const notas = 'Revés a dos manos. '.repeat(16).slice(0, 300);
+
+    const { id } = await agendada(clase('18:00', '19:00', { notas }));
+
+    const guardada = await prisma.clase.findUniqueOrThrow({ where: { id } });
+    expect(guardada.notas).toBe(notas);
+  });
+
   it('**la cancha desaparece de la disponibilidad en la consulta siguiente**', async () => {
     expect(bloqueDe(await bloques(), '18:00')?.bloqueado).toBe(false);
 
