@@ -20,6 +20,7 @@ import { ClaseDelDia, Clases, NIVELES } from '../../clases/clases.service';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
+import { CampoFecha } from '../../ui/campo-fecha';
 
 /**
  * El día del club, para quien atiende el mesón.
@@ -31,7 +32,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
  */
 @Component({
   selector: 'app-agenda-del-dia',
-  imports: [Aviso, EstadoVacio, Insignia, NuevaReserva, EnlaceTelefonoPipe, TelefonoPipe],
+  imports: [Aviso, EstadoVacio, Insignia, NuevaReserva, EnlaceTelefonoPipe, TelefonoPipe, CampoFecha],
   template: `
     <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
          La navegación entre días va debajo. -->
@@ -82,12 +83,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 
       <div>
         <label for="fecha" class="block text-sm font-medium">Ir a un día</label>
-        <input
-          id="fecha"
-          type="date"
-          class="campo mt-1 min-h-11 w-auto cursor-pointer py-2"
-          [value]="fechaActual()"
-          (change)="cambiarFecha($event)"
+        <app-campo-fecha
+          class="mt-1"
+          inputId="fecha"
+          claseCampo="min-h-11 w-36 cursor-pointer py-2"
+          [valor]="fechaActual()"
+          (valorChange)="cambiarFecha($event)"
         />
       </div>
     </div>
@@ -333,9 +334,7 @@ export class AgendaDelDia {
     ];
   });
 
-  protected cambiarFecha(evento: Event): void {
-    const valor = (evento.target as HTMLInputElement).value;
-
+  protected cambiarFecha(valor: string): void {
     if (valor) this.fechaActual.set(valor);
   }
 

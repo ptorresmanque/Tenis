@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Insignia } from '../../ui/insignia';
 import { enPesos, hoyEnElClub } from '../reloj-del-club';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
+import { CampoHora } from '../../ui/campo-hora';
 
 interface FranjaNueva {
   /** Solo en las generales del club (T99): nulo = todas las canchas. */
@@ -36,7 +37,7 @@ const EN_BLANCO: FranjaNueva = {
  */
 @Component({
   selector: 'app-editor-franjas',
-  imports: [FormsModule, Insignia],
+  imports: [FormsModule, Insignia, CampoHora],
   template: `
     @if (ambito().franjas.length > 0) {
       <ul class="text-sm text-muted-foreground">
@@ -110,22 +111,22 @@ const EN_BLANCO: FranjaNueva = {
 
       <div>
         <label [for]="'desde-' + clave()" class="block font-medium">Desde</label>
-        <input
-          type="time"
-          [id]="'desde-' + clave()"
+        <app-campo-hora
+          class="mt-1"
+          [inputId]="'desde-' + clave()"
           [name]="'franja-desde-' + clave()"
-          class="campo campo-chico mt-1"
+          claseCampo="campo-chico w-24"
           [(ngModel)]="nueva.horaDesde"
         />
       </div>
 
       <div>
         <label [for]="'hasta-' + clave()" class="block font-medium">Hasta</label>
-        <input
-          type="time"
-          [id]="'hasta-' + clave()"
+        <app-campo-hora
+          class="mt-1"
+          [inputId]="'hasta-' + clave()"
           [name]="'franja-hasta-' + clave()"
-          class="campo campo-chico mt-1"
+          claseCampo="campo-chico w-24"
           [(ngModel)]="nueva.horaHasta"
         />
       </div>
