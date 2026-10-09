@@ -12,16 +12,20 @@ import {
 } from '@angular/core';
 
 import { Insignia } from '../../ui/insignia';
-import {
-  CuadroPublico,
-  Foto,
-  PartidoPublico,
-  Torneos,
-  Transmision,
-} from '../torneos.service';
+import { CuadroPublico, Foto, Torneos, Transmision } from '../torneos.service';
+import { Arbol } from './arbol';
+import { esBye, esDe } from './busqueda';
 import { Galeria } from './galeria';
 import { OrdenDeJuego } from './orden-de-juego';
 import { Reproductor } from './reproductor';
+
+type Vista = 'dia' | 'arbol';
+
+/** Las dos formas de mirar un cuadro armado (opción C): por día y el árbol. */
+const PESTANAS: { id: Vista; nombre: string }[] = [
+  { id: 'dia', nombre: 'Por día' },
+  { id: 'arbol', nombre: 'El árbol' },
+];
 
 /**
  * Una categoría de un torneo, en un modal (T135, decisión 6 de la sexta parte).
@@ -36,7 +40,7 @@ import { Reproductor } from './reproductor';
  */
 @Component({
   selector: 'app-cuadro-publico',
-  imports: [Galeria, Insignia, OrdenDeJuego, Reproductor],
+  imports: [Arbol, Galeria, Insignia, OrdenDeJuego, Reproductor],
   template: `
     <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
     <dialog
@@ -98,42 +102,85 @@ import { Reproductor } from './reproductor';
               </ol>
             }
           } @else {
-            <!-- **Primero cuándo y dónde se juega** (T136, opción C). -->
-            <app-orden-de-juego [partidos]="cuadro.partidos" [(busqueda)]="busqueda" />
+            <!-- Un buscador para las dos pestañas (T137): marca lo mismo en el orden de
+                 juego y en el árbol. -->
+            <div class="relative">
+              <label for="buscar-jugador" class="sr-only">Buscar a un jugador</label>
+              <span
+                class="icono pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
+                       text-lg text-muted-foreground"
+                aria-hidden="true"
+              >
+                search
+              </span>
+              <input
+                id="buscar-jugador"
+                type="search"
+                class="campo ps-9"
+                placeholder="Busca tu nombre o apellido"
+                autocomplete="off"
+                [value]="busqueda()"
+                (input)="busqueda.set(valorDe($event))"
+              />
+            </div>
+            <!-- Cuántos encontró, para el lector de pantalla; el "nadie" también se ve. -->
+            <p class="sr-only" aria-live="polite">{{ resumen() }}</p>
+            @if (busqueda().trim() !== '' && encontrados() === 0) {
+              <p class="mt-2 text-sm text-muted-foreground">
+                Nadie con ese nombre en esta categoría.
+              </p>
+            }
 
-            <!-- El árbol, debajo mientras T137 lo pasa a su pestaña. En columnas que se
-                 desplazan de lado y no una tabla que se encoge: en 375px una tabla de
-                 cuatro rondas queda ilegible. -->
-            <h3 class="subtitulo mt-6">El cuadro completo</h3>
-            <div data-cuadro class="mt-2 flex gap-3 overflow-x-auto pb-2">
-              @for (ronda of porRonda(); track ronda.numero) {
-                <div class="min-w-48 shrink-0">
-                  <h3
-                    class="font-display text-sm font-semibold tracking-wider
-                           text-muted-foreground uppercase"
-                  >
-                    {{ ronda.nombre }}
-                  </h3>
-                  <ul class="mt-2 grid gap-2">
-                    @for (partido of ronda.partidos; track partido.posicion) {
-                      <li class="rounded-lg border border-border bg-background p-2 text-sm">
-                        <p [class.font-semibold]="ganoEl(partido, partido.jugadorA)">
-                          {{ partido.jugadorA ?? vacio(partido) }}
-                        </p>
-                        <p [class.font-semibold]="ganoEl(partido, partido.jugadorB)">
-                          {{ partido.jugadorB ?? vacio(partido) }}
-                        </p>
-                        @if (partido.marcador) {
-                          <p class="text-xs text-muted-foreground">{{ partido.marcador }}</p>
-                        }
-                        @if (partido.walkover) {
-                          <p class="text-xs text-muted-foreground">No se presentó</p>
-                        }
-                      </li>
-                    }
-                  </ul>
-                </div>
+            <!-- El patrón de pestañas de ARIA: las flechas mueven la pestaña y el foco, y
+                 solo la elegida entra en el orden del tabulador. -->
+            <div
+              role="tablist"
+              aria-label="Cómo ver el cuadro"
+              class="mt-3 flex gap-5 border-b border-border"
+            >
+              @for (pestana of PESTANAS; track pestana.id) {
+                <button
+                  type="button"
+                  role="tab"
+                  [id]="'pestana-' + pestana.id"
+                  [attr.aria-controls]="'panel-' + pestana.id"
+                  [attr.aria-selected]="vista() === pestana.id"
+                  [tabIndex]="vista() === pestana.id ? 0 : -1"
+                  class="-mb-px cursor-pointer border-b-2 py-2 font-display text-sm font-bold
+                         tracking-wide uppercase"
+                  [class]="
+                    vista() === pestana.id
+                      ? 'border-primary text-foreground'
+                      : 'border-transparent text-muted-foreground'
+                  "
+                  (click)="vista.set(pestana.id)"
+                  (keydown)="moverPestana($event)"
+                >
+                  {{ pestana.nombre }}
+                </button>
               }
+            </div>
+
+            <!-- **Primero cuándo y dónde se juega** (T136, opción C); el árbol, al lado. -->
+            <div
+              role="tabpanel"
+              id="panel-dia"
+              aria-labelledby="pestana-dia"
+              tabindex="0"
+              class="mt-3"
+              [hidden]="vista() !== 'dia'"
+            >
+              <app-orden-de-juego [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
+            </div>
+            <div
+              role="tabpanel"
+              id="panel-arbol"
+              aria-labelledby="pestana-arbol"
+              tabindex="0"
+              class="mt-3"
+              [hidden]="vista() !== 'arbol'"
+            >
+              <app-arbol [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
             </div>
           }
 
@@ -166,6 +213,7 @@ import { Reproductor } from './reproductor';
 })
 export class CuadroPublicoModal {
   private readonly api = inject(Torneos);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** El cuadro que se mira, o nulo con el modal cerrado. */
   readonly cuadroId = input<number | null>(null);
@@ -199,10 +247,36 @@ export class CuadroPublicoModal {
 
   private readonly torneoId = computed(() => this.detalle()?.torneoId);
 
-  /** Lo que se busca en el orden de juego (y en el árbol, con T137). Vacío en cada categoría. */
+  /** Lo que se busca, en las dos pestañas. Cada categoría empieza sin búsqueda. */
   protected readonly busqueda = linkedSignal(() => {
     this.cuadroId();
     return '';
+  });
+
+  protected readonly PESTANAS = PESTANAS;
+
+  /** La pestaña a la vista. Cada categoría empieza en "Por día". */
+  protected readonly vista = linkedSignal<Vista>(() => {
+    this.cuadroId();
+    return 'dia';
+  });
+
+  /** Los partidos del que se busca, sin los byes: lo que el resumen cuenta. */
+  protected readonly encontrados = computed(
+    () =>
+      (this.detalle()?.partidos ?? []).filter(
+        (partido) => !esBye(partido) && esDe(partido, this.busqueda()),
+      ).length,
+  );
+
+  protected readonly resumen = computed(() => {
+    const buscado = this.busqueda().trim();
+    if (buscado === '') return '';
+
+    const cuantos = this.encontrados();
+    return cuantos === 0
+      ? 'Nadie con ese nombre en esta categoría.'
+      : `${cuantos} ${cuantos === 1 ? 'partido' : 'partidos'} de "${buscado}".`;
   });
 
   protected readonly fotos = resource({
@@ -225,20 +299,6 @@ export class CuadroPublicoModal {
     return cuadro.partidos.length > 0
       ? `Cuadro de ${cuadro.categoria}`
       : `Quiénes juegan en ${cuadro.categoria}`;
-  });
-
-  protected readonly porRonda = computed(() => {
-    const rondas = new Map<number, PartidoPublico[]>();
-
-    for (const partido of this.detalle()?.partidos ?? []) {
-      rondas.set(partido.ronda, [...(rondas.get(partido.ronda) ?? []), partido]);
-    }
-
-    return [...rondas].map(([numero, suyos]) => ({
-      numero,
-      nombre: suyos[0].ronda_nombre,
-      partidos: suyos,
-    }));
   });
 
   constructor() {
@@ -265,16 +325,30 @@ export class CuadroPublicoModal {
     this.abridor = null;
   }
 
-  /** Un hueco de primera ronda es un bye; en las demás, todavía no se sabe. */
-  protected vacio(partido: PartidoPublico): string {
-    return partido.ronda === 1 ? 'Bye' : 'Por definir';
+  /**
+   * Las flechas, Inicio y Fin mueven la pestaña y el foco (patrón de pestañas de ARIA).
+   * Al final da la vuelta.
+   */
+  protected moverPestana(evento: KeyboardEvent): void {
+    const ids = PESTANAS.map((pestana) => pestana.id);
+    const actual = ids.indexOf(this.vista());
+    const destino: Record<string, number> = {
+      ArrowRight: (actual + 1) % ids.length,
+      ArrowLeft: (actual - 1 + ids.length) % ids.length,
+      Home: 0,
+      End: ids.length - 1,
+    };
+    const siguiente = destino[evento.key];
+    if (siguiente === undefined) return;
+
+    evento.preventDefault();
+    this.vista.set(ids[siguiente]);
+    this.host.nativeElement
+      .querySelector<HTMLElement>(`#pestana-${ids[siguiente]}`)
+      ?.focus();
   }
 
-  /**
-   * Si ese jugador ganó el partido. Por nombre y no por id: la respuesta pública no trae
-   * ids de jugadores, a propósito.
-   */
-  protected ganoEl(partido: PartidoPublico, jugador: string | null): boolean {
-    return jugador !== null && partido.ganador === jugador;
+  protected valorDe(evento: Event): string {
+    return (evento.target as HTMLInputElement).value;
   }
 }

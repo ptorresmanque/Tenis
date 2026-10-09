@@ -196,7 +196,7 @@ describe('CuadroPublicoModal', () => {
 
       expect(texto()).toContain('6-4 6-2');
       expect(
-        elemento().querySelector('[data-cuadro] li .font-semibold')?.textContent,
+        elemento().querySelector('[data-cuadro] [data-gano]')?.textContent,
       ).toContain('Ana Uno');
     });
 
@@ -219,6 +219,125 @@ describe('CuadroPublicoModal', () => {
       expect(elemento().querySelector('header')?.textContent).toContain(
         'Copa de verano',
       );
+    });
+  });
+
+  describe('las pestañas: por día y el árbol (T137)', () => {
+    const pestanas = () => [...elemento().querySelectorAll<HTMLElement>('[role="tab"]')];
+    const panel = (id: string) =>
+      elemento().querySelector<HTMLElement>(`[role="tabpanel"]#panel-${id}`)!;
+    const tecla = async (key: string) => {
+      (document.activeElement as HTMLElement).dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true }),
+      );
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**arranca en "Por día"**, con el árbol en la otra pestaña', async () => {
+      await montar();
+
+      expect(pestanas().map((p) => p.textContent?.trim())).toEqual(['Por día', 'El árbol']);
+      expect(pestanas()[0].getAttribute('aria-selected')).toBe('true');
+      expect(panel('dia').hidden).toBe(false);
+      expect(panel('arbol').hidden).toBe(true);
+    });
+
+    it('cada pestaña dice qué panel controla, y el panel quién lo nombra', async () => {
+      await montar();
+
+      expect(pestanas()[1].getAttribute('aria-controls')).toBe('panel-arbol');
+      expect(panel('arbol').getAttribute('aria-labelledby')).toBe('pestana-arbol');
+    });
+
+    it('apretar "El árbol" lo muestra', async () => {
+      await montar();
+
+      pestanas()[1].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(pestanas()[1].getAttribute('aria-selected')).toBe('true');
+      expect(panel('arbol').hidden).toBe(false);
+      expect(panel('dia').hidden).toBe(true);
+    });
+
+    it('**con el teclado**: las flechas mueven la pestaña y el foco; Inicio y Fin van a los extremos', async () => {
+      await montar();
+      pestanas()[0].focus();
+
+      await tecla('ArrowRight');
+      expect(document.activeElement).toBe(pestanas()[1]);
+      expect(panel('arbol').hidden).toBe(false);
+
+      // Al final da la vuelta, como pide el patrón de pestañas de ARIA.
+      await tecla('ArrowRight');
+      expect(document.activeElement).toBe(pestanas()[0]);
+
+      await tecla('End');
+      expect(document.activeElement).toBe(pestanas()[1]);
+      await tecla('Home');
+      expect(document.activeElement).toBe(pestanas()[0]);
+      await tecla('ArrowLeft');
+      expect(document.activeElement).toBe(pestanas()[1]);
+    });
+
+    it('**solo la pestaña elegida entra en el orden del tabulador**', async () => {
+      await montar();
+
+      expect(pestanas().map((p) => p.tabIndex)).toEqual([0, -1]);
+    });
+  });
+
+  describe('el buscador, uno para las dos pestañas (T136 y T137)', () => {
+    const buscar = async (busqueda: string) => {
+      const campo = elemento().querySelector<HTMLInputElement>('input[type="search"]')!;
+      campo.value = busqueda;
+      campo.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**marca en el orden de juego y en el árbol**', async () => {
+      await montar();
+
+      await buscar('beto');
+
+      expect(elemento().querySelector('app-orden-de-juego [data-tuyo]')).not.toBeNull();
+      expect(elemento().querySelector('app-arbol [data-tuyo]')).not.toBeNull();
+    });
+
+    it('**si no hay nadie con ese nombre, lo dice**', async () => {
+      await montar();
+
+      await buscar('zúñiga');
+
+      expect(texto()).toContain('Nadie con ese nombre en esta categoría');
+    });
+
+    it('dice cuántos encontró, para el lector de pantalla', async () => {
+      await montar();
+
+      await buscar('ana');
+
+      // Ana Uno juega los dos partidos de la primera ronda del ejemplo.
+      expect(elemento().querySelector('[aria-live]')?.textContent).toContain(
+        '2 partidos de "ana"',
+      );
+    });
+
+    it('cada categoría empieza sin búsqueda', async () => {
+      await montar();
+      await buscar('ana');
+
+      // A otra categoría y de vuelta: el mock responde siempre la 7.
+      for (const id of [8, 7]) {
+        fixture.componentRef.setInput('cuadroId', id);
+        await fixture.whenStable();
+        fixture.detectChanges();
+      }
+
+      expect(elemento().querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe('');
     });
   });
 

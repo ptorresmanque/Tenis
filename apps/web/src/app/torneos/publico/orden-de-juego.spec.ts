@@ -90,10 +90,9 @@ describe('OrdenDeJuego', () => {
   const turnos = () => [...elemento().querySelectorAll<HTMLElement>('[data-turno]')];
   const marcados = () => turnos().filter((t) => t.hasAttribute('data-tuyo'));
 
+  /** Lo que se escribe en el buscador del modal (T137: es uno para las dos pestañas). */
   const buscar = async (busqueda: string) => {
-    const campo = elemento().querySelector<HTMLInputElement>('input[type="search"]')!;
-    campo.value = busqueda;
-    campo.dispatchEvent(new Event('input'));
+    fixture.componentRef.setInput('busqueda', busqueda);
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -168,7 +167,7 @@ describe('OrdenDeJuego', () => {
     });
   });
 
-  describe('el buscador', () => {
+  describe('la búsqueda', () => {
     it('**marca los partidos de quien se escribe**, por parte del apellido', async () => {
       await buscar('fuen');
 
@@ -192,11 +191,11 @@ describe('OrdenDeJuego', () => {
       expect(marcados()).toHaveLength(2);
     });
 
-    it('**y no marca nada si no hay nadie con ese nombre**, y lo dice', async () => {
+    it('**y no marca nada si no hay nadie con ese nombre**', async () => {
+      // El "nadie" lo dice el modal, que tiene el buscador (T137).
       await buscar('zúñiga');
 
       expect(marcados()).toHaveLength(0);
-      expect(texto()).toContain('Nadie con ese nombre en esta categoría');
     });
 
     it('marca también los que faltan programar', async () => {
@@ -205,14 +204,6 @@ describe('OrdenDeJuego', () => {
       expect(
         elemento().querySelector('[data-por-programar] [data-tuyo]')?.textContent,
       ).toContain('Diego Valdés');
-    });
-
-    it('dice cuántos encontró, para el lector de pantalla', async () => {
-      await buscar('riquelme');
-
-      expect(elemento().querySelector('[aria-live]')?.textContent).toContain(
-        '2 partidos',
-      );
     });
   });
 });
