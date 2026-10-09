@@ -77,7 +77,7 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
 
             <app-campo etiqueta="Teléfono">
               <span class="campo-con-prefijo">
-                <span class="prefijo" aria-hidden="true">+56</span>
+                <span class="prefijo">+56</span>
                 <input
                   appTelefono
                   appCampoControl

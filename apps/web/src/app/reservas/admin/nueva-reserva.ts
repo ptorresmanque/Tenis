@@ -185,7 +185,7 @@ import { TelefonoDirective } from '../../ui/telefono';
           <div class="grid gap-4 sm:grid-cols-2">
             <app-campo etiqueta="Teléfono">
               <span class="campo-con-prefijo">
-                <span class="prefijo" aria-hidden="true">+56</span>
+                <span class="prefijo">+56</span>
                 <input
                   appTelefono
                   appCampoControl

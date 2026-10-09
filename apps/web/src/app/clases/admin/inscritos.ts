@@ -149,7 +149,7 @@ import { TelefonoDirective } from '../../ui/telefono';
               <label class="flex-1">
                 <span class="text-sm font-medium">Teléfono</span>
                 <span class="campo-con-prefijo mt-1">
-                  <span class="prefijo" aria-hidden="true">+56</span>
+                  <span class="prefijo">+56</span>
                   <input
                     appTelefono
                     class="campo campo-chico"

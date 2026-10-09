@@ -29,7 +29,8 @@ import {
   host: {
     type: 'tel',
     inputmode: 'numeric',
-    maxlength: '9',
+    // **Sin `maxlength`**: el navegador corta lo pegado antes de que la directiva lo vea,
+    // y `+56 9 8765-4321` entraba como `+56 9 876`. El tope de 9 lo pone `soloLosNueve`.
     autocomplete: 'tel-national',
     placeholder: '9 1234 5678',
     '(input)': 'escribir()',

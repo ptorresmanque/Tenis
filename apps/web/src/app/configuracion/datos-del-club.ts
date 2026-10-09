@@ -76,7 +76,7 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
           @if (dato.tipo === 'tel') {
             <!-- El +56 fijo y solo los 9 dígitos (T121). -->
             <span class="campo-con-prefijo">
-              <span class="prefijo" aria-hidden="true">+56</span>
+              <span class="prefijo">+56</span>
               <input
                 appCampoControl
                 appTelefono

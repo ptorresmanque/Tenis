@@ -53,6 +53,13 @@ describe('TelefonoDirective', () => {
     expect(fixture.componentInstance.modelo).toBe('56987654321');
   });
 
+  it('quien escribe el 56 a mano termina con los 9 dígitos de su número', async () => {
+    await escribir('reactivo', '5698765432');
+    await escribir('reactivo', campo('reactivo').value + '1');
+
+    expect(campo('reactivo').value).toBe('987654321');
+  });
+
   it('**solo entran dígitos, y no más de 9**', async () => {
     await escribir('reactivo', '9a8b7');
     expect(campo('reactivo').value).toBe('987');
@@ -89,7 +96,11 @@ describe('TelefonoDirective', () => {
 
   it('el teléfono del celular abre el teclado de números y propone el número propio', () => {
     expect(campo('reactivo').getAttribute('inputmode')).toBe('numeric');
-    expect(campo('reactivo').getAttribute('maxlength')).toBe('9');
     expect(campo('reactivo').getAttribute('autocomplete')).toBe('tel-national');
+  });
+
+  it('**no tiene maxlength**: el navegador cortaría un número pegado antes de limpiarlo', () => {
+    // Con maxlength=9, pegar `+56 9 8765-4321` dejaba entrar `+56 9 876`.
+    expect(campo('reactivo').hasAttribute('maxlength')).toBe(false);
   });
 });

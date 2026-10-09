@@ -100,7 +100,7 @@ const MAXIMO_ACOMPANANTES = 3;
             <div>
               <label for="telefono" class="block text-sm font-medium">Teléfono</label>
               <span class="campo-con-prefijo mt-1">
-                <span class="prefijo" aria-hidden="true">+56</span>
+                <span class="prefijo">+56</span>
                 <input
                   appTelefono
                   id="telefono"
