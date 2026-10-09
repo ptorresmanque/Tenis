@@ -168,6 +168,32 @@ describe('FichaDeTorneo', () => {
     expect(elegido?.textContent?.trim()).toBe('4ª');
   });
 
+  describe('el enlace del correo del comprobante (T130)', () => {
+    const conCuadro = async (cuadro: string) => {
+      fixture.componentRef.setInput('cuadro', cuadro);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    const elegido = () =>
+      Array.from(elemento().querySelectorAll('button'))
+        .find((b) => b.getAttribute('aria-pressed') === 'true')
+        ?.textContent?.trim();
+
+    it('**abre los inscritos de la categoría del comprobante**', async () => {
+      await conCuadro('8');
+
+      expect(elegido()).toBe('4ª');
+      expect(elemento().querySelector('app-inscritos-torneo')).not.toBeNull();
+    });
+
+    it('un cuadro que no es de este torneo se ignora: abre el primero', async () => {
+      await conCuadro('99');
+
+      expect(elegido()).toBe('Honor');
+    });
+  });
+
   it('multimedia junta las transmisiones y las fotos', async () => {
     await pestana('Multimedia');
 

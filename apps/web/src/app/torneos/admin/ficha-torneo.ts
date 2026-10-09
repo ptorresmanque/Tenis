@@ -335,6 +335,12 @@ export class FichaDeTorneo {
   /** Llega de la ruta por `withComponentInputBinding`. */
   readonly id = input.required<string>();
 
+  /**
+   * `?cuadro=<id>`: el enlace del correo de un comprobante (T130) abre los inscritos de
+   * esa categoría. Llega por el mismo `withComponentInputBinding`.
+   */
+  readonly cuadro = input<string>();
+
   protected readonly PESTANAS = PESTANAS;
   protected readonly activa = signal<Pestana>('inscritos');
 
@@ -354,15 +360,19 @@ export class FichaDeTorneo {
   );
 
   /**
-   * Qué cuadro se está mirando: el primero, hasta que se elija otro.
+   * Qué cuadro se está mirando: el del enlace o el primero, hasta que se elija otro.
    *
    * `linkedSignal` y no `signal`: al cambiar de torneo tiene que volver al primero del
    * torneo nuevo. Con una señal suelta se arrastraba el cuadro del anterior, que era
    * el defecto de la pantalla vieja.
    */
-  protected readonly elegido = linkedSignal<number | null>(
-    () => this.torneo()?.cuadros[0]?.id ?? null,
-  );
+  protected readonly elegido = linkedSignal<number | null>(() => {
+    const cuadros = this.torneo()?.cuadros ?? [];
+    const pedido = cuadros.find((cuadro) => cuadro.id === Number(this.cuadro()));
+
+    // Uno de otro torneo, o un número inventado, se ignora: abre el primero.
+    return (pedido ?? cuadros[0])?.id ?? null;
+  });
 
   protected readonly enPalabras = diaEnPalabras;
 
