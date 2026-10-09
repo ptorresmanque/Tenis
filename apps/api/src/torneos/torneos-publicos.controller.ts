@@ -21,10 +21,15 @@ import type { Request, Response } from 'express';
 import { carpetaDeSubidas, MAXIMO_BYTES } from '../comun/imagenes';
 import { hoyEnElClub } from '../comun/tiempo';
 import { api, web } from '../comun/urls';
+import { SoloSocio, Yo } from '../identidad/guards';
 import { IntentosFallidos, VENTANA_MS } from '../identidad/intentos';
+import type { UsuarioActual } from '../identidad/usuario-actual';
 import { ComprobantesDeInscripcion } from './comprobantes.service';
 import { FotosDelTorneo } from './fotos.service';
-import { leerInscripcionPublica } from './inscripcion-publica.dto';
+import {
+  leerInscripcionDeSocio,
+  leerInscripcionPublica,
+} from './inscripcion-publica.dto';
 import { PagoDeInscripcion } from './pago-de-inscripcion.service';
 import { Transmisiones } from './transmisiones.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
@@ -171,6 +176,34 @@ export class TorneosPublicosController {
 
       throw falla;
     }
+  }
+
+  /**
+   * El socio se inscribe **sin el formulario** (T129): elige la categoría, dice cuándo
+   * no puede jugar y paga igual que cualquiera. Su jugador y su correo salen de la
+   * sesión.
+   *
+   * **Sin el freno por IP de la inscripción pública**: aquí hay sesión, y el socio no
+   * puede tomar más de un cupo por torneo —lo impide el único de la base—.
+   */
+  @Post(':torneoId/inscripcion-socio')
+  @SoloSocio()
+  @UseInterceptors(
+    FileInterceptor('comprobante', { limits: { fileSize: MAXIMO_BYTES } }),
+  )
+  inscribirseComoSocio(
+    @Param('torneoId', ParseIntPipe) torneoId: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+    @UploadedFile() archivo?: { buffer: Buffer },
+  ) {
+    return this.inscripciones.inscribirAlSocio(
+      torneoId,
+      // `@SoloSocio()` ya comprobó que tiene ficha.
+      { socioId: yo.socioId as number, email: yo.email },
+      leerInscripcionDeSocio(cuerpo),
+      archivo?.buffer,
+    );
   }
 
   /**

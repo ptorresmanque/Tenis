@@ -70,6 +70,27 @@ export function leerInscripcionPublica(cuerpo: unknown): InscripcionPublica {
 }
 
 /**
+ * Lo que manda el socio que se inscribe sin el formulario (T129): la categoría, el pago
+ * y cuándo no puede jugar. Nada más se lee del cuerpo: el jugador y el correo salen de
+ * su sesión.
+ */
+export type InscripcionDeSocio = Pick<
+  InscripcionPublica,
+  'categoriaJuegoId' | 'medioPago' | 'restricciones'
+>;
+
+/** Lee el envío del socio, con las mismas reglas que el formulario público. */
+export function leerInscripcionDeSocio(cuerpo: unknown): InscripcionDeSocio {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  return {
+    categoriaJuegoId: entero(numero(datos.categoriaJuegoId), 'La categoría', 1),
+    medioPago: leerMedioPago(datos.medioPago),
+    restricciones: leerFranjas(comoLista(datos.restricciones)),
+  };
+}
+
+/**
  * El formulario llega en dos formas y esta función es la costura.
  *
  * Cuando trae el comprobante adjunto viaja como `multipart/form-data`, y ahí **todo
