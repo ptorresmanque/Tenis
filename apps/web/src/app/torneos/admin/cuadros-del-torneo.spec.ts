@@ -299,6 +299,11 @@ describe('CuadrosDelTorneo', () => {
       expect(texto()).toContain('en pesos, sin decimales');
     });
 
+    it('**avisa a quién alcanza un cambio de monto**', () => {
+      expect(texto()).toContain('se inscribió gratis');
+      expect(texto()).toContain('paga el monto nuevo');
+    });
+
     it('**agregar un cuadro manda su monto**, y cero es gratis', async () => {
       const nivel = elemento().querySelector<HTMLSelectElement>(
         'select[name="categoria"]',

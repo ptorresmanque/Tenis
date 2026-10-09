@@ -18,16 +18,6 @@ import {
   Torneos,
 } from '../torneos.service';
 
-/**
- * Qué categorías corre un torneo, y con cuántos jugadores cada una.
- *
- * **Un torneo corre 4ª, 3ª y Honor a la vez, y cada una juega su propio cuadro.** El
- * cupo es de la categoría y no del torneo: Honor cierra con 8 y la 4ª con 32, así que
- * un número único no describía nada.
- *
- * No confundir con la pantalla de configuración: allá se administra **el catálogo del
- * club** —qué categorías existen— y acá se elige cuáles corre **este** torneo.
- */
 const MONTO_INVALIDO =
   'La inscripción tiene que ser un monto en pesos, sin decimales: 0 si es gratis.';
 
@@ -46,6 +36,16 @@ function enPesos(texto: string): number | null {
   return valido ? monto : null;
 }
 
+/**
+ * Qué categorías corre un torneo, y con cuántos jugadores cada una.
+ *
+ * **Un torneo corre 4ª, 3ª y Honor a la vez, y cada una juega su propio cuadro.** El
+ * cupo es de la categoría y no del torneo: Honor cierra con 8 y la 4ª con 32, así que
+ * un número único no describía nada.
+ *
+ * No confundir con la pantalla de configuración: allá se administra **el catálogo del
+ * club** —qué categorías existen— y acá se elige cuáles corre **este** torneo.
+ */
 @Component({
   selector: 'app-cuadros-del-torneo',
   imports: [FormsModule, Aviso, Insignia],
@@ -224,6 +224,8 @@ function enPesos(texto: string): number | null {
              cuadro ya jugado mueve puestos en el ranking, que se cuelga en el mural, y
              el admin tiene que saberlo antes de tocar el selector. -->
         Cambiar lo que vale un cuadro <strong>ya jugado</strong> recalcula el ranking.
+        Cambiar la inscripción no toca a quien ya pagó ni a quien se inscribió gratis;
+        quien tiene el pago pendiente <strong>paga el monto nuevo</strong>.
       </p>
 
       @if (error(); as falla) {
@@ -348,7 +350,11 @@ export class CuadrosDelTorneo {
     );
   }
 
-  /** Quien ya pagó no cambia: el monto nuevo lo paga quien se inscribe después. */
+  /**
+   * Quien ya pagó no cambia, y quien se inscribió gratis queda exento. Quien tiene el pago
+   * pendiente —Webpay sin terminar o un comprobante sin revisar— paga el monto nuevo:
+   * `pago-de-inscripcion` lo lee al pagar. Por eso la pantalla lo dice.
+   */
   protected async cambiarMonto(id: number, evento: Event): Promise<void> {
     const montoInscripcionClp = enPesos(
       (evento.target as HTMLInputElement).value,
