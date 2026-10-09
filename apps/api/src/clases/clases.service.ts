@@ -34,6 +34,8 @@ export interface ClaseDelDia {
   estado: EstadoClase;
   cupoMaximo: number;
   notas: string | null;
+  /** La serie que la agendó, o nulo si es suelta: la agenda ofrece cancelarla desde ahí (T117). */
+  serieId: number | null;
 }
 
 /** Lo que deja una serie agendada (T114): sus clases, las fechas saltadas y lo cancelado. */
@@ -265,6 +267,79 @@ export class Clases {
   }
 
   /**
+   * Cancela la serie desde un día del club en adelante (T117): sus clases programadas de
+   * ese día y las siguientes, con el motivo, y borra sus bloqueos para que las horas vuelvan
+   * a la grilla. Las anteriores quedan intactas, con sus inscritos y su asistencia.
+   *
+   * Lo mismo que `cancelar`, para varias clases en una transacción: o vuelven todas las
+   * horas a la grilla, o ninguna. Las inscripciones de las canceladas quedan como estaban,
+   * igual que en la clase suelta.
+   */
+  async cancelarSerieDesde(
+    serieId: number,
+    desde: string,
+    motivo: string,
+  ): Promise<{ canceladas: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      const serie = await tx.serieDeClases.findUnique({
+        where: { id: serieId },
+        select: { id: true },
+      });
+      if (!serie)
+        throw new NotFoundException('No hay una serie con ese número.');
+
+      const clases = await tx.clase.findMany({
+        where: {
+          serieId,
+          estado: EstadoClase.PROGRAMADA,
+          inicio: { gte: instanteEnElClub(desde, '00:00') },
+        },
+        select: { id: true, bloqueoId: true },
+      });
+
+      if (clases.length === 0) {
+        throw new ConflictException(
+          'La serie no tiene clases programadas desde ese día.',
+        );
+      }
+
+      const { count } = await tx.clase.updateMany({
+        // El estado en el `where`, como en `cancelar`: es el compare-and-set.
+        where: {
+          id: { in: clases.map((clase) => clase.id) },
+          estado: EstadoClase.PROGRAMADA,
+        },
+        data: {
+          estado: EstadoClase.CANCELADA,
+          canceladaEn: new Date(),
+          motivoCancelacion: motivo,
+          bloqueoId: null,
+        },
+      });
+
+      // Si otro admin canceló una mientras tanto, se deshace todo y se reintenta: borrar
+      // el bloqueo de una clase que ya no se canceló acá dejaría su hora libre.
+      if (count !== clases.length) {
+        throw new ConflictException(
+          'Alguna clase de la serie cambió mientras tanto. Reintenta.',
+        );
+      }
+
+      await tx.bloqueo.deleteMany({
+        where: {
+          id: {
+            in: clases.flatMap(({ bloqueoId }) =>
+              bloqueoId === null ? [] : [bloqueoId],
+            ),
+          },
+        },
+      });
+
+      return { canceladas: count };
+    });
+  }
+
+  /**
    * Cancela la clase y le devuelve la hora a la cancha.
    *
    * **Las reservas que la clase canceló al agendarse no vuelven.** Deshacerlas sería
@@ -340,6 +415,7 @@ export class Clases {
         estado: true,
         cupoMaximo: true,
         notas: true,
+        serieId: true,
         cancha: { select: { nombre: true } },
         profesor: { select: { nombreVisible: true } },
       },
@@ -355,6 +431,7 @@ export class Clases {
       estado: clase.estado,
       cupoMaximo: clase.cupoMaximo,
       notas: clase.notas,
+      serieId: clase.serieId,
     }));
   }
 

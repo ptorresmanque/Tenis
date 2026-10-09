@@ -643,4 +643,138 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       await enLaSerie({ socioId: 1 }).expect(404);
     });
   });
+
+  /**
+   * T117. Cancelar la serie desde una fecha, y la serie en la página pública como una sola
+   * tarjeta en vez de una clase por fecha.
+   */
+  describe('cancelar desde una fecha y la serie pública (T117)', () => {
+    let serieId: number;
+
+    const bloqueadoA = async (fecha: string) => {
+      const respuesta = await request(servidor())
+        .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${fecha}`)
+        .expect(200);
+
+      return (respuesta.body as { inicio: string; bloqueado: boolean }[]).find(
+        (b) => b.inicio === instanteEnElClub(fecha, '19:00').toISOString(),
+      )!.bloqueado;
+    };
+
+    const cancelarDesde = (cuerpo: Record<string, unknown>) =>
+      request(servidor())
+        .post(`/api/admin/clases/series/${serieId}/cancelacion`)
+        .set('Cookie', cookieAdmin)
+        .send(cuerpo);
+
+    interface SeriePublica {
+      id: number;
+      diasSemana: number[];
+      horaDesde: string;
+      horaHasta: string;
+      hasta: string;
+      cuposLibres: number;
+      profesor: string;
+      cancha: string;
+      nivel: string;
+    }
+
+    const publicas = async (desde = '2037-10-13') =>
+      (
+        await request(servidor())
+          .get(`/api/clases/publicas?desde=${desde}`)
+          .expect(200)
+      ).body as { clases: { id: number }[]; series: SeriePublica[] };
+
+    beforeEach(async () => {
+      const respuesta = await request(servidor())
+        .post('/api/admin/clases/series')
+        .set('Cookie', cookieAdmin)
+        .send(serie())
+        .expect(201);
+      serieId = (respuesta.body as { id: number }).id;
+    });
+
+    it('**cancelar desde el 1 de diciembre libera esas horas, y las de noviembre siguen tomadas**', async () => {
+      expect(await bloqueadoA('2037-12-01')).toBe(true);
+
+      const respuesta = await cancelarDesde({
+        desde: '2037-12-01',
+        motivo: 'El profesor termina la temporada',
+      }).expect(201);
+
+      // El 1, el 3, el 8, el 10 y el 15 de diciembre.
+      expect(respuesta.body).toEqual({ canceladas: 5 });
+      expect(await bloqueadoA('2037-12-01')).toBe(false);
+      expect(await bloqueadoA('2037-11-26')).toBe(true);
+      const canceladas = await prisma.clase.findMany({
+        where: { serieId, estado: 'CANCELADA' },
+        select: { motivoCancelacion: true, bloqueoId: true },
+      });
+      expect(canceladas).toHaveLength(5);
+      expect(canceladas.every((c) => c.bloqueoId === null)).toBe(true);
+      expect(canceladas[0].motivoCancelacion).toBe(
+        'El profesor termina la temporada',
+      );
+    });
+
+    it('sin motivo responde 400: los inscritos van a preguntar', async () => {
+      await cancelarDesde({ desde: '2037-12-01' }).expect(400);
+    });
+
+    it('desde una fecha posterior a la última clase no hay nada que cancelar, y lo dice', async () => {
+      const respuesta = await cancelarDesde({
+        desde: '2037-12-20',
+        motivo: 'Fin',
+      }).expect(409);
+
+      expect((respuesta.body as { message: string }).message).toContain(
+        'no tiene clases',
+      );
+    });
+
+    it('la agenda del día dice de qué serie es cada clase', async () => {
+      const respuesta = await request(servidor())
+        .get('/api/admin/clases?fecha=2037-10-15')
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      expect(respuesta.body).toEqual([expect.objectContaining({ serieId })]);
+    });
+
+    it('**la página pública muestra la serie una vez, y sus clases no se repiten en la semana**', async () => {
+      const { clases, series } = await publicas();
+
+      expect(series.filter((s) => s.id === serieId)).toEqual([
+        {
+          id: serieId,
+          diasSemana: [2, 4],
+          horaDesde: '19:00',
+          horaHasta: '20:00',
+          hasta: '2037-12-15',
+          cuposLibres: 6,
+          profesor: 'Profe Series',
+          cancha: NOMBRE_CANCHA,
+          nivel: NivelClase.INICIACION,
+        },
+      ]);
+      const deLaSerie = await prisma.clase.findMany({
+        where: { serieId },
+        select: { id: true },
+      });
+      const ids = new Set(deLaSerie.map((c) => c.id));
+      expect(clases.filter((c) => ids.has(c.id))).toEqual([]);
+    });
+
+    it('cancelada desde el 1 de diciembre, la tarjeta dice hasta la última clase que queda', async () => {
+      await cancelarDesde({
+        desde: '2037-12-01',
+        motivo: 'Fin de temporada',
+      }).expect(201);
+
+      const { series } = await publicas();
+
+      expect(series.find((s) => s.id === serieId)!.hasta).toBe('2037-11-26');
+    });
+  });
 });

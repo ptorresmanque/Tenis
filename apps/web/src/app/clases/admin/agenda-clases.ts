@@ -152,6 +152,18 @@ const enBlanco = () => ({
                 >
                   Cancelar clase
                 </button>
+                <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla
+                     y las clases anteriores quedan como estaban. -->
+                @if (clase.serieId !== null) {
+                  <button
+                    type="button"
+                    class="boton boton-texto boton-chico"
+                    [disabled]="trabajando()"
+                    (click)="cancelarSerieDesde(clase, clase.serieId)"
+                  >
+                    Cancelar desde esta fecha
+                  </button>
+                }
               }
             </div>
 
@@ -458,6 +470,24 @@ export class AgendaDeClases {
     this.error.set(null);
     this.aviso.set(resumen);
     this.version.update((v) => v + 1);
+  }
+
+  /** Cancela esta clase y las siguientes de su serie, con el motivo (T117). */
+  protected async cancelarSerieDesde(clase: ClaseDelDia, serieId: number): Promise<void> {
+    const desde = fechaEnElClub(clase.inicio);
+    const motivo = window.prompt(
+      `¿Por qué se cancela la serie de ${clase.profesor} desde el ${diaEnPalabras(desde)}?`,
+    );
+
+    if (motivo === null || motivo.trim() === '') return;
+
+    await this.intentar(async () => {
+      const { canceladas } = await this.api.cancelarSerieDesde(serieId, desde, motivo);
+      this.aviso.set(
+        `Se cancelaron ${canceladas} ${canceladas === 1 ? 'clase' : 'clases'} de la serie, ` +
+          `desde el ${diaEnPalabras(desde)}. Esas horas vuelven a estar disponibles.`,
+      );
+    });
   }
 
   protected cambiarFecha(evento: Event): void {

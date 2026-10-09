@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 
+import { fechaDeCuerpo } from '../catalogo-canchas/admin.dto';
 import { SoloAdmin } from '../identidad/guards';
 import { Clases } from './clases.service';
 import { Inscripciones } from './inscripciones.service';
@@ -82,6 +83,23 @@ export class ClasesController {
     @Body() cuerpo: unknown,
   ) {
     return this.inscripciones.inscribirEnLaSerie(id, leerInscripcion(cuerpo));
+  }
+
+  /**
+   * Cancela la serie desde un día en adelante (T117): las horas vuelven a la grilla y las
+   * clases anteriores quedan como estaban. El motivo es obligatorio, como en la clase suelta.
+   */
+  @Post('series/:id/cancelacion')
+  cancelarSerieDesde(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    const datos = (cuerpo ?? {}) as Record<string, unknown>;
+    const desde = fechaDeCuerpo(datos.desde, 'El día desde el que se cancela')
+      .toISOString()
+      .slice(0, 10);
+
+    return this.clases.cancelarSerieDesde(id, desde, leerCancelacion(cuerpo));
   }
 
   /** Lo saca de la serie: cancela solo las clases que vienen, no las que ya pasaron. */
