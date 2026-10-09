@@ -67,31 +67,31 @@ const DIAS = [
               <!-- Desde, a y hasta bajan juntos de línea; sin el botón del reloj caben en
                    una fila a 375px (T123). -->
               <span class="flex items-end gap-2">
-                <label class="text-sm" [for]="'desde-' + $index">
-                  <span class="sr-only">Desde, franja {{ $index + 1 }}</span>
-                  <app-campo-hora
-                    [inputId]="'desde-' + $index"
-                    [name]="'desde' + $index"
-                    claseCampo="w-24"
-                    [conBoton]="false"
-                    [ngModel]="franja.horaDesde"
-                    (ngModelChange)="cambiar($index, { horaDesde: $event })"
-                  />
+                <label class="sr-only" [for]="'desde-' + $index">
+                  Desde, franja {{ $index + 1 }}
                 </label>
+                <app-campo-hora
+                  [inputId]="'desde-' + $index"
+                  [name]="'desde' + $index"
+                  claseCampo="w-24"
+                  [conBoton]="false"
+                  [ngModel]="franja.horaDesde"
+                  (ngModelChange)="cambiar($index, { horaDesde: $event })"
+                />
 
                 <span class="pb-2 text-sm text-muted-foreground">a</span>
 
-                <label class="text-sm" [for]="'hasta-' + $index">
-                  <span class="sr-only">Hasta, franja {{ $index + 1 }}</span>
-                  <app-campo-hora
-                    [inputId]="'hasta-' + $index"
-                    [name]="'hasta' + $index"
-                    claseCampo="w-24"
-                    [conBoton]="false"
-                    [ngModel]="franja.horaHasta"
-                    (ngModelChange)="cambiar($index, { horaHasta: $event })"
-                  />
+                <label class="sr-only" [for]="'hasta-' + $index">
+                  Hasta, franja {{ $index + 1 }}
                 </label>
+                <app-campo-hora
+                  [inputId]="'hasta-' + $index"
+                  [name]="'hasta' + $index"
+                  claseCampo="w-24"
+                  [conBoton]="false"
+                  [ngModel]="franja.horaHasta"
+                  (ngModelChange)="cambiar($index, { horaHasta: $event })"
+                />
               </span>
 
               <button
