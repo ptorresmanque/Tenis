@@ -56,9 +56,10 @@ import { Insignia } from '../ui/insignia';
       aria-labelledby="promesa"
     >
       <app-foto
-        descripcion="Las canchas del club al atardecer, con las luces encendidas y
-                     gente jugando al fondo"
+        descripcion="Las canchas al aire libre del club en un día despejado, con el logo de
+                     FEDAL pintado en la cancha"
         proporcion="16/9"
+        src="/fotos/portada.jpg"
         [prioritaria]="true"
         claseCaja="min-h-[32rem] sm:min-h-[34rem] sm:max-h-[calc(100dvh-11rem)]"
       />
@@ -255,8 +256,9 @@ import { Insignia } from '../ui/insignia';
     >
       <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
       <app-foto
-        descripcion="Una cancha vista desde el fondo, a la altura de la red, con la
-                     superficie de cemento a la vista"
+        descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
+                     canchas techadas al fondo"
+        src="/fotos/malla.jpg"
         proporcion="4/3"
         claseCaja="corte-foto"
       />
@@ -333,8 +335,9 @@ import { Insignia } from '../ui/insignia';
               >
                 <app-foto
                   class="absolute inset-0 -z-20"
-                  descripcion="Una jugadora lanza la pelota para sacar, con el cielo despejado
-                               detrás"
+                  descripcion="Un jugador golpea de derecha en una cancha al aire libre, con el cielo
+                               despejado detrás"
+                  src="/fotos/jugador_fondo.jpg"
                   proporcion="4/3"
                   claseCaja="h-full"
                 />
@@ -534,8 +537,8 @@ import { Insignia } from '../ui/insignia';
       aria-labelledby="cierre"
     >
       <app-foto
-        descripcion="Socios conversando después de un partido, con las raquetas
-                     todavía en la mano"
+        descripcion="La terraza del club, con mesas y quitasoles frente a la casa club"
+        src="/fotos/instalaciones.jpg"
         proporcion="3/2"
         claseCaja="min-h-[18rem]"
       />

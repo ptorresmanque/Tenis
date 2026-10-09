@@ -35,7 +35,8 @@ import { Tarifas } from './tarifas';
       aria-labelledby="el-club"
     >
       <app-foto
-        descripcion="El club visto desde la entrada, con las canchas y el edificio al fondo"
+        descripcion="Vista aérea del club: los galpones de las canchas techadas y dos canchas al aire libre"
+        src="/fotos/el-club.jpg"
         proporcion="16/9"
         [prioritaria]="true"
         claseCaja="min-h-[24rem]"

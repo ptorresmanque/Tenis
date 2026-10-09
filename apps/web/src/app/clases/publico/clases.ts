@@ -32,7 +32,8 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
       aria-labelledby="clases"
     >
       <app-foto
-        descripcion="Un profesor dando clase a un grupo, con los alumnos en la línea de fondo"
+        descripcion="Cuatro niños con sus raquetas junto a la red, en una cancha techada"
+        src="/fotos/ninos.jpg"
         proporcion="16/9"
         [prioritaria]="true"
         claseCaja="min-h-[22rem]"

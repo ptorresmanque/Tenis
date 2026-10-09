@@ -85,7 +85,8 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
       aria-labelledby="torneos"
     >
       <app-foto
-        descripcion="La entrega de premios de un torneo, con los finalistas y el público"
+        descripcion="Jugadores del club con sus premios, en un collage frente a los pendones del club"
+        src="/fotos/torneo.jpg"
         proporcion="16/9"
         [prioritaria]="true"
         claseCaja="min-h-[22rem]"

@@ -398,8 +398,9 @@ describe('TorneosPublicos', () => {
     await apretar('Ver quiénes juegan');
 
     expect(texto()).toContain('Fotos');
+    // La de la galería, no la del encabezado de la página.
     expect(
-      elemento().querySelector('img')?.getAttribute('src'),
+      elemento().querySelector('app-galeria img')?.getAttribute('src'),
     ).toBe('/api/torneos/fotos/4/miniatura');
   });
 
