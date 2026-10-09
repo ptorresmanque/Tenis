@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { comoFechaCivil } from '../comun/tiempo';
 import {
   EstadoInscripcionTorneo,
+  EstadoPagoInscripcion,
   EstadoTorneo,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -43,7 +44,7 @@ export interface CategoriaPublica {
   armado: boolean;
 }
 
-/** Un partido publicado. Nombres y marcador, nada más. */
+/** Un partido publicado: nombres, marcador y, si ya lo programó el club, cuándo y dónde. */
 export interface PartidoPublico {
   ronda: number;
   ronda_nombre: string;
@@ -53,6 +54,21 @@ export interface PartidoPublico {
   ganador: string | null;
   marcador: string | null;
   walkover: boolean;
+  /** La programación de T67 (T134). Nulos mientras el club no lo programe. */
+  inicio: string | null;
+  fin: string | null;
+  cancha: string | null;
+}
+
+/**
+ * Un inscrito de la lista pública (T134): su nombre y si ya pagó.
+ *
+ * **El estado del pago se publica por decisión del club** (sexta parte, decisión 4), y la
+ * política de privacidad lo dice. `null` en una categoría gratis: ahí no hay nada que pagar.
+ */
+export interface InscritoPublico {
+  nombre: string;
+  pago: 'PAGADO' | 'PENDIENTE' | null;
 }
 
 export interface CuadroPublico {
@@ -61,7 +77,7 @@ export interface CuadroPublico {
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
-  inscritos: string[];
+  inscritos: InscritoPublico[];
   partidos: PartidoPublico[];
 }
 
@@ -188,10 +204,13 @@ export class TorneosPublicos {
         torneoId: true,
         categoriaJuego: { select: { nombre: true } },
         torneo: { select: { nombre: true, estado: true } },
+        // **En el orden en que se inscribieron** (T134), no en el de la siembra: es la
+        // lista de quién se anotó, y antes de armar el cuadro no hay siembra.
         inscripciones: {
           where: { estado: EstadoInscripcionTorneo.INSCRITA },
-          orderBy: [{ siembra: 'asc' }, { inscritaEn: 'asc' }],
+          orderBy: [{ inscritaEn: 'asc' }, { id: 'asc' }],
           select: {
+            estadoPago: true,
             jugador: { select: { nombre: true, apellido: true } },
           },
         },
@@ -205,6 +224,9 @@ export class TorneosPublicos {
             jugadorA: { select: { nombre: true, apellido: true } },
             jugadorB: { select: { nombre: true, apellido: true } },
             ganador: { select: { nombre: true, apellido: true } },
+            programadoInicio: true,
+            programadoFin: true,
+            bloqueo: { select: { cancha: { select: { nombre: true } } } },
           },
         },
       },
@@ -226,9 +248,10 @@ export class TorneosPublicos {
       estado: cuadro.torneo.estado,
       // Sin cast: un inscrito **siempre** tiene jugador —la relación es obligatoria—,
       // y el `as string[]` tapaba que se estaba usando el lector de los opcionales.
-      inscritos: cuadro.inscripciones.map(
-        (fila) => `${fila.jugador.nombre} ${fila.jugador.apellido}`,
-      ),
+      inscritos: cuadro.inscripciones.map((fila) => ({
+        nombre: `${fila.jugador.nombre} ${fila.jugador.apellido}`,
+        pago: PAGO_PUBLICO[fila.estadoPago],
+      })),
       partidos: cuadro.partidos.map((partido) => ({
         ronda: partido.ronda,
         ronda_nombre: nombreDeRonda(partido.ronda, rondas),
@@ -238,10 +261,24 @@ export class TorneosPublicos {
         ganador: nombre(partido.ganador),
         marcador: partido.marcador,
         walkover: partido.walkover,
+        inicio: partido.programadoInicio?.toISOString() ?? null,
+        fin: partido.programadoFin?.toISOString() ?? null,
+        cancha: partido.bloqueo?.cancha.nombre ?? null,
       })),
     };
   }
 }
+
+/**
+ * El pago, como lo lee quien mira la lista. Un rechazado no aparece: rechazar lo deja
+ * `RETIRADA`, y la lista es de los `INSCRITA`.
+ */
+const PAGO_PUBLICO: Record<EstadoPagoInscripcion, InscritoPublico['pago']> = {
+  [EstadoPagoInscripcion.EXENTA]: null,
+  [EstadoPagoInscripcion.PENDIENTE]: 'PENDIENTE',
+  [EstadoPagoInscripcion.PAGADA]: 'PAGADO',
+  [EstadoPagoInscripcion.RECHAZADA]: 'PENDIENTE',
+};
 
 function nombre(
   jugador: { nombre: string; apellido: string } | null,
