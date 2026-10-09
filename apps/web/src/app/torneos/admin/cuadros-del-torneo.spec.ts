@@ -202,6 +202,7 @@ describe('CuadrosDelTorneo', () => {
         categoriaJuegoId: 60,
         categoriaId: 4,
         cupo: 16,
+        montoInscripcionClp: 0,
       });
     });
 
@@ -229,6 +230,18 @@ describe('CuadrosDelTorneo', () => {
       expect(opciones.some((o) => o?.includes('500'))).toBe(true);
     });
 
+    it('**cada fila muestra el valor que tiene guardado**, no el primero', async () => {
+      await montar([
+        { ...CUARTA, categoriaId: 4, valor: 'Máster 500', puntosCampeon: 500 },
+      ]);
+
+      const selector =
+        elemento().querySelector<HTMLSelectElement>('li select')!;
+      expect(selector.selectedOptions[0]?.textContent?.trim()).toBe(
+        'Máster 500 (500)',
+      );
+    });
+
     it('**un cuadro que ya existe puede cambiar de valor**', async () => {
       // El club se equivocó al crearlo: la alternativa era borrarlo con sus partidos.
       const enLaFicha = elemento().querySelectorAll<HTMLSelectElement>(
@@ -250,6 +263,73 @@ describe('CuadrosDelTorneo', () => {
   });
 
   // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  describe('lo que cuesta inscribirse', () => {
+    /** El campo del monto en la fila del cuadro, por su nombre accesible. */
+    const montoDe = (categoria: string) =>
+      elemento().querySelector<HTMLInputElement>(
+        `input[aria-label="Inscripción de ${categoria}, en pesos"]`,
+      )!;
+
+    const cambiar = async (campo: HTMLInputElement, valor: string) => {
+      campo.value = valor;
+      campo.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**cada cuadro muestra lo que cuesta**', async () => {
+      await montar([{ ...CUARTA, montoInscripcionClp: 15000 }]);
+
+      expect(montoDe('4ª').value).toBe('15000');
+    });
+
+    it('**cambiarlo manda solo el monto**', async () => {
+      await cambiar(montoDe('4ª'), '20000');
+
+      expect(api.editarCuadro).toHaveBeenCalledWith(1, 7, {
+        montoInscripcionClp: 20000,
+      });
+    });
+
+    it('**un monto negativo o con decimales no llega al servidor**', async () => {
+      await cambiar(montoDe('4ª'), '-5');
+      await cambiar(montoDe('4ª'), '1500.5');
+
+      expect(api.editarCuadro).not.toHaveBeenCalled();
+      expect(texto()).toContain('en pesos, sin decimales');
+    });
+
+    it('**agregar un cuadro manda su monto**, y cero es gratis', async () => {
+      const nivel = elemento().querySelector<HTMLSelectElement>(
+        'select[name="categoria"]',
+      )!;
+      nivel.value = '60';
+      nivel.dispatchEvent(new Event('change'));
+      const valor = elemento().querySelector<HTMLSelectElement>(
+        'select[name="valor"]',
+      )!;
+      valor.value = '4';
+      valor.dispatchEvent(new Event('change'));
+      const monto = elemento().querySelector<HTMLInputElement>(
+        'input[name="monto"]',
+      )!;
+      monto.value = '25000';
+      monto.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+
+      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+
+      expect(api.agregarCuadro).toHaveBeenCalledWith(1, {
+        categoriaJuegoId: 60,
+        categoriaId: 4,
+        cupo: 16,
+        montoInscripcionClp: 25000,
+      });
+      expect(texto()).toContain('0 es gratis');
+    });
+  });
+
   it('si la API no responde, lo dice en vez de reventar', async () => {
     const caida = () => Promise.reject(new Error('la API no respondió'));
     TestBed.resetTestingModule();

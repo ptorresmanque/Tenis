@@ -115,6 +115,24 @@ describe('CategoriasDeJuegoPanel', () => {
     expect(api.editar).toHaveBeenCalledWith(QUINTA.id, { activa: true });
   });
 
+  it('**la columna se llama "Orden"**: "Lugar" se leía como dónde se juega', () => {
+    const encabezados = [...elemento().querySelectorAll('th')].map((th) =>
+      th.textContent?.trim(),
+    );
+
+    expect(encabezados).toContain('Orden');
+    expect(texto()).not.toContain('Lugar');
+    expect(
+      elemento().querySelector(`label[for="orden-${QUINTA.id}"]`)?.textContent,
+    ).toContain('Orden de 5ª');
+  });
+
+  it('al moverla, el aviso dice el orden nuevo', async () => {
+    await escribirOrden(QUINTA.id, '35');
+
+    expect(texto()).toContain('5ª quedó con el orden 35.');
+  });
+
   it('mover una categoría manda el lugar nuevo', async () => {
     await escribirOrden(QUINTA.id, '35');
 
