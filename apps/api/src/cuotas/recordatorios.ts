@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { firmaDelClub } from '../comun/club';
 import { hoyEnElClub } from '../comun/tiempo';
 import { web } from '../comun/urls';
 import {
@@ -11,7 +12,6 @@ import {
 import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
-import { firmaDelClub } from '../reservas/correos';
 import { EmisionDeCuotas } from './emision.service';
 import { ultimoDiaDelPeriodo } from './periodos';
 

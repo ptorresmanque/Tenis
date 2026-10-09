@@ -1,14 +1,10 @@
-import {
-  avisoDeCambio,
-  confirmacionDeReserva,
-  DatosDelClub,
-  firmaDelClub,
-} from './correos';
+import { DatosDelClub, firmaDelClub } from '../comun/club';
+import { avisoDeCambio, confirmacionDeReserva } from './correos';
 
 /**
- * T108. Lo que dice el correo de confirmación, y la firma que comparten todos los correos
- * del club (T109 a T112 la reutilizan). Que el correo salga una sola vez se prueba contra
- * la base, en `reservas-no-socio.spec.ts` y `reservas-socio.spec.ts`.
+ * T108 y T109. Lo que dicen la confirmación y el aviso de cambio; la firma se prueba en
+ * `comun/club.spec.ts`. Que el correo salga una sola vez se prueba contra la base, en
+ * `reservas-no-socio.spec.ts` y `reservas-socio.spec.ts`.
  */
 describe('correos de la reserva', () => {
   const CLUB: DatosDelClub = {
@@ -147,35 +143,6 @@ describe('correos de la reserva', () => {
   });
 
   describe('la firma del club', () => {
-    it('**nombra al club, su dirección y cómo contactarlo**', () => {
-      const firma = firmaDelClub(CLUB);
-
-      expect(firma).toContain('FEDAL Tennis Center');
-      expect(firma).toContain('Avenida del Tenis 1234, Ñuñoa');
-      expect(firma).toContain('+56 2 2345 6789 · hola@fedal.cl');
-    });
-
-    it('**con ubicación, lleva "Cómo llegar" a Google Maps**', () => {
-      expect(firmaDelClub(CLUB)).toContain(
-        'Cómo llegar: https://www.google.com/maps/dir/?api=1&destination=-33.4372,-70.6506',
-      );
-    });
-
-    it('sin ubicación cargada no ofrece un enlace que no lleva a ningún lado', () => {
-      const firma = firmaDelClub({ ...CLUB, latitud: null, longitud: null });
-
-      expect(firma).not.toContain('Cómo llegar');
-    });
-
-    it('lo que el club no cargó no deja líneas vacías ni separadores sueltos', () => {
-      const firma = firmaDelClub({ ...CLUB, direccion: '', telefono: '' });
-
-      expect(firma).toBe(
-        '-- \nFEDAL Tennis Center\nhola@fedal.cl\n' +
-          'Cómo llegar: https://www.google.com/maps/dir/?api=1&destination=-33.4372,-70.6506',
-      );
-    });
-
     it('la confirmación termina con la firma', () => {
       expect(confirmacion().cuerpo.endsWith(firmaDelClub(CLUB))).toBe(true);
     });

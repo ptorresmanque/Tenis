@@ -12,7 +12,7 @@ import { EstadoPartidoInterno, EstadoSocio } from '../generated/prisma/client';
 import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
 import type { UsuarioActual } from '../identidad/usuario-actual';
 import { web } from '../comun/urls';
-import { firmaDelClub } from '../reservas/correos';
+import { firmaDelClub } from '../comun/club';
 import { NOMBRE_DEL_SOCIO, nombreDeSocio } from './nombres';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PartidoInternoNuevo } from './partidos-internos.dto';

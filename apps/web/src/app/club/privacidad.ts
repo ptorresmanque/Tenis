@@ -31,10 +31,10 @@ interface Tratamiento {
       </p>
 
       <p class="mt-6">
-        En FEDAL Tennis Center usamos tus datos personales solo para lo que necesitas del
-        club: tu cuenta, tus reservas, tus pagos, tus clases y tus torneos. Aquí te
-        contamos qué datos tratamos, para qué, con quién los compartimos, cuánto tiempo
-        los guardamos y cómo puedes ejercer tus derechos.
+        En FEDAL Tennis Center usamos tus datos personales solo para lo que necesitas del club: tu
+        cuenta, tus reservas, tus pagos, tus clases y tus torneos. Aquí te contamos qué datos
+        tratamos, para qué, con quién los compartimos, cuánto tiempo los guardamos y cómo puedes
+        ejercer tus derechos.
       </p>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">1. Quién es responsable de tus datos</h2>
@@ -44,11 +44,11 @@ interface Tratamiento {
         <li><strong>Domicilio:</strong> Lircay lt 42, Temuco.</li>
         <li>
           <strong>Correo para todo lo relacionado con tus datos:</strong>
-          <a [href]="'mailto:' + correo" class="underline">{{ correo }}</a>.
+          <a [href]="'mailto:' + correo" class="underline">{{ correo }}</a
+          >.
         </li>
         <li>
-          El club no ha designado un encargado de prevención ni un delegado de protección
-          de datos.
+          El club no ha designado un encargado de prevención ni un delegado de protección de datos.
         </li>
       </ul>
 
@@ -75,94 +75,95 @@ interface Tratamiento {
 
       <p class="mt-6">
         <strong>Cookies:</strong> usamos solo una cookie técnica de sesión, que te mantiene
-        conectado hasta 30 días o hasta que cierres sesión, y una cookie temporal de 10
-        minutos mientras entras con Google. No usamos cookies de publicidad ni de analítica.
+        conectado hasta 30 días o hasta que cierres sesión, y una cookie temporal de 10 minutos
+        mientras entras con Google. No usamos cookies de publicidad ni de analítica.
       </p>
       <p class="mt-3">
-        <strong>Correos:</strong> solo te enviamos avisos del sistema, cada uno porque lo
-        necesitas para usar el club. No te enviamos publicidad.
+        <strong>Correos:</strong> solo te enviamos avisos del sistema, cada uno porque lo necesitas
+        para usar el club. No te enviamos publicidad.
       </p>
       <ul class="mt-2 grid list-disc gap-1 ps-5">
         <li>La verificación de tu correo y la recuperación de tu contraseña.</li>
         <li>
-          La confirmación de tu reserva, con el enlace a tu reserva y cómo cambiarla, para
-          que sepas que quedó tomada y cómo llegar.
+          La confirmación de tu reserva, con el enlace a tu reserva y cómo cambiarla, para que sepas
+          que quedó tomada y cómo llegar.
         </li>
         <li>
-          Si reservas sin ser socio, un aviso por cada cambio de tu reserva, hecho desde tu
-          enlace o por el club, para que te enteres si alguien con tu enlace la movió.
+          Si reservas sin ser socio, un aviso por cada cambio de tu reserva, hecho desde tu enlace o
+          por el club, para que te enteres si alguien con tu enlace la movió.
         </li>
         <li>
-          Si eres socio, el recordatorio de tu cuota: unos días antes de fin de mes y, si
-          quedó impaga, desde el día 1, para que no te quedes sin poder reservar.
+          Si eres socio, el recordatorio de tu cuota: unos días antes de fin de mes y, si quedó
+          impaga, desde el día 1, para que no te quedes sin poder reservar.
         </li>
         <li>
-          Si otro socio carga un partido interno que jugó contigo, un aviso para que lo
-          confirmes o lo rechaces. Lleva su nombre y el resultado que cargó.
+          Si otro socio carga un partido interno que jugó contigo, un aviso para que lo confirmes o
+          lo rechaces. Lleva su nombre y el resultado que cargó.
         </li>
-        <li>Si el club cierra la cancha o agenda una clase en tu hora, el aviso de que se canceló.</li>
+        <li>
+          Si el club cierra la cancha o agenda una clase en tu hora, el aviso de que se canceló.
+        </li>
       </ul>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">3. Decisiones automatizadas</h2>
-      <p class="mt-3">Algunas reglas del club las aplica el sistema sin que intervenga una persona:</p>
+      <p class="mt-3">
+        Algunas reglas del club las aplica el sistema sin que intervenga una persona:
+      </p>
       <ul class="mt-3 grid list-disc gap-1 ps-5">
         <li>
-          Si tu cuota está impaga o tu ficha de socio está suspendida, no puedes reservar
-          hasta regularizar tu situación.
+          Si tu cuota está impaga o tu ficha de socio está suspendida, no puedes reservar hasta
+          regularizar tu situación.
         </li>
         <li>
-          Si un administrador confirma que tomaste una hora y no la usaste, no puedes
-          reservar durante los días de sanción que fija el club. La sanción la decide una
-          persona; el sistema solo la aplica.
+          Si un administrador confirma que tomaste una hora y no la usaste, no puedes reservar
+          durante los días de sanción que fija el club. La sanción la decide una persona; el sistema
+          solo la aplica.
         </li>
         <li>
-          El sistema no deja pasar de los cupos del club: reservas por día, reservas en
-          horario punta por semana y reservas con invitados por mes.
+          El sistema no deja pasar de los cupos del club: reservas por día, reservas en horario
+          punta por semana y reservas con invitados por mes.
         </li>
       </ul>
       <p class="mt-3">
         Si crees que una de estas decisiones está mal aplicada en tu caso, escríbenos a
-        <a [href]="'mailto:' + correo" class="underline">{{ correo }}</a> y una persona del
-        club la revisa.
+        <a [href]="'mailto:' + correo" class="underline">{{ correo }}</a> y una persona del club la
+        revisa.
       </p>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">4. Menores de edad</h2>
       <p class="mt-3">
-        Las cuentas son solo para mayores de 18 años. Los menores usan las canchas y las
-        clases junto a un adulto responsable. Cuando ese adulto anota a un menor, como
-        acompañante en una reserva, en una clase o en un torneo, declara ser su padre,
-        madre o tutor y da el consentimiento por él. Del menor guardamos solo su nombre y,
-        en clases y torneos, el teléfono de contacto que entregue el adulto.
+        Las cuentas son solo para mayores de 18 años. Los menores usan las canchas y las clases
+        junto a un adulto responsable. Cuando ese adulto anota a un menor, como acompañante en una
+        reserva, en una clase o en un torneo, declara ser su padre, madre o tutor y da el
+        consentimiento por él. Del menor guardamos solo su nombre y, en clases y torneos, el
+        teléfono de contacto que entregue el adulto.
       </p>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">5. Con quién compartimos tus datos</h2>
       <ul class="mt-3 grid list-disc gap-2 ps-5">
         <li><strong>Transbank (Chile)</strong> procesa los pagos con tarjeta.</li>
         <li>
-          <strong>Haulmer (Chile)</strong> aloja el sitio, la base de datos y el correo del
-          club, en servidores en Chile.
+          <strong>Haulmer (Chile)</strong> aloja el sitio, la base de datos y el correo del club, en
+          servidores en Chile.
         </li>
         <li>
           <strong>Google (Estados Unidos), solo si eliges "Entrar con Google":</strong>
-          recibe tu solicitud de ingreso y nos devuelve tu nombre y tu correo verificado.
-          Como Google está en Estados Unidos, es una transferencia internacional: ocurre
-          solo porque tú eliges esa forma de entrar, y siempre puedes usar tu correo y una
-          contraseña en su lugar.
+          recibe tu solicitud de ingreso y nos devuelve tu nombre y tu correo verificado. Como
+          Google está en Estados Unidos, es una transferencia internacional: ocurre solo porque tú
+          eliges esa forma de entrar, y siempre puedes usar tu correo y una contraseña en su lugar.
         </li>
         <li>
           <strong>YouTube (Google, Estados Unidos), en las transmisiones de torneos:</strong>
-          los partidos se transmiten por YouTube, así que tu imagen en la cancha queda
-          también en esa plataforma. Si abres la página de un torneo con transmisiones, tu
-          navegador le pide a YouTube la miniatura de cada video. El reproductor se carga
-          recién cuando aprietas play, y usa la versión de YouTube que no instala cookies
-          hasta que reproduces el video.
+          los partidos se transmiten por YouTube, así que tu imagen en la cancha queda también en
+          esa plataforma. Si abres la página de un torneo con transmisiones, tu navegador le pide a
+          YouTube la miniatura de cada video. El reproductor se carga recién cuando aprietas play, y
+          usa la versión de YouTube que no instala cookies hasta que reproduces el video.
         </li>
         <li>
           <strong>OpenStreetMap (Reino Unido), en la página "El club":</strong> el mapa con la
-          ubicación del club se carga desde OpenStreetMap, así que tu navegador le pide las
-          imágenes del mapa y, con eso, ve tu dirección IP. No le enviamos ningún dato tuyo.
-          Los botones "Cómo llegar" abren Google Maps o Waze (Google, Estados Unidos) solo si
-          los aprietas.
+          ubicación del club se carga desde OpenStreetMap, así que tu navegador le pide las imágenes
+          del mapa y, con eso, ve tu dirección IP. No le enviamos ningún dato tuyo. Los botones
+          "Cómo llegar" abren Google Maps o Waze (Google, Estados Unidos) solo si los aprietas.
         </li>
         <li>
           <strong>Público en el sitio:</strong> los resultados, cuadros, ranking, fotos y
@@ -192,8 +193,8 @@ interface Tratamiento {
         <li>El sistema frena los intentos repetidos de adivinar contraseñas.</li>
         <li>El panel de administración solo lo usan las cuentas autorizadas por el club.</li>
         <li>
-          Antes de cada actualización del sistema se respalda la base de datos, y los
-          respaldos quedan en el servidor con acceso restringido.
+          Antes de cada actualización del sistema se respalda la base de datos, y los respaldos
+          quedan en el servidor con acceso restringido.
         </li>
         <li>Los datos están en servidores en Chile.</li>
       </ul>
@@ -202,35 +203,37 @@ interface Tratamiento {
       <p class="mt-3">Puedes pedirnos en cualquier momento:</p>
       <ul class="mt-3 grid list-disc gap-1 ps-5">
         <li><strong>Acceso:</strong> saber qué datos tuyos tenemos.</li>
-        <li><strong>Rectificación:</strong> corregir los que estén equivocados o desactualizados.</li>
+        <li>
+          <strong>Rectificación:</strong> corregir los que estén equivocados o desactualizados.
+        </li>
         <li><strong>Supresión:</strong> que borremos los que ya no tienen por qué estar.</li>
         <li><strong>Oposición:</strong> que dejemos de tratarlos para algún fin.</li>
-        <li><strong>Portabilidad:</strong> recibirlos en un formato que puedas llevar a otro lado.</li>
         <li>
-          <strong>Revisión por una persona</strong> de una decisión automatizada (sección 3).
+          <strong>Portabilidad:</strong> recibirlos en un formato que puedas llevar a otro lado.
         </li>
+        <li><strong>Revisión por una persona</strong> de una decisión automatizada (sección 3).</li>
         <li>
           <strong>Retirar tu consentimiento</strong> para la publicación en torneos. Desde ese
-          momento retiramos tus fotos y dejamos de publicar tus transmisiones; los resultados
-          ya publicados se mantienen como parte del registro del torneo.
+          momento retiramos tus fotos y dejamos de publicar tus transmisiones; los resultados ya
+          publicados se mantienen como parte del registro del torneo.
         </li>
       </ul>
       <p class="mt-3">
         <strong>Cómo:</strong> escríbenos a
-        <a [href]="'mailto:' + correo" class="underline">{{ correo }}</a> desde el correo
-        asociado a tu cuenta, o identificándote, y cuéntanos qué necesitas. Te respondemos
-        dentro de 30 días corridos, plazo que podemos extender una sola vez por otros 30 si
-        el caso lo requiere, avisándote.
+        <a [href]="'mailto:' + correo" class="underline">{{ correo }}</a> desde el correo asociado a
+        tu cuenta, o identificándote, y cuéntanos qué necesitas. Te respondemos dentro de 30 días
+        corridos, plazo que podemos extender una sola vez por otros 30 si el caso lo requiere,
+        avisándote.
       </p>
       <p class="mt-3">
-        Si no te respondemos a tiempo o rechazamos tu solicitud, puedes reclamar ante la
-        Agencia de Protección de Datos Personales.
+        Si no te respondemos a tiempo o rechazamos tu solicitud, puedes reclamar ante la Agencia de
+        Protección de Datos Personales.
       </p>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">9. Cambios a esta política</h2>
       <p class="mt-3">
-        Si cambiamos esta política, publicaremos la nueva versión aquí con su fecha. Si el
-        cambio es importante, además te avisaremos por correo.
+        Si cambiamos esta política, publicaremos la nueva versión aquí con su fecha. Si el cambio es
+        importante, además te avisaremos por correo.
       </p>
     </article>
   `,
@@ -302,6 +305,18 @@ export class Privacidad {
         'inscribirte. El formulario de inscripción te lo informa.',
     },
     {
+      cuando: 'Juegas partidos internos con otros socios',
+      datos:
+        'Tu nombre y el de tu rival, el día, quién ganó y el marcador de cada partido que ' +
+        'cargas o que te cargan, y si lo confirmaste o lo rechazaste. Con los confirmados se ' +
+        'calculan tu puntaje y tu lugar en el ranking interno.',
+      paraQue:
+        'Armar el ranking interno del club, que ven solo los socios. Un partido cuenta solo ' +
+        'cuando tu rival lo confirma, o cuando el club resuelve un desacuerdo. Si pasas seis ' +
+        'meses sin jugar, sales de la tabla principal.',
+      base: 'Contrato (tu membresía).',
+    },
+    {
       cuando: 'Nos escribes por el formulario de contacto',
       datos: 'Nombre, correo, teléfono y tu mensaje.',
       paraQue: 'Responderte.',
@@ -331,6 +346,10 @@ export class Privacidad {
     ],
     ['Mensajes del formulario de contacto', '1 año desde que te respondemos.'],
     ['Resultados y ranking de torneos', 'Mientras exista el historial deportivo del club.'],
+    [
+      'Partidos internos y ranking interno',
+      'Mientras exista el historial deportivo del club: el ranking se calcula con todos los partidos confirmados.',
+    ],
     ['Fotos de torneos', '3 años desde el torneo.'],
     ['Sesión iniciada', '30 días, o hasta que cierres sesión.'],
     [

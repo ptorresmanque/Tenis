@@ -89,7 +89,10 @@ describe('NuevaSerie', () => {
       simularSerie: vi.fn(),
       agendarSerie: vi.fn().mockResolvedValue({
         id: 9,
-        clases: [{ id: 1, fecha: '2037-10-20' }, { id: 2, fecha: '2037-10-27' }],
+        clases: [
+          { id: 1, fecha: '2037-10-20' },
+          { id: 2, fecha: '2037-10-27' },
+        ],
         saltadas: ['2037-10-22'],
         canceladas: [TOMADA],
       }),
@@ -188,9 +191,9 @@ describe('NuevaSerie', () => {
 
     const agendar = boton('Agendar serie');
     expect(agendar.disabled).toBe(true);
-    expect(el().querySelector(`#${agendar.getAttribute('aria-describedby')}`)?.textContent).toContain(
-      'Cambiaste la serie',
-    );
+    expect(
+      el().querySelector(`#${agendar.getAttribute('aria-describedby')}`)?.textContent,
+    ).toContain('Cambiaste la serie');
   });
 
   it('si el servidor la rechaza —una reserva nueva, por ejemplo—, lo dice con sus palabras', async () => {
@@ -208,5 +211,36 @@ describe('NuevaSerie', () => {
 
     expect(texto()).toContain('martes 27 de octubre (reservas ZZ9)');
     expect(agendadas).toEqual([]);
+  });
+
+  it('**si falta decidir algo nuevo, revisa las fechas sola**: aparece y lo ya decidido sigue', async () => {
+    const CERRADA = fecha('2037-10-22', { choque: 'Esa cancha ya está cerrada en ese rango.' });
+    await revisar([CERRADA, fecha('2037-10-27')]);
+    await decidir('2037-10-22', 'saltar');
+
+    // Entre la revisión y el clic, alguien reservó el martes 27.
+    api.agendarSerie.mockRejectedValueOnce({
+      status: 409,
+      error: {
+        motivo: 'FALTA_DECIDIR',
+        message: 'Falta decidir qué hacer con estas fechas: martes 27 de octubre (reservas ZZ9).',
+      },
+    });
+    api.simularSerie.mockResolvedValue({
+      fechas: [CERRADA, fecha('2037-10-27', { afectadas: [{ ...TOMADA, folio: 'ZZ9' }] })],
+    });
+
+    boton('Agendar serie').click();
+    await esperar();
+
+    expect(api.simularSerie).toHaveBeenCalledTimes(2);
+    expect(texto()).toContain('martes 27 de octubre (reservas ZZ9)');
+    expect(el().querySelector<HTMLSelectElement>('select[name="decision-2037-10-22"]')!.value).toBe(
+      'saltar',
+    );
+    expect(el().querySelector<HTMLSelectElement>('select[name="decision-2037-10-27"]')!.value).toBe(
+      '',
+    );
+    expect(boton('Agendar serie').disabled).toBe(true);
   });
 });

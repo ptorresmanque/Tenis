@@ -41,6 +41,10 @@ describe('Política de privacidad', () => {
     ['el recordatorio de la cuota', 'recordatorio de tu cuota'],
     ['el aviso al rival de un partido interno', 'partido interno'],
     ['que el socio vuelve a ver a sus invitados', 'te los sugerimos'],
+    // T119: el ranking interno, anterior a la quinta parte, no tenía su tratamiento.
+    ['el ranking interno y quién lo ve', 'Juegas partidos internos'],
+    ['que un partido cuenta solo confirmado', 'solo cuando tu rival lo confirma'],
+    ['cuánto se guardan los partidos internos', 'Partidos internos y ranking interno'],
   ])('nombra %s', (_, frase) => {
     expect(texto()).toContain(frase);
   });

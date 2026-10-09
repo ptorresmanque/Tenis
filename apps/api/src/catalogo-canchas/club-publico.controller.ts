@@ -1,17 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 
+import { DatosDelClub } from '../comun/club';
 import { PrismaService } from '../prisma/prisma.service';
-
-/** Lo que el sitio público necesita saber del club para no inventarlo. */
-export interface DatosDelClub {
-  nombre: string;
-  direccion: string;
-  telefono: string;
-  email: string;
-  /** Para el mapa de "El club" (T100). Nulas mientras el admin no la cargue. */
-  latitud: number | null;
-  longitud: number | null;
-}
 
 /**
  * Los datos de contacto del club, para cualquiera.
