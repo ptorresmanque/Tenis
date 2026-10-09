@@ -1137,6 +1137,11 @@ model TorneoCategoria {
   /// sortear la 4ª, así que la semilla baja de `Torneo` a acá.
   semillaSorteo Int? @map("semilla_sorteo")
 
+  /// La última vez que se armó (T132). **Deshacer no la borra**, al revés que la semilla:
+  /// es lo que permite que el correo de rearmar diga "el cuadro cambió" en vez de
+  /// presentarse como el primero.
+  armadoEn DateTime? @map("armado_en")
+
   torneo         Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   categoriaJuego CategoriaJuego  @relation(fields: [categoriaJuegoId], references: [id])
   categoria      CategoriaTorneo @relation(fields: [categoriaId], references: [id])
