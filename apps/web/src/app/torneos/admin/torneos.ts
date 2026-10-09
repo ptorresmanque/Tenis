@@ -16,6 +16,7 @@ import {
   Torneo,
   Torneos,
 } from '../torneos.service';
+import { CampoFecha } from '../../ui/campo-fecha';
 
 /**
  * Los tres grupos con que el club mira su temporada.
@@ -61,7 +62,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-torneos',
-  imports: [Esqueleto, FormsModule, RouterLink, Aviso, EstadoVacio, Insignia],
+  imports: [Esqueleto, FormsModule, RouterLink, Aviso, EstadoVacio, Insignia, CampoFecha],
   template: `
     <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
          crear; va como secundaria porque la principal es el "Crear torneo" del
@@ -112,35 +113,32 @@ const enBlanco = () => ({
           />
         </label>
 
-        <label class="block">
-          <span class="text-sm font-medium">Empieza</span>
-          <input
-            class="campo mt-1"
-            type="date"
+        <div class="grid gap-1">
+          <label class="text-sm font-medium" for="nuevo-fechaInicio">Empieza</label>
+          <app-campo-fecha
+            inputId="nuevo-fechaInicio"
             name="fechaInicio"
             [(ngModel)]="datos.fechaInicio"
           />
-        </label>
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Termina</span>
-          <input
-            class="campo mt-1"
-            type="date"
+        <div class="grid gap-1">
+          <label class="text-sm font-medium" for="nuevo-fechaFin">Termina</label>
+          <app-campo-fecha
+            inputId="nuevo-fechaFin"
             name="fechaFin"
             [(ngModel)]="datos.fechaFin"
           />
-        </label>
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Cierra la inscripción</span>
-          <input
-            class="campo mt-1"
-            type="date"
+        <div class="grid gap-1">
+          <label class="text-sm font-medium" for="nuevo-cierreInscripcion">Cierra la inscripción</label>
+          <app-campo-fecha
+            inputId="nuevo-cierreInscripcion"
             name="cierreInscripcion"
             [(ngModel)]="datos.cierreInscripcion"
           />
-        </label>
+        </div>
 
         <label class="block">
           <span class="text-sm font-medium">Superficie</span>

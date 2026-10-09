@@ -119,6 +119,8 @@ describe('IngresoPanel', () => {
   it('cambiar el rango también', async () => {
     const campo = elemento().querySelector<HTMLInputElement>('input[name="desde"]')!;
     campo.value = '2026-07-01';
+    // El de Material lee lo escrito con `input` y lo entrega con `change`.
+    campo.dispatchEvent(new Event('input'));
     campo.dispatchEvent(new Event('change'));
     await fixture.whenStable();
     fixture.detectChanges();

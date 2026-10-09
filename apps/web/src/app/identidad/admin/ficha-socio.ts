@@ -20,6 +20,7 @@ import {
   SocioDelClub,
   Socios,
 } from './socios.service';
+import { CampoFecha } from '../../ui/campo-fecha';
 
 const ESTADOS: { valor: EstadoSocio; etiqueta: string }[] = [
   { valor: 'ACTIVO', etiqueta: 'Activo' },
@@ -46,7 +47,7 @@ const CAMPOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-ficha-socio',
-  imports: [FormsModule, Aviso, Campo, CampoControl],
+  imports: [FormsModule, Aviso, Campo, CampoControl, CampoFecha],
   template: `
     <dialog
       #dialogo
@@ -84,18 +85,20 @@ const CAMPOS: Record<string, string> = {
           </select>
         </app-campo>
 
-        <app-campo
-          etiqueta="Cuota al día hasta"
-          ayuda="Es el último día en que puede reservar."
-        >
-          <input
-            appCampoControl
+        <!-- Sin app-campo: su <label> envolvería el campo, y Material deja el calendario
+             adentro (T126). Las mismas clases que app-campo. -->
+        <div class="grid gap-1.5">
+          <label class="text-sm font-semibold" for="cuota-al-dia-hasta">Cuota al día hasta</label>
+          <app-campo-fecha
+            inputId="cuota-al-dia-hasta"
             name="alDiaHasta"
-            type="date"
-            class="campo"
+            describedBy="cuota-al-dia-hasta-ayuda"
             [(ngModel)]="borrador.alDiaHasta"
           />
-        </app-campo>
+          <span id="cuota-al-dia-hasta-ayuda" class="text-xs text-muted-foreground">
+            Es el último día en que puede reservar.
+          </span>
+        </div>
 
         <app-campo
           etiqueta="Motivo"
