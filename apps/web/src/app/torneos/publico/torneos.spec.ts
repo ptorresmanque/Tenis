@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { provideRouter, Router } from '@angular/router';
+import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 import {
   CuadroPublico,
@@ -81,18 +81,9 @@ describe('TorneosPublicos', () => {
     ],
   };
 
-  const EN_VIVO = {
-    id: 3,
-    canchaId: 1,
-    cancha: 'Cancha 1',
-    url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
-    miniatura: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-    titulo: null,
-    inicio: '2026-11-07T13:00:00.000Z',
-    fin: '2026-11-07T22:00:00.000Z',
-  };
-
   let fixture: ComponentFixture<TorneosPublicos>;
+  /** `Router.navigate`, espiado: la dirección lleva `?cuadro=<id>` (T135). */
+  let navegar: MockInstance<Router['navigate']>;
   let api: {
     calendario: ReturnType<typeof vi.fn>;
     cuadroPublico: ReturnType<typeof vi.fn>;
@@ -108,7 +99,7 @@ describe('TorneosPublicos', () => {
   const montar = async (
     torneos: TorneoPublico[] | Error,
     cuadro: typeof CUADRO | Error = CUADRO,
-    transmisiones: (typeof EN_VIVO)[] | Error = [],
+    transmisiones: unknown[] | Error = [],
     fotos: unknown[] | Error = [],
     soltada = { soltada: true },
   ) => {
@@ -124,6 +115,7 @@ describe('TorneosPublicos', () => {
     TestBed.configureTestingModule({
       providers: [provideRouter([]), { provide: Torneos, useValue: api }],
     });
+    navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(TorneosPublicos);
     await fixture.whenStable();
@@ -142,6 +134,14 @@ describe('TorneosPublicos', () => {
   };
 
   beforeEach(async () => {
+    // jsdom no implementa `showModal` ni `close` (T135: el cuadro va en un modal).
+    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+      this.open = true;
+    });
+    HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+      this.open = false;
+      this.dispatchEvent(new Event('close'));
+    });
     // Sin marca de pago a medias: cada test que la quiere la pone. Sin limpiarla, la
     // de un test suelta el cupo en el siguiente.
     sessionStorage.clear();
@@ -287,20 +287,6 @@ describe('TorneosPublicos', () => {
     expect(tarjeta).toContain('En curso');
   });
 
-  it('**el cuadro va en columnas que se desplazan, no en una tabla que se encoge**', async () => {
-    // En 375px una tabla de cuatro rondas queda ilegible, y este cuadro se mira sobre
-    // todo desde el teléfono, en el club.
-    //
-    // Reescrito en TV4.2: antes pedía que no hubiera ninguna tabla en la página, y
-    // desde entonces las categorías sí son una. Vigila lo mismo, ahora en el cuadro.
-    await apretar('Ver quiénes juegan');
-    const cuadro = elemento().querySelector('[data-cuadro]');
-
-    expect(cuadro).not.toBeNull();
-    expect(cuadro?.querySelector('table')).toBeNull();
-    expect(cuadro?.matches('.overflow-x-auto')).toBe(true);
-  });
-
   it('las categorías van como tabla de posiciones: categoría, inscripción y cupos', () => {
     // TV4.2: mientras la inscripción está abierta, lo que se compara entre
     // categorías es cuánto cuesta y cuánto lugar queda.
@@ -313,101 +299,10 @@ describe('TorneosPublicos', () => {
     expect(tabla?.querySelector('tbody')?.textContent).toContain('$12.000');
   });
 
-  it('el cuadro muestra el marcador y quién ganó', async () => {
-    await apretar('Ver quiénes juegan');
-
-    expect(texto()).toContain('6-4 6-2');
-    const enNegrita = elemento().querySelector('li li .font-semibold');
-    expect(enNegrita?.textContent).toContain('Ana Uno');
-  });
-
-  it('antes de armarse muestra los inscritos, que es lo que se quiere saber', async () => {
-    await montar([EN_INSCRIPCION], {
-      ...CUADRO,
-      estado: 'INSCRIPCION',
-      partidos: [],
-    });
-
-    await apretar('Ver quiénes juegan');
-
-    expect(texto()).toContain('Ana Uno, Beto Dos');
-  });
-
-  it('**no publica el teléfono de nadie: no viene en la respuesta**', async () => {
-    await apretar('Ver quiénes juegan');
-
-    expect(texto()).not.toMatch(/\+?56\d{8}/);
-  });
-
-  it('**el cuadro de un torneo no se muestra bajo el nombre de otro**', async () => {
-    // Al cambiar de cuadro, el `resource` conserva el valor anterior hasta que llega
-    // el nuevo: sin comprobar de quién es el cuadro que se tiene en la mano, la
-    // tarjeta del segundo dibuja el del primero mientras carga. Acá el servidor
-    // devuelve siempre el cuadro 7, y el que se abre es el 99.
-    //
-    // **La identidad que se compara es la del cuadro y no la del torneo** (T62): un
-    // torneo corre varios, así que "el cuadro del torneo 5" ya no distingue nada.
-    const otro = {
-      ...EN_INSCRIPCION,
-      id: 9,
-      nombre: 'Copa de invierno',
-      categorias: [{ ...EN_INSCRIPCION.categorias[0], id: 99 }],
-    };
-    await montar([otro]);
-
-    await apretar('Ver quiénes juegan');
-
-    expect(texto()).not.toContain('6-4 6-2');
-  });
-
   it('sin torneos este año lo dice, en vez de quedar en blanco', async () => {
     await montar([]);
 
     expect(texto()).toContain('Todavía no hay torneos este año');
-  });
-
-  describe('las transmisiones (T68)', () => {
-    it('**el live se ve en la página, sin ir a YouTube**', async () => {
-      await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, [EN_VIVO]);
-      await apretar('Ver quiénes juegan');
-
-      expect(texto()).toContain('En vivo');
-      expect(texto()).toContain('Cancha 1');
-    });
-
-    it('**no carga nada de Google hasta que alguien aprieta play**', async () => {
-      await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, [EN_VIVO]);
-      await apretar('Ver quiénes juegan');
-
-      expect(elemento().querySelector('iframe')).toBeNull();
-    });
-
-    it('sin transmisiones no aparece el bloque vacío', async () => {
-      await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, []);
-      await apretar('Ver quiénes juegan');
-
-      expect(texto()).not.toContain('En vivo');
-    });
-  });
-
-  it('**las fotos del torneo salen en su tarjeta** (T69)', async () => {
-    await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, [], [
-      {
-        id: 4,
-        partidoId: null,
-        momento: 'DURANTE',
-        descripcion: 'La entrega de premios',
-        miniatura: '/api/torneos/fotos/4/miniatura',
-        imagen: '/api/torneos/fotos/4/imagen',
-      },
-    ]);
-    await apretar('Ver quiénes juegan');
-
-    expect(texto()).toContain('Fotos');
-    // La de la galería, no la del encabezado de la página.
-    expect(
-      elemento().querySelector('app-galeria img')?.getAttribute('src'),
-    ).toBe('/api/torneos/fotos/4/miniatura');
   });
 
   // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
@@ -417,19 +312,64 @@ describe('TorneosPublicos', () => {
     expect(texto()).toContain('No se pudo cargar el calendario');
   });
 
-  it('si el cuadro no carga, lo dice bajo su categoría', async () => {
-    await montar([EN_INSCRIPCION], new Error('la API no respondió'));
+  describe('el modal de la categoría (T135, decisión 6)', () => {
+    const boton = (etiqueta: string) =>
+      Array.from(elemento().querySelectorAll('button')).find((b) =>
+        b.textContent?.trim().startsWith(etiqueta),
+      );
 
-    await apretar('Ver quiénes juegan');
+    it('**antes de armar dice "Ver quiénes juegan"; armada, "Ver el cuadro"**', async () => {
+      expect(boton('Ver quiénes juegan')).toBeDefined();
 
-    expect(texto()).toContain('No se pudo cargar el cuadro');
-  });
+      await montar([
+        {
+          ...EN_INSCRIPCION,
+          categorias: [{ ...EN_INSCRIPCION.categorias[0], armado: true }],
+        },
+      ]);
 
-  it('si las fotos y los lives no cargan, el cuadro se ve igual', async () => {
-    await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }], CUADRO, new Error('la API no respondió'), new Error('la API no respondió'));
+      expect(boton('Ver el cuadro')).toBeDefined();
+      expect(boton('Ver quiénes juegan')).toBeUndefined();
+    });
 
-    await apretar('Ver quiénes juegan');
+    it('**abrir una categoría abre su modal y lo pone en la dirección**', async () => {
+      await apretar('Ver quiénes juegan');
 
-    expect(texto()).toContain('6-4 6-2');
+      expect(elemento().querySelector('dialog')?.open).toBe(true);
+      expect(api.cuadroPublico).toHaveBeenCalledWith(7);
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { cuadro: 7 } }),
+      );
+    });
+
+    it('**llegar con `?cuadro=7` abre ese modal**: es el enlace del correo', async () => {
+      fixture.componentRef.setInput('cuadro', '7');
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(elemento().querySelector('dialog')?.open).toBe(true);
+      expect(api.cuadroPublico).toHaveBeenCalledWith(7);
+    });
+
+    it('cerrarlo lo saca de la dirección', async () => {
+      await apretar('Ver quiénes juegan');
+
+      elemento().querySelector('dialog')!.close();
+      await fixture.whenStable();
+
+      expect(elemento().querySelector('dialog')?.open).toBe(false);
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { cuadro: null } }),
+      );
+    });
+
+    it('el botón avisa que abre un diálogo', () => {
+      expect(boton('Ver quiénes juegan')?.getAttribute('aria-haspopup')).toBe(
+        'dialog',
+      );
+    });
   });
 });

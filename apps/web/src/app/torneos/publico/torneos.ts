@@ -8,6 +8,7 @@ import {
   resource,
   signal,
 } from '@angular/core';
+import { Router } from '@angular/router';
 
 import { diaEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
@@ -18,20 +19,10 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 // foto del sitio mientras el club no la entrega.
 import { Foto as FotoDelSitio } from '../../ui/foto';
 import { Insignia } from '../../ui/insignia';
-import { Galeria } from './galeria';
+import { CuadroPublicoModal } from './cuadro-publico';
 import { InscripcionATorneo } from './inscripcion';
 import { olvidarPagoPendiente } from './pago-pendiente';
-import { Reproductor } from './reproductor';
-import {
-  CuadroPublico,
-  ESTADOS_TORNEO,
-  EstadoTorneo,
-  Foto,
-  InscritoPublico,
-  PartidoPublico,
-  Transmision,
-  Torneos,
-} from '../torneos.service';
+import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
 
 /**
  * Lo que se le dice a quien vuelve de la pasarela.
@@ -74,11 +65,10 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
   imports: [
     FotoDelSitio,
     Aviso,
+    CuadroPublicoModal,
     EstadoVacio,
-    Galeria,
     Insignia,
     InscripcionATorneo,
-    Reproductor,
   ],
   template: `
     <section
@@ -242,21 +232,19 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                               <!-- En el teléfono, solo el ícono: con su texto se partía en
                                    dos líneas y la tabla no cabía igual. El nombre sigue
                                    siendo el texto, para el lector y para el inventario. -->
+                              <!-- Abre el modal de la categoría (T135): quiénes juegan
+                                   antes de armar, el cuadro después. -->
                               <button
                                 type="button"
                                 class="boton boton-secundario boton-chico max-sm:size-11 max-sm:p-0"
-                                [attr.aria-expanded]="abierto() === categoria.id"
-                                (click)="alternar(categoria.id)"
+                                aria-haspopup="dialog"
+                                (click)="abrir(categoria.id)"
                               >
                                 <span class="max-sm:sr-only">
-                                  {{
-                                    abierto() === categoria.id
-                                      ? 'Ocultar'
-                                      : 'Ver quiénes juegan'
-                                  }}
+                                  {{ categoria.armado ? 'Ver el cuadro' : 'Ver quiénes juegan' }}
                                 </span>
                                 <span class="icono text-xl sm:hidden" aria-hidden="true">
-                                  {{ abierto() === categoria.id ? 'close' : 'groups' }}
+                                  {{ categoria.armado ? 'account_tree' : 'groups' }}
                                 </span>
                               </button>
                             </td>
@@ -289,90 +277,6 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                     />
                   }
                 }
-
-              <!-- Se comprueba de quién es el cuadro que se tiene en la mano: al
-                   cambiar de torneo se conserva el anterior hasta que llega el nuevo,
-                   y sin esto la tarjeta del segundo dibujaba el del primero con el
-                   nombre equivocado encima. -->
-              @for (categoria of torneo.categorias; track categoria.id) {
-                @if (detalleDe(categoria.id); as detalle) {
-                @if (detalle.partidos.length === 0) {
-                  <div class="mt-3 rounded-lg border border-border bg-background p-3">
-                    <h3 class="subtitulo">Inscritos</h3>
-                    <p class="mt-1 text-sm text-muted-foreground">
-                      {{ nombresDe(detalle.inscritos) || 'Todavía nadie.' }}
-                    </p>
-                  </div>
-                } @else {
-                  <!-- En columnas que se desplazan de lado y no una tabla que se
-                       encoge: en 375px una tabla de cuatro rondas queda ilegible, y
-                       este cuadro se mira sobre todo desde el teléfono, en el club. -->
-                  <div data-cuadro class="mt-3 flex gap-3 overflow-x-auto pb-2">
-                    @for (ronda of porRonda(); track ronda.numero) {
-                      <div class="min-w-48 shrink-0">
-                        <h3
-                          class="font-display text-sm font-semibold tracking-wider
-                                 text-muted-foreground uppercase"
-                        >
-                          {{ ronda.nombre }}
-                        </h3>
-                        <ul class="mt-2 grid gap-2">
-                          @for (partido of ronda.partidos; track partido.posicion) {
-                            <li
-                              class="rounded-lg border border-border bg-background p-2
-                                     text-sm"
-                            >
-                              <p [class.font-semibold]="ganoEl(partido, partido.jugadorA)">
-                                {{ partido.jugadorA ?? vacio(partido) }}
-                              </p>
-                              <p [class.font-semibold]="ganoEl(partido, partido.jugadorB)">
-                                {{ partido.jugadorB ?? vacio(partido) }}
-                              </p>
-                              @if (partido.marcador) {
-                                <p class="text-xs text-muted-foreground">
-                                  {{ partido.marcador }}
-                                </p>
-                              }
-                              @if (partido.walkover) {
-                                <p class="text-xs text-muted-foreground">
-                                  No se presentó
-                                </p>
-                              }
-                            </li>
-                          }
-                        </ul>
-                      </div>
-                    }
-                  </div>
-                }
-                } @else if (abierto() === categoria.id && cuadro.error()) {
-                  <p class="mt-3 text-sm text-destructive">
-                    No se pudo cargar el cuadro. Reintenta en un momento.
-                  </p>
-                }
-              }
-
-              <!-- Los lives, debajo del cuadro del torneo que se está mirando. El
-                   requisito es verlos acá y no en YouTube, y el reproductor no carga
-                   nada de Google hasta que alguien aprieta play. -->
-              @if (torneoAbierto() === torneo.id && fotos.hasValue()) {
-                <app-galeria [fotos]="fotos.value()" />
-              }
-
-              @if (
-                torneoAbierto() === torneo.id &&
-                transmisiones.hasValue() &&
-                transmisiones.value().length > 0
-              ) {
-                <div class="mt-3">
-                  <h3 class="subtitulo">En vivo</h3>
-                  <div class="grid gap-3 sm:grid-cols-2">
-                    @for (transmision of transmisiones.value(); track transmision.id) {
-                      <app-reproductor [transmision]="transmision" />
-                    }
-                  </div>
-                </div>
-              }
               </div>
             </li>
           }
@@ -381,10 +285,15 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
     } @else if (torneos.isLoading()) {
       <p class="mt-6 text-muted-foreground">Cargando el calendario…</p>
     }
+
+    <!-- Uno para toda la página: se abre con la categoría que se elija, o con la que
+         traiga la dirección en ?cuadro=. -->
+    <app-cuadro-publico [cuadroId]="abierto()" (cerrar)="cerrar()" />
   `,
 })
 export class TorneosPublicos {
   private readonly api = inject(Torneos);
+  private readonly router = inject(Router);
 
   constructor() {
     void this.soltarSiVolvioSinPagar();
@@ -415,70 +324,6 @@ export class TorneosPublicos {
     loader: () => this.api.calendario(),
   });
 
-  /**
-   * Qué **cuadro** está abierto. Uno a la vez: el año entero no cabe en la pantalla.
-   *
-   * Es el id de la categoría del torneo y no el del torneo (T62): un torneo corre
-   * varias y hay que decir cuál se está mirando.
-   */
-  protected readonly abierto = signal<number | null>(null);
-
-  /**
-   * Los lives del torneo abierto.
-   *
-   * Cuelgan del torneo y no del cuadro: el mismo live cubre las categorías que se
-   * jueguen en esa cancha ese día.
-   */
-  protected readonly transmisiones = resource({
-    params: () => this.torneoAbierto(),
-    loader: ({ params }) =>
-      params === null
-        ? Promise.resolve([])
-        : this.api.transmisionesPublicas(params),
-    defaultValue: [] as Transmision[],
-  });
-
-  /**
-   * Las fotos del torneo abierto (T69).
-   *
-   * Del torneo y no del cuadro: la entrega de premios es del torneo entero, y una
-   * galería por categoría partiría en tres el álbum de un mismo fin de semana.
-   */
-  protected readonly fotos = resource({
-    params: () => this.torneoAbierto(),
-    loader: ({ params }) =>
-      params === null ? Promise.resolve([]) : this.api.fotos(params),
-    defaultValue: [] as Foto[],
-  });
-
-  /** De qué torneo es el cuadro que se está mirando. */
-  protected readonly torneoAbierto = computed(() =>
-    this.cuadro.hasValue() ? this.cuadro.value().torneoId : null,
-  );
-
-  protected readonly cuadro = resource({
-    params: () => this.abierto(),
-    loader: ({ params }) =>
-      params === null
-        ? Promise.resolve(undefined)
-        : this.api.cuadroPublico(params),
-  });
-
-  protected readonly porRonda = computed(() => {
-    const partidos = this.cuadro.value()?.partidos ?? [];
-    const rondas = new Map<number, PartidoPublico[]>();
-
-    for (const partido of partidos) {
-      rondas.set(partido.ronda, [...(rondas.get(partido.ronda) ?? []), partido]);
-    }
-
-    return [...rondas].map(([numero, suyos]) => ({
-      numero,
-      nombre: suyos[0].ronda_nombre,
-      partidos: suyos,
-    }));
-  });
-
   protected readonly enPalabras = diaEnPalabras;
   protected readonly superficie = nombreDeSuperficie;
 
@@ -492,29 +337,42 @@ export class TorneosPublicos {
   }
 
   /**
-   * El cuadro abierto, **solo si es el de esta categoría**.
-   *
-   * Al cambiar de cuadro se conserva el anterior hasta que llega el nuevo, y sin esta
-   * comprobación la tarjeta del segundo dibujaba el del primero con el nombre
-   * equivocado encima.
+   * El cuadro que llega por la dirección, `?cuadro=<id>` (T135): es el enlace del correo
+   * de "cuadro armado". Llega como input por `withComponentInputBinding`, como
+   * `inscripcion`.
    */
-  protected detalleDe(cuadroId: number): CuadroPublico | null {
-    // Se pregunta por cada categoría de la lista: si el cuadro no cargó, `value()`
-    // lanzaría en todas.
-    const detalle = this.cuadro.hasValue() ? this.cuadro.value() : undefined;
+  readonly cuadro = input<string>();
 
-    return this.abierto() === cuadroId && detalle?.id === cuadroId
-      ? detalle
-      : null;
+  /**
+   * Qué categoría tiene el modal abierto. Arranca en la de la dirección y desde ahí la
+   * manda quien aprieta el botón; la dirección la sigue, para que se pueda compartir.
+   */
+  protected readonly abierto = linkedSignal<number | null>(
+    () => Number(this.cuadro()) || null,
+  );
+
+  protected abrir(id: number): void {
+    this.abierto.set(id);
+    this.enLaDireccion(id);
   }
 
-  /** Los nombres, en el orden en que se inscribieron. El estado del pago llega con T135. */
-  protected nombresDe(inscritos: InscritoPublico[]): string {
-    return inscritos.map((inscrito) => inscrito.nombre).join(', ');
+  protected cerrar(): void {
+    if (this.abierto() === null) return;
+
+    this.abierto.set(null);
+    this.enLaDireccion(null);
   }
 
-  protected alternar(id: number): void {
-    this.abierto.update((actual) => (actual === id ? null : id));
+  /**
+   * `?cuadro=<id>` en la dirección, **sin sumar una entrada al historial**: abrir y cerrar
+   * un modal no son páginas, y "atrás" tiene que sacar a la persona de los torneos.
+   */
+  private enLaDireccion(cuadro: number | null): void {
+    void this.router.navigate([], {
+      queryParams: { cuadro },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   /**
@@ -598,18 +456,4 @@ export class TorneosPublicos {
     return ESTADOS_TORNEO[estado] ?? estado;
   }
 
-  /** Un hueco de primera ronda es un bye; en las demás, todavía no se sabe. */
-  protected vacio(partido: PartidoPublico): string {
-    return partido.ronda === 1 ? 'Bye' : 'Por definir';
-  }
-
-  /**
-   * Si ese jugador ganó el partido.
-   *
-   * Se compara por nombre y no por id: la respuesta pública no trae ids de jugadores,
-   * y no los trae a propósito —lo que se publica es quién jugó, no la ficha de nadie—.
-   */
-  protected ganoEl(partido: PartidoPublico, jugador: string | null): boolean {
-    return jugador !== null && partido.ganador === jugador;
-  }
 }
