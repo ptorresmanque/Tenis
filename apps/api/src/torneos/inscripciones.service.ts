@@ -16,7 +16,11 @@ import {
 } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
-import type { InscripcionPublica, MedioPago } from './inscripcion-publica.dto';
+import type {
+  InscripcionDeSocio,
+  InscripcionPublica,
+  MedioPago,
+} from './inscripcion-publica.dto';
 import type { Franja } from './restricciones';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { Jugadores } from './jugadores.service';
@@ -73,6 +77,22 @@ export interface InscripcionPublicada {
   restricciones: { diaSemana: number; horaDesde: string; horaHasta: string }[];
 }
 
+/** Lo que responde quien se inscribe solo: la calle o el socio. */
+export interface InscripcionHecha {
+  id: number;
+  estado: EstadoInscripcionTorneo;
+  estadoPago: EstadoPagoInscripcion;
+  /**
+   * **Su llave.** Es lo único con que quien no tiene cuenta vuelve a su inscripción
+   * para pagarla o subir el comprobante; sin ella el id alcanzaría, y los ids son
+   * correlativos. Se devuelve una vez y la pantalla la guarda.
+   */
+  token: string;
+  montoClp: number;
+  categoria: string;
+  jugador: string;
+}
+
 /** La lista de **un cuadro**: el cupo y las tres listas son suyos, no del torneo. */
 export interface ListaDelCuadro {
   torneoId: number;
@@ -125,10 +145,10 @@ export class InscripcionesATorneo {
   }> {
     return this.anotar(
       torneoCategoriaId,
-      async () =>
+      async (tx) =>
         quien.jugadorId !== undefined
           ? quien.jugadorId
-          : (await this.jugadores.deSocio(quien.socioId as number)).id,
+          : (await this.jugadores.deSocio(quien.socioId as number, tx)).id,
       { email: quien.email },
     );
   }
@@ -278,20 +298,51 @@ export class InscripcionesATorneo {
     torneoId: number,
     datos: InscripcionPublica,
     comprobante?: Buffer,
-  ): Promise<{
-    id: number;
-    estado: EstadoInscripcionTorneo;
-    estadoPago: EstadoPagoInscripcion;
-    /**
-     * **Su llave.** Es lo único con que quien no tiene cuenta vuelve a su inscripción
-     * para pagarla o subir el comprobante; sin ella el id alcanzaría, y los ids son
-     * correlativos. Se devuelve una vez y la pantalla la guarda.
-     */
-    token: string;
-    montoClp: number;
-    categoria: string;
-    jugador: string;
-  }> {
+  ): Promise<InscripcionHecha> {
+    return this.inscribirConPago(
+      torneoId,
+      datos,
+      (tx) => this.jugadores.porTelefono(tx, datos),
+      comprobante,
+    );
+  }
+
+  /**
+   * El socio se inscribe **sin el formulario** (T129, punto 5 de la sexta parte).
+   *
+   * Elige la categoría, dice cuándo no puede jugar y **paga igual** que cualquiera
+   * (decisión 5). El resto sale de su sesión y nunca del cuerpo: el jugador es el de su
+   * ficha —vinculado al externo que ya fue, si jugó antes desde la calle— y el correo
+   * es el de su cuenta.
+   */
+  async inscribirAlSocio(
+    torneoId: number,
+    socio: { socioId: number; email: string },
+    datos: InscripcionDeSocio,
+    comprobante?: Buffer,
+  ): Promise<InscripcionHecha> {
+    return this.inscribirConPago(
+      torneoId,
+      { ...datos, email: socio.email },
+      (tx) => this.jugadores.deSocio(socio.socioId, tx),
+      comprobante,
+    );
+  }
+
+  /**
+   * Lo que comparten la calle y el socio: el cuadro, el pago y el comprobante.
+   *
+   * **La categoría se resuelve contra las que corre ese torneo** y el monto sale de la
+   * base; el jugador lo resuelve quien llama, dentro del cerrojo de `anotar`.
+   */
+  private async inscribirConPago(
+    torneoId: number,
+    datos: InscripcionDeSocio & { email: string },
+    resolverJugador: (
+      tx: Prisma.TransactionClient,
+    ) => Promise<{ id: number; nombre: string; apellido: string }>,
+    comprobante?: Buffer,
+  ): Promise<InscripcionHecha> {
     const cuadro = await this.prisma.torneoCategoria.findUnique({
       where: {
         torneoId_categoriaJuegoId: {
@@ -328,7 +379,7 @@ export class InscripcionesATorneo {
       const inscripcion = await this.anotar(
         cuadro.id,
         async (tx) => {
-          const jugador = await this.jugadores.porTelefono(tx, datos);
+          const jugador = await resolverJugador(tx);
           quien = `${jugador.nombre} ${jugador.apellido}`;
 
           return jugador.id;
@@ -351,8 +402,8 @@ export class InscripcionesATorneo {
       };
     } catch (falla) {
       // La imagen ya está en el disco y la inscripción no existe: sin este barrido,
-      // cada intento contra un torneo cerrado dejaría un archivo huérfano, y este
-      // endpoint no tiene sesión.
+      // cada intento contra un torneo cerrado dejaría un archivo huérfano, y la
+      // inscripción desde la calle no pide sesión.
       if (ruta) await borrarImagen(ruta);
 
       throw falla;

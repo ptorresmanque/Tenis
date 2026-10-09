@@ -116,16 +116,28 @@ export class Jugadores {
    * el mismo socio se inscribe en varios. Si creara uno por torneo, el ranking sumaría
    * los puntos de la misma persona en filas distintas, que es exactamente lo que este
    * modelo existe para evitar.
+   *
+   * **El socio que ya jugó como externo queda vinculado a ese jugador** (T129). Antes se
+   * creaba otro con su mismo nombre y teléfono, y el único de la base lo rechazaba: el
+   * admin que lo anotaba recibía un 500. La llave es la de siempre —teléfono, nombre y
+   * apellidos—, no el teléfono solo: una familia comparte teléfono, y vincular por el
+   * número le daría al socio el historial de su hijo.
+   *
+   * Recibe el cliente por parámetro para correr **dentro de la transacción** de la
+   * inscripción, como `porTelefono`.
    */
-  async deSocio(socioId: number): Promise<JugadorPublicado> {
-    const existente = await this.prisma.jugador.findUnique({
+  async deSocio(
+    socioId: number,
+    db: PrismaService | Prisma.TransactionClient = this.prisma,
+  ): Promise<JugadorPublicado> {
+    const existente = await db.jugador.findUnique({
       where: { socioId },
       select: FICHA,
     });
 
     if (existente) return comoFicha(existente);
 
-    const socio = await this.prisma.socio.findUnique({
+    const socio = await db.socio.findUnique({
       where: { id: socioId },
       select: {
         usuario: { select: { nombre: true, apellido: true, telefono: true } },
@@ -134,24 +146,62 @@ export class Jugadores {
 
     if (!socio) throw new NotFoundException('No hay un socio con ese número.');
 
-    // El nombre se **copia** y no se lee de la ficha cada vez: el jugador tiene que
-    // poder seguir existiendo —con sus puntos y sus partidos— aunque la ficha se dé de
-    // baja y `socioId` quede en nulo.
-    return comoFicha(
-      await this.prisma.jugador.create({
-        data: {
-          socioId,
-          nombre: socio.usuario.nombre,
-          apellido: socio.usuario.apellido,
-          // Normalizado, no como está en su ficha: desde T64 la columna es única y es
-          // la llave con que se decide si dos inscripciones son la misma persona. Un
-          // `+56 9 1111 2222` en crudo no chocaría con el `56911112222` de su propio
-          // jugador externo, y esa persona quedaría partida en dos.
-          telefono: normalizarTelefono(socio.usuario.telefono),
-        },
+    const { nombre, apellido } = socio.usuario;
+    // Normalizado, no como está en su ficha: desde T64 la columna es única y es la
+    // llave con que se decide si dos inscripciones son la misma persona. Un
+    // `+56 9 1111 2222` en crudo no chocaría con el `56911112222` de su propio jugador
+    // externo, y esa persona quedaría partida en dos.
+    const telefono = normalizarTelefono(socio.usuario.telefono);
+
+    // Sin teléfono no hay llave con qué buscarlo (A6): el jugador cuelga de la ficha.
+    const externo =
+      telefono === null
+        ? null
+        : await db.jugador.findUnique({
+            where: { telefono_nombre_apellido: { telefono, nombre, apellido } },
+            select: { id: true, socioId: true },
+          });
+
+    try {
+      // Enlazar es escribir un campo, no crear una fila: sus puntos y sus partidos
+      // cuelgan del jugador, y siguen siendo suyos.
+      if (externo && externo.socioId === null) {
+        return comoFicha(
+          await db.jugador.update({
+            where: { id: externo.id },
+            data: { socioId },
+            select: FICHA,
+          }),
+        );
+      }
+
+      // El nombre se **copia** y no se lee de la ficha cada vez: el jugador tiene que
+      // poder seguir existiendo —con sus puntos y sus partidos— aunque la ficha se dé
+      // de baja y `socioId` quede en nulo.
+      return comoFicha(
+        await db.jugador.create({
+          data: { socioId, nombre, apellido, telefono },
+          select: FICHA,
+        }),
+      );
+    } catch (falla) {
+      if (!esViolacionDeUnicidad(falla)) throw falla;
+
+      // Dos inscripciones del mismo socio a la vez: la otra creó su jugador primero.
+      const ganador = await db.jugador.findUnique({
+        where: { socioId },
         select: FICHA,
-      }),
-    );
+      });
+
+      if (ganador) return comoFicha(ganador);
+
+      // Su nombre y su teléfono ya son de un jugador vinculado a **otra** ficha: es un
+      // dato que el club tiene que mirar, no algo que se resuelva solo.
+      throw new ConflictException(
+        `Ya hay un jugador ${nombre} ${apellido} con ese teléfono, vinculado a otra ` +
+          'ficha de socio. Revísalo en la lista de jugadores.',
+      );
+    }
   }
 
   /**
