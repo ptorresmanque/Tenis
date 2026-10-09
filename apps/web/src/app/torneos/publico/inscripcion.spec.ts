@@ -485,5 +485,19 @@ describe('InscripcionATorneo', () => {
 
       expect(elemento().querySelector('[name="nombre"]')).not.toBeNull();
     });
+
+    it('**el foco no se pierde**: el botón apretado desaparece, y el foco va a lo siguiente', async () => {
+      // Sin esto cae al inicio de la página, y quien usa teclado o lector de pantalla
+      // tiene que volver a buscar el formulario.
+      await comoSocio();
+      await fixture.whenStable();
+      expect(document.activeElement?.getAttribute('name')).toBe('categoria');
+
+      boton('Inscribir a otra persona')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.activeElement?.getAttribute('name')).toBe('nombre');
+    });
   });
 });

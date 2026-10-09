@@ -1,4 +1,14 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
@@ -52,7 +62,7 @@ const enBlanco = () => ({
         <button
           type="button"
           class="boton boton-texto boton-chico mt-1"
-          (click)="comoSocio.set(false)"
+          (click)="cambiarModo(false)"
         >
           Inscribir a otra persona
         </button>
@@ -72,7 +82,7 @@ const enBlanco = () => ({
             <button
               type="button"
               class="boton boton-primario boton-chico"
-              (click)="comoSocio.set(true)"
+              (click)="cambiarModo(true)"
             >
               Inscribirse como socio
             </button>
@@ -323,6 +333,8 @@ const enBlanco = () => ({
 export class InscripcionATorneo {
   private readonly api = inject(Torneos);
   private readonly auth = inject(Auth);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly torneoId = input.required<number>();
   readonly categorias = input.required<CategoriaPublica[]>();
@@ -367,6 +379,23 @@ export class InscripcionATorneo {
 
   /** El socio eligió saltarse los datos (T129). */
   protected readonly comoSocio = signal(false);
+
+  /**
+   * Entra o sale del modo socio **sin perder el foco**: el botón que se apretó
+   * desaparece, y sin esto el foco cae al inicio de la página. Va a lo siguiente que hay
+   * que llenar: la categoría, o el nombre de la otra persona.
+   */
+  protected cambiarModo(comoSocio: boolean): void {
+    this.comoSocio.set(comoSocio);
+
+    afterNextRender(
+      () =>
+        this.host.nativeElement
+          .querySelector<HTMLElement>(comoSocio ? '[name="categoria"]' : '[name="nombre"]')
+          ?.focus(),
+      { injector: this.injector },
+    );
+  }
 
   constructor() {
     // **Con sesión de quien no es socio, llega con los datos de su cuenta** (T128). El
