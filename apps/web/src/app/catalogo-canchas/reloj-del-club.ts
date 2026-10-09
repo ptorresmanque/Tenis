@@ -72,6 +72,12 @@ export function horaEnElClub(instante: string | Date): string {
   return RELOJ.format(new Date(instante));
 }
 
+/** "Sáb", con mayúscula y sin punto: el día de un partido bajo su caja en el árbol. */
+export function diaCortoEnElClub(instante: string | Date): string {
+  const dia = DIA_CORTO.format(new Date(instante)).replace('.', '');
+  return dia.charAt(0).toUpperCase() + dia.slice(1);
+}
+
 /** "lunes, 17 de agosto", para encabezar la grilla. */
 export function diaEnPalabras(fecha: string): string {
   // Se lee a mediodía UTC y no a medianoche: a medianoche UTC en Santiago todavía

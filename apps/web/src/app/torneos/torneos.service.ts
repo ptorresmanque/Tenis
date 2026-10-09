@@ -239,6 +239,9 @@ export interface PartidoPublico {
   posicion: number;
   jugadorA: string | null;
   jugadorB: string | null;
+  /** La siembra de cada uno, o nula: el árbol la muestra al lado del nombre (opción B). */
+  siembraA: number | null;
+  siembraB: number | null;
   ganador: string | null;
   marcador: string | null;
   walkover: boolean;

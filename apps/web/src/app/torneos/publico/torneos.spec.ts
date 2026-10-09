@@ -47,6 +47,8 @@ describe('TorneosPublicos', () => {
     posicion: 1,
     jugadorA: 'Ana Uno',
     jugadorB: 'Beto Dos',
+    siembraA: null,
+    siembraB: null,
     ganador: 'Ana Uno',
     marcador: '6-4 6-2',
     walkover: false,
