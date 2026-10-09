@@ -19,6 +19,7 @@ import { AdaptadorDeFechas } from './fecha-y-hora';
     <app-campo-fecha inputId="dia" name="dia" [(ngModel)]="dia" />
     <label for="hora">Hora</label>
     <app-campo-hora inputId="hora" name="hora" [(ngModel)]="hora" />
+    <app-campo-hora inputId="compacta" [conBoton]="false" [(ngModel)]="hora" />
   `,
 })
 class Anfitrion {
@@ -103,6 +104,13 @@ describe('Campos de fecha y hora', () => {
       );
 
       expect(boton?.getAttribute('aria-label')).toBe('Elegir la hora');
+    });
+
+    it('en una fila apretada va sin botón, y el campo sigue siendo una lista', () => {
+      const compacta = campo('compacta').closest('app-campo-hora')!;
+
+      expect(compacta.querySelector('button')).toBeNull();
+      expect(campo('compacta').getAttribute('role')).toBe('combobox');
     });
   });
 });

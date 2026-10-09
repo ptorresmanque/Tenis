@@ -87,9 +87,8 @@ describe('RestriccionHoraria', () => {
     ];
     await montar(original);
 
-    const campo = elemento().querySelector<HTMLInputElement>(
-      'input[type="time"]',
-    )!;
+    // Desde T123 es el campo de Material: se busca por su nombre, no por el tipo nativo.
+    const campo = elemento().querySelector<HTMLInputElement>('input[name="desde0"]')!;
     campo.value = '10:00';
     campo.dispatchEvent(new Event('input'));
     campo.dispatchEvent(new Event('change'));
