@@ -401,6 +401,19 @@ describe('Campos de fecha y hora (T125)', () => {
 
     expect(infractores).toEqual([]);
   });
+
+  it('**ningún campo de fecha u hora es el nativo** (T126): todos son los de Material', () => {
+    // El nativo se ve distinto en cada navegador, en el teléfono abre la rueda del sistema
+    // y no sigue los tokens del sitio: fue el punto 7 de la sexta parte. Los comentarios
+    // de bloque se quitan antes de buscar: varios nombran el <input type="date"> que
+    // los campos reemplazan.
+    const nativo = /<input\b[^>]*\btype="(?:date|time)"/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => nativo.test(contenido.replace(/\/\*[\s\S]*?\*\//g, '')))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
 });
 
 describe('Tipografía', () => {
