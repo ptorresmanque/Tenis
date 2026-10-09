@@ -57,15 +57,12 @@ async function apache(ambiente) {
   );
   escribir(join(docroot, 'api/torneos/fotos/1/imagen'), 'jpg');
 
-  const passwd = join(dir, 'passwd');
-  execFileSync('htpasswd', ['-cbB', passwd, 'fedal', 'clave']);
-  const htaccess = readFileSync(new URL(`./htaccess.${ambiente}`, import.meta.url), 'utf8');
   escribir(
     join(docroot, '.htaccess'),
-    htaccess.replace(/AuthUserFile ".*"/, `AuthUserFile "${passwd}"`),
+    readFileSync(new URL(`./htaccess.${ambiente}`, import.meta.url), 'utf8'),
   );
 
-  // HTTP y HTTPS, como el servidor: la redirección y la clave dependen de %{HTTPS}.
+  // HTTP y HTTPS, como el servidor: la redirección depende de %{HTTPS}.
   execFileSync('openssl', [
     'req', '-x509', '-nodes', '-newkey', 'rsa:2048', '-days', '1', '-subj', '/CN=qa.fedal.cl',
     '-keyout', join(dir, 'clave.pem'), '-out', join(dir, 'certificado.pem'),
@@ -127,9 +124,8 @@ async function apache(ambiente) {
 }
 
 /** GET con curl, que sí deja fijar el Host. Por HTTPS, salvo que se pida HTTP. */
-function pedir(urls, ruta, { host, clave = false, protocolo = 'https' } = {}) {
+function pedir(urls, ruta, { host, protocolo = 'https' } = {}) {
   const args = ['-sk', '-i', '-H', `Host: ${host}`];
-  if (clave) args.push('-u', 'fedal:clave');
   const salida = execFileSync('curl', [...args, `${urls[protocolo]}${ruta}`], {
     encoding: 'utf8',
   });
@@ -144,18 +140,21 @@ function pedir(urls, ruta, { host, clave = false, protocolo = 'https' } = {}) {
 describe('htaccess.qa', { skip: saltar }, () => {
   let servidor;
   const qa = (ruta, opciones = {}) =>
-    pedir(servidor.urls, ruta, { host: 'qa.fedal.cl', clave: true, ...opciones });
+    pedir(servidor.urls, ruta, { host: 'qa.fedal.cl', ...opciones });
 
   test('levanta Apache', async () => {
     servidor = await apache('qa');
   });
   after(() => servidor?.cerrar());
 
-  test('sin la clave de QA responde 401', () => {
-    assert.equal(qa('/', { clave: false }).estado, 401);
+  test('**QA se abre sin clave** (2026-10-09, a pedido del usuario)', () => {
+    const respuesta = qa('/');
+    assert.equal(respuesta.estado, 200);
+    assert.doesNotMatch(respuesta.cabecera, /www-authenticate/);
   });
 
-  test('con la clave sirve la SPA, sin caché para index.html y con noindex', () => {
+  test('sirve la SPA, sin caché para index.html y con noindex', () => {
+    // Abierto, pero fuera de los buscadores: no es el sitio del club.
     const respuesta = qa('/');
     assert.equal(respuesta.cuerpo, 'SPA');
     assert.match(respuesta.cabecera, /cache-control: no-cache/);
@@ -195,8 +194,8 @@ describe('htaccess.qa', { skip: saltar }, () => {
     assert.match(qa('/chunk-A.js').cabecera, /max-age=604800/);
   });
 
-  test('/.well-known/ responde sin clave, para que AutoSSL renueve', () => {
-    const respuesta = qa('/.well-known/acme-challenge/token', { clave: false });
+  test('/.well-known/ responde, para que AutoSSL renueve', () => {
+    const respuesta = qa('/.well-known/acme-challenge/token');
     assert.equal(respuesta.estado, 200);
     assert.equal(respuesta.cuerpo, 'token');
   });
@@ -209,22 +208,19 @@ describe('htaccess.qa', { skip: saltar }, () => {
     assert.equal(qa('/media/').estado, 403);
   });
 
-  test('por HTTP redirige a HTTPS antes de pedir la clave, que no viaja en claro', () => {
-    const respuesta = qa('/socio/reservas', { clave: false, protocolo: 'http' });
+  test('por HTTP redirige a HTTPS', () => {
+    const respuesta = qa('/socio/reservas', { protocolo: 'http' });
     assert.equal(respuesta.estado, 301);
     assert.match(respuesta.cabecera, /location: https:\/\/qa\.fedal\.cl\/socio\/reservas/);
     assert.doesNotMatch(respuesta.cabecera, /www-authenticate/);
   });
 
   test('por HTTP, /api también redirige', () => {
-    assert.equal(qa('/api/salud', { clave: false, protocolo: 'http' }).estado, 301);
+    assert.equal(qa('/api/salud', { protocolo: 'http' }).estado, 301);
   });
 
   test('por HTTP, /.well-known/ responde sin redirigir, para AutoSSL', () => {
-    const respuesta = qa('/.well-known/acme-challenge/token', {
-      clave: false,
-      protocolo: 'http',
-    });
+    const respuesta = qa('/.well-known/acme-challenge/token', { protocolo: 'http' });
     assert.equal(respuesta.estado, 200);
     assert.equal(respuesta.cuerpo, 'token');
   });
