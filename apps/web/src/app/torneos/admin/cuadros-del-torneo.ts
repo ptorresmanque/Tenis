@@ -18,6 +18,24 @@ import {
   Torneos,
 } from '../torneos.service';
 
+const MONTO_INVALIDO =
+  'La inscripción tiene que ser un monto en pesos, sin decimales: 0 si es gratis.';
+
+/**
+ * El monto escrito, o nulo si no es válido. El mismo tope que la API: diez millones es
+ * un cero de más, no una inscripción. El campo vacío no es gratis: es no haber escrito.
+ */
+function enPesos(texto: string): number | null {
+  const monto = Number(texto);
+  const valido =
+    texto.trim() !== '' &&
+    Number.isInteger(monto) &&
+    monto >= 0 &&
+    monto <= 10_000_000;
+
+  return valido ? monto : null;
+}
+
 /**
  * Qué categorías corre un torneo, y con cuántos jugadores cada una.
  *
@@ -58,15 +76,19 @@ import {
 
               <label class="flex items-center gap-2 text-sm">
                 <span class="text-muted-foreground">Vale</span>
+                <!-- El seleccionado lo marca cada opción y no el [value] del select:
+                     las opciones llegan después, y el select mostraba la primera. -->
                 <select
                   class="campo"
-                  [value]="cuadro.categoriaId"
                   [disabled]="trabajando()"
                   (change)="cambiarValor(cuadro.id, $event)"
                 >
                   @if (valores.hasValue()) {
                     @for (valor of valores.value(); track valor.id) {
-                      <option [value]="valor.id">
+                      <option
+                        [value]="valor.id"
+                        [selected]="valor.id === cuadro.categoriaId"
+                      >
                         {{ valor.nombre }} ({{ valor.puntosCampeon }})
                       </option>
                     }
@@ -84,6 +106,22 @@ import {
                   [value]="cuadro.cupo"
                   [disabled]="trabajando()"
                   (change)="cambiarCupo(cuadro.id, $event)"
+                />
+              </label>
+
+              <label class="flex items-center gap-2 text-sm">
+                <span class="text-muted-foreground">Inscripción $</span>
+                <input
+                  class="campo w-28"
+                  type="number"
+                  min="0"
+                  step="1"
+                  [attr.aria-label]="
+                    'Inscripción de ' + cuadro.categoria + ', en pesos'
+                  "
+                  [value]="cuadro.montoInscripcionClp"
+                  [disabled]="trabajando()"
+                  (change)="cambiarMonto(cuadro.id, $event)"
                 />
               </label>
 
@@ -145,6 +183,22 @@ import {
           />
         </label>
 
+        <label class="block">
+          <!-- Por cuadro y no por torneo: Honor puede costar más que la 5ª. -->
+          <span class="text-sm font-medium">
+            Inscripción $
+            <span class="font-normal text-muted-foreground">(0 es gratis)</span>
+          </span>
+          <input
+            class="campo mt-1 w-28"
+            type="number"
+            name="monto"
+            min="0"
+            step="1"
+            [(ngModel)]="monto"
+          />
+        </label>
+
         <button
           type="submit"
           class="boton boton-secundario"
@@ -170,6 +224,8 @@ import {
              cuadro ya jugado mueve puestos en el ranking, que se cuelga en el mural, y
              el admin tiene que saberlo antes de tocar el selector. -->
         Cambiar lo que vale un cuadro <strong>ya jugado</strong> recalcula el ranking.
+        Cambiar la inscripción no toca a quien ya pagó ni a quien se inscribió gratis;
+        quien tiene el pago pendiente <strong>paga el monto nuevo</strong>.
       </p>
 
       @if (error(); as falla) {
@@ -189,6 +245,7 @@ export class CuadrosDelTorneo {
   protected categoriaId = 0;
   protected valorId = 0;
   protected cupo = 16;
+  protected monto: number | null = 0;
 
   protected readonly trabajando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -245,11 +302,19 @@ export class CuadrosDelTorneo {
       return;
     }
 
+    const montoInscripcionClp = enPesos(String(this.monto ?? ''));
+
+    if (montoInscripcionClp === null) {
+      this.error.set(MONTO_INVALIDO);
+      return;
+    }
+
     await this.intentar(async () => {
       await this.api.agregarCuadro(this.torneoId(), {
         categoriaJuegoId,
         categoriaId,
         cupo: Number(this.cupo),
+        montoInscripcionClp,
       });
       this.categoriaId = 0;
     });
@@ -282,6 +347,26 @@ export class CuadrosDelTorneo {
 
     await this.intentar(() =>
       this.api.editarCuadro(this.torneoId(), id, { cupo }),
+    );
+  }
+
+  /**
+   * Quien ya pagó no cambia, y quien se inscribió gratis queda exento. Quien tiene el pago
+   * pendiente —Webpay sin terminar o un comprobante sin revisar— paga el monto nuevo:
+   * `pago-de-inscripcion` lo lee al pagar. Por eso la pantalla lo dice.
+   */
+  protected async cambiarMonto(id: number, evento: Event): Promise<void> {
+    const montoInscripcionClp = enPesos(
+      (evento.target as HTMLInputElement).value,
+    );
+
+    if (montoInscripcionClp === null) {
+      this.error.set(MONTO_INVALIDO);
+      return;
+    }
+
+    await this.intentar(() =>
+      this.api.editarCuadro(this.torneoId(), id, { montoInscripcionClp }),
     );
   }
 

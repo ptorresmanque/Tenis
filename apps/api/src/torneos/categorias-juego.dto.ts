@@ -71,5 +71,5 @@ export function leerCambioDeCategoriaDeJuego(
 }
 
 function lugar(valor: unknown): number {
-  return entero(valor, 'El lugar de la categoría', 1, LUGAR_MAXIMO);
+  return entero(valor, 'El orden de la categoría', 1, LUGAR_MAXIMO);
 }
