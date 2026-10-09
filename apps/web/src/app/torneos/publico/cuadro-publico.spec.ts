@@ -200,6 +200,18 @@ describe('CuadroPublicoModal', () => {
       ).toContain('Ana Uno');
     });
 
+    it('**primero el orden de juego** (T136): cuándo y dónde se juega', async () => {
+      await montar();
+
+      const orden = elemento().querySelector('app-orden-de-juego');
+      expect(orden).not.toBeNull();
+      // Antes que el árbol, que queda debajo hasta que T137 lo pase a su pestaña.
+      expect(
+        orden!.compareDocumentPosition(elemento().querySelector('[data-cuadro]')!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
     it('el título lo dice, con el nombre del torneo arriba', async () => {
       await montar();
 

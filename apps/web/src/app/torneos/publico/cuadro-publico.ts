@@ -5,6 +5,7 @@ import {
   ElementRef,
   inject,
   input,
+  linkedSignal,
   output,
   resource,
   viewChild,
@@ -19,6 +20,7 @@ import {
   Transmision,
 } from '../torneos.service';
 import { Galeria } from './galeria';
+import { OrdenDeJuego } from './orden-de-juego';
 import { Reproductor } from './reproductor';
 
 /**
@@ -34,7 +36,7 @@ import { Reproductor } from './reproductor';
  */
 @Component({
   selector: 'app-cuadro-publico',
-  imports: [Galeria, Insignia, Reproductor],
+  imports: [Galeria, Insignia, OrdenDeJuego, Reproductor],
   template: `
     <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
     <dialog
@@ -96,9 +98,14 @@ import { Reproductor } from './reproductor';
               </ol>
             }
           } @else {
-            <!-- En columnas que se desplazan de lado y no una tabla que se encoge: en
-                 375px una tabla de cuatro rondas queda ilegible. -->
-            <div data-cuadro class="flex gap-3 overflow-x-auto pb-2">
+            <!-- **Primero cuándo y dónde se juega** (T136, opción C). -->
+            <app-orden-de-juego [partidos]="cuadro.partidos" [(busqueda)]="busqueda" />
+
+            <!-- El árbol, debajo mientras T137 lo pasa a su pestaña. En columnas que se
+                 desplazan de lado y no una tabla que se encoge: en 375px una tabla de
+                 cuatro rondas queda ilegible. -->
+            <h3 class="subtitulo mt-6">El cuadro completo</h3>
+            <div data-cuadro class="mt-2 flex gap-3 overflow-x-auto pb-2">
               @for (ronda of porRonda(); track ronda.numero) {
                 <div class="min-w-48 shrink-0">
                   <h3
@@ -191,6 +198,12 @@ export class CuadroPublicoModal {
   });
 
   private readonly torneoId = computed(() => this.detalle()?.torneoId);
+
+  /** Lo que se busca en el orden de juego (y en el árbol, con T137). Vacío en cada categoría. */
+  protected readonly busqueda = linkedSignal(() => {
+    this.cuadroId();
+    return '';
+  });
 
   protected readonly fotos = resource({
     params: () => this.torneoId(),
