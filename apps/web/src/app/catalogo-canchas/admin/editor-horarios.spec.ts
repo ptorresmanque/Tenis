@@ -79,7 +79,8 @@ describe('EditorHorarios', () => {
 
   it('trae las horas guardadas del día que abre', () => {
     const horas = Array.from(
-      elemento().querySelectorAll<HTMLInputElement>('input[type=time]'),
+      // Desde T124, los campos de Material: se buscan por el componente, no por el tipo.
+      elemento().querySelectorAll<HTMLInputElement>('app-campo-hora input'),
     ).map((i) => i.value);
 
     // Las dos del lunes, en las posiciones 2 y 3 del recorrido.

@@ -37,6 +37,7 @@ import { fechaATexto, proveerFechaYHora, textoAFecha } from './fecha-y-hora';
       [value]="fecha()"
       [disabled]="deshabilitado()"
       [attr.aria-describedby]="describedBy() || null"
+      [attr.aria-label]="etiquetaAccesible() || null"
       (dateChange)="elegir($event.value)"
       (blur)="alTocar()"
     />
@@ -55,6 +56,8 @@ export class CampoFecha implements ControlValueAccessor {
   /** Clases extra del `input`, además de `campo`: el ancho y el margen de cada pantalla. */
   readonly claseCampo = input('');
   readonly describedBy = input<string>();
+  /** El nombre del campo cuando no tiene etiqueta visible: una celda de tabla, por ejemplo. */
+  readonly etiquetaAccesible = input<string>();
 
   /** El valor, para usarlo sin formulario: `[(valor)]`. */
   readonly valor = model('');
