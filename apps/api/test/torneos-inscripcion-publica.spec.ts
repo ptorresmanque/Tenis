@@ -191,6 +191,16 @@ describe('POST /api/torneos/:id/inscripcion', () => {
     );
   });
 
+  it('**un número extranjero ya no entra** (T120, decisión 1 de la sexta parte)', async () => {
+    const respuesta = await inscribirse(
+      validos({ telefono: '+54 11 4321 8765' }),
+    ).expect(400);
+
+    expect((respuesta.body as { message: string }).message).toBe(
+      'El teléfono tiene que tener 9 dígitos, sin contar el +56.',
+    );
+  });
+
   it('**reutilizar conserva el id, que es lo que hace que sus puntos sigan siendo suyos**', async () => {
     const primera = await inscribirse(
       validos({ telefono: '+56 9 8765 4321' }),

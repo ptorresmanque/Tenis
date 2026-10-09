@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { entero } from '../catalogo-canchas/admin.dto';
+import { leerTelefono } from '../comun/telefono';
 import { fechaDelClub } from '../comun/tiempo';
 import { MedioPagoInscripcion, Superficie } from '../generated/prisma/client';
 
@@ -60,7 +61,7 @@ export function leerJugadorNuevo(
     socioId: null,
     nombre: exigirTexto(datos.nombre, 'nombre'),
     apellido: exigirTexto(datos.apellido, 'apellido'),
-    telefono: texto(datos.telefono, 40) || null,
+    telefono: leerTelefono(datos.telefono, { obligatorio: false }),
   };
 }
 
@@ -75,7 +76,7 @@ export function leerCambioDeJugador(cuerpo: unknown): CambioDeJugador {
     cambio.apellido = exigirTexto(datos.apellido, 'apellido');
   }
   if (datos.telefono !== undefined) {
-    cambio.telefono = texto(datos.telefono, 40) || null;
+    cambio.telefono = leerTelefono(datos.telefono, { obligatorio: false });
   }
   if (datos.socioId !== undefined && datos.socioId !== null) {
     cambio.socioId = entero(datos.socioId, 'El socio', 1);

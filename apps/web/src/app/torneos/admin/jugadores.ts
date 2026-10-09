@@ -9,6 +9,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { Jugador, Torneos } from '../torneos.service';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 
 /**
  * Quiénes juegan torneos.
@@ -23,7 +24,7 @@ import { Jugador, Torneos } from '../torneos.service';
  */
 @Component({
   selector: 'app-jugadores',
-  imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector],
+  imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -129,8 +130,8 @@ import { Jugador, Torneos } from '../torneos.service';
             }
 
             @if (jugador.telefono) {
-              <a class="text-sm underline" [href]="'tel:' + jugador.telefono">
-                {{ jugador.telefono }}
+              <a class="text-sm underline" [href]="jugador.telefono | enlaceTelefono">
+                {{ jugador.telefono | telefono }}
               </a>
             }
 

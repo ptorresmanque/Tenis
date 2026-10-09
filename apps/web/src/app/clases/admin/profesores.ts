@@ -7,6 +7,7 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Profesor, Profesores } from '../profesores.service';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 
 /** El formulario vacío. Función y no constante: si no, todos comparten el objeto. */
 const enBlanco = () => ({
@@ -28,7 +29,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-profesores',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, EnlaceTelefonoPipe, TelefonoPipe],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -146,8 +147,8 @@ const enBlanco = () => ({
               </p>
               <p class="text-sm text-muted-foreground">
                 {{ profesor.especialidad }} ·
-                <a [href]="'tel:' + profesor.telefono" class="underline">
-                  {{ profesor.telefono }}
+                <a [href]="profesor.telefono | enlaceTelefono" class="underline">
+                  {{ profesor.telefono | telefono }}
                 </a>
                 @if (profesor.tarifaHoraClp !== null) {
                   · {{ pesos(profesor.tarifaHoraClp) }} la hora

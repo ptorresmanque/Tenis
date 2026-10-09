@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { leerTelefono } from '../comun/telefono';
 import { leerDuracion } from './duracion';
 import { ReservaDeNoSocio } from './reserva-no-socio.service';
 import { MAXIMO_ACOMPANANTES } from './reservas.dto';
@@ -20,7 +21,7 @@ export function reservaDeNoSocioDeCuerpo(cuerpo: unknown): ReservaDeNoSocio {
     duracionMin: leerDuracion(datos.duracionMin),
     nombre: texto(datos.nombre, 'El nombre', 80),
     email: correo(datos.email),
-    telefono: texto(datos.telefono, 'El teléfono', 20),
+    telefono: leerTelefono(datos.telefono, { obligatorio: true }),
     acompanantes: acompanantes(datos.acompanantes),
   };
 }

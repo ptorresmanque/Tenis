@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { entero } from '../catalogo-canchas/admin.dto';
 import { type Franja, leerFranjas } from './restricciones';
-import { normalizarTelefono } from './telefono';
+import { leerTelefono } from '../comun/telefono';
 
 /**
  * Cómo dice que va a pagar.
@@ -49,15 +49,9 @@ export interface InscripcionPublica {
 export function leerInscripcionPublica(cuerpo: unknown): InscripcionPublica {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
-  const telefono = normalizarTelefono(datos.telefono);
-
-  if (telefono === null) {
-    // El mensaje dice qué se espera y no solo que está mal: quien se equivoca acá es
-    // alguien que quiere jugar el torneo, no un atacante.
-    throw new BadRequestException(
-      'Escribe un teléfono con el que el club te pueda llamar, como +56 9 8765 4321.',
-    );
-  }
+  // El mensaje dice qué se espera y no solo que está mal: quien se equivoca acá es
+  // alguien que quiere jugar el torneo, no un atacante.
+  const telefono = leerTelefono(datos.telefono, { obligatorio: true });
 
   return {
     nombre: exigir(datos.nombre, 'nombre', 80),

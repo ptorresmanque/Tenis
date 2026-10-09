@@ -19,6 +19,7 @@ import { Insignia } from '../../ui/insignia';
 import { ClaseDelDia, Clases, NIVELES } from '../../clases/clases.service';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 
 /**
  * El día del club, para quien atiende el mesón.
@@ -30,7 +31,7 @@ import { NuevaReserva } from './nueva-reserva';
  */
 @Component({
   selector: 'app-agenda-del-dia',
-  imports: [Aviso, EstadoVacio, Insignia, NuevaReserva],
+  imports: [Aviso, EstadoVacio, Insignia, NuevaReserva, EnlaceTelefonoPipe, TelefonoPipe],
   template: `
     <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
          La navegación entre días va debajo. -->
@@ -184,8 +185,8 @@ import { NuevaReserva } from './nueva-reserva';
               @if (reserva.telefono) {
                 <!-- Enlace y no texto suelto: en el teléfono del mesón se toca y
                      llama, que es exactamente para lo que está. -->
-                <a class="underline" href="tel:{{ reserva.telefono }}">
-                  {{ reserva.telefono }}
+                <a class="underline" [href]="reserva.telefono | enlaceTelefono">
+                  {{ reserva.telefono | telefono }}
                 </a>
               }
             </p>

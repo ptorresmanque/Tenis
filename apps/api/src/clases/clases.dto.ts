@@ -6,6 +6,7 @@ import {
   fechaDeCuerpo,
   instanteDeCuerpo,
 } from '../catalogo-canchas/admin.dto';
+import { leerTelefono } from '../comun/telefono';
 import { NivelClase } from '../generated/prisma/client';
 
 /** Una clase por agendar, con el rango ya resuelto a instantes. */
@@ -301,7 +302,7 @@ export function leerInscripcion(cuerpo: unknown): InscripcionNueva {
   return {
     socioId: null,
     nombre: nombre.slice(0, 120),
-    telefono: telefono.slice(0, 40),
+    telefono: leerTelefono(telefono, { obligatorio: true }),
   };
 }
 

@@ -156,8 +156,15 @@ describe('Reserva de no-socio con pago', () => {
       estado: EstadoReserva.PENDIENTE_PAGO,
       socioId: null,
       nombre: 'Camila Visitante',
-      telefono: '+56955556666',
+      // Normalizado (T120): `56` y los 9 dígitos, como se escribiera.
+      telefono: '56955556666',
     });
+  });
+
+  it('**un teléfono que no son 9 dígitos no reserva** (T120)', async () => {
+    const respuesta = await reservarYPagar({ telefono: '12345' });
+
+    expect(respuesta.status).toBe(400);
   });
 
   it('los acompañantes del visitante quedan guardados con la reserva (T105)', async () => {

@@ -458,7 +458,8 @@ describe('InscritosDelTorneo', () => {
 
       await apretar('Revisar');
 
-      expect(texto()).toContain('56987654321');
+      // Como se dicta, no como se guarda (T120).
+      expect(texto()).toContain('+56 9 8765 4321');
     });
   });
 

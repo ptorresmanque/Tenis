@@ -10,7 +10,7 @@ describe('correos de la reserva', () => {
   const CLUB: DatosDelClub = {
     nombre: 'FEDAL Tennis Center',
     direccion: 'Avenida del Tenis 1234, Ñuñoa',
-    telefono: '+56 2 2345 6789',
+    telefono: '56223456789',
     email: 'hola@fedal.cl',
     latitud: -33.4372,
     longitud: -70.6506,

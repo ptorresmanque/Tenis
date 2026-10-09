@@ -7,7 +7,7 @@ import {
 import type { Prisma } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
-import { normalizarTelefono } from './telefono';
+import { normalizarTelefono } from '../comun/telefono';
 import type { CambioDeJugador, JugadorNuevo } from './torneos.dto';
 
 /** Lo que se lee de un jugador para mostrarlo. */

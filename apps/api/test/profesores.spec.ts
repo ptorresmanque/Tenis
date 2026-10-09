@@ -129,7 +129,12 @@ describe('Ficha de profesor', () => {
     const respuesta = await crear();
 
     expect(respuesta.status).toBe(201);
-    expect(respuesta.body).toMatchObject({ ...FICHA, activo: true });
+    // El teléfono vuelve normalizado (T120), no como se escribió.
+    expect(respuesta.body).toMatchObject({
+      ...FICHA,
+      telefono: '56944444444',
+      activo: true,
+    });
 
     const lista = await listar();
     expect(lista.some((p) => p.nombreVisible === 'Ana Silva')).toBe(true);
@@ -156,6 +161,10 @@ describe('Ficha de profesor', () => {
     await crear({ ...FICHA, especialidad: '' }).then((r) =>
       expect(r.status).toBe(400),
     );
+  });
+
+  it('un teléfono que no son 9 dígitos no se guarda (T120)', async () => {
+    expect((await crear({ ...FICHA, telefono: '12345' })).status).toBe(400);
   });
 
   it('la tarifa es opcional: no todos los tratos son por hora', async () => {

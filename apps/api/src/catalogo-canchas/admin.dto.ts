@@ -5,6 +5,7 @@ import {
   instanteEnElClub,
   minutosDeReloj,
 } from '../comun/tiempo';
+import { leerTelefono } from '../comun/telefono';
 import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
 import { leerUbicacion } from './ubicacion';
@@ -197,14 +198,13 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
 /**
  * Los datos del club, con el largo que aguanta la columna.
  *
- * Se recortan y no se rechazan por largo: un teléfono con espacios de más o una
- * dirección larguísima no son un error que valga la pena devolverle a quien está
- * llenando un formulario, y la base sí se quejaría.
+ * Se recortan y no se rechazan por largo: una dirección larguísima no es un error que
+ * valga la pena devolverle a quien está llenando un formulario, y la base sí se quejaría.
+ * El teléfono va aparte: tiene su regla (T120).
  */
 const TEXTOS: Record<string, number> = {
   nombre: 120,
   direccion: 200,
-  telefono: 40,
   email: 120,
 };
 
@@ -229,6 +229,12 @@ export function leerCambiosDeConfiguracion(
     }
 
     Object.assign(cambios, { [campo]: datos[campo].trim().slice(0, largo) });
+  }
+
+  // Vacío es "el club no publica teléfono", como antes de T120.
+  if (datos.telefono !== undefined) {
+    cambios.telefono =
+      leerTelefono(datos.telefono, { obligatorio: false }) ?? '';
   }
 
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
