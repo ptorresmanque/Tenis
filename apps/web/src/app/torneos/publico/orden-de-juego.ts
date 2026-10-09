@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, input, model } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 
 import {
   diaEnPalabras,
@@ -8,6 +8,7 @@ import {
 } from '../../catalogo-canchas/reloj-del-club';
 import { Insignia, VarianteInsignia } from '../../ui/insignia';
 import { PartidoPublico } from '../torneos.service';
+import { coincide, esBye, esDe } from './busqueda';
 
 /** Un día del torneo, con sus partidos en el orden en que se juegan. */
 interface DiaDeJuego {
@@ -20,41 +21,14 @@ interface DiaDeJuego {
  * El orden de juego de una categoría (T136): la opción C de la decisión 9 de la sexta
  * parte. **Primero lo que el jugador quiere saber: cuándo y dónde juega.** Los partidos
  * van por día y hora, cada uno con su cancha, ronda, estado y resultado; abajo, los que
- * faltan programar. El buscador marca los de quien se escribe.
+ * faltan programar. La búsqueda del modal marca los de quien se escribe.
  *
- * La búsqueda es un `model()` para que el modal la comparta con el árbol (T137).
+ * El buscador vive en el modal desde T137: es uno solo para el orden de juego y el árbol.
  */
 @Component({
   selector: 'app-orden-de-juego',
   imports: [Insignia, NgTemplateOutlet],
   template: `
-    <div class="relative">
-      <label for="buscar-jugador" class="sr-only">Buscar a un jugador</label>
-      <span
-        class="icono pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-lg
-               text-muted-foreground"
-        aria-hidden="true"
-      >
-        search
-      </span>
-      <input
-        id="buscar-jugador"
-        type="search"
-        class="campo ps-9"
-        placeholder="Busca tu nombre o apellido"
-        autocomplete="off"
-        [value]="busqueda()"
-        (input)="busqueda.set(valorDe($event))"
-      />
-    </div>
-    <!-- Cuántos encontró, para el lector de pantalla; el "nadie" también se ve. -->
-    <p class="sr-only" aria-live="polite">{{ resumen() }}</p>
-    @if (busqueda().trim() !== '' && encontrados() === 0) {
-      <p class="mt-2 text-sm text-muted-foreground">
-        Nadie con ese nombre en esta categoría.
-      </p>
-    }
-
     @if (porDia().length === 0) {
       <p class="mt-4 text-sm text-muted-foreground">
         El club todavía no programa los partidos: acá van a aparecer por día y hora.
@@ -168,21 +142,12 @@ interface DiaDeJuego {
 export class OrdenDeJuego {
   readonly partidos = input.required<PartidoPublico[]>();
 
-  /** Lo que se escribió en el buscador. Compartido con el árbol desde T137. */
-  readonly busqueda = model('');
+  /** Lo que se busca en el modal. */
+  readonly busqueda = input('');
 
-  /** La búsqueda sin tildes ni mayúsculas: "tomas" encuentra a "Tomás". */
-  private readonly buscado = computed(() => normalizar(this.busqueda().trim()));
-
-  /**
-   * Los partidos que se juegan: **sin los byes**, que son un lugar vacío del cuadro y no
-   * un partido.
-   */
+  /** Los partidos que se juegan: **sin los byes**, que no son un partido. */
   private readonly jugables = computed(() =>
-    this.partidos().filter(
-      (partido) =>
-        !(partido.ronda === 1 && (partido.jugadorA === null) !== (partido.jugadorB === null)),
-    ),
+    this.partidos().filter((partido) => !esBye(partido)),
   );
 
   protected readonly porDia = computed((): DiaDeJuego[] => {
@@ -214,27 +179,12 @@ export class OrdenDeJuego {
       .sort((a, b) => a.ronda - b.ronda || a.posicion - b.posicion),
   );
 
-  protected readonly encontrados = computed(
-    () => this.jugables().filter((partido) => this.esTuyo(partido)).length,
-  );
-
-  protected readonly resumen = computed(() => {
-    if (this.buscado() === '') return '';
-
-    const cuantos = this.encontrados();
-    return cuantos === 0
-      ? 'Nadie con ese nombre en esta categoría.'
-      : `${cuantos} ${cuantos === 1 ? 'partido' : 'partidos'} de "${this.busqueda().trim()}".`;
-  });
-
   protected coincide(jugador: string | null): boolean {
-    const buscado = this.buscado();
-
-    return buscado !== '' && jugador !== null && normalizar(jugador).includes(buscado);
+    return coincide(jugador, this.busqueda());
   }
 
   protected esTuyo(partido: PartidoPublico): boolean {
-    return this.coincide(partido.jugadorA) || this.coincide(partido.jugadorB);
+    return esDe(partido, this.busqueda());
   }
 
   protected estado(partido: PartidoPublico): { texto: string; variante: VarianteInsignia } {
@@ -264,12 +214,5 @@ export class OrdenDeJuego {
       (jugador) => this.perdio(partido, jugador),
     ) ?? null;
   }
-
-  protected valorDe(evento: Event): string {
-    return (evento.target as HTMLInputElement).value;
-  }
 }
 
-function normalizar(texto: string): string {
-  return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-}
