@@ -1,7 +1,9 @@
+import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -19,12 +21,15 @@ describe('InscripcionATorneo', () => {
   ];
 
   let fixture: ComponentFixture<InscripcionATorneo>;
+  /** La sesión, como la tiene `Auth`: nula hasta que el servidor responde quién mira. */
+  let sesion: WritableSignal<UsuarioActual | null>;
   let api: {
     inscribirseEnTorneo: ReturnType<typeof vi.fn>;
     pagarInscripcion: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async () => {
+  const montar = async (usuario: UsuarioActual | null = null) => {
+    sesion = signal(usuario);
     api = {
       inscribirseEnTorneo: vi.fn().mockResolvedValue({
         id: 1,
@@ -44,7 +49,11 @@ describe('InscripcionATorneo', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: Torneos, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: Torneos, useValue: api },
+        { provide: Auth, useValue: { usuario: sesion } },
+      ],
     });
 
     fixture = TestBed.createComponent(InscripcionATorneo);
@@ -279,5 +288,112 @@ describe('InscripcionATorneo', () => {
 
     const nombre = elemento().querySelector<HTMLInputElement>('[name="nombre"]')!;
     expect(nombre.value).toBe('');
+  });
+
+  it('**un correo mal escrito no se manda**: ahí le llega la confirmación (T128)', async () => {
+    await escribir({ ...completo, email: 'rodrigo@' });
+    await enviar();
+
+    expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
+    expect(texto()).toContain('Revisa tu correo');
+  });
+
+  describe('con la sesión de quien no es socio (T128, punto 6)', () => {
+    const CUENTA: UsuarioActual = {
+      id: 9,
+      nombre: 'Camila',
+      apellido: 'Reyes',
+      email: 'camila@ejemplo.cl',
+      telefono: '56955556666',
+      esAdmin: false,
+      socioId: null,
+      socioActivo: false,
+      socioAlDia: false,
+      profesorId: null,
+    };
+
+    const valor = (name: string) =>
+      elemento().querySelector<HTMLInputElement>(`[name="${name}"]`)!.value;
+
+    /** La sesión cambia después de montar, como cuando `/api/yo` responde tarde. */
+    const llegaLaSesion = async (usuario: UsuarioActual | null) => {
+      sesion.set(usuario);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    it('sin sesión, el formulario llega vacío, como siempre', () => {
+      expect(valor('nombre')).toBe('');
+      expect(valor('email')).toBe('');
+      expect(texto()).not.toContain('datos de tu cuenta');
+    });
+
+    it('**llega con los datos de su cuenta**, y dice que se pueden cambiar', async () => {
+      await montar(CUENTA);
+      await fixture.whenStable();
+
+      expect(valor('nombre')).toBe('Camila');
+      expect(valor('apellido')).toBe('Reyes');
+      // El campo muestra los 9 dígitos; el +56 va fijo al lado (T121).
+      expect(valor('telefono')).toBe('955556666');
+      expect(valor('email')).toBe('camila@ejemplo.cl');
+      expect(texto()).toContain('datos de tu cuenta');
+    });
+
+    it('**se pueden cambiar**: un padre inscribe a su hijo con su propia sesión', async () => {
+      await montar(CUENTA);
+      await escribir({ nombre: 'Tomás', categoria: '20' });
+      await enviar();
+
+      expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          nombre: 'Tomás',
+          apellido: 'Reyes',
+          telefono: '56955556666',
+          email: 'camila@ejemplo.cl',
+        }),
+        undefined,
+      );
+    });
+
+    it('si la sesión llega después, igual se precarga', async () => {
+      await llegaLaSesion(CUENTA);
+
+      expect(valor('nombre')).toBe('Camila');
+    });
+
+    it('**no pisa lo que la persona ya escribió**', async () => {
+      await escribir({ nombre: 'Tomás' });
+      await llegaLaSesion(CUENTA);
+
+      expect(valor('nombre')).toBe('Tomás');
+      expect(valor('apellido')).toBe('Reyes');
+    });
+
+    it('quien entró con Google no tiene teléfono: ese campo queda para escribirlo', async () => {
+      await montar({ ...CUENTA, telefono: null });
+      await fixture.whenStable();
+
+      expect(valor('telefono')).toBe('');
+      expect(valor('email')).toBe('camila@ejemplo.cl');
+    });
+
+    it('inscribirse lo deja vacío y sin el aviso: el siguiente puede ser otra persona', async () => {
+      await montar(CUENTA);
+      await escribir({ categoria: '20' });
+      await enviar();
+
+      expect(valor('nombre')).toBe('');
+      expect(texto()).not.toContain('datos de tu cuenta');
+    });
+
+    it('**al socio no se le precarga**: su camino es "Inscribirse como socio" (T129)', async () => {
+      await montar({ ...CUENTA, socioId: 3, socioActivo: true, socioAlDia: true });
+      await fixture.whenStable();
+
+      expect(valor('nombre')).toBe('');
+    });
   });
 });

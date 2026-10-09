@@ -1,7 +1,8 @@
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
+import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { irAPagar } from '../../core/pagos/ir-a-pagar';
 import { Aviso } from '../../ui/aviso';
@@ -47,6 +48,12 @@ const enBlanco = () => ({
         No hace falta tener cuenta. El club te llama a este teléfono si hay algún
         cambio. Ni el teléfono ni el correo se publican en ninguna parte.
       </p>
+      @if (precargado()) {
+        <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+          Llenamos el formulario con los datos de tu cuenta. Si inscribes a otra
+          persona, cámbialos por los suyos.
+        </p>
+      }
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <app-campo etiqueta="Nombre" [obligatorio]="true">
@@ -282,6 +289,7 @@ const enBlanco = () => ({
 })
 export class InscripcionATorneo {
   private readonly api = inject(Torneos);
+  private readonly auth = inject(Auth);
 
   readonly torneoId = input.required<number>();
   readonly categorias = input.required<CategoriaPublica[]>();
@@ -317,6 +325,34 @@ export class InscripcionATorneo {
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly listo = signal<string | null>(null);
+
+  /** Si el formulario llegó con los datos de la cuenta. Se dice, por quien inscribe a otro. */
+  protected readonly precargado = signal(false);
+
+  constructor() {
+    // **Con sesión de quien no es socio, llega con los datos de su cuenta** (T128). El
+    // socio no: su camino es "Inscribirse como socio" (T129). Es un efecto y no una
+    // lectura al crear porque `/api/yo` puede responder después de que se abrió el
+    // formulario.
+    effect(() => {
+      const cuenta = this.auth.usuario();
+
+      if (cuenta && cuenta.socioId === null) this.precargar(cuenta);
+    });
+  }
+
+  /**
+   * **Solo lo vacío**: si la sesión llegó tarde, lo que la persona ya escribió se queda.
+   * Todo se puede cambiar: un padre inscribe a su hijo con su propia sesión.
+   */
+  private precargar(cuenta: UsuarioActual): void {
+    this.datos.nombre ||= cuenta.nombre;
+    this.datos.apellido ||= cuenta.apellido;
+    // Nulo para quien entró con Google: ese campo queda para escribirlo.
+    this.datos.telefono ||= cuenta.telefono ?? '';
+    this.datos.email ||= cuenta.email;
+    this.precargado.set(true);
+  }
 
   protected enPesos(monto: number): string {
     return `$${monto.toLocaleString('es-CL')}`;
@@ -411,6 +447,15 @@ export class InscripcionATorneo {
       return;
     }
 
+    // La misma forma que exige el servidor (`leerCorreo`): esto es cortesía, para que
+    // un correo a medio escribir no haga viajar el formulario entero.
+    const email = this.datos.email.trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.error.set('Revisa tu correo: ahí te llega la confirmación de la inscripción.');
+      return;
+    }
+
     // Las dos comprobaciones del pago son **cortesía**: el servidor las repite y es el
     // único que sabe cuánto cobra ese cuadro. Están acá para no hacer viajar la imagen
     // —ni el formulario entero— por algo que se ve sin salir de la pantalla.
@@ -440,7 +485,7 @@ export class InscripcionATorneo {
           nombre: this.datos.nombre.trim(),
           apellido: this.datos.apellido.trim(),
           procedencia: this.datos.procedencia.trim(),
-          email: this.datos.email.trim(),
+          email,
           categoriaJuegoId,
           medioPago,
           restricciones: this.franjas(),
@@ -463,6 +508,8 @@ export class InscripcionATorneo {
       const aWebpay = hecha.estadoPago === 'PENDIENTE' && medioPago === 'WEBPAY';
 
       this.datos = enBlanco();
+      // Vacío y sin el aviso de la cuenta: el siguiente puede ser otra persona.
+      this.precargado.set(false);
       this.comprobante = null;
       this.franjas.set([]);
 
