@@ -615,6 +615,55 @@ html[data-tema='publico'][data-modo='oscuro'] {
   clip-path: polygon(0 0, 100% 0, calc(100% - 3rem) 100%, 0 100%);
 }
 
+/* El velo azul de una foto con texto encima: denso solo donde va el texto y
+   transparente en el resto, para que la foto se vea. Hasta que llegaron las fotos
+   cubría todo, arriba al 65%, para tapar el texto del marcador gris; con la foto
+   real eso la apagaba entera. Lee --color-campo, así que en oscuro tiñe con el
+   azul de oscuro. Un solo lugar para calibrarlo: las portadas y las tarjetas lo
+   usan, de abajo hacia arriba; el cierre del inicio, de izquierda a derecha. */
+@utility velo-foto {
+  background-image: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--color-campo) 88%, transparent) 0%,
+    color-mix(in oklab, var(--color-campo) 55%, transparent) 40%,
+    transparent 75%
+  );
+}
+
+/* En el teléfono el texto ocupa casi todo el ancho: un velo que se acaba a la
+   derecha lo dejaba sobre la foto pelada. Ahí cubre el ancho entero, más suave a
+   la derecha; desde sm, la foto respira del otro lado. */
+@utility velo-foto-lateral {
+  background-image: linear-gradient(
+    to right,
+    color-mix(in oklab, var(--color-campo) 88%, transparent) 0%,
+    color-mix(in oklab, var(--color-campo) 60%, transparent) 60%,
+    color-mix(in oklab, var(--color-campo) 35%, transparent) 100%
+  );
+
+  @media (width >= 40rem) {
+    background-image: linear-gradient(
+      to right,
+      color-mix(in oklab, var(--color-campo) 88%, transparent) 0%,
+      color-mix(in oklab, var(--color-campo) 50%, transparent) 45%,
+      transparent 85%
+    );
+  }
+}
+
+/* La sombra del texto que va sobre esas fotos. Con el velo liviano, un titular
+   alto alcanza el cielo y las nubes, donde casi no hay velo: medido contra la
+   portada, el 90% del fondo daba 4,6:1 y los píxeles más claros 1,5:1. Un halo del
+   mismo azul separa la letra de lo claro sin volver a tapar la foto. Va en el
+   contenedor del texto y alcanza a sus titulares y párrafos, no a los botones. */
+@utility texto-sobre-foto {
+  & :where(h1, h2, h3, p) {
+    text-shadow:
+      0 1px 2px color-mix(in oklab, var(--color-campo) 75%, transparent),
+      0 0 16px color-mix(in oklab, var(--color-campo) 55%, transparent);
+  }
+}
+
 /*
   Las primitivas que no necesitan JavaScript.
 
