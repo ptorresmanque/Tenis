@@ -1,5 +1,6 @@
 import { Component, computed, input, model, output } from '@angular/core';
 
+import { CampoFecha } from '../../ui/campo-fecha';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { Cancha, DuracionMin } from '../disponibilidad';
@@ -41,7 +42,7 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
  */
 @Component({
   selector: 'app-controles-del-dia',
-  imports: [Insignia, Selector],
+  imports: [CampoFecha, Insignia, Selector],
   host: { class: 'contents' },
   template: `
     <div class="mt-4 flex flex-wrap items-end gap-4">
@@ -64,13 +65,12 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
         <label for="fecha" class="block text-sm font-medium">Otro día</label>
         <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
              etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
-        <input
-          id="fecha"
-          type="date"
-          class="campo mt-1 w-auto cursor-pointer py-2 transition-colors
-                 hover:border-primary"
-          [value]="fecha()"
-          (change)="cambiarFecha($event)"
+        <app-campo-fecha
+          class="mt-1"
+          inputId="fecha"
+          claseCampo="w-36 cursor-pointer py-2 transition-colors hover:border-primary"
+          [valor]="fecha()"
+          (valorChange)="cambiarFecha($event)"
         />
       </div>
     </div>
@@ -132,9 +132,7 @@ export class ControlesDelDia {
     })),
   );
 
-  protected cambiarFecha(evento: Event): void {
-    const valor = (evento.target as HTMLInputElement).value;
-
+  protected cambiarFecha(valor: string): void {
     // El input vacío —se puede borrar con el teclado— no dispara una consulta
     // que la API va a rechazar.
     if (valor) {
