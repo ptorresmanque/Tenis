@@ -7,6 +7,8 @@ import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Transmision, Torneos } from '../torneos.service';
+import { CampoFecha } from '../../ui/campo-fecha';
+import { CampoHora } from '../../ui/campo-hora';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -28,7 +30,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-transmisiones-del-torneo',
-  imports: [FormsModule, Aviso],
+  imports: [FormsModule, Aviso, CampoFecha, CampoHora],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -116,35 +118,32 @@ const enBlanco = () => ({
           }
         </label>
 
-        <label class="block">
-          <span class="text-sm font-medium">Día</span>
-          <input
-            class="campo mt-1"
-            type="date"
+        <div class="grid gap-1">
+          <label class="text-sm font-medium" for="transmision-fecha">Día</label>
+          <app-campo-fecha
+            inputId="transmision-fecha"
             name="fecha"
             [(ngModel)]="datos.fecha"
           />
-        </label>
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Desde</span>
-          <input
-            class="campo mt-1"
-            type="time"
+        <div class="grid gap-1">
+          <label class="text-sm font-medium" for="transmision-desde">Desde</label>
+          <app-campo-hora
+            inputId="transmision-desde"
             name="desde"
             [(ngModel)]="datos.horaDesde"
           />
-        </label>
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Hasta</span>
-          <input
-            class="campo mt-1"
-            type="time"
+        <div class="grid gap-1">
+          <label class="text-sm font-medium" for="transmision-hasta">Hasta</label>
+          <app-campo-hora
+            inputId="transmision-hasta"
             name="hasta"
             [(ngModel)]="datos.horaHasta"
           />
-        </label>
+        </div>
 
         <label class="block sm:col-span-2">
           <span class="text-sm font-medium">Título (opcional)</span>

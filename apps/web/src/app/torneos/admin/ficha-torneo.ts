@@ -14,6 +14,7 @@ import { FotosDelTorneo } from './fotos';
 import { InscritosDelTorneo } from './inscritos';
 import { TransmisionesDelTorneo } from './transmisiones';
 import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
+import { CampoFecha } from '../../ui/campo-fecha';
 
 /** Las cuatro cosas que se le hacen a un torneo, y en el orden en que se hacen. */
 type Pestana = 'inscritos' | 'cuadro' | 'multimedia' | 'ajustes';
@@ -52,6 +53,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
     CuadrosDelTorneo,
     TransmisionesDelTorneo,
     FotosDelTorneo,
+    CampoFecha,
   ],
   template: `
     <a routerLink="/administracion/torneos" class="text-sm font-semibold text-primary">
@@ -180,35 +182,32 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
               />
             </label>
 
-            <label class="block">
-              <span class="text-sm font-medium">Empieza</span>
-              <input
-                class="campo mt-1"
-                type="date"
+            <div class="grid gap-1">
+              <label class="text-sm font-medium" for="ficha-fechaInicio">Empieza</label>
+              <app-campo-fecha
+                inputId="ficha-fechaInicio"
                 name="fechaInicio"
                 [(ngModel)]="datos().fechaInicio"
               />
-            </label>
+            </div>
 
-            <label class="block">
-              <span class="text-sm font-medium">Termina</span>
-              <input
-                class="campo mt-1"
-                type="date"
+            <div class="grid gap-1">
+              <label class="text-sm font-medium" for="ficha-fechaFin">Termina</label>
+              <app-campo-fecha
+                inputId="ficha-fechaFin"
                 name="fechaFin"
                 [(ngModel)]="datos().fechaFin"
               />
-            </label>
+            </div>
 
-            <label class="block">
-              <span class="text-sm font-medium">Cierra la inscripción</span>
-              <input
-                class="campo mt-1"
-                type="date"
+            <div class="grid gap-1">
+              <label class="text-sm font-medium" for="ficha-cierreInscripcion">Cierra la inscripción</label>
+              <app-campo-fecha
+                inputId="ficha-cierreInscripcion"
                 name="cierreInscripcion"
                 [(ngModel)]="datos().cierreInscripcion"
               />
-            </label>
+            </div>
 
             <label class="block">
               <span class="text-sm font-medium">Superficie</span>

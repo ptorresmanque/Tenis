@@ -9,6 +9,7 @@ import {
 import { EstadoVacio } from '../ui/estado-vacio';
 import { DescargarCsv } from './descargar-csv';
 import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service';
+import { CampoFecha } from '../ui/campo-fecha';
 
 /**
  * El ingreso del club por período.
@@ -23,7 +24,7 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
  */
 @Component({
   selector: 'app-ingreso-panel',
-  imports: [EstadoVacio, DescargarCsv],
+  imports: [EstadoVacio, DescargarCsv, CampoFecha],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
          es lo que se lleva. -->
@@ -38,27 +39,25 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
     </header>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
-      <label class="grid gap-1 text-sm">
-        <span class="font-medium">Desde</span>
-        <input
-          type="date"
+      <div class="grid gap-1 text-sm">
+        <label class="font-medium" for="reporte-desde">Desde</label>
+        <app-campo-fecha
+          inputId="reporte-desde"
           name="desde"
-          class="campo"
-          [value]="desde()"
-          (change)="desde.set(valorDe($event))"
+          [valor]="desde()"
+          (valorChange)="desde.set($event)"
         />
-      </label>
+      </div>
 
-      <label class="grid gap-1 text-sm">
-        <span class="font-medium">Hasta</span>
-        <input
-          type="date"
+      <div class="grid gap-1 text-sm">
+        <label class="font-medium" for="reporte-hasta">Hasta</label>
+        <app-campo-fecha
+          inputId="reporte-hasta"
           name="hasta"
-          class="campo"
-          [value]="hasta()"
-          (change)="hasta.set(valorDe($event))"
+          [valor]="hasta()"
+          (valorChange)="hasta.set($event)"
         />
-      </label>
+      </div>
 
       <label class="grid gap-1 text-sm">
         <span class="font-medium">Cortado por</span>

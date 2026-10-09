@@ -88,8 +88,9 @@ describe('TorneosPanel', () => {
   const texto = () => elemento().textContent ?? '';
 
   const escribir = async (campo: string, valor: string) => {
+    // `:is(...)`: el `name` también queda en el `app-campo-fecha` que envuelve al campo.
     const entrada = elemento().querySelector(
-      `[name="${campo}"]`,
+      `:is(input, select, textarea)[name="${campo}"]`,
     ) as HTMLInputElement;
     entrada.value = valor;
     entrada.dispatchEvent(new Event('input'));
