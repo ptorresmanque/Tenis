@@ -268,6 +268,56 @@ export function partidoSinHora(
   };
 }
 
+/** El primer partido de un inscrito en un cuadro recién armado (T132). */
+export interface PrimerPartido {
+  /** "Cuartos de final", "Semifinal"…: ver `nombreDeRonda`. */
+  ronda: string;
+  /** Nulo si es un bye: no juega esa ronda. */
+  rival: string | null;
+  /** Dónde y cuándo, si el club ya lo programó. */
+  hora: HoraDelPartido | null;
+  /** Con un bye, la ronda a la que pasa directo. */
+  siguiente?: string;
+}
+
+/**
+ * "Cuadro armado" (T132, A5): su primer rival —o el bye—, la hora si ya está, y el
+ * enlace `?cuadro=<id>` que abre el modal (T135). **Rearmado, lo dice**: el rival que
+ * leyó en el primer correo puede haber cambiado.
+ */
+export function cuadroArmado(
+  cuadro: {
+    nombre: string;
+    torneo: string;
+    categoria: string;
+    cuadroId: number;
+  },
+  primero: PrimerPartido,
+  rehecho: boolean,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  const deQue = `${cuadro.categoria} de ${cuadro.torneo}`;
+
+  return {
+    asunto: `${rehecho ? 'El cuadro cambió' : 'Cuadro armado'}: ${cuadro.torneo}, ${cuadro.categoria}`,
+    cuerpo:
+      `Hola ${cuadro.nombre}:\n\n` +
+      (rehecho
+        ? `El club rehízo el cuadro de ${deQue}: revisa tu primer partido, que puede ` +
+          'haber cambiado.\n\n'
+        : `El club armó el cuadro de ${deQue}.\n\n`) +
+      (primero.rival === null
+        ? `En ${primero.ronda} no juegas (bye): pasas directo a ${primero.siguiente}.\n`
+        : `Tu primer partido: ${primero.ronda}, contra ${primero.rival}.\n`) +
+      (primero.hora
+        ? `Dónde y cuándo: ${dondeYCuando(primero.hora)}.\n\n`
+        : 'Día y hora: te avisamos cuando el club lo programe.\n\n') +
+      `El cuadro completo: ${origenWeb}/torneos?cuadro=${cuadro.cuadroId}\n\n` +
+      firmaDelClub(club),
+  };
+}
+
 /**
  * Dónde y cuándo está programado un partido, o nulo si no tiene hora. Lo usan los dos
  * lados del aviso: `programacion` para decir cómo estaba, y el aviso para ver cómo quedó.
@@ -570,6 +620,102 @@ export class AvisosDeTorneo {
     } catch (falla) {
       this.log.error(
         `No se pudo armar el aviso del partido ${partidoId}: ${String(falla)}`,
+      );
+    }
+  }
+
+  /**
+   * "Cuadro armado" a cada inscrito de la categoría (T132, A5), con su primer rival o el
+   * bye. Lo llama `armar` con el cuadro ya escrito.
+   *
+   * Uno por inscrito y de una vez. ponytail: si el hosting tiene un tope de correos por
+   * hora y un cuadro lo pasa, esto pasa a la tanda del cron de recordatorios
+   * (`CORREO_POR_CORRIDA`); se decide cuando se sepa el tope (Riesgos de la sexta parte).
+   *
+   * @param rehecho Si ya se había armado antes: el correo dice que el cuadro cambió.
+   */
+  async cuadroArmado(
+    torneoCategoriaId: number,
+    rehecho: boolean,
+  ): Promise<void> {
+    try {
+      const [cuadro, partidos, inscritos, club] = await Promise.all([
+        this.prisma.torneoCategoria.findUniqueOrThrow({
+          where: { id: torneoCategoriaId },
+          select: {
+            torneo: { select: { nombre: true } },
+            categoriaJuego: { select: { nombre: true } },
+          },
+        }),
+        this.prisma.partido.findMany({
+          where: { torneoCategoriaId },
+          orderBy: [{ ronda: 'asc' }, { posicion: 'asc' }],
+          select: {
+            ronda: true,
+            programadoInicio: true,
+            programadoFin: true,
+            bloqueo: {
+              select: { canchaId: true, cancha: { select: { nombre: true } } },
+            },
+            jugadorA: { select: { id: true, nombre: true, apellido: true } },
+            jugadorB: { select: { id: true, nombre: true, apellido: true } },
+          },
+        }),
+        this.prisma.inscripcionTorneo.findMany({
+          where: {
+            torneoCategoriaId,
+            estado: EstadoInscripcionTorneo.INSCRITA,
+          },
+          select: { email: true, jugador: { select: JUGADOR } },
+        }),
+        this.prisma.configuracionClub.findFirstOrThrow(),
+      ]);
+
+      const rondas = Math.max(...partidos.map((partido) => partido.ronda));
+
+      for (const { email, jugador } of inscritos) {
+        const para = email ?? jugador.socio?.usuario.email ?? null;
+        if (para === null) continue;
+
+        // El primero en que aparece: los partidos vienen por ronda.
+        const suyo = partidos.find(
+          (partido) =>
+            partido.jugadorA?.id === jugador.id ||
+            partido.jugadorB?.id === jugador.id,
+        );
+        if (!suyo) continue;
+
+        const rival =
+          suyo.jugadorA?.id === jugador.id ? suyo.jugadorB : suyo.jugadorA;
+
+        const correo = cuadroArmado(
+          {
+            nombre: jugador.nombre,
+            torneo: cuadro.torneo.nombre,
+            categoria: cuadro.categoriaJuego.nombre,
+            cuadroId: torneoCategoriaId,
+          },
+          {
+            ronda: nombreDeRonda(suyo.ronda, rondas),
+            rival: rival ? `${rival.nombre} ${rival.apellido}` : null,
+            hora: horaDe(suyo),
+            siguiente: nombreDeRonda(suyo.ronda + 1, rondas),
+          },
+          rehecho,
+          club,
+          web(),
+        );
+
+        await enviarOAnotar(
+          this.correo,
+          { para, ...correo },
+          this.log,
+          `No salió el cuadro armado ${torneoCategoriaId} para ${para}`,
+        );
+      }
+    } catch (falla) {
+      this.log.error(
+        `No se pudo armar el aviso del cuadro ${torneoCategoriaId}: ${String(falla)}`,
       );
     }
   }

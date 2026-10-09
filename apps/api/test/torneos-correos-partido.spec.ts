@@ -113,6 +113,8 @@ describe('Los correos de la programación de un partido', () => {
       .post(`/api/admin/cuadros/${torneo.cuadros[0].id}/armar`)
       .set('Cookie', cookieAdmin)
       .expect(201);
+    // Armar manda su propio correo (T132): este archivo cuenta solo los de programación.
+    enviados.length = 0;
 
     torneoId = torneo.id;
     partidoId = (

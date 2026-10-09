@@ -1,6 +1,7 @@
 import { DatosDelClub, firmaDelClub } from '../comun/club';
 import {
   avisoDeComprobante,
+  cuadroArmado,
   InscripcionParaAvisar,
   inscripcionRecibida,
   pagoAprobado,
@@ -230,6 +231,76 @@ describe('correos del torneo', () => {
         'Cancha 1, sábado, 4 de diciembre, de 10:00 a 11:30',
       );
       expect(cuerpo).toContain('Te avisamos cuando lo volvamos a programar');
+    });
+  });
+
+  describe('el cuadro armado (T132)', () => {
+    const CUADRO = {
+      nombre: 'Pedro',
+      torneo: 'Torneo Aniversario',
+      categoria: '4ª',
+      cuadroId: 42,
+    };
+
+    const armado = (
+      primero: Parameters<typeof cuadroArmado>[1],
+      rehecho = false,
+    ) => cuadroArmado(CUADRO, primero, rehecho, CLUB, 'https://fedal.cl');
+
+    it('**dice contra quién es su primer partido**, y enlaza al cuadro', () => {
+      const { asunto, cuerpo } = armado({
+        ronda: 'Cuartos de final',
+        rival: 'Andrés Soto',
+        hora: null,
+      });
+
+      expect(asunto).toBe('Cuadro armado: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain('Hola Pedro:');
+      expect(cuerpo).toContain(
+        'Tu primer partido: Cuartos de final, contra Andrés Soto.',
+      );
+      expect(cuerpo).toContain('te avisamos cuando el club lo programe');
+      expect(cuerpo).toContain('https://fedal.cl/torneos?cuadro=42');
+      expect(cuerpo).toContain(firmaDelClub(CLUB));
+    });
+
+    it('**con un bye, dice que pasa directo**', () => {
+      const { cuerpo } = armado({
+        ronda: 'Cuartos de final',
+        rival: null,
+        hora: null,
+        siguiente: 'Semifinal',
+      });
+
+      expect(cuerpo).toContain(
+        'En Cuartos de final no juegas (bye): pasas directo a Semifinal.',
+      );
+    });
+
+    it('si el partido ya tiene hora, la dice', () => {
+      const { cuerpo } = armado({
+        ronda: 'Final',
+        rival: 'Andrés Soto',
+        hora: {
+          cancha: 'Cancha 1',
+          inicio: new Date('2027-12-04T13:00:00.000Z'),
+          fin: new Date('2027-12-04T14:30:00.000Z'),
+        },
+      });
+
+      expect(cuerpo).toContain(
+        'Cancha 1, sábado, 4 de diciembre, de 10:00 a 11:30',
+      );
+    });
+
+    it('**rearmado: el asunto y el texto dicen que el cuadro cambió**', () => {
+      const { asunto, cuerpo } = armado(
+        { ronda: 'Cuartos de final', rival: 'Andrés Soto', hora: null },
+        true,
+      );
+
+      expect(asunto).toBe('El cuadro cambió: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain('El club rehízo el cuadro');
     });
   });
 });
