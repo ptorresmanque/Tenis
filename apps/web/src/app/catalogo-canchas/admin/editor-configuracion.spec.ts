@@ -16,6 +16,8 @@ describe('EditorConfiguracion', () => {
     horasMinModificacion: 6,
     horasReembolsoTotal: 24,
     diasSancionNoUso: 15,
+    cuotaMensualClp: 25000,
+    cuotaIncorporacionClp: 150000,
   };
 
   let fixture: ComponentFixture<EditorConfiguracion>;
@@ -125,6 +127,27 @@ describe('EditorConfiguracion', () => {
 
     expect(api.fijarConfiguracion).not.toHaveBeenCalled();
     expect(texto()).toContain('ninguna puede quedar vacía');
+  });
+
+  describe('las cuotas del socio', () => {
+    it('**trae la mensualidad y la incorporación con su monto vigente**', () => {
+      expect(texto()).toContain('Cuotas del socio');
+      expect(campo('cuotaMensualClp').value).toBe('25000');
+      expect(campo('cuotaIncorporacionClp').value).toBe('150000');
+    });
+
+    it('**cambiar la mensualidad la manda**', async () => {
+      await escribir('cuotaMensualClp', '32000');
+      await guardar();
+
+      expect(api.fijarConfiguracion).toHaveBeenCalledWith(
+        expect.objectContaining({ cuotaMensualClp: 32000 }),
+      );
+    });
+
+    it('**avisa que las cuotas ya emitidas no cambian**', () => {
+      expect(texto()).toContain('las ya emitidas mantienen su monto');
+    });
   });
 
   it('muestra el motivo que dio el servidor, no uno genérico', async () => {

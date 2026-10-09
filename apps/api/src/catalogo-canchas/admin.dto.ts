@@ -149,6 +149,9 @@ export interface CambiosDeConfiguracion {
   horasMinModificacion: number;
   horasReembolsoTotal: number;
   diasSancionNoUso: number;
+  /** Lo que vale ser socio. Las cuotas ya emitidas congelaron el suyo y no cambian. */
+  cuotaMensualClp: number;
+  cuotaIncorporacionClp: number;
 }
 
 /**
@@ -173,6 +176,10 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   // Al menos un día: una sanción de cero días es no sancionar, y se expresa
   // descartando el reporte.
   diasSancionNoUso: [1, 365],
+  // Desde 1 y no desde 0: una cuota de cero pesos queda pendiente y bloquea al socio,
+  // pero no hay cobro que la pague. El tope es contra el dedazo, como el de los torneos.
+  cuotaMensualClp: [1, 10_000_000],
+  cuotaIncorporacionClp: [1, 10_000_000],
 };
 
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
@@ -183,6 +190,8 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
   horasMinModificacion: 'El mínimo de horas para modificar',
   horasReembolsoTotal: 'El plazo del reembolso total, en horas,',
   diasSancionNoUso: 'La sanción por una hora no usada, en días,',
+  cuotaMensualClp: 'La mensualidad',
+  cuotaIncorporacionClp: 'La cuota de incorporación',
 };
 
 /**
