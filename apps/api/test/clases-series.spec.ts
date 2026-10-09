@@ -359,6 +359,22 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       });
     });
 
+    it('**unas notas de 500 caracteres, el tope, se guardan enteras en la serie y en sus clases**', async () => {
+      const notas = 'ñ'.repeat(500);
+
+      const respuesta = await agendar(serie({ notas })).expect(201);
+      const agendada = respuesta.body as SerieAgendada;
+
+      const guardada = await prisma.serieDeClases.findUniqueOrThrow({
+        where: { id: agendada.id },
+      });
+      expect(guardada.notas).toBe(notas);
+      const clase = await prisma.clase.findUniqueOrThrow({
+        where: { id: agendada.clases[0].id },
+      });
+      expect(clase.notas).toBe(notas);
+    });
+
     it('**"saltar" no crea clase ni toca la reserva; "cancelar" la cancela con devolución y correo**', async () => {
       const cancelada = await reservaPagada('2037-10-20');
       const respetada = await reservaPagada('2037-10-22');

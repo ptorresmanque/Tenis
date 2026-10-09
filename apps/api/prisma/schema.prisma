@@ -885,7 +885,7 @@ model Clase {
   estado     EstadoClase @default(PROGRAMADA)
 
   bloqueoId Int?    @unique @map("bloqueo_id")
-  notas     String?
+  notas     String? @db.VarChar(500)
 
   canceladaEn       DateTime? @map("cancelada_en")
   motivoCancelacion String?   @map("motivo_cancelacion")
@@ -929,7 +929,7 @@ model SerieDeClases {
 
   cupoMaximo Int        @map("cupo_maximo")
   nivel      NivelClase
-  notas      String?
+  notas      String?    @db.VarChar(500)
 
   creadaEn DateTime @default(now()) @map("creada_en")
 

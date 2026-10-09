@@ -160,6 +160,7 @@ export function leerClaseNueva(cuerpo: unknown): ClaseNueva {
   const { fecha, inicio, fin } = leerRango(datos);
 
   const notas = typeof datos.notas === 'string' ? datos.notas.trim() : '';
+  // El mismo tope que las columnas `notas` de clase y de serie: VARCHAR(500).
   if (notas.length > 500) {
     throw new BadRequestException('Las notas son demasiado largas.');
   }
@@ -211,7 +212,8 @@ export function leerCancelacion(cuerpo: unknown): string {
     );
   }
 
-  return motivo.slice(0, 200);
+  // El largo de la columna `motivo_cancelacion`, VARCHAR(191): con más, un 500.
+  return motivo.slice(0, 191);
 }
 
 function leerRango(datos: Record<string, unknown>): {
