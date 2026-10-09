@@ -45,12 +45,22 @@ describe('Política de privacidad', () => {
     ['el ranking interno y quién lo ve', 'Juegas partidos internos'],
     ['que un partido cuenta solo confirmado', 'solo cuando tu rival lo confirma'],
     ['cuánto se guardan los partidos internos', 'Partidos internos y ranking interno'],
+    // Versión 1.2 (T138): lo que trajo la sexta parte.
+    ['el correo del inscrito en un torneo', 'teléfono, correo, el club o lugar de dónde vienes'],
+    ['que el estado del pago se publica', 'si tu inscripción está pagada o pendiente'],
+    ['que ni el teléfono ni el correo se publican', 'El teléfono y el correo no se publican'],
+    ['la confirmación de la inscripción', 'la confirmación de tu inscripción'],
+    ['el resultado del pago de la inscripción', 'el pago de tu inscripción quedó confirmado o rechazado'],
+    ['el aviso del cuadro armado', 'el cuadro se armó o cambió'],
+    ['el aviso de la programación de un partido', 'programa, cambia o quita la hora'],
+    ['el aviso a los administradores con el comprobante', 'comprobante de transferencia que llega'],
+    ['que el teléfono es chileno', '+56 y nueve dígitos'],
   ])('nombra %s', (_, frase) => {
     expect(texto()).toContain(frase);
   });
 
-  it('la versión 1.1 es la que nombra lo nuevo', () => {
-    expect(texto()).toContain('Versión 1.1');
+  it('la versión 1.2 es la que nombra lo nuevo', () => {
+    expect(texto()).toContain('Versión 1.2');
   });
 
   it('el cupo de invitados se describe como funciona desde A5: por reservas', () => {
