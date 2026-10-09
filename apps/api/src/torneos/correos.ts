@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { DatosDelClub, firmaDelClub } from '../comun/club';
+import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import { web } from '../comun/urls';
 import {
   EstadoInscripcionTorneo,
@@ -9,6 +10,7 @@ import {
 } from '../generated/prisma/client';
 import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
 import { PrismaService } from '../prisma/prisma.service';
+import { nombreDeRonda } from './cuadro';
 
 /** Un comprobante recién llegado, con lo que su aviso dice. */
 export interface ComprobanteParaRevisar {
@@ -155,6 +157,143 @@ export function pagoRechazado(
       pie(club, origenWeb),
   };
 }
+
+/** Un partido, visto por uno de sus dos jugadores (T133). */
+export interface PartidoParaAvisar {
+  /** A quién va: su nombre, para el saludo. */
+  nombre: string;
+  rival: string;
+  torneo: string;
+  categoria: string;
+  /** "Final", "Semifinal"…: ver `nombreDeRonda`. */
+  ronda: string;
+}
+
+/** Dónde y cuándo se juega un partido. */
+export interface HoraDelPartido {
+  cancha: string;
+  inicio: Date;
+  fin: Date;
+}
+
+// Los mismos formatos que los correos de reservas: "sábado, 4 de diciembre" y "10:00".
+const DIA = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+const HORA = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+function dondeYCuando(hora: HoraDelPartido): string {
+  return (
+    `${hora.cancha}, ${DIA.format(hora.inicio)}, de ${HORA.format(hora.inicio)} a ` +
+    HORA.format(hora.fin)
+  );
+}
+
+/** Lo que el jugador tiene que saber de su partido, en las líneas de siempre. */
+function elPartido(partido: PartidoParaAvisar): string {
+  return (
+    `Rival: ${partido.rival}\n` +
+    `Ronda: ${partido.ronda} de ${partido.categoria}\n` +
+    `Torneo: ${partido.torneo}\n`
+  );
+}
+
+/** "Tu partido" (T133): el club lo programó. El día y la hora van en el asunto. */
+export function partidoProgramado(
+  partido: PartidoParaAvisar,
+  ahora: HoraDelPartido,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto: `Tu partido: ${DIA.format(ahora.inicio)}, a las ${HORA.format(ahora.inicio)}`,
+    cuerpo:
+      `Hola ${partido.nombre}:\n\n` +
+      'El club programó tu partido.\n\n' +
+      elPartido(partido) +
+      `Cancha: ${ahora.cancha}\n` +
+      `Día: ${DIA.format(ahora.inicio)}\n` +
+      `Hora: de ${HORA.format(ahora.inicio)} a ${HORA.format(ahora.fin)}\n\n` +
+      pie(club, origenWeb),
+  };
+}
+
+/** "Tu partido cambió" (T133): lo de antes y lo de ahora, como el cambio de una reserva. */
+export function partidoCambiado(
+  partido: PartidoParaAvisar,
+  antes: HoraDelPartido,
+  ahora: HoraDelPartido,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto:
+      `Tu partido cambió: ${DIA.format(ahora.inicio)}, ` +
+      `a las ${HORA.format(ahora.inicio)}`,
+    cuerpo:
+      `Hola ${partido.nombre}:\n\n` +
+      'El club cambió tu partido.\n\n' +
+      elPartido(partido) +
+      `Antes: ${dondeYCuando(antes)}\n` +
+      `Ahora: ${dondeYCuando(ahora)}\n\n` +
+      pie(club, origenWeb),
+  };
+}
+
+/** "Tu partido quedó sin hora" (T133): cuál era, y que el club avisa cuando lo reprograme. */
+export function partidoSinHora(
+  partido: PartidoParaAvisar,
+  antes: HoraDelPartido,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto: 'Tu partido quedó sin hora',
+    cuerpo:
+      `Hola ${partido.nombre}:\n\n` +
+      `Tu partido, que estaba en ${dondeYCuando(antes)}, quedó sin hora. Te avisamos ` +
+      'cuando lo volvamos a programar.\n\n' +
+      elPartido(partido) +
+      '\n' +
+      pie(club, origenWeb),
+  };
+}
+
+/**
+ * Dónde y cuándo está programado un partido, o nulo si no tiene hora. Lo usan los dos
+ * lados del aviso: `programacion` para decir cómo estaba, y el aviso para ver cómo quedó.
+ */
+export function horaDe(partido: {
+  programadoInicio: Date | null;
+  programadoFin: Date | null;
+  bloqueo: { canchaId: number; cancha: { nombre: string } } | null;
+}) {
+  return partido.bloqueo && partido.programadoInicio && partido.programadoFin
+    ? {
+        canchaId: partido.bloqueo.canchaId,
+        cancha: partido.bloqueo.cancha.nombre,
+        inicio: partido.programadoInicio,
+        fin: partido.programadoFin,
+      }
+    : null;
+}
+
+/** Lo que se lee de cada jugador para avisarle. */
+const JUGADOR = {
+  id: true,
+  nombre: true,
+  apellido: true,
+  socio: { select: { usuario: { select: { email: true } } } },
+} as const;
 
 /**
  * Los correos de un torneo, armados desde la base y enviados sin poner en juego la
@@ -322,6 +461,115 @@ export class AvisosDeTorneo {
     } catch (falla) {
       this.log.error(
         `No se pudo armar ${que} de la inscripción ${inscripcionId}: ${String(falla)}`,
+      );
+    }
+  }
+
+  /**
+   * Avisa a los dos jugadores de un partido que el club le puso hora, se la cambió o se
+   * la quitó (T133). **Decide cuál comparando** lo de antes con lo de ahora: el que llama
+   * solo dice cómo estaba.
+   *
+   * Programar lo que ya estaba igual no manda nada. Cada jugador recibe su propio correo,
+   * con el otro de rival, y uno sin correo no impide el aviso al otro.
+   *
+   * @param antes Dónde y cuándo estaba antes del cambio, o nulo si no tenía hora.
+   */
+  async cambioDePartido(
+    partidoId: number,
+    antes: ReturnType<typeof horaDe>,
+  ): Promise<void> {
+    try {
+      const partido = await this.prisma.partido.findUniqueOrThrow({
+        where: { id: partidoId },
+        select: {
+          torneoId: true,
+          torneoCategoriaId: true,
+          ronda: true,
+          programadoInicio: true,
+          programadoFin: true,
+          bloqueo: {
+            select: { canchaId: true, cancha: { select: { nombre: true } } },
+          },
+          torneo: { select: { nombre: true } },
+          torneoCategoria: {
+            select: { categoriaJuego: { select: { nombre: true } } },
+          },
+          jugadorA: { select: JUGADOR },
+          jugadorB: { select: JUGADOR },
+        },
+      });
+
+      const ahora = horaDe(partido);
+
+      const igual =
+        antes !== null &&
+        ahora !== null &&
+        antes.canchaId === ahora.canchaId &&
+        antes.inicio.getTime() === ahora.inicio.getTime() &&
+        antes.fin.getTime() === ahora.fin.getTime();
+
+      if (igual || (antes === null && ahora === null)) return;
+      if (!partido.jugadorA || !partido.jugadorB) return;
+
+      const [rondas, inscripciones, club] = await Promise.all([
+        this.prisma.partido.aggregate({
+          where: { torneoCategoriaId: partido.torneoCategoriaId },
+          _max: { ronda: true },
+        }),
+        this.prisma.inscripcionTorneo.findMany({
+          where: {
+            torneoId: partido.torneoId,
+            jugadorId: { in: [partido.jugadorA.id, partido.jugadorB.id] },
+          },
+          orderBy: { inscritaEn: 'desc' },
+          select: { jugadorId: true, email: true },
+        }),
+        this.prisma.configuracionClub.findFirstOrThrow(),
+      ]);
+
+      const parejas = [
+        [partido.jugadorA, partido.jugadorB],
+        [partido.jugadorB, partido.jugadorA],
+      ] as const;
+
+      for (const [jugador, rival] of parejas) {
+        // El correo de su inscripción en este torneo (la más nueva, si se retiró y
+        // volvió) y, si no tiene, el de su cuenta de socio. Sin ninguno, no hay a quién.
+        const para =
+          inscripciones.find((i) => i.jugadorId === jugador.id)?.email ??
+          jugador.socio?.usuario.email ??
+          null;
+        if (para === null) continue;
+
+        const visto: PartidoParaAvisar = {
+          nombre: jugador.nombre,
+          rival: `${rival.nombre} ${rival.apellido}`,
+          torneo: partido.torneo.nombre,
+          categoria: partido.torneoCategoria.categoriaJuego.nombre,
+          ronda: nombreDeRonda(
+            partido.ronda,
+            rondas._max.ronda ?? partido.ronda,
+          ),
+        };
+
+        const correo =
+          antes === null
+            ? partidoProgramado(visto, ahora as HoraDelPartido, club, web())
+            : ahora === null
+              ? partidoSinHora(visto, antes, club, web())
+              : partidoCambiado(visto, antes, ahora, club, web());
+
+        await enviarOAnotar(
+          this.correo,
+          { para, ...correo },
+          this.log,
+          `No salió el aviso del partido ${partidoId} para ${para}`,
+        );
+      }
+    } catch (falla) {
+      this.log.error(
+        `No se pudo armar el aviso del partido ${partidoId}: ${String(falla)}`,
       );
     }
   }
