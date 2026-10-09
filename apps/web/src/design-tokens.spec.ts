@@ -388,6 +388,21 @@ function plantillas(): { archivo: string; contenido: string }[] {
     }));
 }
 
+describe('Campos de fecha y hora (T125)', () => {
+  it('**ningún label envuelve un campo de fecha u hora**: la lista quedaría en su nombre', () => {
+    // Material inserta el calendario y la lista de horas junto al campo, y no al final
+    // de la página. Si un <label> envuelve el campo, las 48 horas pasan a ser parte de su
+    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". La etiqueta va al lado,
+    // con `for`.
+    const envuelto = /<label\b[^>]*>(?:(?!<\/label>)[\s\S])*?<app-campo-(?:fecha|hora)\b/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => envuelto.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
+
 describe('Tipografía', () => {
   // El fallo que atrapa: alguien cambia --font-display y la app se sirve con
   // la fuente de respaldo del sistema. Nada falla, nadie se entera, y el

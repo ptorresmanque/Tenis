@@ -55,7 +55,10 @@ describe('NuevaSerie', () => {
   const escribir = async (selector: string, valor: string) => {
     const campo = el().querySelector<HTMLInputElement | HTMLSelectElement>(selector)!;
     campo.value = valor;
-    campo.dispatchEvent(new Event(campo instanceof HTMLSelectElement ? 'change' : 'input'));
+    // Un campo de texto avisa al escribir y al terminar (`change`): el de fecha de Material
+    // toma el valor al terminar, como cuando se sale del campo (T125).
+    if (!(campo instanceof HTMLSelectElement)) campo.dispatchEvent(new Event('input'));
+    campo.dispatchEvent(new Event('change'));
     await esperar();
   };
 
