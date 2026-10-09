@@ -39,11 +39,14 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         claseCaja="min-h-[22rem]"
       />
       <div
-        class="absolute inset-0 bg-gradient-to-t from-campo via-campo/90 to-campo/65"
+        class="absolute inset-0 velo-foto"
         aria-hidden="true"
       ></div>
 
-      <div class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo sm:p-10">
+      <div
+        class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
+               sm:p-10"
+      >
         <h1 id="clases" class="titular text-6xl sm:text-7xl lg:text-8xl">
           Clases con profesor
         </h1>
