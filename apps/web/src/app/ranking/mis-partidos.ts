@@ -65,8 +65,8 @@ import { CampoFecha } from '../ui/campo-fecha';
           </select>
         </label>
 
-        <label class="grid gap-1 text-sm" for="jugado-en">
-          <span class="font-medium">Cuándo</span>
+        <div class="grid gap-1 text-sm">
+          <label class="font-medium" for="jugado-en">Cuándo</label>
           <app-campo-fecha
             inputId="jugado-en"
             name="jugadoEn"
@@ -75,7 +75,7 @@ import { CampoFecha } from '../ui/campo-fecha';
             [valor]="jugadoEn()"
             (valorChange)="jugadoEn.set($event)"
           />
-        </label>
+        </div>
 
         <label class="grid gap-1 text-sm">
           <span class="font-medium">Marcador (opcional)</span>

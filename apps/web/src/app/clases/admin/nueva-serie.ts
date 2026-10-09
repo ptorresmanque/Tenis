@@ -12,6 +12,8 @@ import {
   NIVELES,
   SerieNueva,
 } from '../clases.service';
+import { CampoFecha } from '../../ui/campo-fecha';
+import { CampoHora } from '../../ui/campo-hora';
 
 /** Los días en el orden de la semana del club, con el número que espera la API (0 = domingo). */
 const DIAS = [
@@ -50,7 +52,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-nueva-serie',
-  imports: [FormsModule, Aviso],
+  imports: [FormsModule, Aviso, CampoFecha, CampoHora],
   host: { class: 'block' },
   template: `
     <form class="rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="revisar()">
@@ -101,37 +103,49 @@ const enBlanco = () => ({
           </div>
         </fieldset>
 
-        <label class="block">
-          <span class="text-sm font-medium">Desde la hora</span>
-          <input
-            class="campo mt-1"
-            type="time"
-            step="1800"
+        <div>
+          <label class="block text-sm font-medium" for="serie-hora-desde">Desde la hora</label>
+          <app-campo-hora
+            class="mt-1"
+            inputId="serie-hora-desde"
             name="serie-hora-desde"
+            claseCampo="w-28"
             [(ngModel)]="datos.horaDesde"
           />
-        </label>
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Hasta la hora</span>
-          <input
-            class="campo mt-1"
-            type="time"
-            step="1800"
+        <div>
+          <label class="block text-sm font-medium" for="serie-hora-hasta">Hasta la hora</label>
+          <app-campo-hora
+            class="mt-1"
+            inputId="serie-hora-hasta"
             name="serie-hora-hasta"
+            claseCampo="w-28"
             [(ngModel)]="datos.horaHasta"
           />
-        </label>
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Primera fecha</span>
-          <input class="campo mt-1" type="date" name="serie-desde" [(ngModel)]="datos.desde" />
-        </label>
+        <div>
+          <label class="block text-sm font-medium" for="serie-desde">Primera fecha</label>
+          <app-campo-fecha
+            class="mt-1"
+            inputId="serie-desde"
+            name="serie-desde"
+            claseCampo="w-36"
+            [(ngModel)]="datos.desde"
+          />
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Última fecha</span>
-          <input class="campo mt-1" type="date" name="serie-hasta" [(ngModel)]="datos.hasta" />
-        </label>
+        <div>
+          <label class="block text-sm font-medium" for="serie-hasta">Última fecha</label>
+          <app-campo-fecha
+            class="mt-1"
+            inputId="serie-hasta"
+            name="serie-hasta"
+            claseCampo="w-36"
+            [(ngModel)]="datos.hasta"
+          />
+        </div>
 
         <label class="block">
           <span class="text-sm font-medium">Nivel</span>
