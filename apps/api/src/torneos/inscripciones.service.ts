@@ -22,6 +22,7 @@ import type {
   MedioPago,
 } from './inscripcion-publica.dto';
 import type { Franja } from './restricciones';
+import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { Jugadores } from './jugadores.service';
 
@@ -125,6 +126,7 @@ export class InscripcionesATorneo {
     private readonly prisma: PrismaService,
     private readonly jugadores: Jugadores,
     private readonly abandonadas: InscripcionesAbandonadas,
+    private readonly avisos: AvisosDeTorneo,
   ) {}
 
   /**
@@ -375,39 +377,41 @@ export class InscripcionesATorneo {
     // cuadro pasó sus comprobaciones: una inscripción rechazada no deja nada escrito.
     let quien = '';
 
-    try {
-      const inscripcion = await this.anotar(
-        cuadro.id,
-        async (tx) => {
-          const jugador = await resolverJugador(tx);
-          quien = `${jugador.nombre} ${jugador.apellido}`;
+    const inscripcion = await this.anotar(
+      cuadro.id,
+      async (tx) => {
+        const jugador = await resolverJugador(tx);
+        quien = `${jugador.nombre} ${jugador.apellido}`;
 
-          return jugador.id;
-        },
-        {
-          restricciones: datos.restricciones,
-          comprobanteRuta: ruta,
-          // Solo si el cuadro cobra: en uno gratis no eligió nada y la inscripción ya
-          // está completa, así que no hay cupo que soltarle después.
-          medioPago: cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
-          email: datos.email,
-        },
-      );
-
-      return {
-        ...inscripcion,
-        montoClp: cuadro.montoInscripcionClp,
-        categoria: cuadro.categoriaJuego.nombre,
-        jugador: quien,
-      };
-    } catch (falla) {
+        return jugador.id;
+      },
+      {
+        restricciones: datos.restricciones,
+        comprobanteRuta: ruta,
+        // Solo si el cuadro cobra: en uno gratis no eligió nada y la inscripción ya
+        // está completa, así que no hay cupo que soltarle después.
+        medioPago: cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
+        email: datos.email,
+      },
+    ).catch(async (falla: unknown) => {
       // La imagen ya está en el disco y la inscripción no existe: sin este barrido,
       // cada intento contra un torneo cerrado dejaría un archivo huérfano, y la
       // inscripción desde la calle no pide sesión.
       if (ruta) await borrarImagen(ruta);
 
       throw falla;
-    }
+    });
+
+    // **Con la inscripción ya escrita**: el aviso no puede deshacerla (T130). Solo si
+    // trajo comprobante; Webpay se confirma solo (A3).
+    if (ruta) await this.avisos.comprobanteRecibido(inscripcion.id);
+
+    return {
+      ...inscripcion,
+      montoClp: cuadro.montoInscripcionClp,
+      categoria: cuadro.categoriaJuego.nombre,
+      jugador: quien,
+    };
   }
 
   /**

@@ -11,6 +11,7 @@ import {
   MedioPagoInscripcion,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 
 /**
@@ -26,6 +27,7 @@ export class ComprobantesDeInscripcion {
   constructor(
     private readonly prisma: PrismaService,
     private readonly abandonadas: InscripcionesAbandonadas,
+    private readonly avisos: AvisosDeTorneo,
   ) {}
 
   /**
@@ -56,7 +58,13 @@ export class ComprobantesDeInscripcion {
       throw new NotFoundException('No hay una inscripción con esa llave.');
     }
 
-    return this.adjuntar(inscripcion, bytes);
+    const hecho = await this.adjuntar(inscripcion, bytes);
+
+    // Lo subió el jugador: el club tiene algo que revisar (T130). El que sube el admin
+    // desde el panel, en `subirComoAdmin`, no avisa: ya lo tiene en la mano.
+    await this.avisos.comprobanteRecibido(hecho.id);
+
+    return hecho;
   }
 
   /**
