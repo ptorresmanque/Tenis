@@ -34,6 +34,7 @@ import { horaATexto, proveerFechaYHora, textoAHora } from './fecha-y-hora';
       [value]="hora()"
       [disabled]="deshabilitado()"
       [attr.aria-describedby]="describedBy() || null"
+      [attr.aria-label]="etiquetaAccesible() || null"
       (valueChange)="elegir($event)"
       (blur)="alTocar()"
     />
@@ -53,6 +54,8 @@ export class CampoHora implements ControlValueAccessor {
   readonly intervalo = input('30min');
   readonly claseCampo = input('');
   readonly describedBy = input<string>();
+  /** El nombre del campo cuando no tiene etiqueta visible: una celda de tabla, por ejemplo. */
+  readonly etiquetaAccesible = input<string>();
   /**
    * El botón del reloj. Se puede quitar en una fila apretada: el campo abre la lista solo,
    * con un clic o con la flecha abajo, así que el botón es una ayuda y no la única vía.

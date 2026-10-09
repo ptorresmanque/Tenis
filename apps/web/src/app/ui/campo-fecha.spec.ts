@@ -19,6 +19,7 @@ import { AdaptadorDeFechas } from './fecha-y-hora';
     <app-campo-fecha inputId="dia" name="dia" [(ngModel)]="dia" />
     <label for="hora">Hora</label>
     <app-campo-hora inputId="hora" name="hora" [(ngModel)]="hora" />
+    <app-campo-hora inputId="sin-etiqueta" etiquetaAccesible="Apertura del lunes" [(ngModel)]="hora" />
     <app-campo-hora inputId="compacta" [conBoton]="false" [(ngModel)]="hora" />
   `,
 })
@@ -104,6 +105,10 @@ describe('Campos de fecha y hora', () => {
       );
 
       expect(boton?.getAttribute('aria-label')).toBe('Elegir la hora');
+    });
+
+    it('sin etiqueta visible, el campo se nombra con la accesible', () => {
+      expect(campo('sin-etiqueta').getAttribute('aria-label')).toBe('Apertura del lunes');
     });
 
     it('en una fila apretada va sin botón, y el campo sigue siendo una lista', () => {
