@@ -124,14 +124,15 @@ export function fechaATexto(fecha: Date): string {
   return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}`;
 }
 
-/** `HH:mm` a un `Date` de hoy a esa hora; nulo si viene vacío. */
+/**
+ * `HH:mm` a un `Date` a esa hora; nulo si viene vacío.
+ *
+ * Sobre un día fijo y no sobre hoy: el día que Chile adelanta la hora, de 00:00 a 00:59
+ * no existe, y `setHours(0, 30)` daría 01:30. El selector solo mira la hora.
+ */
 export function textoAHora(texto: string | null | undefined): Date | null {
   const partes = /^(\d{2}):(\d{2})$/.exec(texto ?? '');
-  if (!partes) return null;
-
-  const hora = new Date();
-  hora.setHours(+partes[1], +partes[2], 0, 0);
-  return hora;
+  return partes ? new Date(2000, 0, 1, +partes[1], +partes[2]) : null;
 }
 
 /** La hora de un `Date`, como la usan los formularios: `HH:mm`. */
