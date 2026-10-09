@@ -27,6 +27,7 @@ import {
   ESTADOS_TORNEO,
   EstadoTorneo,
   Foto,
+  InscritoPublico,
   PartidoPublico,
   Transmision,
   Torneos,
@@ -299,7 +300,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   <div class="mt-3 rounded-lg border border-border bg-background p-3">
                     <h3 class="subtitulo">Inscritos</h3>
                     <p class="mt-1 text-sm text-muted-foreground">
-                      {{ detalle.inscritos.join(', ') || 'Todavía nadie.' }}
+                      {{ nombresDe(detalle.inscritos) || 'Todavía nadie.' }}
                     </p>
                   </div>
                 } @else {
@@ -505,6 +506,11 @@ export class TorneosPublicos {
     return this.abierto() === cuadroId && detalle?.id === cuadroId
       ? detalle
       : null;
+  }
+
+  /** Los nombres, en el orden en que se inscribieron. El estado del pago llega con T135. */
+  protected nombresDe(inscritos: InscritoPublico[]): string {
+    return inscritos.map((inscrito) => inscrito.nombre).join(', ');
   }
 
   protected alternar(id: number): void {

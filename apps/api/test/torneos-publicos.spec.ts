@@ -110,13 +110,16 @@ describe('GET /api/torneos/publicos', () => {
     return respuesta.body as {
       nombre: string;
       estado: string;
-      inscritos: string[];
+      inscritos: { nombre: string; pago: 'PAGADO' | 'PENDIENTE' | null }[];
       partidos: {
         ronda: number;
         ronda_nombre: string;
         jugadorA: string | null;
         ganador: string | null;
         marcador: string | null;
+        inicio: string | null;
+        fin: string | null;
+        cancha: string | null;
       }[];
     };
   };
@@ -132,6 +135,9 @@ describe('GET /api/torneos/publicos', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
+    await prisma.cancha.deleteMany({
+      where: { nombre: { startsWith: MARCA } },
+    });
     await prisma.categoriaTorneo.deleteMany({
       where: { nombre: { startsWith: 'CatPub' } },
     });
@@ -270,7 +276,64 @@ describe('GET /api/torneos/publicos', () => {
     const publicado = await cuadro();
 
     expect(publicado.inscritos).toHaveLength(4);
-    expect(publicado.inscritos[0]).toContain(APELLIDO);
+    expect(publicado.inscritos[0].nombre).toContain(APELLIDO);
+  });
+
+  /** T134. Lo que "Ver quiénes juegan" muestra antes de armar el cuadro. */
+  describe('los inscritos, antes del cuadro (T134)', () => {
+    const inscripciones = () =>
+      prisma.inscripcionTorneo.findMany({
+        where: { torneoCategoriaId: cuadroId },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+
+    it('**van en el orden en que se inscribieron, no en el de la siembra**', async () => {
+      // La siembra al revés: si la lista ordenara por siembra, Dani saldría primera.
+      const filas = await inscripciones();
+      for (const [i, fila] of filas.entries()) {
+        await prisma.inscripcionTorneo.update({
+          where: { id: fila.id },
+          data: { siembra: filas.length - i },
+        });
+      }
+
+      const publicado = await cuadro();
+
+      expect(publicado.inscritos.map((i) => i.nombre.split(' ')[0])).toEqual([
+        'Ana',
+        'Beto',
+        'Cata',
+        'Dani',
+      ]);
+    });
+
+    it('**con su estado de pago, en una categoría que cobra**', async () => {
+      await prisma.torneoCategoria.update({
+        where: { id: cuadroId },
+        data: { montoInscripcionClp: 15000 },
+      });
+      const [ana, beto] = await inscripciones();
+      await prisma.inscripcionTorneo.update({
+        where: { id: ana.id },
+        data: { estadoPago: 'PAGADA' },
+      });
+      await prisma.inscripcionTorneo.update({
+        where: { id: beto.id },
+        data: { estadoPago: 'PENDIENTE' },
+      });
+
+      const publicado = await cuadro();
+
+      expect(publicado.inscritos[0].pago).toBe('PAGADO');
+      expect(publicado.inscritos[1].pago).toBe('PENDIENTE');
+    });
+
+    it('en una categoría gratis no lleva estado de pago', async () => {
+      const publicado = await cuadro();
+
+      expect(publicado.inscritos.every((i) => i.pago === null)).toBe(true);
+    });
   });
 
   it('antes de armar el cuadro hay inscritos y todavía no hay partidos', async () => {
@@ -309,6 +372,53 @@ describe('GET /api/torneos/publicos', () => {
     expect(jugado?.marcador).toBe('6-4 6-2');
     expect(jugado?.ganador).toContain(APELLIDO);
     expect(jugado?.ronda_nombre).toBe('Semifinal');
+  });
+
+  it('**un partido programado trae el día, la hora y la cancha** (T134)', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/admin/cuadros/${cuadroId}/armar`)
+      .set('Cookie', cookieAdmin)
+      .expect(201);
+
+    // Programado como lo deja T67: el partido con su hora y el bloqueo de su cancha. El
+    // camino entero de programar se prueba en `torneos-programacion.spec.ts`.
+    const cancha = await prisma.cancha.create({
+      data: { nombre: `${MARCA} cancha ${Date.now()}`, superficie: 'CEMENTO' },
+      select: { id: true, nombre: true },
+    });
+    const inicio = new Date('2026-12-05T13:00:00.000Z');
+    const fin = new Date('2026-12-05T15:00:00.000Z');
+    const bloqueo = await prisma.bloqueo.create({
+      data: { canchaId: cancha.id, inicio, fin, motivo: 'TORNEO' },
+      select: { id: true },
+    });
+    const primero = await prisma.partido.findFirstOrThrow({
+      where: { torneoCategoriaId: cuadroId, ronda: 1 },
+      orderBy: { posicion: 'asc' },
+      select: { id: true },
+    });
+    await prisma.partido.update({
+      where: { id: primero.id },
+      data: {
+        programadoInicio: inicio,
+        programadoFin: fin,
+        bloqueoId: bloqueo.id,
+      },
+    });
+
+    const publicado = await cuadro();
+    const [programado, sinProgramar] = publicado.partidos;
+
+    expect(programado).toMatchObject({
+      inicio: inicio.toISOString(),
+      fin: fin.toISOString(),
+      cancha: cancha.nombre,
+    });
+    expect(sinProgramar).toMatchObject({
+      inicio: null,
+      fin: null,
+      cancha: null,
+    });
   });
 
   it('**un torneo cancelado no se publica**', async () => {

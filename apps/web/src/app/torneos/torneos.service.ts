@@ -228,6 +228,16 @@ export interface PartidoPublico {
   ganador: string | null;
   marcador: string | null;
   walkover: boolean;
+  /** Cuándo y dónde, si el club ya lo programó (T134). Instantes ISO y nombre de cancha. */
+  inicio: string | null;
+  fin: string | null;
+  cancha: string | null;
+}
+
+/** Un inscrito de la lista pública (T134). `pago` es nulo en una categoría gratis. */
+export interface InscritoPublico {
+  nombre: string;
+  pago: 'PAGADO' | 'PENDIENTE' | null;
 }
 
 export interface CuadroPublico {
@@ -236,7 +246,8 @@ export interface CuadroPublico {
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
-  inscritos: string[];
+  /** En el orden en que se inscribieron (T134). */
+  inscritos: InscritoPublico[];
   partidos: PartidoPublico[];
 }
 
