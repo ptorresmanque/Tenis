@@ -25,6 +25,7 @@ describe('InscripcionATorneo', () => {
   let sesion: WritableSignal<UsuarioActual | null>;
   let api: {
     inscribirseEnTorneo: ReturnType<typeof vi.fn>;
+    inscribirseComoSocio: ReturnType<typeof vi.fn>;
     pagarInscripcion: ReturnType<typeof vi.fn>;
   };
 
@@ -39,6 +40,15 @@ describe('InscripcionATorneo', () => {
         montoClp: 0,
         categoria: '4ª',
         jugador: 'Rodrigo Soto',
+      }),
+      inscribirseComoSocio: vi.fn().mockResolvedValue({
+        id: 3,
+        estado: 'INSCRITA',
+        estadoPago: 'PENDIENTE',
+        token: 'llave-socio',
+        montoClp: 15_000,
+        categoria: 'Honor',
+        jugador: 'Javiera Socia',
       }),
       pagarInscripcion: vi.fn().mockResolvedValue({
         montoClp: 15_000,
@@ -394,6 +404,86 @@ describe('InscripcionATorneo', () => {
       await fixture.whenStable();
 
       expect(valor('nombre')).toBe('');
+    });
+  });
+
+  describe('inscribirse como socio (T129, punto 5)', () => {
+    const SOCIA: UsuarioActual = {
+      id: 4,
+      nombre: 'Javiera',
+      apellido: 'Socia',
+      email: 'javiera@ejemplo.cl',
+      telefono: '56944443333',
+      esAdmin: false,
+      socioId: 12,
+      socioActivo: true,
+      socioAlDia: true,
+      profesorId: null,
+    };
+
+    const boton = (etiqueta: string) =>
+      Array.from(elemento().querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === etiqueta,
+      );
+
+    const comoSocio = async () => {
+      await montar(SOCIA);
+      boton('Inscribirse como socio')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('sin sesión, o sin ficha de socio, no se ofrece', async () => {
+      expect(boton('Inscribirse como socio')).toBeUndefined();
+
+      await montar({ ...SOCIA, socioId: null });
+      expect(boton('Inscribirse como socio')).toBeUndefined();
+    });
+
+    it('**se salta los datos**: quedan la categoría, los horarios y el pago', async () => {
+      await comoSocio();
+
+      for (const name of ['nombre', 'apellido', 'telefono', 'email', 'procedencia']) {
+        expect(elemento().querySelector(`[name="${name}"]`)).toBeNull();
+      }
+      expect(elemento().querySelector('[name="categoria"]')).not.toBeNull();
+      expect(texto()).toContain('horarios en que no puedas jugar');
+    });
+
+    it('manda solo la categoría, el pago y los horarios, al camino del socio', async () => {
+      await comoSocio();
+      await escribir({ categoria: '20' });
+      await enviar();
+
+      expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
+      expect(api.inscribirseComoSocio).toHaveBeenCalledWith(
+        5,
+        { categoriaJuegoId: 20, medioPago: '', restricciones: [] },
+        undefined,
+      );
+    });
+
+    it('**paga igual**: con transferencia, el comprobante viaja en el mismo envío', async () => {
+      await comoSocio();
+      await escribir({ categoria: '60' });
+      await elegirMedio('TRANSFERENCIA');
+      const archivo = await adjuntar();
+      await enviar();
+
+      expect(api.inscribirseComoSocio).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ categoriaJuegoId: 60, medioPago: 'TRANSFERENCIA' }),
+        archivo,
+      );
+    });
+
+    it('"Inscribir a otra persona" vuelve al formulario completo', async () => {
+      await comoSocio();
+      boton('Inscribir a otra persona')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(elemento().querySelector('[name="nombre"]')).not.toBeNull();
     });
   });
 });

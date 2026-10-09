@@ -133,6 +133,18 @@ export interface InscripcionTorneo {
   email: string | null;
 }
 
+/** Lo que responde una inscripción hecha desde el sitio: la de la calle o la del socio. */
+export interface InscripcionHecha {
+  id: number;
+  estado: EstadoInscripcionTorneo;
+  estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
+  /** Su llave: con ella vuelve a pagar o a subir el comprobante. */
+  token: string;
+  montoClp: number;
+  categoria: string;
+  jugador: string;
+}
+
 /** La lista de un **cuadro**, en tres grupos porque son tres cosas distintas. */
 export interface ListaDelCuadro {
   torneoId: number;
@@ -329,27 +341,31 @@ export class Torneos {
       }[];
     },
     comprobante?: File,
-  ): Promise<{
-    id: number;
-    estado: EstadoInscripcionTorneo;
-    estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
-    /** Su llave: con ella vuelve a pagar o a subir el comprobante. */
-    token: string;
-    montoClp: number;
-    categoria: string;
-    jugador: string;
-  }> {
+  ): Promise<InscripcionHecha> {
     return firstValueFrom(
-      this.http.post<{
-        id: number;
-        estado: EstadoInscripcionTorneo;
-        estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
-        token: string;
-        montoClp: number;
-        categoria: string;
-        jugador: string;
-      }>(
+      this.http.post<InscripcionHecha>(
         `/api/torneos/${torneoId}/inscripcion`,
+        comprobante ? conArchivo(datos, comprobante) : datos,
+      ),
+    );
+  }
+
+  /**
+   * El socio se inscribe **sin el formulario** (T129): la categoría, el pago y cuándo
+   * no puede jugar. Su jugador y su correo los pone el servidor, desde la sesión.
+   */
+  inscribirseComoSocio(
+    torneoId: number,
+    datos: {
+      categoriaJuegoId: number;
+      medioPago: '' | 'WEBPAY' | 'TRANSFERENCIA';
+      restricciones: { diaSemana: number; horaDesde: string; horaHasta: string }[];
+    },
+    comprobante?: File,
+  ): Promise<InscripcionHecha> {
+    return firstValueFrom(
+      this.http.post<InscripcionHecha>(
+        `/api/torneos/${torneoId}/inscripcion-socio`,
         comprobante ? conArchivo(datos, comprobante) : datos,
       ),
     );
