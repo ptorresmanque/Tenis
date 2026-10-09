@@ -1064,3 +1064,70 @@ html[data-tema='publico'][data-modo='oscuro'] {
     animation: none !important;
   }
 }
+
+/*
+  LOS SELECTORES DE FECHA Y HORA, CON LA CARA DEL SITIO (T122).
+
+  Angular Material lee su tema de variables `--mat-sys-*`. El tema precompilado
+  (`azure-blue.css`, en angular.json) las define todas; acá se apuntan las que usan el
+  calendario y la lista de horas a los tokens del sitio. Como apuntan a los tokens y no
+  a colores, el modo oscuro llega solo: cuando cambia `--color-card`, cambia el
+  calendario.
+
+  Sin capa a propósito: el tema precompilado tampoco tiene, y una regla en `@layer`
+  pierde contra cualquiera que no esté en una.
+
+  Los radios van a 2px, también el `corner-full` del día elegido y del botón: un
+  círculo sería la única forma redonda del sitio (forma consistente, TV2).
+*/
+:root {
+  --mat-sys-primary: var(--color-primary);
+  --mat-sys-on-primary: var(--color-on-primary);
+  --mat-sys-primary-container: var(--color-selected);
+  --mat-sys-on-primary-container: var(--color-primary);
+  --mat-sys-secondary: var(--color-primary);
+  --mat-sys-on-secondary: var(--color-on-primary);
+  --mat-sys-secondary-container: var(--color-selected);
+  --mat-sys-on-secondary-container: var(--color-foreground);
+  --mat-sys-tertiary-container: var(--color-accent-soft);
+  --mat-sys-on-tertiary-container: var(--color-accent-strong);
+  --mat-sys-surface: var(--color-card);
+  --mat-sys-surface-container-lowest: var(--color-card);
+  --mat-sys-surface-container-low: var(--color-card);
+  --mat-sys-surface-container: var(--color-card);
+  --mat-sys-surface-container-high: var(--color-card);
+  --mat-sys-surface-container-highest: var(--color-muted);
+  --mat-sys-on-surface: var(--color-foreground);
+  --mat-sys-on-surface-variant: var(--color-muted-foreground);
+  --mat-sys-outline: var(--color-border);
+  --mat-sys-outline-variant: var(--color-border);
+  --mat-sys-error: var(--color-destructive);
+
+  --mat-sys-corner-extra-small: var(--radius);
+  --mat-sys-corner-small: var(--radius);
+  --mat-sys-corner-medium: var(--radius);
+  --mat-sys-corner-large: var(--radius);
+  --mat-sys-corner-extra-large: var(--radius);
+  --mat-sys-corner-full: var(--radius);
+
+  --mat-sys-body-large-font: var(--font-sans);
+  --mat-sys-body-medium-font: var(--font-sans);
+  --mat-sys-body-small-font: var(--font-sans);
+  --mat-sys-label-large-font: var(--font-sans);
+  --mat-sys-label-medium-font: var(--font-sans);
+  --mat-sys-label-small-font: var(--font-sans);
+  --mat-sys-title-small-font: var(--font-sans);
+  --mat-sys-title-medium-font: var(--font-sans);
+}
+
+/* El día del calendario y el botón que lo abre van redondos en Material, con el radio
+   escrito en su CSS y sin token que lo cambie. Se pisa acá, acotado a esas piezas, con
+   una clase más: sus estilos llegan después de los globales y ganarían el empate. */
+.mat-calendar .mat-calendar-body-cell-content,
+.mat-calendar .mat-calendar-body-cell-preview,
+.mat-datepicker-toggle .mat-mdc-icon-button,
+.mat-datepicker-toggle .mat-mdc-button-persistent-ripple,
+.mat-timepicker-toggle .mat-mdc-icon-button,
+.mat-timepicker-toggle .mat-mdc-button-persistent-ripple {
+  border-radius: var(--radius);
+}

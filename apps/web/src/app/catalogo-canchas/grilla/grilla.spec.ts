@@ -825,9 +825,8 @@ describe('Grilla', () => {
   });
 
   it('el selector de día también se anuncia como clickeable', () => {
-    const fecha = (fixture.nativeElement as HTMLElement).querySelector(
-      'input[type="date"]',
-    );
+    // Desde T122 es el campo de Material: se busca por su id, no por el tipo nativo.
+    const fecha = (fixture.nativeElement as HTMLElement).querySelector('#fecha');
 
     expect(fecha?.classList.contains('cursor-pointer')).toBe(true);
   });
