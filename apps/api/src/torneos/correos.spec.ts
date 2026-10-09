@@ -1,9 +1,16 @@
 import { DatosDelClub, firmaDelClub } from '../comun/club';
-import { avisoDeComprobante } from './correos';
+import {
+  avisoDeComprobante,
+  InscripcionParaAvisar,
+  inscripcionRecibida,
+  pagoAprobado,
+  pagoRechazado,
+} from './correos';
 
 /**
- * T130. Lo que dice el aviso a los administradores cuando llega un comprobante. Cuándo
- * sale y a quién se prueba contra la base, en `torneos-aviso-comprobante.spec.ts`.
+ * T130 y T131. Lo que dicen el aviso a los administradores y los correos al inscrito.
+ * Cuándo salen y a quién se prueba contra la base, en `torneos-aviso-comprobante.spec.ts`
+ * y `torneos-correos-inscrito.spec.ts`.
  */
 describe('correos del torneo', () => {
   const CLUB: DatosDelClub = {
@@ -47,5 +54,103 @@ describe('correos del torneo', () => {
 
   it('va firmado por el club', () => {
     expect(aviso().cuerpo).toContain(firmaDelClub(CLUB));
+  });
+
+  describe('al inscrito (T131)', () => {
+    const INSCRIPCION: InscripcionParaAvisar = {
+      nombre: 'Camila',
+      torneo: 'Torneo Aniversario',
+      categoria: '4ª',
+      montoClp: 15_000,
+      estado: 'INSCRITA',
+      estadoPago: 'EXENTA',
+      medioPago: null,
+      motivoRechazo: null,
+    };
+
+    const recibida = (parche: Partial<InscripcionParaAvisar> = {}) =>
+      inscripcionRecibida(
+        { ...INSCRIPCION, ...parche },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+    it('**la inscripción recibida dice el torneo y la categoría**, en el asunto también', () => {
+      const { asunto, cuerpo } = recibida();
+
+      expect(asunto).toBe('Inscripción recibida: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain('Hola Camila:');
+      expect(cuerpo).toContain(
+        'Quedaste inscrito en 4ª de Torneo Aniversario.',
+      );
+      expect(cuerpo).toContain('https://fedal.cl/torneos');
+      expect(cuerpo).toContain(firmaDelClub(CLUB));
+    });
+
+    it('**en lista de espera, lo dice**: no "quedaste inscrito"', () => {
+      const { cuerpo } = recibida({ estado: 'LISTA_ESPERA' });
+
+      expect(cuerpo).toContain('lista de espera');
+      expect(cuerpo).not.toContain('Quedaste inscrito');
+    });
+
+    it('con transferencia, dice que el club revisa el comprobante', () => {
+      const { cuerpo } = recibida({
+        estadoPago: 'PENDIENTE',
+        medioPago: 'TRANSFERENCIA',
+      });
+
+      expect(cuerpo).toContain('El club está revisando tu comprobante');
+    });
+
+    it('la que anota el admin sin pagar dice cuánto falta y dónde se paga', () => {
+      const { cuerpo } = recibida({ estadoPago: 'PENDIENTE', medioPago: null });
+
+      expect(cuerpo).toContain('Falta pagar la inscripción ($15.000)');
+    });
+
+    it('**el pago aprobado confirma la inscripción**', () => {
+      const { asunto, cuerpo } = pagoAprobado(
+        { ...INSCRIPCION, estadoPago: 'PAGADA' },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+      expect(asunto).toBe('Pago confirmado: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain('confirmamos el pago de tu inscripción');
+      expect(cuerpo).toContain(
+        'Quedaste inscrito en 4ª de Torneo Aniversario.',
+      );
+    });
+
+    it('**al que ya salió del cuadro no le dice "quedaste inscrito"**', () => {
+      // El club puede confirmar el pago de alguien que retiró antes: el correo confirma
+      // la plata, no un lugar que ya no tiene.
+      const { cuerpo } = pagoAprobado(
+        { ...INSCRIPCION, estado: 'RETIRADA', estadoPago: 'PAGADA' },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+      expect(cuerpo).toContain('confirmamos el pago de tu inscripción');
+      expect(cuerpo).not.toContain('Quedaste inscrito');
+    });
+
+    it('**el pago rechazado dice el motivo y que el cupo quedó libre**', () => {
+      const { asunto, cuerpo } = pagoRechazado(
+        {
+          ...INSCRIPCION,
+          estado: 'RETIRADA',
+          estadoPago: 'RECHAZADA',
+          motivoRechazo: 'La transferencia no llegó',
+        },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+      expect(asunto).toBe('Pago rechazado: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain('Motivo: La transferencia no llegó');
+      expect(cuerpo).toContain('tu lugar en el cuadro quedó libre');
+    });
   });
 });

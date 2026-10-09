@@ -145,7 +145,7 @@ export class InscripcionesATorneo {
     estadoPago: EstadoPagoInscripcion;
     token: string;
   }> {
-    return this.anotar(
+    const hecha = await this.anotar(
       torneoCategoriaId,
       async (tx) =>
         quien.jugadorId !== undefined
@@ -153,6 +153,11 @@ export class InscripcionesATorneo {
           : (await this.jugadores.deSocio(quien.socioId as number, tx)).id,
       { email: quien.email },
     );
+
+    // "Inscripción recibida" (T131), también para el que anota el admin (A4).
+    await this.avisos.inscripcionRecibida(hecha.id);
+
+    return hecha;
   }
 
   /**
@@ -402,9 +407,15 @@ export class InscripcionesATorneo {
       throw falla;
     });
 
-    // **Con la inscripción ya escrita**: el aviso no puede deshacerla (T130). Solo si
-    // trajo comprobante; Webpay se confirma solo (A3).
+    // **Con la inscripción ya escrita**: los correos no pueden deshacerla. A los admins,
+    // solo si trajo comprobante (T130); Webpay se confirma solo (A3).
     if (ruta) await this.avisos.comprobanteRecibido(inscripcion.id);
+
+    // Al inscrito (T131), salvo con Webpay: ahí el cupo es una reserva que se suelta a
+    // los 15 minutos si no paga, y la confirmación es el "pago confirmado".
+    const conWebpay =
+      cuadro.montoInscripcionClp > 0 && datos.medioPago === 'WEBPAY';
+    if (!conWebpay) await this.avisos.inscripcionRecibida(inscripcion.id);
 
     return {
       ...inscripcion,

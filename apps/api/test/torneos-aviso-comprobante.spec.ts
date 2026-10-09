@@ -49,9 +49,16 @@ describe('El aviso de un comprobante a los administradores', () => {
 
   const servidor = () => app.getHttpServer() as Parameters<typeof request>[0];
 
-  /** Los correos de este archivo: otros archivos corren a la vez con sus admins. */
+  /**
+   * Los avisos de comprobante de este archivo: otros archivos corren a la vez con sus
+   * admins, y desde T131 el inscrito recibe además su "inscripción recibida".
+   */
   const avisos = () =>
-    enviados.filter((correo) => correo.para.endsWith(DOMINIO));
+    enviados.filter(
+      (correo) =>
+        correo.para.endsWith(DOMINIO) &&
+        correo.asunto.startsWith('Comprobante por revisar'),
+    );
 
   /** Una imagen de verdad: el pipeline la reencodifica. Se arma una vez, en `beforeAll`. */
   let imagen: Buffer;

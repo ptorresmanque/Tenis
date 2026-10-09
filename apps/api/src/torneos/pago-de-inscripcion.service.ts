@@ -15,6 +15,7 @@ import {
 import { ConfirmacionService } from '../pagos/confirmacion.service';
 import { PagosService } from '../pagos/pagos.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 
 /**
@@ -38,6 +39,7 @@ export class PagoDeInscripcion {
     private readonly pagos: PagosService,
     private readonly confirmacion: ConfirmacionService,
     private readonly abandonadas: InscripcionesAbandonadas,
+    private readonly avisos: AvisosDeTorneo,
   ) {}
 
   /**
@@ -101,10 +103,20 @@ export class PagoDeInscripcion {
    * cobrando a la misma persona.
    */
   async confirmar(tokenPasarela: string) {
+    // La inscripción que **esta** confirmación marcó pagada. Webpay repite el aviso, y
+    // las repeticiones no marcan nada: así el correo sale una vez (T131).
+    let pagada: number | null = null;
+
     const resultado = await this.confirmacion.confirmar(
       tokenPasarela,
-      (tx, transaccion) => this.aplicar(tx, transaccion),
+      async (tx, transaccion) => {
+        if (await this.aplicar(tx, transaccion))
+          pagada = transaccion.conceptoId;
+      },
     );
+
+    // Fuera de la transacción del pago, ya escrita: el correo no puede deshacerla.
+    if (pagada !== null) await this.avisos.pagoAprobado(pagada);
 
     // **El pago que no se autorizó suelta el cupo en el acto.** La pantalla le dice a
     // la persona que su inscripción no quedó tomada; hasta que esto existió, eso era
@@ -116,10 +128,11 @@ export class PagoDeInscripcion {
     return resultado;
   }
 
+  /** Marca la inscripción pagada. Responde si la marcó: no, si ya no estaba pendiente. */
   private async aplicar(
     tx: Prisma.TransactionClient,
     transaccion: Transaccion,
-  ): Promise<void> {
+  ): Promise<boolean> {
     // El estado en el `where`: si el admin ya le aprobó el comprobante mientras la
     // persona pagaba en línea, esto no la vuelve a marcar. El dinero de más lo resuelve
     // alguien; marcarla dos veces borraría el rastro de cuál fue el cobro bueno.
@@ -131,7 +144,7 @@ export class PagoDeInscripcion {
       data: { estadoPago: EstadoPagoInscripcion.PAGADA },
     });
 
-    if (count > 0) return;
+    if (count > 0) return true;
 
     // **No había nada que marcar, y eso es plata que entró sin contrapartida.**
     // Pasan dos cosas por acá y las dos las tiene que mirar una persona: que el club
@@ -147,5 +160,7 @@ export class PagoDeInscripcion {
       `Transacción ${transaccion.id}: se autorizó el pago de la inscripción ` +
         `${transaccion.conceptoId}, que ya no está pendiente. Queda para revisión.`,
     );
+
+    return false;
   }
 }
