@@ -307,9 +307,9 @@ export class Privacidad {
         'Nombre, apellidos, teléfono, correo, el club o lugar de dónde vienes, categoría, ' +
         'los horarios en que no puedes jugar, el pago y el comprobante; después, tus ' +
         'resultados, los cuadros y el ranking, y las fotos y transmisiones de los ' +
-        'partidos. Si tienes sesión, el formulario se llena con los datos de tu cuenta, y ' +
-        'si eres socio puedes inscribirte con los de tu ficha. El teléfono y el correo no ' +
-        'se publican.',
+        'partidos. Si tienes sesión y no eres socio, el formulario se llena con los datos de ' +
+        'tu cuenta; si eres socio, puedes inscribirte con los de tu ficha sin llenarlo. El ' +
+        'teléfono y el correo no se publican.',
       paraQue:
         'Organizar el torneo, escribirte sobre tu inscripción y tus partidos, y publicar en ' +
         'el sitio tu nombre, si tu inscripción está pagada o pendiente, tus resultados, el ' +
