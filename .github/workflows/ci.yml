@@ -23,9 +23,14 @@ jobs:
     # La misma versión que el hosting (ficha del servidor: 10.6). La base es efímera y no
     # tiene datos, así que su clave va aquí y no como secreto: el repo es público, y un PR
     # desde un fork no recibe secretos, así que con uno su CI fallaría siempre.
+    #
+    # La imagen oficial, bajada de su copia en AWS (ECR Public) y no de Docker Hub: Docker
+    # Hub limita las descargas sin cuenta por IP, y los runners de GitHub comparten IP. El
+    # 2026-10-09 el CI de #87 falló tres veces en "Initialize containers" con
+    # "toomanyrequests", sin llegar a correr un test.
     services:
       mariadb:
-        image: mariadb:10.6
+        image: public.ecr.aws/docker/library/mariadb:10.6
         env:
           MARIADB_ROOT_PASSWORD: raiz
         ports:
