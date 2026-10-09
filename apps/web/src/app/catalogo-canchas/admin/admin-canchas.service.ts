@@ -125,6 +125,9 @@ export interface ReglasDelClub {
   horasMinModificacion: number;
   horasReembolsoTotal: number;
   diasSancionNoUso: number;
+  /** Lo que vale ser socio, en pesos. Las cuotas ya emitidas congelaron el suyo. */
+  cuotaMensualClp: number;
+  cuotaIncorporacionClp: number;
 }
 
 /**

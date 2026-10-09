@@ -274,6 +274,38 @@ describe('Configuración del club', () => {
     });
   });
 
+  /**
+   * Lo que vale ser socio. Las columnas existen desde T40 y la emisión las lee, pero hasta
+   * hoy solo las escribía el seed: el panel no tenía dónde cambiarlas.
+   */
+  describe('los montos de las cuotas', () => {
+    it('**guarda la mensualidad y la incorporación, y los devuelve**', async () => {
+      const respuesta = await patch({
+        cuotaMensualClp: 32000,
+        cuotaIncorporacionClp: 180000,
+      }).expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        cuotaMensualClp: 32000,
+        cuotaIncorporacionClp: 180000,
+      });
+    });
+
+    it('**una cuota en cero no se guarda**: sería una deuda que no se puede pagar', async () => {
+      await patch({ cuotaMensualClp: 0 }).expect(400);
+      await patch({ cuotaIncorporacionClp: -1 }).expect(400);
+      await patch({ cuotaMensualClp: 25000.5 }).expect(400);
+    });
+
+    it('el mensaje nombra la cuota', async () => {
+      const respuesta = await patch({ cuotaMensualClp: 0 }).expect(400);
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'La mensualidad tiene que ser un número entero desde 1.',
+      );
+    });
+  });
+
   describe('validación', () => {
     it('la duración del bloque ya no es una regla: pedirla sola responde 400 (T92)', async () => {
       // La elige quien reserva desde T78. Un panel viejo que la mande no tiene que

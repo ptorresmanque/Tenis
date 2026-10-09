@@ -264,7 +264,7 @@ export const routes: Routes = [
           { path: '', pathMatch: 'full', redirectTo: 'reglas' },
           {
             path: 'reglas',
-            title: 'Reglas de reserva — Administración',
+            title: 'Reglas y cuotas — Administración',
             loadComponent: () =>
               import('./catalogo-canchas/admin/editor-configuracion').then(
                 (m) => m.EditorConfiguracion,
