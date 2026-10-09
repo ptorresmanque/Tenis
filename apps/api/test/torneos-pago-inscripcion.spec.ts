@@ -70,6 +70,7 @@ describe('El pago de la inscripción a un torneo', () => {
       .toString()
       .padStart(7, '0')}`,
     procedencia: 'Club de Ñuñoa',
+    email: 'rodrigo@ejemplo.cl',
     categoriaJuegoId: cuartaId,
     // **El medio de pago es obligatorio cuando el cuadro cobra**: sin él la
     // inscripción se rechaza y no queda fila. Webpay es el camino que no adjunta nada.
@@ -238,6 +239,7 @@ describe('El pago de la inscripción a un torneo', () => {
         apellido: APELLIDO,
         telefono: '+56 9 6666 5555',
         procedencia: 'Club',
+        email: 'gratis@ejemplo.cl',
         categoriaJuegoId: cuartaId,
       })
       .expect(201);
@@ -324,6 +326,7 @@ describe('El pago de la inscripción a un torneo', () => {
           apellido: APELLIDO,
           telefono: '+56 9 6666 4444',
           procedencia: 'Club',
+          email: 'gratis@ejemplo.cl',
           categoriaJuegoId: cuartaId,
         })
         .expect(201);
@@ -942,6 +945,7 @@ describe('El pago de la inscripción a un torneo', () => {
             apellido: APELLIDO,
             telefono: '+56 9 4444 3333',
             procedencia: 'Club',
+            email: 'gratis@ejemplo.cl',
             categoriaJuegoId: cuartaId,
           })
           .expect(201)

@@ -26,6 +26,7 @@ describe('InscritosDelTorneo', () => {
     medioPago: 'WEBPAY',
     tieneComprobante: false,
     telefono: '56911112222',
+    email: 'carolina@ejemplo.cl',
   };
 
   /** El que subió un comprobante y espera que alguien lo mire. */
@@ -43,6 +44,7 @@ describe('InscritosDelTorneo', () => {
     medioPago: 'TRANSFERENCIA',
     tieneComprobante: true,
     telefono: '56987654321',
+    email: 'camila@ejemplo.cl',
   };
 
   /** El que eligió Webpay y todavía no paga: mismo estado, otra situación. */
@@ -70,6 +72,7 @@ describe('InscritosDelTorneo', () => {
     medioPago: null,
     tieneComprobante: false,
     telefono: null,
+    email: null,
   };
 
   const LISTA: ListaDelCuadro = {
@@ -240,6 +243,23 @@ describe('InscritosDelTorneo', () => {
 
     expect(elemento().querySelector('select[name="jugadorId"]')).toBeNull();
     expect(texto()).toContain('inscripción de este torneo está cerrada');
+  });
+
+  it('**el correo se pide pero no se exige** (T127): el del mesón puede no tener', async () => {
+    const elegir = async (name: string, valor: string) => {
+      const control = elemento().querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+      control.value = valor;
+      control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? 'change' : 'input'));
+      await fixture.whenStable();
+    };
+
+    // Un jugador que no está en el cuadro: Carolina ya está, Matías no.
+    await elegir('jugadorId', '3');
+    expect(elemento().querySelector<HTMLInputElement>('input[name="email"]')?.required).toBe(false);
+    await elegir('email', ' matias@ejemplo.cl ');
+    await apretar('Inscribir');
+
+    expect(api.inscribir).toHaveBeenCalledWith(5, { jugadorId: 3, email: 'matias@ejemplo.cl' });
   });
 
   it('si el servidor rechaza, lo dice con sus palabras', async () => {
@@ -460,6 +480,16 @@ describe('InscritosDelTorneo', () => {
 
       // Como se dicta, no como se guarda (T120).
       expect(texto()).toContain('+56 9 8765 4321');
+    });
+
+    it('**y el correo a su lado**, para escribirle sin buscarlo (T127)', async () => {
+      await conPagos();
+
+      await apretar('Revisar');
+
+      const enlace = elemento().querySelector<HTMLAnchorElement>('a[href^="mailto:"]');
+      expect(enlace?.getAttribute('href')).toBe('mailto:camila@ejemplo.cl');
+      expect(enlace?.textContent?.trim()).toBe('camila@ejemplo.cl');
     });
   });
 

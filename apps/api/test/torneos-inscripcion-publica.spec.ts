@@ -54,6 +54,7 @@ describe('POST /api/torneos/:id/inscripcion', () => {
       .toString()
       .padStart(7, '0')}`,
     procedencia: 'Club de Ñuñoa',
+    email: 'rodrigo@ejemplo.cl',
     categoriaJuegoId: cuartaId,
     ...extra,
   });
@@ -266,6 +267,77 @@ describe('POST /api/torneos/:id/inscripcion', () => {
       where: { apellido: APELLIDO },
     });
     expect(jugador.procedencia).toBe('Club Manquehue');
+  });
+
+  describe('el correo (T127)', () => {
+    /** La inscripción recién hecha, leída de la base. */
+    const laInscripcion = () =>
+      prisma.inscripcionTorneo.findFirstOrThrow({ where: { torneoId } });
+
+    it('se guarda con la inscripción, recortado y en minúsculas', async () => {
+      // Es a donde van la confirmación, el rechazo del pago, el cuadro armado y la
+      // programación de sus partidos (decisión 3 de la sexta parte).
+      await inscribirse(validos({ email: '  Rodrigo@Ejemplo.CL ' })).expect(
+        201,
+      );
+
+      expect((await laInscripcion()).email).toBe('rodrigo@ejemplo.cl');
+    });
+
+    it('**sin correo, o con uno mal escrito, responde 400 y no escribe nada**', async () => {
+      for (const email of [
+        undefined,
+        '',
+        '   ',
+        'rodrigo@',
+        'rodrigo.ejemplo.cl',
+      ]) {
+        await inscribirse(validos({ email })).expect(400);
+      }
+
+      expect(
+        await prisma.inscripcionTorneo.count({ where: { torneoId } }),
+      ).toBe(0);
+      expect(
+        await prisma.jugador.count({ where: { apellido: APELLIDO } }),
+      ).toBe(0);
+    });
+
+    it('el panel lo muestra, para escribirle al inscrito', async () => {
+      await inscribirse(validos()).expect(201);
+
+      const cuadro = await prisma.torneoCategoria.findFirstOrThrow({
+        where: { torneoId, categoriaJuegoId: cuartaId },
+      });
+      const lista = (
+        await request(app.getHttpServer())
+          .get(`/api/admin/cuadros/${cuadro.id}/inscripciones`)
+          .set('Cookie', cookieAdmin)
+          .expect(200)
+      ).body as { inscritos: { email: string | null }[] };
+
+      expect(lista.inscritos[0].email).toBe('rodrigo@ejemplo.cl');
+    });
+
+    it('**no sale en la respuesta pública**', async () => {
+      // Como el teléfono: se comprueba sobre el JSON entero, para que un campo nuevo
+      // de la API pública no lo saque a la calle sin que nadie lo note.
+      await inscribirse(validos()).expect(201);
+
+      const cuadro = await prisma.torneoCategoria.findFirstOrThrow({
+        where: { torneoId, categoriaJuegoId: cuartaId },
+      });
+      const publicos = await Promise.all([
+        request(app.getHttpServer())
+          .get(`/api/torneos/cuadros/${cuadro.id}`)
+          .expect(200),
+        request(app.getHttpServer()).get('/api/torneos/publicos').expect(200),
+      ]);
+
+      for (const respuesta of publicos) {
+        expect(JSON.stringify(respuesta.body)).not.toContain('ejemplo.cl');
+      }
+    });
   });
 
   it('**pasado el cupo se entra en lista de espera, no se rechaza**', async () => {

@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { entero } from '../catalogo-canchas/admin.dto';
 import { leerTelefono } from '../comun/telefono';
 import { fechaDelClub } from '../comun/tiempo';
+import { leerCorreo } from '../identidad/registro.dto';
 import { MedioPagoInscripcion, Superficie } from '../generated/prisma/client';
 
 /** Un jugador nuevo: el socio por su ficha, o alguien de afuera por su nombre. */
@@ -258,19 +259,28 @@ function texto(valor: unknown, largo: number): string {
  * Con el socio, el servidor le crea o le reutiliza su jugador. Es la comodidad que
  * evita que el club tenga que pasar por la pantalla de jugadores para inscribir a
  * alguien que ya está en el padrón.
+ *
+ * **El correo se pide pero no se exige** (T127): el que se anota en el mesón puede no
+ * tener uno. Si viene, se valida como el de la inscripción pública.
  */
 export function leerInscripcionATorneo(cuerpo: unknown): {
   jugadorId?: number;
   socioId?: number;
+  email: string | null;
 } {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
+  const sinCorreo =
+    datos.email === undefined ||
+    datos.email === null ||
+    (typeof datos.email === 'string' && datos.email.trim() === '');
+  const email = sinCorreo ? null : leerCorreo(datos);
 
   if (datos.jugadorId !== undefined && datos.jugadorId !== null) {
-    return { jugadorId: entero(datos.jugadorId, 'El jugador', 1) };
+    return { jugadorId: entero(datos.jugadorId, 'El jugador', 1), email };
   }
 
   if (datos.socioId !== undefined && datos.socioId !== null) {
-    return { socioId: entero(datos.socioId, 'El socio', 1) };
+    return { socioId: entero(datos.socioId, 'El socio', 1), email };
   }
 
   throw new BadRequestException(

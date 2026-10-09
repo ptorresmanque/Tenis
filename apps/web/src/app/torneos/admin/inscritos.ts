@@ -239,6 +239,10 @@ import { TelefonoPipe } from '../../core/telefono';
                         @if (quien.telefono) {
                           <br />Para llamarlo: {{ quien.telefono | telefono }}
                         }
+                        @if (quien.email) {
+                          <br />Para escribirle:
+                          <a class="underline" [href]="'mailto:' + quien.email">{{ quien.email }}</a>
+                        }
                       </p>
 
                       <!-- **Las dos decisiones, juntas.** Venían separadas por el
@@ -354,6 +358,20 @@ import { TelefonoPipe } from '../../core/telefono';
                 </select>
               </label>
 
+              <!-- **Se pide pero no se exige** (T127): el que se anota en el mesón puede
+                   no tener correo, y sin él no le llegan los avisos del torneo. -->
+              <label class="min-w-56 flex-1">
+                <span class="text-sm font-medium">Correo (opcional)</span>
+                <input
+                  class="campo campo-chico mt-1"
+                  type="email"
+                  name="email"
+                  autocomplete="off"
+                  maxlength="191"
+                  [(ngModel)]="correo"
+                />
+              </label>
+
               <button
                 type="submit"
                 class="boton boton-secundario boton-chico"
@@ -440,6 +458,7 @@ export class InscritosDelTorneo {
   readonly cuadroId = input.required<number>();
 
   protected jugadorId = 0;
+  protected correo = '';
 
   /**
    * Las franjas en palabras: "los martes de 18:00 a 21:00 y los jueves de 09:00 a 12:00".
@@ -718,8 +737,10 @@ export class InscritosDelTorneo {
     await this.intentar(async () => {
       await this.api.inscribir(this.cuadroId(), {
         jugadorId: Number(this.jugadorId),
+        email: this.correo.trim(),
       });
       this.jugadorId = 0;
+      this.correo = '';
     });
   }
 

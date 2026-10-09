@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { entero } from '../catalogo-canchas/admin.dto';
 import { type Franja, leerFranjas } from './restricciones';
 import { leerTelefono } from '../comun/telefono';
+import { leerCorreo } from '../identidad/registro.dto';
 
 /**
  * Cómo dice que va a pagar.
@@ -21,6 +22,8 @@ export interface InscripcionPublica {
   apellido: string;
   telefono: string;
   procedencia: string;
+  /** A dónde se le escriben la confirmación, el pago, el cuadro y sus partidos. */
+  email: string;
   categoriaJuegoId: number;
   /**
    * Cómo va a pagar, o nada si el cuadro es gratis.
@@ -58,6 +61,8 @@ export function leerInscripcionPublica(cuerpo: unknown): InscripcionPublica {
     apellido: exigir(datos.apellido, 'apellido', 80),
     telefono,
     procedencia: exigir(datos.procedencia, 'club o lugar de dónde vienes', 120),
+    // El mismo lector del registro: recortado, en minúsculas y con forma de correo.
+    email: leerCorreo(datos),
     categoriaJuegoId: entero(numero(datos.categoriaJuegoId), 'La categoría', 1),
     medioPago: leerMedioPago(datos.medioPago),
     restricciones: leerFranjas(comoLista(datos.restricciones)),

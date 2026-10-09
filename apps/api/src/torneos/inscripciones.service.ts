@@ -58,6 +58,11 @@ export interface InscripcionPublicada {
    */
   telefono: string | null;
   /**
+   * A dónde escribirle (T127). Del panel y no de la pública, por la misma razón que el
+   * teléfono. Nulo en las de antes de T127 y en las que el admin anotó sin uno.
+   */
+  email: string | null;
+  /**
    * Cuándo **no** puede jugar.
    *
    * Va en la lista del panel y **no** en la pública: dice a qué hora esa persona no
@@ -111,17 +116,20 @@ export class InscripcionesATorneo {
    */
   async inscribir(
     torneoCategoriaId: number,
-    quien: { jugadorId?: number; socioId?: number },
+    quien: { jugadorId?: number; socioId?: number; email: string | null },
   ): Promise<{
     id: number;
     estado: EstadoInscripcionTorneo;
     estadoPago: EstadoPagoInscripcion;
     token: string;
   }> {
-    return this.anotar(torneoCategoriaId, async () =>
-      quien.jugadorId !== undefined
-        ? quien.jugadorId
-        : (await this.jugadores.deSocio(quien.socioId as number)).id,
+    return this.anotar(
+      torneoCategoriaId,
+      async () =>
+        quien.jugadorId !== undefined
+          ? quien.jugadorId
+          : (await this.jugadores.deSocio(quien.socioId as number)).id,
+      { email: quien.email },
     );
   }
 
@@ -137,9 +145,17 @@ export class InscripcionesATorneo {
   private async anotar(
     torneoCategoriaId: number,
     resolverJugador: (tx: Prisma.TransactionClient) => Promise<number>,
-    restricciones: Franja[] = [],
-    comprobanteRuta: string | null = null,
-    medioPago: MedioPago | null = null,
+    {
+      restricciones = [],
+      comprobanteRuta = null,
+      medioPago = null,
+      email,
+    }: {
+      restricciones?: Franja[];
+      comprobanteRuta?: string | null;
+      medioPago?: MedioPago | null;
+      email: string | null;
+    },
   ): Promise<{
     id: number;
     estado: EstadoInscripcionTorneo;
@@ -216,6 +232,7 @@ export class InscripcionesATorneo {
             // que eligió Webpay y cerró la ventana, sin tocar al que el admin anotó
             // para que pague en efectivo — ver `InscripcionesAbandonadas`.
             medioPago,
+            email,
             // En la misma escritura que la inscripción: unas franjas sin inscripción no
             // significan nada, y una inscripción sin ellas mandaría a T67 a programar
             // un partido a una hora que la persona ya dijo que no podía.
@@ -316,11 +333,14 @@ export class InscripcionesATorneo {
 
           return jugador.id;
         },
-        datos.restricciones,
-        ruta,
-        // Solo si el cuadro cobra: en uno gratis no eligió nada y la inscripción ya
-        // está completa, así que no hay cupo que soltarle después.
-        cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
+        {
+          restricciones: datos.restricciones,
+          comprobanteRuta: ruta,
+          // Solo si el cuadro cobra: en uno gratis no eligió nada y la inscripción ya
+          // está completa, así que no hay cupo que soltarle después.
+          medioPago: cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
+          email: datos.email,
+        },
       );
 
       return {
@@ -531,6 +551,7 @@ export class InscripcionesATorneo {
         inscritaEn: true,
         estadoPago: true,
         medioPago: true,
+        email: true,
         // **La ruta no sale de acá.** Se lee para responder si hay algo que mirar y
         // se convierte en un booleano: es una ruta del disco del servidor.
         comprobanteRuta: true,
@@ -564,6 +585,7 @@ export class InscripcionesATorneo {
         medioPago: fila.medioPago,
         tieneComprobante: fila.comprobanteRuta !== null,
         telefono: fila.jugador.telefono,
+        email: fila.email,
         restricciones: fila.restricciones,
       })),
     );

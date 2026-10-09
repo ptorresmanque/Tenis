@@ -17,6 +17,7 @@ const enBlanco = () => ({
   apellido: '',
   telefono: '',
   procedencia: '',
+  email: '',
   categoriaJuegoId: 0,
   /** Vacío hasta que la persona elige. Solo se pregunta si la categoría cobra. */
   medioPago: '' as '' | 'WEBPAY' | 'TRANSFERENCIA',
@@ -44,7 +45,7 @@ const enBlanco = () => ({
       <h3 class="font-display text-lg font-bold tracking-wide uppercase">Inscribirme</h3>
       <p class="mt-1 max-w-prose text-sm text-muted-foreground">
         No hace falta tener cuenta. El club te llama a este teléfono si hay algún
-        cambio, y no se publica en ninguna parte.
+        cambio. Ni el teléfono ni el correo se publican en ninguna parte.
       </p>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -85,6 +86,22 @@ const enBlanco = () => ({
               [(ngModel)]="datos.telefono"
             />
           </span>
+        </app-campo>
+
+        <app-campo
+          etiqueta="Correo"
+          ayuda="Te escribimos a este correo para confirmar tu inscripción y avisarte de tus partidos."
+          [obligatorio]="true"
+        >
+          <input
+            appCampoControl
+            class="campo"
+            type="email"
+            name="email"
+            autocomplete="email"
+            maxlength="191"
+            [(ngModel)]="datos.email"
+          />
         </app-campo>
 
         <app-campo
@@ -423,6 +440,7 @@ export class InscripcionATorneo {
           nombre: this.datos.nombre.trim(),
           apellido: this.datos.apellido.trim(),
           procedencia: this.datos.procedencia.trim(),
+          email: this.datos.email.trim(),
           categoriaJuegoId,
           medioPago,
           restricciones: this.franjas(),

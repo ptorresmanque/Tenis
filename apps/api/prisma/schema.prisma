@@ -1308,6 +1308,14 @@ model InscripcionTorneo {
   /// Por qué el admin lo rechazó. Lo lee quien llama al jugador para explicarle.
   motivoRechazo String? @map("motivo_rechazo") @db.VarChar(200)
 
+  /// A dónde se le escribe: la confirmación, el pago, el cuadro armado y sus partidos
+  /// (T127, decisión 8 de la sexta parte).
+  ///
+  /// **De la inscripción y no del jugador**, como el comprobante: el padre que inscribe
+  /// a su hijo deja su propio correo, y otro torneo puede traer otro. **Nulo** en las de
+  /// antes de T127 y en las que el admin anota sin uno; la pública lo exige.
+  email String? @db.VarChar(191)
+
   inscritaEn DateTime                @default(now()) @map("inscrita_en")
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —

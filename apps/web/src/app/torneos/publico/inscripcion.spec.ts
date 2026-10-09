@@ -108,6 +108,7 @@ describe('InscripcionATorneo', () => {
     apellido: 'Soto',
     telefono: '+56 9 8765 4321',
     procedencia: 'Club de Ñuñoa',
+    email: 'rodrigo@ejemplo.cl',
     categoria: '20',
   };
 
@@ -131,6 +132,14 @@ describe('InscripcionATorneo', () => {
     expect(texto()).toContain('sin cupos, quedarías en lista de espera');
   });
 
+  it('**pide el correo y dice para qué**: ahí le llegan la confirmación y sus partidos (T127)', () => {
+    const correo = elemento().querySelector<HTMLInputElement>('input[name="email"]');
+
+    expect(correo?.type).toBe('email');
+    expect(correo?.autocomplete).toBe('email');
+    expect(texto()).toContain('Te escribimos a este correo');
+  });
+
   it('**dice que el teléfono no se publica**, porque es lo que la gente duda', () => {
     expect(texto()).toContain('no se publica');
   });
@@ -145,7 +154,7 @@ describe('InscripcionATorneo', () => {
   });
 
   it('manda los datos con los espacios recortados', async () => {
-    await escribir({ ...completo, nombre: '  Rodrigo  ' });
+    await escribir({ ...completo, nombre: '  Rodrigo  ', email: ' rodrigo@ejemplo.cl ' });
     await enviar();
 
     expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
@@ -156,6 +165,7 @@ describe('InscripcionATorneo', () => {
         // Lo que escribió, en la forma que guarda la API (T121).
         telefono: '56987654321',
         procedencia: 'Club de Ñuñoa',
+        email: 'rodrigo@ejemplo.cl',
         categoriaJuegoId: 20,
         // La 4ª es gratis en este torneo: no hay medio de pago que elegir.
         medioPago: '',
