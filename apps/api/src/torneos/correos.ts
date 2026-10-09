@@ -64,12 +64,22 @@ type Correo = { asunto: string; cuerpo: string };
 
 const pesos = (monto: number) => `$${monto.toLocaleString('es-CL')}`;
 
-/** "Quedaste inscrito", o la lista de espera: lo que el inscrito tiene que saber primero. */
+/**
+ * "Quedaste inscrito", o la lista de espera: lo que el inscrito tiene que saber primero.
+ * Nada si ya salió del cuadro: el club puede confirmar el pago de alguien que retiró.
+ */
 function dondeQuedo(inscripcion: InscripcionParaAvisar): string {
-  return inscripcion.estado === 'LISTA_ESPERA'
-    ? `${inscripcion.categoria} ya llenó su cuadro: quedaste en la lista de espera, y ` +
-        'el club te llama si se libera un lugar.'
-    : `Quedaste inscrito en ${inscripcion.categoria} de ${inscripcion.torneo}.`;
+  switch (inscripcion.estado) {
+    case 'INSCRITA':
+      return `Quedaste inscrito en ${inscripcion.categoria} de ${inscripcion.torneo}.`;
+    case 'LISTA_ESPERA':
+      return (
+        `${inscripcion.categoria} ya llenó su cuadro: quedaste en la lista de espera, ` +
+        'y el club te llama si se libera un lugar.'
+      );
+    case 'RETIRADA':
+      return '';
+  }
 }
 
 /** El pie de los correos al inscrito: dónde ver el torneo, y la firma. */

@@ -123,6 +123,19 @@ describe('correos del torneo', () => {
       );
     });
 
+    it('**al que ya salió del cuadro no le dice "quedaste inscrito"**', () => {
+      // El club puede confirmar el pago de alguien que retiró antes: el correo confirma
+      // la plata, no un lugar que ya no tiene.
+      const { cuerpo } = pagoAprobado(
+        { ...INSCRIPCION, estado: 'RETIRADA', estadoPago: 'PAGADA' },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+      expect(cuerpo).toContain('confirmamos el pago de tu inscripción');
+      expect(cuerpo).not.toContain('Quedaste inscrito');
+    });
+
     it('**el pago rechazado dice el motivo y que el cupo quedó libre**', () => {
       const { asunto, cuerpo } = pagoRechazado(
         {
