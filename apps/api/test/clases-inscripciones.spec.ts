@@ -237,7 +237,7 @@ describe('Inscripciones a una clase', () => {
     expect(clase.inscritos[0]).toMatchObject({
       esSocio: false,
       nombre: 'Benjamín Apoderado',
-      telefono: '+56977778888',
+      telefono: '56977778888',
     });
   });
 

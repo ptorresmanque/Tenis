@@ -1,3 +1,5 @@
+import { mostrarTelefono } from './telefono';
+
 /**
  * Los datos de contacto del club, como el admin los carga en "Datos del club": los que el
  * sitio público muestra y los que firman cada correo.
@@ -20,7 +22,9 @@ export interface DatosDelClub {
  * correo es lo que se abre desde el teléfono camino a la cancha.
  */
 export function firmaDelClub(club: DatosDelClub): string {
-  const contacto = [club.telefono, club.email].filter(Boolean).join(' · ');
+  const contacto = [mostrarTelefono(club.telefono), club.email]
+    .filter(Boolean)
+    .join(' · ');
   const comoLlegar =
     club.latitud !== null && club.longitud !== null
       ? 'Cómo llegar: https://www.google.com/maps/dir/?api=1&destination=' +

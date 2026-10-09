@@ -180,6 +180,13 @@ describe('POST /api/contacto y la bandeja del club', () => {
       .expect(400);
   });
 
+  it('**un teléfono que no son 9 dígitos se rechaza** (T120)', async () => {
+    await request(app.getHttpServer())
+      .post('/api/contacto')
+      .send(unaSolicitud({ telefono: '12345' }))
+      .expect(400);
+  });
+
   it('**al sexto envío seguido responde 429**', async () => {
     // Un formulario público sin freno es un buzón de publicidad en una semana.
     for (let i = 0; i < 5; i++) {

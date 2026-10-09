@@ -10,6 +10,7 @@ import { Insignia } from '../ui/insignia';
 import { FormularioContacto } from './formulario-contacto';
 import { enlacesDelMapa } from './mapa';
 import { Tarifas } from './tarifas';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
 /**
  * La página que explica el club a quien todavía no reservó.
@@ -27,7 +28,7 @@ import { Tarifas } from './tarifas';
  */
 @Component({
   selector: 'app-el-club',
-  imports: [RouterLink, Foto, Insignia, FormularioContacto, Tarifas],
+  imports: [RouterLink, Foto, Insignia, FormularioContacto, Tarifas, EnlaceTelefonoPipe, TelefonoPipe],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
     <section
@@ -174,8 +175,8 @@ import { Tarifas } from './tarifas';
                 <span>{{ club().direccion }}</span>
               }
               @if (club().telefono) {
-                <a [href]="'tel:' + club().telefono" class="underline hover:text-primary">
-                  {{ club().telefono }}
+                <a [href]="club().telefono | enlaceTelefono" class="underline hover:text-primary">
+                  {{ club().telefono | telefono }}
                 </a>
               }
               @if (club().email) {

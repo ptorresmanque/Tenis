@@ -7,6 +7,7 @@ import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 
 /**
  * Quién viene a una clase.
@@ -19,7 +20,7 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
  */
 @Component({
   selector: 'app-inscritos',
-  imports: [FormsModule, Aviso, Insignia, Selector],
+  imports: [FormsModule, Aviso, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe],
   template: `
     @if (ficha.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -68,8 +69,8 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
                 }
 
                 @if (quien.telefono) {
-                  <a class="underline" [href]="'tel:' + quien.telefono">
-                    {{ quien.telefono }}
+                  <a class="underline" [href]="quien.telefono | enlaceTelefono">
+                    {{ quien.telefono | telefono }}
                   </a>
                 }
 

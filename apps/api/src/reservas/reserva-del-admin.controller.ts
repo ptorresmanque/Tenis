@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 
+import { leerTelefono } from '../comun/telefono';
 import { esFechaDelClub } from '../comun/tiempo';
 import { SoloAdmin } from '../identidad/guards';
 import { leerDuracion } from './duracion';
@@ -108,7 +109,7 @@ function reservaDelAdminDeCuerpo(cuerpo: unknown) {
     socioId,
     nombre,
     email: texto(datos.email),
-    telefono: texto(datos.telefono),
+    telefono: leerTelefono(datos.telefono, { obligatorio: false }) ?? '',
     // El mismo borde que la reserva del socio: hasta 3, cada uno socio o invitado (T105).
     acompanantes: leerAcompanantes(datos.acompanantes),
   };

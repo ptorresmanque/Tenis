@@ -16,6 +16,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Insignia, VarianteInsignia } from '../../ui/insignia';
 import { InscripcionTorneo, Torneos } from '../torneos.service';
+import { TelefonoPipe } from '../../core/telefono';
 
 /**
  * Quién juega un torneo.
@@ -27,7 +28,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
  */
 @Component({
   selector: 'app-inscritos-torneo',
-  imports: [FormsModule, Aviso, Insignia],
+  imports: [FormsModule, Aviso, Insignia, TelefonoPipe],
   template: `
     @if (lista.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -236,7 +237,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                         }
                         {{ pesos(datos.montoClp) }}
                         @if (quien.telefono) {
-                          <br />Para llamarlo: {{ quien.telefono }}
+                          <br />Para llamarlo: {{ quien.telefono | telefono }}
                         }
                       </p>
 

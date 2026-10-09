@@ -72,6 +72,23 @@ describe('Registro con email y contraseña', () => {
   const registrar = (cuerpo: Record<string, unknown>) =>
     request(servidor()).post('/api/auth/registro').send(cuerpo);
 
+  it('**guarda el teléfono normalizado, y uno mal escrito responde 400** (T120)', async () => {
+    await registrar({ ...cuerpoValido, telefono: '+56 9 8765 4321' }).expect(
+      201,
+    );
+    const usuario = await prisma.usuario.findFirstOrThrow({
+      where: { email: { endsWith: DOMINIO } },
+      select: { telefono: true },
+    });
+    expect(usuario.telefono).toBe('56987654321');
+
+    await registrar({
+      ...cuerpoValido,
+      email: `otro${DOMINIO}`,
+      telefono: '+54 11 4321 8765',
+    }).expect(400);
+  });
+
   it('crea el usuario con la contraseña hasheada con argon2id', async () => {
     await registrar(cuerpoValido).expect(201);
 
