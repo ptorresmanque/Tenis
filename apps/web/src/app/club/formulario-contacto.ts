@@ -5,6 +5,7 @@ import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
 import { Campo, CampoControl } from '../ui/campo';
 import { Contacto, TipoSolicitud } from './contacto.service';
+import { TelefonoDirective } from '../ui/telefono';
 
 const TIPOS: { valor: TipoSolicitud; etiqueta: string }[] = [
   { valor: 'SOCIO', etiqueta: 'Quiero asociarme' },
@@ -36,7 +37,7 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
  */
 @Component({
   selector: 'app-formulario-contacto',
-  imports: [FormsModule, Aviso, Campo, CampoControl],
+  imports: [FormsModule, Aviso, Campo, CampoControl, TelefonoDirective],
   template: `
     <section aria-labelledby="titulo-contacto">
       <h2 id="titulo-contacto" class="titular text-5xl sm:text-6xl">Escríbenos</h2>
@@ -75,13 +76,16 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
             </app-campo>
 
             <app-campo etiqueta="Teléfono">
-              <input
-                appCampoControl
-                name="telefono"
-                type="tel"
-                class="campo"
-                [(ngModel)]="datos.telefono"
-              />
+              <span class="campo-con-prefijo">
+                <span class="prefijo">+56</span>
+                <input
+                  appTelefono
+                  appCampoControl
+                  name="telefono"
+                  class="campo"
+                  [(ngModel)]="datos.telefono"
+                />
+              </span>
             </app-campo>
           </div>
 

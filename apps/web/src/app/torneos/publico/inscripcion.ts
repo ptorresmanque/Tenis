@@ -9,6 +9,7 @@ import { Campo, CampoControl } from '../../ui/campo';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { recordarPagoPendiente } from './pago-pendiente';
 import { Franja, RestriccionHoraria } from './restriccion-horaria';
+import { TelefonoDirective } from '../../ui/telefono';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -35,7 +36,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-inscripcion-a-torneo',
-  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, RestriccionHoraria],
+  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, RestriccionHoraria, TelefonoDirective],
   template: `
     <!-- La forma de la A (TV4.2): la caja con sombra y sin borde, el título como
          rótulo. Los campos, los pasos y el envío son los de siempre. -->
@@ -74,15 +75,16 @@ const enBlanco = () => ({
           ayuda="Con el que el club te puede llamar. Por ejemplo +56 9 8765 4321."
           [obligatorio]="true"
         >
-          <input
-            appCampoControl
-            class="campo"
-            name="telefono"
-            type="tel"
-            autocomplete="tel"
-            maxlength="30"
-            [(ngModel)]="datos.telefono"
-          />
+          <span class="campo-con-prefijo">
+            <span class="prefijo">+56</span>
+            <input
+              appTelefono
+              appCampoControl
+              class="campo"
+              name="telefono"
+              [(ngModel)]="datos.telefono"
+            />
+          </span>
         </app-campo>
 
         <app-campo
