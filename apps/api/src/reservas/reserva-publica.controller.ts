@@ -101,14 +101,15 @@ export class ReservaPublicaController {
     @Query('TBK_TOKEN') tokenAnulado: string | undefined,
     @Query('TBK_ORDEN_COMPRA') ordenAnulada: string | undefined,
   ) {
-    // Sin `token_ws` vuelve quien apretó "anular compra" en Webpay, igual que en la
-    // vuelta del pago original.
-    const vuelta = tokenWs
-      ? await this.retornoDeDiferencia.confirmar(tokenWs)
-      : {
-          ...(await this.retornoDeDiferencia.anular(ordenAnulada ?? '')),
-          motivo: tokenAnulado ? 'anulado' : 'sin_token',
-        };
+    // Solo `token_ws`, sin `TBK_TOKEN`, trae un pago que confirmar: los otros casos
+    // están en la vuelta del pago original (`NoSocioController.retorno`).
+    const vuelta =
+      tokenWs && !tokenAnulado
+        ? await this.retornoDeDiferencia.confirmar(tokenWs)
+        : {
+            ...(await this.retornoDeDiferencia.anular(ordenAnulada ?? '')),
+            motivo: tokenAnulado && !tokenWs ? 'anulado' : 'sin_token',
+          };
 
     return { url: destinoDeLaVuelta(vuelta) };
   }

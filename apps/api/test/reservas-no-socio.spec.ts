@@ -492,6 +492,31 @@ describe('Reserva de no-socio con pago', () => {
     ).toMatchObject({ estado: EstadoReserva.EXPIRADA });
   });
 
+  it('**volver desde la pantalla de error de Webpay no confirma la reserva**', async () => {
+    // Si el formulario de Webpay falla y la persona aprieta "volver al sitio", llegan
+    // `token_ws` **y** `TBK_TOKEN`. Para Transbank es un pago inválido; el doble lo
+    // autorizaría, así que una vuelta que confirma deja la reserva tomada.
+    const inicio = await reservarYPagar();
+    const { referencia, tokenPasarela } =
+      await prisma.transaccion.findFirstOrThrow({
+        where: { concepto: 'RESERVA', conceptoId: inicio.body.reservaId },
+      });
+
+    const retorno = await request(app.getHttpServer()).get(
+      `/api/reservas/retorno?token_ws=${tokenPasarela}&TBK_TOKEN=${tokenPasarela}` +
+        `&TBK_ORDEN_COMPRA=${referencia}`,
+    );
+
+    expect(retorno.status).toBe(302);
+    // No dice "anulaste": la persona no apretó nada, fue Webpay el que falló.
+    expect(retorno.headers.location).toMatch(/error=sin_token$/);
+    expect(
+      await prisma.reserva.findUniqueOrThrow({
+        where: { id: inicio.body.reservaId },
+      }),
+    ).toMatchObject({ estado: EstadoReserva.EXPIRADA });
+  });
+
   it('si la pasarela no acepta la orden, no queda una reserva fantasma', async () => {
     pasarela.fallarAlIniciar = true;
 

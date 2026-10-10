@@ -47,10 +47,15 @@ export class MisCuotasController {
    */
   @Get('retorno')
   @Redirect()
-  async retorno(@Query('token_ws') tokenWs: string | undefined) {
-    if (!tokenWs) {
-      // Vuelve quien apretó "anular" en Webpay. No hay nada que confirmar y la cuota
-      // sigue pendiente; la transacción la barre la expiración de T19.
+  async retorno(
+    @Query('token_ws') tokenWs: string | undefined,
+    @Query('TBK_TOKEN') tokenAnulado: string | undefined,
+  ) {
+    if (!tokenWs || tokenAnulado) {
+      // Vuelve sin pagar: apretó "anular" en Webpay, dejó vencer el formulario o viene
+      // de la pantalla de error, que trae `token_ws` y `TBK_TOKEN` juntos y que
+      // Transbank llama "pago inválido". No hay nada que confirmar y la cuota sigue
+      // pendiente; la transacción la barre la expiración de T19.
       return { url: `${web()}/mi-cuenta?pago=anulado` };
     }
 

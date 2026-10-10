@@ -262,6 +262,7 @@ export class TorneosPublicosController {
   async retornoDelPago(
     @Req() req: Request,
     @Query('token_ws') tokenWs?: string,
+    @Query('TBK_TOKEN') tokenAnulado?: string,
     @Query('TBK_ORDEN_COMPRA') ordenAnulada?: string,
   ) {
     // Pagó, anuló o se lo rechazaron: en los tres casos ese cupo dejó de estar
@@ -269,11 +270,13 @@ export class TorneosPublicosController {
     // cuota vuelve. Quien acaba de pagar es el último a quien hay que frenar.
     this.envios.devolver(this.llaveDelFreno(req));
 
-    if (!tokenWs) {
-      // **Apretó "anular" en Webpay: su cupo se suelta ahora mismo.** Es la única
-      // forma de abandono que la pasarela avisa, y avisa con `TBK_ORDEN_COMPRA` —el
-      // mismo camino que la reserva del no-socio—; hacerle esperar los quince minutos
-      // del barrido sería dejar el lugar tomado por alguien que ya dijo que no.
+    if (!tokenWs || tokenAnulado) {
+      // **Volvió sin pagar: su cupo se suelta ahora mismo.** Apretó "anular" en Webpay,
+      // dejó vencer el formulario o viene de la pantalla de error, que trae `token_ws`
+      // y `TBK_TOKEN` juntos y que Transbank llama "pago inválido". Las tres traen
+      // `TBK_ORDEN_COMPRA` —el mismo camino que la reserva del no-socio—; hacerle
+      // esperar los quince minutos del barrido sería dejar el lugar tomado por alguien
+      // que no va a pagar.
       await this.abandonadas.anularDesdeRetorno(ordenAnulada ?? '');
 
       return { url: `${web()}/torneos?pago=anulado` };
