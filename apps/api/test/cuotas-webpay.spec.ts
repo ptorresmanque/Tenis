@@ -329,6 +329,25 @@ describe('El socio paga su cuota en línea', () => {
     expect(transaccion.estado).toBe(EstadoTransaccion.RECHAZADA);
   });
 
+  it('**volver desde la pantalla de error de Webpay no cobra la cuota**', async () => {
+    // Llegan `token_ws` **y** `TBK_TOKEN`: el formulario de Webpay falló y la persona
+    // volvió al sitio. Para Transbank es un pago inválido; el doble lo autorizaría.
+    const id = await unaCuota('2026-08');
+    await request(app.getHttpServer())
+      .post(`/api/cuotas/${id}/pagar`)
+      .set('Cookie', cookieSocia)
+      .expect(201);
+    const token = await tokenDe(id);
+
+    const vuelta = await request(app.getHttpServer())
+      .get(`/api/cuotas/retorno?token_ws=${token}&TBK_TOKEN=${token}`)
+      .expect(302);
+
+    expect(vuelta.headers.location).toContain('pago=anulado');
+    const cuota = await prisma.cuota.findUniqueOrThrow({ where: { id } });
+    expect(cuota.estado).toBe(EstadoCuota.PENDIENTE);
+  });
+
   it('sin sesión no se ve ni se paga nada', async () => {
     const id = await unaCuota('2026-08');
 

@@ -390,6 +390,92 @@ describe('GET /api/reservas/publica/:token', () => {
       );
     });
 
+    it('**volver desde la pantalla de error de Webpay deja la reserva como estaba**', async () => {
+      // Llegan `token_ws` **y** `TBK_TOKEN`: el formulario de Webpay falló y la persona
+      // volvió al sitio. Para Transbank es un pago inválido; el doble lo autorizaría, y
+      // la reserva se alargaría sin que nadie haya pagado la diferencia.
+      const cancha = await prisma.cancha.create({
+        data: {
+          nombre: `${NOMBRE_CANCHA} 90 error`,
+          superficie: Superficie.CEMENTO,
+          activa: true,
+          horarios: {
+            create: [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({
+              diaSemana,
+              horaApertura: '08:00',
+              horaCierre: '22:00',
+            })),
+          },
+          franjas: {
+            create: {
+              horaDesde: '08:00',
+              horaHasta: '22:00',
+              montoClp: 12000,
+              montoClp90: 16000,
+              vigenteDesde: new Date('2026-01-01'),
+            },
+          },
+        },
+        select: { id: true },
+      });
+      const inicio = new Date('2037-09-14T21:00:00.000Z');
+      const reserva = await prisma.reserva.create({
+        data: {
+          folio: 'QT89ERR',
+          canchaId: cancha.id,
+          inicio,
+          fin: new Date(inicio.getTime() + 60 * 60 * 1000),
+          estado: EstadoReserva.CONFIRMADA,
+          nombre: 'Camila Rojas',
+          email: `camila${DOMINIO}`,
+          telefono: '+56955556666',
+        },
+        select: { id: true, token: true },
+      });
+      await prisma.transaccion.create({
+        data: {
+          referencia: `QR-T89-ERR-${reserva.id}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.AUTORIZADA,
+          inicioBloqueOriginal: inicio,
+        },
+      });
+      const pago = await request(app.getHttpServer())
+        .post(`/api/reservas/publica/${reserva.token}/diferencia`)
+        .send({
+          canchaId: cancha.id,
+          inicio: inicio.toISOString(),
+          duracionMin: 90,
+        })
+        .expect(201);
+      const { tokenPasarela } = pago.body as { tokenPasarela: string };
+      // La referencia no viaja al navegador: Webpay la devuelve como orden de compra.
+      const { referencia } = await prisma.transaccion.findFirstOrThrow({
+        where: { tokenPasarela },
+      });
+
+      const vuelta = await request(app.getHttpServer())
+        .get(
+          `/api/reservas/retorno-diferencia?token_ws=${tokenPasarela}` +
+            `&TBK_TOKEN=${tokenPasarela}&TBK_ORDEN_COMPRA=${referencia}`,
+        )
+        .expect(302);
+
+      // "No se completó" y no "anulaste": la persona no apretó nada.
+      expect(vuelta.headers.location).toMatch(
+        new RegExp(`/r/${reserva.token}\\?cambio=sin_token$`),
+      );
+      const despues = await prisma.reserva.findUniqueOrThrow({
+        where: { id: reserva.id },
+      });
+      expect(despues.fin.getTime() - despues.inicio.getTime()).toBe(
+        60 * 60 * 1000,
+      );
+    });
+
     it('**si la hora se tomó mientras pagaba, vuelve a su página diciendo cuánto se devolvió** (T90)', async () => {
       const cancha = await prisma.cancha.create({
         data: {

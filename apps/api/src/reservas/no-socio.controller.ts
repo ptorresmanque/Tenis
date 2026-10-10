@@ -39,15 +39,19 @@ export class NoSocioController {
     @Query('TBK_TOKEN') tokenAnulado: string | undefined,
     @Query('TBK_ORDEN_COMPRA') ordenAnulada: string | undefined,
   ) {
-    if (!tokenWs) {
-      // Sin `token_ws` vuelve quien apretó "anular compra" en Webpay.
+    // Solo `token_ws`, sin `TBK_TOKEN`, trae un pago que confirmar. Sin `token_ws`
+    // vuelve quien apretó "anular compra" (llega `TBK_TOKEN`) o dejó vencer el
+    // formulario (no llega token). Con los dos, vuelve de la pantalla de error de
+    // Webpay: Transbank lo llama "pago inválido" y su ejemplo oficial no lo confirma.
+    if (!tokenWs || tokenAnulado) {
       const anulada = await this.reservas.anularDesdeRetorno(
         ordenAnulada ?? '',
       );
       return {
         url: destino({
           ...anulada,
-          motivo: tokenAnulado ? 'anulado' : 'sin_token',
+          // "Anulaste" solo si la persona lo apretó: en la pantalla de error no fue ella.
+          motivo: tokenAnulado && !tokenWs ? 'anulado' : 'sin_token',
         }),
       };
     }
