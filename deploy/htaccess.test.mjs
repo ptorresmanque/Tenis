@@ -272,4 +272,23 @@ describe('htaccess.prod', { skip: saltar }, () => {
   test('por HTTP, /.well-known/ responde sin redirigir, para AutoSSL', () => {
     assert.equal(prod('/.well-known/acme-challenge/token', { protocolo: 'http' }).cuerpo, 'token');
   });
+
+  // La sesión es del nombre en que se inició, y Google y Webpay vuelven a fedal.cl: quien
+  // entrara por www no podría entrar con Google y, después de pagar, aparecería sin sesión.
+  test('**www.fedal.cl redirige a fedal.cl**, con la ruta y la consulta', () => {
+    const respuesta = prod('/torneos?cuadro=5', { host: 'www.fedal.cl' });
+    assert.equal(respuesta.estado, 301);
+    assert.match(respuesta.cabecera, /location: https:\/\/fedal\.cl\/torneos\?cuadro=5\r?\n/);
+  });
+
+  test('por HTTP, www llega a https://fedal.cl en un solo salto', () => {
+    const respuesta = prod('/socio/reservas', { host: 'www.fedal.cl', protocolo: 'http' });
+    assert.equal(respuesta.estado, 301);
+    assert.match(respuesta.cabecera, /location: https:\/\/fedal\.cl\/socio\/reservas\r?\n/);
+  });
+
+  test('en www, /.well-known/ responde sin redirigir, para que AutoSSL valide ese nombre', () => {
+    const opciones = { host: 'www.fedal.cl', protocolo: 'http' };
+    assert.equal(prod('/.well-known/acme-challenge/token', opciones).cuerpo, 'token');
+  });
 });
