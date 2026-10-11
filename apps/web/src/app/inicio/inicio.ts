@@ -729,7 +729,11 @@ export class Inicio {
    */
   protected readonly desdeCuanto = computed(() => {
     const precios = this.grillasSeguras()
-      .flatMap(({ bloques }) => bloques.filter((b) => !b.bloqueado).map((b) => b.montoClp))
+      // Ni la bloqueada ni la reservada: la API manda las dos con monto 0, porque no se
+      // ofrece pagar lo que no se puede tomar, y el mínimo daba "Desde $0".
+      .flatMap(({ bloques }) =>
+        bloques.filter((b) => !b.bloqueado && !b.reservado).map((b) => b.montoClp),
+      )
       // Nulo solo lo da la hora y media sin precio, y la portada pide la de 1 hora.
       .filter((monto) => monto !== null);
 

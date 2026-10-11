@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
 import { Marcador } from './marcador';
-import { horaEnElClub } from './reloj-del-club';
+import { enPesos, horaEnElClub } from './reloj-del-club';
 
 /**
  * El marcador de la portada: las horas que quedan hoy contra las canchas (TV3.3).
@@ -168,6 +168,25 @@ describe('Marcador', () => {
 
     expect(filas[0].textContent).not.toContain('Pico');
     expect(filas[1].textContent).toContain('Pico');
+  });
+
+  it('**el arriendo de la hora pico sale de una cancha que se puede tomar**', () => {
+    // La API manda en 0 el monto de una hora reservada o bloqueada. Si la primera cancha
+    // la tenía tomada, la leyenda decía "arriendo $0".
+    const el = montar([
+      {
+        cancha: cancha(1),
+        bloques: [bloque(1, enHoras(2), { esPico: true, reservado: true, montoClp: 0 })],
+      },
+      {
+        cancha: cancha(2),
+        bloques: [bloque(2, enHoras(2), { esPico: true, bloqueado: true, montoClp: 0 })],
+      },
+      { cancha: cancha(3), bloques: [bloque(3, enHoras(2), { esPico: true, montoClp: 16_000 })] },
+    ]);
+
+    expect(el.textContent).toContain(`arriendo ${enPesos(16_000)}`);
+    expect(el.textContent).not.toContain(enPesos(0));
   });
 
   it('la cancha techada lo dice, también al lector de pantalla', () => {
