@@ -11,6 +11,7 @@ import {
   MedioPagoInscripcion,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 
 /**
@@ -26,6 +27,7 @@ export class ComprobantesDeInscripcion {
   constructor(
     private readonly prisma: PrismaService,
     private readonly abandonadas: InscripcionesAbandonadas,
+    private readonly avisos: AvisosDeTorneo,
   ) {}
 
   /**
@@ -56,7 +58,13 @@ export class ComprobantesDeInscripcion {
       throw new NotFoundException('No hay una inscripción con esa llave.');
     }
 
-    return this.adjuntar(inscripcion, bytes);
+    const hecho = await this.adjuntar(inscripcion, bytes);
+
+    // Lo subió el jugador: el club tiene algo que revisar (T130). El que sube el admin
+    // desde el panel, en `subirComoAdmin`, no avisa: ya lo tiene en la mano.
+    await this.avisos.comprobanteRecibido(hecho.id);
+
+    return hecho;
   }
 
   /**
@@ -177,7 +185,18 @@ export class ComprobantesDeInscripcion {
     id: number,
     medioPago: MedioPagoInscripcion | null = null,
   ): Promise<{ id: number }> {
-    return this.resolver(id, EstadoPagoInscripcion.PAGADA, null, medioPago);
+    const hecho = await this.resolver(
+      id,
+      EstadoPagoInscripcion.PAGADA,
+      null,
+      medioPago,
+    );
+
+    // Después de resolver, que choca con un 409 si otro admin llegó antes: el correo
+    // sale una vez (T131).
+    await this.avisos.pagoAprobado(id);
+
+    return hecho;
   }
 
   /**
@@ -188,7 +207,16 @@ export class ComprobantesDeInscripcion {
    * Dejarla dentro sin pagar sería un cupo ocupado por alguien que no va a jugar.
    */
   async rechazar(id: number, motivo: string): Promise<{ id: number }> {
-    return this.resolver(id, EstadoPagoInscripcion.RECHAZADA, motivo);
+    const hecho = await this.resolver(
+      id,
+      EstadoPagoInscripcion.RECHAZADA,
+      motivo,
+    );
+
+    // Con el motivo y que su lugar quedó libre (T131).
+    await this.avisos.pagoRechazado(id);
+
+    return hecho;
   }
 
   private async resolver(

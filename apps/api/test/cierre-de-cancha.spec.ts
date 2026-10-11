@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { firmaDelClub } from '../src/comun/club';
 import { hoyEnElClub } from '../src/comun/tiempo';
 import { EnviadorCorreo } from '../src/identidad/correo';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
@@ -112,6 +113,7 @@ describe('POST /api/admin/cierres', () => {
         nombre: 'Visitante Pagador',
         email: `pagador${DOMINIO}`,
         telefono: '+56900000000',
+        acompanantes: [{ nombre: 'Rival Visitante' }],
       })
       .expect(201);
 
@@ -261,6 +263,8 @@ describe('POST /api/admin/cierres', () => {
         acompanantes: [{ nombre: 'Invitada del cierre' }],
       })
       .expect(201);
+    // Las dos reservas mandaron su confirmación (T108): lo que se cuenta es el aviso.
+    enviados.length = 0;
 
     const respuesta = await request(app.getHttpServer())
       .post('/api/admin/cierres')
@@ -294,6 +298,22 @@ describe('POST /api/admin/cierres', () => {
     expect(enviados.map((c) => c.para)).toContain(`pagador${DOMINIO}`);
     expect(enviados.map((c) => c.para)).toContain(`socia${DOMINIO}`);
     expect(enviados[0].cuerpo).toContain(NOMBRE_CANCHA);
+  });
+
+  it('el aviso termina con la firma del club: "escríbenos" necesita a dónde', async () => {
+    const horas = await bloques();
+    await reservarYPagar(horas[0].inicio);
+    enviados.length = 0;
+
+    await request(app.getHttpServer())
+      .post('/api/admin/cierres')
+      .set('Cookie', cookieAdmin)
+      .send(cierre('08:00', '12:00'))
+      .expect(201);
+
+    // La misma firma que la confirmación y los demás correos del club (T108, T119).
+    const club = await prisma.configuracionClub.findFirstOrThrow();
+    expect(enviados[0].cuerpo.endsWith(firmaDelClub(club))).toBe(true);
   });
 
   it('la devolución es total aunque falten menos de 24 horas', async () => {
@@ -471,6 +491,8 @@ describe('POST /api/admin/cierres', () => {
     // Sin esto, la prueba de arriba pasaría igual cancelando la agenda entera.
     const horas = await bloques();
     await reservarYPagar(horas[0].inicio);
+    // La confirmación de la reserva (T108) no es un aviso del cierre.
+    enviados.length = 0;
 
     await request(app.getHttpServer())
       .post('/api/admin/cierres')
@@ -588,6 +610,7 @@ describe('POST /api/admin/cierres', () => {
         nombre: 'Visitante A Medias',
         email: `medias${DOMINIO}`,
         telefono: '+56900000000',
+        acompanantes: [{ nombre: 'Rival Visitante' }],
       })
       .expect(201);
 
@@ -620,6 +643,7 @@ describe('POST /api/admin/cierres', () => {
         nombre: 'Visitante A Medias',
         email: `medias${DOMINIO}`,
         telefono: '+56900000000',
+        acompanantes: [{ nombre: 'Rival Visitante' }],
       })
       .expect(201);
 

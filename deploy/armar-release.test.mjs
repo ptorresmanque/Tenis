@@ -28,6 +28,8 @@ function repoFalso() {
   const build = [
     'mkdir -p apps/api/dist apps/web/dist/web/browser/reservar',
     'echo main > apps/api/dist/main.js',
+    // El script del cron de recordatorios (T112): viaja con el resto de dist/.
+    'echo recordatorios > apps/api/dist/recordatorios.js',
     'echo index > apps/web/dist/web/browser/index.html',
     'echo ruta > apps/web/dist/web/browser/reservar/index.html',
   ].join(' && ');
@@ -91,6 +93,7 @@ test('el release trae lo que el servidor necesita y nada más', () => {
   const tar = join(raiz, `dist/release/release-${sha}.tar.gz`);
   assert.deepEqual(archivosDelTar(tar), [
     'apps/api/dist/main.js',
+    'apps/api/dist/recordatorios.js',
     'apps/api/package.json',
     'apps/api/prisma.config.ts',
     'apps/api/prisma/migrations/20260101000000_base/migration.sql',

@@ -1,9 +1,10 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { EstadoReserva, Superficie } from '../src/generated/prisma/client';
+import { CorreoSaliente, EnviadorCorreo } from '../src/identidad/correo';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -23,6 +24,17 @@ describe('Reserva de no-socio con pago', () => {
   let pasarela: PasarelaFake;
   let canchaId: number;
 
+  /** Los correos que salieron (T108). `falla` simula un sendmail caído. */
+  const enviados: CorreoSaliente[] = [];
+  let falla: Error | null = null;
+  const enviador = {
+    enviar: (correo: CorreoSaliente) => {
+      if (falla) return Promise.reject(falla);
+      enviados.push(correo);
+      return Promise.resolve();
+    },
+  };
+
   const NOMBRE_CANCHA = 'Cancha T23 pago';
   // Lunes de agosto, sin cambio de hora de por medio. El club en UTC-4.
   // Y en el futuro: la API no reserva horas que ya empezaron. 2037 repite el
@@ -34,6 +46,8 @@ describe('Reserva de no-socio con pago', () => {
     nombre: 'Camila Visitante',
     email: 'camila@ejemplo.cl',
     telefono: '+56955556666',
+    // Con quién juega: de 1 a 3 nombres desde T107.
+    acompanantes: [{ nombre: 'Beto Rival' }],
   };
 
   /** Lo que estos tests leen de la respuesta. supertest la entrega como `any`. */
@@ -78,6 +92,8 @@ describe('Reserva de no-socio con pago', () => {
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PasarelaPago)
       .useClass(PasarelaFake)
+      .overrideProvider(EnviadorCorreo)
+      .useValue(enviador)
       .compile();
 
     app = modulo.createNestApplication();
@@ -97,6 +113,8 @@ describe('Reserva de no-socio con pago', () => {
 
   beforeEach(async () => {
     pasarela.reiniciar();
+    enviados.length = 0;
+    falla = null;
     await prisma.cancha.deleteMany({
       where: { nombre: { startsWith: NOMBRE_CANCHA } },
     });
@@ -138,8 +156,31 @@ describe('Reserva de no-socio con pago', () => {
       estado: EstadoReserva.PENDIENTE_PAGO,
       socioId: null,
       nombre: 'Camila Visitante',
-      telefono: '+56955556666',
+      // Normalizado (T120): `56` y los 9 dígitos, como se escribiera.
+      telefono: '56955556666',
     });
+  });
+
+  it('**un teléfono que no son 9 dígitos no reserva** (T120)', async () => {
+    const respuesta = await reservarYPagar({ telefono: '12345' });
+
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('los acompañantes del visitante quedan guardados con la reserva (T105)', async () => {
+    const respuesta = await reservarYPagar({
+      acompanantes: [{ nombre: 'Ana Pérez' }, { nombre: 'Beto' }],
+    });
+
+    expect(respuesta.status).toBe(201);
+    const guardados = await prisma.acompananteReserva.findMany({
+      where: { reservaId: respuesta.body.reservaId },
+      orderBy: { id: 'asc' },
+    });
+    expect(guardados.map((a) => [a.nombre, a.socioId])).toEqual([
+      ['Ana Pérez', null],
+      ['Beto', null],
+    ]);
   });
 
   it('el monto lo calcula el servidor y el del cliente se ignora', async () => {
@@ -351,6 +392,69 @@ describe('Reserva de no-socio con pago', () => {
     expect(await prisma.reserva.count({ where: { canchaId } })).toBe(1);
   });
 
+  /** T108. La confirmación sale al confirmarse el pago, y una sola vez. */
+  describe('el correo de confirmación (T108)', () => {
+    it('**una reserva pagada genera una confirmación, con el enlace de la reserva**', async () => {
+      const inicio = await reservarYPagar({
+        acompanantes: [{ nombre: 'Beto Rival' }],
+      });
+      await volverDeWebpay(await tokenDe(inicio.body.reservaId));
+
+      const reserva = await prisma.reserva.findUniqueOrThrow({
+        where: { id: inicio.body.reservaId },
+      });
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0].para).toBe('camila@ejemplo.cl');
+      expect(enviados[0].cuerpo).toContain(reserva.folio);
+      expect(enviados[0].cuerpo).toContain(`/r/${reserva.token}`);
+      expect(enviados[0].cuerpo).toContain('Juegas con: Beto Rival');
+    });
+
+    it('**el aviso de pago repetido no manda un segundo correo**', async () => {
+      // Webpay puede repetir el retorno, y la persona puede recargar la página: el correo
+      // sale solo si el `updateMany` de PENDIENTE_PAGO a CONFIRMADA cambió una fila.
+      const inicio = await reservarYPagar();
+      const token = await tokenDe(inicio.body.reservaId);
+
+      await volverDeWebpay(token);
+      await volverDeWebpay(token);
+
+      expect(enviados).toHaveLength(1);
+    });
+
+    it('iniciar el pago no manda nada: la reserva todavía no está confirmada', async () => {
+      await reservarYPagar();
+
+      expect(enviados).toHaveLength(0);
+    });
+
+    it('un pago rechazado no manda confirmación', async () => {
+      pasarela.respuesta = 'RECHAZADA';
+      const inicio = await reservarYPagar();
+      await volverDeWebpay(await tokenDe(inicio.body.reservaId));
+
+      expect(enviados).toHaveLength(0);
+    });
+
+    it('**si el correo falla, la reserva queda confirmada y el log dice el folio**', async () => {
+      falla = new Error('sendmail no responde');
+      const errores = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+      const inicio = await reservarYPagar();
+
+      const vuelta = await volverDeWebpay(await tokenDe(inicio.body.reservaId));
+
+      const reserva = await prisma.reserva.findUniqueOrThrow({
+        where: { id: inicio.body.reservaId },
+      });
+      expect(vuelta.status).toBe(302);
+      expect(reserva.estado).toBe(EstadoReserva.CONFIRMADA);
+      expect(errores.mock.calls.flat().join(' ')).toContain(reserva.folio);
+      errores.mockRestore();
+    });
+  });
+
   it('pago rechazado: el bloque vuelve a estar disponible', async () => {
     pasarela.respuesta = 'RECHAZADA';
     const inicio = await reservarYPagar();
@@ -381,6 +485,31 @@ describe('Reserva de no-socio con pago', () => {
     );
 
     expect(retorno.status).toBe(302);
+    expect(
+      await prisma.reserva.findUniqueOrThrow({
+        where: { id: inicio.body.reservaId },
+      }),
+    ).toMatchObject({ estado: EstadoReserva.EXPIRADA });
+  });
+
+  it('**volver desde la pantalla de error de Webpay no confirma la reserva**', async () => {
+    // Si el formulario de Webpay falla y la persona aprieta "volver al sitio", llegan
+    // `token_ws` **y** `TBK_TOKEN`. Para Transbank es un pago inválido; el doble lo
+    // autorizaría, así que una vuelta que confirma deja la reserva tomada.
+    const inicio = await reservarYPagar();
+    const { referencia, tokenPasarela } =
+      await prisma.transaccion.findFirstOrThrow({
+        where: { concepto: 'RESERVA', conceptoId: inicio.body.reservaId },
+      });
+
+    const retorno = await request(app.getHttpServer()).get(
+      `/api/reservas/retorno?token_ws=${tokenPasarela}&TBK_TOKEN=${tokenPasarela}` +
+        `&TBK_ORDEN_COMPRA=${referencia}`,
+    );
+
+    expect(retorno.status).toBe(302);
+    // No dice "anulaste": la persona no apretó nada, fue Webpay el que falló.
+    expect(retorno.headers.location).toMatch(/error=sin_token$/);
     expect(
       await prisma.reserva.findUniqueOrThrow({
         where: { id: inicio.body.reservaId },
@@ -425,6 +554,7 @@ describe('Reserva de no-socio con pago', () => {
           inicio: new Date(A_LAS_10),
           duracionMin: 60,
           ...datosDelVisitante,
+          acompanantes: [],
         },
         'http://localhost/api/reservas/retorno',
         ahora,
@@ -439,6 +569,13 @@ describe('Reserva de no-socio con pago', () => {
 
     expect(await prisma.reserva.count({ where: { canchaId } })).toBe(0);
     expect(await prisma.transaccion.count()).toBe(transaccionesAntes);
+  });
+
+  it('**sin decir con quién juega no llega a la pasarela** (T107)', async () => {
+    const respuesta = await reservarYPagar({ acompanantes: [] });
+
+    expect(respuesta.status).toBe(400);
+    expect(pasarela.ordenes).toHaveLength(0);
   });
 
   it('rechaza datos de contacto incompletos antes de tocar la pasarela', async () => {

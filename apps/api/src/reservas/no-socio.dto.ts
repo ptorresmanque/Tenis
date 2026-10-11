@@ -1,7 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { leerTelefono } from '../comun/telefono';
 import { leerDuracion } from './duracion';
 import { ReservaDeNoSocio } from './reserva-no-socio.service';
+import { MAXIMO_ACOMPANANTES } from './reservas.dto';
 
 /**
  * Lo que el visitante manda para reservar: qué hora quiere y cómo ubicarlo.
@@ -19,8 +21,52 @@ export function reservaDeNoSocioDeCuerpo(cuerpo: unknown): ReservaDeNoSocio {
     duracionMin: leerDuracion(datos.duracionMin),
     nombre: texto(datos.nombre, 'El nombre', 80),
     email: correo(datos.email),
-    telefono: texto(datos.telefono, 'El teléfono', 20),
+    telefono: leerTelefono(datos.telefono, { obligatorio: true }),
+    acompanantes: acompanantes(datos.acompanantes),
   };
+}
+
+/**
+ * Con quién juega el visitante: **solo nombres escritos**, de 1 a 3 (T105, T107).
+ *
+ * No elige socios de una lista: mostrarle el padrón a alguien sin cuenta sería exponer
+ * datos de los socios (decisión del club, 2026-10-08). Por eso un `socioId` o un
+ * número de socio no se aceptan acá.
+ */
+function acompanantes(valor: unknown): { nombre: string }[] {
+  if (
+    valor === undefined ||
+    valor === null ||
+    (Array.isArray(valor) && valor.length === 0)
+  ) {
+    throw new BadRequestException(
+      'Escribe el nombre de al menos una persona con la que vas a jugar.',
+    );
+  }
+
+  if (!Array.isArray(valor)) {
+    throw new BadRequestException(
+      'Los acompañantes tienen que venir en una lista.',
+    );
+  }
+
+  if (valor.length > MAXIMO_ACOMPANANTES) {
+    throw new BadRequestException(
+      `Puedes declarar hasta ${MAXIMO_ACOMPANANTES} personas.`,
+    );
+  }
+
+  return valor.map((crudo) => {
+    const nombre = (crudo as { nombre?: unknown } | null)?.nombre;
+
+    if (typeof nombre !== 'string' || nombre.trim() === '') {
+      throw new BadRequestException(
+        'Escribe el nombre de cada persona con la que vas a jugar.',
+      );
+    }
+
+    return { nombre: texto(nombre, 'El nombre de cada acompañante', 80) };
+  });
 }
 
 function entero(valor: unknown): number {

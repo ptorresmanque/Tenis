@@ -11,6 +11,7 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 
 const TIPOS: Record<TipoSolicitud, string> = {
   SOCIO: 'Quiere asociarse',
@@ -29,7 +30,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
  */
 @Component({
   selector: 'app-solicitudes',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada consulta trae las suyas. -->
     <header class="cabecera-panel">
@@ -109,8 +110,8 @@ const TIPOS: Record<TipoSolicitud, string> = {
                 ·
               }
               @if (solicitud.telefono) {
-                <a [href]="'tel:' + solicitud.telefono" class="underline">
-                  {{ solicitud.telefono }}
+                <a [href]="solicitud.telefono | enlaceTelefono" class="underline">
+                  {{ solicitud.telefono | telefono }}
                 </a>
               }
             </p>

@@ -205,6 +205,10 @@ export class AdminCanchasService {
    *
    * Solo el tramo exacto. Los solapamientos parciales los resuelve `franjaPara`
    * por especificidad, y adivinar cuál "reemplaza" a cuál sería magia.
+   *
+   * El tramo incluye el tipo de cancha (T98): "techadas de 06 a 07" no reemplaza a
+   * "todas de 06 a 07", la acompaña. Sin esto, cerraba la general y las abiertas
+   * quedaban sin tarifa.
    */
   async crearFranja(datos: DatosFranja) {
     if (datos.canchaId !== null) {
@@ -215,6 +219,7 @@ export class AdminCanchasService {
       await tx.franjaHoraria.updateMany({
         where: {
           canchaId: datos.canchaId,
+          techada: datos.techada,
           diaSemana: datos.diaSemana,
           horaDesde: datos.horaDesde,
           horaHasta: datos.horaHasta,

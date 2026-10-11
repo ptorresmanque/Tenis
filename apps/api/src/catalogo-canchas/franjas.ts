@@ -6,6 +6,11 @@ export interface FranjaCandidata {
   id: number;
   /** Nulo = toda cancha. */
   canchaId: number | null;
+  /**
+   * Solo para la tarifa general (T98): nulo = toda cancha, `true` = solo las techadas,
+   * `false` = solo las abiertas. Una franja de una cancha lo lleva siempre nulo.
+   */
+  techada: boolean | null;
   /** Nulo = todo día. 0 = domingo .. 6 = sábado. */
   diaSemana: number | null;
   /** Hora local del club, "HH:MM". */
@@ -34,6 +39,8 @@ export interface BloqueATarifar {
   /** Fecha civil del club, "AAAA-MM-DD". */
   fecha: string;
   canchaId: number;
+  /** Si la cancha es techada: decide cuál tarifa de tipo le toca (T98). */
+  techada: boolean;
   /** Instante en que empieza el bloque. */
   inicio: Date;
   /** De qué precio de la franja se trata. El pico no depende de esto. */
@@ -42,16 +49,24 @@ export interface BloqueATarifar {
 }
 
 /**
- * Cuánto pesa una franja al competir por un bloque.
+ * Cuánto pesa una franja al competir por un bloque: cancha, tipo de cancha y día, en
+ * ese orden.
  *
  * La cancha pesa más que el día. No está en la spec y hay que decidirlo: "esta
  * cancha cuesta más" es una regla del club más fuerte que "los lunes cuestan más",
  * y sin un orden fijo el precio de un lunes en la cancha techada dependería del
  * orden en que la base devuelva las filas.
+ *
+ * El tipo de cancha va entre los dos (T98, A1 del plan): "las techadas cuestan más"
+ * es una regla sobre la cancha, más fuerte que el día y más débil que la cancha
+ * misma. Los pesos son potencias de dos para que ninguna suma de los de abajo
+ * alcance al de arriba.
  */
 function especificidad(franja: FranjaCandidata): number {
   return (
-    (franja.canchaId !== null ? 2 : 0) + (franja.diaSemana !== null ? 1 : 0)
+    (franja.canchaId !== null ? 4 : 0) +
+    (franja.techada !== null ? 2 : 0) +
+    (franja.diaSemana !== null ? 1 : 0)
   );
 }
 
@@ -77,6 +92,9 @@ export function franjaPara(bloque: BloqueATarifar): Tarifa {
 
   const aplicables = bloque.franjas.filter((franja) => {
     if (franja.canchaId !== null && franja.canchaId !== bloque.canchaId) {
+      return false;
+    }
+    if (franja.techada !== null && franja.techada !== bloque.techada) {
       return false;
     }
 

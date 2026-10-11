@@ -7,6 +7,7 @@ import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
 import { MenuDesplegable } from './menu-desplegable';
 import { usarTemaPublico } from './tema';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
 /**
  * El sitio público: barra superior, contenido y pie.
@@ -33,6 +34,8 @@ import { usarTemaPublico } from './tema';
     Logotipo,
     ConmutadorDeTema,
     MenuDesplegable,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
   ],
   template: `
     <a
@@ -257,8 +260,8 @@ import { usarTemaPublico } from './tema';
             }
             @if (club().telefono) {
               <li>
-                <a [href]="'tel:' + club().telefono" class="hover:text-on-campo hover:underline">
-                  {{ club().telefono }}
+                <a [href]="club().telefono | enlaceTelefono" class="hover:text-on-campo hover:underline">
+                  {{ club().telefono | telefono }}
                 </a>
               </li>
             }

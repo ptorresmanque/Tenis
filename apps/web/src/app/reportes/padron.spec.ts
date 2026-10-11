@@ -125,6 +125,8 @@ describe('PadronPanel', () => {
       'input[name="hasta"]',
     )!;
     campo.value = '2026-09-30';
+    // El de Material lee lo escrito con `input` y lo entrega con `change`.
+    campo.dispatchEvent(new Event('input'));
     campo.dispatchEvent(new Event('change'));
     await fixture.whenStable();
     fixture.detectChanges();

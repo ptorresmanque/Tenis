@@ -39,6 +39,7 @@ describe('AgendaDelDia', () => {
     estado: 'PROGRAMADA',
     cupoMaximo: 6,
     notas: null,
+    serieId: null,
   };
 
   let fixture: ComponentFixture<AgendaDelDia>;

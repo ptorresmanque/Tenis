@@ -1,5 +1,6 @@
 import { Component, computed, input, model, output } from '@angular/core';
 
+import { CampoFecha } from '../../ui/campo-fecha';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { Cancha, DuracionMin } from '../disponibilidad';
@@ -41,7 +42,7 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
  */
 @Component({
   selector: 'app-controles-del-dia',
-  imports: [Insignia, Selector],
+  imports: [CampoFecha, Insignia, Selector],
   host: { class: 'contents' },
   template: `
     <div class="mt-4 flex flex-wrap items-end gap-4">
@@ -64,13 +65,12 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
         <label for="fecha" class="block text-sm font-medium">Otro día</label>
         <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
              etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
-        <input
-          id="fecha"
-          type="date"
-          class="campo mt-1 w-auto cursor-pointer py-2 transition-colors
-                 hover:border-primary"
-          [value]="fecha()"
-          (change)="cambiarFecha($event)"
+        <app-campo-fecha
+          class="mt-1"
+          inputId="fecha"
+          claseCampo="w-36 cursor-pointer py-2 transition-colors hover:border-primary"
+          [valor]="fecha()"
+          (valorChange)="cambiarFecha($event)"
         />
       </div>
     </div>
@@ -98,12 +98,13 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
       (valorChange)="filtro.set($event)"
     />
 
-    <!-- La leyenda no es decoración: los tres estados se distinguen por color,
-         forma e ícono, y esto es lo que dice qué significa cada uno. -->
+    <!-- La leyenda no es decoración: la celda libre, la que no tiene y la hora pico se
+         distinguen por color, y esto es lo que dice qué significa cada uno. Cada celda
+         sin libres dice además por qué (T103). -->
     <ul class="mt-4 flex flex-wrap gap-2">
       <li><app-insignia variante="libre">Libre</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="lock">Ocupado</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="build">En mantención</app-insignia></li>
+      <li><app-insignia variante="neutro" icono="lock">Sin libres</app-insignia></li>
+      <li><app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia></li>
     </ul>
   `,
 })
@@ -131,9 +132,7 @@ export class ControlesDelDia {
     })),
   );
 
-  protected cambiarFecha(evento: Event): void {
-    const valor = (evento.target as HTMLInputElement).value;
-
+  protected cambiarFecha(valor: string): void {
     // El input vacío —se puede borrar con el teclado— no dispara una consulta
     // que la API va a rechazar.
     if (valor) {

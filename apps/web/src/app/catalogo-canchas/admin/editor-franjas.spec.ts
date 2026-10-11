@@ -23,6 +23,7 @@ describe('EditorFranjas', () => {
       {
         id: 3,
         canchaId: 7,
+        techada: null,
         diaSemana: null,
         horaDesde: '18:00',
         horaHasta: '22:00',
@@ -188,5 +189,68 @@ describe('EditorFranjas', () => {
     expect(elemento().textContent).toContain(
       'La franja tiene que terminar después de empezar.',
     );
+  });
+
+  /**
+   * T99. En las tarifas generales del club se elige a qué canchas aplica: todas, solo
+   * las techadas o solo las abiertas. Una tarifa de una cancha no lleva tipo (T98).
+   */
+  describe('a qué canchas aplica (T99)', () => {
+    const CLUB = { id: null, nombre: 'El club', horarios: [], franjas: [] };
+    const aplicaA = () =>
+      elemento().querySelector<HTMLSelectElement>('#aplica-club');
+    const enviar = async () => {
+      elemento().querySelector('form')?.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+    };
+
+    it('en una cancha no se ofrece: ya se sabe si es techada', () => {
+      expect(elemento().querySelector('select')).toBeNull();
+    });
+
+    it('en las generales se ofrece, y por omisión aplica a todas', async () => {
+      await montar(CLUB as never);
+
+      expect(
+        Array.from(aplicaA()!.options).map((o) => o.textContent?.trim()),
+      ).toEqual(['Todas las canchas', 'Solo techadas', 'Solo al aire libre']);
+
+      await enviar();
+      expect(api.crearFranja).toHaveBeenCalledWith(
+        expect.objectContaining({ canchaId: null, techada: null }),
+      );
+    });
+
+    it('**la de solo techadas viaja con su tipo**', async () => {
+      await montar(CLUB as never);
+
+      aplicaA()!.value = aplicaA()!.options[1].value;
+      aplicaA()!.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      await enviar();
+
+      expect(api.crearFranja).toHaveBeenCalledWith(
+        expect.objectContaining({ canchaId: null, techada: true }),
+      );
+    });
+
+    it('la lista dice a qué canchas aplica cada tarifa general', async () => {
+      const franja = CANCHA.franjas[0];
+      await montar({
+        ...CLUB,
+        franjas: [
+          { ...franja, id: 1, canchaId: null, techada: true },
+          { ...franja, id: 2, canchaId: null, techada: false, horaDesde: '08:00' },
+          { ...franja, id: 3, canchaId: null, techada: null, horaDesde: '07:00' },
+        ],
+      } as never);
+
+      const filas = Array.from(elemento().querySelectorAll('li')).map((li) =>
+        li.textContent?.replace(/\s+/g, ' '),
+      );
+      expect(filas.find((f) => f?.includes('18:00'))).toContain('solo techadas');
+      expect(filas.find((f) => f?.includes('08:00'))).toContain('solo al aire libre');
+      expect(filas.find((f) => f?.includes('07:00'))).not.toContain('solo');
+    });
   });
 });

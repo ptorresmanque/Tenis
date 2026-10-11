@@ -1,14 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 
+import { DatosDelClub } from '../comun/club';
 import { PrismaService } from '../prisma/prisma.service';
-
-/** Lo que el sitio público necesita saber del club para no inventarlo. */
-export interface DatosDelClub {
-  nombre: string;
-  direccion: string;
-  telefono: string;
-  email: string;
-}
 
 /**
  * Los datos de contacto del club, para cualquiera.
@@ -28,7 +21,14 @@ export class ClubPublicoController {
   @Get()
   async datos(): Promise<DatosDelClub> {
     const club = await this.prisma.configuracionClub.findFirstOrThrow({
-      select: { nombre: true, direccion: true, telefono: true, email: true },
+      select: {
+        nombre: true,
+        direccion: true,
+        telefono: true,
+        email: true,
+        latitud: true,
+        longitud: true,
+      },
     });
 
     return club;

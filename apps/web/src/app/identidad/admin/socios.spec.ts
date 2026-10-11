@@ -78,7 +78,9 @@ describe('SociosPanel', () => {
       `#${id}`,
     ) as HTMLInputElement;
     input.value = valor;
+    // El de fecha es de Material: toma el valor al terminar (`change`), no al escribir.
     input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('change'));
     await fixture.whenStable();
     fixture.detectChanges();
   };

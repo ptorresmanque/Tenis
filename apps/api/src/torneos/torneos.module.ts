@@ -5,6 +5,7 @@ import { CatalogoCanchasModule } from '../catalogo-canchas/catalogo-canchas.modu
 import { PagosModule } from '../pagos/pagos.module';
 import { ReservasModule } from '../reservas/reservas.module';
 import { CategoriasDelTorneo } from './categorias-del-torneo.service';
+import { AvisosDeTorneo } from './correos';
 import { ComprobantesDeInscripcion } from './comprobantes.service';
 import { PagoDeInscripcion } from './pago-de-inscripcion.service';
 import { ProgramacionDePartidos } from './programacion.service';
@@ -51,6 +52,7 @@ import { Torneos } from './torneos.service';
     CuadroDelTorneo,
     ResultadosDelCuadro,
     TorneosPublicos,
+    AvisosDeTorneo,
   ],
   exports: [Jugadores],
 })

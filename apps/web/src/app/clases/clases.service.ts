@@ -29,6 +29,8 @@ export interface ClaseDelDia {
   estado: 'PROGRAMADA' | 'REALIZADA' | 'CANCELADA';
   cupoMaximo: number;
   notas: string | null;
+  /** La serie que la agendó, o nulo si es suelta (T117). */
+  serieId: number | null;
 }
 
 /** Lo que el formulario manda para agendar. Horas del club, como las escribe el admin. */
@@ -48,6 +50,8 @@ export type EstadoInscripcion = 'INSCRITA' | 'CANCELADA' | 'ASISTIO' | 'FALTO';
 /** Quién viene a la clase, como lo lee el club. */
 export interface Inscrito {
   id: number;
+  /** El socio, para sacarlo de la serie (T116); nulo si es un alumno de afuera. */
+  socioId: number | null;
   nombre: string;
   telefono: string;
   esSocio: boolean;
@@ -68,6 +72,8 @@ export interface FichaDeClase {
   cupoMaximo: number;
   cupoTomado: number;
   notas: string | null;
+  /** La serie que la agendó (T113), o nulo si es una clase suelta. */
+  serieId: number | null;
   inscritos: Inscrito[];
 }
 
@@ -93,9 +99,65 @@ export interface ClasePublica {
   cuposLibres: number;
 }
 
+/**
+ * Una serie de clases como la anuncia el club (T117): una tarjeta, no una clase por fecha. El
+ * cupo es el más chico entre sus clases que vienen; `hasta`, la fecha de la última.
+ */
+export interface SeriePublica {
+  id: number;
+  profesor: string;
+  cancha: string;
+  nivel: NivelClase;
+  /** De 0 (domingo) a 6 (sábado). */
+  diasSemana: number[];
+  horaDesde: string;
+  horaHasta: string;
+  hasta: string;
+  cuposLibres: number;
+}
+
 export interface ResultadoAgendar {
   id: number;
   bloqueoId: number;
+  canceladas: HoraAfectada[];
+}
+
+/**
+ * Una serie de clases, como la escribe el admin (T113): la ficha de una clase, los días
+ * de la semana —0 es domingo— y el rango de fechas. Dura como máximo 6 meses.
+ */
+export interface SerieNueva {
+  canchaId: number;
+  profesorId: number;
+  diasSemana: number[];
+  horaDesde: string;
+  horaHasta: string;
+  desde: string;
+  hasta: string;
+  cupoMaximo: number;
+  nivel: NivelClase;
+  notas?: string;
+}
+
+/** Una fecha que la serie generaría, con lo que tiene encima (T113). */
+export interface FechaDeLaSerie {
+  fecha: string;
+  inicio: string;
+  fin: string;
+  /** La cancha cerrada a esa hora, o fuera del horario. Esa fecha solo se puede saltar. */
+  choque: string | null;
+  /** Las reservas que la clase cancelaría. */
+  afectadas: HoraAfectada[];
+}
+
+/** Qué hacer con una fecha que tiene algo encima, o con una libre que se quiere saltar. */
+export type DecisionDeFecha = 'cancelar' | 'saltar';
+
+/** Lo que deja una serie agendada (T114). */
+export interface SerieAgendada {
+  id: number;
+  clases: { id: number; fecha: string }[];
+  saltadas: string[];
   canceladas: HoraAfectada[];
 }
 
@@ -120,12 +182,14 @@ export class Clases {
   publicas(desde?: string): Promise<{
     profesores: ProfesorPublico[];
     clases: ClasePublica[];
+    series: SeriePublica[];
   }> {
     return firstValueFrom(
-      this.http.get<{ profesores: ProfesorPublico[]; clases: ClasePublica[] }>(
-        '/api/clases/publicas',
-        { params: desde ? { desde } : {} },
-      ),
+      this.http.get<{
+        profesores: ProfesorPublico[];
+        clases: ClasePublica[];
+        series: SeriePublica[];
+      }>('/api/clases/publicas', { params: desde ? { desde } : {} }),
     );
   }
 
@@ -148,6 +212,32 @@ export class Clases {
   agendar(clase: ClaseNueva): Promise<ResultadoAgendar> {
     return firstValueFrom(
       this.http.post<ResultadoAgendar>('/api/admin/clases', clase),
+    );
+  }
+
+  /** Lo que la serie generaría, fecha por fecha. No escribe nada (T113). */
+  simularSerie(serie: SerieNueva): Promise<{ fechas: FechaDeLaSerie[] }> {
+    return firstValueFrom(
+      this.http.post<{ fechas: FechaDeLaSerie[] }>(
+        '/api/admin/clases/series/simulacion',
+        serie,
+      ),
+    );
+  }
+
+  /**
+   * Agenda la serie con la decisión de cada fecha que la necesita (T114). El servidor
+   * vuelve a simular: si apareció una reserva en una fecha sin decisión, la rechaza entera.
+   */
+  agendarSerie(
+    serie: SerieNueva,
+    decisiones: Record<string, DecisionDeFecha>,
+  ): Promise<SerieAgendada> {
+    return firstValueFrom(
+      this.http.post<SerieAgendada>('/api/admin/clases/series', {
+        ...serie,
+        decisiones,
+      }),
     );
   }
 
@@ -176,6 +266,32 @@ export class Clases {
     );
   }
 
+  /**
+   * Inscribe en cada clase que viene de la serie (T116). Si una está llena, el servidor no
+   * inscribe en ninguna y dice cuál.
+   */
+  inscribirEnLaSerie(
+    serieId: number,
+    quien: QuienSeInscribe,
+  ): Promise<{ inscritas: number; yaEstaba: number }> {
+    return firstValueFrom(
+      this.http.post<{ inscritas: number; yaEstaba: number }>(
+        `/api/admin/clases/series/${serieId}/inscripciones`,
+        quien,
+      ),
+    );
+  }
+
+  /** Lo saca de la serie: cancela las clases que vienen, no las que ya pasaron (T116). */
+  salirDeLaSerie(serieId: number, quien: QuienSeInscribe): Promise<{ canceladas: number }> {
+    return firstValueFrom(
+      this.http.post<{ canceladas: number }>(
+        `/api/admin/clases/series/${serieId}/inscripciones/cancelacion`,
+        quien,
+      ),
+    );
+  }
+
   /** Baja a alguien de la clase. La fila queda marcada; libera el cupo, no la historia. */
   bajar(claseId: number, id: number): Promise<{ id: number }> {
     return firstValueFrom(
@@ -197,6 +313,23 @@ export class Clases {
       this.http.post<{ id: number }>(
         `/api/admin/clases/${id}/realizacion`,
         asistieron === null ? {} : { asistieron },
+      ),
+    );
+  }
+
+  /**
+   * Cancela la clase de ese día y las siguientes de la serie (T117): sus horas vuelven a la
+   * grilla y las anteriores quedan como estaban. El motivo es obligatorio.
+   */
+  cancelarSerieDesde(
+    serieId: number,
+    desde: string,
+    motivo: string,
+  ): Promise<{ canceladas: number }> {
+    return firstValueFrom(
+      this.http.post<{ canceladas: number }>(
+        `/api/admin/clases/series/${serieId}/cancelacion`,
+        { desde, motivo },
       ),
     );
   }

@@ -28,7 +28,11 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/fuentes.css", "src/styles.css"]
+            "styles": [
+              "src/fuentes.css",
+              "@angular/material/prebuilt-themes/azure-blue.css",
+              "src/styles.css"
+            ]
           },
           "configurations": {
             "production": {

@@ -4,10 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import {
   EstadoClase,
   EstadoInscripcion,
-  type Prisma,
+  Prisma,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { InscripcionNueva } from './clases.dto';
@@ -25,9 +26,19 @@ const OCUPAN: EstadoInscripcion[] = [
   EstadoInscripcion.FALTO,
 ];
 
+/** "jueves 22 de octubre", en la hora del club: para decir qué clase de la serie está llena. */
+const DIA = new Intl.DateTimeFormat('es-CL', {
+  timeZone: ZONA_DEL_CLUB,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
 /** Quién viene a la clase, como se lee en la ficha. */
 export interface Inscrito {
   id: number;
+  /** El socio, para inscribirlo o sacarlo de la serie (T116); nulo si es alumno de afuera. */
+  socioId: number | null;
   nombre: string;
   telefono: string;
   esSocio: boolean;
@@ -47,6 +58,8 @@ export interface FichaDeClase {
   cupoMaximo: number;
   cupoTomado: number;
   notas: string | null;
+  /** La serie que la agendó (T113), o nulo si es una clase suelta. */
+  serieId: number | null;
   inscritos: Inscrito[];
 }
 
@@ -118,6 +131,105 @@ export class Inscripciones {
 
       return { id: inscripcion.id };
     });
+  }
+
+  /**
+   * Inscribe en la serie completa (T116, decisión 8): una inscripción en cada clase que
+   * viene, **en una transacción**. Si alguna está llena no se inscribe en ninguna, y el
+   * rechazo dice cuáles: media serie es un alumno que no sabe a qué clases va.
+   *
+   * Las clases donde ya estaba —inscrito antes en una suelta— se saltan, sin duplicarlo.
+   * Toma las filas de las clases como cerrojo, como `inscribir`, y **en orden de id**: dos
+   * inscripciones a la misma serie las toman en el mismo orden y no se cruzan.
+   */
+  async inscribirEnLaSerie(
+    serieId: number,
+    quien: InscripcionNueva,
+    ahora = new Date(),
+  ): Promise<{ inscritas: number; yaEstaba: number }> {
+    if (quien.socioId !== null) await this.exigirSocio(quien.socioId);
+
+    const clases = await this.lasQueVienen(serieId, ahora);
+    if (clases.length === 0) {
+      throw new ConflictException('La serie ya no tiene clases por delante.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const ids = clases.map((clase) => clase.id).sort((a, b) => a - b);
+      await tx.$queryRaw`SELECT id FROM clase WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`;
+
+      // Se vuelven a leer bajo el cerrojo: entre la consulta de arriba y el `FOR UPDATE`
+      // una clase pudo cancelarse o cambiar de cupo, y se inscribiría con lo que ya no es.
+      const vigentes = await tx.clase.findMany({
+        where: {
+          id: { in: ids },
+          estado: EstadoClase.PROGRAMADA,
+          inicio: { gt: ahora },
+        },
+        orderBy: { inicio: 'asc' },
+        select: { id: true, inicio: true, cupoMaximo: true },
+      });
+
+      const nuevas: number[] = [];
+      const llenas: Date[] = [];
+      let yaEstaba = 0;
+
+      for (const clase of vigentes) {
+        if (await this.estaInscrito(tx, clase.id, quien)) {
+          yaEstaba++;
+          continue;
+        }
+
+        const tomados = await tx.inscripcionClase.count({
+          where: { claseId: clase.id, estado: { in: OCUPAN } },
+        });
+
+        if (tomados >= clase.cupoMaximo) llenas.push(clase.inicio);
+        else nuevas.push(clase.id);
+      }
+
+      if (llenas.length > 0) {
+        throw new ConflictException(
+          `No hay cupo ${llenas.length === 1 ? 'en la clase del' : 'en las clases del'} ` +
+            `${llenas.map((inicio) => DIA.format(inicio).replace(',', '')).join(', ')}: ` +
+            'no se inscribió en ninguna clase de la serie.',
+        );
+      }
+
+      await tx.inscripcionClase.createMany({
+        data: nuevas.map((claseId) => ({
+          claseId,
+          socioId: quien.socioId,
+          nombre: quien.nombre,
+          telefono: quien.telefono,
+        })),
+      });
+
+      return { inscritas: nuevas.length, yaEstaba };
+    });
+  }
+
+  /**
+   * Saca a alguien de la serie (A10): cancela sus inscripciones en las clases que vienen.
+   * Las anteriores quedan como estaban, con su asistencia: lo que pasó no se reescribe.
+   */
+  async salirDeLaSerie(
+    serieId: number,
+    quien: InscripcionNueva,
+    ahora = new Date(),
+  ): Promise<{ canceladas: number }> {
+    await this.laSerie(serieId);
+
+    const { count } = await this.prisma.inscripcionClase.updateMany({
+      where: {
+        ...this.quienEs(quien),
+        estado: EstadoInscripcion.INSCRITA,
+        clase: { serieId, inicio: { gt: ahora } },
+      },
+      data: { estado: EstadoInscripcion.CANCELADA },
+    });
+
+    return { canceladas: count };
   }
 
   /**
@@ -211,12 +323,14 @@ export class Inscripciones {
         estado: true,
         cupoMaximo: true,
         notas: true,
+        serieId: true,
         cancha: { select: { nombre: true } },
         profesor: { select: { nombreVisible: true } },
         inscripciones: {
           orderBy: { inscritaEn: 'asc' },
           select: {
             id: true,
+            socioId: true,
             nombre: true,
             telefono: true,
             estado: true,
@@ -238,6 +352,7 @@ export class Inscripciones {
 
     const inscritos = clase.inscripciones.map((fila) => ({
       id: fila.id,
+      socioId: fila.socioId,
       // Del socio se leen de su ficha y no se copian: si cambia su teléfono, la lista
       // que el club usa para llamarlo queda al día sola.
       nombre: fila.socio
@@ -264,6 +379,7 @@ export class Inscripciones {
       cupoTomado: inscritos.filter((quien) => OCUPAN.includes(quien.estado))
         .length,
       notas: clase.notas,
+      serieId: clase.serieId,
       inscritos,
     };
   }
@@ -308,6 +424,48 @@ export class Inscripciones {
   ): Promise<boolean> {
     const cuantas = await tx.inscripcionClase.count({
       where: { claseId, socioId, estado: { in: OCUPAN } },
+    });
+
+    return cuantas > 0;
+  }
+
+  /** Las clases de la serie que todavía se van a dar: programadas y por delante. */
+  private async lasQueVienen(serieId: number, ahora: Date) {
+    await this.laSerie(serieId);
+
+    return this.prisma.clase.findMany({
+      where: { serieId, estado: EstadoClase.PROGRAMADA, inicio: { gt: ahora } },
+      orderBy: { inicio: 'asc' },
+      select: { id: true, inicio: true, cupoMaximo: true },
+    });
+  }
+
+  private async laSerie(serieId: number): Promise<void> {
+    const serie = await this.prisma.serieDeClases.findUnique({
+      where: { id: serieId },
+      select: { id: true },
+    });
+
+    if (!serie) throw new NotFoundException('No hay una serie con ese número.');
+  }
+
+  /**
+   * Cómo se reconoce a la persona en una inscripción: el socio por su ficha, el alumno de
+   * afuera por su nombre y su teléfono, que es lo único que el club sabe de él.
+   */
+  private quienEs(quien: InscripcionNueva): Prisma.InscripcionClaseWhereInput {
+    return quien.socioId !== null
+      ? { socioId: quien.socioId }
+      : { socioId: null, nombre: quien.nombre, telefono: quien.telefono };
+  }
+
+  private async estaInscrito(
+    tx: Prisma.TransactionClient,
+    claseId: number,
+    quien: InscripcionNueva,
+  ): Promise<boolean> {
+    const cuantas = await tx.inscripcionClase.count({
+      where: { ...this.quienEs(quien), claseId, estado: { in: OCUPAN } },
     });
 
     return cuantas > 0;

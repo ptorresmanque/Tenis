@@ -2,7 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 
 import { entero } from '../catalogo-canchas/admin.dto';
 import { type Franja, leerFranjas } from './restricciones';
-import { normalizarTelefono } from './telefono';
+import { leerTelefono } from '../comun/telefono';
+import { leerCorreo } from '../identidad/registro.dto';
 
 /**
  * Cómo dice que va a pagar.
@@ -21,6 +22,8 @@ export interface InscripcionPublica {
   apellido: string;
   telefono: string;
   procedencia: string;
+  /** A dónde se le escriben la confirmación, el pago, el cuadro y sus partidos. */
+  email: string;
   categoriaJuegoId: number;
   /**
    * Cómo va a pagar, o nada si el cuadro es gratis.
@@ -49,21 +52,38 @@ export interface InscripcionPublica {
 export function leerInscripcionPublica(cuerpo: unknown): InscripcionPublica {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
-  const telefono = normalizarTelefono(datos.telefono);
-
-  if (telefono === null) {
-    // El mensaje dice qué se espera y no solo que está mal: quien se equivoca acá es
-    // alguien que quiere jugar el torneo, no un atacante.
-    throw new BadRequestException(
-      'Escribe un teléfono con el que el club te pueda llamar, como +56 9 8765 4321.',
-    );
-  }
+  // El mensaje dice qué se espera y no solo que está mal: quien se equivoca acá es
+  // alguien que quiere jugar el torneo, no un atacante.
+  const telefono = leerTelefono(datos.telefono, { obligatorio: true });
 
   return {
     nombre: exigir(datos.nombre, 'nombre', 80),
     apellido: exigir(datos.apellido, 'apellido', 80),
     telefono,
     procedencia: exigir(datos.procedencia, 'club o lugar de dónde vienes', 120),
+    // El mismo lector del registro: recortado, en minúsculas y con forma de correo.
+    email: leerCorreo(datos),
+    categoriaJuegoId: entero(numero(datos.categoriaJuegoId), 'La categoría', 1),
+    medioPago: leerMedioPago(datos.medioPago),
+    restricciones: leerFranjas(comoLista(datos.restricciones)),
+  };
+}
+
+/**
+ * Lo que manda el socio que se inscribe sin el formulario (T129): la categoría, el pago
+ * y cuándo no puede jugar. Nada más se lee del cuerpo: el jugador y el correo salen de
+ * su sesión.
+ */
+export type InscripcionDeSocio = Pick<
+  InscripcionPublica,
+  'categoriaJuegoId' | 'medioPago' | 'restricciones'
+>;
+
+/** Lee el envío del socio, con las mismas reglas que el formulario público. */
+export function leerInscripcionDeSocio(cuerpo: unknown): InscripcionDeSocio {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  return {
     categoriaJuegoId: entero(numero(datos.categoriaJuegoId), 'La categoría', 1),
     medioPago: leerMedioPago(datos.medioPago),
     restricciones: leerFranjas(comoLista(datos.restricciones)),

@@ -15,6 +15,16 @@ const MOTIVOS: Record<string, string> = {
   OTRO: 'No disponible',
 };
 
+/**
+ * El ícono de cada motivo, para que lo cerrado no dependa del color. Acá y no en el
+ * marcador por la misma razón que los nombres: lo usan el marcador y la grilla (T97).
+ */
+export const ICONOS_DE_MOTIVO: Record<string, string> = {
+  MANTENCION: 'build',
+  TORNEO: 'emoji_events',
+  CLASE: 'school',
+};
+
 /** El motivo en palabras, o "No disponible" si no viene o no se conoce. */
 export function nombreDelMotivo(motivo: BloqueDisponible['motivoBloqueo']): string {
   return (motivo && MOTIVOS[motivo]) ?? 'No disponible';

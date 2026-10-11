@@ -388,6 +388,34 @@ function plantillas(): { archivo: string; contenido: string }[] {
     }));
 }
 
+describe('Campos de fecha y hora (T125)', () => {
+  it('**ningún label envuelve un campo de fecha u hora**: la lista quedaría en su nombre', () => {
+    // Material inserta el calendario y la lista de horas junto al campo, y no al final
+    // de la página. Si un <label> envuelve el campo, las 48 horas pasan a ser parte de su
+    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". La etiqueta va al lado,
+    // con `for`.
+    const envuelto = /<label\b[^>]*>(?:(?!<\/label>)[\s\S])*?<app-campo-(?:fecha|hora)\b/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => envuelto.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún campo de fecha u hora es el nativo** (T126): todos son los de Material', () => {
+    // El nativo se ve distinto en cada navegador, en el teléfono abre la rueda del sistema
+    // y no sigue los tokens del sitio: fue el punto 7 de la sexta parte. Los comentarios
+    // de bloque se quitan antes de buscar: varios nombran el <input type="date"> que
+    // los campos reemplazan.
+    const nativo = /<input\b[^>]*\btype="(?:date|time)"/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => nativo.test(contenido.replace(/\/\*[\s\S]*?\*\//g, '')))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
+
 describe('Tipografía', () => {
   // El fallo que atrapa: alguien cambia --font-display y la app se sirve con
   // la fuente de respaldo del sistema. Nada falla, nadie se entera, y el
@@ -963,8 +991,14 @@ describe('Tablas', () => {
     // pondría encabezado gris, una línea por fila y un hover gris, y habría que
     // deshacer cada cosa a mano. Va por archivo, no por clase, para que no sea
     // una puerta que cualquier tabla pueda usar.
+    //
+    // La otra es la disponibilidad (T103), por lo mismo: es un tablero de botones de
+    // 44px, uno por celda, separados entre sí. La primitiva los juntaría con
+    // `border-collapse`, les sumaría 2rem de relleno por celda —a 375px no caben dos
+    // columnas—, pegaría el encabezado bajo la cabecera del sitio y pintaría la fila
+    // entera de gris al pasar el ratón por un botón.
     const infractores: string[] = [];
-    const excepciones = ['catalogo-canchas/marcador.ts'];
+    const excepciones = ['catalogo-canchas/marcador.ts', 'catalogo-canchas/grilla/grilla.ts'];
 
     for (const { archivo, contenido } of plantillas()) {
       if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
@@ -1186,5 +1220,47 @@ describe('Acabado', () => {
     const salida = css.match(/--duracion-salida:\s*(\d+)ms/)?.[1];
 
     expect(Number(salida)).toBeLessThan(Number(entrada));
+  });
+});
+
+/**
+ * T95. El favicon es la D del logotipo, con la silueta, en blanco sobre el azul de la
+ * marca. Hasta acá era el de Angular, que venía con el esqueleto de T1.
+ */
+describe('Favicon', () => {
+  const publico = (archivo: string) => join(process.cwd(), 'public', archivo);
+  const html = readFileSync(join(process.cwd(), 'src/index.html'), 'utf8');
+
+  it('index.html declara el SVG, el .ico de respaldo y el ícono del iPhone', () => {
+    expect(html).toContain('<link rel="icon" href="favicon.svg" type="image/svg+xml">');
+    expect(html).toContain('<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">');
+    expect(html).toContain('<link rel="apple-touch-icon" href="apple-touch-icon.png">');
+  });
+
+  it('el SVG lleva solo la D y pesa menos de 4 KB: el trazo entero del logo eran 18', () => {
+    const svg = readFileSync(publico('favicon.svg'), 'utf8');
+
+    expect(svg.length).toBeLessThan(4096);
+    // El azul de la marca: el de "FE" y el del rótulo de la hora.
+    expect(svg.toLowerCase()).toContain('#0b4f9e');
+  });
+
+  it('el .ico trae 16, 32 y 48 en PNG, y no los BMP del de Angular', () => {
+    const ico = readFileSync(publico('favicon.ico'));
+    const imagenes = Array.from({ length: ico.readUInt16LE(4) }, (_, i) => {
+      const entrada = 6 + 16 * i;
+      const desde = ico.readUInt32LE(entrada + 12);
+      return {
+        lado: ico[entrada] || 256,
+        png: ico.subarray(desde, desde + 4).toString('hex') === '89504e47',
+      };
+    });
+
+    expect(imagenes.map((i) => i.lado).sort((a, b) => a - b)).toEqual([16, 32, 48]);
+    expect(imagenes.every((i) => i.png)).toBe(true);
+  });
+
+  it('el ícono del iPhone existe: sin él, iOS arma uno con una captura de la página', () => {
+    expect(existsSync(publico('apple-touch-icon.png'))).toBe(true);
   });
 });

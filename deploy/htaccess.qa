@@ -5,16 +5,9 @@
 
 Options -Indexes
 
-# Solo con la clave de QA (plan § 0.9), y solo por HTTPS: por HTTP no se pide, porque
-# viajaría en claro, y la reescritura de abajo redirige antes de servir nada. Se exime
-# /.well-known/, por donde AutoSSL valida el dominio para renovar el certificado.
-<If "%{HTTPS} == 'on' && %{REQUEST_URI} !~ m#^/\.well-known/#">
-  AuthType Basic
-  AuthName "QA FEDAL"
-  AuthUserFile "/home/fedalcl/.htpasswds/public_html/qa.fedal.cl/passwd"
-  Require valid-user
-</If>
-
+# Sin clave desde el 2026-10-09, a pedido del usuario: el cliente prueba QA sin tener que
+# escribirla (antes, plan § 0.9). Sigue fuera de los buscadores, porque no es el sitio del
+# club, y los correos siguen yendo a la casilla de CORREO_DESVIO.
 Header always set X-Robots-Tag "noindex, nofollow"
 
 # index.html nombra los chunks de su release, y el agente borra los del anterior: si el

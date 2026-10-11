@@ -16,6 +16,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Insignia, VarianteInsignia } from '../../ui/insignia';
 import { InscripcionTorneo, Torneos } from '../torneos.service';
+import { TelefonoPipe } from '../../core/telefono';
 
 /**
  * Quién juega un torneo.
@@ -27,7 +28,7 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
  */
 @Component({
   selector: 'app-inscritos-torneo',
-  imports: [FormsModule, Aviso, Insignia],
+  imports: [FormsModule, Aviso, Insignia, TelefonoPipe],
   template: `
     @if (lista.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -236,7 +237,11 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                         }
                         {{ pesos(datos.montoClp) }}
                         @if (quien.telefono) {
-                          <br />Para llamarlo: {{ quien.telefono }}
+                          <br />Para llamarlo: {{ quien.telefono | telefono }}
+                        }
+                        @if (quien.email) {
+                          <br />Para escribirle:
+                          <a class="underline" [href]="'mailto:' + quien.email">{{ quien.email }}</a>
                         }
                       </p>
 
@@ -353,6 +358,20 @@ import { InscripcionTorneo, Torneos } from '../torneos.service';
                 </select>
               </label>
 
+              <!-- **Se pide pero no se exige** (T127): el que se anota en el mesón puede
+                   no tener correo, y sin él no le llegan los avisos del torneo. -->
+              <label class="min-w-56 flex-1">
+                <span class="text-sm font-medium">Correo (opcional)</span>
+                <input
+                  class="campo campo-chico mt-1"
+                  type="email"
+                  name="email"
+                  autocomplete="off"
+                  maxlength="191"
+                  [(ngModel)]="correo"
+                />
+              </label>
+
               <button
                 type="submit"
                 class="boton boton-secundario boton-chico"
@@ -439,6 +458,7 @@ export class InscritosDelTorneo {
   readonly cuadroId = input.required<number>();
 
   protected jugadorId = 0;
+  protected correo = '';
 
   /**
    * Las franjas en palabras: "los martes de 18:00 a 21:00 y los jueves de 09:00 a 12:00".
@@ -717,8 +737,10 @@ export class InscritosDelTorneo {
     await this.intentar(async () => {
       await this.api.inscribir(this.cuadroId(), {
         jugadorId: Number(this.jugadorId),
+        email: this.correo.trim(),
       });
       this.jugadorId = 0;
+      this.correo = '';
     });
   }
 

@@ -10,6 +10,7 @@ import {
 import { FormsModule } from '@angular/forms';
 
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
+import { CampoHora } from '../../ui/campo-hora';
 
 const DIAS = [
   'Domingo',
@@ -40,7 +41,7 @@ interface FilaDeDia {
  */
 @Component({
   selector: 'app-editor-horarios',
-  imports: [FormsModule],
+  imports: [FormsModule, CampoHora],
   template: `
     <form class="mt-2" (ngSubmit)="guardar()">
       <!-- La tabla lleva siete filas de dos horas cada una y no se encoge más:
@@ -74,10 +75,10 @@ interface FilaDeDia {
                 />
               </td>
               <td class="pe-3 py-1">
-                <input
-                  type="time"
-                  class="campo campo-chico"
-                  [attr.aria-label]="'Apertura del ' + nombreDia(fila.diaSemana)"
+                <app-campo-hora
+                  [inputId]="'desde-' + clave() + '-' + fila.diaSemana"
+                  claseCampo="campo-chico w-24"
+                  [etiquetaAccesible]="'Apertura del ' + nombreDia(fila.diaSemana)"
                   [disabled]="!fila.abre"
                   [ngModel]="fila.horaApertura"
                   (ngModelChange)="cambiar(fila.diaSemana, { horaApertura: $event })"
@@ -85,10 +86,10 @@ interface FilaDeDia {
                 />
               </td>
               <td class="py-1">
-                <input
-                  type="time"
-                  class="campo campo-chico"
-                  [attr.aria-label]="'Cierre del ' + nombreDia(fila.diaSemana)"
+                <app-campo-hora
+                  [inputId]="'hasta-' + clave() + '-' + fila.diaSemana"
+                  claseCampo="campo-chico w-24"
+                  [etiquetaAccesible]="'Cierre del ' + nombreDia(fila.diaSemana)"
                   [disabled]="!fila.abre"
                   [ngModel]="fila.horaCierre"
                   (ngModelChange)="cambiar(fila.diaSemana, { horaCierre: $event })"

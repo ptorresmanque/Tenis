@@ -24,3 +24,29 @@ export function mesDelClub(fecha: string): { desde: string; hasta: string } {
 function civil(fecha: Date): string {
   return fecha.toISOString().slice(0, 10);
 }
+
+/**
+ * Los invitados anteriores de un socio, una vez cada uno (T106, A4 del plan).
+ *
+ * Salen de los nombres que ya escribió en sus reservas, sin tabla propia. El mismo
+ * invitado escrito con y sin tilde, en mayúsculas o con un espacio de más es una sola
+ * persona, y queda **la forma más reciente**: si corrigió cómo se escribe, la corrección
+ * es la que vale.
+ *
+ * @param nombres Los nombres tal como se declararon, del más reciente al más antiguo.
+ */
+export function invitadosAnteriores(nombres: string[]): string[] {
+  const porClave = new Map<string, string>();
+
+  for (const nombre of nombres) {
+    const limpio = nombre.trim().replace(/\s+/g, ' ');
+    const clave = limpio
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLocaleLowerCase('es');
+
+    if (limpio && !porClave.has(clave)) porClave.set(clave, limpio);
+  }
+
+  return [...porClave.values()];
+}

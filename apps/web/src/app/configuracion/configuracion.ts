@@ -55,7 +55,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 })
 export class Configuracion {
   protected readonly SECCIONES = [
-    { ruta: 'reglas', etiqueta: 'Reglas de reserva', icono: 'rule' },
+    { ruta: 'reglas', etiqueta: 'Reglas y cuotas', icono: 'rule' },
     { ruta: 'datos', etiqueta: 'Datos del club', icono: 'storefront' },
     { ruta: 'administradores', etiqueta: 'Administradores', icono: 'shield_person' },
     { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },

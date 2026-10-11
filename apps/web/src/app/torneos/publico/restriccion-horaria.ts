@@ -1,5 +1,6 @@
 import { Component, model } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { CampoHora } from '../../ui/campo-hora';
 
 /** Una franja en que el jugador **no** puede jugar. */
 export interface Franja {
@@ -33,7 +34,7 @@ const DIAS = [
  */
 @Component({
   selector: 'app-restriccion-horaria',
-  imports: [FormsModule],
+  imports: [FormsModule, CampoHora],
   template: `
     <fieldset class="mt-4">
       <legend class="font-display text-sm font-bold tracking-wide uppercase">
@@ -63,29 +64,35 @@ const DIAS = [
                 </select>
               </label>
 
-              <label class="text-sm">
-                <span class="sr-only">Desde, franja {{ $index + 1 }}</span>
-                <input
-                  class="campo"
-                  type="time"
-                  [attr.name]="'desde' + $index"
+              <!-- Desde, a y hasta bajan juntos de línea; sin el botón del reloj caben en
+                   una fila a 375px (T123). -->
+              <span class="flex items-end gap-2">
+                <label class="sr-only" [for]="'desde-' + $index">
+                  Desde, franja {{ $index + 1 }}
+                </label>
+                <app-campo-hora
+                  [inputId]="'desde-' + $index"
+                  [name]="'desde' + $index"
+                  claseCampo="w-24"
+                  [conBoton]="false"
                   [ngModel]="franja.horaDesde"
                   (ngModelChange)="cambiar($index, { horaDesde: $event })"
                 />
-              </label>
 
-              <span class="pb-2 text-sm text-muted-foreground">a</span>
+                <span class="pb-2 text-sm text-muted-foreground">a</span>
 
-              <label class="text-sm">
-                <span class="sr-only">Hasta, franja {{ $index + 1 }}</span>
-                <input
-                  class="campo"
-                  type="time"
-                  [attr.name]="'hasta' + $index"
+                <label class="sr-only" [for]="'hasta-' + $index">
+                  Hasta, franja {{ $index + 1 }}
+                </label>
+                <app-campo-hora
+                  [inputId]="'hasta-' + $index"
+                  [name]="'hasta' + $index"
+                  claseCampo="w-24"
+                  [conBoton]="false"
                   [ngModel]="franja.horaHasta"
                   (ngModelChange)="cambiar($index, { horaHasta: $event })"
                 />
-              </label>
+              </span>
 
               <button
                 type="button"

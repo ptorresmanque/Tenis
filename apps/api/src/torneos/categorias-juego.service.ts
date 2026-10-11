@@ -103,6 +103,6 @@ export class CategoriasDeJuego {
  */
 function choque(): ConflictException {
   return new ConflictException(
-    'Ya hay una categoría con ese nombre, o una en ese mismo lugar.',
+    'Ya hay una categoría con ese nombre, o una con ese mismo orden.',
   );
 }

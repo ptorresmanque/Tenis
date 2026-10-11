@@ -152,6 +152,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                   routerLink="/disponibilidad"
                   [queryParams]="{
                     mover: reserva.id,
+                    cancha: reserva.cancha,
                     fecha: fechaDelClub(reserva.inicio),
                     duracion: duracionDeLaGrilla(reserva),
                   }"

@@ -23,7 +23,8 @@ export interface CupoDelSocio {
   cupoDiarioSocioReservas: number;
   reservasPicoDeLaSemana: number;
   cupoPicoSemanalReservas: number;
-  invitadosDelMes: number;
+  /** Reservas del mes con invitados: el cupo cuenta reservas, no personas (A5). */
+  reservasConInvitadosDelMes: number;
   invitadosPorMes: number;
 }
 

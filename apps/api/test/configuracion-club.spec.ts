@@ -88,6 +88,7 @@ describe('Datos del club y administradores', () => {
         .set('Cookie', admin)
         .send({
           direccion: 'Avenida del Tenis 1234, Ñuñoa',
+          // Como lo escribe el admin; se guarda y se publica en la forma de T120.
           telefono: '+56 2 2345 6789',
           email: 'hola@fedaltenis.cl',
         })
@@ -97,7 +98,7 @@ describe('Datos del club y administradores', () => {
 
       expect(publico.body).toMatchObject({
         direccion: 'Avenida del Tenis 1234, Ñuñoa',
-        telefono: '+56 2 2345 6789',
+        telefono: '56223456789',
         email: 'hola@fedaltenis.cl',
       });
     });
@@ -107,12 +108,23 @@ describe('Datos del club y administradores', () => {
       // cuántos invitados por mes tiene un socio y cuánto dura la sanción.
       const publico = await request(servidor()).get('/api/club').expect(200);
 
+      // La ubicación sí es pública (T100): es para el mapa de "El club".
       expect(Object.keys(publico.body as object).sort()).toEqual([
         'direccion',
         'email',
+        'latitud',
+        'longitud',
         'nombre',
         'telefono',
       ]);
+    });
+
+    it('un teléfono del club que no son 9 dígitos responde 400 (T120)', async () => {
+      await request(servidor())
+        .patch('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .send({ telefono: '2345 678' })
+        .expect(400);
     });
 
     it('el nombre no puede quedar vacío', async () => {

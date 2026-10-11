@@ -129,6 +129,20 @@ export interface InscripcionTorneo {
   tieneComprobante: boolean;
   /** A quién llamar si el comprobante no cuadra. Solo en el panel. */
   telefono: string | null;
+  /** A dónde escribirle (T127). Solo en el panel; nulo si se anotó sin uno. */
+  email: string | null;
+}
+
+/** Lo que responde una inscripción hecha desde el sitio: la de la calle o la del socio. */
+export interface InscripcionHecha {
+  id: number;
+  estado: EstadoInscripcionTorneo;
+  estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
+  /** Su llave: con ella vuelve a pagar o a subir el comprobante. */
+  token: string;
+  montoClp: number;
+  categoria: string;
+  jugador: string;
 }
 
 /** La lista de un **cuadro**, en tres grupos porque son tres cosas distintas. */
@@ -225,9 +239,22 @@ export interface PartidoPublico {
   posicion: number;
   jugadorA: string | null;
   jugadorB: string | null;
+  /** La siembra de cada uno, o nula: el árbol la muestra al lado del nombre (opción B). */
+  siembraA: number | null;
+  siembraB: number | null;
   ganador: string | null;
   marcador: string | null;
   walkover: boolean;
+  /** Cuándo y dónde, si el club ya lo programó (T134). Instantes ISO y nombre de cancha. */
+  inicio: string | null;
+  fin: string | null;
+  cancha: string | null;
+}
+
+/** Un inscrito de la lista pública (T134). `pago` es nulo en una categoría gratis. */
+export interface InscritoPublico {
+  nombre: string;
+  pago: 'PAGADO' | 'PENDIENTE' | null;
 }
 
 export interface CuadroPublico {
@@ -236,7 +263,8 @@ export interface CuadroPublico {
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
-  inscritos: string[];
+  /** En el orden en que se inscribieron (T134). */
+  inscritos: InscritoPublico[];
   partidos: PartidoPublico[];
 }
 
@@ -305,6 +333,7 @@ export class Torneos {
       apellido: string;
       telefono: string;
       procedencia: string;
+      email: string;
       categoriaJuegoId: number;
       /** Vacío cuando la categoría es gratis: ahí no hay nada que elegir. */
       medioPago: '' | 'WEBPAY' | 'TRANSFERENCIA';
@@ -315,27 +344,31 @@ export class Torneos {
       }[];
     },
     comprobante?: File,
-  ): Promise<{
-    id: number;
-    estado: EstadoInscripcionTorneo;
-    estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
-    /** Su llave: con ella vuelve a pagar o a subir el comprobante. */
-    token: string;
-    montoClp: number;
-    categoria: string;
-    jugador: string;
-  }> {
+  ): Promise<InscripcionHecha> {
     return firstValueFrom(
-      this.http.post<{
-        id: number;
-        estado: EstadoInscripcionTorneo;
-        estadoPago: 'EXENTA' | 'PENDIENTE' | 'PAGADA' | 'RECHAZADA';
-        token: string;
-        montoClp: number;
-        categoria: string;
-        jugador: string;
-      }>(
+      this.http.post<InscripcionHecha>(
         `/api/torneos/${torneoId}/inscripcion`,
+        comprobante ? conArchivo(datos, comprobante) : datos,
+      ),
+    );
+  }
+
+  /**
+   * El socio se inscribe **sin el formulario** (T129): la categoría, el pago y cuándo
+   * no puede jugar. Su jugador y su correo los pone el servidor, desde la sesión.
+   */
+  inscribirseComoSocio(
+    torneoId: number,
+    datos: {
+      categoriaJuegoId: number;
+      medioPago: '' | 'WEBPAY' | 'TRANSFERENCIA';
+      restricciones: { diaSemana: number; horaDesde: string; horaHasta: string }[];
+    },
+    comprobante?: File,
+  ): Promise<InscripcionHecha> {
+    return firstValueFrom(
+      this.http.post<InscripcionHecha>(
+        `/api/torneos/${torneoId}/inscripcion-socio`,
         comprobante ? conArchivo(datos, comprobante) : datos,
       ),
     );
@@ -487,7 +520,7 @@ export class Torneos {
   /** Pasado el cupo el servidor deja al jugador en espera, no lo rechaza. */
   inscribir(
     cuadroId: number,
-    quien: { jugadorId: number } | { socioId: number },
+    quien: ({ jugadorId: number } | { socioId: number }) & { email?: string },
   ): Promise<{ id: number; estado: EstadoInscripcionTorneo }> {
     return firstValueFrom(
       this.http.post<{ id: number; estado: EstadoInscripcionTorneo }>(

@@ -7,6 +7,8 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Profesor, Profesores } from '../profesores.service';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
+import { TelefonoDirective } from '../../ui/telefono';
 
 /** El formulario vacío. Función y no constante: si no, todos comparten el objeto. */
 const enBlanco = () => ({
@@ -28,7 +30,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-profesores',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -70,14 +72,16 @@ const enBlanco = () => ({
 
         <label class="block">
           <span class="text-sm font-medium">Teléfono</span>
-          <input
-            class="campo mt-1"
-            name="telefono"
-            type="tel"
-            required
-            placeholder="+56912345678"
-            [(ngModel)]="datos.telefono"
-          />
+          <span class="campo-con-prefijo mt-1">
+            <span class="prefijo">+56</span>
+            <input
+              appTelefono
+              class="campo"
+              name="telefono"
+              required
+              [(ngModel)]="datos.telefono"
+            />
+          </span>
         </label>
 
         <label class="block">
@@ -146,8 +150,8 @@ const enBlanco = () => ({
               </p>
               <p class="text-sm text-muted-foreground">
                 {{ profesor.especialidad }} ·
-                <a [href]="'tel:' + profesor.telefono" class="underline">
-                  {{ profesor.telefono }}
+                <a [href]="profesor.telefono | enlaceTelefono" class="underline">
+                  {{ profesor.telefono | telefono }}
                 </a>
                 @if (profesor.tarifaHoraClp !== null) {
                   · {{ pesos(profesor.tarifaHoraClp) }} la hora

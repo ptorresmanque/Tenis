@@ -6,6 +6,7 @@ import { Aviso } from '../ui/aviso';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ranking.service';
+import { CampoFecha } from '../ui/campo-fecha';
 
 /**
  * Los partidos amistosos del socio: los que cargó y los que tiene que contestar.
@@ -19,7 +20,7 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
  */
 @Component({
   selector: 'app-mis-partidos',
-  imports: [Aviso, EstadoVacio, Insignia],
+  imports: [Aviso, EstadoVacio, Insignia, CampoFecha],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
     <p class="mt-2 max-w-prose text-muted-foreground">
@@ -64,17 +65,17 @@ import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ra
           </select>
         </label>
 
-        <label class="grid gap-1 text-sm">
-          <span class="font-medium">Cuándo</span>
-          <input
-            type="date"
+        <div class="grid gap-1 text-sm">
+          <label class="font-medium" for="jugado-en">Cuándo</label>
+          <app-campo-fecha
+            inputId="jugado-en"
             name="jugadoEn"
-            class="campo"
+            claseCampo="w-36"
             [max]="hoy"
-            [value]="jugadoEn()"
-            (change)="jugadoEn.set(valorDe($event))"
+            [valor]="jugadoEn()"
+            (valorChange)="jugadoEn.set($event)"
           />
-        </label>
+        </div>
 
         <label class="grid gap-1 text-sm">
           <span class="font-medium">Marcador (opcional)</span>
@@ -225,7 +226,7 @@ export class MisPartidos {
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  /** Hoy, para que el `<input type="date">` no ofrezca el futuro. */
+  /** Hoy, para que el calendario no ofrezca el futuro. */
   protected readonly hoy = hoyEnElClub();
 
   protected readonly enPalabras = diaConAnioEnPalabras;

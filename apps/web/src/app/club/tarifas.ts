@@ -8,6 +8,8 @@ import { Insignia } from '../ui/insignia';
 interface Tarifa {
   canchaId: number | null;
   cancha: string | null;
+  /** En la general: nulo = toda cancha, true = solo techadas, false = solo abiertas (T98). */
+  techada: boolean | null;
   diaSemana: number | null;
   horaDesde: string;
   horaHasta: string;
@@ -111,7 +113,9 @@ const DIAS = [
                   }
                 </dl>
 
-                <p class="mt-2 text-sm text-muted-foreground">{{ dondeYCuando(tarifa) }}</p>
+                <p class="mt-2 text-sm text-muted-foreground">
+                  {{ dondeYCuando(tarifa, lista) }}
+                </p>
               </li>
             }
           </ul>
@@ -159,7 +163,7 @@ const DIAS = [
                         <span class="sr-only">No se arrienda por hora y media</span>
                       }
                     </td>
-                    <td>{{ tarifa.cancha ?? 'Todas' }}</td>
+                    <td>{{ donde(tarifa, lista) }}</td>
                     <td>{{ cuandoRige(tarifa.diaSemana) }}</td>
                   </tr>
                 }
@@ -233,7 +237,46 @@ export class Tarifas {
    * reusaría las filas equivocadas.
    */
   protected clave(tarifa: Tarifa): string {
-    return `${tarifa.canchaId}|${tarifa.diaSemana}|${tarifa.horaDesde}`;
+    // Con el tipo (T99): "todas" y "techadas" pueden compartir horario y día.
+    return `${tarifa.canchaId}|${tarifa.techada}|${tarifa.diaSemana}|${tarifa.horaDesde}`;
+  }
+
+  /**
+   * A qué canchas aplica, dicho por lo que **de verdad** cubre (T99).
+   *
+   * La general "de todas" no cubre a las techadas en un horario donde las techadas
+   * tienen su propia tarifa: ahí la de techadas gana (T98). Llamarla "Todas" le
+   * prometería a una techada un precio que no paga, así que se nombra por el tipo que
+   * le queda.
+   *
+   * ponytail: solo mira el mismo tramo exacto (horas y día). Una tarifa de techadas que
+   * pisa a medias a la general deja esa fila diciendo "Todas"; si el club arma tarifas
+   * así, partir la general por tramos.
+   */
+  protected donde(tarifa: Tarifa, lista: Tarifa[]): string {
+    if (tarifa.cancha) return tarifa.cancha;
+    if (tarifa.techada === true) return 'Canchas techadas';
+    if (tarifa.techada === false) return 'Canchas al aire libre';
+
+    const tiposConTarifaPropia = new Set(
+      lista
+        .filter(
+          (otra) =>
+            otra.canchaId === null &&
+            otra.techada != null &&
+            otra.horaDesde === tarifa.horaDesde &&
+            otra.horaHasta === tarifa.horaHasta &&
+            otra.diaSemana === tarifa.diaSemana,
+        )
+        .map((otra) => otra.techada),
+    );
+
+    if (tiposConTarifaPropia.size === 1) {
+      return tiposConTarifaPropia.has(true)
+        ? 'Canchas al aire libre'
+        : 'Canchas techadas';
+    }
+    return 'Todas las canchas';
   }
 
   protected cuandoRige(dia: number | null): string {
@@ -246,8 +289,8 @@ export class Tarifas {
    * En plural, como se dice: "sábado" y "domingo" ganan la ese; "lunes" a "viernes" ya la
    * traen.
    */
-  protected dondeYCuando(tarifa: Tarifa): string {
-    const donde = tarifa.cancha ?? 'Todas las canchas';
+  protected dondeYCuando(tarifa: Tarifa, lista: Tarifa[]): string {
+    const donde = this.donde(tarifa, lista);
 
     if (tarifa.diaSemana === null) return `${donde}, todos los días`;
 

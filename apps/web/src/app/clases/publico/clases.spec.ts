@@ -3,7 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ClasePublica, Clases, ProfesorPublico } from '../clases.service';
+import { ClasePublica, Clases, ProfesorPublico, SeriePublica } from '../clases.service';
 import { ClasesPublicas } from './clases';
 
 /**
@@ -36,6 +36,7 @@ describe('ClasesPublicas', () => {
   const montar = async (
     profesores: ProfesorPublico[],
     clases: ClasePublica[],
+    series: SeriePublica[] = [],
   ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -45,7 +46,7 @@ describe('ClasesPublicas', () => {
         {
           provide: Clases,
           useValue: {
-            publicas: vi.fn().mockResolvedValue({ profesores, clases }),
+            publicas: vi.fn().mockResolvedValue({ profesores, clases, series }),
           },
         },
       ],
@@ -133,4 +134,48 @@ describe('ClasesPublicas', () => {
 
     expect(texto()).toContain('No se pudieron cargar las clases');
   });
+
+  /** T117. Una serie es una tarjeta, no una clase por fecha. */
+  describe('las series', () => {
+    const SERIE: SeriePublica = {
+      id: 9,
+      profesor: 'Ana Silva',
+      cancha: 'Cancha 2',
+      nivel: 'INICIACION',
+      diasSemana: [2, 4],
+      horaDesde: '19:00',
+      horaHasta: '20:00',
+      hasta: '2026-12-15',
+      cuposLibres: 4,
+    };
+
+    it('**la serie es una sola tarjeta: los días, el horario y hasta cuándo**', async () => {
+      await montar([ANA], [CLASE], [SERIE]);
+
+      expect(texto()).toContain('Martes y jueves, 19:00–20:00');
+      expect(texto()).toContain('hasta el 15 de diciembre');
+      expect(texto()).toContain('Ana Silva · Cancha 2');
+      expect(texto()).toContain('4 cupos');
+    });
+
+    it('con tres días los nombra en orden, desde el lunes', async () => {
+      await montar([ANA], [], [{ ...SERIE, diasSemana: [5, 1, 3] }]);
+
+      expect(texto()).toContain('Lunes, miércoles y viernes');
+    });
+
+    it('una semana sin clases sueltas pero con series no dice que no hay clases', async () => {
+      await montar([ANA], [], [SERIE]);
+
+      expect(texto()).not.toContain('No hay clases programadas esta semana');
+      expect(texto()).toContain('Martes y jueves');
+    });
+
+    it('la serie llena lo dice', async () => {
+      await montar([ANA], [], [{ ...SERIE, cuposLibres: 0 }]);
+
+      expect(texto()).toContain('Sin cupos');
+    });
+  });
 });
+

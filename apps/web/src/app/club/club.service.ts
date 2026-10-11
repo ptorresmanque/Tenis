@@ -1,12 +1,15 @@
 import { httpResource } from '@angular/common/http';
 import { computed, Service } from '@angular/core';
 
-/** Espejo de `DatosDelClub` en la API. Los cuatro que son públicos. */
+/** Espejo de `DatosDelClub` en la API. Lo que es público. */
 export interface DatosDelClub {
   nombre: string;
   direccion: string;
   telefono: string;
   email: string;
+  /** Dónde está el club, para el mapa (T100). Nulas mientras no se cargue. */
+  latitud: number | null;
+  longitud: number | null;
 }
 
 /**
@@ -38,6 +41,8 @@ export class Club {
           direccion: '',
           telefono: '',
           email: '',
+          latitud: null,
+          longitud: null,
         },
   );
 

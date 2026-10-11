@@ -20,6 +20,7 @@ import { Campo, CampoControl } from '../../ui/campo';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { ReservasDelAdmin } from './nueva-reserva.service';
+import { TelefonoDirective } from '../../ui/telefono';
 
 /**
  * La hora que el club toma por teléfono o con alguien en el mostrador.
@@ -34,7 +35,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
  */
 @Component({
   selector: 'app-nueva-reserva',
-  imports: [FormsModule, Aviso, Campo, CampoControl, Insignia, Selector],
+  imports: [FormsModule, Aviso, Campo, CampoControl, Insignia, Selector, TelefonoDirective],
   template: `
     <dialog
       #dialogo
@@ -155,7 +156,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
                   {{ datos.cupoPicoSemanalReservas }}
                 </li>
                 <li>
-                  Invitados del mes: {{ datos.invitadosDelMes }} de
+                  Reservas con invitados del mes: {{ datos.reservasConInvitadosDelMes }} de
                   {{ datos.invitadosPorMes }}
                 </li>
               </ul>
@@ -166,7 +167,7 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
                no es una puerta para saltársela. -->
           <app-campo
             etiqueta="Con quién juega"
-            ayuda="Un invitado descuenta de sus invitados del mes."
+            ayuda="Con invitados, la reserva gasta una de sus reservas con invitados del mes."
           >
             <input
               appCampoControl
@@ -183,13 +184,16 @@ import { ReservasDelAdmin } from './nueva-reserva.service';
 
           <div class="grid gap-4 sm:grid-cols-2">
             <app-campo etiqueta="Teléfono">
-              <input
-                appCampoControl
-                name="telefono"
-                type="tel"
-                class="campo"
-                [(ngModel)]="telefono"
-              />
+              <span class="campo-con-prefijo">
+                <span class="prefijo">+56</span>
+                <input
+                  appTelefono
+                  appCampoControl
+                  name="telefono"
+                  class="campo"
+                  [(ngModel)]="telefono"
+                />
+              </span>
             </app-campo>
             <app-campo etiqueta="Correo">
               <input

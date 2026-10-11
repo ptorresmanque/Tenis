@@ -5,8 +5,10 @@ import {
   instanteEnElClub,
   minutosDeReloj,
 } from '../comun/tiempo';
+import { leerTelefono } from '../comun/telefono';
 import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
+import { leerUbicacion } from './ubicacion';
 
 /**
  * Validación del borde del panel de administración, con el patrón de
@@ -139,12 +141,18 @@ export interface CambiosDeConfiguracion {
   direccion: string;
   telefono: string;
   email: string;
+  /** De lo que el admin pega en "ubicacion" (T100). Nulas = sin mapa. */
+  latitud: number | null;
+  longitud: number | null;
   cupoDiarioSocioReservas: number;
   cupoPicoSemanalReservas: number;
   invitadosPorMes: number;
   horasMinModificacion: number;
   horasReembolsoTotal: number;
   diasSancionNoUso: number;
+  /** Lo que vale ser socio. Las cuotas ya emitidas congelaron el suyo y no cambian. */
+  cuotaMensualClp: number;
+  cuotaIncorporacionClp: number;
 }
 
 /**
@@ -157,7 +165,7 @@ export interface CambiosDeConfiguracion {
 /** Las reglas que son números: las de texto se validan aparte, por largo. */
 type ReglasNumericas = Omit<
   CambiosDeConfiguracion,
-  'nombre' | 'direccion' | 'telefono' | 'email'
+  'nombre' | 'direccion' | 'telefono' | 'email' | 'latitud' | 'longitud'
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -169,6 +177,10 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   // Al menos un día: una sanción de cero días es no sancionar, y se expresa
   // descartando el reporte.
   diasSancionNoUso: [1, 365],
+  // Desde 1 y no desde 0: una cuota de cero pesos queda pendiente y bloquea al socio,
+  // pero no hay cobro que la pague. El tope es contra el dedazo, como el de los torneos.
+  cuotaMensualClp: [1, 10_000_000],
+  cuotaIncorporacionClp: [1, 10_000_000],
 };
 
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
@@ -179,19 +191,20 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
   horasMinModificacion: 'El mínimo de horas para modificar',
   horasReembolsoTotal: 'El plazo del reembolso total, en horas,',
   diasSancionNoUso: 'La sanción por una hora no usada, en días,',
+  cuotaMensualClp: 'La mensualidad',
+  cuotaIncorporacionClp: 'La cuota de incorporación',
 };
 
 /**
  * Los datos del club, con el largo que aguanta la columna.
  *
- * Se recortan y no se rechazan por largo: un teléfono con espacios de más o una
- * dirección larguísima no son un error que valga la pena devolverle a quien está
- * llenando un formulario, y la base sí se quejaría.
+ * Se recortan y no se rechazan por largo: una dirección larguísima no es un error que
+ * valga la pena devolverle a quien está llenando un formulario, y la base sí se quejaría.
+ * El teléfono va aparte: tiene su regla (T120).
  */
 const TEXTOS: Record<string, number> = {
   nombre: 120,
   direccion: 200,
-  telefono: 40,
   email: 120,
 };
 
@@ -216,6 +229,24 @@ export function leerCambiosDeConfiguracion(
     }
 
     Object.assign(cambios, { [campo]: datos[campo].trim().slice(0, largo) });
+  }
+
+  // Vacío es "el club no publica teléfono", como antes de T120.
+  if (datos.telefono !== undefined) {
+    cambios.telefono =
+      leerTelefono(datos.telefono, { obligatorio: false }) ?? '';
+  }
+
+  // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
+  // coordenadas— y se guarda como dos números. Vacío la borra.
+  if (datos.ubicacion !== undefined) {
+    if (typeof datos.ubicacion !== 'string') {
+      throw new BadRequestException('La ubicación tiene que ser texto.');
+    }
+
+    const ubicacion = leerUbicacion(datos.ubicacion);
+    cambios.latitud = ubicacion?.latitud ?? null;
+    cambios.longitud = ubicacion?.longitud ?? null;
   }
 
   // El nombre es lo único que no puede quedar vacío: es el título de cada página
@@ -303,6 +334,8 @@ function horaDeCuerpo(valor: unknown, campo: string): string {
 
 export interface DatosFranja {
   canchaId: number | null;
+  /** Solo en la tarifa general: nulo = toda cancha (T98). */
+  techada: boolean | null;
   diaSemana: number | null;
   horaDesde: string;
   horaHasta: string;
@@ -326,11 +359,26 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
     );
   }
 
+  const canchaId =
+    datos.canchaId === undefined || datos.canchaId === null
+      ? null
+      : entero(datos.canchaId, 'La cancha', 1);
+  const techada =
+    datos.techada === undefined || datos.techada === null
+      ? null
+      : booleano(datos.techada, 'Techada');
+
+  // T98. El tipo es para la tarifa general: en una de cancha, o coincide con la cancha
+  // y sobra, o no coincide y la tarifa nunca aplica. Las dos son un error del panel.
+  if (canchaId !== null && techada !== null) {
+    throw new BadRequestException(
+      'Una tarifa de una sola cancha no lleva tipo: ya se sabe si es techada.',
+    );
+  }
+
   return {
-    canchaId:
-      datos.canchaId === undefined || datos.canchaId === null
-        ? null
-        : entero(datos.canchaId, 'La cancha', 1),
+    canchaId,
+    techada,
     diaSemana:
       datos.diaSemana === undefined || datos.diaSemana === null
         ? null
@@ -445,7 +493,7 @@ export function instanteDeCuerpo(
   }
 }
 
-function diaValido(valor: unknown): number {
+export function diaValido(valor: unknown): number {
   const dia = entero(valor, 'El día', 0);
 
   if (dia > 6) {
@@ -461,7 +509,7 @@ function diaValido(valor: unknown): number {
  * y una tarifa que empieza a regir un día distinto del que el admin escribió es
  * un cobro equivocado.
  */
-function fechaDeCuerpo(valor: unknown, campo: string): Date {
+export function fechaDeCuerpo(valor: unknown, campo: string): Date {
   try {
     return fechaDelClub(typeof valor === 'string' ? valor : '');
   } catch {

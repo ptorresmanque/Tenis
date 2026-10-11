@@ -12,6 +12,7 @@ import { ConceptoPago, EstadoReserva } from '../generated/prisma/client';
 import { ConfirmacionService } from '../pagos/confirmacion.service';
 import { PagosService } from '../pagos/pagos.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AvisosDeReserva } from './correos';
 import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 import { rechazarSiYaPaso } from './reservas.service';
@@ -24,6 +25,8 @@ export interface ReservaDeNoSocio {
   nombre: string;
   email: string;
   telefono: string;
+  /** Con quién juega: solo nombres (T105). No gastan cupo de nadie. */
+  acompanantes: { nombre: string }[];
 }
 
 export interface PagoDeReservaIniciado {
@@ -55,6 +58,7 @@ export class ReservaNoSocioService {
     private readonly pagos: PagosService,
     private readonly confirmacion: ConfirmacionService,
     private readonly eventos: EventosDeReserva,
+    private readonly avisos: AvisosDeReserva,
   ) {}
 
   /**
@@ -138,6 +142,11 @@ export class ReservaNoSocioService {
       select: { id: true, folio: true, token: true, inicio: true },
     });
 
+    // Si esta vuelta es la que confirmó la reserva. Webpay puede repetir el aviso y la
+    // persona puede recargar: solo la vuelta cuyo `updateMany` cambió una fila manda la
+    // confirmación (T108), así que nunca salen dos.
+    let confirmoAhora = false;
+
     const resultado = await this.confirmacion.confirmar(
       tokenPasarela,
       (tx, transaccionConfirmada) =>
@@ -149,7 +158,9 @@ export class ReservaNoSocioService {
             },
             data: { estado: EstadoReserva.CONFIRMADA },
           })
-          .then(() => undefined),
+          .then(({ count }) => {
+            confirmoAhora = count === 1;
+          }),
     );
 
     if (resultado.estado === 'AUTORIZADA') {
@@ -158,6 +169,8 @@ export class ReservaNoSocioService {
       // escritura que no pasa por `ReservaRepository`. Es además el evento de la
       // demo, así que quedarse sin él se nota.
       if (reserva) this.eventos.cambio(reserva.inicio);
+      // Fuera de la transacción, que ya confirmó: el correo no puede deshacer el pago.
+      if (reserva && confirmoAhora) await this.avisos.confirmacion(reserva.id);
 
       return {
         estado: 'CONFIRMADA',
@@ -277,6 +290,7 @@ export class ReservaNoSocioService {
         nombre: datos.nombre,
         email: datos.email,
         telefono: datos.telefono,
+        acompanantes: datos.acompanantes,
       });
     } catch (error) {
       if (error instanceof BloqueTomado) {

@@ -26,6 +26,7 @@ import {
   SocioDelClub,
   Socios,
 } from './socios.service';
+import { CampoFecha } from '../../ui/campo-fecha';
 
 const ESTADOS: Record<EstadoSocio, string> = {
   ACTIVO: 'Activo',
@@ -60,6 +61,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
     Paginacion,
     Selector,
     FichaSocio,
+    CampoFecha,
   ],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: dar de alta es su sección. -->
@@ -101,16 +103,17 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
           />
         </app-campo>
 
-        <app-campo etiqueta="Al día hasta">
-          <input
-            appCampoControl
-            id="al-dia-hasta"
+        <!-- Sin app-campo: su <label> envolvería el campo, y Material deja el calendario
+             adentro (T126). Las mismas clases que app-campo. -->
+        <div class="grid gap-1.5">
+          <label class="text-sm font-semibold" for="al-dia-hasta">Al día hasta</label>
+          <app-campo-fecha
+            inputId="al-dia-hasta"
             name="al-dia-hasta"
-            type="date"
-            class="campo cursor-pointer transition-colors hover:border-primary"
+            claseCampo="cursor-pointer transition-colors hover:border-primary"
             [(ngModel)]="formulario.alDiaHasta"
           />
-        </app-campo>
+        </div>
 
         <button type="submit" [disabled]="guardando()" class="boton boton-primario">
           Invitar

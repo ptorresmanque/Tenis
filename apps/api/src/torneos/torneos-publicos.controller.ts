@@ -21,10 +21,15 @@ import type { Request, Response } from 'express';
 import { carpetaDeSubidas, MAXIMO_BYTES } from '../comun/imagenes';
 import { hoyEnElClub } from '../comun/tiempo';
 import { api, web } from '../comun/urls';
+import { SoloSocio, Yo } from '../identidad/guards';
 import { IntentosFallidos, VENTANA_MS } from '../identidad/intentos';
+import type { UsuarioActual } from '../identidad/usuario-actual';
 import { ComprobantesDeInscripcion } from './comprobantes.service';
 import { FotosDelTorneo } from './fotos.service';
-import { leerInscripcionPublica } from './inscripcion-publica.dto';
+import {
+  leerInscripcionDeSocio,
+  leerInscripcionPublica,
+} from './inscripcion-publica.dto';
 import { PagoDeInscripcion } from './pago-de-inscripcion.service';
 import { Transmisiones } from './transmisiones.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
@@ -174,6 +179,34 @@ export class TorneosPublicosController {
   }
 
   /**
+   * El socio se inscribe **sin el formulario** (T129): elige la categoría, dice cuándo
+   * no puede jugar y paga igual que cualquiera. Su jugador y su correo salen de la
+   * sesión.
+   *
+   * **Sin el freno por IP de la inscripción pública**: aquí hay sesión, y el socio no
+   * puede tomar más de un cupo por torneo —lo impide el único de la base—.
+   */
+  @Post(':torneoId/inscripcion-socio')
+  @SoloSocio()
+  @UseInterceptors(
+    FileInterceptor('comprobante', { limits: { fileSize: MAXIMO_BYTES } }),
+  )
+  inscribirseComoSocio(
+    @Param('torneoId', ParseIntPipe) torneoId: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+    @UploadedFile() archivo?: { buffer: Buffer },
+  ) {
+    return this.inscripciones.inscribirAlSocio(
+      torneoId,
+      // `@SoloSocio()` ya comprobó que tiene ficha.
+      { socioId: yo.socioId as number, email: yo.email },
+      leerInscripcionDeSocio(cuerpo),
+      archivo?.buffer,
+    );
+  }
+
+  /**
    * Pagar la inscripción con Webpay.
    *
    * **Sin sesión, como la inscripción**: quien se anotó desde la calle no tiene cuenta.
@@ -229,6 +262,7 @@ export class TorneosPublicosController {
   async retornoDelPago(
     @Req() req: Request,
     @Query('token_ws') tokenWs?: string,
+    @Query('TBK_TOKEN') tokenAnulado?: string,
     @Query('TBK_ORDEN_COMPRA') ordenAnulada?: string,
   ) {
     // Pagó, anuló o se lo rechazaron: en los tres casos ese cupo dejó de estar
@@ -236,11 +270,13 @@ export class TorneosPublicosController {
     // cuota vuelve. Quien acaba de pagar es el último a quien hay que frenar.
     this.envios.devolver(this.llaveDelFreno(req));
 
-    if (!tokenWs) {
-      // **Apretó "anular" en Webpay: su cupo se suelta ahora mismo.** Es la única
-      // forma de abandono que la pasarela avisa, y avisa con `TBK_ORDEN_COMPRA` —el
-      // mismo camino que la reserva del no-socio—; hacerle esperar los quince minutos
-      // del barrido sería dejar el lugar tomado por alguien que ya dijo que no.
+    if (!tokenWs || tokenAnulado) {
+      // **Volvió sin pagar: su cupo se suelta ahora mismo.** Apretó "anular" en Webpay,
+      // dejó vencer el formulario o viene de la pantalla de error, que trae `token_ws`
+      // y `TBK_TOKEN` juntos y que Transbank llama "pago inválido". Las tres traen
+      // `TBK_ORDEN_COMPRA` —el mismo camino que la reserva del no-socio—; hacerle
+      // esperar los quince minutos del barrido sería dejar el lugar tomado por alguien
+      // que no va a pagar.
       await this.abandonadas.anularDesdeRetorno(ordenAnulada ?? '');
 
       return { url: `${web()}/torneos?pago=anulado` };

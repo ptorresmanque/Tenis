@@ -56,9 +56,10 @@ import { Insignia } from '../ui/insignia';
       aria-labelledby="promesa"
     >
       <app-foto
-        descripcion="Las canchas del club al atardecer, con las luces encendidas y
-                     gente jugando al fondo"
+        descripcion="Las canchas al aire libre del club en un día despejado, con el logo de
+                     FEDAL pintado en la cancha"
         proporcion="16/9"
+        src="/fotos/portada.jpg"
         [prioritaria]="true"
         claseCaja="min-h-[32rem] sm:min-h-[34rem] sm:max-h-[calc(100dvh-11rem)]"
       />
@@ -69,17 +70,16 @@ import { Insignia } from '../ui/insignia';
 
         Es azul y no negro porque el tinte del color de cancha es la mitad del
         lenguaje de esta portada; un velo negro la volvería una foto oscurecida
-        y nada más. Y arriba llega al 65% en vez del 20% que tenía: por debajo de
-        eso se transparenta el texto del marcador de posición y compite con el
-        titular. Cuando la foto llegue, al 65% se sigue viendo entera.
+        y nada más. Cuánto cubre está en velo-foto, en styles.css.
       -->
       <div
-        class="absolute inset-0 bg-gradient-to-t from-campo via-campo/90 to-campo/65"
+        class="absolute inset-0 velo-foto"
         aria-hidden="true"
       ></div>
 
       <div
-        class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo sm:p-10"
+        class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo texto-sobre-foto
+               sm:p-10"
       >
         <!-- En dos líneas a todo ancho, como en la propuesta: en una sola, a
              1280px, el titular era una tira y dejaba de ser un titular. -->
@@ -255,8 +255,9 @@ import { Insignia } from '../ui/insignia';
     >
       <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
       <app-foto
-        descripcion="Una cancha vista desde el fondo, a la altura de la red, con la
-                     superficie de cemento a la vista"
+        descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
+                     canchas techadas al fondo"
+        src="/fotos/malla.jpg"
         proporcion="4/3"
         claseCaja="corte-foto"
       />
@@ -329,18 +330,18 @@ import { Insignia } from '../ui/insignia';
                    como el del hero, para que el texto claro se lea encima. -->
               <div
                 class="relative isolate flex min-h-[21rem] flex-col justify-end gap-3 p-6
-                       text-on-campo sm:p-9 lg:min-h-[28rem]"
+                       text-on-campo texto-sobre-foto sm:p-9 lg:min-h-[28rem]"
               >
                 <app-foto
                   class="absolute inset-0 -z-20"
-                  descripcion="Una jugadora lanza la pelota para sacar, con el cielo despejado
-                               detrás"
+                  descripcion="Un jugador golpea de derecha en una cancha al aire libre, con el cielo
+                               despejado detrás"
+                  src="/fotos/jugador_fondo.jpg"
                   proporcion="4/3"
                   claseCaja="h-full"
                 />
                 <div
-                  class="absolute inset-0 -z-10 bg-gradient-to-t from-campo via-campo/80
-                         to-campo/30"
+                  class="absolute inset-0 -z-10 velo-foto"
                   aria-hidden="true"
                 ></div>
 
@@ -534,21 +535,21 @@ import { Insignia } from '../ui/insignia';
       aria-labelledby="cierre"
     >
       <app-foto
-        descripcion="Socios conversando después de un partido, con las raquetas
-                     todavía en la mano"
+        descripcion="La terraza del club, con mesas y quitasoles frente a la casa club"
+        src="/fotos/instalaciones.jpg"
         proporcion="3/2"
         claseCaja="min-h-[18rem]"
       />
       <!-- El velo de izquierda a derecha, como el de la propuesta: el titular se
            lee sobre el campo casi pleno y la foto respira del otro lado. -->
       <div
-        class="absolute inset-0 bg-gradient-to-r from-campo/95 to-campo/60"
+        class="absolute inset-0 velo-foto-lateral"
         aria-hidden="true"
       ></div>
 
       <div
         class="absolute inset-0 flex flex-col items-start justify-center gap-6 px-6
-               text-on-campo sm:px-14"
+               text-on-campo texto-sobre-foto sm:px-14"
       >
         <h2 id="cierre" class="titular max-w-[12ch] text-5xl sm:text-7xl">
           @if (proximaLibre()) {

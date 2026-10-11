@@ -218,6 +218,46 @@ describe('Inscripción a un torneo', () => {
     expect(await prisma.jugador.count({ where: { socioId } })).toBe(1);
   });
 
+  describe('el correo (T127)', () => {
+    const anotar = (cuerpo: Record<string, unknown>) =>
+      request(app.getHttpServer())
+        .post(`/api/admin/cuadros/${torneoId}/inscripciones`)
+        .set('Cookie', cookieAdmin)
+        .send(cuerpo);
+
+    it('el admin lo puede dar, y se guarda como el de la inscripción pública', async () => {
+      const respuesta = await anotar({
+        jugadorId: await unJugador('Primera'),
+        email: ' Primera@Ejemplo.CL ',
+      }).expect(201);
+
+      const fila = await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id: (respuesta.body as { id: number }).id },
+      });
+      expect(fila.email).toBe('primera@ejemplo.cl');
+    });
+
+    it('**lo pide pero no lo exige**: el del mesón puede no tener correo', async () => {
+      const respuesta = await anotar({
+        jugadorId: await unJugador('Primera'),
+      }).expect(201);
+
+      const fila = await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id: (respuesta.body as { id: number }).id },
+      });
+      expect(fila.email).toBeNull();
+    });
+
+    it('uno mal escrito se rechaza igual', async () => {
+      await anotar({
+        jugadorId: await unJugador('Primera'),
+        email: 'primera@',
+      }).expect(400);
+
+      expect((await inscritos()).inscritos).toHaveLength(0);
+    });
+  });
+
   it('**el inscrito que se pasa del cupo queda en espera, no rechazado**', async () => {
     // Rechazarlo obligaría al club a llevar la lista en un papel, que es de donde
     // venimos. El cupo de este torneo es 2.

@@ -9,6 +9,7 @@ import { AnulacionService } from '../pagos/anulacion.service';
 import { ConfirmacionService } from '../pagos/confirmacion.service';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
+import { AvisosDeReserva } from './correos';
 import { EventosDeReserva } from './eventos';
 
 /** A dónde vuelve quien pagó, o no, la diferencia de un cambio. */
@@ -45,6 +46,7 @@ export class RetornoDeDiferencia {
     private readonly confirmacion: ConfirmacionService,
     private readonly eventos: EventosDeReserva,
     private readonly anulacion: AnulacionService,
+    private readonly avisos: AvisosDeReserva,
   ) {}
 
   /**
@@ -73,7 +75,13 @@ export class RetornoDeDiferencia {
 
     const antes = await this.prisma.reserva.findUniqueOrThrow({
       where: { id: transaccion.conceptoId },
-      select: { token: true, inicio: true, cambioTransaccionId: true },
+      select: {
+        token: true,
+        canchaId: true,
+        inicio: true,
+        fin: true,
+        cambioTransaccionId: true,
+      },
     });
 
     // Ya resuelta: es una recarga de la página de vuelta, y se responde con lo que pasó.
@@ -120,6 +128,9 @@ export class RetornoDeDiferencia {
       // Los dos días cambian: la hora se fue de uno y llegó al otro.
       this.eventos.cambio(antes.inicio);
       this.eventos.cambio(despues.inicio);
+      // Solo acá, donde el cambio se aplicó (T109): rechazada, anulada o sin mover no
+      // cambió nada, y la recarga de esta página cae antes, en `yaResuelta`.
+      await this.avisos.cambio(transaccion.conceptoId, antes);
 
       return { estado: 'CAMBIADA', token: antes.token, motivo: null };
     }

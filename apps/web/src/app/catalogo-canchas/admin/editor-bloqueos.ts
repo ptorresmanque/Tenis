@@ -21,6 +21,8 @@ import {
   HoraAfectada,
   MotivoBloqueo,
 } from './admin-canchas.service';
+import { CampoFecha } from '../../ui/campo-fecha';
+import { CampoHora } from '../../ui/campo-hora';
 
 const MOTIVOS: { valor: MotivoBloqueo; etiqueta: string }[] = [
   { valor: 'MANTENCION', etiqueta: 'Mantención' },
@@ -60,7 +62,7 @@ function enBlanco(): Formulario {
  */
 @Component({
   selector: 'app-editor-bloqueos',
-  imports: [FormsModule],
+  imports: [FormsModule, CampoFecha, CampoHora],
   template: `
     @if (bloqueos.isLoading()) {
       <p class="text-sm text-muted-foreground">Cargando bloqueos…</p>
@@ -103,18 +105,17 @@ function enBlanco(): Formulario {
       <div>
         <label [for]="'bd-' + cancha().id" class="block font-medium">Desde</label>
         <div class="mt-1 flex gap-1">
-          <input
-            type="date"
-            [id]="'bd-' + cancha().id"
+          <app-campo-fecha
+            [inputId]="'bd-' + cancha().id"
             [name]="'bloqueo-fecha-desde-' + cancha().id"
-            class="campo campo-chico"
+            claseCampo="campo-chico w-32"
             [(ngModel)]="nueva.fechaDesde"
           />
-          <input
-            type="time"
-            [attr.aria-label]="'Hora de inicio del bloqueo'"
+          <app-campo-hora
+            [inputId]="'bdh-' + cancha().id"
+            etiquetaAccesible="Hora de inicio del bloqueo"
             [name]="'bloqueo-hora-desde-' + cancha().id"
-            class="campo campo-chico"
+            claseCampo="campo-chico w-24"
             [(ngModel)]="nueva.horaDesde"
           />
         </div>
@@ -123,18 +124,17 @@ function enBlanco(): Formulario {
       <div>
         <label [for]="'bh-' + cancha().id" class="block font-medium">Hasta</label>
         <div class="mt-1 flex gap-1">
-          <input
-            type="date"
-            [id]="'bh-' + cancha().id"
+          <app-campo-fecha
+            [inputId]="'bh-' + cancha().id"
             [name]="'bloqueo-fecha-hasta-' + cancha().id"
-            class="campo campo-chico"
+            claseCampo="campo-chico w-32"
             [(ngModel)]="nueva.fechaHasta"
           />
-          <input
-            type="time"
-            [attr.aria-label]="'Hora de término del bloqueo'"
+          <app-campo-hora
+            [inputId]="'bhh-' + cancha().id"
+            etiquetaAccesible="Hora de término del bloqueo"
             [name]="'bloqueo-hora-hasta-' + cancha().id"
-            class="campo campo-chico"
+            claseCampo="campo-chico w-24"
             [(ngModel)]="nueva.horaHasta"
           />
         </div>

@@ -112,6 +112,7 @@ model Socio {
   acompanamientos AcompananteReserva[]
   reportes        ReporteNoUso[]
   cuotas          Cuota[]
+  recordatorios   RecordatorioCuota[]
   clases          InscripcionClase[]
   jugador         Jugador?
 
@@ -260,8 +261,9 @@ model Profesor {
   /// Lo que el club le paga la hora. Referencia interna: no se publica.
   tarifaHoraClp Int?    @map("tarifa_hora_clp")
 
-  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario Usuario?        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   clases  Clase[]
+  series  SerieDeClases[]
 
   @@map("profesor")
 }
@@ -341,6 +343,33 @@ model Cuota {
   @@map("cuota")
 }
 
+/// Qué recordatorio de cuota es (T111): el aviso de la cuota que viene, desde 5 días antes
+/// de fin de mes, o el de la que quedó impaga, desde el día 1.
+enum TipoRecordatorio {
+  PREVIO
+  VENCIDA
+}
+
+/// Un recordatorio de cuota ya mandado (T111).
+///
+/// **El único sobre (socio, período, tipo) es lo que impide mandar dos veces**, y se escribe
+/// antes de mandar: si el proceso muere a mitad de la tanda, el que quedó registrado no se
+/// repite. Se elige perder un correo antes que cobrarle dos veces el mismo mes a alguien.
+model RecordatorioCuota {
+  id      Int              @id @default(autoincrement())
+  socioId Int              @map("socio_id")
+  /// "AAAA-MM": el mes que viene para el previo, el mes en curso para el vencido.
+  periodo String           @db.VarChar(7)
+  tipo    TipoRecordatorio
+
+  enviadoEn DateTime @default(now()) @map("enviado_en")
+
+  socio Socio @relation(fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@unique([socioId, periodo, tipo])
+  @@map("recordatorio_cuota")
+}
+
 // ── catalogo-canchas ─────────────────────────────────────────────────────────
 // Modelo de SPEC-catalogo-canchas.md § Modelo de datos.
 //
@@ -352,9 +381,11 @@ model Cuota {
 // devuelve un Date con fecha inventada que invita justo al bug de zona que T10
 // tiene que evitar.
 
+/// Cemento primero (T94): es la superficie de las ocho canchas del club, y el orden de
+/// este enum es el de la lista que el panel ofrece y el del mensaje de la API.
 enum Superficie {
-  ARCILLA
   CEMENTO
+  ARCILLA
   PASTO_SINTETICO
 }
 
@@ -384,6 +415,7 @@ model Cancha {
   bloqueos      Bloqueo[]
   reservas      Reserva[]
   clases        Clase[]
+  series        SerieDeClases[]
   transmisiones Transmision[]
 
   @@map("cancha")
@@ -420,9 +452,13 @@ model HorarioApertura {
 /// produce un socio al que se le descuenta cupo pico en una hora que se cobra valle.
 model FranjaHoraria {
   id        Int  @id @default(autoincrement())
-  canchaId  Int? @map("cancha_id")
+  canchaId  Int?     @map("cancha_id")
+  /// Solo en la tarifa general (T98): nulo = toda cancha, true = solo las techadas,
+  /// false = solo las abiertas. Una franja de una cancha lo lleva nulo: el panel rechaza
+  /// las dos cosas juntas, porque sería una regla que nunca aplica o que sobra.
+  techada   Boolean?
   /// Nulo = todos los días.
-  diaSemana Int? @map("dia_semana")
+  diaSemana Int?     @map("dia_semana")
 
   horaDesde String @map("hora_desde") @db.VarChar(5)
   horaHasta String @map("hora_hasta") @db.VarChar(5)
@@ -501,10 +537,19 @@ model ConfiguracionClub {
   telefono  String @default("") @db.VarChar(40)
   email     String @default("") @db.VarChar(120)
 
+  /// Dónde está el club, para el mapa de "El club" y el "Cómo llegar" de los correos
+  /// (T100). Nulas hasta que el admin las cargue; sin ellas el sitio no muestra mapa.
+  /// Float y no Decimal: Decimal llega como objeto y el JSON lo manda como texto; los
+  /// seis decimales —unos 10 cm— los fija `leerUbicacion` al guardar.
+  latitud  Float?
+  longitud Float?
+
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).
   cupoPicoSemanalReservas Int @default(2) @map("cupo_pico_semanal_reservas")
+  /// Reservas con invitados por mes, no invitados (A5, 2026-10-08): una reserva con uno, dos
+  /// o tres invitados gasta una. El nombre quedó del tiempo en que contaba personas.
   invitadosPorMes      Int @default(4) @map("invitados_por_mes")
   horasMinModificacion Int @default(6) @map("horas_min_modificacion")
   horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")
@@ -789,8 +834,8 @@ model AcompananteReserva {
   reservaId Int  @map("reserva_id")
   socioId   Int? @map("socio_id")
 
-  /// Solo un nombre: el invitado no tiene ficha propia (pregunta abierta 13). Muere
-  /// con la reserva y no se reutiliza.
+  /// Solo un nombre: el invitado no tiene ficha propia (pregunta abierta 13). El
+  /// nombre se le vuelve a sugerir al mismo socio al reservar (T106), y nada más.
   nombre String?
 
   reserva Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
@@ -840,21 +885,61 @@ model Clase {
   estado     EstadoClase @default(PROGRAMADA)
 
   bloqueoId Int?    @unique @map("bloqueo_id")
-  notas     String?
+  notas     String? @db.VarChar(500)
 
   canceladaEn       DateTime? @map("cancelada_en")
   motivoCancelacion String?   @map("motivo_cancelacion")
+
+  /// La serie que la agendó (T113), si viene de una. Cada clase de la serie es una fila
+  /// propia: la asistencia, los inscritos y la cancelación siguen siendo por clase.
+  serieId Int? @map("serie_id")
 
   creadaEn DateTime @default(now()) @map("creada_en")
 
   profesor      Profesor           @relation(fields: [profesorId], references: [id])
   cancha        Cancha             @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   bloqueo       Bloqueo?           @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
+  serie         SerieDeClases?     @relation(fields: [serieId], references: [id], onDelete: SetNull)
   inscripciones InscripcionClase[]
 
   @@index([inicio])
   @@index([canchaId, inicio])
+  @@index([serieId])
   @@map("clase")
+}
+
+/// Una serie de clases recurrentes (T113): "martes y jueves de 19 a 20, del 14 de octubre
+/// al 15 de diciembre". Dura como máximo 6 meses (A10).
+///
+/// Guarda la regla y no las fechas: las fechas son las clases que generó. La hora va como
+/// reloj del club ("19:00") y no como instante, porque una serie que cruza el cambio de
+/// horario tiene que quedar a las 19:00 antes y después.
+model SerieDeClases {
+  id         Int @id @default(autoincrement())
+  profesorId Int @map("profesor_id")
+  canchaId   Int @map("cancha_id")
+
+  /// Los días de la semana, de 0 (domingo) a 6 (sábado), separados por coma: "2,4".
+  diasSemana String @map("dias_semana") @db.VarChar(13)
+  horaDesde  String @map("hora_desde") @db.Char(5)
+  horaHasta  String @map("hora_hasta") @db.Char(5)
+  /// Fechas civiles del club, las dos incluidas.
+  desde      DateTime @db.Date
+  hasta      DateTime @db.Date
+
+  cupoMaximo Int        @map("cupo_maximo")
+  nivel      NivelClase
+  notas      String?    @db.VarChar(500)
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  profesor Profesor @relation(fields: [profesorId], references: [id])
+  cancha   Cancha   @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  clases   Clase[]
+
+  @@index([canchaId])
+  @@index([profesorId])
+  @@map("serie_de_clases")
 }
 
 enum EstadoInscripcion {
@@ -1052,6 +1137,11 @@ model TorneoCategoria {
   /// sortear la 4ª, así que la semilla baja de `Torneo` a acá.
   semillaSorteo Int? @map("semilla_sorteo")
 
+  /// La última vez que se armó (T132). **Deshacer no la borra**, al revés que la semilla:
+  /// es lo que permite que el correo de rearmar diga "el cuadro cambió" en vez de
+  /// presentarse como el primero.
+  armadoEn DateTime? @map("armado_en")
+
   torneo         Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   categoriaJuego CategoriaJuego  @relation(fields: [categoriaJuegoId], references: [id])
   categoria      CategoriaTorneo @relation(fields: [categoriaId], references: [id])
@@ -1222,6 +1312,14 @@ model InscripcionTorneo {
 
   /// Por qué el admin lo rechazó. Lo lee quien llama al jugador para explicarle.
   motivoRechazo String? @map("motivo_rechazo") @db.VarChar(200)
+
+  /// A dónde se le escribe: la confirmación, el pago, el cuadro armado y sus partidos
+  /// (T127, decisión 8 de la sexta parte).
+  ///
+  /// **De la inscripción y no del jugador**, como el comprobante: el padre que inscribe
+  /// a su hijo deja su propio correo, y otro torneo puede traer otro. **Nulo** en las de
+  /// antes de T127 y en las que el admin anota sin uno; la pública lo exige.
+  email String? @db.VarChar(191)
 
   inscritaEn DateTime                @default(now()) @map("inscrita_en")
 

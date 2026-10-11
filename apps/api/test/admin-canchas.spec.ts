@@ -179,6 +179,16 @@ describe('Administración de canchas', () => {
       await crear(admin, { superficie: 'CESPED_MARCIANO' }).expect(400);
     });
 
+    it('al rechazar una superficie las lista con cemento primero, la de las ocho canchas del club (T94)', async () => {
+      const respuesta = await crear(admin, {
+        superficie: 'CESPED_MARCIANO',
+      }).expect(400);
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'La superficie tiene que ser una de: CEMENTO, ARCILLA, PASTO_SINTETICO.',
+      );
+    });
+
     it('rechaza un nombre vacío', async () => {
       await crear(admin, { nombre: '   ' }).expect(400);
     });
@@ -211,6 +221,21 @@ describe('Administración de canchas', () => {
         iluminacion: true,
         nombre: NOMBRE,
       });
+    });
+
+    it('renombrar a un nombre que ya usa otra cancha responde 409 con un mensaje, no un 500 (T96)', async () => {
+      await nuevaCancha();
+      const otra = await nuevaCancha({ nombre: `${NOMBRE} B` });
+
+      const respuesta = await request(servidor())
+        .patch(`/api/admin/canchas/${otra.id}`)
+        .set('Cookie', admin)
+        .send({ nombre: NOMBRE })
+        .expect(409);
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'Ya hay una cancha con ese nombre.',
+      );
     });
 
     it('responde 404 por una cancha que no existe', async () => {
@@ -482,6 +507,99 @@ describe('Administración de canchas', () => {
 
       const bloques = lunes.body as { montoClp: number; esPico: boolean }[];
       expect(bloques[0]).toMatchObject({ montoClp: 33000, esPico: true });
+    });
+
+    /**
+     * T98. Una tarifa general solo para techadas o solo para abiertas. La tarifa general
+     * la ven todas las canchas de la base, así que rige un único día lejano —un lunes de
+     * 2031— y se borra al terminar.
+     */
+    describe('por tipo de cancha (T98)', () => {
+      const LUNES_2031 = '2031-03-03';
+      const general = (parche: Record<string, unknown>) =>
+        request(servidor())
+          .post('/api/admin/franjas')
+          .set('Cookie', admin)
+          .send({
+            horaDesde: '06:00',
+            horaHasta: '07:00',
+            montoClp: 12000,
+            // catalogo-seed.spec.ts pide que toda tarifa general venda la hora y media
+            // más cara que la hora.
+            montoClp90: 16000,
+            vigenteDesde: LUNES_2031,
+            vigenteHasta: LUNES_2031,
+            ...parche,
+          });
+      const abreLunesTemprano = (canchaId: number) =>
+        request(servidor())
+          .put(`/api/admin/canchas/${canchaId}/horarios`)
+          .set('Cookie', admin)
+          .send([{ diaSemana: 1, horaApertura: '06:00', horaCierre: '07:00' }])
+          .expect(200);
+      const precioDel = async (canchaId: number) => {
+        const respuesta = await request(servidor())
+          .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${LUNES_2031}`)
+          .expect(200);
+        return (respuesta.body as { montoClp: number }[])[0].montoClp;
+      };
+
+      afterEach(async () => {
+        await prisma.franjaHoraria.deleteMany({
+          where: { canchaId: null, vigenteDesde: new Date(LUNES_2031) },
+        });
+      });
+
+      it('**la grilla cobra la de techadas en la techada, y la de todas en la abierta**', async () => {
+        const techada = await nuevaCancha({ techada: true });
+        const abierta = await nuevaCancha({ nombre: `${NOMBRE} abierta` });
+        await abreLunesTemprano(techada.id);
+        await abreLunesTemprano(abierta.id);
+
+        await general({}).expect(201);
+        await general({
+          techada: true,
+          montoClp: 15000,
+          montoClp90: 20000,
+        }).expect(201);
+
+        expect(await precioDel(techada.id)).toBe(15000);
+        expect(await precioDel(abierta.id)).toBe(12000);
+      });
+
+      it('crear la de techadas no cierra la de todas del mismo tramo', async () => {
+        // Cambiar un precio cierra la tarifa del tramo exacto. Sin mirar el tipo, crear
+        // "techadas de 06 a 07" cerraba la general de 06 a 07 y la abierta quedaba en $0.
+        await general({}).expect(201);
+        await general({
+          techada: true,
+          montoClp: 15000,
+          montoClp90: 20000,
+        }).expect(201);
+
+        const abiertas = await prisma.franjaHoraria.findMany({
+          where: {
+            canchaId: null,
+            techada: null,
+            vigenteDesde: new Date(LUNES_2031),
+          },
+        });
+        expect(abiertas).toHaveLength(1);
+        expect(abiertas[0].vigenteHasta).toEqual(new Date(LUNES_2031));
+      });
+
+      it('una tarifa de una cancha no lleva tipo: sería una regla que nunca aplica o que sobra', async () => {
+        const cancha = await nuevaCancha();
+
+        const respuesta = await general({
+          canchaId: cancha.id,
+          techada: true,
+        }).expect(400);
+
+        expect((respuesta.body as { message: string }).message).toBe(
+          'Una tarifa de una sola cancha no lleva tipo: ya se sabe si es techada.',
+        );
+      });
     });
 
     it('guarda el precio de 1 hora y media, y sin él queda nulo (T79)', async () => {

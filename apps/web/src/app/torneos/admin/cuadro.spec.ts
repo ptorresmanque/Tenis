@@ -346,7 +346,8 @@ describe('CuadroDelTorneo', () => {
    */
   describe('programar el partido (T67)', () => {
     const escribir = async (name: string, valor: string) => {
-      const campo = elemento().querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+      // `input`: el `name` también queda en el `app-campo-fecha` que envuelve al campo.
+      const campo = elemento().querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
       campo.value = valor;
       campo.dispatchEvent(new Event('input'));
       campo.dispatchEvent(new Event('change'));

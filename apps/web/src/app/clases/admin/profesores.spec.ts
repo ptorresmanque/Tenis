@@ -99,7 +99,8 @@ describe('ProfesoresPanel', () => {
 
     expect(api.crear).toHaveBeenCalledWith({
       nombreVisible: 'Felipe Morales',
-      telefono: '+56955555555',
+      // Lo que escribió, en la forma que guarda la API (T121).
+      telefono: '56955555555',
       especialidad: 'Competitivo',
       tarifaHoraClp: null,
     });

@@ -1,6 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { entero, instanteDeCuerpo } from '../catalogo-canchas/admin.dto';
+import {
+  diaValido,
+  entero,
+  fechaDeCuerpo,
+  instanteDeCuerpo,
+} from '../catalogo-canchas/admin.dto';
+import { leerTelefono } from '../comun/telefono';
 import { NivelClase } from '../generated/prisma/client';
 
 /** Una clase por agendar, con el rango ya resuelto a instantes. */
@@ -14,6 +20,117 @@ export interface ClaseNueva {
   cupoMaximo: number;
   nivel: NivelClase;
   notas: string | null;
+}
+
+/**
+ * Una serie de clases (T113): la ficha de una clase, más los días de la semana y el rango
+ * de fechas. Las horas quedan como reloj del club; cada fecha las convierte a instantes.
+ */
+export interface SerieNueva {
+  canchaId: number;
+  profesorId: number;
+  /** De 0 (domingo) a 6 (sábado), sin repetidos y en orden. */
+  diasSemana: number[];
+  horaDesde: string;
+  horaHasta: string;
+  /** Fechas civiles del club, "AAAA-MM-DD", las dos incluidas. */
+  desde: string;
+  hasta: string;
+  cupoMaximo: number;
+  nivel: NivelClase;
+  notas: string | null;
+}
+
+/** El tope de una serie (A10): seis meses. Más largo, se agenda otra. */
+const MESES_MAXIMOS = 6;
+
+/**
+ * Lee la serie del formulario.
+ *
+ * Lo de cada clase —cancha, profesor, horas, cupo, nivel, notas— se valida leyendo la
+ * primera fecha como una clase suelta: así la serie no tiene reglas propias que se
+ * desalineen de las de la clase.
+ */
+export function leerSerie(cuerpo: unknown): SerieNueva {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  if (!Array.isArray(datos.diasSemana) || datos.diasSemana.length === 0) {
+    throw new BadRequestException('Elige al menos un día de la semana.');
+  }
+  const diasSemana = [...new Set(datos.diasSemana.map(diaValido))].sort(
+    (a, b) => a - b,
+  );
+
+  const desde = fechaDeCuerpo(datos.desde, 'El inicio de la serie');
+  const hasta = fechaDeCuerpo(datos.hasta, 'El término de la serie');
+
+  if (hasta < desde) {
+    throw new BadRequestException(
+      'La serie tiene que terminar después de empezar.',
+    );
+  }
+
+  // `Date.UTC` con el mes pasado de 11 rueda solo al año siguiente.
+  const tope = new Date(
+    Date.UTC(
+      desde.getUTCFullYear(),
+      desde.getUTCMonth() + MESES_MAXIMOS,
+      desde.getUTCDate(),
+    ),
+  );
+  if (hasta > tope) {
+    throw new BadRequestException(
+      `Una serie dura como máximo ${MESES_MAXIMOS} meses: para más, agenda otra después.`,
+    );
+  }
+
+  const fecha = (dia: Date) => dia.toISOString().slice(0, 10);
+  const muestra = leerClaseNueva({ ...datos, fecha: fecha(desde) });
+
+  return {
+    canchaId: muestra.canchaId,
+    profesorId: muestra.profesorId,
+    diasSemana,
+    horaDesde: datos.horaDesde as string,
+    horaHasta: datos.horaHasta as string,
+    desde: fecha(desde),
+    hasta: fecha(hasta),
+    cupoMaximo: muestra.cupoMaximo,
+    nivel: muestra.nivel,
+    notas: muestra.notas,
+  };
+}
+
+/**
+ * Qué hacer con una fecha de la serie que tiene algo encima (decisión 9): cancelar las
+ * reservas, como una clase suelta, o saltar esa clase. Saltar vale también para una fecha
+ * libre: un feriado.
+ */
+export type Decision = 'cancelar' | 'saltar';
+
+/** Las decisiones del admin, por fecha civil del club ("AAAA-MM-DD"). */
+export type Decisiones = Record<string, Decision>;
+
+/** Lee las decisiones de la serie. Que cada fecha sea de la serie lo revisa `repartirFechas`. */
+export function leerDecisiones(valor: unknown): Decisiones {
+  if (valor === undefined || valor === null) return {};
+
+  if (typeof valor !== 'object' || Array.isArray(valor)) {
+    throw new BadRequestException(
+      'Las decisiones van por fecha: { "AAAA-MM-DD": "saltar" }.',
+    );
+  }
+
+  return Object.fromEntries(
+    Object.entries(valor).map(([fecha, decision]) => {
+      if (decision !== 'cancelar' && decision !== 'saltar') {
+        throw new BadRequestException(
+          `Para el ${fecha} la decisión es "cancelar" o "saltar".`,
+        );
+      }
+      return [fecha, decision];
+    }),
+  );
 }
 
 /** Adónde se mueve una clase. La cancha puede cambiar; el resto de la ficha no. */
@@ -44,6 +161,7 @@ export function leerClaseNueva(cuerpo: unknown): ClaseNueva {
   const { fecha, inicio, fin } = leerRango(datos);
 
   const notas = typeof datos.notas === 'string' ? datos.notas.trim() : '';
+  // El mismo tope que las columnas `notas` de clase y de serie: VARCHAR(500).
   if (notas.length > 500) {
     throw new BadRequestException('Las notas son demasiado largas.');
   }
@@ -95,7 +213,8 @@ export function leerCancelacion(cuerpo: unknown): string {
     );
   }
 
-  return motivo.slice(0, 200);
+  // El largo de la columna `motivo_cancelacion`, VARCHAR(191): con más, un 500.
+  return motivo.slice(0, 191);
 }
 
 function leerRango(datos: Record<string, unknown>): {
@@ -183,7 +302,7 @@ export function leerInscripcion(cuerpo: unknown): InscripcionNueva {
   return {
     socioId: null,
     nombre: nombre.slice(0, 120),
-    telefono: telefono.slice(0, 40),
+    telefono: leerTelefono(telefono, { obligatorio: true }),
   };
 }
 

@@ -24,6 +24,9 @@ import {
 } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { InscritosDeLaClase } from './inscritos';
+import { NuevaSerie } from './nueva-serie';
+import { CampoFecha } from '../../ui/campo-fecha';
+import { CampoHora } from '../../ui/campo-hora';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -46,7 +49,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-agenda-clases',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase, NuevaSerie, CampoFecha, CampoHora],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
          abajo, y la navegación entre días va debajo de la cabecera. -->
@@ -87,12 +90,12 @@ const enBlanco = () => ({
 
       <div>
         <label for="fecha-clases" class="block text-sm font-medium">Ir a un día</label>
-        <input
-          id="fecha-clases"
-          type="date"
-          class="campo mt-1 w-auto cursor-pointer py-2"
-          [value]="fecha()"
-          (change)="cambiarFecha($event)"
+        <app-campo-fecha
+          class="mt-1"
+          inputId="fecha-clases"
+          claseCampo="w-36 cursor-pointer py-2"
+          [valor]="fecha()"
+          (valorChange)="cambiarFecha($event)"
         />
       </div>
     </div>
@@ -151,6 +154,18 @@ const enBlanco = () => ({
                 >
                   Cancelar clase
                 </button>
+                <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla
+                     y las clases anteriores quedan como estaban. -->
+                @if (clase.serieId !== null) {
+                  <button
+                    type="button"
+                    class="boton boton-texto boton-chico"
+                    [disabled]="trabajando()"
+                    (click)="cancelarSerieDesde(clase, clase.serieId)"
+                  >
+                    Cancelar desde esta fecha
+                  </button>
+                }
               }
             </div>
 
@@ -217,27 +232,27 @@ const enBlanco = () => ({
           }
         </label>
 
-        <label class="block">
-          <span class="text-sm font-medium">Desde</span>
-          <input
-            class="campo mt-1"
-            type="time"
+        <div>
+          <label class="block text-sm font-medium" for="clase-hora-desde">Desde</label>
+          <app-campo-hora
+            class="mt-1"
+            inputId="clase-hora-desde"
             name="horaDesde"
-            step="1800"
+            claseCampo="w-28"
             [(ngModel)]="datos.horaDesde"
           />
-        </label>
+        </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Hasta</span>
-          <input
-            class="campo mt-1"
-            type="time"
+        <div>
+          <label class="block text-sm font-medium" for="clase-hora-hasta">Hasta</label>
+          <app-campo-hora
+            class="mt-1"
+            inputId="clase-hora-hasta"
             name="horaHasta"
-            step="1800"
+            claseCampo="w-28"
             [(ngModel)]="datos.horaHasta"
           />
-        </label>
+        </div>
 
         <label class="block">
           <span class="text-sm font-medium">Nivel</span>
@@ -332,6 +347,15 @@ const enBlanco = () => ({
         </div>
       </div>
     }
+
+    <!-- La serie (T115), en su propio componente: escribirla, revisarla fecha por fecha
+         y agendarla son tres pasos que no caben en el formulario de la clase suelta. -->
+    <app-nueva-serie
+      class="mt-6"
+      [canchas]="canchasActivas()"
+      [profesores]="profesores.hasValue() ? profesores.value() : []"
+      (agendada)="serieAgendada($event)"
+    />
   `,
 })
 export class AgendaDeClases {
@@ -443,9 +467,32 @@ export class AgendaDeClases {
     });
   }
 
-  protected cambiarFecha(evento: Event): void {
-    const valor = (evento.target as HTMLInputElement).value;
+  /** La serie quedó agendada: se dice cuánto y se recarga el día, que puede tener una. */
+  protected serieAgendada(resumen: string): void {
+    this.error.set(null);
+    this.aviso.set(resumen);
+    this.version.update((v) => v + 1);
+  }
 
+  /** Cancela esta clase y las siguientes de su serie, con el motivo (T117). */
+  protected async cancelarSerieDesde(clase: ClaseDelDia, serieId: number): Promise<void> {
+    const desde = fechaEnElClub(clase.inicio);
+    const motivo = window.prompt(
+      `¿Por qué se cancela la serie de ${clase.profesor} desde el ${diaEnPalabras(desde)}?`,
+    );
+
+    if (motivo === null || motivo.trim() === '') return;
+
+    await this.intentar(async () => {
+      const { canceladas } = await this.api.cancelarSerieDesde(serieId, desde, motivo);
+      this.aviso.set(
+        `Se cancelaron ${canceladas} ${canceladas === 1 ? 'clase' : 'clases'} de la serie, ` +
+          `desde el ${diaEnPalabras(desde)}. Esas horas vuelven a estar disponibles.`,
+      );
+    });
+  }
+
+  protected cambiarFecha(valor: string): void {
     if (valor) this.fecha.set(valor);
   }
 

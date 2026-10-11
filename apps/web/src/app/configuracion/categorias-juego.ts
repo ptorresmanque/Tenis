@@ -56,7 +56,7 @@ import {
         </app-campo>
 
         <app-campo
-          etiqueta="Lugar"
+          etiqueta="Orden"
           ayuda="Mayor es más alta. Honor arriba, la 5ª abajo."
           class="min-w-40"
         >
@@ -108,7 +108,7 @@ import {
             <thead>
               <tr>
                 <th scope="col">Categoría</th>
-                <th scope="col">Lugar</th>
+                <th scope="col">Orden</th>
                 <th scope="col">Estado</th>
               </tr>
             </thead>
@@ -118,7 +118,7 @@ import {
                   <td class="font-medium">{{ categoria.nombre }}</td>
                   <td class="text-sm text-muted-foreground">
                     <label class="sr-only" [for]="'orden-' + categoria.id">
-                      Lugar de {{ categoria.nombre }}
+                      Orden de {{ categoria.nombre }}
                     </label>
                     <input
                       [id]="'orden-' + categoria.id"
@@ -265,7 +265,7 @@ export class CategoriasDeJuegoPanel {
 
     await this.contra(async () => {
       await this.api.editar(categoria.id, { orden });
-      this.aviso.set(`${categoria.nombre} quedó en el lugar ${orden}.`);
+      this.aviso.set(`${categoria.nombre} quedó con el orden ${orden}.`);
     }, 'No se pudo mover la categoría.');
   }
 
@@ -304,7 +304,7 @@ export class CategoriasDeJuegoPanel {
  */
 const PASO = 10;
 
-const LUGAR_INVALIDO = 'El lugar tiene que ser un número entero mayor que cero.';
+const LUGAR_INVALIDO = 'El orden tiene que ser un número entero mayor que cero.';
 
 /**
  * Un campo `type="number"` vacío llega como `0` y uno con basura como `NaN`.

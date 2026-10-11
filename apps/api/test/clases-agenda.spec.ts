@@ -268,6 +268,16 @@ describe('POST /api/admin/clases', () => {
     expect(bloqueo.fin).toEqual(guardada.fin);
   });
 
+  it('**unas notas de 500 caracteres, el tope, se guardan enteras, sin un 500**', async () => {
+    // La validación acepta hasta 500; la columna tiene que aguantar lo mismo.
+    const notas = 'ñ'.repeat(500);
+
+    const { id } = await agendada(clase('18:00', '19:00', { notas }));
+
+    const guardada = await prisma.clase.findUniqueOrThrow({ where: { id } });
+    expect(guardada.notas).toBe(notas);
+  });
+
   it('**la cancha desaparece de la disponibilidad en la consulta siguiente**', async () => {
     expect(bloqueDe(await bloques(), '18:00')?.bloqueado).toBe(false);
 
@@ -320,6 +330,8 @@ describe('POST /api/admin/clases', () => {
 
   it('**agendar sobre una hora reservada la cancela y le avisa a quien la tenía**', async () => {
     const reservaId = await reservar(instante('18:00'));
+    // Su confirmación (T108) va a la misma casilla: lo que se busca es el aviso.
+    enviados.length = 0;
 
     const { canceladas } = await agendada();
 
@@ -379,6 +391,20 @@ describe('POST /api/admin/clases', () => {
     expect(cancelada.bloqueoId).toBeNull();
 
     expect(bloqueDe(await bloques(), '18:00')?.bloqueado).toBe(false);
+  });
+
+  it('**un motivo de 200 caracteres se recorta al largo de la columna, sin un 500**', async () => {
+    // El panel lo pide con `window.prompt`, que no tiene tope.
+    const { id } = await agendada();
+
+    await request(app.getHttpServer())
+      .post(`/api/admin/clases/${id}/cancelacion`)
+      .set('Cookie', cookieAdmin)
+      .send({ motivo: 'ñ'.repeat(200) })
+      .expect(200);
+
+    const cancelada = await prisma.clase.findUniqueOrThrow({ where: { id } });
+    expect(cancelada.motivoCancelacion).toBe('ñ'.repeat(191));
   });
 
   it('**las reservas que la clase canceló no vuelven al cancelarse la clase**', async () => {

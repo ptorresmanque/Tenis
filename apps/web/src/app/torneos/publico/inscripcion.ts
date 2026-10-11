@@ -1,7 +1,18 @@
-import { Component, inject, input, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
+import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { irAPagar } from '../../core/pagos/ir-a-pagar';
 import { Aviso } from '../../ui/aviso';
@@ -9,6 +20,7 @@ import { Campo, CampoControl } from '../../ui/campo';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { recordarPagoPendiente } from './pago-pendiente';
 import { Franja, RestriccionHoraria } from './restriccion-horaria';
+import { TelefonoDirective } from '../../ui/telefono';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -16,6 +28,7 @@ const enBlanco = () => ({
   apellido: '',
   telefono: '',
   procedencia: '',
+  email: '',
   categoriaJuegoId: 0,
   /** Vacío hasta que la persona elige. Solo se pregunta si la categoría cobra. */
   medioPago: '' as '' | 'WEBPAY' | 'TRANSFERENCIA',
@@ -35,69 +48,125 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-inscripcion-a-torneo',
-  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, RestriccionHoraria],
+  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, RestriccionHoraria, TelefonoDirective],
   template: `
     <!-- La forma de la A (TV4.2): la caja con sombra y sin borde, el título como
          rótulo. Los campos, los pasos y el envío son los de siempre. -->
     <form class="mt-4 bg-background p-5 shadow-md sm:p-6" (ngSubmit)="inscribirse()">
       <h3 class="font-display text-lg font-bold tracking-wide uppercase">Inscribirme</h3>
-      <p class="mt-1 max-w-prose text-sm text-muted-foreground">
-        No hace falta tener cuenta. El club te llama a este teléfono si hay algún
-        cambio, y no se publica en ninguna parte.
-      </p>
+      @if (comoSocio()) {
+        <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+          Te inscribes como socio, con los datos de tu cuenta: elige la categoría,
+          dinos si hay horarios en que no puedas jugar y paga la inscripción.
+        </p>
+        <button
+          type="button"
+          class="boton boton-texto boton-chico mt-1"
+          (click)="cambiarModo(false)"
+        >
+          Inscribir a otra persona
+        </button>
+      } @else {
+        <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+          No hace falta tener cuenta. El club te llama a este teléfono si hay algún
+          cambio. Ni el teléfono ni el correo se publican en ninguna parte.
+        </p>
+        <!-- **El socio se salta los datos** (T129, punto 5): el club ya los tiene. Paga
+             igual que cualquiera (decisión 5). -->
+        @if (esSocio()) {
+          <div
+            class="mt-3 flex flex-wrap items-center justify-between gap-3 border
+                   border-primary/30 bg-primary/5 p-3"
+          >
+            <p class="text-sm">Eres socio: tus datos ya los tenemos.</p>
+            <button
+              type="button"
+              class="boton boton-primario boton-chico"
+              (click)="cambiarModo(true)"
+            >
+              Inscribirse como socio
+            </button>
+          </div>
+        }
+        @if (precargado()) {
+          <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+            Llenamos el formulario con los datos de tu cuenta. Si inscribes a otra
+            persona, cámbialos por los suyos.
+          </p>
+        }
+      }
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <app-campo etiqueta="Nombre" [obligatorio]="true">
-          <input
-            appCampoControl
-            class="campo"
-            name="nombre"
-            autocomplete="given-name"
-            maxlength="80"
-            [(ngModel)]="datos.nombre"
-          />
-        </app-campo>
+        @if (!comoSocio()) {
+          <app-campo etiqueta="Nombre" [obligatorio]="true">
+            <input
+              appCampoControl
+              class="campo"
+              name="nombre"
+              autocomplete="given-name"
+              maxlength="80"
+              [(ngModel)]="datos.nombre"
+            />
+          </app-campo>
 
-        <app-campo etiqueta="Apellidos" [obligatorio]="true">
-          <input
-            appCampoControl
-            class="campo"
-            name="apellido"
-            autocomplete="family-name"
-            maxlength="80"
-            [(ngModel)]="datos.apellido"
-          />
-        </app-campo>
+          <app-campo etiqueta="Apellidos" [obligatorio]="true">
+            <input
+              appCampoControl
+              class="campo"
+              name="apellido"
+              autocomplete="family-name"
+              maxlength="80"
+              [(ngModel)]="datos.apellido"
+            />
+          </app-campo>
 
-        <app-campo
-          etiqueta="Teléfono"
-          ayuda="Con el que el club te puede llamar. Por ejemplo +56 9 8765 4321."
-          [obligatorio]="true"
-        >
-          <input
-            appCampoControl
-            class="campo"
-            name="telefono"
-            type="tel"
-            autocomplete="tel"
-            maxlength="30"
-            [(ngModel)]="datos.telefono"
-          />
-        </app-campo>
+          <app-campo
+            etiqueta="Teléfono"
+            ayuda="Con el que el club te puede llamar. Por ejemplo +56 9 8765 4321."
+            [obligatorio]="true"
+          >
+            <span class="campo-con-prefijo">
+              <span class="prefijo">+56</span>
+              <input
+                appTelefono
+                appCampoControl
+                class="campo"
+                name="telefono"
+                [(ngModel)]="datos.telefono"
+              />
+            </span>
+          </app-campo>
 
-        <app-campo
-          etiqueta="Club o de dónde vienes"
-          ayuda="Si no juegas en un club, escribe tu comuna."
-          [obligatorio]="true"
-        >
-          <input
-            appCampoControl
-            class="campo"
-            name="procedencia"
-            maxlength="120"
-            [(ngModel)]="datos.procedencia"
-          />
-        </app-campo>
+          <app-campo
+            etiqueta="Correo"
+            ayuda="Te escribimos a este correo para confirmar tu inscripción y avisarte de tus partidos."
+            [obligatorio]="true"
+          >
+            <input
+              appCampoControl
+              class="campo"
+              type="email"
+              name="email"
+              autocomplete="email"
+              maxlength="191"
+              [(ngModel)]="datos.email"
+            />
+          </app-campo>
+
+          <app-campo
+            etiqueta="Club o de dónde vienes"
+            ayuda="Si no juegas en un club, escribe tu comuna."
+            [obligatorio]="true"
+          >
+            <input
+              appCampoControl
+              class="campo"
+              name="procedencia"
+              maxlength="120"
+              [(ngModel)]="datos.procedencia"
+            />
+          </app-campo>
+        }
 
         <app-campo etiqueta="Categoría" class="sm:col-span-2" [obligatorio]="true">
           <select
@@ -263,6 +332,9 @@ const enBlanco = () => ({
 })
 export class InscripcionATorneo {
   private readonly api = inject(Torneos);
+  private readonly auth = inject(Auth);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   readonly torneoId = input.required<number>();
   readonly categorias = input.required<CategoriaPublica[]>();
@@ -298,6 +370,57 @@ export class InscripcionATorneo {
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly listo = signal<string | null>(null);
+
+  /** Si el formulario llegó con los datos de la cuenta. Se dice, por quien inscribe a otro. */
+  protected readonly precargado = signal(false);
+
+  /** Tiene ficha de socio: es lo mismo que exige `@SoloSocio()` en la API. */
+  protected readonly esSocio = computed(() => (this.auth.usuario()?.socioId ?? null) !== null);
+
+  /** El socio eligió saltarse los datos (T129). */
+  protected readonly comoSocio = signal(false);
+
+  /**
+   * Entra o sale del modo socio **sin perder el foco**: el botón que se apretó
+   * desaparece, y sin esto el foco cae al inicio de la página. Va a lo siguiente que hay
+   * que llenar: la categoría, o el nombre de la otra persona.
+   */
+  protected cambiarModo(comoSocio: boolean): void {
+    this.comoSocio.set(comoSocio);
+
+    afterNextRender(
+      () =>
+        this.host.nativeElement
+          .querySelector<HTMLElement>(comoSocio ? '[name="categoria"]' : '[name="nombre"]')
+          ?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  constructor() {
+    // **Con sesión de quien no es socio, llega con los datos de su cuenta** (T128). El
+    // socio no: su camino es "Inscribirse como socio" (T129). Es un efecto y no una
+    // lectura al crear porque `/api/yo` puede responder después de que se abrió el
+    // formulario.
+    effect(() => {
+      const cuenta = this.auth.usuario();
+
+      if (cuenta && cuenta.socioId === null) this.precargar(cuenta);
+    });
+  }
+
+  /**
+   * **Solo lo vacío**: si la sesión llegó tarde, lo que la persona ya escribió se queda.
+   * Todo se puede cambiar: un padre inscribe a su hijo con su propia sesión.
+   */
+  private precargar(cuenta: UsuarioActual): void {
+    this.datos.nombre ||= cuenta.nombre;
+    this.datos.apellido ||= cuenta.apellido;
+    // Nulo para quien entró con Google: ese campo queda para escribirlo.
+    this.datos.telefono ||= cuenta.telefono ?? '';
+    this.datos.email ||= cuenta.email;
+    this.precargado.set(true);
+  }
 
   protected enPesos(monto: number): string {
     return `$${monto.toLocaleString('es-CL')}`;
@@ -392,6 +515,17 @@ export class InscripcionATorneo {
       return;
     }
 
+    // La misma forma que exige el servidor (`leerCorreo`): esto es cortesía, para que
+    // un correo a medio escribir no haga viajar el formulario entero. El socio no lo
+    // escribe: el servidor usa el de su cuenta.
+    const comoSocio = this.comoSocio();
+    const email = this.datos.email.trim();
+
+    if (!comoSocio && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.error.set('Revisa tu correo: ahí te llega la confirmación de la inscripción.');
+      return;
+    }
+
     // Las dos comprobaciones del pago son **cortesía**: el servidor las repite y es el
     // único que sabe cuánto cobra ese cuadro. Están acá para no hacer viajar la imagen
     // —ni el formulario entero— por algo que se ve sin salir de la pantalla.
@@ -414,21 +548,29 @@ export class InscripcionATorneo {
     this.enviando.set(true);
 
     try {
-      const hecha = await this.api.inscribirseEnTorneo(
-        this.torneoId(),
-        {
-          ...this.datos,
-          nombre: this.datos.nombre.trim(),
-          apellido: this.datos.apellido.trim(),
-          procedencia: this.datos.procedencia.trim(),
-          categoriaJuegoId,
-          medioPago,
-          restricciones: this.franjas(),
-        },
-        medioPago === 'TRANSFERENCIA'
-          ? (this.comprobante ?? undefined)
-          : undefined,
-      );
+      const comprobante =
+        medioPago === 'TRANSFERENCIA' ? (this.comprobante ?? undefined) : undefined;
+
+      const hecha = comoSocio
+        ? await this.api.inscribirseComoSocio(
+            this.torneoId(),
+            { categoriaJuegoId, medioPago, restricciones: this.franjas() },
+            comprobante,
+          )
+        : await this.api.inscribirseEnTorneo(
+            this.torneoId(),
+            {
+              ...this.datos,
+              nombre: this.datos.nombre.trim(),
+              apellido: this.datos.apellido.trim(),
+              procedencia: this.datos.procedencia.trim(),
+              email,
+              categoriaJuegoId,
+              medioPago,
+              restricciones: this.franjas(),
+            },
+            comprobante,
+          );
 
       // **Lo que se muestra es lo que respondió el servidor**, no lo que la pantalla
       // esperaba: quien queda en lista de espera tiene que enterarse ahora y no el día
@@ -443,6 +585,9 @@ export class InscripcionATorneo {
       const aWebpay = hecha.estadoPago === 'PENDIENTE' && medioPago === 'WEBPAY';
 
       this.datos = enBlanco();
+      // Vacío y sin el aviso de la cuenta: el siguiente puede ser otra persona.
+      this.precargado.set(false);
+      this.comoSocio.set(false);
       this.comprobante = null;
       this.franjas.set([]);
 

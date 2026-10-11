@@ -55,10 +55,23 @@ export class MoverReserva {
     this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().pagadoClp : null,
   );
 
+  /**
+   * La cancha de la reserva que se mueve, por su nombre, que es único. La barra la
+   * preelige si sigue libre en la celda: alargar una hora no la cambia de cancha (T104).
+   * Desde "mis reservas" viaja en la URL; desde el enlace, la dice la reserva misma.
+   */
+  readonly cancha = computed(() => {
+    if (this.porToken() !== null) {
+      return this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().cancha : null;
+    }
+
+    return this.porId() !== null ? (this.parametros()?.get('cancha') ?? null) : null;
+  });
+
   readonly error = signal<string | null>(null);
 
   /**
-   * Un solo movimiento en vuelo: con la red lenta, quien no ve reacción toca otro bloque, y
+   * Un solo movimiento en vuelo: con la red lenta, quien no ve reacción vuelve a apretar, y
    * dos PATCH dejan la reserva donde responda el último, no donde eligió.
    */
   readonly enviando = signal(false);
@@ -81,7 +94,10 @@ export class MoverReserva {
     return null;
   }
 
-  /** El socio mueve al tiro: no paga, y no hay plata que decirle antes. */
+  /**
+   * El socio confirma el cambio en la barra y se mueve al tiro: no paga, y no hay
+   * diferencia que cobrarle ni ruta a Webpay.
+   */
   async moverAlTiro(eleccion: Eleccion): Promise<void> {
     const reservaId = this.porId();
 

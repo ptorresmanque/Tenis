@@ -16,8 +16,13 @@ import {
 } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
-import type { InscripcionPublica, MedioPago } from './inscripcion-publica.dto';
+import type {
+  InscripcionDeSocio,
+  InscripcionPublica,
+  MedioPago,
+} from './inscripcion-publica.dto';
 import type { Franja } from './restricciones';
+import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { Jugadores } from './jugadores.service';
 
@@ -58,6 +63,11 @@ export interface InscripcionPublicada {
    */
   telefono: string | null;
   /**
+   * A dónde escribirle (T127). Del panel y no de la pública, por la misma razón que el
+   * teléfono. Nulo en las de antes de T127 y en las que el admin anotó sin uno.
+   */
+  email: string | null;
+  /**
    * Cuándo **no** puede jugar.
    *
    * Va en la lista del panel y **no** en la pública: dice a qué hora esa persona no
@@ -66,6 +76,22 @@ export interface InscripcionPublicada {
    * alguien lo agregó sin pensarlo.
    */
   restricciones: { diaSemana: number; horaDesde: string; horaHasta: string }[];
+}
+
+/** Lo que responde quien se inscribe solo: la calle o el socio. */
+export interface InscripcionHecha {
+  id: number;
+  estado: EstadoInscripcionTorneo;
+  estadoPago: EstadoPagoInscripcion;
+  /**
+   * **Su llave.** Es lo único con que quien no tiene cuenta vuelve a su inscripción
+   * para pagarla o subir el comprobante; sin ella el id alcanzaría, y los ids son
+   * correlativos. Se devuelve una vez y la pantalla la guarda.
+   */
+  token: string;
+  montoClp: number;
+  categoria: string;
+  jugador: string;
 }
 
 /** La lista de **un cuadro**: el cupo y las tres listas son suyos, no del torneo. */
@@ -100,6 +126,7 @@ export class InscripcionesATorneo {
     private readonly prisma: PrismaService,
     private readonly jugadores: Jugadores,
     private readonly abandonadas: InscripcionesAbandonadas,
+    private readonly avisos: AvisosDeTorneo,
   ) {}
 
   /**
@@ -111,18 +138,26 @@ export class InscripcionesATorneo {
    */
   async inscribir(
     torneoCategoriaId: number,
-    quien: { jugadorId?: number; socioId?: number },
+    quien: { jugadorId?: number; socioId?: number; email: string | null },
   ): Promise<{
     id: number;
     estado: EstadoInscripcionTorneo;
     estadoPago: EstadoPagoInscripcion;
     token: string;
   }> {
-    return this.anotar(torneoCategoriaId, async () =>
-      quien.jugadorId !== undefined
-        ? quien.jugadorId
-        : (await this.jugadores.deSocio(quien.socioId as number)).id,
+    const hecha = await this.anotar(
+      torneoCategoriaId,
+      async (tx) =>
+        quien.jugadorId !== undefined
+          ? quien.jugadorId
+          : (await this.jugadores.deSocio(quien.socioId as number, tx)).id,
+      { email: quien.email },
     );
+
+    // "Inscripción recibida" (T131), también para el que anota el admin (A4).
+    await this.avisos.inscripcionRecibida(hecha.id);
+
+    return hecha;
   }
 
   /**
@@ -137,9 +172,17 @@ export class InscripcionesATorneo {
   private async anotar(
     torneoCategoriaId: number,
     resolverJugador: (tx: Prisma.TransactionClient) => Promise<number>,
-    restricciones: Franja[] = [],
-    comprobanteRuta: string | null = null,
-    medioPago: MedioPago | null = null,
+    {
+      restricciones = [],
+      comprobanteRuta = null,
+      medioPago = null,
+      email,
+    }: {
+      restricciones?: Franja[];
+      comprobanteRuta?: string | null;
+      medioPago?: MedioPago | null;
+      email: string | null;
+    },
   ): Promise<{
     id: number;
     estado: EstadoInscripcionTorneo;
@@ -216,6 +259,7 @@ export class InscripcionesATorneo {
             // que eligió Webpay y cerró la ventana, sin tocar al que el admin anotó
             // para que pague en efectivo — ver `InscripcionesAbandonadas`.
             medioPago,
+            email,
             // En la misma escritura que la inscripción: unas franjas sin inscripción no
             // significan nada, y una inscripción sin ellas mandaría a T67 a programar
             // un partido a una hora que la persona ya dijo que no podía.
@@ -261,20 +305,51 @@ export class InscripcionesATorneo {
     torneoId: number,
     datos: InscripcionPublica,
     comprobante?: Buffer,
-  ): Promise<{
-    id: number;
-    estado: EstadoInscripcionTorneo;
-    estadoPago: EstadoPagoInscripcion;
-    /**
-     * **Su llave.** Es lo único con que quien no tiene cuenta vuelve a su inscripción
-     * para pagarla o subir el comprobante; sin ella el id alcanzaría, y los ids son
-     * correlativos. Se devuelve una vez y la pantalla la guarda.
-     */
-    token: string;
-    montoClp: number;
-    categoria: string;
-    jugador: string;
-  }> {
+  ): Promise<InscripcionHecha> {
+    return this.inscribirConPago(
+      torneoId,
+      datos,
+      (tx) => this.jugadores.porTelefono(tx, datos),
+      comprobante,
+    );
+  }
+
+  /**
+   * El socio se inscribe **sin el formulario** (T129, punto 5 de la sexta parte).
+   *
+   * Elige la categoría, dice cuándo no puede jugar y **paga igual** que cualquiera
+   * (decisión 5). El resto sale de su sesión y nunca del cuerpo: el jugador es el de su
+   * ficha —vinculado al externo que ya fue, si jugó antes desde la calle— y el correo
+   * es el de su cuenta.
+   */
+  async inscribirAlSocio(
+    torneoId: number,
+    socio: { socioId: number; email: string },
+    datos: InscripcionDeSocio,
+    comprobante?: Buffer,
+  ): Promise<InscripcionHecha> {
+    return this.inscribirConPago(
+      torneoId,
+      { ...datos, email: socio.email },
+      (tx) => this.jugadores.deSocio(socio.socioId, tx),
+      comprobante,
+    );
+  }
+
+  /**
+   * Lo que comparten la calle y el socio: el cuadro, el pago y el comprobante.
+   *
+   * **La categoría se resuelve contra las que corre ese torneo** y el monto sale de la
+   * base; el jugador lo resuelve quien llama, dentro del cerrojo de `anotar`.
+   */
+  private async inscribirConPago(
+    torneoId: number,
+    datos: InscripcionDeSocio & { email: string },
+    resolverJugador: (
+      tx: Prisma.TransactionClient,
+    ) => Promise<{ id: number; nombre: string; apellido: string }>,
+    comprobante?: Buffer,
+  ): Promise<InscripcionHecha> {
     const cuadro = await this.prisma.torneoCategoria.findUnique({
       where: {
         torneoId_categoriaJuegoId: {
@@ -307,36 +382,47 @@ export class InscripcionesATorneo {
     // cuadro pasó sus comprobaciones: una inscripción rechazada no deja nada escrito.
     let quien = '';
 
-    try {
-      const inscripcion = await this.anotar(
-        cuadro.id,
-        async (tx) => {
-          const jugador = await this.jugadores.porTelefono(tx, datos);
-          quien = `${jugador.nombre} ${jugador.apellido}`;
+    const inscripcion = await this.anotar(
+      cuadro.id,
+      async (tx) => {
+        const jugador = await resolverJugador(tx);
+        quien = `${jugador.nombre} ${jugador.apellido}`;
 
-          return jugador.id;
-        },
-        datos.restricciones,
-        ruta,
+        return jugador.id;
+      },
+      {
+        restricciones: datos.restricciones,
+        comprobanteRuta: ruta,
         // Solo si el cuadro cobra: en uno gratis no eligió nada y la inscripción ya
         // está completa, así que no hay cupo que soltarle después.
-        cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
-      );
-
-      return {
-        ...inscripcion,
-        montoClp: cuadro.montoInscripcionClp,
-        categoria: cuadro.categoriaJuego.nombre,
-        jugador: quien,
-      };
-    } catch (falla) {
+        medioPago: cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
+        email: datos.email,
+      },
+    ).catch(async (falla: unknown) => {
       // La imagen ya está en el disco y la inscripción no existe: sin este barrido,
-      // cada intento contra un torneo cerrado dejaría un archivo huérfano, y este
-      // endpoint no tiene sesión.
+      // cada intento contra un torneo cerrado dejaría un archivo huérfano, y la
+      // inscripción desde la calle no pide sesión.
       if (ruta) await borrarImagen(ruta);
 
       throw falla;
-    }
+    });
+
+    // **Con la inscripción ya escrita**: los correos no pueden deshacerla. A los admins,
+    // solo si trajo comprobante (T130); Webpay se confirma solo (A3).
+    if (ruta) await this.avisos.comprobanteRecibido(inscripcion.id);
+
+    // Al inscrito (T131), salvo con Webpay: ahí el cupo es una reserva que se suelta a
+    // los 15 minutos si no paga, y la confirmación es el "pago confirmado".
+    const conWebpay =
+      cuadro.montoInscripcionClp > 0 && datos.medioPago === 'WEBPAY';
+    if (!conWebpay) await this.avisos.inscripcionRecibida(inscripcion.id);
+
+    return {
+      ...inscripcion,
+      montoClp: cuadro.montoInscripcionClp,
+      categoria: cuadro.categoriaJuego.nombre,
+      jugador: quien,
+    };
   }
 
   /**
@@ -531,6 +617,7 @@ export class InscripcionesATorneo {
         inscritaEn: true,
         estadoPago: true,
         medioPago: true,
+        email: true,
         // **La ruta no sale de acá.** Se lee para responder si hay algo que mirar y
         // se convierte en un booleano: es una ruta del disco del servidor.
         comprobanteRuta: true,
@@ -564,6 +651,7 @@ export class InscripcionesATorneo {
         medioPago: fila.medioPago,
         tieneComprobante: fila.comprobanteRuta !== null,
         telefono: fila.jugador.telefono,
+        email: fila.email,
         restricciones: fila.restricciones,
       })),
     );

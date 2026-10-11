@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 export interface Cancha {
   id: number;
   nombre: string;
-  superficie: 'ARCILLA' | 'CEMENTO' | 'PASTO_SINTETICO';
+  superficie: 'CEMENTO' | 'ARCILLA' | 'PASTO_SINTETICO';
   techada: boolean;
   iluminacion: boolean;
 }

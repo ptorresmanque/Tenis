@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 
+import { fechaDeCuerpo } from '../catalogo-canchas/admin.dto';
 import { SoloAdmin } from '../identidad/guards';
 import { Clases } from './clases.service';
 import { Inscripciones } from './inscripciones.service';
@@ -18,7 +19,9 @@ import {
   leerCancelacion,
   leerClaseNueva,
   leerInscripcion,
+  leerDecisiones,
   leerMovimiento,
+  leerSerie,
 } from './clases.dto';
 
 /**
@@ -58,6 +61,68 @@ export class ClasesController {
   @Post()
   agendar(@Body() cuerpo: unknown) {
     return this.clases.agendar(leerClaseNueva(cuerpo));
+  }
+
+  /**
+   * Lo que una serie generaría, fecha por fecha: a quién le quitaría la hora y qué otra
+   * cosa ya ocupa la cancha (T113). Sin escribir nada, como la simulación de una clase.
+   */
+  @Post('series/simulacion')
+  @HttpCode(200)
+  async simularSerie(@Body() cuerpo: unknown) {
+    return { fechas: await this.clases.simularSerie(leerSerie(cuerpo)) };
+  }
+
+  /**
+   * Inscribe a un socio o a un alumno de afuera en cada clase que viene de la serie (T116).
+   * Si alguna está llena, no inscribe en ninguna y dice cuál.
+   */
+  @Post('series/:id/inscripciones')
+  inscribirEnLaSerie(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.inscripciones.inscribirEnLaSerie(id, leerInscripcion(cuerpo));
+  }
+
+  /**
+   * Cancela la serie desde un día en adelante (T117): las horas vuelven a la grilla y las
+   * clases anteriores quedan como estaban. El motivo es obligatorio, como en la clase suelta.
+   */
+  @Post('series/:id/cancelacion')
+  cancelarSerieDesde(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    const datos = (cuerpo ?? {}) as Record<string, unknown>;
+    const desde = fechaDeCuerpo(datos.desde, 'El día desde el que se cancela')
+      .toISOString()
+      .slice(0, 10);
+
+    return this.clases.cancelarSerieDesde(id, desde, leerCancelacion(cuerpo));
+  }
+
+  /** Lo saca de la serie: cancela solo las clases que vienen, no las que ya pasaron. */
+  @Post('series/:id/inscripciones/cancelacion')
+  salirDeLaSerie(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.inscripciones.salirDeLaSerie(id, leerInscripcion(cuerpo));
+  }
+
+  /**
+   * Agenda la serie, con la decisión de cada fecha que tiene algo encima: `cancelar` o
+   * `saltar` (T114). Una fecha con choque y sin decisión rechaza la serie entera.
+   */
+  @Post('series')
+  agendarSerie(@Body() cuerpo: unknown) {
+    const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+    return this.clases.agendarSerie(
+      leerSerie(cuerpo),
+      leerDecisiones(datos.decisiones),
+    );
   }
 
   /**

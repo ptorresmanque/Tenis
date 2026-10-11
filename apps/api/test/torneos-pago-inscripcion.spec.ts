@@ -70,6 +70,7 @@ describe('El pago de la inscripción a un torneo', () => {
       .toString()
       .padStart(7, '0')}`,
     procedencia: 'Club de Ñuñoa',
+    email: 'rodrigo@ejemplo.cl',
     categoriaJuegoId: cuartaId,
     // **El medio de pago es obligatorio cuando el cuadro cobra**: sin él la
     // inscripción se rechaza y no queda fila. Webpay es el camino que no adjunta nada.
@@ -238,6 +239,7 @@ describe('El pago de la inscripción a un torneo', () => {
         apellido: APELLIDO,
         telefono: '+56 9 6666 5555',
         procedencia: 'Club',
+        email: 'gratis@ejemplo.cl',
         categoriaJuegoId: cuartaId,
       })
       .expect(201);
@@ -324,6 +326,7 @@ describe('El pago de la inscripción a un torneo', () => {
           apellido: APELLIDO,
           telefono: '+56 9 6666 4444',
           procedencia: 'Club',
+          email: 'gratis@ejemplo.cl',
           categoriaJuegoId: cuartaId,
         })
         .expect(201);
@@ -495,6 +498,35 @@ describe('El pago de la inscripción a un torneo', () => {
         )
         .expect(302);
 
+      expect(await sigueViva(id)).toBe(false);
+    });
+
+    it('**volver desde la pantalla de error de Webpay suelta el cupo, sin confirmar nada**', async () => {
+      // Llegan `token_ws` **y** `TBK_TOKEN`: el formulario de Webpay falló y la persona
+      // volvió al sitio. Para Transbank es un pago inválido, que no se confirma. Acá la
+      // pasarela es la de integración: si la vuelta confirmara, le preguntaría por un
+      // token que Transbank no conoce y la persona vería un 500.
+      const { id } = (await inscribirse().expect(201)).body as { id: number };
+      const referencia = `error-${id}`;
+      await prisma.transaccion.create({
+        data: {
+          referencia,
+          concepto: ConceptoPago.INSCRIPCION_TORNEO,
+          conceptoId: id,
+          montoClp: 15000,
+          pasarela: 'webpay',
+          tokenPasarela: `token-error-${id}`,
+        },
+      });
+
+      const vuelta = await request(app.getHttpServer())
+        .get(
+          `/api/torneos/inscripciones/retorno?token_ws=token-error-${id}` +
+            `&TBK_TOKEN=token-error-${id}&TBK_ORDEN_COMPRA=${referencia}`,
+        )
+        .expect(302);
+
+      expect(vuelta.headers.location).toContain('pago=anulado');
       expect(await sigueViva(id)).toBe(false);
     });
 
@@ -942,6 +974,7 @@ describe('El pago de la inscripción a un torneo', () => {
             apellido: APELLIDO,
             telefono: '+56 9 4444 3333',
             procedencia: 'Club',
+            email: 'gratis@ejemplo.cl',
             categoriaJuegoId: cuartaId,
           })
           .expect(201)

@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { leerTelefono } from '../comun/telefono';
+
 export interface DatosRegistro {
   email: string;
   contrasena: string;
@@ -68,6 +70,6 @@ export function leerRegistro(cuerpo: unknown): DatosRegistro {
     contrasena: datos.contrasena,
     nombre: texto(datos.nombre, 'el nombre'),
     apellido: texto(datos.apellido, 'el apellido'),
-    telefono: texto(datos.telefono, 'el teléfono', false) || null,
+    telefono: leerTelefono(datos.telefono, { obligatorio: false }),
   };
 }

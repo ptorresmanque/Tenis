@@ -21,7 +21,7 @@ export function reservaDeSocioDeCuerpo(cuerpo: unknown): ReservaDeSocio {
     canchaId: entero(datos.canchaId, 'La cancha'),
     inicio: instante(datos.inicio),
     duracionMin: leerDuracion(datos.duracionMin),
-    acompanantes: acompanantes(datos.acompanantes),
+    acompanantes: leerAcompanantes(datos.acompanantes),
   };
 }
 
@@ -87,12 +87,26 @@ function instante(valor: unknown): Date {
   return fecha;
 }
 
-function acompanantes(valor: unknown): AcompananteDeclarado[] {
+/** En una cancha juegan hasta cuatro: el titular y tres más (T105). */
+export const MAXIMO_ACOMPANANTES = 3;
+
+/**
+ * Con quién juega el socio, o el titular que anota el mesón: de 0 a 3, cada uno socio
+ * o invitado. Que haya al menos uno lo exige el cupo del socio (`SIN_ACOMPANANTE`), no
+ * este borde: el mesón puede anotar una hora sin acompañantes (A6 del plan).
+ */
+export function leerAcompanantes(valor: unknown): AcompananteDeclarado[] {
   if (valor === undefined || valor === null) return [];
 
   if (!Array.isArray(valor)) {
     throw new BadRequestException(
       'Los acompañantes tienen que venir en una lista.',
+    );
+  }
+
+  if (valor.length > MAXIMO_ACOMPANANTES) {
+    throw new BadRequestException(
+      `Puedes declarar hasta ${MAXIMO_ACOMPANANTES} personas.`,
     );
   }
 

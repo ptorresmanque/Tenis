@@ -25,17 +25,33 @@ import { TARIFA_DEL_SOCIO } from './bandas';
       >
         {{ cancha().nombre }} · {{ hora(bloque().inicio) }}–{{ hora(bloque().fin) }}
       </p>
+      <!-- Lo que paga quien mira, y solo eso (T104): al visitante el arriendo en grande,
+           que es lo que va a pagar, y al socio que no paga. Con canchas de precios
+           distintos, este es el de la cancha marcada y cambia con ella. -->
       @let monto = bloque().montoClp;
-      <p class="mt-1 text-sm text-muted-foreground">
-        Socio {{ tarifaDelSocio }}
-        @if (monto !== null) {
-          · Arriendo
-          <span class="font-semibold text-accent-strong">{{ pesos(monto) }}</span>
-        }
-        @if (bloque().esPico) {
-          · Hora pico
-        }
-      </p>
+      @if (!esSocio() && monto !== null) {
+        <p class="mt-1 flex flex-wrap items-baseline gap-x-2">
+          <span
+            data-precio
+            class="font-display text-3xl leading-none font-extrabold text-accent-strong
+                   tabular-nums"
+            >{{ pesos(monto) }}</span
+          >
+          <span class="text-sm text-muted-foreground">
+            Arriendo
+            @if (bloque().esPico) {
+              · Hora pico
+            }
+          </span>
+        </p>
+      } @else {
+        <p class="mt-1 text-sm text-muted-foreground">
+          Socio {{ tarifaDelSocio }}
+          @if (bloque().esPico) {
+            · Hora pico
+          }
+        </p>
+      }
     </div>
 
     <div class="flex gap-2">
@@ -49,6 +65,8 @@ import { TARIFA_DEL_SOCIO } from './bandas';
 export class ResumenDeLaEleccion {
   readonly cancha = input.required<Cancha>();
   readonly bloque = input.required<BloqueDisponible>();
+  /** Si quien mira es socio: no paga la hora, y la barra no le muestra un monto. */
+  readonly esSocio = input(false);
 
   readonly soltar = output<void>();
   readonly reservar = output<void>();

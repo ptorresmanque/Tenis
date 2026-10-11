@@ -1,4 +1,4 @@
-import { mesDelClub } from './invitados';
+import { invitadosAnteriores, mesDelClub } from './invitados';
 
 /**
  * T25. El mes calendario contra el que se cuentan los invitados.
@@ -42,5 +42,43 @@ describe('mesDelClub', () => {
       desde: '2028-02-01',
       hasta: '2028-03-01',
     });
+  });
+});
+
+/**
+ * T106 (A4 del plan). Los invitados anteriores salen de las reservas del socio, sin tabla
+ * nueva: son los nombres que ya escribió, y la lista se le sugiere al reservar. Un mismo
+ * invitado escrito de dos formas tiene que salir una vez, o la lista se llena de duplicados
+ * que solo difieren en una tilde.
+ */
+describe('invitadosAnteriores', () => {
+  it('**"Juan Pérez" y "juan perez " salen una sola vez, con la forma más reciente**', () => {
+    // Del más reciente al más antiguo, como los entrega la consulta.
+    expect(invitadosAnteriores(['juan perez ', 'Juan Pérez'])).toEqual([
+      'juan perez',
+    ]);
+  });
+
+  it('conserva el orden de uso: el último invitado va primero', () => {
+    expect(invitadosAnteriores(['Ana Soto', 'Juan Pérez', 'Ana Soto'])).toEqual(
+      ['Ana Soto', 'Juan Pérez'],
+    );
+  });
+
+  it('junta los espacios de más, también los de adentro', () => {
+    expect(invitadosAnteriores(['  María   José  Rojas '])).toEqual([
+      'María José Rojas',
+    ]);
+  });
+
+  it('una ñ escrita como n es el mismo invitado', () => {
+    // En el teléfono la ñ es una pulsación larga, y muchos la saltan.
+    expect(invitadosAnteriores(['Pedro Munoz', 'Pedro Muñoz'])).toEqual([
+      'Pedro Munoz',
+    ]);
+  });
+
+  it('un nombre en blanco no es un invitado', () => {
+    expect(invitadosAnteriores(['   ', 'Ana Soto'])).toEqual(['Ana Soto']);
   });
 });

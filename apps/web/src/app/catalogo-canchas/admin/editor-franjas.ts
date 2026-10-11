@@ -4,8 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { Insignia } from '../../ui/insignia';
 import { enPesos, hoyEnElClub } from '../reloj-del-club';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
+import { CampoHora } from '../../ui/campo-hora';
 
 interface FranjaNueva {
+  /** Solo en las generales del club (T99): nulo = todas las canchas. */
+  techada: boolean | null;
   horaDesde: string;
   horaHasta: string;
   esPico: boolean;
@@ -15,6 +18,7 @@ interface FranjaNueva {
 }
 
 const EN_BLANCO: FranjaNueva = {
+  techada: null,
   horaDesde: '08:00',
   horaHasta: '18:00',
   esPico: false,
@@ -33,7 +37,7 @@ const EN_BLANCO: FranjaNueva = {
  */
 @Component({
   selector: 'app-editor-franjas',
-  imports: [FormsModule, Insignia],
+  imports: [FormsModule, Insignia, CampoHora],
   template: `
     @if (ambito().franjas.length > 0) {
       <ul class="text-sm text-muted-foreground">
@@ -47,6 +51,11 @@ const EN_BLANCO: FranjaNueva = {
               }
               @if (franja.esPico) {
                 · hora pico
+              }
+              @if (franja.techada === true) {
+                · solo techadas
+              } @else if (franja.techada === false) {
+                · solo al aire libre
               }
             </span>
             @if (franja.montoClp90 === null) {
@@ -83,24 +92,41 @@ const EN_BLANCO: FranjaNueva = {
     }
 
     <form class="mt-2 flex flex-wrap items-end gap-2 text-sm" (ngSubmit)="agregar()">
+      @if (ambito().id === null) {
+        <!-- T99. Solo en las generales: una cancha ya sabe si es techada (T98). -->
+        <div>
+          <label [for]="'aplica-' + clave()" class="block font-medium">Aplica a</label>
+          <select
+            [id]="'aplica-' + clave()"
+            [name]="'franja-aplica-' + clave()"
+            class="campo campo-chico mt-1"
+            [(ngModel)]="nueva.techada"
+          >
+            <option [ngValue]="null">Todas las canchas</option>
+            <option [ngValue]="true">Solo techadas</option>
+            <option [ngValue]="false">Solo al aire libre</option>
+          </select>
+        </div>
+      }
+
       <div>
         <label [for]="'desde-' + clave()" class="block font-medium">Desde</label>
-        <input
-          type="time"
-          [id]="'desde-' + clave()"
+        <app-campo-hora
+          class="mt-1"
+          [inputId]="'desde-' + clave()"
           [name]="'franja-desde-' + clave()"
-          class="campo campo-chico mt-1"
+          claseCampo="campo-chico w-24"
           [(ngModel)]="nueva.horaDesde"
         />
       </div>
 
       <div>
         <label [for]="'hasta-' + clave()" class="block font-medium">Hasta</label>
-        <input
-          type="time"
-          [id]="'hasta-' + clave()"
+        <app-campo-hora
+          class="mt-1"
+          [inputId]="'hasta-' + clave()"
           [name]="'franja-hasta-' + clave()"
-          class="campo campo-chico mt-1"
+          claseCampo="campo-chico w-24"
           [(ngModel)]="nueva.horaHasta"
         />
       </div>

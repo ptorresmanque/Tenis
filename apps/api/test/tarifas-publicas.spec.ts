@@ -37,6 +37,7 @@ describe('GET /api/tarifas y GET /api/horarios', () => {
       esPico: boolean;
       montoClp: number;
       montoClp90: number | null;
+      techada: boolean | null;
     }[];
   };
 
@@ -157,6 +158,33 @@ describe('GET /api/tarifas y GET /api/horarios', () => {
       true,
     );
     expect(lista.some((f) => f.cancha === NOMBRE_CANCHA)).toBe(true);
+  });
+
+  it('dice a qué tipo de cancha aplica la tarifa general: todas, techadas o abiertas (T98)', async () => {
+    // Sin el tipo, "techadas, $15.000" se publicaría como si valiera para todas.
+    const techadas = await prisma.franjaHoraria.create({
+      data: {
+        techada: true,
+        horaDesde: '06:00',
+        horaHasta: '07:00',
+        montoClp: 15555,
+        // catalogo-seed.spec.ts pide que toda tarifa general venda la hora y media.
+        montoClp90: 20000,
+        vigenteDesde: new Date('2026-01-01'),
+      },
+    });
+
+    try {
+      const lista = await tarifas();
+
+      expect(lista.find((f) => f.montoClp === 15555)).toMatchObject({
+        canchaId: null,
+        techada: true,
+      });
+      expect(lista.find((f) => f.cancha === NOMBRE_CANCHA)?.techada).toBeNull();
+    } finally {
+      await prisma.franjaHoraria.delete({ where: { id: techadas.id } });
+    }
   });
 
   it('la tarifa de una cancha desactivada no se publica', async () => {

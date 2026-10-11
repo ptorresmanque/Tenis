@@ -28,6 +28,7 @@ describe('ReglasGeneralesPanel', () => {
       {
         id: 5,
         canchaId: null,
+        techada: null,
         diaSemana: null,
         horaDesde: '08:00',
         horaHasta: '18:00',

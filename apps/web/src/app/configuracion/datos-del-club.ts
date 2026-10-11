@@ -5,6 +5,7 @@ import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
 import { Campo, CampoControl } from '../ui/campo';
+import { TelefonoDirective } from '../ui/telefono';
 
 /** Cada dato con su etiqueta y por qué se pide. El orden es el de la pantalla. */
 const DATOS = [
@@ -23,7 +24,7 @@ const DATOS = [
   {
     campo: 'telefono' as const,
     etiqueta: 'Teléfono',
-    ayuda: 'Con código de país, para que se pueda tocar y llamar.',
+    ayuda: 'Los 9 dígitos: el +56 ya va.',
     tipo: 'tel',
   },
   {
@@ -32,6 +33,14 @@ const DATOS = [
     ayuda: 'A donde escribe quien reservó sin cuenta y necesita cancelar.',
     tipo: 'email',
   },
+  {
+    campo: 'ubicacion' as const,
+    etiqueta: 'Ubicación en el mapa',
+    ayuda:
+      'Pega el enlace de Google Maps del club o sus coordenadas. Para copiarlas, en ' +
+      'Google Maps haz clic derecho sobre el club y toca los números de arriba.',
+    tipo: 'text',
+  },
 ];
 
 type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
@@ -39,17 +48,17 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
 /**
  * Los datos del club, que hasta la fase 7 estaban escritos en las plantillas.
  *
- * **Los cuatro se publican.** El pie de página, la página "El club" y la pantalla de
+ * **Los cinco se publican.** El pie de página, la página "El club" y la pantalla de
  * portería los leen de `GET /api/club`, así que lo que se escriba acá se ve en el
  * sitio en la siguiente carga. Un campo en blanco no deja un hueco: la línea
- * desaparece de donde se muestre.
+ * desaparece de donde se muestre, y sin ubicación no hay mapa (T100).
  *
  * El logotipo no está: es un archivo y necesita dónde guardarse, que es una decisión
  * de infraestructura y no de esta pantalla.
  */
 @Component({
   selector: 'app-datos-del-club',
-  imports: [FormsModule, Aviso, Campo, CampoControl],
+  imports: [FormsModule, Aviso, Campo, CampoControl, TelefonoDirective],
   template: `
     <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
       @if (club.error()) {
@@ -64,14 +73,29 @@ type Formulario = Record<(typeof DATOS)[number]['campo'], string>;
           [ayuda]="dato.ayuda"
           [obligatorio]="dato.campo === 'nombre'"
         >
-          <input
-            appCampoControl
-            class="campo"
-            [name]="dato.campo"
-            [type]="dato.tipo"
-            [ngModel]="formulario()[dato.campo]"
-            (ngModelChange)="escribir(dato.campo, $event)"
-          />
+          @if (dato.tipo === 'tel') {
+            <!-- El +56 fijo y solo los 9 dígitos (T121). -->
+            <span class="campo-con-prefijo">
+              <span class="prefijo">+56</span>
+              <input
+                appCampoControl
+                appTelefono
+                class="campo"
+                [name]="dato.campo"
+                [ngModel]="formulario()[dato.campo]"
+                (ngModelChange)="escribir(dato.campo, $event)"
+              />
+            </span>
+          } @else {
+            <input
+              appCampoControl
+              class="campo"
+              [name]="dato.campo"
+              [type]="dato.tipo"
+              [ngModel]="formulario()[dato.campo]"
+              (ngModelChange)="escribir(dato.campo, $event)"
+            />
+          }
         </app-campo>
       }
 
@@ -124,6 +148,13 @@ export class DatosDelClub {
       direccion: this.editado().direccion ?? guardadoEnElServidor?.direccion ?? '',
       telefono: this.editado().telefono ?? guardadoEnElServidor?.telefono ?? '',
       email: this.editado().email ?? guardadoEnElServidor?.email ?? '',
+      // La guardada se muestra como coordenadas, que es lo que se puede volver a
+      // pegar: el enlace original no se guarda, solo sus dos números.
+      ubicacion:
+        this.editado().ubicacion ??
+        (guardadoEnElServidor?.latitud != null
+          ? `${guardadoEnElServidor.latitud}, ${guardadoEnElServidor.longitud}`
+          : ''),
     };
   }
 
@@ -145,7 +176,7 @@ export class DatosDelClub {
     this.guardando.set(true);
 
     try {
-      // Se manda el formulario entero y no solo lo tocado: son cuatro campos de
+      // Se manda el formulario entero y no solo lo tocado: son cinco campos de
       // texto y el endpoint es un PATCH, así que el ahorro no paga la rama extra.
       await this.api.fijarDatosDelClub(this.formulario());
       this.club.reload();

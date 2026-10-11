@@ -25,6 +25,8 @@ import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
 import { Foto, PartidoDelCuadro, Torneos } from '../torneos.service';
 import { FotoDelPartido } from './foto-del-partido';
+import { CampoFecha } from '../../ui/campo-fecha';
+import { CampoHora } from '../../ui/campo-hora';
 
 /**
  * El cuadro del torneo.
@@ -36,7 +38,7 @@ import { FotoDelPartido } from './foto-del-partido';
  */
 @Component({
   selector: 'app-cuadro-torneo',
-  imports: [FormsModule, Aviso, Insignia, FotoDelPartido],
+  imports: [FormsModule, Aviso, Insignia, FotoDelPartido, CampoFecha, CampoHora],
   template: `
     @if (cuadro.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -195,7 +197,9 @@ import { FotoDelPartido } from './foto-del-partido';
           dijo que no puede, y <strong>dice quién y cuándo</strong>.
         </p>
 
-        <form class="mt-3 grid gap-3 sm:grid-cols-4" (ngSubmit)="programar()">
+        <!-- Dos columnas y no cuatro: con el botón del calendario, una fecha entera no
+             cabía en un cuarto del modal (T126). -->
+        <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="programar()">
           <label class="block">
             <span class="text-sm font-medium">Cancha</span>
             <select
@@ -213,37 +217,34 @@ import { FotoDelPartido } from './foto-del-partido';
             </select>
           </label>
 
-          <label class="block">
-            <span class="text-sm font-medium">Día</span>
-            <input
-              class="campo mt-1"
-              type="date"
+          <div class="grid gap-1">
+            <label class="text-sm font-medium" for="programar-fecha">Día</label>
+            <app-campo-fecha
+              inputId="programar-fecha"
               name="fecha"
               [(ngModel)]="horario.fecha"
             />
-          </label>
+          </div>
 
-          <label class="block">
-            <span class="text-sm font-medium">Desde</span>
-            <input
-              class="campo mt-1"
-              type="time"
+          <div class="grid gap-1">
+            <label class="text-sm font-medium" for="programar-desde">Desde</label>
+            <app-campo-hora
+              inputId="programar-desde"
               name="desde"
               [(ngModel)]="horario.horaDesde"
             />
-          </label>
+          </div>
 
-          <label class="block">
-            <span class="text-sm font-medium">Hasta</span>
-            <input
-              class="campo mt-1"
-              type="time"
+          <div class="grid gap-1">
+            <label class="text-sm font-medium" for="programar-hasta">Hasta</label>
+            <app-campo-hora
+              inputId="programar-hasta"
               name="hasta"
               [(ngModel)]="horario.horaHasta"
             />
-          </label>
+          </div>
 
-          <div class="flex gap-2 sm:col-span-4">
+          <div class="flex gap-2 sm:col-span-2">
             <button
               type="submit"
               class="boton boton-primario boton-chico"

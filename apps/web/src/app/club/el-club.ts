@@ -1,4 +1,5 @@
 import { Component, computed, inject, resource } from '@angular/core';
+import { DomSanitizer } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
@@ -7,7 +8,9 @@ import { Club } from './club.service';
 import { Foto } from '../ui/foto';
 import { Insignia } from '../ui/insignia';
 import { FormularioContacto } from './formulario-contacto';
+import { enlacesDelMapa } from './mapa';
 import { Tarifas } from './tarifas';
+import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
 /**
  * La página que explica el club a quien todavía no reservó.
@@ -20,11 +23,12 @@ import { Tarifas } from './tarifas';
  * La dirección, el teléfono y el correo salen de la configuración del club, no de
  * este archivo: el diseño los traía de relleno —una calle española y un teléfono
  * que no existe— y ahora los escribe el club desde su panel. Cada línea aparece
- * solo si tiene contenido. El mapa sigue fuera: necesita un proveedor.
+ * solo si tiene contenido. El mapa también (T101): sale si el club cargó su
+ * ubicación (T100), y es de OpenStreetMap, ver `mapa.ts`.
  */
 @Component({
   selector: 'app-el-club',
-  imports: [RouterLink, Foto, Insignia, FormularioContacto, Tarifas],
+  imports: [RouterLink, Foto, Insignia, FormularioContacto, Tarifas, EnlaceTelefonoPipe, TelefonoPipe],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
     <section
@@ -32,17 +36,21 @@ import { Tarifas } from './tarifas';
       aria-labelledby="el-club"
     >
       <app-foto
-        descripcion="El club visto desde la entrada, con las canchas y el edificio al fondo"
+        descripcion="Vista aérea del club: los galpones de las canchas techadas y dos canchas al aire libre"
+        src="/fotos/el-club.jpg"
         proporcion="16/9"
         [prioritaria]="true"
         claseCaja="min-h-[24rem]"
       />
       <div
-        class="absolute inset-0 bg-gradient-to-t from-campo via-campo/90 to-campo/65"
+        class="absolute inset-0 velo-foto"
         aria-hidden="true"
       ></div>
 
-      <div class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo sm:p-10">
+      <div
+        class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
+               sm:p-10"
+      >
         <h1 id="el-club" class="titular text-6xl sm:text-7xl lg:text-8xl">
           FEDAL Tennis Center
         </h1>
@@ -153,36 +161,67 @@ import { Tarifas } from './tarifas';
         Dónde encontrarnos
       </h2>
 
-      <dl class="mt-6 grid gap-8 border-t border-border pt-6 sm:grid-cols-2">
-        <div>
-          <dt
-            class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
-          >
-            <span class="icono text-primary" aria-hidden="true">place</span>
-            Dónde y cómo ubicarnos
-          </dt>
-          <dd class="mt-2 grid gap-1 text-muted-foreground">
-            @if (club().direccion) {
-              <span>{{ club().direccion }}</span>
-            }
-            @if (club().telefono) {
-              <a [href]="'tel:' + club().telefono" class="underline hover:text-primary">
-                {{ club().telefono }}
+      <div class="mt-6 grid gap-8 border-t border-border pt-6 sm:grid-cols-2">
+        <dl>
+          <div>
+            <dt
+              class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
+            >
+              <span class="icono text-primary" aria-hidden="true">place</span>
+              Dónde y cómo ubicarnos
+            </dt>
+            <dd class="mt-2 grid gap-1 text-muted-foreground">
+              @if (club().direccion) {
+                <span>{{ club().direccion }}</span>
+              }
+              @if (club().telefono) {
+                <a [href]="club().telefono | enlaceTelefono" class="underline hover:text-primary">
+                  {{ club().telefono | telefono }}
+                </a>
+              }
+              @if (club().email) {
+                <a [href]="'mailto:' + club().email" class="underline hover:text-primary">
+                  {{ club().email }}
+                </a>
+              }
+              <!-- Con la configuración en blanco no queda una ficha a medias: queda
+                   una frase que sirve igual. -->
+              @if (!club().direccion && !club().telefono && !club().email) {
+                <span>Pregunta en el mesón: te atienden todos los días.</span>
+              }
+            </dd>
+          </div>
+        </dl>
+
+        @if (mapa(); as mapa) {
+          <!-- T101. OpenStreetMap y no Google: cargar el mapa no le pasa a nadie la IP de
+               quien mira. Google Maps y Waze van como enlaces, que la persona elige abrir. -->
+          <div>
+            <iframe
+              [src]="mapa.incrustado"
+              [title]="'Mapa con la ubicación de ' + club().nombre"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              class="aspect-[4/3] w-full border border-border"
+            ></iframe>
+            <p class="mt-3 flex flex-wrap gap-3">
+              <a
+                [href]="mapa.googleMaps"
+                target="_blank"
+                rel="noopener"
+                class="boton boton-secundario"
+              >
+                Cómo llegar con Google Maps
+                <span class="sr-only">(se abre en otra pestaña)</span>
               </a>
-            }
-            @if (club().email) {
-              <a [href]="'mailto:' + club().email" class="underline hover:text-primary">
-                {{ club().email }}
+              <a [href]="mapa.waze" target="_blank" rel="noopener" class="boton boton-secundario">
+                Cómo llegar con Waze
+                <span class="sr-only">(se abre en otra pestaña)</span>
               </a>
-            }
-            <!-- Con la configuración en blanco no queda una ficha a medias: queda
-                 una frase que sirve igual. -->
-            @if (!club().direccion && !club().telefono && !club().email) {
-              <span>Pregunta en el mesón: te atienden todos los días.</span>
-            }
-          </dd>
-        </div>
-      </dl>
+            </p>
+          </div>
+        }
+      </div>
     </section>
 
     <section class="mt-16">
@@ -205,6 +244,24 @@ export class ElClub {
   private readonly disponibilidad = inject(Disponibilidad);
 
   protected readonly club = inject(Club).datos;
+
+  private readonly sanitizador = inject(DomSanitizer);
+
+  /**
+   * El mapa y cómo llegar, si el club cargó su ubicación (T101).
+   *
+   * El `src` del `<iframe>` se marca como confiable porque `enlacesDelMapa` lo arma
+   * solo con dos números: no puede traer nada que no sean coordenadas.
+   */
+  protected readonly mapa = computed(() => {
+    const enlaces = enlacesDelMapa(this.club());
+    return (
+      enlaces && {
+        ...enlaces,
+        incrustado: this.sanitizador.bypassSecurityTrustResourceUrl(enlaces.incrustado),
+      }
+    );
+  });
 
   /** Solo el catálogo: esta página no muestra horas, así que no las pide. */
   private readonly catalogo = resource({

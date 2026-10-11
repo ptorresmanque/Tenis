@@ -30,6 +30,9 @@ describe('Club', () => {
       direccion: '',
       telefono: '',
       email: '',
+      // Sin ubicación no hay mapa (T101).
+      latitud: null,
+      longitud: null,
     });
   });
 });

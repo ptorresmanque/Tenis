@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { armarCuadro, nombreDeRonda } from './cuadro';
+import { AvisosDeTorneo } from './correos';
 
 /** Un partido, como se dibuja en el cuadro. */
 export interface PartidoPublicado {
@@ -61,6 +62,7 @@ export class CuadroDelTorneo {
   constructor(
     private readonly prisma: PrismaService,
     private readonly abandonadas: InscripcionesAbandonadas,
+    private readonly avisos: AvisosDeTorneo,
   ) {}
 
   /**
@@ -129,7 +131,9 @@ export class CuadroDelTorneo {
       // armado", que es lo que pasó.
       const { count } = await tx.torneoCategoria.updateMany({
         where: { id: torneoCategoriaId, semillaSorteo: null },
-        data: { semillaSorteo: semilla },
+        // `armadoEn` en la misma escritura: deshacer no la borra, y es lo que dice si
+        // el próximo armado es un rearmado (T132).
+        data: { semillaSorteo: semilla, armadoEn: new Date() },
       });
 
       if (count === 0) {
@@ -150,6 +154,10 @@ export class CuadroDelTorneo {
 
       await this.ponerEstadoDelTorneo(tx, cuadro.torneoId);
     });
+
+    // A cada inscrito, con el cuadro ya escrito (T132). Si ya se había armado antes, el
+    // correo dice que cambió: el rival del primer correo puede no ser el de ahora.
+    await this.avisos.cuadroArmado(torneoCategoriaId, cuadro.armadoEn !== null);
 
     return this.leer(torneoCategoriaId);
   }
@@ -268,6 +276,7 @@ export class CuadroDelTorneo {
         id: true,
         torneoId: true,
         semillaSorteo: true,
+        armadoEn: true,
         categoriaJuego: { select: { nombre: true } },
         torneo: { select: { estado: true } },
       },

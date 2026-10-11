@@ -14,6 +14,8 @@ export interface Horario {
 export interface Franja {
   id: number;
   canchaId: number | null;
+  /** En la general: nulo = toda cancha, true = solo techadas, false = solo abiertas (T98). */
+  techada: boolean | null;
   diaSemana: number | null;
   horaDesde: string;
   horaHasta: string;
@@ -123,6 +125,9 @@ export interface ReglasDelClub {
   horasMinModificacion: number;
   horasReembolsoTotal: number;
   diasSancionNoUso: number;
+  /** Lo que vale ser socio, en pesos. Las cuotas ya emitidas congelaron el suyo. */
+  cuotaMensualClp: number;
+  cuotaIncorporacionClp: number;
 }
 
 /**
@@ -137,7 +142,18 @@ export interface DatosDelClub {
   direccion: string;
   telefono: string;
   email: string;
+  /** Dónde está el club, para el mapa (T100). Nulas mientras no se cargue. */
+  latitud: number | null;
+  longitud: number | null;
 }
+
+/**
+ * Lo que manda el formulario de datos del club. La ubicación va como el texto que el
+ * admin pegó —enlace de Google Maps o coordenadas— y la convierte el servidor (T100).
+ */
+export type DatosDelClubAGuardar = Omit<DatosDelClub, 'latitud' | 'longitud'> & {
+  ubicacion: string;
+};
 
 /** Lo que el servidor devuelve de `GET /api/admin/configuracion`: las dos cosas. */
 export type ConfiguracionDelClub = ReglasDelClub & DatosDelClub;
@@ -174,13 +190,15 @@ export class AdminCanchas {
   }
 
   /**
-   * Los cuatro datos de contacto, que van a la misma fila que las reglas.
+   * Los datos de contacto y la ubicación, que van a la misma fila que las reglas.
    *
    * Método aparte y no un `fijarConfiguracion` con todo mezclado: son dos
    * pantallas distintas y quien lea una llamada quiere saber cuál está guardando.
    */
-  fijarDatosDelClub(datos: DatosDelClub): Promise<ConfiguracionDelClub> {
-    return this.fijarConfiguracion(datos);
+  fijarDatosDelClub(datos: DatosDelClubAGuardar): Promise<ConfiguracionDelClub> {
+    return firstValueFrom(
+      this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', datos),
+    );
   }
 
   advertencias(fecha: string): Promise<Advertencia[]> {
@@ -234,6 +252,7 @@ export class AdminCanchas {
 
   crearFranja(franja: {
     canchaId: number | null;
+    techada: boolean | null;
     diaSemana: number | null;
     horaDesde: string;
     horaHasta: string;

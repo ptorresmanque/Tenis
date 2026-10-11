@@ -24,7 +24,8 @@ import {
   Rechazo,
   SocioQueReserva,
 } from './cupo';
-import { mesDelClub } from './invitados';
+import { AvisosDeReserva } from './correos';
+import { invitadosAnteriores, mesDelClub } from './invitados';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
 
 /**
@@ -64,6 +65,7 @@ export class ReservasService {
     private readonly prisma: PrismaService,
     private readonly disponibilidad: DisponibilidadService,
     private readonly reservas: ReservaRepository,
+    private readonly avisos: AvisosDeReserva,
   ) {}
 
   /**
@@ -152,6 +154,10 @@ export class ReservasService {
         );
       });
 
+      // Después de la transacción: la confirmación cuenta una reserva que ya existe, y un
+      // correo que no sale no la deshace (T108). También para la que toma el mesón.
+      await this.avisos.confirmacion(reserva.id);
+
       return {
         id: reserva.id,
         folio: reserva.folio,
@@ -212,13 +218,13 @@ export class ReservasService {
     const [
       reservasDelDia,
       reservasPicoDeLaSemana,
-      invitadosDelMes,
+      reservasConInvitadosDelMes,
       ocupados,
       incorporacionPendiente,
     ] = await Promise.all([
       this.contarDelDia(db, socio.id, fecha, excluyendo),
       this.contarPicoDeLaSemana(db, socio.id, fecha, excluyendo),
-      this.contarInvitadosDelMes(db, socio.id, fecha, excluyendo),
+      this.contarReservasConInvitadosDelMes(db, socio.id, fecha, excluyendo),
       this.ocupacionesEnElRango(
         db,
         [socio.id, ...socioIdsDe(acompanantes)],
@@ -236,7 +242,7 @@ export class ReservasService {
       config,
       reservasDelDia,
       reservasPicoDeLaSemana,
-      invitadosDelMes,
+      reservasConInvitadosDelMes,
       incorporacionPendiente,
       acompanantes,
       ocupados,
@@ -327,14 +333,35 @@ export class ReservasService {
             motivo: 'ACOMPANANTE_NO_ACTIVO',
             message:
               `El socio ${acompanante.numeroSocio} no tiene la membresía activa: ` +
-              'no puede entrar como acompañante. Puedes declararlo como invitado, ' +
-              'que descuenta de tus invitados del mes.',
+              'no puede entrar como acompañante. Puedes declararlo como invitado: la ' +
+              'reserva gastará una de tus reservas con invitados del mes.',
           });
         }
 
         return { socioId: socio.id };
       }),
     );
+  }
+
+  /**
+   * Los invitados que el socio declaró en sus reservas, para sugerírselos al reservar
+   * (T106). Solo los externos: un compañero socio se elige de la lista de socios.
+   *
+   * Por id descendente, que es el orden en que se declararon: el acompañante se crea con
+   * su reserva y no se edita. Incluye los de reservas canceladas, porque el invitado
+   * sigue siendo alguien con quien el socio juega.
+   */
+  async misInvitados(socioId: number): Promise<string[]> {
+    const filas = await this.prisma.acompananteReserva.findMany({
+      where: { reserva: { socioId }, nombre: { not: null } },
+      select: { nombre: true },
+      orderBy: { id: 'desc' },
+      // ponytail: las 200 declaraciones más recientes; un invitado que no aparece en
+      // ellas lleva años sin venir. Paginar si algún socio llega a echarlo de menos.
+      take: 200,
+    });
+
+    return invitadosAnteriores(filas.flatMap(({ nombre }) => nombre ?? []));
   }
 
   /**
@@ -351,16 +378,20 @@ export class ReservasService {
   ): Promise<{
     reservasDelDia: number;
     reservasPicoDeLaSemana: number;
-    invitadosDelMes: number;
+    reservasConInvitadosDelMes: number;
   }> {
-    const [reservasDelDia, reservasPicoDeLaSemana, invitadosDelMes] =
+    const [reservasDelDia, reservasPicoDeLaSemana, reservasConInvitadosDelMes] =
       await Promise.all([
         this.contarDelDia(this.prisma, socioId, fecha),
         this.contarPicoDeLaSemana(this.prisma, socioId, fecha),
-        this.contarInvitadosDelMes(this.prisma, socioId, fecha),
+        this.contarReservasConInvitadosDelMes(this.prisma, socioId, fecha),
       ]);
 
-    return { reservasDelDia, reservasPicoDeLaSemana, invitadosDelMes };
+    return {
+      reservasDelDia,
+      reservasPicoDeLaSemana,
+      reservasConInvitadosDelMes,
+    };
   }
 
   /**
@@ -553,16 +584,19 @@ export class ReservasService {
   }
 
   /**
-   * Invitados externos que el socio ya registró en el mes del bloque.
+   * Reservas del socio, en el mes del bloque, con al menos un invitado externo.
+   *
+   * **Cuenta reservas y no personas** (A5, decisión del club del 2026-10-08): un dobles
+   * con tres invitados gasta un cupo, igual que uno con un invitado.
    *
    * **El mes del bloque y no el de hoy**, igual que el cupo diario y el pico: quien
-   * reserva en agosto una hora de septiembre gasta un invitado de septiembre, que es
-   * el mes en que va a traer a esa persona.
+   * reserva en agosto una hora de septiembre gasta un cupo de septiembre, que es el mes
+   * en que va a traer a esa gente.
    *
-   * Cuenta filas de `AcompananteReserva` con nombre: por eso los acompañantes son una
-   * tabla y no una columna de texto (`SPEC-reservas.md` § Modelo de datos).
+   * Un invitado es un acompañante con nombre: por eso los acompañantes son una tabla y
+   * no una columna de texto (`SPEC-reservas.md` § Modelo de datos).
    */
-  private contarInvitadosDelMes(
+  private contarReservasConInvitadosDelMes(
     db: ClienteDePrisma,
     socioId: number,
     fecha: string,
@@ -570,18 +604,16 @@ export class ReservasService {
   ): Promise<number> {
     const { desde, hasta } = mesDelClub(fecha);
 
-    return db.acompananteReserva.count({
+    return db.reserva.count({
       where: {
-        nombre: { not: null },
-        reserva: {
-          socioId,
-          id: excluyendo ? { not: excluyendo } : undefined,
-          estado: { in: ACTIVAS },
-          inicio: {
-            gte: instanteEnElClub(desde, '00:00'),
-            lt: instanteEnElClub(hasta, '00:00'),
-          },
+        socioId,
+        id: excluyendo ? { not: excluyendo } : undefined,
+        estado: { in: ACTIVAS },
+        inicio: {
+          gte: instanteEnElClub(desde, '00:00'),
+          lt: instanteEnElClub(hasta, '00:00'),
         },
+        acompanantes: { some: { nombre: { not: null } } },
       },
     });
   }

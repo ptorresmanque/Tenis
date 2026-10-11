@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import type { DatosBloqueo } from '../catalogo-canchas/admin.dto';
+import { firmaDelClub } from '../comun/club';
 import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
 import { MINUTOS_PARA_EXPIRAR } from '../pagos/expiracion';
@@ -224,9 +225,15 @@ export class CierreDeCanchaService {
       select: { nombre: true },
     });
 
+    // La firma una vez para todos los avisos, y solo si hay a quién avisar.
+    const firma =
+      canceladas.length > 0
+        ? firmaDelClub(await this.prisma.configuracionClub.findFirstOrThrow())
+        : '';
+
     for (const reserva of canceladas) {
       this.eventos.cambio(reserva.inicio);
-      await this.avisar(reserva, datos, cancha);
+      await this.avisar(reserva, datos, cancha, firma);
     }
 
     return { bloqueoId, canceladas };
@@ -267,6 +274,7 @@ export class CierreDeCanchaService {
     reserva: ReservaAfectada,
     cierre: DatosBloqueo,
     cancha: { nombre: string } | null,
+    firma: string,
   ): Promise<void> {
     const cuando = `${DIA.format(reserva.inicio)}, de ${HORA.format(reserva.inicio)} a ${HORA.format(reserva.fin)}`;
 
@@ -287,7 +295,8 @@ export class CierreDeCanchaService {
           `${cierre.descripcion ? ` (${cierre.descripcion})` : ''}, ` +
           `así que tu reserva ${reserva.folio} quedó cancelada.\n\n` +
           `${devolucion}\n\n` +
-          'Lamentamos el cambio. Si necesitas ayuda para reagendar, escríbenos.\n',
+          'Lamentamos el cambio. Si necesitas ayuda para reagendar, escríbenos.\n\n' +
+          firma,
       },
       this.log,
       `No se pudo avisar la cancelación de ${reserva.folio}`,

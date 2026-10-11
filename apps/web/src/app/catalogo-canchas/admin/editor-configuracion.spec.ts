@@ -16,6 +16,8 @@ describe('EditorConfiguracion', () => {
     horasMinModificacion: 6,
     horasReembolsoTotal: 24,
     diasSancionNoUso: 15,
+    cuotaMensualClp: 25000,
+    cuotaIncorporacionClp: 150000,
   };
 
   let fixture: ComponentFixture<EditorConfiguracion>;
@@ -86,6 +88,13 @@ describe('EditorConfiguracion', () => {
     expect(campo('horasReembolsoTotal').value).toBe('24');
   });
 
+  it('la regla de invitados dice que cuenta reservas, no personas (T105)', () => {
+    const texto = (fixture.nativeElement as HTMLElement).textContent?.replace(/\s+/g, ' ');
+
+    expect(texto).toContain('Reservas con invitados por mes');
+    expect(texto).toContain('cuenta como una');
+  });
+
   it('**ya no ofrece la duración del bloque: la elige quien reserva** (T92)', () => {
     // Desde T78 la grilla empieza cada media hora y cada reserva dura 1 hora o 1 hora y
     // media. Un campo que no manda sobre nada invita a cambiarlo y esperar un efecto.
@@ -118,6 +127,27 @@ describe('EditorConfiguracion', () => {
 
     expect(api.fijarConfiguracion).not.toHaveBeenCalled();
     expect(texto()).toContain('ninguna puede quedar vacía');
+  });
+
+  describe('las cuotas del socio', () => {
+    it('**trae la mensualidad y la incorporación con su monto vigente**', () => {
+      expect(texto()).toContain('Cuotas del socio');
+      expect(campo('cuotaMensualClp').value).toBe('25000');
+      expect(campo('cuotaIncorporacionClp').value).toBe('150000');
+    });
+
+    it('**cambiar la mensualidad la manda**', async () => {
+      await escribir('cuotaMensualClp', '32000');
+      await guardar();
+
+      expect(api.fijarConfiguracion).toHaveBeenCalledWith(
+        expect.objectContaining({ cuotaMensualClp: 32000 }),
+      );
+    });
+
+    it('**avisa que las cuotas ya emitidas no cambian**', () => {
+      expect(texto()).toContain('las ya emitidas mantienen su monto');
+    });
   });
 
   it('muestra el motivo que dio el servidor, no uno genérico', async () => {

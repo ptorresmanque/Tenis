@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { leerTelefono } from '../comun/telefono';
+
 /** La ficha completa, como llega del formulario de alta. */
 export interface FichaNueva {
   nombreVisible: string;
@@ -26,7 +28,7 @@ export function leerFichaNueva(cuerpo: unknown): FichaNueva {
       datos.nombreVisible,
       'nombre con que se anuncia',
     ),
-    telefono: exigirTexto(datos.telefono, 'teléfono'),
+    telefono: leerTelefono(datos.telefono, { obligatorio: true }),
     especialidad: exigirTexto(datos.especialidad, 'especialidad'),
     tarifaHoraClp: leerTarifa(datos.tarifaHoraClp),
   };
@@ -44,7 +46,7 @@ export function leerCambio(cuerpo: unknown): CambioDeFicha {
     );
   }
   if (datos.telefono !== undefined) {
-    cambio.telefono = exigirTexto(datos.telefono, 'teléfono');
+    cambio.telefono = leerTelefono(datos.telefono, { obligatorio: true });
   }
   if (datos.especialidad !== undefined) {
     cambio.especialidad = exigirTexto(datos.especialidad, 'especialidad');

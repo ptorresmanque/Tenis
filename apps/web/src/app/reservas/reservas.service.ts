@@ -84,6 +84,8 @@ export class Reservas {
     nombre: string;
     email: string;
     telefono: string;
+    /** Con quién juega: de 1 a 3 nombres escritos (T107). */
+    acompanantes: { nombre: string }[];
   }): Promise<PagoIniciado> {
     return firstValueFrom(
       this.http.post<PagoIniciado>('/api/reservas/no-socio', datos),
@@ -93,6 +95,11 @@ export class Reservas {
   /** Los socios activos con los que se puede jugar, para elegir de una lista. */
   socios(): Promise<SocioDelDirectorio[]> {
     return firstValueFrom(this.http.get<SocioDelDirectorio[]>('/api/socios'));
+  }
+
+  /** Los invitados que el socio declaró antes, del último que usó al primero (T106). */
+  misInvitados(): Promise<string[]> {
+    return firstValueFrom(this.http.get<string[]>('/api/reservas/mis-invitados'));
   }
 
   /** Las horas que tengo tomadas, de la más próxima a la más lejana. */

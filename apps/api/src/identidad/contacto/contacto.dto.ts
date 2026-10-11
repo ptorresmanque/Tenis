@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
+import { leerTelefono } from '../../comun/telefono';
 import { EstadoSolicitud, TipoSolicitud } from '../../generated/prisma/client';
 import type { SolicitudNueva } from './contacto.service';
 
@@ -27,7 +28,9 @@ export function leerSolicitud(cuerpo: unknown): SolicitudNueva {
   }
 
   const email = texto(datos.email, 160).toLowerCase();
-  const telefono = texto(datos.telefono, 40);
+  // Opcional, pero si viene tiene que ser un teléfono: uno mal escrito es una consulta
+  // que el club no va a poder devolver.
+  const telefono = leerTelefono(datos.telefono, { obligatorio: false }) ?? '';
 
   // **Uno de los dos, obligatorio.** Una solicitud sin forma de contestar ocupa la
   // bandeja del club como si se pudiera atender, y a la persona la deja esperando una

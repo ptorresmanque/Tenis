@@ -13,7 +13,13 @@ import {
   CierreDeCanchaService,
   type ReservaAfectada,
 } from '../reservas/cierre-de-cancha.service';
-import type { ClaseNueva, Movimiento } from './clases.dto';
+import type {
+  ClaseNueva,
+  Decisiones,
+  Movimiento,
+  SerieNueva,
+} from './clases.dto';
+import { clasesDeLaSerie, type FechaDeLaSerie, repartirFechas } from './series';
 
 /** Una clase de la agenda, como la mira quien atiende el mesón. */
 export interface ClaseDelDia {
@@ -28,6 +34,16 @@ export interface ClaseDelDia {
   estado: EstadoClase;
   cupoMaximo: number;
   notas: string | null;
+  /** La serie que la agendó, o nulo si es suelta: la agenda ofrece cancelarla desde ahí (T117). */
+  serieId: number | null;
+}
+
+/** Lo que deja una serie agendada (T114): sus clases, las fechas saltadas y lo cancelado. */
+export interface SerieAgendada {
+  id: number;
+  clases: { id: number; fecha: string }[];
+  saltadas: string[];
+  canceladas: ReservaAfectada[];
 }
 
 export interface ClaseAgendada {
@@ -69,7 +85,108 @@ export class Clases {
     return this.cierres.afectadas(this.comoBloqueo(datos, datos.canchaId));
   }
 
-  async agendar(datos: ClaseNueva): Promise<ClaseAgendada> {
+  /**
+   * Lo que una serie generaría, fecha por fecha, sin escribir nada (T113).
+   *
+   * Un choque es un dato de su fecha y no un error de la serie: el admin decide fecha por
+   * fecha si la salta o cancela lo que haya (decisión 9, T114).
+   *
+   * ponytail: dos o tres consultas por fecha. Con el tope de 6 meses son unas 50 fechas para
+   * una serie de dos días a la semana, y hasta 180 si es diaria; si eso se nota, juntar las
+   * reservas y los bloqueos de todo el rango en una consulta.
+   */
+  async simularSerie(serie: SerieNueva): Promise<FechaDeLaSerie[]> {
+    await this.elProfesor(serie.profesorId);
+
+    const fechas: FechaDeLaSerie[] = [];
+
+    for (const clase of clasesDeLaSerie(serie)) {
+      const choque = await this.choqueDelRango(
+        clase.canchaId,
+        clase.fecha,
+        clase,
+      );
+      // Fuera del horario no hay bloqueo posible, y por eso tampoco reservas que cancelar.
+      const afectadas =
+        choque instanceof NotFoundException
+          ? []
+          : await this.cierres.afectadas(
+              this.comoBloqueo(clase, clase.canchaId),
+            );
+
+      fechas.push({
+        fecha: clase.fecha,
+        inicio: clase.inicio,
+        fin: clase.fin,
+        choque: choque?.message ?? null,
+        afectadas,
+      });
+    }
+
+    return fechas;
+  }
+
+  /**
+   * Agenda la serie con las decisiones del admin (T114).
+   *
+   * **Se vuelve a simular al confirmar**, contra la base de ahora y no contra lo que el
+   * admin miró: si apareció una reserva en una fecha sin decisión, `repartirFechas` rechaza
+   * la serie entera antes de escribir nada. Después, cada fecha pasa por `agendar`, la misma
+   * cascada de una clase suelta: cancela, devuelve y avisa.
+   *
+   * Las saltadas no se guardan aparte: son las fechas de la regla que no tienen clase.
+   *
+   * Entre la revisión y cada cierre queda una ventana de milisegundos, la misma que tiene la
+   * clase suelta entre su simulación y su confirmación: una reserva tomada justo ahí la
+   * cancela la cascada, que vuelve a consultar dentro de su transacción.
+   *
+   * ponytail: no es atómica entre fechas. Cada una cierra en su transacción porque las
+   * devoluciones salen a la pasarela, que no entra en una transacción de la base. Si una
+   * fecha falla a mitad de camino —un pago que empezó en ese momento, un cierre nuevo—, las
+   * anteriores quedan agendadas y atadas a la serie, y el error lo dice.
+   */
+  async agendarSerie(
+    serie: SerieNueva,
+    decisiones: Decisiones,
+  ): Promise<SerieAgendada> {
+    const fechas = await this.simularSerie(serie);
+    const { agendar, saltadas } = repartirFechas(fechas, decisiones);
+
+    const { id } = await this.prisma.serieDeClases.create({
+      data: {
+        profesorId: serie.profesorId,
+        canchaId: serie.canchaId,
+        diasSemana: serie.diasSemana.join(','),
+        horaDesde: serie.horaDesde,
+        horaHasta: serie.horaHasta,
+        desde: new Date(`${serie.desde}T00:00:00.000Z`),
+        hasta: new Date(`${serie.hasta}T00:00:00.000Z`),
+        cupoMaximo: serie.cupoMaximo,
+        nivel: serie.nivel,
+        notas: serie.notas,
+      },
+      select: { id: true },
+    });
+
+    const clases: SerieAgendada['clases'] = [];
+    const canceladas: ReservaAfectada[] = [];
+
+    for (const clase of clasesDeLaSerie(serie)) {
+      if (!agendar.includes(clase.fecha)) continue;
+
+      const agendada = await this.agendar(clase, id);
+      clases.push({ id: agendada.id, fecha: clase.fecha });
+      canceladas.push(...agendada.canceladas);
+    }
+
+    return { id, clases, saltadas, canceladas };
+  }
+
+  /** @param serieId La serie que la agenda, si viene de una (T114). */
+  async agendar(
+    datos: ClaseNueva,
+    serieId: number | null = null,
+  ): Promise<ClaseAgendada> {
     const profesor = await this.elProfesor(datos.profesorId);
     await this.exigirRangoUsable(datos.canchaId, datos.fecha, datos);
 
@@ -88,6 +205,7 @@ export class Clases {
             nivel: datos.nivel,
             notas: datos.notas,
             bloqueoId: bloqueo,
+            serieId,
           },
           select: { id: true },
         });
@@ -146,6 +264,79 @@ export class Clases {
     );
 
     return { id, bloqueoId, canceladas };
+  }
+
+  /**
+   * Cancela la serie desde un día del club en adelante (T117): sus clases programadas de
+   * ese día y las siguientes, con el motivo, y borra sus bloqueos para que las horas vuelvan
+   * a la grilla. Las anteriores quedan intactas, con sus inscritos y su asistencia.
+   *
+   * Lo mismo que `cancelar`, para varias clases en una transacción: o vuelven todas las
+   * horas a la grilla, o ninguna. Las inscripciones de las canceladas quedan como estaban,
+   * igual que en la clase suelta.
+   */
+  async cancelarSerieDesde(
+    serieId: number,
+    desde: string,
+    motivo: string,
+  ): Promise<{ canceladas: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      const serie = await tx.serieDeClases.findUnique({
+        where: { id: serieId },
+        select: { id: true },
+      });
+      if (!serie)
+        throw new NotFoundException('No hay una serie con ese número.');
+
+      const clases = await tx.clase.findMany({
+        where: {
+          serieId,
+          estado: EstadoClase.PROGRAMADA,
+          inicio: { gte: instanteEnElClub(desde, '00:00') },
+        },
+        select: { id: true, bloqueoId: true },
+      });
+
+      if (clases.length === 0) {
+        throw new ConflictException(
+          'La serie no tiene clases programadas desde ese día.',
+        );
+      }
+
+      const { count } = await tx.clase.updateMany({
+        // El estado en el `where`, como en `cancelar`: es el compare-and-set.
+        where: {
+          id: { in: clases.map((clase) => clase.id) },
+          estado: EstadoClase.PROGRAMADA,
+        },
+        data: {
+          estado: EstadoClase.CANCELADA,
+          canceladaEn: new Date(),
+          motivoCancelacion: motivo,
+          bloqueoId: null,
+        },
+      });
+
+      // Si otro admin canceló una mientras tanto, se deshace todo y se reintenta: borrar
+      // el bloqueo de una clase que ya no se canceló acá dejaría su hora libre.
+      if (count !== clases.length) {
+        throw new ConflictException(
+          'Alguna clase de la serie cambió mientras tanto. Reintenta.',
+        );
+      }
+
+      await tx.bloqueo.deleteMany({
+        where: {
+          id: {
+            in: clases.flatMap(({ bloqueoId }) =>
+              bloqueoId === null ? [] : [bloqueoId],
+            ),
+          },
+        },
+      });
+
+      return { canceladas: count };
+    });
   }
 
   /**
@@ -224,6 +415,7 @@ export class Clases {
         estado: true,
         cupoMaximo: true,
         notas: true,
+        serieId: true,
         cancha: { select: { nombre: true } },
         profesor: { select: { nombreVisible: true } },
       },
@@ -239,6 +431,7 @@ export class Clases {
       estado: clase.estado,
       cupoMaximo: clase.cupoMaximo,
       notas: clase.notas,
+      serieId: clase.serieId,
     }));
   }
 
@@ -275,6 +468,26 @@ export class Clases {
     rango: { inicio: Date; fin: Date },
     exceptoBloqueoId: number | null = null,
   ): Promise<void> {
+    const choque = await this.choqueDelRango(
+      canchaId,
+      fecha,
+      rango,
+      exceptoBloqueoId,
+    );
+
+    if (choque) throw choque;
+  }
+
+  /**
+   * Lo mismo que `exigirRangoUsable`, pero devuelve el rechazo en vez de lanzarlo: la serie
+   * lo muestra junto a su fecha (T113) y sigue con las demás.
+   */
+  private async choqueDelRango(
+    canchaId: number,
+    fecha: string,
+    rango: { inicio: Date; fin: Date },
+    exceptoBloqueoId: number | null = null,
+  ): Promise<NotFoundException | ConflictException | null> {
     const bloques = await this.disponibilidad.de(canchaId, fecha);
     const dentro = bloques.filter(
       (bloque) => bloque.inicio >= rango.inicio && bloque.fin <= rango.fin,
@@ -287,7 +500,7 @@ export class Clases {
       dentro[0].inicio.getTime() !== rango.inicio.getTime() ||
       dentro[dentro.length - 1].fin.getTime() !== rango.fin.getTime()
     ) {
-      throw new NotFoundException(
+      return new NotFoundException(
         'Esa hora no está en el horario de la cancha.',
       );
     }
@@ -302,11 +515,11 @@ export class Clases {
       select: { motivo: true, descripcion: true },
     });
 
-    if (choque) {
-      throw new ConflictException(
-        `Esa cancha ya está cerrada en ese rango: ${choque.descripcion ?? choque.motivo.toLowerCase()}.`,
-      );
-    }
+    return choque
+      ? new ConflictException(
+          `Esa cancha ya está cerrada en ese rango: ${choque.descripcion ?? choque.motivo.toLowerCase()}.`,
+        )
+      : null;
   }
 
   private async elProfesor(id: number): Promise<{ nombreVisible: string }> {

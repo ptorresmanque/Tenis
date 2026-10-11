@@ -1,7 +1,9 @@
+import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -19,12 +21,16 @@ describe('InscripcionATorneo', () => {
   ];
 
   let fixture: ComponentFixture<InscripcionATorneo>;
+  /** La sesión, como la tiene `Auth`: nula hasta que el servidor responde quién mira. */
+  let sesion: WritableSignal<UsuarioActual | null>;
   let api: {
     inscribirseEnTorneo: ReturnType<typeof vi.fn>;
+    inscribirseComoSocio: ReturnType<typeof vi.fn>;
     pagarInscripcion: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async () => {
+  const montar = async (usuario: UsuarioActual | null = null) => {
+    sesion = signal(usuario);
     api = {
       inscribirseEnTorneo: vi.fn().mockResolvedValue({
         id: 1,
@@ -35,6 +41,15 @@ describe('InscripcionATorneo', () => {
         categoria: '4ª',
         jugador: 'Rodrigo Soto',
       }),
+      inscribirseComoSocio: vi.fn().mockResolvedValue({
+        id: 3,
+        estado: 'INSCRITA',
+        estadoPago: 'PENDIENTE',
+        token: 'llave-socio',
+        montoClp: 15_000,
+        categoria: 'Honor',
+        jugador: 'Javiera Socia',
+      }),
       pagarInscripcion: vi.fn().mockResolvedValue({
         montoClp: 15_000,
         urlRedireccion: 'https://webpay/x',
@@ -44,7 +59,11 @@ describe('InscripcionATorneo', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: Torneos, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: Torneos, useValue: api },
+        { provide: Auth, useValue: { usuario: sesion } },
+      ],
     });
 
     fixture = TestBed.createComponent(InscripcionATorneo);
@@ -108,6 +127,7 @@ describe('InscripcionATorneo', () => {
     apellido: 'Soto',
     telefono: '+56 9 8765 4321',
     procedencia: 'Club de Ñuñoa',
+    email: 'rodrigo@ejemplo.cl',
     categoria: '20',
   };
 
@@ -131,6 +151,14 @@ describe('InscripcionATorneo', () => {
     expect(texto()).toContain('sin cupos, quedarías en lista de espera');
   });
 
+  it('**pide el correo y dice para qué**: ahí le llegan la confirmación y sus partidos (T127)', () => {
+    const correo = elemento().querySelector<HTMLInputElement>('input[name="email"]');
+
+    expect(correo?.type).toBe('email');
+    expect(correo?.autocomplete).toBe('email');
+    expect(texto()).toContain('Te escribimos a este correo');
+  });
+
   it('**dice que el teléfono no se publica**, porque es lo que la gente duda', () => {
     expect(texto()).toContain('no se publica');
   });
@@ -145,7 +173,7 @@ describe('InscripcionATorneo', () => {
   });
 
   it('manda los datos con los espacios recortados', async () => {
-    await escribir({ ...completo, nombre: '  Rodrigo  ' });
+    await escribir({ ...completo, nombre: '  Rodrigo  ', email: ' rodrigo@ejemplo.cl ' });
     await enviar();
 
     expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
@@ -153,8 +181,10 @@ describe('InscripcionATorneo', () => {
       {
         nombre: 'Rodrigo',
         apellido: 'Soto',
-        telefono: '+56 9 8765 4321',
+        // Lo que escribió, en la forma que guarda la API (T121).
+        telefono: '56987654321',
         procedencia: 'Club de Ñuñoa',
+        email: 'rodrigo@ejemplo.cl',
         categoriaJuegoId: 20,
         // La 4ª es gratis en este torneo: no hay medio de pago que elegir.
         medioPago: '',
@@ -268,5 +298,206 @@ describe('InscripcionATorneo', () => {
 
     const nombre = elemento().querySelector<HTMLInputElement>('[name="nombre"]')!;
     expect(nombre.value).toBe('');
+  });
+
+  it('**un correo mal escrito no se manda**: ahí le llega la confirmación (T128)', async () => {
+    await escribir({ ...completo, email: 'rodrigo@' });
+    await enviar();
+
+    expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
+    expect(texto()).toContain('Revisa tu correo');
+  });
+
+  describe('con la sesión de quien no es socio (T128, punto 6)', () => {
+    const CUENTA: UsuarioActual = {
+      id: 9,
+      nombre: 'Camila',
+      apellido: 'Reyes',
+      email: 'camila@ejemplo.cl',
+      telefono: '56955556666',
+      esAdmin: false,
+      socioId: null,
+      socioActivo: false,
+      socioAlDia: false,
+      profesorId: null,
+    };
+
+    const valor = (name: string) =>
+      elemento().querySelector<HTMLInputElement>(`[name="${name}"]`)!.value;
+
+    /** La sesión cambia después de montar, como cuando `/api/yo` responde tarde. */
+    const llegaLaSesion = async (usuario: UsuarioActual | null) => {
+      sesion.set(usuario);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    it('sin sesión, el formulario llega vacío, como siempre', () => {
+      expect(valor('nombre')).toBe('');
+      expect(valor('email')).toBe('');
+      expect(texto()).not.toContain('datos de tu cuenta');
+    });
+
+    it('**llega con los datos de su cuenta**, y dice que se pueden cambiar', async () => {
+      await montar(CUENTA);
+      await fixture.whenStable();
+
+      expect(valor('nombre')).toBe('Camila');
+      expect(valor('apellido')).toBe('Reyes');
+      // El campo muestra los 9 dígitos; el +56 va fijo al lado (T121).
+      expect(valor('telefono')).toBe('955556666');
+      expect(valor('email')).toBe('camila@ejemplo.cl');
+      expect(texto()).toContain('datos de tu cuenta');
+    });
+
+    it('**se pueden cambiar**: un padre inscribe a su hijo con su propia sesión', async () => {
+      await montar(CUENTA);
+      await escribir({ nombre: 'Tomás', categoria: '20' });
+      await enviar();
+
+      expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({
+          nombre: 'Tomás',
+          apellido: 'Reyes',
+          telefono: '56955556666',
+          email: 'camila@ejemplo.cl',
+        }),
+        undefined,
+      );
+    });
+
+    it('si la sesión llega después, igual se precarga', async () => {
+      await llegaLaSesion(CUENTA);
+
+      expect(valor('nombre')).toBe('Camila');
+    });
+
+    it('**no pisa lo que la persona ya escribió**', async () => {
+      await escribir({ nombre: 'Tomás' });
+      await llegaLaSesion(CUENTA);
+
+      expect(valor('nombre')).toBe('Tomás');
+      expect(valor('apellido')).toBe('Reyes');
+    });
+
+    it('quien entró con Google no tiene teléfono: ese campo queda para escribirlo', async () => {
+      await montar({ ...CUENTA, telefono: null });
+      await fixture.whenStable();
+
+      expect(valor('telefono')).toBe('');
+      expect(valor('email')).toBe('camila@ejemplo.cl');
+    });
+
+    it('inscribirse lo deja vacío y sin el aviso: el siguiente puede ser otra persona', async () => {
+      await montar(CUENTA);
+      await escribir({ categoria: '20' });
+      await enviar();
+
+      expect(valor('nombre')).toBe('');
+      expect(texto()).not.toContain('datos de tu cuenta');
+    });
+
+    it('**al socio no se le precarga**: su camino es "Inscribirse como socio" (T129)', async () => {
+      await montar({ ...CUENTA, socioId: 3, socioActivo: true, socioAlDia: true });
+      await fixture.whenStable();
+
+      expect(valor('nombre')).toBe('');
+    });
+  });
+
+  describe('inscribirse como socio (T129, punto 5)', () => {
+    const SOCIA: UsuarioActual = {
+      id: 4,
+      nombre: 'Javiera',
+      apellido: 'Socia',
+      email: 'javiera@ejemplo.cl',
+      telefono: '56944443333',
+      esAdmin: false,
+      socioId: 12,
+      socioActivo: true,
+      socioAlDia: true,
+      profesorId: null,
+    };
+
+    const boton = (etiqueta: string) =>
+      Array.from(elemento().querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === etiqueta,
+      );
+
+    const comoSocio = async () => {
+      await montar(SOCIA);
+      boton('Inscribirse como socio')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('sin sesión, o sin ficha de socio, no se ofrece', async () => {
+      expect(boton('Inscribirse como socio')).toBeUndefined();
+
+      await montar({ ...SOCIA, socioId: null });
+      expect(boton('Inscribirse como socio')).toBeUndefined();
+    });
+
+    it('**se salta los datos**: quedan la categoría, los horarios y el pago', async () => {
+      await comoSocio();
+
+      for (const name of ['nombre', 'apellido', 'telefono', 'email', 'procedencia']) {
+        expect(elemento().querySelector(`[name="${name}"]`)).toBeNull();
+      }
+      expect(elemento().querySelector('[name="categoria"]')).not.toBeNull();
+      expect(texto()).toContain('horarios en que no puedas jugar');
+    });
+
+    it('manda solo la categoría, el pago y los horarios, al camino del socio', async () => {
+      await comoSocio();
+      await escribir({ categoria: '20' });
+      await enviar();
+
+      expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
+      expect(api.inscribirseComoSocio).toHaveBeenCalledWith(
+        5,
+        { categoriaJuegoId: 20, medioPago: '', restricciones: [] },
+        undefined,
+      );
+    });
+
+    it('**paga igual**: con transferencia, el comprobante viaja en el mismo envío', async () => {
+      await comoSocio();
+      await escribir({ categoria: '60' });
+      await elegirMedio('TRANSFERENCIA');
+      const archivo = await adjuntar();
+      await enviar();
+
+      expect(api.inscribirseComoSocio).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ categoriaJuegoId: 60, medioPago: 'TRANSFERENCIA' }),
+        archivo,
+      );
+    });
+
+    it('"Inscribir a otra persona" vuelve al formulario completo', async () => {
+      await comoSocio();
+      boton('Inscribir a otra persona')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(elemento().querySelector('[name="nombre"]')).not.toBeNull();
+    });
+
+    it('**el foco no se pierde**: el botón apretado desaparece, y el foco va a lo siguiente', async () => {
+      // Sin esto cae al inicio de la página, y quien usa teclado o lector de pantalla
+      // tiene que volver a buscar el formulario.
+      await comoSocio();
+      await fixture.whenStable();
+      expect(document.activeElement?.getAttribute('name')).toBe('categoria');
+
+      boton('Inscribir a otra persona')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(document.activeElement?.getAttribute('name')).toBe('nombre');
+    });
   });
 });

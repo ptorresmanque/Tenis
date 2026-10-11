@@ -8,6 +8,7 @@ import { MisCuotasController } from './mis-cuotas.controller';
 import { PagoEnLineaDeCuota } from './pago-en-linea.service';
 import { EmisionDeCuotas } from './emision.service';
 import { PagoManualDeCuota } from './pago-manual.service';
+import { RecordatoriosDeCuota } from './recordatorios';
 
 /**
  * La cuota mensual y la de incorporación.
@@ -23,7 +24,10 @@ import { PagoManualDeCuota } from './pago-manual.service';
     PagoManualDeCuota,
     PagoEnLineaDeCuota,
     AjustesDeCuota,
+    RecordatoriosDeCuota,
   ],
-  exports: [EmisionDeCuotas],
+  // `RecordatoriosDeCuota` sale para el script del cron (T112), que levanta el contexto
+  // de Nest sin servidor HTTP.
+  exports: [EmisionDeCuotas, RecordatoriosDeCuota],
 })
 export class CuotasModule {}

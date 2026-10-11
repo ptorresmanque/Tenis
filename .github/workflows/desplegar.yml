@@ -69,19 +69,6 @@ jobs:
         run: deploy/subir-release.sh
 
       # El agente ya revisó la salud desde el servidor; esto la revisa desde afuera, como la
-      # ve quien entra al sitio. QA pide clave HTTP y su environment la trae; producción no
-      # la tiene. La clave va en un netrc, no en la línea de comandos.
+      # ve quien entra al sitio. Sin clave: QA tampoco la pide desde el 2026-10-09.
       - name: Revisar la salud desde afuera
-        env:
-          QA_USUARIO_HTTP: ${{ secrets.QA_USUARIO_HTTP }}
-          QA_CLAVE_HTTP: ${{ secrets.QA_CLAVE_HTTP }}
-        run: |
-          opciones=()
-          if [ -n "$QA_USUARIO_HTTP" ]; then
-            netrc="$RUNNER_TEMP/salud.netrc"
-            trap 'rm -f "$netrc"' EXIT
-            printf 'machine %s login %s password %s\n' \
-              "$SITIO" "$QA_USUARIO_HTTP" "$QA_CLAVE_HTTP" > "$netrc"
-            opciones=(--netrc-file "$netrc")
-          fi
-          curl -fsS --retry 3 --retry-delay 5 "${opciones[@]}" "https://$SITIO/api/salud"
+        run: curl -fsS --retry 3 --retry-delay 5 "https://$SITIO/api/salud"
