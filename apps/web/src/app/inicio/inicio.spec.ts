@@ -230,6 +230,23 @@ describe('Inicio', () => {
     expect(banda.textContent).toContain(enPesos(9_000));
   });
 
+  it('**"Desde" no cuenta las horas reservadas**, que la API manda con monto 0', async () => {
+    // La API pone en 0 el monto de una hora que no se puede tomar, para no ofrecer pagarla.
+    // El día del lanzamiento (2026-10-11) una reserva de prueba dejó la portada en "Desde $0".
+    await montar([], () =>
+      Promise.resolve([
+        {
+          cancha: CANCHA,
+          bloques: [{ ...libreA(enDosHoras), reservado: true, montoClp: 0 }, libreA(enDosHoras)],
+        },
+      ]),
+    );
+    const banda = elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+
+    expect(banda.textContent).toContain(enPesos(12_000));
+    expect(banda.textContent).not.toContain(enPesos(0));
+  });
+
   describe('el torneo con la inscripción abierta', () => {
     const seccion = () =>
       elemento().querySelector('[aria-labelledby="torneos-abiertos"]') as HTMLElement;

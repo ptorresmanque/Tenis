@@ -230,7 +230,12 @@ export class Marcador {
           instante,
           hora: horaEnElClub(new Date(instante).toISOString()),
           pico: deLaHora.some(({ bloque }) => bloque?.esPico),
-          montoPico: deLaHora.find(({ bloque }) => bloque?.esPico)?.bloque?.montoClp ?? null,
+          // De una cancha que se puede tomar: la API manda en 0 el monto de la reservada
+          // y de la bloqueada, y la leyenda decía "arriendo $0".
+          montoPico:
+            deLaHora.find(
+              ({ bloque }) => bloque?.esPico && !bloque.reservado && !bloque.bloqueado,
+            )?.bloque?.montoClp ?? null,
           celdas: deLaHora.map(({ cancha, bloque }) => ({ cancha, ...celdaDe(bloque) })),
         };
       });
