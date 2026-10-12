@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 
 import { SoloSocio } from '../identidad/guards';
 import { RankingInterno } from './ranking-interno.service';
@@ -18,10 +18,30 @@ export class RankingController {
     private readonly interno: RankingInterno,
   ) {}
 
-  /** La tabla de torneos: puntos de las últimas 52 semanas. */
+  /**
+   * La tabla de torneos de una temporada y una categoría de juego (T198). Sin
+   * categoría, la más alta con filas. La temporada es obligatoria: es la de un tour, y
+   * elegir el tour es de la pantalla.
+   */
   @Get('torneos')
-  torneosDelAnio() {
-    return this.torneos.tabla();
+  torneosDeLaTemporada(
+    @Query('temporada') temporada?: string,
+    @Query('categoria') categoria?: string,
+  ) {
+    const temporadaId = idDeConsulta(temporada);
+
+    if (temporadaId === null) {
+      throw new BadRequestException('Dinos de qué temporada es el ranking.');
+    }
+
+    const categoriaId =
+      categoria === undefined ? null : idDeConsulta(categoria);
+
+    if (categoria !== undefined && categoriaId === null) {
+      throw new BadRequestException('Esa categoría no existe.');
+    }
+
+    return this.torneos.tabla(temporadaId, categoriaId);
   }
 
   /**
@@ -37,4 +57,11 @@ export class RankingController {
   delClub() {
     return this.interno.tabla();
   }
+}
+
+/** Un número de la consulta, o nulo si no es un id: "uno", "0" y "-3" no lo son. */
+function idDeConsulta(valor: string | undefined): number | null {
+  const numero = Number(valor);
+
+  return Number.isInteger(numero) && numero > 0 ? numero : null;
 }

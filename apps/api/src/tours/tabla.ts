@@ -14,6 +14,41 @@ export interface TablaDePuntos {
   treintaidosavos: number;
 }
 
+/** Las siete columnas de `NivelTemporada`, para el `select`. */
+export const COLUMNAS_DE_LA_TABLA = {
+  puntosCampeon: true,
+  puntosFinalista: true,
+  puntosSemifinal: true,
+  puntosCuartos: true,
+  puntosOctavos: true,
+  puntosDieciseisavos: true,
+  puntosTreintaidosavos: true,
+} as const;
+
+/**
+ * De las columnas a la tabla. La leen igual el panel de tours y el ranking (T198), así
+ * que vive acá y no en cada uno.
+ */
+export function deColumnas(fila: {
+  puntosCampeon: number;
+  puntosFinalista: number;
+  puntosSemifinal: number;
+  puntosCuartos: number;
+  puntosOctavos: number;
+  puntosDieciseisavos: number;
+  puntosTreintaidosavos: number;
+}): TablaDePuntos {
+  return {
+    campeon: fila.puntosCampeon,
+    finalista: fila.puntosFinalista,
+    semifinal: fila.puntosSemifinal,
+    cuartos: fila.puntosCuartos,
+    octavos: fila.puntosOctavos,
+    dieciseisavos: fila.puntosDieciseisavos,
+    treintaidosavos: fila.puntosTreintaidosavos,
+  };
+}
+
 /**
  * Las filas en orden, con cómo se nombran en un mensaje. El español no deja armarlos con
  * una sola plantilla: "el campeón no puede", "los cuartos no pueden".

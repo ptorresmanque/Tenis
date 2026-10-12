@@ -15,7 +15,7 @@ import {
   type ImagenDeTour,
   publicarFoto,
 } from './imagenes-del-tour.service';
-import type { TablaDePuntos } from './tabla';
+import { COLUMNAS_DE_LA_TABLA, deColumnas, type TablaDePuntos } from './tabla';
 import type { NivelNuevo, TemporadaNueva, TourNuevo } from './tours.dto';
 import { temporadaVigente } from './vigente';
 
@@ -75,17 +75,6 @@ const TEMPORADA = {
   fechaFin: true,
 } as const;
 
-/** Las siete columnas de la tabla. */
-const COLUMNAS = {
-  puntosCampeon: true,
-  puntosFinalista: true,
-  puntosSemifinal: true,
-  puntosCuartos: true,
-  puntosOctavos: true,
-  puntosDieciseisavos: true,
-  puntosTreintaidosavos: true,
-} as const;
-
 /**
  * Un nivel con lo que el panel necesita contar. El estado de cada torneo y no dos
  * `_count`: Prisma no deja contar dos veces la misma relación, y son un puñado de filas.
@@ -93,7 +82,7 @@ const COLUMNAS = {
 const NIVEL = {
   id: true,
   nombre: true,
-  ...COLUMNAS,
+  ...COLUMNAS_DE_LA_TABLA,
   torneos: { select: { torneo: { select: { estado: true } } } },
 } as const;
 
@@ -337,7 +326,9 @@ export class Tours {
         const anterior = await tx.temporadaTour.findFirst({
           where: { tourId },
           orderBy: [{ fechaInicio: 'desc' }, { id: 'desc' }],
-          select: { niveles: { select: { nombre: true, ...COLUMNAS } } },
+          select: {
+            niveles: { select: { nombre: true, ...COLUMNAS_DE_LA_TABLA } },
+          },
         });
 
         return tx.temporadaTour.create({
@@ -517,15 +508,7 @@ function publicarNivel(fila: {
   return {
     id: fila.id,
     nombre: fila.nombre,
-    tabla: {
-      campeon: fila.puntosCampeon,
-      finalista: fila.puntosFinalista,
-      semifinal: fila.puntosSemifinal,
-      cuartos: fila.puntosCuartos,
-      octavos: fila.puntosOctavos,
-      dieciseisavos: fila.puntosDieciseisavos,
-      treintaidosavos: fila.puntosTreintaidosavos,
-    },
+    tabla: deColumnas(fila),
     torneos: fila.torneos.length,
     torneosTerminados: fila.torneos.filter(
       ({ torneo }) => torneo.estado === EstadoTorneo.FINALIZADO,
