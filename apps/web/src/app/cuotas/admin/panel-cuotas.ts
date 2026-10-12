@@ -157,6 +157,7 @@ function mesActual(): string {
                         type="button"
                         class="boton boton-secundario boton-chico"
                         [disabled]="cobrando()"
+                        [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-EFECTIVO'"
                         (click)="cobrar(cuota, 'EFECTIVO')"
                       >
                         Efectivo
@@ -165,6 +166,7 @@ function mesActual(): string {
                         type="button"
                         class="boton boton-secundario boton-chico"
                         [disabled]="cobrando()"
+                        [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-TRANSFERENCIA'"
                         (click)="cobrar(cuota, 'TRANSFERENCIA')"
                       >
                         Transferencia
@@ -176,6 +178,7 @@ function mesActual(): string {
                         type="button"
                         class="boton boton-texto boton-chico"
                         [disabled]="cobrando()"
+                        [attr.aria-busy]="enCurso() === 'condonar-' + cuota.id"
                         (click)="condonar(cuota)"
                       >
                         Condonar
@@ -184,6 +187,7 @@ function mesActual(): string {
                         type="button"
                         class="boton boton-texto boton-chico text-destructive"
                         [disabled]="cobrando()"
+                        [attr.aria-busy]="enCurso() === 'anular-' + cuota.id"
                         (click)="anular(cuota)"
                       >
                         Anular
@@ -229,6 +233,8 @@ export class PanelDeCuotas {
   });
 
   protected readonly cobrando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -249,7 +255,7 @@ export class PanelDeCuotas {
     cuota: CuotaDelMes,
     medio: 'EFECTIVO' | 'TRANSFERENCIA',
   ): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar(`cobrar-${cuota.id}-${medio}`, async () => {
       await this.api.cobrar(cuota.id, medio);
       // La incorporación no extiende la vigencia —compra la entrada, no tiempo—, así
       // que prometer que "queda al día hasta fin de mes" sería mentirle al admin justo
@@ -273,7 +279,7 @@ export class PanelDeCuotas {
 
     if (motivo === null) return;
 
-    await this.intentar(async () => {
+    await this.intentar(`condonar-${cuota.id}`, async () => {
       await this.api.ajustar(cuota.id, { condonar: true, motivo });
       this.aviso.set(
         `Condonada la cuota de ${cuota.socio.nombre}. Queda al día ese mes igual.`,
@@ -293,7 +299,7 @@ export class PanelDeCuotas {
 
     if (motivo === null) return;
 
-    await this.intentar(async () => {
+    await this.intentar(`anular-${cuota.id}`, async () => {
       await this.api.ajustar(cuota.id, { anular: true, motivo });
       this.aviso.set(`Anulada la cuota de ${cuota.socio.nombre}.`);
     });
@@ -312,10 +318,14 @@ export class PanelDeCuotas {
    * Compartido por los cuatro botones: los avisos son distintos, pero el manejo
    * —limpiar, bloquear, recargar, desbloquear— es el mismo en los cuatro.
    */
-  private async intentar(accion: () => Promise<void>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<void>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.cobrando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -326,6 +336,7 @@ export class PanelDeCuotas {
       this.error.set(mensajeDelServidor(falla, 'No se pudo completar la acción.'));
     } finally {
       this.cobrando.set(false);
+      this.enCurso.set(null);
     }
   }
 

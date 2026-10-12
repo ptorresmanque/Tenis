@@ -1264,3 +1264,182 @@ describe('Favicon', () => {
     expect(existsSync(publico('apple-touch-icon.png'))).toBe(true);
   });
 });
+
+/**
+ * T147. Las bandas de las páginas que buscan convencer entran al aparecer, con una sola
+ * regla de styles.css. Las de tarea y el panel no se mueven: quien va a reservar no
+ * espera a que algo entre, y el panel va sin movimiento (decisión del 2026-10-02).
+ */
+describe('Las bandas aparecen al hacer scroll (T147)', () => {
+  const PAGINAS_QUE_ANIMAN = [
+    'inicio/inicio.ts',
+    'club/el-club.ts',
+    'club/preguntas-frecuentes.ts',
+    'torneos/publico/torneos.ts',
+    'clases/publico/clases.ts',
+    'ranking/torneos.ts',
+  ];
+
+  it('la regla vive en styles.css, detrás de @supports y de reducir movimiento', () => {
+    const regla = css.match(/@utility aparece-al-pasar \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+    expect(regla).toContain('@supports (animation-timeline: view())');
+    expect(regla).toContain('prefers-reduced-motion: no-preference');
+    expect(regla).toContain('animation-timeline: view()');
+  });
+
+  it('**con el foco adentro, la banda se ve entera**', () => {
+    // Quien avanza con Tab trae un enlace a la pantalla justo en el borde: la banda que
+    // lo contiene recién asoma y estaría al 20 % de opacidad, con el foco casi
+    // invisible. El foco manda sobre la animación.
+    const regla = css.match(/@utility aparece-al-pasar \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+    expect(regla).toMatch(/&:focus-within\s*\{\s*animation:\s*none/);
+  });
+
+  it('**ningún componente escribe su propia animación de scroll**', () => {
+    // La portada tenía la suya en su bloque styles. Dos copias de la misma regla
+    // terminan con dos velocidades que nadie eligió.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /animation-timeline/.test(sinComentarios(contenido)))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it.each(PAGINAS_QUE_ANIMAN)('%s la usa', (archivo) => {
+    expect(readFileSync(join(RAIZ, archivo), 'utf8')).toContain('aparece-al-pasar');
+  });
+
+  it('ni el panel ni las pantallas de tarea la usan', () => {
+    const infractores = plantillas()
+      .filter(
+        ({ archivo, contenido }) =>
+          contenido.includes('aparece-al-pasar') && !PAGINAS_QUE_ANIMAN.includes(archivo),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T148. El hero de la portada y el de "El club": al llegar, la foto se asienta y el
+ * texto sube escalonado; al hacer scroll, la foto baja más lento que la página. Todo en
+ * una utilidad de styles.css, con los tokens de siempre.
+ */
+describe('El hero se mueve (T148)', () => {
+  const regla = () => css.match(/@utility hero-animado \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+  it('la entrada y el parallax van detrás de reducir movimiento', () => {
+    expect(regla()).toContain('prefers-reduced-motion: no-preference');
+  });
+
+  it('**el parallax solo existe donde existe animation-timeline**', () => {
+    // Sin el @supports, el navegador que no la conoce aplicaría el final de la
+    // animación de una vez y la foto quedaría corrida desde el primer cuadro.
+    const parallax = regla().slice(regla().indexOf('@supports (animation-timeline: view())'));
+
+    expect(regla()).toContain('@supports (animation-timeline: view())');
+    expect(parallax).toContain('hero-parallax');
+    expect(regla().slice(0, regla().indexOf('@supports'))).not.toContain('hero-parallax');
+  });
+
+  it('las duraciones y la curva salen de los tokens', () => {
+    expect(regla()).toContain('var(--duracion-asentado)');
+    expect(regla()).toContain('var(--duracion-entrada)');
+    expect(regla()).toContain('var(--escalonado)');
+    expect(regla()).toContain('var(--ease-salida)');
+    expect(regla()).not.toMatch(/\b\d+m?s\b/);
+  });
+
+  it('la foto se anima con scale y translate, nunca con su opacidad: es el LCP', () => {
+    expect(css).toMatch(/@keyframes hero-foto \{[^}]*scale:[^}]*\}/);
+    expect(css).not.toMatch(/@keyframes hero-foto \{[^}]*opacity/);
+  });
+
+  it.each(['inicio/inicio.ts', 'club/el-club.ts'])('%s lo usa', (archivo) => {
+    const contenido = readFileSync(join(RAIZ, archivo), 'utf8');
+
+    expect(contenido).toContain('hero-animado');
+    expect(contenido).toContain('hero-texto');
+  });
+});
+
+/**
+ * Las carpetas que las reglas de T150 (botón ocupado) y T152 (esqueletos) no revisan.
+ * Vacía desde T154: las dos reglas valen para todo el sitio. Se deja la lista para la
+ * próxima vez que una regla nueva entre de a poco.
+ */
+const CARPETAS_PENDIENTES: string[] = [];
+
+/**
+ * T150. El botón dice que está trabajando, y los botones de ícono responden al dedo.
+ *
+ * Hasta acá, mientras un envío viajaba, el botón solo se deshabilitaba: en una red
+ * lenta, la persona no sabía si el clic había llegado.
+ */
+describe('Los botones dicen que están trabajando (T150)', () => {
+  /** Las señales con que los componentes marcan un envío en curso. */
+  const OCUPADO =
+    /\[disabled\]="[^"]*\b(?:enviando|guardando|procesando|pagando|entrando|subiendo|borrando|creando|cancelando|confirmando|trabajando|cobrando|resolviendo|ocupad[oa])\(\)/;
+
+
+  it('el botón ocupado lleva un círculo que gira, y no se ve deshabilitado', () => {
+    expect(css).toMatch(/\.boton\[aria-busy='true'\]::before\s*\{[^}]*progress_activity/);
+    expect(css).toMatch(/\.boton\[aria-busy='true'\]:disabled\s*\{[^}]*opacity:\s*1/);
+  });
+
+  it('el círculo no se lee: es decoración de una espera que el texto ya dice', () => {
+    expect(css).toMatch(/content:\s*'progress_activity'\s*\/\s*''/);
+  });
+
+  it('los botones de ícono se hunden al presionar, como .boton', () => {
+    expect(css).toMatch(/\.pulsable:active:not\(:disabled\)\s*\{[^}]*scale:/);
+  });
+
+  it('**todo botón que se deshabilita por un envío lo anuncia con aria-busy**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      if (CARPETAS_PENDIENTES.some((carpeta) => archivo.startsWith(carpeta))) continue;
+
+      for (const [boton] of sinComentarios(contenido).matchAll(/<button\b[^>]*>/g)) {
+        // Los que solo abren algo (un diálogo, una confirmación, un formulario) no
+        // envían: se deshabilitan mientras otra acción trabaja, pero no giran. Por
+        // convención sus métodos se llaman abrir…, preguntar… o editar…, y ninguno
+        // cambia nada (revisado en T154; el abrir del cuadro consulta qué partidos se
+        // deshacen, pero solo lee).
+        if (/\(click\)="(?:abrir|preguntar|editar)\w*\(/.test(boton)) continue;
+
+        if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
+          infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T152. Lo que espera muestra la forma de lo que viene (app-esqueleto), no la palabra
+ * "Cargando" en gris: un texto obliga a leer para enterarse de que hay que esperar, y
+ * la página salta cuando el contenido lo reemplaza.
+ */
+describe('Lo que espera muestra un esqueleto (T152)', () => {
+
+  it('**ninguna pantalla dice solo "Cargando…" en un párrafo**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      if (CARPETAS_PENDIENTES.some((carpeta) => archivo.startsWith(carpeta))) continue;
+
+      for (const [parrafo] of sinComentarios(contenido).matchAll(/<p\b[^>]*>\s*Cargando[^<]*<\/p>/g)) {
+        infractores.push(`${archivo}: ${parrafo.replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});

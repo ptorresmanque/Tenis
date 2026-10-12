@@ -17,6 +17,7 @@ import {
   CategoriaTorneo,
   Torneos,
 } from '../torneos.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 const MONTO_INVALIDO =
   'La inscripción tiene que ser un monto en pesos, sin decimales: 0 si es gratis.';
@@ -48,7 +49,7 @@ function enPesos(texto: string): number | null {
  */
 @Component({
   selector: 'app-cuadros-del-torneo',
-  imports: [FormsModule, Aviso, Insignia],
+  imports: [FormsModule, Aviso, Insignia, Esqueleto],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -57,7 +58,7 @@ function enPesos(texto: string): number | null {
       <h2 id="titulo-categorias-torneo" class="rotulo-seccion">Categorías del torneo</h2>
 
       @if (cuadros.isLoading()) {
-        <p class="mt-2 text-sm text-muted-foreground">Cargando…</p>
+        <app-esqueleto class="mt-2 block" [filas]="3" etiqueta="Cargando los cuadros…" />
       } @else if (cuadros.error()) {
         <p class="mt-2 text-sm text-destructive">
           No se pudieron cargar las categorías del torneo. Reintenta en un momento.
@@ -134,6 +135,7 @@ function enPesos(texto: string): number | null {
                 class="boton boton-secundario boton-chico ms-auto
                        border-destructive text-destructive"
                 [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'quitar-' + cuadro.id"
                 (click)="quitar(cuadro.id, cuadro.categoria)"
               >
                 Quitar
@@ -203,6 +205,7 @@ function enPesos(texto: string): number | null {
           type="submit"
           class="boton boton-secundario"
           [disabled]="trabajando() || disponibles().length === 0"
+          [attr.aria-busy]="enCurso() === 'agregar'"
         >
           Agregar
         </button>
@@ -248,6 +251,8 @@ export class CuadrosDelTorneo {
   protected monto: number | null = 0;
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   private readonly version = signal(0);
@@ -309,7 +314,7 @@ export class CuadrosDelTorneo {
       return;
     }
 
-    await this.intentar(async () => {
+    await this.intentar('agregar', async () => {
       await this.api.agregarCuadro(this.torneoId(), {
         categoriaJuegoId,
         categoriaId,
@@ -332,7 +337,7 @@ export class CuadrosDelTorneo {
 
     if (!categoriaId) return;
 
-    await this.intentar(() =>
+    await this.intentar(`cambiarValor-${id}`, () =>
       this.api.editarCuadro(this.torneoId(), id, { categoriaId }),
     );
   }
@@ -345,7 +350,7 @@ export class CuadrosDelTorneo {
       return;
     }
 
-    await this.intentar(() =>
+    await this.intentar(`cambiarCupo-${id}`, () =>
       this.api.editarCuadro(this.torneoId(), id, { cupo }),
     );
   }
@@ -365,13 +370,13 @@ export class CuadrosDelTorneo {
       return;
     }
 
-    await this.intentar(() =>
+    await this.intentar(`cambiarMonto-${id}`, () =>
       this.api.editarCuadro(this.torneoId(), id, { montoInscripcionClp }),
     );
   }
 
   protected async quitar(id: number, categoria: string): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar(`quitar-${id}`, async () => {
       await this.api.quitarCuadro(this.torneoId(), id);
       this.error.set(null);
     }, `No se pudo quitar ${categoria}.`);
@@ -384,11 +389,13 @@ export class CuadrosDelTorneo {
    * cupo puede haber quedado escrito con un número que no se guardó.
    */
   private async intentar(
+    clave: string,
     accion: () => Promise<unknown>,
     porDefecto = 'No se pudo cambiar las categorías del torneo.',
   ): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -396,6 +403,7 @@ export class CuadrosDelTorneo {
       this.error.set(mensajeDelServidor(falla, porDefecto));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
       this.version.update((veces) => veces + 1);
       this.cambiaron.emit();
     }

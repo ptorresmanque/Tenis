@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
+import { Club, DatosDelClub } from '../club/club.service';
 import { Auth, UsuarioActual } from '../core/auth/auth';
 import { CascaronPublico } from './cascaron-publico';
 
@@ -44,13 +45,17 @@ describe('Cascarón público: la navegación', () => {
     socioAlDia: true,
   };
 
-  function montarCon(usuario: UsuarioActual | null): ComponentFixture<CascaronPublico> {
+  function montarCon(
+    usuario: UsuarioActual | null,
+    club?: DatosDelClub,
+  ): ComponentFixture<CascaronPublico> {
     const estado = signal(usuario);
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        ...(club ? [{ provide: Club, useValue: { datos: signal(club) } }] : []),
         {
           provide: Auth,
           useValue: {
@@ -88,6 +93,53 @@ describe('Cascarón público: la navegación', () => {
         'Política de privacidad',
       );
     }
+  });
+
+  it('el pie muestra las redes que el club cargó (T141)', () => {
+    const pie = (
+      montarCon(null, {
+        nombre: 'FEDAL Tennis Center',
+        direccion: '',
+        telefono: '',
+        email: '',
+        latitud: null,
+        longitud: null,
+        instagram: '',
+        facebook: '',
+        tiktok: '',
+        youtube: '',
+        whatsapp: '56987654321',
+        elClubTitulo: 'FEDAL Tennis Center',
+        elClubBajada: '',
+        elClubCanchas: '',
+      }).nativeElement as HTMLElement
+    ).querySelector('footer');
+
+    expect(pie?.querySelector('a[href="https://wa.me/56987654321"]')?.textContent).toContain(
+      'WhatsApp de FEDAL Tennis Center',
+    );
+  });
+
+  it('el pie enlaza las preguntas frecuentes (T146)', () => {
+    const pie = (montarCon(null).nativeElement as HTMLElement).querySelector('footer');
+
+    expect(pie?.querySelector('a[href="/preguntas-frecuentes"]')?.textContent).toContain(
+      'Preguntas frecuentes',
+    );
+  });
+
+  it('dice cuando una página tarda en cargar (T151)', () => {
+    const elemento = montarCon(null).nativeElement as HTMLElement;
+
+    expect(elemento.querySelector('app-progreso-de-navegacion')).not.toBeNull();
+  });
+
+  it('el sitio público tiene "Volver arriba", y el contenido puede recibir su foco (T149)', () => {
+    const elemento = montarCon(null).nativeElement as HTMLElement;
+
+    expect(elemento.querySelector('app-volver-arriba')).not.toBeNull();
+    // tabindex -1: el foco puede llegar por programa sin que main entre al orden de Tab.
+    expect(elemento.querySelector('main#contenido')?.getAttribute('tabindex')).toBe('-1');
   });
 
   it('le ofrece crear cuenta a quien no ha entrado', () => {

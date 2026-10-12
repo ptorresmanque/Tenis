@@ -13,6 +13,7 @@ import { Aviso } from '../ui/aviso';
 import { Insignia } from '../ui/insignia';
 import { enlaceDeReserva, qrDeReserva } from './qr';
 import { ReservasPublicas } from './reserva-publica.service';
+import { Esqueleto } from '../ui/esqueleto';
 
 /** Los motivos que la API manda en la redirección, en castellano. */
 const MOTIVOS: Record<string, string> = {
@@ -37,7 +38,7 @@ const MOTIVOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-confirmacion-reserva',
-  imports: [RouterLink, Aviso, Insignia],
+  imports: [RouterLink, Aviso, Esqueleto, Insignia],
   template: `
     <section class="mx-auto max-w-lg py-10">
       @if (folio() && !error()) {
@@ -66,6 +67,8 @@ const MOTIVOS: Record<string, string> = {
           <app-aviso variante="aviso" class="mt-8 block">
             No se pudo cargar el resumen ni el QR. Con el folio te atienden igual en el club.
           </app-aviso>
+        } @else if (detalle.status() === 'loading') {
+          <app-esqueleto class="mt-8 block" [filas]="3" etiqueta="Cargando el resumen de tu reserva…" />
         } @else if (detalle.value(); as reserva) {
           <!-- El resumen en un zócalo (TV5.2): el rótulo cortado arriba y los cuatro
                datos debajo, como la barra de la portada. -->

@@ -51,6 +51,7 @@ import { Campo, CampoControl } from '../../ui/campo';
           <button
             type="submit"
             [disabled]="enviando() || pedido.invalid"
+            [attr.aria-busy]="enviando()"
             class="boton boton-primario"
           >
             {{ enviando() ? 'Enviando…' : 'Mandar el enlace' }}
@@ -85,6 +86,7 @@ import { Campo, CampoControl } from '../../ui/campo';
           <button
             type="submit"
             [disabled]="enviando() || nueva.invalid"
+            [attr.aria-busy]="enviando()"
             class="boton boton-primario"
           >
             {{ enviando() ? 'Guardando…' : 'Guardar la contraseña' }}

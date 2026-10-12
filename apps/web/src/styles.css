@@ -170,12 +170,20 @@
      el usuario no está esperando que termine para hacer lo siguiente. */
   --duracion-entrada: 400ms;
 
+  /* La foto del hero que se asienta al llegar (T148). La más larga del sitio, y
+     por la misma razón que la entrada: no responde a un gesto ni bloquea nada,
+     y una foto que se acomoda en 400ms se lee como un salto y no como un gesto. */
+  --duracion-asentado: 1.2s;
+
   /* Los bucles que nadie espera, y por eso se pasan de los 300ms: no responden
      a un gesto, acompañan. El latido del esqueleto mientras llegan los datos; la
      cinta del torneo, que se detiene con su botón, el puntero o el foco (TV3.2).
      El movimiento reducido apaga los dos. */
   --duracion-latido: 1.4s;
   --duracion-cinta: 45s;
+  /* Una vuelta del círculo del botón ocupado (T150). Más rápido que el latido: el
+     latido acompaña una espera larga, el giro dice "ya va". */
+  --duracion-giro: 800ms;
   /* El desfase entre un elemento y el siguiente en una entrada escalonada.
      Se topea el acumulado: con 40 elementos, el último entraría 2,4 s tarde. */
   --escalonado: 60ms;
@@ -664,6 +672,125 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 }
 
+/* En el flujo de reserva, el rincón de abajo es de la barra fija con lo elegido:
+   ahí "Volver arriba" (T149) no aparece. Quien está eligiendo una hora no lo
+   necesita, y encima de la barra taparía el botón que cierra la reserva. */
+body:has(app-barra-fija) app-volver-arriba {
+  display: none;
+}
+
+/*
+  LAS BANDAS ENTRAN AL APARECER (T147).
+
+  Suben 1,5 rem y aparecen mientras entran a la pantalla, una vez y sin bloquear
+  nada. Nació en la portada (TV3) y desde T147 la usan las páginas que buscan
+  convencer: portada, «El club», torneos, clases, ranking y preguntas frecuentes. Las
+  de tarea y el panel no: quien va a reservar no espera a que algo entre.
+
+  Con animation-timeline y no con IntersectionObserver: el navegador la corre fuera
+  del hilo principal y no cuesta JavaScript. Lo que ya se ve al cargar está entero,
+  porque terminó de entrar. Donde la propiedad no existe (Firefox) y con «reducir
+  movimiento», las bandas simplemente están ahí, que es el estado correcto.
+
+  `translate` y no `transform`: es otra propiedad, así que no choca con un transform
+  que la banda ya tenga. Y no se pone en un elemento dentro de otro que también la
+  lleve: los dos desplazamientos se sumarían.
+*/
+@keyframes aparece {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
+  }
+}
+
+@utility aparece-al-pasar {
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      animation: aparece linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+
+      /* El foco manda: quien avanza con Tab trae un enlace justo al borde de la
+         pantalla, y la banda que lo contiene estaría casi transparente. */
+      &:focus-within {
+        animation: none;
+      }
+    }
+  }
+}
+
+/*
+  EL HERO SE MUEVE (T148), en la portada y en «El club».
+
+  Al llegar, la foto se asienta —de 1,06 a su tamaño— y el titular, la bajada y los
+  botones suben escalonados. Al hacer scroll, la foto baja más lento que la página:
+  el parallax. Las dos cosas una vez por visita y sin JavaScript.
+
+  **La foto se mueve con scale y translate y nunca con su opacidad**: es el LCP de
+  la página, y una foto que arranca invisible lo atrasa. El texto sí aparece.
+
+  El parallax usa la línea de tiempo con nombre de la sección (--hero) y no view()
+  sobre la foto: la foto está dentro de una caja con overflow: hidden, que también
+  es un contenedor de scroll, y view() mediría contra esa caja y no contra la
+  página. Baja hasta un 15% mientras el hero sale por arriba; el hueco que deja
+  arriba queda siempre en la parte que ya salió de la pantalla.
+
+  Va detrás de @supports: sin él, el navegador que no conoce animation-timeline
+  aplicaría el final de una vez y la foto quedaría corrida desde el primer cuadro.
+*/
+@keyframes hero-foto {
+  from {
+    scale: 1.06;
+  }
+}
+
+@keyframes hero-texto {
+  from {
+    opacity: 0;
+    translate: 0 1rem;
+  }
+}
+
+@keyframes hero-parallax {
+  to {
+    translate: 0 15%;
+  }
+}
+
+@utility hero-animado {
+  @media (prefers-reduced-motion: no-preference) {
+    & img {
+      animation: hero-foto var(--duracion-asentado) var(--ease-salida) both;
+    }
+
+    /* El texto espera a que la foto haya empezado, y cada línea a la anterior. */
+    & .hero-texto > * {
+      animation: hero-texto var(--duracion-entrada) var(--ease-salida) both;
+      animation-delay: calc(var(--escalonado) * 2);
+    }
+
+    & .hero-texto > :nth-child(2) {
+      animation-delay: calc(var(--escalonado) * 3);
+    }
+
+    & .hero-texto > :nth-child(3) {
+      animation-delay: calc(var(--escalonado) * 4);
+    }
+
+    @supports (animation-timeline: view()) {
+      view-timeline: --hero block;
+
+      & img {
+        animation:
+          hero-foto var(--duracion-asentado) var(--ease-salida) both,
+          hero-parallax linear both;
+        animation-timeline: auto, --hero;
+        animation-range: normal, exit 0% exit 100%;
+      }
+    }
+  }
+}
+
 /*
   Las primitivas que no necesitan JavaScript.
 
@@ -884,6 +1011,62 @@ html[data-tema='publico'][data-modo='oscuro'] {
     cursor: not-allowed;
     opacity: 0.6;
     transform: none;
+  }
+
+  /*
+    EL BOTÓN OCUPADO (T150).
+
+    Mientras un envío viaja, el botón se deshabilita —para que no salga dos veces— y
+    hasta acá eso era todo: en una red lenta, la persona no sabía si el clic había
+    llegado. Ahora lleva un círculo que gira junto al texto, que donde corresponde ya
+    dice "Guardando…". Se pide con [attr.aria-busy].
+
+    **No se ve deshabilitado**: está trabajando por pedido de la persona, y un
+    botón apagado dice "no puedes" justo cuando lo que pasa es "ya va".
+
+    El círculo es el ícono progress_activity y no un borde redondeado: el sistema no
+    tiene radios a mano. Va con `/ ''` para que el lector no lea el nombre del glifo;
+    lo que pasa ya lo dice el texto. Con "reducir movimiento" se queda quieto.
+  */
+  .boton[aria-busy='true']:disabled {
+    cursor: progress;
+    opacity: 1;
+  }
+
+  .boton[aria-busy='true']::before {
+    content: 'progress_activity' / '';
+    font-family: 'Material Symbols Sharp';
+    font-size: 1.25em;
+    font-weight: normal;
+    line-height: 1;
+    /* La ligadura se arma con el nombre tal cual: en mayúscula, o separado por el
+       espaciado del botón, no hay ícono. */
+    letter-spacing: normal;
+    text-transform: none;
+    animation: girar var(--duracion-giro) linear infinite;
+  }
+
+  @keyframes girar {
+    to {
+      rotate: 1turn;
+    }
+  }
+
+  /*
+    Los botones de ícono —menú, cerrar, pausar la cinta, el avatar, volver arriba—
+    confirman la pulsación como .boton (T150). Tenían el fondo al pasar el mouse y
+    nada al tocarlos, que en el teléfono es lo único que hay.
+  */
+  .pulsable {
+    transition:
+      color var(--duracion-menu) var(--ease-salida),
+      background-color var(--duracion-menu) var(--ease-salida),
+      opacity var(--duracion-menu) var(--ease-salida),
+      scale var(--duracion-pulsacion) var(--ease-salida);
+  }
+
+  .pulsable:active:not(:disabled) {
+    scale: 0.92;
   }
 
   .boton-primario {

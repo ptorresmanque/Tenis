@@ -9,6 +9,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Decision, HoraReportada, Reportes } from './reportes.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Las horas que algún socio reportó como no usadas, para que el club decida.
@@ -20,7 +21,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
  */
 @Component({
   selector: 'app-reportes',
-  imports: [EstadoVacio, Insignia],
+  imports: [EstadoVacio, Insignia, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
     <header class="cabecera-panel">
@@ -42,7 +43,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
     </p>
 
     @if (pendientes.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Cargando las horas reportadas…" />
     } @else if (pendientes.error()) {
       <p class="mt-6 text-destructive">
         No se pudieron cargar las horas reportadas. Reintenta en un momento.
@@ -96,6 +97,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
                   <button
                     type="button"
                     [disabled]="resolviendo()"
+                    [attr.aria-busy]="enCurso() === reportada.reservaId + '-SANCIONAR'"
                     class="boton boton-secundario boton-chico border-destructive text-destructive"
                     (click)="resolver(reportada, 'SANCIONAR')"
                   >
@@ -107,6 +109,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
                 <button
                   type="button"
                   [disabled]="resolviendo()"
+                  [attr.aria-busy]="enCurso() === reportada.reservaId + '-DESCARTAR'"
                   class="boton boton-texto boton-chico"
                   (click)="resolver(reportada, 'DESCARTAR')"
                 >
@@ -127,6 +130,8 @@ export class ReportesPanel {
   private readonly api = inject(Reportes);
 
   protected readonly resolviendo = signal(false);
+  /** Qué decisión está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -144,6 +149,7 @@ export class ReportesPanel {
     this.error.set(null);
     this.aviso.set(null);
     this.resolviendo.set(true);
+    this.enCurso.set(`${reportada.reservaId}-${decision}`);
 
     try {
       const { sancionadoHasta } = await this.api.resolver(
@@ -163,6 +169,7 @@ export class ReportesPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo resolver el reporte.'));
     } finally {
       this.resolviendo.set(false);
+      this.enCurso.set(null);
     }
   }
 

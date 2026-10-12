@@ -100,4 +100,34 @@ describe('ConfirmacionReserva', () => {
     expect(texto).toContain('Para cancelarla, escribe a contacto@fedal.cl');
     expect(texto).not.toContain('no se puede hacer desde la web');
   });
+
+  it('mientras llega el resumen, muestra el esqueleto y el folio ya está (T152)', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            queryParamMap: of(convertToParamMap({ folio: 'AB23CDE', t: 'un-token' })),
+          },
+        },
+        { provide: Auth, useValue: { usuario: signal(null).asReadonly() } },
+        {
+          provide: Club,
+          useValue: {
+            datos: () => ({ nombre: 'FEDAL Tennis Center', direccion: '', telefono: '', email: '' }),
+          },
+        },
+        { provide: ReservasPublicas, useValue: { porToken: () => new Promise<never>(() => undefined) } },
+      ],
+    });
+
+    const pendiente = TestBed.createComponent(ConfirmacionReserva);
+    pendiente.detectChanges();
+    const el = pendiente.nativeElement as HTMLElement;
+
+    expect(el.textContent).toContain('AB23CDE');
+    expect(el.querySelector('app-esqueleto')).not.toBeNull();
+  });
 });

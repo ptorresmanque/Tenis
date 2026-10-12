@@ -7,6 +7,7 @@ import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ranking.service';
 import { CampoFecha } from '../ui/campo-fecha';
+import { Esqueleto } from '../ui/esqueleto';
 
 /**
  * Los partidos amistosos del socio: los que cargó y los que tiene que contestar.
@@ -20,7 +21,7 @@ import { CampoFecha } from '../ui/campo-fecha';
  */
 @Component({
   selector: 'app-mis-partidos',
-  imports: [Aviso, EstadoVacio, Insignia, CampoFecha],
+  imports: [Aviso, EstadoVacio, Esqueleto, Insignia, CampoFecha],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
     <p class="mt-2 max-w-prose text-muted-foreground">
@@ -104,6 +105,7 @@ import { CampoFecha } from '../ui/campo-fecha';
         type="button"
         class="boton boton-primario mt-3"
         [disabled]="rival() === '' || enviando()"
+        [attr.aria-busy]="enviando()"
         (click)="cargar()"
       >
         Cargar el partido
@@ -116,6 +118,10 @@ import { CampoFecha } from '../ui/campo-fecha';
       <p class="mt-3 text-destructive">
         No se pudieron cargar tus partidos. Reintenta en un momento.
       </p>
+    } @else if (partidos.status() === 'loading') {
+      <!-- Antes del vacío: el recurso arranca con la lista vacía, y mientras viajaba
+           la consulta la pantalla decía que no había partidos (T152). -->
+      <app-esqueleto class="mt-3 block" [filas]="3" etiqueta="Cargando tus partidos…" />
     } @else if (partidos.value().length === 0) {
       <app-estado-vacio
         class="mt-3 block"
@@ -168,10 +174,12 @@ import { CampoFecha } from '../ui/campo-fecha';
 
             @if (partido.esperaMiRespuesta) {
               <div class="mt-3 flex flex-wrap gap-2">
+                <!-- Gira solo el que se tocó: los dos comparten enviando(). -->
                 <button
                   type="button"
                   class="boton boton-primario boton-chico"
                   [disabled]="enviando()"
+                  [attr.aria-busy]="esLaRespuesta(partido.id, true)"
                   (click)="responder(partido.id, true)"
                 >
                   Confirmar
@@ -180,6 +188,7 @@ import { CampoFecha } from '../ui/campo-fecha';
                   type="button"
                   class="boton boton-secundario boton-chico"
                   [disabled]="enviando()"
+                  [attr.aria-busy]="esLaRespuesta(partido.id, false)"
                   (click)="responder(partido.id, false)"
                 >
                   No fue así
@@ -274,7 +283,17 @@ export class MisPartidos {
     }
   }
 
+  /** La respuesta que está viajando, para que gire su botón y no el de al lado (T150). */
+  private readonly respondiendo = signal<{ id: number; acepto: boolean } | null>(null);
+
+  protected esLaRespuesta(id: number, acepto: boolean): boolean {
+    const enCurso = this.respondiendo();
+
+    return enCurso?.id === id && enCurso.acepto === acepto;
+  }
+
   protected async responder(id: number, acepto: boolean): Promise<void> {
+    this.respondiendo.set({ id, acepto });
     this.enviando.set(true);
     this.error.set(null);
 
@@ -288,6 +307,7 @@ export class MisPartidos {
       this.error.set('No se pudo contestar el partido. Reintenta en un momento.');
     } finally {
       this.enviando.set(false);
+      this.respondiendo.set(null);
     }
   }
 }

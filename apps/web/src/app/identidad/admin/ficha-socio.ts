@@ -21,6 +21,7 @@ import {
   Socios,
 } from './socios.service';
 import { CampoFecha } from '../../ui/campo-fecha';
+import { Esqueleto } from '../../ui/esqueleto';
 
 const ESTADOS: { valor: EstadoSocio; etiqueta: string }[] = [
   { valor: 'ACTIVO', etiqueta: 'Activo' },
@@ -47,7 +48,7 @@ const CAMPOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-ficha-socio',
-  imports: [FormsModule, Aviso, Campo, CampoControl, CampoFecha],
+  imports: [FormsModule, Aviso, Campo, CampoControl, CampoFecha, Esqueleto],
   template: `
     <dialog
       #dialogo
@@ -119,7 +120,12 @@ const CAMPOS: Record<string, string> = {
           >
             Cancelar
           </button>
-          <button type="submit" class="boton boton-primario" [disabled]="guardando()">
+          <button
+            type="submit"
+            class="boton boton-primario"
+            [disabled]="guardando()"
+            [attr.aria-busy]="guardando()"
+          >
             Guardar
           </button>
         </div>
@@ -129,7 +135,7 @@ const CAMPOS: Record<string, string> = {
         <h3 id="historial" class="subtitulo">Qué se le cambió</h3>
 
         @if (historial.isLoading()) {
-          <p class="mt-2 text-sm text-muted-foreground">Cargando…</p>
+          <app-esqueleto class="mt-2 block" [filas]="3" etiqueta="Cargando el historial…" />
         } @else if (historial.error()) {
           <p class="mt-2 text-sm text-destructive">
             No se pudo cargar el historial. Reintenta en un momento.

@@ -100,7 +100,11 @@ import { TelefonoDirective } from '../../ui/telefono';
             class="campo"
             (change)="inicio.set($any($event.target).value)"
           >
-            <option value="" [selected]="inicio() === ''">Elige una hora libre</option>
+            <!-- Mientras llegan, la primera opción lo dice: un esqueleto no cabe dentro de
+                 un select (T153). -->
+            <option value="" [selected]="inicio() === ''">
+              {{ grillas.isLoading() ? 'Cargando las horas libres…' : 'Elige una hora libre' }}
+            </option>
             @for (bloque of libres(); track bloque.inicio) {
               <option [value]="bloque.inicio" [selected]="bloque.inicio === inicio()">
                 {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
@@ -120,7 +124,9 @@ import { TelefonoDirective } from '../../ui/telefono';
               class="campo"
               (change)="socioId.set(+$any($event.target).value)"
             >
-              <option [value]="0">Elige un socio</option>
+              <option [value]="0">
+                {{ socios.isLoading() ? 'Cargando los socios…' : 'Elige un socio' }}
+              </option>
               @if (socios.hasValue()) {
                 @for (socio of socios.value().socios; track socio.id) {
                   <option [value]="socio.id">
@@ -219,7 +225,12 @@ import { TelefonoDirective } from '../../ui/telefono';
           >
             Cancelar
           </button>
-          <button type="submit" class="boton boton-primario" [disabled]="enviando()">
+          <button
+            type="submit"
+            class="boton boton-primario"
+            [disabled]="enviando()"
+            [attr.aria-busy]="enviando()"
+          >
             {{ enviando() ? 'Creando…' : 'Crear reserva' }}
           </button>
         </div>

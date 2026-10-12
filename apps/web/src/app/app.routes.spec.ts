@@ -64,6 +64,8 @@ describe('Rutas protegidas', () => {
     'administracion/solicitudes',
     'administracion/configuracion/reglas',
     'administracion/configuracion/datos',
+    'administracion/configuracion/textos',
+    'administracion/configuracion/preguntas-frecuentes',
     'administracion/configuracion/administradores',
     'estado',
   ])('%s es solo del admin', (url) => {
@@ -91,6 +93,10 @@ describe('Rutas protegidas', () => {
     expect(buscar('disponibilidad')?.guards).toEqual([]);
   });
 
+  it('las preguntas frecuentes se leen sin sesión (T146)', () => {
+    expect(buscar('preguntas-frecuentes')?.guards).toEqual([]);
+  });
+
   it('la política de privacidad se lee sin sesión: Google la abre para aprobar el login', () => {
     expect(buscar('privacidad')?.guards).toEqual([]);
   });
@@ -105,6 +111,7 @@ describe('Cada ruta en su cascarón', () => {
     ['reservas/confirmacion', CascaronPublico],
     ['el-club', CascaronPublico],
     ['privacidad', CascaronPublico],
+    ['preguntas-frecuentes', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],
@@ -119,6 +126,8 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/solicitudes', CascaronAdmin],
     ['administracion/configuracion/reglas', CascaronAdmin],
     ['administracion/configuracion/datos', CascaronAdmin],
+    ['administracion/configuracion/textos', CascaronAdmin],
+    ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
     ['administracion/configuracion/administradores', CascaronAdmin],
     ['estado', CascaronAdmin],
   ])('/%s se dibuja dentro del cascarón que le toca', (url, cascaron) => {

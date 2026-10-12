@@ -9,6 +9,7 @@ import { Insignia } from '../../ui/insignia';
 import { Profesor, Profesores } from '../profesores.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /** El formulario vacío. Función y no constante: si no, todos comparten el objeto. */
 const enBlanco = () => ({
@@ -30,7 +31,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-profesores',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -113,7 +114,12 @@ const enBlanco = () => ({
       </div>
 
       <div class="mt-3 flex flex-wrap gap-2">
-        <button type="submit" class="boton boton-primario" [disabled]="trabajando()">
+        <button
+          type="submit"
+          class="boton boton-primario"
+          [attr.aria-busy]="enCurso() === 'guardar'"
+          [disabled]="trabajando()"
+        >
           {{ editando() ? 'Guardar cambios' : 'Anotar profesor' }}
         </button>
         @if (editando()) {
@@ -125,7 +131,7 @@ const enBlanco = () => ({
     </form>
 
     @if (profesores.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los profesores…" />
     } @else if (profesores.error()) {
       <p class="mt-4 text-destructive">
         No se pudieron cargar los profesores. Reintenta en un momento.
@@ -181,6 +187,7 @@ const enBlanco = () => ({
               type="button"
               class="boton boton-texto boton-chico"
               [disabled]="trabajando()"
+              [attr.aria-busy]="enCurso() === 'cambiarActividad-' + profesor.id"
               (click)="cambiarActividad(profesor)"
             >
               {{ profesor.activo ? 'Desactivar' : 'Reactivar' }}
@@ -203,6 +210,8 @@ export class ProfesoresPanel {
   protected datos = enBlanco();
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -236,7 +245,7 @@ export class ProfesoresPanel {
     // Una copia y no el objeto: el formulario lo sigue editando después de mandarlo.
     const ficha = { ...this.datos };
 
-    await this.intentar(async () => {
+    await this.intentar('guardar', async () => {
       if (id === null) {
         await this.api.crear(ficha);
         this.aviso.set(`${ficha.nombreVisible} ya está en la lista.`);
@@ -250,7 +259,7 @@ export class ProfesoresPanel {
   }
 
   protected async cambiarActividad(profesor: Profesor): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar(`cambiarActividad-${profesor.id}`, async () => {
       await this.api.editar(profesor.id, { activo: !profesor.activo });
       this.aviso.set(
         profesor.activo
@@ -260,10 +269,14 @@ export class ProfesoresPanel {
     });
   }
 
-  private async intentar(accion: () => Promise<void>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<void>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -273,6 +286,7 @@ export class ProfesoresPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo guardar la ficha.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

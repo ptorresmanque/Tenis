@@ -62,6 +62,7 @@ const RECHAZOS: Record<string, string> = {
       <button
         type="submit"
         [disabled]="entrando() || formulario.invalid"
+        [attr.aria-busy]="entrando()"
         class="boton boton-primario"
       >
         {{ entrando() ? 'Entrando…' : 'Entrar' }}

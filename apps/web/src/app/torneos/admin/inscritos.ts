@@ -17,6 +17,7 @@ import { Aviso } from '../../ui/aviso';
 import { Insignia, VarianteInsignia } from '../../ui/insignia';
 import { InscripcionTorneo, Torneos } from '../torneos.service';
 import { TelefonoPipe } from '../../core/telefono';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Quién juega un torneo.
@@ -28,12 +29,14 @@ import { TelefonoPipe } from '../../core/telefono';
  */
 @Component({
   selector: 'app-inscritos-torneo',
-  imports: [FormsModule, Aviso, Insignia, TelefonoPipe],
+  imports: [FormsModule, Aviso, Insignia, TelefonoPipe, Esqueleto],
   template: `
     @if (lista.error()) {
       <p class="mt-3 text-sm text-destructive">
         No se pudieron cargar los inscritos. Reintenta en un momento.
       </p>
+    } @else if (lista.status() === 'loading') {
+      <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los inscritos…" />
     } @else if (lista.value(); as datos) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-center gap-2">
@@ -164,6 +167,7 @@ import { TelefonoPipe } from '../../core/telefono';
                       type="button"
                       class="boton boton-texto boton-chico"
                       [disabled]="trabajando()"
+                      [attr.aria-busy]="enCurso() === 'retirar-' + quien.id"
                       (click)="retirar(quien)"
                     >
                       Retirar
@@ -321,6 +325,7 @@ import { TelefonoPipe } from '../../core/telefono';
                   type="button"
                   class="boton boton-secundario boton-chico ms-auto"
                   [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'promover-' + quien.id"
                   (click)="promover(quien)"
                 >
                   Meter al cuadro
@@ -376,6 +381,7 @@ import { TelefonoPipe } from '../../core/telefono';
                 type="submit"
                 class="boton boton-secundario boton-chico"
                 [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'inscribir'"
               >
                 Inscribir
               </button>
@@ -438,6 +444,7 @@ import { TelefonoPipe } from '../../core/telefono';
             type="button"
             class="boton boton-primario"
             [disabled]="trabajando()"
+            [attr.aria-busy]="enCurso() === 'resolver-' + decision.quien.id"
             (click)="resolver(decision.quien)"
           >
             {{
@@ -478,6 +485,8 @@ export class InscritosDelTorneo {
   }
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   /** Qué se está mirando: todos, o solo lo que espera una decisión. */
@@ -650,7 +659,7 @@ export class InscritosDelTorneo {
   protected async resolver(quien: InscripcionTorneo): Promise<void> {
     const accion = this.confirmando()?.accion;
 
-    await this.intentar(async () => {
+    await this.intentar(`resolver-${quien.id}`, async () => {
       if (accion === 'aprobar') {
         // El medio va solo si el club lo dijo: vacío significa "no lo sé", y mandar
         // uno por omisión escribiría en la caja un dato que nadie eligió.
@@ -689,7 +698,7 @@ export class InscritosDelTorneo {
 
     if (!archivo) return;
 
-    await this.intentar(() =>
+    await this.intentar(`adjuntar-${quien.id}`, () =>
       this.api.subirComprobanteDelClub(quien.id, archivo),
     );
   }
@@ -734,7 +743,7 @@ export class InscritosDelTorneo {
   );
 
   protected async inscribir(): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar('inscribir', async () => {
       await this.api.inscribir(this.cuadroId(), {
         jugadorId: Number(this.jugadorId),
         email: this.correo.trim(),
@@ -751,7 +760,7 @@ export class InscritosDelTorneo {
    * separar a dos socios que ya jugaron la final el mes pasado.
    */
   protected async sembrar(quien: InscripcionTorneo, valor: string): Promise<void> {
-    await this.intentar(() =>
+    await this.intentar(`sembrar-${quien.id}`, () =>
       this.api.sembrar(
         this.cuadroId(),
         quien.id,
@@ -761,16 +770,20 @@ export class InscritosDelTorneo {
   }
 
   protected async retirar(quien: InscripcionTorneo): Promise<void> {
-    await this.intentar(() => this.api.retirar(this.cuadroId(), quien.id));
+    await this.intentar(`retirar-${quien.id}`, () => this.api.retirar(this.cuadroId(), quien.id));
   }
 
   protected async promover(quien: InscripcionTorneo): Promise<void> {
-    await this.intentar(() => this.api.promover(this.cuadroId(), quien.id));
+    await this.intentar(`promover-${quien.id}`, () => this.api.promover(this.cuadroId(), quien.id));
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -781,6 +794,7 @@ export class InscritosDelTorneo {
       this.error.set(mensajeDelServidor(falla, 'No se pudo inscribir.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

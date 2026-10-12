@@ -5,6 +5,7 @@ import { Auth } from '../core/auth/auth';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Ranking } from './ranking.service';
 import { TablaInterna } from './tabla-interna';
+import { Esqueleto } from '../ui/esqueleto';
 
 /**
  * El ranking de torneos del club.
@@ -19,7 +20,7 @@ import { TablaInterna } from './tabla-interna';
  */
 @Component({
   selector: 'app-ranking-torneos',
-  imports: [EstadoVacio, TablaInterna],
+  imports: [EstadoVacio, Esqueleto, TablaInterna],
   template: `
     <!-- Cabecera en banda de color y sin fotografía: esta pantalla es una tabla
          de posiciones, y lo que se viene a hacer acá es buscar un nombre en una
@@ -129,7 +130,7 @@ import { TablaInterna } from './tabla-interna';
       }
 
       @if (datos.torneos.length > 0) {
-        <section class="mt-8">
+        <section class="mt-8 aparece-al-pasar">
           <h2 class="font-display text-lg font-bold tracking-wide uppercase">
             Cuadros que está contando
           </h2>
@@ -146,14 +147,14 @@ import { TablaInterna } from './tabla-interna';
         </section>
       }
     } @else if (tabla.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Cargando el ranking…</p>
+      <app-esqueleto class="mt-6 block" [filas]="6" etiqueta="Cargando el ranking…" />
     }
 
     <!-- La tabla del club solo para socios: el endpoint la niega a los demás, y una
          sección que carga un 403 es peor que una que no está. Las dos comparten
          pantalla porque comparten vocabulario, pero no comparten público. -->
     @if (esSocio()) {
-      <section class="mt-12">
+      <section class="mt-12 aparece-al-pasar">
         <h2 class="titular text-4xl sm:text-5xl">Tabla del club</h2>
         <p class="mt-1 max-w-prose text-muted-foreground">
           El orden de juego entre socios, con los amistosos que ustedes mismos cargan.

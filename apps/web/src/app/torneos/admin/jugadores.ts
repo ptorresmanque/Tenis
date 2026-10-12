@@ -95,7 +95,12 @@ import { TelefonoDirective } from '../../ui/telefono';
           </label>
         }
 
-        <button type="submit" class="boton boton-primario" [disabled]="trabajando()">
+        <button
+          type="submit"
+          class="boton boton-primario"
+          [attr.aria-busy]="enCurso() === 'anotar'"
+          [disabled]="trabajando()"
+        >
           Anotar
         </button>
       </div>
@@ -165,6 +170,7 @@ import { TelefonoDirective } from '../../ui/telefono';
               class="boton boton-texto boton-chico"
               [class.ms-auto]="!!jugador.socioId"
               [disabled]="trabajando()"
+              [attr.aria-busy]="enCurso() === 'cambiarActividad-' + jugador.id"
               (click)="cambiarActividad(jugador)"
             >
               {{ jugador.activo ? 'Desactivar' : 'Reactivar' }}
@@ -189,6 +195,8 @@ export class JugadoresPanel {
   protected datos = { nombre: '', apellido: '', telefono: '' };
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -224,7 +232,7 @@ export class JugadoresPanel {
   protected async anotar(): Promise<void> {
     const esSocio = this.tipo() === 'socio';
 
-    await this.intentar(async () => {
+    await this.intentar('anotar', async () => {
       const jugador = await this.api.crearJugador(
         esSocio
           ? { socioId: Number(this.socioId) }
@@ -244,7 +252,7 @@ export class JugadoresPanel {
   protected async enlazar(jugador: Jugador, socioId: string): Promise<void> {
     if (socioId === '0') return;
 
-    await this.intentar(async () => {
+    await this.intentar(`enlazar-${jugador.id}`, async () => {
       await this.api.editarJugador(jugador.id, { socioId: Number(socioId) });
       this.aviso.set(
         `${jugador.nombre} ${jugador.apellido} quedó enlazado a su ficha de socio, ` +
@@ -254,15 +262,19 @@ export class JugadoresPanel {
   }
 
   protected async cambiarActividad(jugador: Jugador): Promise<void> {
-    await this.intentar(() =>
+    await this.intentar(`cambiarActividad-${jugador.id}`, () =>
       this.api.editarJugador(jugador.id, { activo: !jugador.activo }),
     );
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -273,6 +285,7 @@ export class JugadoresPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo anotar al jugador.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

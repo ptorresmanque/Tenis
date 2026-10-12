@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Foto, Momento, Torneos } from '../torneos.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -28,7 +29,7 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
  */
 @Component({
   selector: 'app-fotos-del-torneo',
-  imports: [FormsModule, Aviso],
+  imports: [FormsModule, Aviso, Esqueleto],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -46,6 +47,8 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
         <p class="mt-3 text-sm text-destructive">
           No se pudieron cargar las fotos. Reintenta en un momento.
         </p>
+      } @else if (fotos.status() === 'loading') {
+        <app-esqueleto class="mt-3 block" [filas]="2" etiqueta="Cargando las fotos…" />
       } @else if (fotos.value().length > 0) {
         <ul class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
           @for (foto of fotos.value(); track foto.id) {
@@ -61,6 +64,7 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
                 class="boton boton-secundario boton-chico mt-1 w-full
                        border-destructive text-destructive"
                 [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'quitar-' + foto.id"
                 (click)="quitar(foto)"
               >
                 Quitar
@@ -110,6 +114,7 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
           type="submit"
           class="boton boton-secundario sm:col-span-3 sm:justify-self-start"
           [disabled]="trabajando() || !archivo()"
+          [attr.aria-busy]="enCurso() === 'subir'"
         >
           {{ trabajando() ? 'Subiendo…' : 'Subir la foto' }}
         </button>
@@ -131,6 +136,8 @@ export class FotosDelTorneo {
 
   protected readonly archivo = signal<File | null>(null);
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   private readonly version = signal(0);
@@ -155,7 +162,7 @@ export class FotosDelTorneo {
       return;
     }
 
-    await this.intentar(async () => {
+    await this.intentar('subir', async () => {
       await this.api.subirFoto(this.torneoId(), archivo, {
         momento: this.datos.momento,
         descripcion: this.datos.descripcion.trim() || undefined,
@@ -166,12 +173,16 @@ export class FotosDelTorneo {
   }
 
   protected async quitar(foto: Foto): Promise<void> {
-    await this.intentar(() => this.api.quitarFoto(this.torneoId(), foto.id));
+    await this.intentar(`quitar-${foto.id}`, () => this.api.quitarFoto(this.torneoId(), foto.id));
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -181,6 +192,7 @@ export class FotosDelTorneo {
       this.error.set(mensajeDelServidor(falla, 'No se pudo subir la foto.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
       this.version.update((veces) => veces + 1);
     }
   }

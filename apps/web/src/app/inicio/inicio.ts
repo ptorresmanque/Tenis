@@ -52,7 +52,7 @@ import { Insignia } from '../ui/insignia';
       en una lista de cosas.
     -->
     <section
-      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
       aria-labelledby="promesa"
     >
       <app-foto
@@ -79,7 +79,7 @@ import { Insignia } from '../ui/insignia';
 
       <div
         class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo texto-sobre-foto
-               sm:p-10"
+               hero-texto sm:p-10"
       >
         <!-- En dos líneas a todo ancho, como en la propuesta: en una sola, a
              1280px, el titular era una tira y dejaba de ser un titular. -->
@@ -132,7 +132,7 @@ import { Insignia } from '../ui/insignia';
       primera de "Libre hoy" sin una consulta nueva, y es el único que dice la
       carga, el vacío y el error.
     -->
-    <section class="-mx-4 sm:mx-0" aria-labelledby="proxima-libre">
+    <section class="-mx-4 aparece-al-pasar sm:mx-0" aria-labelledby="proxima-libre">
       <!-- En el teléfono el rótulo va arriba, a todo el ancho y sin corte: al
            costado se comía media fila y la hora quedaba en la otra mitad. -->
       <div class="bg-card shadow-md sm:flex sm:items-stretch">
@@ -229,7 +229,8 @@ import { Insignia } from '../ui/insignia';
     -->
     @if (proximaLibre()) {
       <section
-        class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+        class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo aparece-al-pasar sm:mx-0 sm:rounded-region
+               sm:px-8"
         aria-labelledby="libre-hoy"
       >
         <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -250,7 +251,7 @@ import { Insignia } from '../ui/insignia';
       alguien necesita saber antes de venir son tres números, y esos van grandes.
     -->
     <section
-      class="mt-16 grid gap-8 lg:grid-cols-[1.1fr_1fr] lg:items-center"
+      class="mt-16 grid gap-8 aparece-al-pasar lg:grid-cols-[1.1fr_1fr] lg:items-center"
       aria-labelledby="canchas"
     >
       <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
@@ -313,7 +314,7 @@ import { Insignia } from '../ui/insignia';
         cuándo, sobre su foto; la tabla, cuánto cuesta y cuánto lugar queda en
         cada categoría, que es lo que se compara.
       -->
-      <section class="mt-16" aria-labelledby="torneos-abiertos">
+      <section class="mt-16 aparece-al-pasar" aria-labelledby="torneos-abiertos">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="torneos-abiertos" class="titular text-5xl sm:text-6xl">
             Inscripciones abiertas
@@ -426,7 +427,7 @@ import { Insignia } from '../ui/insignia';
         le quita la semántica en algunos lectores. Los roles explícitos la
         conservan.
       -->
-      <section class="mt-16" aria-labelledby="dos-caminos">
+      <section class="mt-16 aparece-al-pasar" aria-labelledby="dos-caminos">
         <h2 id="dos-caminos" class="titular text-center text-5xl sm:text-6xl">
           Socio o visitante
         </h2>
@@ -531,7 +532,7 @@ import { Insignia } from '../ui/insignia';
       página obligan a decidir dos veces qué son.
     -->
     <section
-      class="relative isolate -mx-4 mt-16 overflow-hidden sm:mx-0 sm:rounded-region"
+      class="relative isolate -mx-4 mt-16 overflow-hidden aparece-al-pasar sm:mx-0 sm:rounded-region"
       aria-labelledby="cierre"
     >
       <app-foto
@@ -563,30 +564,6 @@ import { Insignia } from '../ui/insignia';
         </a>
       </div>
     </section>
-  `,
-  styles: `
-    /* Las bandas entran al aparecer, una sola vez y sin bloquear nada.
-
-       Va con animation-timeline y no con IntersectionObserver porque el
-       navegador la corre fuera del hilo principal: la portada es lo primero que
-       se ve y no puede pagar JavaScript por una entrada. Donde la propiedad no
-       existe, las secciones simplemente están ahí, que es el estado correcto. */
-    @supports (animation-timeline: view()) {
-      @media (prefers-reduced-motion: no-preference) {
-        section {
-          animation: entra linear both;
-          animation-timeline: view();
-          animation-range: entry 0% entry 40%;
-        }
-      }
-    }
-
-    @keyframes entra {
-      from {
-        opacity: 0;
-        transform: translateY(1.5rem);
-      }
-    }
   `,
 })
 export class Inicio {

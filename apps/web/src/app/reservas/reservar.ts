@@ -222,6 +222,7 @@ const MAXIMO_ACOMPANANTES = 3;
               type="submit"
               class="boton boton-primario"
               [disabled]="enviando()"
+              [attr.aria-busy]="enviando()"
             >
               {{ enviando() ? 'Enviando…' : esSocio() ? 'Reservar' : 'Ir a pagar' }}
             </button>

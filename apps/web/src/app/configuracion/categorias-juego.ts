@@ -74,7 +74,12 @@ import {
           />
         </app-campo>
 
-        <button type="submit" class="boton boton-primario" [disabled]="enviando()">
+        <button
+          type="submit"
+          class="boton boton-primario"
+          [disabled]="enviando()"
+          [attr.aria-busy]="enCurso() === 'agregar'"
+        >
           Agregar
         </button>
       </form>
@@ -147,6 +152,7 @@ import {
                         type="button"
                         class="boton boton-secundario boton-chico whitespace-nowrap"
                         [disabled]="enviando()"
+                        [attr.aria-busy]="enCurso() === 'alternar-' + categoria.id"
                         (click)="alternar(categoria)"
                       >
                         {{ categoria.activa ? 'Retirar' : 'Volver a ofrecer' }}
@@ -175,6 +181,8 @@ export class CategoriasDeJuegoPanel {
   protected nombre = '';
 
   protected readonly enviando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T153). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -221,7 +229,7 @@ export class CategoriasDeJuegoPanel {
       return;
     }
 
-    await this.contra(async () => {
+    await this.contra('agregar', async () => {
       await this.api.crear(nombre, orden);
       this.aviso.set(`${nombre} ya se puede elegir al inscribirse.`);
       this.nombre = '';
@@ -233,7 +241,7 @@ export class CategoriasDeJuegoPanel {
   protected async alternar(categoria: CategoriaDeJuego): Promise<void> {
     this.limpiarMensajes();
 
-    await this.contra(async () => {
+    await this.contra(`alternar-${categoria.id}`, async () => {
       await this.api.editar(categoria.id, { activa: !categoria.activa });
       this.aviso.set(
         categoria.activa
@@ -263,7 +271,7 @@ export class CategoriasDeJuegoPanel {
       return;
     }
 
-    await this.contra(async () => {
+    await this.contra(`mover-${categoria.id}`, async () => {
       await this.api.editar(categoria.id, { orden });
       this.aviso.set(`${categoria.nombre} quedó con el orden ${orden}.`);
     }, 'No se pudo mover la categoría.');
@@ -274,10 +282,12 @@ export class CategoriasDeJuegoPanel {
    * de lugares, y entonces el número que quedó escrito en la fila no es el guardado.
    */
   private async contra(
+    clave: string,
     accion: () => Promise<void>,
     porDefecto: string,
   ): Promise<void> {
     this.enviando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -285,6 +295,7 @@ export class CategoriasDeJuegoPanel {
       this.error.set(mensajeDelServidor(falla, porDefecto));
     } finally {
       this.enviando.set(false);
+      this.enCurso.set(null);
       this.version.update((veces) => veces + 1);
     }
   }

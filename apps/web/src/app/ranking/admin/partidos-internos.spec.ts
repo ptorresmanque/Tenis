@@ -122,4 +122,19 @@ describe('PartidosInternosPanel', () => {
 
     expect(texto()).toContain('No se pudieron cargar los partidos');
   });
+
+  it('**mientras cargan, no dice que no hay partidos**: muestra el esqueleto (T154)', () => {
+    const nunca = () => new Promise<never>(() => undefined);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: RankingAdmin, useValue: { partidosInternos: nunca, resolver: vi.fn() } },
+      ],
+    });
+
+    const pendiente = TestBed.createComponent(PartidosInternosPanel);
+    pendiente.detectChanges();
+
+    expect((pendiente.nativeElement as HTMLElement).querySelector('app-esqueleto')).not.toBeNull();
+  });
 });

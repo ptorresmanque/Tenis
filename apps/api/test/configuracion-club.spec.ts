@@ -76,7 +76,16 @@ describe('Datos del club y administradores', () => {
       where: { email: { endsWith: DOMINIO } },
     });
     await prisma.configuracionClub.updateMany({
-      data: { direccion: '', telefono: '', email: '' },
+      data: {
+        direccion: '',
+        telefono: '',
+        email: '',
+        instagram: '',
+        facebook: '',
+        tiktok: '',
+        youtube: '',
+        whatsapp: '',
+      },
     });
     await app.close();
   });
@@ -109,14 +118,139 @@ describe('Datos del club y administradores', () => {
       const publico = await request(servidor()).get('/api/club').expect(200);
 
       // La ubicación sí es pública (T100): es para el mapa de "El club".
+      // Las redes también (T140): están en el pie de todas las páginas.
+      // Y los textos de "El club" (T142), que son de esa página pública.
       expect(Object.keys(publico.body as object).sort()).toEqual([
         'direccion',
+        'elClubBajada',
+        'elClubCanchas',
+        'elClubTitulo',
         'email',
+        'facebook',
+        'instagram',
         'latitud',
         'longitud',
         'nombre',
         'telefono',
+        'tiktok',
+        'whatsapp',
+        'youtube',
       ]);
+    });
+
+    it('**guarda las redes y las publica** (T140)', async () => {
+      await request(servidor())
+        .patch('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .send({
+          instagram: '@fedaltennis',
+          facebook: 'facebook.com/fedaltennis',
+          tiktok: '',
+          youtube: 'https://www.youtube.com/@fedaltennis',
+          whatsapp: '9 8765 4321',
+        })
+        .expect(200);
+
+      const publico = await request(servidor()).get('/api/club').expect(200);
+
+      expect(publico.body).toMatchObject({
+        instagram: 'https://www.instagram.com/fedaltennis',
+        facebook: 'https://facebook.com/fedaltennis',
+        tiktok: '',
+        youtube: 'https://www.youtube.com/@fedaltennis',
+        whatsapp: '56987654321',
+      });
+    });
+
+    it('una red con un enlace de otro dominio responde 400 y no guarda nada', async () => {
+      await request(servidor())
+        .patch('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .send({
+          direccion: 'No debería quedar',
+          instagram: 'https://otro.cl/x',
+        })
+        .expect(400);
+
+      const publico = await request(servidor()).get('/api/club').expect(200);
+
+      expect((publico.body as { direccion: string }).direccion).not.toBe(
+        'No debería quedar',
+      );
+    });
+
+    describe('los textos de "El club" (T142)', () => {
+      type Textos = {
+        elClubTitulo: string;
+        elClubBajada: string;
+        elClubCanchas: string;
+      };
+
+      const leer = async (): Promise<Textos> =>
+        (await request(servidor()).get('/api/club').expect(200)).body as Textos;
+
+      const fijar = (textos: Partial<Textos>) =>
+        request(servidor())
+          .patch('/api/admin/configuracion')
+          .set('Cookie', admin)
+          .send(textos);
+
+      it('**por omisión son los que la página tenía escritos**', async () => {
+        // La migración no puede cambiar lo que el visitante ya veía.
+        const textos = await leer();
+
+        expect(textos.elClubTitulo).toBe('FEDAL Tennis Center');
+        expect(textos.elClubBajada).toContain('Desde 2008');
+        expect(textos.elClubCanchas).toContain('Basilea y Manacor');
+      });
+
+      it('el admin los cambia y el sitio los lee, con sus saltos de línea', async () => {
+        const antes = await leer();
+
+        await fijar({
+          elClubTitulo: '  El club de Ñuñoa  ',
+          elClubBajada: 'Primera línea.\nSegunda línea.',
+          elClubCanchas: 'Ocho canchas duras.',
+        }).expect(200);
+
+        expect(await leer()).toMatchObject({
+          elClubTitulo: 'El club de Ñuñoa',
+          elClubBajada: 'Primera línea.\nSegunda línea.',
+          elClubCanchas: 'Ocho canchas duras.',
+        });
+
+        await fijar(antes).expect(200);
+      });
+
+      it('**el título no puede quedar vacío**: es el h1 de la página', async () => {
+        const respuesta = await fijar({ elClubTitulo: '   ' }).expect(400);
+
+        expect((respuesta.body as { message: string }).message).toContain(
+          'título',
+        );
+      });
+
+      it('la bajada y el texto de las canchas sí pueden quedar vacíos', async () => {
+        const antes = await leer();
+
+        await fijar({ elClubBajada: '', elClubCanchas: '' }).expect(200);
+        expect(await leer()).toMatchObject({
+          elClubBajada: '',
+          elClubCanchas: '',
+        });
+
+        await fijar(antes).expect(200);
+      });
+
+      it('lo que no es texto responde 400', async () => {
+        const respuesta = await fijar({
+          elClubBajada: 42 as unknown as string,
+        }).expect(400);
+
+        expect((respuesta.body as { message: string }).message).toContain(
+          'texto',
+        );
+      });
     });
 
     it('un teléfono del club que no son 9 dígitos responde 400 (T120)', async () => {

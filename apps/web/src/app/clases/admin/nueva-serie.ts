@@ -179,7 +179,12 @@ const enBlanco = () => ({
         </label>
       </div>
 
-      <button type="submit" class="boton boton-secundario mt-3" [disabled]="trabajando()">
+      <button
+        type="submit"
+        class="boton boton-secundario mt-3"
+        [attr.aria-busy]="enCurso() === 'revisar'"
+        [disabled]="trabajando()"
+      >
         Revisar fechas
       </button>
     </form>
@@ -250,6 +255,7 @@ const enBlanco = () => ({
             class="boton boton-primario"
             aria-describedby="motivo-serie"
             [disabled]="trabajando() || motivoParaNoAgendar() !== null"
+            [attr.aria-busy]="enCurso() === 'agendar'"
             (click)="agendar()"
           >
             Agendar serie
@@ -287,6 +293,8 @@ export class NuevaSerie {
 
   protected readonly decisiones = signal<Record<string, DecisionDeFecha>>({});
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   protected readonly hora = horaEnElClub;
@@ -338,7 +346,7 @@ export class NuevaSerie {
       return;
     }
 
-    await this.intentar(async () => {
+    await this.intentar('revisar', async () => {
       const serie = this.serie();
       const { fechas } = await this.api.simularSerie(serie);
 
@@ -351,7 +359,7 @@ export class NuevaSerie {
   protected async agendar(): Promise<void> {
     if (this.motivoParaNoAgendar() !== null) return;
 
-    await this.intentar(async () => {
+    await this.intentar('agendar', async () => {
       const { clases, saltadas, canceladas } = await this.api
         .agendarSerie(this.serie(), this.decisiones())
         .catch(async (falla: unknown) => {
@@ -417,9 +425,13 @@ export class NuevaSerie {
     };
   }
 
-  private async intentar(accion: () => Promise<void>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<void>,
+  ): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -428,6 +440,7 @@ export class NuevaSerie {
       this.error.set(mensajeDelServidor(falla, 'No se pudo agendar la serie.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

@@ -57,7 +57,9 @@ export class Configuracion {
   protected readonly SECCIONES = [
     { ruta: 'reglas', etiqueta: 'Reglas y cuotas', icono: 'rule' },
     { ruta: 'datos', etiqueta: 'Datos del club', icono: 'storefront' },
+    { ruta: 'textos', etiqueta: 'Textos del sitio', icono: 'edit_note' },
     { ruta: 'administradores', etiqueta: 'Administradores', icono: 'shield_person' },
     { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },
+    { ruta: 'preguntas-frecuentes', etiqueta: 'Preguntas frecuentes', icono: 'quiz' },
   ];
 }

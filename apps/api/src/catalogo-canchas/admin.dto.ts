@@ -8,6 +8,7 @@ import {
 import { leerTelefono } from '../comun/telefono';
 import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
+import { leerRed, leerWhatsapp, REDES, RedesDelClub } from './redes';
 import { leerUbicacion } from './ubicacion';
 
 /**
@@ -130,12 +131,19 @@ export function leerCambiosDeCancha(
   return cambios;
 }
 
+/** Los textos de la página "El club" (T142), que `GET /api/club` publica. */
+export interface TextosDeElClub {
+  elClubTitulo: string;
+  elClubBajada: string;
+  elClubCanchas: string;
+}
+
 /**
  * Las reglas del club, todas opcionales: es un PATCH sobre la fila única.
  *
  * `SPEC-catalogo-canchas.md` § Configuración general del club.
  */
-export interface CambiosDeConfiguracion {
+export interface CambiosDeConfiguracion extends RedesDelClub, TextosDeElClub {
   /** Los datos del club: los edita el mismo formulario, en otra pestaña. */
   nombre: string;
   direccion: string;
@@ -165,7 +173,14 @@ export interface CambiosDeConfiguracion {
 /** Las reglas que son números: las de texto se validan aparte, por largo. */
 type ReglasNumericas = Omit<
   CambiosDeConfiguracion,
-  'nombre' | 'direccion' | 'telefono' | 'email' | 'latitud' | 'longitud'
+  | 'nombre'
+  | 'direccion'
+  | 'telefono'
+  | 'email'
+  | 'latitud'
+  | 'longitud'
+  | keyof RedesDelClub
+  | keyof TextosDeElClub
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -200,12 +215,16 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
  *
  * Se recortan y no se rechazan por largo: una dirección larguísima no es un error que
  * valga la pena devolverle a quien está llenando un formulario, y la base sí se quejaría.
- * El teléfono va aparte: tiene su regla (T120).
+ * El teléfono va aparte: tiene su regla (T120). Los textos de "El club" (T142) también
+ * se recortan: el formulario ya no deja escribir más de lo que cabe.
  */
 const TEXTOS: Record<string, number> = {
   nombre: 120,
   direccion: 200,
   email: 120,
+  elClubTitulo: 80,
+  elClubBajada: 300,
+  elClubCanchas: 600,
 };
 
 export function leerCambiosDeConfiguracion(
@@ -237,6 +256,15 @@ export function leerCambiosDeConfiguracion(
       leerTelefono(datos.telefono, { obligatorio: false }) ?? '';
   }
 
+  // T140. Cada red se valida contra su dominio; WhatsApp, como el teléfono.
+  for (const red of REDES) {
+    if (datos[red] !== undefined) cambios[red] = leerRed(red, datos[red]);
+  }
+
+  if (datos.whatsapp !== undefined) {
+    cambios.whatsapp = leerWhatsapp(datos.whatsapp);
+  }
+
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
   // coordenadas— y se guarda como dos números. Vacío la borra.
   if (datos.ubicacion !== undefined) {
@@ -253,6 +281,13 @@ export function leerCambiosDeConfiguracion(
   // y el remitente de cada correo, y en blanco deja la pestaña sin nombre.
   if (cambios.nombre !== undefined && cambios.nombre === '') {
     throw new BadRequestException('El club necesita un nombre.');
+  }
+
+  // Es el h1 de "El club": sin él, la página abre con la foto y nada encima.
+  if (cambios.elClubTitulo === '') {
+    throw new BadRequestException(
+      'El título de "El club" no puede quedar vacío.',
+    );
   }
 
   if (Object.keys(cambios).length === 0) {

@@ -172,6 +172,7 @@ const EN_BLANCO: FranjaNueva = {
       <button
         type="submit"
         [disabled]="guardando()"
+        [attr.aria-busy]="guardando()"
         class="boton boton-secundario boton-chico"
       >
         Agregar tarifa
