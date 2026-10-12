@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Club } from '../club/club.service';
 import { RedesSociales } from '../club/redes-sociales';
+import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
@@ -38,6 +39,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     EnlaceTelefonoPipe,
     TelefonoPipe,
     RedesSociales,
+    VolverArriba,
   ],
   template: `
     <a
@@ -204,9 +206,13 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       }
     </dialog>
 
-    <main id="contenido" class="mx-auto max-w-6xl px-4 py-8">
+    <!-- tabindex -1: "Saltar al contenido" y "Volver arriba" (T149) le pasan el foco.
+         Sin anillo: el foco va al comienzo de la página, no a un control. -->
+    <main id="contenido" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8 focus:outline-none">
       <router-outlet />
     </main>
+
+    <app-volver-arriba />
 
     <!-- El pie, en banda de campo y no de rótulo: en oscuro el rótulo es una
          placa clara, y un pie claro a todo el ancho sería la zona más brillante
@@ -287,7 +293,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         </div>
       </div>
 
-      <p class="border-t border-on-campo/20 px-4 py-6 text-center text-sm text-on-campo/80">
+      <!-- En el teléfono, aire abajo para que "Volver arriba" (T149), que flota en
+           ese rincón, no tape el enlace de la política al llegar al final. -->
+      <p
+        class="border-t border-on-campo/20 px-4 pt-6 pb-20 text-center text-sm text-on-campo/80
+               sm:pb-6"
+      >
         © 2026 FEDAL Tennis Center ·
         <a routerLink="/privacidad" class="underline hover:text-on-campo">Política de privacidad</a>
       </p>

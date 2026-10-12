@@ -128,6 +128,14 @@ describe('Cascarón público: la navegación', () => {
     );
   });
 
+  it('el sitio público tiene "Volver arriba", y el contenido puede recibir su foco (T149)', () => {
+    const elemento = montarCon(null).nativeElement as HTMLElement;
+
+    expect(elemento.querySelector('app-volver-arriba')).not.toBeNull();
+    // tabindex -1: el foco puede llegar por programa sin que main entre al orden de Tab.
+    expect(elemento.querySelector('main#contenido')?.getAttribute('tabindex')).toBe('-1');
+  });
+
   it('le ofrece crear cuenta a quien no ha entrado', () => {
     expect(enlacesCon(null)).toContain('Crear cuenta');
   });

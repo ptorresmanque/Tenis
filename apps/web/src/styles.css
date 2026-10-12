@@ -669,6 +669,13 @@ html[data-tema='publico'][data-modo='oscuro'] {
   }
 }
 
+/* En el flujo de reserva, el rincón de abajo es de la barra fija con lo elegido:
+   ahí "Volver arriba" (T149) no aparece. Quien está eligiendo una hora no lo
+   necesita, y encima de la barra taparía el botón que cierra la reserva. */
+body:has(app-barra-fija) app-volver-arriba {
+  display: none;
+}
+
 /*
   LAS BANDAS ENTRAN AL APARECER (T147).
 
