@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 
 import { api, web } from '../comun/urls';
-import { QuizasYo, SesionOpcional } from '../identidad/guards';
+import { Autenticado, QuizasYo, SesionOpcional, Yo } from '../identidad/guards';
 import type { UsuarioActual } from '../identidad/usuario-actual';
 import { PagoDePedido } from './pago-pedido.service';
 import { leerPedido } from './pedidos.dto';
@@ -30,6 +30,13 @@ export class PedidosController {
   @SesionOpcional()
   crear(@Body() cuerpo: unknown, @QuizasYo() yo: UsuarioActual | null) {
     return this.pedidos.crear(leerPedido(cuerpo), yo);
+  }
+
+  /** "Mis pedidos" (T166). Antes de `:token`: si no, "mios" sería el token de un pedido. */
+  @Get('mios')
+  @Autenticado()
+  mios(@Yo() yo: UsuarioActual) {
+    return this.pedidos.mios(yo.id);
   }
 
   /** Sin sesión: el token del pedido, que solo conoce quien lo creó, hace de llave. */
@@ -59,5 +66,13 @@ export class PedidosController {
           ? `${web()}/tienda/pedido/${vuelta.pedidoToken}?pago=listo`
           : `${web()}/tienda/carrito?pago=${vuelta.resultado}`,
     };
+  }
+
+  /**
+   * La confirmación y el seguimiento (T166). Después de `retorno`, por lo mismo que `mios`.
+   */
+  @Get(':token')
+  porToken(@Param('token') token: string) {
+    return this.pedidos.porToken(token);
   }
 }

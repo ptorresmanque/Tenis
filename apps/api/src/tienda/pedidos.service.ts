@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   CanalPedido,
@@ -11,9 +15,49 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import type { UsuarioActual } from '../identidad/usuario-actual';
+import { limiteDeExpiracion } from '../pagos/expiracion';
 import { PrismaService } from '../prisma/prisma.service';
 import { CarritoDeLaTienda, LineaCotizada } from './carrito.service';
 import type { PedidoNuevo } from './pedidos.dto';
+
+/** Lo que ve quien tiene el enlace del pedido (T166): su compra, sin datos de cuentas. */
+const PEDIDO_PUBLICO = {
+  id: true,
+  token: true,
+  estado: true,
+  entrega: true,
+  nombre: true,
+  email: true,
+  // Sin el teléfono: ninguna pantalla lo muestra, y lo que no se muestra no viaja.
+  region: true,
+  comuna: true,
+  direccion: true,
+  referencia: true,
+  numeroSeguimiento: true,
+  totalClp: true,
+  descuentoSocioClp: true,
+  documento: true,
+  facturaRazonSocial: true,
+  creadoEn: true,
+  pagadoEn: true,
+  listoEn: true,
+  despachadoEn: true,
+  entregadoEn: true,
+  lineas: {
+    select: {
+      descripcion: true,
+      cantidad: true,
+      precioUnitarioClp: true,
+      descuentoUnitarioClp: true,
+      esEncargo: true,
+    },
+    orderBy: { id: 'asc' },
+  },
+} satisfies Prisma.PedidoSelect;
+
+export type PedidoPublico = Prisma.PedidoGetPayload<{
+  select: typeof PEDIDO_PUBLICO;
+}>;
 
 /** Lo que vuelve al crear un pedido: con qué seguirlo y cuánto cobrar. */
 export interface PedidoCreado {
@@ -93,6 +137,57 @@ export class PedidosDeLaTienda {
       });
 
       return { token, totalClp: cotizacion.totalClp };
+    });
+  }
+
+  /**
+   * El pedido de un enlace (T166): la confirmación y el seguimiento. Sin sesión: el token
+   * lo conoce quien compró, como el de una reserva.
+   *
+   * Un pendiente que pasó su plazo se muestra vencido aunque nadie lo haya marcado: el
+   * barrido es al leer, como el apartado.
+   */
+  async porToken(token: string): Promise<PedidoPublico> {
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { token },
+      select: PEDIDO_PUBLICO,
+    });
+    if (!pedido)
+      throw new NotFoundException('No hay un pedido con ese enlace.');
+
+    const vencido =
+      pedido.estado === EstadoPedido.PENDIENTE_PAGO &&
+      pedido.creadoEn <= limiteDeExpiracion();
+
+    return vencido ? { ...pedido, estado: EstadoPedido.EXPIRADO } : pedido;
+  }
+
+  /**
+   * "Mis pedidos" (T166): las compras de quien mira, de la más nueva a la más vieja. **Sin
+   * los intentos sin pagar**: un pedido pendiente o vencido no es una compra.
+   *
+   * `ponytail: los últimos 50, sin paginar. Un club no vende 50 pedidos a una persona; si
+   * pasa, se pagina.`
+   */
+  mios(usuarioId: number) {
+    return this.prisma.pedido.findMany({
+      where: {
+        usuarioId,
+        estado: {
+          notIn: [EstadoPedido.PENDIENTE_PAGO, EstadoPedido.EXPIRADO],
+        },
+      },
+      orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
+      take: 50,
+      select: {
+        id: true,
+        token: true,
+        estado: true,
+        entrega: true,
+        totalClp: true,
+        creadoEn: true,
+        _count: { select: { lineas: true } },
+      },
     });
   }
 }

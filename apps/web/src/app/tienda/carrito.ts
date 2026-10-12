@@ -34,6 +34,12 @@ export interface Cotizacion {
 
 const CLAVE = 'fedal:carrito';
 
+/**
+ * El pedido que salió de este carrito rumbo a Webpay (T166). En `sessionStorage`, como la
+ * marca de `torneos/publico/pago-pendiente`: es de esta pestaña y esta visita.
+ */
+const CLAVE_PAGANDO = 'fedal:carrito-pagando';
+
 /** Lo que la API acepta de una variante (`CANTIDAD_MAXIMA` en `carrito.dto.ts`). */
 export const CANTIDAD_MAXIMA = 99;
 
@@ -86,6 +92,31 @@ export class Carrito {
         l.varianteId === varianteId ? { varianteId, cantidad: tope(cantidad) } : l,
       ),
     );
+  }
+
+  /** Antes de ir a Webpay (T166): qué pedido sale de este carrito. */
+  recordarPago(token: string): void {
+    try {
+      sessionStorage.setItem(CLAVE_PAGANDO, token);
+    } catch {
+      // Sin dónde recordarlo, el carrito no se vacía solo al volver: se quita a mano.
+    }
+  }
+
+  /**
+   * Un pedido se vio pagado (T166). **Se vacía solo si salió de este carrito, y una vez**:
+   * el mismo pedido abierto más tarde desde el correo, con otra compra en camino, no tiene
+   * por qué borrarla.
+   */
+  pagado(token: string): void {
+    try {
+      if (sessionStorage.getItem(CLAVE_PAGANDO) !== token) return;
+      sessionStorage.removeItem(CLAVE_PAGANDO);
+    } catch {
+      return;
+    }
+
+    this.lineas.set([]);
   }
 
   quitar(varianteId: number): void {

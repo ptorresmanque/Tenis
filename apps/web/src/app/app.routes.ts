@@ -95,6 +95,24 @@ export const routes: Routes = [
         loadComponent: () => import('./tienda/pagina-carrito').then((m) => m.PaginaDelCarrito),
       },
       {
+        path: 'tienda/pagar',
+        title: 'Pagar — FEDAL Tennis Center',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () => import('./tienda/pagar').then((m) => m.PaginaDePago),
+      },
+      {
+        path: 'tienda/pedido/:token',
+        title: 'Tu pedido — FEDAL Tennis Center',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () => import('./tienda/pedido').then((m) => m.PaginaDelPedido),
+      },
+      {
+        path: 'tienda/mis-pedidos',
+        title: 'Mis pedidos — FEDAL Tennis Center',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () => import('./tienda/mis-pedidos').then((m) => m.MisPedidos),
+      },
+      {
         path: 'tienda/:id',
         title: 'Tienda — FEDAL Tennis Center',
         canActivate: [tiendaHabilitada],

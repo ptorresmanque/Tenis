@@ -51,7 +51,12 @@ describe('PaginaDelCarrito', () => {
 
   const montar = async (
     respuesta: Cotizacion,
-    opciones: { lineas?: LineaDelCarrito[]; usuario?: UsuarioActual | null } = {},
+    opciones: {
+      lineas?: LineaDelCarrito[];
+      usuario?: UsuarioActual | null;
+      /** El `?pago=` con que vuelve de Webpay (T166). */
+      pago?: string;
+    } = {},
   ) => {
     const lineas = signal<LineaDelCarrito[]>(
       opciones.lineas ??
@@ -73,6 +78,7 @@ describe('PaginaDelCarrito', () => {
       ],
     });
     const fixture = TestBed.createComponent(PaginaDelCarrito);
+    if (opciones.pago) fixture.componentRef.setInput('pago', opciones.pago);
     const elemento = fixture.nativeElement as HTMLElement;
     const estable = async () => {
       await fixture.whenStable();
@@ -163,17 +169,30 @@ describe('PaginaDelCarrito', () => {
     expect(carrito.cotizar).toHaveBeenCalledTimes(2);
   });
 
-  describe('lo que no se puede comprar', () => {
-    it('todo disponible: el pago en línea todavía no está, y lo dice sin culpar al carrito', async () => {
-      // Hasta T166 no existe /tienda/pagar. Un enlace ahí llevaría a la portada; un botón
-      // apagado sin explicación parecería que algo del carrito está mal.
+  describe('la vuelta de Webpay sin pagar (T166)', () => {
+    it.each([
+      ['rechazado', 'El pago fue rechazado'],
+      ['anulado', 'No terminaste el pago'],
+      ['invalido', 'No pudimos confirmar ese pago'],
+    ])('?pago=%s lo dice, con el carrito intacto para reintentar', async (pago, aviso) => {
+      const { elemento, filas } = await montar(cotizacion([ZAPATILLA]), { pago });
+
+      expect(elemento.querySelector('app-aviso')?.textContent).toContain(aviso);
+      expect(filas()).toHaveLength(1);
+    });
+
+    it('sin volver de Webpay, no hay aviso', async () => {
       const { elemento } = await montar(cotizacion([ZAPATILLA]));
 
-      const resumen = elemento.querySelector('[data-resumen]')!;
-      expect(resumen.querySelector('a[href="/tienda/pagar"]')).toBeNull();
-      expect(resumen.querySelector<HTMLButtonElement>('button')?.disabled).toBe(true);
-      expect(resumen.textContent).toContain('El pago en línea llega pronto');
-      expect(resumen.textContent).not.toContain('para seguir');
+      expect(elemento.querySelector('app-aviso')).toBeNull();
+    });
+  });
+
+  describe('lo que no se puede comprar', () => {
+    it('**todo disponible: se puede ir a pagar** (T166)', async () => {
+      const { elemento } = await montar(cotizacion([ZAPATILLA]));
+
+      expect(elemento.querySelector('a[href="/tienda/pagar"]')).not.toBeNull();
     });
 
     it('**lo que ya no se vende lo dice, y no deja seguir**', async () => {

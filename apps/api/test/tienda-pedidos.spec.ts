@@ -497,4 +497,120 @@ describe('Tienda: crear el pedido', () => {
       ).toBe(1);
     });
   });
+
+  describe('seguir el pedido (T166)', () => {
+    interface PedidoPublico {
+      id: number;
+      estado: string;
+      entrega: string;
+      totalClp: number;
+      lineas: {
+        descripcion: string;
+        cantidad: number;
+        precioUnitarioClp: number;
+      }[];
+    }
+
+    it('**el enlace del pedido muestra el estado, las líneas y la entrega**, sin sesión', async () => {
+      const raqueta = await producto('Pure Drive', {
+        precioClp: 249990,
+        etiqueta: 'Grip 2',
+      });
+      const { body: creado } = (await crear({
+        lineas: [{ varianteId: raqueta.varianteId, cantidad: 1 }],
+      }).expect(201)) as { body: { token: string } };
+
+      const { body } = (await request(servidor())
+        .get(`/api/tienda/pedidos/${creado.token}`)
+        .expect(200)) as { body: PedidoPublico };
+
+      expect(body).toMatchObject({
+        estado: 'PENDIENTE_PAGO',
+        entrega: 'RETIRO',
+        totalClp: 249990,
+        lineas: [
+          {
+            descripcion: `${MARCA} Pure Drive · Grip 2`,
+            cantidad: 1,
+            precioUnitarioClp: 249990,
+          },
+        ],
+      });
+      // Ni el usuario ni el socio: el enlace es de quien compró, pero no hace falta más.
+      expect(body).not.toHaveProperty('telefono');
+      expect(body).not.toHaveProperty('usuarioId');
+      expect(body).not.toHaveProperty('socioId');
+    });
+
+    it(`un pendiente de hace más de ${MINUTOS_PARA_EXPIRAR} minutos se ve vencido`, async () => {
+      const raqueta = await producto('Pure Drive');
+      const { body: creado } = (await crear({
+        lineas: [{ varianteId: raqueta.varianteId, cantidad: 1 }],
+      }).expect(201)) as { body: { token: string } };
+      await prisma.pedido.update({
+        where: { token: creado.token },
+        data: {
+          creadoEn: new Date(Date.now() - (MINUTOS_PARA_EXPIRAR + 1) * 60_000),
+        },
+      });
+
+      const { body } = (await request(servidor())
+        .get(`/api/tienda/pedidos/${creado.token}`)
+        .expect(200)) as { body: PedidoPublico };
+
+      expect(body.estado).toBe('EXPIRADO');
+    });
+
+    it('un enlace que no es de ningún pedido responde 404', async () => {
+      await request(servidor())
+        .get('/api/tienda/pedidos/00000000-0000-4000-8000-000000000000')
+        .expect(404);
+    });
+
+    it('**"Mis pedidos" lista las compras de quien mira**, no las de otros ni los intentos sin pagar', async () => {
+      const raqueta = await producto('Pure Drive', { stock: 10 });
+      const linea = {
+        lineas: [{ varianteId: raqueta.varianteId, cantidad: 1 }],
+      };
+      const { body: mio } = (await crear(linea, socioAlDia).expect(201)) as {
+        body: { token: string };
+      };
+      const { body: sinPagar } = (await crear(linea, socioAlDia).expect(
+        201,
+      )) as {
+        body: { token: string };
+      };
+      const { body: ajeno } = (await crear(linea).expect(201)) as {
+        body: { token: string };
+      };
+      await prisma.pedido.updateMany({
+        where: { token: { in: [mio.token, ajeno.token] } },
+        data: { estado: 'PAGADO', pagadoEn: new Date() },
+      });
+
+      const { body } = (await request(servidor())
+        .get('/api/tienda/pedidos/mios')
+        .set('Cookie', socioAlDia)
+        .expect(200)) as {
+        body: { token: string; estado: string; totalClp: number }[];
+      };
+
+      expect(body.map((p) => p.token)).toEqual([mio.token]);
+      expect(body.map((p) => p.token)).not.toContain(sinPagar.token);
+      expect(body[0]).toMatchObject({ estado: 'PAGADO' });
+    });
+
+    it('"Mis pedidos" sin sesión responde 401', async () => {
+      await request(servidor()).get('/api/tienda/pedidos/mios').expect(401);
+    });
+
+    it('las regiones del despacho, las 16, para el formulario', async () => {
+      const { body } = (await request(servidor())
+        .get('/api/tienda/regiones')
+        .expect(200)) as { body: string[] };
+
+      expect(body).toHaveLength(16);
+      expect(body).toContain('Metropolitana de Santiago');
+    });
+  });
 });

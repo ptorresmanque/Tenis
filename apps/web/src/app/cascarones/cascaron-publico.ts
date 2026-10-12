@@ -107,6 +107,10 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
                 <a routerLink="/mis-reservas" [class]="ITEM_MENU">Mis reservas</a>
                 <a routerLink="/mi-cuenta" [class]="ITEM_MENU">Mi cuenta</a>
               }
+              <!-- Para cualquiera con cuenta: en la tienda compra cualquiera (T166). -->
+              @if (club().tiendaHabilitada) {
+                <a routerLink="/tienda/mis-pedidos" [class]="ITEM_MENU">Mis pedidos</a>
+              }
               @if (esAdmin()) {
                 <a routerLink="/administracion/reservas" [class]="ITEM_MENU">
                   Administración

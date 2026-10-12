@@ -193,6 +193,23 @@ describe('Cascarón público: la navegación', () => {
     expect(enlaces(false)).not.toContain('Tienda');
   });
 
+  it('**con la tienda, el menú del avatar ofrece "Mis pedidos" a cualquiera con cuenta** (T166)', () => {
+    const conTienda = { tiendaHabilitada: true } as DatosDelClub;
+    const enlacesDelMenu = (usuario: UsuarioActual, club?: DatosDelClub) => {
+      const fixture = montarCon(usuario, club);
+      const elemento = fixture.nativeElement as HTMLElement;
+      elemento.querySelector<HTMLButtonElement>('header button[aria-label^="Menú de"]')!.click();
+      fixture.detectChanges();
+
+      return [...elemento.querySelectorAll('header a')].map((a) => a.textContent?.trim());
+    };
+
+    // El admin no es socio, y compra igual.
+    expect(enlacesDelMenu(ADMIN, conTienda)).toContain('Mis pedidos');
+    expect(enlacesDelMenu(SOCIA, conTienda)).toContain('Mis pedidos');
+    expect(enlacesDelMenu(SOCIA)).not.toContain('Mis pedidos');
+  });
+
   it('la barra del admin es la misma que la de cualquiera', () => {
     expect(enlacesCon(ADMIN)).not.toContain('Administración');
     expect(enlacesCon(ADMIN)).not.toContain('Estado del sistema');

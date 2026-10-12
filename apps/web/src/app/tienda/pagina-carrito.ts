@@ -1,11 +1,23 @@
-import { Component, inject, linkedSignal, resource } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
+import { Aviso } from '../ui/aviso';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Carrito, Cotizacion } from './carrito';
+
+/** Lo que se le dice a quien vuelve de Webpay sin haber pagado (T166). */
+const AVISOS_DE_LA_VUELTA: Record<string, string> = {
+  rechazado:
+    'El pago fue rechazado y no se cobró nada. Tu carrito sigue aquí: puedes intentarlo de ' +
+    'nuevo con otro medio de pago.',
+  anulado: 'No terminaste el pago, así que no se cobró nada. Tu carrito sigue aquí.',
+  invalido:
+    'No pudimos confirmar ese pago. Si se cobró, escríbenos y lo revisamos; tu carrito sigue ' +
+    'aquí.',
+};
 
 /**
  * El carrito, `/tienda/carrito` (T163).
@@ -16,13 +28,14 @@ import { Carrito, Cotizacion } from './carrito';
  * sin recargar.
  *
  * **No deja seguir con algo que no se puede comprar**: una línea que ya no se vende o que
- * pide más de lo que queda lo dice ahí mismo, y "Ir a pagar" espera a que se arregle. Hasta
- * que existan las pantallas de pago (T166), "Ir a pagar" queda apagado y dice que llega
- * pronto.
+ * pide más de lo que queda lo dice ahí mismo, y "Ir a pagar" espera a que se arregle.
+ *
+ * **Lo que no se pagó vuelve acá** (T166), con `?pago=`: el carrito sigue en el navegador
+ * y se puede reintentar.
  */
 @Component({
   selector: 'app-pagina-del-carrito',
-  imports: [RouterLink, Esqueleto, EstadoVacio],
+  imports: [RouterLink, Aviso, Esqueleto, EstadoVacio],
   template: `
     <p>
       <a
@@ -35,6 +48,10 @@ import { Carrito, Cotizacion } from './carrito';
       </a>
     </p>
     <h1 class="mt-4 titular text-5xl sm:text-6xl">Tu carrito</h1>
+
+    @if (avisoDeLaVuelta(); as aviso) {
+      <app-aviso class="mt-4 block" variante="error">{{ aviso }}</app-aviso>
+    }
 
     @if (carrito.lineas().length === 0) {
       <app-estado-vacio
@@ -166,19 +183,16 @@ import { Carrito, Cotizacion } from './carrito';
           </dl>
           <p class="mt-2 text-xs text-muted-foreground">No incluye el despacho.</p>
 
-          <!-- Hasta T166 no existe /tienda/pagar: un enlace ahí llevaba a la portada. Se
-               avisa que el pago llega pronto, distinto de lo que falta arreglar. T166 vuelve
-               a poner el enlace cuando sePuedePagar. -->
           @if (cotizada.sePuedePagar) {
-            <p class="mt-4 text-sm text-muted-foreground">El pago en línea llega pronto.</p>
+            <a routerLink="/tienda/pagar" class="mt-4 boton boton-primario w-full">Ir a pagar</a>
           } @else {
             <p class="mt-4 text-sm font-semibold text-destructive">
               Quita o ajusta lo marcado para seguir.
             </p>
+            <button type="button" class="mt-2 boton boton-primario w-full" disabled>
+              Ir a pagar
+            </button>
           }
-          <button type="button" class="mt-2 boton boton-primario w-full" disabled>
-            Ir a pagar
-          </button>
 
           @if (!usuario()) {
             <p class="mt-4 text-sm text-muted-foreground">
@@ -200,6 +214,13 @@ import { Carrito, Cotizacion } from './carrito';
 })
 export class PaginaDelCarrito {
   protected readonly carrito = inject(Carrito);
+
+  /** `?pago=` de la vuelta de Webpay sin pagar (T166), con `withComponentInputBinding`. */
+  readonly pago = input<string>();
+
+  protected readonly avisoDeLaVuelta = computed(
+    () => AVISOS_DE_LA_VUELTA[this.pago() ?? ''] ?? null,
+  );
   protected readonly usuario = inject(Auth).usuario;
   protected readonly pesos = enPesos;
 

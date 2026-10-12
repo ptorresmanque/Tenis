@@ -32,13 +32,18 @@ describe('Carrito', () => {
 
   // Node 26 trae su propio `localStorage`, que sin archivo no existe y tapa el de jsdom.
   // Uno en memoria hace de navegador, y sobrevive entre "recargas" dentro de una prueba.
-  beforeEach(() => {
+  const enMemoria = () => {
     const memoria = new Map<string, string>();
-    vi.stubGlobal('localStorage', {
+    return {
       getItem: (clave: string) => memoria.get(clave) ?? null,
       setItem: (clave: string, valor: string) => memoria.set(clave, valor),
       removeItem: (clave: string) => memoria.delete(clave),
-    });
+    };
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', enMemoria());
+    vi.stubGlobal('sessionStorage', enMemoria());
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -86,6 +91,24 @@ describe('Carrito', () => {
     carrito.cambiar(10, 1.5);
 
     expect(carrito.lineas()).toEqual([{ varianteId: 10, cantidad: 2 }]);
+  });
+
+  it('**después de pagar se vacía solo si el pedido salió de este carrito, y una vez** (T166)', () => {
+    const { carrito } = montar();
+    carrito.agregar(10, 2);
+    carrito.recordarPago('tok-1');
+
+    // Otro pedido pagado —abierto desde un correo— no toca este carrito.
+    carrito.pagado('tok-otro');
+    expect(carrito.lineas()).toHaveLength(1);
+
+    carrito.pagado('tok-1');
+    expect(carrito.lineas()).toEqual([]);
+
+    // Volver a abrir el mismo pedido más tarde, con otra compra en camino, tampoco.
+    carrito.agregar(11, 1);
+    carrito.pagado('tok-1');
+    expect(carrito.lineas()).toEqual([{ varianteId: 11, cantidad: 1 }]);
   });
 
   it('quitar saca la línea', () => {
