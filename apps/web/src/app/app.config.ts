@@ -3,6 +3,7 @@ import { provideHttpClient, withFetch } from '@angular/common/http';
 import {
   provideRouter,
   withComponentInputBinding,
+  withInMemoryScrolling,
   withViewTransitions,
 } from '@angular/router';
 
@@ -25,6 +26,15 @@ export const appConfig: ApplicationConfig = {
     // withComponentInputBinding: los parámetros de la URL llegan como inputs del
     // componente. Lo usa la página pública de la reserva para leer su token sin
     // inyectar el ActivatedRoute a mano.
-    provideRouter(routes, withViewTransitions(), withComponentInputBinding()),
+    //
+    // withInMemoryScrolling: solo `anchorScrolling` (T186), para que «Ver las fotos» de la
+    // portada lleve a la sección de la tienda en «El club» y no al comienzo de la página.
+    // Actúa solo sobre URLs con `#`; el resto de la navegación queda como estaba.
+    provideRouter(
+      routes,
+      withViewTransitions(),
+      withComponentInputBinding(),
+      withInMemoryScrolling({ anchorScrolling: 'enabled' }),
+    ),
   ],
 };

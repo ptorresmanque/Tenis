@@ -10,6 +10,7 @@ import {
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
+import { TiendaYCafeteria } from '../club/tienda-y-cafeteria';
 import { Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
@@ -41,7 +42,7 @@ import { Insignia } from '../ui/insignia';
  */
 @Component({
   selector: 'app-inicio',
-  imports: [RouterLink, Cinta, Esqueleto, Foto, Insignia, Marcador],
+  imports: [RouterLink, Cinta, Esqueleto, Foto, Insignia, Marcador, TiendaYCafeteria],
   template: `
     <!--
       BANDA 1 — La foto y la promesa.
@@ -523,6 +524,16 @@ import { Insignia } from '../ui/insignia';
         </div>
       </section>
     }
+
+    <!--
+      BANDA 5½ — La tienda y la cafetería (T186).
+
+      Lo que hay en el club además de las canchas, contado y no vendido: una tarjeta
+      por lugar con su primera foto. Va antes del cierre y no arriba, porque nadie
+      entra a la portada por un café; quien baja hasta acá ya decidió venir. Sin
+      descripción cargada, la banda no existe.
+    -->
+    <app-tienda-y-cafeteria forma="resumen" />
 
     <!--
       BANDA 6 — El cierre.

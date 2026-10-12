@@ -8,6 +8,8 @@ import { AdminCanchasController } from './admin.controller';
 import { AdminCanchasService } from './admin.service';
 import { DisponibilidadController } from './disponibilidad.controller';
 import { DisponibilidadService } from './disponibilidad.service';
+import { FotosDelClubAdminController } from './fotos-del-club.controller';
+import { FotosDelClub } from './fotos-del-club.service';
 import {
   PreguntasFrecuentesAdminController,
   PreguntasFrecuentesPublicasController,
@@ -27,12 +29,15 @@ import { PreguntasFrecuentes } from './preguntas-frecuentes.service';
     // textos, que ya viven en este módulo.
     PreguntasFrecuentesPublicasController,
     PreguntasFrecuentesAdminController,
+    // T185. Las fotos de la tienda y la cafetería; las públicas, en ClubPublicoController.
+    FotosDelClubAdminController,
   ],
   providers: [
     TarifasPublicasService,
     DisponibilidadService,
     AdminCanchasService,
     PreguntasFrecuentes,
+    FotosDelClub,
   ],
   // `reservas` va a superponer sus reservas sobre estos bloques.
   exports: [DisponibilidadService],

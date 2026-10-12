@@ -122,10 +122,13 @@ function aEnlace(texto: string): URL | null {
  * El WhatsApp del club: un número con la regla del teléfono (T120), que el sitio enlaza a
  * `wa.me`. Vacío lo borra. El error dice "WhatsApp": el formulario lo muestra arriba del
  * botón y "el teléfono" mandaría a corregir el campo equivocado.
+ *
+ * @param nombre Cómo lo nombra el error. La tienda y la cafetería tienen el suyo (T184), y
+ *               en esa pestaña "El WhatsApp" a secas no dice cuál de los dos corregir.
  */
-export function leerWhatsapp(valor: unknown): string {
+export function leerWhatsapp(valor: unknown, nombre = 'El WhatsApp'): string {
   if (typeof valor !== 'string') {
-    throw new BadRequestException('El WhatsApp tiene que ser texto.');
+    throw new BadRequestException(`${nombre} tiene que ser texto.`);
   }
 
   if (!valor.trim()) return '';
@@ -134,7 +137,7 @@ export function leerWhatsapp(valor: unknown): string {
 
   if (numero === null) {
     throw new BadRequestException(
-      'El WhatsApp tiene que tener 9 dígitos, sin contar el +56.',
+      `${nombre} tiene que tener 9 dígitos, sin contar el +56.`,
     );
   }
 
