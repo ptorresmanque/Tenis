@@ -561,6 +561,17 @@ model ConfiguracionClub {
   elClubBajada  String @default("Un club de barrio con canchas de torneo. Desde 2008, abierto a socios y a quien quiera venir a jugar una hora.") @map("el_club_bajada") @db.VarChar(300)
   elClubCanchas String @default("Todas de superficie dura y velocidad media, como el Australian Open. Las dos centrales se llaman Basilea y Manacor, y el club no da más explicaciones.") @map("el_club_canchas") @db.VarChar(600)
 
+  /// La tienda y la cafetería del club (T184), que la portada y "El club" dan a conocer:
+  /// el sitio no vende nada. Vacías hasta que el club escriba, y sin descripción el lugar
+  /// no aparece. El horario es texto libre, se lee y no se calcula; el WhatsApp tiene la
+  /// forma del teléfono. `cafeteriaHorario` es el que la Etapa 2 lee para su carta.
+  tiendaDescripcion    String @default("") @map("tienda_descripcion") @db.VarChar(600)
+  tiendaHorario        String @default("") @map("tienda_horario") @db.VarChar(120)
+  tiendaWhatsapp       String @default("") @map("tienda_whatsapp") @db.VarChar(40)
+  cafeteriaDescripcion String @default("") @map("cafeteria_descripcion") @db.VarChar(600)
+  cafeteriaHorario     String @default("") @map("cafeteria_horario") @db.VarChar(120)
+  cafeteriaWhatsapp    String @default("") @map("cafeteria_whatsapp") @db.VarChar(40)
+
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).

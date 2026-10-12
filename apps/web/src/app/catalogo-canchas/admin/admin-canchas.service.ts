@@ -172,8 +172,21 @@ export interface TextosDeElClub {
   elClubCanchas: string;
 }
 
+/** La tienda y la cafetería (T184), como las guarda la fila: seis columnas. */
+export interface TiendaYCafeteria {
+  tiendaDescripcion: string;
+  tiendaHorario: string;
+  tiendaWhatsapp: string;
+  cafeteriaDescripcion: string;
+  cafeteriaHorario: string;
+  cafeteriaWhatsapp: string;
+}
+
 /** Lo que el servidor devuelve de `GET /api/admin/configuracion`: todo lo de la fila. */
-export type ConfiguracionDelClub = ReglasDelClub & DatosDelClub & TextosDeElClub;
+export type ConfiguracionDelClub = ReglasDelClub &
+  DatosDelClub &
+  TextosDeElClub &
+  TiendaYCafeteria;
 
 export interface CanchaNueva {
   nombre: string;
@@ -222,6 +235,13 @@ export class AdminCanchas {
   fijarTextosDeElClub(textos: TextosDeElClub): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
       this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', textos),
+    );
+  }
+
+  /** La tienda y la cafetería (T184), con el mismo PATCH que los datos del club. */
+  fijarTiendaYCafeteria(datos: TiendaYCafeteria): Promise<ConfiguracionDelClub> {
+    return firstValueFrom(
+      this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', datos),
     );
   }
 

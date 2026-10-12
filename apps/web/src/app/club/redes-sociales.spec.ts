@@ -25,6 +25,8 @@ describe('RedesSociales', () => {
     elClubTitulo: 'FEDAL Tennis Center',
     elClubBajada: '',
     elClubCanchas: '',
+    tienda: { descripcion: '', horario: '', whatsapp: '' },
+    cafeteria: { descripcion: '', horario: '', whatsapp: '' },
   };
 
   const montar = (datos: Partial<DatosDelClub>) => {

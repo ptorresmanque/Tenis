@@ -1,7 +1,19 @@
 import { httpResource } from '@angular/common/http';
 import { computed, Service } from '@angular/core';
 
-/** Espejo de `DatosDelClub` en la API. Lo que es público. */
+/**
+ * La tienda o la cafetería del club (T184), como información: el sitio no vende nada. Sin
+ * descripción, el lugar no se muestra.
+ */
+export interface LugarDelClub {
+  descripcion: string;
+  /** Texto libre: "Lunes a sábado de 9:00 a 20:00". */
+  horario: string;
+  /** `56` y los 9 dígitos, o vacío. */
+  whatsapp: string;
+}
+
+/** Espejo de `ClubPublico` en la API. Lo que es público. */
 export interface DatosDelClub {
   nombre: string;
   direccion: string;
@@ -21,6 +33,8 @@ export interface DatosDelClub {
   elClubTitulo: string;
   elClubBajada: string;
   elClubCanchas: string;
+  tienda: LugarDelClub;
+  cafeteria: LugarDelClub;
 }
 
 /**
@@ -68,6 +82,9 @@ export class Club {
           elClubCanchas:
             'Todas de superficie dura y velocidad media, como el Australian Open. Las dos ' +
             'centrales se llaman Basilea y Manacor, y el club no da más explicaciones.',
+          // Vacías: sin descripción no se muestran, que es lo correcto mientras no se sabe.
+          tienda: { descripcion: '', horario: '', whatsapp: '' },
+          cafeteria: { descripcion: '', horario: '', whatsapp: '' },
         },
   );
 
