@@ -10,6 +10,7 @@ import { RankingModule } from './ranking/ranking.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { ReservasModule } from './reservas/reservas.module';
 import { SaludModule } from './salud/salud.module';
+import { TiendaModule } from './tienda/tienda.module';
 import { TorneosModule } from './torneos/torneos.module';
 
 @Module({
@@ -25,6 +26,8 @@ import { TorneosModule } from './torneos/torneos.module';
     ReportesModule,
     ReservasModule,
     TorneosModule,
+    // Etapa 2, fuera del trabajo de título: responde 404 sin TIENDA_HABILITADA.
+    TiendaModule,
   ],
 })
 export class AppModule {}

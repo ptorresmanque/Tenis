@@ -1623,3 +1623,64 @@ model PartidoInterno {
   @@index([socioBId])
   @@map("partido_interno")
 }
+
+// ── tienda ───────────────────────────────────────────────────────────────────
+// Modelo de SPEC-tienda.md § Modelo de datos. **Etapa 2: no es parte del trabajo de
+// título.** Toda ruta de este módulo responde 404 sin `TIENDA_HABILITADA` (T156).
+
+/// Cómo se agrupa el catálogo: zapatillas, raquetas, ropa (T156).
+///
+/// Una tabla y no un enum porque la escribe el club desde su panel, como las preguntas
+/// frecuentes. Las seis con que abre la tienda las inserta la migración, no el seed: el
+/// seed no corre en producción, y una tienda sin categorías no deja cargar un producto.
+model CategoriaProducto {
+  id     Int    @id @default(autoincrement())
+  /// Único sin distinguir mayúsculas, por la colación de la base: "Ropa" y "ropa" son
+  /// la misma categoría, y dos con el mismo nombre partirían el catálogo en dos.
+  nombre String @unique @db.VarChar(80)
+  /// Menor = más arriba. Sin único: dos con el mismo orden van por antigüedad.
+  orden  Int    @default(0)
+
+  /// La etiqueta de sus variantes es la talla chilena, y la tienda la muestra en CL, US
+  /// y EU con la tabla de la marca (`SPEC-tienda.md` § Catálogo). Hoy, solo zapatillas.
+  usaTablaDeTallas Boolean @default(false) @map("usa_tabla_de_tallas")
+
+  creadaEn      DateTime @default(now()) @map("creada_en")
+  actualizadaEn DateTime @updatedAt @map("actualizada_en")
+
+  @@map("categoria_producto")
+}
+
+/// La marca de un producto, y dueña de su tabla de tallas (T156).
+model Marca {
+  id     Int    @id @default(autoincrement())
+  /// Único sin distinguir mayúsculas, como el de la categoría.
+  nombre String @unique @db.VarChar(80)
+
+  creadaEn      DateTime @default(now()) @map("creada_en")
+  actualizadaEn DateTime @updatedAt @map("actualizada_en")
+
+  tallas EquivalenciaTalla[]
+
+  @@map("marca")
+}
+
+/// Una fila de la tabla de tallas de una marca: la misma zapatilla en tres sistemas.
+///
+/// **Texto y no números**: "8.5", "44 2/3" y "XL" son tallas reales, y nada en el
+/// sistema las suma ni las compara. El orden de la tabla es el del `id`: el admin la
+/// guarda entera (`PUT`) y queda en el orden en que la escribió.
+model EquivalenciaTalla {
+  id      Int    @id @default(autoincrement())
+  marcaId Int    @map("marca_id")
+  tallaCl String @map("talla_cl") @db.VarChar(10)
+  tallaUs String @map("talla_us") @db.VarChar(10)
+  tallaEu String @map("talla_eu") @db.VarChar(10)
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  /// Una talla chilena apunta a una sola fila: dos filas para "40" son dos respuestas
+  /// distintas a la misma pregunta.
+  @@unique([marcaId, tallaCl])
+  @@map("equivalencia_talla")
+}

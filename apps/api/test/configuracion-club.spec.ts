@@ -120,6 +120,8 @@ describe('Datos del club y administradores', () => {
       // La ubicación sí es pública (T100): es para el mapa de "El club".
       // Las redes también (T140): están en el pie de todas las páginas.
       // Y los textos de "El club" (T142), que son de esa página pública.
+      // Y si la tienda existe en este ambiente (T156): no es una regla del club sino una
+      // variable de entorno, y el sitio la necesita para mostrar o esconder la tienda.
       expect(Object.keys(publico.body as object).sort()).toEqual([
         'direccion',
         'elClubBajada',
@@ -132,6 +134,7 @@ describe('Datos del club y administradores', () => {
         'longitud',
         'nombre',
         'telefono',
+        'tiendaHabilitada',
         'tiktok',
         'whatsapp',
         'youtube',
