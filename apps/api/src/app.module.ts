@@ -11,6 +11,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { ReservasModule } from './reservas/reservas.module';
 import { SaludModule } from './salud/salud.module';
 import { TorneosModule } from './torneos/torneos.module';
+import { ToursModule } from './tours/tours.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TorneosModule } from './torneos/torneos.module';
     ReportesModule,
     ReservasModule,
     TorneosModule,
+    ToursModule,
   ],
 })
 export class AppModule {}
