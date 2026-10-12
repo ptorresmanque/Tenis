@@ -1322,3 +1322,46 @@ describe('Las bandas aparecen al hacer scroll (T147)', () => {
     expect(infractores).toEqual([]);
   });
 });
+
+/**
+ * T148. El hero de la portada y el de "El club": al llegar, la foto se asienta y el
+ * texto sube escalonado; al hacer scroll, la foto baja más lento que la página. Todo en
+ * una utilidad de styles.css, con los tokens de siempre.
+ */
+describe('El hero se mueve (T148)', () => {
+  const regla = () => css.match(/@utility hero-animado \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+  it('la entrada y el parallax van detrás de reducir movimiento', () => {
+    expect(regla()).toContain('prefers-reduced-motion: no-preference');
+  });
+
+  it('**el parallax solo existe donde existe animation-timeline**', () => {
+    // Sin el @supports, el navegador que no la conoce aplicaría el final de la
+    // animación de una vez y la foto quedaría corrida desde el primer cuadro.
+    const parallax = regla().slice(regla().indexOf('@supports (animation-timeline: view())'));
+
+    expect(regla()).toContain('@supports (animation-timeline: view())');
+    expect(parallax).toContain('hero-parallax');
+    expect(regla().slice(0, regla().indexOf('@supports'))).not.toContain('hero-parallax');
+  });
+
+  it('las duraciones y la curva salen de los tokens', () => {
+    expect(regla()).toContain('var(--duracion-asentado)');
+    expect(regla()).toContain('var(--duracion-entrada)');
+    expect(regla()).toContain('var(--escalonado)');
+    expect(regla()).toContain('var(--ease-salida)');
+    expect(regla()).not.toMatch(/\b\d+m?s\b/);
+  });
+
+  it('la foto se anima con scale y translate, nunca con su opacidad: es el LCP', () => {
+    expect(css).toMatch(/@keyframes hero-foto \{[^}]*scale:[^}]*\}/);
+    expect(css).not.toMatch(/@keyframes hero-foto \{[^}]*opacity/);
+  });
+
+  it.each(['inicio/inicio.ts', 'club/el-club.ts'])('%s lo usa', (archivo) => {
+    const contenido = readFileSync(join(RAIZ, archivo), 'utf8');
+
+    expect(contenido).toContain('hero-animado');
+    expect(contenido).toContain('hero-texto');
+  });
+});

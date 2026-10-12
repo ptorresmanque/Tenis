@@ -45,7 +45,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
     <section
-      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
       aria-labelledby="el-club"
     >
       <app-foto
@@ -62,7 +62,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
       <div
         class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
-               sm:p-10"
+               hero-texto sm:p-10"
       >
         <!-- Los textos los escribe el club en "Textos del sitio" (T142). Texto plano:
              la interpolación muestra un <b> como texto, y pre-line respeta los saltos
