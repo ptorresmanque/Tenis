@@ -112,6 +112,8 @@ describe('Cascarón público: la navegación', () => {
         elClubTitulo: 'FEDAL Tennis Center',
         elClubBajada: '',
         elClubCanchas: '',
+        tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+        cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
         tiendaHabilitada: false,
       }).nativeElement as HTMLElement
     ).querySelector('footer');

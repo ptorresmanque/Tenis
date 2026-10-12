@@ -121,4 +121,47 @@ describe('Galeria', () => {
 
     expect(texto()).not.toContain('Fotos');
   });
+
+  describe('fuera de los torneos (T186)', () => {
+    /** Una foto de la tienda o la cafetería: no tiene momento ni partido. */
+    const deLugar = (id: number) => ({
+      id,
+      descripcion: null,
+      miniatura: `/api/club/fotos/${id}/miniatura`,
+      imagen: `/api/club/fotos/${id}/imagen`,
+    });
+
+    const montarSinMomento = async (extra: Record<string, string> = {}) => {
+      TestBed.resetTestingModule();
+      fixture = TestBed.createComponent(Galeria);
+      fixture.componentRef.setInput('fotos', [deLugar(1), deLugar(2)]);
+      for (const [nombre, valor] of Object.entries(extra)) {
+        fixture.componentRef.setInput(nombre, valor);
+      }
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**sin momento van todas en una sola grilla, sin títulos de tramo**', async () => {
+      await montarSinMomento();
+
+      expect(fuentes()).toEqual(['/api/club/fotos/1/miniatura', '/api/club/fotos/2/miniatura']);
+      expect(elemento().querySelectorAll('h4')).toHaveLength(0);
+    });
+
+    it('el texto alternativo por omisión es el de quien la usa', async () => {
+      await montarSinMomento({ porOmision: 'Foto de la tienda del club' });
+
+      expect(elemento().querySelector('img')?.getAttribute('alt')).toBe(
+        'Foto de la tienda del club',
+      );
+    });
+
+    it('sin título no dibuja encabezado: lo pone quien la usa', async () => {
+      await montarSinMomento({ titulo: '' });
+
+      expect(elemento().querySelector('h3')).toBeNull();
+      expect(fuentes()).toHaveLength(2);
+    });
+  });
 });

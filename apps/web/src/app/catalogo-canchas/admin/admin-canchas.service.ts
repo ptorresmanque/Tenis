@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { FotoDelLugar } from '../../club/club.service';
 import { Cancha } from '../disponibilidad';
 
 export interface Horario {
@@ -172,8 +173,24 @@ export interface TextosDeElClub {
   elClubCanchas: string;
 }
 
+/** Los dos lugares del club que tienen fotos (T185). */
+export type Lugar = 'TIENDA' | 'CAFETERIA';
+
+/** La tienda y la cafetería (T184), como las guarda la fila: seis columnas. */
+export interface TiendaYCafeteria {
+  tiendaDescripcion: string;
+  tiendaHorario: string;
+  tiendaWhatsapp: string;
+  cafeteriaDescripcion: string;
+  cafeteriaHorario: string;
+  cafeteriaWhatsapp: string;
+}
+
 /** Lo que el servidor devuelve de `GET /api/admin/configuracion`: todo lo de la fila. */
-export type ConfiguracionDelClub = ReglasDelClub & DatosDelClub & TextosDeElClub;
+export type ConfiguracionDelClub = ReglasDelClub &
+  DatosDelClub &
+  TextosDeElClub &
+  TiendaYCafeteria;
 
 export interface CanchaNueva {
   nombre: string;
@@ -222,6 +239,35 @@ export class AdminCanchas {
   fijarTextosDeElClub(textos: TextosDeElClub): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
       this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', textos),
+    );
+  }
+
+  /** Las fotos de la tienda y la cafetería (T185), cada lugar en el orden en que se subieron. */
+  fotosDelClub(): Promise<Record<Lugar, FotoDelLugar[]>> {
+    return firstValueFrom(
+      this.http.get<Record<Lugar, FotoDelLugar[]>>('/api/admin/club/fotos'),
+    );
+  }
+
+  subirFotoDelClub(lugar: Lugar, archivo: File, descripcion: string): Promise<FotoDelLugar> {
+    const cuerpo = new FormData();
+
+    // Los campos antes del archivo: es el orden en que un formulario los manda.
+    cuerpo.append('lugar', lugar);
+    if (descripcion) cuerpo.append('descripcion', descripcion);
+    cuerpo.append('foto', archivo);
+
+    return firstValueFrom(this.http.post<FotoDelLugar>('/api/admin/club/fotos', cuerpo));
+  }
+
+  quitarFotoDelClub(id: number): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`/api/admin/club/fotos/${id}`));
+  }
+
+  /** La tienda y la cafetería (T184), con el mismo PATCH que los datos del club. */
+  fijarTiendaYCafeteria(datos: TiendaYCafeteria): Promise<ConfiguracionDelClub> {
+    return firstValueFrom(
+      this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', datos),
     );
   }
 

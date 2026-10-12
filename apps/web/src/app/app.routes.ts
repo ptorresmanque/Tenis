@@ -290,6 +290,14 @@ export const routes: Routes = [
               import('./configuracion/textos-del-sitio').then((m) => m.TextosDelSitio),
           },
           {
+            path: 'tienda-y-cafeteria',
+            title: 'Tienda y cafetería — Administración',
+            loadComponent: () =>
+              import('./configuracion/tienda-y-cafeteria').then(
+                (m) => m.TiendaYCafeteriaPanel,
+              ),
+          },
+          {
             path: 'administradores',
             title: 'Administradores — Administración',
             loadComponent: () =>

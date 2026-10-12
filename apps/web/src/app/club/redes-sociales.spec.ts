@@ -25,6 +25,8 @@ describe('RedesSociales', () => {
     elClubTitulo: 'FEDAL Tennis Center',
     elClubBajada: '',
     elClubCanchas: '',
+    tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+    cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
     tiendaHabilitada: false,
   };
 

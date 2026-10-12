@@ -11,6 +11,7 @@ import { FormularioContacto } from './formulario-contacto';
 import { enlacesDelMapa } from './mapa';
 import { RedesSociales } from './redes-sociales';
 import { Tarifas } from './tarifas';
+import { TiendaYCafeteria } from './tienda-y-cafeteria';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 import { Esqueleto } from '../ui/esqueleto';
 
@@ -43,6 +44,7 @@ import { Esqueleto } from '../ui/esqueleto';
     TelefonoPipe,
     RedesSociales,
     Esqueleto,
+    TiendaYCafeteria,
   ],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
@@ -165,6 +167,13 @@ import { Esqueleto } from '../ui/esqueleto';
         }
       </ol>
     </section>
+
+    <!--
+      La tienda y la cafetería (T186), con todas sus fotos. Antes de «Dónde
+      encontrarnos»: es lo que hay en el lugar, y a continuación, cómo llegar. La
+      portada enlaza a esta sección por su ancla.
+    -->
+    <app-tienda-y-cafeteria forma="completa" />
 
     <!--
       BANDA 4 — Dónde encontrarnos. Datos, sin cajas alrededor.

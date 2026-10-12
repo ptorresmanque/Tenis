@@ -120,9 +120,12 @@ describe('Datos del club y administradores', () => {
       // La ubicación sí es pública (T100): es para el mapa de "El club".
       // Las redes también (T140): están en el pie de todas las páginas.
       // Y los textos de "El club" (T142), que son de esa página pública.
-      // Y si la tienda existe en este ambiente (T156): no es una regla del club sino una
-      // variable de entorno, y el sitio la necesita para mostrar o esconder la tienda.
+      // Y la tienda y la cafetería (T184), que la portada y "El club" dan a conocer.
+      // Y si la tienda en línea existe en este ambiente (T156): no es una regla del club
+      // sino una variable de entorno, y el sitio la necesita para mostrar o esconder la
+      // tienda.
       expect(Object.keys(publico.body as object).sort()).toEqual([
+        'cafeteria',
         'direccion',
         'elClubBajada',
         'elClubCanchas',
@@ -134,6 +137,7 @@ describe('Datos del club y administradores', () => {
         'longitud',
         'nombre',
         'telefono',
+        'tienda',
         'tiendaHabilitada',
         'tiktok',
         'whatsapp',
@@ -253,6 +257,88 @@ describe('Datos del club y administradores', () => {
         expect((respuesta.body as { message: string }).message).toContain(
           'texto',
         );
+      });
+    });
+
+    describe('la tienda y la cafetería (T184)', () => {
+      type Lugar = { descripcion: string; horario: string; whatsapp: string };
+      type Publico = { tienda: Lugar; cafeteria: Lugar };
+
+      const leer = async (): Promise<Publico> =>
+        (await request(servidor()).get('/api/club').expect(200))
+          .body as Publico;
+
+      const fijar = (cambios: Record<string, unknown>) =>
+        request(servidor())
+          .patch('/api/admin/configuracion')
+          .set('Cookie', admin)
+          .send(cambios);
+
+      const VACIO = { descripcion: '', horario: '', whatsapp: '' };
+
+      afterEach(async () => {
+        await prisma.configuracionClub.updateMany({
+          data: {
+            tiendaDescripcion: '',
+            tiendaHorario: '',
+            tiendaWhatsapp: '',
+            cafeteriaDescripcion: '',
+            cafeteriaHorario: '',
+            cafeteriaWhatsapp: '',
+          },
+        });
+      });
+
+      it('**por omisión están vacías**: el sitio no las muestra hasta que el club escriba', async () => {
+        expect(await leer()).toMatchObject({ tienda: VACIO, cafeteria: VACIO });
+      });
+
+      it('el admin las escribe y el sitio las lee, cada una por su lado', async () => {
+        await fijar({
+          tiendaDescripcion: '  Raquetas, cuerdas y\nzapatillas.  ',
+          tiendaHorario: 'Lunes a sábado de 9:00 a 20:00',
+          tiendaWhatsapp: '9 8765 4321',
+          cafeteriaDescripcion: 'Café, jugos y sándwiches.',
+          cafeteriaHorario: 'Todos los días de 8:00 a 22:00',
+          cafeteriaWhatsapp: '',
+        }).expect(200);
+
+        // Cada lugar trae además sus fotos (T185), que se prueban en club-fotos.spec.ts.
+        expect(await leer()).toMatchObject({
+          tienda: {
+            descripcion: 'Raquetas, cuerdas y\nzapatillas.',
+            horario: 'Lunes a sábado de 9:00 a 20:00',
+            whatsapp: '56987654321',
+          },
+          cafeteria: {
+            descripcion: 'Café, jugos y sándwiches.',
+            horario: 'Todos los días de 8:00 a 22:00',
+            whatsapp: '',
+          },
+        });
+      });
+
+      it('lo que se pasa del largo de la columna se recorta, como los otros textos', async () => {
+        await fijar({
+          cafeteriaDescripcion: 'a'.repeat(700),
+          cafeteriaHorario: 'b'.repeat(200),
+        }).expect(200);
+
+        const { cafeteria } = await leer();
+
+        expect(cafeteria.descripcion).toHaveLength(600);
+        expect(cafeteria.horario).toHaveLength(120);
+      });
+
+      it('**un WhatsApp que no es chileno responde 400 y dice de cuál lugar es**', async () => {
+        const respuesta = await fijar({ cafeteriaWhatsapp: '8765 432' }).expect(
+          400,
+        );
+
+        expect((respuesta.body as { message: string }).message).toContain(
+          'WhatsApp de la cafetería',
+        );
+        expect((await leer()).cafeteria.whatsapp).toBe('');
       });
     });
 

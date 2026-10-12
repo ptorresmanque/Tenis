@@ -44,6 +44,9 @@ describe('Club', () => {
       elClubTitulo: 'FEDAL Tennis Center',
       elClubBajada: expect.stringContaining('Desde 2008'),
       elClubCanchas: expect.stringContaining('Basilea y Manacor'),
+      // La tienda y la cafetería, vacías: sin descripción no se muestran (T184).
+      tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+      cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
       // Sin saber si la tienda existe, no se ofrece (T157).
       tiendaHabilitada: false,
     });

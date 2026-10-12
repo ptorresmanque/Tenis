@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
 import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
+import { Club, LugarDelClub } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
 import { Inicio } from './inicio';
@@ -46,14 +47,20 @@ describe('Inicio', () => {
     // Un Error es el calendario que no cargó.
     torneos: TorneoPublico[] | Error,
     delDia: () => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
-    { esperar } = { esperar: true },
+    { esperar, tienda } = { esperar: true } as { esperar: boolean; tienda?: LugarDelClub },
   ) => {
+    const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: Disponibilidad, useValue: { delDia: vi.fn(delDia) } },
         { provide: Auth, useValue: { usuario: signal(null) } },
+        // La tienda y la cafetería (T186): vacías salvo que el test diga otra cosa.
+        {
+          provide: Club,
+          useValue: { datos: signal({ tienda: tienda ?? vacio, cafeteria: vacio }) },
+        },
         {
           provide: Torneos,
           useValue: {
@@ -413,6 +420,33 @@ describe('Inicio', () => {
       await montar([], () => new Promise(() => undefined), { esperar: false });
 
       expect(banda()).toBeNull();
+    });
+  });
+
+  describe('la tienda y la cafetería (T186)', () => {
+    it('con la tienda descrita, la portada la cuenta antes del cierre', async () => {
+      await montar([], undefined, {
+        esperar: true,
+        tienda: {
+          descripcion: 'Raquetas, cuerdas y zapatillas.',
+          horario: '',
+          whatsapp: '',
+          fotos: [],
+        },
+      });
+      const titulos = Array.from(elemento().querySelectorAll('h2')).map((h) =>
+        h.textContent?.trim(),
+      );
+
+      expect(titulos).toContain('También en el club');
+      // Antes del cierre: quien baja hasta acá ya decidió venir.
+      expect(titulos.indexOf('También en el club')).toBeLessThan(titulos.length - 1);
+    });
+
+    it('sin nada descrito, la banda no existe', async () => {
+      await montar([]);
+
+      expect(texto()).not.toContain('También en el club');
     });
   });
 });
