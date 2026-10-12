@@ -23,6 +23,10 @@ describe('VariantesDelProducto', () => {
     const api = {
       agregarVariante: vi.fn().mockResolvedValue(GRIP_2),
       editarVariante: vi.fn().mockResolvedValue(GRIP_2),
+      movimientos: vi.fn().mockResolvedValue({
+        variante: { id: 11, etiqueta: 'Grip 2', stock: 3, producto: 'Babolat Pure Drive' },
+        movimientos: [],
+      }),
     };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -70,6 +74,17 @@ describe('VariantesDelProducto', () => {
     expect(filas()[0].textContent).toContain('Grip 2');
     expect(filas()[0].textContent).toContain('7891234567890');
     expect(filas()[0].textContent).toContain('3');
+  });
+
+  it('**Movimientos abre el historial de stock de esa variante** (T160)', async () => {
+    const { api, boton, elemento, estable, filas } = await montar();
+
+    expect(elemento.querySelector('app-movimientos-de-la-variante')).toBeNull();
+    boton('Movimientos', filas()[0]).click();
+    await estable();
+
+    expect(elemento.querySelector('app-movimientos-de-la-variante')).not.toBeNull();
+    expect(api.movimientos).toHaveBeenCalledWith(11);
   });
 
   describe('agregar', () => {

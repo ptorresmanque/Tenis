@@ -153,6 +153,26 @@ export class ProductosDeLaTienda {
     );
   }
 
+  /** El historial de stock de una variante, del movimiento más nuevo al más viejo. */
+  movimientos(varianteId: number): Promise<HistorialDeStock> {
+    return firstValueFrom(
+      this.http.get<HistorialDeStock>(`/api/admin/tienda/variantes/${varianteId}/movimientos`),
+    );
+  }
+
+  /** Una entrada o un ajuste. Devuelve el stock que quedó. */
+  registrarMovimiento(
+    varianteId: number,
+    movimiento: MovimientoDelPanel,
+  ): Promise<{ stock: number }> {
+    return firstValueFrom(
+      this.http.post<{ stock: number }>(
+        `/api/admin/tienda/variantes/${varianteId}/movimientos`,
+        movimiento,
+      ),
+    );
+  }
+
   quitarFoto(productoId: number, fotoId: number): Promise<{ id: number }> {
     return firstValueFrom(
       this.http.delete<{ id: number }>(
@@ -160,4 +180,29 @@ export class ProductosDeLaTienda {
       ),
     );
   }
+}
+
+export type MotivoDeMovimiento = 'ENTRADA' | 'VENTA' | 'AJUSTE' | 'DEVOLUCION' | 'ANULACION';
+
+/** Un movimiento de stock: cuándo, cuánto, por qué y quién (T160). */
+export interface MovimientoDeStock {
+  id: number;
+  cantidad: number;
+  motivo: MotivoDeMovimiento;
+  nota: string | null;
+  creadoEn: string;
+  /** Nulo en una compra en línea, que no tiene autor. */
+  quien: string | null;
+}
+
+export interface HistorialDeStock {
+  variante: { id: number; etiqueta: string; stock: number; producto: string };
+  movimientos: MovimientoDeStock[];
+}
+
+/** Lo que se registra a mano desde el panel: una entrada o un ajuste con su nota. */
+export interface MovimientoDelPanel {
+  motivo: 'ENTRADA' | 'AJUSTE';
+  cantidad: number;
+  nota: string | null;
 }

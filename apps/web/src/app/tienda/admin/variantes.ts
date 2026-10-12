@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
+import { MovimientosDeLaVariante } from './movimientos';
 import { ProductosDeLaTienda, VarianteDelProducto } from './productos.service';
 
 /** Los anchos de `variante` en la base (T158). */
@@ -20,13 +21,13 @@ const LARGO_DEL_CODIGO = 64;
  */
 @Component({
   selector: 'app-variantes-del-producto',
-  imports: [FormsModule, Aviso, Insignia],
+  imports: [FormsModule, Aviso, Insignia, MovimientosDeLaVariante],
   template: `
     <section aria-labelledby="titulo-variantes" class="mt-8">
       <h3 id="titulo-variantes" class="rotulo-seccion">Variantes</h3>
       <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         Una talla, un color, un grip. En zapatillas, la etiqueta es la talla chilena. El
-        stock se cambia con una entrada de mercadería o un ajuste, no acá.
+        stock se cambia con una entrada de mercadería o un ajuste, en Movimientos.
       </p>
 
       @if (variantes().length > 0) {
@@ -108,14 +109,25 @@ const LARGO_DEL_CODIGO = 64;
                       }
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        class="boton boton-secundario boton-chico"
-                        (click)="abrirEdicion(variante)"
-                      >
-                        Editar
-                        <span class="sr-only">la variante {{ variante.etiqueta }}</span>
-                      </button>
+                      <div class="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          class="boton boton-secundario boton-chico"
+                          (click)="abrirEdicion(variante)"
+                        >
+                          Editar
+                          <span class="sr-only">la variante {{ variante.etiqueta }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="boton boton-texto boton-chico"
+                          [attr.aria-expanded]="conMovimientos() === variante.id"
+                          (click)="alternarMovimientos(variante.id)"
+                        >
+                          Movimientos
+                          <span class="sr-only">de la variante {{ variante.etiqueta }}</span>
+                        </button>
+                      </div>
                     </td>
                   }
                 </tr>
@@ -123,6 +135,14 @@ const LARGO_DEL_CODIGO = 64;
             </tbody>
           </table>
         </div>
+        <!-- Debajo de la tabla y no dentro: el historial tiene su propia tabla y su
+             formulario, y en una fila no caben. -->
+        @if (conMovimientos(); as varianteId) {
+          <app-movimientos-de-la-variante
+            [varianteId]="varianteId"
+            (cambiaron)="cambiaron.emit()"
+          />
+        }
       } @else {
         <p class="mt-4 text-sm">
           Todavía no tiene variantes. Sin ellas no se puede publicar: agrega la primera abajo.
@@ -196,6 +216,8 @@ export class VariantesDelProducto {
   protected borrador = { etiqueta: '', codigoBarras: '', activa: true };
 
   protected readonly editando = signal<number | null>(null);
+  /** De qué variante está abierto el historial de stock (T160). Uno a la vez. */
+  protected readonly conMovimientos = signal<number | null>(null);
   protected readonly enviando = signal(false);
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -222,6 +244,10 @@ export class VariantesDelProducto {
       });
       this.nueva = enBlanco();
     }, 'No se pudo agregar la variante.');
+  }
+
+  protected alternarMovimientos(id: number): void {
+    this.conMovimientos.update((abierta) => (abierta === id ? null : id));
   }
 
   protected abrirEdicion(variante: VarianteDelProducto): void {

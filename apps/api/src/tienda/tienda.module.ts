@@ -6,8 +6,10 @@ import { CategoriasYMarcas } from './catalogo-admin.service';
 import { FotosPublicasController } from './fotos-publicas.controller';
 import { FotosDeProductos } from './fotos.service';
 import { InterruptorDeLaTienda, RUTAS_DE_LA_TIENDA } from './interruptor';
+import { MovimientosDeStock } from './movimientos.service';
 import { ProductosAdminController } from './productos-admin.controller';
 import { ProductosDeLaTienda } from './productos.service';
+import { StockAdminController } from './stock-admin.controller';
 
 /**
  * La tienda: la Etapa 2, fuera del trabajo de título (`SPEC-tienda.md`).
@@ -23,8 +25,14 @@ import { ProductosDeLaTienda } from './productos.service';
     CatalogoAdminController,
     ProductosAdminController,
     FotosPublicasController,
+    StockAdminController,
   ],
-  providers: [CategoriasYMarcas, ProductosDeLaTienda, FotosDeProductos],
+  providers: [
+    CategoriasYMarcas,
+    ProductosDeLaTienda,
+    FotosDeProductos,
+    MovimientosDeStock,
+  ],
 })
 export class TiendaModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
