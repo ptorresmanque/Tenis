@@ -544,6 +544,15 @@ model ConfiguracionClub {
   latitud  Float?
   longitud Float?
 
+  /// Las redes del club (T140), para el pie de todas las páginas y "El club". Vacía es
+  /// "el club no tiene esa red". Se guarda el enlace `https` ya validado contra el dominio
+  /// de cada red (`redes.ts`); WhatsApp, el número con la forma del teléfono.
+  instagram String @default("") @db.VarChar(200)
+  facebook  String @default("") @db.VarChar(200)
+  tiktok    String @default("") @db.VarChar(200)
+  youtube   String @default("") @db.VarChar(200)
+  whatsapp  String @default("") @db.VarChar(40)
+
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).

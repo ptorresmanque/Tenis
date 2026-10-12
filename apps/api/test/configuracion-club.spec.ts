@@ -76,7 +76,16 @@ describe('Datos del club y administradores', () => {
       where: { email: { endsWith: DOMINIO } },
     });
     await prisma.configuracionClub.updateMany({
-      data: { direccion: '', telefono: '', email: '' },
+      data: {
+        direccion: '',
+        telefono: '',
+        email: '',
+        instagram: '',
+        facebook: '',
+        tiktok: '',
+        youtube: '',
+        whatsapp: '',
+      },
     });
     await app.close();
   });
@@ -109,14 +118,61 @@ describe('Datos del club y administradores', () => {
       const publico = await request(servidor()).get('/api/club').expect(200);
 
       // La ubicación sí es pública (T100): es para el mapa de "El club".
+      // Las redes también (T140): están en el pie de todas las páginas.
       expect(Object.keys(publico.body as object).sort()).toEqual([
         'direccion',
         'email',
+        'facebook',
+        'instagram',
         'latitud',
         'longitud',
         'nombre',
         'telefono',
+        'tiktok',
+        'whatsapp',
+        'youtube',
       ]);
+    });
+
+    it('**guarda las redes y las publica** (T140)', async () => {
+      await request(servidor())
+        .patch('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .send({
+          instagram: '@fedaltennis',
+          facebook: 'facebook.com/fedaltennis',
+          tiktok: '',
+          youtube: 'https://www.youtube.com/@fedaltennis',
+          whatsapp: '9 8765 4321',
+        })
+        .expect(200);
+
+      const publico = await request(servidor()).get('/api/club').expect(200);
+
+      expect(publico.body).toMatchObject({
+        instagram: 'https://www.instagram.com/fedaltennis',
+        facebook: 'https://facebook.com/fedaltennis',
+        tiktok: '',
+        youtube: 'https://www.youtube.com/@fedaltennis',
+        whatsapp: '56987654321',
+      });
+    });
+
+    it('una red con un enlace de otro dominio responde 400 y no guarda nada', async () => {
+      await request(servidor())
+        .patch('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .send({
+          direccion: 'No debería quedar',
+          instagram: 'https://otro.cl/x',
+        })
+        .expect(400);
+
+      const publico = await request(servidor()).get('/api/club').expect(200);
+
+      expect((publico.body as { direccion: string }).direccion).not.toBe(
+        'No debería quedar',
+      );
     });
 
     it('un teléfono del club que no son 9 dígitos responde 400 (T120)', async () => {

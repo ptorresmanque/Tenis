@@ -8,6 +8,7 @@ import {
 import { leerTelefono } from '../comun/telefono';
 import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
+import { leerRed, leerWhatsapp, REDES, RedesDelClub } from './redes';
 import { leerUbicacion } from './ubicacion';
 
 /**
@@ -135,7 +136,7 @@ export function leerCambiosDeCancha(
  *
  * `SPEC-catalogo-canchas.md` § Configuración general del club.
  */
-export interface CambiosDeConfiguracion {
+export interface CambiosDeConfiguracion extends RedesDelClub {
   /** Los datos del club: los edita el mismo formulario, en otra pestaña. */
   nombre: string;
   direccion: string;
@@ -165,7 +166,13 @@ export interface CambiosDeConfiguracion {
 /** Las reglas que son números: las de texto se validan aparte, por largo. */
 type ReglasNumericas = Omit<
   CambiosDeConfiguracion,
-  'nombre' | 'direccion' | 'telefono' | 'email' | 'latitud' | 'longitud'
+  | 'nombre'
+  | 'direccion'
+  | 'telefono'
+  | 'email'
+  | 'latitud'
+  | 'longitud'
+  | keyof RedesDelClub
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -235,6 +242,15 @@ export function leerCambiosDeConfiguracion(
   if (datos.telefono !== undefined) {
     cambios.telefono =
       leerTelefono(datos.telefono, { obligatorio: false }) ?? '';
+  }
+
+  // T140. Cada red se valida contra su dominio; WhatsApp, como el teléfono.
+  for (const red of REDES) {
+    if (datos[red] !== undefined) cambios[red] = leerRed(red, datos[red]);
+  }
+
+  if (datos.whatsapp !== undefined) {
+    cambios.whatsapp = leerWhatsapp(datos.whatsapp);
   }
 
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o

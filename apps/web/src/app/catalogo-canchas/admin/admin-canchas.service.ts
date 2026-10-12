@@ -145,6 +145,13 @@ export interface DatosDelClub {
   /** Dónde está el club, para el mapa (T100). Nulas mientras no se cargue. */
   latitud: number | null;
   longitud: number | null;
+  /** Las redes (T140): el enlace ya validado, o vacío si el club no la tiene. */
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  youtube: string;
+  /** El número, en la forma del teléfono. */
+  whatsapp: string;
 }
 
 /**
