@@ -101,4 +101,44 @@ export class Tours {
       ),
     );
   }
+
+  // ── Temporadas y niveles (T192) ────────────────────────────────────────────
+
+  crearTemporada(
+    tourId: number,
+    datos: { nombre: string; fechaInicio: string; fechaFin: string },
+  ): Promise<unknown> {
+    return firstValueFrom(this.http.post(`/api/admin/tours/${tourId}/temporadas`, datos));
+  }
+
+  editarTemporada(
+    id: number,
+    cambio: { nombre?: string; fechaInicio?: string; fechaFin?: string },
+  ): Promise<unknown> {
+    return firstValueFrom(this.http.patch(`/api/admin/temporadas/${id}`, cambio));
+  }
+
+  borrarTemporada(id: number): Promise<unknown> {
+    return firstValueFrom(this.http.delete(`/api/admin/temporadas/${id}`));
+  }
+
+  crearNivel(
+    temporadaId: number,
+    datos: { nombre: string; tabla: TablaDePuntos },
+  ): Promise<NivelDelPanel> {
+    return firstValueFrom(
+      this.http.post<NivelDelPanel>(`/api/admin/temporadas/${temporadaId}/niveles`, datos),
+    );
+  }
+
+  editarNivel(
+    id: number,
+    cambio: { nombre?: string; tabla?: TablaDePuntos },
+  ): Promise<NivelDelPanel> {
+    return firstValueFrom(this.http.patch<NivelDelPanel>(`/api/admin/niveles/${id}`, cambio));
+  }
+
+  borrarNivel(id: number): Promise<unknown> {
+    return firstValueFrom(this.http.delete(`/api/admin/niveles/${id}`));
+  }
 }

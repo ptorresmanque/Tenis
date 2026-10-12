@@ -188,6 +188,27 @@ describe('FichaTour', () => {
     expect(campo(elemento, 'Descripción')?.value).toBe('La liga del club.');
   });
 
+  it('**la pestaña Temporadas** muestra sus temporadas, y lo que cambia ahí recarga la ficha', async () => {
+    const { fixture, api, elemento } = await montar();
+
+    Array.from(elemento.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+      .find((b) => b.textContent?.includes('Temporadas'))!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const pestana = elemento.querySelector('app-temporadas-del-tour');
+    expect(pestana).not.toBeNull();
+    expect(elemento.querySelector('textarea[name="descripcion"]')).toBeNull();
+
+    const antes = api.ficha.mock.calls.length;
+    (fixture.debugElement.query((n) => n.name === 'app-temporadas-del-tour')
+      .componentInstance as { cambio: { emit: () => void } }).cambio.emit();
+    await fixture.whenStable();
+
+    expect(api.ficha.mock.calls.length).toBe(antes + 1);
+  });
+
   it('un tour que no existe lo dice, con el enlace de vuelta', async () => {
     const { elemento } = await montar(() => Promise.reject({ status: 404 }));
 

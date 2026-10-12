@@ -17,12 +17,14 @@ import { Aviso } from '../../ui/aviso';
 import { Campo, CampoControl } from '../../ui/campo';
 import { Esqueleto } from '../../ui/esqueleto';
 import { FichaDeTour, Tours } from '../tours.service';
+import { TemporadasDelTour } from './temporadas-del-tour';
 
-/** Lo que se le hace a un tour. Temporadas y Galería llegan en T192 y T193. */
-type Pestana = 'datos';
+/** Lo que se le hace a un tour. La galería llega en T193. */
+type Pestana = 'datos' | 'temporadas';
 
 const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
   { id: 'datos', nombre: 'Datos', icono: 'edit_note' },
+  { id: 'temporadas', nombre: 'Temporadas', icono: 'event_repeat' },
 ];
 
 const LARGO_DEL_NOMBRE = 80;
@@ -35,7 +37,7 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
  */
 @Component({
   selector: 'app-ficha-tour',
-  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, Esqueleto],
+  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, Esqueleto, TemporadasDelTour],
   template: `
     <a routerLink="/administracion/tours" class="text-sm font-semibold text-primary">
       <span class="icono align-middle text-base" aria-hidden="true">arrow_back</span>
@@ -82,101 +84,105 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
         }
       </div>
 
-      @if (error(); as falla) {
-        <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-      } @else if (aviso(); as texto) {
-        <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
-      }
+      @if (activa() === 'temporadas') {
+        <app-temporadas-del-tour [tour]="tour" (cambio)="ficha.reload()" />
+      } @else {
+        @if (error(); as falla) {
+          <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
+        } @else if (aviso(); as texto) {
+          <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
+        }
 
-      <div class="mt-6 grid gap-8 lg:grid-cols-[1fr_20rem]">
-        <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
-          <app-campo etiqueta="Nombre" [obligatorio]="true">
-            <input
-              appCampoControl
-              class="campo"
-              name="nombre"
-              [maxlength]="LARGO_DEL_NOMBRE"
-              [ngModel]="editado().nombre ?? tour.nombre"
-              (ngModelChange)="escribir('nombre', $event)"
-            />
-          </app-campo>
+        <div class="mt-6 grid gap-8 lg:grid-cols-[1fr_20rem]">
+          <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
+            <app-campo etiqueta="Nombre" [obligatorio]="true">
+              <input
+                appCampoControl
+                class="campo"
+                name="nombre"
+                [maxlength]="LARGO_DEL_NOMBRE"
+                [ngModel]="editado().nombre ?? tour.nombre"
+                (ngModelChange)="escribir('nombre', $event)"
+              />
+            </app-campo>
 
-          <!-- La cuenta va en la ayuda, que el lector lee al entrar al campo, y no en una
+            <!-- La cuenta va en la ayuda, que el lector lee al entrar al campo, y no en una
                región viva que hablaría con cada letra. -->
-          <app-campo
-            etiqueta="Descripción"
-            [ayuda]="
-              'Texto plano: los saltos de línea se respetan. ' +
-              quedan(editado().descripcion ?? tour.descripcion)
-            "
-          >
-            <textarea
-              appCampoControl
-              class="campo"
-              name="descripcion"
-              rows="8"
-              [maxlength]="LARGO_DE_LA_DESCRIPCION"
-              [ngModel]="editado().descripcion ?? tour.descripcion"
-              (ngModelChange)="escribir('descripcion', $event)"
-            ></textarea>
-          </app-campo>
-
-          <div>
-            <button
-              type="submit"
-              class="boton boton-primario"
-              [disabled]="enCurso() !== null"
-              [attr.aria-busy]="enCurso() === 'guardar'"
+            <app-campo
+              etiqueta="Descripción"
+              [ayuda]="
+                'Texto plano: los saltos de línea se respetan. ' +
+                quedan(editado().descripcion ?? tour.descripcion)
+              "
             >
-              {{ enCurso() === 'guardar' ? 'Guardando…' : 'Guardar los datos' }}
-            </button>
-          </div>
-        </form>
+              <textarea
+                appCampoControl
+                class="campo"
+                name="descripcion"
+                rows="8"
+                [maxlength]="LARGO_DE_LA_DESCRIPCION"
+                [ngModel]="editado().descripcion ?? tour.descripcion"
+                (ngModelChange)="escribir('descripcion', $event)"
+              ></textarea>
+            </app-campo>
 
-        <section aria-labelledby="titulo-imagen">
-          <h2 id="titulo-imagen" class="subtitulo">Imagen representativa</h2>
-          @if (tour.imagen; as imagen) {
-            <img
-              class="mt-2 aspect-[4/3] w-full bg-muted object-cover"
-              [src]="imagen.miniatura + '?v=' + version()"
-              [alt]="'Imagen de ' + tour.nombre"
-            />
-          } @else {
-            <p class="mt-2 text-sm text-muted-foreground">
-              Todavía no tiene imagen. Es la portada de su tarjeta y de su página.
-            </p>
-          }
-          <label class="mt-3 block">
-            <span class="text-sm font-medium">
-              {{ tour.imagen ? 'Reemplazar la imagen' : 'Subir la imagen' }}
-            </span>
-            <input
-              class="campo mt-1"
-              type="file"
-              accept="image/jpeg,image/png"
-              [disabled]="enCurso() !== null"
-              [attr.aria-busy]="enCurso() === 'imagen'"
-              (change)="subirImagen($event)"
-            />
-          </label>
+            <div>
+              <button
+                type="submit"
+                class="boton boton-primario"
+                [disabled]="enCurso() !== null"
+                [attr.aria-busy]="enCurso() === 'guardar'"
+              >
+                {{ enCurso() === 'guardar' ? 'Guardando…' : 'Guardar los datos' }}
+              </button>
+            </div>
+          </form>
+
+          <section aria-labelledby="titulo-imagen">
+            <h2 id="titulo-imagen" class="subtitulo">Imagen representativa</h2>
+            @if (tour.imagen; as imagen) {
+              <img
+                class="mt-2 aspect-[4/3] w-full bg-muted object-cover"
+                [src]="imagen.miniatura + '?v=' + version()"
+                [alt]="'Imagen de ' + tour.nombre"
+              />
+            } @else {
+              <p class="mt-2 text-sm text-muted-foreground">
+                Todavía no tiene imagen. Es la portada de su tarjeta y de su página.
+              </p>
+            }
+            <label class="mt-3 block">
+              <span class="text-sm font-medium">
+                {{ tour.imagen ? 'Reemplazar la imagen' : 'Subir la imagen' }}
+              </span>
+              <input
+                class="campo mt-1"
+                type="file"
+                accept="image/jpeg,image/png"
+                [disabled]="enCurso() !== null"
+                [attr.aria-busy]="enCurso() === 'imagen'"
+                (change)="subirImagen($event)"
+              />
+            </label>
+          </section>
+        </div>
+
+        <section class="mt-10 border-t border-border pt-4" aria-labelledby="titulo-borrar">
+          <h2 id="titulo-borrar" class="subtitulo">Borrar el tour</h2>
+          <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+            Se borran sus temporadas, sus niveles y su galería. Un tour con torneos no se puede
+            borrar.
+          </p>
+          <button
+            type="button"
+            class="boton boton-destructivo boton-chico mt-3"
+            [disabled]="enCurso() !== null"
+            (click)="confirmando.set(true)"
+          >
+            Borrar el tour
+          </button>
         </section>
-      </div>
-
-      <section class="mt-10 border-t border-border pt-4" aria-labelledby="titulo-borrar">
-        <h2 id="titulo-borrar" class="subtitulo">Borrar el tour</h2>
-        <p class="mt-1 max-w-prose text-sm text-muted-foreground">
-          Se borran sus temporadas, sus niveles y su galería. Un tour con torneos no se puede
-          borrar.
-        </p>
-        <button
-          type="button"
-          class="boton boton-destructivo boton-chico mt-3"
-          [disabled]="enCurso() !== null"
-          (click)="confirmando.set(true)"
-        >
-          Borrar el tour
-        </button>
-      </section>
+      }
     }
 
     <!-- Se abre con showModal y no con el atributo open: es lo único que vuelve inerte el
@@ -190,8 +196,8 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
     >
       <h2 id="titulo-confirmar-borrado" class="titular text-2xl">Borrar el tour</h2>
       <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-        {{ ficha.hasValue() ? ficha.value().nombre : 'El tour' }} se borra con sus temporadas,
-        sus niveles y su galería. Esto no se puede deshacer.
+        {{ ficha.hasValue() ? ficha.value().nombre : 'El tour' }} se borra con sus temporadas, sus
+        niveles y su galería. Esto no se puede deshacer.
       </p>
       <div class="mt-5 flex flex-wrap justify-end gap-2">
         <button type="button" class="boton boton-texto" (click)="confirmando.set(false)">
@@ -252,8 +258,7 @@ export class FichaTour {
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
-  private readonly confirmacion =
-    viewChild.required<ElementRef<HTMLDialogElement>>('confirmacion');
+  private readonly confirmacion = viewChild.required<ElementRef<HTMLDialogElement>>('confirmacion');
 
   constructor() {
     // Abrir y cerrar el `<dialog>` sigue a la señal, como en los pagos: así la tecla Esc,
