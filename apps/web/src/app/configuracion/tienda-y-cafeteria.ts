@@ -10,6 +10,7 @@ import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
 import { Campo, CampoControl } from '../ui/campo';
 import { TelefonoDirective } from '../ui/telefono';
+import { FotosDelClubPanel } from './fotos-del-club';
 
 /**
  * Los dos lugares, con sus tres campos. El largo es el de la columna: `maxlength` no deja
@@ -39,12 +40,13 @@ const LARGO_HORARIO = 120;
  * La tienda y la cafetería del club (T184), como información para la portada y «El
  * club». El sitio no vende nada: eso es la Etapa 2.
  *
- * Pestaña aparte de «Textos del sitio» porque T185 le suma las fotos de cada lugar, que no
- * caben en un formulario de textos. Lo que se guarda acá se ve en el sitio sin recargar.
+ * Pestaña aparte de «Textos del sitio» porque lleva además las fotos de cada lugar (T185),
+ * que no caben en un formulario de textos. Lo que se guarda acá se ve en el sitio sin
+ * recargar.
  */
 @Component({
   selector: 'app-tienda-y-cafeteria',
-  imports: [FormsModule, Aviso, Campo, CampoControl, TelefonoDirective],
+  imports: [FormsModule, Aviso, Campo, CampoControl, TelefonoDirective, FotosDelClubPanel],
   template: `
     <form class="grid max-w-xl gap-6" (ngSubmit)="guardar()">
       @if (configuracion.error()) {
@@ -133,6 +135,8 @@ const LARGO_HORARIO = 120;
         </button>
       </div>
     </form>
+
+    <app-fotos-del-club />
   `,
 })
 export class TiendaYCafeteriaPanel {

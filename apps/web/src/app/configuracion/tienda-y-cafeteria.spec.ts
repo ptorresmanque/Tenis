@@ -30,6 +30,8 @@ describe('TiendaYCafeteriaPanel', () => {
     const api = {
       configuracion: vi.fn(configuracion),
       fijarTiendaYCafeteria: vi.fn(fijar),
+      // Las fotos (T185) van en su propio componente, debajo; acá, sin ninguna.
+      fotosDelClub: vi.fn().mockResolvedValue({ TIENDA: [], CAFETERIA: [] }),
     };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -140,6 +142,12 @@ describe('TiendaYCafeteriaPanel', () => {
 
     expect(elemento.textContent).toContain('El WhatsApp de la cafetería tiene que tener');
     expect(club.recargar).not.toHaveBeenCalled();
+  });
+
+  it('debajo de los textos van las fotos de cada lugar (T185)', async () => {
+    const { elemento } = await montar();
+
+    expect(elemento.querySelector('app-fotos-del-club')?.textContent).toContain('Fotos');
   });
 
   it('si no carga, lo dice y no deja guardar el formulario en blanco', async () => {

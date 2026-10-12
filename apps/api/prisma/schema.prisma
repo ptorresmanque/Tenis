@@ -627,6 +627,35 @@ model PreguntaFrecuente {
   @@map("pregunta_frecuente")
 }
 
+/// Los dos lugares del club que el sitio da a conocer (T185). Un tercero —un quincho— es
+/// un valor más acá y tres columnas más en `ConfiguracionClub`.
+enum Lugar {
+  TIENDA
+  CAFETERIA
+}
+
+/// Una foto de la tienda o la cafetería (T185), para la portada y "El club".
+///
+/// **Seis por lugar como máximo**, que valida la API: es un bloque de una página, no una
+/// galería. Van en el orden en que se subieron, y la primera es la de la portada.
+model FotoLugar {
+  id    Int   @id @default(autoincrement())
+  lugar Lugar
+
+  /// Las dos versiones que deja `guardarImagenConMiniatura`, relativas a la carpeta de
+  /// subidas. Nunca salen por la API: se publican dos direcciones por id.
+  rutaWeb       String @map("ruta_web") @db.VarChar(255)
+  rutaMiniatura String @map("ruta_miniatura") @db.VarChar(255)
+
+  /// El texto alternativo. Opcional: sin él, el sitio dice "Foto de la tienda del club".
+  descripcion String? @db.VarChar(200)
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  @@index([lugar, creadaEn])
+  @@map("foto_lugar")
+}
+
 // ── pagos ────────────────────────────────────────────────────────────────────
 // Modelo de SPEC-pagos.md § Modelo de datos.
 

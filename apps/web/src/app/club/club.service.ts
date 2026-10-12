@@ -1,6 +1,15 @@
 import { httpResource } from '@angular/common/http';
 import { computed, Service } from '@angular/core';
 
+/** Una foto de la tienda o la cafetería (T185), con las dos direcciones de la API. */
+export interface FotoDelLugar {
+  id: number;
+  /** El texto alternativo que escribió el admin, o nulo. */
+  descripcion: string | null;
+  miniatura: string;
+  imagen: string;
+}
+
 /**
  * La tienda o la cafetería del club (T184), como información: el sitio no vende nada. Sin
  * descripción, el lugar no se muestra.
@@ -11,6 +20,8 @@ export interface LugarDelClub {
   horario: string;
   /** `56` y los 9 dígitos, o vacío. */
   whatsapp: string;
+  /** Hasta seis, en el orden en que se subieron: la primera es la de la portada (T185). */
+  fotos: FotoDelLugar[];
 }
 
 /** Espejo de `ClubPublico` en la API. Lo que es público. */
@@ -83,8 +94,8 @@ export class Club {
             'Todas de superficie dura y velocidad media, como el Australian Open. Las dos ' +
             'centrales se llaman Basilea y Manacor, y el club no da más explicaciones.',
           // Vacías: sin descripción no se muestran, que es lo correcto mientras no se sabe.
-          tienda: { descripcion: '', horario: '', whatsapp: '' },
-          cafeteria: { descripcion: '', horario: '', whatsapp: '' },
+          tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+          cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
         },
   );
 

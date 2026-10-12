@@ -299,20 +299,19 @@ describe('Datos del club y administradores', () => {
           cafeteriaWhatsapp: '',
         }).expect(200);
 
-        expect(await leer()).toEqual(
-          expect.objectContaining({
-            tienda: {
-              descripcion: 'Raquetas, cuerdas y\nzapatillas.',
-              horario: 'Lunes a sábado de 9:00 a 20:00',
-              whatsapp: '56987654321',
-            },
-            cafeteria: {
-              descripcion: 'Café, jugos y sándwiches.',
-              horario: 'Todos los días de 8:00 a 22:00',
-              whatsapp: '',
-            },
-          }),
-        );
+        // Cada lugar trae además sus fotos (T185), que se prueban en club-fotos.spec.ts.
+        expect(await leer()).toMatchObject({
+          tienda: {
+            descripcion: 'Raquetas, cuerdas y\nzapatillas.',
+            horario: 'Lunes a sábado de 9:00 a 20:00',
+            whatsapp: '56987654321',
+          },
+          cafeteria: {
+            descripcion: 'Café, jugos y sándwiches.',
+            horario: 'Todos los días de 8:00 a 22:00',
+            whatsapp: '',
+          },
+        });
       });
 
       it('lo que se pasa del largo de la columna se recorta, como los otros textos', async () => {
