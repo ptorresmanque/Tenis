@@ -68,6 +68,8 @@ describe('Rutas protegidas', () => {
     'administracion/configuracion/tienda-y-cafeteria',
     'administracion/configuracion/preguntas-frecuentes',
     'administracion/configuracion/administradores',
+    'administracion/tours',
+    'administracion/tours/:id',
     'estado',
   ])('%s es solo del admin', (url) => {
     expect(buscar(url)?.guards).toContain(soloAdmin);
@@ -131,6 +133,8 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/configuracion/tienda-y-cafeteria', CascaronAdmin],
     ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
     ['administracion/configuracion/administradores', CascaronAdmin],
+    ['administracion/tours', CascaronAdmin],
+    ['administracion/tours/:id', CascaronAdmin],
     ['estado', CascaronAdmin],
   ])('/%s se dibuja dentro del cascarón que le toca', (url, cascaron) => {
     expect(buscar(url)?.cascaron).toBe(cascaron);

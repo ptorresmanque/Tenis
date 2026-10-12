@@ -299,6 +299,13 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      // T191. Junto a Torneos: son las ligas a las que suman.
+      ruta: '/administracion/tours',
+      etiqueta: 'Tours',
+      icono: 'military_tech',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/jugadores',
       etiqueta: 'Jugadores',
       icono: 'groups',

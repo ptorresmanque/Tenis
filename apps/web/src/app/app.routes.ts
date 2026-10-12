@@ -210,6 +210,16 @@ export const routes: Routes = [
           import('./torneos/admin/ficha-torneo').then((m) => m.FichaDeTorneo),
       },
       {
+        path: 'administracion/tours',
+        title: 'Tours — Administración',
+        loadComponent: () => import('./tours/admin/tours').then((m) => m.ToursPanel),
+      },
+      {
+        path: 'administracion/tours/:id',
+        title: 'Tour — Administración',
+        loadComponent: () => import('./tours/admin/ficha-tour').then((m) => m.FichaTour),
+      },
+      {
         path: 'administracion/jugadores',
         title: 'Jugadores — Administración',
         loadComponent: () =>
