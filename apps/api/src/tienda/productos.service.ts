@@ -29,6 +29,11 @@ export interface ProductoDeLaLista {
   archivado: boolean;
   /** La suma de sus variantes activas. Puede ser negativa (encargo, mesón). */
   stockTotal: number;
+  /**
+   * El stock de su variante activa más baja, o nulo si no tiene ninguna (T159). Es el que
+   * dice si algo se agota: el total esconde una talla en −1 detrás de otra en +5.
+   */
+  stockMinimo: number | null;
   variantes: number;
   /** La miniatura de su primera foto, o nada. */
   foto: string | null;
@@ -98,14 +103,17 @@ export class ProductosDeLaTienda {
       },
     });
 
-    return productos.map(({ variantes, fotos, ...producto }) => ({
-      ...producto,
-      stockTotal: variantes
-        .filter((v) => v.activa)
-        .reduce((suma, v) => suma + v.stock, 0),
-      variantes: variantes.length,
-      foto: fotos[0] ? direccionesDeLaFoto(fotos[0].id).miniatura : null,
-    }));
+    return productos.map(({ variantes, fotos, ...producto }) => {
+      const activas = variantes.filter((v) => v.activa).map((v) => v.stock);
+
+      return {
+        ...producto,
+        stockTotal: activas.reduce((suma, stock) => suma + stock, 0),
+        stockMinimo: activas.length > 0 ? Math.min(...activas) : null,
+        variantes: variantes.length,
+        foto: fotos[0] ? direccionesDeLaFoto(fotos[0].id).miniatura : null,
+      };
+    });
   }
 
   async ficha(id: number): Promise<FichaDeProducto> {

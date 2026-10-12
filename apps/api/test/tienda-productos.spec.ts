@@ -384,6 +384,51 @@ describe('Tienda: productos, variantes y stock', () => {
       expect(await prisma.producto.count({ where: { id: ficha.id } })).toBe(1);
     });
 
+    it('la lista dice el stock de la variante más baja, para filtrar lo que se agota (T159)', async () => {
+      // El total no sirve: +5 y −1 suman 4 y esconden la talla que se debe.
+      const ficha = await crearProducto({
+        variantes: [
+          { etiqueta: 'Grip 2', stock: 5 },
+          { etiqueta: 'Grip 3', stock: 1 },
+          { etiqueta: 'Grip 4', stock: 0 },
+        ],
+      });
+      // La inactiva no cuenta: ya no se vende.
+      await patch(`/variantes/${ficha.variantes[2].id}`, {
+        activa: false,
+      }).expect(200);
+      await prisma.$transaction((tx) =>
+        moverStock(tx, {
+          varianteId: ficha.variantes[1].id,
+          cantidad: -2,
+          motivo: 'VENTA',
+          usuarioId: null,
+        }),
+      );
+
+      const lista = (await get('/productos').expect(200)).body as {
+        id: number;
+        stockTotal: number;
+        stockMinimo: number | null;
+      }[];
+
+      expect(lista.find((p) => p.id === ficha.id)).toMatchObject({
+        stockTotal: 4,
+        stockMinimo: -1,
+      });
+    });
+
+    it('sin variantes activas, el stock más bajo es nulo', async () => {
+      const ficha = await crearProducto();
+
+      const lista = (await get('/productos').expect(200)).body as {
+        id: number;
+        stockMinimo: number | null;
+      }[];
+
+      expect(lista.find((p) => p.id === ficha.id)?.stockMinimo).toBeNull();
+    });
+
     it('la lista no trae los archivados, salvo que se pidan', async () => {
       const visible = await crearProducto({ nombre: `${MARCA} Visible` });
       const guardado = await crearProducto({ nombre: `${MARCA} Guardado` });

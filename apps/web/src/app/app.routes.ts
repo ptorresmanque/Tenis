@@ -325,7 +325,19 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./tienda/admin/tienda-panel').then((m) => m.TiendaPanel),
         children: [
-          { path: '', pathMatch: 'full', redirectTo: 'categorias' },
+          { path: '', pathMatch: 'full', redirectTo: 'productos' },
+          {
+            path: 'productos',
+            title: 'Productos — Administración',
+            loadComponent: () => import('./tienda/admin/productos').then((m) => m.ProductosPanel),
+          },
+          {
+            // "nuevo" o el número del producto: la misma ficha crea y corrige (T159).
+            path: 'productos/:id',
+            title: 'Ficha de producto — Administración',
+            loadComponent: () =>
+              import('./tienda/admin/ficha-producto').then((m) => m.FichaDeProductoPanel),
+          },
           {
             path: 'categorias',
             title: 'Categorías de la tienda — Administración',

@@ -68,6 +68,8 @@ describe('Rutas protegidas', () => {
     'administracion/configuracion/textos',
     'administracion/configuracion/preguntas-frecuentes',
     'administracion/configuracion/administradores',
+    'administracion/tienda/productos',
+    'administracion/tienda/productos/:id',
     'administracion/tienda/categorias',
     'administracion/tienda/marcas',
     'estado',
@@ -75,7 +77,12 @@ describe('Rutas protegidas', () => {
     expect(buscar(url)?.guards).toContain(soloAdmin);
   });
 
-  it.each(['administracion/tienda/categorias', 'administracion/tienda/marcas'])(
+  it.each([
+    'administracion/tienda/productos',
+    'administracion/tienda/productos/:id',
+    'administracion/tienda/categorias',
+    'administracion/tienda/marcas',
+  ])(
     '%s exige además que la tienda exista en este ambiente (T157)',
     (url) => {
       expect(buscar(url)?.guards).toContain(tiendaHabilitada);
@@ -139,6 +146,8 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/configuracion/textos', CascaronAdmin],
     ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
     ['administracion/configuracion/administradores', CascaronAdmin],
+    ['administracion/tienda/productos', CascaronAdmin],
+    ['administracion/tienda/productos/:id', CascaronAdmin],
     ['administracion/tienda/categorias', CascaronAdmin],
     ['administracion/tienda/marcas', CascaronAdmin],
     ['estado', CascaronAdmin],
