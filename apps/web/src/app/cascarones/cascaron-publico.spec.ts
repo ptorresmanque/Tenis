@@ -120,6 +120,14 @@ describe('Cascarón público: la navegación', () => {
     );
   });
 
+  it('el pie enlaza las preguntas frecuentes (T146)', () => {
+    const pie = (montarCon(null).nativeElement as HTMLElement).querySelector('footer');
+
+    expect(pie?.querySelector('a[href="/preguntas-frecuentes"]')?.textContent).toContain(
+      'Preguntas frecuentes',
+    );
+  });
+
   it('le ofrece crear cuenta a quien no ha entrado', () => {
     expect(enlacesCon(null)).toContain('Crear cuenta');
   });

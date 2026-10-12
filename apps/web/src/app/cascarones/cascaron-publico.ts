@@ -260,6 +260,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         <div>
           <h2 class="font-display text-sm font-bold uppercase">Contacto</h2>
           <ul class="mt-3 grid gap-1 text-sm text-on-campo/80">
+            <!-- T146. Primero: es lo que conviene mirar antes de escribir o llamar. -->
+            <li>
+              <a routerLink="/preguntas-frecuentes" class="hover:text-on-campo hover:underline">
+                Preguntas frecuentes
+              </a>
+            </li>
             @if (club().direccion) {
               <li>{{ club().direccion }}</li>
             }

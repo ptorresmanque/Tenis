@@ -129,6 +129,14 @@ describe('ElClub', () => {
     });
   });
 
+  it('antes del formulario de contacto, enlaza las preguntas frecuentes (T146)', async () => {
+    await montar([]);
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('a[href="/preguntas-frecuentes"]'),
+    ).not.toBeNull();
+  });
+
   it('con el contacto en blanco no queda una ficha a medias', async () => {
     await montar([]);
 

@@ -245,6 +245,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     </section>
 
     <section class="mt-16">
+      <!-- T146. Antes de escribir: puede que la respuesta ya esté publicada. -->
+      <p class="mb-6 max-w-prose text-muted-foreground">
+        ¿Tienes una duda? Puede que ya esté en las
+        <a routerLink="/preguntas-frecuentes" class="font-semibold text-primary underline">preguntas frecuentes</a>.
+      </p>
       <app-formulario-contacto />
     </section>
 

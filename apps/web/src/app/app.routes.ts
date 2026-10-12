@@ -85,6 +85,12 @@ export const routes: Routes = [
         loadComponent: () => import('./club/privacidad').then((m) => m.Privacidad),
       },
       {
+        path: 'preguntas-frecuentes',
+        title: 'Preguntas frecuentes — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./club/preguntas-frecuentes').then((m) => m.PreguntasFrecuentesPublicas),
+      },
+      {
         // Corta a propósito: es lo que se codifica en el QR, y cada carácter de
         // más es un módulo más de dibujo para leer en el mesón.
         path: 'r/:token',
