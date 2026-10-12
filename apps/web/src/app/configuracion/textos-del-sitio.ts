@@ -2,6 +2,7 @@ import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { AdminCanchas, TextosDeElClub } from '../catalogo-canchas/admin/admin-canchas.service';
+import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
 import { Campo, CampoControl } from '../ui/campo';
@@ -113,6 +114,8 @@ const TEXTOS = [
 })
 export class TextosDelSitio {
   private readonly api = inject(AdminCanchas);
+  /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
+  private readonly sitio = inject(Club);
 
   protected readonly TEXTOS = TEXTOS;
 
@@ -166,6 +169,7 @@ export class TextosDelSitio {
     try {
       await this.api.fijarTextosDeElClub(this.formulario());
       this.configuracion.reload();
+      this.sitio.recargar();
       this.editado.set({});
       this.guardado.set(true);
     } catch (falla) {

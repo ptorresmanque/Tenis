@@ -1,10 +1,15 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
+import { Club } from '../club/club.service';
 import { DatosDelClub } from './datos-del-club';
 
 describe('DatosDelClub', () => {
+  /** El servicio del sitio, falso: el real pide /api/club y estos tests no tienen HTTP. */
+  const club = { recargar: vi.fn() };
+  beforeEach(() => club.recargar.mockClear());
+
   // `value()` de un resource lanza en estado de error.
   it('si los datos no cargan, lo dice y no deja guardar el formulario en blanco', async () => {
     TestBed.configureTestingModule({
@@ -13,6 +18,7 @@ describe('DatosDelClub', () => {
           provide: AdminCanchas,
           useValue: { configuracion: () => Promise.reject(new Error('la API no respondió')) },
         },
+        { provide: Club, useValue: club },
       ],
     });
 
@@ -49,7 +55,7 @@ describe('DatosDelClub', () => {
       };
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
-        providers: [{ provide: AdminCanchas, useValue: api }],
+        providers: [{ provide: AdminCanchas, useValue: api }, { provide: Club, useValue: club }],
       });
       const fixture = TestBed.createComponent(DatosDelClub);
       await fixture.whenStable();
@@ -127,7 +133,7 @@ describe('DatosDelClub', () => {
       };
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
-        providers: [{ provide: AdminCanchas, useValue: api }],
+        providers: [{ provide: AdminCanchas, useValue: api }, { provide: Club, useValue: club }],
       });
       const fixture = TestBed.createComponent(DatosDelClub);
       await fixture.whenStable();
@@ -157,6 +163,15 @@ describe('DatosDelClub', () => {
 
       expect(whatsapp?.closest('.campo-con-prefijo')?.textContent).toContain('+56');
       expect(whatsapp?.value.replace(/\D/g, '')).toBe('987654321');
+    });
+
+    it('**al guardar, el sitio vuelve a pedir los datos**: la red se ve sin recargar', async () => {
+      const { fixture, elemento } = await montar();
+
+      elemento.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+      await fixture.whenStable();
+
+      expect(club.recargar).toHaveBeenCalledTimes(1);
     });
 
     it('al guardar, las redes viajan con los demás datos', async () => {
