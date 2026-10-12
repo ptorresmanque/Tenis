@@ -79,6 +79,34 @@ describe('Torneos: las categorías de un torneo', () => {
     });
     valorId = valor.id;
 
+    // Desde T196 todo torneo nace sumando para un tour, con un nivel de ese tour.
+    const tour = await prisma.tour.create({
+      data: {
+        nombre: `Tour de ${MARCA} ${Date.now()}${Math.random()}`,
+        descripcion: '',
+        temporadas: {
+          create: {
+            nombre: '2026',
+            fechaInicio: new Date('2026-03-01T00:00:00.000Z'),
+            fechaFin: new Date('2026-12-15T00:00:00.000Z'),
+            niveles: {
+              create: {
+                nombre: '250',
+                puntosCampeon: 250,
+                puntosFinalista: 150,
+                puntosSemifinal: 90,
+                puntosCuartos: 45,
+                puntosOctavos: 0,
+                puntosDieciseisavos: 0,
+                puntosTreintaidosavos: 0,
+              },
+            },
+          },
+        },
+      },
+      include: { temporadas: { include: { niveles: true } } },
+    });
+
     const respuesta = await request(app.getHttpServer())
       .post('/api/admin/torneos')
       .set('Cookie', cookieAdmin)
@@ -88,6 +116,7 @@ describe('Torneos: las categorías de un torneo', () => {
         fechaInicio: '2026-12-01',
         fechaFin: '2026-12-07',
         cierreInscripcion: '2026-11-25',
+        tours: [{ tourId: tour.id, nivelId: tour.temporadas[0].niveles[0].id }],
       })
       .expect(201);
 
@@ -121,6 +150,10 @@ describe('Torneos: las categorías de un torneo', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: 'De cuadros' } });
+    // Después de los torneos: sus asociaciones son las que frenan el borrado del tour.
+    await prisma.tour.deleteMany({
+      where: { nombre: { startsWith: `Tour de ${MARCA}` } },
+    });
     await prisma.categoriaTorneo.deleteMany({
       where: { nombre: { startsWith: 'Nivel ' } },
     });

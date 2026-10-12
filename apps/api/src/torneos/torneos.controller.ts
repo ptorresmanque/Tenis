@@ -50,9 +50,11 @@ import {
   leerCategoria,
   leerInscripcionATorneo,
   leerJugadorNuevo,
+  leerNivelDelTour,
   leerResultado,
   leerSiembra,
   leerTorneo,
+  leerTourDelTorneo,
 } from './torneos.dto';
 
 /**
@@ -247,6 +249,33 @@ export class TorneosController {
   @Post('torneos')
   crearTorneo(@Body() cuerpo: unknown) {
     return this.torneos.crear(leerTorneo(cuerpo));
+  }
+
+  /**
+   * Para qué tours suma un torneo que ya existe (T196). El par torneo–tour es la llave
+   * de la asociación, así que `:tourId` no puede apuntar a la de otro torneo.
+   */
+  @Post('torneos/:id/tours')
+  agregarTour(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.torneos.agregarTour(id, leerTourDelTorneo(cuerpo));
+  }
+
+  @Patch('torneos/:id/tours/:tourId')
+  cambiarNivelDelTour(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tourId', ParseIntPipe) tourId: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.torneos.cambiarNivel(id, tourId, leerNivelDelTour(cuerpo));
+  }
+
+  @Delete('torneos/:id/tours/:tourId')
+  @HttpCode(204)
+  quitarTour(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tourId', ParseIntPipe) tourId: number,
+  ) {
+    return this.torneos.quitarTour(id, tourId);
   }
 
   /**

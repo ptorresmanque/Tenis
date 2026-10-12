@@ -21,6 +21,57 @@ export interface TorneoPublico {
   estado: EstadoTorneo;
   /** Qué categorías corre, con cuánto lugar queda en cada una. */
   categorias: CategoriaPublica[];
+  /** Para qué tours suma (T196). Vacío en los torneos de antes de los tours. */
+  tours: TourDelTorneoPublico[];
+}
+
+/**
+ * Para qué tour suma un torneo, con los nombres junto a los números: la tarjeta dice
+ * "Tour FEDAL (500)" y enlaza al tour, y la página del tour filtra por temporada.
+ */
+export interface TourDelTorneoPublico {
+  tourId: number;
+  tour: string;
+  temporadaId: number;
+  temporada: string;
+  nivelId: number;
+  nivel: string;
+}
+
+/** Lo que se lee de las asociaciones, igual en el panel y en el calendario. */
+export const TOURS_DEL_TORNEO = {
+  orderBy: { tour: { nombre: 'asc' } },
+  select: {
+    tour: { select: { id: true, nombre: true } },
+    nivel: {
+      select: {
+        id: true,
+        nombre: true,
+        temporada: { select: { id: true, nombre: true } },
+      },
+    },
+  },
+} as const;
+
+/** Aplanado acá para que ninguna pantalla tenga que saber cómo está guardado. */
+export function aplanarTours(
+  tours: {
+    tour: { id: number; nombre: string };
+    nivel: {
+      id: number;
+      nombre: string;
+      temporada: { id: number; nombre: string };
+    };
+  }[],
+): TourDelTorneoPublico[] {
+  return tours.map(({ tour, nivel }) => ({
+    tourId: tour.id,
+    tour: tour.nombre,
+    temporadaId: nivel.temporada.id,
+    temporada: nivel.temporada.nombre,
+    nivelId: nivel.id,
+    nivel: nivel.nombre,
+  }));
 }
 
 /** Un cuadro visto desde la calle: cuánto lugar queda, sin decir de quién. */
@@ -157,6 +208,7 @@ export class TorneosPublicos {
             },
           },
         },
+        tours: TOURS_DEL_TORNEO,
       },
     });
 
@@ -182,6 +234,7 @@ export class TorneosPublicos {
         // que es lo mismo que decir que sus partidos existen.
         armado: cuadro.semillaSorteo !== null,
       })),
+      tours: aplanarTours(torneo.tours),
     }));
   }
 

@@ -41,6 +41,12 @@ export interface TorneoNuevo {
   cierreInscripcion: Date;
 }
 
+/** Para qué tour suma un torneo, y con qué nivel. El nivel trae su temporada. */
+export interface TourDelTorneo {
+  tourId: number;
+  nivelId: number;
+}
+
 /**
  * Lee el alta de un jugador.
  *
@@ -115,11 +121,22 @@ export function leerCategoria(cuerpo: unknown): CategoriaNueva {
  * **Las tres fechas se comprueban entre sí**: un torneo que termina antes de empezar
  * no se puede jugar, y una inscripción que cierra después del comienzo es aceptar
  * gente para un cuadro que ya se está jugando.
+ *
+ * **Y al menos un tour** (D10, T196): un torneo que no suma para nada no tiene ranking.
+ * Que el nivel sea de ese tour lo comprueba el servicio, que es el que lee la base.
  */
-export function leerTorneo(cuerpo: unknown): TorneoNuevo {
+export function leerTorneo(
+  cuerpo: unknown,
+): TorneoNuevo & { tours: TourDelTorneo[] } {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
   const { fechaInicio, fechaFin, cierreInscripcion } = leerFechas(datos);
+
+  if (!Array.isArray(datos.tours) || datos.tours.length === 0) {
+    throw new BadRequestException(
+      'Elige al menos un tour para el torneo, con su nivel.',
+    );
+  }
 
   return {
     nombre: exigirTexto(datos.nombre, 'nombre del torneo', 120),
@@ -127,7 +144,27 @@ export function leerTorneo(cuerpo: unknown): TorneoNuevo {
     fechaInicio,
     fechaFin,
     cierreInscripcion,
+    tours: datos.tours.map(leerTourDelTorneo),
   };
+}
+
+/** Una asociación: el tour y el nivel, los dos por su número. */
+export function leerTourDelTorneo(cuerpo: unknown): TourDelTorneo {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  return {
+    tourId: entero(datos.tourId, 'El tour', 1),
+    nivelId: leerNivelDelTour(datos),
+  };
+}
+
+/** El nivel solo, para cambiarlo en una asociación que ya existe. */
+export function leerNivelDelTour(cuerpo: unknown): number {
+  return entero(
+    ((cuerpo ?? {}) as Record<string, unknown>).nivelId,
+    'El nivel',
+    1,
+  );
 }
 
 /** Los cambios de un torneo son los mismos campos, todos opcionales. */
