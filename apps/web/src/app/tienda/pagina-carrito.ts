@@ -16,7 +16,9 @@ import { Carrito, Cotizacion } from './carrito';
  * sin recargar.
  *
  * **No deja seguir con algo que no se puede comprar**: una línea que ya no se vende o que
- * pide más de lo que queda lo dice ahí mismo, y "Ir a pagar" espera a que se arregle.
+ * pide más de lo que queda lo dice ahí mismo, y "Ir a pagar" espera a que se arregle. Hasta
+ * que existan las pantallas de pago (T166), "Ir a pagar" queda apagado y dice que llega
+ * pronto.
  */
 @Component({
   selector: 'app-pagina-del-carrito',
@@ -164,16 +166,19 @@ import { Carrito, Cotizacion } from './carrito';
           </dl>
           <p class="mt-2 text-xs text-muted-foreground">No incluye el despacho.</p>
 
+          <!-- Hasta T166 no existe /tienda/pagar: un enlace ahí llevaba a la portada. Se
+               avisa que el pago llega pronto, distinto de lo que falta arreglar. T166 vuelve
+               a poner el enlace cuando sePuedePagar. -->
           @if (cotizada.sePuedePagar) {
-            <a routerLink="/tienda/pagar" class="mt-4 boton boton-primario w-full">Ir a pagar</a>
+            <p class="mt-4 text-sm text-muted-foreground">El pago en línea llega pronto.</p>
           } @else {
             <p class="mt-4 text-sm font-semibold text-destructive">
               Quita o ajusta lo marcado para seguir.
             </p>
-            <button type="button" class="mt-2 boton boton-primario w-full" disabled>
-              Ir a pagar
-            </button>
           }
+          <button type="button" class="mt-2 boton boton-primario w-full" disabled>
+            Ir a pagar
+          </button>
 
           @if (!usuario()) {
             <p class="mt-4 text-sm text-muted-foreground">

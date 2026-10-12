@@ -164,10 +164,16 @@ describe('PaginaDelCarrito', () => {
   });
 
   describe('lo que no se puede comprar', () => {
-    it('todo disponible: se puede ir a pagar', async () => {
+    it('todo disponible: el pago en línea todavía no está, y lo dice sin culpar al carrito', async () => {
+      // Hasta T166 no existe /tienda/pagar. Un enlace ahí llevaría a la portada; un botón
+      // apagado sin explicación parecería que algo del carrito está mal.
       const { elemento } = await montar(cotizacion([ZAPATILLA]));
 
-      expect(elemento.querySelector('a[href="/tienda/pagar"]')).not.toBeNull();
+      const resumen = elemento.querySelector('[data-resumen]')!;
+      expect(resumen.querySelector('a[href="/tienda/pagar"]')).toBeNull();
+      expect(resumen.querySelector<HTMLButtonElement>('button')?.disabled).toBe(true);
+      expect(resumen.textContent).toContain('El pago en línea llega pronto');
+      expect(resumen.textContent).not.toContain('para seguir');
     });
 
     it('**lo que ya no se vende lo dice, y no deja seguir**', async () => {
