@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Auth } from '../core/auth/auth';
+import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
 import { MenuDesplegable } from './menu-desplegable';
 
@@ -24,8 +25,11 @@ import { MenuDesplegable } from './menu-desplegable';
     RouterLinkActive,
     Logotipo,
     MenuDesplegable,
+    ProgresoDeNavegacion,
   ],
   template: `
+    <app-progreso-de-navegacion />
+
     <a
       href="#contenido"
       class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50

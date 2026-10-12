@@ -128,6 +128,12 @@ describe('Cascarón público: la navegación', () => {
     );
   });
 
+  it('dice cuando una página tarda en cargar (T151)', () => {
+    const elemento = montarCon(null).nativeElement as HTMLElement;
+
+    expect(elemento.querySelector('app-progreso-de-navegacion')).not.toBeNull();
+  });
+
   it('el sitio público tiene "Volver arriba", y el contenido puede recibir su foco (T149)', () => {
     const elemento = montarCon(null).nativeElement as HTMLElement;
 

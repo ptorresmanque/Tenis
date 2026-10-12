@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Club } from '../club/club.service';
 import { RedesSociales } from '../club/redes-sociales';
+import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
 import { Logotipo } from './logotipo';
@@ -40,8 +41,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     TelefonoPipe,
     RedesSociales,
     VolverArriba,
+    ProgresoDeNavegacion,
   ],
   template: `
+    <app-progreso-de-navegacion />
+
     <a
       href="#contenido"
       class="sr-only print:hidden focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50
