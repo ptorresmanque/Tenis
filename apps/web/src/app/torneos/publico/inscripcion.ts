@@ -270,6 +270,7 @@ const enBlanco = () => ({
         type="submit"
         class="boton boton-primario mt-4"
         [disabled]="enviando()"
+        [attr.aria-busy]="enviando()"
       >
         {{ enviando() ? 'Inscribiendo…' : 'Inscribirme' }}
       </button>
@@ -299,6 +300,7 @@ const enBlanco = () => ({
             type="button"
             class="boton boton-primario"
             [disabled]="pagando()"
+            [attr.aria-busy]="pagando()"
             (click)="pagar(pendiente.token)"
           >
             Pagar con Webpay

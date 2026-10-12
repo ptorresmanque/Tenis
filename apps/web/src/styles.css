@@ -181,6 +181,9 @@
      El movimiento reducido apaga los dos. */
   --duracion-latido: 1.4s;
   --duracion-cinta: 45s;
+  /* Una vuelta del círculo del botón ocupado (T150). Más rápido que el latido: el
+     latido acompaña una espera larga, el giro dice "ya va". */
+  --duracion-giro: 800ms;
   /* El desfase entre un elemento y el siguiente en una entrada escalonada.
      Se topea el acumulado: con 40 elementos, el último entraría 2,4 s tarde. */
   --escalonado: 60ms;
@@ -1008,6 +1011,62 @@ body:has(app-barra-fija) app-volver-arriba {
     cursor: not-allowed;
     opacity: 0.6;
     transform: none;
+  }
+
+  /*
+    EL BOTÓN OCUPADO (T150).
+
+    Mientras un envío viaja, el botón se deshabilita —para que no salga dos veces— y
+    hasta acá eso era todo: en una red lenta, la persona no sabía si el clic había
+    llegado. Ahora lleva un círculo que gira junto al texto, que donde corresponde ya
+    dice "Guardando…". Se pide con [attr.aria-busy].
+
+    **No se ve deshabilitado**: está trabajando por pedido de la persona, y un
+    botón apagado dice "no puedes" justo cuando lo que pasa es "ya va".
+
+    El círculo es el ícono progress_activity y no un borde redondeado: el sistema no
+    tiene radios a mano. Va con `/ ''` para que el lector no lea el nombre del glifo;
+    lo que pasa ya lo dice el texto. Con "reducir movimiento" se queda quieto.
+  */
+  .boton[aria-busy='true']:disabled {
+    cursor: progress;
+    opacity: 1;
+  }
+
+  .boton[aria-busy='true']::before {
+    content: 'progress_activity' / '';
+    font-family: 'Material Symbols Sharp';
+    font-size: 1.25em;
+    font-weight: normal;
+    line-height: 1;
+    /* La ligadura se arma con el nombre tal cual: en mayúscula, o separado por el
+       espaciado del botón, no hay ícono. */
+    letter-spacing: normal;
+    text-transform: none;
+    animation: girar var(--duracion-giro) linear infinite;
+  }
+
+  @keyframes girar {
+    to {
+      rotate: 1turn;
+    }
+  }
+
+  /*
+    Los botones de ícono —menú, cerrar, pausar la cinta, el avatar, volver arriba—
+    confirman la pulsación como .boton (T150). Tenían el fondo al pasar el mouse y
+    nada al tocarlos, que en el teléfono es lo único que hay.
+  */
+  .pulsable {
+    transition:
+      color var(--duracion-menu) var(--ease-salida),
+      background-color var(--duracion-menu) var(--ease-salida),
+      opacity var(--duracion-menu) var(--ease-salida),
+      scale var(--duracion-pulsacion) var(--ease-salida);
+  }
+
+  .pulsable:active:not(:disabled) {
+    scale: 0.92;
   }
 
   .boton-primario {

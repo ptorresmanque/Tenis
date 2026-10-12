@@ -104,6 +104,7 @@ import { CampoFecha } from '../ui/campo-fecha';
         type="button"
         class="boton boton-primario mt-3"
         [disabled]="rival() === '' || enviando()"
+        [attr.aria-busy]="enviando()"
         (click)="cargar()"
       >
         Cargar el partido
@@ -168,10 +169,12 @@ import { CampoFecha } from '../ui/campo-fecha';
 
             @if (partido.esperaMiRespuesta) {
               <div class="mt-3 flex flex-wrap gap-2">
+                <!-- Gira solo el que se tocó: los dos comparten enviando(). -->
                 <button
                   type="button"
                   class="boton boton-primario boton-chico"
                   [disabled]="enviando()"
+                  [attr.aria-busy]="esLaRespuesta(partido.id, true)"
                   (click)="responder(partido.id, true)"
                 >
                   Confirmar
@@ -180,6 +183,7 @@ import { CampoFecha } from '../ui/campo-fecha';
                   type="button"
                   class="boton boton-secundario boton-chico"
                   [disabled]="enviando()"
+                  [attr.aria-busy]="esLaRespuesta(partido.id, false)"
                   (click)="responder(partido.id, false)"
                 >
                   No fue así
@@ -274,7 +278,17 @@ export class MisPartidos {
     }
   }
 
+  /** La respuesta que está viajando, para que gire su botón y no el de al lado (T150). */
+  private readonly respondiendo = signal<{ id: number; acepto: boolean } | null>(null);
+
+  protected esLaRespuesta(id: number, acepto: boolean): boolean {
+    const enCurso = this.respondiendo();
+
+    return enCurso?.id === id && enCurso.acepto === acepto;
+  }
+
   protected async responder(id: number, acepto: boolean): Promise<void> {
+    this.respondiendo.set({ id, acepto });
     this.enviando.set(true);
     this.error.set(null);
 
@@ -288,6 +302,7 @@ export class MisPartidos {
       this.error.set('No se pudo contestar el partido. Reintenta en un momento.');
     } finally {
       this.enviando.set(false);
+      this.respondiendo.set(null);
     }
   }
 }

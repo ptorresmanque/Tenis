@@ -131,7 +131,7 @@ import { MenuDesplegable } from './menu-desplegable';
       >
         <button
           type="button"
-          class="cursor-pointer rounded-lg p-2 transition-colors hover:bg-muted"
+          class="pulsable cursor-pointer rounded-lg p-2 hover:bg-muted"
           aria-label="Abrir el menú de administración"
           (click)="cajon.showModal()"
         >
@@ -161,7 +161,7 @@ import { MenuDesplegable } from './menu-desplegable';
         </span>
           <button
             type="button"
-            class="cursor-pointer rounded-lg p-2 transition-colors hover:bg-muted"
+            class="pulsable cursor-pointer rounded-lg p-2 hover:bg-muted"
             aria-label="Cerrar el menú"
             (click)="cajon.close()"
           >

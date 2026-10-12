@@ -58,6 +58,7 @@ import { Campo, CampoControl } from '../../ui/campo';
           <button
             type="submit"
             [disabled]="enviando() || formulario.invalid"
+            [attr.aria-busy]="enviando()"
             class="boton boton-primario"
           >
             {{ enviando() ? 'Enviando…' : 'Mandar un enlace nuevo' }}

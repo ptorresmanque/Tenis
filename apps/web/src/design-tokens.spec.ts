@@ -1365,3 +1365,60 @@ describe('El hero se mueve (T148)', () => {
     expect(contenido).toContain('hero-texto');
   });
 });
+
+/**
+ * T150. El botón dice que está trabajando, y los botones de ícono responden al dedo.
+ *
+ * Hasta acá, mientras un envío viajaba, el botón solo se deshabilitaba: en una red
+ * lenta, la persona no sabía si el clic había llegado.
+ */
+describe('Los botones dicen que están trabajando (T150)', () => {
+  /** Las señales con que los componentes marcan un envío en curso. */
+  const OCUPADO =
+    /\[disabled\]="[^"]*\b(?:enviando|guardando|procesando|pagando|entrando|subiendo|borrando|creando|cancelando|confirmando|ocupad[oa])\(\)/;
+
+  /**
+   * Las carpetas que todavía no se revisan. T153 y T154 las van sacando; al terminar
+   * la parte, la lista queda vacía y la regla vale para todo el sitio.
+   */
+  const PENDIENTES = [
+    'catalogo-canchas/admin/',
+    'reservas/admin/',
+    'clases/admin/',
+    'identidad/admin/',
+    'configuracion/',
+    'torneos/admin/',
+    'ranking/admin/',
+    'cuotas/admin/',
+    'reportes/',
+  ];
+
+  it('el botón ocupado lleva un círculo que gira, y no se ve deshabilitado', () => {
+    expect(css).toMatch(/\.boton\[aria-busy='true'\]::before\s*\{[^}]*progress_activity/);
+    expect(css).toMatch(/\.boton\[aria-busy='true'\]:disabled\s*\{[^}]*opacity:\s*1/);
+  });
+
+  it('el círculo no se lee: es decoración de una espera que el texto ya dice', () => {
+    expect(css).toMatch(/content:\s*'progress_activity'\s*\/\s*''/);
+  });
+
+  it('los botones de ícono se hunden al presionar, como .boton', () => {
+    expect(css).toMatch(/\.pulsable:active:not\(:disabled\)\s*\{[^}]*scale:/);
+  });
+
+  it('**todo botón que se deshabilita por un envío lo anuncia con aria-busy**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      if (PENDIENTES.some((carpeta) => archivo.startsWith(carpeta))) continue;
+
+      for (const [boton] of sinComentarios(contenido).matchAll(/<button\b[^>]*>/g)) {
+        if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
+          infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});

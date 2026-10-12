@@ -29,7 +29,7 @@ const UMBRAL_EN_PANTALLAS = 1.5;
     <button
       type="button"
       aria-label="Volver arriba"
-      class="volver-arriba fixed end-4 bottom-4 z-30 flex size-12 cursor-pointer items-center
+      class="volver-arriba pulsable fixed end-4 bottom-4 z-30 flex size-12 cursor-pointer items-center
              justify-center rounded-full border border-border bg-card text-primary shadow-lg
              sm:end-6 sm:bottom-6"
       [class.visible]="visible()"

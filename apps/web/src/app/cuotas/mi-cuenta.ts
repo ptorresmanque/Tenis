@@ -115,6 +115,7 @@ const MESES = [
                   type="button"
                   class="boton boton-primario boton-chico"
                   [disabled]="pagando()"
+                  [attr.aria-busy]="pagando()"
                   (click)="pagar(cuota)"
                 >
                   Pagar en línea

@@ -127,6 +127,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 type="button"
                 class="boton boton-destructivo boton-chico"
                 [disabled]="enviando()"
+                [attr.aria-busy]="enviando()"
                 (click)="confirmarCancelacion(reserva)"
               >
                 Sí, cancelar

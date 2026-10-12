@@ -82,9 +82,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           @if (usuario(); as sesion) {
             <app-menu-desplegable
               [etiqueta]="'Menú de ' + sesion.nombre"
-              claseBoton="flex size-10 items-center justify-center rounded-full
-                          bg-primary text-sm font-bold text-on-primary
-                          transition-opacity hover:opacity-90"
+              claseBoton="pulsable flex size-10 items-center justify-center rounded-full
+                          bg-primary text-sm font-bold text-on-primary hover:opacity-90"
             >
               <span disparador>{{ iniciales() }}</span>
 
@@ -123,8 +122,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
           <button
             type="button"
-            class="cursor-pointer rounded-lg p-2 text-foreground transition-colors
-                   hover:bg-muted lg:hidden"
+            class="pulsable cursor-pointer rounded-lg p-2 text-foreground hover:bg-muted
+                   lg:hidden"
             aria-label="Abrir el menú"
             (click)="panel.showModal()"
           >
@@ -149,7 +148,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         <app-logotipo />
         <button
           type="button"
-          class="cursor-pointer rounded-lg p-2 transition-colors hover:bg-muted"
+          class="pulsable cursor-pointer rounded-lg p-2 hover:bg-muted"
           aria-label="Cerrar el menú"
           (click)="panel.close()"
         >
