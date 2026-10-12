@@ -8,6 +8,7 @@ import type {
   FiltroDelCatalogo,
   OrdenDelCatalogo,
 } from './catalogo-publico.dto';
+import { disponibles } from './disponible';
 import { direccionesDeLaFoto } from './fotos.service';
 import { porcentajeDeSocio, precioDeSocio } from './precio';
 import { textoDeTalla } from './tallas';
@@ -25,7 +26,7 @@ export interface ProductoDelCatalogo {
   precioSocioClp: number | null;
   /** La miniatura de su primera foto, o nada. */
   foto: string | null;
-  /** Ninguna variante activa tiene stock. El "por encargo" llega en T170. */
+  /** A ninguna variante activa le queda nada disponible. El "por encargo" llega en T170. */
   agotado: boolean;
 }
 
@@ -49,7 +50,7 @@ export interface VariantePublica {
   etiqueta: string;
   /** "CL 40 · US 8 · EU 41" con la tabla de la marca, o la etiqueta sola. */
   talla: string;
-  /** El stock, nunca menos de cero. El apartado de los pedidos sin pagar llega en T164. */
+  /** El stock menos lo apartado por pedidos sin pagar, nunca menos de cero (T164). */
   disponible: number;
 }
 
@@ -126,7 +127,10 @@ export class CatalogoPublico {
           precioClp: true,
           categoria: NOMBRADO,
           marca: NOMBRADO,
-          variantes: { where: { activa: true }, select: { stock: true } },
+          variantes: {
+            where: { activa: true },
+            select: { id: true, stock: true },
+          },
           fotos: {
             select: { id: true },
             orderBy: [{ orden: 'asc' }, { id: 'asc' }],
@@ -137,6 +141,11 @@ export class CatalogoPublico {
       porcentajeDeSocio(this.prisma, yo),
     ]);
 
+    const quedan = await disponibles(
+      this.prisma,
+      productos.flatMap((p) => p.variantes),
+    );
+
     return productos.map(({ variantes, fotos, ...producto }) => ({
       ...producto,
       precioSocioClp:
@@ -144,7 +153,7 @@ export class CatalogoPublico {
           ? null
           : precioDeSocio(producto.precioClp, porcentaje),
       foto: fotos[0] ? direccionesDeLaFoto(fotos[0].id).miniatura : null,
-      agotado: variantes.every((v) => v.stock <= 0),
+      agotado: variantes.every((v) => quedan.get(v.id) === 0),
     }));
   }
 
@@ -191,6 +200,7 @@ export class CatalogoPublico {
     const { categoria, marca, variantes, fotos, ...resto } = producto;
     const { usaTablaDeTallas } = categoria;
     const tallas = usaTablaDeTallas ? (marca?.tallas ?? []) : [];
+    const quedan = await disponibles(this.prisma, variantes);
 
     return {
       ...resto,
@@ -202,7 +212,7 @@ export class CatalogoPublico {
         id: v.id,
         etiqueta: v.etiqueta,
         talla: textoDeTalla(v.etiqueta, usaTablaDeTallas, tallas),
-        disponible: Math.max(0, v.stock),
+        disponible: quedan.get(v.id) ?? 0,
       })),
       tallas,
       fotos: fotos.map((foto) => ({

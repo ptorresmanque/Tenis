@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
+import type { Prisma } from '../generated/prisma/client';
 import type { UsuarioActual } from '../identidad/usuario-actual';
 import { PrismaService } from '../prisma/prisma.service';
 import type { LineaDelCarrito } from './carrito.dto';
+import { disponibles } from './disponible';
 import { direccionesDeLaFoto } from './fotos.service';
 import { descuentoUnitario, porcentajeDeSocio } from './precio';
 import { textoDeTalla } from './tallas';
@@ -31,7 +33,7 @@ export interface LineaCotizada {
   descuentoUnitarioClp: number;
   /** (precio − descuento) × cantidad. Cero si ya no se vende. */
   subtotalClp: number;
-  /** El stock, nunca menos de cero. El apartado de los pedidos pendientes llega en T164. */
+  /** El stock menos lo apartado por pedidos sin pagar, nunca menos de cero (T164). */
   disponible: number;
   estado: EstadoDeLinea;
 }
@@ -54,12 +56,17 @@ export interface Cotizacion {
 export class CarritoDeLaTienda {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * `db` es la transacción del pedido (T164), que cotiza con las variantes ya tomadas
+   * con `FOR UPDATE`; el carrito cotiza con el cliente de siempre.
+   */
   async cotizar(
     lineas: LineaDelCarrito[],
     yo: UsuarioActual | null,
+    db: Prisma.TransactionClient = this.prisma,
   ): Promise<Cotizacion> {
     const [variantes, porcentaje] = await Promise.all([
-      this.prisma.variante.findMany({
+      db.variante.findMany({
         where: { id: { in: lineas.map((l) => l.varianteId) } },
         select: {
           id: true,
@@ -91,9 +98,10 @@ export class CarritoDeLaTienda {
           },
         },
       }),
-      porcentajeDeSocio(this.prisma, yo),
+      porcentajeDeSocio(db, yo),
     ]);
     const porId = new Map(variantes.map((v) => [v.id, v]));
+    const quedan = await disponibles(db, variantes);
 
     const cotizadas = lineas.map(({ varianteId, cantidad }): LineaCotizada => {
       const variante = porId.get(varianteId);
@@ -114,7 +122,7 @@ export class CarritoDeLaTienda {
       const { producto } = variante;
       const seVende =
         variante.activa && producto.publicado && !producto.archivado;
-      const disponible = seVende ? Math.max(0, variante.stock) : 0;
+      const disponible = seVende ? (quedan.get(variante.id) ?? 0) : 0;
       const descuento =
         seVende && porcentaje !== null
           ? descuentoUnitario(producto.precioClp, porcentaje)

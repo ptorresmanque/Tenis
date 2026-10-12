@@ -671,6 +671,8 @@ enum ConceptoPago {
   /// sigue sin saber qué se está pagando —recibe un monto y una referencia opaca— y esa
   /// es justo la propiedad que hace que el tercer concepto cueste una línea.
   INSCRIPCION_TORNEO
+  /// Un pedido de la tienda en línea (T164): la Etapa 2, fuera del trabajo de título.
+  PEDIDO
 }
 
 enum EstadoTransaccion {
@@ -1816,6 +1818,7 @@ model Variante {
 
   producto    Producto          @relation(fields: [productoId], references: [id])
   movimientos MovimientoStock[]
+  lineas      LineaPedido[]
 
   @@unique([productoId, etiqueta])
   @@map("variante")
@@ -1855,4 +1858,146 @@ model MovimientoStock {
 
   @@index([varianteId, creadoEn])
   @@map("movimiento_stock")
+}
+
+enum CanalPedido {
+  EN_LINEA
+  /// La venta del mesón (T175): un pedido más, que nace `ENTREGADO`.
+  MESON
+}
+
+enum EstadoPedido {
+  PENDIENTE_PAGO
+  PAGADO
+  LISTO_PARA_RETIRO
+  DESPACHADO
+  ENTREGADO
+  CANCELADO
+  /// Nunca se pagó. No se borra: es el rastro de quien intentó pagar.
+  EXPIRADO
+}
+
+enum EntregaPedido {
+  RETIRO
+  DESPACHO
+  EN_MESON
+}
+
+enum MedioPagoPedido {
+  WEBPAY
+  TARJETA_MESON
+  EFECTIVO
+  TRANSFERENCIA
+}
+
+/// El documento sale del medio de pago (`SPEC-tienda.md` § Pedidos): el comprobante de
+/// Webpay y de la tarjeta vale como boleta; el efectivo y la transferencia llevan boleta;
+/// quien pide factura, factura.
+enum DocumentoPedido {
+  VOUCHER
+  BOLETA
+  FACTURA
+}
+
+enum TipoLineaPedido {
+  PRODUCTO
+  SERVICIO_ENCORDADO
+}
+
+/// Una compra de la tienda, en línea o en el mesón (T164). **Una tabla para los dos
+/// canales**: con dos, el stock, el descuento, los folios y el reporte tendrían que leer
+/// las dos, y el primero que se olvide del mesón muestra la mitad de las ventas.
+///
+/// Las personas van **sin clave foránea**, como `MovimientoStock.usuarioId` y
+/// `Cuota.registradaPor`: un pedido es un registro de venta y no se pierde si la cuenta
+/// se borra. El nombre, el correo y el teléfono se copian por lo mismo.
+model Pedido {
+  id    Int    @id @default(autoincrement())
+  /// El enlace del correo, como `Reserva.token`: quien compró sin cuenta sigue su pedido.
+  token String @unique @db.VarChar(36)
+
+  canal            CanalPedido
+  estado           EstadoPedido
+  entrega          EntregaPedido
+  /// Un pago que llegó con la unidad ya vendida, o algo que el admin tiene que mirar.
+  requiereRevision Boolean       @default(false) @map("requiere_revision")
+
+  /// Si compró con cuenta.
+  usuarioId Int? @map("usuario_id")
+  /// El socio al que se le aplicó el descuento.
+  socioId   Int? @map("socio_id")
+
+  /// En el mesón, opcionales: vacíos.
+  nombre   String @default("") @db.VarChar(120)
+  email    String @default("") @db.VarChar(120)
+  telefono String @default("") @db.VarChar(40)
+
+  /// Solo con despacho. La región, de la lista fija de 16 (`tienda/regiones.ts`).
+  region            String? @db.VarChar(60)
+  comuna            String? @db.VarChar(80)
+  direccion         String? @db.VarChar(200)
+  referencia        String? @db.VarChar(200)
+  /// El de Starken, que anota el admin al despachar.
+  numeroSeguimiento String? @map("numero_seguimiento") @db.VarChar(60)
+
+  /// La suma de las líneas, ya con el descuento. **No incluye el despacho**: es por pagar.
+  totalClp          Int             @map("total_clp")
+  /// Cuánto se descontó, para el reporte.
+  descuentoSocioClp Int             @default(0) @map("descuento_socio_clp")
+  medioPago         MedioPagoPedido @map("medio_pago")
+  /// El admin que vendió en el mesón.
+  registradoPorId   Int?            @map("registrado_por_id")
+
+  documento          DocumentoPedido
+  /// El de la boleta o la factura, que el admin emite a mano y anota después.
+  folioDocumento     String?         @map("folio_documento") @db.VarChar(40)
+  /// `76123456-0`: sin puntos, con guion y la K en mayúscula (`tienda/rut.ts`).
+  facturaRut         String?         @map("factura_rut") @db.VarChar(12)
+  facturaRazonSocial String?         @map("factura_razon_social") @db.VarChar(120)
+  facturaGiro        String?         @map("factura_giro") @db.VarChar(120)
+  facturaDireccion   String?         @map("factura_direccion") @db.VarChar(200)
+
+  creadoEn             DateTime  @default(now()) @map("creado_en")
+  pagadoEn             DateTime? @map("pagado_en")
+  listoEn              DateTime? @map("listo_en")
+  despachadoEn         DateTime? @map("despachado_en")
+  entregadoEn          DateTime? @map("entregado_en")
+  canceladoEn          DateTime? @map("cancelado_en")
+  canceladoPorId       Int?      @map("cancelado_por_id")
+  motivoCancelacion    String?   @map("motivo_cancelacion") @db.VarChar(500)
+  /// Cuándo salió el recordatorio de los 7 días sin retirar: así no se repite.
+  recordatorioRetiroEn DateTime? @map("recordatorio_retiro_en")
+  actualizadoEn        DateTime  @updatedAt @map("actualizado_en")
+
+  lineas LineaPedido[]
+
+  /// El apartado: los pendientes en línea creados hace menos de 15 minutos.
+  @@index([estado, canal, creadoEn])
+  @@index([usuarioId])
+  @@map("pedido")
+}
+
+/// Lo que se compró en un pedido. **El precio y el descuento se congelan acá**, como el
+/// monto de una `Cuota`: si el club sube un precio, el pedido sigue valiendo lo que se
+/// pagó, y la devolución de una línea devuelve lo que se pagó por ella.
+model LineaPedido {
+  id          Int             @id @default(autoincrement())
+  pedidoId    Int             @map("pedido_id")
+  tipo        TipoLineaPedido @default(PRODUCTO)
+  /// Nula en el servicio de encordado.
+  varianteId  Int?            @map("variante_id")
+  /// Congelada: "Babolat Pure Drive · Grip 2".
+  descripcion String          @db.VarChar(255)
+  cantidad    Int
+
+  precioUnitarioClp    Int     @map("precio_unitario_clp")
+  descuentoUnitarioClp Int     @default(0) @map("descuento_unitario_clp")
+  /// Se vendió sin stock, con aviso de cuántos días tarda (T170).
+  esEncargo            Boolean @default(false) @map("es_encargo")
+
+  pedido   Pedido    @relation(fields: [pedidoId], references: [id])
+  variante Variante? @relation(fields: [varianteId], references: [id])
+
+  @@index([varianteId])
+  @@map("linea_pedido")
 }
