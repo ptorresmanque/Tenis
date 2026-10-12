@@ -3,6 +3,8 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { IdentidadModule } from '../identidad/identidad.module';
 import { CatalogoAdminController } from './catalogo-admin.controller';
 import { CategoriasYMarcas } from './catalogo-admin.service';
+import { CatalogoPublicoController } from './catalogo-publico.controller';
+import { CatalogoPublico } from './catalogo-publico.service';
 import { FotosPublicasController } from './fotos-publicas.controller';
 import { FotosDeProductos } from './fotos.service';
 import { InterruptorDeLaTienda, RUTAS_DE_LA_TIENDA } from './interruptor';
@@ -26,12 +28,14 @@ import { StockAdminController } from './stock-admin.controller';
     ProductosAdminController,
     FotosPublicasController,
     StockAdminController,
+    CatalogoPublicoController,
   ],
   providers: [
     CategoriasYMarcas,
     ProductosDeLaTienda,
     FotosDeProductos,
     MovimientosDeStock,
+    CatalogoPublico,
   ],
 })
 export class TiendaModule implements NestModule {

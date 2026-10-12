@@ -603,6 +603,11 @@ model ConfiguracionClub {
   /// puesta en marcha. Fecha civil, como `alDiaHasta`.
   cobraIncorporacionDesde DateTime @default(now()) @map("cobra_incorporacion_desde") @db.Date
 
+  /// El descuento del socio activo y al día en la tienda (T161): un porcentaje entero
+  /// de 0 a 50, que el panel valida al editarlo (T172).
+  /// El precio de socio se calcula con él, por unidad (`tienda/precio.ts`).
+  descuentoSocioPorcentaje Int @default(15) @map("descuento_socio_porcentaje")
+
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
   @@map("configuracion_club")
