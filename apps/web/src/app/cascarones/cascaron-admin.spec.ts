@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Auth, UsuarioActual } from '../core/auth/auth';
 import { routes } from '../app.routes';
+import { Club } from '../club/club.service';
 import { CascaronAdmin } from './cascaron-admin';
 
 /**
@@ -29,7 +30,8 @@ describe('Cascarón de administración', () => {
     profesorId: null,
   };
 
-  function montar() {
+  /** `tienda`: si la tienda está habilitada en este ambiente (T157). */
+  function montar({ tienda = false } = {}) {
     const estado = signal<UsuarioActual | null>(ADMIN);
 
     TestBed.resetTestingModule();
@@ -45,6 +47,10 @@ describe('Cascarón de administración', () => {
             salir: () => Promise.resolve(),
           },
         },
+        {
+          provide: Club,
+          useValue: { datos: signal({ tiendaHabilitada: tienda }).asReadonly() },
+        },
       ],
     });
 
@@ -55,8 +61,8 @@ describe('Cascarón de administración', () => {
   }
 
   /** Las URL de la barra lateral de escritorio, en orden. */
-  function itemsDeLaBarra(): string[] {
-    const barra = (montar().nativeElement as HTMLElement).querySelector('aside');
+  function itemsDeLaBarra(opciones?: { tienda?: boolean }): string[] {
+    const barra = (montar(opciones).nativeElement as HTMLElement).querySelector('aside');
 
     return [...barra!.querySelectorAll('nav a')].map(
       (enlace) => enlace.getAttribute('href') ?? '',
@@ -97,6 +103,25 @@ describe('Cascarón de administración', () => {
       '/administracion/configuracion',
       '/estado',
     ]);
+  });
+
+  it('**con la tienda apagada, la barra no la ofrece** (T157)', () => {
+    expect(itemsDeLaBarra({ tienda: false })).not.toContain('/administracion/tienda');
+  });
+
+  it('con la tienda encendida, la ofrece antes de Configuración (T157)', () => {
+    const items = itemsDeLaBarra({ tienda: true });
+
+    expect(items).toContain('/administracion/tienda');
+    expect(items.indexOf('/administracion/tienda')).toBe(
+      items.indexOf('/administracion/configuracion') - 1,
+    );
+  });
+
+  it('el ítem de la tienda lleva a una ruta que existe', () => {
+    expect(urlsDelRouter()).toEqual(
+      expect.arrayContaining(itemsDeLaBarra({ tienda: true })),
+    );
   });
 
   it('ningún ítem lleva a una ruta que no existe', () => {

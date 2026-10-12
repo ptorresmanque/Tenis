@@ -21,6 +21,11 @@ export interface DatosDelClub {
   elClubTitulo: string;
   elClubBajada: string;
   elClubCanchas: string;
+  /**
+   * Si la tienda existe en este ambiente (T156). No es un dato del club sino la variable
+   * `TIENDA_HABILITADA` de la API: con ella apagada, la tienda no se ofrece en ningún lado.
+   */
+  tiendaHabilitada: boolean;
 }
 
 /**
@@ -68,6 +73,9 @@ export class Club {
           elClubCanchas:
             'Todas de superficie dura y velocidad media, como el Australian Open. Las dos ' +
             'centrales se llaman Basilea y Manacor, y el club no da más explicaciones.',
+          // Mientras no se sepa, no se ofrece: mostrar la tienda y quitarla al llegar la
+          // respuesta es peor que hacerla aparecer.
+          tiendaHabilitada: false,
         },
   );
 

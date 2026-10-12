@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
+import { Club } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
@@ -59,7 +60,7 @@ import { MenuDesplegable } from './menu-desplegable';
              pintaría un fondo claro bajo un texto blanco. -->
         <nav aria-label="Administración" class="flex-1 overflow-y-auto py-4">
           <ul class="grid gap-1">
-            @for (item of ITEMS; track item.ruta) {
+            @for (item of items(); track item.ruta) {
               @if (item.trasDivisoria) {
                 <li class="my-2 border-t border-border" aria-hidden="true"></li>
               }
@@ -175,7 +176,7 @@ import { MenuDesplegable } from './menu-desplegable';
 
         <nav aria-label="Administración" class="p-2">
           <ul class="grid gap-1">
-            @for (item of ITEMS; track item.ruta) {
+            @for (item of items(); track item.ruta) {
               <li>
                 <a
                   [routerLink]="item.ruta"
@@ -215,6 +216,7 @@ import { MenuDesplegable } from './menu-desplegable';
 })
 export class CascaronAdmin {
   private readonly auth = inject(Auth);
+  private readonly club = inject(Club);
 
   protected readonly usuario = this.auth.usuario;
 
@@ -329,6 +331,29 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
   ];
+
+  /** La tienda (T157): solo con `TIENDA_HABILITADA`, y antes de Configuración. */
+  private readonly TIENDA = {
+    ruta: '/administracion/tienda',
+    etiqueta: 'Tienda',
+    icono: 'shopping_bag',
+    trasDivisoria: false,
+  };
+
+  /** La barra que se dibuja. Sin `TIENDA_HABILITADA`, la tienda ni se menciona. */
+  protected readonly items = computed(() => {
+    if (!this.club.datos().tiendaHabilitada) return this.ITEMS;
+
+    const configuracion = this.ITEMS.findIndex(
+      (item) => item.ruta === '/administracion/configuracion',
+    );
+
+    return [
+      ...this.ITEMS.slice(0, configuracion),
+      this.TIENDA,
+      ...this.ITEMS.slice(configuracion),
+    ];
+  });
 
   protected readonly ITEM_MENU =
     'block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted';

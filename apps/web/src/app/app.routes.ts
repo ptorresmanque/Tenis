@@ -5,6 +5,7 @@ import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
 import { soloAdmin } from './core/auth/solo-admin.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
+import { tiendaHabilitada } from './tienda/tienda-habilitada.guard';
 
 /**
  * Tres cascarones, tres grupos de rutas.
@@ -311,6 +312,30 @@ export const routes: Routes = [
               import('./configuracion/preguntas-frecuentes').then(
                 (m) => m.PreguntasFrecuentesPanel,
               ),
+          },
+        ],
+      },
+      {
+        // La tienda: Etapa 2, fuera del trabajo de título (T157). Como Configuración, un
+        // cascarón con sus secciones. Sin TIENDA_HABILITADA no se entra: la API igual
+        // responde 404 a todo lo suyo.
+        path: 'administracion/tienda',
+        title: 'Tienda — Administración',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () =>
+          import('./tienda/admin/tienda-panel').then((m) => m.TiendaPanel),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'categorias' },
+          {
+            path: 'categorias',
+            title: 'Categorías de la tienda — Administración',
+            loadComponent: () =>
+              import('./tienda/admin/categorias').then((m) => m.CategoriasPanel),
+          },
+          {
+            path: 'marcas',
+            title: 'Marcas y tallas — Administración',
+            loadComponent: () => import('./tienda/admin/marcas').then((m) => m.MarcasPanel),
           },
         ],
       },

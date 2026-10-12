@@ -44,6 +44,8 @@ describe('Club', () => {
       elClubTitulo: 'FEDAL Tennis Center',
       elClubBajada: expect.stringContaining('Desde 2008'),
       elClubCanchas: expect.stringContaining('Basilea y Manacor'),
+      // Sin saber si la tienda existe, no se ofrece (T157).
+      tiendaHabilitada: false,
     });
   });
 
