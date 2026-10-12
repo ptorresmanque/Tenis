@@ -34,6 +34,9 @@ describe('ElClub', () => {
     tiktok: '',
     youtube: '',
     whatsapp: '',
+    elClubTitulo: 'FEDAL Tennis Center',
+    elClubBajada: 'Un club de barrio con canchas de torneo.',
+    elClubCanchas: 'Todas de superficie dura.',
   };
 
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {
@@ -93,6 +96,37 @@ describe('ElClub', () => {
     expect(
       contacto.querySelector('a[href="https://www.instagram.com/fedaltennis"]')?.textContent,
     ).toContain('Instagram de FEDAL Tennis Center');
+  });
+
+  describe('los textos que escribe el club (T143)', () => {
+    const hero = () => seccion('el-club');
+
+    it('el título y la bajada sobre la foto, y el párrafo de las canchas', async () => {
+      await montar([], {
+        ...VACIO,
+        elClubTitulo: 'El club de Ñuñoa',
+        elClubBajada: 'Abierto todos los días.',
+        elClubCanchas: 'Ocho canchas duras.',
+      });
+
+      expect(hero().querySelector('h1')?.textContent?.trim()).toBe('El club de Ñuñoa');
+      expect(hero().querySelector('p')?.textContent?.trim()).toBe('Abierto todos los días.');
+      expect(texto('las-canchas')).toContain('Ocho canchas duras.');
+    });
+
+    it('**una bajada vacía no deja un párrafo vacío**', async () => {
+      await montar([], { ...VACIO, elClubBajada: '', elClubCanchas: '' });
+
+      expect(hero().querySelector('p')).toBeNull();
+      expect(seccion('las-canchas').querySelector('h2 + p')).toBeNull();
+    });
+
+    it('el HTML se ve como texto: el panel escribe texto plano', async () => {
+      await montar([], { ...VACIO, elClubBajada: 'Con <b>negrita</b>' });
+
+      expect(hero().querySelector('b')).toBeNull();
+      expect(hero().querySelector('p')?.textContent).toContain('Con <b>negrita</b>');
+    });
   });
 
   it('con el contacto en blanco no queda una ficha a medias', async () => {

@@ -22,6 +22,9 @@ describe('RedesSociales', () => {
     tiktok: '',
     youtube: '',
     whatsapp: '',
+    elClubTitulo: 'FEDAL Tennis Center',
+    elClubBajada: '',
+    elClubCanchas: '',
   };
 
   const montar = (datos: Partial<DatosDelClub>) => {

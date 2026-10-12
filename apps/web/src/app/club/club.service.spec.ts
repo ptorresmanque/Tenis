@@ -39,6 +39,11 @@ describe('Club', () => {
       tiktok: '',
       youtube: '',
       whatsapp: '',
+      // Los textos de "El club" sí: son los de siempre, y la página no queda en blanco
+      // (T143).
+      elClubTitulo: 'FEDAL Tennis Center',
+      elClubBajada: expect.stringContaining('Desde 2008'),
+      elClubCanchas: expect.stringContaining('Basilea y Manacor'),
     });
   });
 });

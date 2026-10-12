@@ -17,6 +17,10 @@ export interface DatosDelClub {
   youtube: string;
   /** El número de WhatsApp, `56` y los 9 dígitos. */
   whatsapp: string;
+  /** Los textos de "El club" (T142). La bajada y el de las canchas pueden venir vacíos. */
+  elClubTitulo: string;
+  elClubBajada: string;
+  elClubCanchas: string;
 }
 
 /**
@@ -55,6 +59,15 @@ export class Club {
           tiktok: '',
           youtube: '',
           whatsapp: '',
+          // Los textos de "El club", los mismos que la migración puso por omisión (T142):
+          // mientras la consulta viaja, la página muestra lo de siempre y no salta.
+          elClubTitulo: 'FEDAL Tennis Center',
+          elClubBajada:
+            'Un club de barrio con canchas de torneo. Desde 2008, abierto a socios y a ' +
+            'quien quiera venir a jugar una hora.',
+          elClubCanchas:
+            'Todas de superficie dura y velocidad media, como el Australian Open. Las dos ' +
+            'centrales se llaman Basilea y Manacor, y el club no da más explicaciones.',
         },
   );
 

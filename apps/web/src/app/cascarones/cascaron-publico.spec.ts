@@ -109,6 +109,9 @@ describe('Cascarón público: la navegación', () => {
         tiktok: '',
         youtube: '',
         whatsapp: '56987654321',
+        elClubTitulo: 'FEDAL Tennis Center',
+        elClubBajada: '',
+        elClubCanchas: '',
       }).nativeElement as HTMLElement
     ).querySelector('footer');
 
