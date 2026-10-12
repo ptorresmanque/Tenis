@@ -46,6 +46,29 @@ export interface FotoDeTour {
   imagen: string;
 }
 
+/** Un tour en `/tours` (T195): espejo de `TourEnLista` de la API. */
+export interface TourPublicoEnLista {
+  id: number;
+  nombre: string;
+  /** El comienzo de la descripción, en una línea. */
+  extracto: string;
+  imagen: { miniatura: string; web: string } | null;
+  temporadaVigente: Omit<TemporadaDelPanel, 'niveles'> | null;
+}
+
+/** Un tour en `/tours/:id` (T195): sin lo del panel, con la temporada vigente. */
+export interface TourPublico {
+  id: number;
+  nombre: string;
+  descripcion: string;
+  imagen: { miniatura: string; web: string } | null;
+  temporadaVigenteId: number | null;
+  temporadas: (Omit<TemporadaDelPanel, 'niveles'> & {
+    niveles: Pick<NivelDelPanel, 'id' | 'nombre' | 'tabla'>[];
+  })[];
+  fotos: FotoDeTour[];
+}
+
 /** Espejo de `FichaDeTour` en la API: todo lo del tour que se edita en el panel. */
 export interface FichaDeTour {
   id: number;
@@ -162,5 +185,15 @@ export class Tours {
 
   quitarFoto(id: number): Promise<unknown> {
     return firstValueFrom(this.http.delete(`/api/admin/tours/fotos/${id}`));
+  }
+
+  // ── Lo público (T195) ───────────────────────────────────────────────────────
+
+  publicos(): Promise<TourPublicoEnLista[]> {
+    return firstValueFrom(this.http.get<TourPublicoEnLista[]>('/api/tours'));
+  }
+
+  publico(id: number): Promise<TourPublico> {
+    return firstValueFrom(this.http.get<TourPublico>(`/api/tours/${id}`));
   }
 }

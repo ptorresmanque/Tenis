@@ -96,6 +96,11 @@ describe('Rutas protegidas', () => {
     expect(buscar('disponibilidad')?.guards).toEqual([]);
   });
 
+  it('los tours se leen sin sesión (T195)', () => {
+    expect(buscar('tours')?.guards).toEqual([]);
+    expect(buscar('tours/:id')?.guards).toEqual([]);
+  });
+
   it('las preguntas frecuentes se leen sin sesión (T146)', () => {
     expect(buscar('preguntas-frecuentes')?.guards).toEqual([]);
   });
@@ -115,6 +120,8 @@ describe('Cada ruta en su cascarón', () => {
     ['el-club', CascaronPublico],
     ['privacidad', CascaronPublico],
     ['preguntas-frecuentes', CascaronPublico],
+    ['tours', CascaronPublico],
+    ['tours/:id', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],
