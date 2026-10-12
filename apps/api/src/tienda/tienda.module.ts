@@ -1,16 +1,19 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 
 import { IdentidadModule } from '../identidad/identidad.module';
+import { PagosModule } from '../pagos/pagos.module';
 import { CarritoController } from './carrito.controller';
 import { CarritoDeLaTienda } from './carrito.service';
 import { CatalogoAdminController } from './catalogo-admin.controller';
 import { CategoriasYMarcas } from './catalogo-admin.service';
 import { CatalogoPublicoController } from './catalogo-publico.controller';
 import { CatalogoPublico } from './catalogo-publico.service';
+import { CorreosDeLaTienda } from './correos';
 import { FotosPublicasController } from './fotos-publicas.controller';
 import { FotosDeProductos } from './fotos.service';
 import { InterruptorDeLaTienda, RUTAS_DE_LA_TIENDA } from './interruptor';
 import { MovimientosDeStock } from './movimientos.service';
+import { PagoDePedido } from './pago-pedido.service';
 import { PedidosController } from './pedidos.controller';
 import { PedidosDeLaTienda } from './pedidos.service';
 import { ProductosAdminController } from './productos-admin.controller';
@@ -26,7 +29,7 @@ import { StockAdminController } from './stock-admin.controller';
 @Module({
   // `IdentidadModule` porque `@SoloAdmin()` resuelve `SesionService` en el módulo del
   // controlador que lo usa, no en el que lo declara.
-  imports: [IdentidadModule],
+  imports: [IdentidadModule, PagosModule],
   controllers: [
     CatalogoAdminController,
     ProductosAdminController,
@@ -44,6 +47,8 @@ import { StockAdminController } from './stock-admin.controller';
     CatalogoPublico,
     CarritoDeLaTienda,
     PedidosDeLaTienda,
+    PagoDePedido,
+    CorreosDeLaTienda,
   ],
 })
 export class TiendaModule implements NestModule {

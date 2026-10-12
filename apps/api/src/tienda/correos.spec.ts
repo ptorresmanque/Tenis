@@ -1,0 +1,162 @@
+import type { DatosDelClub } from '../comun/club';
+import { avisoAlClub, compraConfirmada, PedidoParaCorreo } from './correos';
+
+/**
+ * T165: los correos de una compra pagada.
+ *
+ * **El del comprador lleva las condiciones de venta**: la ley obliga a confirmarlas por
+ * escrito, y si el correo no las trae el plazo de retracto se extiende a 90 días
+ * (`SPEC-tienda.md` § Legal). Por eso se prueban acá, línea por línea.
+ */
+describe('Los correos de la tienda', () => {
+  const CLUB: DatosDelClub = {
+    nombre: 'FEDAL Tennis Center',
+    direccion: 'Av. Siempre Viva 123, Temuco',
+    telefono: '56452123456',
+    email: 'contacto@fedal.cl',
+    latitud: null,
+    longitud: null,
+  };
+  const ORIGEN = 'https://fedal.cl';
+
+  const PEDIDO: PedidoParaCorreo = {
+    id: 12,
+    token: '7d1c2a9e-0000-4000-8000-000000000012',
+    nombre: 'Camila Rojas',
+    entrega: 'RETIRO',
+    region: null,
+    comuna: null,
+    direccion: null,
+    referencia: null,
+    totalClp: 263970,
+    descuentoSocioClp: 0,
+    documento: 'VOUCHER',
+    facturaRazonSocial: null,
+    lineas: [
+      {
+        descripcion: 'Babolat Pure Drive · Grip 2',
+        cantidad: 1,
+        precioUnitarioClp: 249990,
+        descuentoUnitarioClp: 0,
+      },
+      {
+        descripcion: 'Head Tour · Única',
+        cantidad: 2,
+        precioUnitarioClp: 6990,
+        descuentoUnitarioClp: 0,
+      },
+    ],
+  };
+
+  describe('al comprador', () => {
+    it('el detalle, el total y el enlace para seguir el pedido', () => {
+      const { asunto, cuerpo } = compraConfirmada(PEDIDO, CLUB, ORIGEN);
+
+      expect(asunto).toBe('Compra confirmada: pedido N.º 12');
+      expect(cuerpo).toContain('Hola Camila Rojas:');
+      expect(cuerpo).toContain('1 × Babolat Pure Drive · Grip 2: $249.990');
+      expect(cuerpo).toContain('2 × Head Tour · Única: $13.980');
+      expect(cuerpo).toContain('Total pagado: $263.970');
+      expect(cuerpo).toContain(`${ORIGEN}/tienda/pedido/${PEDIDO.token}`);
+      expect(cuerpo).toContain('FEDAL Tennis Center');
+    });
+
+    it('**las condiciones de venta**: garantía legal, retracto y los términos completos', () => {
+      const { cuerpo } = compraConfirmada(PEDIDO, CLUB, ORIGEN);
+
+      expect(cuerpo).toContain('Condiciones de venta');
+      expect(cuerpo).toContain('Garantía legal: seis meses');
+      expect(cuerpo).toContain('Derecho a retracto: 10 días');
+      expect(cuerpo).toContain(`${ORIGEN}/tienda/terminos`);
+    });
+
+    it('con retiro, que se le avisa cuando esté listo', () => {
+      const { cuerpo } = compraConfirmada(PEDIDO, CLUB, ORIGEN);
+
+      expect(cuerpo).toContain('Retiro en el club');
+      expect(cuerpo).toContain('te avisamos por correo cuando esté listo');
+    });
+
+    it('con despacho, la dirección y que el despacho es por pagar', () => {
+      const { cuerpo } = compraConfirmada(
+        {
+          ...PEDIDO,
+          entrega: 'DESPACHO',
+          region: 'Metropolitana de Santiago',
+          comuna: 'Ñuñoa',
+          direccion: 'Av. Irarrázaval 1234',
+          referencia: 'Timbre malo',
+        },
+        CLUB,
+        ORIGEN,
+      );
+
+      expect(cuerpo).toContain(
+        'Despacho a Av. Irarrázaval 1234, Ñuñoa, Metropolitana de Santiago (Timbre malo)',
+      );
+      expect(cuerpo).toContain('por pagar');
+    });
+
+    it('con descuento de socio, cuánto se descontó y el precio de cada línea ya rebajado', () => {
+      const { cuerpo } = compraConfirmada(
+        {
+          ...PEDIDO,
+          totalClp: 17823,
+          descuentoSocioClp: 3147,
+          lineas: [
+            {
+              descripcion: 'Head Tour · Única',
+              cantidad: 3,
+              precioUnitarioClp: 6990,
+              descuentoUnitarioClp: 1049,
+            },
+          ],
+        },
+        CLUB,
+        ORIGEN,
+      );
+
+      expect(cuerpo).toContain('3 × Head Tour · Única: $17.823');
+      expect(cuerpo).toContain('Descuento de socio: −$3.147');
+    });
+
+    it('el documento: el comprobante de Webpay vale como boleta; la factura, a nombre de quién', () => {
+      expect(compraConfirmada(PEDIDO, CLUB, ORIGEN).cuerpo).toContain(
+        'El comprobante de Webpay vale como boleta',
+      );
+      expect(
+        compraConfirmada(
+          {
+            ...PEDIDO,
+            documento: 'FACTURA',
+            facturaRazonSocial: 'Comercial Los Aromos SpA',
+          },
+          CLUB,
+          ORIGEN,
+        ).cuerpo,
+      ).toContain('factura a nombre de Comercial Los Aromos SpA');
+    });
+  });
+
+  describe('al club', () => {
+    it('pedido nuevo, con su enlace en el panel', () => {
+      const { asunto, cuerpo } = avisoAlClub(PEDIDO, null, CLUB, ORIGEN);
+
+      expect(asunto).toBe('Pedido nuevo N.º 12: $263.970');
+      expect(cuerpo).toContain('Retiro en el club');
+      expect(cuerpo).toContain(`${ORIGEN}/administracion/tienda/pedidos/12`);
+    });
+
+    it('**en revisión, lo dice en el asunto y explica por qué**', () => {
+      const { asunto, cuerpo } = avisoAlClub(
+        PEDIDO,
+        'El pago llegó con Babolat Pure Drive · Grip 2 ya vendido: el stock quedó en −1.',
+        CLUB,
+        ORIGEN,
+      );
+
+      expect(asunto).toBe('Pedido en revisión N.º 12: $263.970');
+      expect(cuerpo).toContain('el stock quedó en −1');
+    });
+  });
+});
