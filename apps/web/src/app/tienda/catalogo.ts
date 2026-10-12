@@ -8,6 +8,7 @@ import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 import { Selector } from '../ui/selector';
+import { Carrito } from './carrito';
 import { FiltroDelCatalogo, OrdenDelCatalogo, Tienda } from './tienda.service';
 
 const ORDENES: { valor: OrdenDelCatalogo; etiqueta: string }[] = [
@@ -33,7 +34,15 @@ type CambioDeFiltro = Partial<Record<keyof FiltroDelCatalogo, string | number | 
   selector: 'app-tienda-en-linea',
   imports: [RouterLink, Esqueleto, EstadoVacio, Insignia, Selector],
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Tienda</h1>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <h1 class="titular text-5xl sm:text-6xl">Tienda</h1>
+      @if (unidadesEnCarrito() > 0) {
+        <a routerLink="/tienda/carrito" class="boton boton-secundario">
+          <span class="icono" aria-hidden="true">shopping_cart</span>
+          Ver el carrito ({{ unidadesEnCarrito() }})
+        </a>
+      }
+    </div>
     <p class="mt-2 max-w-prose text-lg text-muted-foreground">
       Lo que vende la tienda del club: raquetas, zapatillas, ropa, pelotas y más.
     </p>
@@ -234,6 +243,7 @@ export class TiendaEnLinea {
   private readonly ruta = inject(ActivatedRoute);
 
   protected readonly usuario = inject(Auth).usuario;
+  protected readonly unidadesEnCarrito = inject(Carrito).unidades;
   protected readonly filtros = this.tienda.filtros;
   protected readonly ORDENES = ORDENES;
   protected readonly pesos = enPesos;

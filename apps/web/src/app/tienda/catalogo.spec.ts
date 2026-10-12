@@ -5,6 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../core/auth/auth';
+import { Carrito } from './carrito';
 import { TiendaEnLinea } from './catalogo';
 import { FiltrosDelCatalogo, ProductoDelCatalogo, Tienda } from './tienda.service';
 
@@ -55,6 +56,7 @@ describe('TiendaEnLinea', () => {
     opciones: {
       lista?: ProductoDelCatalogo[];
       usuario?: UsuarioActual | null;
+      unidadesEnCarrito?: number;
       /** La lista no llega nunca: esperar a que la página se asiente no terminaría. */
       pendiente?: boolean;
     } = {},
@@ -74,6 +76,7 @@ describe('TiendaEnLinea', () => {
           },
         },
         { provide: Auth, useValue: { usuario: signal(opciones.usuario ?? null) } },
+        { provide: Carrito, useValue: { unidades: signal(opciones.unidadesEnCarrito ?? 0) } },
       ],
     });
     const harness = await RouterTestingHarness.create(url);
@@ -137,6 +140,15 @@ describe('TiendaEnLinea', () => {
 
       const entrar = elemento.querySelector<HTMLAnchorElement>('a[href^="/entrar"]');
       expect(entrar?.closest('p')?.textContent).toContain('socio');
+    });
+
+    it('con algo en el carrito, lleva a él y dice cuánto hay (T163)', async () => {
+      const conAlgo = await montar('/tienda', { unidadesEnCarrito: 3 });
+      const vacio = await montar('/tienda');
+
+      const enlace = conAlgo.elemento.querySelector('a[href="/tienda/carrito"]');
+      expect(enlace?.textContent).toContain('Ver el carrito (3)');
+      expect(vacio.elemento.querySelector('a[href="/tienda/carrito"]')).toBeNull();
     });
 
     it('con sesión, no se lo repite', async () => {

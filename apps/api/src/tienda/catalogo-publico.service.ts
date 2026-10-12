@@ -9,7 +9,7 @@ import type {
   OrdenDelCatalogo,
 } from './catalogo-publico.dto';
 import { direccionesDeLaFoto } from './fotos.service';
-import { precioDeSocio } from './precio';
+import { porcentajeDeSocio, precioDeSocio } from './precio';
 import { textoDeTalla } from './tallas';
 
 type Nombrado = { id: number; nombre: string };
@@ -134,7 +134,7 @@ export class CatalogoPublico {
           },
         },
       }),
-      this.descuentoDe(yo),
+      porcentajeDeSocio(this.prisma, yo),
     ]);
 
     return productos.map(({ variantes, fotos, ...producto }) => ({
@@ -181,7 +181,7 @@ export class CatalogoPublico {
           },
         },
       }),
-      this.descuentoDe(yo),
+      porcentajeDeSocio(this.prisma, yo),
     ]);
 
     // El mismo 404 para el que no existe y para el borrador: un borrador no se anuncia.
@@ -250,17 +250,5 @@ export class CatalogoPublico {
       precioMin: precios._min.precioClp,
       precioMax: precios._max.precioClp,
     };
-  }
-
-  /** El porcentaje de quien mira, o nulo si no le toca: socio activo y al día. */
-  private async descuentoDe(yo: UsuarioActual | null): Promise<number | null> {
-    if (!yo?.socioActivo || !yo.socioAlDia) return null;
-
-    const { descuentoSocioPorcentaje } =
-      await this.prisma.configuracionClub.findFirstOrThrow({
-        select: { descuentoSocioPorcentaje: true },
-      });
-
-    return descuentoSocioPorcentaje;
   }
 }

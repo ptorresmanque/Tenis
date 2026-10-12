@@ -88,6 +88,13 @@ export const routes: Routes = [
         loadComponent: () => import('./tienda/catalogo').then((m) => m.TiendaEnLinea),
       },
       {
+        // Antes de `tienda/:id`: si no, "carrito" sería el id de un producto.
+        path: 'tienda/carrito',
+        title: 'Tu carrito — FEDAL Tennis Center',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () => import('./tienda/pagina-carrito').then((m) => m.PaginaDelCarrito),
+      },
+      {
         path: 'tienda/:id',
         title: 'Tienda — FEDAL Tennis Center',
         canActivate: [tiendaHabilitada],

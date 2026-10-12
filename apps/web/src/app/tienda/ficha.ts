@@ -7,6 +7,7 @@ import { Aviso } from '../ui/aviso';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
+import { CANTIDAD_MAXIMA, Carrito } from './carrito';
 import { Tienda } from './tienda.service';
 
 /**
@@ -19,13 +20,14 @@ const POCAS = 5;
  * La ficha de un producto, `/tienda/:id` (T162): la galería, el precio —el de socio si
  * quien mira lo tiene—, cada variante con lo que queda y la tabla de tallas de la marca.
  *
- * Elegir una variante y llevarla al carrito llega con el carrito (T163).
+ * Desde T163 se elige una variante y una cantidad, y se lleva al carrito. Lo agotado no se
+ * puede elegir; lo que acepta encargo llega en T170.
  */
 @Component({
   selector: 'app-ficha-del-producto',
   imports: [RouterLink, Aviso, Esqueleto, EstadoVacio, Insignia],
   template: `
-    <p>
+    <p class="flex flex-wrap items-center justify-between gap-3">
       <a
         routerLink="/tienda"
         class="inline-flex items-center gap-1 font-semibold text-primary underline-offset-4
@@ -34,6 +36,12 @@ const POCAS = 5;
         <span class="icono text-lg" aria-hidden="true">arrow_back</span>
         Volver a la tienda
       </a>
+      @if (unidadesEnCarrito() > 0) {
+        <a routerLink="/tienda/carrito" class="boton boton-secundario boton-chico">
+          <span class="icono" aria-hidden="true">shopping_cart</span>
+          Ver el carrito ({{ unidadesEnCarrito() }})
+        </a>
+      }
     </p>
 
     @if (ficha.isLoading()) {
@@ -68,11 +76,11 @@ const POCAS = 5;
                     type="button"
                     class="block w-full cursor-pointer overflow-hidden rounded-lg border-2
                            transition-colors"
-                    [class.border-primary]="i === elegida()"
-                    [class.border-transparent]="i !== elegida()"
-                    [attr.aria-pressed]="i === elegida()"
+                    [class.border-primary]="i === fotoElegida()"
+                    [class.border-transparent]="i !== fotoElegida()"
+                    [attr.aria-pressed]="i === fotoElegida()"
                     [attr.aria-label]="'Ver la foto ' + (i + 1) + ' de ' + producto.fotos.length"
-                    (click)="elegida.set(i)"
+                    (click)="fotoElegida.set(i)"
                   >
                     <img
                       [src]="foto.miniatura"
@@ -124,27 +132,84 @@ const POCAS = 5;
             </p>
           }
 
-          <h2 class="mt-8 font-display text-lg font-bold tracking-wider uppercase">
-            Disponibilidad
-          </h2>
-          <ul class="mt-2 divide-y divide-border rounded-xl border border-border bg-card">
-            @for (variante of producto.variantes; track variante.id) {
-              <li data-variante class="flex items-center justify-between gap-3 px-4 py-3">
-                <span class="font-medium">{{ variante.talla }}</span>
-                @if (variante.disponible === 0) {
-                  <app-insignia variante="neutro" icono="remove_shopping_cart"
-                    >Agotado</app-insignia
+          <fieldset class="mt-8">
+            <legend class="font-display text-lg font-bold tracking-wider uppercase">
+              Disponibilidad
+            </legend>
+            <ul class="mt-2 divide-y divide-border rounded-xl border border-border bg-card">
+              @for (variante of producto.variantes; track variante.id) {
+                <li>
+                  <label
+                    data-variante
+                    class="flex cursor-pointer items-center gap-3 px-4 py-3
+                           has-[:checked]:bg-primary/5 has-[:disabled]:cursor-not-allowed"
                   >
-                } @else if (variante.disponible <= POCAS) {
-                  <app-insignia variante="aviso" icono="inventory_2"
-                    >Quedan {{ variante.disponible }}</app-insignia
-                  >
-                } @else {
-                  <app-insignia variante="exito">Disponible</app-insignia>
-                }
-              </li>
+                    <input
+                      type="radio"
+                      name="variante"
+                      class="size-4 accent-primary"
+                      [value]="variante.id"
+                      [checked]="variante.id === elegidaId()"
+                      [disabled]="variante.disponible === 0"
+                      (change)="elegidaId.set(variante.id)"
+                    />
+                    <span data-talla class="flex-1 font-medium">{{ variante.talla }}</span>
+                    @if (variante.disponible === 0) {
+                      <app-insignia variante="neutro" icono="remove_shopping_cart"
+                        >Agotado</app-insignia
+                      >
+                    } @else if (variante.disponible <= POCAS) {
+                      <app-insignia variante="aviso" icono="inventory_2"
+                        >Quedan {{ variante.disponible }}</app-insignia
+                      >
+                    } @else {
+                      <app-insignia variante="exito">Disponible</app-insignia>
+                    }
+                  </label>
+                </li>
+              }
+            </ul>
+          </fieldset>
+
+          @if (todoAgotado()) {
+            <p class="mt-3 text-muted-foreground">Se agotó en todas sus opciones.</p>
+          } @else {
+            <div class="mt-4 flex flex-wrap items-end gap-3">
+              <div class="grid gap-1 text-sm">
+                <label for="cantidad" class="font-medium">Cantidad</label>
+                <input
+                  id="cantidad"
+                  class="campo w-24"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  [max]="maximo()"
+                  [value]="cantidad()"
+                  [disabled]="!elegida()"
+                  (input)="leerCantidad($event)"
+                />
+              </div>
+              <button
+                type="button"
+                class="boton boton-primario"
+                [disabled]="!elegida()"
+                (click)="agregar()"
+              >
+                <span class="icono" aria-hidden="true">add_shopping_cart</span>
+                Agregar al carrito
+              </button>
+            </div>
+            @if (!elegida()) {
+              <p class="mt-2 text-sm text-muted-foreground">Elige una opción para agregarla.</p>
             }
-          </ul>
+          }
+
+          @if (agregada(); as talla) {
+            <app-aviso class="mt-4 block" variante="exito">
+              Agregaste {{ talla }} al carrito.
+              <a routerLink="/tienda/carrito" class="font-semibold underline">Ver el carrito</a>
+            </app-aviso>
+          }
 
           @if (producto.tallas.length > 0) {
             <details class="mt-4 rounded-xl border border-border bg-card">
@@ -211,8 +276,58 @@ export class FichaDelProducto {
         : Promise.resolve(null),
   });
 
+  private readonly carrito = inject(Carrito);
+  protected readonly unidadesEnCarrito = this.carrito.unidades;
+
+  private readonly producto = computed(() => (this.ficha.hasValue() ? this.ficha.value() : null));
+
+  /** La variante elegida. Si el producto tiene una sola y queda, ya viene elegida. */
+  protected readonly elegidaId = linkedSignal<number | null>(() => {
+    const variantes = this.producto()?.variantes ?? [];
+
+    return variantes.length === 1 && variantes[0].disponible > 0 ? variantes[0].id : null;
+  });
+
+  protected readonly elegida = computed(
+    () => this.producto()?.variantes.find((v) => v.id === this.elegidaId()) ?? null,
+  );
+
+  protected readonly todoAgotado = computed(
+    () => this.producto()?.variantes.every((v) => v.disponible === 0) ?? false,
+  );
+
+  /** Lo que queda de la elegida, y nunca más de lo que acepta un carrito. */
+  protected readonly maximo = computed(() =>
+    Math.min(this.elegida()?.disponible ?? 1, CANTIDAD_MAXIMA),
+  );
+
+  /** Vuelve a 1 al cambiar de variante. */
+  protected readonly cantidad = linkedSignal({ source: this.elegidaId, computation: () => 1 });
+
+  /** La talla que se acaba de agregar, para decirlo. Se olvida al cambiar de producto. */
+  protected readonly agregada = linkedSignal<string | null>(() => {
+    this.producto();
+
+    return null;
+  });
+
+  protected leerCantidad(evento: Event): void {
+    const cantidad = Number((evento.target as HTMLInputElement).value);
+
+    if (Number.isInteger(cantidad)) this.cantidad.set(cantidad);
+  }
+
+  /** Entre 1 y lo que queda: el campo numérico deja escribir cualquier cosa. */
+  protected agregar(): void {
+    const variante = this.elegida();
+    if (!variante) return;
+
+    this.carrito.agregar(variante.id, Math.max(1, Math.min(this.cantidad(), this.maximo())));
+    this.agregada.set(variante.talla);
+  }
+
   /** La foto en grande. Vuelve a la primera al cambiar de producto. */
-  protected readonly elegida = linkedSignal({
+  protected readonly fotoElegida = linkedSignal({
     source: () => this.id(),
     computation: () => 0,
   });
@@ -220,7 +335,7 @@ export class FichaDelProducto {
   protected readonly fotoGrande = computed(() => {
     const fotos = this.ficha.value()?.fotos ?? [];
 
-    return fotos[this.elegida()] ?? fotos[0] ?? null;
+    return fotos[this.fotoElegida()] ?? fotos[0] ?? null;
   });
 
   /** El socio activo con la cuota atrasada: tiene que saber por qué no ve su precio. */

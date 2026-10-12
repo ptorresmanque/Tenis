@@ -90,7 +90,7 @@ describe('Rutas protegidas', () => {
     },
   );
 
-  it.each(['tienda', 'tienda/:id'])(
+  it.each(['tienda', 'tienda/carrito', 'tienda/:id'])(
     '%s es para cualquiera, pero solo si la tienda existe en este ambiente (T162)',
     (url) => {
       expect(buscar(url)?.guards).toEqual([tiendaHabilitada]);
@@ -138,6 +138,7 @@ describe('Cada ruta en su cascarón', () => {
     ['privacidad', CascaronPublico],
     ['preguntas-frecuentes', CascaronPublico],
     ['tienda', CascaronPublico],
+    ['tienda/carrito', CascaronPublico],
     ['tienda/:id', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],

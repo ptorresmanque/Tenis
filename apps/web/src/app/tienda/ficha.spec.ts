@@ -5,12 +5,14 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../core/auth/auth';
+import { Carrito } from './carrito';
 import { FichaDelProducto } from './ficha';
 import { FichaPublica, Tienda } from './tienda.service';
 
 /**
  * T162. La ficha de un producto, `/tienda/:id`: la galería, las variantes con lo
  * disponible, las tallas en los tres sistemas y el precio de socio para quien lo tiene.
+ * Desde T163, se elige una variante y se agrega al carrito.
  */
 describe('FichaDelProducto', () => {
   const foto = (id: number) => ({
@@ -51,6 +53,7 @@ describe('FichaDelProducto', () => {
     } = {},
   ) => {
     const ficha = vi.fn().mockReturnValue(opciones.ficha ?? Promise.resolve(ASICS));
+    const carrito = { agregar: vi.fn(), unidades: signal(0) };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -59,6 +62,7 @@ describe('FichaDelProducto', () => {
           withComponentInputBinding(),
         ),
         { provide: Tienda, useValue: { ficha } },
+        { provide: Carrito, useValue: carrito },
         { provide: Auth, useValue: { usuario: signal(opciones.usuario ?? null) } },
       ],
     });
@@ -71,7 +75,7 @@ describe('FichaDelProducto', () => {
     if (opciones.esperar === false) harness.detectChanges();
     else await estable();
 
-    return { elemento, ficha, estable };
+    return { elemento, ficha, carrito, estable };
   };
 
   /** Cada variante como se lee: la talla y lo que queda, sin el nombre de los íconos. */
@@ -82,6 +86,7 @@ describe('FichaDelProducto', () => {
 
       return Array.from(copia.children)
         .map((parte) => (parte.textContent ?? '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
         .join(' ');
     });
 
@@ -108,6 +113,74 @@ describe('FichaDelProducto', () => {
       '41 Agotado',
       'CL 42 · US 9 · EU 43 Disponible',
     ]);
+  });
+
+  describe('agregar al carrito (T163)', () => {
+    const boton = (elemento: HTMLElement) =>
+      Array.from(elemento.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Agregar al carrito'),
+      )!;
+    const radio = (elemento: HTMLElement, talla: string) =>
+      Array.from(elemento.querySelectorAll<HTMLElement>('[data-variante]'))
+        .find((v) => v.querySelector('[data-talla]')?.textContent?.trim() === talla)!
+        .querySelector<HTMLInputElement>('input[type="radio"]')!;
+
+    it('sin elegir una variante, no se puede agregar', async () => {
+      const { elemento } = await montar();
+
+      expect(boton(elemento).disabled).toBe(true);
+    });
+
+    it('**una variante agotada no se puede elegir**', async () => {
+      const { elemento } = await montar();
+
+      expect(radio(elemento, '41').disabled).toBe(true);
+      expect(radio(elemento, 'CL 40 · US 8 · EU 41').disabled).toBe(false);
+    });
+
+    it('se elige la variante y la cantidad, y va al carrito', async () => {
+      const { elemento, carrito, estable } = await montar();
+
+      radio(elemento, 'CL 40 · US 8 · EU 41').click();
+      await estable();
+      const cantidad = elemento.querySelector<HTMLInputElement>('#cantidad')!;
+      // No deja pedir más de lo que queda.
+      expect(cantidad.max).toBe('2');
+      cantidad.value = '2';
+      cantidad.dispatchEvent(new Event('input'));
+      boton(elemento).click();
+      await estable();
+
+      expect(carrito.agregar).toHaveBeenCalledWith(10, 2);
+      expect(elemento.textContent).toContain('Agregaste CL 40 · US 8 · EU 41 al carrito');
+      expect(elemento.querySelector('a[href="/tienda/carrito"]')).not.toBeNull();
+    });
+
+    it('con una sola variante disponible, ya viene elegida', async () => {
+      const { elemento, carrito, estable } = await montar({
+        ficha: Promise.resolve({
+          ...ASICS,
+          variantes: [{ id: 20, etiqueta: 'Única', talla: 'Única', disponible: 3 }],
+        }),
+      });
+
+      boton(elemento).click();
+      await estable();
+
+      expect(carrito.agregar).toHaveBeenCalledWith(20, 1);
+    });
+
+    it('todo agotado: no hay qué agregar, y lo dice', async () => {
+      const { elemento } = await montar({
+        ficha: Promise.resolve({
+          ...ASICS,
+          variantes: ASICS.variantes.map((v) => ({ ...v, disponible: 0 })),
+        }),
+      });
+
+      expect(boton(elemento)).toBeUndefined();
+      expect(elemento.textContent).toContain('Se agotó');
+    });
   });
 
   it('la tabla de tallas de la marca, para consultarla', async () => {
