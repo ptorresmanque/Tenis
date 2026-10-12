@@ -41,7 +41,9 @@ const UMBRAL_EN_PANTALLAS = 1.5;
   `,
   styles: `
     /* Entra subiendo un poco y sale más rápido de lo que entra, como los diálogos.
-       visibility va en la transición para que se oculte al terminar de salir. */
+       visibility va en la transición para que se oculte al terminar de salir. Esta
+       lista reemplaza la de .pulsable, así que repite su escala: sin ella, el botón se
+       hundiría de golpe al presionarlo. */
     .volver-arriba {
       opacity: 0;
       translate: 0 0.75rem;
@@ -49,7 +51,8 @@ const UMBRAL_EN_PANTALLAS = 1.5;
       transition:
         opacity var(--duracion-salida) var(--ease-salida),
         translate var(--duracion-salida) var(--ease-salida),
-        visibility var(--duracion-salida);
+        visibility var(--duracion-salida),
+        scale var(--duracion-pulsacion) var(--ease-salida);
     }
 
     .volver-arriba.visible {
