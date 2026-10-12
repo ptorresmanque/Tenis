@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
+import { Club, DatosDelClub } from '../club/club.service';
 import { Auth, UsuarioActual } from '../core/auth/auth';
 import { CascaronPublico } from './cascaron-publico';
 
@@ -44,13 +45,17 @@ describe('Cascarón público: la navegación', () => {
     socioAlDia: true,
   };
 
-  function montarCon(usuario: UsuarioActual | null): ComponentFixture<CascaronPublico> {
+  function montarCon(
+    usuario: UsuarioActual | null,
+    club?: DatosDelClub,
+  ): ComponentFixture<CascaronPublico> {
     const estado = signal(usuario);
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        ...(club ? [{ provide: Club, useValue: { datos: signal(club) } }] : []),
         {
           provide: Auth,
           useValue: {
@@ -88,6 +93,28 @@ describe('Cascarón público: la navegación', () => {
         'Política de privacidad',
       );
     }
+  });
+
+  it('el pie muestra las redes que el club cargó (T141)', () => {
+    const pie = (
+      montarCon(null, {
+        nombre: 'FEDAL Tennis Center',
+        direccion: '',
+        telefono: '',
+        email: '',
+        latitud: null,
+        longitud: null,
+        instagram: '',
+        facebook: '',
+        tiktok: '',
+        youtube: '',
+        whatsapp: '56987654321',
+      }).nativeElement as HTMLElement
+    ).querySelector('footer');
+
+    expect(pie?.querySelector('a[href="https://wa.me/56987654321"]')?.textContent).toContain(
+      'WhatsApp de FEDAL Tennis Center',
+    );
   });
 
   it('le ofrece crear cuenta a quien no ha entrado', () => {

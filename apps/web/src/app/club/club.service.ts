@@ -10,6 +10,13 @@ export interface DatosDelClub {
   /** Dónde está el club, para el mapa (T100). Nulas mientras no se cargue. */
   latitud: number | null;
   longitud: number | null;
+  /** Las redes (T140): el enlace del perfil, o vacío si el club no la tiene. */
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  youtube: string;
+  /** El número de WhatsApp, `56` y los 9 dígitos. */
+  whatsapp: string;
 }
 
 /**
@@ -43,6 +50,11 @@ export class Club {
           email: '',
           latitud: null,
           longitud: null,
+          instagram: '',
+          facebook: '',
+          tiktok: '',
+          youtube: '',
+          whatsapp: '',
         },
   );
 

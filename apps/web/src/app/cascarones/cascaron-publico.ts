@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Club } from '../club/club.service';
+import { RedesSociales } from '../club/redes-sociales';
 import { Auth } from '../core/auth/auth';
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
@@ -36,6 +37,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     MenuDesplegable,
     EnlaceTelefonoPipe,
     TelefonoPipe,
+    RedesSociales,
   ],
   template: `
     <a
@@ -217,6 +219,9 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           <p class="mt-3 max-w-xs text-sm text-on-campo/80">
             Canchas duras, todas de la misma superficie. Reserva en línea.
           </p>
+          <!-- Las redes que el club cargó (T141). El margen negativo alinea el primer
+               logo con el texto: la caja táctil mide el doble que el dibujo. -->
+          <app-redes-sociales clase="mt-3 -ms-3" />
         </div>
 
         <nav aria-labelledby="pie-reservas">

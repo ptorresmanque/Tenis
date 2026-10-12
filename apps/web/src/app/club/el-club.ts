@@ -9,6 +9,7 @@ import { Foto } from '../ui/foto';
 import { Insignia } from '../ui/insignia';
 import { FormularioContacto } from './formulario-contacto';
 import { enlacesDelMapa } from './mapa';
+import { RedesSociales } from './redes-sociales';
 import { Tarifas } from './tarifas';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
@@ -28,7 +29,16 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
  */
 @Component({
   selector: 'app-el-club',
-  imports: [RouterLink, Foto, Insignia, FormularioContacto, Tarifas, EnlaceTelefonoPipe, TelefonoPipe],
+  imports: [
+    RouterLink,
+    Foto,
+    Insignia,
+    FormularioContacto,
+    Tarifas,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    RedesSociales,
+  ],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
     <section
@@ -189,6 +199,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
               @if (!club().direccion && !club().telefono && !club().email) {
                 <span>Pregunta en el mesón: te atienden todos los días.</span>
               }
+              <!-- T141. Bajo el contacto: son otra forma de escribirle al club. -->
+              <app-redes-sociales clase="-ms-3" />
             </dd>
           </div>
         </dl>

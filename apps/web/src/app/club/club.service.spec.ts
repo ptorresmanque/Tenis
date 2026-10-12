@@ -33,6 +33,12 @@ describe('Club', () => {
       // Sin ubicación no hay mapa (T101).
       latitud: null,
       longitud: null,
+      // Sin redes, el pie no dibuja la lista (T141).
+      instagram: '',
+      facebook: '',
+      tiktok: '',
+      youtube: '',
+      whatsapp: '',
     });
   });
 });

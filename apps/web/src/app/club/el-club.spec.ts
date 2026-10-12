@@ -29,6 +29,11 @@ describe('ElClub', () => {
     email: '',
     latitud: null,
     longitud: null,
+    instagram: '',
+    facebook: '',
+    tiktok: '',
+    youtube: '',
+    whatsapp: '',
   };
 
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {
@@ -79,6 +84,15 @@ describe('ElClub', () => {
 
     expect(contacto.querySelector('a[href^="tel:"]')).not.toBeNull();
     expect(contacto.querySelector('a[href^="mailto:"]')).toBeNull();
+  });
+
+  it('las redes del club están en "Dónde encontrarnos" (T141)', async () => {
+    await montar([], { ...VACIO, instagram: 'https://www.instagram.com/fedaltennis' });
+    const contacto = seccion('horarios-y-contacto');
+
+    expect(
+      contacto.querySelector('a[href="https://www.instagram.com/fedaltennis"]')?.textContent,
+    ).toContain('Instagram de FEDAL Tennis Center');
   });
 
   it('con el contacto en blanco no queda una ficha a medias', async () => {
