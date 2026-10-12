@@ -60,5 +60,6 @@ export class Configuracion {
     { ruta: 'textos', etiqueta: 'Textos del sitio', icono: 'edit_note' },
     { ruta: 'administradores', etiqueta: 'Administradores', icono: 'shield_person' },
     { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },
+    { ruta: 'preguntas-frecuentes', etiqueta: 'Preguntas frecuentes', icono: 'quiz' },
   ];
 }

@@ -1,0 +1,390 @@
+import {
+  afterNextRender,
+  Component,
+  inject,
+  Injector,
+  resource,
+  signal,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+
+import { mensajeDelServidor } from '../core/errores';
+import { Aviso } from '../ui/aviso';
+import { Campo, CampoControl } from '../ui/campo';
+import { Esqueleto } from '../ui/esqueleto';
+import { EstadoVacio } from '../ui/estado-vacio';
+import { PreguntaFrecuente, PreguntasFrecuentes } from './preguntas-frecuentes.service';
+
+/** Lo que cabe: el largo de la columna de la pregunta y el tope de la API (T144). */
+const LARGO_DE_LA_PREGUNTA = 191;
+const LARGO_DE_LA_RESPUESTA = 2000;
+
+/**
+ * Las preguntas frecuentes del club (T145), que publica `/preguntas-frecuentes`.
+ *
+ * Con el patrón de las categorías de juego: el formulario de agregar arriba y la lista
+ * abajo, y el orden es un número en cada fila. Corregir y borrar pasan en la propia
+ * fila —la confirmación también, como al cancelar una reserva—, así que no hay un
+ * diálogo que atrape el foco ni una pantalla aparte.
+ */
+@Component({
+  selector: 'app-preguntas-frecuentes',
+  imports: [FormsModule, Aviso, Campo, CampoControl, Esqueleto, EstadoVacio],
+  template: `
+    <section aria-labelledby="titulo-preguntas">
+      <h2 id="titulo-preguntas" class="rotulo-seccion" tabindex="-1">Preguntas frecuentes</h2>
+      <p class="mt-2 max-w-prose text-sm text-muted-foreground">
+        Salen en la página «Preguntas frecuentes», enlazada desde el pie de cada página y
+        desde «El club». Van en el orden de la lista: el número menor, más arriba.
+      </p>
+
+      <form class="mt-4 grid max-w-xl gap-4" (ngSubmit)="agregar()">
+        <app-campo etiqueta="Pregunta" [obligatorio]="true">
+          <input
+            appCampoControl
+            name="pregunta"
+            class="campo"
+            [maxlength]="LARGO_DE_LA_PREGUNTA"
+            [(ngModel)]="nueva.pregunta"
+          />
+        </app-campo>
+
+        <app-campo
+          etiqueta="Respuesta"
+          [obligatorio]="true"
+          [ayuda]="'Texto simple: los saltos de línea se respetan. ' + quedan(nueva.respuesta)"
+        >
+          <textarea
+            appCampoControl
+            name="respuesta"
+            rows="4"
+            class="campo"
+            [maxlength]="LARGO_DE_LA_RESPUESTA"
+            [(ngModel)]="nueva.respuesta"
+          ></textarea>
+        </app-campo>
+
+        <div>
+          <button type="submit" class="boton boton-primario" [disabled]="enviando()">
+            Agregar la pregunta
+          </button>
+        </div>
+      </form>
+
+      <!-- Acá, solo lo de agregar y lo de borrar (la fila ya no está). Lo de una fila
+           sale en esa fila: con veinte preguntas, arriba no se vería. -->
+      @if (origen() === null) {
+        @if (error(); as falla) {
+          <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
+        } @else if (aviso(); as texto) {
+          <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
+        }
+      }
+    </section>
+
+    <section class="mt-8" aria-labelledby="listado-preguntas">
+      <h2 id="listado-preguntas" class="sr-only">Preguntas publicadas</h2>
+
+      <!-- El esqueleto, solo la primera vez. Al recargar después de guardar la lista se
+           queda puesta: redibujarla destruiría el botón que acaba de recibir el foco. -->
+      @if (!preguntas.hasValue() && preguntas.isLoading()) {
+        <app-esqueleto class="block" [filas]="3" etiqueta="Cargando las preguntas…" />
+      } @else if (preguntas.error()) {
+        <p class="text-destructive">
+          No se pudieron cargar las preguntas. Reintenta en un momento.
+        </p>
+      } @else if (lista().length === 0) {
+        <app-estado-vacio
+          icono="quiz"
+          titulo="Todavía no hay preguntas"
+          detalle="Mientras tanto, la página pública dice que no hay y ofrece el formulario de contacto. Agrega la primera arriba."
+        />
+      } @else {
+        <ol class="grid gap-3">
+          @for (pregunta of lista(); track pregunta.id) {
+            <li class="rounded-xl border border-border bg-card p-4">
+              @if (editando() === pregunta.id) {
+                <form class="grid gap-4" (ngSubmit)="guardar(pregunta)">
+                  <app-campo etiqueta="Pregunta" [obligatorio]="true">
+                    <input
+                      appCampoControl
+                      [id]="'editar-pregunta-' + pregunta.id"
+                      name="pregunta"
+                      class="campo"
+                      [maxlength]="LARGO_DE_LA_PREGUNTA"
+                      [(ngModel)]="borrador.pregunta"
+                    />
+                  </app-campo>
+                  <app-campo
+                    etiqueta="Respuesta"
+                    [obligatorio]="true"
+                    [ayuda]="quedan(borrador.respuesta)"
+                  >
+                    <textarea
+                      appCampoControl
+                      name="respuesta"
+                      rows="4"
+                      class="campo"
+                      [maxlength]="LARGO_DE_LA_RESPUESTA"
+                      [(ngModel)]="borrador.respuesta"
+                    ></textarea>
+                  </app-campo>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      class="boton boton-primario boton-chico"
+                      [disabled]="enviando()"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      class="boton boton-texto boton-chico"
+                      (click)="cerrarEdicion(pregunta.id)"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              } @else {
+                <div class="flex items-start gap-4">
+                  <div class="min-w-0 flex-1">
+                    <h3 class="font-semibold">{{ pregunta.pregunta }}</h3>
+                    <!-- Un adelanto: la respuesta entera se lee al editarla. -->
+                    <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
+                  </div>
+
+                  <div>
+                    <label class="sr-only" [for]="'orden-pregunta-' + pregunta.id">
+                      Orden de «{{ pregunta.pregunta }}»
+                    </label>
+                    <input
+                      [id]="'orden-pregunta-' + pregunta.id"
+                      type="number"
+                      min="0"
+                      max="1000"
+                      class="campo w-18 sm:w-24"
+                      [value]="pregunta.orden"
+                      [disabled]="enviando()"
+                      (change)="mover(pregunta, $event)"
+                    />
+                  </div>
+                </div>
+
+                @if (porBorrar() === pregunta.id) {
+                  <!-- La confirmación en la fila, como al cancelar una reserva: es la
+                       consecuencia de esta pregunta y no hay foco que atrapar. -->
+                  <app-aviso variante="aviso" [urgente]="true" class="mt-3 block">
+                    «{{ pregunta.pregunta }}» deja de aparecer en el sitio. Esto no se
+                    puede deshacer.
+                  </app-aviso>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="boton boton-destructivo boton-chico"
+                      [disabled]="enviando()"
+                      (click)="borrar(pregunta)"
+                    >
+                      Sí, borrar
+                    </button>
+                    <button
+                      type="button"
+                      class="boton boton-texto boton-chico"
+                      (click)="porBorrar.set(null)"
+                    >
+                      Mejor no
+                    </button>
+                  </div>
+                } @else {
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      [id]="'editar-' + pregunta.id"
+                      class="boton boton-secundario boton-chico"
+                      [disabled]="enviando()"
+                      (click)="abrirEdicion(pregunta)"
+                    >
+                      Editar
+                      <span class="sr-only">«{{ pregunta.pregunta }}»</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="boton boton-texto boton-chico"
+                      [disabled]="enviando()"
+                      (click)="porBorrar.set(pregunta.id)"
+                    >
+                      Borrar
+                      <span class="sr-only">«{{ pregunta.pregunta }}»</span>
+                    </button>
+                  </div>
+                }
+              }
+
+              @if (origen() === pregunta.id) {
+                @if (error(); as falla) {
+                  <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
+                } @else if (aviso(); as texto) {
+                  <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
+                }
+              }
+            </li>
+          }
+        </ol>
+      }
+    </section>
+  `,
+})
+export class PreguntasFrecuentesPanel {
+  private readonly api = inject(PreguntasFrecuentes);
+  private readonly injector = inject(Injector);
+
+  protected readonly LARGO_DE_LA_PREGUNTA = LARGO_DE_LA_PREGUNTA;
+  protected readonly LARGO_DE_LA_RESPUESTA = LARGO_DE_LA_RESPUESTA;
+
+  protected nueva = { pregunta: '', respuesta: '' };
+  /** Lo que hay en la fila que se está corrigiendo. */
+  protected borrador = { pregunta: '', respuesta: '' };
+
+  protected readonly editando = signal<number | null>(null);
+  protected readonly porBorrar = signal<number | null>(null);
+
+  protected readonly enviando = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly aviso = signal<string | null>(null);
+  /** De qué fila es el mensaje; nulo si es del formulario de agregar. */
+  protected readonly origen = signal<number | null>(null);
+
+  protected readonly preguntas = resource({
+    loader: () => this.api.listar(),
+  });
+
+  /** `value()` lanza en estado de error. */
+  protected lista(): PreguntaFrecuente[] {
+    return this.preguntas.hasValue() ? this.preguntas.value() : [];
+  }
+
+  protected quedan(texto: string): string {
+    const quedan = LARGO_DE_LA_RESPUESTA - texto.length;
+
+    return quedan === 1 ? 'Queda 1 carácter.' : `Quedan ${quedan} caracteres.`;
+  }
+
+  protected async agregar(): Promise<void> {
+    this.limpiarMensajes(null);
+
+    const falta = queFalta(this.nueva);
+    if (falta) {
+      this.error.set(falta);
+      return;
+    }
+
+    await this.contra(async () => {
+      await this.api.crear(this.nueva.pregunta.trim(), this.nueva.respuesta.trim());
+      this.aviso.set('Pregunta agregada al final de la lista.');
+      this.nueva = { pregunta: '', respuesta: '' };
+    }, 'No se pudo agregar la pregunta.');
+  }
+
+  protected abrirEdicion(pregunta: PreguntaFrecuente): void {
+    this.limpiarMensajes(pregunta.id);
+    this.porBorrar.set(null);
+    this.borrador = { pregunta: pregunta.pregunta, respuesta: pregunta.respuesta };
+    this.editando.set(pregunta.id);
+    this.enfocar(`editar-pregunta-${pregunta.id}`);
+  }
+
+  /** De vuelta al botón que la abrió: sin esto, el foco cae al comienzo de la página. */
+  protected cerrarEdicion(id: number): void {
+    this.editando.set(null);
+    this.enfocar(`editar-${id}`);
+  }
+
+  protected async guardar(pregunta: PreguntaFrecuente): Promise<void> {
+    this.limpiarMensajes(pregunta.id);
+
+    const falta = queFalta(this.borrador);
+    if (falta) {
+      this.error.set(falta);
+      return;
+    }
+
+    await this.contra(async () => {
+      await this.api.editar(pregunta.id, {
+        pregunta: this.borrador.pregunta.trim(),
+        respuesta: this.borrador.respuesta.trim(),
+      });
+      this.aviso.set('Pregunta guardada.');
+      this.cerrarEdicion(pregunta.id);
+    }, 'No se pudo guardar la pregunta.');
+  }
+
+  /** Cambiar el número es cómo se reordena, como en las categorías de juego. */
+  protected async mover(pregunta: PreguntaFrecuente, evento: Event): Promise<void> {
+    const orden = Number((evento.target as HTMLInputElement).value);
+
+    this.limpiarMensajes(pregunta.id);
+
+    // Vacío llega como 0 y basura como NaN: se ataja con un mensaje que dice qué
+    // escribir, en vez de un 400 que solo dice que no se pudo.
+    if (!Number.isInteger(orden) || orden < 0 || orden > 1000) {
+      this.error.set('El orden tiene que ser un número entero entre 0 y 1000.');
+      return;
+    }
+
+    await this.contra(async () => {
+      await this.api.editar(pregunta.id, { orden });
+      this.aviso.set(`«${pregunta.pregunta}» quedó con el orden ${orden}.`);
+    }, 'No se pudo mover la pregunta.');
+  }
+
+  protected async borrar(pregunta: PreguntaFrecuente): Promise<void> {
+    this.limpiarMensajes(pregunta.id);
+
+    await this.contra(async () => {
+      await this.api.borrar(pregunta.id);
+      this.porBorrar.set(null);
+      // La fila se va: el aviso sale arriba, junto al título que recibe el foco.
+      this.origen.set(null);
+      this.aviso.set(`«${pregunta.pregunta}» ya no aparece en el sitio.`);
+      // La fila se va con sus botones: el foco vuelve al título de la sección.
+      this.enfocar('titulo-preguntas');
+    }, 'No se pudo borrar la pregunta.');
+  }
+
+  /**
+   * Recarga siempre, incluso al fallar, como en las categorías de juego: el número que
+   * quedó escrito en una fila puede no ser el guardado.
+   */
+  private async contra(accion: () => Promise<void>, porDefecto: string): Promise<void> {
+    this.enviando.set(true);
+
+    try {
+      await accion();
+    } catch (falla) {
+      this.error.set(mensajeDelServidor(falla, porDefecto));
+    } finally {
+      this.enviando.set(false);
+      // `reload()` y no un cambio de parámetros: recarga conservando lo que ya se ve.
+      this.preguntas.reload();
+    }
+  }
+
+  /** Después de dibujar: el elemento puede no existir todavía. */
+  private enfocar(id: string): void {
+    afterNextRender(() => document.getElementById(id)?.focus(), { injector: this.injector });
+  }
+
+  private limpiarMensajes(origen: number | null): void {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.origen.set(origen);
+  }
+}
+
+/** El mismo mensaje en agregar y en corregir: los dos campos son obligatorios. */
+function queFalta({ pregunta, respuesta }: { pregunta: string; respuesta: string }): string | null {
+  if (!pregunta.trim()) return 'Escribe la pregunta.';
+  if (!respuesta.trim()) return 'Escribe la respuesta.';
+
+  return null;
+}

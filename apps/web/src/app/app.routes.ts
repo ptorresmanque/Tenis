@@ -298,6 +298,14 @@ export const routes: Routes = [
                 (m) => m.CategoriasDeJuegoPanel,
               ),
           },
+          {
+            path: 'preguntas-frecuentes',
+            title: 'Preguntas frecuentes — Administración',
+            loadComponent: () =>
+              import('./configuracion/preguntas-frecuentes').then(
+                (m) => m.PreguntasFrecuentesPanel,
+              ),
+          },
         ],
       },
       {
