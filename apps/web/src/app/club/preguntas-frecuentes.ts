@@ -33,7 +33,7 @@ interface PreguntaPublica {
       Lo que más nos preguntan. Si lo tuyo no está, escríbenos al final de la página.
     </p>
 
-    <div class="mt-8 max-w-3xl">
+    <div class="mt-8 max-w-3xl aparece-al-pasar">
       @if (preguntas.isLoading()) {
         <app-esqueleto [filas]="5" etiqueta="Cargando las preguntas frecuentes…" />
       } @else if (preguntas.error()) {
@@ -69,7 +69,7 @@ interface PreguntaPublica {
       }
     </div>
 
-    <div class="mt-16">
+    <div class="mt-16 aparece-al-pasar">
       <app-formulario-contacto />
     </div>
   `,

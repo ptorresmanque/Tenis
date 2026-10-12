@@ -123,7 +123,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
       } @else {
         <ul class="mt-8 grid gap-6">
           @for (torneo of lista; track torneo.id) {
-            <li class="overflow-hidden bg-card shadow-md">
+            <li class="overflow-hidden bg-card shadow-md aparece-al-pasar">
               <!-- EL CARTEL (TV4.2). El torneo abierto va sobre el campo, que es lo
                    que se mira primero; los demás, sobre gris. El estado no depende
                    solo del color: lo dice la insignia. -->

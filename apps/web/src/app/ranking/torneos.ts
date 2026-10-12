@@ -129,7 +129,7 @@ import { TablaInterna } from './tabla-interna';
       }
 
       @if (datos.torneos.length > 0) {
-        <section class="mt-8">
+        <section class="mt-8 aparece-al-pasar">
           <h2 class="font-display text-lg font-bold tracking-wide uppercase">
             Cuadros que está contando
           </h2>
@@ -153,7 +153,7 @@ import { TablaInterna } from './tabla-interna';
          sección que carga un 403 es peor que una que no está. Las dos comparten
          pantalla porque comparten vocabulario, pero no comparten público. -->
     @if (esSocio()) {
-      <section class="mt-12">
+      <section class="mt-12 aparece-al-pasar">
         <h2 class="titular text-4xl sm:text-5xl">Tabla del club</h2>
         <p class="mt-1 max-w-prose text-muted-foreground">
           El orden de juego entre socios, con los amistosos que ustedes mismos cargan.

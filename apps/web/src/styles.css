@@ -665,6 +665,46 @@ html[data-tema='publico'][data-modo='oscuro'] {
 }
 
 /*
+  LAS BANDAS ENTRAN AL APARECER (T147).
+
+  Suben 1,5 rem y aparecen mientras entran a la pantalla, una vez y sin bloquear
+  nada. Nació en la portada (TV3) y desde T147 la usan las páginas que buscan
+  convencer: portada, «El club», torneos, clases, ranking y preguntas frecuentes. Las
+  de tarea y el panel no: quien va a reservar no espera a que algo entre.
+
+  Con animation-timeline y no con IntersectionObserver: el navegador la corre fuera
+  del hilo principal y no cuesta JavaScript. Lo que ya se ve al cargar está entero,
+  porque terminó de entrar. Donde la propiedad no existe (Firefox) y con «reducir
+  movimiento», las bandas simplemente están ahí, que es el estado correcto.
+
+  `translate` y no `transform`: es otra propiedad, así que no choca con un transform
+  que la banda ya tenga. Y no se pone en un elemento dentro de otro que también la
+  lleve: los dos desplazamientos se sumarían.
+*/
+@keyframes aparece {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
+  }
+}
+
+@utility aparece-al-pasar {
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      animation: aparece linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+
+      /* El foco manda: quien avanza con Tab trae un enlace justo al borde de la
+         pantalla, y la banda que lo contiene estaría casi transparente. */
+      &:focus-within {
+        animation: none;
+      }
+    }
+  }
+}
+
+/*
   Las primitivas que no necesitan JavaScript.
 
   Botón, campo y tabla son clases y no componentes de Angular a propósito: un

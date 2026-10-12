@@ -58,7 +58,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
     </section>
 
     <!-- Los títulos de la A, como el del formulario de contacto de abajo (TV4.4). -->
-    <h2 class="titular mt-16 text-5xl sm:text-6xl">Quiénes enseñan</h2>
+    <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Quiénes enseñan</h2>
     @if (datos.error()) {
       <p class="mt-3 text-destructive">
         No se pudieron cargar las clases. Reintenta en un momento.
@@ -69,7 +69,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
           Estamos armando el equipo de profesores para la próxima temporada.
         </p>
       } @else {
-        <ul class="mt-4 divide-y divide-border border-y border-border">
+        <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
           @for (profesor of info.profesores; track profesor.nombreVisible) {
             <li class="flex flex-wrap items-baseline justify-between gap-2 py-4">
               <p class="titulo-tarjeta">
@@ -84,8 +84,8 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
       <!-- T117. Una serie es una tarjeta: "martes y jueves, 19:00", no una clase por fecha.
            La inscripción es a la serie completa, así que el cupo es el de su clase más llena. -->
       @if (info.series.length > 0) {
-        <h2 class="titular mt-16 text-5xl sm:text-6xl">Todas las semanas</h2>
-        <ul class="mt-4 divide-y divide-border border-y border-border">
+        <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Todas las semanas</h2>
+        <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
           @for (serie of info.series; track serie.id) {
             <li class="flex flex-wrap items-center gap-3 py-4">
               <span class="font-display text-2xl font-bold">
@@ -109,7 +109,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
       }
 
       @if (info.clases.length > 0 || info.series.length === 0) {
-        <h2 class="titular mt-16 text-5xl sm:text-6xl">Esta semana</h2>
+        <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Esta semana</h2>
       }
 
       @if (info.clases.length === 0 && info.series.length === 0) {
@@ -124,11 +124,11 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
           <!-- Cada día lo encabeza un rótulo de transmisión, con su corte (TV4.4). -->
           <h3
             class="mt-8 inline-flex bg-rotulo py-1.5 ps-4 font-display text-sm font-bold
-                   tracking-wider text-on-rotulo uppercase corte-fin"
+                   tracking-wider text-on-rotulo uppercase corte-fin aparece-al-pasar"
           >
             {{ enPalabras(dia.fecha) }}
           </h3>
-          <ul class="divide-y divide-border border-t border-border">
+          <ul class="divide-y divide-border border-t border-border aparece-al-pasar">
             @for (clase of dia.clases; track clase.id) {
               <li class="flex flex-wrap items-center gap-3 py-4">
                 <span class="font-display text-2xl font-bold tabular-nums">
@@ -164,7 +164,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
     <!-- El formulario acá mismo y no un enlace a otra página: quien acaba de mirar los
          horarios y decide preguntar no debería tener que buscar dónde. Llega marcado
          como consulta de clases, que es a qué manos tiene que ir. -->
-    <div class="mt-10">
+    <div class="mt-10 aparece-al-pasar">
       <app-formulario-contacto tipoInicial="CLASES" />
     </div>
   `,

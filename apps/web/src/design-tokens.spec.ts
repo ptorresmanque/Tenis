@@ -1264,3 +1264,61 @@ describe('Favicon', () => {
     expect(existsSync(publico('apple-touch-icon.png'))).toBe(true);
   });
 });
+
+/**
+ * T147. Las bandas de las páginas que buscan convencer entran al aparecer, con una sola
+ * regla de styles.css. Las de tarea y el panel no se mueven: quien va a reservar no
+ * espera a que algo entre, y el panel va sin movimiento (decisión del 2026-10-02).
+ */
+describe('Las bandas aparecen al hacer scroll (T147)', () => {
+  const PAGINAS_QUE_ANIMAN = [
+    'inicio/inicio.ts',
+    'club/el-club.ts',
+    'club/preguntas-frecuentes.ts',
+    'torneos/publico/torneos.ts',
+    'clases/publico/clases.ts',
+    'ranking/torneos.ts',
+  ];
+
+  it('la regla vive en styles.css, detrás de @supports y de reducir movimiento', () => {
+    const regla = css.match(/@utility aparece-al-pasar \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+    expect(regla).toContain('@supports (animation-timeline: view())');
+    expect(regla).toContain('prefers-reduced-motion: no-preference');
+    expect(regla).toContain('animation-timeline: view()');
+  });
+
+  it('**con el foco adentro, la banda se ve entera**', () => {
+    // Quien avanza con Tab trae un enlace a la pantalla justo en el borde: la banda que
+    // lo contiene recién asoma y estaría al 20 % de opacidad, con el foco casi
+    // invisible. El foco manda sobre la animación.
+    const regla = css.match(/@utility aparece-al-pasar \{[\s\S]*?\n\}/)?.[0] ?? '';
+
+    expect(regla).toMatch(/&:focus-within\s*\{\s*animation:\s*none/);
+  });
+
+  it('**ningún componente escribe su propia animación de scroll**', () => {
+    // La portada tenía la suya en su bloque styles. Dos copias de la misma regla
+    // terminan con dos velocidades que nadie eligió.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /animation-timeline/.test(sinComentarios(contenido)))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it.each(PAGINAS_QUE_ANIMAN)('%s la usa', (archivo) => {
+    expect(readFileSync(join(RAIZ, archivo), 'utf8')).toContain('aparece-al-pasar');
+  });
+
+  it('ni el panel ni las pantallas de tarea la usan', () => {
+    const infractores = plantillas()
+      .filter(
+        ({ archivo, contenido }) =>
+          contenido.includes('aparece-al-pasar') && !PAGINAS_QUE_ANIMAN.includes(archivo),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});

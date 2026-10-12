@@ -84,7 +84,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       lo que decide si se puede jugar con lluvia o de noche, así que se agrupan
       por eso y el nombre queda como etiqueta.
     -->
-    <section class="mt-16" aria-labelledby="las-canchas">
+    <section class="mt-16 aparece-al-pasar" aria-labelledby="las-canchas">
       <h2 id="las-canchas" class="titular text-5xl sm:text-6xl">Las canchas</h2>
       @if (club().elClubCanchas) {
         <p class="mt-2 max-w-prose whitespace-pre-line text-muted-foreground">{{ club().elClubCanchas }}</p>
@@ -141,7 +141,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       cuelga de él. Sin cajas: tres columnas separadas por una línea alcanzan.
     -->
     <section
-      class="-mx-4 mt-16 bg-campo px-4 py-10 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+      class="-mx-4 mt-16 bg-campo px-4 py-10 text-on-campo aparece-al-pasar sm:mx-0 sm:rounded-region
+             sm:px-8"
       aria-labelledby="como-funciona"
     >
       <h2 id="como-funciona" class="titular text-5xl sm:text-6xl">Cómo se reserva</h2>
@@ -170,7 +171,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       panel: sábado y domingo de 09:00 a 20:00. La misma pantalla se contradecía
       a sí misma. Un dato del club se muestra una vez y sale de la configuración.
     -->
-    <section class="mt-16" aria-labelledby="horarios-y-contacto">
+    <section class="mt-16 aparece-al-pasar" aria-labelledby="horarios-y-contacto">
       <h2 id="horarios-y-contacto" class="titular text-5xl sm:text-6xl">
         Dónde encontrarnos
       </h2>
@@ -240,11 +241,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       </div>
     </section>
 
-    <section class="mt-16">
+    <section class="mt-16 aparece-al-pasar">
       <app-tarifas />
     </section>
 
-    <section class="mt-16">
+    <section class="mt-16 aparece-al-pasar">
       <!-- T146. Antes de escribir: puede que la respuesta ya esté publicada. -->
       <p class="mb-6 max-w-prose text-muted-foreground">
         ¿Tienes una duda? Puede que ya esté en las
@@ -253,7 +254,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       <app-formulario-contacto />
     </section>
 
-    <section class="mt-16 flex flex-wrap justify-center gap-3">
+    <section class="mt-16 flex flex-wrap justify-center gap-3 aparece-al-pasar">
       <a routerLink="/disponibilidad" class="boton boton-primario">
         Ver disponibilidad
       </a>
