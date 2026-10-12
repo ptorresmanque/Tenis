@@ -11,8 +11,10 @@ import {
 
 import { SoloAdmin } from '../identidad/guards';
 import {
+  leerCambioDeNivel,
   leerCambioDeTemporada,
   leerCambioDeTour,
+  leerNivelNuevo,
   leerTemporadaNueva,
   leerTourNuevo,
 } from './tours.dto';
@@ -77,5 +79,23 @@ export class ToursAdminController {
   @Delete('temporadas/:id')
   borrarTemporada(@Param('id', ParseIntPipe) id: number) {
     return this.tours.borrarTemporada(id);
+  }
+
+  // ── Los niveles de una temporada (T189) ─────────────────────────────────────
+  // Como las temporadas: se crean colgados de la suya y se editan por su propio id.
+
+  @Post('temporadas/:id/niveles')
+  crearNivel(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.tours.crearNivel(id, leerNivelNuevo(cuerpo));
+  }
+
+  @Patch('niveles/:id')
+  editarNivel(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.tours.editarNivel(id, leerCambioDeNivel(cuerpo));
+  }
+
+  @Delete('niveles/:id')
+  borrarNivel(@Param('id', ParseIntPipe) id: number) {
+    return this.tours.borrarNivel(id);
   }
 }

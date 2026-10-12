@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 import { fechaDelClub } from '../comun/tiempo';
+import { leerTabla, TablaDePuntos } from './tabla';
 
 /** Lo que se escribe de un tour desde el panel. La imagen va aparte (T190). */
 export interface TourNuevo {
@@ -157,4 +158,46 @@ function fecha(valor: unknown, cual: string): Date {
       `La fecha ${cual} tiene que ser una fecha válida, como 2027-03-01.`,
     );
   }
+}
+
+/** Un nivel de una temporada: "500", con su tabla (T189). */
+export interface NivelNuevo {
+  nombre: string;
+  tabla: TablaDePuntos;
+}
+
+const LARGO_DEL_NIVEL = 40;
+
+export function leerNivelNuevo(cuerpo: unknown): NivelNuevo {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  return {
+    nombre: nombre(datos.nombre, 'el nombre del nivel', LARGO_DEL_NIVEL),
+    tabla: leerTabla(datos.tabla),
+  };
+}
+
+/**
+ * Solo lo que vino. **La tabla, entera o nada**: la regla de la escala compara las filas
+ * entre sí, y media tabla no se puede comprobar contra la guardada sin abrir la puerta a
+ * desordenarla en dos pasos.
+ */
+export function leerCambioDeNivel(cuerpo: unknown): Partial<NivelNuevo> {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+  const cambio: Partial<NivelNuevo> = {};
+
+  if (datos.nombre !== undefined) {
+    cambio.nombre = nombre(
+      datos.nombre,
+      'el nombre del nivel',
+      LARGO_DEL_NIVEL,
+    );
+  }
+  if (datos.tabla !== undefined) cambio.tabla = leerTabla(datos.tabla);
+
+  if (Object.keys(cambio).length === 0) {
+    throw new BadRequestException('No viene ningún cambio.');
+  }
+
+  return cambio;
 }

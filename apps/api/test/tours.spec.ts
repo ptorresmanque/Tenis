@@ -318,6 +318,269 @@ describe('Tours y temporadas', () => {
     });
   });
 
+  describe('los niveles (T189)', () => {
+    const NIVEL_500 = {
+      campeon: 500,
+      finalista: 300,
+      semifinal: 180,
+      cuartos: 90,
+      octavos: 45,
+      dieciseisavos: 20,
+      treintaidosavos: 10,
+    };
+
+    interface Nivel {
+      id: number;
+      nombre: string;
+      tabla: typeof NIVEL_500;
+      torneos: number;
+      torneosTerminados: number;
+    }
+
+    const unNivel = async (
+      temporadaId: number,
+      nombre = '500',
+      tabla: Record<string, number> = NIVEL_500,
+    ): Promise<Nivel> =>
+      (
+        await comoAdmin('post', `/temporadas/${temporadaId}/niveles`)
+          .send({ nombre, tabla })
+          .expect(201)
+      ).body as Nivel;
+
+    const niveles = async (tourId: number) =>
+      (
+        (await comoAdmin('get', `/tours/${tourId}`).expect(200)).body as {
+          temporadas: { nombre: string; niveles: Nivel[] }[];
+        }
+      ).temporadas;
+
+    /** Un torneo en ese nivel, con el estado que pida el caso. */
+    const asociar = async (
+      tourId: number,
+      nivelId: number,
+      estado: 'INSCRIPCION' | 'FINALIZADO' = 'INSCRIPCION',
+    ) => {
+      const torneo = await prisma.torneo.create({
+        data: {
+          nombre: `${TORNEO} ${Date.now()}${Math.random()}`,
+          fechaInicio: new Date('2027-04-10T00:00:00.000Z'),
+          fechaFin: new Date('2027-04-11T00:00:00.000Z'),
+          cierreInscripcion: new Date('2027-04-01T00:00:00.000Z'),
+          estado,
+        },
+      });
+      await prisma.torneoTour.create({
+        data: { torneoId: torneo.id, tourId, nivelId },
+      });
+    };
+
+    it('se crean con su tabla, y la ficha los muestra del que más vale al que menos', async () => {
+      const tour = await unTour();
+      const temporada = await unaTemporada(tour.id);
+
+      const creado = await unNivel(temporada.id);
+      await unNivel(temporada.id, '250', {
+        ...NIVEL_500,
+        campeon: 250,
+        finalista: 150,
+        semifinal: 90,
+        cuartos: 45,
+        octavos: 20,
+        dieciseisavos: 10,
+        treintaidosavos: 5,
+      });
+
+      expect(creado).toEqual({
+        id: creado.id,
+        nombre: '500',
+        tabla: NIVEL_500,
+        torneos: 0,
+        torneosTerminados: 0,
+      });
+      expect((await niveles(tour.id))[0].niveles.map((n) => n.nombre)).toEqual([
+        '500',
+        '250',
+      ]);
+    });
+
+    it('**una tabla desordenada responde 400**, y el mensaje nombra la fila', async () => {
+      const tour = await unTour();
+      const temporada = await unaTemporada(tour.id);
+
+      const respuesta = await comoAdmin(
+        'post',
+        `/temporadas/${temporada.id}/niveles`,
+      )
+        .send({ nombre: '500', tabla: { ...NIVEL_500, semifinal: 400 } })
+        .expect(400);
+
+      expect((respuesta.body as { message: string }).message).toContain(
+        'La semifinal no puede dar más puntos que la final',
+      );
+    });
+
+    it('el mismo nombre en la misma temporada es 409', async () => {
+      const tour = await unTour();
+      const temporada = await unaTemporada(tour.id);
+      await unNivel(temporada.id);
+
+      await comoAdmin('post', `/temporadas/${temporada.id}/niveles`)
+        .send({ nombre: '500', tabla: NIVEL_500 })
+        .expect(409);
+    });
+
+    it('se corrigen el nombre o la tabla entera; la tabla, siempre completa', async () => {
+      const tour = await unTour();
+      const temporada = await unaTemporada(tour.id);
+      const nivel = await unNivel(temporada.id);
+
+      const editado = (
+        await comoAdmin('patch', `/niveles/${nivel.id}`)
+          .send({ nombre: 'Máster', tabla: { ...NIVEL_500, campeon: 1000 } })
+          .expect(200)
+      ).body as Nivel;
+
+      expect(editado).toMatchObject({
+        nombre: 'Máster',
+        tabla: { campeon: 1000 },
+      });
+
+      // Media tabla no: la regla compara las filas entre sí.
+      await comoAdmin('patch', `/niveles/${nivel.id}`)
+        .send({ tabla: { campeon: 2000 } })
+        .expect(400);
+    });
+
+    it('**crear una temporada copia los niveles de la más reciente**, como filas nuevas', async () => {
+      const tour = await unTour();
+      const de2026 = await unaTemporada(tour.id, {
+        nombre: '2026',
+        fechaInicio: '2026-03-01',
+        fechaFin: '2026-12-15',
+      });
+      const de2027 = await unaTemporada(tour.id);
+      await unNivel(de2026.id, 'Viejo');
+      const quinientos = await unNivel(de2027.id, '500');
+
+      const de2028 = await unaTemporada(tour.id, {
+        nombre: '2028',
+        fechaInicio: '2028-03-01',
+        fechaFin: '2028-12-15',
+      });
+
+      const temporadas = await niveles(tour.id);
+      const copia = temporadas.find((t) => t.nombre === '2028')!.niveles;
+
+      // De 2027, que es la de inicio más reciente, y no de 2026.
+      expect(copia.map((n) => n.nombre)).toEqual(['500']);
+      expect(copia[0].tabla).toEqual(NIVEL_500);
+      expect(copia[0].id).not.toBe(quinientos.id);
+      expect(de2028).toMatchObject({ nombre: '2028' });
+    });
+
+    it('**editar la copia no toca el original** (D14)', async () => {
+      const tour = await unTour();
+      const de2027 = await unaTemporada(tour.id);
+      await unNivel(de2027.id);
+      await unaTemporada(tour.id, {
+        nombre: '2028',
+        fechaInicio: '2028-03-01',
+        fechaFin: '2028-12-15',
+      });
+
+      const antes = await niveles(tour.id);
+      const copia = antes.find((t) => t.nombre === '2028')!.niveles[0];
+
+      await comoAdmin('patch', `/niveles/${copia.id}`)
+        .send({ tabla: { ...NIVEL_500, campeon: 800 } })
+        .expect(200);
+
+      const despues = await niveles(tour.id);
+      expect(
+        despues.find((t) => t.nombre === '2027')!.niveles[0].tabla.campeon,
+      ).toBe(500);
+      expect(
+        despues.find((t) => t.nombre === '2028')!.niveles[0].tabla.campeon,
+      ).toBe(800);
+    });
+
+    it('la primera temporada de un tour nace sin niveles', async () => {
+      const tour = await unTour();
+      await unaTemporada(tour.id);
+
+      expect((await niveles(tour.id))[0].niveles).toEqual([]);
+    });
+
+    it('**la ficha dice en cuántos torneos se usa cada nivel, y cuántos ya terminaron**', async () => {
+      // Es lo que necesita el aviso del panel antes de cambiar una tabla (T192).
+      const tour = await unTour();
+      const temporada = await unaTemporada(tour.id);
+      const nivel = await unNivel(temporada.id);
+      await asociar(tour.id, nivel.id, 'FINALIZADO');
+      await asociar(tour.id, nivel.id, 'FINALIZADO');
+      await asociar(tour.id, nivel.id);
+
+      expect((await niveles(tour.id))[0].niveles[0]).toMatchObject({
+        torneos: 3,
+        torneosTerminados: 2,
+      });
+    });
+
+    it('**un nivel con torneos no se borra**; uno sin torneos, sí', async () => {
+      const tour = await unTour();
+      const temporada = await unaTemporada(tour.id);
+      const conTorneo = await unNivel(temporada.id, '500');
+      const vacio = await unNivel(temporada.id, '250', {
+        campeon: 250,
+        finalista: 150,
+        semifinal: 90,
+        cuartos: 45,
+        octavos: 20,
+        dieciseisavos: 10,
+        treintaidosavos: 5,
+      });
+      await asociar(tour.id, conTorneo.id);
+
+      const respuesta = await comoAdmin(
+        'delete',
+        `/niveles/${conTorneo.id}`,
+      ).expect(409);
+      expect((respuesta.body as { message: string }).message).toContain(
+        '1 torneo',
+      );
+
+      await comoAdmin('delete', `/niveles/${vacio.id}`).expect(200);
+      expect((await niveles(tour.id))[0].niveles.map((n) => n.nombre)).toEqual([
+        '500',
+      ]);
+    });
+
+    it('un nivel que no existe responde 404', async () => {
+      await comoAdmin('patch', '/niveles/999999')
+        .send({ nombre: 'x' })
+        .expect(404);
+      await comoAdmin('delete', '/niveles/999999').expect(404);
+    });
+
+    it('los niveles también son del admin: con sesión de socio, 403', async () => {
+      const tour = await unTour();
+      const temporada = await unaTemporada(tour.id);
+      const nivel = await unNivel(temporada.id);
+
+      await request(servidor())
+        .post(`/api/admin/temporadas/${temporada.id}/niveles`)
+        .set('Cookie', cookieSocio)
+        .send({ nombre: '250', tabla: NIVEL_500 })
+        .expect(403);
+      await request(servidor())
+        .patch(`/api/admin/niveles/${nivel.id}`)
+        .set('Cookie', cookieSocio)
+        .send({ nombre: 'x' })
+        .expect(403);
+    });
+  });
+
   describe('borrar', () => {
     it('un tour sin torneos se borra con sus temporadas y sus niveles', async () => {
       const tour = await unTour();
