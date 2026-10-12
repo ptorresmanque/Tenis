@@ -73,6 +73,7 @@ const enBlanco = () => ({
                 class="boton boton-secundario boton-chico ms-auto
                        border-destructive text-destructive"
                 [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'quitar-' + transmision.id"
                 (click)="quitar(transmision)"
               >
                 Quitar
@@ -160,6 +161,7 @@ const enBlanco = () => ({
           type="submit"
           class="boton boton-secundario sm:col-span-2 sm:justify-self-start"
           [disabled]="trabajando()"
+          [attr.aria-busy]="enCurso() === 'anunciar'"
         >
           Anunciar la transmisión
         </button>
@@ -180,6 +182,8 @@ export class TransmisionesDelTorneo {
   protected datos = enBlanco();
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   private readonly version = signal(0);
@@ -225,7 +229,7 @@ export class TransmisionesDelTorneo {
       return;
     }
 
-    await this.intentar(async () => {
+    await this.intentar('anunciar', async () => {
       await this.api.anunciarTransmision(this.torneoId(), {
         canchaId: Number(this.datos.canchaId),
         enlace: this.datos.enlace.trim(),
@@ -239,14 +243,18 @@ export class TransmisionesDelTorneo {
   }
 
   protected async quitar(transmision: Transmision): Promise<void> {
-    await this.intentar(() =>
+    await this.intentar(`quitar-${transmision.id}`, () =>
       this.api.quitarTransmision(this.torneoId(), transmision.id),
     );
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -258,6 +266,7 @@ export class TransmisionesDelTorneo {
       );
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
       this.version.update((veces) => veces + 1);
     }
   }

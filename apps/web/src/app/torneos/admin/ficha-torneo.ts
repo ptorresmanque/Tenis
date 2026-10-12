@@ -228,6 +228,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
             type="submit"
             class="boton boton-primario mt-3"
             [disabled]="trabajando()"
+            [attr.aria-busy]="enCurso() === 'guardar-' + suyo.id"
           >
             Guardar cambios
           </button>
@@ -265,6 +266,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
               type="button"
               class="boton boton-secundario mt-3"
               [disabled]="trabajando()"
+              [attr.aria-busy]="enCurso() === 'reactivar-' + suyo.id"
               (click)="reactivar(suyo.id)"
             >
               Reactivar el torneo
@@ -291,6 +293,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
                   type="button"
                   class="boton boton-secundario"
                   [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cancelar-' + suyo.id"
                   (click)="cancelar(suyo.id)"
                 >
                   Sí, cancelar el torneo
@@ -407,7 +410,7 @@ export class FichaDeTorneo {
   protected async guardar(id: number): Promise<void> {
     this.guardado.set(false);
 
-    await this.intentar(async () => {
+    await this.intentar(`guardar-${id}`, async () => {
       await this.api.editarTorneo(id, {
         ...this.datos(),
         superficie: this.datos().superficie || null,
@@ -419,19 +422,25 @@ export class FichaDeTorneo {
   /** El paso intermedio de cancelar: un clic no basta para esconder un torneo. */
   protected readonly confirmando = signal(false);
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   protected async cancelar(id: number): Promise<void> {
-    await this.intentar(() => this.api.cancelarTorneo(id));
+    await this.intentar(`cancelar-${id}`, () => this.api.cancelarTorneo(id));
   }
 
   protected async reactivar(id: number): Promise<void> {
-    await this.intentar(() => this.api.reactivarTorneo(id));
+    await this.intentar(`reactivar-${id}`, () => this.api.reactivarTorneo(id));
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -442,6 +451,7 @@ export class FichaDeTorneo {
       this.error.set(mensajeDelServidor(falla, 'No se pudo cancelar el torneo.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 

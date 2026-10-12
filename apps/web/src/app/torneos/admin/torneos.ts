@@ -151,7 +151,12 @@ const enBlanco = () => ({
         </label>
       </div>
 
-      <button type="submit" class="boton boton-primario mt-3" [disabled]="trabajando()">
+      <button
+        type="submit"
+        class="boton boton-primario mt-3"
+        [attr.aria-busy]="enCurso() === 'crearTorneo'"
+        [disabled]="trabajando()"
+      >
         Crear torneo
       </button>
     </form>
@@ -307,6 +312,7 @@ const enBlanco = () => ({
               type="button"
               class="boton boton-texto boton-chico ms-auto"
               [disabled]="trabajando()"
+              [attr.aria-busy]="enCurso() === 'cambiarActividad-' + categoria.id"
               (click)="cambiarActividad(categoria)"
             >
               {{ categoria.activa ? 'Desactivar' : 'Reactivar' }}
@@ -340,7 +346,12 @@ const enBlanco = () => ({
           [(ngModel)]="categoriaNueva.puntosCampeon"
         />
       </label>
-      <button type="submit" class="boton boton-secundario" [disabled]="trabajando()">
+      <button
+        type="submit"
+        class="boton boton-secundario"
+        [attr.aria-busy]="enCurso() === 'crearCategoria'"
+        [disabled]="trabajando()"
+      >
         Agregar categoría
       </button>
     </form>
@@ -356,6 +367,8 @@ export class TorneosPanel {
   protected categoriaNueva = { nombre: '', puntosCampeon: 250 };
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -444,7 +457,7 @@ export class TorneosPanel {
   }
 
   protected async crearTorneo(): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar('crearTorneo', async () => {
       const torneo = await this.api.crearTorneo({
         ...this.datos,
         superficie: this.datos.superficie || null,
@@ -460,7 +473,7 @@ export class TorneosPanel {
   }
 
   protected async crearCategoria(): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar('crearCategoria', async () => {
       await this.api.crearCategoria({
         nombre: this.categoriaNueva.nombre,
         puntosCampeon: Number(this.categoriaNueva.puntosCampeon),
@@ -471,15 +484,19 @@ export class TorneosPanel {
   }
 
   protected async cambiarActividad(categoria: CategoriaTorneo): Promise<void> {
-    await this.intentar(() =>
+    await this.intentar(`cambiarActividad-${categoria.id}`, () =>
       this.api.editarCategoria(categoria.id, { activa: !categoria.activa }),
     );
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -489,6 +506,7 @@ export class TorneosPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo guardar.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

@@ -1367,16 +1367,11 @@ describe('El hero se mueve (T148)', () => {
 });
 
 /**
- * Las carpetas del panel que las reglas de T150 (botón ocupado) y T152 (esqueletos)
- * todavía no revisan. T153 y T154 las van sacando; al terminar la parte la lista queda
- * vacía y las dos reglas valen para todo el sitio.
+ * Las carpetas que las reglas de T150 (botón ocupado) y T152 (esqueletos) no revisan.
+ * Vacía desde T154: las dos reglas valen para todo el sitio. Se deja la lista para la
+ * próxima vez que una regla nueva entre de a poco.
  */
-const CARPETAS_PENDIENTES = [
-  'torneos/admin/',
-  'ranking/admin/',
-  'cuotas/admin/',
-  'reportes/',
-];
+const CARPETAS_PENDIENTES: string[] = [];
 
 /**
  * T150. El botón dice que está trabajando, y los botones de ícono responden al dedo.
@@ -1387,7 +1382,7 @@ const CARPETAS_PENDIENTES = [
 describe('Los botones dicen que están trabajando (T150)', () => {
   /** Las señales con que los componentes marcan un envío en curso. */
   const OCUPADO =
-    /\[disabled\]="[^"]*\b(?:enviando|guardando|procesando|pagando|entrando|subiendo|borrando|creando|cancelando|confirmando|ocupad[oa])\(\)/;
+    /\[disabled\]="[^"]*\b(?:enviando|guardando|procesando|pagando|entrando|subiendo|borrando|creando|cancelando|confirmando|trabajando|cobrando|resolviendo|ocupad[oa])\(\)/;
 
 
   it('el botón ocupado lleva un círculo que gira, y no se ve deshabilitado', () => {
@@ -1410,6 +1405,13 @@ describe('Los botones dicen que están trabajando (T150)', () => {
       if (CARPETAS_PENDIENTES.some((carpeta) => archivo.startsWith(carpeta))) continue;
 
       for (const [boton] of sinComentarios(contenido).matchAll(/<button\b[^>]*>/g)) {
+        // Los que solo abren algo (un diálogo, una confirmación, un formulario) no
+        // envían: se deshabilitan mientras otra acción trabaja, pero no giran. Por
+        // convención sus métodos se llaman abrir…, preguntar… o editar…, y ninguno
+        // cambia nada (revisado en T154; el abrir del cuadro consulta qué partidos se
+        // deshacen, pero solo lee).
+        if (/\(click\)="(?:abrir|preguntar|editar)\w*\(/.test(boton)) continue;
+
         if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
           infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);
         }

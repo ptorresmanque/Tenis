@@ -151,6 +151,7 @@ const enBlanco = () => ({
                   type="button"
                   class="boton boton-texto boton-chico"
                   [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
                   (click)="cancelar(clase)"
                 >
                   Cancelar clase
@@ -162,6 +163,7 @@ const enBlanco = () => ({
                     type="button"
                     class="boton boton-texto boton-chico"
                     [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
                     (click)="cancelarSerieDesde(clase, clase.serieId)"
                   >
                     Cancelar desde esta fecha
@@ -287,7 +289,12 @@ const enBlanco = () => ({
         </label>
       </div>
 
-      <button type="submit" class="boton boton-primario mt-3" [disabled]="trabajando()">
+      <button
+        type="submit"
+        class="boton boton-primario mt-3"
+        [attr.aria-busy]="enCurso() === 'agendar'"
+        [disabled]="trabajando()"
+      >
         Agendar clase
       </button>
     </form>
@@ -334,6 +341,7 @@ const enBlanco = () => ({
             type="button"
             class="boton boton-destructivo boton-chico"
             [disabled]="trabajando() || hayPagoEnCurso()"
+            [attr.aria-busy]="enCurso() === 'confirmar'"
             (click)="confirmar()"
           >
             Agendar igual y avisarles
@@ -370,6 +378,8 @@ export class AgendaDeClases {
   protected datos = enBlanco();
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -436,7 +446,7 @@ export class AgendaDeClases {
    * apretar sin leer, y entonces la advertencia que importa tampoco se lee.
    */
   protected async agendar(): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar('agendar', async () => {
       const { afectadas } = await this.api.simular(this.formulario());
 
       if (afectadas.length === 0) {
@@ -450,7 +460,7 @@ export class AgendaDeClases {
 
   /** Segundo paso: el admin ya vio a quién deja sin hora. */
   protected async confirmar(): Promise<void> {
-    await this.intentar(() => this.crear());
+    await this.intentar('confirmar', () => this.crear());
   }
 
   protected async cancelar(clase: ClaseDelDia): Promise<void> {
@@ -462,7 +472,7 @@ export class AgendaDeClases {
 
     if (motivo === null || motivo.trim() === '') return;
 
-    await this.intentar(async () => {
+    await this.intentar(`cancelar-${clase.id}`, async () => {
       await this.api.cancelar(clase.id, motivo);
       this.aviso.set('Clase cancelada. La cancha vuelve a estar disponible.');
     });
@@ -484,7 +494,7 @@ export class AgendaDeClases {
 
     if (motivo === null || motivo.trim() === '') return;
 
-    await this.intentar(async () => {
+    await this.intentar(`cancelarSerieDesde-${clase.id}`, async () => {
       const { canceladas } = await this.api.cancelarSerieDesde(serieId, desde, motivo);
       this.aviso.set(
         `Se cancelaron ${canceladas} ${canceladas === 1 ? 'clase' : 'clases'} de la serie, ` +
@@ -530,10 +540,14 @@ export class AgendaDeClases {
     };
   }
 
-  private async intentar(accion: () => Promise<void>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<void>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -544,6 +558,7 @@ export class AgendaDeClases {
       this.error.set(mensajeDelServidor(falla, 'No se pudo agendar la clase.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

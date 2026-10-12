@@ -97,6 +97,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                   <button
                     type="button"
                     [disabled]="resolviendo()"
+                    [attr.aria-busy]="enCurso() === reportada.reservaId + '-SANCIONAR'"
                     class="boton boton-secundario boton-chico border-destructive text-destructive"
                     (click)="resolver(reportada, 'SANCIONAR')"
                   >
@@ -108,6 +109,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                 <button
                   type="button"
                   [disabled]="resolviendo()"
+                  [attr.aria-busy]="enCurso() === reportada.reservaId + '-DESCARTAR'"
                   class="boton boton-texto boton-chico"
                   (click)="resolver(reportada, 'DESCARTAR')"
                 >
@@ -128,6 +130,8 @@ export class ReportesPanel {
   private readonly api = inject(Reportes);
 
   protected readonly resolviendo = signal(false);
+  /** Qué decisión está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -145,6 +149,7 @@ export class ReportesPanel {
     this.error.set(null);
     this.aviso.set(null);
     this.resolviendo.set(true);
+    this.enCurso.set(`${reportada.reservaId}-${decision}`);
 
     try {
       const { sancionadoHasta } = await this.api.resolver(
@@ -164,6 +169,7 @@ export class ReportesPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo resolver el reporte.'));
     } finally {
       this.resolviendo.set(false);
+      this.enCurso.set(null);
     }
   }
 

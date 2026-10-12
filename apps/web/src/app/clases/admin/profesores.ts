@@ -114,7 +114,12 @@ const enBlanco = () => ({
       </div>
 
       <div class="mt-3 flex flex-wrap gap-2">
-        <button type="submit" class="boton boton-primario" [disabled]="trabajando()">
+        <button
+          type="submit"
+          class="boton boton-primario"
+          [attr.aria-busy]="enCurso() === 'guardar'"
+          [disabled]="trabajando()"
+        >
           {{ editando() ? 'Guardar cambios' : 'Anotar profesor' }}
         </button>
         @if (editando()) {
@@ -182,6 +187,7 @@ const enBlanco = () => ({
               type="button"
               class="boton boton-texto boton-chico"
               [disabled]="trabajando()"
+              [attr.aria-busy]="enCurso() === 'cambiarActividad-' + profesor.id"
               (click)="cambiarActividad(profesor)"
             >
               {{ profesor.activo ? 'Desactivar' : 'Reactivar' }}
@@ -204,6 +210,8 @@ export class ProfesoresPanel {
   protected datos = enBlanco();
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -237,7 +245,7 @@ export class ProfesoresPanel {
     // Una copia y no el objeto: el formulario lo sigue editando después de mandarlo.
     const ficha = { ...this.datos };
 
-    await this.intentar(async () => {
+    await this.intentar('guardar', async () => {
       if (id === null) {
         await this.api.crear(ficha);
         this.aviso.set(`${ficha.nombreVisible} ya está en la lista.`);
@@ -251,7 +259,7 @@ export class ProfesoresPanel {
   }
 
   protected async cambiarActividad(profesor: Profesor): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar(`cambiarActividad-${profesor.id}`, async () => {
       await this.api.editar(profesor.id, { activo: !profesor.activo });
       this.aviso.set(
         profesor.activo
@@ -261,10 +269,14 @@ export class ProfesoresPanel {
     });
   }
 
-  private async intentar(accion: () => Promise<void>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<void>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -274,6 +286,7 @@ export class ProfesoresPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo guardar la ficha.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }
