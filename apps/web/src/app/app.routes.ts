@@ -113,6 +113,12 @@ export const routes: Routes = [
         loadComponent: () => import('./tienda/mis-pedidos').then((m) => m.MisPedidos),
       },
       {
+        path: 'tienda/terminos',
+        title: 'Términos de venta — FEDAL Tennis Center',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () => import('./tienda/terminos').then((m) => m.TerminosDeVenta),
+      },
+      {
         path: 'tienda/:id',
         title: 'Tienda — FEDAL Tennis Center',
         canActivate: [tiendaHabilitada],

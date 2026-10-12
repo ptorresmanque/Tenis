@@ -210,6 +210,18 @@ describe('Cascarón público: la navegación', () => {
     expect(enlacesDelMenu(SOCIA)).not.toContain('Mis pedidos');
   });
 
+  it('con la tienda encendida, el pie enlaza los términos de venta (T167)', () => {
+    const terminos = (club?: DatosDelClub) =>
+      (montarCon(null, club).nativeElement as HTMLElement).querySelector(
+        'footer a[href="/tienda/terminos"]',
+      );
+
+    expect(terminos({ tiendaHabilitada: true } as DatosDelClub)?.textContent).toContain(
+      'Términos de venta',
+    );
+    expect(terminos()).toBeNull();
+  });
+
   it('la barra del admin es la misma que la de cualquiera', () => {
     expect(enlacesCon(ADMIN)).not.toContain('Administración');
     expect(enlacesCon(ADMIN)).not.toContain('Estado del sistema');

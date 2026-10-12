@@ -313,6 +313,10 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       >
         © 2026 FEDAL Tennis Center ·
         <a routerLink="/privacidad" class="underline hover:text-on-campo">Política de privacidad</a>
+        @if (club().tiendaHabilitada) {
+          ·
+          <a routerLink="/tienda/terminos" class="underline hover:text-on-campo">Términos de venta</a>
+        }
       </p>
     </footer>
   `,

@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
+
+import { Club } from './club.service';
 
 /** Un momento en que el club recibe datos tuyos, y lo que hace con ellos. */
 interface Tratamiento {
@@ -7,6 +9,25 @@ interface Tratamiento {
   paraQue: string;
   base: string;
 }
+
+/** La tienda en línea (Etapa 2, T167): solo con `tiendaHabilitada`. */
+const COMPRAS_EN_LA_TIENDA: Tratamiento = {
+  cuando: 'Compras en la tienda',
+  datos:
+    'Nombre, correo y teléfono; lo que compras, el monto y el pago. Si eliges despacho, la ' +
+    'región, comuna, dirección y referencia. Si pides factura, el RUT, razón social, giro y ' +
+    'dirección de tu empresa. Si compras con tu cuenta, el pedido queda asociado a ella, y si ' +
+    'eres socio, el descuento que se te aplicó.',
+  paraQue:
+    'Preparar y entregar tu pedido, emitir la boleta o la factura, avisarte por correo cómo va ' +
+    'y atender garantías, retractos y devoluciones.',
+  base: 'Contrato (la compra) y obligación legal (tributaria).',
+};
+
+const PLAZO_DE_LOS_PEDIDOS: [string, string] = [
+  'Pedidos de la tienda, con sus datos de despacho y de factura',
+  '6 años, como exige la ley tributaria.',
+];
 
 /**
  * La política de privacidad del club (D9), con lo que exige el art. 14 ter de la
@@ -20,6 +41,11 @@ interface Tratamiento {
  *
  * Lo redactó Claude a partir del código y lo aprueba el club; el borrador con lo que
  * conviene que revise un abogado está en tasks/politica-privacidad-borrador.md.
+ *
+ * **La tienda en línea (Etapa 2, T167) aparece solo donde existe**: con
+ * `tiendaHabilitada`, la política suma las compras, sus correos, Starken y sus plazos, y
+ * sube a la versión 1.3. Sin ella es la 1.2 de siempre: la política describe lo que el
+ * sitio hace, y en producción la tienda todavía no vende.
  */
 @Component({
   selector: 'app-privacidad',
@@ -27,7 +53,7 @@ interface Tratamiento {
     <article class="max-w-prose">
       <h1 class="titular text-5xl sm:text-6xl">Política de privacidad</h1>
       <p class="mt-2 text-sm text-muted-foreground">
-        Versión {{ version }} · vigente desde el {{ vigenteDesde }}
+        Versión {{ version() }} · vigente desde el {{ vigenteDesde() }}
       </p>
 
       <p class="mt-6">
@@ -53,7 +79,7 @@ interface Tratamiento {
       </ul>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">2. Qué datos tratamos y para qué</h2>
-      @for (tratamiento of tratamientos; track tratamiento.cuando) {
+      @for (tratamiento of tratamientosVigentes(); track tratamiento.cuando) {
         <section class="mt-5 border-t-4 border-primary pt-3">
           <h3 class="subtitulo">{{ tratamiento.cuando }}</h3>
           <dl class="mt-2 grid gap-2 text-sm">
@@ -113,6 +139,17 @@ interface Tratamiento {
           Si eres administrador del club, el aviso de cada comprobante de transferencia que llega
           para revisar, con el nombre de quien se inscribió, la categoría y el monto.
         </li>
+        @if (tienda()) {
+          <li>
+            Si compras en la tienda, la confirmación de tu compra, con el detalle y las condiciones
+            de venta, y los avisos de que tu pedido está listo para retirar, fue despachado o se
+            canceló.
+          </li>
+          <li>
+            Al correo del club, el aviso de cada pedido pagado, con el nombre de quien compró, lo
+            que compró y la entrega.
+          </li>
+        }
       </ul>
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">3. Decisiones automatizadas</h2>
@@ -152,6 +189,12 @@ interface Tratamiento {
       <h2 class="titular mt-10 text-3xl sm:text-4xl">5. Con quién compartimos tus datos</h2>
       <ul class="mt-3 grid list-disc gap-2 ps-5">
         <li><strong>Transbank (Chile)</strong> procesa los pagos con tarjeta.</li>
+        @if (tienda()) {
+          <li>
+            <strong>Starken (Chile), solo si eliges despacho en la tienda:</strong> recibe tu
+            nombre, tu teléfono y la dirección de despacho para entregarte el pedido.
+          </li>
+        }
         <li>
           <strong>Haulmer (Chile)</strong> aloja el sitio, la base de datos y el correo del club, en
           servidores en Chile.
@@ -184,7 +227,7 @@ interface Tratamiento {
 
       <h2 class="titular mt-10 text-3xl sm:text-4xl">6. Cuánto tiempo guardamos tus datos</h2>
       <dl class="mt-3 grid gap-3">
-        @for (plazo of plazos; track plazo[0]) {
+        @for (plazo of plazosVigentes(); track plazo[0]) {
           <div class="grid gap-x-4 sm:grid-cols-2">
             <dt class="font-semibold">{{ plazo[0] }}</dt>
             <dd class="text-muted-foreground">{{ plazo[1] }}</dd>
@@ -249,10 +292,23 @@ interface Tratamiento {
   `,
 })
 export class Privacidad {
+  private readonly club = inject(Club).datos;
+  protected readonly tienda = computed(() => this.club().tiendaHabilitada);
+
   /** Cambiar el texto es subir la versión y la fecha. */
-  protected readonly version = '1.2';
-  protected readonly vigenteDesde = '9 de octubre de 2026';
+  protected readonly version = computed(() => (this.tienda() ? '1.3' : '1.2'));
+  protected readonly vigenteDesde = computed(() =>
+    this.tienda() ? '12 de octubre de 2026' : '9 de octubre de 2026',
+  );
   protected readonly correo = 'contacto@fedal.cl';
+
+  protected readonly tratamientosVigentes = computed(() =>
+    this.tienda() ? [...this.tratamientos, COMPRAS_EN_LA_TIENDA] : this.tratamientos,
+  );
+
+  protected readonly plazosVigentes = computed(() =>
+    this.tienda() ? [...this.plazos, PLAZO_DE_LOS_PEDIDOS] : this.plazos,
+  );
 
   protected readonly tratamientos: Tratamiento[] = [
     {

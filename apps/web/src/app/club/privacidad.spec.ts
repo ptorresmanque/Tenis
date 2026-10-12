@@ -1,6 +1,8 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
+import { Club } from './club.service';
 import { Privacidad } from './privacidad';
 
 /**
@@ -76,5 +78,42 @@ describe('Política de privacidad', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('a[href="mailto:contacto@fedal.cl"]'),
     ).not.toBeNull();
+  });
+
+  describe('la tienda en línea (T167)', () => {
+    function textoCon(tiendaHabilitada: boolean): string {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [{ provide: Club, useValue: { datos: signal({ tiendaHabilitada }) } }],
+      });
+      const fixture = TestBed.createComponent(Privacidad);
+      fixture.detectChanges();
+
+      return (fixture.nativeElement as HTMLElement).textContent?.replace(/\s+/g, ' ') ?? '';
+    }
+
+    it.each([
+      ['la compra', 'Compras en la tienda'],
+      ['la dirección del despacho', 'región, comuna, dirección y referencia'],
+      ['los datos de la factura', 'RUT, razón social, giro y dirección'],
+      ['a quién se le pasa la dirección', 'Starken'],
+      ['el correo de la compra', 'la confirmación de tu compra'],
+      ['el aviso de pedido al club', 'cada pedido pagado'],
+      ['cuánto se guardan los pedidos', 'Pedidos de la tienda'],
+    ])('**con la tienda encendida, nombra %s**', (_, frase) => {
+      expect(textoCon(true)).toContain(frase);
+    });
+
+    it('con la tienda encendida, la versión sube', () => {
+      expect(textoCon(true)).toContain('Versión 1.3');
+    });
+
+    it('**apagada, la política es la de siempre**: no describe compras que no existen', () => {
+      const texto = textoCon(false);
+
+      expect(texto).toContain('Versión 1.2');
+      expect(texto).not.toContain('Starken');
+      expect(texto).not.toContain('Compras en la tienda');
+    });
   });
 });

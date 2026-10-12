@@ -96,6 +96,7 @@ describe('Rutas protegidas', () => {
     'tienda/pagar',
     'tienda/pedido/:token',
     'tienda/mis-pedidos',
+    'tienda/terminos',
     'tienda/:id',
   ])(
     '%s es para cualquiera, pero solo si la tienda existe en este ambiente (T162)',
@@ -149,6 +150,7 @@ describe('Cada ruta en su cascarón', () => {
     ['tienda/pagar', CascaronPublico],
     ['tienda/pedido/:token', CascaronPublico],
     ['tienda/mis-pedidos', CascaronPublico],
+    ['tienda/terminos', CascaronPublico],
     ['tienda/:id', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
