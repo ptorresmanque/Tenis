@@ -13,18 +13,18 @@ import { tiendaHabilitada } from './tienda-habilitada.guard';
 
 /**
  * T157. Con la tienda apagada en este ambiente, entrar por la URL a su panel lleva al
- * inicio del panel. Como `soloAdmin`, **es comodidad y no control**: la API igual
- * responde 404 (T156).
+ * inicio del panel, y desde T162 entrar a `/tienda` lleva a la portada. Como `soloAdmin`,
+ * **es comodidad y no control**: la API igual responde 404 (T156).
  */
 describe('tiendaHabilitada', () => {
-  const correr = () => {
+  const correr = (url = '/administracion/tienda/productos') => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
     });
     const http = TestBed.inject(HttpTestingController);
     const resultado = TestBed.runInInjectionContext(() =>
-      tiendaHabilitada({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+      tiendaHabilitada({} as ActivatedRouteSnapshot, { url } as RouterStateSnapshot),
     ) as Promise<boolean | UrlTree>;
 
     return { http, resultado };
@@ -44,6 +44,14 @@ describe('tiendaHabilitada', () => {
     http.expectOne('/api/club').flush({ tiendaHabilitada: false });
 
     expect(String(await resultado)).toBe('/administracion/reservas');
+  });
+
+  it('con la tienda apagada, la tienda del sitio lleva a la portada', async () => {
+    const { http, resultado } = correr('/tienda/5');
+
+    http.expectOne('/api/club').flush({ tiendaHabilitada: false });
+
+    expect(String(await resultado)).toBe('/');
   });
 
   it('si no se puede preguntar, tampoco deja pasar', async () => {

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
+import { Tienda } from '../tienda/tienda.service';
 import { Club, FotoDelLugar, LugarDelClub } from './club.service';
 import { TiendaYCafeteria } from './tienda-y-cafeteria';
 
@@ -37,6 +38,7 @@ describe('TiendaYCafeteria', () => {
   const montar = async (
     forma: 'resumen' | 'completa',
     lugares: { tienda?: LugarDelClub; cafeteria?: LugarDelClub } = {},
+    tiendaAbierta = false,
   ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -51,6 +53,7 @@ describe('TiendaYCafeteria', () => {
             }),
           },
         },
+        { provide: Tienda, useValue: { abierta: signal(tiendaAbierta) } },
       ],
     });
     const fixture = TestBed.createComponent(TiendaYCafeteria);
@@ -193,6 +196,38 @@ describe('TiendaYCafeteria', () => {
       const elemento = await montar('completa');
 
       expect(elemento.textContent).not.toContain('Ver las');
+    });
+  });
+
+  describe('la tienda en línea (T162)', () => {
+    const enlaceALaTienda = (elemento: HTMLElement) =>
+      lugar(elemento, 'Tienda')?.querySelector('a[href="/tienda"]');
+
+    it.each(['resumen', 'completa'] as const)(
+      '**con la tienda abierta, la tarjeta de la tienda lleva a ella** (%s)',
+      async (forma) => {
+        const elemento = await montar(forma, {}, true);
+
+        expect(enlaceALaTienda(elemento)?.textContent).toContain('Ver la tienda en línea');
+        expect(lugar(elemento, 'Cafetería')?.querySelector('a[href="/tienda"]')).toBeNull();
+      },
+    );
+
+    it('sin ella, el bloque sigue ahí, sin el enlace', async () => {
+      const elemento = await montar('resumen', {}, false);
+
+      expect(lugar(elemento, 'Tienda')).toBeDefined();
+      expect(enlaceALaTienda(elemento)).toBeNull();
+    });
+
+    it('con la tienda abierta pero sin WhatsApp ni más fotos, el enlace sale igual', async () => {
+      const elemento = await montar(
+        'resumen',
+        { tienda: { ...TIENDA, whatsapp: '', fotos: [] } },
+        true,
+      );
+
+      expect(enlaceALaTienda(elemento)).not.toBeNull();
     });
   });
 });

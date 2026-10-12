@@ -80,6 +80,20 @@ export const routes: Routes = [
         loadComponent: () => import('./club/el-club').then((m) => m.ElClub),
       },
       {
+        // La tienda en línea: Etapa 2, fuera del trabajo de título (T162). Para cualquiera,
+        // con sesión o sin ella, pero solo si existe en este ambiente.
+        path: 'tienda',
+        title: 'Tienda — FEDAL Tennis Center',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () => import('./tienda/catalogo').then((m) => m.TiendaEnLinea),
+      },
+      {
+        path: 'tienda/:id',
+        title: 'Tienda — FEDAL Tennis Center',
+        canActivate: [tiendaHabilitada],
+        loadComponent: () => import('./tienda/ficha').then((m) => m.FichaDelProducto),
+      },
+      {
         // Sin guard: Google la abre sin sesión para aprobar el login con Google.
         path: 'privacidad',
         title: 'Política de privacidad — FEDAL Tennis Center',

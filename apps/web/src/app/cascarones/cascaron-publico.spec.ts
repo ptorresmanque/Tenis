@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Club, DatosDelClub } from '../club/club.service';
 import { Auth, UsuarioActual } from '../core/auth/auth';
+import { Tienda } from '../tienda/tienda.service';
 import { CascaronPublico } from './cascaron-publico';
 
 /**
@@ -48,6 +49,7 @@ describe('Cascarón público: la navegación', () => {
   function montarCon(
     usuario: UsuarioActual | null,
     club?: DatosDelClub,
+    tiendaAbierta = false,
   ): ComponentFixture<CascaronPublico> {
     const estado = signal(usuario);
 
@@ -56,6 +58,7 @@ describe('Cascarón público: la navegación', () => {
       providers: [
         provideRouter([]),
         ...(club ? [{ provide: Club, useValue: { datos: signal(club) } }] : []),
+        { provide: Tienda, useValue: { abierta: signal(tiendaAbierta) } },
         {
           provide: Auth,
           useValue: {
@@ -177,6 +180,17 @@ describe('Cascarón público: la navegación', () => {
   it('no le ofrece "Mis reservas" a quien no tiene ficha de socio', () => {
     // Sin socioId esa pantalla es una lista siempre vacía.
     expect(enlacesCon(null)).not.toContain('Mis reservas');
+  });
+
+  it('**"Tienda" aparece solo con la tienda abierta**: encendida y con algo a la venta (T162)', () => {
+    const enlaces = (abierta: boolean) => {
+      const elemento = montarCon(null, undefined, abierta).nativeElement as HTMLElement;
+
+      return [...elemento.querySelectorAll('header a')].map((a) => a.textContent?.trim());
+    };
+
+    expect(enlaces(true)).toContain('Tienda');
+    expect(enlaces(false)).not.toContain('Tienda');
   });
 
   it('la barra del admin es la misma que la de cualquiera', () => {

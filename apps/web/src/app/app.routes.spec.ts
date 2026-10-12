@@ -90,6 +90,13 @@ describe('Rutas protegidas', () => {
     },
   );
 
+  it.each(['tienda', 'tienda/:id'])(
+    '%s es para cualquiera, pero solo si la tienda existe en este ambiente (T162)',
+    (url) => {
+      expect(buscar(url)?.guards).toEqual([tiendaHabilitada]);
+    },
+  );
+
   it('recuperar-contrasena se abre con sesión: el enlace del correo puede abrirse en cualquier navegador', () => {
     expect(buscar('recuperar-contrasena')?.guards).toEqual([]);
     expect(buscar('nueva-contrasena')?.guards).toEqual([]);
@@ -130,6 +137,8 @@ describe('Cada ruta en su cascarón', () => {
     ['el-club', CascaronPublico],
     ['privacidad', CascaronPublico],
     ['preguntas-frecuentes', CascaronPublico],
+    ['tienda', CascaronPublico],
+    ['tienda/:id', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],

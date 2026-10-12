@@ -7,6 +7,7 @@ import { RedesSociales } from '../club/redes-sociales';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
+import { Tienda } from '../tienda/tienda.service';
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
 import { MenuDesplegable } from './menu-desplegable';
@@ -318,6 +319,7 @@ export class CascaronPublico {
   protected readonly usuario = this.auth.usuario;
   protected readonly club = inject(Club).datos;
   protected readonly esAdmin = this.auth.esAdmin;
+  private readonly tiendaAbierta = inject(Tienda).abierta;
 
   /** El encabezado fijo, para que un ancla no deje su título debajo de él. */
   private readonly encabezado = viewChild<ElementRef<HTMLElement>>('encabezado');
@@ -362,6 +364,9 @@ export class CascaronPublico {
           { ruta: '/mi-cuenta', etiqueta: 'Mi cuenta' },
         ]
       : []),
+    // Etapa 2 (T162): solo con la tienda encendida y algo a la venta. Antes de «El club»,
+    // que es la información del lugar; la tienda es una cosa que se hace.
+    ...(this.tiendaAbierta() ? [{ ruta: '/tienda', etiqueta: 'Tienda' }] : []),
     { ruta: '/el-club', etiqueta: 'El club' },
   ]);
 

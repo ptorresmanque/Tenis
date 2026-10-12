@@ -1,6 +1,7 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { Tienda } from '../tienda/tienda.service';
 import { Galeria } from '../torneos/publico/galeria';
 import { Club, LugarDelClub } from './club.service';
 import { LOGOS } from './redes-sociales';
@@ -83,8 +84,18 @@ const LUGARES = [
                   <app-galeria [fotos]="lugar.fotos" titulo="" [porOmision]="lugar.porOmision" />
                 }
 
-                @if (lugar.whatsapp || (forma() === 'resumen' && lugar.fotos.length > 1)) {
+                @if (
+                  lugar.enLinea || lugar.whatsapp || (forma() === 'resumen' && lugar.fotos.length > 1)
+                ) {
                   <p class="mt-auto flex flex-wrap items-center gap-3 pt-5">
+                    <!-- La tienda en línea (T162), solo si existe en este ambiente y tiene
+                         algo a la venta. Primero: es lo que se hace sin salir del sitio. -->
+                    @if (lugar.enLinea) {
+                      <a routerLink="/tienda" class="boton boton-primario">
+                        <span class="icono" aria-hidden="true">storefront</span>
+                        Ver la tienda en línea
+                      </a>
+                    }
                     @if (lugar.whatsapp) {
                       <a
                         class="boton boton-secundario"
@@ -130,6 +141,7 @@ export class TiendaYCafeteria {
   readonly forma = input<'resumen' | 'completa'>('resumen');
 
   private readonly club = inject(Club).datos;
+  private readonly tiendaAbierta = inject(Tienda).abierta;
 
   protected readonly LOGO_WHATSAPP = LOGOS.whatsapp;
 
@@ -143,6 +155,7 @@ export class TiendaYCafeteria {
       .map((lugar) => ({
         ...lugar,
         porOmision: `Foto de ${lugar.conArticulo} del club`,
+        enLinea: lugar.clave === 'tienda' && this.tiendaAbierta(),
         enlaceWhatsapp: enlaceDeWhatsapp(lugar, lugar.conArticulo),
       })),
   );
