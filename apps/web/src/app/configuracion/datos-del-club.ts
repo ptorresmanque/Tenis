@@ -175,6 +175,7 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
           type="submit"
           class="boton boton-primario"
           [disabled]="guardando() || club.isLoading() || !club.hasValue()"
+          [attr.aria-busy]="guardando()"
         >
           {{ guardando() ? 'Guardando…' : 'Guardar los datos' }}
         </button>

@@ -27,6 +27,7 @@ import { InscritosDeLaClase } from './inscritos';
 import { NuevaSerie } from './nueva-serie';
 import { CampoFecha } from '../../ui/campo-fecha';
 import { CampoHora } from '../../ui/campo-hora';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -49,7 +50,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-agenda-clases',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase, NuevaSerie, CampoFecha, CampoHora],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase, NuevaSerie, CampoFecha, CampoHora, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
          abajo, y la navegación entre días va debajo de la cabecera. -->
@@ -108,7 +109,7 @@ const enBlanco = () => ({
     }
 
     @if (clases.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando la agenda de clases…" />
     } @else if (clases.error()) {
       <p class="mt-4 text-destructive">
         No se pudieron cargar las clases. Reintenta en un momento.

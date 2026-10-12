@@ -12,6 +12,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
+import { Esqueleto } from '../../ui/esqueleto';
 
 const TIPOS: Record<TipoSolicitud, string> = {
   SOCIO: 'Quiere asociarse',
@@ -30,7 +31,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
  */
 @Component({
   selector: 'app-solicitudes',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada consulta trae las suyas. -->
     <header class="cabecera-panel">
@@ -62,7 +63,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
     }
 
     @if (solicitudes.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando las solicitudes…" />
     } @else if (solicitudes.error()) {
       <p class="mt-4 text-destructive">
         No se pudieron cargar las solicitudes. Reintenta en un momento.

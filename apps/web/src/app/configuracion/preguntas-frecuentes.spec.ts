@@ -145,6 +145,25 @@ describe('PreguntasFrecuentesPanel', () => {
       expect(document.activeElement).toBe(boton('Editar', filas()[1]));
     });
 
+    it('**guardar una no cierra la edición de otra que se abrió mientras tanto** (T153)', async () => {
+      const { api, boton, estable, filas } = await montar();
+      let terminar: (valor: PreguntaFrecuente) => void = () => undefined;
+      api.editar.mockReturnValue(new Promise<PreguntaFrecuente>((ok) => (terminar = ok)));
+
+      boton('Editar', filas()[0]).click();
+      await estable();
+      boton('Guardar', filas()[0]).click();
+      // Mientras la primera viaja, se abre la segunda.
+      boton('Editar', filas()[1]).click();
+      await estable();
+
+      terminar(RESERVAR);
+      await estable();
+      await estable();
+
+      expect(filas()[1].querySelector('textarea')).not.toBeNull();
+    });
+
     it('Cancelar cierra la edición sin mandar nada', async () => {
       const { api, boton, estable, filas } = await montar();
 

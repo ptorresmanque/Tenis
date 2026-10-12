@@ -115,7 +115,12 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
           />
         </div>
 
-        <button type="submit" [disabled]="guardando()" class="boton boton-primario">
+        <button
+          type="submit"
+          [disabled]="guardando()"
+          [attr.aria-busy]="guardando()"
+          class="boton boton-primario"
+        >
           Invitar
         </button>
       </form>

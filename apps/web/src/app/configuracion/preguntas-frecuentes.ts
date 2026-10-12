@@ -65,7 +65,12 @@ const LARGO_DE_LA_RESPUESTA = 2000;
         </app-campo>
 
         <div>
-          <button type="submit" class="boton boton-primario" [disabled]="enviando()">
+          <button
+            type="submit"
+            class="boton boton-primario"
+            [disabled]="enviando()"
+            [attr.aria-busy]="enCurso() === 'agregar'"
+          >
             Agregar la pregunta
           </button>
         </div>
@@ -134,6 +139,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                       type="submit"
                       class="boton boton-primario boton-chico"
                       [disabled]="enviando()"
+                      [attr.aria-busy]="enCurso() === 'guardar-' + pregunta.id"
                     >
                       Guardar
                     </button>
@@ -183,6 +189,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                       type="button"
                       class="boton boton-destructivo boton-chico"
                       [disabled]="enviando()"
+                      [attr.aria-busy]="enCurso() === 'borrar-' + pregunta.id"
                       (click)="borrar(pregunta)"
                     >
                       Sí, borrar
@@ -201,7 +208,6 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                       type="button"
                       [id]="'editar-' + pregunta.id"
                       class="boton boton-secundario boton-chico"
-                      [disabled]="enviando()"
                       (click)="abrirEdicion(pregunta)"
                     >
                       Editar
@@ -210,7 +216,6 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                     <button
                       type="button"
                       class="boton boton-texto boton-chico"
-                      [disabled]="enviando()"
                       (click)="porBorrar.set(pregunta.id)"
                     >
                       Borrar
@@ -251,6 +256,8 @@ export class PreguntasFrecuentesPanel {
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
+  /** Qué acción está viajando, para que gire su botón y no todos (T153). */
+  protected readonly enCurso = signal<string | null>(null);
   /** De qué fila es el mensaje; nulo si es del formulario de agregar. */
   protected readonly origen = signal<number | null>(null);
 
@@ -278,7 +285,7 @@ export class PreguntasFrecuentesPanel {
       return;
     }
 
-    await this.contra(async () => {
+    await this.contra('agregar', async () => {
       await this.api.crear(this.nueva.pregunta.trim(), this.nueva.respuesta.trim());
       this.aviso.set('Pregunta agregada al final de la lista.');
       this.nueva = { pregunta: '', respuesta: '' };
@@ -293,8 +300,14 @@ export class PreguntasFrecuentesPanel {
     this.enfocar(`editar-pregunta-${pregunta.id}`);
   }
 
-  /** De vuelta al botón que la abrió: sin esto, el foco cae al comienzo de la página. */
+  /**
+   * De vuelta al botón que la abrió: sin esto, el foco cae al comienzo de la página.
+   * Solo si sigue abierta esa: mientras una se guardaba, se puede haber abierto otra, y
+   * terminar de guardar la primera no puede cerrarle la segunda a nadie.
+   */
   protected cerrarEdicion(id: number): void {
+    if (this.editando() !== id) return;
+
     this.editando.set(null);
     this.enfocar(`editar-${id}`);
   }
@@ -308,7 +321,7 @@ export class PreguntasFrecuentesPanel {
       return;
     }
 
-    await this.contra(async () => {
+    await this.contra(`guardar-${pregunta.id}`, async () => {
       await this.api.editar(pregunta.id, {
         pregunta: this.borrador.pregunta.trim(),
         respuesta: this.borrador.respuesta.trim(),
@@ -331,7 +344,7 @@ export class PreguntasFrecuentesPanel {
       return;
     }
 
-    await this.contra(async () => {
+    await this.contra(`mover-${pregunta.id}`, async () => {
       await this.api.editar(pregunta.id, { orden });
       this.aviso.set(`«${pregunta.pregunta}» quedó con el orden ${orden}.`);
     }, 'No se pudo mover la pregunta.');
@@ -340,14 +353,17 @@ export class PreguntasFrecuentesPanel {
   protected async borrar(pregunta: PreguntaFrecuente): Promise<void> {
     this.limpiarMensajes(pregunta.id);
 
-    await this.contra(async () => {
+    await this.contra(`borrar-${pregunta.id}`, async () => {
       await this.api.borrar(pregunta.id);
-      this.porBorrar.set(null);
-      // La fila se va: el aviso sale arriba, junto al título que recibe el foco.
+      // La fila se va: el aviso sale arriba, junto al título.
       this.origen.set(null);
       this.aviso.set(`«${pregunta.pregunta}» ya no aparece en el sitio.`);
-      // La fila se va con sus botones: el foco vuelve al título de la sección.
-      this.enfocar('titulo-preguntas');
+      // La fila se va con sus botones y el foco vuelve al título, salvo que mientras
+      // tanto se haya abierto otra confirmación: esa sigue siendo de la persona.
+      if (this.porBorrar() === pregunta.id) {
+        this.porBorrar.set(null);
+        this.enfocar('titulo-preguntas');
+      }
     }, 'No se pudo borrar la pregunta.');
   }
 
@@ -355,8 +371,13 @@ export class PreguntasFrecuentesPanel {
    * Recarga siempre, incluso al fallar, como en las categorías de juego: el número que
    * quedó escrito en una fila puede no ser el guardado.
    */
-  private async contra(accion: () => Promise<void>, porDefecto: string): Promise<void> {
+  private async contra(
+    clave: string,
+    accion: () => Promise<void>,
+    porDefecto: string,
+  ): Promise<void> {
     this.enviando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -364,6 +385,7 @@ export class PreguntasFrecuentesPanel {
       this.error.set(mensajeDelServidor(falla, porDefecto));
     } finally {
       this.enviando.set(false);
+      this.enCurso.set(null);
       // `reload()` y no un cambio de parámetros: recarga conservando lo que ya se ve.
       this.preguntas.reload();
     }

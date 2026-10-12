@@ -9,6 +9,7 @@ import { Selector } from '../../ui/selector';
 import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Quién viene a una clase.
@@ -21,12 +22,23 @@ import { TelefonoDirective } from '../../ui/telefono';
  */
 @Component({
   selector: 'app-inscritos',
-  imports: [FormsModule, Aviso, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
+  imports: [
+    FormsModule,
+    Aviso,
+    Esqueleto,
+    Insignia,
+    Selector,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    TelefonoDirective,
+  ],
   template: `
     @if (ficha.error()) {
       <p class="mt-3 text-sm text-destructive">
         No se pudieron cargar los inscritos de la clase. Reintenta en un momento.
       </p>
+    } @else if (ficha.status() === 'loading') {
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los inscritos…" />
     } @else if (ficha.value(); as clase) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">

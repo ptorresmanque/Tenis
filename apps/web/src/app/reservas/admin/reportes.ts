@@ -9,6 +9,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Decision, HoraReportada, Reportes } from './reportes.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Las horas que algún socio reportó como no usadas, para que el club decida.
@@ -20,7 +21,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
  */
 @Component({
   selector: 'app-reportes',
-  imports: [EstadoVacio, Insignia],
+  imports: [EstadoVacio, Insignia, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
     <header class="cabecera-panel">
@@ -42,7 +43,7 @@ import { Decision, HoraReportada, Reportes } from './reportes.service';
     </p>
 
     @if (pendientes.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Cargando las horas reportadas…" />
     } @else if (pendientes.error()) {
       <p class="mt-6 text-destructive">
         No se pudieron cargar las horas reportadas. Reintenta en un momento.

@@ -353,5 +353,21 @@ describe('InscritosDeLaClase', () => {
       expect(texto()).toContain('jueves 22 de octubre');
     });
   });
-});
 
+  it('mientras llega la clase, muestra el esqueleto (T153)', () => {
+    const nunca = () => new Promise<never>(() => undefined);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Clases, useValue: { ficha: nunca } },
+        { provide: Socios, useValue: { listado: nunca } },
+      ],
+    });
+
+    const pendiente = TestBed.createComponent(InscritosDeLaClase);
+    pendiente.componentRef.setInput('claseId', 7);
+    pendiente.detectChanges();
+
+    expect((pendiente.nativeElement as HTMLElement).querySelector('app-esqueleto')).not.toBeNull();
+  });
+});

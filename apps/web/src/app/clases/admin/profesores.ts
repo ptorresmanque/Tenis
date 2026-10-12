@@ -9,6 +9,7 @@ import { Insignia } from '../../ui/insignia';
 import { Profesor, Profesores } from '../profesores.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /** El formulario vacío. Función y no constante: si no, todos comparten el objeto. */
 const enBlanco = () => ({
@@ -30,7 +31,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-profesores',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -125,7 +126,7 @@ const enBlanco = () => ({
     </form>
 
     @if (profesores.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los profesores…" />
     } @else if (profesores.error()) {
       <p class="mt-4 text-destructive">
         No se pudieron cargar los profesores. Reintenta en un momento.

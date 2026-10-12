@@ -13,6 +13,7 @@ import {
   ConfiguracionDelClub,
   ReglasDelClub,
 } from './admin-canchas.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 interface Regla {
   campo: keyof ReglasDelClub;
@@ -123,7 +124,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
  */
 @Component({
   selector: 'app-editor-configuracion',
-  imports: [FormsModule],
+  imports: [FormsModule, Esqueleto],
   template: `
     <section class="mt-8" aria-labelledby="titulo-reglas">
       <h2 id="titulo-reglas" class="rotulo-seccion">
@@ -131,7 +132,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
       </h2>
 
       @if (reglas.isLoading()) {
-        <p class="mt-3 text-muted-foreground">Cargando…</p>
+        <app-esqueleto class="mt-3 block" [filas]="5" etiqueta="Cargando las reglas del club…" />
       } @else if (reglas.error()) {
         <p class="mt-3 text-destructive">
           No se pudieron cargar las reglas del club. Reintenta en un momento.
@@ -174,6 +175,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
           <button
             type="submit"
             [disabled]="guardando()"
+            [attr.aria-busy]="guardando()"
             class="boton boton-primario mt-4"
           >
             Guardar cambios

@@ -103,6 +103,7 @@ const TEXTOS = [
           type="submit"
           class="boton boton-primario"
           [disabled]="guardando() || configuracion.isLoading() || !configuracion.hasValue()"
+          [attr.aria-busy]="guardando()"
         >
           {{ guardando() ? 'Guardando…' : 'Guardar los textos' }}
         </button>

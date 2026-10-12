@@ -1372,11 +1372,6 @@ describe('El hero se mueve (T148)', () => {
  * vacía y las dos reglas valen para todo el sitio.
  */
 const CARPETAS_PENDIENTES = [
-  'catalogo-canchas/admin/',
-  'reservas/admin/',
-  'clases/admin/',
-  'identidad/admin/',
-  'configuracion/',
   'torneos/admin/',
   'ranking/admin/',
   'cuotas/admin/',
