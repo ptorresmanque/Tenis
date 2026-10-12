@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { borrarImagen } from '../comun/imagenes';
-import { comoFechaCivil } from '../comun/tiempo';
+import { comoFechaCivil, hoyEnElClub } from '../comun/tiempo';
 import { EstadoTorneo } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,6 +17,7 @@ import {
 } from './imagenes-del-tour.service';
 import type { TablaDePuntos } from './tabla';
 import type { NivelNuevo, TemporadaNueva, TourNuevo } from './tours.dto';
+import { temporadaVigente } from './vigente';
 
 /** Una temporada como la ve el panel. Las fechas, civiles: "2027-03-01". */
 export interface TemporadaDelPanel {
@@ -36,6 +37,24 @@ export interface NivelDelPanel {
   /** Cuántos de esos ya terminaron: cambiar la tabla cambia su ranking (T192 lo avisa). */
   torneosTerminados: number;
 }
+
+/** Un tour en `/tours` (T194). */
+export interface TourEnLista {
+  id: number;
+  nombre: string;
+  /** El comienzo de la descripción, en una línea. */
+  extracto: string;
+  imagen: ImagenDeTour | null;
+  temporadaVigente: TemporadaDelPanel | null;
+}
+
+/** Un tour en `/tours/:id` (T194): sin lo del panel, con la temporada vigente. */
+export type TourPublico = Omit<FichaDeTour, 'temporadas'> & {
+  temporadaVigenteId: number | null;
+  temporadas: (TemporadaDelPanel & {
+    niveles: Pick<NivelDelPanel, 'id' | 'nombre' | 'tabla'>[];
+  })[];
+};
 
 /** La ficha de un tour en el panel: sus temporadas con sus niveles, y sus imágenes (T190). */
 export interface FichaDeTour {
@@ -154,6 +173,74 @@ export class Tours {
         niveles: niveles.map(publicarNivel),
       })),
       fotos: fotos.map(publicarFoto),
+    };
+  }
+
+  // ── Lo público (T194) ───────────────────────────────────────────────────────
+
+  /**
+   * Los tours para `/tours`, sin sesión: el nombre, el comienzo de la descripción, la
+   * imagen y la temporada vigente de cada uno.
+   *
+   * @param hoy El día del club; parámetro para probar la vigente moviendo el reloj.
+   */
+  async listarPublicos(hoy: Date = hoyEnElClub()): Promise<TourEnLista[]> {
+    const tours = await this.prisma.tour.findMany({
+      orderBy: { nombre: 'asc' },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        imagenRutaWeb: true,
+        temporadas: { select: TEMPORADA },
+      },
+    });
+
+    return tours.map((tour) => {
+      const idVigente = temporadaVigente(tour.temporadas, hoy);
+      const vigente = tour.temporadas.find((t) => t.id === idVigente);
+
+      return {
+        id: tour.id,
+        nombre: tour.nombre,
+        extracto: extracto(tour.descripcion),
+        imagen: tour.imagenRutaWeb ? direccionesDeImagen(tour.id) : null,
+        temporadaVigente: vigente ? publicarTemporada(vigente) : null,
+      };
+    });
+  }
+
+  /**
+   * Un tour para `/tours/:id`, sin sesión: lo mismo que la ficha del panel **menos lo del
+   * panel**, en cuántos torneos se usa cada nivel, más cuál es la temporada vigente.
+   *
+   * Sale de la misma consulta que la ficha y no de una propia: dos formas de leer el mismo
+   * tour se separan el día que alguien agrega un campo a una sola.
+   */
+  async fichaPublica(
+    id: number,
+    hoy: Date = hoyEnElClub(),
+  ): Promise<TourPublico> {
+    const { temporadas, ...tour } = await this.ficha(id);
+
+    return {
+      ...tour,
+      temporadaVigenteId: temporadaVigente(
+        temporadas.map((t) => ({
+          id: t.id,
+          fechaInicio: aFecha(t.fechaInicio),
+          fechaFin: aFecha(t.fechaFin),
+        })),
+        hoy,
+      ),
+      temporadas: temporadas.map((temporada) => ({
+        ...temporada,
+        niveles: temporada.niveles.map(({ id, nombre, tabla }) => ({
+          id,
+          nombre,
+          tabla,
+        })),
+      })),
     };
   }
 
@@ -456,6 +543,29 @@ function aColumnas(tabla: TablaDePuntos) {
     puntosDieciseisavos: tabla.dieciseisavos,
     puntosTreintaidosavos: tabla.treintaidosavos,
   };
+}
+
+/** De una fecha civil publicada ("2027-03-01") a la medianoche UTC de las columnas `DATE`. */
+function aFecha(civil: string): Date {
+  return new Date(`${civil}T00:00:00.000Z`);
+}
+
+/** Cuánto de la descripción entra en la tarjeta de un tour. */
+const LARGO_DEL_EXTRACTO = 160;
+
+/**
+ * El comienzo de la descripción, en una línea: cortado en una palabra y con «…» si sigue.
+ * La tarjeta de `/tours` no es la página del tour.
+ */
+function extracto(texto: string): string {
+  const plano = texto.replace(/\s+/g, ' ').trim();
+
+  if (plano.length <= LARGO_DEL_EXTRACTO) return plano;
+
+  const corte = plano.slice(0, LARGO_DEL_EXTRACTO);
+  const espacio = corte.lastIndexOf(' ');
+
+  return `${(espacio > 0 ? corte.slice(0, espacio) : corte).replace(/[\s,.;:]+$/, '')}…`;
 }
 
 /** "1 torneo", "3 torneos". */

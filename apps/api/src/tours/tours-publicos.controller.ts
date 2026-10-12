@@ -3,14 +3,28 @@ import type { Response } from 'express';
 
 import { carpetaDeSubidas } from '../comun/imagenes';
 import { ImagenesDelTour } from './imagenes-del-tour.service';
+import { Tours } from './tours.service';
 
 /**
- * Lo público de los tours, sin sesión: por ahora sus imágenes (T190). La lista y la
- * ficha públicas llegan en T194.
+ * Lo público de los tours, sin sesión (`SPEC-tours.md`): la lista y la ficha (T194), y sus
+ * imágenes (T190). Todo lo del tour se ve; lo del panel, no.
  */
 @Controller('tours')
 export class ToursPublicosController {
-  constructor(private readonly imagenes: ImagenesDelTour) {}
+  constructor(
+    private readonly tours: Tours,
+    private readonly imagenes: ImagenesDelTour,
+  ) {}
+
+  @Get()
+  listar() {
+    return this.tours.listarPublicos();
+  }
+
+  @Get(':id')
+  ficha(@Param('id', ParseIntPipe) id: number) {
+    return this.tours.fichaPublica(id);
+  }
 
   /**
    * La imagen representativa. **Se revalida y no queda un año en caché**, al revés que
