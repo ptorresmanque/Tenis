@@ -597,6 +597,25 @@ model ConfiguracionClub {
   @@map("configuracion_club")
 }
 
+/// Una pregunta frecuente del club (T144), para `/preguntas-frecuentes`.
+///
+/// La escribe el club desde su panel. Texto plano: la página la muestra tal cual, con
+/// sus saltos de línea. Sin borradores ni categorías: si no está lista, no se crea.
+model PreguntaFrecuente {
+  id        Int    @id @default(autoincrement())
+  pregunta  String @db.VarChar(191)
+  /// Hasta 2.000 caracteres, que valida la API. `Text` y no `VarChar(2000)`: en MariaDB
+  /// un `VarChar` largo pesa en el tope de 64 KB por fila y un `Text` no.
+  respuesta String @db.Text
+  /// Menor = más arriba. Sin único: dos con el mismo orden van por antigüedad.
+  orden     Int    @default(0)
+
+  creadaEn      DateTime @default(now()) @map("creada_en")
+  actualizadaEn DateTime @updatedAt @map("actualizada_en")
+
+  @@map("pregunta_frecuente")
+}
+
 // ── pagos ────────────────────────────────────────────────────────────────────
 // Modelo de SPEC-pagos.md § Modelo de datos.
 

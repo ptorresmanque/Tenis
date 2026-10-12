@@ -8,6 +8,11 @@ import { AdminCanchasController } from './admin.controller';
 import { AdminCanchasService } from './admin.service';
 import { DisponibilidadController } from './disponibilidad.controller';
 import { DisponibilidadService } from './disponibilidad.service';
+import {
+  PreguntasFrecuentesAdminController,
+  PreguntasFrecuentesPublicasController,
+} from './preguntas-frecuentes.controller';
+import { PreguntasFrecuentes } from './preguntas-frecuentes.service';
 
 @Module({
   // `IdentidadModule` porque `@SoloAdmin()` resuelve `SesionService` en el módulo
@@ -18,11 +23,16 @@ import { DisponibilidadService } from './disponibilidad.service';
     DisponibilidadController,
     ClubPublicoController,
     AdminCanchasController,
+    // T144. Acá y no en un módulo propio: son contenido del club, como sus datos y sus
+    // textos, que ya viven en este módulo.
+    PreguntasFrecuentesPublicasController,
+    PreguntasFrecuentesAdminController,
   ],
   providers: [
     TarifasPublicasService,
     DisponibilidadService,
     AdminCanchasService,
+    PreguntasFrecuentes,
   ],
   // `reservas` va a superponer sus reservas sobre estos bloques.
   exports: [DisponibilidadService],
