@@ -5,6 +5,7 @@ import { Auth } from '../core/auth/auth';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Ranking } from './ranking.service';
 import { TablaInterna } from './tabla-interna';
+import { Esqueleto } from '../ui/esqueleto';
 
 /**
  * El ranking de torneos del club.
@@ -19,7 +20,7 @@ import { TablaInterna } from './tabla-interna';
  */
 @Component({
   selector: 'app-ranking-torneos',
-  imports: [EstadoVacio, TablaInterna],
+  imports: [EstadoVacio, Esqueleto, TablaInterna],
   template: `
     <!-- Cabecera en banda de color y sin fotografía: esta pantalla es una tabla
          de posiciones, y lo que se viene a hacer acá es buscar un nombre en una
@@ -146,7 +147,7 @@ import { TablaInterna } from './tabla-interna';
         </section>
       }
     } @else if (tabla.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Cargando el ranking…</p>
+      <app-esqueleto class="mt-6 block" [filas]="6" etiqueta="Cargando el ranking…" />
     }
 
     <!-- La tabla del club solo para socios: el endpoint la niega a los demás, y una

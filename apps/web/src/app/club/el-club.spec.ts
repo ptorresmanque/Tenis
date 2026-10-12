@@ -209,4 +209,26 @@ describe('ElClub', () => {
       expect(enlace('Cómo llegar')).toBeUndefined();
     });
   });
+
+  it('mientras llegan las canchas, su banda muestra el esqueleto (T152)', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: Disponibilidad,
+          useValue: { canchas: () => new Promise<never>(() => undefined) },
+        },
+        { provide: Club, useValue: { datos: signal(VACIO), email: signal('') } },
+        { provide: Contacto, useValue: { enviar: vi.fn() } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ElClub);
+    fixture.detectChanges();
+
+    expect(seccion('las-canchas').querySelector('app-esqueleto')).not.toBeNull();
+  });
 });

@@ -3,6 +3,7 @@ import { Component, computed } from '@angular/core';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { Insignia } from '../ui/insignia';
+import { Esqueleto } from '../ui/esqueleto';
 
 /** Espejo de `TarifaPublica` en la API. */
 interface Tarifa {
@@ -52,7 +53,7 @@ const DIAS = [
  */
 @Component({
   selector: 'app-tarifas',
-  imports: [Insignia],
+  imports: [Esqueleto, Insignia],
   template: `
     <section aria-labelledby="titulo-tarifas">
       <h2 id="titulo-tarifas" class="titular text-5xl sm:text-6xl">Tarifas y horarios</h2>
@@ -66,6 +67,8 @@ const DIAS = [
         <p class="mt-4 text-destructive">
           No se pudieron cargar las tarifas. Reintenta en un momento.
         </p>
+      } @else if (tarifas.isLoading()) {
+        <app-esqueleto class="mt-4 block" [filas]="3" etiqueta="Cargando las tarifas…" />
       } @else if (tarifas.value(); as lista) {
         @if (lista.length > 0) {
           <!-- EN EL TELÉFONO, UNA TARJETA POR FRANJA. La tabla de cinco columnas no cabe a

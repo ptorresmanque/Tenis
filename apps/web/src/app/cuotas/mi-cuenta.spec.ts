@@ -169,4 +169,19 @@ describe('MiCuenta', () => {
 
     expect(elemento().textContent).toContain('No se pudo cargar tu cuenta');
   });
+
+  it('mientras carga la cuenta, muestra el esqueleto (T152)', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Cuotas, useValue: { mias: () => new Promise<never>(() => undefined) } },
+        { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({})) } },
+      ],
+    });
+
+    const pendiente = TestBed.createComponent(MiCuenta);
+    pendiente.detectChanges();
+
+    expect((pendiente.nativeElement as HTMLElement).querySelector('app-esqueleto')).not.toBeNull();
+  });
 });

@@ -12,6 +12,7 @@ import { enlacesDelMapa } from './mapa';
 import { RedesSociales } from './redes-sociales';
 import { Tarifas } from './tarifas';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
+import { Esqueleto } from '../ui/esqueleto';
 
 /**
  * La página que explica el club a quien todavía no reservó.
@@ -41,6 +42,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     EnlaceTelefonoPipe,
     TelefonoPipe,
     RedesSociales,
+    Esqueleto,
   ],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
@@ -90,7 +92,9 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         <p class="mt-2 max-w-prose whitespace-pre-line text-muted-foreground">{{ club().elClubCanchas }}</p>
       }
 
-      @if (canchas().length > 0) {
+      @if (catalogo.isLoading()) {
+        <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Cargando las canchas…" />
+      } @else if (canchas().length > 0) {
         <div class="mt-6 grid gap-8 md:grid-cols-2">
           @for (grupo of gruposDeCanchas(); track grupo.titulo) {
             <!-- Cada grupo es una cifra de marcador con su raya, como las de la
@@ -286,7 +290,7 @@ export class ElClub {
   });
 
   /** Solo el catálogo: esta página no muestra horas, así que no las pide. */
-  private readonly catalogo = resource({
+  protected readonly catalogo = resource({
     loader: () => this.disponibilidad.canchas(),
     defaultValue: [],
   });

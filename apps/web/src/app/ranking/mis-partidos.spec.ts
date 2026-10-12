@@ -220,4 +220,21 @@ describe('MisPartidos', () => {
 
     expect(texto()).toContain('No se pudieron cargar tus partidos');
   });
+
+  it('**mientras cargan, no dice que no hay partidos**: muestra el esqueleto (T152)', () => {
+    // El recurso arranca con la lista vacía: antes, mientras viajaba la consulta, la
+    // pantalla decía "Todavía no cargaste ninguno" a quien sí tenía partidos.
+    const nunca = () => new Promise<never>(() => undefined);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [{ provide: Ranking, useValue: { misPartidos: nunca, rivales: nunca } }],
+    });
+
+    const pendiente = TestBed.createComponent(MisPartidos);
+    pendiente.detectChanges();
+    const el = pendiente.nativeElement as HTMLElement;
+
+    expect(el.textContent).not.toContain('Todavía no cargaste ninguno');
+    expect(el.querySelector('app-esqueleto')).not.toBeNull();
+  });
 });

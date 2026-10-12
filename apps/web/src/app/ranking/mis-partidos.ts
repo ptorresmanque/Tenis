@@ -7,6 +7,7 @@ import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ranking.service';
 import { CampoFecha } from '../ui/campo-fecha';
+import { Esqueleto } from '../ui/esqueleto';
 
 /**
  * Los partidos amistosos del socio: los que cargó y los que tiene que contestar.
@@ -20,7 +21,7 @@ import { CampoFecha } from '../ui/campo-fecha';
  */
 @Component({
   selector: 'app-mis-partidos',
-  imports: [Aviso, EstadoVacio, Insignia, CampoFecha],
+  imports: [Aviso, EstadoVacio, Esqueleto, Insignia, CampoFecha],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
     <p class="mt-2 max-w-prose text-muted-foreground">
@@ -117,6 +118,10 @@ import { CampoFecha } from '../ui/campo-fecha';
       <p class="mt-3 text-destructive">
         No se pudieron cargar tus partidos. Reintenta en un momento.
       </p>
+    } @else if (partidos.status() === 'loading') {
+      <!-- Antes del vacío: el recurso arranca con la lista vacía, y mientras viajaba
+           la consulta la pantalla decía que no había partidos (T152). -->
+      <app-esqueleto class="mt-3 block" [filas]="3" etiqueta="Cargando tus partidos…" />
     } @else if (partidos.value().length === 0) {
       <app-estado-vacio
         class="mt-3 block"

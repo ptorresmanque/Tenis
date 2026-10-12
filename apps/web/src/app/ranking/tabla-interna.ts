@@ -3,6 +3,7 @@ import { Component, computed, inject, resource } from '@angular/core';
 import { diaConAnioEnPalabras } from '../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { FilaInterna, Ranking } from './ranking.service';
+import { Esqueleto } from '../ui/esqueleto';
 
 /**
  * La tabla interna del club: el Elo de los amistosos entre socios.
@@ -18,7 +19,7 @@ import { FilaInterna, Ranking } from './ranking.service';
  */
 @Component({
   selector: 'app-tabla-interna',
-  imports: [EstadoVacio],
+  imports: [EstadoVacio, Esqueleto],
   template: `
     @if (tabla.error()) {
       <p class="mt-4 text-destructive">
@@ -118,7 +119,7 @@ import { FilaInterna, Ranking } from './ranking.service';
         </section>
       }
     } @else if (tabla.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando la tabla del club…</p>
+      <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando la tabla del club…" />
     }
   `,
 })

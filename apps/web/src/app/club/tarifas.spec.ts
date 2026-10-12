@@ -181,4 +181,13 @@ describe('Tarifas', () => {
     expect(texto).toMatch(/hora pico/i);
     expect(texto).toContain('$20.000');
   });
+
+  it('mientras llegan las tarifas, muestra el esqueleto (T152)', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    const pendiente = TestBed.createComponent(Tarifas);
+    pendiente.detectChanges();
+
+    expect((pendiente.nativeElement as HTMLElement).querySelector('app-esqueleto')).not.toBeNull();
+  });
 });

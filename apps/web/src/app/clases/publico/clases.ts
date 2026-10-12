@@ -10,6 +10,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Foto } from '../../ui/foto';
 import { Insignia } from '../../ui/insignia';
 import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Las clases del club, para quien todavía no es del club.
@@ -25,7 +26,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
  */
 @Component({
   selector: 'app-clases-publicas',
-  imports: [EstadoVacio, Foto, Insignia, FormularioContacto],
+  imports: [EstadoVacio, Esqueleto, Foto, Insignia, FormularioContacto],
   template: `
     <section
       class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
@@ -158,7 +159,7 @@ import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
         }
       }
     } @else if (datos.isLoading()) {
-      <p class="mt-3 text-muted-foreground">Cargando los horarios…</p>
+      <app-esqueleto class="mt-3 block" [filas]="4" etiqueta="Cargando los horarios…" />
     }
 
     <!-- El formulario acá mismo y no un enlace a otra página: quien acaba de mirar los

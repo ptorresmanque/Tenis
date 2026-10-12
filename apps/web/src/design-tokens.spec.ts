@@ -1367,6 +1367,23 @@ describe('El hero se mueve (T148)', () => {
 });
 
 /**
+ * Las carpetas del panel que las reglas de T150 (botón ocupado) y T152 (esqueletos)
+ * todavía no revisan. T153 y T154 las van sacando; al terminar la parte la lista queda
+ * vacía y las dos reglas valen para todo el sitio.
+ */
+const CARPETAS_PENDIENTES = [
+  'catalogo-canchas/admin/',
+  'reservas/admin/',
+  'clases/admin/',
+  'identidad/admin/',
+  'configuracion/',
+  'torneos/admin/',
+  'ranking/admin/',
+  'cuotas/admin/',
+  'reportes/',
+];
+
+/**
  * T150. El botón dice que está trabajando, y los botones de ícono responden al dedo.
  *
  * Hasta acá, mientras un envío viajaba, el botón solo se deshabilitaba: en una red
@@ -1377,21 +1394,6 @@ describe('Los botones dicen que están trabajando (T150)', () => {
   const OCUPADO =
     /\[disabled\]="[^"]*\b(?:enviando|guardando|procesando|pagando|entrando|subiendo|borrando|creando|cancelando|confirmando|ocupad[oa])\(\)/;
 
-  /**
-   * Las carpetas que todavía no se revisan. T153 y T154 las van sacando; al terminar
-   * la parte, la lista queda vacía y la regla vale para todo el sitio.
-   */
-  const PENDIENTES = [
-    'catalogo-canchas/admin/',
-    'reservas/admin/',
-    'clases/admin/',
-    'identidad/admin/',
-    'configuracion/',
-    'torneos/admin/',
-    'ranking/admin/',
-    'cuotas/admin/',
-    'reportes/',
-  ];
 
   it('el botón ocupado lleva un círculo que gira, y no se ve deshabilitado', () => {
     expect(css).toMatch(/\.boton\[aria-busy='true'\]::before\s*\{[^}]*progress_activity/);
@@ -1410,12 +1412,34 @@ describe('Los botones dicen que están trabajando (T150)', () => {
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
-      if (PENDIENTES.some((carpeta) => archivo.startsWith(carpeta))) continue;
+      if (CARPETAS_PENDIENTES.some((carpeta) => archivo.startsWith(carpeta))) continue;
 
       for (const [boton] of sinComentarios(contenido).matchAll(/<button\b[^>]*>/g)) {
         if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
           infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);
         }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T152. Lo que espera muestra la forma de lo que viene (app-esqueleto), no la palabra
+ * "Cargando" en gris: un texto obliga a leer para enterarse de que hay que esperar, y
+ * la página salta cuando el contenido lo reemplaza.
+ */
+describe('Lo que espera muestra un esqueleto (T152)', () => {
+
+  it('**ninguna pantalla dice solo "Cargando…" en un párrafo**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      if (CARPETAS_PENDIENTES.some((carpeta) => archivo.startsWith(carpeta))) continue;
+
+      for (const [parrafo] of sinComentarios(contenido).matchAll(/<p\b[^>]*>\s*Cargando[^<]*<\/p>/g)) {
+        infractores.push(`${archivo}: ${parrafo.replace(/\s+/g, ' ').slice(0, 80)}`);
       }
     }
 

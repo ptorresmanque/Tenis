@@ -23,6 +23,7 @@ import { CuadroPublicoModal } from './cuadro-publico';
 import { InscripcionATorneo } from './inscripcion';
 import { olvidarPagoPendiente } from './pago-pendiente';
 import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Lo que se le dice a quien vuelve de la pasarela.
@@ -67,6 +68,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
     Aviso,
     CuadroPublicoModal,
     EstadoVacio,
+    Esqueleto,
     Insignia,
     InscripcionATorneo,
   ],
@@ -283,7 +285,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
         </ul>
       }
     } @else if (torneos.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Cargando el calendario…</p>
+      <app-esqueleto class="mt-6 block" [filas]="3" etiqueta="Cargando el calendario…" />
     }
 
     <!-- Uno para toda la página: se abre con la categoría que se elija, o con la que
