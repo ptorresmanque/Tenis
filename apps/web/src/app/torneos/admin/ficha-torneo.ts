@@ -12,6 +12,7 @@ import { CuadroDelTorneo } from './cuadro';
 import { CuadrosDelTorneo } from './cuadros-del-torneo';
 import { FotosDelTorneo } from './fotos';
 import { InscritosDelTorneo } from './inscritos';
+import { ToursDelTorneo } from './tours-del-torneo';
 import { TransmisionesDelTorneo } from './transmisiones';
 import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
 import { CampoFecha } from '../../ui/campo-fecha';
@@ -53,6 +54,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
     CuadrosDelTorneo,
     TransmisionesDelTorneo,
     FotosDelTorneo,
+    ToursDelTorneo,
     CampoFecha,
   ],
   template: `
@@ -164,7 +166,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
 
       @if (activa() === 'ajustes') {
         <!-- **Los datos del torneo primero**: es lo que identifica lo que se está
-             mirando. Después sus cuadros, y al final lo destructivo. -->
+             mirando. Después sus tours y sus cuadros, y al final lo destructivo. -->
         <form
           class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
           (ngSubmit)="guardar(suyo.id)"
@@ -239,6 +241,8 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
             </app-aviso>
           }
         </form>
+
+        <app-tours-del-torneo [torneo]="suyo" (cambiaron)="torneos.reload()" />
 
         <app-cuadros-del-torneo [torneoId]="suyo.id" (cambiaron)="torneos.reload()" />
 

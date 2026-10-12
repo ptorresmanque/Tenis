@@ -39,6 +39,7 @@ describe('Inicio', () => {
         armado: false,
       },
     ],
+    tours: [],
   };
 
   let fixture: ComponentFixture<Inicio>;

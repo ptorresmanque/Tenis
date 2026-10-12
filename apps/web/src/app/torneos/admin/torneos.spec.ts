@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Tours } from '../../tours/tours.service';
 import { CategoriaTorneo, Torneo, Torneos } from '../torneos.service';
 import { TorneosPanel } from './torneos';
 
@@ -47,6 +48,7 @@ describe('TorneosPanel', () => {
     estado: 'INSCRIPCION',
     pagosPorRevisar: 0,
     enEspera: 0,
+    tours: [],
   };
 
   let fixture: ComponentFixture<TorneosPanel>;
@@ -61,6 +63,9 @@ describe('TorneosPanel', () => {
   const montar = async (
     torneos: Torneo[] | Error,
     categorias: CategoriaTorneo[] | Error,
+    tours: { id: number; nombre: string; temporadas: number }[] = [
+      { id: 1, nombre: 'Tour FEDAL', temporadas: 1 },
+    ],
   ) => {
     api = {
       torneos: vi.fn(() =>
@@ -76,7 +81,48 @@ describe('TorneosPanel', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: Torneos, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: Torneos, useValue: api },
+        {
+          provide: Tours,
+          useValue: {
+            listar: vi.fn().mockResolvedValue(tours),
+            ficha: vi.fn().mockResolvedValue({
+              id: 1,
+              nombre: 'Tour FEDAL',
+              descripcion: '',
+              imagen: null,
+              fotos: [],
+              temporadas: [
+                {
+                  id: 12,
+                  nombre: '2027',
+                  fechaInicio: '2027-03-01',
+                  fechaFin: '2027-12-15',
+                  niveles: [
+                    {
+                      id: 5,
+                      nombre: '500',
+                      tabla: {
+                        campeon: 500,
+                        finalista: 300,
+                        semifinal: 180,
+                        cuartos: 90,
+                        octavos: 0,
+                        dieciseisavos: 0,
+                        treintaidosavos: 0,
+                      },
+                      torneos: 0,
+                      torneosTerminados: 0,
+                    },
+                  ],
+                },
+              ],
+            }),
+          },
+        },
+      ],
     });
 
     fixture = TestBed.createComponent(TorneosPanel);
@@ -135,12 +181,22 @@ describe('TorneosPanel', () => {
    */
   const abrirElFormulario = () => apretar('Crear torneo');
 
-  it('crear un torneo manda las tres fechas juntas', async () => {
+  /** El tour y su nivel (T197): sin ellos el formulario no deja crear. */
+  const elegirTour = async () => {
+    await escribir('tourId', '1');
+    await escribir('nivelId', '5');
+  };
+
+  const botonDeCrear = () =>
+    elemento().querySelector<HTMLButtonElement>('form button[type="submit"]')!;
+
+  it('crear un torneo manda las tres fechas juntas, y su tour con el nivel', async () => {
     await abrirElFormulario();
     await escribir('nombre', 'Copa de invierno');
     await escribir('fechaInicio', '2026-07-01');
     await escribir('fechaFin', '2026-07-05');
     await escribir('cierreInscripcion', '2026-06-25');
+    await elegirTour();
 
     await apretar('Crear torneo');
 
@@ -150,8 +206,42 @@ describe('TorneosPanel', () => {
         fechaInicio: '2026-07-01',
         fechaFin: '2026-07-05',
         cierreInscripcion: '2026-06-25',
+        tours: [{ tourId: 1, nivelId: 5 }],
       }),
     );
+  });
+
+  it('**sin tour y nivel el formulario no deja crear** (D10)', async () => {
+    await abrirElFormulario();
+    await escribir('nombre', 'Copa de invierno');
+
+    expect(botonDeCrear().disabled).toBe(true);
+
+    await escribir('tourId', '1');
+    expect(botonDeCrear().disabled).toBe(true);
+
+    await escribir('nivelId', '5');
+    expect(botonDeCrear().disabled).toBe(false);
+  });
+
+  it('el nivel se lee con su temporada: «2027 · 500»', async () => {
+    await abrirElFormulario();
+    await escribir('tourId', '1');
+
+    const opciones = Array.from(
+      elemento().querySelectorAll('select[name="nivelId"] option'),
+    ).map((o) => o.textContent?.trim());
+    expect(opciones).toContain('2027 · 500');
+  });
+
+  it('**sin tours, dice dónde crearlos** en vez de ofrecer una lista vacía', async () => {
+    await montar([TORNEO], [CLUB_250], []);
+    await abrirElFormulario();
+
+    expect(texto()).toContain('Todavía no hay tours');
+    expect(
+      elemento().querySelector('form a[href="/administracion/tours"]'),
+    ).not.toBeNull();
   });
 
   it('**si las fechas no cierran, lo dice el servidor y se muestra tal cual**', async () => {
@@ -161,6 +251,7 @@ describe('TorneosPanel', () => {
       error: { message: 'El torneo no puede terminar antes de empezar.' },
     });
     await abrirElFormulario();
+    await elegirTour();
 
     await apretar('Crear torneo');
 

@@ -17,6 +17,7 @@ import {
   Torneos,
 } from '../torneos.service';
 import { CampoFecha } from '../../ui/campo-fecha';
+import { ElegirNivel, NivelElegido } from './elegir-nivel';
 
 /**
  * Los tres grupos con que el club mira su temporada.
@@ -62,7 +63,16 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-torneos',
-  imports: [Esqueleto, FormsModule, RouterLink, Aviso, EstadoVacio, Insignia, CampoFecha],
+  imports: [
+    Esqueleto,
+    FormsModule,
+    RouterLink,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    CampoFecha,
+    ElegirNivel,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
          crear; va como secundaria porque la principal es el "Crear torneo" del
@@ -149,13 +159,19 @@ const enBlanco = () => ({
             }
           </select>
         </label>
+
+        <!-- **El primer tour va en el alta** (D10): un torneo que no suma para nada no
+             tiene ranking. Los demás se agregan en Ajustes. -->
+        <div class="sm:col-span-2">
+          <app-elegir-nivel [(eleccion)]="tour" />
+        </div>
       </div>
 
       <button
         type="submit"
         class="boton boton-primario mt-3"
         [attr.aria-busy]="enCurso() === 'crearTorneo'"
-        [disabled]="trabajando()"
+        [disabled]="trabajando() || tour().nivelId === null"
       >
         Crear torneo
       </button>
@@ -364,6 +380,8 @@ export class TorneosPanel {
   protected readonly superficies = Object.entries(SUPERFICIES);
 
   protected datos = enBlanco();
+  /** El tour y el nivel del alta. Señal, porque el selector la escribe con `model`. */
+  protected readonly tour = signal<NivelElegido>({ tourId: null, nivelId: null });
   protected categoriaNueva = { nombre: '', puntosCampeon: 250 };
 
   protected readonly trabajando = signal(false);
@@ -457,13 +475,18 @@ export class TorneosPanel {
   }
 
   protected async crearTorneo(): Promise<void> {
+    const { tourId, nivelId } = this.tour();
+    if (tourId === null || nivelId === null) return;
+
     await this.intentar('crearTorneo', async () => {
       const torneo = await this.api.crearTorneo({
         ...this.datos,
         superficie: this.datos.superficie || null,
+        tours: [{ tourId, nivelId }],
       });
 
       this.datos = enBlanco();
+      this.tour.set({ tourId: null, nivelId: null });
       // **El torneo nace sin cuadros y hay que decirlo**: sin categorías no se puede
       // inscribir a nadie, y un torneo vacío en la lista no explica por qué.
       this.aviso.set(

@@ -63,6 +63,27 @@ export interface Torneo {
   pagosPorRevisar: number;
   /** Cuántos esperan un lugar en alguno de sus cuadros. */
   enEspera: number;
+  /** Para qué tours suma (T196). Vacío en los torneos de antes de los tours. */
+  tours: TourDelTorneo[];
+}
+
+/**
+ * Para qué tour suma un torneo, con los nombres junto a los números: "Tour FEDAL ·
+ * 2027 · 500". Espejo de `TourDelTorneoPublico` en la API; el panel lo lee igual.
+ */
+export interface TourDelTorneo {
+  tourId: number;
+  tour: string;
+  temporadaId: number;
+  temporada: string;
+  nivelId: number;
+  nivel: string;
+}
+
+/** Lo que se manda al asociar: el tour y uno de sus niveles. */
+export interface AsociacionATour {
+  tourId: number;
+  nivelId: number;
 }
 
 /** El nivel del **jugador**: 5ª, 4ª, … Honor. No es `CategoriaTorneo`. */
@@ -215,6 +236,8 @@ export interface TorneoPublico {
   estado: EstadoTorneo;
   /** Sus cuadros, con cuánto lugar queda en cada uno. */
   categorias: CategoriaPublica[];
+  /** Para qué tours suma, con el nivel (T196). */
+  tours: TourDelTorneo[];
 }
 
 /** Un cuadro visto desde la calle. */
@@ -842,8 +865,34 @@ export class Torneos {
     return firstValueFrom(this.http.get<Torneo[]>('/api/admin/torneos'));
   }
 
-  crearTorneo(datos: TorneoNuevo): Promise<Torneo> {
+  /** Con al menos un tour (D10): el servidor rechaza el torneo que no suma para nada. */
+  crearTorneo(datos: TorneoNuevo & { tours: AsociacionATour[] }): Promise<Torneo> {
     return firstValueFrom(this.http.post<Torneo>('/api/admin/torneos', datos));
+  }
+
+  // ── Para qué tours suma (T197) ──────────────────────────────────────────────
+
+  agregarTour(torneoId: number, asociacion: AsociacionATour): Promise<AsociacionATour> {
+    return firstValueFrom(
+      this.http.post<AsociacionATour>(`/api/admin/torneos/${torneoId}/tours`, asociacion),
+    );
+  }
+
+  cambiarNivelDelTour(
+    torneoId: number,
+    tourId: number,
+    nivelId: number,
+  ): Promise<AsociacionATour> {
+    return firstValueFrom(
+      this.http.patch<AsociacionATour>(`/api/admin/torneos/${torneoId}/tours/${tourId}`, {
+        nivelId,
+      }),
+    );
+  }
+
+  /** La última no se quita: el servidor responde 409. */
+  quitarTour(torneoId: number, tourId: number): Promise<unknown> {
+    return firstValueFrom(this.http.delete(`/api/admin/torneos/${torneoId}/tours/${tourId}`));
   }
 
   /**
