@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 
 import { IdentidadModule } from '../identidad/identidad.module';
+import { ImagenesDelTour } from './imagenes-del-tour.service';
 import { ToursAdminController } from './tours.controller';
+import { ToursPublicosController } from './tours-publicos.controller';
 import { Tours } from './tours.service';
 
 /**
@@ -15,8 +17,8 @@ import { Tours } from './tours.service';
   // `IdentidadModule` porque `@SoloAdmin()` resuelve `SesionService` en el módulo
   // del controlador que lo usa, no en el que lo declara.
   imports: [IdentidadModule],
-  controllers: [ToursAdminController],
-  providers: [Tours],
+  controllers: [ToursAdminController, ToursPublicosController],
+  providers: [Tours, ImagenesDelTour],
   exports: [Tours],
 })
 export class ToursModule {}

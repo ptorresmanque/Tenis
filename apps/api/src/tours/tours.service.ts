@@ -4,10 +4,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { borrarImagen } from '../comun/imagenes';
 import { comoFechaCivil } from '../comun/tiempo';
 import { EstadoTorneo } from '../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  direccionesDeImagen,
+  type FotoDeTour,
+  type ImagenDeTour,
+  publicarFoto,
+} from './imagenes-del-tour.service';
 import type { TablaDePuntos } from './tabla';
 import type { NivelNuevo, TemporadaNueva, TourNuevo } from './tours.dto';
 
@@ -30,12 +37,16 @@ export interface NivelDelPanel {
   torneosTerminados: number;
 }
 
-/** La ficha de un tour en el panel: sus temporadas, cada una con sus niveles. */
+/** La ficha de un tour en el panel: sus temporadas con sus niveles, y sus imágenes (T190). */
 export interface FichaDeTour {
   id: number;
   nombre: string;
   descripcion: string;
+  /** La representativa, o nula si todavía no se sube. */
+  imagen: ImagenDeTour | null;
   temporadas: (TemporadaDelPanel & { niveles: NivelDelPanel[] })[];
+  /** La galería, de la más nueva a la más vieja, como en los torneos. */
+  fotos: FotoDeTour[];
 }
 
 const TEMPORADA = {
@@ -115,6 +126,11 @@ export class Tours {
         id: true,
         nombre: true,
         descripcion: true,
+        imagenRutaWeb: true,
+        fotos: {
+          orderBy: [{ creadaEn: 'desc' }, { id: 'desc' }],
+          select: { id: true, descripcion: true },
+        },
         // La más nueva primero: es la que el admin viene a tocar.
         temporadas: {
           orderBy: [{ fechaInicio: 'desc' }, { id: 'desc' }],
@@ -128,12 +144,16 @@ export class Tours {
 
     if (!tour) throw new NotFoundException('No hay un tour con ese número.');
 
+    const { imagenRutaWeb, fotos, temporadas, ...datos } = tour;
+
     return {
-      ...tour,
-      temporadas: tour.temporadas.map(({ niveles, ...temporada }) => ({
+      ...datos,
+      imagen: imagenRutaWeb ? direccionesDeImagen(tour.id) : null,
+      temporadas: temporadas.map(({ niveles, ...temporada }) => ({
         ...publicarTemporada(temporada),
         niveles: niveles.map(publicarNivel),
       })),
+      fotos: fotos.map(publicarFoto),
     };
   }
 
@@ -172,7 +192,7 @@ export class Tours {
    * Borra el tour con sus temporadas y sus niveles, que caen en cascada. **Con torneos,
    * no**: el 409 dice cuántos.
    *
-   * Las fotos y la imagen también caen con la fila; sus archivos los borra T190.
+   * Las fotos y la imagen caen con la fila, y sus archivos se borran del disco (T190).
    */
   async borrar(id: number): Promise<{ id: number }> {
     await this.ficha(id);
@@ -186,7 +206,27 @@ export class Tours {
       );
     }
 
+    // Las rutas antes de borrar la fila: después ya no hay dónde leerlas, y la galería
+    // cae en cascada con el tour.
+    const archivos = await this.prisma.tour.findUniqueOrThrow({
+      where: { id },
+      select: {
+        imagenRutaWeb: true,
+        imagenRutaMiniatura: true,
+        fotos: { select: { rutaWeb: true, rutaMiniatura: true } },
+      },
+    });
+
     await this.prisma.tour.delete({ where: { id } });
+
+    // Una fila menos no libera disco.
+    for (const ruta of [
+      archivos.imagenRutaWeb,
+      archivos.imagenRutaMiniatura,
+      ...archivos.fotos.flatMap((f) => [f.rutaWeb, f.rutaMiniatura]),
+    ]) {
+      if (ruta) await borrarImagen(ruta);
+    }
 
     return { id };
   }

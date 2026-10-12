@@ -201,3 +201,26 @@ export function leerCambioDeNivel(cuerpo: unknown): Partial<NivelNuevo> {
 
   return cambio;
 }
+
+/**
+ * El pie de una foto de la galería (T190), que es también su texto alternativo.
+ * Opcional: vacío es "sin pie". Llega por `multipart` al subir y por JSON al corregir.
+ */
+export function leerPie(cuerpo: unknown): string | null {
+  const valor = ((cuerpo ?? {}) as Record<string, unknown>).descripcion;
+
+  if (valor === undefined || valor === null) return null;
+  if (typeof valor !== 'string') {
+    throw new BadRequestException('El pie de foto tiene que ser texto.');
+  }
+
+  const limpio = valor.trim();
+
+  if (limpio.length > 200) {
+    throw new BadRequestException(
+      'El pie de foto no puede pasar de 200 letras.',
+    );
+  }
+
+  return limpio || null;
+}

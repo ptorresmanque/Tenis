@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,14 +8,20 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
+import { MAXIMO_BYTES } from '../comun/imagenes';
 import { SoloAdmin } from '../identidad/guards';
+import { ImagenesDelTour } from './imagenes-del-tour.service';
 import {
   leerCambioDeNivel,
   leerCambioDeTemporada,
   leerCambioDeTour,
   leerNivelNuevo,
+  leerPie,
   leerTemporadaNueva,
   leerTourNuevo,
 } from './tours.dto';
@@ -33,7 +40,10 @@ import { Tours } from './tours.service';
 @Controller('admin')
 @SoloAdmin()
 export class ToursAdminController {
-  constructor(private readonly tours: Tours) {}
+  constructor(
+    private readonly tours: Tours,
+    private readonly imagenes: ImagenesDelTour,
+  ) {}
 
   @Get('tours')
   listar() {
@@ -97,5 +107,49 @@ export class ToursAdminController {
   @Delete('niveles/:id')
   borrarNivel(@Param('id', ParseIntPipe) id: number) {
     return this.tours.borrarNivel(id);
+  }
+
+  // ── La imagen y la galería (T190) ───────────────────────────────────────────
+  // Se reencodifican sin EXIF antes de tocar el disco. Las públicas las sirve
+  // `ToursPublicosController`.
+
+  @Post('tours/:id/imagen')
+  @UseInterceptors(
+    FileInterceptor('imagen', { limits: { fileSize: MAXIMO_BYTES } }),
+  )
+  subirImagen(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() archivo?: { buffer: Buffer },
+  ) {
+    if (!archivo) throw new BadRequestException('Adjunta la imagen.');
+
+    return this.imagenes.subirImagen(id, archivo.buffer);
+  }
+
+  @Post('tours/:id/fotos')
+  @UseInterceptors(
+    FileInterceptor('foto', { limits: { fileSize: MAXIMO_BYTES } }),
+  )
+  subirFoto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @UploadedFile() archivo?: { buffer: Buffer },
+  ) {
+    // El pie se lee antes de mirar el archivo: uno de 300 letras es un 400 por sí solo.
+    const pie = leerPie(cuerpo);
+
+    if (!archivo) throw new BadRequestException('Adjunta la foto.');
+
+    return this.imagenes.subirFoto(id, pie, archivo.buffer);
+  }
+
+  @Patch('tours/fotos/:id')
+  corregirPie(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.imagenes.corregirPie(id, leerPie(cuerpo));
+  }
+
+  @Delete('tours/fotos/:id')
+  quitarFoto(@Param('id', ParseIntPipe) id: number) {
+    return this.imagenes.quitarFoto(id);
   }
 }
