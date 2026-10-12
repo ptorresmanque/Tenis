@@ -3,7 +3,11 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { IdentidadModule } from '../identidad/identidad.module';
 import { CatalogoAdminController } from './catalogo-admin.controller';
 import { CategoriasYMarcas } from './catalogo-admin.service';
+import { FotosPublicasController } from './fotos-publicas.controller';
+import { FotosDeProductos } from './fotos.service';
 import { InterruptorDeLaTienda, RUTAS_DE_LA_TIENDA } from './interruptor';
+import { ProductosAdminController } from './productos-admin.controller';
+import { ProductosDeLaTienda } from './productos.service';
 
 /**
  * La tienda: la Etapa 2, fuera del trabajo de título (`SPEC-tienda.md`).
@@ -15,8 +19,12 @@ import { InterruptorDeLaTienda, RUTAS_DE_LA_TIENDA } from './interruptor';
   // `IdentidadModule` porque `@SoloAdmin()` resuelve `SesionService` en el módulo del
   // controlador que lo usa, no en el que lo declara.
   imports: [IdentidadModule],
-  controllers: [CatalogoAdminController],
-  providers: [CategoriasYMarcas],
+  controllers: [
+    CatalogoAdminController,
+    ProductosAdminController,
+    FotosPublicasController,
+  ],
+  providers: [CategoriasYMarcas, ProductosDeLaTienda, FotosDeProductos],
 })
 export class TiendaModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

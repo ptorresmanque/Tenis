@@ -451,7 +451,7 @@ model HorarioApertura {
 /// En dos tablas, el admin define el mismo rango dos veces y el primer desajuste
 /// produce un socio al que se le descuenta cupo pico en una hora que se cobra valle.
 model FranjaHoraria {
-  id        Int  @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   canchaId  Int?     @map("cancha_id")
   /// Solo en la tarifa general (T98): nulo = toda cancha, true = solo las techadas,
   /// false = solo las abiertas. Una franja de una cancha lo lleva nulo: el panel rechaza
@@ -505,8 +505,8 @@ model Bloqueo {
 
   creadoEn DateTime @default(now()) @map("creado_en")
 
-  cancha Cancha @relation(fields: [canchaId], references: [id], onDelete: Cascade)
-  clase  Clase?
+  cancha  Cancha   @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  clase   Clase?
   /// El partido de torneo que cerró esta cancha (T67), si lo hay.
   partido Partido?
 
@@ -567,11 +567,11 @@ model ConfiguracionClub {
   cupoPicoSemanalReservas Int @default(2) @map("cupo_pico_semanal_reservas")
   /// Reservas con invitados por mes, no invitados (A5, 2026-10-08): una reserva con uno, dos
   /// o tres invitados gasta una. El nombre quedó del tiempo en que contaba personas.
-  invitadosPorMes      Int @default(4) @map("invitados_por_mes")
-  horasMinModificacion Int @default(6) @map("horas_min_modificacion")
-  horasReembolsoTotal  Int @default(24) @map("horas_reembolso_total")
+  invitadosPorMes         Int @default(4) @map("invitados_por_mes")
+  horasMinModificacion    Int @default(6) @map("horas_min_modificacion")
+  horasReembolsoTotal     Int @default(24) @map("horas_reembolso_total")
   /// Cuántos días queda sin reservar el socio que tomó una hora y no la usó (T34).
-  diasSancionNoUso     Int @default(15) @map("dias_sancion_no_uso")
+  diasSancionNoUso        Int @default(15) @map("dias_sancion_no_uso")
 
   /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras seis: el
   /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo
@@ -757,14 +757,14 @@ model Reserva {
   /// **inertes**: "hay un cambio en curso" lo dice la transacción PENDIENTE, nunca estas
   /// columnas, y el próximo cambio las sobrescribe. `cambioEsPico` congela la categoría
   /// del destino, igual que `esPico`.
-  cambioCanchaId Int?      @map("cambio_cancha_id")
-  cambioInicio   DateTime? @map("cambio_inicio")
-  cambioFin      DateTime? @map("cambio_fin")
-  cambioEsPico   Boolean?  @map("cambio_es_pico")
+  cambioCanchaId      Int?      @map("cambio_cancha_id")
+  cambioInicio        DateTime? @map("cambio_inicio")
+  cambioFin           DateTime? @map("cambio_fin")
+  cambioEsPico        Boolean?  @map("cambio_es_pico")
   /// La transacción que paga ese destino (revisión de T89). La vuelta de Webpay solo
   /// mueve la reserva si el pago que vuelve es este: dos pedidos a la vez desde el mismo
   /// enlace dejarían si no el destino del caro pagado con la diferencia del barato.
-  cambioTransaccionId Int? @map("cambio_transaccion_id")
+  cambioTransaccionId Int?      @map("cambio_transaccion_id")
 
   /// Nulo = no-socio. Su pago vive en `Transaccion` con `concepto: RESERVA` y
   /// `conceptoId` = este id; no se guarda el vínculo inverso para que no haya dos
@@ -956,9 +956,9 @@ model SerieDeClases {
   canchaId   Int @map("cancha_id")
 
   /// Los días de la semana, de 0 (domingo) a 6 (sábado), separados por coma: "2,4".
-  diasSemana String @map("dias_semana") @db.VarChar(13)
-  horaDesde  String @map("hora_desde") @db.Char(5)
-  horaHasta  String @map("hora_hasta") @db.Char(5)
+  diasSemana String   @map("dias_semana") @db.VarChar(13)
+  horaDesde  String   @map("hora_desde") @db.Char(5)
+  horaHasta  String   @map("hora_hasta") @db.Char(5)
   /// Fechas civiles del club, las dos incluidas.
   desde      DateTime @db.Date
   hasta      DateTime @db.Date
@@ -1217,8 +1217,8 @@ enum EstadoTorneo {
 
 /// Un torneo del club.
 model Torneo {
-  id          Int    @id @default(autoincrement())
-  nombre      String @db.VarChar(120)
+  id     Int    @id @default(autoincrement())
+  nombre String @db.VarChar(120)
 
   /// Informativa: en qué se juega. Nula si el club todavía no lo decidió o se juega
   /// en varias.
@@ -1310,7 +1310,7 @@ model InscripcionTorneo {
   /// ranking: es lo que le permite separar a dos que ya jugaron la final el mes pasado.
   siembra Int?
 
-  estado     EstadoInscripcionTorneo @default(INSCRITA)
+  estado EstadoInscripcionTorneo @default(INSCRITA)
 
   /// **Eje aparte de `estado`**: una inscripción puede estar en el cuadro y sin pagar.
   ///
@@ -1357,7 +1357,7 @@ model InscripcionTorneo {
   /// antes de T127 y en las que el admin anota sin uno; la pública lo exige.
   email String? @db.VarChar(191)
 
-  inscritaEn DateTime                @default(now()) @map("inscrita_en")
+  inscritaEn DateTime @default(now()) @map("inscrita_en")
 
   /// **La escribe la base, nunca la aplicación.** Columna generada —
   /// `IF(estado = 'RETIRADA', NULL, jugador_id)`— con el mismo truco que
@@ -1367,9 +1367,9 @@ model InscripcionTorneo {
   /// para que el club vea que se bajó.
   jugadorActivo Int? @map("jugador_activo")
 
-  torneo          Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
-  jugador         Jugador         @relation(fields: [jugadorId], references: [id])
-  torneoCategoria TorneoCategoria @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
+  torneo          Torneo               @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  jugador         Jugador              @relation(fields: [jugadorId], references: [id])
+  torneoCategoria TorneoCategoria      @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
   restricciones   RestriccionHoraria[]
 
   @@unique([torneoId, jugadorActivo], map: "inscripcion_jugador_activo")
@@ -1516,17 +1516,16 @@ model Partido {
   torneo          Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
   torneoCategoria TorneoCategoria @relation(fields: [torneoCategoriaId], references: [id], onDelete: Cascade)
   bloqueo         Bloqueo?        @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
-  fotos    FotoTorneo[]
-  jugadorA Jugador? @relation("PartidosComoA", fields: [jugadorAId], references: [id])
-  jugadorB Jugador? @relation("PartidosComoB", fields: [jugadorBId], references: [id])
-  ganador  Jugador? @relation("PartidosGanados", fields: [ganadorId], references: [id])
+  fotos           FotoTorneo[]
+  jugadorA        Jugador?        @relation("PartidosComoA", fields: [jugadorAId], references: [id])
+  jugadorB        Jugador?        @relation("PartidosComoB", fields: [jugadorBId], references: [id])
+  ganador         Jugador?        @relation("PartidosGanados", fields: [ganadorId], references: [id])
 
   @@unique([torneoCategoriaId, ronda, posicion])
   @@index([torneoId])
   @@index([programadoInicio])
   @@map("partido")
 }
-
 
 /// Cuándo se sacó la foto respecto del torneo. Ver T69.
 enum MomentoFoto {
@@ -1542,8 +1541,8 @@ enum MomentoFoto {
 /// la cancha—. `partidoId` y `momento` son ejes independientes, así que la tercera sale
 /// sin inventar nada: es de un partido y es de antes.
 model FotoTorneo {
-  id       Int  @id @default(autoincrement())
-  torneoId Int  @map("torneo_id")
+  id        Int  @id @default(autoincrement())
+  torneoId  Int  @map("torneo_id")
   /// Nulo en las generales del torneo.
   partidoId Int? @map("partido_id")
 
@@ -1648,6 +1647,8 @@ model CategoriaProducto {
   creadaEn      DateTime @default(now()) @map("creada_en")
   actualizadaEn DateTime @updatedAt @map("actualizada_en")
 
+  productos Producto[]
+
   @@map("categoria_producto")
 }
 
@@ -1660,7 +1661,8 @@ model Marca {
   creadaEn      DateTime @default(now()) @map("creada_en")
   actualizadaEn DateTime @updatedAt @map("actualizada_en")
 
-  tallas EquivalenciaTalla[]
+  tallas    EquivalenciaTalla[]
+  productos Producto[]
 
   @@map("marca")
 }
@@ -1683,4 +1685,129 @@ model EquivalenciaTalla {
   /// distintas a la misma pregunta.
   @@unique([marcaId, tallaCl])
   @@map("equivalencia_talla")
+}
+
+/// Lo que se vende (T158).
+///
+/// **El precio va acá y no en la variante**: una zapatilla cuesta lo mismo en talla 40
+/// que en 44. Si una talla cuesta distinto, se carga como otro producto. **No se borra
+/// nunca**: se archiva, porque en cuanto se vende tiene líneas de pedido colgando.
+model Producto {
+  id          Int    @id @default(autoincrement())
+  nombre      String @db.VarChar(120)
+  /// Texto plano con saltos de línea, hasta 4.000 caracteres, que valida la API.
+  descripcion String @db.Text
+
+  categoriaId Int  @map("categoria_id")
+  marcaId     Int? @map("marca_id")
+
+  /// Con IVA, en pesos, el mismo para todos. El de socio se calcula (T161).
+  precioClp Int @map("precio_clp")
+
+  /// Borrador hasta que el admin lo publica: así se carga el catálogo antes de abrir.
+  publicado Boolean @default(false)
+  /// Fuera de la tienda y del mesón, pero sigue en los pedidos viejos y en el reporte.
+  archivado Boolean @default(false)
+
+  /// Se vende sin stock, con el aviso "llega en N días" (T170). `diasEncargo` es
+  /// obligatorio si acepta encargo, y lo impone la API.
+  aceptaEncargo Boolean @default(false) @map("acepta_encargo")
+  diasEncargo   Int?    @map("dias_encargo")
+
+  creadoEn      DateTime @default(now()) @map("creado_en")
+  actualizadoEn DateTime @updatedAt @map("actualizado_en")
+
+  categoria CategoriaProducto @relation(fields: [categoriaId], references: [id])
+  marca     Marca?            @relation(fields: [marcaId], references: [id])
+  variantes Variante[]
+  fotos     FotoProducto[]
+
+  @@index([publicado, archivado, categoriaId])
+  @@index([categoriaId])
+  @@index([marcaId])
+  @@map("producto")
+}
+
+/// Una foto de un producto, con su miniatura para el catálogo (T158).
+///
+/// Como las fotos de torneos: la imagen se reencoda sin EXIF, se guardan la versión
+/// web y la miniatura, y se sirven por su id, nunca por la ruta en disco.
+model FotoProducto {
+  id            Int    @id @default(autoincrement())
+  productoId    Int    @map("producto_id")
+  rutaWeb       String @map("ruta_web") @db.VarChar(255)
+  rutaMiniatura String @map("ruta_miniatura") @db.VarChar(255)
+  /// Menor = primera. La primera es la que muestra el catálogo.
+  orden         Int    @default(0)
+
+  creadaEn DateTime @default(now()) @map("creada_en")
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId, orden])
+  @@map("foto_producto")
+}
+
+/// Una forma de comprar un producto: una talla, un color, un grip (T158).
+///
+/// **La etiqueta es libre** ("40", "Grip 2", "Negro / M"). En una categoría con tabla de
+/// tallas, la etiqueta es la talla chilena (`SPEC-tienda.md` § Catálogo).
+model Variante {
+  id           Int     @id @default(autoincrement())
+  productoId   Int     @map("producto_id")
+  /// Única dentro del producto, sin distinguir mayúsculas, por la colación.
+  etiqueta     String  @db.VarChar(40)
+  /// Único en toda la tienda: es lo que lee el lector del mesón. Nulo si no trae.
+  codigoBarras String? @unique @map("codigo_barras") @db.VarChar(64)
+
+  /// **Lo escribe solo `moverStock()`** (`tienda/stock.ts`), junto a su movimiento. Puede
+  /// quedar negativo por un encargo o por una venta del mesón con el sistema en cero.
+  stock  Int     @default(0)
+  /// Una variante que ya no se vende se desactiva: tiene ventas y movimientos colgando.
+  activa Boolean @default(true)
+
+  creadaEn      DateTime @default(now()) @map("creada_en")
+  actualizadaEn DateTime @updatedAt @map("actualizada_en")
+
+  producto    Producto          @relation(fields: [productoId], references: [id])
+  movimientos MovimientoStock[]
+
+  @@unique([productoId, etiqueta])
+  @@map("variante")
+}
+
+enum MotivoMovimientoStock {
+  /// Llegó mercadería, o el stock con que nace una variante.
+  ENTRADA
+  VENTA
+  /// Un conteo que no cuadra, una merma. Lleva nota.
+  AJUSTE
+  DEVOLUCION
+  /// Un pedido cancelado que devuelve lo que había descontado.
+  ANULACION
+}
+
+/// Cada cambio del stock de una variante, con quién y por qué (T158).
+///
+/// **El historial que explica el número**: `Variante.stock` se lee sin sumar, y esta
+/// tabla responde cuando no cuadra. Lo escribe solo `moverStock()`, en la misma
+/// transacción que el stock.
+model MovimientoStock {
+  id         Int                   @id @default(autoincrement())
+  varianteId Int                   @map("variante_id")
+  /// Positivo entra, negativo sale. Nunca cero.
+  cantidad   Int
+  motivo     MotivoMovimientoStock
+  /// El admin que lo hizo; nulo en una compra en línea. Sin clave foránea, como
+  /// `Cuota.registradaPor`: el historial no se pierde si la cuenta se borra.
+  usuarioId  Int?                  @map("usuario_id")
+  /// Obligatoria en un ajuste.
+  nota       String?               @db.VarChar(300)
+
+  creadoEn DateTime @default(now()) @map("creado_en")
+
+  variante Variante @relation(fields: [varianteId], references: [id])
+
+  @@index([varianteId, creadoEn])
+  @@map("movimiento_stock")
 }
