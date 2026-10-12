@@ -17,14 +17,16 @@ import { Aviso } from '../../ui/aviso';
 import { Campo, CampoControl } from '../../ui/campo';
 import { Esqueleto } from '../../ui/esqueleto';
 import { FichaDeTour, Tours } from '../tours.service';
+import { GaleriaDelTour } from './galeria-del-tour';
 import { TemporadasDelTour } from './temporadas-del-tour';
 
-/** Lo que se le hace a un tour. La galería llega en T193. */
-type Pestana = 'datos' | 'temporadas';
+/** Lo que se le hace a un tour. */
+type Pestana = 'datos' | 'temporadas' | 'galeria';
 
 const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
   { id: 'datos', nombre: 'Datos', icono: 'edit_note' },
   { id: 'temporadas', nombre: 'Temporadas', icono: 'event_repeat' },
+  { id: 'galeria', nombre: 'Galería', icono: 'photo_library' },
 ];
 
 const LARGO_DEL_NOMBRE = 80;
@@ -37,7 +39,16 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
  */
 @Component({
   selector: 'app-ficha-tour',
-  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, Esqueleto, TemporadasDelTour],
+  imports: [
+    FormsModule,
+    RouterLink,
+    Aviso,
+    Campo,
+    CampoControl,
+    Esqueleto,
+    TemporadasDelTour,
+    GaleriaDelTour,
+  ],
   template: `
     <a routerLink="/administracion/tours" class="text-sm font-semibold text-primary">
       <span class="icono align-middle text-base" aria-hidden="true">arrow_back</span>
@@ -86,6 +97,8 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
 
       @if (activa() === 'temporadas') {
         <app-temporadas-del-tour [tour]="tour" (cambio)="ficha.reload()" />
+      } @else if (activa() === 'galeria') {
+        <app-galeria-del-tour [tour]="tour" (cambio)="ficha.reload()" />
       } @else {
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>

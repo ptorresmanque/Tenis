@@ -141,4 +141,26 @@ export class Tours {
   borrarNivel(id: number): Promise<unknown> {
     return firstValueFrom(this.http.delete(`/api/admin/niveles/${id}`));
   }
+
+  // ── La galería (T193) ───────────────────────────────────────────────────────
+
+  subirFoto(tourId: number, archivo: File, descripcion: string): Promise<FotoDeTour> {
+    const cuerpo = new FormData();
+
+    // Los campos antes del archivo: es el orden en que un formulario los manda.
+    if (descripcion) cuerpo.append('descripcion', descripcion);
+    cuerpo.append('foto', archivo);
+
+    return firstValueFrom(this.http.post<FotoDeTour>(`/api/admin/tours/${tourId}/fotos`, cuerpo));
+  }
+
+  corregirPie(id: number, descripcion: string): Promise<FotoDeTour> {
+    return firstValueFrom(
+      this.http.patch<FotoDeTour>(`/api/admin/tours/fotos/${id}`, { descripcion }),
+    );
+  }
+
+  quitarFoto(id: number): Promise<unknown> {
+    return firstValueFrom(this.http.delete(`/api/admin/tours/fotos/${id}`));
+  }
 }

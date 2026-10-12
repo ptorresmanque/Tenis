@@ -209,6 +209,19 @@ describe('FichaTour', () => {
     expect(api.ficha.mock.calls.length).toBe(antes + 1);
   });
 
+  it('**la pestaña Galería** muestra la galería del tour', async () => {
+    const { fixture, elemento } = await montar();
+
+    Array.from(elemento.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+      .find((b) => b.textContent?.includes('Galería'))!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elemento.querySelector('app-galeria-del-tour')).not.toBeNull();
+    expect(elemento.querySelector('textarea[name="descripcion"]')).toBeNull();
+  });
+
   it('un tour que no existe lo dice, con el enlace de vuelta', async () => {
     const { elemento } = await montar(() => Promise.reject({ status: 404 }));
 
