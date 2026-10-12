@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 
 import { DatosDelClub } from '../comun/club';
 import { PrismaService } from '../prisma/prisma.service';
+import { TextosDeElClub } from './admin.dto';
 import { RedesDelClub } from './redes';
 
 /**
@@ -11,17 +12,17 @@ import { RedesDelClub } from './redes';
  * escritos a mano —o, peor, no los tenían y quedaban en blanco—. Son públicos por
  * definición: es la dirección a la que la gente va a jugar.
  *
- * **Solo el contacto, la ubicación y las redes (T140).** La misma fila guarda las
- * reglas de reserva y los cupos, que son de la administración: devolver la
- * configuración entera acá le contaría al mundo cuántos invitados tiene cada socio
- * por mes.
+ * **Solo el contacto, la ubicación, las redes (T140) y los textos de "El club"
+ * (T142).** La misma fila guarda las reglas de reserva y los cupos, que son de la
+ * administración: devolver la configuración entera acá le contaría al mundo cuántos
+ * invitados tiene cada socio por mes.
  */
 @Controller('club')
 export class ClubPublicoController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  async datos(): Promise<DatosDelClub & RedesDelClub> {
+  async datos(): Promise<DatosDelClub & RedesDelClub & TextosDeElClub> {
     const club = await this.prisma.configuracionClub.findFirstOrThrow({
       select: {
         nombre: true,
@@ -35,6 +36,9 @@ export class ClubPublicoController {
         tiktok: true,
         youtube: true,
         whatsapp: true,
+        elClubTitulo: true,
+        elClubBajada: true,
+        elClubCanchas: true,
       },
     });
 

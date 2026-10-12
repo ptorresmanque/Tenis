@@ -162,8 +162,18 @@ export type DatosDelClubAGuardar = Omit<DatosDelClub, 'latitud' | 'longitud'> & 
   ubicacion: string;
 };
 
-/** Lo que el servidor devuelve de `GET /api/admin/configuracion`: las dos cosas. */
-export type ConfiguracionDelClub = ReglasDelClub & DatosDelClub;
+/**
+ * Los textos de la página "El club" (T142). Viven en la misma fila, pero los edita otra
+ * sección: escribir el titular no es cargar datos de contacto.
+ */
+export interface TextosDeElClub {
+  elClubTitulo: string;
+  elClubBajada: string;
+  elClubCanchas: string;
+}
+
+/** Lo que el servidor devuelve de `GET /api/admin/configuracion`: todo lo de la fila. */
+export type ConfiguracionDelClub = ReglasDelClub & DatosDelClub & TextosDeElClub;
 
 export interface CanchaNueva {
   nombre: string;
@@ -205,6 +215,13 @@ export class AdminCanchas {
   fijarDatosDelClub(datos: DatosDelClubAGuardar): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
       this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', datos),
+    );
+  }
+
+  /** Los textos de "El club" (T142), con el mismo PATCH que los datos del club. */
+  fijarTextosDeElClub(textos: TextosDeElClub): Promise<ConfiguracionDelClub> {
+    return firstValueFrom(
+      this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', textos),
     );
   }
 

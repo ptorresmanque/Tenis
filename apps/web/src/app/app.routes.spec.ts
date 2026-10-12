@@ -64,6 +64,7 @@ describe('Rutas protegidas', () => {
     'administracion/solicitudes',
     'administracion/configuracion/reglas',
     'administracion/configuracion/datos',
+    'administracion/configuracion/textos',
     'administracion/configuracion/administradores',
     'estado',
   ])('%s es solo del admin', (url) => {
@@ -119,6 +120,7 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/solicitudes', CascaronAdmin],
     ['administracion/configuracion/reglas', CascaronAdmin],
     ['administracion/configuracion/datos', CascaronAdmin],
+    ['administracion/configuracion/textos', CascaronAdmin],
     ['administracion/configuracion/administradores', CascaronAdmin],
     ['estado', CascaronAdmin],
   ])('/%s se dibuja dentro del cascarón que le toca', (url, cascaron) => {

@@ -277,6 +277,12 @@ export const routes: Routes = [
               import('./configuracion/datos-del-club').then((m) => m.DatosDelClub),
           },
           {
+            path: 'textos',
+            title: 'Textos del sitio — Administración',
+            loadComponent: () =>
+              import('./configuracion/textos-del-sitio').then((m) => m.TextosDelSitio),
+          },
+          {
             path: 'administradores',
             title: 'Administradores — Administración',
             loadComponent: () =>
