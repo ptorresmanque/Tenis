@@ -138,12 +138,31 @@ export interface TextosDeElClub {
   elClubCanchas: string;
 }
 
+/** La tienda o la cafetería del club (T184), como la publica `GET /api/club`. */
+export interface LugarDelClub {
+  descripcion: string;
+  horario: string;
+  /** `56` y los 9 dígitos, o vacío. */
+  whatsapp: string;
+}
+
+/** Las mismas seis columnas, como las recibe el PATCH. */
+export interface TiendaYCafeteria {
+  tiendaDescripcion: string;
+  tiendaHorario: string;
+  tiendaWhatsapp: string;
+  cafeteriaDescripcion: string;
+  cafeteriaHorario: string;
+  cafeteriaWhatsapp: string;
+}
+
 /**
  * Las reglas del club, todas opcionales: es un PATCH sobre la fila única.
  *
  * `SPEC-catalogo-canchas.md` § Configuración general del club.
  */
-export interface CambiosDeConfiguracion extends RedesDelClub, TextosDeElClub {
+export interface CambiosDeConfiguracion
+  extends RedesDelClub, TextosDeElClub, TiendaYCafeteria {
   /** Los datos del club: los edita el mismo formulario, en otra pestaña. */
   nombre: string;
   direccion: string;
@@ -181,6 +200,7 @@ type ReglasNumericas = Omit<
   | 'longitud'
   | keyof RedesDelClub
   | keyof TextosDeElClub
+  | keyof TiendaYCafeteria
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -215,8 +235,9 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
  *
  * Se recortan y no se rechazan por largo: una dirección larguísima no es un error que
  * valga la pena devolverle a quien está llenando un formulario, y la base sí se quejaría.
- * El teléfono va aparte: tiene su regla (T120). Los textos de "El club" (T142) también
- * se recortan: el formulario ya no deja escribir más de lo que cabe.
+ * El teléfono va aparte: tiene su regla (T120). Los textos de "El club" (T142) y los de
+ * la tienda y la cafetería (T184) también se recortan: el formulario ya no deja escribir
+ * más de lo que cabe.
  */
 const TEXTOS: Record<string, number> = {
   nombre: 120,
@@ -225,7 +246,17 @@ const TEXTOS: Record<string, number> = {
   elClubTitulo: 80,
   elClubBajada: 300,
   elClubCanchas: 600,
+  tiendaDescripcion: 600,
+  tiendaHorario: 120,
+  cafeteriaDescripcion: 600,
+  cafeteriaHorario: 120,
 };
+
+/** Los WhatsApp de la tienda y la cafetería, con el nombre que lleva su error. */
+const WHATSAPP_DE_LUGAR = {
+  tiendaWhatsapp: 'El WhatsApp de la tienda',
+  cafeteriaWhatsapp: 'El WhatsApp de la cafetería',
+} as const;
 
 export function leerCambiosDeConfiguracion(
   cuerpo: unknown,
@@ -263,6 +294,15 @@ export function leerCambiosDeConfiguracion(
 
   if (datos.whatsapp !== undefined) {
     cambios.whatsapp = leerWhatsapp(datos.whatsapp);
+  }
+
+  for (const [campo, nombre] of Object.entries(WHATSAPP_DE_LUGAR)) {
+    if (datos[campo] !== undefined) {
+      cambios[campo as keyof typeof WHATSAPP_DE_LUGAR] = leerWhatsapp(
+        datos[campo],
+        nombre,
+      );
+    }
   }
 
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o

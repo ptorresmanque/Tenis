@@ -131,4 +131,11 @@ describe('leerWhatsapp', () => {
     // mandaría a corregir el campo equivocado.
     expect(() => leerWhatsapp('8765 432')).toThrow(/WhatsApp/);
   });
+
+  it('el error dice de quién es el WhatsApp, si no es el del club (T184)', () => {
+    // La pestaña "Tienda y cafetería" tiene dos: el error tiene que decir cuál corregir.
+    expect(() => leerWhatsapp('8765 432', 'El WhatsApp de la tienda')).toThrow(
+      'El WhatsApp de la tienda tiene que tener 9 dígitos, sin contar el +56.',
+    );
+  });
 });

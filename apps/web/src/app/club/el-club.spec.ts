@@ -37,6 +37,8 @@ describe('ElClub', () => {
     elClubTitulo: 'FEDAL Tennis Center',
     elClubBajada: 'Un club de barrio con canchas de torneo.',
     elClubCanchas: 'Todas de superficie dura.',
+    tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+    cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
   };
 
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {

@@ -1,4 +1,5 @@
-import { Component, computed, inject } from '@angular/core';
+import { ViewportScroller } from '@angular/common';
+import { Component, computed, ElementRef, inject, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Club } from '../club/club.service';
@@ -54,7 +55,10 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       Saltar al contenido
     </a>
 
-    <header class="sticky top-0 z-40 border-b border-border bg-card shadow-sm print:hidden">
+    <header
+      #encabezado
+      class="sticky top-0 z-40 border-b border-border bg-card shadow-sm print:hidden"
+    >
       <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
         <app-logotipo />
 
@@ -315,8 +319,20 @@ export class CascaronPublico {
   protected readonly club = inject(Club).datos;
   protected readonly esAdmin = this.auth.esAdmin;
 
+  /** El encabezado fijo, para que un ancla no deje su título debajo de él. */
+  private readonly encabezado = viewChild<ElementRef<HTMLElement>>('encabezado');
+
   constructor() {
     usarTemaPublico();
+
+    // T186. Al seguir un enlace con ancla (`/el-club#tienda-y-cafeteria`), el router
+    // lleva la sección al borde de arriba con `window.scrollTo`, que no respeta
+    // `scroll-margin`: el título quedaba debajo del encabezado. Se descuenta su alto,
+    // medido al momento porque en el teléfono no mide lo mismo que en escritorio.
+    inject(ViewportScroller).setOffset(() => [
+      0,
+      (this.encabezado()?.nativeElement.offsetHeight ?? 0) + 16,
+    ]);
   }
 
   /** Un ítem del menú desplegable. Es una constante y no una clase de CSS
