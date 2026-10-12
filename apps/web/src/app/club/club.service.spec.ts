@@ -46,4 +46,26 @@ describe('Club', () => {
       elClubCanchas: expect.stringContaining('Basilea y Manacor'),
     });
   });
+
+  it('**recargar() vuelve a preguntar**: lo que el panel guardó se ve sin recargar la página', async () => {
+    // El sitio pide los datos una vez por visita. Sin esto, quien guardaba una red en el
+    // panel y volvía al sitio sin recargar seguía viendo la ficha de antes.
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const club = TestBed.inject(Club);
+    const http = TestBed.inject(HttpTestingController);
+    TestBed.tick();
+    http.expectOne('/api/club').flush({ ...club.datos(), instagram: '' });
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    club.recargar();
+    TestBed.tick();
+    http
+      .expectOne('/api/club')
+      .flush({ ...club.datos(), instagram: 'https://www.instagram.com/fedaltennis' });
+    await TestBed.inject(ApplicationRef).whenStable();
+
+    expect(club.datos().instagram).toBe('https://www.instagram.com/fedaltennis');
+  });
 });

@@ -73,4 +73,13 @@ export class Club {
 
   /** A dónde escribir. Vacío si el club todavía no cargó un correo. */
   readonly email = computed(() => this.datos().email);
+
+  /**
+   * Vuelve a preguntar. Lo llama el panel después de guardar los datos o los textos del
+   * club: el recurso se pide una vez por visita, y sin esto quien guardaba una red y
+   * volvía al sitio sin recargar la página seguía viendo la ficha de antes.
+   */
+  recargar(): void {
+    this.recurso.reload();
+  }
 }

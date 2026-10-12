@@ -3,6 +3,7 @@ import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
+import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
 import { Campo, CampoControl } from '../ui/campo';
@@ -185,6 +186,8 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 })
 export class DatosDelClub {
   private readonly api = inject(AdminCanchas);
+  /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
+  private readonly sitio = inject(Club);
 
   protected readonly DATOS = DATOS;
   protected readonly REDES = REDES;
@@ -255,6 +258,7 @@ export class DatosDelClub {
       // texto y el endpoint es un PATCH, así que el ahorro no paga la rama extra.
       await this.api.fijarDatosDelClub(this.formulario());
       this.club.reload();
+      this.sitio.recargar();
       this.editado.set({});
       this.guardado.set(true);
     } catch (falla) {

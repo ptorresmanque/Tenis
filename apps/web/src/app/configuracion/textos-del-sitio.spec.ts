@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
+import { Club } from '../club/club.service';
 import { TextosDelSitio } from './textos-del-sitio';
 
 /**
@@ -9,6 +10,10 @@ import { TextosDelSitio } from './textos-del-sitio';
  * párrafo bajo "Las canchas". Los escribe el club desde su panel.
  */
 describe('TextosDelSitio', () => {
+  /** El servicio del sitio, falso: el real pide /api/club y estos tests no tienen HTTP. */
+  const club = { recargar: vi.fn() };
+  beforeEach(() => club.recargar.mockClear());
+
   const GUARDADOS = {
     elClubTitulo: 'FEDAL Tennis Center',
     elClubBajada: 'Un club de barrio con canchas de torneo.',
@@ -21,7 +26,12 @@ describe('TextosDelSitio', () => {
       fijarTextosDeElClub: vi.fn().mockResolvedValue(GUARDADOS),
     };
     TestBed.resetTestingModule();
-    TestBed.configureTestingModule({ providers: [{ provide: AdminCanchas, useValue: api }] });
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: AdminCanchas, useValue: api },
+        { provide: Club, useValue: club },
+      ],
+    });
     const fixture = TestBed.createComponent(TextosDelSitio);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -79,6 +89,15 @@ describe('TextosDelSitio', () => {
       elClubBajada: 'Primera línea.\nSegunda línea.',
       elClubCanchas: 'Todas de superficie dura.',
     });
+  });
+
+  it('**al guardar, el sitio vuelve a pedir los textos**: se ven sin recargar', async () => {
+    const { fixture, elemento } = await montar();
+
+    guardar(elemento);
+    await fixture.whenStable();
+
+    expect(club.recargar).toHaveBeenCalledTimes(1);
   });
 
   it('**sin título no guarda**, y dice por qué', async () => {
