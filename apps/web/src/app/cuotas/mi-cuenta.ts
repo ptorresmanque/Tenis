@@ -9,6 +9,7 @@ import { Aviso } from '../ui/aviso';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 import { Cuotas, MiCuota } from './cuotas.service';
+import { Esqueleto } from '../ui/esqueleto';
 
 /** Cómo se lee cada período en pantalla: "agosto de 2026". */
 const MESES = [
@@ -38,7 +39,7 @@ const MESES = [
  */
 @Component({
   selector: 'app-mi-cuenta',
-  imports: [Aviso, EstadoVacio, Insignia],
+  imports: [Aviso, EstadoVacio, Esqueleto, Insignia],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mi cuenta</h1>
 
@@ -66,6 +67,8 @@ const MESES = [
       <p class="mt-4 text-destructive">
         No se pudo cargar tu cuenta. Reintenta en un momento.
       </p>
+    } @else if (cuenta.status() === 'loading') {
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando tu cuenta…" />
     } @else if (cuenta.value(); as datos) {
       @if (datos.deudaClp > 0) {
         <p class="mt-4 text-lg">
@@ -115,6 +118,7 @@ const MESES = [
                   type="button"
                   class="boton boton-primario boton-chico"
                   [disabled]="pagando()"
+                  [attr.aria-busy]="pagando()"
                   (click)="pagar(cuota)"
                 >
                   Pagar en línea

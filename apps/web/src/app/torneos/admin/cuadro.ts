@@ -70,6 +70,7 @@ import { CampoHora } from '../../ui/campo-hora';
             type="button"
             class="boton boton-primario boton-chico mt-2"
             [disabled]="trabajando()"
+            [attr.aria-busy]="enCurso() === 'armar'"
             (click)="armar()"
           >
             Armar el cuadro
@@ -135,6 +136,7 @@ import { CampoHora } from '../../ui/campo-hora';
                             type="button"
                             class="boton boton-texto boton-chico"
                             [disabled]="trabajando()"
+                            [attr.aria-busy]="enCurso() === 'desprogramar-' + partido.id"
                             (click)="desprogramar(partido)"
                           >
                             Quitar la hora
@@ -163,6 +165,7 @@ import { CampoHora } from '../../ui/campo-hora';
             type="button"
             class="boton boton-texto boton-chico mt-2"
             [disabled]="trabajando()"
+            [attr.aria-busy]="enCurso() === 'deshacer'"
             (click)="deshacer()"
           >
             Deshacer el cuadro
@@ -249,6 +252,7 @@ import { CampoHora } from '../../ui/campo-hora';
               type="submit"
               class="boton boton-primario boton-chico"
               [disabled]="trabajando()"
+              [attr.aria-busy]="enCurso() === 'programar'"
             >
               Programar
             </button>
@@ -337,6 +341,7 @@ import { CampoHora } from '../../ui/campo-hora';
             type="button"
             class="boton boton-primario boton-chico"
             [disabled]="trabajando() || ganadorId() === null"
+            [attr.aria-busy]="enCurso() === 'guardar'"
             (click)="guardar()"
           >
             Guardar resultado
@@ -474,7 +479,7 @@ export class CuadroDelTorneo {
       return;
     }
 
-    await this.intentar(async () => {
+    await this.intentar('programar', async () => {
       await this.api.programarPartido(this.torneoId(), partido.id, {
         canchaId: Number(this.horario.canchaId),
         fecha: this.horario.fecha,
@@ -486,12 +491,14 @@ export class CuadroDelTorneo {
   }
 
   protected async desprogramar(partido: PartidoDelCuadro): Promise<void> {
-    await this.intentar(() =>
+    await this.intentar(`desprogramar-${partido.id}`, () =>
       this.api.desprogramarPartido(this.torneoId(), partido.id),
     );
   }
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   private readonly version = signal(0);
@@ -570,7 +577,7 @@ export class CuadroDelTorneo {
 
     if (partido === null || ganadorId === null) return;
 
-    await this.intentar(async () => {
+    await this.intentar('guardar', async () => {
       await this.api.cargarResultado(this.torneoId(), partido.id, {
         ganadorId,
         marcador: this.marcador(),
@@ -581,16 +588,20 @@ export class CuadroDelTorneo {
   }
 
   protected async armar(): Promise<void> {
-    await this.intentar(() => this.api.armarCuadro(this.cuadroId()));
+    await this.intentar('armar', () => this.api.armarCuadro(this.cuadroId()));
   }
 
   protected async deshacer(): Promise<void> {
-    await this.intentar(() => this.api.deshacerCuadro(this.cuadroId()));
+    await this.intentar('deshacer', () => this.api.deshacerCuadro(this.cuadroId()));
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -600,6 +611,7 @@ export class CuadroDelTorneo {
       this.error.set(mensajeDelServidor(falla, 'No se pudo armar el cuadro.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

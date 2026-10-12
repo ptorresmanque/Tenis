@@ -22,6 +22,7 @@ import { EditorBloqueos } from './editor-bloqueos';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
 import { ReglasGeneralesPanel } from './reglas-generales';
+import { Esqueleto } from '../../ui/esqueleto';
 
 const DIAS = [
   'Domingo',
@@ -56,6 +57,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     EditorBloqueos,
     ReglasGeneralesPanel,
     Insignia,
+    Esqueleto,
   ],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya. -->
@@ -158,6 +160,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
         <button
           type="submit"
           [disabled]="guardando()"
+          [attr.aria-busy]="guardando()"
           class="boton boton-primario"
         >
           Agregar
@@ -181,7 +184,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
       <!-- Solo la primera carga: al recargar tras una acción la lista se queda donde
            está. Reemplazada por "Cargando…", se llevaba el botón que tenía el foco. -->
       @if (canchas.status() === 'loading') {
-        <p class="mt-3 text-muted-foreground">Cargando…</p>
+        <app-esqueleto class="mt-3 block" [filas]="5" etiqueta="Cargando las canchas…" />
       } @else if (canchas.error()) {
         <p class="mt-3 text-destructive">
           No se pudieron cargar las canchas. Reintenta en un momento.
@@ -310,6 +313,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   <button
                     type="submit"
                     [disabled]="guardando()"
+                    [attr.aria-busy]="guardando()"
                     class="boton boton-primario boton-chico"
                   >
                     Guardar la ficha

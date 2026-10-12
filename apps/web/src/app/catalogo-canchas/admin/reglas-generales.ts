@@ -3,6 +3,7 @@ import { Component, computed, inject, output, resource } from '@angular/core';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * El horario y las tarifas que rigen donde la cancha no dice otra cosa.
@@ -16,7 +17,7 @@ import { EditorHorarios } from './editor-horarios';
  */
 @Component({
   selector: 'app-reglas-generales',
-  imports: [EditorHorarios, EditorFranjas],
+  imports: [EditorHorarios, EditorFranjas, Esqueleto],
   template: `
     <section class="mt-8" aria-labelledby="titulo-general">
       <h2 id="titulo-general" class="rotulo-seccion">
@@ -28,7 +29,7 @@ import { EditorHorarios } from './editor-horarios';
       </p>
 
       @if (general.isLoading()) {
-        <p class="mt-3 text-muted-foreground">Cargando…</p>
+        <app-esqueleto class="mt-3 block" [filas]="4" etiqueta="Cargando el horario y las tarifas…" />
       } @else if (general.error()) {
         <p class="mt-3 text-destructive">
           No se pudieron cargar el horario y las tarifas generales. Reintenta en un momento.

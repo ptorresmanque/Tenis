@@ -81,6 +81,7 @@ interface CampoDelFormulario {
         <button
           type="submit"
           [disabled]="enviando() || formulario.invalid"
+          [attr.aria-busy]="enviando()"
           class="boton boton-primario"
         >
           {{ enviando() ? 'Creando…' : 'Crear cuenta' }}

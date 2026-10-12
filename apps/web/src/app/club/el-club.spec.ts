@@ -29,6 +29,14 @@ describe('ElClub', () => {
     email: '',
     latitud: null,
     longitud: null,
+    instagram: '',
+    facebook: '',
+    tiktok: '',
+    youtube: '',
+    whatsapp: '',
+    elClubTitulo: 'FEDAL Tennis Center',
+    elClubBajada: 'Un club de barrio con canchas de torneo.',
+    elClubCanchas: 'Todas de superficie dura.',
   };
 
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {
@@ -79,6 +87,54 @@ describe('ElClub', () => {
 
     expect(contacto.querySelector('a[href^="tel:"]')).not.toBeNull();
     expect(contacto.querySelector('a[href^="mailto:"]')).toBeNull();
+  });
+
+  it('las redes del club están en "Dónde encontrarnos" (T141)', async () => {
+    await montar([], { ...VACIO, instagram: 'https://www.instagram.com/fedaltennis' });
+    const contacto = seccion('horarios-y-contacto');
+
+    expect(
+      contacto.querySelector('a[href="https://www.instagram.com/fedaltennis"]')?.textContent,
+    ).toContain('Instagram de FEDAL Tennis Center');
+  });
+
+  describe('los textos que escribe el club (T143)', () => {
+    const hero = () => seccion('el-club');
+
+    it('el título y la bajada sobre la foto, y el párrafo de las canchas', async () => {
+      await montar([], {
+        ...VACIO,
+        elClubTitulo: 'El club de Ñuñoa',
+        elClubBajada: 'Abierto todos los días.',
+        elClubCanchas: 'Ocho canchas duras.',
+      });
+
+      expect(hero().querySelector('h1')?.textContent?.trim()).toBe('El club de Ñuñoa');
+      expect(hero().querySelector('p')?.textContent?.trim()).toBe('Abierto todos los días.');
+      expect(texto('las-canchas')).toContain('Ocho canchas duras.');
+    });
+
+    it('**una bajada vacía no deja un párrafo vacío**', async () => {
+      await montar([], { ...VACIO, elClubBajada: '', elClubCanchas: '' });
+
+      expect(hero().querySelector('p')).toBeNull();
+      expect(seccion('las-canchas').querySelector('h2 + p')).toBeNull();
+    });
+
+    it('el HTML se ve como texto: el panel escribe texto plano', async () => {
+      await montar([], { ...VACIO, elClubBajada: 'Con <b>negrita</b>' });
+
+      expect(hero().querySelector('b')).toBeNull();
+      expect(hero().querySelector('p')?.textContent).toContain('Con <b>negrita</b>');
+    });
+  });
+
+  it('antes del formulario de contacto, enlaza las preguntas frecuentes (T146)', async () => {
+    await montar([]);
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('a[href="/preguntas-frecuentes"]'),
+    ).not.toBeNull();
   });
 
   it('con el contacto en blanco no queda una ficha a medias', async () => {
@@ -152,5 +208,27 @@ describe('ElClub', () => {
       expect(mapa()).toBeNull();
       expect(enlace('Cómo llegar')).toBeUndefined();
     });
+  });
+
+  it('mientras llegan las canchas, su banda muestra el esqueleto (T152)', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: Disponibilidad,
+          useValue: { canchas: () => new Promise<never>(() => undefined) },
+        },
+        { provide: Club, useValue: { datos: signal(VACIO), email: signal('') } },
+        { provide: Contacto, useValue: { enviar: vi.fn() } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ElClub);
+    fixture.detectChanges();
+
+    expect(seccion('las-canchas').querySelector('app-esqueleto')).not.toBeNull();
   });
 });

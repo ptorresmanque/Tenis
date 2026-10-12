@@ -12,6 +12,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
+import { Esqueleto } from '../../ui/esqueleto';
 
 const TIPOS: Record<TipoSolicitud, string> = {
   SOCIO: 'Quiere asociarse',
@@ -30,7 +31,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
  */
 @Component({
   selector: 'app-solicitudes',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe],
+  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada consulta trae las suyas. -->
     <header class="cabecera-panel">
@@ -62,7 +63,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
     }
 
     @if (solicitudes.isLoading()) {
-      <p class="mt-4 text-muted-foreground">Cargando…</p>
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando las solicitudes…" />
     } @else if (solicitudes.error()) {
       <p class="mt-4 text-destructive">
         No se pudieron cargar las solicitudes. Reintenta en un momento.
@@ -143,6 +144,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
                     type="button"
                     class="boton boton-primario boton-chico"
                     [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'invitar-' + solicitud.id"
                     (click)="invitar(solicitud)"
                   >
                     Dar de alta como socio
@@ -153,6 +155,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
                   type="button"
                   class="boton boton-secundario boton-chico"
                   [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'ATENDIDA'"
                   (click)="resolver(solicitud, 'ATENDIDA')"
                 >
                   Marcar atendida
@@ -161,6 +164,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
                   type="button"
                   class="boton boton-texto boton-chico"
                   [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'DESCARTADA'"
                   (click)="resolver(solicitud, 'DESCARTADA')"
                 >
                   Descartar
@@ -187,6 +191,8 @@ export class SolicitudesPanel {
   protected readonly notas: Record<number, string> = {};
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -214,7 +220,7 @@ export class SolicitudesPanel {
     solicitud: Solicitud,
     estado: 'ATENDIDA' | 'DESCARTADA',
   ): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar(`resolver-${solicitud.id}-${estado}`, async () => {
       await this.api.resolver(solicitud.id, estado, this.notas[solicitud.id] ?? '');
       this.aviso.set(
         estado === 'ATENDIDA'
@@ -225,7 +231,7 @@ export class SolicitudesPanel {
   }
 
   protected async invitar(solicitud: Solicitud): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar(`invitar-${solicitud.id}`, async () => {
       await this.api.invitar(solicitud.id);
       this.aviso.set(
         `${solicitud.nombre} ya está invitada: le llega el alta a ${solicitud.email}.`,
@@ -233,10 +239,14 @@ export class SolicitudesPanel {
     });
   }
 
-  private async intentar(accion: () => Promise<void>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<void>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -247,6 +257,7 @@ export class SolicitudesPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo completar la acción.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

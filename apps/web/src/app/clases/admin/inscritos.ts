@@ -9,6 +9,7 @@ import { Selector } from '../../ui/selector';
 import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Quién viene a una clase.
@@ -21,12 +22,23 @@ import { TelefonoDirective } from '../../ui/telefono';
  */
 @Component({
   selector: 'app-inscritos',
-  imports: [FormsModule, Aviso, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
+  imports: [
+    FormsModule,
+    Aviso,
+    Esqueleto,
+    Insignia,
+    Selector,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    TelefonoDirective,
+  ],
   template: `
     @if (ficha.error()) {
       <p class="mt-3 text-sm text-destructive">
         No se pudieron cargar los inscritos de la clase. Reintenta en un momento.
       </p>
+    } @else if (ficha.status() === 'loading') {
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los inscritos…" />
     } @else if (ficha.value(); as clase) {
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
@@ -95,6 +107,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                     type="button"
                     class="boton boton-texto boton-chico"
                     [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'bajar-' + quien.id"
                     (click)="bajar(quien)"
                   >
                     Sacar de la clase
@@ -106,6 +119,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                       type="button"
                       class="boton boton-texto boton-chico"
                       [disabled]="trabajando()"
+                      [attr.aria-busy]="enCurso() === 'sacarDeLaSerie-' + quien.id"
                       (click)="sacarDeLaSerie(clase.serieId, quien)"
                     >
                       Sacar de la serie
@@ -160,7 +174,12 @@ import { TelefonoDirective } from '../../ui/telefono';
               </label>
             }
 
-            <button type="submit" class="boton boton-secundario boton-chico" [disabled]="trabajando()">
+            <button
+              type="submit"
+              class="boton boton-secundario boton-chico"
+              [attr.aria-busy]="enCurso() === 'inscribir'"
+              [disabled]="trabajando()"
+            >
               Inscribir
             </button>
             <!-- T116. En cada clase que viene de la serie, en una transacción: si alguna
@@ -170,6 +189,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                 type="button"
                 class="boton boton-secundario boton-chico"
                 [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'inscribirEnLaSerie-' + clase.serieId"
                 (click)="inscribirEnLaSerie(clase.serieId)"
               >
                 Inscribir en toda la serie
@@ -186,6 +206,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                 type="button"
                 class="boton boton-secundario boton-chico"
                 [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'cerrar-true'"
                 (click)="cerrar(true)"
               >
                 Cerrar la clase con esta lista
@@ -194,6 +215,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                 type="button"
                 class="boton boton-texto boton-chico"
                 [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'cerrar-false'"
                 (click)="cerrar(false)"
               >
                 Cerrar sin pasar lista
@@ -231,6 +253,8 @@ export class InscritosDeLaClase {
   protected telefono = '';
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -272,7 +296,7 @@ export class InscritosDeLaClase {
   protected async inscribir(): Promise<void> {
     const quien = this.quienSeInscribe();
 
-    await this.intentar(async () => {
+    await this.intentar('inscribir', async () => {
       await this.api.inscribir(this.claseId(), quien);
       this.limpiarFormulario();
     });
@@ -282,7 +306,7 @@ export class InscritosDeLaClase {
   protected async inscribirEnLaSerie(serieId: number): Promise<void> {
     const quien = this.quienSeInscribe();
 
-    await this.intentar(async () => {
+    await this.intentar(`inscribirEnLaSerie-${serieId}`, async () => {
       const { inscritas, yaEstaba } = await this.api.inscribirEnLaSerie(serieId, quien);
       this.limpiarFormulario();
       this.aviso.set(
@@ -302,7 +326,8 @@ export class InscritosDeLaClase {
         ? { socioId: quien.socioId }
         : { nombre: quien.nombre, telefono: quien.telefono };
 
-    await this.intentar(async () => {
+    // Por inscrito y no por serie: la serie es la misma en todas las filas.
+    await this.intentar(`sacarDeLaSerie-${quien.id}`, async () => {
       const { canceladas } = await this.api.salirDeLaSerie(serieId, persona);
       this.aviso.set(
         `Salió de la serie: se ${canceladas === 1 ? 'canceló 1 clase que venía' : `cancelaron ${canceladas} clases que venían`}.`,
@@ -342,7 +367,7 @@ export class InscritosDeLaClase {
    * dato que el club lleva si quiere, no un trámite que bloquea cerrar la clase.
    */
   protected async cerrar(conLista: boolean): Promise<void> {
-    await this.intentar(async () => {
+    await this.intentar(`cerrar-${conLista}`, async () => {
       await this.api.realizar(
         this.claseId(),
         conLista ? [...this.vinieron()] : null,
@@ -352,13 +377,17 @@ export class InscritosDeLaClase {
   }
 
   protected async bajar(quien: Inscrito): Promise<void> {
-    await this.intentar(() => this.api.bajar(this.claseId(), quien.id));
+    await this.intentar(`bajar-${quien.id}`, () => this.api.bajar(this.claseId(), quien.id));
   }
 
-  private async intentar(accion: () => Promise<unknown>): Promise<void> {
+  private async intentar(
+    clave: string,
+    accion: () => Promise<unknown>,
+  ): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);
+    this.enCurso.set(clave);
 
     try {
       await accion();
@@ -369,6 +398,7 @@ export class InscritosDeLaClase {
       this.error.set(mensajeDelServidor(falla, 'No se pudo inscribir.'));
     } finally {
       this.trabajando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

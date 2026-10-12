@@ -48,6 +48,7 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
         type="button"
         class="boton boton-primario"
         [disabled]="enviando()"
+        [attr.aria-busy]="enviando()"
         (click)="confirmar.emit()"
       >
         {{ accion() }}

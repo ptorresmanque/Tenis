@@ -9,8 +9,10 @@ import { Foto } from '../ui/foto';
 import { Insignia } from '../ui/insignia';
 import { FormularioContacto } from './formulario-contacto';
 import { enlacesDelMapa } from './mapa';
+import { RedesSociales } from './redes-sociales';
 import { Tarifas } from './tarifas';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
+import { Esqueleto } from '../ui/esqueleto';
 
 /**
  * La página que explica el club a quien todavía no reservó.
@@ -25,14 +27,27 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
  * que no existe— y ahora los escribe el club desde su panel. Cada línea aparece
  * solo si tiene contenido. El mapa también (T101): sale si el club cargó su
  * ubicación (T100), y es de OpenStreetMap, ver `mapa.ts`.
+ *
+ * Los textos del hero y el de las canchas también los escribe el club, en "Textos del
+ * sitio" (T142, T143). Una bajada o un texto de canchas vacío no deja un párrafo vacío.
  */
 @Component({
   selector: 'app-el-club',
-  imports: [RouterLink, Foto, Insignia, FormularioContacto, Tarifas, EnlaceTelefonoPipe, TelefonoPipe],
+  imports: [
+    RouterLink,
+    Foto,
+    Insignia,
+    FormularioContacto,
+    Tarifas,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    RedesSociales,
+    Esqueleto,
+  ],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
     <section
-      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
       aria-labelledby="el-club"
     >
       <app-foto
@@ -49,15 +64,17 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
       <div
         class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
-               sm:p-10"
+               hero-texto sm:p-10"
       >
+        <!-- Los textos los escribe el club en "Textos del sitio" (T142). Texto plano:
+             la interpolación muestra un <b> como texto, y pre-line respeta los saltos
+             de línea que el admin escribió. -->
         <h1 id="el-club" class="titular text-6xl sm:text-7xl lg:text-8xl">
-          FEDAL Tennis Center
+          {{ club().elClubTitulo }}
         </h1>
-        <p class="max-w-prose text-lg text-on-campo/90">
-          Un club de barrio con canchas de torneo. Desde 2008, abierto a socios y a
-          quien quiera venir a jugar una hora.
-        </p>
+        @if (club().elClubBajada) {
+          <p class="max-w-prose text-lg whitespace-pre-line text-on-campo/90">{{ club().elClubBajada }}</p>
+        }
       </div>
     </section>
 
@@ -69,14 +86,15 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       lo que decide si se puede jugar con lluvia o de noche, así que se agrupan
       por eso y el nombre queda como etiqueta.
     -->
-    <section class="mt-16" aria-labelledby="las-canchas">
+    <section class="mt-16 aparece-al-pasar" aria-labelledby="las-canchas">
       <h2 id="las-canchas" class="titular text-5xl sm:text-6xl">Las canchas</h2>
-      <p class="mt-2 max-w-prose text-muted-foreground">
-        Todas de superficie dura y velocidad media, como el Australian Open. Las dos
-        centrales se llaman Basilea y Manacor, y el club no da más explicaciones.
-      </p>
+      @if (club().elClubCanchas) {
+        <p class="mt-2 max-w-prose whitespace-pre-line text-muted-foreground">{{ club().elClubCanchas }}</p>
+      }
 
-      @if (canchas().length > 0) {
+      @if (catalogo.isLoading()) {
+        <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Cargando las canchas…" />
+      } @else if (canchas().length > 0) {
         <div class="mt-6 grid gap-8 md:grid-cols-2">
           @for (grupo of gruposDeCanchas(); track grupo.titulo) {
             <!-- Cada grupo es una cifra de marcador con su raya, como las de la
@@ -127,7 +145,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       cuelga de él. Sin cajas: tres columnas separadas por una línea alcanzan.
     -->
     <section
-      class="-mx-4 mt-16 bg-campo px-4 py-10 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+      class="-mx-4 mt-16 bg-campo px-4 py-10 text-on-campo aparece-al-pasar sm:mx-0 sm:rounded-region
+             sm:px-8"
       aria-labelledby="como-funciona"
     >
       <h2 id="como-funciona" class="titular text-5xl sm:text-6xl">Cómo se reserva</h2>
@@ -156,7 +175,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       panel: sábado y domingo de 09:00 a 20:00. La misma pantalla se contradecía
       a sí misma. Un dato del club se muestra una vez y sale de la configuración.
     -->
-    <section class="mt-16" aria-labelledby="horarios-y-contacto">
+    <section class="mt-16 aparece-al-pasar" aria-labelledby="horarios-y-contacto">
       <h2 id="horarios-y-contacto" class="titular text-5xl sm:text-6xl">
         Dónde encontrarnos
       </h2>
@@ -189,6 +208,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
               @if (!club().direccion && !club().telefono && !club().email) {
                 <span>Pregunta en el mesón: te atienden todos los días.</span>
               }
+              <!-- T141. Bajo el contacto: son otra forma de escribirle al club. -->
+              <app-redes-sociales clase="-ms-3" />
             </dd>
           </div>
         </dl>
@@ -224,15 +245,20 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       </div>
     </section>
 
-    <section class="mt-16">
+    <section class="mt-16 aparece-al-pasar">
       <app-tarifas />
     </section>
 
-    <section class="mt-16">
+    <section class="mt-16 aparece-al-pasar">
+      <!-- T146. Antes de escribir: puede que la respuesta ya esté publicada. -->
+      <p class="mb-6 max-w-prose text-muted-foreground">
+        ¿Tienes una duda? Puede que ya esté en las
+        <a routerLink="/preguntas-frecuentes" class="font-semibold text-primary underline">preguntas frecuentes</a>.
+      </p>
       <app-formulario-contacto />
     </section>
 
-    <section class="mt-16 flex flex-wrap justify-center gap-3">
+    <section class="mt-16 flex flex-wrap justify-center gap-3 aparece-al-pasar">
       <a routerLink="/disponibilidad" class="boton boton-primario">
         Ver disponibilidad
       </a>
@@ -264,7 +290,7 @@ export class ElClub {
   });
 
   /** Solo el catálogo: esta página no muestra horas, así que no las pide. */
-  private readonly catalogo = resource({
+  protected readonly catalogo = resource({
     loader: () => this.disponibilidad.canchas(),
     defaultValue: [],
   });

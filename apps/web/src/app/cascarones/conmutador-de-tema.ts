@@ -35,8 +35,8 @@ const OPCIONES: { modo: Modo; icono: string; etiqueta: string }[] = [
       @for (opcion of OPCIONES; track opcion.modo) {
         <label
           [title]="opcion.etiqueta"
-          class="relative flex size-8 cursor-pointer items-center justify-center
-                 rounded-control text-muted-foreground transition-colors
+          class="pulsable relative flex size-8 cursor-pointer items-center justify-center
+                 rounded-control text-muted-foreground
                  has-[:checked]:bg-card has-[:checked]:text-primary
                  has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2
                  has-[:focus-visible]:outline-ring"
@@ -49,11 +49,24 @@ const OPCIONES: { modo: Modo; icono: string; etiqueta: string }[] = [
             [checked]="tema.modo() === opcion.modo"
             (change)="tema.modo.set(opcion.modo)"
           />
-          <span class="icono text-lg" aria-hidden="true">{{ opcion.icono }}</span>
+          <span class="icono icono-tema text-lg" aria-hidden="true">{{ opcion.icono }}</span>
           <span class="sr-only">{{ opcion.etiqueta }}</span>
         </label>
       }
     </fieldset>
+  `,
+  styles: `
+    /* El elegido crece, con un leve rebote (T150). Es una transición y no una
+       animación a propósito: una transición no corre al cargar la página, solo
+       cuando la persona cambia de tema. */
+    .icono-tema {
+      scale: 0.85;
+      transition: scale var(--duracion-menu) var(--ease-rebote);
+    }
+
+    label:has(:checked) .icono-tema {
+      scale: 1;
+    }
   `,
 })
 export class ConmutadorDeTema {

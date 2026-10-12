@@ -2,6 +2,9 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Club } from '../club/club.service';
+import { RedesSociales } from '../club/redes-sociales';
+import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
+import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
@@ -36,8 +39,13 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     MenuDesplegable,
     EnlaceTelefonoPipe,
     TelefonoPipe,
+    RedesSociales,
+    VolverArriba,
+    ProgresoDeNavegacion,
   ],
   template: `
+    <app-progreso-de-navegacion />
+
     <a
       href="#contenido"
       class="sr-only print:hidden focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50
@@ -78,9 +86,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           @if (usuario(); as sesion) {
             <app-menu-desplegable
               [etiqueta]="'Menú de ' + sesion.nombre"
-              claseBoton="flex size-10 items-center justify-center rounded-full
-                          bg-primary text-sm font-bold text-on-primary
-                          transition-opacity hover:opacity-90"
+              claseBoton="pulsable flex size-10 items-center justify-center rounded-full
+                          bg-primary text-sm font-bold text-on-primary hover:opacity-90"
             >
               <span disparador>{{ iniciales() }}</span>
 
@@ -119,8 +126,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
           <button
             type="button"
-            class="cursor-pointer rounded-lg p-2 text-foreground transition-colors
-                   hover:bg-muted lg:hidden"
+            class="pulsable cursor-pointer rounded-lg p-2 text-foreground hover:bg-muted
+                   lg:hidden"
             aria-label="Abrir el menú"
             (click)="panel.showModal()"
           >
@@ -145,7 +152,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         <app-logotipo />
         <button
           type="button"
-          class="cursor-pointer rounded-lg p-2 transition-colors hover:bg-muted"
+          class="pulsable cursor-pointer rounded-lg p-2 hover:bg-muted"
           aria-label="Cerrar el menú"
           (click)="panel.close()"
         >
@@ -202,9 +209,13 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       }
     </dialog>
 
-    <main id="contenido" class="mx-auto max-w-6xl px-4 py-8">
+    <!-- tabindex -1: "Saltar al contenido" y "Volver arriba" (T149) le pasan el foco.
+         Sin anillo: el foco va al comienzo de la página, no a un control. -->
+    <main id="contenido" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8 focus:outline-none">
       <router-outlet />
     </main>
+
+    <app-volver-arriba />
 
     <!-- El pie, en banda de campo y no de rótulo: en oscuro el rótulo es una
          placa clara, y un pie claro a todo el ancho sería la zona más brillante
@@ -217,6 +228,9 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           <p class="mt-3 max-w-xs text-sm text-on-campo/80">
             Canchas duras, todas de la misma superficie. Reserva en línea.
           </p>
+          <!-- Las redes que el club cargó (T141). El margen negativo alinea el primer
+               logo con el texto: la caja táctil mide el doble que el dibujo. -->
+          <app-redes-sociales clase="mt-3 -ms-3" />
         </div>
 
         <nav aria-labelledby="pie-reservas">
@@ -255,6 +269,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         <div>
           <h2 class="font-display text-sm font-bold uppercase">Contacto</h2>
           <ul class="mt-3 grid gap-1 text-sm text-on-campo/80">
+            <!-- T146. Primero: es lo que conviene mirar antes de escribir o llamar. -->
+            <li>
+              <a routerLink="/preguntas-frecuentes" class="hover:text-on-campo hover:underline">
+                Preguntas frecuentes
+              </a>
+            </li>
             @if (club().direccion) {
               <li>{{ club().direccion }}</li>
             }
@@ -276,7 +296,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         </div>
       </div>
 
-      <p class="border-t border-on-campo/20 px-4 py-6 text-center text-sm text-on-campo/80">
+      <!-- En el teléfono, aire abajo para que "Volver arriba" (T149), que flota en
+           ese rincón, no tape el enlace de la política al llegar al final. -->
+      <p
+        class="border-t border-on-campo/20 px-4 pt-6 pb-20 text-center text-sm text-on-campo/80
+               sm:pb-6"
+      >
         © 2026 FEDAL Tennis Center ·
         <a routerLink="/privacidad" class="underline hover:text-on-campo">Política de privacidad</a>
       </p>

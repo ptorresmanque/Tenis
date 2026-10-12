@@ -314,4 +314,24 @@ describe('NuevaReserva', () => {
     expect(texto).toContain('Reservas con invitados del mes: 0 de 4');
     expect(texto).not.toMatch(/Horas (de ese día|pico)/);
   });
+
+  it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', () => {
+    const nunca = () => new Promise<never>(() => undefined);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: nunca } },
+        { provide: Socios, useValue: { listado: nunca } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+      ],
+    });
+
+    const pendiente = TestBed.createComponent(NuevaReserva);
+    pendiente.componentRef.setInput('fecha', '2026-08-17');
+    pendiente.detectChanges();
+
+    expect((pendiente.nativeElement as HTMLElement).textContent).toContain(
+      'Cargando las horas libres…',
+    );
+  });
 });

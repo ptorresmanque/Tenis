@@ -70,6 +70,12 @@ describe('Cascarón de administración', () => {
     );
   }
 
+  it('dice cuando una página tarda en cargar (T151)', () => {
+    const elemento = montar().nativeElement as HTMLElement;
+
+    expect(elemento.querySelector('app-progreso-de-navegacion')).not.toBeNull();
+  });
+
   it('lista las dieciocho secciones que hoy tienen pantalla', () => {
     expect(itemsDeLaBarra()).toEqual([
       '/administracion/reservas',

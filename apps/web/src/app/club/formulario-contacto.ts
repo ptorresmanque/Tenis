@@ -110,7 +110,12 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
           }
 
           <div>
-            <button type="submit" class="boton boton-primario" [disabled]="enviando()">
+            <button
+              type="submit"
+              class="boton boton-primario"
+              [disabled]="enviando()"
+              [attr.aria-busy]="enviando()"
+            >
               Enviar
             </button>
           </div>

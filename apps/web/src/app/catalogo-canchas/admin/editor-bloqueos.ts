@@ -23,6 +23,7 @@ import {
 } from './admin-canchas.service';
 import { CampoFecha } from '../../ui/campo-fecha';
 import { CampoHora } from '../../ui/campo-hora';
+import { Esqueleto } from '../../ui/esqueleto';
 
 const MOTIVOS: { valor: MotivoBloqueo; etiqueta: string }[] = [
   { valor: 'MANTENCION', etiqueta: 'Mantención' },
@@ -62,10 +63,10 @@ function enBlanco(): Formulario {
  */
 @Component({
   selector: 'app-editor-bloqueos',
-  imports: [FormsModule, CampoFecha, CampoHora],
+  imports: [FormsModule, CampoFecha, CampoHora, Esqueleto],
   template: `
     @if (bloqueos.isLoading()) {
-      <p class="text-sm text-muted-foreground">Cargando bloqueos…</p>
+      <app-esqueleto [filas]="2" etiqueta="Cargando los bloqueos…" />
     } @else if (bloqueos.error()) {
       <p class="text-sm text-destructive">
         No se pudieron cargar los bloqueos. Reintenta en un momento.
@@ -169,6 +170,7 @@ function enBlanco(): Formulario {
       <button
         type="submit"
         [disabled]="guardando()"
+        [attr.aria-busy]="guardando()"
         class="boton boton-secundario boton-chico"
       >
         Bloquear
@@ -227,6 +229,7 @@ function enBlanco(): Formulario {
             type="button"
             class="boton boton-destructivo boton-chico"
             [disabled]="guardando() || hayPagoEnCurso()"
+            [attr.aria-busy]="guardando()"
             (click)="confirmar()"
           >
             Cerrar igual y avisarles

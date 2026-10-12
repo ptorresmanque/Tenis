@@ -137,15 +137,55 @@ export async function sembrar(prisma: PrismaClient): Promise<void> {
   }
 }
 
+/**
+ * Cuatro preguntas frecuentes de ejemplo (T144), para que `/preguntas-frecuentes` no
+ * se vea vacía en desarrollo. **Solo si la tabla está vacía**: las que alguien escribió
+ * a mano en su base no se pisan. Producción no corre este seed: ahí las escribe el club.
+ */
+async function sembrarPreguntasFrecuentes(prisma: PrismaClient): Promise<void> {
+  if ((await prisma.preguntaFrecuente.count()) > 0) return;
+
+  await prisma.preguntaFrecuente.createMany({
+    data: [
+      {
+        orden: 1,
+        pregunta: '¿Necesito ser socio para reservar una cancha?',
+        respuesta:
+          'No. Cualquiera puede arrendar una hora desde la disponibilidad y pagarla en ' +
+          'línea. El socio reserva sin pagar el arriendo.',
+      },
+      {
+        orden: 2,
+        pregunta: '¿Cómo cancelo una reserva?',
+        respuesta:
+          'Desde «Mis reservas», si tienes cuenta. Si reservaste sin cuenta, usa el ' +
+          'enlace del correo de confirmación.',
+      },
+      {
+        orden: 3,
+        pregunta: '¿Arriendan raquetas y pelotas?',
+        respuesta: 'Sí, en el mesón. Pregunta al llegar.',
+      },
+      {
+        orden: 4,
+        pregunta: '¿Se puede jugar de noche?',
+        respuesta:
+          'Sí, en las canchas con iluminación. En «El club» están marcadas cuáles son.',
+      },
+    ],
+  });
+}
+
 async function main(): Promise<void> {
   const prisma = new PrismaService();
   try {
     await sembrar(prisma);
     await sembrarCatalogo(prisma);
     await sembrarCategoriasDeJuego(prisma);
+    await sembrarPreguntasFrecuentes(prisma);
     console.log(
-      `Seed listo: ${CUENTAS.length} cuentas de demo, el catálogo y las ` +
-        'categorías de juego.',
+      `Seed listo: ${CUENTAS.length} cuentas de demo, el catálogo, las ` +
+        'categorías de juego y las preguntas frecuentes de ejemplo.',
     );
   } finally {
     await prisma.$disconnect();

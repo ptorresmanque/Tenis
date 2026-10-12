@@ -10,6 +10,17 @@ export interface DatosDelClub {
   /** Dónde está el club, para el mapa (T100). Nulas mientras no se cargue. */
   latitud: number | null;
   longitud: number | null;
+  /** Las redes (T140): el enlace del perfil, o vacío si el club no la tiene. */
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  youtube: string;
+  /** El número de WhatsApp, `56` y los 9 dígitos. */
+  whatsapp: string;
+  /** Los textos de "El club" (T142). La bajada y el de las canchas pueden venir vacíos. */
+  elClubTitulo: string;
+  elClubBajada: string;
+  elClubCanchas: string;
 }
 
 /**
@@ -43,9 +54,32 @@ export class Club {
           email: '',
           latitud: null,
           longitud: null,
+          instagram: '',
+          facebook: '',
+          tiktok: '',
+          youtube: '',
+          whatsapp: '',
+          // Los textos de "El club", los mismos que la migración puso por omisión (T142):
+          // mientras la consulta viaja, la página muestra lo de siempre y no salta.
+          elClubTitulo: 'FEDAL Tennis Center',
+          elClubBajada:
+            'Un club de barrio con canchas de torneo. Desde 2008, abierto a socios y a ' +
+            'quien quiera venir a jugar una hora.',
+          elClubCanchas:
+            'Todas de superficie dura y velocidad media, como el Australian Open. Las dos ' +
+            'centrales se llaman Basilea y Manacor, y el club no da más explicaciones.',
         },
   );
 
   /** A dónde escribir. Vacío si el club todavía no cargó un correo. */
   readonly email = computed(() => this.datos().email);
+
+  /**
+   * Vuelve a preguntar. Lo llama el panel después de guardar los datos o los textos del
+   * club: el recurso se pide una vez por visita, y sin esto quien guardaba una red y
+   * volvía al sitio sin recargar la página seguía viendo la ficha de antes.
+   */
+  recargar(): void {
+    this.recurso.reload();
+  }
 }

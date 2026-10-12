@@ -42,7 +42,12 @@ import { Administradores as ApiAdministradores } from './administradores.service
           />
         </app-campo>
 
-        <button type="submit" class="boton boton-primario" [disabled]="enviando()">
+        <button
+          type="submit"
+          class="boton boton-primario"
+          [disabled]="enviando()"
+          [attr.aria-busy]="enCurso() === 'nombrar'"
+        >
           Dar acceso
         </button>
       </form>
@@ -102,6 +107,7 @@ import { Administradores as ApiAdministradores } from './administradores.service
                         class="boton boton-secundario boton-chico border-destructive
                                text-destructive"
                         [disabled]="enviando()"
+                        [attr.aria-busy]="enCurso() === persona.id"
                         (click)="quitar(persona.id, persona.nombre)"
                       >
                         Quitar acceso
@@ -125,6 +131,11 @@ export class AdministradoresPanel {
 
   protected correo = '';
   protected readonly enviando = signal(false);
+  /**
+   * Qué acción está viajando, para que gire su botón y no todos los que comparten
+   * enviando() (T153).
+   */
+  protected readonly enCurso = signal<'nombrar' | number | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -151,6 +162,7 @@ export class AdministradoresPanel {
     }
 
     this.enviando.set(true);
+    this.enCurso.set('nombrar');
 
     try {
       const persona = await this.api.nombrar(email);
@@ -161,6 +173,7 @@ export class AdministradoresPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo dar el acceso.'));
     } finally {
       this.enviando.set(false);
+      this.enCurso.set(null);
     }
   }
 
@@ -168,6 +181,7 @@ export class AdministradoresPanel {
     this.error.set(null);
     this.aviso.set(null);
     this.enviando.set(true);
+    this.enCurso.set(id);
 
     try {
       await this.api.quitar(id);
@@ -179,6 +193,7 @@ export class AdministradoresPanel {
       this.error.set(mensajeDelServidor(falla, 'No se pudo quitar el acceso.'));
     } finally {
       this.enviando.set(false);
+      this.enCurso.set(null);
     }
   }
 

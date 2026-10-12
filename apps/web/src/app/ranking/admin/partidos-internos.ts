@@ -5,6 +5,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno } from '../ranking.service';
 import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
+import { Esqueleto } from '../../ui/esqueleto';
 
 /**
  * Los partidos amistosos que el club puede tener que arreglar.
@@ -18,7 +19,7 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
  */
 @Component({
   selector: 'app-partidos-internos-panel',
-  imports: [EstadoVacio, Insignia],
+  imports: [EstadoVacio, Insignia, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada partido trae las suyas. -->
     <header class="cabecera-panel">
@@ -50,6 +51,10 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
       <p class="mt-6 text-destructive">
         No se pudieron cargar los partidos. Reintenta en un momento.
       </p>
+    } @else if (partidos.status() === 'loading') {
+      <!-- Antes del vacío: el recurso arranca con la lista vacía, y mientras viajaba
+           la consulta la pantalla decía que no había nada (T154). -->
+      <app-esqueleto class="mt-4 block" [filas]="4" etiqueta="Cargando los partidos…" />
     } @else if (partidos.value().length === 0) {
       <app-estado-vacio
         class="mt-6 block"
@@ -92,6 +97,7 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
                 type="button"
                 class="boton boton-primario boton-chico"
                 [disabled]="enviando()"
+                [attr.aria-busy]="enCurso() === partido.id + '-CONFIRMADO'"
                 (click)="resolver(partido.id, 'CONFIRMADO')"
               >
                 Dar por jugado
@@ -100,6 +106,7 @@ import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
                 type="button"
                 class="boton boton-secundario boton-chico"
                 [disabled]="enviando()"
+                [attr.aria-busy]="enCurso() === partido.id + '-RECHAZADO'"
                 (click)="resolver(partido.id, 'RECHAZADO')"
               >
                 Descartar
@@ -136,8 +143,12 @@ export class PartidosInternosPanel {
     return ESTADOS_PARTIDO[estado] ?? estado;
   }
 
+  /** Qué resolución está viajando, para que gire su botón y no el de al lado (T154). */
+  protected readonly enCurso = signal<string | null>(null);
+
   protected async resolver(id: number, estado: EstadoPartidoInterno): Promise<void> {
     this.enviando.set(true);
+    this.enCurso.set(`${id}-${estado}`);
 
     try {
       await this.api.resolver(id, estado);
@@ -146,6 +157,7 @@ export class PartidosInternosPanel {
       this.partidos.reload();
     } finally {
       this.enviando.set(false);
+      this.enCurso.set(null);
     }
   }
 }

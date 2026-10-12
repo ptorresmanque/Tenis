@@ -1,10 +1,15 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
+import { Club } from '../club/club.service';
 import { DatosDelClub } from './datos-del-club';
 
 describe('DatosDelClub', () => {
+  /** El servicio del sitio, falso: el real pide /api/club y estos tests no tienen HTTP. */
+  const club = { recargar: vi.fn() };
+  beforeEach(() => club.recargar.mockClear());
+
   // `value()` de un resource lanza en estado de error.
   it('si los datos no cargan, lo dice y no deja guardar el formulario en blanco', async () => {
     TestBed.configureTestingModule({
@@ -13,6 +18,7 @@ describe('DatosDelClub', () => {
           provide: AdminCanchas,
           useValue: { configuracion: () => Promise.reject(new Error('la API no respondió')) },
         },
+        { provide: Club, useValue: club },
       ],
     });
 
@@ -49,7 +55,7 @@ describe('DatosDelClub', () => {
       };
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
-        providers: [{ provide: AdminCanchas, useValue: api }],
+        providers: [{ provide: AdminCanchas, useValue: api }, { provide: Club, useValue: club }],
       });
       const fixture = TestBed.createComponent(DatosDelClub);
       await fixture.whenStable();
@@ -101,6 +107,91 @@ describe('DatosDelClub', () => {
       const { elemento } = await montar();
 
       expect(elemento.textContent).toContain('clic derecho');
+    });
+  });
+
+  /** T140. Las redes del club: un campo cada una, y vacía es "no tiene esa red". */
+  describe('las redes sociales (T140)', () => {
+    const CLUB = {
+      nombre: 'FEDAL Tennis Center',
+      direccion: '',
+      telefono: '',
+      email: '',
+      latitud: null,
+      longitud: null,
+      instagram: 'https://www.instagram.com/fedaltennis',
+      facebook: '',
+      tiktok: '',
+      youtube: '',
+      whatsapp: '56987654321',
+    };
+
+    const montar = async () => {
+      const api = {
+        configuracion: vi.fn().mockResolvedValue(CLUB),
+        fijarDatosDelClub: vi.fn().mockResolvedValue(CLUB),
+      };
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [{ provide: AdminCanchas, useValue: api }, { provide: Club, useValue: club }],
+      });
+      const fixture = TestBed.createComponent(DatosDelClub);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      return { fixture, api, elemento: fixture.nativeElement as HTMLElement };
+    };
+
+    const campo = (elemento: HTMLElement, etiqueta: string) =>
+      Array.from(elemento.querySelectorAll('label'))
+        .find((l) => l.textContent?.includes(etiqueta))
+        ?.querySelector('input');
+
+    it('van agrupadas bajo "Redes sociales", con lo que está guardado', async () => {
+      const { elemento } = await montar();
+
+      expect(elemento.querySelector('fieldset legend')?.textContent).toContain('Redes sociales');
+      expect(campo(elemento, 'Instagram')?.value).toBe('https://www.instagram.com/fedaltennis');
+      expect(campo(elemento, 'Facebook')?.value).toBe('');
+      expect(campo(elemento, 'TikTok')).toBeTruthy();
+      expect(campo(elemento, 'YouTube')).toBeTruthy();
+    });
+
+    it('WhatsApp lleva el +56 fijo y muestra los 9 dígitos', async () => {
+      const { elemento } = await montar();
+      const whatsapp = campo(elemento, 'WhatsApp');
+
+      expect(whatsapp?.closest('.campo-con-prefijo')?.textContent).toContain('+56');
+      expect(whatsapp?.value.replace(/\D/g, '')).toBe('987654321');
+    });
+
+    it('**al guardar, el sitio vuelve a pedir los datos**: la red se ve sin recargar', async () => {
+      const { fixture, elemento } = await montar();
+
+      elemento.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+      await fixture.whenStable();
+
+      expect(club.recargar).toHaveBeenCalledTimes(1);
+    });
+
+    it('al guardar, las redes viajan con los demás datos', async () => {
+      const { fixture, api, elemento } = await montar();
+
+      const tiktok = campo(elemento, 'TikTok')!;
+      tiktok.value = '@fedaltennis';
+      tiktok.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+      elemento.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+      await fixture.whenStable();
+
+      expect(api.fijarDatosDelClub).toHaveBeenCalledWith(
+        expect.objectContaining({
+          instagram: 'https://www.instagram.com/fedaltennis',
+          facebook: '',
+          tiktok: '@fedaltennis',
+          youtube: '',
+        }),
+      );
     });
   });
 });

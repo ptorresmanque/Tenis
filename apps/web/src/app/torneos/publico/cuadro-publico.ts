@@ -18,6 +18,7 @@ import { esBye, esDe } from './busqueda';
 import { Galeria } from './galeria';
 import { OrdenDeJuego } from './orden-de-juego';
 import { Reproductor } from './reproductor';
+import { Esqueleto } from '../../ui/esqueleto';
 
 type Vista = 'dia' | 'arbol';
 
@@ -40,7 +41,7 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
  */
 @Component({
   selector: 'app-cuadro-publico',
-  imports: [Arbol, Galeria, Insignia, OrdenDeJuego, Reproductor],
+  imports: [Arbol, Esqueleto, Galeria, Insignia, OrdenDeJuego, Reproductor],
   template: `
     <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
     <dialog
@@ -205,7 +206,7 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
             No se pudo cargar el cuadro. Reintenta en un momento.
           </p>
         } @else {
-          <p class="text-sm text-muted-foreground">Cargando…</p>
+          <app-esqueleto [filas]="4" etiqueta="Cargando el cuadro…" />
         }
       </div>
     </dialog>
