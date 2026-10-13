@@ -33,6 +33,21 @@ export interface UsuarioConFichas {
 }
 
 /**
+ * **La regla de "al día", una sola**: la usan la sesión y la reserva que toma el mesón,
+ * así que un socio no puede estar al día cuando reserva él y moroso cuando lo atiende el
+ * club. El día que vence todavía cuenta: quien pagó hasta hoy juega hoy.
+ *
+ * @param hoy El día del club como medianoche UTC (`hoyEnElClub`), la misma forma en que
+ *            vuelve la columna `DATE`. Pasarle un instante corre el vencimiento un día.
+ */
+export function estaAlDia(
+  alDiaHasta: Date | null | undefined,
+  hoy: Date,
+): boolean {
+  return (alDiaHasta?.getTime() ?? -Infinity) >= hoy.getTime();
+}
+
+/**
  * `socioActivo` y `socioAlDia` se calculan por separado a propósito: un socio
  * suspendido no es lo mismo que uno atrasado en la cuota, y `reservas` tiene que
  * poder decirle a cada uno qué le pasa. Un `puedeReservar` ahorra un campo y
@@ -51,9 +66,7 @@ export function usuarioActualDe(
     esAdmin: usuario.esAdmin,
     socioId: usuario.socio?.id ?? null,
     socioActivo: usuario.socio?.estado === EstadoSocio.ACTIVO,
-    // El día que vence todavía cuenta: quien pagó hasta hoy juega hoy.
-    socioAlDia:
-      (usuario.socio?.alDiaHasta.getTime() ?? -Infinity) >= hoy.getTime(),
+    socioAlDia: estaAlDia(usuario.socio?.alDiaHasta, hoy),
     profesorId: usuario.profesor?.id ?? null,
   };
 }
