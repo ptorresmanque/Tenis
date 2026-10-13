@@ -132,6 +132,8 @@ describe('GET /api/disponibilidad', () => {
       topeDeLuz: false,
       // Y `tocaPico` en T211: si alguna parte del rango cae en prime, no solo el inicio.
       tocaPico: false,
+      // Y `socioPuede` en T212: si el socio puede tomar esa duración ahí.
+      socioPuede: true,
       inicio: '2026-08-17T13:00:00.000Z',
       fin: '2026-08-17T14:00:00.000Z',
       canchaId,

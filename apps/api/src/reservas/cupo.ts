@@ -1,7 +1,11 @@
-import { EstadoSocio } from '../generated/prisma/client';
+import { DuracionesSocioPico, EstadoSocio } from '../generated/prisma/client';
 // `hoyEnElClub` con un instante devuelve su día civil en el club; se renombra porque
 // acá no se usa para "hoy" sino para el día del bloque, que puede ser otro mes.
-import { fechaDelClub, hoyEnElClub as diaDelClub } from '../comun/tiempo';
+import {
+  fechaDelClub,
+  hoyEnElClub as diaDelClub,
+  minutosDeRelojEntre,
+} from '../comun/tiempo';
 import { mesDelClub } from './invitados';
 
 /** Un socio, mirado desde las reglas de reserva. */
@@ -40,13 +44,15 @@ export interface OcupacionDeSocio {
 
 export interface SolicitudDeSocio {
   socio: SocioQueReserva;
-  bloque: { inicio: Date; fin: Date; esPico: boolean };
+  /** `tocaPico`: si cualquier parte del rango cae en prime, no solo el inicio (T211). */
+  bloque: { inicio: Date; fin: Date; esPico: boolean; tocaPico: boolean };
   /** Fecha civil del club, "AAAA-MM-DD". */
   hoyEnElClub: string;
   config: {
     cupoDiarioSocioReservas: number;
     cupoPicoSemanalReservas: number;
     invitadosPorMes: number;
+    duracionesSocioPico: DuracionesSocioPico;
   };
   /** Reservas activas que el socio ya tiene ese día. */
   reservasDelDia: number;
@@ -76,6 +82,7 @@ export type TipoDeRechazo =
   | 'SANCIONADO'
   | 'INCORPORACION_IMPAGA'
   | 'CUOTA_VENCIDA'
+  | 'DURACION_EN_PRIME'
   | 'CUPO_DIARIO'
   | 'CUPO_PICO'
   | 'SIN_ACOMPANANTE'
@@ -147,6 +154,25 @@ export function evaluarReservaDeSocio(
       mensaje:
         `Tu cuota está vencida desde el ${enDiaMesAno(socio.alDiaHasta)}. ` +
         'Ponte al día y vuelve a reservar; las reservas que ya tenías se mantienen.',
+    };
+  }
+
+  // 4b (T212). Después de la cuota y antes de los cupos: se resuelve ahora, cambiando la
+  // duración, y los cupos se resuelven esperando. Mira el rango entero (`tocaPico`) y no
+  // el inicio, a diferencia del precio y del cupo prime semanal: con el inicio, la hora y
+  // media que empieza media hora antes de prime dejaba tomar una hora entera de prime.
+  const duracion = minutosDeRelojEntre(bloque.inicio, bloque.fin);
+  if (
+    bloque.tocaPico &&
+    !duracionPermitidaEnPrime(duracion, config.duracionesSocioPico)
+  ) {
+    const permitida = DURACION_PERMITIDA[config.duracionesSocioPico];
+
+    return {
+      tipo: 'DURACION_EN_PRIME',
+      mensaje:
+        `En horario prime los socios reservan de ${permitida}. Esta reserva de ` +
+        `${enPalabras(duracion)} toca ese horario: elige ${permitida}.`,
     };
   }
 
@@ -291,6 +317,35 @@ function sigueSancionado(socio: SocioQueReserva, hoyEnElClub: string): boolean {
 }
 
 /** Los cupos cuentan reservas, no horas: la hora y media también es una (T84). */
+/**
+ * Si el socio puede tomar esa duración en una hora que toca prime (T212). La usa también
+ * la grilla, para no ofrecerle lo que la regla le va a rechazar.
+ */
+export function duracionPermitidaEnPrime(
+  duracionMin: number,
+  duraciones: DuracionesSocioPico,
+): boolean {
+  switch (duraciones) {
+    case DuracionesSocioPico.UNA_HORA:
+      return duracionMin === 60;
+    case DuracionesSocioPico.HORA_Y_MEDIA:
+      return duracionMin === 90;
+    case DuracionesSocioPico.AMBAS:
+      return true;
+  }
+}
+
+/** Lo que el mensaje dice que sí se puede. Con las dos, nunca se rechaza. */
+const DURACION_PERMITIDA: Record<DuracionesSocioPico, string> = {
+  [DuracionesSocioPico.UNA_HORA]: '1 hora',
+  [DuracionesSocioPico.HORA_Y_MEDIA]: '1 hora y media',
+  [DuracionesSocioPico.AMBAS]: '1 hora o 1 hora y media',
+};
+
+function enPalabras(minutos: number): string {
+  return minutos === 90 ? '1 hora y media' : '1 hora';
+}
+
 function enReservas(cantidad: number): string {
   return cantidad === 1 ? '1 reserva' : `${cantidad} reservas`;
 }

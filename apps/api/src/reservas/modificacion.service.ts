@@ -468,7 +468,7 @@ export class ModificacionService {
   private async moverContraSusCupos(
     reserva: Reserva,
     destino: { canchaId: number },
-    bloque: { inicio: Date; fin: Date; esPico: boolean },
+    bloque: { inicio: Date; fin: Date; esPico: boolean; tocaPico: boolean },
   ): Promise<Reserva> {
     // El tope de luz va adentro de la transacción que escribe, como al crear (T204). La
     // hora de antes de esta misma reserva no se cuenta contra la nueva.
@@ -518,7 +518,7 @@ export class ModificacionService {
    */
   private async exigirQueLosCuposAlcancen(
     reserva: Reserva,
-    bloque: { inicio: Date; fin: Date; esPico: boolean },
+    bloque: { inicio: Date; fin: Date; esPico: boolean; tocaPico: boolean },
     tx: ClienteDePrisma,
   ): Promise<void> {
     if (reserva.socioId === null) return;

@@ -523,6 +523,15 @@ model Bloqueo {
 /// La fila es única y lo impone la base: un CHECK (id = 1) en la migración. Sin él,
 /// una segunda fila hace que "la configuración del club" dependa de cuál lea cada
 /// consulta, y eso no se nota hasta que dos pantallas muestran precios distintos.
+/// Las duraciones que el socio puede tomar en horario prime (T212). Un enum y no dos
+/// booleanos: con dos casillas el panel deja apagar las dos. En el código, pico; en
+/// pantalla, prime.
+enum DuracionesSocioPico {
+  UNA_HORA
+  HORA_Y_MEDIA
+  AMBAS
+}
+
 model ConfiguracionClub {
   id Int @id @default(1)
 
@@ -590,6 +599,10 @@ model ConfiguracionClub {
   topeCanchasConLuz      Int?   @default(2) @map("tope_canchas_con_luz")
   /// Reloj del club, en punto o y media.
   topeCanchasConLuzDesde String @default("19:00") @map("tope_canchas_con_luz_desde") @db.Char(5)
+
+  /// Qué duraciones toma el socio en horario prime (T212). Una reserva toca prime si
+  /// cualquier parte de su rango cae ahí. Lo aplica `reservas/cupo.ts`.
+  duracionesSocioPico DuracionesSocioPico @default(UNA_HORA) @map("duraciones_socio_pico")
 
   /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras seis: el
   /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo

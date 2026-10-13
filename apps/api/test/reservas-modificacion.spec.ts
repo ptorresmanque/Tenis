@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import {
   ConceptoPago,
+  DuracionesSocioPico,
   EstadoReserva,
   EstadoSocio,
   EstadoTransaccion,
@@ -766,13 +767,27 @@ describe('Modificación y cancelación de reservas', () => {
           });
         }
 
+        // Con la hora y media permitida en prime (T212): lo que se mide es el cupo, y con la
+        // regla de partida la rechazaría antes la duración.
+        await prisma.configuracionClub.update({
+          where: { id: 1 },
+          data: { duracionesSocioPico: DuracionesSocioPico.AMBAS },
+        });
+
         await expect(
-          modificacion.modificar(
-            suya.id,
-            { canchaId: pico.id, inicio: LUNES_18, duracionMin: 90 },
-            admin,
-            horasAntes(LUNES_18, 30),
-          ),
+          modificacion
+            .modificar(
+              suya.id,
+              { canchaId: pico.id, inicio: LUNES_18, duracionMin: 90 },
+              admin,
+              horasAntes(LUNES_18, 30),
+            )
+            .finally(() =>
+              prisma.configuracionClub.update({
+                where: { id: 1 },
+                data: { duracionesSocioPico: DuracionesSocioPico.UNA_HORA },
+              }),
+            ),
         ).rejects.toMatchObject({
           status: 409,
           response: { motivo: 'CUPO_PICO' },

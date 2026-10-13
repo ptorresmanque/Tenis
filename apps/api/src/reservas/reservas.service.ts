@@ -207,7 +207,7 @@ export class ReservasService {
    */
   async evaluarParaSocio(entrada: {
     socio: SocioQueReserva;
-    bloque: { inicio: Date; fin: Date; esPico: boolean };
+    bloque: { inicio: Date; fin: Date; esPico: boolean; tocaPico: boolean };
     acompanantes: AcompananteDeclarado[];
     excluyendo?: number;
     /** Dentro de una transacción, para que el conteo vea lo que esa transacción bloqueó. */
@@ -481,7 +481,7 @@ export class ReservasService {
     ahora: Date,
     tomableHasta: TomableHasta,
     duracionMin: DuracionMin,
-  ): Promise<{ inicio: Date; fin: Date; esPico: boolean }> {
+  ): Promise<{ inicio: Date; fin: Date; esPico: boolean; tocaPico: boolean }> {
     const bloques = await this.disponibilidad.de(canchaId, fecha, duracionMin);
     const bloque = bloques.find((b) => b.inicio.getTime() === inicio.getTime());
 
@@ -500,7 +500,12 @@ export class ReservasService {
       });
     }
 
-    return { inicio: bloque.inicio, fin: bloque.fin, esPico: bloque.esPico };
+    return {
+      inicio: bloque.inicio,
+      fin: bloque.fin,
+      esPico: bloque.esPico,
+      tocaPico: bloque.tocaPico,
+    };
   }
 
   /**

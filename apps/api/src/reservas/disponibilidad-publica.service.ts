@@ -6,10 +6,15 @@ import {
   CanchaPublica,
   DisponibilidadService,
 } from '../catalogo-canchas/disponibilidad.service';
-import { EstadoReserva, EstadoTransaccion } from '../generated/prisma/client';
+import {
+  DuracionesSocioPico,
+  EstadoReserva,
+  EstadoTransaccion,
+} from '../generated/prisma/client';
 import { ExpiracionService } from '../pagos/expiracion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReservaRepository } from './reserva.repository';
+import { duracionPermitidaEnPrime } from './cupo';
 import { lucesDelDia, type OcupacionNueva } from './tope-de-luz';
 
 /** Un bloque de la grilla, ya sabiendo si alguien lo tiene tomado. */
@@ -21,6 +26,17 @@ export interface BloqueConEstado extends BloqueDisponible {
    * tomada sin decir nada de la luz, y el mesón lee esto para explicar por qué.
    */
   topeDeLuz: boolean;
+  /**
+   * Si el socio puede tomar esta duración acá (T212): no, si toca prime y el club no le
+   * permite esa duración en prime. La grilla del socio la esconde; la del visitante, no.
+   */
+  socioPuede: boolean;
+}
+
+/** Lo que la grilla lee una vez por día y no una por cancha. */
+interface LoDelDia {
+  yaNoSeEnciende: (ocupacion: OcupacionNueva) => boolean;
+  duracionesSocioPico: DuracionesSocioPico;
 }
 
 /** Una cancha con sus bloques del día, que es lo que dibuja la grilla. */
@@ -60,10 +76,7 @@ export class DisponibilidadPublicaService {
     excluyendo?: number,
   ): Promise<GrillaDeCancha[]> {
     const canchas = await this.catalogo.canchas();
-    // El tope de luz se lee una vez para el día y no una por cancha.
-    const sinLuz = await lucesDelDia(this.prisma, fecha, {
-      ignorarReservaId: excluyendo,
-    });
+    const leido = await this.loDelDia(fecha, excluyendo);
 
     return Promise.all(
       canchas.map(async (cancha) => ({
@@ -73,7 +86,7 @@ export class DisponibilidadPublicaService {
           fecha,
           duracionMin,
           excluyendo,
-          sinLuz,
+          leido,
         ),
       })),
     );
@@ -91,8 +104,8 @@ export class DisponibilidadPublicaService {
     fecha: string,
     duracionMin: DuracionMin = 60,
     excluyendo?: number,
-    /** Lo que ya leyó `delDia` del tope de luz, para no leerlo una vez por cancha. */
-    sinLuz?: (ocupacion: OcupacionNueva) => boolean,
+    /** Lo que ya leyó `delDia`, para no leerlo una vez por cancha. */
+    leido?: LoDelDia,
   ): Promise<BloqueConEstado[]> {
     const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
 
@@ -120,9 +133,8 @@ export class DisponibilidadPublicaService {
       select: { inicio: true, fin: true },
     });
 
-    const yaNoSeEnciende =
-      sinLuz ??
-      (await lucesDelDia(this.prisma, fecha, { ignorarReservaId: excluyendo }));
+    const { yaNoSeEnciende, duracionesSocioPico } =
+      leido ?? (await this.loDelDia(fecha, excluyendo));
 
     return bloques.map((bloque) => {
       const tomado = tomadas.some(
@@ -138,11 +150,29 @@ export class DisponibilidadPublicaService {
         ...bloque,
         reservado,
         topeDeLuz,
+        socioPuede:
+          !bloque.tocaPico ||
+          duracionPermitidaEnPrime(duracionMin, duracionesSocioPico),
         // Sin precio si no se puede tomar, igual que el bloqueado en T12: un monto al
         // lado de "reservado" invita a intentar pagarlo.
         montoClp: reservado ? 0 : bloque.montoClp,
       };
     });
+  }
+
+  /** El tope de luz del día y las duraciones del socio en prime. */
+  private async loDelDia(
+    fecha: string,
+    excluyendo?: number,
+  ): Promise<LoDelDia> {
+    const [yaNoSeEnciende, configuracion] = await Promise.all([
+      lucesDelDia(this.prisma, fecha, { ignorarReservaId: excluyendo }),
+      this.prisma.configuracionClub.findFirstOrThrow({
+        select: { duracionesSocioPico: true },
+      }),
+    ]);
+
+    return { yaNoSeEnciende, ...configuracion };
   }
 
   /**
