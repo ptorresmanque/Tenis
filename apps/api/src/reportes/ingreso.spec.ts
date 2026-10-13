@@ -116,8 +116,8 @@ describe('cortes del reporte de ingreso', () => {
       expect(
         filas([arriendo(20000, { esPico: true }), arriendo(12000)], 'franja'),
       ).toEqual([
-        ['Pico', 20000],
-        ['Valle', 12000],
+        ['Prime', 20000],
+        ['Normal', 12000],
       ]);
     });
   });

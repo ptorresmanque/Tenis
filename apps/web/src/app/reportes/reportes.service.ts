@@ -9,7 +9,7 @@ export type CorteDeIngreso = 'cancha' | 'condicion' | 'franja' | 'usuario' | 'co
 export const CORTES_DE_INGRESO: Record<CorteDeIngreso, string> = {
   condicion: 'Techada o abierta',
   cancha: 'Cancha',
-  franja: 'Pico o valle',
+  franja: 'Prime o normal',
   usuario: 'Socio o no socio',
   concepto: 'Concepto',
 };
@@ -36,7 +36,7 @@ export type CorteDeOcupacion = 'cancha' | 'condicion' | 'franja';
 export const CORTES_DE_OCUPACION: Record<CorteDeOcupacion, string> = {
   condicion: 'Techada o abierta',
   cancha: 'Cancha',
-  franja: 'Pico o valle',
+  franja: 'Prime o normal',
 };
 
 export interface FilaDeOcupacion {
@@ -68,7 +68,7 @@ export type CorteDeNoUso = 'mes' | 'cancha' | 'franja';
 export const CORTES_DE_NO_USO: Record<CorteDeNoUso, string> = {
   mes: 'Mes',
   cancha: 'Cancha',
-  franja: 'Pico o valle',
+  franja: 'Prime o normal',
 };
 
 export interface FilaDeNoUso {

@@ -41,7 +41,7 @@ export class ProgramacionDePartidos {
   ) {}
 
   /**
-   * Programa un partido. **Rechaza por cuatro razones y dice cuál.**
+   * Programa un partido. **Rechaza por cinco razones y dice cuál.**
    *
    * "No se puede" obliga al admin a adivinar; "Pedro Soto no juega los martes de 18:00
    * a 21:00" le dice qué mover.
@@ -60,9 +60,9 @@ export class ProgramacionDePartidos {
     // 2. La restricción horaria de cualquiera de los dos.
     await this.exigirQuePuedanJugar(partido, datos);
 
-    // 3 y 4. La cancha abierta y libre. Las dos las comprueba el mismo camino que usa
-    // `clases`: el rango tiene que caer entero dentro del horario de apertura y no
-    // pisar otro bloqueo.
+    // 3, 4 y 5. La cancha abierta y libre, y el tope de canchas con luz. Las comprueba el
+    // mismo camino que usa `clases`: el rango tiene que caer entero dentro del horario de
+    // apertura, no pisar otro bloqueo y no encender una cancha de más.
     await this.exigirRangoUsable(datos, partido.bloqueoId);
 
     const viejo = partido.bloqueoId;
@@ -84,6 +84,7 @@ export class ProgramacionDePartidos {
         // por un partido que solo se juega en una.
         if (viejo !== null) await tx.bloqueo.delete({ where: { id: viejo } });
       },
+      { reemplaza: viejo },
     );
 
     // A los dos jugadores, con lo de antes si ya tenía hora (T133). Con todo escrito:
@@ -230,6 +231,11 @@ export class ProgramacionDePartidos {
         `Esa cancha ya está ocupada en ese rango: ${choque.descripcion ?? choque.motivo.toLowerCase()}.`,
       );
     }
+
+    // 5. El tope de canchas con luz (T205): un partido de noche enciende la cancha igual
+    // que una reserva. Reprogramar no cuenta el partido contra sí mismo.
+    const luz = await this.cierres.choqueDeLuz(datos, exceptoBloqueoId);
+    if (luz) throw luz;
   }
 
   private comoBloqueo(

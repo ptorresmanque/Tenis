@@ -780,7 +780,7 @@ export class Inicio {
     },
     {
       rotulo: 'La cancha',
-      socio: 'Cupo diario de cancha y horas en franja pico',
+      socio: 'Cupo diario de cancha y horas en horario prime',
       visitante: 'Arriendo por hora, con el precio a la vista',
     },
     {

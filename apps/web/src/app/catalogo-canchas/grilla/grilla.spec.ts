@@ -330,15 +330,15 @@ describe('Grilla', () => {
     expect(etiquetas()[0]).not.toContain('arriendo');
   });
 
-  it('la etiqueta también avisa que es hora pico', () => {
+  it('la etiqueta también avisa que es hora prime', () => {
     // El `aria-label` reemplaza al contenido del botón, así que lo que no esté acá
-    // no existe para quien usa lector de pantalla. Y la hora pico no es decoración:
+    // no existe para quien usa lector de pantalla. Y la hora prime no es decoración:
     // le gasta al socio un cupo semanal del que solo tiene dos.
     //
     // De los tres bloques del fixture solo son botón los dos que se pueden tomar: el de
-    // las 08:00 y el de las 18:00, que es el de hora pico.
-    expect(etiquetas()[1]).toContain('hora pico');
-    expect(etiquetas()[0]).not.toContain('hora pico');
+    // las 08:00 y el de las 18:00, que es el de hora prime.
+    expect(etiquetas()[1]).toContain('hora prime');
+    expect(etiquetas()[0]).not.toContain('hora prime');
   });
 
   it('solo es botón la celda que tiene canchas libres, y se ve clickeable', () => {
@@ -526,7 +526,7 @@ describe('Grilla', () => {
           bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z'),
           bloque('2026-08-17T12:30:00.000Z', '2026-08-17T13:30:00.000Z'),
           bloque('2026-08-17T13:00:00.000Z', '2026-08-17T14:00:00.000Z'),
-          // 17:00 en valle y 17:30 ya en la franja pico, que empieza a las 17:30.
+          // 17:00 en normal y 17:30 ya en la franja prime, que empieza a las 17:30.
           bloque('2026-08-17T21:00:00.000Z', '2026-08-17T22:00:00.000Z'),
           bloque('2026-08-17T21:30:00.000Z', '2026-08-17T22:30:00.000Z', {
             montoClp: 20000,
@@ -548,11 +548,11 @@ describe('Grilla', () => {
       expect(texto().match(/socio sin costo/gi)).toHaveLength(1);
     });
 
-    it('**la fila de pico lo dice en su encabezado, y la de valle no** (reemplaza al pico de la banda)', () => {
+    it('**la fila de prime lo dice en su encabezado, y la de normal no** (reemplaza a la marca prime de la banda)', () => {
       expect(enTexto(filaDe('17:00'))).toContain('$12.000');
-      expect(enTexto(filaDe('17:00').querySelector('th')!)).not.toContain('pico');
+      expect(enTexto(filaDe('17:00').querySelector('th')!)).not.toContain('prime');
       expect(enTexto(filaDe('17:30'))).toContain('$20.000');
-      expect(enTexto(filaDe('17:30').querySelector('th')!)).toContain('pico');
+      expect(enTexto(filaDe('17:30').querySelector('th')!)).toContain('prime');
     });
 
     it('con canchas libres, la mantención de otra no ocupa la celda (reemplaza a la mantención de la banda)', async () => {
@@ -802,6 +802,43 @@ describe('Grilla', () => {
       expect(sinPrecio).not.toMatch(/arriendo/i);
     });
 
+    it('**al socio no se le ofrece la duración que el club no le permite en prime** (T213)', async () => {
+      // La API marca `socioPuede: false` donde la hora y media toca prime y el club solo le
+      // deja 1 hora. La celda dice por qué, y no "sin libres".
+      const PRIME: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: SIN_HORA_Y_MEDIA[0].bloques.map((b, i) => ({
+            ...b,
+            montoClp: 16000,
+            socioPuede: i !== 0,
+          })),
+        },
+      ];
+      await montar(PRIME, { duracion: '90' }, { socioId: 7 });
+
+      expect(etiquetas()).toEqual([expect.stringContaining('de 08:00 a 09:30')]);
+      expect(enTexto(filaDe('17:00').querySelector('td')!)).toBe(
+        'En horario prime, solo 1 hora',
+      );
+    });
+
+    it('al visitante, `socioPuede` no le cambia nada', async () => {
+      const PRIME: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: SIN_HORA_Y_MEDIA[0].bloques.map((b) => ({
+            ...b,
+            montoClp: 16000,
+            socioPuede: false,
+          })),
+        },
+      ];
+      await montar(PRIME, { duracion: '90' });
+
+      expect(etiquetas()).toHaveLength(2);
+    });
+
     it('**al mover, el selector parte en la duración de la reserva y se puede cambiar** (T87)', async () => {
       // "Mis reservas" manda `duracion=90` cuando la reserva es de 1 hora y media.
       await montar(DIA, { mover: '5', duracion: '90' });
@@ -831,9 +868,9 @@ describe('Grilla', () => {
     expect(fecha?.classList.contains('cursor-pointer')).toBe(true);
   });
 
-  it('avisa cuál es hora pico, en la fila y en la leyenda', () => {
-    expect(enTexto(filaDe('18:00').querySelector('th')!)).toContain('pico');
-    expect(enTexto(el().querySelector('app-controles-del-dia')!)).toContain('Hora pico');
+  it('avisa cuál es hora prime, en la fila y en la leyenda', () => {
+    expect(enTexto(filaDe('18:00').querySelector('th')!)).toContain('prime');
+    expect(enTexto(el().querySelector('app-controles-del-dia')!)).toContain('Hora prime');
   });
 
   it('dice el estado con palabras, no solo con color', () => {

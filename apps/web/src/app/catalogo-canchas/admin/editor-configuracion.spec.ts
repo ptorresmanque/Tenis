@@ -24,6 +24,7 @@ describe('EditorConfiguracion', () => {
   let api: {
     configuracion: ReturnType<typeof vi.fn>;
     fijarConfiguracion: ReturnType<typeof vi.fn>;
+    excesosDeLuz: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (reglas: ReglasDelClub | Error = REGLAS) => {
@@ -32,6 +33,8 @@ describe('EditorConfiguracion', () => {
         reglas instanceof Error ? Promise.reject(reglas) : Promise.resolve(reglas),
       ),
       fijarConfiguracion: vi.fn().mockResolvedValue(reglas),
+      // El tope de luz va en la misma página (T208) y tiene su propia prueba.
+      excesosDeLuz: vi.fn().mockResolvedValue([]),
     };
 
     TestBed.resetTestingModule();
@@ -115,7 +118,7 @@ describe('EditorConfiguracion', () => {
     // Cuentan reservas: una de 1 hora y media también es una. "(horas)" haría que el
     // club pusiera 2 creyendo que así el socio puede jugar 1 hora y media.
     expect(texto()).toContain('Cupo diario del socio (reservas)');
-    expect(texto()).toContain('Cupo semanal en horario pico (reservas)');
+    expect(texto()).toContain('Cupo semanal en horario prime (reservas)');
     expect(texto()).not.toMatch(/Cupo[^(]*\(horas\)/);
   });
 

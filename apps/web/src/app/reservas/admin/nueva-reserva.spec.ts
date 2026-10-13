@@ -102,6 +102,66 @@ describe('NuevaReserva', () => {
     expect(horasOfrecidas()).not.toContain('08:00–09:00');
   });
 
+  it('**una hora sin cupo de luz se ve deshabilitada y dice por qué** (T207)', async () => {
+    // La API la marca tomada para la grilla pública, que no explica nada; el mesón tiene
+    // que entender por qué una cancha vacía no se puede vender.
+    const conTope: GrillaDeCancha[] = [
+      {
+        ...DIA[0],
+        bloques: DIA[0].bloques.map((bloque, i) =>
+          i === 2 ? { ...bloque, reservado: true, topeDeLuz: true, montoClp: 0 } : bloque,
+        ),
+      },
+    ];
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(conTope) } },
+        { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+      ],
+    });
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const opcion = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLOptionElement>(
+        'select[name="hora"] option',
+      ),
+    ).find((una) => una.textContent?.includes('12:00–13:00'));
+
+    expect(opcion?.disabled).toBe(true);
+    expect(opcion?.textContent).toContain('Tope de luz');
+  });
+
+  it('al socio no le ofrece la duración que el club no le permite en prime (T213)', async () => {
+    const conPrime: GrillaDeCancha[] = [
+      {
+        ...DIA[0],
+        bloques: DIA[0].bloques.map((bloque, i) =>
+          i === 2 ? { ...bloque, socioPuede: false } : bloque,
+        ),
+      },
+    ];
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(conPrime) } },
+        { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+      ],
+    });
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // El mesón parte reservando para un socio.
+    expect(horasOfrecidas()).toEqual(['10:00–11:00']);
+  });
+
   it('sí ofrece la hora que está corriendo', () => {
     // A diferencia de la grilla pública: en el mesón está la persona que llega a
     // jugar ahora, y esa hora todavía se puede vender.
@@ -309,10 +369,10 @@ describe('NuevaReserva', () => {
 
     const texto = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('Reservas de ese día: 1 de 1');
-    expect(texto).toContain('Reservas pico de la semana: 0 de 2');
+    expect(texto).toContain('Reservas prime de la semana: 0 de 2');
     // El cupo cuenta reservas con invitados, no personas (A5, T105).
     expect(texto).toContain('Reservas con invitados del mes: 0 de 4');
-    expect(texto).not.toMatch(/Horas (de ese día|pico)/);
+    expect(texto).not.toMatch(/Horas (de ese día|prime)/);
   });
 
   it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', () => {

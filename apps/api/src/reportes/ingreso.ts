@@ -70,7 +70,7 @@ function etiquetaDe(movimiento: Movimiento, corte: Corte): string {
       return movimiento.techada ? 'Techada' : 'Abierta';
     case 'franja':
       if (movimiento.esPico === null) return SIN_CANCHA;
-      return movimiento.esPico ? 'Pico' : 'Valle';
+      return movimiento.esPico ? 'Prime' : 'Normal';
     case 'usuario':
       return movimiento.esSocio ? 'Socio' : 'No socio';
     case 'concepto':

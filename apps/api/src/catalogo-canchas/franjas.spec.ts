@@ -1,4 +1,5 @@
-import { FranjaCandidata, franjaPara } from './franjas';
+import { instanteEnElClub } from '../comun/tiempo';
+import { FranjaCandidata, franjaPara, tocaPico } from './franjas';
 
 /**
  * T11. Qué cuesta un bloque y si limita el cupo del socio.
@@ -402,5 +403,85 @@ describe('franjaPara', () => {
     });
 
     expect(antesDelPico).toEqual({ montoClp: 12000, esPico: false });
+  });
+});
+
+/**
+ * T211. Si un rango toca prime en cualquier parte, y no solo en su inicio: lo pide la regla
+ * de duraciones del socio en prime (`SPEC-reservas.md` § Duración del socio en horario
+ * prime). En el código, pico.
+ */
+describe('tocaPico', () => {
+  const LUNES = '2026-08-17';
+
+  const franja = (parche: Partial<FranjaCandidata> = {}): FranjaCandidata => ({
+    id: 1,
+    canchaId: null,
+    techada: null,
+    diaSemana: null,
+    horaDesde: '08:00',
+    horaHasta: '19:00',
+    esPico: false,
+    montoClp: 12000,
+    montoClp90: null,
+    vigenteDesde: new Date('2026-01-01T00:00:00.000Z'),
+    vigenteHasta: null,
+    ...parche,
+  });
+
+  /** Normal de 08:00 a 19:00 y prime de 19:00 a 22:00, para toda cancha. */
+  const FRANJAS = [
+    franja(),
+    franja({ id: 2, horaDesde: '19:00', horaHasta: '22:00', esPico: true }),
+  ];
+
+  const toca = (
+    desde: string,
+    hasta: string,
+    franjas = FRANJAS,
+    fecha = LUNES,
+  ) =>
+    tocaPico({
+      fecha,
+      canchaId: 7,
+      techada: false,
+      inicio: instanteEnElClub(fecha, desde),
+      fin: instanteEnElClub(fecha, hasta),
+      franjas,
+    });
+
+  it('la hora y media de 18:30 a 20:00 toca prime aunque empiece en normal', () => {
+    expect(toca('18:30', '20:00')).toBe(true);
+  });
+
+  it('la de 18:00 a 19:00 no: termina justo cuando prime empieza', () => {
+    expect(toca('18:00', '19:00')).toBe(false);
+  });
+
+  it('la que empieza en prime lo toca, aunque termine después', () => {
+    expect(toca('21:30', '23:00')).toBe(true);
+  });
+
+  it('una franja prime que empieza a las 19:15 la toca una hora de 18:30 a 19:30', () => {
+    expect(
+      toca('18:30', '19:30', [
+        franja({ horaHasta: '19:15' }),
+        franja({ id: 2, horaDesde: '19:15', horaHasta: '22:00', esPico: true }),
+      ]),
+    ).toBe(true);
+  });
+
+  it('manda la franja que gana, como en franjaPara: la de la cancha, normal, le gana a la general prime', () => {
+    expect(
+      toca('18:30', '20:00', [
+        ...FRANJAS,
+        franja({ id: 3, canchaId: 7, horaDesde: '08:00', horaHasta: '22:00' }),
+      ]),
+    ).toBe(false);
+  });
+
+  it('el domingo que Chile atrasa la hora, prime sigue empezando a las 19:00 del club', () => {
+    expect(toca('18:30', '20:00', FRANJAS, '2027-04-04')).toBe(true);
+    expect(toca('18:00', '19:00', FRANJAS, '2027-04-04')).toBe(false);
   });
 });

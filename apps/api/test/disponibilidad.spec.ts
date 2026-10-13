@@ -128,6 +128,12 @@ describe('GET /api/disponibilidad', () => {
       // `reservado` entra al contrato en T23: la grilla la sirve `reservas`, que
       // superpone lo suyo sobre los bloques que calcula `catalogo-canchas`.
       reservado: false,
+      // Y `topeDeLuz` en T207: la cancha libre que ya no se puede encender.
+      topeDeLuz: false,
+      // Y `tocaPico` en T211: si alguna parte del rango cae en prime, no solo el inicio.
+      tocaPico: false,
+      // Y `socioPuede` en T212: si el socio puede tomar esa duración ahí.
+      socioPuede: true,
       inicio: '2026-08-17T13:00:00.000Z',
       fin: '2026-08-17T14:00:00.000Z',
       canchaId,
@@ -142,6 +148,17 @@ describe('GET /api/disponibilidad', () => {
     expect(
       bloques.find((b) => b.inicio === '2026-08-17T22:00:00.000Z'),
     ).toMatchObject({ montoClp: 25000, esPico: true });
+  });
+
+  it('el de 17:30 a 18:30 no es pico, pero lo toca: la mitad cae en prime (T211)', async () => {
+    const bloques = await delLunes();
+
+    expect(
+      bloques.find((b) => b.inicio === '2026-08-17T21:30:00.000Z'),
+    ).toMatchObject({ esPico: false, tocaPico: true });
+    expect(
+      bloques.find((b) => b.inicio === '2026-08-17T21:00:00.000Z'),
+    ).toMatchObject({ esPico: false, tocaPico: false });
   });
 
   it('sin horario propio ese día, abre en el horario general del club', async () => {

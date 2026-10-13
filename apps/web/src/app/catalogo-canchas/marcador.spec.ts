@@ -157,7 +157,7 @@ describe('Marcador', () => {
     expect(celda(el, 0, 2).textContent).toContain('Cerrada');
   });
 
-  it('la hora pico lleva su rótulo', () => {
+  it('la hora prime lleva su rótulo', () => {
     const el = montar([
       {
         cancha: cancha(1),
@@ -166,11 +166,11 @@ describe('Marcador', () => {
     ]);
     const filas = el.querySelectorAll('tbody th[scope="row"]');
 
-    expect(filas[0].textContent).not.toContain('Pico');
-    expect(filas[1].textContent).toContain('Pico');
+    expect(filas[0].textContent).not.toContain('Prime');
+    expect(filas[1].textContent).toContain('Prime');
   });
 
-  it('**el arriendo de la hora pico sale de una cancha que se puede tomar**', () => {
+  it('**el arriendo de la hora prime sale de una cancha que se puede tomar**', () => {
     // La API manda en 0 el monto de una hora reservada o bloqueada. Si la primera cancha
     // la tenía tomada, la leyenda decía "arriendo $0".
     const el = montar([

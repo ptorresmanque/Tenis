@@ -40,7 +40,7 @@ import { TARIFA_DEL_SOCIO } from './bandas';
           <span class="text-sm text-muted-foreground">
             Arriendo
             @if (bloque().esPico) {
-              · Hora pico
+              · Hora prime
             }
           </span>
         </p>
@@ -48,7 +48,7 @@ import { TARIFA_DEL_SOCIO } from './bandas';
         <p class="mt-1 text-sm text-muted-foreground">
           Socio {{ tarifaDelSocio }}
           @if (bloque().esPico) {
-            · Hora pico
+            · Hora prime
           }
         </p>
       }

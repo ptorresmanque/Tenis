@@ -3,7 +3,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { fechaDelClub } from '../comun/tiempo';
 import { PrismaService } from '../prisma/prisma.service';
 import { calcularBloques, DuracionMin, PASO_DE_LA_GRILLA_MIN } from './bloques';
-import { franjaPara } from './franjas';
+import { franjaPara, tocaPico } from './franjas';
 
 /** Lo que `reservas` y la grilla consumen. `SPEC-catalogo-canchas.md` § Contrato. */
 export interface BloqueDisponible {
@@ -15,8 +15,13 @@ export interface BloqueDisponible {
    * hora y media donde la franja no tiene ese precio: ahí no se vende (T79).
    */
   montoClp: number | null;
-  /** Lo usa `reservas` para el cupo pico semanal del socio. */
+  /** Lo usa `reservas` para el cupo pico semanal del socio. Sale del inicio. */
   esPico: boolean;
+  /**
+   * Si alguna parte del rango cae en pico, no solo el inicio (T211). Lo usa `reservas` para
+   * las duraciones que el socio puede tomar en prime.
+   */
+  tocaPico: boolean;
   bloqueado: boolean;
   motivoBloqueo: string | null;
 }
@@ -126,16 +131,16 @@ export class DisponibilidadService {
       bloqueos,
     });
 
+    const deLaCancha = { fecha, canchaId, techada: cancha.techada, franjas };
+
     return bloques.map((bloque) => ({
       ...bloque,
       canchaId,
-      ...franjaPara({
-        fecha,
-        canchaId,
-        techada: cancha.techada,
+      ...franjaPara({ ...deLaCancha, inicio: bloque.inicio, duracionMin }),
+      tocaPico: tocaPico({
+        ...deLaCancha,
         inicio: bloque.inicio,
-        duracionMin,
-        franjas,
+        fin: bloque.fin,
       }),
     }));
   }

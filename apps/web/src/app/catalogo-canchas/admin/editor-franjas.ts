@@ -32,8 +32,8 @@ const EN_BLANCO: FranjaNueva = {
  *
  * `esPico` va junto al monto porque son la misma ventana de tiempo: el precio del
  * no-socio y el cupo del socio. Separarlos en dos formularios obligaría a definir
- * el mismo rango dos veces y el primer desajuste cobra valle una hora que descuenta
- * cupo pico.
+ * el mismo rango dos veces y el primer desajuste cobra como normal una hora que descuenta
+ * cupo prime.
  */
 @Component({
   selector: 'app-editor-franjas',
@@ -50,7 +50,7 @@ const EN_BLANCO: FranjaNueva = {
                 · 1 hora y media {{ pesos(franja.montoClp90) }}
               }
               @if (franja.esPico) {
-                · hora pico
+                · hora prime
               }
               @if (franja.techada === true) {
                 · solo techadas
@@ -163,10 +163,10 @@ const EN_BLANCO: FranjaNueva = {
       <label class="flex items-center gap-2 py-1">
         <input
           type="checkbox"
-          [name]="'franja-pico-' + clave()"
+          [name]="'franja-prime-' + clave()"
           [(ngModel)]="nueva.esPico"
         />
-        Hora pico
+        Hora prime
       </label>
 
       <button

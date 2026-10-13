@@ -506,11 +506,11 @@ describe('mensajeDeRechazo', () => {
     expect(
       mensajeDeRechazo({
         status: 409,
-        error: { motivo: 'CUPO_PICO', message: 'Ya tienes tus 2 reservas en horario pico esa semana.' },
+        error: { motivo: 'CUPO_PICO', message: 'Ya tienes tus 2 reservas en horario prime esa semana.' },
       }),
     ).toEqual({
       motivo: 'CUPO_PICO',
-      mensaje: 'Ya tienes tus 2 reservas en horario pico esa semana.',
+      mensaje: 'Ya tienes tus 2 reservas en horario prime esa semana.',
     });
   });
 

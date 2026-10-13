@@ -74,7 +74,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
 
           <p
             class="rotulo-hora mt-4 inline-flex px-3 py-1 text-4xl"
-            [class.rotulo-hora-pico]="datos.esPico"
+            [class.rotulo-hora-prime]="datos.esPico"
           >
             {{ hora(datos.inicio) }}–{{ hora(datos.fin) }}
           </p>
@@ -93,7 +93,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
 
           @if (datos.esPico) {
             <p class="mt-3">
-              <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+              <app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia>
             </p>
           }
         </div>

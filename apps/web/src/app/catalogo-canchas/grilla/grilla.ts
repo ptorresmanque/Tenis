@@ -278,20 +278,20 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
         <tbody>
           @for (fila of vigentes(); track fila.inicio; let i = $index) {
             <tr>
-              <!-- El pico marca la fila: ámbar y la palabra, no solo el color. -->
+              <!-- La hora prime marca la fila: ámbar y la palabra, no solo el color. -->
               <th
                 scope="row"
                 class="py-2 text-start align-top font-display text-lg leading-none font-bold
                        tabular-nums"
-                [class.text-warning-strong]="fila.pico === true"
+                [class.text-warning-strong]="fila.prime === true"
               >
                 {{ hora(fila.inicio) }}
-                @if (fila.pico === true) {
+                @if (fila.prime === true) {
                   <span
                     class="mt-1 flex items-center gap-0.5 font-sans text-xs font-semibold"
                   >
                     <span class="icono text-sm" aria-hidden="true">trending_up</span>
-                    pico
+                    prime
                   </span>
                 }
               </th>
@@ -335,8 +335,8 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                         }
                         {{ celda.libres.length }}
                         {{ celda.libres.length === 1 ? 'libre' : 'libres' }}
-                        @if (fila.pico === null && celda.esPico) {
-                          · pico
+                        @if (fila.prime === null && celda.esPico) {
+                          · prime
                         }
                       </span>
                     </button>
@@ -667,8 +667,13 @@ export class Grilla {
       case 'ya-paso':
         return 'Ya pasó';
       case 'no-se-arrienda':
-        // Hay canchas libres, pero esta duración no se le vende a quien no es socio:
-        // "sin libres" sería falso.
+        // Hay canchas libres, pero esta duración no es para quien mira: "sin libres" sería
+        // falso. Al socio, porque el club no se la permite en prime (T213).
+        if (this.esSocio()) {
+          return this.duracion() === 90
+            ? 'En horario prime, solo 1 hora'
+            : 'En horario prime, solo 1 hora y media';
+        }
         return 'No se arrienda por 1 hora y media';
       case 'llena':
         return 'Sin libres';
@@ -718,9 +723,14 @@ export class Grilla {
     );
   }
 
-  /** Sin precio de esa duración no se le vende a quien no es socio (T79, T83b). */
+  /**
+   * Sin precio de esa duración no se le vende a quien no es socio (T79, T83b); al socio, la
+   * duración que el club no le permite en prime (T213).
+   */
   private noSeLeVende(bloque: BloqueDisponible): boolean {
-    return bloque.montoClp === null && !this.esSocio();
+    return this.esSocio()
+      ? bloque.socioPuede === false
+      : bloque.montoClp === null;
   }
 
   /**
@@ -728,7 +738,7 @@ export class Grilla {
    *
    * **Reemplaza al contenido del botón**, así que lo que no esté acá no existe para
    * quien usa lector de pantalla: el tipo de cancha —"$12.000" solo no dice de qué
-   * columna es—, cuántas quedan, lo que le cuesta a quien mira y la hora pico, que no es
+   * columna es—, cuántas quedan, lo que le cuesta a quien mira y la hora prime, que no es
    * decoración porque le gasta al socio un cupo semanal del que solo tiene dos.
    *
    * Empieza igual que la etiqueta de los chips de antes, "Elegir … de 08:00 a 09:00": la
@@ -742,7 +752,7 @@ export class Grilla {
       `${que} cancha ${NOMBRE_EN_LA_FRASE[celda.tipo]} de ${this.hora(fila.inicio)} a ` +
       `${this.hora(fila.fin)}, ${cuantas} ${cuantas === 1 ? 'libre' : 'libres'}, ` +
       this.costo(celda) +
-      (celda.esPico ? ', hora pico' : '')
+      (celda.esPico ? ', hora prime' : '')
     );
   }
 

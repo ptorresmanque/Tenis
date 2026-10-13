@@ -1,4 +1,4 @@
-import { EstadoSocio } from '../generated/prisma/client';
+import { DuracionesSocioPico, EstadoSocio } from '../generated/prisma/client';
 import { evaluarReservaDeSocio, SolicitudDeSocio } from './cupo';
 
 /**
@@ -26,12 +26,14 @@ describe('evaluarReservaDeSocio', () => {
       inicio: LUNES_19,
       fin: new Date('2026-08-18T00:00:00.000Z'),
       esPico: false,
+      tocaPico: false,
     },
     hoyEnElClub: HOY,
     config: {
       cupoDiarioSocioReservas: 1,
       cupoPicoSemanalReservas: 2,
       invitadosPorMes: 4,
+      duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
     },
     reservasDelDia: 0,
     reservasPicoDeLaSemana: 0,
@@ -185,6 +187,7 @@ describe('evaluarReservaDeSocio', () => {
             inicio: MIERCOLES_19,
             fin: new Date('2026-08-20T00:00:00.000Z'),
             esPico: false,
+            tocaPico: false,
           },
           reservasDelDia: 1,
         }),
@@ -203,6 +206,7 @@ describe('evaluarReservaDeSocio', () => {
             cupoDiarioSocioReservas: 0,
             cupoPicoSemanalReservas: 2,
             invitadosPorMes: 4,
+            duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
           },
         }),
       );
@@ -220,19 +224,21 @@ describe('evaluarReservaDeSocio', () => {
             inicio: LUNES_19,
             fin: new Date('2026-08-18T00:00:00.000Z'),
             esPico: true,
+            tocaPico: false,
           },
           config: {
             cupoDiarioSocioReservas: 1,
             cupoPicoSemanalReservas: 0,
             invitadosPorMes: 4,
+            duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
           },
         }),
       );
 
       expect(rechazo?.tipo).toBe('CUPO_PICO');
       expect(rechazo?.mensaje).toBe(
-        'El club no está tomando reservas de socios en horario pico. Los horarios ' +
-          'fuera de pico siguen disponibles.',
+        'El club no está tomando reservas de socios en horario prime. Las horas en ' +
+          'horario normal siguen disponibles.',
       );
     });
 
@@ -251,6 +257,7 @@ describe('evaluarReservaDeSocio', () => {
             inicio: LUNES_19,
             fin: new Date('2026-08-18T00:00:00.000Z'),
             esPico: true,
+            tocaPico: false,
           },
           reservasPicoDeLaSemana: 2,
         }),
@@ -258,8 +265,9 @@ describe('evaluarReservaDeSocio', () => {
 
       expect(rechazo?.tipo).toBe('CUPO_PICO');
       expect(rechazo?.mensaje).toBe(
-        'Ya tienes tus 2 reservas en horario pico esa semana: el cupo es de 2 reservas ' +
-          'pico por semana, de lunes a domingo. Los horarios fuera de pico siguen disponibles.',
+        'Ya tienes tus 2 reservas en horario prime esa semana: el cupo es de 2 reservas ' +
+          'prime por semana, de lunes a domingo. Las horas en horario normal siguen ' +
+          'disponibles.',
       );
     });
 
@@ -279,12 +287,14 @@ describe('evaluarReservaDeSocio', () => {
           inicio: LUNES_19,
           fin: new Date('2026-08-18T00:00:00.000Z'),
           esPico: true,
+          tocaPico: false,
         },
         reservasPicoDeLaSemana: 2,
         config: {
           cupoDiarioSocioReservas: 1,
           cupoPicoSemanalReservas: 3,
           invitadosPorMes: 4,
+          duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
         },
       });
 
@@ -300,6 +310,7 @@ describe('evaluarReservaDeSocio', () => {
               cupoDiarioSocioReservas: 2,
               cupoPicoSemanalReservas: 2,
               invitadosPorMes: 4,
+              duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
             },
           }),
         ),
@@ -373,6 +384,7 @@ describe('evaluarReservaDeSocio', () => {
             inicio: new Date('2026-09-05T22:00:00.000Z'),
             fin: new Date('2026-09-05T23:00:00.000Z'),
             esPico: false,
+            tocaPico: false,
           },
           reservasConInvitadosDelMes: 4,
         }),
@@ -432,6 +444,7 @@ describe('evaluarReservaDeSocio', () => {
               cupoDiarioSocioReservas: 1,
               cupoPicoSemanalReservas: 2,
               invitadosPorMes: 8,
+              duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
             },
           }),
         ),
@@ -638,6 +651,7 @@ describe('evaluarReservaDeSocio', () => {
             inicio: LUNES_19,
             fin: new Date('2026-08-18T00:00:00.000Z'),
             esPico: true,
+            tocaPico: false,
           },
           reservasDelDia: 1,
           reservasPicoDeLaSemana: 2,
@@ -670,6 +684,88 @@ describe('evaluarReservaDeSocio', () => {
       );
 
       expect(rechazo?.tipo).toBe('YA_ESTA_EN_OTRA_CANCHA');
+    });
+  });
+
+  /**
+   * T212. En prime, las duraciones que el club permite al socio
+   * (`SPEC-reservas.md` § Duración del socio en horario prime). Toca prime si cualquier
+   * parte del rango cae ahí: lo dice el bloque, en `tocaPico`.
+   */
+  describe('la duración en horario prime (4b)', () => {
+    const DE_UNA_HORA = new Date('2026-08-18T00:00:00.000Z');
+    const DE_HORA_Y_MEDIA = new Date('2026-08-18T00:30:00.000Z');
+
+    const pidiendo = (
+      fin: Date,
+      duraciones: DuracionesSocioPico,
+      tocaPico = true,
+      parche: Partial<SolicitudDeSocio> = {},
+    ) =>
+      evaluarReservaDeSocio(
+        solicitud({
+          bloque: { inicio: LUNES_19, fin, esPico: tocaPico, tocaPico },
+          config: {
+            cupoDiarioSocioReservas: 1,
+            cupoPicoSemanalReservas: 2,
+            invitadosPorMes: 4,
+            duracionesSocioPico: duraciones,
+          },
+          ...parche,
+        }),
+      );
+
+    it.each([
+      [DuracionesSocioPico.UNA_HORA, DE_UNA_HORA, null],
+      [DuracionesSocioPico.UNA_HORA, DE_HORA_Y_MEDIA, 'DURACION_EN_PRIME'],
+      [DuracionesSocioPico.HORA_Y_MEDIA, DE_UNA_HORA, 'DURACION_EN_PRIME'],
+      [DuracionesSocioPico.HORA_Y_MEDIA, DE_HORA_Y_MEDIA, null],
+      [DuracionesSocioPico.AMBAS, DE_UNA_HORA, null],
+      [DuracionesSocioPico.AMBAS, DE_HORA_Y_MEDIA, null],
+    ])('con %s, la que termina a las %s: %s', (duraciones, fin, esperado) => {
+      expect(pidiendo(fin, duraciones)?.tipo ?? null).toBe(esperado);
+    });
+
+    it('fuera de prime, cualquier duración', () => {
+      expect(
+        pidiendo(DE_HORA_Y_MEDIA, DuracionesSocioPico.UNA_HORA, false),
+      ).toBeNull();
+    });
+
+    it('el mensaje dice la duración permitida y la pedida', () => {
+      expect(
+        pidiendo(DE_HORA_Y_MEDIA, DuracionesSocioPico.UNA_HORA)?.mensaje,
+      ).toBe(
+        'En horario prime los socios reservan de 1 hora. Esta reserva de 1 hora y media ' +
+          'toca ese horario: elige 1 hora.',
+      );
+      expect(
+        pidiendo(DE_UNA_HORA, DuracionesSocioPico.HORA_Y_MEDIA)?.mensaje,
+      ).toBe(
+        'En horario prime los socios reservan de 1 hora y media. Esta reserva de 1 hora ' +
+          'toca ese horario: elige 1 hora y media.',
+      );
+    });
+
+    it('va después de la cuota: quien está moroso lee primero lo de la cuota', () => {
+      expect(
+        pidiendo(DE_HORA_Y_MEDIA, DuracionesSocioPico.UNA_HORA, true, {
+          socio: {
+            id: 7,
+            estado: EstadoSocio.ACTIVO,
+            alDiaHasta: new Date('2026-07-31T00:00:00.000Z'),
+            sancionadoHasta: null,
+          },
+        })?.tipo,
+      ).toBe('CUOTA_VENCIDA');
+    });
+
+    it('y antes del cupo diario: cambiar la duración se resuelve ahora, el cupo esperando', () => {
+      expect(
+        pidiendo(DE_HORA_Y_MEDIA, DuracionesSocioPico.UNA_HORA, true, {
+          reservasDelDia: 1,
+        })?.tipo,
+      ).toBe('DURACION_EN_PRIME');
     });
   });
 });

@@ -84,11 +84,11 @@ const DIAS = [
                 <div class="flex flex-wrap items-center gap-2">
                   <span
                     class="rotulo-hora px-2 py-1 font-display text-2xl leading-none"
-                    [class.rotulo-hora-pico]="tarifa.esPico"
+                    [class.rotulo-hora-prime]="tarifa.esPico"
                     >{{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}</span
                   >
                   @if (tarifa.esPico) {
-                    <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+                    <app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia>
                   }
                 </div>
 
@@ -146,10 +146,10 @@ const DIAS = [
                     <td class="whitespace-nowrap">
                       {{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}
                       @if (tarifa.esPico) {
-                        <!-- Ámbar, como el rótulo "Pico" del marcador de la portada: la
+                        <!-- Ámbar, como el rótulo "Prime" del marcador de la portada: la
                              misma idea no cambia de color de una página a otra. -->
                         <app-insignia variante="aviso" icono="trending_up">
-                          Hora pico
+                          Hora prime
                         </app-insignia>
                       }
                     </td>

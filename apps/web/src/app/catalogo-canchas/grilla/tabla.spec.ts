@@ -161,7 +161,7 @@ describe('tablaDelDia', () => {
     });
   });
 
-  it('el pico se dice por celda, y la fila dice si lo es entera, nada o en parte', () => {
+  it('la hora prime se dice por celda, y la fila dice si lo es entera, nada o en parte', () => {
     const t = tabla([
       {
         cancha: cancha(1, false),
@@ -174,8 +174,8 @@ describe('tablaDelDia', () => {
     ]);
 
     expect(t.filas[0].celdas.map((c) => c.esPico)).toEqual([false, true]);
-    expect(t.filas[0].pico).toBeNull();
-    expect(t.filas[1].pico).toBe(true);
+    expect(t.filas[0].prime).toBeNull();
+    expect(t.filas[1].prime).toBe(true);
   });
 
   it('las horas propias que ya pasaron siguen a mano para reportarlas (T35)', () => {

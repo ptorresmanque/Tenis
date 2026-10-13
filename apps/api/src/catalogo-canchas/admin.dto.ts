@@ -6,7 +6,11 @@ import {
   minutosDeReloj,
 } from '../comun/tiempo';
 import { leerTelefono } from '../comun/telefono';
-import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
+import {
+  DuracionesSocioPico,
+  MotivoBloqueo,
+  Superficie,
+} from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
 import { leerRed, leerWhatsapp, REDES, RedesDelClub } from './redes';
 import { leerUbicacion } from './ubicacion';
@@ -180,6 +184,12 @@ export interface CambiosDeConfiguracion
   /** Lo que vale ser socio. Las cuotas ya emitidas congelaron el suyo y no cambian. */
   cuotaMensualClp: number;
   cuotaIncorporacionClp: number;
+  /** El tope de canchas con luz (T203, T208). Nulo = sin tope. */
+  topeCanchasConLuz: number | null;
+  /** Desde qué hora rige, en el reloj del club: en punto o y media. */
+  topeCanchasConLuzDesde: string;
+  /** Qué duraciones toma el socio en horario prime (T212, T213). */
+  duracionesSocioPico: DuracionesSocioPico;
 }
 
 /**
@@ -201,6 +211,9 @@ type ReglasNumericas = Omit<
   | keyof RedesDelClub
   | keyof TextosDeElClub
   | keyof TiendaYCafeteria
+  | 'topeCanchasConLuz'
+  | 'topeCanchasConLuzDesde'
+  | 'duracionesSocioPico'
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -221,7 +234,7 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
 const NOMBRES: Record<keyof ReglasNumericas, string> = {
   cupoDiarioSocioReservas: 'El cupo diario del socio',
-  cupoPicoSemanalReservas: 'El cupo semanal en horario pico',
+  cupoPicoSemanalReservas: 'El cupo semanal en horario prime',
   invitadosPorMes: 'El número de invitados por mes',
   horasMinModificacion: 'El mínimo de horas para modificar',
   horasReembolsoTotal: 'El plazo del reembolso total, en horas,',
@@ -305,6 +318,35 @@ export function leerCambiosDeConfiguracion(
     }
   }
 
+  // T208. El tope de canchas con luz: un entero desde 1, o nulo para apagarlo. Cero no:
+  // "ninguna cancha con luz" es cerrar las canchas de noche, y eso es el horario.
+  if (datos.topeCanchasConLuz !== undefined) {
+    cambios.topeCanchasConLuz =
+      datos.topeCanchasConLuz === null
+        ? null
+        : entero(datos.topeCanchasConLuz, 'El tope de canchas con luz', 1);
+  }
+
+  if (datos.topeCanchasConLuzDesde !== undefined) {
+    cambios.topeCanchasConLuzDesde = horaDelTope(datos.topeCanchasConLuzDesde);
+  }
+
+  // T213. Uno de los tres valores del enum, escrito igual: lo manda el panel.
+  if (datos.duracionesSocioPico !== undefined) {
+    if (
+      !Object.values(DuracionesSocioPico).includes(
+        datos.duracionesSocioPico as DuracionesSocioPico,
+      )
+    ) {
+      throw new BadRequestException(
+        'Las duraciones del socio en horario prime son UNA_HORA, HORA_Y_MEDIA o AMBAS.',
+      );
+    }
+
+    cambios.duracionesSocioPico =
+      datos.duracionesSocioPico as DuracionesSocioPico;
+  }
+
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
   // coordenadas— y se guarda como dos números. Vacío la borra.
   if (datos.ubicacion !== undefined) {
@@ -384,6 +426,20 @@ export function leerHorarios(cuerpo: unknown): DatosHorario[] {
 }
 
 /**
+ * La hora desde la que rige el tope de luz: en punto o y media, como los bordes de la
+ * grilla. Una a las 19:15 cortaría a la mitad un inicio de la grilla.
+ */
+function horaDelTope(valor: unknown): string {
+  if (typeof valor !== 'string' || !/^([01]\d|2[0-3]):(00|30)$/.test(valor)) {
+    throw new BadRequestException(
+      'La hora del tope de canchas con luz va en punto o y media, por ejemplo 19:00 o 19:30.',
+    );
+  }
+
+  return valor;
+}
+
+/**
  * La hora tal como vino, ya comprobada con `minutosDeReloj` — la misma función que
  * usa la grilla, para que lo que el panel acepta y lo que el cálculo entiende no
  * puedan separarse.
@@ -460,7 +516,8 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
         : diaValido(datos.diaSemana),
     horaDesde,
     horaHasta,
-    esPico: datos.esPico === undefined ? false : booleano(datos.esPico, 'Pico'),
+    esPico:
+      datos.esPico === undefined ? false : booleano(datos.esPico, 'Prime'),
     // Cero es legítimo: una cancha puede ser gratis para el club. Negativo no:
     // sería una tarifa que le paga al cliente.
     montoClp: entero(datos.montoClp, 'El monto', 0),
@@ -477,6 +534,16 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
         : fechaDeCuerpo(datos.vigenteHasta, 'El fin de vigencia'),
   };
 }
+
+/**
+ * Los bloqueos que encienden la luz de la cancha (T206): una clase o un partido se juegan.
+ * Una mantención u otro cierre la dejan apagada. Los cuenta el tope de canchas con luz de
+ * `reservas`, y por eso estos dos motivos solo se crean por el cierre de cancha.
+ */
+export const ENCIENDEN_LA_LUZ: MotivoBloqueo[] = [
+  MotivoBloqueo.CLASE,
+  MotivoBloqueo.TORNEO,
+];
 
 export interface DatosBloqueo {
   canchaId: number;

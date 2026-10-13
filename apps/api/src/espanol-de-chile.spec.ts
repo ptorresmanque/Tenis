@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as ts from 'typescript';
 
-import { VOSEO } from '../../web/src/voseo';
+import { PICO_Y_VALLE, VOSEO } from '../../web/src/voseo';
 
 /**
  * El voseo rioplatense tampoco entra por la API.
@@ -43,7 +43,8 @@ describe('Español de Chile en la API', () => {
     expect(archivos.length).toBeGreaterThan(0);
   });
 
-  it('ningún texto de la API usa voseo rioplatense', () => {
+  /** Dónde aparece alguna de estas formas en un literal de texto de la API. */
+  const infractoresDe = (formas: RegExp): string[] => {
     const infractores: string[] = [];
 
     for (const archivo of archivos) {
@@ -55,7 +56,7 @@ describe('Español de Chile en la API', () => {
 
       const revisar = (nodo: ts.Node): void => {
         if (ts.isStringLiteralLike(nodo) || ts.isTemplateLiteralToken(nodo)) {
-          for (const [forma] of nodo.text.matchAll(VOSEO)) {
+          for (const [forma] of nodo.text.matchAll(formas)) {
             const { line } = fuente.getLineAndCharacterOfPosition(
               nodo.getStart(fuente),
             );
@@ -67,6 +68,22 @@ describe('Español de Chile en la API', () => {
       revisar(fuente);
     }
 
-    expect(infractores).toEqual([]);
+    return infractores;
+  };
+
+  it('ningún texto de la API usa voseo rioplatense', () => {
+    expect(infractoresDe(VOSEO)).toEqual([]);
+  });
+
+  it('ningún texto de la API dice "pico" ni "valle": desde el 2026-10-13 son "prime" y "normal" (T209)', () => {
+    expect(infractoresDe(PICO_Y_VALLE)).toEqual([]);
+  });
+
+  it('esa lista distingue la palabra del identificador', () => {
+    // Si el borde dejara pasar `esPico` o `es_pico`, el guardián no se podría cumplir sin
+    // renombrar la base, que el spec descartó.
+    expect('Horario pico'.match(PICO_Y_VALLE)).toEqual(['pico']);
+    expect('Valle'.match(PICO_Y_VALLE)).toEqual(['Valle']);
+    expect('esPico es_pico cupoPicoSemanal'.match(PICO_Y_VALLE)).toBeNull();
   });
 });

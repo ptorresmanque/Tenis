@@ -14,6 +14,8 @@ import {
   ReglasDelClub,
 } from './admin-canchas.service';
 import { Esqueleto } from '../../ui/esqueleto';
+import { EditorPrime } from './editor-prime';
+import { EditorTopeDeLuz } from './editor-tope-de-luz';
 
 interface Regla {
   campo: keyof ReglasDelClub;
@@ -33,8 +35,8 @@ const DE_RESERVA: Regla[] = [
   },
   {
     campo: 'cupoPicoSemanalReservas',
-    etiqueta: 'Cupo semanal en horario pico (reservas)',
-    ayuda: 'Se cuenta de lunes a domingo, solo sobre las franjas marcadas pico.',
+    etiqueta: 'Cupo semanal en horario prime (reservas)',
+    ayuda: 'Se cuenta de lunes a domingo, solo sobre las franjas marcadas prime.',
     minimo: 0,
   },
   {
@@ -124,7 +126,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
  */
 @Component({
   selector: 'app-editor-configuracion',
-  imports: [FormsModule, Esqueleto],
+  imports: [FormsModule, Esqueleto, EditorPrime, EditorTopeDeLuz],
   template: `
     <section class="mt-8" aria-labelledby="titulo-reglas">
       <h2 id="titulo-reglas" class="rotulo-seccion">
@@ -191,6 +193,10 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
         </form>
       }
     </section>
+
+    <app-editor-prime />
+
+    <app-editor-tope-de-luz />
   `,
 })
 export class EditorConfiguracion {

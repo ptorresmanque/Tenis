@@ -28,8 +28,8 @@ export interface Celda {
 export interface FilaDeLaTabla {
   inicio: string;
   fin: string;
-  /** Si todas sus celdas son pico, ninguna, o nulo si difieren y lo dice cada celda. */
-  pico: boolean | null;
+  /** Si todas sus celdas son prime, ninguna, o nulo si difieren y lo dice cada celda. */
+  prime: boolean | null;
   yaPaso: boolean;
   celdas: Celda[];
   /** Las horas propias que ya pasaron, para reportar que nadie las usó (T35). */
@@ -68,12 +68,12 @@ export function tablaDelDia(
   const filas = inicios.map((inicio): FilaDeLaTabla => {
     const franjas = porTipo.map((deUnTipo) => deUnTipo.find((f) => f.inicio === inicio));
     const presentes = franjas.filter((f): f is Franja => f !== undefined);
-    const picos = new Set(presentes.map((f) => f.esPico));
+    const enPrime = new Set(presentes.map((f) => f.esPico));
 
     return {
       inicio,
       fin: presentes[0].fin,
-      pico: picos.size === 1 ? [...picos][0] : null,
+      prime: enPrime.size === 1 ? [...enPrime][0] : null,
       yaPaso: presentes[0].yaPaso,
       celdas: columnas.map((tipo, i) => celdaDe(tipo, franjas[i])),
       reportables: presentes.flatMap((f) => f.reportables),

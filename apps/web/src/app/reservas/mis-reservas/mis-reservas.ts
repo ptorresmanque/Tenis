@@ -99,17 +99,17 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 <app-insignia variante="exito">Confirmada</app-insignia>
               }
               @if (reserva.esPico) {
-                <!-- Ámbar, como el rótulo "Pico" del marcador y de las tarifas. -->
-                <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+                <!-- Ámbar, como el rótulo "Prime" del marcador y de las tarifas. -->
+                <app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia>
               }
             </div>
 
             <!-- La hora en un rótulo, como en la grilla (TV5.3): campo, o ámbar
-                 suave si es hora pico. Es el dato con el que alguien busca su
+                 suave si es hora prime. Es el dato con el que alguien busca su
                  reserva. -->
             <p
               class="rotulo-hora mt-2 inline-flex px-2 py-1 text-2xl"
-              [class.rotulo-hora-pico]="reserva.esPico"
+              [class.rotulo-hora-prime]="reserva.esPico"
             >
               {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
             </p>

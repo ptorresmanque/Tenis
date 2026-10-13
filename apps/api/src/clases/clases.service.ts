@@ -261,6 +261,7 @@ export class Clases {
           await tx.bloqueo.delete({ where: { id: viejo } });
         }
       },
+      { reemplaza: viejo },
     );
 
     return { id, bloqueoId, canceladas };
@@ -515,11 +516,19 @@ export class Clases {
       select: { motivo: true, descripcion: true },
     });
 
-    return choque
-      ? new ConflictException(
-          `Esa cancha ya está cerrada en ese rango: ${choque.descripcion ?? choque.motivo.toLowerCase()}.`,
-        )
-      : null;
+    if (choque) {
+      return new ConflictException(
+        `Esa cancha ya está cerrada en ese rango: ${choque.descripcion ?? choque.motivo.toLowerCase()}.`,
+      );
+    }
+
+    // Una clase enciende la cancha igual que una reserva (T205). En una serie, la fecha que
+    // pasaría el tope sale como choque: cancelar reservas no la libera, porque el tope lo
+    // llenan las otras canchas.
+    return this.cierres.choqueDeLuz(
+      { canchaId, inicio: rango.inicio, fin: rango.fin },
+      exceptoBloqueoId,
+    );
   }
 
   private async elProfesor(id: number): Promise<{ nombreVisible: string }> {

@@ -11,6 +11,7 @@ import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeReserva } from './correos';
 import { EventosDeReserva } from './eventos';
+import { exigirCupoDeLuz, TopeDeLuz } from './tope-de-luz';
 
 /** A dónde vuelve quien pagó, o no, la diferencia de un cambio. */
 export interface VueltaDeDiferencia {
@@ -328,6 +329,23 @@ async function aplicarElCambio(
   });
 
   if (reserva.estado !== EstadoReserva.CONFIRMADA || bloqueada > 0) return;
+
+  // Y el tope de canchas con luz lleno mientras se pagaba (T204): el mismo caso que la
+  // hora tomada por otro. La propia reserva no se cuenta contra su destino.
+  try {
+    await exigirCupoDeLuz(
+      tx,
+      {
+        canchaId: reserva.cambioCanchaId,
+        inicio: reserva.cambioInicio,
+        fin: reserva.cambioFin,
+      },
+      { ignorarReservaId: reservaId },
+    );
+  } catch (error) {
+    if (error instanceof TopeDeLuz) return;
+    throw error;
+  }
 
   try {
     await tx.reserva.update({

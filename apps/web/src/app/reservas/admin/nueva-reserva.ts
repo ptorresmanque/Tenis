@@ -106,10 +106,18 @@ import { TelefonoDirective } from '../../ui/telefono';
               {{ grillas.isLoading() ? 'Cargando las horas libres…' : 'Elige una hora libre' }}
             </option>
             @for (bloque of libres(); track bloque.inicio) {
-              <option [value]="bloque.inicio" [selected]="bloque.inicio === inicio()">
+              <!-- La cancha vacía que ya no se puede encender (T207): se ve y se explica,
+                   para que el mesón no la busque por otro lado. -->
+              <option
+                [value]="bloque.inicio"
+                [selected]="bloque.inicio === inicio()"
+                [disabled]="bloque.topeDeLuz"
+              >
                 {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
-                @if (bloque.esPico) {
-                  · hora pico
+                @if (bloque.topeDeLuz) {
+                  · Tope de luz
+                } @else if (bloque.esPico) {
+                  · hora prime
                 }
               </option>
             }
@@ -158,7 +166,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                   {{ datos.cupoDiarioSocioReservas }}
                 </li>
                 <li>
-                  Reservas pico de la semana: {{ datos.reservasPicoDeLaSemana }} de
+                  Reservas prime de la semana: {{ datos.reservasPicoDeLaSemana }} de
                   {{ datos.cupoPicoSemanalReservas }}
                 </li>
                 <li>
@@ -309,7 +317,8 @@ export class NuevaReserva {
   );
 
   /**
-   * Las horas que quedan libres en la cancha elegida.
+   * Las horas que quedan libres en la cancha elegida, y las que el tope de canchas con luz
+   * deja vacías, que se muestran deshabilitadas (T207).
    *
    * La que está corriendo sí se ofrece: el mesón la puede vender a quien llega a
    * jugar ahora. La que ya terminó no, porque la API la rechaza
@@ -322,7 +331,9 @@ export class NuevaReserva {
     return (grilla?.bloques ?? []).filter(
       (bloque) =>
         !bloque.bloqueado &&
-        !bloque.reservado &&
+        (!bloque.reservado || bloque.topeDeLuz) &&
+        // Al socio, la duración que el club no le permite en prime no se le ofrece (T213).
+        !(this.paraQuien() === 'socio' && bloque.socioPuede === false) &&
         new Date(bloque.fin).getTime() > Date.now(),
     );
   });
