@@ -19,6 +19,7 @@ describe('ProfesoresPanel', () => {
     especialidad: 'Iniciación',
     tarifaHoraClp: 18000,
     activo: true,
+    usuarioId: null,
   };
 
   let fixture: ComponentFixture<ProfesoresPanel>;

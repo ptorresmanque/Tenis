@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
 import { diaConAnioEnPalabras, fechaEnElClub } from '../../catalogo-canchas/reloj-del-club';
+import { Profesores } from '../../clases/profesores.service';
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { TelefonoPipe } from '../../core/telefono';
@@ -10,6 +11,7 @@ import { Aviso } from '../../ui/aviso';
 import { Campo, CampoControl } from '../../ui/campo';
 import { Esqueleto } from '../../ui/esqueleto';
 import { Insignia } from '../../ui/insignia';
+import { AltaDeSocio, Socios } from './socios.service';
 import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 
 /**
@@ -20,6 +22,10 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
  * se queda sin admins— viven en el servidor, y esta pantalla anticipa la primera
  * desactivando la casilla propia. Si el servidor igual rechaza algo, se lee su mensaje y
  * la casilla vuelve a como estaba.
+ *
+ * **Socio y profesor son fichas** y se dan desde la fila con los endpoints de sus
+ * módulos (T224): la invitación de Socios, que con un correo que ya tiene cuenta crea la
+ * ficha en el acto, y la cuenta de la ficha de `clases`.
  */
 @Component({
   selector: 'app-usuarios',
@@ -124,6 +130,138 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                   <span class="sr-only">: {{ usuario.nombre }} {{ usuario.apellido }}</span>
                 </label>
               </div>
+
+              <div class="flex basis-full flex-wrap gap-2">
+                @if (!usuario.socio) {
+                  <button
+                    type="button"
+                    class="boton boton-secundario boton-chico"
+                    [disabled]="trabajando()"
+                    (click)="abrir(usuario, 'socio')"
+                  >
+                    Hacer socio
+                    <span class="sr-only">a {{ usuario.nombre }} {{ usuario.apellido }}</span>
+                  </button>
+                }
+                @if (usuario.profesor; as profesor) {
+                  <button
+                    type="button"
+                    class="boton boton-texto boton-chico"
+                    [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'quitar-' + usuario.id"
+                    (click)="quitarProfesor(usuario, profesor.id)"
+                  >
+                    Quitar profesor
+                    <span class="sr-only">a {{ usuario.nombre }} {{ usuario.apellido }}</span>
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="boton boton-secundario boton-chico"
+                    [disabled]="trabajando()"
+                    (click)="abrir(usuario, 'profesor')"
+                  >
+                    Hacer profesor
+                    <span class="sr-only">a {{ usuario.nombre }} {{ usuario.apellido }}</span>
+                  </button>
+                }
+              </div>
+
+              @if (abierta(); as abierta) {
+                @if (abierta.id === usuario.id && abierta.accion === 'socio') {
+                  <form
+                    class="flex basis-full flex-wrap items-end gap-3"
+                    (ngSubmit)="hacerSocio(usuario)"
+                  >
+                    <app-campo etiqueta="Número de socio (opcional)" class="min-w-48">
+                      <input
+                        appCampoControl
+                        name="numero-socio"
+                        class="campo"
+                        [(ngModel)]="numeroSocio"
+                      />
+                    </app-campo>
+                    <button
+                      type="submit"
+                      class="boton boton-primario boton-chico"
+                      [disabled]="trabajando()"
+                      [attr.aria-busy]="enCurso() === 'socio-' + usuario.id"
+                    >
+                      Confirmar
+                    </button>
+                    <button type="button" class="boton boton-texto boton-chico" (click)="cerrar()">
+                      Cancelar
+                    </button>
+                    <p class="basis-full text-sm text-muted-foreground">
+                      Sin número se le da el siguiente, y queda al día hasta fin de mes. El resto de
+                      la ficha se cambia en Socios.
+                    </p>
+                  </form>
+                }
+                @if (abierta.id === usuario.id && abierta.accion === 'profesor') {
+                  <form
+                    class="grid basis-full gap-3 sm:grid-cols-2"
+                    (ngSubmit)="hacerProfesor(usuario)"
+                  >
+                    <label class="block sm:col-span-2">
+                      <span class="text-sm font-medium">Ficha de profesor</span>
+                      <select class="campo mt-1" name="ficha" [(ngModel)]="ficha">
+                        <option value="" disabled>Elige una ficha</option>
+                        @for (sinCuenta of fichasSinCuenta(); track sinCuenta.id) {
+                          <option [value]="sinCuenta.id">
+                            {{ sinCuenta.nombreVisible }} · {{ sinCuenta.especialidad }}
+                          </option>
+                        }
+                        <option value="nueva">Crear una ficha nueva</option>
+                      </select>
+                    </label>
+                    @if (ficha === 'nueva') {
+                      <app-campo etiqueta="Nombre con que se anuncia">
+                        <input
+                          appCampoControl
+                          name="nombre-visible"
+                          class="campo"
+                          [(ngModel)]="fichaNueva.nombreVisible"
+                        />
+                      </app-campo>
+                      <app-campo etiqueta="Teléfono">
+                        <input
+                          appCampoControl
+                          name="telefono"
+                          type="tel"
+                          class="campo"
+                          [(ngModel)]="fichaNueva.telefono"
+                        />
+                      </app-campo>
+                      <app-campo etiqueta="Especialidad" class="sm:col-span-2">
+                        <input
+                          appCampoControl
+                          name="especialidad"
+                          class="campo"
+                          [(ngModel)]="fichaNueva.especialidad"
+                        />
+                      </app-campo>
+                    }
+                    <div class="flex flex-wrap gap-2 sm:col-span-2">
+                      <button
+                        type="submit"
+                        class="boton boton-primario boton-chico"
+                        [disabled]="trabajando()"
+                        [attr.aria-busy]="enCurso() === 'profesor-' + usuario.id"
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        class="boton boton-texto boton-chico"
+                        (click)="cerrar()"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                }
+              }
             </li>
           }
         </ul>
@@ -157,6 +295,8 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 })
 export class UsuariosPanel {
   private readonly api = inject(Usuarios);
+  private readonly socios = inject(Socios);
+  private readonly profesores = inject(Profesores);
 
   protected readonly yo = inject(Auth).usuario;
 
@@ -165,6 +305,8 @@ export class UsuariosPanel {
   protected readonly pagina = signal(1);
 
   protected readonly trabajando = signal(false);
+  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
+  protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly aviso = signal<string | null>(null);
 
@@ -173,10 +315,108 @@ export class UsuariosPanel {
     loader: ({ params }) => this.api.listar(params.q, params.pagina),
   });
 
+  /** Qué fila tiene abierto su formulario, y cuál. Una a la vez. */
+  protected readonly abierta = signal<{ id: number; accion: 'socio' | 'profesor' } | null>(null);
+  protected numeroSocio = '';
+  /** El id de una ficha sin cuenta, `'nueva'` o vacío. */
+  protected ficha = '';
+  protected fichaNueva = { nombreVisible: '', telefono: '', especialidad: '' };
+
+  /** Las fichas que no tienen cuenta: las únicas que se pueden vincular. Solo al abrir. */
+  private readonly todasLasFichas = resource({
+    params: () => (this.abierta()?.accion === 'profesor' ? true : undefined),
+    loader: () => this.profesores.listar(),
+  });
+  protected readonly fichasSinCuenta = computed(() =>
+    (this.todasLasFichas.hasValue() ? this.todasLasFichas.value() : []).filter(
+      (ficha) => ficha.usuarioId === null,
+    ),
+  );
+
   protected readonly paginas = computed(() => {
     const listado = this.listado.hasValue() ? this.listado.value() : null;
     return listado ? Math.max(1, Math.ceil(listado.total / listado.porPagina)) : 1;
   });
+
+  protected abrir(usuario: UsuarioDeLaLista, accion: 'socio' | 'profesor'): void {
+    this.numeroSocio = '';
+    this.ficha = '';
+    this.fichaNueva = {
+      nombreVisible: `${usuario.nombre} ${usuario.apellido}`,
+      telefono: usuario.telefono ?? '',
+      especialidad: '',
+    };
+    this.abierta.set({ id: usuario.id, accion });
+  }
+
+  protected cerrar(): void {
+    this.abierta.set(null);
+  }
+
+  /** La invitación de Socios: con un correo que ya tiene cuenta, la ficha nace al tiro. */
+  protected async hacerSocio(usuario: UsuarioDeLaLista): Promise<void> {
+    const datos: AltaDeSocio = { email: usuario.email };
+    if (this.numeroSocio.trim()) datos.numeroSocio = this.numeroSocio.trim();
+
+    await this.hacer(
+      `socio-${usuario.id}`,
+      () => this.socios.invitar(datos),
+      `${usuario.nombre} ${usuario.apellido} ya tiene ficha de socio.`,
+    );
+  }
+
+  protected async hacerProfesor(usuario: UsuarioDeLaLista): Promise<void> {
+    if (this.ficha === '') {
+      this.error.set('Elige una ficha o crea una nueva.');
+      return;
+    }
+
+    await this.hacer(
+      `profesor-${usuario.id}`,
+      () =>
+        this.ficha === 'nueva'
+          ? this.profesores.crear({ ...this.fichaNueva, tarifaHoraClp: null }, usuario.id)
+          : this.profesores.vincular(Number(this.ficha), usuario.id),
+      `${usuario.nombre} ${usuario.apellido} ya entra a Clases.`,
+    );
+  }
+
+  /** Desvincula: la ficha y sus clases quedan, y la persona deja de entrar a Clases. */
+  protected async quitarProfesor(usuario: UsuarioDeLaLista, fichaId: number): Promise<void> {
+    const nombre = `${usuario.nombre} ${usuario.apellido}`;
+    if (
+      !window.confirm(
+        `¿Quitarle Clases a ${nombre}? La ficha y sus clases quedan; solo deja de entrar.`,
+      )
+    ) {
+      return;
+    }
+
+    await this.hacer(
+      `quitar-${usuario.id}`,
+      () => this.profesores.desvincular(fichaId),
+      `${nombre} ya no entra a Clases.`,
+    );
+  }
+
+  private async hacer(clave: string, accion: () => Promise<unknown>, exito: string): Promise<void> {
+    this.error.set(null);
+    this.aviso.set(null);
+    this.trabajando.set(true);
+    this.enCurso.set(clave);
+
+    try {
+      await accion();
+      this.aviso.set(exito);
+      this.abierta.set(null);
+      this.listado.reload();
+    } catch (falla) {
+      this.error.set(mensajeDelServidor(falla, 'No se pudo guardar el cambio.'));
+    } finally {
+      this.trabajando.set(false);
+      this.enCurso.set(null);
+    }
+  }
 
   protected desde(instante: string): string {
     return diaConAnioEnPalabras(fechaEnElClub(instante));

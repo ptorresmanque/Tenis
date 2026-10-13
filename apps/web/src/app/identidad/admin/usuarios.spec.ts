@@ -3,7 +3,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Profesores } from '../../clases/profesores.service';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
+import { Socios } from './socios.service';
 import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 import { UsuariosPanel } from './usuarios';
 
@@ -65,6 +67,13 @@ describe('UsuariosPanel', () => {
 
   let fixture: ComponentFixture<UsuariosPanel>;
   let api: { listar: ReturnType<typeof vi.fn>; cambiar: ReturnType<typeof vi.fn> };
+  let socios: { invitar: ReturnType<typeof vi.fn> };
+  let profesores: {
+    listar: ReturnType<typeof vi.fn>;
+    crear: ReturnType<typeof vi.fn>;
+    vincular: ReturnType<typeof vi.fn>;
+    desvincular: ReturnType<typeof vi.fn>;
+  };
 
   const el = () => fixture.nativeElement as HTMLElement;
   const texto = () => el().textContent?.replace(/\s+/g, ' ') ?? '';
@@ -80,12 +89,25 @@ describe('UsuariosPanel', () => {
       listar: vi.fn().mockResolvedValue({ usuarios, total, pagina: 1, porPagina: 50 }),
       cambiar: vi.fn().mockResolvedValue({}),
     };
+    socios = { invitar: vi.fn().mockResolvedValue({}) };
+    profesores = {
+      // Una ficha sin cuenta y otra que ya tiene: solo la primera se ofrece.
+      listar: vi.fn().mockResolvedValue([
+        { id: 9, nombreVisible: 'Profe Sin Cuenta', especialidad: 'Niños', usuarioId: null },
+        { id: 8, nombreVisible: 'Profe Con Cuenta', especialidad: 'Niños', usuarioId: 55 },
+      ]),
+      crear: vi.fn().mockResolvedValue({ id: 10 }),
+      vincular: vi.fn().mockResolvedValue({ id: 9 }),
+      desvincular: vi.fn().mockResolvedValue({ id: 4 }),
+    };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: Usuarios, useValue: api },
+        { provide: Socios, useValue: socios },
+        { provide: Profesores, useValue: profesores },
         { provide: Auth, useValue: { usuario: signal(YO).asReadonly() } },
       ],
     });
@@ -169,5 +191,112 @@ describe('UsuariosPanel', () => {
     await montar([], 0);
 
     expect(texto()).toContain('No hay usuarios con esa búsqueda.');
+  });
+
+  /** T224. Socio y profesor son fichas: se dan desde la fila, con sus propios endpoints. */
+  describe('hacer socio y hacer profesor', () => {
+    const filaDe = (nombre: string) =>
+      [...el().querySelectorAll('main li, li')].find((li) => li.textContent?.includes(nombre))!;
+    const apretar = async (dentro: Element, etiqueta: string) => {
+      [...dentro.querySelectorAll('button')]
+        .find((b) => b.textContent?.trim().startsWith(etiqueta))!
+        .click();
+      await esperar();
+    };
+    const escribir = async (dentro: Element, selector: string, valor: string) => {
+      const campo = dentro.querySelector<HTMLInputElement | HTMLSelectElement>(selector)!;
+      campo.value = valor;
+      campo.dispatchEvent(new Event(campo instanceof HTMLSelectElement ? 'change' : 'input'));
+      await esperar();
+    };
+
+    it('"Hacer socio" manda la invitación con su correo y el número, y recarga (28)', async () => {
+      const ana = filaDe('Ana Silva');
+      await apretar(ana, 'Hacer socio');
+      await escribir(ana, 'input[name="numero-socio"]', '010');
+      await apretar(ana, 'Confirmar');
+
+      expect(socios.invitar).toHaveBeenCalledWith({
+        email: 'ana@ejemplo.cl',
+        numeroSocio: '010',
+      });
+      expect(api.listar).toHaveBeenCalledTimes(2);
+      expect(texto()).toContain('Ana Silva ya tiene ficha de socio.');
+    });
+
+    it('sin número, el servidor pone el siguiente', async () => {
+      const ana = filaDe('Ana Silva');
+      await apretar(ana, 'Hacer socio');
+      await apretar(ana, 'Confirmar');
+
+      expect(socios.invitar).toHaveBeenCalledWith({ email: 'ana@ejemplo.cl' });
+    });
+
+    it('a quien ya es socio no le ofrece "Hacer socio"', () => {
+      expect(filaDe('Camila Rojas').textContent).not.toContain('Hacer socio');
+    });
+
+    it('"Hacer profesor" ofrece solo las fichas sin cuenta, y vincula la elegida (29)', async () => {
+      const camila = filaDe('Camila Rojas');
+      await apretar(camila, 'Hacer profesor');
+
+      const opciones = [
+        ...camila.querySelectorAll<HTMLOptionElement>('select[name="ficha"] option'),
+      ].map((opcion) => opcion.textContent?.trim());
+      expect(opciones).toContain('Profe Sin Cuenta · Niños');
+      expect(opciones).not.toContain('Profe Con Cuenta · Niños');
+
+      await escribir(camila, 'select[name="ficha"]', '9');
+      await apretar(camila, 'Confirmar');
+
+      expect(profesores.vincular).toHaveBeenCalledWith(9, 2);
+      expect(texto()).toContain('Camila Rojas ya entra a Clases.');
+    });
+
+    it('o crea una ficha nueva con su nombre y su teléfono, y la especialidad que se escriba', async () => {
+      const camila = filaDe('Camila Rojas');
+      await apretar(camila, 'Hacer profesor');
+      await escribir(camila, 'select[name="ficha"]', 'nueva');
+
+      expect(camila.querySelector<HTMLInputElement>('input[name="nombre-visible"]')!.value).toBe(
+        'Camila Rojas',
+      );
+      await escribir(camila, 'input[name="especialidad"]', 'Competitivo');
+      await apretar(camila, 'Confirmar');
+
+      expect(profesores.crear).toHaveBeenCalledWith(
+        {
+          nombreVisible: 'Camila Rojas',
+          telefono: '56911112222',
+          especialidad: 'Competitivo',
+          tarifaHoraClp: null,
+        },
+        2,
+      );
+    });
+
+    it('"Quitar profesor" pregunta antes, y desvincula sin borrar la ficha (30)', async () => {
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+      await apretar(filaDe('Ana Silva'), 'Quitar profesor');
+
+      expect(confirmar.mock.calls[0][0]).toContain('La ficha y sus clases quedan');
+      expect(profesores.desvincular).toHaveBeenCalledWith(4);
+      expect(texto()).toContain('Ana Silva ya no entra a Clases.');
+      confirmar.mockRestore();
+    });
+
+    it('si otro ya vinculó esa ficha, dice el 409', async () => {
+      profesores.vincular.mockRejectedValue({
+        status: 409,
+        error: { message: 'Esta ficha ya tiene una cuenta.' },
+      });
+      const camila = filaDe('Camila Rojas');
+      await apretar(camila, 'Hacer profesor');
+      await escribir(camila, 'select[name="ficha"]', '9');
+      await apretar(camila, 'Confirmar');
+
+      expect(texto()).toContain('Esta ficha ya tiene una cuenta.');
+    });
   });
 });

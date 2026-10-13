@@ -81,6 +81,7 @@ describe('AgendaDeClases', () => {
         telefono: '',
         tarifaHoraClp: null,
         activo: true,
+        usuarioId: null,
       },
     ]);
     // La lista pública, que el servidor ya da sin las canchas desactivadas (T222).
