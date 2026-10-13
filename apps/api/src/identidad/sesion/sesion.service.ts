@@ -81,8 +81,9 @@ export class SesionService {
             // lo que la cuenta ya sabe.
             telefono: true,
             esAdmin: true,
+            esGestor: true,
             socio: { select: { id: true, estado: true, alDiaHasta: true } },
-            profesor: { select: { id: true } },
+            profesor: { select: { id: true, activo: true } },
           },
         },
       },

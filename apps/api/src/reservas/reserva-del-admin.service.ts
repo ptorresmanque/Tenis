@@ -153,6 +153,7 @@ export class ReservaDelAdminService {
       email: socio.usuario.email,
       telefono: socio.usuario.telefono,
       esAdmin: false,
+      esGestor: false,
       socioId: socio.id,
       socioActivo: socio.estado === EstadoSocio.ACTIVO,
       // Con la regla de la sesión y no con una copia: `alDiaHasta` es `DATE` y ya

@@ -5,9 +5,11 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  SetMetadata,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 
 import { hoyEnElClub } from '../comun/tiempo';
@@ -99,6 +101,44 @@ export class GuardDeSocio implements CanActivate {
   }
 }
 
+/** Los tipos del panel que no son admin. El admin pasa siempre (SPEC-identidad.md). */
+export type TipoDelPanel = 'gestor' | 'profesor';
+
+const TIPOS = 'tiposDelPanel';
+
+/**
+ * Deja pasar al admin y a quien tenga alguno de los tipos de la lista.
+ *
+ * **La lista del método reemplaza a la de la clase** (`getAllAndOverride`): con
+ * `@AdminO('profesor')` en el controlador y `@AdminO('gestor', 'profesor')` en un
+ * método, Nest corre el guard dos veces, y si cada turno leyera su propia lista el
+ * gestor rebotaría en el de la clase. Así los dos turnos leen la misma.
+ */
+@Injectable()
+export class GuardDeTipos implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(contexto: ExecutionContext): boolean {
+    const yo = usuarioDe(contexto);
+    const tipos =
+      this.reflector.getAllAndOverride<TipoDelPanel[]>(TIPOS, [
+        contexto.getHandler(),
+        contexto.getClass(),
+      ]) ?? [];
+
+    const pasa =
+      yo.esAdmin ||
+      (tipos.includes('gestor') && yo.esGestor) ||
+      (tipos.includes('profesor') && yo.profesorId !== null);
+
+    if (!pasa) {
+      throw new ForbiddenException('Tu cuenta no tiene acceso a esto.');
+    }
+
+    return true;
+  }
+}
+
 /** Hay que haber entrado. Nada más. */
 export const Autenticado = () => UseGuards(GuardDeSesion);
 
@@ -107,6 +147,13 @@ export const SesionOpcional = () => UseGuards(GuardDeSesionOpcional);
 
 export const SoloAdmin = () =>
   applyDecorators(UseGuards(GuardDeSesion, GuardDeAdmin));
+
+/** `@AdminO('gestor')`, `@AdminO('profesor')` o `@AdminO('gestor', 'profesor')`. */
+export const AdminO = (...tipos: TipoDelPanel[]) =>
+  applyDecorators(
+    SetMetadata(TIPOS, tipos),
+    UseGuards(GuardDeSesion, GuardDeTipos),
+  );
 
 export const SoloSocio = () =>
   applyDecorators(UseGuards(GuardDeSesion, GuardDeSocio));
