@@ -137,7 +137,9 @@ describe('NuevaSerie', () => {
 
     expect(api.simularSerie).toHaveBeenCalledWith(
       expect.objectContaining({
+        tipo: 'TENIS',
         profesorId: 4,
+        nivel: 'INICIACION',
         dias: [
           { diaSemana: 2, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
           { diaSemana: 4, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
@@ -344,6 +346,58 @@ describe('NuevaSerie', () => {
       '',
     );
     expect(boton('Agendar serie').disabled).toBe(true);
+  });
+
+  /** T233. La serie del gimnasio: sus días sin cancha, sin nivel, y grupal o individual. */
+  describe('preparación física', () => {
+    const enviada = () => api.simularSerie.mock.calls[0][0] as Record<string, unknown>;
+
+    beforeEach(async () => {
+      api.simularSerie.mockResolvedValue({ fechas: [] });
+      await marcar('Preparación física');
+      await escribir('select[name="serie-profesor"]', '4');
+      await marcar('Lunes');
+    });
+
+    it('**los días no piden cancha, no hay nivel, y la serie viaja con su tipo y sin ellos**', async () => {
+      expect(el().querySelector('select[name="serie-cancha-1"]')).toBeNull();
+      expect(el().querySelector('select[name="serie-nivel"]')).toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(enviada()).toMatchObject({
+        tipo: 'PREPARACION_FISICA',
+        dias: [{ diaSemana: 1, horaDesde: '19:00', horaHasta: '20:00' }],
+        cupoMaximo: 6,
+      });
+      expect((enviada()['dias'] as object[])[0]).not.toHaveProperty('canchaId');
+      expect(enviada()).not.toHaveProperty('nivel');
+    });
+
+    it('"Individual" manda un alumno, y no pregunta el cupo', async () => {
+      await marcar('Individual');
+
+      expect(el().querySelector('input[name="serie-cupo"]')).toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(enviada()).toMatchObject({ cupoMaximo: 1 });
+    });
+
+    it('**volviendo a "Tenis", el día vuelve a pedir su cancha**', async () => {
+      await marcar('Tenis');
+
+      expect(el().querySelector('select[name="serie-cancha-1"]')).not.toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      // Sin cancha elegida, lo dice antes de llamar.
+      expect(api.simularSerie).not.toHaveBeenCalled();
+      expect(texto()).toContain('Elige la cancha del lunes.');
+    });
   });
 
   /** T222. El profesor arma su propia serie: no elige profesor ni cancela reservas. */

@@ -14,7 +14,14 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { ClaseDelDia, ClaseNueva, Clases, NivelClase, NIVELES } from '../clases.service';
+import {
+  ClaseDelDia,
+  ClaseNueva,
+  Clases,
+  NivelClase,
+  NIVELES,
+  TipoClase,
+} from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { InscritosDeLaClase } from './inscritos';
 import { NuevaSerie } from './nueva-serie';
@@ -24,6 +31,9 @@ import { Esqueleto } from '../../ui/esqueleto';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
+  tipo: 'TENIS' as TipoClase,
+  /** Solo en el gimnasio: la individual es de un alumno y no pregunta el cupo (T233). */
+  modalidad: 'grupal' as 'grupal' | 'individual',
   canchaId: 0,
   profesorId: 0,
   horaDesde: '18:00',
@@ -197,7 +207,10 @@ const enBlanco = () => ({
     <form class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="agendar()">
       <h2 class="rotulo-seccion">Agendar una clase</h2>
       <p class="mt-2 text-sm text-muted-foreground">
-        @if (profesorFijo() === null) {
+        @if (datos.tipo === 'PREPARACION_FISICA') {
+          En el gimnasio: no cierra ninguna cancha. Es una clase a la vez, y si se cruza con
+          otra te lo decimos.
+        } @else if (profesorFijo() === null) {
           La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos antes de
           confirmar.
         } @else {
@@ -207,15 +220,42 @@ const enBlanco = () => ({
       </p>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-sm font-medium">Cancha</span>
-          <select class="campo mt-1" name="canchaId" [(ngModel)]="datos.canchaId">
-            <option [value]="0" disabled>Elige una cancha</option>
-            @for (cancha of canchasActivas(); track cancha.id) {
-              <option [value]="cancha.id">{{ cancha.nombre }}</option>
-            }
-          </select>
-        </label>
+        <!-- T233. Primero el tipo: la clase del gimnasio no lleva cancha ni nivel. -->
+        <fieldset class="sm:col-span-2">
+          <legend class="text-sm font-medium">Tipo de clase</legend>
+          <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+            <label class="inline-flex min-h-11 items-center gap-2">
+              <input
+                type="radio"
+                class="size-5"
+                name="tipo"
+                value="TENIS"
+                [(ngModel)]="datos.tipo"
+              />Tenis</label
+            >
+            <label class="inline-flex min-h-11 items-center gap-2">
+              <input
+                type="radio"
+                class="size-5"
+                name="tipo"
+                value="PREPARACION_FISICA"
+                [(ngModel)]="datos.tipo"
+              />Preparación física</label
+            >
+          </div>
+        </fieldset>
+
+        @if (datos.tipo === 'TENIS') {
+          <label class="block">
+            <span class="text-sm font-medium">Cancha</span>
+            <select class="campo mt-1" name="canchaId" [(ngModel)]="datos.canchaId">
+              <option [value]="0" disabled>Elige una cancha</option>
+              @for (cancha of canchasActivas(); track cancha.id) {
+                <option [value]="cancha.id">{{ cancha.nombre }}</option>
+              }
+            </select>
+          </label>
+        }
 
         <!-- El profesor agenda a su nombre (T222): no elige. -->
         @if (profesorFijo() === null) {
@@ -263,26 +303,55 @@ const enBlanco = () => ({
           />
         </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Nivel</span>
-          <select class="campo mt-1" name="nivel" [(ngModel)]="datos.nivel">
-            @for (opcion of opcionesDeNivel; track opcion.valor) {
-              <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
-            }
-          </select>
-        </label>
+        @if (datos.tipo === 'TENIS') {
+          <label class="block">
+            <span class="text-sm font-medium">Nivel</span>
+            <select class="campo mt-1" name="nivel" [(ngModel)]="datos.nivel">
+              @for (opcion of opcionesDeNivel; track opcion.valor) {
+                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+              }
+            </select>
+          </label>
+        } @else {
+          <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
+          <fieldset>
+            <legend class="text-sm font-medium">Modalidad</legend>
+            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+              <label class="inline-flex min-h-11 items-center gap-2">
+                <input
+                  type="radio"
+                  class="size-5"
+                  name="modalidad"
+                  value="grupal"
+                  [(ngModel)]="datos.modalidad"
+                />Grupal</label
+              >
+              <label class="inline-flex min-h-11 items-center gap-2">
+                <input
+                  type="radio"
+                  class="size-5"
+                  name="modalidad"
+                  value="individual"
+                  [(ngModel)]="datos.modalidad"
+                />Individual</label
+              >
+            </div>
+          </fieldset>
+        }
 
-        <label class="block">
-          <span class="text-sm font-medium">Cupo</span>
-          <input
-            class="campo mt-1"
-            type="number"
-            name="cupoMaximo"
-            min="1"
-            max="40"
-            [(ngModel)]="datos.cupoMaximo"
-          />
-        </label>
+        @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
+          <label class="block">
+            <span class="text-sm font-medium">Cupo</span>
+            <input
+              class="campo mt-1"
+              type="number"
+              name="cupoMaximo"
+              [min]="datos.tipo === 'TENIS' ? 1 : 2"
+              max="40"
+              [(ngModel)]="datos.cupoMaximo"
+            />
+          </label>
+        }
 
         <label class="block sm:col-span-2">
           <span class="text-sm font-medium">Notas</span>
@@ -541,27 +610,38 @@ export class AgendaDeClases {
   }
 
   private async crear(): Promise<void> {
-    const { canceladas } = await this.api.agendar(this.formulario());
+    const clase = this.formulario();
+    const { canceladas } = await this.api.agendar(clase);
 
     this.porConfirmar.set(null);
     this.datos = enBlanco();
-    this.aviso.set(
-      canceladas.length === 0
-        ? 'Clase agendada. La cancha queda cerrada esa hora.'
-        : canceladas.length === 1
-          ? 'Clase agendada. Avisamos a la persona que tenía esa hora.'
-          : `Clase agendada. Avisamos a las ${canceladas.length} personas que tenían esa hora.`,
-    );
+    this.aviso.set(agendada(clase, canceladas.length));
   }
 
   private formulario(): ClaseNueva {
-    return {
-      ...this.datos,
+    const ficha = {
       // Los `select` devuelven texto aunque el valor sea un número.
-      canchaId: Number(this.datos.canchaId),
       profesorId: this.profesorFijo() ?? Number(this.datos.profesorId),
-      cupoMaximo: Number(this.datos.cupoMaximo),
       fecha: this.fecha(),
+      horaDesde: this.datos.horaDesde,
+      horaHasta: this.datos.horaHasta,
+      notas: this.datos.notas,
+    };
+
+    if (this.datos.tipo === 'PREPARACION_FISICA') {
+      return {
+        ...ficha,
+        tipo: 'PREPARACION_FISICA',
+        cupoMaximo: this.datos.modalidad === 'individual' ? 1 : Number(this.datos.cupoMaximo),
+      };
+    }
+
+    return {
+      ...ficha,
+      tipo: 'TENIS',
+      canchaId: Number(this.datos.canchaId),
+      nivel: this.datos.nivel,
+      cupoMaximo: Number(this.datos.cupoMaximo),
     };
   }
 
@@ -583,4 +663,14 @@ export class AgendaDeClases {
       this.enCurso.set(null);
     }
   }
+}
+
+/** Lo que dice la agenda al agendar: dónde quedó la clase y a cuántos se avisó. */
+function agendada(clase: ClaseNueva, canceladas: number): string {
+  if (clase.tipo === 'PREPARACION_FISICA') return 'Clase agendada en el gimnasio.';
+  if (canceladas === 0) return 'Clase agendada. La cancha queda cerrada esa hora.';
+
+  return canceladas === 1
+    ? 'Clase agendada. Avisamos a la persona que tenía esa hora.'
+    : `Clase agendada. Avisamos a las ${canceladas} personas que tenían esa hora.`;
 }

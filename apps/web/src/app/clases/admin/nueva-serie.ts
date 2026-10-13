@@ -12,6 +12,7 @@ import {
   NivelClase,
   NIVELES,
   SerieNueva,
+  TipoClase,
 } from '../clases.service';
 import { CampoFecha } from '../../ui/campo-fecha';
 import { CampoHora } from '../../ui/campo-hora';
@@ -35,6 +36,9 @@ const DIAS = [
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
+  tipo: 'TENIS' as TipoClase,
+  /** Solo en el gimnasio: la individual es de un alumno y no pregunta el cupo (T233). */
+  modalidad: 'grupal' as 'grupal' | 'individual',
   profesorId: 0,
   /** Un renglón por día marcado, en el orden de la semana (T230). */
   dias: [] as DiaDeLaSerie[],
@@ -68,6 +72,32 @@ const enBlanco = () => ({
       </p>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <!-- T233. Una serie no mezcla tipos: de tenis, con una cancha por día, o todos sus
+             días al gimnasio. -->
+        <fieldset class="sm:col-span-2">
+          <legend class="text-sm font-medium">Tipo de clase</legend>
+          <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+            <label class="inline-flex min-h-11 items-center gap-2">
+              <input
+                type="radio"
+                class="size-5"
+                name="serie-tipo"
+                value="TENIS"
+                [(ngModel)]="datos.tipo"
+              />Tenis</label
+            >
+            <label class="inline-flex min-h-11 items-center gap-2">
+              <input
+                type="radio"
+                class="size-5"
+                name="serie-tipo"
+                value="PREPARACION_FISICA"
+                [(ngModel)]="datos.tipo"
+              />Preparación física</label
+            >
+          </div>
+        </fieldset>
+
         <!-- El profesor arma su serie a su nombre (T222): no elige. -->
         @if (profesorFijo() === null) {
           <label class="block">
@@ -135,21 +165,23 @@ const enBlanco = () => ({
                 />
               </div>
 
-              <label class="block min-w-40 flex-1">
-                <span class="block text-sm">Cancha</span>
-                <select
-                  class="campo mt-1"
-                  [name]="'serie-cancha-' + dia.diaSemana"
-                  [attr.name]="'serie-cancha-' + dia.diaSemana"
-                  [(ngModel)]="dia.canchaId"
-                  (ngModelChange)="tocar(dia)"
-                >
-                  <option [value]="0" disabled>Elige una cancha</option>
-                  @for (cancha of canchas(); track cancha.id) {
-                    <option [value]="cancha.id">{{ cancha.nombre }}</option>
-                  }
-                </select>
-              </label>
+              @if (datos.tipo === 'TENIS') {
+                <label class="block min-w-40 flex-1">
+                  <span class="block text-sm">Cancha</span>
+                  <select
+                    class="campo mt-1"
+                    [name]="'serie-cancha-' + dia.diaSemana"
+                    [attr.name]="'serie-cancha-' + dia.diaSemana"
+                    [(ngModel)]="dia.canchaId"
+                    (ngModelChange)="tocar(dia)"
+                  >
+                    <option [value]="0" disabled>Elige una cancha</option>
+                    @for (cancha of canchas(); track cancha.id) {
+                      <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                    }
+                  </select>
+                </label>
+              }
             </div>
           </fieldset>
         }
@@ -176,26 +208,55 @@ const enBlanco = () => ({
           />
         </div>
 
-        <label class="block">
-          <span class="text-sm font-medium">Nivel</span>
-          <select class="campo mt-1" name="serie-nivel" [(ngModel)]="datos.nivel">
-            @for (opcion of opcionesDeNivel; track opcion.valor) {
-              <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
-            }
-          </select>
-        </label>
+        @if (datos.tipo === 'TENIS') {
+          <label class="block">
+            <span class="text-sm font-medium">Nivel</span>
+            <select class="campo mt-1" name="serie-nivel" [(ngModel)]="datos.nivel">
+              @for (opcion of opcionesDeNivel; track opcion.valor) {
+                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+              }
+            </select>
+          </label>
+        } @else {
+          <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
+          <fieldset>
+            <legend class="text-sm font-medium">Modalidad</legend>
+            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
+              <label class="inline-flex min-h-11 items-center gap-2">
+                <input
+                  type="radio"
+                  class="size-5"
+                  name="serie-modalidad"
+                  value="grupal"
+                  [(ngModel)]="datos.modalidad"
+                />Grupal</label
+              >
+              <label class="inline-flex min-h-11 items-center gap-2">
+                <input
+                  type="radio"
+                  class="size-5"
+                  name="serie-modalidad"
+                  value="individual"
+                  [(ngModel)]="datos.modalidad"
+                />Individual</label
+              >
+            </div>
+          </fieldset>
+        }
 
-        <label class="block">
-          <span class="text-sm font-medium">Cupo</span>
-          <input
-            class="campo mt-1"
-            type="number"
-            min="1"
-            max="40"
-            name="serie-cupo"
-            [(ngModel)]="datos.cupoMaximo"
-          />
-        </label>
+        @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
+          <label class="block">
+            <span class="text-sm font-medium">Cupo</span>
+            <input
+              class="campo mt-1"
+              type="number"
+              [min]="datos.tipo === 'TENIS' ? 1 : 2"
+              max="40"
+              name="serie-cupo"
+              [(ngModel)]="datos.cupoMaximo"
+            />
+          </label>
+        }
 
         <label class="block sm:col-span-2">
           <span class="text-sm font-medium">Notas</span>
@@ -301,7 +362,12 @@ const enBlanco = () => ({
           <!-- Por qué no se puede, a la vista y no en un tooltip: un botón gris sin
                explicación se lee como una pantalla rota. -->
           <p id="motivo-serie" class="text-muted-foreground">
-            {{ motivoParaNoAgendar() ?? 'Las clases cierran la cancha a esa hora.' }}
+            {{
+              motivoParaNoAgendar() ??
+                (datos.tipo === 'TENIS'
+                  ? 'Las clases cierran la cancha a esa hora.'
+                  : 'Las clases ocupan el gimnasio a esa hora.')
+            }}
           </p>
         </div>
       </section>
@@ -406,7 +472,8 @@ export class NuevaSerie {
     }
 
     // La API dice "la cancha" sin decir de qué día: con un renglón por día, acá sí se sabe.
-    const sinCancha = this.datos.dias.find((dia) => Number(dia.canchaId) === 0);
+    const sinCancha =
+      this.datos.tipo === 'TENIS' && this.datos.dias.find((dia) => Number(dia.canchaId) === 0);
     if (sinCancha) {
       this.error.set(`Elige la cancha del ${this.nombreDelDia(sinCancha.diaSemana).toLowerCase()}.`);
       return;
@@ -476,19 +543,24 @@ export class NuevaSerie {
   }
 
   private serie(): SerieNueva {
+    // En el gimnasio, sin cancha y sin nivel: el servidor rechaza los dos (T231).
+    const enElGimnasio = this.datos.tipo === 'PREPARACION_FISICA';
+
     return {
+      tipo: this.datos.tipo,
       // Los `select` devuelven texto aunque el valor sea un número.
       profesorId: this.profesorFijo() ?? Number(this.datos.profesorId),
       dias: this.datos.dias.map((dia) => ({
         diaSemana: dia.diaSemana,
         horaDesde: dia.horaDesde,
         horaHasta: dia.horaHasta,
-        canchaId: Number(dia.canchaId),
+        ...(enElGimnasio ? {} : { canchaId: Number(dia.canchaId) }),
       })),
       desde: this.datos.desde,
       hasta: this.datos.hasta,
-      cupoMaximo: Number(this.datos.cupoMaximo),
-      nivel: this.datos.nivel,
+      cupoMaximo:
+        enElGimnasio && this.datos.modalidad === 'individual' ? 1 : Number(this.datos.cupoMaximo),
+      ...(enElGimnasio ? {} : { nivel: this.datos.nivel }),
       notas: this.datos.notas,
     };
   }

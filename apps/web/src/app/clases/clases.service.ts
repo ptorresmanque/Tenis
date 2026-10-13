@@ -6,6 +6,9 @@ import { HoraAfectada } from '../catalogo-canchas/admin/admin-canchas.service';
 
 export type NivelClase = 'INICIACION' | 'INTERMEDIO' | 'COMPETITIVO' | 'NINOS';
 
+/** Tenis, en una cancha, o preparación física, en el gimnasio (T233). */
+export type TipoClase = 'TENIS' | 'PREPARACION_FISICA';
+
 /** Cómo se lee cada nivel en pantalla. */
 export const NIVELES: Record<NivelClase, string> = {
   INICIACION: 'Iniciación',
@@ -31,16 +34,18 @@ export interface ClaseDelDia {
 }
 
 /** Lo que el formulario manda para agendar. Horas del club, como las escribe el admin. */
-export interface ClaseNueva {
-  canchaId: number;
+export type ClaseNueva = {
   profesorId: number;
   fecha: string;
   horaDesde: string;
   horaHasta: string;
   cupoMaximo: number;
-  nivel: NivelClase;
   notas?: string;
-}
+} & (
+  | { tipo: 'TENIS'; canchaId: number; nivel: NivelClase }
+  // La del gimnasio va sin cancha y sin nivel: el servidor rechaza las dos (T231).
+  | { tipo: 'PREPARACION_FISICA' }
+);
 
 export type EstadoInscripcion = 'INSCRITA' | 'CANCELADA' | 'ASISTIO' | 'FALTO';
 
@@ -130,7 +135,8 @@ export interface DiaDeLaSerie {
   diaSemana: number;
   horaDesde: string;
   horaHasta: string;
-  canchaId: number;
+  /** Sin cancha en el gimnasio (T233). */
+  canchaId?: number;
 }
 
 /**
@@ -138,12 +144,14 @@ export interface DiaDeLaSerie {
  * la semana con su horario y su cancha, y el rango de fechas. Dura como máximo 6 meses.
  */
 export interface SerieNueva {
+  tipo: TipoClase;
   profesorId: number;
   dias: DiaDeLaSerie[];
   desde: string;
   hasta: string;
   cupoMaximo: number;
-  nivel: NivelClase;
+  /** Sin nivel en el gimnasio (T233). */
+  nivel?: NivelClase;
   notas?: string;
 }
 
