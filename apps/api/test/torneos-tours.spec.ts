@@ -398,5 +398,54 @@ describe('Torneos: los tours para los que suman', () => {
         expect(lista.find((t) => t.id === viejo.id)?.tours).toEqual([]);
       }
     });
+
+    it('**`?temporada=` trae los torneos de esa temporada, de cualquier año** (T201)', async () => {
+      // D13: un torneo de diciembre puede sumar a la temporada del año siguiente, así
+      // que la página del tour no puede pedir el calendario de un año y filtrar. Los
+      // casos están armados para que ningún año los separe solo.
+      const fedal = await unTour('FEDAL');
+      const senior = await unTour('Senior');
+      const enDiciembre = {
+        fechaInicio: '2026-12-05',
+        fechaFin: '2026-12-06',
+        cierreInscripcion: '2026-12-01',
+      };
+      const idDe = async (cuerpo: Record<string, unknown>) =>
+        (
+          (await comoAdmin('post', '/torneos').send(cuerpo).expect(201))
+            .body as { id: number }
+        ).id;
+
+      const de2026 = await idDe({
+        ...elTorneo([{ tourId: fedal.tourId, nivelId: fedal.nivel500 }]),
+        ...enDiciembre,
+      });
+      const de2027 = await idDe(
+        elTorneo([{ tourId: fedal.tourId, nivelId: fedal.nivel250 }]),
+      );
+      const deOtroTour = await idDe({
+        ...elTorneo([{ tourId: senior.tourId, nivelId: senior.nivel500 }]),
+        ...enDiciembre,
+      });
+      const cancelado = await idDe(
+        elTorneo([{ tourId: fedal.tourId, nivelId: fedal.nivel500 }]),
+      );
+      await prisma.torneo.update({
+        where: { id: cancelado },
+        data: { estado: 'CANCELADO' },
+      });
+
+      const deLaTemporada = (
+        await request(servidor())
+          .get(`/api/torneos/publicos?temporada=${fedal.temporadaId}`)
+          .expect(200)
+      ).body as ConTours[];
+      const ids = deLaTemporada.map((t) => t.id);
+
+      expect(ids).toEqual(expect.arrayContaining([de2026, de2027]));
+      expect(ids).not.toContain(deOtroTour);
+      // Como en el calendario: un torneo que no se va a jugar no se muestra.
+      expect(ids).not.toContain(cancelado);
+    });
   });
 });

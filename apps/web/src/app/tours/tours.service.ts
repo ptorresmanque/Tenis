@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import type { TorneoPublico } from '../torneos/torneos.service';
+
 /** Un tour en la lista del panel, con cuántas temporadas tiene. */
 export interface TourEnLista {
   id: number;
@@ -118,10 +120,7 @@ export class Tours {
     cuerpo.append('imagen', archivo);
 
     return firstValueFrom(
-      this.http.post<{ miniatura: string; web: string }>(
-        `/api/admin/tours/${id}/imagen`,
-        cuerpo,
-      ),
+      this.http.post<{ miniatura: string; web: string }>(`/api/admin/tours/${id}/imagen`, cuerpo),
     );
   }
 
@@ -195,5 +194,17 @@ export class Tours {
 
   publico(id: number): Promise<TourPublico> {
     return firstValueFrom(this.http.get<TourPublico>(`/api/tours/${id}`));
+  }
+
+  /**
+   * Los torneos de una temporada, de cualquier año (T201): un torneo de diciembre puede
+   * sumar a la temporada siguiente, así que no sirve el calendario de un año.
+   */
+  torneosDeLaTemporada(temporadaId: number): Promise<TorneoPublico[]> {
+    return firstValueFrom(
+      this.http.get<TorneoPublico[]>('/api/torneos/publicos', {
+        params: { temporada: temporadaId },
+      }),
+    );
   }
 }

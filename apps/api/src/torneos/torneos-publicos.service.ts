@@ -5,6 +5,7 @@ import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTorneo,
+  Prisma,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { nombreDeRonda } from './cuadro';
@@ -154,26 +155,39 @@ export class TorneosPublicos {
 
   /**
    * El calendario del año.
-   *
-   * Sin los cancelados: un torneo que no se va a jugar no es calendario, es ruido en
+   */
+  calendario(anio: number): Promise<TorneoPublico[]> {
+    return this.publicos({
+      fechaInicio: {
+        gte: new Date(Date.UTC(anio, 0, 1)),
+        lt: new Date(Date.UTC(anio + 1, 0, 1)),
+      },
+    });
+  }
+
+  /**
+   * Los torneos de una temporada de un tour (T201), **de cualquier año**: un torneo de
+   * diciembre puede sumar a la temporada siguiente (D13). Es lo que lista la página del
+   * tour.
+   */
+  deLaTemporada(temporadaId: number): Promise<TorneoPublico[]> {
+    return this.publicos({ tours: { some: { nivel: { temporadaId } } } });
+  }
+
+  /**
+   * **Sin los cancelados**: un torneo que no se va a jugar no es calendario, es ruido en
    * la pantalla que alguien mira para decidir si se asocia.
    */
-  async calendario(anio: number): Promise<TorneoPublico[]> {
-    const delAnio = {
-      gte: new Date(Date.UTC(anio, 0, 1)),
-      lt: new Date(Date.UTC(anio + 1, 0, 1)),
-    };
-
+  private async publicos(
+    donde: Prisma.TorneoWhereInput,
+  ): Promise<TorneoPublico[]> {
     // **"Quedan 3 cupos" tiene que ser verdad.** Los lugares de quienes eligieron
-    // Webpay y cerraron la ventana de pago se sueltan acá, acotado al mismo año que se
-    // está consultando: ver `InscripcionesAbandonadas`.
-    await this.abandonadas.liberar({ torneo: { fechaInicio: delAnio } });
+    // Webpay y cerraron la ventana de pago se sueltan acá, acotado a los mismos torneos
+    // que se están consultando: ver `InscripcionesAbandonadas`.
+    await this.abandonadas.liberar({ torneo: donde });
 
     const torneos = await this.prisma.torneo.findMany({
-      where: {
-        estado: { not: EstadoTorneo.CANCELADO },
-        fechaInicio: delAnio,
-      },
+      where: { ...donde, estado: { not: EstadoTorneo.CANCELADO } },
       orderBy: [{ fechaInicio: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
