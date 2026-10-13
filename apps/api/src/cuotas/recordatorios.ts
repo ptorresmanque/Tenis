@@ -289,7 +289,7 @@ export class RecordatoriosDeCuota {
 }
 
 /** El tope de la variable de entorno, o 50 si no está o no es un número positivo. */
-function topePorCorrida(): number {
+export function topePorCorrida(): number {
   const tope = Number(process.env.CORREO_POR_CORRIDA);
 
   return Number.isInteger(tope) && tope > 0 ? tope : TOPE_POR_OMISION;

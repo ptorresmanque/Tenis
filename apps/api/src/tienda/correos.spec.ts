@@ -5,6 +5,7 @@ import {
   despachado,
   listoParaRetirar,
   PedidoParaCorreo,
+  recordatorioDeRetiro,
 } from './correos';
 
 /**
@@ -198,6 +199,22 @@ describe('Los correos de la tienda', () => {
       expect(cuerpo).toContain('Starken');
       expect(cuerpo).toContain('STK-123456');
       expect(cuerpo).toContain('por pagar');
+    });
+  });
+
+  describe('el recordatorio de retiro (T171)', () => {
+    it('**que el pedido sigue esperando**, dónde, en qué horario y el enlace', () => {
+      const { asunto, cuerpo } = recordatorioDeRetiro(
+        PEDIDO,
+        'Lunes a sábado de 9:00 a 20:00',
+        CLUB,
+        ORIGEN,
+      );
+
+      expect(asunto).toBe('Tu pedido N.º 12 te espera en el club');
+      expect(cuerpo).toContain('Av. Siempre Viva 123, Temuco');
+      expect(cuerpo).toContain('Lunes a sábado de 9:00 a 20:00');
+      expect(cuerpo).toContain(`${ORIGEN}/tienda/pedido/${PEDIDO.token}`);
     });
   });
 });

@@ -166,6 +166,30 @@ export function listoParaRetirar(
   };
 }
 
+/**
+ * El recordatorio de retiro (T171): **uno**, a los 7 días de quedar listo. El pedido no se
+ * cancela solo (`SPEC-tienda.md` 16b), así que el correo no amenaza con nada: recuerda.
+ */
+export function recordatorioDeRetiro(
+  pedido: Pick<PedidoParaCorreo, 'id' | 'token' | 'nombre'>,
+  horario: string,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto: `Tu pedido N.º ${pedido.id} te espera en el club`,
+    cuerpo:
+      `Hola ${pedido.nombre}:\n\n` +
+      `Tu pedido sigue listo para retirar en ${club.nombre}` +
+      (club.direccion ? `, ${club.direccion}` : '') +
+      '.\n' +
+      (horario ? `Horario de la tienda: ${horario}\n` : '') +
+      '\nEl detalle de tu pedido:\n' +
+      `${origenWeb}/tienda/pedido/${pedido.token}\n\n` +
+      firmaDelClub(club),
+  };
+}
+
 /** "Va en camino" (T169), al comprador: la empresa, el número de seguimiento y lo por pagar. */
 export function despachado(
   pedido: PedidoParaCorreo,

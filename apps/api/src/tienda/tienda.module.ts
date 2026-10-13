@@ -16,6 +16,7 @@ import { MovimientosDeStock } from './movimientos.service';
 import { PagoDePedido } from './pago-pedido.service';
 import { PedidosAdminController } from './pedidos-admin.controller';
 import { PedidosDelPanel } from './pedidos-admin.service';
+import { RecordatoriosDeRetiro } from './recordatorio-retiro';
 import { PedidosController } from './pedidos.controller';
 import { PedidosDeLaTienda } from './pedidos.service';
 import { ProductosAdminController } from './productos-admin.controller';
@@ -53,6 +54,7 @@ import { StockAdminController } from './stock-admin.controller';
     PagoDePedido,
     CorreosDeLaTienda,
     PedidosDelPanel,
+    RecordatoriosDeRetiro,
   ],
 })
 export class TiendaModule implements NestModule {

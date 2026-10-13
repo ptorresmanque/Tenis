@@ -5,10 +5,30 @@ process.loadEnvFile(`${__dirname}/../.env`);
 import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
-import { RecordatoriosDeCuota } from './cuotas/recordatorios';
+import { RecordatoriosDeCuota, topePorCorrida } from './cuotas/recordatorios';
+import { RecordatoriosDeRetiro } from './tienda/recordatorio-retiro';
+
+type Tanda = { enviados: number; pendientes: number };
 
 /**
- * Una tanda de recordatorios de cuota (T111), para el cron de cPanel (T112):
+ * Una corrida: los de cuota primero, que le impiden reservar a alguien, y después los de
+ * retiro de la tienda (T171) **con lo que quede del mismo tope**. El hosting limita los
+ * correos por hora; dos tandas con su propio tope lo pasarían entre las dos.
+ */
+export async function correrRecordatorios(
+  cuotas: Pick<RecordatoriosDeCuota, 'correrTanda'>,
+  retiros: Pick<RecordatoriosDeRetiro, 'correrTanda'>,
+  ahora = new Date(),
+  tope = topePorCorrida(),
+): Promise<{ cuota: Tanda; retiro: Tanda }> {
+  const cuota = await cuotas.correrTanda(ahora, tope);
+  const retiro = await retiros.correrTanda(ahora, tope - cuota.enviados);
+
+  return { cuota, retiro };
+}
+
+/**
+ * Una tanda de recordatorios de cuota (T111) y de retiro (T171), para el cron de cPanel (T112):
  *
  *   npm run recordatorios -w apps/api
  *
@@ -27,13 +47,15 @@ async function main(): Promise<void> {
   });
 
   try {
-    const { enviados, pendientes } = await app
-      .get(RecordatoriosDeCuota)
-      .correrTanda();
+    const { cuota, retiro } = await correrRecordatorios(
+      app.get(RecordatoriosDeCuota),
+      app.get(RecordatoriosDeRetiro),
+    );
 
     console.log(
-      `${new Date().toISOString()} Recordatorios de cuota: ${enviados} enviados, ` +
-        `${pendientes} quedan para la próxima corrida.`,
+      `${new Date().toISOString()} Recordatorios de cuota: ${cuota.enviados} enviados, ` +
+        `${cuota.pendientes} quedan para la próxima corrida. De retiro: ` +
+        `${retiro.enviados} enviados, ${retiro.pendientes} quedan.`,
     );
   } finally {
     await app.close();
