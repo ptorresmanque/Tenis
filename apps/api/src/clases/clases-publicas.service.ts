@@ -40,15 +40,22 @@ export interface ProfesorPublico {
  * Los días, el horario y hasta cuándo; el cupo es el más chico entre sus clases que vienen,
  * porque la inscripción es a la serie completa (T116).
  */
+/** Un día de la serie, como lo anuncia el club (T229). */
+export interface DiaPublico {
+  /** De 0 (domingo) a 6 (sábado). */
+  diaSemana: number;
+  horaDesde: string;
+  horaHasta: string;
+  /** El nombre de la cancha, o "Gimnasio" (T232). */
+  lugar: string;
+}
+
 export interface SeriePublica {
   id: number;
   profesor: string;
-  cancha: string;
   nivel: string;
-  /** De 0 (domingo) a 6 (sábado). */
-  diasSemana: number[];
-  horaDesde: string;
-  horaHasta: string;
+  /** Cada día con su horario y su lugar, de domingo a sábado. */
+  dias: DiaPublico[];
   /** La fecha civil de su última clase programada: si se canceló desde un día, se acorta. */
   hasta: string;
   cuposLibres: number;
@@ -210,13 +217,13 @@ export class ClasesPublicas {
     return series.map((serie) => ({
       id: serie.id,
       profesor: serie.profesor.nombreVisible,
-      // ponytail: el contrato de hoy, leído del primer día; T229 lo cambia por la lista de
-      // días con su horario y su lugar.
-      cancha: serie.dias[0]?.cancha?.nombre ?? '',
       nivel: serie.nivel,
-      diasSemana: serie.dias.map((dia) => dia.diaSemana),
-      horaDesde: serie.dias[0]?.horaDesde ?? '',
-      horaHasta: serie.dias[0]?.horaHasta ?? '',
+      dias: serie.dias.map((dia) => ({
+        diaSemana: dia.diaSemana,
+        horaDesde: dia.horaDesde,
+        horaHasta: dia.horaHasta,
+        lugar: dia.cancha?.nombre ?? 'Gimnasio',
+      })),
       hasta: hoyEnElClub(serie.clases[serie.clases.length - 1].inicio)
         .toISOString()
         .slice(0, 10),

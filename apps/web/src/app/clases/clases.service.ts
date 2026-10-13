@@ -107,12 +107,9 @@ export interface ClasePublica {
 export interface SeriePublica {
   id: number;
   profesor: string;
-  cancha: string;
   nivel: NivelClase;
-  /** De 0 (domingo) a 6 (sábado). */
-  diasSemana: number[];
-  horaDesde: string;
-  horaHasta: string;
+  /** Cada día con su horario y su lugar (T229). `diaSemana` va de 0 (domingo) a 6. */
+  dias: { diaSemana: number; horaDesde: string; horaHasta: string; lugar: string }[];
   hasta: string;
   cuposLibres: number;
 }

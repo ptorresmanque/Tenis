@@ -9,7 +9,7 @@ import { FormularioContacto } from '../../club/formulario-contacto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Foto } from '../../ui/foto';
 import { Insignia } from '../../ui/insignia';
-import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
+import { ClasePublica, Clases, NIVELES, NivelClase, SeriePublica } from '../clases.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
 /**
@@ -89,13 +89,24 @@ import { Esqueleto } from '../../ui/esqueleto';
         <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
           @for (serie of info.series; track serie.id) {
             <li class="flex flex-wrap items-center gap-3 py-4">
-              <span class="font-display text-2xl font-bold">
-                {{ diasDeLaSerie(serie.diasSemana) }}, {{ serie.horaDesde }}–{{ serie.horaHasta }}
-              </span>
+              <!-- T229. Si todos los días comparten horario y lugar, la serie se lee como
+                   antes; si no, cada día va en su renglón. -->
+              @if (enComun(serie); as comun) {
+                <span class="font-display text-2xl font-bold">
+                  {{ diasDeLaSerie(comun.diasSemana) }}, {{ comun.horaDesde }}–{{ comun.horaHasta }}
+                </span>
+              } @else {
+                <span class="grid font-display text-xl font-bold">
+                  @for (dia of enOrden(serie.dias); track dia.diaSemana) {
+                    <span>
+                      {{ diasDeLaSerie([dia.diaSemana]) }} {{ dia.horaDesde }}–{{ dia.horaHasta }} ·
+                      {{ dia.lugar }}
+                    </span>
+                  }
+                </span>
+              }
               <app-insignia variante="info" icono="school">{{ nivel(serie.nivel) }}</app-insignia>
-              <span class="text-sm text-muted-foreground">
-                {{ serie.profesor }} · {{ serie.cancha }} · hasta el {{ fechaCorta(serie.hasta) }}
-              </span>
+              <span class="text-sm text-muted-foreground">{{ detalle(serie) }}</span>
 
               @if (serie.cuposLibres === 0) {
                 <app-insignia variante="neutro" icono="block" class="ms-auto">Sin cupos</app-insignia>
@@ -201,6 +212,37 @@ export class ClasesPublicas {
   }
 
   protected readonly diasDeLaSerie = diasDeLaSerie;
+
+  /** Lo que comparten todos los días de la serie, o `null` si alguno cambia de horario o lugar. */
+  protected enComun(serie: SeriePublica) {
+    const [primero] = serie.dias;
+    if (!primero) return null;
+
+    const iguales = serie.dias.every(
+      (dia) =>
+        dia.horaDesde === primero.horaDesde &&
+        dia.horaHasta === primero.horaHasta &&
+        dia.lugar === primero.lugar,
+    );
+
+    return iguales
+      ? { ...primero, diasSemana: serie.dias.map((dia) => dia.diaSemana) }
+      : null;
+  }
+
+  /** "Ana Silva · Cancha 2 · hasta el 15 de diciembre"; sin el lugar si cambia por día. */
+  protected detalle(serie: SeriePublica): string {
+    const lugar = this.enComun(serie)?.lugar;
+
+    return [serie.profesor, lugar, `hasta el ${this.fechaCorta(serie.hasta)}`]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  /** Los días desde el lunes: el domingo, 0 en la API, va al final. */
+  protected enOrden(dias: SeriePublica['dias']) {
+    return [...dias].sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7));
+  }
 
   /** "15 de diciembre", de una fecha civil. */
   protected fechaCorta(fecha: string): string {

@@ -137,14 +137,18 @@ describe('ClasesPublicas', () => {
 
   /** T117. Una serie es una tarjeta, no una clase por fecha. */
   describe('las series', () => {
+    const dia = (diaSemana: number, horaDesde = '19:00', horaHasta = '20:00', lugar = 'Cancha 2') => ({
+      diaSemana,
+      horaDesde,
+      horaHasta,
+      lugar,
+    });
+
     const SERIE: SeriePublica = {
       id: 9,
       profesor: 'Ana Silva',
-      cancha: 'Cancha 2',
       nivel: 'INICIACION',
-      diasSemana: [2, 4],
-      horaDesde: '19:00',
-      horaHasta: '20:00',
+      dias: [dia(2), dia(4)],
       hasta: '2026-12-15',
       cuposLibres: 4,
     };
@@ -159,9 +163,21 @@ describe('ClasesPublicas', () => {
     });
 
     it('con tres días los nombra en orden, desde el lunes', async () => {
-      await montar([ANA], [], [{ ...SERIE, diasSemana: [5, 1, 3] }]);
+      await montar([ANA], [], [{ ...SERIE, dias: [dia(1), dia(3), dia(5)] }]);
 
       expect(texto()).toContain('Lunes, miércoles y viernes');
+    });
+
+    it('**con un horario o una cancha distinta por día, nombra cada día en su renglón** (T229)', async () => {
+      await montar(
+        [ANA],
+        [],
+        [{ ...SERIE, dias: [dia(1, '19:00', '20:00', 'Cancha 2'), dia(2, '18:00', '19:00', 'Cancha 1')] }],
+      );
+
+      expect(texto()).toContain('Lunes 19:00–20:00 · Cancha 2');
+      expect(texto()).toContain('Martes 18:00–19:00 · Cancha 1');
+      expect(texto()).toContain('Ana Silva · hasta el 15 de diciembre');
     });
 
     it('una semana sin clases sueltas pero con series no dice que no hay clases', async () => {

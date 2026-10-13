@@ -779,13 +779,15 @@ describe('POST /api/admin/clases/series/simulacion', () => {
 
     interface SeriePublica {
       id: number;
-      diasSemana: number[];
-      horaDesde: string;
-      horaHasta: string;
+      dias: {
+        diaSemana: number;
+        horaDesde: string;
+        horaHasta: string;
+        lugar: string;
+      }[];
       hasta: string;
       cuposLibres: number;
       profesor: string;
-      cancha: string;
       nivel: string;
     }
 
@@ -858,13 +860,24 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       expect(series.filter((s) => s.id === serieId)).toEqual([
         {
           id: serieId,
-          diasSemana: [2, 4],
-          horaDesde: '19:00',
-          horaHasta: '20:00',
+          // T229: cada día con su horario y su lugar.
+          dias: [
+            {
+              diaSemana: 2,
+              horaDesde: '19:00',
+              horaHasta: '20:00',
+              lugar: NOMBRE_CANCHA,
+            },
+            {
+              diaSemana: 4,
+              horaDesde: '19:00',
+              horaHasta: '20:00',
+              lugar: NOMBRE_CANCHA,
+            },
+          ],
           hasta: '2037-12-15',
           cuposLibres: 6,
           profesor: 'Profe Series',
-          cancha: NOMBRE_CANCHA,
           nivel: NivelClase.INICIACION,
         },
       ]);
