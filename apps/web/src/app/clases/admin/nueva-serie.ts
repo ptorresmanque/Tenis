@@ -215,7 +215,7 @@ const enBlanco = () => ({
               <span class="flex-1">
                 @if (fila.choque) {
                   <span class="text-destructive">{{ fila.choque }}</span>
-                } @else if (fila.afectadas.length > 0) {
+                } @else if (fila.afectadas.length > 0 && profesorFijo() === null) {
                   @for (tomada of fila.afectadas; track tomada.id) {
                     <span class="block text-destructive">
                       {{ tomada.folio }} · {{ tomada.nombre }}
@@ -224,12 +224,12 @@ const enBlanco = () => ({
                       }
                     </span>
                   }
-                  @if (profesorFijo() !== null) {
-                    <span class="block text-muted-foreground">
-                      Tiene reservas: solo se puede saltar. Para cancelarlas, habla con
-                      administración.
-                    </span>
-                  }
+                } @else if (fila.afectadas.length > 0) {
+                  <!-- Al profesor la API no le dice de quién son (T218). -->
+                  <span class="block text-destructive">
+                    Tiene reservas: solo se puede saltar. Para cancelarlas, habla con
+                    administración.
+                  </span>
                 } @else {
                   <span class="text-muted-foreground">Libre</span>
                 }

@@ -23,6 +23,19 @@ export function exigirSuya(profesorId: number, yo: QuienPregunta): void {
 }
 
 /**
+ * Lo que una simulación le muestra a quien no es admin: que hay una reserva y a qué
+ * hora, no de quién. El profesor no la puede cancelar (T219), y su nombre y su correo
+ * son del padrón, que no ve (T218).
+ */
+export function paraQuienPregunta<
+  T extends { id: number; inicio: Date; fin: Date },
+>(afectadas: T[], yo: QuienPregunta): (T | Pick<T, 'id' | 'inicio' | 'fin'>)[] {
+  return yo.esAdmin
+    ? afectadas
+    : afectadas.map(({ id, inicio, fin }) => ({ id, inicio, fin }));
+}
+
+/**
  * La misma regla para lo que llega por id. El guard dice quién entra a `admin/clases`;
  * esto dice sobre qué. El profesor de una clase o de una serie no cambia nunca —mover
  * conserva el profesor—, así que mirarlo antes de la operación no deja hueco.

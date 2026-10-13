@@ -507,6 +507,21 @@ describe('El profesor en Clases', () => {
       ).toEqual({ inicio: instanteEnElClub(DIA, '09:00') });
     });
 
+    it('la simulación le dice que hay reservas, pero no de quién: ni nombre ni correo', async () => {
+      await reserva(DIA, '17:00', '18:00');
+
+      const body: unknown = (
+        await como('profe-a')
+          .post('clases/simulacion', clase(fichaA, '17:00', '18:00'))
+          .expect(200)
+      ).body;
+      const afectadas = (body as { afectadas: Record<string, unknown>[] })
+        .afectadas;
+
+      expect(afectadas).toHaveLength(1);
+      expect(Object.keys(afectadas[0]).sort()).toEqual(['fin', 'id', 'inicio']);
+    });
+
     describe('en una serie (14)', () => {
       const SERIE = () => serie(fichaA, '20:00', '21:00');
       let tomada: number;
@@ -525,9 +540,15 @@ describe('El profesor en Clases', () => {
           body as { fechas: { fecha: string; afectadas: unknown[] }[] }
         ).fechas;
 
-        expect(
-          fechas.find((f) => f.fecha === '2041-10-23')?.afectadas,
-        ).toHaveLength(1);
+        const afectadas = fechas.find((f) => f.fecha === '2041-10-23')
+          ?.afectadas as Record<string, unknown>[];
+        expect(afectadas).toHaveLength(1);
+        // Que hay una reserva, sí; de quién, no: el profesor no ve el padrón.
+        expect(Object.keys(afectadas[0]).sort()).toEqual([
+          'fin',
+          'id',
+          'inicio',
+        ]);
       });
 
       it('"cancelar" desde un profesor responde 403 y no agenda ninguna fecha', async () => {

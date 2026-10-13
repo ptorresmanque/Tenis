@@ -271,6 +271,8 @@ describe('NuevaSerie', () => {
 
       expect(opciones).toEqual(['', 'saltar']);
       expect(texto()).toContain('Para cancelarlas, habla con administración');
+      // De quién son no lo dice: el profesor no ve el padrón (T218).
+      expect(texto()).not.toContain('Camila Visitante');
     });
   });
 });

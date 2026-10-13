@@ -15,7 +15,7 @@ import { AdminO, Yo } from '../identidad/guards';
 import type { UsuarioActual } from '../identidad/usuario-actual';
 import { Clases } from './clases.service';
 import { Inscripciones } from './inscripciones.service';
-import { exigirSuya, Pertenencia } from './pertenencia';
+import { exigirSuya, paraQuienPregunta, Pertenencia } from './pertenencia';
 import {
   leerAsistencia,
   leerCancelacion,
@@ -82,7 +82,9 @@ export class ClasesController {
     const clase = leerClaseNueva(cuerpo);
     exigirSuya(clase.profesorId, yo);
 
-    return { afectadas: await this.clases.afectadas(clase) };
+    return {
+      afectadas: paraQuienPregunta(await this.clases.afectadas(clase), yo),
+    };
   }
 
   @Post()
@@ -103,7 +105,14 @@ export class ClasesController {
     const serie = leerSerie(cuerpo);
     exigirSuya(serie.profesorId, yo);
 
-    return { fechas: await this.clases.simularSerie(serie) };
+    const fechas = await this.clases.simularSerie(serie);
+
+    return {
+      fechas: fechas.map((fecha) => ({
+        ...fecha,
+        afectadas: paraQuienPregunta(fecha.afectadas, yo),
+      })),
+    };
   }
 
   /**
