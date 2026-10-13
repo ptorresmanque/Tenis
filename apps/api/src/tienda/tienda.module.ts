@@ -8,6 +8,7 @@ import { CatalogoAdminController } from './catalogo-admin.controller';
 import { CategoriasYMarcas } from './catalogo-admin.service';
 import { CatalogoPublicoController } from './catalogo-publico.controller';
 import { CatalogoPublico } from './catalogo-publico.service';
+import { ConfiguracionDeLaTiendaController } from './configuracion.controller';
 import { CorreosDeLaTienda } from './correos';
 import { FotosPublicasController } from './fotos-publicas.controller';
 import { FotosDeProductos } from './fotos.service';
@@ -42,6 +43,7 @@ import { StockAdminController } from './stock-admin.controller';
     CarritoController,
     PedidosController,
     PedidosAdminController,
+    ConfiguracionDeLaTiendaController,
   ],
   providers: [
     CategoriasYMarcas,

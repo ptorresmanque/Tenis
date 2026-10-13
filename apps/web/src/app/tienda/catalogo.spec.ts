@@ -17,6 +17,7 @@ import { FiltrosDelCatalogo, ProductoDelCatalogo, Tienda } from './tienda.servic
  */
 describe('TiendaEnLinea', () => {
   const FILTROS: FiltrosDelCatalogo = {
+    arriendoRaquetas: '',
     categorias: [
       { id: 1, nombre: 'Zapatillas' },
       { id: 2, nombre: 'Raquetas' },
@@ -56,6 +57,7 @@ describe('TiendaEnLinea', () => {
     url = '/tienda',
     opciones: {
       lista?: ProductoDelCatalogo[];
+      arriendo?: string;
       usuario?: UsuarioActual | null;
       unidadesEnCarrito?: number;
       /** La lista no llega nunca: esperar a que la página se asiente no terminaría. */
@@ -72,7 +74,7 @@ describe('TiendaEnLinea', () => {
         {
           provide: Tienda,
           useValue: {
-            filtros: signal(FILTROS),
+            filtros: signal({ ...FILTROS, arriendoRaquetas: opciones.arriendo ?? '' }),
             productos,
           },
         },
@@ -159,6 +161,18 @@ describe('TiendaEnLinea', () => {
       const enlace = conAlgo.elemento.querySelector('a[href="/tienda/carrito"]');
       expect(enlace?.textContent).toContain('Ver el carrito (3)');
       expect(vacio.elemento.querySelector('a[href="/tienda/carrito"]')).toBeNull();
+    });
+
+    it('**el arriendo de raquetas, solo si el club lo escribió** (T172)', async () => {
+      const conTexto = await montar('/tienda', {
+        arriendo: 'Arrendamos raquetas en el mesón:\n$2.000 la hora.',
+      });
+      expect(conTexto.elemento.querySelector('[data-arriendo]')?.textContent).toContain(
+        '$2.000 la hora',
+      );
+
+      const sinTexto = await montar('/tienda');
+      expect(sinTexto.elemento.querySelector('[data-arriendo]')).toBeNull();
     });
 
     it('con sesión, no se lo repite', async () => {

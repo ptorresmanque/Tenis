@@ -14,6 +14,7 @@ import { FiltrosDelCatalogo, Tienda } from './tienda.service';
  */
 describe('Tienda', () => {
   const FILTROS: FiltrosDelCatalogo = {
+    arriendoRaquetas: '',
     categorias: [{ id: 2, nombre: 'Raquetas' }],
     marcas: [],
     tallas: [],

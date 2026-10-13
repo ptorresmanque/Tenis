@@ -6,19 +6,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { OpcionSelector, Selector } from '../../ui/selector';
 import { CatalogoDeLaTienda } from './catalogo.service';
-import {
-  EstadoDeProducto,
-  ProductoDeLaLista,
-  ProductosDeLaTienda,
-} from './productos.service';
-
-/**
- * Hasta cuánto es "stock bajo" en el filtro.
- *
- * `ponytail: fijo en 2, el valor por omisión del umbral que el club va a poder cambiar en
- * T172 (umbralStockBajo). Ahí este número pasa a leerse de la configuración.`
- */
-const UMBRAL_PROVISORIO = 2;
+import { EstadoDeProducto, ProductoDeLaLista, ProductosDeLaTienda } from './productos.service';
 
 const ESTADOS: OpcionSelector[] = [
   { valor: '', etiqueta: 'Vigentes' },
@@ -49,8 +37,8 @@ const STOCKS: OpcionSelector[] = [
         <div>
           <h2 id="titulo-productos" class="rotulo-seccion">Productos</h2>
           <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-            Un producto nace en borrador y se publica cuando tiene sus variantes. Lo que ya
-            no se vende se archiva: nunca se borra.
+            Un producto nace en borrador y se publica cuando tiene sus variantes. Lo que ya no se
+            vende se archiva: nunca se borra.
           </p>
         </div>
         <a routerLink="/administracion/tienda/productos/nuevo" class="boton boton-primario">
@@ -108,7 +96,11 @@ const STOCKS: OpcionSelector[] = [
         <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
           <table class="tabla">
             <caption class="sr-only">
-              Productos de la tienda, {{ visibles().length }} en la lista
+              Productos de la tienda,
+              {{
+                visibles().length
+              }}
+              en la lista
             </caption>
             <thead>
               <tr>
@@ -144,7 +136,8 @@ const STOCKS: OpcionSelector[] = [
                   <th scope="row">
                     <span class="font-semibold">{{ producto.nombre }}</span>
                     <span class="block text-sm text-muted-foreground">
-                      {{ producto.categoria.nombre }}{{ producto.marca ? ' · ' + producto.marca.nombre : '' }}
+                      {{ producto.categoria.nombre
+                      }}{{ producto.marca ? ' · ' + producto.marca.nombre : '' }}
                     </span>
                   </th>
                   <td class="numero whitespace-nowrap">{{ pesos(producto.precioClp) }}</td>
@@ -216,7 +209,8 @@ export class ProductosPanel {
       return lista.filter((p) => p.stockMinimo !== null && p.stockMinimo < 0);
     }
     if (stock === 'bajo') {
-      return lista.filter((p) => p.stockMinimo !== null && p.stockMinimo <= UMBRAL_PROVISORIO);
+      // La API lo marca con el umbral de la configuración (T172).
+      return lista.filter((p) => p.stockBajo);
     }
 
     return lista;

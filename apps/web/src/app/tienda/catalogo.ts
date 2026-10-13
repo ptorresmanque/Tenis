@@ -58,6 +58,17 @@ type CambioDeFiltro = Partial<Record<keyof FiltroDelCatalogo, string | number | 
       </p>
     }
 
+    @if (filtros()?.arriendoRaquetas; as arriendo) {
+      <aside
+        data-arriendo
+        class="mt-4 flex max-w-prose gap-3 rounded-xl border border-border bg-card p-4"
+        aria-label="Arriendo de raquetas"
+      >
+        <span class="icono text-xl text-primary" aria-hidden="true">sports_tennis</span>
+        <p class="whitespace-pre-line">{{ arriendo }}</p>
+      </aside>
+    }
+
     @if (filtros(); as hay) {
       <div class="mt-6 grid gap-4">
         <app-selector

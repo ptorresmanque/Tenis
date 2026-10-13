@@ -34,6 +34,8 @@ export interface ProductoDeLaLista {
    * dice si algo se agota: el total esconde una talla en −1 detrás de otra en +5.
    */
   stockMinimo: number | null;
+  /** Su variante más baja está en el umbral de la configuración o menos (T172). */
+  stockBajo: boolean;
   variantes: number;
   /** La miniatura de su primera foto, o nada. */
   foto: string | null;
@@ -78,6 +80,10 @@ export class ProductosDeLaTienda {
     estado: EstadoDeProducto | null;
     categoriaId: number | null;
   }): Promise<ProductoDeLaLista[]> {
+    const { umbralStockBajo } =
+      await this.prisma.configuracionClub.findFirstOrThrow({
+        select: { umbralStockBajo: true },
+      });
     const productos = await this.prisma.producto.findMany({
       where: {
         ...ESTADOS[filtro.estado ?? 'vigentes'],
@@ -105,11 +111,13 @@ export class ProductosDeLaTienda {
 
     return productos.map(({ variantes, fotos, ...producto }) => {
       const activas = variantes.filter((v) => v.activa).map((v) => v.stock);
+      const stockMinimo = activas.length > 0 ? Math.min(...activas) : null;
 
       return {
         ...producto,
         stockTotal: activas.reduce((suma, stock) => suma + stock, 0),
-        stockMinimo: activas.length > 0 ? Math.min(...activas) : null,
+        stockMinimo,
+        stockBajo: stockMinimo !== null && stockMinimo <= umbralStockBajo,
         variantes: variantes.length,
         foto: fotos[0] ? direccionesDeLaFoto(fotos[0].id).miniatura : null,
       };

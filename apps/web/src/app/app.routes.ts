@@ -414,6 +414,12 @@ export const routes: Routes = [
             title: 'Marcas y tallas — Administración',
             loadComponent: () => import('./tienda/admin/marcas').then((m) => m.MarcasPanel),
           },
+          {
+            path: 'configuracion',
+            title: 'Configuración de la tienda — Administración',
+            loadComponent: () =>
+              import('./tienda/admin/configuracion').then((m) => m.ConfiguracionDeLaTiendaPanel),
+          },
         ],
       },
       {

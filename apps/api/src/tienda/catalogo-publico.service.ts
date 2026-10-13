@@ -59,8 +59,12 @@ export interface VariantePublica {
   disponible: number;
 }
 
-/** Lo que hay para filtrar, sacado solo de lo que se ve. */
+/**
+ * Lo que `/tienda` necesita para armarse: lo que hay para filtrar, sacado solo de lo que se
+ * ve, y el texto del arriendo de raquetas (T172), vacío si el club no lo escribió.
+ */
 export interface FiltrosDelCatalogo {
+  arriendoRaquetas: string;
   categorias: Nombrado[];
   marcas: Nombrado[];
   tallas: string[];
@@ -237,7 +241,7 @@ export class CatalogoPublico {
 
   async filtros(): Promise<FiltrosDelCatalogo> {
     const conAlgoVisible = { productos: { some: VISIBLE } };
-    const [categorias, marcas, variantes, precios] = await Promise.all([
+    const [categorias, marcas, variantes, precios, club] = await Promise.all([
       this.prisma.categoriaProducto.findMany({
         where: conAlgoVisible,
         select: { id: true, nombre: true },
@@ -257,6 +261,9 @@ export class CatalogoPublico {
         _min: { precioClp: true },
         _max: { precioClp: true },
       }),
+      this.prisma.configuracionClub.findFirstOrThrow({
+        select: { arriendoRaquetasTexto: true },
+      }),
     ]);
 
     // Sin distinguir mayúsculas, como el único de la base: "M" y "m" son la misma talla.
@@ -265,6 +272,7 @@ export class CatalogoPublico {
     );
 
     return {
+      arriendoRaquetas: club.arriendoRaquetasTexto,
       categorias,
       marcas,
       tallas: [...tallas.values()].sort((a, b) =>

@@ -608,6 +608,13 @@ model ConfiguracionClub {
   /// El precio de socio se calcula con él, por unidad (`tienda/precio.ts`).
   descuentoSocioPorcentaje Int @default(15) @map("descuento_socio_porcentaje")
 
+  /// La variante con este stock o menos sale como "stock bajo" en el panel y, desde T173,
+  /// avisa al club (T172). De 0 a 100, lo valida la API.
+  umbralStockBajo Int @default(2) @map("umbral_stock_bajo")
+
+  /// El arriendo de raquetas (33): solo información, en `/tienda`. Vacío no se muestra.
+  arriendoRaquetasTexto String @default("") @map("arriendo_raquetas_texto") @db.VarChar(600)
+
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
   @@map("configuracion_club")

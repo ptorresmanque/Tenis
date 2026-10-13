@@ -75,6 +75,7 @@ describe('Rutas protegidas', () => {
     'administracion/tienda/productos/:id',
     'administracion/tienda/categorias',
     'administracion/tienda/marcas',
+    'administracion/tienda/configuracion',
     'estado',
   ])('%s es solo del admin', (url) => {
     expect(buscar(url)?.guards).toContain(soloAdmin);
@@ -180,6 +181,7 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/tienda/productos/:id', CascaronAdmin],
     ['administracion/tienda/categorias', CascaronAdmin],
     ['administracion/tienda/marcas', CascaronAdmin],
+    ['administracion/tienda/configuracion', CascaronAdmin],
     ['estado', CascaronAdmin],
   ])('/%s se dibuja dentro del cascarón que le toca', (url, cascaron) => {
     expect(buscar(url)?.cascaron).toBe(cascaron);

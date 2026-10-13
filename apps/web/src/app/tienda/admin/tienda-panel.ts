@@ -57,5 +57,6 @@ export class TiendaPanel {
     { ruta: 'productos', etiqueta: 'Productos', icono: 'inventory_2' },
     { ruta: 'categorias', etiqueta: 'Categorías', icono: 'category' },
     { ruta: 'marcas', etiqueta: 'Marcas y tallas', icono: 'sell' },
+    { ruta: 'configuracion', etiqueta: 'Configuración', icono: 'tune' },
   ];
 }

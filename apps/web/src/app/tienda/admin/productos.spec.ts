@@ -23,6 +23,7 @@ describe('ProductosPanel', () => {
     archivado: false,
     stockTotal: 6,
     stockMinimo: 3,
+    stockBajo: false,
     variantes: 2,
     foto: '/api/tienda/fotos/9/miniatura',
     ...datos,
@@ -113,12 +114,17 @@ describe('ProductosPanel', () => {
     expect(nombres()).toEqual(['Asics Gel Resolution']);
   });
 
-  it('el de stock bajo trae lo que tiene alguna variante en 2 o menos', async () => {
-    const { nombres, elegir } = await montar();
+  it('**el de stock bajo trae lo que la API marca con el umbral de la configuración** (T172)', async () => {
+    // Con el umbral en 3: la raqueta, con 3, está baja; el tubo, con 2 y un umbral distinto
+    // del que el sitio tenía fijo, también. Lo decide la API, no un número del sitio.
+    const { nombres, elegir } = await montar([
+      producto({ ...PURE_DRIVE, stockMinimo: 3, stockBajo: true }),
+      producto({ ...TUBO, stockMinimo: 2, stockBajo: false }),
+    ]);
 
     await elegir('Bajo');
 
-    expect(nombres()).toEqual(['Asics Gel Resolution', 'Tubo Head Tour']);
+    expect(nombres()).toEqual(['Babolat Pure Drive']);
   });
 
   it('el estado y la categoría se le piden a la API', async () => {

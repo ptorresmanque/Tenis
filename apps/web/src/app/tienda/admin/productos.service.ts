@@ -17,6 +17,8 @@ export interface ProductoDeLaLista {
   stockTotal: number;
   /** El de su variante activa más baja; nulo si no tiene ninguna (T159). */
   stockMinimo: number | null;
+  /** La variante más baja está en el umbral de la configuración o menos (T172). */
+  stockBajo: boolean;
   variantes: number;
   /** La miniatura de su primera foto. */
   foto: string | null;

@@ -23,8 +23,12 @@ export interface FiltroDelCatalogo {
   orden: OrdenDelCatalogo;
 }
 
-/** Espejo de `FiltrosDelCatalogo` en la API (T161): lo que hay, sacado de lo que se ve. */
+/**
+ * Espejo de `FiltrosDelCatalogo` en la API (T161): lo que hay, sacado de lo que se ve, y el
+ * texto del arriendo de raquetas (T172), vacío si el club no lo escribió.
+ */
 export interface FiltrosDelCatalogo {
+  arriendoRaquetas: string;
   categorias: Nombrado[];
   marcas: Nombrado[];
   tallas: string[];
