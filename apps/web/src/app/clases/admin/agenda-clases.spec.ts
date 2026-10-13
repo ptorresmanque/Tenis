@@ -1,7 +1,10 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AdminCanchas, HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
+import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
+import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
+import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { ClaseDelDia, Clases } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { AgendaDeClases } from './agenda-clases';
@@ -39,7 +42,24 @@ describe('AgendaDeClases', () => {
     pagoEnCurso: false,
   };
 
+  const ADMIN: UsuarioActual = {
+    id: 1,
+    nombre: 'Rodrigo',
+    apellido: 'Torres',
+    email: 'admin@clubdetenis.cl',
+    telefono: null,
+    esAdmin: true,
+    esGestor: false,
+    socioId: null,
+    socioActivo: false,
+    socioAlDia: false,
+    profesorId: null,
+  };
+  const PROFESORA: UsuarioActual = { ...ADMIN, esAdmin: false, profesorId: 9 };
+
   let fixture: ComponentFixture<AgendaDeClases>;
+  let listarProfesores: ReturnType<typeof vi.fn>;
+  let canchasPublicas: ReturnType<typeof vi.fn>;
   let api: {
     delDia: ReturnType<typeof vi.fn>;
     simular: ReturnType<typeof vi.fn>;
@@ -48,7 +68,23 @@ describe('AgendaDeClases', () => {
     cancelarSerieDesde: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (clases: ClaseDelDia[], afectadas: HoraAfectada[] = []) => {
+  const montar = async (
+    clases: ClaseDelDia[],
+    afectadas: HoraAfectada[] = [],
+    usuario: UsuarioActual = ADMIN,
+  ) => {
+    listarProfesores = vi.fn().mockResolvedValue([
+      {
+        id: 4,
+        nombreVisible: 'Ana Silva',
+        especialidad: 'Iniciación',
+        telefono: '',
+        tarifaHoraClp: null,
+        activo: true,
+      },
+    ]);
+    // La lista pública, que el servidor ya da sin las canchas desactivadas (T222).
+    canchasPublicas = vi.fn().mockResolvedValue([{ id: 2, nombre: 'Cancha 1' }]);
     api = {
       delDia: vi.fn().mockResolvedValue(clases),
       simular: vi.fn().mockResolvedValue({ afectadas }),
@@ -61,30 +97,9 @@ describe('AgendaDeClases', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: Clases, useValue: api },
-        {
-          provide: Profesores,
-          useValue: {
-            listar: vi.fn().mockResolvedValue([
-              {
-                id: 4,
-                nombreVisible: 'Ana Silva',
-                especialidad: 'Iniciación',
-                telefono: '',
-                tarifaHoraClp: null,
-                activo: true,
-              },
-            ]),
-          },
-        },
-        {
-          provide: AdminCanchas,
-          useValue: {
-            canchas: vi.fn().mockResolvedValue([
-              { id: 2, nombre: 'Cancha 1', activa: true },
-              { id: 5, nombre: 'Cancha en obras', activa: false },
-            ]),
-          },
-        },
+        { provide: Profesores, useValue: { listar: listarProfesores } },
+        { provide: Disponibilidad, useValue: { canchas: canchasPublicas } },
+        { provide: Auth, useValue: { usuario: signal(usuario).asReadonly() } },
       ],
     });
 
@@ -196,15 +211,16 @@ describe('AgendaDeClases', () => {
     expect(texto()).toContain('ya está cerrada');
   });
 
-  it('**una cancha desactivada no se ofrece: el servidor la rechaza siempre**', async () => {
-    // No tiene grilla, así que agendar sobre ella responde 404. Ofrecerla en el
-    // selector es ofrecer un callejón.
+  it('**las canchas salen de la lista pública, sin las desactivadas**', async () => {
+    // Una desactivada no tiene grilla, así que agendar sobre ella responde 404. Desde
+    // T222 la lista es la pública, que el servidor ya da solo con las activas: la misma
+    // para el admin y el profesor, que no puede leer las del panel.
     const opciones = Array.from(elemento().querySelectorAll('select[name="canchaId"] option')).map(
       (o) => o.textContent?.trim(),
     );
 
+    expect(canchasPublicas).toHaveBeenCalled();
     expect(opciones).toContain('Cancha 1');
-    expect(opciones).not.toContain('Cancha en obras');
   });
 
   it('**a una clase que ya se dio no se le ofrece cancelarla**', async () => {
@@ -234,7 +250,8 @@ describe('AgendaDeClases', () => {
       providers: [
         { provide: Clases, useValue: { delDia: caida } },
         { provide: Profesores, useValue: { listar: caida } },
-        { provide: AdminCanchas, useValue: { canchas: caida } },
+        { provide: Disponibilidad, useValue: { canchas: caida } },
+        { provide: Auth, useValue: { usuario: signal(ADMIN).asReadonly() } },
       ],
     });
 
@@ -252,9 +269,7 @@ describe('AgendaDeClases', () => {
       const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
 
       expect(serie).not.toBeNull();
-      expect(serie.componentInstance.canchas()).toEqual([
-        { id: 2, nombre: 'Cancha 1', activa: true },
-      ]);
+      expect(serie.componentInstance.canchas()).toEqual([{ id: 2, nombre: 'Cancha 1' }]);
       expect(serie.componentInstance.profesores()).toHaveLength(1);
     });
 
@@ -294,6 +309,45 @@ describe('AgendaDeClases', () => {
       await apretar('Cancelar desde esta fecha');
 
       expect(api.cancelarSerieDesde).not.toHaveBeenCalled();
+    });
+  });
+
+  /** T222. El profesor agenda lo suyo, sin elegir profesor y sin cancelar reservas. */
+  describe('el profesor', () => {
+    it('no elige profesor ni pide la lista de profesores: la clase queda a su nombre', async () => {
+      await montar([], [], PROFESORA);
+
+      expect(elemento().querySelector('select[name="profesorId"]')).toBeNull();
+      expect(listarProfesores).not.toHaveBeenCalled();
+      expect(texto()).toContain('Solo en horas libres');
+
+      await apretar('Agendar clase');
+
+      expect(api.agendar).toHaveBeenCalledWith(expect.objectContaining({ profesorId: 9 }));
+    });
+
+    it('**sobre una hora reservada ve el aviso, y ningún botón que la cancele**', async () => {
+      await montar([], [TOMADA], PROFESORA);
+
+      await apretar('Agendar clase');
+
+      expect(texto()).toContain(
+        'Esta hora tiene reservas. Para agendar encima, habla con administración.',
+      );
+      expect(texto()).not.toContain('Agendar igual y avisarles');
+      expect(api.agendar).not.toHaveBeenCalled();
+    });
+
+    it('la serie también queda a su nombre', async () => {
+      await montar([], [], PROFESORA);
+
+      const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
+      expect(serie.componentInstance.profesorFijo()).toBe(9);
+    });
+
+    it('al admin la serie le deja elegir', () => {
+      const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
+      expect(serie.componentInstance.profesorFijo()).toBeNull();
     });
   });
 });

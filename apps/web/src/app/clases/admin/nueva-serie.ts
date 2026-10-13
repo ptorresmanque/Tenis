@@ -73,17 +73,20 @@ const enBlanco = () => ({
           </select>
         </label>
 
-        <label class="block">
-          <span class="text-sm font-medium">Profesor</span>
-          <select class="campo mt-1" name="serie-profesor" [(ngModel)]="datos.profesorId">
-            <option [value]="0" disabled>Elige un profesor</option>
-            @for (profesor of profesores(); track profesor.id) {
-              <option [value]="profesor.id">
-                {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-              </option>
-            }
-          </select>
-        </label>
+        <!-- El profesor arma su serie a su nombre (T222): no elige. -->
+        @if (profesorFijo() === null) {
+          <label class="block">
+            <span class="text-sm font-medium">Profesor</span>
+            <select class="campo mt-1" name="serie-profesor" [(ngModel)]="datos.profesorId">
+              <option [value]="0" disabled>Elige un profesor</option>
+              @for (profesor of profesores(); track profesor.id) {
+                <option [value]="profesor.id">
+                  {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
+                </option>
+              }
+            </select>
+          </label>
+        }
 
         <!-- Casillas y no un selector múltiple: se ven los siete a la vez y cada una se
              marca con un toque. -->
@@ -216,9 +219,15 @@ const enBlanco = () => ({
                   @for (tomada of fila.afectadas; track tomada.id) {
                     <span class="block text-destructive">
                       {{ tomada.folio }} · {{ tomada.nombre }}
-                      @if (tomada.pagada) {
+                      @if (tomada.pagada && profesorFijo() === null) {
                         (pagada, se devuelve si se cancela)
                       }
+                    </span>
+                  }
+                  @if (profesorFijo() !== null) {
+                    <span class="block text-muted-foreground">
+                      Tiene reservas: solo se puede saltar. Para cancelarlas, habla con
+                      administración.
                     </span>
                   }
                 } @else {
@@ -238,7 +247,10 @@ const enBlanco = () => ({
                   <option value="saltar">Saltar esta fecha</option>
                 } @else if (fila.afectadas.length > 0) {
                   <option value="">Elige qué hacer</option>
-                  <option value="cancelar">Cancelar sus reservas y avisar</option>
+                  <!-- Cancelarle la hora a un socio lo decide administración (T219). -->
+                  @if (profesorFijo() === null) {
+                    <option value="cancelar">Cancelar sus reservas y avisar</option>
+                  }
                   <option value="saltar">Saltar esta fecha</option>
                 } @else {
                   <option value="">Agendar</option>
@@ -276,6 +288,8 @@ export class NuevaSerie {
   readonly canchas = input.required<{ id: number; nombre: string }[]>();
   readonly profesores =
     input.required<{ id: number; nombreVisible: string; especialidad: string }[]>();
+  /** El profesor que arma su propia serie (T222): sin selector, y sin cancelar reservas. */
+  readonly profesorFijo = input<number | null>(null);
 
   /** El resumen de lo que se agendó, para que la agenda lo diga y se recargue. */
   readonly agendada = output<string>();
@@ -413,7 +427,7 @@ export class NuevaSerie {
     return {
       // Los `select` devuelven texto aunque el valor sea un número.
       canchaId: Number(this.datos.canchaId),
-      profesorId: Number(this.datos.profesorId),
+      profesorId: this.profesorFijo() ?? Number(this.datos.profesorId),
       diasSemana: [...this.datos.dias].sort((a, b) => a - b),
       horaDesde: this.datos.horaDesde,
       horaHasta: this.datos.horaHasta,

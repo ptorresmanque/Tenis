@@ -2,7 +2,6 @@ import { Component, computed, inject, input, resource, signal } from '@angular/c
 import { FormsModule } from '@angular/forms';
 
 import { mensajeDelServidor } from '../../core/errores';
-import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
@@ -140,8 +139,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                     <option [value]="0" disabled>Elige un socio</option>
                     @for (socio of sociosPorInscribir(); track socio.id) {
                       <option [value]="socio.id">
-                        {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                        {{ socio.usuario.apellido }}
+                        {{ socio.numeroSocio }} · {{ socio.nombre }}
                       </option>
                     }
                   </select>
@@ -229,7 +227,6 @@ import { Esqueleto } from '../../ui/esqueleto';
 })
 export class InscritosDeLaClase {
   private readonly api = inject(Clases);
-  private readonly sociosApi = inject(Socios);
 
   readonly claseId = input.required<number>();
 
@@ -256,7 +253,11 @@ export class InscritosDeLaClase {
     loader: ({ params }) => this.api.ficha(params.id),
   });
 
-  protected readonly socios = resource({ loader: () => this.sociosApi.listado() });
+  /**
+   * Los socios para elegir, sin el padrón: el profesor no ve correos, teléfonos ni
+   * deudas, y el admin tampoco los necesita para inscribir (T222).
+   */
+  protected readonly socios = resource({ loader: () => this.api.socios() });
 
   /**
    * Los que todavía no están en esta clase.
@@ -273,7 +274,7 @@ export class InscritosDeLaClase {
     );
 
     // Si la lista no cargó, el selector queda vacío y la clase se ve igual.
-    return (this.socios.hasValue() ? this.socios.value().socios : []).filter(
+    return (this.socios.hasValue() ? this.socios.value() : []).filter(
       (socio) => !yaEstan.has(socio.numeroSocio),
     );
   });

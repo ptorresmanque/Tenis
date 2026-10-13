@@ -74,6 +74,13 @@ export interface FichaDeClase {
 }
 
 /** Un socio del club o un alumno de afuera, nunca los dos. */
+/** Un socio para elegir al inscribir: lo justo, sin correo ni teléfono (T218). */
+export interface SocioParaInscribir {
+  id: number;
+  nombre: string;
+  numeroSocio: string;
+}
+
 export type QuienSeInscribe = { socioId: number } | { nombre: string; telefono: string };
 
 /** Un profesor, como lo anuncia el club. Sin tarifa ni teléfono: eso es interno. */
@@ -231,6 +238,11 @@ export class Clases {
     adonde: { fecha: string; horaDesde: string; horaHasta: string; canchaId?: number },
   ): Promise<ResultadoAgendar> {
     return firstValueFrom(this.http.patch<ResultadoAgendar>(`/api/admin/clases/${id}`, adonde));
+  }
+
+  /** Los socios activos que se pueden inscribir, para el admin y el profesor (T222). */
+  socios(): Promise<SocioParaInscribir[]> {
+    return firstValueFrom(this.http.get<SocioParaInscribir[]>('/api/admin/clases/socios'));
   }
 
   /** La ficha con su lista de inscritos. */
