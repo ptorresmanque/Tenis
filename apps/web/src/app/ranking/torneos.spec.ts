@@ -1,37 +1,85 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { provideRouter, Router } from '@angular/router';
+import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../core/auth/auth';
+import { TourPublico, TourPublicoEnLista, Tours } from '../tours/tours.service';
 import { Ranking, TablaDeTorneos } from './ranking.service';
 import { RankingDeTorneos } from './torneos';
 
 /**
- * T54. El ranking de torneos, visto desde la calle.
+ * T54, rehecha en T200. `/ranking`: la tabla de un tour, una temporada y una categoría de
+ * juego, elegidos arriba con tres selectores (`SPEC-ranking.md` § La pantalla).
  *
- * Lo que este archivo cuida por encima de todo: que **la pantalla diga qué está
- * contando**. La tabla cambia sin que pase nada —un lunes cualquiera alguien baja tres
- * puestos porque caducó el torneo del año pasado—, y una tabla que no explica su corte
- * es una llamada al club.
+ * Lo que este archivo cuida: **los valores por omisión** —el primer tour, su temporada
+ * vigente y la categoría más alta con filas— y que **cada selector vaya en la dirección**,
+ * para que el enlace copiado abra la misma tabla.
  */
 describe('RankingDeTorneos', () => {
-  const TABLA: TablaDeTorneos = {
-    desde: '2025-08-26',
-    torneos: [
-      {
-        id: 5,
-        torneoId: 2,
-        nombre: 'Copa de verano',
-        categoria: '4ª',
-        valor: 'Club 250',
-        fechaFin: '2026-01-15',
+  const TOURS: TourPublicoEnLista[] = [
+    {
+      id: 1,
+      nombre: 'Tour FEDAL',
+      extracto: '',
+      imagen: null,
+      temporadaVigente: {
+        id: 12,
+        nombre: '2027',
+        fechaInicio: '2027-03-01',
+        fechaFin: '2027-12-15',
       },
+    },
+    { id: 2, nombre: 'Tour Senior', extracto: '', imagen: null, temporadaVigente: null },
+  ];
+
+  const temporada = (id: number, nombre: string) => ({
+    id,
+    nombre,
+    fechaInicio: `${nombre}-03-01`,
+    fechaFin: `${nombre}-12-15`,
+    niveles: [],
+  });
+
+  const FICHAS: Record<number, TourPublico> = {
+    1: {
+      id: 1,
+      nombre: 'Tour FEDAL',
+      descripcion: '',
+      imagen: null,
+      temporadaVigenteId: 12,
+      temporadas: [temporada(13, '2028'), temporada(12, '2027'), temporada(11, '2026')],
+      fotos: [],
+    },
+    3: {
+      id: 3,
+      nombre: 'Tour Juvenil',
+      descripcion: '',
+      imagen: null,
+      temporadaVigenteId: null,
+      temporadas: [],
+      fotos: [],
+    },
+    2: {
+      id: 2,
+      nombre: 'Tour Senior',
+      descripcion: '',
+      imagen: null,
+      temporadaVigenteId: null,
+      temporadas: [temporada(21, '2027')],
+      fotos: [],
+    },
+  };
+
+  const TABLA: TablaDeTorneos = {
+    temporada: { id: 12, nombre: '2027', fechaInicio: '2027-03-01', fechaFin: '2027-12-15' },
+    categorias: [
+      { id: 60, nombre: 'Honor' },
+      { id: 20, nombre: '4ª' },
     ],
-    posiciones: [
-      { puesto: 1, jugadorId: 1, nombre: 'Ana Uno', puntos: 400, torneos: 2 },
-      { puesto: 1, jugadorId: 2, nombre: 'Beto Dos', puntos: 400, torneos: 2 },
-      { puesto: 3, jugadorId: 3, nombre: 'Cata Tres', puntos: 150, torneos: 1 },
-    ],
+    categoriaJuegoId: 60,
+    torneos: [],
+    posiciones: [{ puesto: 1, jugadorId: 1, nombre: 'Ana Uno', puntos: 500, torneos: 1 }],
   };
 
   /** Un socio cualquiera; `null` es quien mira desde la calle. */
@@ -49,19 +97,26 @@ describe('RankingDeTorneos', () => {
   };
 
   let fixture: ComponentFixture<RankingDeTorneos>;
+  let torneos: ReturnType<typeof vi.fn>;
+  let navegar: MockInstance<Router['navigate']>;
 
   const montar = async (
-    tabla: TablaDeTorneos | Error = TABLA,
-    quien: UsuarioActual | null = null,
+    opciones: {
+      direccion?: { tour?: string; temporada?: string; categoria?: string };
+      tours?: TourPublicoEnLista[];
+      quien?: UsuarioActual | null;
+    } = {},
   ) => {
+    torneos = vi.fn().mockResolvedValue(TABLA);
+
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         {
           provide: Ranking,
           useValue: {
-            torneos: () =>
-              tabla instanceof Error ? Promise.reject(tabla) : Promise.resolve(tabla),
+            torneos,
             interno: vi.fn().mockResolvedValue({
               partidos: 0,
               ultimoPartido: null,
@@ -70,118 +125,145 @@ describe('RankingDeTorneos', () => {
             }),
           },
         },
-        { provide: Auth, useValue: { usuario: signal(quien).asReadonly() } },
+        {
+          provide: Tours,
+          useValue: {
+            publicos: vi.fn().mockResolvedValue(opciones.tours ?? TOURS),
+            publico: vi.fn((id: number) =>
+              FICHAS[id] ? Promise.resolve(FICHAS[id]) : Promise.reject(new Error('caída')),
+            ),
+          },
+        },
+        { provide: Auth, useValue: { usuario: signal(opciones.quien ?? null).asReadonly() } },
       ],
     });
+    navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(RankingDeTorneos);
-    await fixture.whenStable();
-    fixture.detectChanges();
+    for (const [clave, valor] of Object.entries(opciones.direccion ?? {})) {
+      fixture.componentRef.setInput(clave, valor);
+    }
+    for (let i = 0; i < 3; i++) {
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
   };
 
   const elemento = () => fixture.nativeElement as HTMLElement;
   const texto = () => elemento().textContent ?? '';
+  const selector = (nombre: string) =>
+    elemento().querySelector<HTMLSelectElement>(`select[name="${nombre}"]`)!;
 
-  /** Las filas de la tabla, cada una como el texto de sus celdas. */
-  const filas = () =>
-    Array.from(elemento().querySelectorAll('[data-tabla="torneos"] tbody tr')).map((fila) =>
-      Array.from(fila.querySelectorAll('th, td')).map((celda) => celda.textContent?.trim() ?? ''),
-    );
+  const elegir = async (nombre: string, valor: string) => {
+    selector(nombre).value = valor;
+    selector(nombre).dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+  };
+
+  /** Lo que se pidió poner en la dirección la última vez. */
+  const direccionPedida = () => navegar.mock.lastCall?.[1];
 
   beforeEach(async () => {
     await montar();
   });
 
-  it('muestra a cada uno con su puesto, su nombre y sus puntos', () => {
-    expect(filas()[0]).toEqual(['1', 'Ana Uno', '400', '2']);
+  it('**sin parámetros abre el primer tour y su temporada vigente**, y deja la categoría a la tabla', () => {
+    expect(torneos).toHaveBeenCalledWith(12, null);
+    expect(selector('tour').value).toBe('1');
+    expect(selector('temporada').value).toBe('12');
+    // La categoría por omisión la decide el servidor: la más alta con filas.
+    expect(selector('categoria').value).toBe('60');
   });
 
-  it('**el empate se muestra como empate: dos en el 1 y el siguiente en el 3**', () => {
-    // Romper el empate con un criterio que nadie ve deja al de abajo explicando por
-    // qué está abajo. El orden de las filas lo deciden los desempates; el puesto, no.
-    expect(filas().map((fila) => fila[0])).toEqual(['1', '1', '3']);
+  it('**con parámetros abre esa tabla**, con los selectores en su lugar', async () => {
+    await montar({ direccion: { tour: '1', temporada: '11', categoria: '20' } });
+
+    expect(torneos).toHaveBeenLastCalledWith(11, 20);
+    expect(selector('tour').value).toBe('1');
+    expect(selector('temporada').value).toBe('11');
   });
 
-  it('**dice desde cuándo está contando, con el año**', () => {
-    // Sin el año, "desde el 26 de agosto" no dice nada: el corte está siempre a un
-    // año de distancia y la pregunta es justamente de qué año.
-    expect(texto()).toContain('agosto');
-    expect(texto()).toContain('2025');
+  it('un tour sin temporada vigente abre la más nueva', async () => {
+    await montar({ direccion: { tour: '2' } });
+
+    expect(torneos).toHaveBeenLastCalledWith(21, null);
   });
 
-  it('**dice qué torneos está contando**', () => {
-    expect(texto()).toContain('Copa de verano');
+  it('una temporada que no es de ese tour se ignora: abre la vigente', async () => {
+    await montar({ direccion: { tour: '1', temporada: '21' } });
+
+    expect(torneos).toHaveBeenLastCalledWith(12, null);
   });
 
-  it('**el podio se destaca**: del puesto 3 para arriba, con empates incluidos', async () => {
-    // TV4.5: es lo que alguien busca primero al abrir una tabla de posiciones.
-    // Por puesto y no por fila: con dos empatados en el 1, el tercero de la
-    // lista es el puesto 3 y también va en el podio. El cuarto, no.
-    await montar({
-      ...TABLA,
-      posiciones: [
-        ...TABLA.posiciones,
-        { puesto: 4, jugadorId: 4, nombre: 'Dani Cuatro', puntos: 90, torneos: 1 },
-      ],
+  it('**cambiar el tour lo pone en la dirección** y suelta temporada y categoría', async () => {
+    await elegir('tour', '2');
+
+    expect(direccionPedida()).toMatchObject({
+      queryParams: { tour: 2, temporada: null, categoria: null },
+      queryParamsHandling: 'merge',
     });
-    const filas = [...elemento().querySelectorAll('tbody tr')];
-    const enPodio = filas.map((fila) => fila.hasAttribute('data-podio'));
-    const puestos = filas.map((fila) => Number(fila.querySelector('td')?.textContent?.trim()));
-
-    expect(puestos).toEqual([1, 1, 3, 4]);
-    expect(enPodio).toEqual([true, true, true, false]);
   });
 
-  it('va en una tabla de verdad, con encabezados', () => {
-    // Acá sí es una tabla —filas y columnas comparables—, al revés que el cuadro,
-    // que son llaves. Sin encabezados, un lector de pantalla lee cuatro números
-    // sueltos por fila.
-    const encabezados = Array.from(
-      elemento().querySelectorAll('[data-tabla="torneos"] thead th[scope="col"]'),
-    ).map((th) => th.textContent?.trim());
+  it('cambiar la temporada la pone en la dirección, con su tour, y suelta la categoría', async () => {
+    await elegir('temporada', '11');
 
-    expect(encabezados).toEqual(['Puesto', 'Jugador', 'Puntos', 'Torneos']);
+    expect(direccionPedida()).toMatchObject({
+      queryParams: { tour: 1, temporada: 11, categoria: null },
+      queryParamsHandling: 'merge',
+    });
   });
 
-  it('sin nadie en la tabla lo dice, en vez de quedar en blanco', async () => {
-    await montar({ ...TABLA, torneos: [], posiciones: [] });
+  it('**cambiar la categoría pone los tres en la dirección**: el enlace no depende de la vigente', async () => {
+    // Con solo `?categoria=`, el enlace de hoy abriría otra temporada cuando cambie la
+    // vigente.
+    await elegir('categoria', '20');
 
-    expect(texto()).toContain('Todavía no hay puntos');
-    expect(elemento().querySelector('[data-tabla="torneos"]')).toBeNull();
+    expect(direccionPedida()).toMatchObject({
+      queryParams: { tour: 1, temporada: 12, categoria: 20 },
+      queryParamsHandling: 'merge',
+    });
+  });
+
+  it('un tour sin temporadas lo dice, sin selector de temporada', async () => {
+    await montar({
+      tours: [
+        ...TOURS,
+        { id: 3, nombre: 'Tour Juvenil', extracto: '', imagen: null, temporadaVigente: null },
+      ],
+      direccion: { tour: '3' },
+    });
+
+    expect(texto()).toContain('Este tour todavía no tiene temporadas.');
+    expect(elemento().querySelector('select[name="temporada"]')).toBeNull();
+    expect(torneos).not.toHaveBeenCalled();
+  });
+
+  it('si el tour no carga, lo dice', async () => {
+    await montar({
+      tours: [
+        ...TOURS,
+        { id: 9, nombre: 'Tour roto', extracto: '', imagen: null, temporadaVigente: null },
+      ],
+      direccion: { tour: '9' },
+    });
+
+    expect(texto()).toContain('No se pudo cargar el tour');
+  });
+
+  it('sin tours lo dice, en vez de quedar en blanco', async () => {
+    await montar({ tours: [] });
+
+    expect(texto()).toContain('Todavía no hay tours');
+    expect(elemento().querySelector('app-tabla-de-tour')).toBeNull();
   });
 
   it('**la tabla del club no se le muestra a quien mira desde la calle**', () => {
-    // El endpoint se la niega igual; una sección que carga un 403 es peor que una
-    // que no está.
     expect(texto()).not.toContain('Tabla del club');
   });
 
   it('**y sí a un socio**', async () => {
-    await montar(TABLA, SOCIA);
+    await montar({ quien: SOCIA });
 
     expect(texto()).toContain('Tabla del club');
-  });
-
-  it('con la tabla vacía sigue diciendo desde cuándo cuenta', async () => {
-    // Es cuando más falta hace: quien ganó un torneo hace catorce meses y no se ve
-    // en la tabla necesita leer por qué.
-    await montar({ ...TABLA, torneos: [], posiciones: [] });
-
-    expect(texto()).toContain('agosto');
-  });
-
-  it('**cada cuadro se nombra con su nivel y con lo que valía** (T70)', async () => {
-    // Una misma Copa aparece una vez por categoría, y no valen lo mismo: quien mira
-    // la tabla tiene que poder ver de cuál de los tres salieron sus puntos.
-    await montar();
-
-    expect(texto()).toContain('Copa de verano · 4ª · Club 250');
-  });
-
-  // `value()` de un resource lanza en estado de error.
-  it('si el ranking no carga, lo dice', async () => {
-    await montar(new Error('la API no respondió'));
-
-    expect(texto()).toContain('No se pudo cargar el ranking');
   });
 });

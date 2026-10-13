@@ -5,6 +5,7 @@ import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTorneo,
+  Prisma,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { nombreDeRonda } from './cuadro';
@@ -21,6 +22,57 @@ export interface TorneoPublico {
   estado: EstadoTorneo;
   /** Qué categorías corre, con cuánto lugar queda en cada una. */
   categorias: CategoriaPublica[];
+  /** Para qué tours suma (T196). Vacío en los torneos de antes de los tours. */
+  tours: TourDelTorneoPublico[];
+}
+
+/**
+ * Para qué tour suma un torneo, con los nombres junto a los números: la tarjeta dice
+ * "Tour FEDAL (500)" y enlaza al tour, y la página del tour filtra por temporada.
+ */
+export interface TourDelTorneoPublico {
+  tourId: number;
+  tour: string;
+  temporadaId: number;
+  temporada: string;
+  nivelId: number;
+  nivel: string;
+}
+
+/** Lo que se lee de las asociaciones, igual en el panel y en el calendario. */
+export const TOURS_DEL_TORNEO = {
+  orderBy: { tour: { nombre: 'asc' } },
+  select: {
+    tour: { select: { id: true, nombre: true } },
+    nivel: {
+      select: {
+        id: true,
+        nombre: true,
+        temporada: { select: { id: true, nombre: true } },
+      },
+    },
+  },
+} as const;
+
+/** Aplanado acá para que ninguna pantalla tenga que saber cómo está guardado. */
+export function aplanarTours(
+  tours: {
+    tour: { id: number; nombre: string };
+    nivel: {
+      id: number;
+      nombre: string;
+      temporada: { id: number; nombre: string };
+    };
+  }[],
+): TourDelTorneoPublico[] {
+  return tours.map(({ tour, nivel }) => ({
+    tourId: tour.id,
+    tour: tour.nombre,
+    temporadaId: nivel.temporada.id,
+    temporada: nivel.temporada.nombre,
+    nivelId: nivel.id,
+    nivel: nivel.nombre,
+  }));
 }
 
 /** Un cuadro visto desde la calle: cuánto lugar queda, sin decir de quién. */
@@ -29,8 +81,6 @@ export interface CategoriaPublica {
   /** El nivel del jugador. Es lo que el formulario manda al inscribirse. */
   categoriaJuegoId: number;
   categoria: string;
-  /** Cuánto vale ganarlo: "Club 250". Del cuadro y no del torneo desde T70. */
-  valor: string;
   /**
    * Cuánto cuesta inscribirse en **esta** categoría. 0 = gratis.
    *
@@ -105,26 +155,39 @@ export class TorneosPublicos {
 
   /**
    * El calendario del año.
-   *
-   * Sin los cancelados: un torneo que no se va a jugar no es calendario, es ruido en
+   */
+  calendario(anio: number): Promise<TorneoPublico[]> {
+    return this.publicos({
+      fechaInicio: {
+        gte: new Date(Date.UTC(anio, 0, 1)),
+        lt: new Date(Date.UTC(anio + 1, 0, 1)),
+      },
+    });
+  }
+
+  /**
+   * Los torneos de una temporada de un tour (T201), **de cualquier año**: un torneo de
+   * diciembre puede sumar a la temporada siguiente (D13). Es lo que lista la página del
+   * tour.
+   */
+  deLaTemporada(temporadaId: number): Promise<TorneoPublico[]> {
+    return this.publicos({ tours: { some: { nivel: { temporadaId } } } });
+  }
+
+  /**
+   * **Sin los cancelados**: un torneo que no se va a jugar no es calendario, es ruido en
    * la pantalla que alguien mira para decidir si se asocia.
    */
-  async calendario(anio: number): Promise<TorneoPublico[]> {
-    const delAnio = {
-      gte: new Date(Date.UTC(anio, 0, 1)),
-      lt: new Date(Date.UTC(anio + 1, 0, 1)),
-    };
-
+  private async publicos(
+    donde: Prisma.TorneoWhereInput,
+  ): Promise<TorneoPublico[]> {
     // **"Quedan 3 cupos" tiene que ser verdad.** Los lugares de quienes eligieron
-    // Webpay y cerraron la ventana de pago se sueltan acá, acotado al mismo año que se
-    // está consultando: ver `InscripcionesAbandonadas`.
-    await this.abandonadas.liberar({ torneo: { fechaInicio: delAnio } });
+    // Webpay y cerraron la ventana de pago se sueltan acá, acotado a los mismos torneos
+    // que se están consultando: ver `InscripcionesAbandonadas`.
+    await this.abandonadas.liberar({ torneo: donde });
 
     const torneos = await this.prisma.torneo.findMany({
-      where: {
-        estado: { not: EstadoTorneo.CANCELADO },
-        fechaInicio: delAnio,
-      },
+      where: { ...donde, estado: { not: EstadoTorneo.CANCELADO } },
       orderBy: [{ fechaInicio: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
@@ -143,10 +206,6 @@ export class TorneosPublicos {
             categoriaJuegoId: true,
             montoInscripcionClp: true,
             categoriaJuego: { select: { nombre: true } },
-            // **Cuánto vale ganar este cuadro** (T70). Cuelga del cuadro y no del
-            // torneo: en el mismo fin de semana, ganar Honor puede valer el doble que
-            // ganar la 5ª.
-            categoria: { select: { nombre: true } },
             // Solo el número: cuántos lugares quedan, no quiénes están.
             _count: {
               select: {
@@ -157,6 +216,7 @@ export class TorneosPublicos {
             },
           },
         },
+        tours: TOURS_DEL_TORNEO,
       },
     });
 
@@ -174,7 +234,6 @@ export class TorneosPublicos {
         id: cuadro.id,
         categoriaJuegoId: cuadro.categoriaJuegoId,
         categoria: cuadro.categoriaJuego.nombre,
-        valor: cuadro.categoria.nombre,
         montoClp: cuadro.montoInscripcionClp,
         cupo: cuadro.cupo,
         cuposLibres: Math.max(cuadro.cupo - cuadro._count.inscripciones, 0),
@@ -182,6 +241,7 @@ export class TorneosPublicos {
         // que es lo mismo que decir que sus partidos existen.
         armado: cuadro.semillaSorteo !== null,
       })),
+      tours: aplanarTours(torneo.tours),
     }));
   }
 

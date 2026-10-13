@@ -12,6 +12,7 @@ import { ReservasModule } from './reservas/reservas.module';
 import { SaludModule } from './salud/salud.module';
 import { TiendaModule } from './tienda/tienda.module';
 import { TorneosModule } from './torneos/torneos.module';
+import { ToursModule } from './tours/tours.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TorneosModule } from './torneos/torneos.module';
     ReportesModule,
     ReservasModule,
     TorneosModule,
+    ToursModule,
     // Etapa 2, fuera del trabajo de título: responde 404 sin TIENDA_HABILITADA.
     TiendaModule,
   ],

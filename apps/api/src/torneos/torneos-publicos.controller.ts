@@ -69,9 +69,22 @@ export class TorneosPublicosController {
     private readonly envios: IntentosFallidos,
   ) {}
 
-  /** El calendario del año. Sin `anio`, el que está corriendo. */
+  /**
+   * El calendario del año. Sin `anio`, el que está corriendo.
+   *
+   * Con `temporada`, los torneos de esa temporada de un tour, de cualquier año (T201):
+   * los lista la página del tour.
+   */
   @Get('publicos')
-  calendario(@Query('anio') anio?: string) {
+  calendario(
+    @Query('anio') anio?: string,
+    @Query('temporada') temporada?: string,
+  ) {
+    const temporadaId = Number(temporada);
+    if (Number.isInteger(temporadaId) && temporadaId > 0) {
+      return this.torneos.deLaTemporada(temporadaId);
+    }
+
     const pedido = Number(anio);
     const valido = Number.isInteger(pedido) && pedido > 2000 && pedido < 2100;
 

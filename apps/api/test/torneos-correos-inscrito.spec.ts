@@ -65,13 +65,6 @@ describe('Los correos al inscrito', () => {
   });
 
   const crearTorneo = async (montoInscripcionClp = 15_000) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatCorreos ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     return prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}${Math.random()}`,
@@ -80,7 +73,6 @@ describe('Los correos al inscrito', () => {
         cierreInscripcion: new Date('2027-11-25T00:00:00.000Z'),
         cuadros: {
           create: {
-            categoriaId: categoria.id,
             categoriaJuegoId: cuartaId,
             cupo: 8,
             montoInscripcionClp,
@@ -126,9 +118,6 @@ describe('Los correos al inscrito', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatCorreos' } },
-    });
   };
 
   beforeAll(async () => {

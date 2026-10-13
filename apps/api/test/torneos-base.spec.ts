@@ -11,14 +11,15 @@ import {
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
- * T49: las tres entidades base de los torneos.
+ * T49: las entidades base de los torneos —jugadores y torneos—. La categoría de torneo,
+ * la tercera, se eliminó en T199.
  *
  * **El jugador no es el socio**, y esa es la decisión que da forma al módulo. Un socio
  * que juega dos torneos es **un** jugador, y un externo que se hace socio conserva el
  * suyo: los puntos cuelgan del jugador, así que enlazarlo a su ficha nueva no puede
  * significar empezar de cero.
  */
-describe('Torneos: jugadores, categorías y torneos', () => {
+describe('Torneos: jugadores y torneos', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let cookieAdmin: string;
@@ -80,14 +81,39 @@ describe('Torneos: jugadores, categorías y torneos', () => {
   const jugadorDe = (respuesta: { body: unknown }) =>
     respuesta.body as JugadorPublicado;
 
-  const categoria = async (nombre = 'Club 250', puntosCampeon = 250) => {
-    const respuesta = await request(app.getHttpServer())
-      .post('/api/admin/categorias-torneo')
-      .set('Cookie', cookieAdmin)
-      .send({ nombre, puntosCampeon })
-      .expect(201);
+  /** Desde T196 todo torneo nace sumando para un tour: este, con su nivel. */
+  let tourDelTorneo: { tourId: number; nivelId: number };
+  const TOUR = `Tour de la ${MARCA}`;
 
-    return (respuesta.body as { id: number }).id;
+  const unTour = async () => {
+    const tour = await prisma.tour.create({
+      data: {
+        nombre: TOUR,
+        descripcion: '',
+        temporadas: {
+          create: {
+            nombre: '2026',
+            fechaInicio: new Date('2026-03-01T00:00:00.000Z'),
+            fechaFin: new Date('2026-12-15T00:00:00.000Z'),
+            niveles: {
+              create: {
+                nombre: '250',
+                puntosCampeon: 250,
+                puntosFinalista: 150,
+                puntosSemifinal: 90,
+                puntosCuartos: 45,
+                puntosOctavos: 0,
+                puntosDieciseisavos: 0,
+                puntosTreintaidosavos: 0,
+              },
+            },
+          },
+        },
+      },
+      include: { temporadas: { include: { niveles: true } } },
+    });
+
+    return { tourId: tour.id, nivelId: tour.temporadas[0].niveles[0].id };
   };
 
   const unTorneo = (extra: Record<string, unknown> = {}) => ({
@@ -96,6 +122,7 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     fechaInicio: '2026-12-01',
     fechaFin: '2026-12-07',
     cierreInscripcion: '2026-11-25',
+    tours: [tourDelTorneo],
     ...extra,
   });
 
@@ -109,11 +136,10 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     await prisma.torneo.deleteMany({
       where: { nombre: { startsWith: MARCA } },
     });
+    // Después de los torneos: sus asociaciones son las que frenan el borrado del tour.
+    await prisma.tour.deleteMany({ where: { nombre: TOUR } });
     await prisma.jugador.deleteMany({
       where: { apellido: { in: ['Del torneo', 'Externo', 'Cambiado'] } },
-    });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'Club' } },
     });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
@@ -139,6 +165,7 @@ describe('Torneos: jugadores, categorías y torneos', () => {
 
   beforeEach(async () => {
     await limpiar();
+    tourDelTorneo = await unTour();
 
     await crearCuenta('jefe', true);
     cookieAdmin = await entrar('jefe');
@@ -256,45 +283,6 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     expect(guardado.nombre).toBe('Rodrigo');
   });
 
-  it('la categoría lleva los puntos del campeón, que es para lo que existe', async () => {
-    const id = await categoria('Club 500', 500);
-
-    const guardada = await prisma.categoriaTorneo.findUniqueOrThrow({
-      where: { id },
-    });
-    expect(guardada.puntosCampeon).toBe(500);
-    expect(guardada.activa).toBe(true);
-  });
-
-  it('dos categorías con el mismo nombre se rechazan', async () => {
-    await categoria('Club 1000', 1000);
-
-    await request(app.getHttpServer())
-      .post('/api/admin/categorias-torneo')
-      .set('Cookie', cookieAdmin)
-      .send({ nombre: 'Club 1000', puntosCampeon: 900 })
-      .expect(409);
-  });
-
-  it('una categoría sin puntos o con puntos negativos se rechaza', async () => {
-    await request(app.getHttpServer())
-      .post('/api/admin/categorias-torneo')
-      .set('Cookie', cookieAdmin)
-      .send({ nombre: 'Club sin puntos' })
-      .expect(400);
-
-    const negativo = await request(app.getHttpServer())
-      .post('/api/admin/categorias-torneo')
-      .set('Cookie', cookieAdmin)
-      .send({ nombre: 'Club negativo', puntosCampeon: -1 })
-      .expect(400);
-
-    // Con el sujeto en singular, como el verbo que pone `entero`.
-    expect((negativo.body as { message: string }).message).toBe(
-      'El puntaje del campeón tiene que ser un número entero desde 1.',
-    );
-  });
-
   it('el torneo nace en inscripción, que es lo único que se puede hacer con él', async () => {
     const respuesta = await crearTorneo();
 
@@ -347,13 +335,11 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     expect(guardado.fechaInicio.toISOString()).toContain('2027-01-10');
   });
 
-  it('**la lista trae cuánto vale cada cuadro** (T70), sin ir a buscarlo', async () => {
-    // Desde T70 el valor es del cuadro y no del torneo: en el mismo fin de semana,
-    // ganar Honor puede valer el doble que ganar la 5ª, y el panel lo muestra por
-    // cuadro. Un torneo sin cuadros todavía no vale nada, y eso también es correcto.
+  it('**la lista trae los cuadros de cada torneo**, sin ir a buscarlos', async () => {
+    // El panel muestra la categoría y el cupo de cada cuadro en la tarjeta del torneo.
+    // Desde T199 no trae cuánto vale ganarlo: eso lo dice el nivel de cada tour.
     const creado = await crearTorneo().expect(201);
     const torneoId = (creado.body as { id: number }).id;
-    const categoriaId = await categoria(`Club ${Date.now() % 100000}`);
     const cuartaId = (
       await prisma.categoriaJuego.findFirstOrThrow({ where: { nombre: '4ª' } })
     ).id;
@@ -361,7 +347,7 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     await request(app.getHttpServer())
       .post(`/api/admin/torneos/${torneoId}/categorias`)
       .set('Cookie', cookieAdmin)
-      .send({ categoriaJuegoId: cuartaId, categoriaId, cupo: 8 })
+      .send({ categoriaJuegoId: cuartaId, cupo: 8 })
       .expect(201);
 
     const respuesta = await request(app.getHttpServer())
@@ -371,12 +357,13 @@ describe('Torneos: jugadores, categorías y torneos', () => {
 
     const torneos = respuesta.body as {
       nombre: string;
-      cuadros: { valor: string; puntosCampeon: number }[];
+      cuadros: Record<string, unknown>[];
     }[];
     const suyo = torneos.find((t) => t.nombre.startsWith(MARCA));
 
-    expect(suyo?.cuadros[0].valor).toBeTruthy();
-    expect(suyo?.cuadros[0].puntosCampeon).toBeGreaterThan(0);
+    expect(suyo?.cuadros).toEqual([
+      { id: expect.any(Number) as number, categoria: '4ª', cupo: 8 },
+    ]);
   });
 
   it('**las fechas del torneo salen como fecha civil, no como instante**', async () => {
@@ -419,22 +406,6 @@ describe('Torneos: jugadores, categorías y torneos', () => {
       .expect(400);
   });
 
-  it('desactivar una categoría no obliga a repetir sus puntos', async () => {
-    const id = await categoria('Club por desactivar', 300);
-
-    await request(app.getHttpServer())
-      .patch(`/api/admin/categorias-torneo/${id}`)
-      .set('Cookie', cookieAdmin)
-      .send({ activa: false })
-      .expect(200);
-
-    const guardada = await prisma.categoriaTorneo.findUniqueOrThrow({
-      where: { id },
-    });
-    expect(guardada.activa).toBe(false);
-    expect(guardada.puntosCampeon).toBe(300);
-  });
-
   /**
    * **Cancelar un torneo.**
    *
@@ -473,14 +444,10 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     it('**y desde ahí nadie se inscribe**, que es de lo que servía el estado', async () => {
       const id = await nuevo();
       const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow();
-      const categoria = await prisma.categoriaTorneo.create({
-        data: { nombre: `Club cancelado ${Date.now()}`, puntosCampeon: 250 },
-      });
       const cuadro = await prisma.torneoCategoria.create({
         data: {
           torneoId: id,
           categoriaJuegoId: categoriaJuego.id,
-          categoriaId: categoria.id,
           cupo: 8,
         },
       });
@@ -540,7 +507,15 @@ describe('Torneos: jugadores, categorías y torneos', () => {
     });
   });
 
-  it('solo el admin toca jugadores, categorías y torneos', async () => {
+  it('**las rutas de la categoría de torneo ya no existen** (T199)', async () => {
+    // Los puntos salen del nivel con que el torneo entró a cada tour.
+    await request(app.getHttpServer())
+      .get('/api/admin/categorias-torneo')
+      .set('Cookie', cookieAdmin)
+      .expect(404);
+  });
+
+  it('solo el admin toca jugadores y torneos', async () => {
     await request(app.getHttpServer())
       .post('/api/admin/jugadores')
       .set('Cookie', cookieSocio)

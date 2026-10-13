@@ -21,10 +21,9 @@ import {
 /**
  * Las categorías con que juega el club.
  *
- * **No son las categorías de torneo**, que viven en la pantalla de torneos y llevan
- * los puntos del campeón. Estas separan cuadros: la 4ª no juega contra Honor. El
- * encabezado lo dice en pantalla y no solo en el código, porque el club usa la misma
- * palabra para las dos cosas.
+ * Separan cuadros —la 4ª no juega contra Honor— y, desde T198, las tablas del ranking:
+ * cada tour tiene una por categoría. Lo que vale ganar un torneo no está acá: lo pone el
+ * nivel con que entra a cada tour (la categoría de torneo se eliminó en T199).
  *
  * El club arranca con seis del seed y casi nunca las toca; la pantalla está para el
  * año en que invente una "Sub-18" o deje de correr la 5ª.
@@ -39,8 +38,8 @@ import {
       </h2>
       <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         El nivel con que se inscribe un jugador. Cada torneo corre las que quiera, y
-        cada una juega su propio cuadro. No confundir con la categoría del torneo —
-        "Club 250", "Club 500"— que es la que reparte los puntos del ranking.
+        cada una juega su propio cuadro. El ranking de cada tour tiene una tabla por
+        categoría; lo que vale ganar un torneo lo pone su nivel en el tour.
       </p>
 
       <form class="mt-4 flex flex-wrap items-end gap-3" (ngSubmit)="agregar()">

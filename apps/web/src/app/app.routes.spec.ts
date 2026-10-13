@@ -69,6 +69,8 @@ describe('Rutas protegidas', () => {
     'administracion/configuracion/tienda-y-cafeteria',
     'administracion/configuracion/preguntas-frecuentes',
     'administracion/configuracion/administradores',
+    'administracion/tours',
+    'administracion/tours/:id',
     'administracion/tienda/pedidos',
     'administracion/tienda/pedidos/:id',
     'administracion/tienda/productos',
@@ -131,6 +133,11 @@ describe('Rutas protegidas', () => {
     expect(buscar('disponibilidad')?.guards).toEqual([]);
   });
 
+  it('los tours se leen sin sesión (T195)', () => {
+    expect(buscar('tours')?.guards).toEqual([]);
+    expect(buscar('tours/:id')?.guards).toEqual([]);
+  });
+
   it('las preguntas frecuentes se leen sin sesión (T146)', () => {
     expect(buscar('preguntas-frecuentes')?.guards).toEqual([]);
   });
@@ -150,6 +157,8 @@ describe('Cada ruta en su cascarón', () => {
     ['el-club', CascaronPublico],
     ['privacidad', CascaronPublico],
     ['preguntas-frecuentes', CascaronPublico],
+    ['tours', CascaronPublico],
+    ['tours/:id', CascaronPublico],
     ['tienda', CascaronPublico],
     ['tienda/carrito', CascaronPublico],
     ['tienda/pagar', CascaronPublico],
@@ -175,6 +184,8 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/configuracion/tienda-y-cafeteria', CascaronAdmin],
     ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
     ['administracion/configuracion/administradores', CascaronAdmin],
+    ['administracion/tours', CascaronAdmin],
+    ['administracion/tours/:id', CascaronAdmin],
     ['administracion/tienda/pedidos', CascaronAdmin],
     ['administracion/tienda/pedidos/:id', CascaronAdmin],
     ['administracion/tienda/productos', CascaronAdmin],

@@ -7,13 +7,9 @@ import { CATEGORIAS_DE_JUEGO, sembrarCategoriasDeJuego } from '../src/arranque';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
- * T60: la categoría de juego del jugador.
- *
- * **No es `CategoriaTorneo`**, y esa confusión es lo que estos tests defienden.
- * `CategoriaTorneo` es el nivel del *torneo* —"Club 250", "Club 500"— y de su
- * `puntosCampeon` sale la escala entera del ranking. `CategoriaJuego` es el nivel del
- * *jugador* —5ª, 4ª, … Honor— y solo separa cuadros. Mezclarlas rompería
- * `SPEC-ranking.md` § De dónde salen los puntos.
+ * T60: la categoría de juego del jugador —5ª, 4ª, … Honor—. Separa cuadros y, desde
+ * T198, las tablas del ranking de cada tour. Lo que vale ganar un torneo lo dice el nivel
+ * con que entra a cada tour, no esta categoría.
  */
 describe('Torneos: la categoría de juego', () => {
   let app: INestApplication;

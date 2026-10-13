@@ -166,6 +166,8 @@ describe('Cascarón público: la navegación', () => {
   it('el enlace del club está para cualquiera, con sesión o sin ella', () => {
     // Los enlaces del menú del diseño entran cuando existe su pantalla.
     expect(enlacesCon(null)).toContain('El club');
+    // T195. Los tours, para todos: son las ligas a las que suman los torneos.
+    expect(enlacesCon(null)).toContain('Tours');
     expect(enlacesCon(SOCIA)).toContain('El club');
   });
 

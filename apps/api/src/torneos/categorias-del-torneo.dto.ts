@@ -1,15 +1,13 @@
 import { entero } from '../catalogo-canchas/admin.dto';
 
 /**
- * Un cuadro nuevo: qué categoría se corre, con cuántos, y **cuánto vale ganarlo**.
+ * Un cuadro nuevo: qué categoría de juego se corre, con cuántos y cuánto cuesta.
  *
- * Dos campos que se llaman parecido y no son lo mismo. `categoriaJuegoId` es el nivel
- * de quienes juegan —5ª, Honor—; `categoriaId` es la categoría de torneo, la que dice
- * si ganar esto vale 250 o 500 puntos (T70).
+ * **Cuánto vale ganarlo ya no es del cuadro** (T199): lo dice el nivel con que el torneo
+ * entró a cada tour.
  */
 export interface CuadroNuevo {
   categoriaJuegoId: number;
-  categoriaId: number;
   cupo: number;
   montoInscripcionClp: number;
 }
@@ -37,7 +35,6 @@ export function leerCuadroNuevo(cuerpo: unknown): CuadroNuevo {
 
   return {
     categoriaJuegoId: entero(datos.categoriaJuegoId, 'La categoría', 1),
-    categoriaId: entero(datos.categoriaId, 'La categoría del torneo', 1),
     cupo: cupoDelCuadro(datos.cupo),
     montoInscripcionClp:
       datos.montoInscripcionClp === undefined
@@ -52,11 +49,6 @@ export function leerCuadroNuevo(cuerpo: unknown): CuadroNuevo {
  * **La categoría de juego no está**, y es deliberado: cambiarla movería a los inscritos
  * a un nivel al que no se anotaron. Se quita el cuadro y se arma otro, que además
  * obliga a pasar por la comprobación de que no haya nadie dentro.
- *
- * **La de torneo sí se puede cambiar** (T70): es cuánto vale ganarlo, y el club puede
- * decidir que este año su Honor es un Máster sin tocar a nadie de la lista. Cambiarla
- * con el torneo terminado reescribe la tabla, que es lo que se quiere si se corrige un
- * error, y por eso el panel lo dice al lado del selector.
  */
 export function leerCambioDeCuadro(
   cuerpo: unknown,
@@ -64,13 +56,6 @@ export function leerCambioDeCuadro(
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
   const cambio: Partial<Omit<CuadroNuevo, 'categoriaJuegoId'>> = {};
 
-  if (datos.categoriaId !== undefined) {
-    cambio.categoriaId = entero(
-      datos.categoriaId,
-      'La categoría del torneo',
-      1,
-    );
-  }
   if (datos.cupo !== undefined) cambio.cupo = cupoDelCuadro(datos.cupo);
   if (datos.montoInscripcionClp !== undefined) {
     cambio.montoInscripcionClp = montoDelCuadro(datos.montoInscripcionClp);

@@ -10,13 +10,13 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import {
-  CategoriaTorneo,
   ESTADOS_TORNEO,
   EstadoTorneo,
   Torneo,
   Torneos,
 } from '../torneos.service';
 import { CampoFecha } from '../../ui/campo-fecha';
+import { ElegirNivel, NivelElegido } from './elegir-nivel';
 
 /**
  * Los tres grupos con que el club mira su temporada.
@@ -54,15 +54,21 @@ const enBlanco = () => ({
 });
 
 /**
- * Los torneos del club y las categorías con que se puntúan.
- *
- * **La categoría es una fila y no un valor fijo del sistema** porque el club inventa
- * categorías: este año hay un "Máster de fin de año" que el año pasado no existía. Por
- * eso se administran acá y no en un archivo de configuración.
+ * Los torneos del club. Cuánto vale ganar cada uno lo dice el nivel con que entra a
+ * cada tour (T197); la categoría de torneo que se administraba acá se eliminó en T199.
  */
 @Component({
   selector: 'app-torneos',
-  imports: [Esqueleto, FormsModule, RouterLink, Aviso, EstadoVacio, Insignia, CampoFecha],
+  imports: [
+    Esqueleto,
+    FormsModule,
+    RouterLink,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    CampoFecha,
+    ElegirNivel,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
          crear; va como secundaria porque la principal es el "Crear torneo" del
@@ -71,7 +77,7 @@ const enBlanco = () => ({
       <div>
         <h1 class="titular text-4xl">Torneos</h1>
         <p class="mt-1 text-muted-foreground">
-          Los torneos del club y las categorías con que reparten puntos.
+          Los torneos del club y los tours para los que suman.
         </p>
       </div>
 
@@ -149,13 +155,19 @@ const enBlanco = () => ({
             }
           </select>
         </label>
+
+        <!-- **El primer tour va en el alta** (D10): un torneo que no suma para nada no
+             tiene ranking. Los demás se agregan en Ajustes. -->
+        <div class="sm:col-span-2">
+          <app-elegir-nivel [(eleccion)]="tour" />
+        </div>
       </div>
 
       <button
         type="submit"
         class="boton boton-primario mt-3"
         [attr.aria-busy]="enCurso() === 'crearTorneo'"
-        [disabled]="trabajando()"
+        [disabled]="trabajando() || tour().nivelId === null"
       >
         Crear torneo
       </button>
@@ -200,7 +212,7 @@ const enBlanco = () => ({
         class="mt-4 block"
         icono="emoji_events"
         titulo="Todavía no hay torneos"
-        detalle="Crea una categoría y después el primer torneo."
+        detalle="Crea el primero: necesita un tour con al menos un nivel."
       />
     } @else {
       <ul class="mt-4 grid gap-3">
@@ -233,10 +245,7 @@ const enBlanco = () => ({
                 Todavía no corre ninguna categoría.
               } @else {
                 @for (cuadro of torneo.cuadros; track cuadro.id) {
-                  <span class="me-2">
-                    {{ cuadro.categoria }} ({{ cuadro.cupo }}) · {{ cuadro.valor }},
-                    {{ cuadro.puntosCampeon }} al campeón
-                  </span>
+                  <span class="me-2">{{ cuadro.categoria }} ({{ cuadro.cupo }})</span>
                 }
               }
             </p>
@@ -284,77 +293,6 @@ const enBlanco = () => ({
         </p>
       }
     }
-
-
-    <h2 class="rotulo-seccion mt-8">Categorías</h2>
-    <p class="mt-2 max-w-prose text-muted-foreground">
-      De los puntos del campeón salen los de cada ronda.
-    </p>
-
-    @if (categorias.error()) {
-      <p class="mt-3 text-destructive">
-        No se pudieron cargar las categorías. Reintenta en un momento.
-      </p>
-    } @else if (categorias.value().length > 0) {
-      <ul class="mt-3 grid gap-2">
-        @for (categoria of categorias.value(); track categoria.id) {
-          <li
-            class="flex flex-wrap items-center gap-3 rounded-xl border border-border
-                   bg-card p-3 shadow-sm"
-          >
-            <span class="font-medium" [class.line-through]="!categoria.activa">
-              {{ categoria.nombre }}
-            </span>
-            <span class="text-sm text-muted-foreground">
-              {{ categoria.puntosCampeon }} puntos al campeón
-            </span>
-            <button
-              type="button"
-              class="boton boton-texto boton-chico ms-auto"
-              [disabled]="trabajando()"
-              [attr.aria-busy]="enCurso() === 'cambiarActividad-' + categoria.id"
-              (click)="cambiarActividad(categoria)"
-            >
-              {{ categoria.activa ? 'Desactivar' : 'Reactivar' }}
-            </button>
-          </li>
-        }
-      </ul>
-    }
-
-    <form
-      class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-border
-             bg-card p-4 shadow-sm"
-      (ngSubmit)="crearCategoria()"
-    >
-      <label class="flex-1">
-        <span class="text-sm font-medium">Nombre de la categoría</span>
-        <input
-          class="campo mt-1"
-          name="nombreCategoria"
-          placeholder="Club 250"
-          [(ngModel)]="categoriaNueva.nombre"
-        />
-      </label>
-      <label class="flex-1">
-        <span class="text-sm font-medium">Puntos al campeón</span>
-        <input
-          class="campo mt-1"
-          type="number"
-          name="puntosCampeon"
-          min="1"
-          [(ngModel)]="categoriaNueva.puntosCampeon"
-        />
-      </label>
-      <button
-        type="submit"
-        class="boton boton-secundario"
-        [attr.aria-busy]="enCurso() === 'crearCategoria'"
-        [disabled]="trabajando()"
-      >
-        Agregar categoría
-      </button>
-    </form>
   `,
 })
 export class TorneosPanel {
@@ -364,7 +302,8 @@ export class TorneosPanel {
   protected readonly superficies = Object.entries(SUPERFICIES);
 
   protected datos = enBlanco();
-  protected categoriaNueva = { nombre: '', puntosCampeon: 250 };
+  /** El tour y el nivel del alta. Señal, porque el selector la escribe con `model`. */
+  protected readonly tour = signal<NivelElegido>({ tourId: null, nivelId: null });
 
   protected readonly trabajando = signal(false);
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
@@ -379,17 +318,6 @@ export class TorneosPanel {
     loader: () => this.api.torneos(),
     defaultValue: [] as Torneo[],
   });
-
-  protected readonly categorias = resource({
-    params: () => this.version(),
-    loader: () => this.api.categorias(),
-    defaultValue: [] as CategoriaTorneo[],
-  });
-
-  /** Solo las activas para crear: una desactivada es una que el club dejó de usar. */
-  protected readonly categoriasActivas = computed(() =>
-    this.categorias.value().filter((categoria) => categoria.activa),
-  );
 
   /** Si el formulario de crear está abierto. Cerrado por omisión: es lo raro. */
   protected readonly creando = signal(false);
@@ -457,36 +385,24 @@ export class TorneosPanel {
   }
 
   protected async crearTorneo(): Promise<void> {
+    const { tourId, nivelId } = this.tour();
+    if (tourId === null || nivelId === null) return;
+
     await this.intentar('crearTorneo', async () => {
       const torneo = await this.api.crearTorneo({
         ...this.datos,
         superficie: this.datos.superficie || null,
+        tours: [{ tourId, nivelId }],
       });
 
       this.datos = enBlanco();
+      this.tour.set({ tourId: null, nivelId: null });
       // **El torneo nace sin cuadros y hay que decirlo**: sin categorías no se puede
       // inscribir a nadie, y un torneo vacío en la lista no explica por qué.
       this.aviso.set(
         `${torneo.nombre} creado. Ábrelo y agrégale las categorías que va a correr.`,
       );
     });
-  }
-
-  protected async crearCategoria(): Promise<void> {
-    await this.intentar('crearCategoria', async () => {
-      await this.api.crearCategoria({
-        nombre: this.categoriaNueva.nombre,
-        puntosCampeon: Number(this.categoriaNueva.puntosCampeon),
-      });
-
-      this.categoriaNueva = { nombre: '', puntosCampeon: 250 };
-    });
-  }
-
-  protected async cambiarActividad(categoria: CategoriaTorneo): Promise<void> {
-    await this.intentar(`cambiarActividad-${categoria.id}`, () =>
-      this.api.editarCategoria(categoria.id, { activa: !categoria.activa }),
-    );
   }
 
   private async intentar(
@@ -502,7 +418,7 @@ export class TorneosPanel {
       await accion();
       this.version.update((v) => v + 1);
     } catch (falla) {
-      // El del servidor: dice si las fechas no cierran o si esa categoría ya existe.
+      // El del servidor: dice si las fechas no cierran o si el nivel no es de ese tour.
       this.error.set(mensajeDelServidor(falla, 'No se pudo guardar.'));
     } finally {
       this.trabajando.set(false);

@@ -21,7 +21,6 @@ describe('TorneosPublicos', () => {
   const EN_INSCRIPCION: TorneoPublico = {
     id: 5,
     nombre: 'Copa de verano',
-    categoria: 'Club 250',
     superficie: 'ARCILLA',
     fechaInicio: '2026-12-01',
     fechaFin: '2026-12-07',
@@ -32,13 +31,13 @@ describe('TorneosPublicos', () => {
         id: 7,
         categoriaJuegoId: 20,
         categoria: '4ª',
-        valor: 'Club 250',
         montoClp: 12_000,
         cupo: 8,
         cuposLibres: 3,
         armado: false,
       },
     ],
+    tours: [],
   };
 
   const SEMIFINAL: PartidoPublico = {
@@ -61,7 +60,7 @@ describe('TorneosPublicos', () => {
     id: 7,
     torneoId: 5,
     nombre: 'Copa de verano',
-    categoria: 'Club 250',
+    categoria: '4ª',
     estado: 'CUADRO_ARMADO',
     inscritos: [
       { nombre: 'Ana Uno', pago: null },
@@ -150,9 +149,9 @@ describe('TorneosPublicos', () => {
     await montar([EN_INSCRIPCION]);
   });
 
-  it('muestra el torneo con su categoría y sus fechas en palabras', () => {
+  it('muestra el torneo con sus categorías y sus fechas en palabras', () => {
     expect(texto()).toContain('Copa de verano');
-    expect(texto()).toContain('Club 250');
+    expect(texto()).toContain('4ª');
     expect(texto()).toContain('diciembre');
   });
 
@@ -165,6 +164,60 @@ describe('TorneosPublicos', () => {
     // El monto es del cuadro y no del torneo: Honor puede costar el doble que la 5ª el
     // mismo fin de semana, así que un precio único de la tarjeta mentiría.
     expect(texto()).toContain('$12.000');
+  });
+
+  describe('para qué tours suma (T197, U6)', () => {
+    const tour = (tourId: number, nombre: string, nivel: string) => ({
+      tourId,
+      tour: nombre,
+      temporadaId: tourId * 10,
+      temporada: '2026',
+      nivelId: tourId * 100,
+      nivel,
+    });
+
+    it('**lo dice con el nivel, y enlaza a cada tour**', async () => {
+      await montar([
+        {
+          ...EN_INSCRIPCION,
+          tours: [tour(1, 'Tour FEDAL', '500'), tour(2, 'Tour Senior', '250')],
+        },
+      ]);
+
+      expect(texto().replace(/\s+/g, ' ')).toContain(
+        'Suma para el Tour FEDAL (500) y el Tour Senior (250).',
+      );
+      const enlace = elemento().querySelector<HTMLAnchorElement>('a[href="/tours/1"]');
+      expect(enlace?.textContent?.trim()).toBe('Tour FEDAL');
+      expect(elemento().querySelector('a[href="/tours/2"]')).not.toBeNull();
+    });
+
+    it('con tres, comas entre los primeros y «y» antes del último', async () => {
+      await montar([
+        {
+          ...EN_INSCRIPCION,
+          tours: [
+            tour(1, 'Tour FEDAL', '500'),
+            tour(2, 'Tour Senior', '250'),
+            tour(3, 'Tour Juvenil', '250'),
+          ],
+        },
+      ]);
+
+      expect(texto().replace(/\s+/g, ' ')).toContain(
+        'Suma para el Tour FEDAL (500), el Tour Senior (250) y el Tour Juvenil (250).',
+      );
+    });
+
+    it('con uno solo, sin «y»', async () => {
+      await montar([{ ...EN_INSCRIPCION, tours: [tour(1, 'Tour FEDAL', '500')] }]);
+
+      expect(texto().replace(/\s+/g, ' ')).toContain('Suma para el Tour FEDAL (500).');
+    });
+
+    it('un torneo de antes de los tours no inventa la línea', () => {
+      expect(texto()).not.toContain('Suma para');
+    });
   });
 
   it('una categoría gratis lo dice con la palabra, no con un cero', async () => {

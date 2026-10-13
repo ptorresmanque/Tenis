@@ -68,9 +68,6 @@ describe('Transmisiones del torneo', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatProg' } },
-    });
     await prisma.bloqueo.deleteMany({ where: { cancha: { nombre: CANCHA } } });
   };
 
@@ -92,13 +89,6 @@ describe('Transmisiones del torneo', () => {
 
   /** Un cuadro de dos: una final y nada más, para tener un partido con jugadores. */
   const unTorneoJugable = async (restricciones: unknown[] = []) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatProg ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
@@ -109,7 +99,6 @@ describe('Transmisiones del torneo', () => {
           create: {
             categoriaJuegoId: cuartaId,
             cupo: 2,
-            categoriaId: categoria.id,
           },
         },
       },
