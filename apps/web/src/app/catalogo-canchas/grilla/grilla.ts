@@ -667,8 +667,13 @@ export class Grilla {
       case 'ya-paso':
         return 'Ya pasó';
       case 'no-se-arrienda':
-        // Hay canchas libres, pero esta duración no se le vende a quien no es socio:
-        // "sin libres" sería falso.
+        // Hay canchas libres, pero esta duración no es para quien mira: "sin libres" sería
+        // falso. Al socio, porque el club no se la permite en prime (T213).
+        if (this.esSocio()) {
+          return this.duracion() === 90
+            ? 'En horario prime, solo 1 hora'
+            : 'En horario prime, solo 1 hora y media';
+        }
         return 'No se arrienda por 1 hora y media';
       case 'llena':
         return 'Sin libres';
@@ -718,9 +723,14 @@ export class Grilla {
     );
   }
 
-  /** Sin precio de esa duración no se le vende a quien no es socio (T79, T83b). */
+  /**
+   * Sin precio de esa duración no se le vende a quien no es socio (T79, T83b); al socio, la
+   * duración que el club no le permite en prime (T213).
+   */
   private noSeLeVende(bloque: BloqueDisponible): boolean {
-    return bloque.montoClp === null && !this.esSocio();
+    return this.esSocio()
+      ? bloque.socioPuede === false
+      : bloque.montoClp === null;
   }
 
   /**

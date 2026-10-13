@@ -6,7 +6,11 @@ import {
   minutosDeReloj,
 } from '../comun/tiempo';
 import { leerTelefono } from '../comun/telefono';
-import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
+import {
+  DuracionesSocioPico,
+  MotivoBloqueo,
+  Superficie,
+} from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
 import { leerRed, leerWhatsapp, REDES, RedesDelClub } from './redes';
 import { leerUbicacion } from './ubicacion';
@@ -184,6 +188,8 @@ export interface CambiosDeConfiguracion
   topeCanchasConLuz: number | null;
   /** Desde qué hora rige, en el reloj del club: en punto o y media. */
   topeCanchasConLuzDesde: string;
+  /** Qué duraciones toma el socio en horario prime (T212, T213). */
+  duracionesSocioPico: DuracionesSocioPico;
 }
 
 /**
@@ -207,6 +213,7 @@ type ReglasNumericas = Omit<
   | keyof TiendaYCafeteria
   | 'topeCanchasConLuz'
   | 'topeCanchasConLuzDesde'
+  | 'duracionesSocioPico'
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -322,6 +329,22 @@ export function leerCambiosDeConfiguracion(
 
   if (datos.topeCanchasConLuzDesde !== undefined) {
     cambios.topeCanchasConLuzDesde = horaDelTope(datos.topeCanchasConLuzDesde);
+  }
+
+  // T213. Uno de los tres valores del enum, escrito igual: lo manda el panel.
+  if (datos.duracionesSocioPico !== undefined) {
+    if (
+      !Object.values(DuracionesSocioPico).includes(
+        datos.duracionesSocioPico as DuracionesSocioPico,
+      )
+    ) {
+      throw new BadRequestException(
+        'Las duraciones del socio en horario prime son UNA_HORA, HORA_Y_MEDIA o AMBAS.',
+      );
+    }
+
+    cambios.duracionesSocioPico =
+      datos.duracionesSocioPico as DuracionesSocioPico;
   }
 
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
@@ -493,7 +516,8 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
         : diaValido(datos.diaSemana),
     horaDesde,
     horaHasta,
-    esPico: datos.esPico === undefined ? false : booleano(datos.esPico, 'Prime'),
+    esPico:
+      datos.esPico === undefined ? false : booleano(datos.esPico, 'Prime'),
     // Cero es legítimo: una cancha puede ser gratis para el club. Negativo no:
     // sería una tarifa que le paga al cliente.
     montoClp: entero(datos.montoClp, 'El monto', 0),

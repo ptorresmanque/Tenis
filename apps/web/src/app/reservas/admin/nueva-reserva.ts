@@ -332,6 +332,8 @@ export class NuevaReserva {
       (bloque) =>
         !bloque.bloqueado &&
         (!bloque.reservado || bloque.topeDeLuz) &&
+        // Al socio, la duración que el club no le permite en prime no se le ofrece (T213).
+        !(this.paraQuien() === 'socio' && bloque.socioPuede === false) &&
         new Date(bloque.fin).getTime() > Date.now(),
     );
   });

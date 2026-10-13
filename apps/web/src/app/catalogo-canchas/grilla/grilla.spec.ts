@@ -802,6 +802,43 @@ describe('Grilla', () => {
       expect(sinPrecio).not.toMatch(/arriendo/i);
     });
 
+    it('**al socio no se le ofrece la duración que el club no le permite en prime** (T213)', async () => {
+      // La API marca `socioPuede: false` donde la hora y media toca prime y el club solo le
+      // deja 1 hora. La celda dice por qué, y no "sin libres".
+      const PRIME: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: SIN_HORA_Y_MEDIA[0].bloques.map((b, i) => ({
+            ...b,
+            montoClp: 16000,
+            socioPuede: i !== 0,
+          })),
+        },
+      ];
+      await montar(PRIME, { duracion: '90' }, { socioId: 7 });
+
+      expect(etiquetas()).toEqual([expect.stringContaining('de 08:00 a 09:30')]);
+      expect(enTexto(filaDe('17:00').querySelector('td')!)).toBe(
+        'En horario prime, solo 1 hora',
+      );
+    });
+
+    it('al visitante, `socioPuede` no le cambia nada', async () => {
+      const PRIME: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: SIN_HORA_Y_MEDIA[0].bloques.map((b) => ({
+            ...b,
+            montoClp: 16000,
+            socioPuede: false,
+          })),
+        },
+      ];
+      await montar(PRIME, { duracion: '90' });
+
+      expect(etiquetas()).toHaveLength(2);
+    });
+
     it('**al mover, el selector parte en la duración de la reserva y se puede cambiar** (T87)', async () => {
       // "Mis reservas" manda `duracion=90` cuando la reserva es de 1 hora y media.
       await montar(DIA, { mover: '5', duracion: '90' });

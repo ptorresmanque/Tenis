@@ -35,6 +35,11 @@ export interface BloqueDisponible {
    * lee para decir por qué. La API lo manda siempre; falta solo en los datos de prueba.
    */
   topeDeLuz?: boolean;
+  /**
+   * Si el socio puede tomar esta duración acá (T213): no, si toca prime y el club no le
+   * permite esa duración en prime. La API lo manda siempre; falta solo en los datos de prueba.
+   */
+  socioPuede?: boolean;
 }
 
 export interface GrillaDeCancha {

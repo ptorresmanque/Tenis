@@ -344,6 +344,28 @@ describe('Configuración del club', () => {
       await patch({ cupoDiarioSocioReservas: '2' }).expect(400);
     });
 
+    describe('las duraciones del socio en horario prime (T213)', () => {
+      it('guarda cualquiera de las tres', async () => {
+        for (const duraciones of ['AMBAS', 'HORA_Y_MEDIA', 'UNA_HORA']) {
+          expect(
+            (await patch({ duracionesSocioPico: duraciones }).expect(200)).body,
+          ).toMatchObject({ duracionesSocioPico: duraciones });
+        }
+      });
+
+      it('otro valor se rechaza y dice cuáles valen', async () => {
+        expect(
+          (
+            (await patch({ duracionesSocioPico: 'TRES_HORAS' }).expect(400))
+              .body as { message: string }
+          ).message,
+        ).toBe(
+          'Las duraciones del socio en horario prime son UNA_HORA, HORA_Y_MEDIA o AMBAS.',
+        );
+        await patch({ duracionesSocioPico: 60 }).expect(400);
+      });
+    });
+
     describe('el tope de canchas con luz (T208)', () => {
       it('guarda el número y la hora, y lo apaga con nulo', async () => {
         expect(

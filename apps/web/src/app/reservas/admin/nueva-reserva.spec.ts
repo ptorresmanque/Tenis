@@ -136,6 +136,32 @@ describe('NuevaReserva', () => {
     expect(opcion?.textContent).toContain('Tope de luz');
   });
 
+  it('al socio no le ofrece la duración que el club no le permite en prime (T213)', async () => {
+    const conPrime: GrillaDeCancha[] = [
+      {
+        ...DIA[0],
+        bloques: DIA[0].bloques.map((bloque, i) =>
+          i === 2 ? { ...bloque, socioPuede: false } : bloque,
+        ),
+      },
+    ];
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(conPrime) } },
+        { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+      ],
+    });
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // El mesón parte reservando para un socio.
+    expect(horasOfrecidas()).toEqual(['10:00–11:00']);
+  });
+
   it('sí ofrece la hora que está corriendo', () => {
     // A diferencia de la grilla pública: en el mesón está la persona que llega a
     // jugar ahora, y esa hora todavía se puede vender.

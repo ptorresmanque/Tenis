@@ -203,12 +203,15 @@ export interface ExcesoDeLuz {
   ocupaciones: { cancha: string; detalle: string }[];
 }
 
+/** Qué duraciones toma el socio en horario prime (T213). En el código, pico. */
+export type DuracionesSocioPico = 'UNA_HORA' | 'HORA_Y_MEDIA' | 'AMBAS';
+
 /** Lo que el servidor devuelve de `GET /api/admin/configuracion`: todo lo de la fila. */
 export type ConfiguracionDelClub = ReglasDelClub &
   DatosDelClub &
   TextosDeElClub &
   TiendaYCafeteria &
-  TopeDeLuz;
+  TopeDeLuz & { duracionesSocioPico: DuracionesSocioPico };
 
 export interface CanchaNueva {
   nombre: string;

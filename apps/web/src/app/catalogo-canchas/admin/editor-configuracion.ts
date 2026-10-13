@@ -14,6 +14,7 @@ import {
   ReglasDelClub,
 } from './admin-canchas.service';
 import { Esqueleto } from '../../ui/esqueleto';
+import { EditorPrime } from './editor-prime';
 import { EditorTopeDeLuz } from './editor-tope-de-luz';
 
 interface Regla {
@@ -125,7 +126,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
  */
 @Component({
   selector: 'app-editor-configuracion',
-  imports: [FormsModule, Esqueleto, EditorTopeDeLuz],
+  imports: [FormsModule, Esqueleto, EditorPrime, EditorTopeDeLuz],
   template: `
     <section class="mt-8" aria-labelledby="titulo-reglas">
       <h2 id="titulo-reglas" class="rotulo-seccion">
@@ -192,6 +193,8 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
         </form>
       }
     </section>
+
+    <app-editor-prime />
 
     <app-editor-tope-de-luz />
   `,
