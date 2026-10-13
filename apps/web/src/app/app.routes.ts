@@ -378,7 +378,19 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./tienda/admin/tienda-panel').then((m) => m.TiendaPanel),
         children: [
-          { path: '', pathMatch: 'full', redirectTo: 'productos' },
+          // Pedidos primero: con la tienda abierta, es la pantalla de todos los días (T169).
+          { path: '', pathMatch: 'full', redirectTo: 'pedidos' },
+          {
+            path: 'pedidos',
+            title: 'Pedidos — Administración',
+            loadComponent: () => import('./tienda/admin/pedidos').then((m) => m.PedidosPanel),
+          },
+          {
+            path: 'pedidos/:id',
+            title: 'Pedido — Administración',
+            loadComponent: () =>
+              import('./tienda/admin/detalle-pedido').then((m) => m.DetalleDePedidoPanel),
+          },
           {
             path: 'productos',
             title: 'Productos — Administración',

@@ -19,6 +19,8 @@ export interface PedidoParaCorreo {
   descuentoSocioClp: number;
   documento: 'VOUCHER' | 'BOLETA' | 'FACTURA';
   facturaRazonSocial: string | null;
+  /** El de Starken, al despachar (T169). */
+  numeroSeguimiento?: string | null;
   lineas: {
     descripcion: string;
     cantidad: number;
@@ -140,6 +142,50 @@ export function avisoAlClub(
 }
 
 /**
+ * "Listo para retirar" (T169), al comprador: dónde, en qué horario —el de la tienda, si el
+ * club lo cargó— y el enlace al pedido.
+ */
+export function listoParaRetirar(
+  pedido: PedidoParaCorreo,
+  horario: string,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto: `Tu pedido N.º ${pedido.id} está listo para retirar`,
+    cuerpo:
+      `Hola ${pedido.nombre}:\n\n` +
+      `Tu pedido ya está listo. Puedes retirarlo en ${club.nombre}` +
+      (club.direccion ? `, ${club.direccion}` : '') +
+      '.\n' +
+      (horario ? `Horario de la tienda: ${horario}\n` : '') +
+      `\n${detalle(pedido)}\n\n` +
+      'El detalle de tu pedido:\n' +
+      `${origenWeb}/tienda/pedido/${pedido.token}\n\n` +
+      firmaDelClub(club),
+  };
+}
+
+/** "Va en camino" (T169), al comprador: la empresa, el número de seguimiento y lo por pagar. */
+export function despachado(
+  pedido: PedidoParaCorreo,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto: `Tu pedido N.º ${pedido.id} va en camino`,
+    cuerpo:
+      `Hola ${pedido.nombre}:\n\n` +
+      `Despachamos tu pedido con Starken. ${entrega(pedido)}\n` +
+      `Número de seguimiento: ${pedido.numeroSeguimiento ?? ''}\n\n` +
+      'Recuerda que el despacho es por pagar: lo pagas a Starken al recibirlo.\n\n' +
+      'El detalle de tu pedido:\n' +
+      `${origenWeb}/tienda/pedido/${pedido.token}\n\n` +
+      firmaDelClub(club),
+  };
+}
+
+/**
  * Manda los correos de un pedido recién pagado. **Después de confirmar, nunca dentro**:
  * una falla del correo no puede deshacer un pago, y `enviarOAnotar` la deja en el log.
  *
@@ -190,6 +236,56 @@ export class CorreosDeLaTienda {
     } catch (falla) {
       this.log.error(
         `No se pudieron armar los correos del pedido ${pedidoId}: ${String(falla)}`,
+      );
+    }
+  }
+
+  /** "Listo para retirar" (T169). */
+  async pedidoListo(pedidoId: number): Promise<void> {
+    await this.alComprador(pedidoId, 'el aviso de listo', (pedido, club) =>
+      listoParaRetirar(pedido, club.tiendaHorario, club, web()),
+    );
+  }
+
+  /** "Va en camino" (T169), con el número de Starken. */
+  async pedidoDespachado(pedidoId: number): Promise<void> {
+    await this.alComprador(pedidoId, 'el aviso de despacho', (pedido, club) =>
+      despachado(pedido, club, web()),
+    );
+  }
+
+  /**
+   * Arma un correo al comprador y lo manda. Como `pedidoPagado`: **después del cambio de
+   * estado, nunca dentro**, y una falla queda en el log sin deshacer lo hecho.
+   */
+  private async alComprador(
+    pedidoId: number,
+    que: string,
+    armar: (
+      pedido: PedidoParaCorreo,
+      club: DatosDelClub & { tiendaHorario: string },
+    ) => Correo,
+  ): Promise<void> {
+    try {
+      const [pedido, club] = await Promise.all([
+        this.prisma.pedido.findUniqueOrThrow({
+          where: { id: pedidoId },
+          include: { lineas: { orderBy: { id: 'asc' } } },
+        }),
+        this.prisma.configuracionClub.findFirstOrThrow(),
+      ]);
+      // En el mesón el correo es opcional: sin él, no hay a quién avisar.
+      if (!pedido.email) return;
+
+      await enviarOAnotar(
+        this.correo,
+        { para: pedido.email, ...armar(pedido, club) },
+        this.log,
+        `No salió ${que} del pedido ${pedidoId}`,
+      );
+    } catch (falla) {
+      this.log.error(
+        `No se pudo armar ${que} del pedido ${pedidoId}: ${String(falla)}`,
       );
     }
   }

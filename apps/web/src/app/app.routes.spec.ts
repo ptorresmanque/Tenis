@@ -69,6 +69,8 @@ describe('Rutas protegidas', () => {
     'administracion/configuracion/tienda-y-cafeteria',
     'administracion/configuracion/preguntas-frecuentes',
     'administracion/configuracion/administradores',
+    'administracion/tienda/pedidos',
+    'administracion/tienda/pedidos/:id',
     'administracion/tienda/productos',
     'administracion/tienda/productos/:id',
     'administracion/tienda/categorias',
@@ -79,6 +81,8 @@ describe('Rutas protegidas', () => {
   });
 
   it.each([
+    'administracion/tienda/pedidos',
+    'administracion/tienda/pedidos/:id',
     'administracion/tienda/productos',
     'administracion/tienda/productos/:id',
     'administracion/tienda/categorias',
@@ -170,6 +174,8 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/configuracion/tienda-y-cafeteria', CascaronAdmin],
     ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
     ['administracion/configuracion/administradores', CascaronAdmin],
+    ['administracion/tienda/pedidos', CascaronAdmin],
+    ['administracion/tienda/pedidos/:id', CascaronAdmin],
     ['administracion/tienda/productos', CascaronAdmin],
     ['administracion/tienda/productos/:id', CascaronAdmin],
     ['administracion/tienda/categorias', CascaronAdmin],

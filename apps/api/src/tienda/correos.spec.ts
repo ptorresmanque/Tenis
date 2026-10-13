@@ -1,5 +1,11 @@
 import type { DatosDelClub } from '../comun/club';
-import { avisoAlClub, compraConfirmada, PedidoParaCorreo } from './correos';
+import {
+  avisoAlClub,
+  compraConfirmada,
+  despachado,
+  listoParaRetirar,
+  PedidoParaCorreo,
+} from './correos';
 
 /**
  * T165: los correos de una compra pagada.
@@ -157,6 +163,41 @@ describe('Los correos de la tienda', () => {
 
       expect(asunto).toBe('Pedido en revisión N.º 12: $263.970');
       expect(cuerpo).toContain('el stock quedó en −1');
+    });
+  });
+
+  describe('los avisos del pedido (T169)', () => {
+    it('**listo para retirar**: dónde, en qué horario y el enlace al pedido', () => {
+      const { asunto, cuerpo } = listoParaRetirar(
+        PEDIDO,
+        'Lunes a sábado de 9:00 a 20:00',
+        CLUB,
+        ORIGEN,
+      );
+
+      expect(asunto).toBe('Tu pedido N.º 12 está listo para retirar');
+      expect(cuerpo).toContain('Av. Siempre Viva 123, Temuco');
+      expect(cuerpo).toContain('Lunes a sábado de 9:00 a 20:00');
+      expect(cuerpo).toContain(`${ORIGEN}/tienda/pedido/${PEDIDO.token}`);
+    });
+
+    it('sin horario cargado, no inventa uno', () => {
+      const { cuerpo } = listoParaRetirar(PEDIDO, '', CLUB, ORIGEN);
+
+      expect(cuerpo).not.toContain('Horario');
+    });
+
+    it('**despachado**: la empresa y el número de seguimiento, y que es por pagar', () => {
+      const { asunto, cuerpo } = despachado(
+        { ...PEDIDO, entrega: 'DESPACHO', numeroSeguimiento: 'STK-123456' },
+        CLUB,
+        ORIGEN,
+      );
+
+      expect(asunto).toBe('Tu pedido N.º 12 va en camino');
+      expect(cuerpo).toContain('Starken');
+      expect(cuerpo).toContain('STK-123456');
+      expect(cuerpo).toContain('por pagar');
     });
   });
 });

@@ -14,6 +14,8 @@ import { FotosDeProductos } from './fotos.service';
 import { InterruptorDeLaTienda, RUTAS_DE_LA_TIENDA } from './interruptor';
 import { MovimientosDeStock } from './movimientos.service';
 import { PagoDePedido } from './pago-pedido.service';
+import { PedidosAdminController } from './pedidos-admin.controller';
+import { PedidosDelPanel } from './pedidos-admin.service';
 import { PedidosController } from './pedidos.controller';
 import { PedidosDeLaTienda } from './pedidos.service';
 import { ProductosAdminController } from './productos-admin.controller';
@@ -38,6 +40,7 @@ import { StockAdminController } from './stock-admin.controller';
     CatalogoPublicoController,
     CarritoController,
     PedidosController,
+    PedidosAdminController,
   ],
   providers: [
     CategoriasYMarcas,
@@ -49,6 +52,7 @@ import { StockAdminController } from './stock-admin.controller';
     PedidosDeLaTienda,
     PagoDePedido,
     CorreosDeLaTienda,
+    PedidosDelPanel,
   ],
 })
 export class TiendaModule implements NestModule {

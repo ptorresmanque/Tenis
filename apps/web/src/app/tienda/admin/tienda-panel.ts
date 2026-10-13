@@ -53,6 +53,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 })
 export class TiendaPanel {
   protected readonly SECCIONES = [
+    { ruta: 'pedidos', etiqueta: 'Pedidos', icono: 'receipt_long' },
     { ruta: 'productos', etiqueta: 'Productos', icono: 'inventory_2' },
     { ruta: 'categorias', etiqueta: 'Categorías', icono: 'category' },
     { ruta: 'marcas', etiqueta: 'Marcas y tallas', icono: 'sell' },
