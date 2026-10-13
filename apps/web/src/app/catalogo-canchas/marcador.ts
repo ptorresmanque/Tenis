@@ -90,12 +90,12 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
                   <span class="font-display text-xl font-bold tabular-nums sm:text-2xl">
                     {{ fila.hora }}
                   </span>
-                  @if (fila.pico) {
+                  @if (fila.prime) {
                     <span
                       class="bg-warning-soft px-1 font-display text-xs font-bold
                              tracking-wider text-warning-strong uppercase"
                     >
-                      Pico
+                      Prime
                     </span>
                   }
                 </span>
@@ -165,16 +165,16 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
           {{ bloqueo.motivo }}
         </li>
       }
-      @if (pico(); as pico) {
+      @if (prime(); as prime) {
         <li class="flex items-center gap-2">
           <span
             class="bg-warning-soft px-1 font-display text-xs font-bold tracking-wider
                    text-warning-strong uppercase"
             aria-hidden="true"
           >
-            Pico
+            Prime
           </span>
-          Hora pico desde las {{ pico.hora }}: arriendo {{ pico.monto }}
+          Hora prime desde las {{ prime.hora }}: arriendo {{ prime.monto }}
         </li>
       }
     </ul>
@@ -229,7 +229,7 @@ export class Marcador {
         return {
           instante,
           hora: horaEnElClub(new Date(instante).toISOString()),
-          pico: deLaHora.some(({ bloque }) => bloque?.esPico),
+          prime: deLaHora.some(({ bloque }) => bloque?.esPico),
           // De una cancha que se puede tomar: la API manda en 0 el monto de la reservada
           // y de la bloqueada, y la leyenda decía "arriendo $0".
           montoPico:
@@ -252,9 +252,9 @@ export class Marcador {
     return [...vistos].map(([motivo, icono]) => ({ motivo, icono }));
   });
 
-  /** Desde cuándo es hora pico y cuánto cuesta el arriendo, si queda alguna hoy. */
-  protected readonly pico = computed(() => {
-    const fila = this.filas().find(({ pico }) => pico);
+  /** Desde cuándo es hora prime y cuánto cuesta el arriendo, si queda alguna hoy. */
+  protected readonly prime = computed(() => {
+    const fila = this.filas().find(({ prime }) => prime);
     return fila && fila.montoPico !== null
       ? { hora: fila.hora, monto: enPesos(fila.montoPico) }
       : null;

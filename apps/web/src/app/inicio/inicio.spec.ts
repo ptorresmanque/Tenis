@@ -148,7 +148,7 @@ describe('Inicio', () => {
   describe('el cara a cara', () => {
     const OCHO = [
       'Sin pago al reservar: la hora ya está en tu cuota',
-      'Cupo diario de cancha y horas en franja pico',
+      'Cupo diario de cancha y horas en horario prime',
       'Puedes traer invitados cada mes',
       'Cambias y cancelas desde "Mis reservas"',
       'Arriendo por hora, con el precio a la vista',

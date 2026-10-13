@@ -98,13 +98,13 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
       (valorChange)="filtro.set($event)"
     />
 
-    <!-- La leyenda no es decoración: la celda libre, la que no tiene y la hora pico se
+    <!-- La leyenda no es decoración: la celda libre, la que no tiene y la hora prime se
          distinguen por color, y esto es lo que dice qué significa cada uno. Cada celda
          sin libres dice además por qué (T103). -->
     <ul class="mt-4 flex flex-wrap gap-2">
       <li><app-insignia variante="libre">Libre</app-insignia></li>
       <li><app-insignia variante="neutro" icono="lock">Sin libres</app-insignia></li>
-      <li><app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia></li>
+      <li><app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia></li>
     </ul>
   `,
 })

@@ -34,8 +34,8 @@ const DE_RESERVA: Regla[] = [
   },
   {
     campo: 'cupoPicoSemanalReservas',
-    etiqueta: 'Cupo semanal en horario pico (reservas)',
-    ayuda: 'Se cuenta de lunes a domingo, solo sobre las franjas marcadas pico.',
+    etiqueta: 'Cupo semanal en horario prime (reservas)',
+    ayuda: 'Se cuenta de lunes a domingo, solo sobre las franjas marcadas prime.',
     minimo: 0,
   },
   {

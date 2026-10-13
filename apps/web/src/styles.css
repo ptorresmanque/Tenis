@@ -931,9 +931,9 @@ body:has(app-barra-fija) app-volver-arriba {
   /*
     LA HORA EN UN RÓTULO (TV5.1, TV5.3).
 
-    Campo, o ámbar suave si es hora pico, en la condensada y con cifras de ancho
+    Campo, o ámbar suave si es hora prime, en la condensada y con cifras de ancho
     fijo. Lo usan la grilla, "Mis reservas" y la página pública de una reserva:
-    con la decisión copiada en tres plantillas, cambiar el color del pico pedía
+    con la decisión copiada en tres plantillas, cambiar el color de la hora prime pedía
     acordarse de las tres (revisión de TV5.3). El tamaño y el relleno los pone
     cada pantalla.
   */
@@ -945,7 +945,7 @@ body:has(app-barra-fija) app-volver-arriba {
     font-variant-numeric: tabular-nums;
   }
 
-  .rotulo-hora-pico {
+  .rotulo-hora-prime {
     background-color: var(--color-warning-soft);
     color: var(--color-warning-strong);
   }

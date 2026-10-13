@@ -117,7 +117,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                 @if (bloque.topeDeLuz) {
                   · Tope de luz
                 } @else if (bloque.esPico) {
-                  · hora pico
+                  · hora prime
                 }
               </option>
             }
@@ -166,7 +166,7 @@ import { TelefonoDirective } from '../../ui/telefono';
                   {{ datos.cupoDiarioSocioReservas }}
                 </li>
                 <li>
-                  Reservas pico de la semana: {{ datos.reservasPicoDeLaSemana }} de
+                  Reservas prime de la semana: {{ datos.reservasPicoDeLaSemana }} de
                   {{ datos.cupoPicoSemanalReservas }}
                 </li>
                 <li>

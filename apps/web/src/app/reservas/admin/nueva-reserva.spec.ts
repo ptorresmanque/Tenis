@@ -343,10 +343,10 @@ describe('NuevaReserva', () => {
 
     const texto = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('Reservas de ese día: 1 de 1');
-    expect(texto).toContain('Reservas pico de la semana: 0 de 2');
+    expect(texto).toContain('Reservas prime de la semana: 0 de 2');
     // El cupo cuenta reservas con invitados, no personas (A5, T105).
     expect(texto).toContain('Reservas con invitados del mes: 0 de 4');
-    expect(texto).not.toMatch(/Horas (de ese día|pico)/);
+    expect(texto).not.toMatch(/Horas (de ese día|prime)/);
   });
 
   it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', () => {

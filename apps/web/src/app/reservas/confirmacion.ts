@@ -93,7 +93,7 @@ const MOTIVOS: Record<string, string> = {
                 <dd class="font-semibold">
                   {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
                   @if (reserva.esPico) {
-                    · hora pico
+                    · hora prime
                   }
                 </dd>
               </div>

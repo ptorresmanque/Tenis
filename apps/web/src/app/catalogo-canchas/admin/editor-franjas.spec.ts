@@ -63,10 +63,10 @@ describe('EditorFranjas', () => {
     await montar(CANCHA);
   });
 
-  it('lista las tarifas con su precio y si son pico', () => {
+  it('lista las tarifas con su precio y si son prime', () => {
     expect(elemento().textContent).toContain('18:00');
     expect(elemento().textContent).toContain('22:00');
-    expect(elemento().textContent).toContain('hora pico');
+    expect(elemento().textContent).toContain('hora prime');
     // El monto formateado, no el número crudo de la base.
     expect(elemento().textContent?.replace(/\s/g, '')).toContain('$20.000');
   });

@@ -175,10 +175,10 @@ describe('Tarifas', () => {
     expect(texto).not.toContain('$0');
   });
 
-  it('la franja pico se marca como tal', async () => {
+  it('la franja prime se marca como tal', async () => {
     const texto = await montar();
 
-    expect(texto).toMatch(/hora pico/i);
+    expect(texto).toMatch(/hora prime/i);
     expect(texto).toContain('$20.000');
   });
 

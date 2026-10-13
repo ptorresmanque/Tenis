@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { VARIANTES_AVISO } from './app/ui/aviso';
 import { VARIANTES_INSIGNIA } from './app/ui/insignia';
-import { VOSEO } from './voseo';
+import { PICO_Y_VALLE, VOSEO } from './voseo';
 
 /**
  * Lint del sistema de diseño.
@@ -691,6 +691,22 @@ describe('Español de Chile', () => {
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [forma] of sinComentarios(contenido).matchAll(VOSEO)) {
+        infractores.push(`${archivo}: "${forma}"`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('ninguna plantilla dice "pico" ni "valle": desde el 2026-10-13 son "prime" y "normal" (T210)', () => {
+    // Lo pidió el club después de la puesta en producción. En el código sigue `esPico`,
+    // que no es palabra suelta; los comentarios de HTML tampoco cuentan, porque no se ven.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const visible = sinComentarios(contenido).replace(/<!--[\s\S]*?-->/g, ' ');
+
+      for (const [forma] of visible.matchAll(PICO_Y_VALLE)) {
         infractores.push(`${archivo}: "${forma}"`);
       }
     }
