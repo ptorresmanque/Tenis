@@ -4,6 +4,7 @@ import { AppModule } from '../src/app.module';
 import {
   ConceptoPago,
   EstadoTransaccion,
+  Prisma,
 } from '../src/generated/prisma/client';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { AnulacionService } from '../src/pagos/anulacion.service';
@@ -209,6 +210,62 @@ describe('Expiración y anulación', () => {
       await expect(anulacion.anular(transaccionId)).rejects.toThrow();
 
       expect(await estadoDe(transaccionId)).toBe(EstadoTransaccion.AUTORIZADA);
+    });
+
+    describe('con efecto (T174)', () => {
+      // La tienda cancela el pedido en la misma operación que anula: si una de las dos
+      // cosas no ocurre, no ocurre ninguna (`SPEC-tienda.md` § Boundaries, Never).
+      const marcar =
+        (transaccionId: number) => async (tx: Prisma.TransactionClient) => {
+          await tx.transaccion.update({
+            where: { id: transaccionId },
+            data: { requiereRevision: true },
+          });
+        };
+
+      it('**si la pasarela falla, lo que escribió el efecto se deshace**', async () => {
+        const { transaccionId } = await unPagoAutorizado();
+        pasarela.fallarAlAnular = true;
+
+        await expect(
+          anulacion.anular(transaccionId, marcar(transaccionId)),
+        ).rejects.toThrow();
+
+        const guardada = await prisma.transaccion.findUniqueOrThrow({
+          where: { id: transaccionId },
+        });
+        expect(guardada.requiereRevision).toBe(false);
+        expect(guardada.estado).toBe(EstadoTransaccion.AUTORIZADA);
+      });
+
+      it('**si el efecto falla, no se pide la devolución**', async () => {
+        const { transaccionId } = await unPagoAutorizado();
+
+        await expect(
+          anulacion.anular(transaccionId, () =>
+            Promise.reject(new Error('el pedido ya estaba entregado')),
+          ),
+        ).rejects.toThrow('entregado');
+
+        expect(pasarela.anulaciones).toHaveLength(0);
+        expect(await estadoDe(transaccionId)).toBe(
+          EstadoTransaccion.AUTORIZADA,
+        );
+      });
+
+      it('una transacción ya anulada no vuelve a correr el efecto', async () => {
+        const { transaccionId } = await unPagoAutorizado();
+        let veces = 0;
+        const contar = () => {
+          veces++;
+          return Promise.resolve();
+        };
+
+        await anulacion.anular(transaccionId, contar);
+        await anulacion.anular(transaccionId, contar);
+
+        expect(veces).toBe(1);
+      });
     });
   });
 });

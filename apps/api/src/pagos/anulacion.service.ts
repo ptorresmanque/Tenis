@@ -1,9 +1,17 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import { EstadoTransaccion } from '../generated/prisma/client';
+import { EstadoTransaccion, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { transicionar } from './estados';
 import { PasarelaPago } from './pasarela.port';
+
+/**
+ * Lo que tiene que pasar junto con la devolución: la tienda deja el pedido `CANCELADO`
+ * (T174). Corre **dentro de la transacción**, después de marcar la transacción y antes
+ * de pedirle la plata a la pasarela: si el efecto falla, no se devuelve nada; si la
+ * pasarela falla, el efecto se deshace. Como `EfectoDePago` en la confirmación.
+ */
+export type EfectoDeAnulacion = (tx: Prisma.TransactionClient) => Promise<void>;
 
 @Injectable()
 export class AnulacionService {
@@ -24,8 +32,13 @@ export class AnulacionService {
    *
    * Solo existe la devolución total (`SPEC-pagos.md` § Reembolso). Devolver de menos
    * es una discusión con el socio que nadie quiere tener en el mesón.
+   *
+   * El efecto corre solo si esta llamada anula: una transacción ya anulada no lo repite.
    */
-  async anular(transaccionId: number): Promise<void> {
+  async anular(
+    transaccionId: number,
+    efecto?: EfectoDeAnulacion,
+  ): Promise<void> {
     const transaccion = await this.prisma.transaccion.findUnique({
       where: { id: transaccionId },
     });
@@ -66,6 +79,8 @@ export class AnulacionService {
       });
 
       if (count === 0) return false;
+
+      await efecto?.(tx);
 
       // Adentro de la transacción a propósito. Si la pasarela falla, el rollback deja
       // la transacción AUTORIZADA otra vez y se puede reintentar; marcarla devuelta

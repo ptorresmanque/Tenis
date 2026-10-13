@@ -48,8 +48,10 @@ describe('DetalleDePedidoPanel', () => {
         precioUnitarioClp: 249990,
         descuentoUnitarioClp: 0,
         esEncargo: false,
+        cantidadDevuelta: 0,
       },
     ],
+    devoluciones: [],
   };
 
   const montar = async (pedido: DetalleDePedido, accion?: () => Promise<void>) => {

@@ -209,6 +209,51 @@ export function despachado(
   };
 }
 
+/** Plata que vuelve al comprador (T174): cuánto, por dónde y si se canceló el pedido. */
+export interface DevolucionParaCorreo {
+  montoClp: number;
+  medio: 'WEBPAY' | 'TRANSFERENCIA' | 'EFECTIVO';
+  cancelado: boolean;
+}
+
+const COMO_SE_DEVUELVE = {
+  WEBPAY:
+    'Anulamos el pago en Webpay: el monto vuelve a tu tarjeta en los plazos de tu banco.',
+  TRANSFERENCIA:
+    'Te lo devolvemos por transferencia. Si todavía no nos das los datos de tu cuenta, ' +
+    'escríbenos con ellos.',
+  EFECTIVO: 'Te lo devolvimos en efectivo en el club.',
+};
+
+/**
+ * "Cancelado o devuelto" (T174), al comprador: cuánto se le devuelve y por qué medio
+ * (`SPEC-tienda.md` § Correos). **El motivo no va**: lo escribe el admin para el club, y
+ * puede decir cosas que no son para el comprador.
+ */
+export function devolucionAlComprador(
+  pedido: Pick<PedidoParaCorreo, 'id' | 'token' | 'nombre'>,
+  devolucion: DevolucionParaCorreo,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  const monto = pesos(devolucion.montoClp);
+
+  return {
+    asunto: devolucion.cancelado
+      ? `Cancelamos tu pedido N.º ${pedido.id}`
+      : `Te devolvemos ${monto} del pedido N.º ${pedido.id}`,
+    cuerpo:
+      `Hola ${pedido.nombre}:\n\n` +
+      (devolucion.cancelado
+        ? `Cancelamos tu pedido N.º ${pedido.id} y te devolvemos ${monto}.\n`
+        : `Registramos la devolución de ${monto} de tu pedido N.º ${pedido.id}.\n`) +
+      `${COMO_SE_DEVUELVE[devolucion.medio]}\n\n` +
+      'El detalle de tu pedido:\n' +
+      `${origenWeb}/tienda/pedido/${pedido.token}\n\n` +
+      firmaDelClub(club),
+  };
+}
+
 /** Una variante en el umbral de stock bajo, con lo que le queda ahora. */
 export interface VarianteConStockBajo {
   etiqueta: string;
@@ -345,6 +390,16 @@ export class CorreosDeLaTienda {
         `No se pudo armar el aviso de stock bajo: ${String(falla)}`,
       );
     }
+  }
+
+  /** "Cancelado o devuelto" (T174), al comprador. */
+  async devolucion(
+    pedidoId: number,
+    devolucion: DevolucionParaCorreo,
+  ): Promise<void> {
+    await this.alComprador(pedidoId, 'el aviso de devolución', (pedido, club) =>
+      devolucionAlComprador(pedido, devolucion, club, web()),
+    );
   }
 
   /** "Listo para retirar" (T169). */

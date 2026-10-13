@@ -1816,9 +1816,9 @@ model Variante {
 
   /// **Lo escribe solo `moverStock()`** (`tienda/stock.ts`), junto a su movimiento. Puede
   /// quedar negativo por un encargo o por una venta del mesón con el sistema en cero.
-  stock  Int     @default(0)
+  stock            Int       @default(0)
   /// Una variante que ya no se vende se desactiva: tiene ventas y movimientos colgando.
-  activa Boolean @default(true)
+  activa           Boolean   @default(true)
   /// Cuándo se le avisó al club que quedó en el umbral de stock bajo o menos (T173). Lo
   /// escribe `moverStock()`: el aviso sale **una vez**, y un movimiento que la deja sobre
   /// el umbral lo vuelve a nulo para que la próxima bajada avise de nuevo.
@@ -1980,7 +1980,8 @@ model Pedido {
   recordatorioRetiroEn DateTime? @map("recordatorio_retiro_en")
   actualizadoEn        DateTime  @updatedAt @map("actualizado_en")
 
-  lineas LineaPedido[]
+  lineas       LineaPedido[]
+  devoluciones Devolucion[]
 
   /// El apartado: los pendientes en línea creados hace menos de 15 minutos.
   @@index([estado, canal, creadoEn])
@@ -2005,10 +2006,43 @@ model LineaPedido {
   descuentoUnitarioClp Int     @default(0) @map("descuento_unitario_clp")
   /// Se vendió sin stock, con aviso de cuántos días tarda (T170).
   esEncargo            Boolean @default(false) @map("es_encargo")
+  /// Cuántas unidades ya se devolvieron (T174): una unidad no se devuelve dos veces.
+  cantidadDevuelta     Int     @default(0) @map("cantidad_devuelta")
 
   pedido   Pedido    @relation(fields: [pedidoId], references: [id])
   variante Variante? @relation(fields: [varianteId], references: [id])
 
   @@index([varianteId])
   @@map("linea_pedido")
+}
+
+/// Plata que vuelve al comprador (T174, `SPEC-tienda.md` § Cancelaciones y devoluciones):
+/// la cancelación entera, anulada en Webpay o devuelta por transferencia, o una parte
+/// —un retracto, una garantía— por transferencia o en efectivo.
+///
+/// Las unidades que vuelven a la venta son `MovimientoStock` con motivo `DEVOLUCION` o
+/// `ANULACION`, y cuántas se devolvieron de cada línea queda en `cantidadDevuelta`.
+model Devolucion {
+  id              Int             @id @default(autoincrement())
+  pedidoId        Int             @map("pedido_id")
+  montoClp        Int             @map("monto_clp")
+  medio           MedioDevolucion
+  /// Un producto fallado no vuelve a la venta.
+  reponeStock     Boolean         @map("repone_stock")
+  motivo          String          @db.VarChar(500)
+  /// El admin. Sin clave foránea, como `Pedido.canceladoPorId`.
+  registradaPorId Int             @map("registrada_por_id")
+  creadaEn        DateTime        @default(now()) @map("creada_en")
+
+  pedido Pedido @relation(fields: [pedidoId], references: [id])
+
+  @@index([pedidoId])
+  @@map("devolucion")
+}
+
+enum MedioDevolucion {
+  /// La anulación del pago: solo al cancelar, y por el total.
+  WEBPAY
+  TRANSFERENCIA
+  EFECTIVO
 }

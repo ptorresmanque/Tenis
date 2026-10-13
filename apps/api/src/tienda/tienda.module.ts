@@ -10,6 +10,7 @@ import { CatalogoPublicoController } from './catalogo-publico.controller';
 import { CatalogoPublico } from './catalogo-publico.service';
 import { ConfiguracionDeLaTiendaController } from './configuracion.controller';
 import { CorreosDeLaTienda } from './correos';
+import { DevolucionesDeLaTienda } from './devoluciones.service';
 import { FotosPublicasController } from './fotos-publicas.controller';
 import { FotosDeProductos } from './fotos.service';
 import { InterruptorDeLaTienda, RUTAS_DE_LA_TIENDA } from './interruptor';
@@ -57,6 +58,7 @@ import { StockAdminController } from './stock-admin.controller';
     CorreosDeLaTienda,
     PedidosDelPanel,
     RecordatoriosDeRetiro,
+    DevolucionesDeLaTienda,
   ],
 })
 export class TiendaModule implements NestModule {

@@ -140,11 +140,14 @@ export class PedidosDelPanel {
     }));
   }
 
-  /** Todo el pedido: el contacto, la entrega, la factura y las líneas. */
+  /** Todo el pedido: el contacto, la entrega, la factura, las líneas y las devoluciones. */
   async detalle(id: number) {
     const pedido = await this.prisma.pedido.findUnique({
       where: { id },
-      include: { lineas: { orderBy: { id: 'asc' } } },
+      include: {
+        lineas: { orderBy: { id: 'asc' } },
+        devoluciones: { orderBy: { id: 'asc' } },
+      },
     });
     if (!pedido)
       throw new NotFoundException('No hay un pedido con ese número.');

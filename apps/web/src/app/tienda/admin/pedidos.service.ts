@@ -6,6 +6,26 @@ import type { EntregaPedido, EstadoPedido } from '../tienda.service';
 
 export type CanalPedido = 'EN_LINEA' | 'MESON';
 export type AccionDePedido = 'listo' | 'despachado' | 'entregado';
+export type MedioDevolucion = 'WEBPAY' | 'TRANSFERENCIA' | 'EFECTIVO';
+
+/** Plata que volvió al comprador (T174): la cancelación entera o una parte. */
+export interface DevolucionDelPedido {
+  id: number;
+  montoClp: number;
+  medio: MedioDevolucion;
+  reponeStock: boolean;
+  motivo: string;
+  creadaEn: string;
+}
+
+/** Lo que se manda al devolver una parte. Por Webpay no: solo se anula el total. */
+export interface DevolucionNueva {
+  lineas: { lineaId: number; cantidad: number }[];
+  montoClp: number;
+  medio: 'TRANSFERENCIA' | 'EFECTIVO';
+  reponeStock: boolean;
+  motivo: string;
+}
 
 /** Espejo de `PedidoDelPanel` en la API (T169). */
 export interface PedidoDelPanel {
@@ -61,7 +81,10 @@ export interface DetalleDePedido {
     precioUnitarioClp: number;
     descuentoUnitarioClp: number;
     esEncargo: boolean;
+    /** Las unidades que ya se devolvieron (T174). */
+    cantidadDevuelta: number;
   }[];
+  devoluciones: DevolucionDelPedido[];
 }
 
 /** Los pedidos de la tienda para el panel (T169). */
@@ -83,5 +106,17 @@ export class PedidosDeLaTiendaAdmin {
 
   async accion(id: number, cual: AccionDePedido, cuerpo: object): Promise<void> {
     await firstValueFrom(this.http.post(`/api/admin/tienda/pedidos/${id}/${cual}`, cuerpo));
+  }
+
+  /** Anula en Webpay, o con `TRANSFERENCIA`, cancela y devuelve por fuera (T174). */
+  async cancelar(
+    id: number,
+    cuerpo: { motivo: string; medio: 'WEBPAY' | 'TRANSFERENCIA' },
+  ): Promise<void> {
+    await firstValueFrom(this.http.post(`/api/admin/tienda/pedidos/${id}/cancelar`, cuerpo));
+  }
+
+  async devolver(id: number, cuerpo: DevolucionNueva): Promise<void> {
+    await firstValueFrom(this.http.post(`/api/admin/tienda/pedidos/${id}/devoluciones`, cuerpo));
   }
 }

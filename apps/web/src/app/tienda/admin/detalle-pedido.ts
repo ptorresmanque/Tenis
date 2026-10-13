@@ -9,6 +9,7 @@ import { Aviso } from '../../ui/aviso';
 import { Esqueleto } from '../../ui/esqueleto';
 import { Insignia } from '../../ui/insignia';
 import { ESTADOS, FECHA } from '../estados-del-pedido';
+import { DevolucionesDelPedido } from './devoluciones';
 import { AccionDePedido, DetalleDePedido, PedidosDeLaTiendaAdmin } from './pedidos.service';
 
 const MEDIOS = {
@@ -26,7 +27,15 @@ const MEDIOS = {
  */
 @Component({
   selector: 'app-detalle-de-pedido',
-  imports: [FormsModule, RouterLink, Aviso, Esqueleto, Insignia, TelefonoPipe],
+  imports: [
+    FormsModule,
+    RouterLink,
+    Aviso,
+    DevolucionesDelPedido,
+    Esqueleto,
+    Insignia,
+    TelefonoPipe,
+  ],
   template: `
     <p>
       <a
@@ -186,6 +195,13 @@ const MEDIOS = {
                 @if (linea.esEncargo) {
                   <app-insignia variante="info" icono="local_shipping">Encargo</app-insignia>
                 }
+                @if (linea.cantidadDevuelta > 0) {
+                  <span class="text-sm text-muted-foreground">
+                    · {{ linea.cantidadDevuelta }} devuelta{{
+                      linea.cantidadDevuelta > 1 ? 's' : ''
+                    }}
+                  </span>
+                }
               </span>
               <span class="whitespace-nowrap">{{
                 pesos((linea.precioUnitarioClp - linea.descuentoUnitarioClp) * linea.cantidad)
@@ -202,6 +218,8 @@ const MEDIOS = {
           <dd class="text-right font-display text-xl font-bold">{{ pesos(p.totalClp) }}</dd>
         </dl>
       </section>
+
+      <app-devoluciones-del-pedido [pedido]="p" (cambio)="pedido.reload()" />
     }
   `,
 })
