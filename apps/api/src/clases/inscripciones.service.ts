@@ -10,9 +10,11 @@ import {
   EstadoInscripcion,
   EstadoSocio,
   Prisma,
+  TipoClase,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { InscripcionNueva } from './clases.dto';
+import { GIMNASIO } from './gimnasio';
 
 /**
  * Los estados en que una inscripción ocupa un lugar en la clase.
@@ -50,11 +52,14 @@ export interface Inscrito {
 
 export interface FichaDeClase {
   id: number;
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T231, A7). */
+  lugar: string;
   profesor: string;
   inicio: Date;
   fin: Date;
-  nivel: string;
+  /** Nulo en preparación física. */
+  nivel: string | null;
   estado: EstadoClase;
   cupoMaximo: number;
   cupoTomado: number;
@@ -346,6 +351,7 @@ export class Inscripciones {
       where: { id },
       select: {
         id: true,
+        tipo: true,
         inicio: true,
         fin: true,
         nivel: true,
@@ -398,7 +404,8 @@ export class Inscripciones {
 
     return {
       id: clase.id,
-      cancha: clase.cancha.nombre,
+      tipo: clase.tipo,
+      lugar: clase.cancha?.nombre ?? GIMNASIO,
       profesor: clase.profesor.nombreVisible,
       inicio: clase.inicio,
       fin: clase.fin,

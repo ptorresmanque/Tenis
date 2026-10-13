@@ -7,20 +7,35 @@ import {
   instanteDeCuerpo,
 } from '../catalogo-canchas/admin.dto';
 import { leerTelefono } from '../comun/telefono';
-import { NivelClase } from '../generated/prisma/client';
+import { NivelClase, TipoClase } from '../generated/prisma/client';
 
-/** Una clase por agendar, con el rango ya resuelto a instantes. */
-export interface ClaseNueva {
-  canchaId: number;
+/** Lo que tiene toda clase, sea de tenis o del gimnasio. */
+interface FichaDeLaClase {
   profesorId: number;
   /** Fecha civil del club, "AAAA-MM-DD". La grilla se pide por día, no por instante. */
   fecha: string;
   inicio: Date;
   fin: Date;
   cupoMaximo: number;
-  nivel: NivelClase;
   notas: string | null;
 }
+
+/** Una clase de tenis: en una cancha y con nivel. */
+export interface ClaseDeTenis extends FichaDeLaClase {
+  tipo: typeof TipoClase.TENIS;
+  canchaId: number;
+  nivel: NivelClase;
+}
+
+/** Una clase de preparación física (T231): en el gimnasio, sin cancha y sin nivel. */
+export interface ClaseDelGimnasio extends FichaDeLaClase {
+  tipo: typeof TipoClase.PREPARACION_FISICA;
+  canchaId: null;
+  nivel: null;
+}
+
+/** Una clase por agendar, con el rango ya resuelto a instantes. */
+export type ClaseNueva = ClaseDeTenis | ClaseDelGimnasio;
 
 /** Un día de la semana de una serie, con su horario y su cancha (T228). */
 export interface DiaDeLaSerie {
@@ -114,7 +129,7 @@ export function leerSerie(cuerpo: unknown): SerieNueva {
       vistos.add(diaSemana);
 
       // Cada día se valida como una clase suelta: horas, cancha y el resto de la ficha.
-      const muestra = leerClaseNueva({
+      const muestra = leerClaseDeTenis({
         ...datos,
         canchaId: dia.canchaId,
         horaDesde: dia.horaDesde,
@@ -131,7 +146,7 @@ export function leerSerie(cuerpo: unknown): SerieNueva {
     })
     .sort((uno, otro) => uno.diaSemana - otro.diaSemana);
 
-  const muestra = leerClaseNueva({
+  const muestra = leerClaseDeTenis({
     ...datos,
     ...dias[0],
     fecha: fecha(desde),
@@ -194,10 +209,35 @@ export interface Movimiento {
  * **El rango entra en hora del club y sale en instantes**, igual que el bloqueo: la
  * conversión la hace el servidor y no el navegador, que es la regla del proyecto
  * desde el bug de marzo.
+ *
+ * **La cancha y el nivel van con el tipo** (T231): tenis con los dos, preparación física
+ * sin ninguno. La base no lo puede imponer —MariaDB no deja un CHECK sobre una columna con
+ * clave foránea—, así que lo impone esto.
  */
 export function leerClaseNueva(cuerpo: unknown): ClaseNueva {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
+  return leerTipo(datos.tipo) === TipoClase.PREPARACION_FISICA
+    ? leerClaseDelGimnasio(datos)
+    : leerClaseDeTenis(datos);
+}
+
+/** Sin tipo, tenis: es lo que mandaba el panel antes de T231. */
+function leerTipo(valor: unknown): TipoClase {
+  if (valor === undefined) return TipoClase.TENIS;
+
+  const tipos = Object.values(TipoClase) as string[];
+  if (typeof valor !== 'string' || !tipos.includes(valor)) {
+    throw new BadRequestException(
+      `El tipo tiene que ser uno de: ${tipos.join(', ')}.`,
+    );
+  }
+
+  return valor as TipoClase;
+}
+
+/** La clase de tenis. La serie la usa directo: hasta T232 sus días son todos de tenis. */
+export function leerClaseDeTenis(datos: Record<string, unknown>): ClaseDeTenis {
   const niveles = Object.values(NivelClase) as string[];
   if (typeof datos.nivel !== 'string' || !niveles.includes(datos.nivel)) {
     throw new BadRequestException(
@@ -205,6 +245,43 @@ export function leerClaseNueva(cuerpo: unknown): ClaseNueva {
     );
   }
 
+  return {
+    tipo: TipoClase.TENIS,
+    ...leerFicha(datos),
+    canchaId: entero(datos.canchaId, 'La cancha', 1),
+    nivel: datos.nivel as NivelClase,
+  };
+}
+
+/**
+ * La de preparación física. Una cancha cerraría una cancha que nadie usa, y un nivel la
+ * anunciaría como de tenis: las dos se rechazan en vez de ignorarse, para que el panel que
+ * las mande por error se entere.
+ */
+function leerClaseDelGimnasio(
+  datos: Record<string, unknown>,
+): ClaseDelGimnasio {
+  if (datos.canchaId !== undefined && datos.canchaId !== null) {
+    throw new BadRequestException(
+      'Una clase de preparación física va al gimnasio: sin cancha.',
+    );
+  }
+
+  if (datos.nivel !== undefined && datos.nivel !== null) {
+    throw new BadRequestException(
+      'Una clase de preparación física va sin nivel.',
+    );
+  }
+
+  return {
+    tipo: TipoClase.PREPARACION_FISICA,
+    ...leerFicha(datos),
+    canchaId: null,
+    nivel: null,
+  };
+}
+
+function leerFicha(datos: Record<string, unknown>): FichaDeLaClase {
   const { fecha, inicio, fin } = leerRango(datos);
 
   const notas = typeof datos.notas === 'string' ? datos.notas.trim() : '';
@@ -214,15 +291,14 @@ export function leerClaseNueva(cuerpo: unknown): ClaseNueva {
   }
 
   return {
-    canchaId: entero(datos.canchaId, 'La cancha', 1),
     profesorId: entero(datos.profesorId, 'El profesor', 1),
     fecha,
     inicio,
     fin,
     // Tope alto y no un número redondo del club: una clase de 40 alumnos es un dato
-    // mal escrito, pero el club decide cuántos caben en su cancha, no este archivo.
+    // mal escrito, pero el club decide cuántos caben en su cancha, no este archivo. En el
+    // gimnasio, el tope de la grupal lo revisa el servicio, que lee la configuración.
     cupoMaximo: entero(datos.cupoMaximo, 'El cupo', 1, 40),
-    nivel: datos.nivel as NivelClase,
     notas: notas || null,
   };
 }

@@ -2,9 +2,9 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 
 import type { ReservaAfectada } from '../reservas/cierre-de-cancha.service';
 import {
-  ClaseNueva,
+  ClaseDeTenis,
   Decisiones,
-  leerClaseNueva,
+  leerClaseDeTenis,
   SerieNueva,
 } from './clases.dto';
 
@@ -66,12 +66,12 @@ export function fechasDeLaSerie(
  * (T228). Cada una se lee igual que una clase que agenda el admin a mano, así que las 19:00
  * son las 19:00 del club antes y después del cambio de horario.
  */
-export function clasesDeLaSerie(serie: SerieNueva): ClaseNueva[] {
+export function clasesDeLaSerie(serie: SerieNueva): ClaseDeTenis[] {
   return fechasDeLaSerie(serie).map((fecha) => {
     const diaSemana = new Date(`${fecha}T00:00:00.000Z`).getUTCDay();
     const dia = serie.dias.find((uno) => uno.diaSemana === diaSemana)!;
 
-    return leerClaseNueva({ ...serie, ...dia, fecha });
+    return leerClaseDeTenis({ ...serie, ...dia, fecha });
   });
 }
 

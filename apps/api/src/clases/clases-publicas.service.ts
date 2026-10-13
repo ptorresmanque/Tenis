@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { fechaDelClub, hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
 import { EstadoClase, EstadoInscripcion } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { GIMNASIO } from './gimnasio';
 
 /** Cuántos días de clases se anuncian de una vez. */
 const DIAS_DE_LA_SEMANA = 7;
@@ -41,7 +42,7 @@ export interface DiaPublico {
   diaSemana: number;
   horaDesde: string;
   horaHasta: string;
-  /** El nombre de la cancha, o "Gimnasio" (T232). */
+  /** El nombre de la cancha, o "Gimnasio" (T231). */
   lugar: string;
 }
 
@@ -53,7 +54,8 @@ export interface DiaPublico {
 export interface SeriePublica {
   id: number;
   profesor: string;
-  nivel: string;
+  /** Nulo en preparación física. */
+  nivel: string | null;
   /** Cada día con su horario y su lugar, de domingo a sábado. */
   dias: DiaPublico[];
   /** La fecha civil de su última clase programada: si se canceló desde un día, se acorta. */
@@ -64,11 +66,13 @@ export interface SeriePublica {
 /** Una clase de la semana, como la ve quien todavía no es del club. */
 export interface ClasePublica {
   id: number;
+  /** El nombre de la cancha, o "Gimnasio" (T231). */
   cancha: string;
   profesor: string;
   inicio: Date;
   fin: Date;
-  nivel: string;
+  /** Nulo en preparación física. */
+  nivel: string | null;
   cuposLibres: number;
 }
 
@@ -147,7 +151,7 @@ export class ClasesPublicas {
 
     return clases.map((clase) => ({
       id: clase.id,
-      cancha: clase.cancha.nombre,
+      cancha: clase.cancha?.nombre ?? GIMNASIO,
       profesor: clase.profesor.nombreVisible,
       inicio: clase.inicio,
       fin: clase.fin,
@@ -222,7 +226,7 @@ export class ClasesPublicas {
         diaSemana: dia.diaSemana,
         horaDesde: dia.horaDesde,
         horaHasta: dia.horaHasta,
-        lugar: dia.cancha?.nombre ?? 'Gimnasio',
+        lugar: dia.cancha?.nombre ?? GIMNASIO,
       })),
       hasta: hoyEnElClub(serie.clases[serie.clases.length - 1].inicio)
         .toISOString()

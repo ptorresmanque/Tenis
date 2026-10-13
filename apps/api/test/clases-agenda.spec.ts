@@ -469,7 +469,7 @@ describe('POST /api/admin/clases', () => {
     expect(bloqueDe(horas, '20:00')?.bloqueado).toBe(true);
   });
 
-  it('la agenda del día trae las clases con su profesor y su cancha', async () => {
+  it('la agenda del día trae las clases con su profesor, su lugar y su tipo', async () => {
     await agendada();
 
     const respuesta = await request(app.getHttpServer())
@@ -479,12 +479,14 @@ describe('POST /api/admin/clases', () => {
 
     const clases = respuesta.body as {
       profesor: string;
-      cancha: string;
-      nivel: string;
+      lugar: string;
+      tipo: string;
     }[];
     expect(clases).toHaveLength(1);
     expect(clases[0].profesor).toBe('Profe Ana');
-    expect(clases[0].cancha).toBe(NOMBRE_CANCHA);
+    // T231: "lugar" y no "cancha", porque la del gimnasio no tiene.
+    expect(clases[0].lugar).toBe(NOMBRE_CANCHA);
+    expect(clases[0].tipo).toBe('TENIS');
   });
 
   it('la clase cancelada no sigue apareciendo en la agenda del día', async () => {

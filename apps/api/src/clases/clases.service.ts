@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -8,28 +9,37 @@ import {
 import { DisponibilidadService } from '../catalogo-canchas/disponibilidad.service';
 import type { DatosBloqueo } from '../catalogo-canchas/admin.dto';
 import { instanteEnElClub } from '../comun/tiempo';
-import { EstadoClase, MotivoBloqueo } from '../generated/prisma/client';
+import {
+  EstadoClase,
+  MotivoBloqueo,
+  TipoClase,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CierreDeCanchaService,
   type ReservaAfectada,
 } from '../reservas/cierre-de-cancha.service';
 import type {
+  ClaseDelGimnasio,
   ClaseNueva,
   Decisiones,
   Movimiento,
   SerieNueva,
 } from './clases.dto';
+import { GIMNASIO, problemaDelGimnasio } from './gimnasio';
 import { clasesDeLaSerie, type FechaDeLaSerie, repartirFechas } from './series';
 
 /** Una clase de la agenda, como la mira quien atiende el mesón. */
 export interface ClaseDelDia {
   id: number;
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T231, A7). */
+  lugar: string;
   profesor: string;
   inicio: Date;
   fin: Date;
-  nivel: string;
+  /** Nulo en preparación física. */
+  nivel: string | null;
   /// La agenda muestra las realizadas del día: son las que ya pasaron, no las que
   /// no existen. Lo que cambia es qué se puede hacer con ellas.
   estado: EstadoClase;
@@ -49,7 +59,8 @@ export interface SerieAgendada {
 
 export interface ClaseAgendada {
   id: number;
-  bloqueoId: number;
+  /** Nulo en el gimnasio, que no cierra ninguna cancha. */
+  bloqueoId: number | null;
   canceladas: ReservaAfectada[];
 }
 
@@ -81,6 +92,14 @@ export class Clases {
 
   /** A quién le quitaría la hora, sin escribir nada. El paso previo a confirmar. */
   async afectadas(datos: ClaseNueva): Promise<ReservaAfectada[]> {
+    if (datos.tipo === TipoClase.PREPARACION_FISICA) {
+      // En el gimnasio no hay reservas: lo que se avisa antes es si está libre.
+      const problema = await problemaDelGimnasio(this.prisma, datos);
+      if (problema) throw problema;
+
+      return [];
+    }
+
     await this.exigirRangoUsable(datos.canchaId, datos.fecha, datos);
 
     return this.cierres.afectadas(this.comoBloqueo(datos, datos.canchaId));
@@ -199,6 +218,10 @@ export class Clases {
     serieId: number | null = null,
     { soloLibre = false }: { soloLibre?: boolean } = {},
   ): Promise<ClaseAgendada> {
+    if (datos.tipo === TipoClase.PREPARACION_FISICA) {
+      return this.agendarEnElGimnasio(datos, serieId);
+    }
+
     const profesor = await this.elProfesor(datos.profesorId);
     await this.exigirRangoUsable(datos.canchaId, datos.fecha, datos);
 
@@ -231,6 +254,40 @@ export class Clases {
   }
 
   /**
+   * Una clase de preparación física (T231). No cierra ninguna cancha, así que no pasa por
+   * el cierre: sin bloqueo, sin reservas que cancelar y sin tope de luz. Lo único que cuidar
+   * es que el gimnasio esté libre, y eso va con candado, en la transacción que la crea.
+   */
+  private async agendarEnElGimnasio(
+    datos: ClaseDelGimnasio,
+    serieId: number | null,
+  ): Promise<ClaseAgendada> {
+    await this.elProfesor(datos.profesorId);
+
+    const { id } = await this.prisma.$transaction(async (tx) => {
+      const problema = await problemaDelGimnasio(tx, datos, {
+        conCandado: true,
+      });
+      if (problema) throw problema;
+
+      return tx.clase.create({
+        data: {
+          tipo: TipoClase.PREPARACION_FISICA,
+          profesorId: datos.profesorId,
+          inicio: datos.inicio,
+          fin: datos.fin,
+          cupoMaximo: datos.cupoMaximo,
+          notas: datos.notas,
+          serieId,
+        },
+        select: { id: true },
+      });
+    });
+
+    return { id, bloqueoId: null, canceladas: [] };
+  }
+
+  /**
    * Mueve la clase de hora o de cancha, conservando su id y sus inscritos.
    *
    * Mover es agendar de nuevo: la hora nueva pasa por la misma cascada, porque puede
@@ -244,7 +301,13 @@ export class Clases {
     { soloLibre = false }: { soloLibre?: boolean } = {},
   ): Promise<ClaseAgendada> {
     const clase = await this.laClase(id);
-    const canchaId = adonde.canchaId ?? clase.canchaId;
+
+    if (clase.tipo === TipoClase.PREPARACION_FISICA) {
+      return this.moverEnElGimnasio(id, adonde);
+    }
+
+    // Una de tenis tiene cancha y nivel: lo impone `leerClaseNueva` al agendarla.
+    const canchaId = adonde.canchaId ?? clase.canchaId!;
 
     await this.exigirRangoUsable(
       canchaId,
@@ -259,7 +322,7 @@ export class Clases {
 
     const { bloqueoId, canceladas } = await this.cierres.cerrar(
       this.comoBloqueo(
-        { ...adonde, nivel: clase.nivel },
+        { ...adonde, nivel: clase.nivel! },
         canchaId,
         clase.profesor.nombreVisible,
       ),
@@ -282,6 +345,36 @@ export class Clases {
     );
 
     return { id, bloqueoId, canceladas };
+  }
+
+  /**
+   * Mover una del gimnasio cambia solo la hora: mover no cambia el tipo (`SPEC-clases.md`
+   * § Reglas). La comprobación es la de agendar, sin contarse a sí misma.
+   */
+  private async moverEnElGimnasio(
+    id: number,
+    adonde: Movimiento,
+  ): Promise<ClaseAgendada> {
+    if (adonde.canchaId !== undefined) {
+      throw new BadRequestException(
+        'Una clase del gimnasio se mueve de hora, no a una cancha: mover no cambia el tipo.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const problema = await problemaDelGimnasio(tx, adonde, {
+        exceptoClaseId: id,
+        conCandado: true,
+      });
+      if (problema) throw problema;
+
+      await tx.clase.update({
+        where: { id },
+        data: { inicio: adonde.inicio, fin: adonde.fin },
+      });
+    });
+
+    return { id, bloqueoId: null, canceladas: [] };
   }
 
   /**
@@ -433,6 +526,7 @@ export class Clases {
       orderBy: [{ inicio: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
+        tipo: true,
         inicio: true,
         fin: true,
         nivel: true,
@@ -447,7 +541,8 @@ export class Clases {
 
     return clases.map((clase) => ({
       id: clase.id,
-      cancha: clase.cancha.nombre,
+      tipo: clase.tipo,
+      lugar: clase.cancha?.nombre ?? GIMNASIO,
       profesor: clase.profesor.nombreVisible,
       inicio: clase.inicio,
       fin: clase.fin,
@@ -580,6 +675,7 @@ export class Clases {
       where: { id },
       select: {
         id: true,
+        tipo: true,
         canchaId: true,
         bloqueoId: true,
         estado: true,

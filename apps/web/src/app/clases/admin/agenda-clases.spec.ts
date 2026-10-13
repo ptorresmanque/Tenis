@@ -19,7 +19,7 @@ import { AgendaDeClases } from './agenda-clases';
 describe('AgendaDeClases', () => {
   const CLASE: ClaseDelDia = {
     id: 7,
-    cancha: 'Cancha 1',
+    lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',

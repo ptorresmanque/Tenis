@@ -35,7 +35,7 @@ describe('AgendaDelDia', () => {
   /** Una clase ocupa cancha igual que una reserva, y el mesón la mira ahí mismo. */
   const CLASE: ClaseDelDia = {
     id: 7,
-    cancha: 'Cancha 2',
+    lugar: 'Cancha 2',
     profesor: 'Ana Silva',
     // 14:00Z en agosto son las 10:00 en Santiago: después de la reserva de arriba.
     inicio: '2026-08-17T14:00:00.000Z',

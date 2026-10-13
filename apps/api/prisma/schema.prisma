@@ -607,6 +607,10 @@ model ConfiguracionClub {
   /// cualquier parte de su rango cae ahí. Lo aplica `reservas/cupo.ts`.
   duracionesSocioPico DuracionesSocioPico @default(UNA_HORA) @map("duraciones_socio_pico")
 
+  /// Cuántos alumnos caben como máximo en una clase grupal del gimnasio (T231). El club
+  /// todavía no lo sabe: lo ajusta desde su panel. La individual es de uno.
+  gimnasioCupoGrupal Int @default(8) @map("gimnasio_cupo_grupal")
+
   /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras seis: el
   /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo
   /// que una tabla de precios con vigencia vendría a resolver.
@@ -979,6 +983,14 @@ enum NivelClase {
   NINOS
 }
 
+/// Tenis, en una cancha y con nivel, o preparación física, en el gimnasio y sin ninguno de
+/// los dos (T231). Se guarda y no se deduce de `canchaId` nulo: quien lee la clase no tiene
+/// que adivinar qué significa una cancha vacía.
+enum TipoClase {
+  TENIS
+  PREPARACION_FISICA
+}
+
 enum EstadoClase {
   PROGRAMADA
   REALIZADA
@@ -995,16 +1007,19 @@ enum EstadoClase {
 /// Es opcional porque cancelar la clase **borra** su bloqueo para devolver la hora a
 /// la disponibilidad; la clase queda con su historia y sin bloqueo.
 model Clase {
-  id         Int @id @default(autoincrement())
-  profesorId Int @map("profesor_id")
-  canchaId   Int @map("cancha_id")
+  id         Int       @id @default(autoincrement())
+  tipo       TipoClase @default(TENIS)
+  profesorId Int       @map("profesor_id")
+  /// Nula en preparación física, que va al gimnasio y no cierra ninguna cancha (T231).
+  canchaId   Int?      @map("cancha_id")
 
   /// Instantes en UTC, como el bloqueo: una clase es un momento concreto.
   inicio DateTime
   fin    DateTime
 
   cupoMaximo Int         @map("cupo_maximo")
-  nivel      NivelClase
+  /// Nulo en preparación física: se anuncia así, sin nivel.
+  nivel      NivelClase?
   estado     EstadoClase @default(PROGRAMADA)
 
   bloqueoId Int?    @unique @map("bloqueo_id")
@@ -1020,7 +1035,7 @@ model Clase {
   creadaEn DateTime @default(now()) @map("creada_en")
 
   profesor      Profesor           @relation(fields: [profesorId], references: [id])
-  cancha        Cancha             @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  cancha        Cancha?            @relation(fields: [canchaId], references: [id], onDelete: Cascade)
   bloqueo       Bloqueo?           @relation(fields: [bloqueoId], references: [id], onDelete: SetNull)
   serie         SerieDeClases?     @relation(fields: [serieId], references: [id], onDelete: SetNull)
   inscripciones InscripcionClase[]
@@ -1037,16 +1052,18 @@ model Clase {
 /// Guarda la regla y no las fechas: las fechas son las clases que generó. Desde T228 cada
 /// día de la semana tiene su horario y su cancha, en `DiaDeSerie`.
 model SerieDeClases {
-  id         Int @id @default(autoincrement())
-  profesorId Int @map("profesor_id")
+  id         Int       @id @default(autoincrement())
+  /// Una serie no mezcla tipos: tenis con una cancha por día, o todos sus días al gimnasio.
+  tipo       TipoClase @default(TENIS)
+  profesorId Int       @map("profesor_id")
 
   /// Fechas civiles del club, las dos incluidas.
   desde      DateTime @db.Date
   hasta      DateTime @db.Date
 
-  cupoMaximo Int        @map("cupo_maximo")
-  nivel      NivelClase
-  notas      String?    @db.VarChar(500)
+  cupoMaximo Int         @map("cupo_maximo")
+  nivel      NivelClase?
+  notas      String?     @db.VarChar(500)
 
   creadaEn DateTime @default(now()) @map("creada_en")
 

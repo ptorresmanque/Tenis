@@ -17,7 +17,8 @@ export const NIVELES: Record<NivelClase, string> = {
 /** Espejo de una fila de `GET /api/admin/clases`. */
 export interface ClaseDelDia {
   id: number;
-  cancha: string;
+  /** El nombre de la cancha, o "Gimnasio" (T231). */
+  lugar: string;
   profesor: string;
   inicio: string;
   fin: string;
@@ -59,7 +60,8 @@ export interface Inscrito {
 /** La clase con su lista: lo que el profesor lleva a la cancha. */
 export interface FichaDeClase {
   id: number;
-  cancha: string;
+  /** El nombre de la cancha, o "Gimnasio" (T231). */
+  lugar: string;
   profesor: string;
   inicio: string;
   fin: string;
@@ -116,7 +118,8 @@ export interface SeriePublica {
 
 export interface ResultadoAgendar {
   id: number;
-  bloqueoId: number;
+  /** Nulo en el gimnasio, que no cierra ninguna cancha (T231). */
+  bloqueoId: number | null;
   canceladas: HoraAfectada[];
 }
 

@@ -132,7 +132,7 @@ const enBlanco = () => ({
               <p class="font-display text-lg font-semibold">
                 {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
               </p>
-              <p class="font-medium">{{ clase.cancha }}</p>
+              <p class="font-medium">{{ clase.lugar }}</p>
               <app-insignia variante="info" icono="school">
                 {{ nivel(clase.nivel) }}
               </app-insignia>
