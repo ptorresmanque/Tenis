@@ -16,8 +16,8 @@ import { InscripcionATorneo } from './inscripcion';
  */
 describe('InscripcionATorneo', () => {
   const CATEGORIAS: CategoriaPublica[] = [
-    { id: 7, categoriaJuegoId: 20, categoria: '4ª', valor: 'Club 250', montoClp: 0, cupo: 4, cuposLibres: 2, armado: false },
-    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', valor: 'Club 250', montoClp: 15_000, cupo: 2, cuposLibres: 0, armado: false },
+    { id: 7, categoriaJuegoId: 20, categoria: '4ª', montoClp: 0, cupo: 4, cuposLibres: 2, armado: false },
+    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: 0, armado: false },
   ];
 
   let fixture: ComponentFixture<InscripcionATorneo>;

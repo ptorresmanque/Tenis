@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service';
+import { Tours } from '../../tours/tours.service';
 import { Torneo, Torneos } from '../torneos.service';
 import { FichaDeTorneo } from './ficha-torneo';
 
@@ -27,21 +28,25 @@ describe('FichaDeTorneo', () => {
         id: 7,
         categoria: 'Honor',
         cupo: 8,
-        categoriaId: 1,
-        valor: 'Club 500',
-        puntosCampeon: 500,
       },
       {
         id: 8,
         categoria: '4ª',
         cupo: 32,
-        categoriaId: 2,
-        valor: 'Club 250',
-        puntosCampeon: 250,
       },
     ],
     pagosPorRevisar: 3,
     enEspera: 0,
+    tours: [
+      {
+        tourId: 1,
+        tour: 'Tour FEDAL',
+        temporadaId: 12,
+        temporada: '2027',
+        nivelId: 5,
+        nivel: '500',
+      },
+    ],
   };
 
   let fixture: ComponentFixture<FichaDeTorneo>;
@@ -56,6 +61,11 @@ describe('FichaDeTorneo', () => {
         {
           provide: AdminCanchas,
           useValue: { canchas: vi.fn().mockResolvedValue([]) },
+        },
+        // Los tours del torneo, en Ajustes (T197): el selector pide la lista.
+        {
+          provide: Tours,
+          useValue: { listar: vi.fn().mockResolvedValue([]), ficha: vi.fn() },
         },
         {
           provide: Torneos,
@@ -90,7 +100,6 @@ describe('FichaDeTorneo', () => {
             fotos: vi.fn().mockResolvedValue([]),
             cuadrosDelTorneo: vi.fn().mockResolvedValue([]),
             categoriasDeJuego: vi.fn().mockResolvedValue([]),
-            categorias: vi.fn().mockResolvedValue([]),
             editarTorneo: vi.fn().mockResolvedValue({}),
             cancelarTorneo: vi.fn().mockResolvedValue({ id: 5, estado: 'CANCELADO' }),
             reactivarTorneo: vi
@@ -289,6 +298,13 @@ describe('FichaDeTorneo', () => {
 
     beforeEach(async () => {
       await pestana('Ajustes');
+    });
+
+    it('**dice para qué tours suma**, con su temporada y su nivel (T197)', () => {
+      const tours = elemento().querySelector('app-tours-del-torneo');
+
+      expect(tours?.textContent).toContain('Tour FEDAL');
+      expect(tours?.textContent).toContain('2027 · 500');
     });
 
     it('**el formulario llega con lo que el torneo ya tiene**', async () => {

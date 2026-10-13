@@ -1,90 +1,84 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { comoFechaCivil, hoyEnElClub } from '../comun/tiempo';
+import { comoFechaCivil } from '../comun/tiempo';
 import { EstadoTorneo } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { FilaDeRanking, tablaDeRanking } from './puntos';
+import { COLUMNAS_DE_LA_TABLA, deColumnas } from '../tours/tabla';
+import { CuadroTerminado, FilaDeRanking, tablaDeRanking } from './puntos';
 
 /**
- * Un **cuadro** que la tabla está contando. Se publica para poder explicarla.
- *
- * Un cuadro y no un torneo (T70): una Copa que corre 5ª, 4ª y Honor aporta tres
- * campeones y tres juegos de puntos, y quien mira la tabla tiene que poder ver cuál de
- * los tres le dio los suyos.
+ * Un **cuadro** que la tabla está contando. Se publica para poder explicarla: "Copa
+ * Aniversario · 4ª · Nivel 500 · terminó el 3 de mayo".
  */
 export interface CuadroContado {
   id: number;
   torneoId: number;
   nombre: string;
-  /** El nivel: "4ª", "Honor". */
+  /** La categoría de juego: "4ª", "Honor". */
   categoria: string;
-  /** Cuánto valía ganarlo: "Club 250". */
-  valor: string;
+  /** El nivel con que el torneo entró a esta temporada: "500". */
+  nivel: string;
   fechaFin: string;
 }
 
 export interface TablaDeTorneos {
+  temporada: {
+    id: number;
+    nombre: string;
+    fechaInicio: string;
+    fechaFin: string;
+  };
   /**
-   * El corte: solo suman los torneos que terminaron desde este día.
-   *
-   * **No hay un `hasta`, y es a propósito.** La ventana tiene un solo borde: un torneo
-   * que se terminó de jugar antes de su fecha de cierre repartió sus puntos igual, y
-   * dejarlo fuera hasta que llegue el día sería esconder algo que ya pasó. Un `hasta`
-   * en la respuesta prometía un tope que la consulta no aplica.
+   * Las categorías de juego **con filas** en esta temporada, de la más alta a la más
+   * baja. Llenan el selector: una lista con categorías vacías obliga a probar una por una.
    */
-  desde: string;
+  categorias: { id: number; nombre: string }[];
+  /** La que se está mostrando: la pedida, o la más alta con filas. Nula sin ninguna. */
+  categoriaJuegoId: number | null;
   torneos: CuadroContado[];
   posiciones: FilaDeRanking[];
 }
 
 /**
- * Cincuenta y dos semanas, en días.
+ * El ranking de torneos: **una tabla por tour, temporada y categoría de juego**
+ * (`SPEC-ranking.md` § Ranking de torneos, rehecho en T198).
  *
- * En días y no en meses porque un mes no dura siempre lo mismo y el corte tiene que
- * poder explicarse: "desde el 26 de agosto" es una respuesta, "hace un año más o
- * menos" no lo es.
- */
-const DIAS_DE_LA_VENTANA = 52 * 7;
-
-/**
- * El ranking de torneos.
+ * La temporada reemplaza a la ventana de 52 semanas: suman los torneos `FINALIZADO`
+ * asociados a un nivel de esa temporada, sin mirar sus fechas (D13). Los puntos no
+ * caducan: la tabla de una temporada que terminó queda como estaba.
  *
- * **Los puntos caducan solos.** Nadie los borra y no hay un proceso que pueda no haber
- * corrido: la consulta mira los torneos de las últimas 52 semanas y los de antes
- * quedan afuera por no estar en el rango, no por haberse limpiado.
- *
- * Eso trae una consecuencia que la pantalla tiene que decir: **el ranking cambia sin
- * que pase nada**. Un lunes cualquiera alguien baja tres puestos porque caducó el
- * torneo del año pasado. Por eso la respuesta lleva el corte y la lista de torneos que
- * está contando, y no solo las posiciones.
+ * **Deja de leer la categoría de torneo** (A3): los puntos salen de la tabla del nivel.
  */
 @Injectable()
 export class RankingDeTorneos {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * La tabla al día de hoy.
-   *
-   * @param hoy El día del club. Parámetro y no `new Date()` adentro para que el corte
-   *            se pueda probar sin esperar un año.
+   * @param categoriaJuegoId La categoría de juego pedida. Sin ella, la más alta con filas.
    */
-  async tabla(hoy: Date = hoyEnElClub()): Promise<TablaDeTorneos> {
-    const desde = new Date(hoy);
-    desde.setUTCDate(desde.getUTCDate() - DIAS_DE_LA_VENTANA);
+  async tabla(
+    temporadaId: number,
+    categoriaJuegoId: number | null = null,
+  ): Promise<TablaDeTorneos> {
+    const temporada = await this.prisma.temporadaTour.findUnique({
+      where: { id: temporadaId },
+      select: { id: true, nombre: true, fechaInicio: true, fechaFin: true },
+    });
 
-    // **La unidad es el cuadro, no el torneo** (T70). Un torneo con tres categorías
-    // reparte tres juegos de puntos, uno por cada final, y cada uno vale lo que diga su
-    // propia categoría: el campeón de Honor puede sumar el doble que el de 5ª.
+    if (!temporada) {
+      throw new NotFoundException('No hay una temporada con ese número.');
+    }
+
+    // **Todas las categorías de una vez**, en una sola consulta: para saber cuáles
+    // tienen filas hay que calcularlas, y son un puñado de cuadros por temporada.
     const cuadros = await this.prisma.torneoCategoria.findMany({
       // **Solo los de torneos `FINALIZADO`.** Un torneo a medias no reparte puntos de
-      // campeón, y uno cancelado no se jugó: darle puntos sería premiar algo que no
-      // ocurrió.
-      //
-      // Un solo borde: `gte` y nada de `lte`. El que se terminó de jugar antes de su
-      // fecha prevista ya repartió sus puntos, y esconderlos hasta que llegue el día
-      // sería negar un torneo que el club vio jugarse.
+      // campeón, y uno cancelado no se jugó.
       where: {
-        torneo: { estado: EstadoTorneo.FINALIZADO, fechaFin: { gte: desde } },
+        torneo: {
+          estado: EstadoTorneo.FINALIZADO,
+          tours: { some: { nivel: { temporadaId } } },
+        },
       },
       orderBy: [
         { torneo: { fechaFin: 'desc' } },
@@ -94,11 +88,24 @@ export class RankingDeTorneos {
       select: {
         id: true,
         torneoId: true,
-        torneo: { select: { nombre: true, fechaFin: true } },
-        categoriaJuego: { select: { nombre: true } },
-        categoria: { select: { nombre: true, puntosCampeon: true } },
-        // Todos los partidos del cuadro en la misma consulta: el motor necesita el
-        // cuadro entero para saber cuántas rondas tuvo y quién ganó la final.
+        categoriaJuegoId: true,
+        categoriaJuego: { select: { nombre: true, orden: true } },
+        torneo: {
+          select: {
+            nombre: true,
+            fechaFin: true,
+            // **Una sola asociación por temporada**: la temporada es de un tour, y un
+            // torneo suma una vez por tour (`torneo_tour` único en torneo y tour).
+            tours: {
+              where: { nivel: { temporadaId } },
+              select: {
+                nivel: { select: { nombre: true, ...COLUMNAS_DE_LA_TABLA } },
+              },
+            },
+          },
+        },
+        // Todos los partidos del cuadro: el motor necesita el cuadro entero para saber
+        // cuántas rondas tuvo y quién ganó la final.
         partidos: {
           select: {
             ronda: true,
@@ -110,23 +117,45 @@ export class RankingDeTorneos {
       },
     });
 
+    const nombres = await this.nombresDe(cuadros);
+
+    // Una tabla por categoría de juego (D4): el campeón de 4ª y el de Honor del mismo
+    // torneo no se comparan.
+    const grupos = new Map<number, typeof cuadros>();
+    for (const cuadro of cuadros) {
+      const suyos = grupos.get(cuadro.categoriaJuegoId) ?? [];
+      grupos.set(cuadro.categoriaJuegoId, [...suyos, cuadro]);
+    }
+
+    const tablas = [...grupos].map(([id, suyos]) => ({
+      id,
+      ...suyos[0].categoriaJuego,
+      cuadros: suyos,
+      posiciones: tablaDeRanking(suyos.map(aTerminado), nombres),
+    }));
+    const conFilas = tablas
+      .filter((una) => una.posiciones.length > 0)
+      .sort((una, otra) => otra.orden - una.orden);
+    const elegida = categoriaJuegoId ?? conFilas[0]?.id ?? null;
+    const suya = tablas.find((una) => una.id === elegida);
+
     return {
-      desde: comoFechaCivil(desde),
-      torneos: cuadros.map((cuadro) => ({
+      temporada: {
+        ...temporada,
+        fechaInicio: comoFechaCivil(temporada.fechaInicio),
+        fechaFin: comoFechaCivil(temporada.fechaFin),
+      },
+      categorias: conFilas.map(({ id, nombre }) => ({ id, nombre })),
+      categoriaJuegoId: elegida,
+      torneos: (suya?.cuadros ?? []).map((cuadro) => ({
         id: cuadro.id,
         torneoId: cuadro.torneoId,
         nombre: cuadro.torneo.nombre,
         categoria: cuadro.categoriaJuego.nombre,
-        valor: cuadro.categoria.nombre,
+        nivel: cuadro.torneo.tours[0].nivel.nombre,
         fechaFin: comoFechaCivil(cuadro.torneo.fechaFin),
       })),
-      posiciones: tablaDeRanking(
-        cuadros.map((cuadro) => ({
-          puntosCampeon: cuadro.categoria.puntosCampeon,
-          partidos: cuadro.partidos,
-        })),
-        await this.nombresDe(cuadros),
-      ),
+      posiciones: suya?.posiciones ?? [],
     };
   }
 
@@ -164,4 +193,19 @@ export class RankingDeTorneos {
       ]),
     );
   }
+}
+
+/** Lo que el motor necesita de un cuadro: sus partidos y la tabla de su nivel. */
+function aTerminado(cuadro: {
+  torneo: {
+    tours: {
+      nivel: Parameters<typeof deColumnas>[0];
+    }[];
+  };
+  partidos: CuadroTerminado['partidos'];
+}): CuadroTerminado {
+  return {
+    tabla: deColumnas(cuadro.torneo.tours[0].nivel),
+    partidos: cuadro.partidos,
+  };
 }

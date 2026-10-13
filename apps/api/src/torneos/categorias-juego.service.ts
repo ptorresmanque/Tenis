@@ -11,12 +11,8 @@ import type { CategoriaDeJuegoNueva } from './categorias-juego.dto';
 /**
  * Las categorías con que juega el club: 5ª, 4ª, 3ª, 2ª, 1ª, Honor.
  *
- * **Vive en su propio archivo y no junto a `CategoriaTorneo`**, aunque el CRUD sea
- * casi el mismo. Las dos cosas se llaman "categoría" y significan cosas distintas —
- * una es el nivel del jugador y la otra el del torneo, del que salen los puntos del
- * ranking—, y `SPEC-torneos.md` § Las dos categorías que no son la misma dice que
- * confundirlas es el error que el módulo más quiere evitar. Dos servicios en el mismo
- * archivo es la forma más barata de que alguien tome la de al lado por descuido.
+ * Separan cuadros y, desde T198, las tablas del ranking de cada tour. La categoría de
+ * torneo, que decía cuánto valía ganar, se eliminó en T199.
  */
 @Injectable()
 export class CategoriasDeJuego {
@@ -26,10 +22,9 @@ export class CategoriasDeJuego {
    * De la más baja a la más alta, siempre.
    *
    * **Por `orden` y no por nombre**: "1ª" ordena antes que "5ª" alfabéticamente, y
-   * "Honor" después de las dos. Y tampoco por `activa` primero, al revés que
-   * `CategoriaTorneo`: acá el orden *es* el significado del campo, y romperlo en la
-   * pantalla del admin haría que el número que está escribiendo no se corresponda con
-   * lo que ve.
+   * "Honor" después de las dos. Y tampoco por `activa` primero: acá el orden *es* el
+   * significado del campo, y romperlo en la pantalla del admin haría que el número que
+   * está escribiendo no se corresponda con lo que ve.
    */
   listar(soloActivas = false) {
     return this.prisma.categoriaJuego.findMany({

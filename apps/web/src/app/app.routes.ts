@@ -62,6 +62,16 @@ export const routes: Routes = [
           import('./torneos/publico/torneos').then((m) => m.TorneosPublicos),
       },
       {
+        path: 'tours',
+        title: 'Tours — FEDAL Tennis Center',
+        loadComponent: () => import('./tours/publico/tours').then((m) => m.ToursPublicos),
+      },
+      {
+        path: 'tours/:id',
+        title: 'Tour — FEDAL Tennis Center',
+        loadComponent: () => import('./tours/publico/tour').then((m) => m.TourPublicoPagina),
+      },
+      {
         path: 'mis-partidos',
         title: 'Mis partidos — FEDAL Tennis Center',
         loadComponent: () =>
@@ -208,6 +218,16 @@ export const routes: Routes = [
         title: 'Torneo — Administración',
         loadComponent: () =>
           import('./torneos/admin/ficha-torneo').then((m) => m.FichaDeTorneo),
+      },
+      {
+        path: 'administracion/tours',
+        title: 'Tours — Administración',
+        loadComponent: () => import('./tours/admin/tours').then((m) => m.ToursPanel),
+      },
+      {
+        path: 'administracion/tours/:id',
+        title: 'Tour — Administración',
+        loadComponent: () => import('./tours/admin/ficha-tour').then((m) => m.FichaTour),
       },
       {
         path: 'administracion/jugadores',

@@ -8,7 +8,7 @@ import {
   resource,
   signal,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { diaEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
@@ -71,6 +71,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
     Esqueleto,
     Insignia,
     InscripcionATorneo,
+    RouterLink,
   ],
   template: `
     <section
@@ -144,12 +145,6 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   >
                     {{ nombreEstado(torneo.estado) }}
                   </app-insignia>
-                  <!-- Sin categoría de torneo, sin insignia: quedaba el puro ícono. -->
-                  @if (torneo.categoria) {
-                    <app-insignia variante="neutro" icono="emoji_events">
-                      {{ torneo.categoria }}
-                    </app-insignia>
-                  }
                 </div>
 
                 <h2 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h2>
@@ -160,6 +155,20 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                     · {{ superficie(torneo.superficie) }}
                   }
                 </p>
+                <!-- Para qué tours suma (U6), con el enlace a cada uno. Sobre el campo
+                     el enlace hereda el color del cartel: lo distingue el subrayado. -->
+                @if (torneo.tours.length > 0) {
+                  <p class="mt-1">
+                    Suma para
+                    @for (tour of torneo.tours; track tour.tourId) {
+                      el
+                      <a [routerLink]="['/tours', tour.tourId]" class="font-semibold underline">{{
+                        tour.tour
+                      }}</a>
+                      ({{ tour.nivel }}){{ separador($index, $count) }}
+                    }
+                  </p>
+                }
                 @if (torneo.estado === 'INSCRIPCION') {
                   <p class="mt-1 font-semibold">
                     Inscripción hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
@@ -453,6 +462,16 @@ export class TorneosPublicos {
   protected readonly recargar = (): void => {
     this.torneos.reload();
   };
+
+  /**
+   * Lo que va después del nivel: "," entre tours, " y" antes del último, "." al final.
+   * Pegado al nivel y no suelto en la plantilla, que dejaría un espacio antes de la coma.
+   */
+  protected separador(indice: number, total: number): string {
+    if (indice === total - 1) return '.';
+
+    return indice === total - 2 ? ' y' : ',';
+  }
 
   protected nombreEstado(estado: EstadoTorneo): string {
     return ESTADOS_TORNEO[estado] ?? estado;

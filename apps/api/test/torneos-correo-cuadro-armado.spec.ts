@@ -51,9 +51,6 @@ describe('El correo del cuadro armado', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatArmado' } },
-    });
   };
 
   /**
@@ -61,12 +58,6 @@ describe('El correo del cuadro armado', () => {
    * byes. El primero puede ir sin correo, como las inscripciones de antes de T127.
    */
   const unCuadro = async (cuantos: number, primeroSinCorreo = false) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatArmado ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
@@ -77,7 +68,6 @@ describe('El correo del cuadro armado', () => {
           create: {
             categoriaJuegoId: cuartaId,
             cupo: 8,
-            categoriaId: categoria.id,
           },
         },
       },

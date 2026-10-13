@@ -106,10 +106,6 @@ describe('Inscripción a un torneo', () => {
    * cupo y la fila de espera— es de un cuadro, y dos no agregarían nada.
    */
   const crearTorneo = async (extra: Record<string, unknown> = {}) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: { nombre: `Cat ${Date.now()}${Math.random()}`, puntosCampeon: 250 },
-      select: { id: true },
-    });
     const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
       orderBy: { orden: 'asc' },
     });
@@ -125,7 +121,6 @@ describe('Inscripción a un torneo', () => {
         ...delTorneo,
         cuadros: {
           create: {
-            categoriaId: categoria.id,
             categoriaJuegoId: categoriaJuego.id,
             cupo,
           },
@@ -147,9 +142,6 @@ describe('Inscripción a un torneo', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'Cat ' } },
-    });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });

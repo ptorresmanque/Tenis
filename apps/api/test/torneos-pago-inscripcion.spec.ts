@@ -118,19 +118,9 @@ describe('El pago de la inscripción a un torneo', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatPago' } },
-    });
   };
 
   const crearTorneo = async (montoInscripcionClp = 15000) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatPago ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     return prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
@@ -139,7 +129,6 @@ describe('El pago de la inscripción a un torneo', () => {
         cierreInscripcion: new Date('2027-11-25T00:00:00.000Z'),
         cuadros: {
           create: {
-            categoriaId: categoria.id,
             categoriaJuegoId: cuartaId,
             cupo: 8,
             montoInscripcionClp,

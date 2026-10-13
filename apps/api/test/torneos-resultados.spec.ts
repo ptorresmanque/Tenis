@@ -111,9 +111,6 @@ describe('Resultados del cuadro', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatRes' } },
-    });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });
@@ -143,11 +140,6 @@ describe('Resultados del cuadro', () => {
     await crearCuenta('jefe', true);
     cookieAdmin = await entrar('jefe');
 
-    const categoria = await prisma.categoriaTorneo.create({
-      data: { nombre: `CatRes ${Date.now()}`, puntosCampeon: 250 },
-      select: { id: true },
-    });
-
     const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
       orderBy: { orden: 'asc' },
     });
@@ -162,7 +154,6 @@ describe('Resultados del cuadro', () => {
           create: {
             categoriaJuegoId: categoriaJuego.id,
             cupo: 4,
-            categoriaId: categoria.id,
           },
         },
       },

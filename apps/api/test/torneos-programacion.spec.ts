@@ -68,21 +68,11 @@ describe('Programación de partidos', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatProg' } },
-    });
     await prisma.bloqueo.deleteMany({ where: { cancha: { nombre: CANCHA } } });
   };
 
   /** Un cuadro de dos: una final y nada más, para tener un partido con jugadores. */
   const unTorneoJugable = async (restricciones: unknown[] = []) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatProg ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
@@ -93,7 +83,6 @@ describe('Programación de partidos', () => {
           create: {
             categoriaJuegoId: cuartaId,
             cupo: 2,
-            categoriaId: categoria.id,
           },
         },
       },
@@ -460,13 +449,6 @@ describe('Programación de partidos', () => {
 
   /** Un cuadro de cuatro: dos semifinales con gente y una final vacía. */
   const unCuadroDeCuatro = async () => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatProg ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} cuatro ${Date.now()}`,
@@ -477,7 +459,6 @@ describe('Programación de partidos', () => {
           create: {
             categoriaJuegoId: cuartaId,
             cupo: 4,
-            categoriaId: categoria.id,
           },
         },
       },

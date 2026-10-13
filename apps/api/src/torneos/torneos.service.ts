@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -14,15 +15,11 @@ import {
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
-import type { CategoriaNueva, TorneoNuevo } from './torneos.dto';
+import { aplanarTours, TOURS_DEL_TORNEO } from './torneos-publicos.service';
+import type { TorneoNuevo, TourDelTorneo } from './torneos.dto';
 
 /**
- * Los torneos del club y las categorías con que se puntúan.
- *
- * **La categoría es una tabla y no un enum** porque el club inventa categorías: este
- * año hay un "Máster de fin de año" que el año pasado no existía, y agregar un valor a
- * un enum es una migración. Es la misma razón por la que las franjas horarias son
- * filas.
+ * Los torneos del club: alta, edición, cancelación, y para qué tours suma cada uno.
  */
 @Injectable()
 export class Torneos {
@@ -30,43 +27,6 @@ export class Torneos {
     private readonly prisma: PrismaService,
     private readonly abandonadas: InscripcionesAbandonadas,
   ) {}
-
-  categorias(soloActivas = false) {
-    return this.prisma.categoriaTorneo.findMany({
-      where: soloActivas ? { activa: true } : {},
-      orderBy: [{ activa: 'desc' }, { puntosCampeon: 'desc' }],
-    });
-  }
-
-  async crearCategoria(datos: CategoriaNueva) {
-    try {
-      return await this.prisma.categoriaTorneo.create({ data: datos });
-    } catch (falla) {
-      // Dos categorías con el mismo nombre son dos filas que el club no puede
-      // distinguir en el selector al crear un torneo.
-      if (esViolacionDeUnicidad(falla)) {
-        throw new ConflictException('Ya hay una categoría con ese nombre.');
-      }
-
-      throw falla;
-    }
-  }
-
-  async editarCategoria(
-    id: number,
-    cambio: Partial<CategoriaNueva> & { activa?: boolean },
-  ) {
-    const { count } = await this.prisma.categoriaTorneo.updateMany({
-      where: { id },
-      data: cambio,
-    });
-
-    if (count === 0) {
-      throw new NotFoundException('No hay una categoría con ese número.');
-    }
-
-    return this.prisma.categoriaTorneo.findUniqueOrThrow({ where: { id } });
-  }
 
   /**
    * Cancela un torneo: **una decisión del club, no un cálculo**.
@@ -170,20 +130,18 @@ export class Torneos {
         fechaFin: true,
         cierreInscripcion: true,
         estado: true,
-        // **El cupo y la categoría ya no son del torneo, son de cada cuadro** (T62 y
-        // T70): Honor cierra con 8 y la 4ª con 32, y ganar Honor puede valer el doble.
-        // La lista los trae para que el panel no tenga que pedir los cuadros de cada
-        // torneo por separado.
+        // **El cupo no es del torneo, es de cada cuadro** (T62): Honor cierra con 8 y la
+        // 4ª con 32. La lista los trae para que el panel no tenga que pedir los cuadros
+        // de cada torneo por separado.
         cuadros: {
           orderBy: { categoriaJuego: { orden: 'asc' } },
           select: {
             id: true,
             cupo: true,
-            categoriaId: true,
             categoriaJuego: { select: { nombre: true } },
-            categoria: { select: { nombre: true, puntosCampeon: true } },
           },
         },
+        tours: TOURS_DEL_TORNEO,
         // **El trabajo pendiente, contado por el servidor.** Es lo que permite entrar
         // solo al torneo que tiene algo: sin estos números habría que abrir los tres
         // abiertos para descubrir que dos estaban al día.
@@ -250,15 +208,125 @@ export class Torneos {
         id: cuadro.id,
         categoria: cuadro.categoriaJuego.nombre,
         cupo: cuadro.cupo,
-        categoriaId: cuadro.categoriaId,
-        valor: cuadro.categoria.nombre,
-        puntosCampeon: cuadro.categoria.puntosCampeon,
       })),
+      tours: aplanarTours(torneo.tours),
     }));
   }
 
-  crear(datos: TorneoNuevo) {
-    return this.prisma.torneo.create({ data: datos });
+  /**
+   * Crea el torneo **con sus tours en la misma escritura**: si una asociación falla, el
+   * torneo no queda. Un torneo sin tour es justo lo que la regla 1 prohíbe (D10).
+   */
+  async crear({ tours, ...datos }: TorneoNuevo & { tours: TourDelTorneo[] }) {
+    await this.comprobarNiveles(tours);
+
+    try {
+      return await this.prisma.torneo.create({
+        data: { ...datos, tours: { create: tours } },
+      });
+    } catch (falla) {
+      throw this.siYaSuma(falla);
+    }
+  }
+
+  /** Suma el torneo a otro tour. */
+  async agregarTour(torneoId: number, asociacion: TourDelTorneo) {
+    await this.exigirTorneo(torneoId);
+    await this.comprobarNiveles([asociacion]);
+
+    try {
+      return await this.prisma.torneoTour.create({
+        data: { torneoId, ...asociacion },
+        select: { tourId: true, nivelId: true },
+      });
+    } catch (falla) {
+      throw this.siYaSuma(falla);
+    }
+  }
+
+  /**
+   * Cambia el nivel con que suma a un tour. **También si ya terminó** (regla 5): es
+   * como corregir un resultado, y el ranking cambia en la consulta siguiente.
+   */
+  async cambiarNivel(torneoId: number, tourId: number, nivelId: number) {
+    await this.comprobarNiveles([{ tourId, nivelId }]);
+
+    const { count } = await this.prisma.torneoTour.updateMany({
+      where: { torneoId, tourId },
+      data: { nivelId },
+    });
+
+    if (count === 0) {
+      throw new NotFoundException('Ese torneo no suma para ese tour.');
+    }
+
+    return { tourId, nivelId };
+  }
+
+  /**
+   * Deja de sumar para un tour. **La última no se quita** (regla 1): primero se
+   * agrega otra.
+   *
+   * ponytail: contar y después borrar deja una carrera si dos admins quitan las dos
+   * últimas en el mismo instante. Un club, un panel: si pasa, un candado por torneo.
+   */
+  async quitarTour(torneoId: number, tourId: number) {
+    const tours = await this.prisma.torneoTour.findMany({
+      where: { torneoId },
+      select: { tourId: true },
+    });
+
+    if (!tours.some((fila) => fila.tourId === tourId)) {
+      throw new NotFoundException('Ese torneo no suma para ese tour.');
+    }
+
+    if (tours.length === 1) {
+      throw new ConflictException(
+        'Es el único tour del torneo: agrega otro antes de quitarlo.',
+      );
+    }
+
+    await this.prisma.torneoTour.delete({
+      where: { torneoId_tourId: { torneoId, tourId } },
+    });
+  }
+
+  /**
+   * **El nivel tiene que ser de una temporada de ese tour** (regla 3). Es lo que
+   * permite guardar `tourId` al lado del nivel sin que los dos puedan contradecirse.
+   * Un nivel que no existe cae en lo mismo.
+   */
+  private async comprobarNiveles(tours: TourDelTorneo[]) {
+    const niveles = await this.prisma.nivelTemporada.findMany({
+      where: { id: { in: tours.map((fila) => fila.nivelId) } },
+      select: { id: true, temporada: { select: { tourId: true } } },
+    });
+    const tourDe = new Map(
+      niveles.map((nivel) => [nivel.id, nivel.temporada.tourId]),
+    );
+
+    if (tours.some((fila) => tourDe.get(fila.nivelId) !== fila.tourId)) {
+      throw new BadRequestException(
+        'Ese nivel no es de ese tour: elige un nivel de una de sus temporadas.',
+      );
+    }
+  }
+
+  private async exigirTorneo(id: number) {
+    const torneo = await this.prisma.torneo.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!torneo)
+      throw new NotFoundException('No hay un torneo con ese número.');
+  }
+
+  /** Una vez por tour (regla 2): lo asegura el único de la base, y acá se explica. */
+  private siYaSuma(falla: unknown) {
+    return esViolacionDeUnicidad(falla)
+      ? new ConflictException('El torneo ya suma para ese tour.')
+      : falla;
   }
 
   async editar(id: number, cambio: Partial<TorneoNuevo>) {

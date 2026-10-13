@@ -13,25 +13,11 @@ import { CuadrosDelTorneo } from './cuadros-del-torneo';
  * en blanco.
  */
 describe('CuadrosDelTorneo', () => {
-  /**
-   * Cuánto puede valer ganar un cuadro (T70).
-   *
-   * Es la `CategoriaTorneo`, no la de juego: una dice el nivel de quien juega y la
-   * otra la importancia del cuadro.
-   */
-  const VALORES = [
-    { id: 3, nombre: 'Club 250', puntosCampeon: 250, activa: true },
-    { id: 4, nombre: 'Máster 500', puntosCampeon: 500, activa: true },
-  ];
-
   const CUARTA: CuadroDelTorneo = {
     id: 7,
     torneoId: 1,
     categoriaJuegoId: 20,
     categoria: '4ª',
-    categoriaId: 3,
-    valor: 'Club 250',
-    puntosCampeon: 250,
     cupo: 32,
     montoInscripcionClp: 0,
     semillaSorteo: null,
@@ -46,7 +32,6 @@ describe('CuadrosDelTorneo', () => {
   let api: {
     cuadrosDelTorneo: ReturnType<typeof vi.fn>;
     categoriasDeJuego: ReturnType<typeof vi.fn>;
-    categorias: ReturnType<typeof vi.fn>;
     agregarCuadro: ReturnType<typeof vi.fn>;
     editarCuadro: ReturnType<typeof vi.fn>;
     quitarCuadro: ReturnType<typeof vi.fn>;
@@ -56,7 +41,6 @@ describe('CuadrosDelTorneo', () => {
     api = {
       cuadrosDelTorneo: vi.fn().mockResolvedValue(cuadros),
       categoriasDeJuego: vi.fn().mockResolvedValue(CATALOGO),
-      categorias: vi.fn().mockResolvedValue(VALORES),
       agregarCuadro: vi.fn().mockResolvedValue(CUARTA),
       editarCuadro: vi.fn().mockResolvedValue(CUARTA),
       quitarCuadro: vi.fn().mockResolvedValue({ id: 7 }),
@@ -174,25 +158,17 @@ describe('CuadrosDelTorneo', () => {
   });
 
   /**
-   * T70. Cuánto vale ganar cada cuadro.
-   *
-   * Lo que este bloque cuida: que **el valor se elija por cuadro y no por torneo**. Es
-   * la decisión entera de T70 — el campeón de Honor y el de 5ª no suman lo mismo en una
-   * tabla que es única y los mezcla.
+   * T199. **El cuadro ya no tiene valor propio**: cuánto vale ganarlo lo dice el nivel con
+   * que el torneo entró a cada tour, en Ajustes. Lo que T70 había puesto por cuadro —la
+   * categoría de torneo— se fue con la tabla.
    */
-  describe('cuánto vale ganar el cuadro (T70)', () => {
-    it('**agregar un cuadro manda su valor**, no solo su categoría', async () => {
+  describe('sin categoría de torneo (T199)', () => {
+    it('**agregar un cuadro manda la categoría, el cupo y el monto**, y nada más', async () => {
       const nivel = elemento().querySelector<HTMLSelectElement>(
-        'select[name="categoria"]',
+        'select[name="categoriaJuego"]',
       )!;
       nivel.value = '60';
       nivel.dispatchEvent(new Event('change'));
-
-      const valor = elemento().querySelector<HTMLSelectElement>(
-        'select[name="valor"]',
-      )!;
-      valor.value = '4';
-      valor.dispatchEvent(new Event('change'));
       await fixture.whenStable();
 
       elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
@@ -200,65 +176,15 @@ describe('CuadrosDelTorneo', () => {
 
       expect(api.agregarCuadro).toHaveBeenCalledWith(1, {
         categoriaJuegoId: 60,
-        categoriaId: 4,
         cupo: 16,
         montoInscripcionClp: 0,
       });
     });
 
-    it('**sin valor no se manda**: el cuadro tendría que valer algo', async () => {
-      const nivel = elemento().querySelector<HTMLSelectElement>(
-        'select[name="categoria"]',
-      )!;
-      nivel.value = '60';
-      nivel.dispatchEvent(new Event('change'));
-      await fixture.whenStable();
-
-      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(api.agregarCuadro).not.toHaveBeenCalled();
-      expect(texto()).toContain('cuánto vale ganar');
-    });
-
-    it('el selector dice cuántos puntos da cada uno', () => {
-      const opciones = Array.from(
-        elemento().querySelectorAll('select[name="valor"] option'),
-      ).map((o) => o.textContent?.trim());
-
-      expect(opciones.some((o) => o?.includes('500'))).toBe(true);
-    });
-
-    it('**cada fila muestra el valor que tiene guardado**, no el primero', async () => {
-      await montar([
-        { ...CUARTA, categoriaId: 4, valor: 'Máster 500', puntosCampeon: 500 },
-      ]);
-
-      const selector =
-        elemento().querySelector<HTMLSelectElement>('li select')!;
-      expect(selector.selectedOptions[0]?.textContent?.trim()).toBe(
-        'Máster 500 (500)',
-      );
-    });
-
-    it('**un cuadro que ya existe puede cambiar de valor**', async () => {
-      // El club se equivocó al crearlo: la alternativa era borrarlo con sus partidos.
-      const enLaFicha = elemento().querySelectorAll<HTMLSelectElement>(
-        'li select',
-      )[0];
-      enLaFicha.value = '4';
-      enLaFicha.dispatchEvent(new Event('change'));
-      await fixture.whenStable();
-
-      expect(api.editarCuadro).toHaveBeenCalledWith(1, 7, { categoriaId: 4 });
-    });
-
-    it('**avisa que cambiarlo recalcula el ranking**', () => {
-      // El aviso vive en la pantalla y no solo en un comentario del código: mover ese
-      // selector en un torneo ya jugado cambia puestos en una tabla que se cuelga en
-      // el mural del club.
-      expect(texto()).toContain('recalcula el ranking');
+    it('no hay selector de valor, ni en el alta ni en las filas', () => {
+      expect(elemento().querySelector('select[name="valor"]')).toBeNull();
+      expect(elemento().querySelector('li select')).toBeNull();
+      expect(texto()).not.toContain('recalcula el ranking');
     });
   });
 
@@ -306,15 +232,10 @@ describe('CuadrosDelTorneo', () => {
 
     it('**agregar un cuadro manda su monto**, y cero es gratis', async () => {
       const nivel = elemento().querySelector<HTMLSelectElement>(
-        'select[name="categoria"]',
+        'select[name="categoriaJuego"]',
       )!;
       nivel.value = '60';
       nivel.dispatchEvent(new Event('change'));
-      const valor = elemento().querySelector<HTMLSelectElement>(
-        'select[name="valor"]',
-      )!;
-      valor.value = '4';
-      valor.dispatchEvent(new Event('change'));
       const monto = elemento().querySelector<HTMLInputElement>(
         'input[name="monto"]',
       )!;
@@ -327,7 +248,6 @@ describe('CuadrosDelTorneo', () => {
 
       expect(api.agregarCuadro).toHaveBeenCalledWith(1, {
         categoriaJuegoId: 60,
-        categoriaId: 4,
         cupo: 16,
         montoInscripcionClp: 25000,
       });
@@ -342,7 +262,7 @@ describe('CuadrosDelTorneo', () => {
       providers: [
         {
           provide: Torneos,
-          useValue: { cuadrosDelTorneo: caida, categoriasDeJuego: caida, categorias: caida },
+          useValue: { cuadrosDelTorneo: caida, categoriasDeJuego: caida },
         },
       ],
     });

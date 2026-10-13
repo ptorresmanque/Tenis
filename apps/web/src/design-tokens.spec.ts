@@ -1281,6 +1281,9 @@ describe('Las bandas aparecen al hacer scroll (T147)', () => {
     // Un componente y no una página (T186): es la banda de la tienda y la cafetería, y
     // solo vive en la portada y en «El club», que están arriba.
     'club/tienda-y-cafeteria.ts',
+    // T195. Las páginas públicas de los tours: también buscan convencer.
+    'tours/publico/tours.ts',
+    'tours/publico/tour.ts',
   ];
 
   it('la regla vive en styles.css, detrás de @supports y de reducir movimiento', () => {

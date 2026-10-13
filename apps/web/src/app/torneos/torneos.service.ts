@@ -30,13 +30,6 @@ export interface Jugador {
   activo: boolean;
 }
 
-export interface CategoriaTorneo {
-  id: number;
-  nombre: string;
-  puntosCampeon: number;
-  activa: boolean;
-}
-
 export interface Torneo {
   id: number;
   nombre: string;
@@ -46,26 +39,42 @@ export interface Torneo {
   cierreInscripcion: string;
   estado: EstadoTorneo;
   /**
-   * Qué categorías corre.
-   *
-   * **El cupo es de cada una** (T62) y **cuánto vale ganarla también** (T70): en el
-   * mismo fin de semana, Honor puede ser un Máster 500 y la 5ª un Club 250.
+   * Qué categorías corre. **El cupo es de cada una** (T62). Cuánto vale ganarla lo dice
+   * el nivel de cada tour (T199).
    */
   cuadros: {
     id: number;
     categoria: string;
     cupo: number;
-    categoriaId: number;
-    valor: string;
-    puntosCampeon: number;
   }[];
   /** Cuántos comprobantes esperan que una persona los mire. */
   pagosPorRevisar: number;
   /** Cuántos esperan un lugar en alguno de sus cuadros. */
   enEspera: number;
+  /** Para qué tours suma (T196). Vacío en los torneos de antes de los tours. */
+  tours: TourDelTorneo[];
 }
 
-/** El nivel del **jugador**: 5ª, 4ª, … Honor. No es `CategoriaTorneo`. */
+/**
+ * Para qué tour suma un torneo, con los nombres junto a los números: "Tour FEDAL ·
+ * 2027 · 500". Espejo de `TourDelTorneoPublico` en la API; el panel lo lee igual.
+ */
+export interface TourDelTorneo {
+  tourId: number;
+  tour: string;
+  temporadaId: number;
+  temporada: string;
+  nivelId: number;
+  nivel: string;
+}
+
+/** Lo que se manda al asociar: el tour y uno de sus niveles. */
+export interface AsociacionATour {
+  tourId: number;
+  nivelId: number;
+}
+
+/** El nivel del **jugador**: 5ª, 4ª, … Honor. */
 export interface CategoriaJuego {
   id: number;
   nombre: string;
@@ -82,10 +91,6 @@ export interface CuadroDelTorneo {
   cupo: number;
   montoInscripcionClp: number;
   semillaSorteo: number | null;
-  /** Cuánto vale ganarlo (T70): la categoría de torneo, no la de juego. */
-  categoriaId: number;
-  valor: string;
-  puntosCampeon: number;
 }
 
 export type EstadoInscripcionTorneo = 'INSCRITA' | 'LISTA_ESPERA' | 'RETIRADA';
@@ -207,7 +212,6 @@ export interface Cuadro {
 export interface TorneoPublico {
   id: number;
   nombre: string;
-  categoria: string;
   superficie: string | null;
   fechaInicio: string;
   fechaFin: string;
@@ -215,6 +219,8 @@ export interface TorneoPublico {
   estado: EstadoTorneo;
   /** Sus cuadros, con cuánto lugar queda en cada uno. */
   categorias: CategoriaPublica[];
+  /** Para qué tours suma, con el nivel (T196). */
+  tours: TourDelTorneo[];
 }
 
 /** Un cuadro visto desde la calle. */
@@ -223,8 +229,6 @@ export interface CategoriaPublica {
   /** El nivel del jugador. Es lo que el formulario manda al inscribirse. */
   categoriaJuegoId: number;
   categoria: string;
-  /** Cuánto vale ganarlo: "Club 250". Del cuadro y no del torneo desde T70. */
-  valor: string;
   /** Cuánto cuesta inscribirse en **esta** categoría. 0 = gratis. */
   montoClp: number;
   cupo: number;
@@ -418,35 +422,6 @@ export class Torneos {
     );
   }
 
-  categorias(soloActivas = false): Promise<CategoriaTorneo[]> {
-    return firstValueFrom(
-      this.http.get<CategoriaTorneo[]>('/api/admin/categorias-torneo', {
-        params: soloActivas ? { activas: '1' } : {},
-      }),
-    );
-  }
-
-  crearCategoria(datos: {
-    nombre: string;
-    puntosCampeon: number;
-  }): Promise<CategoriaTorneo> {
-    return firstValueFrom(
-      this.http.post<CategoriaTorneo>('/api/admin/categorias-torneo', datos),
-    );
-  }
-
-  editarCategoria(
-    id: number,
-    cambio: Partial<{ nombre: string; puntosCampeon: number; activa: boolean }>,
-  ): Promise<CategoriaTorneo> {
-    return firstValueFrom(
-      this.http.patch<CategoriaTorneo>(
-        `/api/admin/categorias-torneo/${id}`,
-        cambio,
-      ),
-    );
-  }
-
   /** Las categorías con que juega el club, para armarle cuadros a un torneo. */
   categoriasDeJuego(soloActivas = false): Promise<CategoriaJuego[]> {
     return firstValueFrom(
@@ -469,7 +444,6 @@ export class Torneos {
     torneoId: number,
     datos: {
       categoriaJuegoId: number;
-      categoriaId: number;
       cupo: number;
       montoInscripcionClp?: number;
     },
@@ -485,11 +459,7 @@ export class Torneos {
   editarCuadro(
     torneoId: number,
     id: number,
-    cambio: Partial<{
-      cupo: number;
-      montoInscripcionClp: number;
-      categoriaId: number;
-    }>,
+    cambio: Partial<{ cupo: number; montoInscripcionClp: number }>,
   ): Promise<CuadroDelTorneo> {
     return firstValueFrom(
       this.http.patch<CuadroDelTorneo>(
@@ -842,8 +812,34 @@ export class Torneos {
     return firstValueFrom(this.http.get<Torneo[]>('/api/admin/torneos'));
   }
 
-  crearTorneo(datos: TorneoNuevo): Promise<Torneo> {
+  /** Con al menos un tour (D10): el servidor rechaza el torneo que no suma para nada. */
+  crearTorneo(datos: TorneoNuevo & { tours: AsociacionATour[] }): Promise<Torneo> {
     return firstValueFrom(this.http.post<Torneo>('/api/admin/torneos', datos));
+  }
+
+  // ── Para qué tours suma (T197) ──────────────────────────────────────────────
+
+  agregarTour(torneoId: number, asociacion: AsociacionATour): Promise<AsociacionATour> {
+    return firstValueFrom(
+      this.http.post<AsociacionATour>(`/api/admin/torneos/${torneoId}/tours`, asociacion),
+    );
+  }
+
+  cambiarNivelDelTour(
+    torneoId: number,
+    tourId: number,
+    nivelId: number,
+  ): Promise<AsociacionATour> {
+    return firstValueFrom(
+      this.http.patch<AsociacionATour>(`/api/admin/torneos/${torneoId}/tours/${tourId}`, {
+        nivelId,
+      }),
+    );
+  }
+
+  /** La última no se quita: el servidor responde 409. */
+  quitarTour(torneoId: number, tourId: number): Promise<unknown> {
+    return firstValueFrom(this.http.delete(`/api/admin/torneos/${torneoId}/tours/${tourId}`));
   }
 
   /**

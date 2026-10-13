@@ -16,9 +16,7 @@ const COMO_SE_MUESTRA = {
   cupo: true,
   montoInscripcionClp: true,
   semillaSorteo: true,
-  categoriaId: true,
   categoriaJuego: { select: { nombre: true } },
-  categoria: { select: { nombre: true, puntosCampeon: true } },
 } as const;
 
 /**
@@ -55,7 +53,6 @@ export class CategoriasDelTorneo {
   async agregar(torneoId: number, datos: CuadroNuevo) {
     await this.exigirTorneo(torneoId);
     await this.exigirCategoriaDeJuego(datos.categoriaJuegoId);
-    await this.exigirValor(datos.categoriaId);
 
     try {
       const cuadro = await this.prisma.torneoCategoria.create({
@@ -83,10 +80,6 @@ export class CategoriasDelTorneo {
     cambio: Partial<Omit<CuadroNuevo, 'categoriaJuegoId'>>,
   ) {
     await this.exigirCuadro(torneoId, id);
-
-    if (cambio.categoriaId !== undefined) {
-      await this.exigirValor(cambio.categoriaId);
-    }
 
     const cuadro = await this.prisma.torneoCategoria.update({
       where: { id },
@@ -149,27 +142,6 @@ export class CategoriasDelTorneo {
   }
 
   /**
-   * La categoría de torneo: **cuánto vale ganar este cuadro** (T70).
-   *
-   * Son dos cosas distintas con nombres parecidos, y por eso los métodos se llaman como
-   * lo que preguntan: una es el nivel de los jugadores —5ª, Honor— y la otra la
-   * importancia del cuadro —Club 250, Máster 500—. Confundirlas es darle los puntos de
-   * un Máster a la 5ª.
-   */
-  private async exigirValor(id: number): Promise<void> {
-    const valor = await this.prisma.categoriaTorneo.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-
-    if (!valor) {
-      throw new NotFoundException(
-        'No hay una categoría de torneo con ese número.',
-      );
-    }
-  }
-
-  /**
    * El cuadro **y que sea de ese torneo**.
    *
    * Se comprueba el par y no solo el id: sin eso, un id de otro torneo en la URL
@@ -194,30 +166,12 @@ export class CategoriasDelTorneo {
  * El nombre de la categoría se aplana acá y no en la pantalla.
  *
  * Se muestra en toda lista de cuadros, y dejar el objeto anidado obliga a cada
- * consumidor a saber cómo está guardado. Es el mismo criterio que usa `Torneos.listar`
- * con el nombre de la categoría del torneo.
+ * consumidor a saber cómo está guardado.
  */
-function aplanar<
-  T extends {
-    categoriaJuego: { nombre: string };
-    categoria: { nombre: string; puntosCampeon: number };
-  },
->(
+function aplanar<T extends { categoriaJuego: { nombre: string } }>(
   cuadro: T,
-): Omit<T, 'categoriaJuego' | 'categoria'> & {
-  categoria: string;
-  valor: string;
-  puntosCampeon: number;
-} {
-  const { categoriaJuego, categoria, ...resto } = cuadro;
+): Omit<T, 'categoriaJuego'> & { categoria: string } {
+  const { categoriaJuego, ...resto } = cuadro;
 
-  return {
-    ...resto,
-    categoria: categoriaJuego.nombre,
-    // **`valor` y no `categoria`**: el nombre `categoria` ya se lo lleva el nivel de
-    // juego, que es lo que la pantalla muestra en grande. Cuánto vale ganarlo es otra
-    // cosa y merece otra palabra.
-    valor: categoria.nombre,
-    puntosCampeon: categoria.puntosCampeon,
-  };
+  return { ...resto, categoria: categoriaJuego.nombre };
 }
