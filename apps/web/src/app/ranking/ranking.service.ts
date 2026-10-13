@@ -13,30 +13,32 @@ export interface PosicionDeTorneos {
 }
 
 /**
- * Un **cuadro** que la tabla está contando.
- *
- * Un cuadro y no un torneo (T70): una Copa que corre 5ª, 4ª y Honor aporta tres
- * campeones, y quien mira la tabla tiene que poder ver de cuál salieron sus puntos.
+ * Un **cuadro** que la tabla está contando: "Copa Aniversario · 4ª · Nivel 500 · terminó
+ * el 3 de mayo". Un cuadro y no un torneo: una Copa que corre 4ª y Honor aporta a dos
+ * tablas distintas.
  */
 export interface CuadroContado {
   /** El del cuadro. El del torneo va aparte. */
   id: number;
   torneoId: number;
   nombre: string;
-  /** El nivel: "4ª", "Honor". */
+  /** La categoría de juego: "4ª", "Honor". */
   categoria: string;
-  /** Cuánto valía ganarlo: "Club 250". */
-  valor: string;
+  /** El nivel con que el torneo entró a esta temporada: "500". */
+  nivel: string;
   fechaFin: string;
 }
 
+/**
+ * La tabla de un tour en una temporada y una categoría de juego (T198, `SPEC-ranking.md`
+ * § Ranking de torneos).
+ */
 export interface TablaDeTorneos {
-  /**
-   * El corte: solo suman los torneos terminados desde este día. **Sin un tope**: la
-   * ventana tiene un solo borde, porque un torneo que se terminó de jugar antes de su
-   * fecha prevista ya repartió sus puntos.
-   */
-  desde: string;
+  temporada: { id: number; nombre: string; fechaInicio: string; fechaFin: string };
+  /** Las categorías con filas en esta temporada, de la más alta a la más baja. */
+  categorias: { id: number; nombre: string }[];
+  /** La que se está mostrando: la pedida, o la más alta con filas. */
+  categoriaJuegoId: number | null;
   torneos: CuadroContado[];
   posiciones: PosicionDeTorneos[];
 }
@@ -103,17 +105,22 @@ export interface TablaDelClub {
  * Las tablas que ordenan personas.
  *
  * **Se calculan al consultar**: no hay una tabla guardada que pueda quedar vieja, así
- * que cada carga de la pantalla trae el estado real. El precio es que el ranking cambia
- * sin que pase nada —un torneo caduca y alguien baja tres puestos—, y por eso la
- * respuesta trae el corte y los torneos que está contando.
+ * que cada carga de la pantalla trae el estado real, y la respuesta trae los cuadros que
+ * está contando para poder explicarla.
  */
 @Service()
 export class Ranking {
   private readonly http = inject(HttpClient);
 
-  /** La tabla de torneos: puntos de las últimas 52 semanas. Sin cuenta. */
-  torneos(): Promise<TablaDeTorneos> {
-    return firstValueFrom(this.http.get<TablaDeTorneos>('/api/ranking/torneos'));
+  /**
+   * La tabla de una temporada y una categoría de juego. Sin cuenta. Sin categoría, el
+   * servidor sirve la más alta con filas.
+   */
+  torneos(temporadaId: number, categoriaJuegoId: number | null): Promise<TablaDeTorneos> {
+    const params: Record<string, number> = { temporada: temporadaId };
+    if (categoriaJuegoId !== null) params['categoria'] = categoriaJuegoId;
+
+    return firstValueFrom(this.http.get<TablaDeTorneos>('/api/ranking/torneos', { params }));
   }
 
   /**
