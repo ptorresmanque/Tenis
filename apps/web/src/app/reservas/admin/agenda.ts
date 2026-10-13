@@ -17,6 +17,7 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { ClaseDelDia, Clases, NIVELES } from '../../clases/clases.service';
+import { Auth } from '../../core/auth/auth';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
@@ -47,10 +48,13 @@ import { CampoFecha } from '../../ui/campo-fecha';
         <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
       </div>
 
-      <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
-        <span class="icono text-base" aria-hidden="true">add</span>
-        Nueva reserva
-      </button>
+      <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
+      @if (puedeTomarHoras()) {
+        <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
+          <span class="icono text-base" aria-hidden="true">add</span>
+          Nueva reserva
+        </button>
+      }
     </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
@@ -93,7 +97,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
       </div>
     </div>
 
-    @if (tomandoHora()) {
+    @if (tomandoHora() && puedeTomarHoras()) {
       <app-nueva-reserva
         [fecha]="fechaActual()"
         (cerrar)="tomandoHora.set(false)"
@@ -215,6 +219,12 @@ import { CampoFecha } from '../../ui/campo-fecha';
 export class AgendaDelDia {
   private readonly agenda = inject(Agenda);
   private readonly clasesApi = inject(Clases);
+  private readonly usuario = inject(Auth).usuario;
+
+  /** El mesón es del admin; el gestor ve el mismo día sin poder tomar horas (T221). */
+  protected readonly puedeTomarHoras = computed(
+    () => this.usuario()?.esAdmin === true,
+  );
 
   readonly fechaActual = signal(hoyEnElClub());
 

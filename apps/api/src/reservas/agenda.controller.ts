@@ -9,19 +9,20 @@ import {
 import { map, Observable } from 'rxjs';
 
 import { esFechaDelClub } from '../comun/tiempo';
-import { SoloAdmin } from '../identidad/guards';
+import { AdminO } from '../identidad/guards';
 import { AgendaService, ReservaDelDia } from './agenda.service';
 import { EventosDeReserva } from './eventos';
 
 /**
  * El día del club para quien atiende el mesón.
  *
- * `@SoloAdmin()` en el controlador entero, igual que `AdminCanchasController`: acá
- * viajan los teléfonos de quienes reservaron, que en la grilla pública ni siquiera
- * aparecen.
+ * Para el admin y el gestor (T221), en el controlador entero: acá viajan los teléfonos
+ * de quienes reservaron, que en la grilla pública ni siquiera aparecen, y el gestor es
+ * personal del club que llama al que no llegó. Tomar una hora sigue siendo del admin:
+ * el mesón (`ReservaDelAdminController`) es `@SoloAdmin()`.
  */
 @Controller('admin/reservas')
-@SoloAdmin()
+@AdminO('gestor')
 export class AgendaController {
   constructor(
     private readonly agenda: AgendaService,

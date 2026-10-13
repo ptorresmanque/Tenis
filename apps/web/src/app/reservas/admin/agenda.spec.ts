@@ -1,8 +1,10 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ClaseDelDia, Clases } from '../../clases/clases.service';
+import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { AgendaDelDia } from './agenda';
 
@@ -42,6 +44,21 @@ describe('AgendaDelDia', () => {
     serieId: null,
   };
 
+  const ADMIN: UsuarioActual = {
+    id: 1,
+    nombre: 'Rodrigo',
+    apellido: 'Torres',
+    email: 'admin@clubdetenis.cl',
+    telefono: null,
+    esAdmin: true,
+    esGestor: false,
+    socioId: null,
+    socioActivo: false,
+    socioAlDia: false,
+    profesorId: null,
+  };
+  const GESTORA: UsuarioActual = { ...ADMIN, esAdmin: false, esGestor: true };
+
   let fixture: ComponentFixture<AgendaDelDia>;
   let delDia: ReturnType<typeof vi.fn>;
   let clasesDelDia: ReturnType<typeof vi.fn>;
@@ -50,6 +67,7 @@ describe('AgendaDelDia', () => {
   const montar = async (
     reservas: ReservaDelDia[] | Error,
     clases: ClaseDelDia[] | Error = [],
+    usuario: UsuarioActual = ADMIN,
   ) => {
     delDia = vi.fn(() =>
       reservas instanceof Error ? Promise.reject(reservas) : Promise.resolve(reservas),
@@ -64,6 +82,7 @@ describe('AgendaDelDia', () => {
       providers: [
         { provide: Agenda, useValue: { delDia, avisos: avisos.asObservable() } },
         { provide: Clases, useValue: { delDia: clasesDelDia } },
+        { provide: Auth, useValue: { usuario: signal(usuario).asReadonly() } },
       ],
     });
 
@@ -87,6 +106,16 @@ describe('AgendaDelDia', () => {
     expect(cabecera?.querySelectorAll('.boton-primario').length).toBe(1);
     expect(cabecera?.querySelector('.boton-primario')?.textContent).toContain('Nueva reserva');
     expect(cabecera?.querySelector('[aria-label="Día anterior"]')).toBeNull();
+  });
+
+  it('a la gestora le muestra el día, reservas y clases, sin "Nueva reserva" (T221)', async () => {
+    await montar([UNA], [CLASE], GESTORA);
+
+    const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
+    expect(cabecera?.querySelector('.boton-primario')).toBeNull();
+    expect(texto()).not.toContain('Nueva reserva');
+    expect(texto()).toContain('Camila Visitante');
+    expect(texto()).toContain('Ana Silva');
   });
 
   it('muestra la hora del club, la cancha, quién viene y su teléfono', () => {
