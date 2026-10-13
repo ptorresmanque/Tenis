@@ -237,4 +237,151 @@ describe('Ficha de profesor', () => {
       .send(FICHA)
       .expect(401);
   });
+
+  describe('la cuenta del profesor (T217)', () => {
+    /** Una cuenta con sesión, y su id. */
+    const cuenta = async (sufijo: string) => {
+      await crearCuenta(sufijo);
+      const { id } = await prisma.usuario.findUniqueOrThrow({
+        where: { email: `${sufijo}${DOMINIO}` },
+        select: { id: true },
+      });
+      return { id, cookie: await entrar(sufijo) };
+    };
+
+    const profesorIdDe = async (cookie: string) =>
+      (
+        (
+          await request(app.getHttpServer())
+            .get('/api/yo')
+            .set('Cookie', cookie)
+            .expect(200)
+        ).body as { profesorId: number | null }
+      ).profesorId;
+
+    const vincular = (id: number, cuerpo: Record<string, unknown>) =>
+      request(app.getHttpServer())
+        .post(`/api/admin/profesores/${id}/cuenta`)
+        .set('Cookie', cookieAdmin)
+        .send(cuerpo);
+
+    const desvincular = (id: number) =>
+      request(app.getHttpServer())
+        .delete(`/api/admin/profesores/${id}/cuenta`)
+        .set('Cookie', cookieAdmin);
+
+    afterEach(async () => {
+      await prisma.usuario.deleteMany({
+        where: { email: { endsWith: `-cuenta${DOMINIO}` } },
+      });
+    });
+
+    it('vincular una ficha sin cuenta hace profesor al usuario en su petición siguiente (29)', async () => {
+      const ana = await cuenta('ana-cuenta');
+      const id = fichaDe(await crear()).id;
+      expect(await profesorIdDe(ana.cookie)).toBeNull();
+
+      const respuesta = await vincular(id, { usuarioId: ana.id }).expect(200);
+
+      expect(fichaDe(respuesta)).toMatchObject({ id, usuarioId: ana.id });
+      expect(await profesorIdDe(ana.cookie)).toBe(id);
+    });
+
+    it('la lista dice qué fichas tienen cuenta', async () => {
+      const ana = await cuenta('ana-cuenta');
+      const conCuenta = fichaDe(await crear()).id;
+      const sinCuenta = fichaDe(
+        await crear({ ...FICHA, nombreVisible: 'B' }),
+      ).id;
+      await vincular(conCuenta, { usuarioId: ana.id }).expect(200);
+
+      const lista = (await listar()) as (FichaPublicada & {
+        usuarioId: number | null;
+      })[];
+
+      expect(lista.find((p) => p.id === conCuenta)?.usuarioId).toBe(ana.id);
+      expect(lista.find((p) => p.id === sinCuenta)?.usuarioId).toBeNull();
+    });
+
+    it('una ficha que ya tiene cuenta no se vuelve a vincular: 409', async () => {
+      const ana = await cuenta('ana-cuenta');
+      const beto = await cuenta('beto-cuenta');
+      const id = fichaDe(await crear()).id;
+      await vincular(id, { usuarioId: ana.id }).expect(200);
+
+      await vincular(id, { usuarioId: beto.id }).expect(409);
+
+      expect(await profesorIdDe(beto.cookie)).toBeNull();
+    });
+
+    it('un usuario que ya tiene ficha no recibe otra: 409', async () => {
+      const ana = await cuenta('ana-cuenta');
+      const primera = fichaDe(await crear()).id;
+      const segunda = fichaDe(await crear({ ...FICHA, nombreVisible: 'B' })).id;
+      await vincular(primera, { usuarioId: ana.id }).expect(200);
+
+      await vincular(segunda, { usuarioId: ana.id }).expect(409);
+    });
+
+    it('un usuario o una ficha que no existen responden 404; sin usuario, 400', async () => {
+      const ana = await cuenta('ana-cuenta');
+      const id = fichaDe(await crear()).id;
+
+      await vincular(id, { usuarioId: 999_999_999 }).expect(404);
+      await vincular(999_999_999, { usuarioId: ana.id }).expect(404);
+      await vincular(id, {}).expect(400);
+    });
+
+    it('desvincular deja la ficha, y el usuario deja de ser profesor (30)', async () => {
+      const ana = await cuenta('ana-cuenta');
+      const id = fichaDe(await crear()).id;
+      await vincular(id, { usuarioId: ana.id }).expect(200);
+
+      await desvincular(id).expect(200);
+
+      expect(
+        await prisma.profesor.findUniqueOrThrow({
+          where: { id },
+          select: { usuarioId: true, nombreVisible: true },
+        }),
+      ).toEqual({ usuarioId: null, nombreVisible: 'Ana Silva' });
+      expect(await profesorIdDe(ana.cookie)).toBeNull();
+    });
+
+    it('desvincular una ficha que no existe responde 404', async () => {
+      await desvincular(999_999_999).expect(404);
+    });
+
+    it('el alta acepta la cuenta: la ficha nace vinculada', async () => {
+      const ana = await cuenta('ana-cuenta');
+
+      const respuesta = await crear({ ...FICHA, usuarioId: ana.id });
+
+      expect(respuesta.status).toBe(201);
+      expect(await profesorIdDe(ana.cookie)).toBe(fichaDe(respuesta).id);
+    });
+
+    it('el alta con una cuenta que ya es profesor responde 409, y sin crear nada', async () => {
+      const ana = await cuenta('ana-cuenta');
+      await crear({ ...FICHA, usuarioId: ana.id });
+      const antes = await prisma.profesor.count();
+
+      expect((await crear({ ...FICHA, usuarioId: ana.id })).status).toBe(409);
+      expect(await prisma.profesor.count()).toBe(antes);
+    });
+
+    it('vincular y desvincular son solo del admin', async () => {
+      const id = fichaDe(await crear()).id;
+
+      await request(app.getHttpServer())
+        .post(`/api/admin/profesores/${id}/cuenta`)
+        .set('Cookie', cookieSocio)
+        .send({ usuarioId: 1 })
+        .expect(403);
+      await request(app.getHttpServer())
+        .delete(`/api/admin/profesores/${id}/cuenta`)
+        .set('Cookie', cookieSocio)
+        .expect(403);
+    });
+  });
 });
