@@ -477,6 +477,11 @@ describe('Reportes: no uso, padrón y CSV', () => {
     });
 
     it('una cuota pagada no es deuda', async () => {
+      // La deuda es de todo el club, y la emisión de agosto que hacen otros archivos
+      // alcanza a los socios que quedan en la base (los del seed, por ejemplo): se
+      // compara contra la deuda de antes de crear la cuota y no contra cero.
+      const antes = (await pedir<Padron>('padron')).meses[0].deudaClp;
+
       await prisma.cuota.create({
         data: {
           socioId,
@@ -488,9 +493,7 @@ describe('Reportes: no uso, padrón y CSV', () => {
         },
       });
 
-      const antes = (await pedir<Padron>('padron')).meses[0].deudaClp;
-
-      expect(antes).toBe(0);
+      expect((await pedir<Padron>('padron')).meses[0].deudaClp).toBe(antes);
     });
   });
 
