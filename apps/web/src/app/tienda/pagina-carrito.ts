@@ -115,6 +115,11 @@ const AVISOS_DE_LA_VUELTA: Record<string, string> = {
                   </p>
                 }
 
+                @if (linea.porEncargo) {
+                  <p class="mt-1 text-sm text-primary">
+                    Por encargo: llega en {{ linea.diasEncargo }} días y se retira en el club.
+                  </p>
+                }
                 @if (linea.estado === 'no-disponible' && linea.producto) {
                   <p class="mt-1 text-sm font-semibold text-destructive">
                     Ya no está a la venta. Quítalo para seguir.

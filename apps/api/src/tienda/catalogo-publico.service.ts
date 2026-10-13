@@ -26,8 +26,10 @@ export interface ProductoDelCatalogo {
   precioSocioClp: number | null;
   /** La miniatura de su primera foto, o nada. */
   foto: string | null;
-  /** A ninguna variante activa le queda nada disponible. El "por encargo" llega en T170. */
+  /** A ninguna variante activa le queda nada, y no se vende por encargo. */
   agotado: boolean;
+  /** A ninguna le queda nada, pero se vende por encargo (T170): "llega en N días". */
+  porEncargo: boolean;
 }
 
 /** Un producto en su ficha, `/tienda/:id`. */
@@ -38,6 +40,9 @@ export interface FichaPublica {
   categoria: Nombrado;
   marca: Nombrado | null;
   precioClp: number;
+  /** Lo que no queda se vende igual, y llega en `diasEncargo` días (T170). */
+  aceptaEncargo: boolean;
+  diasEncargo: number | null;
   precioSocioClp: number | null;
   variantes: VariantePublica[];
   /** La tabla de la marca, si la categoría la usa; si no, vacía. */
@@ -125,6 +130,7 @@ export class CatalogoPublico {
           id: true,
           nombre: true,
           precioClp: true,
+          aceptaEncargo: true,
           categoria: NOMBRADO,
           marca: NOMBRADO,
           variantes: {
@@ -146,15 +152,20 @@ export class CatalogoPublico {
       productos.flatMap((p) => p.variantes),
     );
 
-    return productos.map(({ variantes, fotos, ...producto }) => ({
-      ...producto,
-      precioSocioClp:
-        porcentaje === null
-          ? null
-          : precioDeSocio(producto.precioClp, porcentaje),
-      foto: fotos[0] ? direccionesDeLaFoto(fotos[0].id).miniatura : null,
-      agotado: variantes.every((v) => quedan.get(v.id) === 0),
-    }));
+    return productos.map(({ variantes, fotos, aceptaEncargo, ...producto }) => {
+      const sinNada = variantes.every((v) => quedan.get(v.id) === 0);
+
+      return {
+        ...producto,
+        precioSocioClp:
+          porcentaje === null
+            ? null
+            : precioDeSocio(producto.precioClp, porcentaje),
+        foto: fotos[0] ? direccionesDeLaFoto(fotos[0].id).miniatura : null,
+        agotado: sinNada && !aceptaEncargo,
+        porEncargo: sinNada && aceptaEncargo,
+      };
+    });
   }
 
   async ficha(id: number, yo: UsuarioActual | null): Promise<FichaPublica> {
@@ -166,6 +177,8 @@ export class CatalogoPublico {
           nombre: true,
           descripcion: true,
           precioClp: true,
+          aceptaEncargo: true,
+          diasEncargo: true,
           categoria: {
             select: { id: true, nombre: true, usaTablaDeTallas: true },
           },

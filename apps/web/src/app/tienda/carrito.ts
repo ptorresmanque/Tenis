@@ -20,6 +20,9 @@ export interface LineaCotizada {
   descuentoUnitarioClp: number;
   subtotalClp: number;
   disponible: number;
+  /** Pide más de lo que queda y el producto acepta encargo (T170). */
+  porEncargo: boolean;
+  diasEncargo: number | null;
   estado: 'ok' | 'sin-stock' | 'no-disponible';
 }
 
@@ -30,6 +33,8 @@ export interface Cotizacion {
   descuentoClp: number;
   totalClp: number;
   sePuedePagar: boolean;
+  /** Nada va por encargo: lo que va por encargo se retira en el club (T170). */
+  sePuedeDespachar: boolean;
 }
 
 const CLAVE = 'fedal:carrito';

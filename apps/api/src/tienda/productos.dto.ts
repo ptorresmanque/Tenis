@@ -22,7 +22,13 @@ export interface ProductoNuevo {
 
 /** Lo que se le cambia a un producto. El stock y las variantes van por su lado. */
 export type CambioDeProducto = Partial<
-  Omit<ProductoNuevo, 'variantes'> & { publicado: boolean; archivado: boolean }
+  Omit<ProductoNuevo, 'variantes'> & {
+    publicado: boolean;
+    archivado: boolean;
+    /** Se vende sin stock, con "llega en N días" y solo con retiro (T170). */
+    aceptaEncargo: boolean;
+    diasEncargo: number | null;
+  }
 >;
 
 /** Lo que se le cambia a una variante. **El stock no**: va por una entrada o un ajuste. */
@@ -46,6 +52,8 @@ const PRECIO_MAXIMO = 10_000_000;
 const STOCK_INICIAL_MAXIMO = 100_000;
 /** Las variantes de un producto: una zapatilla con medias tallas anda por 20. */
 const VARIANTES_MAXIMAS = 100;
+/** Dos meses: más que eso no es un encargo, es una promesa que el club no puede cumplir. */
+const DIAS_DE_ENCARGO_MAXIMOS = 60;
 
 export function leerProductoNuevo(cuerpo: unknown): ProductoNuevo {
   const datos = objeto(cuerpo);
@@ -135,6 +143,19 @@ export function leerCambioDeProducto(cuerpo: unknown): CambioDeProducto {
     cambio.publicado = siONo(datos.publicado, 'Publicado');
   if (datos.archivado !== undefined)
     cambio.archivado = siONo(datos.archivado, 'Archivado');
+  if (datos.aceptaEncargo !== undefined)
+    cambio.aceptaEncargo = siONo(datos.aceptaEncargo, 'Acepta encargo');
+  if (datos.diasEncargo !== undefined) {
+    cambio.diasEncargo =
+      datos.diasEncargo === null
+        ? null
+        : entero(
+            datos.diasEncargo,
+            'Los días que tarda el encargo',
+            1,
+            DIAS_DE_ENCARGO_MAXIMOS,
+          );
+  }
 
   if (cambio.publicado === true && cambio.archivado === true) {
     throw new BadRequestException(

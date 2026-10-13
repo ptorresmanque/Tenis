@@ -99,6 +99,13 @@ export class PedidosDeLaTienda {
       const cotizacion = await this.carrito.cotizar(datos.lineas, yo, tx);
       const problema = cotizacion.lineas.find((l) => l.estado !== 'ok');
       if (problema) throw new ConflictException(porQueNo(problema));
+      // Lo que va por encargo se retira en el club (decisión 35): llega cuando llega, y un
+      // despacho por pagar sobre una fecha estimada es un paquete que nadie espera.
+      if (datos.entrega === 'DESPACHO' && !cotizacion.sePuedeDespachar) {
+        throw new ConflictException(
+          'Lo que va por encargo se retira en el club: elige retiro para seguir.',
+        );
+      }
 
       const token = randomUUID();
       await tx.pedido.create({
@@ -131,6 +138,7 @@ export class PedidosDeLaTienda {
               cantidad: linea.cantidad,
               precioUnitarioClp: linea.precioUnitarioClp ?? 0,
               descuentoUnitarioClp: linea.descuentoUnitarioClp,
+              esEncargo: linea.porEncargo,
             })),
           },
         },

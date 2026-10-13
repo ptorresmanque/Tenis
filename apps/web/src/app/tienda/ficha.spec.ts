@@ -29,6 +29,8 @@ describe('FichaDelProducto', () => {
     marca: { id: 3, nombre: 'Asics' },
     precioClp: 119990,
     precioSocioClp: null,
+    aceptaEncargo: false,
+    diasEncargo: null,
     variantes: [
       { id: 10, etiqueta: '40', talla: 'CL 40 · US 8 · EU 41', disponible: 2 },
       { id: 11, etiqueta: '41', talla: '41', disponible: 0 },
@@ -168,6 +170,23 @@ describe('FichaDelProducto', () => {
       await estable();
 
       expect(carrito.agregar).toHaveBeenCalledWith(20, 1);
+    });
+
+    it('**por encargo, lo agotado se puede elegir y dice cuándo llega** (T170)', async () => {
+      const { elemento, carrito, estable } = await montar({
+        ficha: Promise.resolve({ ...ASICS, aceptaEncargo: true, diasEncargo: 7 }),
+      });
+
+      expect(variantes(elemento)[1]).toBe('41 Por encargo: llega en 7 días');
+      radio(elemento, '41').click();
+      await estable();
+      // Sin stock, el tope es el del carrito: lo que se encarga no sale de lo que queda.
+      expect(elemento.querySelector<HTMLInputElement>('#cantidad')!.max).toBe('99');
+      expect(elemento.textContent).toContain('se retira en el club');
+      boton(elemento).click();
+      await estable();
+
+      expect(carrito.agregar).toHaveBeenCalledWith(11, 1);
     });
 
     it('todo agotado: no hay qué agregar, y lo dice', async () => {

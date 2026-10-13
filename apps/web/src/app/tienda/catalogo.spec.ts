@@ -36,6 +36,7 @@ describe('TiendaEnLinea', () => {
     precioSocioClp: null,
     foto: '/api/tienda/fotos/9/miniatura',
     agotado: false,
+    porEncargo: false,
     ...datos,
   });
 
@@ -116,6 +117,15 @@ describe('TiendaEnLinea', () => {
       const { elemento } = await montar('/tienda', { pendiente: true });
 
       expect(elemento.querySelector('app-esqueleto')).not.toBeNull();
+    });
+
+    it('lo que se vende por encargo lo dice, en vez de agotado (T170)', async () => {
+      const { tarjetas } = await montar('/tienda', {
+        lista: [producto({ porEncargo: true })],
+      });
+
+      expect(tarjetas()[0].textContent).toContain('Por encargo');
+      expect(tarjetas()[0].textContent).not.toContain('Agotado');
     });
 
     it('lo agotado lo dice, sin esconderlo', async () => {

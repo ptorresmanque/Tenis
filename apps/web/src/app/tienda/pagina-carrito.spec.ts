@@ -21,6 +21,8 @@ describe('PaginaDelCarrito', () => {
     descuentoUnitarioClp: 0,
     subtotalClp: 129990,
     disponible: 4,
+    porEncargo: false,
+    diasEncargo: null,
     estado: 'ok',
     ...datos,
   });
@@ -31,6 +33,7 @@ describe('PaginaDelCarrito', () => {
     descuentoClp: 0,
     totalClp: lineas.reduce((t, l) => t + l.subtotalClp, 0),
     sePuedePagar: lineas.every((l) => l.estado === 'ok'),
+    sePuedeDespachar: !lineas.some((l) => l.porEncargo),
     ...datos,
   });
 
@@ -186,6 +189,15 @@ describe('PaginaDelCarrito', () => {
 
       expect(elemento.querySelector('app-aviso')).toBeNull();
     });
+  });
+
+  it('**lo que va por encargo dice cuándo llega** y que se retira en el club (T170)', async () => {
+    const { filas } = await montar(
+      cotizacion([linea({ disponible: 0, porEncargo: true, diasEncargo: 7 })]),
+    );
+
+    expect(filas()[0].textContent).toContain('Por encargo: llega en 7 días');
+    expect(filas()[0].textContent).toContain('se retira en el club');
   });
 
   describe('lo que no se puede comprar', () => {

@@ -35,6 +35,9 @@ export interface LineaCotizada {
   subtotalClp: number;
   /** El stock menos lo apartado por pedidos sin pagar, nunca menos de cero (T164). */
   disponible: number;
+  /** Pide más de lo que queda y el producto acepta encargo (T170): llega en `diasEncargo`. */
+  porEncargo: boolean;
+  diasEncargo: number | null;
   estado: EstadoDeLinea;
 }
 
@@ -46,6 +49,8 @@ export interface Cotizacion {
   totalClp: number;
   /** Hay algo y todo se puede comprar como está. */
   sePuedePagar: boolean;
+  /** Nada va por encargo: lo que va por encargo se retira en el club (T170). */
+  sePuedeDespachar: boolean;
 }
 
 /**
@@ -80,6 +85,8 @@ export class CarritoDeLaTienda {
               precioClp: true,
               publicado: true,
               archivado: true,
+              aceptaEncargo: true,
+              diasEncargo: true,
               categoria: { select: { usaTablaDeTallas: true } },
               marca: {
                 select: {
@@ -115,6 +122,8 @@ export class CarritoDeLaTienda {
           descuentoUnitarioClp: 0,
           subtotalClp: 0,
           disponible: 0,
+          porEncargo: false,
+          diasEncargo: null,
           estado: 'no-disponible',
         };
       }
@@ -123,6 +132,10 @@ export class CarritoDeLaTienda {
       const seVende =
         variante.activa && producto.publicado && !producto.archivado;
       const disponible = seVende ? (quedan.get(variante.id) ?? 0) : 0;
+      // Lo que falta se vende por encargo si el producto lo acepta: la línea entera llega en
+      // los días del encargo, aunque parte esté en el club.
+      const falta = cantidad > disponible;
+      const porEncargo = seVende && falta && producto.aceptaEncargo;
       const descuento =
         seVende && porcentaje !== null
           ? descuentoUnitario(producto.precioClp, porcentaje)
@@ -148,9 +161,11 @@ export class CarritoDeLaTienda {
         descuentoUnitarioClp: descuento,
         subtotalClp: seVende ? (producto.precioClp - descuento) * cantidad : 0,
         disponible,
+        porEncargo,
+        diasEncargo: porEncargo ? producto.diasEncargo : null,
         estado: !seVende
           ? 'no-disponible'
-          : cantidad > disponible
+          : falta && !porEncargo
             ? 'sin-stock'
             : 'ok',
       };
@@ -168,6 +183,7 @@ export class CarritoDeLaTienda {
       totalClp,
       sePuedePagar:
         cotizadas.length > 0 && cotizadas.every((l) => l.estado === 'ok'),
+      sePuedeDespachar: !cotizadas.some((l) => l.porEncargo),
     };
   }
 }

@@ -203,7 +203,14 @@ type CambioDeFiltro = Partial<Record<keyof FiltroDelCatalogo, string | number | 
                       >image</span
                     >
                   }
-                  @if (producto.agotado) {
+                  @if (producto.porEncargo) {
+                    <app-insignia
+                      class="absolute top-2 left-2"
+                      variante="info"
+                      icono="local_shipping"
+                      >Por encargo</app-insignia
+                    >
+                  } @else if (producto.agotado) {
                     <app-insignia
                       class="absolute top-2 left-2"
                       variante="neutro"

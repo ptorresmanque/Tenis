@@ -17,11 +17,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 import { Insignia } from '../../ui/insignia';
 import { CatalogoDeLaTienda } from './catalogo.service';
 import { FotosDelProducto } from './fotos-producto';
-import {
-  DatosDelProducto,
-  FichaDeProducto,
-  ProductosDeLaTienda,
-} from './productos.service';
+import { DatosDelProducto, FichaDeProducto, ProductosDeLaTienda } from './productos.service';
 import { VariantesDelProducto } from './variantes';
 
 /** Los anchos de `producto` en la base y los topes de la API (T158). */
@@ -35,6 +31,9 @@ interface Formulario {
   categoriaId: string;
   marcaId: string;
   precio: number | null;
+  /** Se vende sin stock, con "llega en N días" y solo con retiro (T170). */
+  aceptaEncargo: boolean;
+  diasEncargo: number | null;
 }
 
 /**
@@ -131,6 +130,41 @@ interface Formulario {
             />
           </label>
         </div>
+
+        <!-- El encargo, recién con el producto creado (T170): es una regla de venta, y la API
+             lo edita sobre lo que ya existe. -->
+        @if (!esNuevo()) {
+          <fieldset class="grid gap-3 rounded-xl border border-border p-4">
+            <legend class="px-1 text-sm font-medium">Venta por encargo</legend>
+            <label class="flex cursor-pointer items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                name="aceptaEncargo"
+                class="size-4 accent-primary"
+                [(ngModel)]="formulario().aceptaEncargo"
+              />
+              Se vende por encargo cuando no hay stock
+            </label>
+            @if (formulario().aceptaEncargo) {
+              <label class="grid max-w-xs gap-1 text-sm">
+                <span class="font-medium">Días que tarda en llegar *</span>
+                <input
+                  class="campo"
+                  name="diasEncargo"
+                  type="number"
+                  min="1"
+                  max="60"
+                  step="1"
+                  inputmode="numeric"
+                  [(ngModel)]="formulario().diasEncargo"
+                />
+              </label>
+              <p class="text-sm text-muted-foreground">
+                Lo que va por encargo se paga al comprar y se retira en el club: no se despacha.
+              </p>
+            }
+          </fieldset>
+        }
 
         <div>
           <button
@@ -282,20 +316,28 @@ export class FichaDeProductoPanel {
       return;
     }
 
-    await this.contra('guardar', async () => {
-      if (this.esNuevo()) {
-        const creado = await this.api.crear(datos);
-        // replaceUrl: volver atrás no tiene que llevar a un formulario de "nuevo" vacío.
-        await this.router.navigate(['/administracion/tienda/productos', creado.id], {
-          replaceUrl: true,
-        });
-        return;
-      }
+    await this.contra(
+      'guardar',
+      async () => {
+        if (this.esNuevo()) {
+          const creado = await this.api.crear(datos);
+          // replaceUrl: volver atrás no tiene que llevar a un formulario de "nuevo" vacío.
+          await this.router.navigate(['/administracion/tienda/productos', creado.id], {
+            replaceUrl: true,
+          });
+          return;
+        }
 
-      await this.api.editar(Number(this.id()), datos);
-      this.aviso.set('Datos guardados.');
-      this.ficha.reload();
-    }, 'No se pudo guardar el producto.');
+        await this.api.editar(Number(this.id()), {
+          ...datos,
+          aceptaEncargo: this.formulario().aceptaEncargo,
+          diasEncargo: this.formulario().aceptaEncargo ? this.formulario().diasEncargo : null,
+        });
+        this.aviso.set('Datos guardados.');
+        this.ficha.reload();
+      },
+      'No se pudo guardar el producto.',
+    );
   }
 
   /** Publicar, despublicar, archivar o desarchivar. El servidor dice si se puede. */
@@ -306,10 +348,14 @@ export class FichaDeProductoPanel {
     this.error.set(null);
     this.aviso.set(null);
 
-    await this.contra(accion, async () => {
-      await this.api.editar(Number(this.id()), cambio);
-      this.ficha.reload();
-    }, 'No se pudo cambiar el estado del producto.');
+    await this.contra(
+      accion,
+      async () => {
+        await this.api.editar(Number(this.id()), cambio);
+        this.ficha.reload();
+      },
+      'No se pudo cambiar el estado del producto.',
+    );
   }
 
   private async contra(
@@ -339,6 +385,8 @@ function aFormulario(producto: FichaDeProducto | null): Formulario {
     categoriaId: producto ? String(producto.categoriaId) : '',
     marcaId: producto?.marcaId ? String(producto.marcaId) : '',
     precio: producto?.precioClp ?? null,
+    aceptaEncargo: producto?.aceptaEncargo ?? false,
+    diasEncargo: producto?.diasEncargo ?? null,
   };
 }
 
@@ -352,6 +400,13 @@ function leerDatos(formulario: Formulario): DatosDelProducto | string {
   if (!Number.isInteger(categoriaId) || categoriaId < 1) return 'Elige la categoría.';
   if (precio === null || !Number.isInteger(precio) || precio < 1) {
     return 'El precio es un número entero de pesos, mayor que cero.';
+  }
+  const dias = formulario.diasEncargo;
+  if (
+    formulario.aceptaEncargo &&
+    (dias === null || !Number.isInteger(dias) || dias < 1 || dias > 60)
+  ) {
+    return 'Di en cuántos días llega lo que va por encargo: de 1 a 60.';
   }
 
   return {

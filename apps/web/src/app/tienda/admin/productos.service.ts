@@ -89,22 +89,25 @@ export class ProductosDeLaTienda {
   }
 
   ficha(id: number): Promise<FichaDeProducto> {
-    return firstValueFrom(
-      this.http.get<FichaDeProducto>(`/api/admin/tienda/productos/${id}`),
-    );
+    return firstValueFrom(this.http.get<FichaDeProducto>(`/api/admin/tienda/productos/${id}`));
   }
 
   /** Nace en borrador, sin variantes: se agregan en su ficha. */
   crear(datos: DatosDelProducto): Promise<FichaDeProducto> {
-    return firstValueFrom(
-      this.http.post<FichaDeProducto>('/api/admin/tienda/productos', datos),
-    );
+    return firstValueFrom(this.http.post<FichaDeProducto>('/api/admin/tienda/productos', datos));
   }
 
   /** Solo lo que cambia: los datos, o publicar y archivar. */
   editar(
     id: number,
-    cambio: Partial<DatosDelProducto & { publicado: boolean; archivado: boolean }>,
+    cambio: Partial<
+      DatosDelProducto & {
+        publicado: boolean;
+        archivado: boolean;
+        aceptaEncargo: boolean;
+        diasEncargo: number | null;
+      }
+    >,
   ): Promise<FichaDeProducto> {
     return firstValueFrom(
       this.http.patch<FichaDeProducto>(`/api/admin/tienda/productos/${id}`, cambio),
@@ -136,20 +139,16 @@ export class ProductosDeLaTienda {
     cuerpo.append('foto', archivo);
 
     return firstValueFrom(
-      this.http.post<FotoDelProducto>(
-        `/api/admin/tienda/productos/${productoId}/fotos`,
-        cuerpo,
-      ),
+      this.http.post<FotoDelProducto>(`/api/admin/tienda/productos/${productoId}/fotos`, cuerpo),
     );
   }
 
   /** La lista entera, en el orden nuevo: la primera es la portada. */
   ordenarFotos(productoId: number, ids: number[]): Promise<FotoDelProducto[]> {
     return firstValueFrom(
-      this.http.put<FotoDelProducto[]>(
-        `/api/admin/tienda/productos/${productoId}/fotos/orden`,
-        { ids },
-      ),
+      this.http.put<FotoDelProducto[]>(`/api/admin/tienda/productos/${productoId}/fotos/orden`, {
+        ids,
+      }),
     );
   }
 
@@ -175,9 +174,7 @@ export class ProductosDeLaTienda {
 
   quitarFoto(productoId: number, fotoId: number): Promise<{ id: number }> {
     return firstValueFrom(
-      this.http.delete<{ id: number }>(
-        `/api/admin/tienda/productos/${productoId}/fotos/${fotoId}`,
-      ),
+      this.http.delete<{ id: number }>(`/api/admin/tienda/productos/${productoId}/fotos/${fotoId}`),
     );
   }
 }

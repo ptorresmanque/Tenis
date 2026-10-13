@@ -132,21 +132,27 @@ import { Tienda } from './tienda.service';
                   </span>
                 </span>
               </label>
-              <label [class]="OPCION">
-                <input
-                  type="radio"
-                  name="entrega"
-                  value="DESPACHO"
-                  class="mt-1 size-4 accent-primary"
-                  [(ngModel)]="datos.entrega"
-                />
-                <span>
-                  <span class="block font-semibold">Despacho a domicilio</span>
-                  <span class="block text-sm text-muted-foreground">
-                    Lo pagas a Starken al recibirlo: no está en el total.
+              @if (cotizada.sePuedeDespachar) {
+                <label [class]="OPCION">
+                  <input
+                    type="radio"
+                    name="entrega"
+                    value="DESPACHO"
+                    class="mt-1 size-4 accent-primary"
+                    [(ngModel)]="datos.entrega"
+                  />
+                  <span>
+                    <span class="block font-semibold">Despacho a domicilio</span>
+                    <span class="block text-sm text-muted-foreground">
+                      Lo pagas a Starken al recibirlo: no está en el total.
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
+              } @else {
+                <p class="text-sm text-muted-foreground">
+                  Lo que va por encargo se retira en el club, así que este pedido es con retiro.
+                </p>
+              }
               @if (datos.entrega === 'DESPACHO') {
                 <p class="text-sm text-muted-foreground">
                   El despacho es por pagar a Starken: llega a la dirección que escribas y lo pagas

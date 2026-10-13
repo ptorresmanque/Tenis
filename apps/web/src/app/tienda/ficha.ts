@@ -150,11 +150,15 @@ const POCAS = 5;
                       class="size-4 accent-primary"
                       [value]="variante.id"
                       [checked]="variante.id === elegidaId()"
-                      [disabled]="variante.disponible === 0"
+                      [disabled]="variante.disponible === 0 && !producto.aceptaEncargo"
                       (change)="elegidaId.set(variante.id)"
                     />
                     <span data-talla class="flex-1 font-medium">{{ variante.talla }}</span>
-                    @if (variante.disponible === 0) {
+                    @if (variante.disponible === 0 && producto.aceptaEncargo) {
+                      <app-insignia variante="info" icono="local_shipping"
+                        >Por encargo: llega en {{ producto.diasEncargo }} días</app-insignia
+                      >
+                    } @else if (variante.disponible === 0) {
                       <app-insignia variante="neutro" icono="remove_shopping_cart"
                         >Agotado</app-insignia
                       >
@@ -201,6 +205,11 @@ const POCAS = 5;
             </div>
             @if (!elegida()) {
               <p class="mt-2 text-sm text-muted-foreground">Elige una opción para agregarla.</p>
+            } @else if (producto.aceptaEncargo && cantidad() > (elegida()?.disponible ?? 0)) {
+              <p class="mt-2 text-sm text-muted-foreground">
+                Lo que falta va por encargo: llega en {{ producto.diasEncargo }} días y se retira en
+                el club.
+              </p>
             }
           }
 
@@ -285,20 +294,34 @@ export class FichaDelProducto {
   protected readonly elegidaId = linkedSignal<number | null>(() => {
     const variantes = this.producto()?.variantes ?? [];
 
-    return variantes.length === 1 && variantes[0].disponible > 0 ? variantes[0].id : null;
+    const producto = this.producto();
+    const vendible =
+      variantes.length === 1 && (variantes[0].disponible > 0 || !!producto?.aceptaEncargo);
+
+    return vendible ? variantes[0].id : null;
   });
 
   protected readonly elegida = computed(
     () => this.producto()?.variantes.find((v) => v.id === this.elegidaId()) ?? null,
   );
 
-  protected readonly todoAgotado = computed(
-    () => this.producto()?.variantes.every((v) => v.disponible === 0) ?? false,
-  );
+  /** Sin nada en ninguna opción y sin encargo: no hay qué agregar. */
+  protected readonly todoAgotado = computed(() => {
+    const producto = this.producto();
 
-  /** Lo que queda de la elegida, y nunca más de lo que acepta un carrito. */
+    return (
+      !!producto && !producto.aceptaEncargo && producto.variantes.every((v) => v.disponible === 0)
+    );
+  });
+
+  /**
+   * Lo que queda de la elegida, y nunca más de lo que acepta un carrito. Con encargo, el tope
+   * es el del carrito: lo que falta se encarga (T170).
+   */
   protected readonly maximo = computed(() =>
-    Math.min(this.elegida()?.disponible ?? 1, CANTIDAD_MAXIMA),
+    this.producto()?.aceptaEncargo
+      ? CANTIDAD_MAXIMA
+      : Math.min(this.elegida()?.disponible ?? 1, CANTIDAD_MAXIMA),
   );
 
   /** Vuelve a 1 al cambiar de variante. */

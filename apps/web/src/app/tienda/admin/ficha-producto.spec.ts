@@ -124,6 +124,12 @@ describe('FichaDeProductoPanel', () => {
       expect(api.crear).not.toHaveBeenCalled();
     });
 
+    it('el encargo se configura recién con el producto creado', async () => {
+      const { campo } = await montar('nuevo');
+
+      expect(campo('Se vende por encargo')).toBeUndefined();
+    });
+
     it('no ofrece variantes ni fotos hasta que el producto exista', async () => {
       const { elemento } = await montar('nuevo');
 
@@ -155,7 +161,29 @@ describe('FichaDeProductoPanel', () => {
         categoriaId: 2,
         marcaId: 7,
         precioClp: 239990,
+        aceptaEncargo: false,
+        diasEncargo: null,
       });
+    });
+
+    it('**el encargo: aceptarlo pide en cuántos días llega**, y se manda con los datos (T170)', async () => {
+      const { api, boton, campo, escribir, estable, elemento } = await montar('4');
+
+      campo('Se vende por encargo')!.click();
+      await estable();
+      boton('Guardar los datos').click();
+      await estable();
+      expect(api.editar).not.toHaveBeenCalled();
+      expect(elemento.textContent).toContain('en cuántos días llega');
+
+      await escribir(campo('Días que tarda en llegar')!, '7');
+      boton('Guardar los datos').click();
+      await estable();
+
+      expect(api.editar).toHaveBeenCalledWith(
+        4,
+        expect.objectContaining({ aceptaEncargo: true, diasEncargo: 7 }),
+      );
     });
 
     it('**Publicar pide publicar**, y si el servidor no deja, muestra por qué', async () => {

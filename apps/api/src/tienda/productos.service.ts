@@ -190,6 +190,8 @@ export class ProductosDeLaTienda {
       where: { id },
       select: {
         archivado: true,
+        aceptaEncargo: true,
+        diasEncargo: true,
         _count: { select: { variantes: { where: { activa: true } } } },
       },
     });
@@ -212,10 +214,26 @@ export class ProductosDeLaTienda {
       }
     }
 
+    // El encargo se juzga con lo que queda después del cambio (T170): aceptarlo sin decir en
+    // cuántos días llega es prometer algo sin fecha. Sin encargo, los días no significan nada.
+    const aceptaEncargo = cambio.aceptaEncargo ?? actual.aceptaEncargo;
+    const diasEncargo =
+      cambio.diasEncargo !== undefined
+        ? cambio.diasEncargo
+        : actual.diasEncargo;
+    if (aceptaEncargo && diasEncargo === null) {
+      throw new BadRequestException(
+        'Di en cuántos días llega lo que se vende por encargo.',
+      );
+    }
+
     await this.prisma.producto.update({
       where: { id },
-      data:
-        cambio.archivado === true ? { ...cambio, publicado: false } : cambio,
+      data: {
+        ...cambio,
+        ...(cambio.archivado === true ? { publicado: false } : {}),
+        ...(aceptaEncargo ? {} : { diasEncargo: null }),
+      },
     });
 
     return this.ficha(id);

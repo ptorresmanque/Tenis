@@ -25,6 +25,8 @@ describe('PaginaDePago', () => {
         descuentoUnitarioClp: 0,
         subtotalClp: 249990,
         disponible: 3,
+        porEncargo: false,
+        diasEncargo: null,
         estado: 'ok',
       },
     ],
@@ -32,6 +34,7 @@ describe('PaginaDePago', () => {
     descuentoClp: 0,
     totalClp: 249990,
     sePuedePagar: true,
+    sePuedeDespachar: true,
   };
 
   const CAMILA = {
@@ -146,6 +149,18 @@ describe('PaginaDePago', () => {
     expect(campo('comuna')).not.toBeNull();
     expect(campo('direccion')).not.toBeNull();
     expect(elemento.textContent).toContain('por pagar a Starken');
+  });
+
+  it('**con algo por encargo, no ofrece despacho** y dice por qué (T170)', async () => {
+    const { elemento } = await montar({
+      cotizacion: { ...COTIZACION, sePuedeDespachar: false },
+    });
+
+    const opciones = Array.from(
+      elemento.querySelectorAll<HTMLInputElement>('[name="entrega"]'),
+    ).map((r) => r.value);
+    expect(opciones).toEqual(['RETIRO']);
+    expect(elemento.textContent).toContain('Lo que va por encargo se retira en el club');
   });
 
   it('quien necesita factura deja los datos de la empresa', async () => {

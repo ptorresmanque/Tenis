@@ -42,7 +42,10 @@ export interface ProductoDelCatalogo {
   /** Solo para el socio activo y al día con sesión. Lo calcula la API. */
   precioSocioClp: number | null;
   foto: string | null;
+  /** Sin stock y sin encargo. */
   agotado: boolean;
+  /** Sin stock, pero se vende por encargo (T170). */
+  porEncargo: boolean;
 }
 
 /** Espejo de `FichaPublica` en la API. */
@@ -54,6 +57,9 @@ export interface FichaPublica {
   marca: Nombrado | null;
   precioClp: number;
   precioSocioClp: number | null;
+  /** Lo que no queda se vende igual, y llega en `diasEncargo` días (T170). */
+  aceptaEncargo: boolean;
+  diasEncargo: number | null;
   variantes: VariantePublica[];
   /** La tabla de la marca, si la categoría la usa. */
   tallas: { tallaCl: string; tallaUs: string; tallaEu: string }[];
