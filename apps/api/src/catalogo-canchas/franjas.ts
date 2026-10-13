@@ -142,6 +142,30 @@ export function franjaPara(bloque: BloqueATarifar): Tarifa {
   };
 }
 
+/**
+ * Si algún momento del rango cae en una franja pico, y no solo su inicio (T211).
+ *
+ * Lo pide la regla de las duraciones del socio en prime (`SPEC-reservas.md` § Duración del
+ * socio en horario prime): con prime desde las 19:00, la hora y media de 18:30 a 20:00 lo
+ * toca. El precio y el cupo semanal siguen mandando por el inicio, en `franjaPara`.
+ *
+ * La franja que gana solo puede cambiar en un borde de franja, así que basta con mirar el
+ * inicio y cada borde que cae adentro del rango. No cada media hora: el editor acepta
+ * franjas que empiezan a las 19:15. En pantalla, pico se dice prime.
+ */
+export function tocaPico(
+  bloque: Omit<BloqueATarifar, 'duracionMin'> & { fin: Date },
+): boolean {
+  const bordes = bloque.franjas
+    .flatMap((franja) => [franja.horaDesde, franja.horaHasta])
+    .map((hora) => instanteEnElClub(bloque.fecha, hora))
+    .filter((instante) => instante > bloque.inicio && instante < bloque.fin);
+
+  return [bloque.inicio, ...bordes].some(
+    (inicio) => franjaPara({ ...bloque, inicio, duracionMin: 60 }).esPico,
+  );
+}
+
 function leGana(franja: FranjaCandidata, otra: FranjaCandidata): boolean {
   const diferencia =
     especificidad(franja) - especificidad(otra) ||
