@@ -45,6 +45,7 @@ describe('Modificación y cancelación de reservas', () => {
     email: 'admin@ejemplo.cl',
     telefono: null,
     esAdmin: true,
+    esGestor: false,
     socioId: null,
     socioActivo: false,
     socioAlDia: false,

@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
+import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CambioDeFicha, FichaNueva } from './profesores.dto';
 
@@ -15,7 +20,12 @@ const FICHA = {
   especialidad: true,
   tarifaHoraClp: true,
   activo: true,
+  /** Si tiene cuenta, y cuál: la lista de usuarios ofrece las que no (T217). */
+  usuarioId: true,
 } as const;
+
+const YA_ES_PROFESOR =
+  'Esa persona ya tiene una ficha de profesor. Quítasela antes de darle otra.';
 
 /**
  * Quiénes dan clases en el club.
@@ -47,16 +57,76 @@ export class Profesores {
   /**
    * Anota un profesor.
    *
-   * **Sin cuenta.** El profesor no entra al sistema —`SPEC-clases.md` § Out of
-   * scope—, así que pedirle un usuario sería crear credenciales que nadie usa. El
-   * campo existe para el que además es socio, y esa fila la enlaza el padrón.
+   * **La cuenta es opcional.** El profesor sin cuenta es al que el admin le agenda las
+   * clases; con cuenta, entra al panel a ver las suyas (`SPEC-clases.md` § El profesor
+   * en el panel). Exigirla obligaría a crear credenciales para anotar un teléfono.
    */
-  crear(ficha: FichaNueva) {
-    return this.prisma.profesor.create({ data: ficha, select: FICHA });
+  async crear(ficha: FichaNueva, usuarioId: number | null = null) {
+    if (usuarioId !== null) await this.exigirUsuario(usuarioId);
+
+    try {
+      return await this.prisma.profesor.create({
+        data: { ...ficha, usuarioId },
+        select: FICHA,
+      });
+    } catch (error) {
+      if (esViolacionDeUnicidad(error)) {
+        throw new ConflictException(YA_ES_PROFESOR);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Le da cuenta a una ficha que no la tiene (T217). El `updateMany` condicionado a
+   * `usuarioId: null` es la comprobación y la escritura a la vez: dos admins que
+   * vinculan la misma ficha al mismo tiempo no se pisan, el segundo recibe 409.
+   */
+  async vincular(id: number, usuarioId: number) {
+    await this.exigirUsuario(usuarioId);
+
+    let count: number;
+    try {
+      ({ count } = await this.prisma.profesor.updateMany({
+        where: { id, usuarioId: null },
+        data: { usuarioId },
+      }));
+    } catch (error) {
+      if (esViolacionDeUnicidad(error)) {
+        throw new ConflictException(YA_ES_PROFESOR);
+      }
+      throw error;
+    }
+
+    if (count === 0) {
+      if ((await this.prisma.profesor.count({ where: { id } })) === 0) {
+        throw new NotFoundException('No hay un profesor con ese número.');
+      }
+      throw new ConflictException(
+        'Esta ficha ya tiene una cuenta. Quítasela antes de darle otra.',
+      );
+    }
+
+    return this.prisma.profesor.findUniqueOrThrow({
+      where: { id },
+      select: FICHA,
+    });
+  }
+
+  /** Le quita la cuenta: la ficha y sus clases quedan, y la persona deja de entrar. */
+  desvincular(id: number) {
+    return this.editar(id, { usuarioId: null });
+  }
+
+  private async exigirUsuario(id: number): Promise<void> {
+    const existe = await this.prisma.usuario.count({ where: { id } });
+    if (existe === 0) {
+      throw new NotFoundException('No hay un usuario con ese id.');
+    }
   }
 
   /** Cambia lo que venga y deja lo demás. Activar y desactivar entran por acá. */
-  async editar(id: number, cambio: CambioDeFicha) {
+  async editar(id: number, cambio: CambioDeFicha | { usuarioId: null }) {
     const { count } = await this.prisma.profesor.updateMany({
       where: { id },
       data: cambio,

@@ -63,9 +63,9 @@ describe('NuevaSerie', () => {
   };
 
   /** Llena la serie de los tests: martes y jueves de 19 a 20, del 14 de octubre al 31. */
-  const llenar = async () => {
+  const llenar = async (conProfesor = true) => {
     await escribir('select[name="serie-cancha"]', '2');
-    await escribir('select[name="serie-profesor"]', '4');
+    if (conProfesor) await escribir('select[name="serie-profesor"]', '4');
     for (const dia of ['Martes', 'Jueves']) {
       [...el().querySelectorAll('label')]
         .find((label) => label.textContent?.trim() === dia)!
@@ -76,9 +76,9 @@ describe('NuevaSerie', () => {
     await escribir('input[name="serie-hasta"]', '2037-10-31');
   };
 
-  const revisar = async (fechas = FECHAS) => {
+  const revisar = async (fechas = FECHAS, conProfesor = true) => {
     api.simularSerie.mockResolvedValue({ fechas });
-    await llenar();
+    await llenar(conProfesor);
     boton('Revisar fechas').click();
     await esperar();
   };
@@ -245,5 +245,34 @@ describe('NuevaSerie', () => {
       '',
     );
     expect(boton('Agendar serie').disabled).toBe(true);
+  });
+
+  /** T222. El profesor arma su propia serie: no elige profesor ni cancela reservas. */
+  describe('con el profesor fijo', () => {
+    beforeEach(async () => {
+      fixture.componentRef.setInput('profesorFijo', 9);
+      await esperar();
+    });
+
+    it('no ofrece elegir profesor, y la serie va a su nombre', async () => {
+      expect(el().querySelector('select[name="serie-profesor"]')).toBeNull();
+
+      await revisar(FECHAS, false);
+
+      expect(api.simularSerie).toHaveBeenCalledWith(expect.objectContaining({ profesorId: 9 }));
+    });
+
+    it('**en la fecha con reservas solo ofrece saltar, y dice a quién pedírselo**', async () => {
+      await revisar(FECHAS, false);
+
+      const opciones = [
+        ...el().querySelectorAll<HTMLOptionElement>('select[name="decision-2037-10-20"] option'),
+      ].map((opcion) => opcion.value);
+
+      expect(opciones).toEqual(['', 'saltar']);
+      expect(texto()).toContain('Para cancelarlas, habla con administración');
+      // De quién son no lo dice: el profesor no ve el padrón (T218).
+      expect(texto()).not.toContain('Camila Visitante');
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { computed, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
@@ -23,14 +23,15 @@ describe('Cascarón de administración', () => {
     email: 'admin@clubdetenis.cl',
     telefono: null,
     esAdmin: true,
+    esGestor: false,
     socioId: null,
     socioActivo: false,
     socioAlDia: false,
     profesorId: null,
   };
 
-  function montar() {
-    const estado = signal<UsuarioActual | null>(ADMIN);
+  function montar(usuario: UsuarioActual = ADMIN) {
+    const estado = signal<UsuarioActual | null>(usuario);
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -40,7 +41,6 @@ describe('Cascarón de administración', () => {
           provide: Auth,
           useValue: {
             usuario: estado.asReadonly(),
-            esAdmin: computed(() => estado()?.esAdmin === true),
             refrescar: () => Promise.resolve(),
             salir: () => Promise.resolve(),
           },
@@ -55,8 +55,10 @@ describe('Cascarón de administración', () => {
   }
 
   /** Las URL de la barra lateral de escritorio, en orden. */
-  function itemsDeLaBarra(): string[] {
-    const barra = (montar().nativeElement as HTMLElement).querySelector('aside');
+  function itemsDeLaBarra(usuario: UsuarioActual = ADMIN): string[] {
+    const barra = (montar(usuario).nativeElement as HTMLElement).querySelector(
+      'aside',
+    );
 
     return [...barra!.querySelectorAll('nav a')].map(
       (enlace) => enlace.getAttribute('href') ?? '',
@@ -76,11 +78,12 @@ describe('Cascarón de administración', () => {
     expect(elemento.querySelector('app-progreso-de-navegacion')).not.toBeNull();
   });
 
-  it('lista las diecinueve secciones que hoy tienen pantalla', () => {
+  it('lista las veinte secciones que hoy tienen pantalla', () => {
     expect(itemsDeLaBarra()).toEqual([
       '/administracion/reservas',
       '/administracion/canchas',
       '/administracion/socios',
+      '/administracion/usuarios',
       '/administracion/ingreso',
       '/administracion/ocupacion',
       '/administracion/no-uso',
@@ -100,6 +103,37 @@ describe('Cascarón de administración', () => {
     ]);
   });
 
+  describe('según el tipo (T220)', () => {
+    const NO_ADMIN = { ...ADMIN, esAdmin: false };
+
+    it('el gestor ve solo la agenda del día, y el profesor solo Clases', () => {
+      expect(itemsDeLaBarra({ ...NO_ADMIN, esGestor: true })).toEqual([
+        '/administracion/reservas',
+      ]);
+      expect(itemsDeLaBarra({ ...NO_ADMIN, profesorId: 7 })).toEqual([
+        '/administracion/clases',
+      ]);
+    });
+
+    it('quien tiene los dos tipos ve los dos', () => {
+      expect(
+        itemsDeLaBarra({ ...NO_ADMIN, esGestor: true, profesorId: 7 }),
+      ).toEqual(['/administracion/reservas', '/administracion/clases']);
+    });
+
+    it('el logotipo lleva a la portada de cada uno', () => {
+      const elemento = montar({ ...NO_ADMIN, profesorId: 7 })
+        .nativeElement as HTMLElement;
+
+      const destinos = [...elemento.querySelectorAll('app-logotipo a')].map(
+        (a) => a.getAttribute('href'),
+      );
+
+      expect(destinos.length).toBeGreaterThan(0);
+      expect(destinos.every((d) => d === '/administracion/clases')).toBe(true);
+    });
+  });
+
   it('ningún ítem lleva a una ruta que no existe', () => {
     // Un ítem entra en la barra cuando existe su pantalla, no antes: uno que cae
     // en el comodín y devuelve al inicio miente peor que uno ausente.
@@ -110,7 +144,7 @@ describe('Cascarón de administración', () => {
     const barra = (montar().nativeElement as HTMLElement).querySelector('aside');
     const iconos = [...barra!.querySelectorAll('nav a .icono')];
 
-    expect(iconos).toHaveLength(19);
+    expect(iconos).toHaveLength(20);
     expect(iconos.every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true);
   });
 

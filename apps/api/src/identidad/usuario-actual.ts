@@ -12,11 +12,14 @@ export interface UsuarioActual {
   /** Nulo para quien entró con Google: Google no entrega el teléfono. */
   telefono: string | null;
   esAdmin: boolean;
+  /** Ve la agenda del día y anota observaciones (T215). */
+  esGestor: boolean;
   socioId: number | null;
   /** El socio está en estado ACTIVO. */
   socioActivo: boolean;
   /** Tiene la cuota pagada: `alDiaHasta` es hoy o después. */
   socioAlDia: boolean;
+  /** Nulo si no tiene ficha o si la ficha está inactiva: un profesor de baja no da clases. */
   profesorId: number | null;
 }
 
@@ -28,8 +31,9 @@ export interface UsuarioConFichas {
   email: string;
   telefono: string | null;
   esAdmin: boolean;
+  esGestor: boolean;
   socio: { id: number; estado: EstadoSocio; alDiaHasta: Date } | null;
-  profesor: { id: number } | null;
+  profesor: { id: number; activo: boolean } | null;
 }
 
 /**
@@ -64,9 +68,10 @@ export function usuarioActualDe(
     email: usuario.email,
     telefono: usuario.telefono,
     esAdmin: usuario.esAdmin,
+    esGestor: usuario.esGestor,
     socioId: usuario.socio?.id ?? null,
     socioActivo: usuario.socio?.estado === EstadoSocio.ACTIVO,
     socioAlDia: estaAlDia(usuario.socio?.alDiaHasta, hoy),
-    profesorId: usuario.profesor?.id ?? null,
+    profesorId: usuario.profesor?.activo ? usuario.profesor.id : null,
   };
 }

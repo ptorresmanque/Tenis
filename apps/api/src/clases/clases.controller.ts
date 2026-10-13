@@ -11,9 +11,11 @@ import {
 } from '@nestjs/common';
 
 import { fechaDeCuerpo } from '../catalogo-canchas/admin.dto';
-import { SoloAdmin } from '../identidad/guards';
+import { AdminO, Yo } from '../identidad/guards';
+import type { UsuarioActual } from '../identidad/usuario-actual';
 import { Clases } from './clases.service';
 import { Inscripciones } from './inscripciones.service';
+import { exigirSuya, paraQuienPregunta, Pertenencia } from './pertenencia';
 import {
   leerAsistencia,
   leerCancelacion,
@@ -27,23 +29,45 @@ import {
 /**
  * Las clases del club.
  *
- * `@SoloAdmin()` sobre el controlador entero: **el admin agenda las clases**, que es
- * la pregunta 12 del spec. El profesor tiene ficha y aparece en la agenda, pero no
- * entra a tomar horas, así que este módulo no agrega ni un permiso nuevo.
+ * **El admin y el profesor** (T218, `SPEC-clases.md` § El profesor en el panel): el
+ * guard dice quién entra, y `Pertenencia` dice sobre qué. Cada endpoint que recibe una
+ * clase, una serie o un profesor lo comprueba **antes de hacer nada**: el admin pasa
+ * siempre, y el profesor solo con lo suyo.
  *
  * Lo que el visitante ve de las clases es otra pantalla y otro endpoint (T48).
  */
 @Controller('admin/clases')
-@SoloAdmin()
+@AdminO('profesor')
 export class ClasesController {
   constructor(
     private readonly clases: Clases,
     private readonly inscripciones: Inscripciones,
+    private readonly pertenencia: Pertenencia,
   ) {}
 
+  /**
+   * Las clases del día. También para el gestor, que las ve en la agenda junto a las
+   * reservas sin tocarlas; al profesor le devuelve solo las suyas.
+   */
   @Get()
-  delDia(@Query('fecha') fecha = '') {
-    return this.clases.delDia(fecha);
+  @AdminO('gestor', 'profesor')
+  delDia(@Query('fecha') fecha = '', @Yo() yo: UsuarioActual) {
+    return this.clases.delDia(
+      fecha,
+      yo.esAdmin || yo.esGestor ? null : yo.profesorId,
+    );
+  }
+
+  /**
+   * Los socios que se pueden inscribir: id, nombre y número, nada más. La pantalla de
+   * inscritos elegía de `admin/socios`, que trae correos, teléfonos y deudas de todo el
+   * club, y el profesor no necesita nada de eso.
+   *
+   * Antes de `:id` en el archivo, o Nest leería "socios" como un id.
+   */
+  @Get('socios')
+  socios() {
+    return this.inscripciones.sociosParaInscribir();
   }
 
   /**
@@ -54,13 +78,21 @@ export class ClasesController {
    */
   @Post('simulacion')
   @HttpCode(200)
-  async simular(@Body() cuerpo: unknown) {
-    return { afectadas: await this.clases.afectadas(leerClaseNueva(cuerpo)) };
+  async simular(@Body() cuerpo: unknown, @Yo() yo: UsuarioActual) {
+    const clase = leerClaseNueva(cuerpo);
+    exigirSuya(clase.profesorId, yo);
+
+    return {
+      afectadas: paraQuienPregunta(await this.clases.afectadas(clase), yo),
+    };
   }
 
   @Post()
-  agendar(@Body() cuerpo: unknown) {
-    return this.clases.agendar(leerClaseNueva(cuerpo));
+  agendar(@Body() cuerpo: unknown, @Yo() yo: UsuarioActual) {
+    const clase = leerClaseNueva(cuerpo);
+    exigirSuya(clase.profesorId, yo);
+
+    return this.clases.agendar(clase, null, { soloLibre: !yo.esAdmin });
   }
 
   /**
@@ -69,8 +101,18 @@ export class ClasesController {
    */
   @Post('series/simulacion')
   @HttpCode(200)
-  async simularSerie(@Body() cuerpo: unknown) {
-    return { fechas: await this.clases.simularSerie(leerSerie(cuerpo)) };
+  async simularSerie(@Body() cuerpo: unknown, @Yo() yo: UsuarioActual) {
+    const serie = leerSerie(cuerpo);
+    exigirSuya(serie.profesorId, yo);
+
+    const fechas = await this.clases.simularSerie(serie);
+
+    return {
+      fechas: fechas.map((fecha) => ({
+        ...fecha,
+        afectadas: paraQuienPregunta(fecha.afectadas, yo),
+      })),
+    };
   }
 
   /**
@@ -78,10 +120,13 @@ export class ClasesController {
    * Si alguna está llena, no inscribe en ninguna y dice cuál.
    */
   @Post('series/:id/inscripciones')
-  inscribirEnLaSerie(
+  async inscribirEnLaSerie(
     @Param('id', ParseIntPipe) id: number,
     @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
   ) {
+    await this.pertenencia.deLaSerie(id, yo);
+
     return this.inscripciones.inscribirEnLaSerie(id, leerInscripcion(cuerpo));
   }
 
@@ -90,10 +135,13 @@ export class ClasesController {
    * clases anteriores quedan como estaban. El motivo es obligatorio, como en la clase suelta.
    */
   @Post('series/:id/cancelacion')
-  cancelarSerieDesde(
+  async cancelarSerieDesde(
     @Param('id', ParseIntPipe) id: number,
     @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
   ) {
+    await this.pertenencia.deLaSerie(id, yo);
+
     const datos = (cuerpo ?? {}) as Record<string, unknown>;
     const desde = fechaDeCuerpo(datos.desde, 'El día desde el que se cancela')
       .toISOString()
@@ -104,10 +152,13 @@ export class ClasesController {
 
   /** Lo saca de la serie: cancela solo las clases que vienen, no las que ya pasaron. */
   @Post('series/:id/inscripciones/cancelacion')
-  salirDeLaSerie(
+  async salirDeLaSerie(
     @Param('id', ParseIntPipe) id: number,
     @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
   ) {
+    await this.pertenencia.deLaSerie(id, yo);
+
     return this.inscripciones.salirDeLaSerie(id, leerInscripcion(cuerpo));
   }
 
@@ -116,13 +167,14 @@ export class ClasesController {
    * `saltar` (T114). Una fecha con choque y sin decisión rechaza la serie entera.
    */
   @Post('series')
-  agendarSerie(@Body() cuerpo: unknown) {
+  agendarSerie(@Body() cuerpo: unknown, @Yo() yo: UsuarioActual) {
     const datos = (cuerpo ?? {}) as Record<string, unknown>;
+    const serie = leerSerie(cuerpo);
+    exigirSuya(serie.profesorId, yo);
 
-    return this.clases.agendarSerie(
-      leerSerie(cuerpo),
-      leerDecisiones(datos.decisiones),
-    );
+    return this.clases.agendarSerie(serie, leerDecisiones(datos.decisiones), {
+      soloLibre: !yo.esAdmin,
+    });
   }
 
   /**
@@ -131,23 +183,34 @@ export class ClasesController {
    * Después de `simulacion` en el archivo, o Nest leería "simulacion" como un id.
    */
   @Get(':id')
-  ficha(@Param('id', ParseIntPipe) id: number) {
+  async ficha(@Param('id', ParseIntPipe) id: number, @Yo() yo: UsuarioActual) {
+    await this.pertenencia.deLaClase(id, yo);
+
     return this.inscripciones.ficha(id);
   }
 
   /** Inscribir a un socio o a un alumno de afuera. El cupo lo decide el servidor. */
   @Post(':id/inscripciones')
-  inscribir(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+  async inscribir(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ) {
+    await this.pertenencia.deLaClase(id, yo);
+
     return this.inscripciones.inscribir(id, leerInscripcion(cuerpo));
   }
 
   /** Sacar a alguien de la clase. La fila queda, marcada: libera el cupo, no la historia. */
   @Post(':claseId/inscripciones/:id/cancelacion')
   @HttpCode(200)
-  bajar(
+  async bajar(
     @Param('claseId', ParseIntPipe) claseId: number,
     @Param('id', ParseIntPipe) id: number,
+    @Yo() yo: UsuarioActual,
   ) {
+    await this.pertenencia.deLaClase(claseId, yo);
+
     return this.inscripciones.cancelar(claseId, id);
   }
 
@@ -159,14 +222,28 @@ export class ClasesController {
    */
   @Post(':id/realizacion')
   @HttpCode(200)
-  realizar(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+  async realizar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ) {
+    await this.pertenencia.deLaClase(id, yo);
+
     return this.inscripciones.realizar(id, leerAsistencia(cuerpo));
   }
 
   /** Mover la clase. Conserva su id, su profesor y sus inscritos. */
   @Patch(':id')
-  mover(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
-    return this.clases.mover(id, leerMovimiento(cuerpo));
+  async mover(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ) {
+    await this.pertenencia.deLaClase(id, yo);
+
+    return this.clases.mover(id, leerMovimiento(cuerpo), {
+      soloLibre: !yo.esAdmin,
+    });
   }
 
   /**
@@ -178,7 +255,13 @@ export class ClasesController {
    */
   @Post(':id/cancelacion')
   @HttpCode(200)
-  cancelar(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+  async cancelar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ) {
+    await this.pertenencia.deLaClase(id, yo);
+
     return this.clases.cancelar(id, leerCancelacion(cuerpo));
   }
 }

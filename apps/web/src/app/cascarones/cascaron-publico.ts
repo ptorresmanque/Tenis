@@ -7,6 +7,7 @@ import { RedesSociales } from '../club/redes-sociales';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
+import { inicioDelPanel } from '../core/auth/tipos-del-panel';
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
 import { MenuDesplegable } from './menu-desplegable';
@@ -106,10 +107,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
                 <a routerLink="/mis-reservas" [class]="ITEM_MENU">Mis reservas</a>
                 <a routerLink="/mi-cuenta" [class]="ITEM_MENU">Mi cuenta</a>
               }
-              @if (esAdmin()) {
-                <a routerLink="/administracion/reservas" [class]="ITEM_MENU">
-                  Administración
-                </a>
+              @if (inicioDelPanel(); as destino) {
+                <a [routerLink]="destino" [class]="ITEM_MENU">Administración</a>
               }
               <button
                 type="button"
@@ -182,9 +181,9 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       @if (usuario(); as sesion) {
         <div class="mt-6 grid gap-1 border-t border-border pt-6">
           <p class="px-3 pb-2 font-semibold">{{ sesion.nombre }}</p>
-          @if (esAdmin()) {
+          @if (inicioDelPanel(); as destino) {
             <a
-              routerLink="/administracion/reservas"
+              [routerLink]="destino"
               class="flex min-h-12 items-center rounded-lg px-3 font-medium
                      transition-colors hover:bg-muted"
               (click)="panel.close()"
@@ -317,7 +316,10 @@ export class CascaronPublico {
 
   protected readonly usuario = this.auth.usuario;
   protected readonly club = inject(Club).datos;
-  protected readonly esAdmin = this.auth.esAdmin;
+  /** Adónde lleva "Administración": la portada del panel de cada uno, o nada (T220). */
+  protected readonly inicioDelPanel = computed(() =>
+    inicioDelPanel(this.usuario()),
+  );
 
   /** El encabezado fijo, para que un ancla no deje su título debajo de él. */
   private readonly encabezado = viewChild<ElementRef<HTMLElement>>('encabezado');

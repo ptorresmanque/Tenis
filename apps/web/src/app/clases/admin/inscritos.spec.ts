@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Socios } from '../../identidad/admin/socios.service';
 import { Clases, FichaDeClase } from '../clases.service';
 import { InscritosDeLaClase } from './inscritos';
 
@@ -48,39 +47,24 @@ describe('InscritosDeLaClase', () => {
     realizar: ReturnType<typeof vi.fn>;
     inscribirEnLaSerie: ReturnType<typeof vi.fn>;
     salirDeLaSerie: ReturnType<typeof vi.fn>;
+    socios: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (ficha: FichaDeClase | Error) => {
     api = {
-      ficha: vi.fn(() =>
-        ficha instanceof Error ? Promise.reject(ficha) : Promise.resolve(ficha),
-      ),
+      ficha: vi.fn(() => (ficha instanceof Error ? Promise.reject(ficha) : Promise.resolve(ficha))),
       inscribir: vi.fn().mockResolvedValue({ id: 12 }),
       bajar: vi.fn().mockResolvedValue({ id: 11 }),
       realizar: vi.fn().mockResolvedValue({ id: 7 }),
       inscribirEnLaSerie: vi.fn().mockResolvedValue({ inscritas: 17, yaEstaba: 1 }),
       salirDeLaSerie: vi.fn().mockResolvedValue({ canceladas: 5 }),
+      // T222: la lista reducida de `admin/clases/socios`, no el padrón.
+      socios: vi.fn().mockResolvedValue([{ id: 3, numeroSocio: '002', nombre: 'Matías Rojas' }]),
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [
-        { provide: Clases, useValue: api },
-        {
-          provide: Socios,
-          useValue: {
-            listado: vi.fn().mockResolvedValue({
-              socios: [
-                {
-                  id: 3,
-                  numeroSocio: '002',
-                  usuario: { nombre: 'Matías', apellido: 'Rojas' },
-                },
-              ],
-            }),
-          },
-        },
-      ],
+      providers: [{ provide: Clases, useValue: api }],
     });
 
     fixture = TestBed.createComponent(InscritosDeLaClase);
@@ -115,9 +99,7 @@ describe('InscritosDeLaClase', () => {
   });
 
   it('inscribe a un socio del club', async () => {
-    const select = elemento().querySelector(
-      'select[name="socioId"]',
-    ) as HTMLSelectElement;
+    const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
     select.value = '3';
     select.dispatchEvent(new Event('change'));
     await fixture.whenStable();
@@ -179,9 +161,9 @@ describe('InscritosDeLaClase', () => {
       inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="socioId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = Array.from(elemento().querySelectorAll('select[name="socioId"] option')).map(
+      (o) => o.textContent?.trim(),
+    );
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(false);
   });
@@ -190,22 +172,18 @@ describe('InscritosDeLaClase', () => {
     await montar({
       ...FICHA,
       cupoTomado: 0,
-      inscritos: [
-        { ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' },
-      ],
+      inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="socioId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = Array.from(elemento().querySelectorAll('select[name="socioId"] option')).map(
+      (o) => o.textContent?.trim(),
+    );
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(true);
   });
 
   it('pasar lista manda a los que vinieron', async () => {
-    const casilla = elemento().querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
+    const casilla = elemento().querySelector('input[type="checkbox"]') as HTMLInputElement;
     casilla.checked = true;
     casilla.dispatchEvent(new Event('change'));
     await fixture.whenStable();
@@ -263,10 +241,12 @@ describe('InscritosDeLaClase', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: Clases, useValue: { ficha: () => Promise.resolve(FICHA) } },
         {
-          provide: Socios,
-          useValue: { listado: () => Promise.reject(new Error('la API no respondió')) },
+          provide: Clases,
+          useValue: {
+            ficha: () => Promise.resolve(FICHA),
+            socios: () => Promise.reject(new Error('la API no respondió')),
+          },
         },
       ],
     });
@@ -358,10 +338,7 @@ describe('InscritosDeLaClase', () => {
     const nunca = () => new Promise<never>(() => undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [
-        { provide: Clases, useValue: { ficha: nunca } },
-        { provide: Socios, useValue: { listado: nunca } },
-      ],
+      providers: [{ provide: Clases, useValue: { ficha: nunca, socios: nunca } }],
     });
 
     const pendiente = TestBed.createComponent(InscritosDeLaClase);

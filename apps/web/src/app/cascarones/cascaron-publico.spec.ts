@@ -1,4 +1,4 @@
-import { computed, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
@@ -28,6 +28,7 @@ describe('Cascarón público: la navegación', () => {
     email: 'admin@clubdetenis.cl',
     telefono: null,
     esAdmin: true,
+    esGestor: false,
     socioId: null,
     socioActivo: false,
     socioAlDia: false,
@@ -60,7 +61,6 @@ describe('Cascarón público: la navegación', () => {
           provide: Auth,
           useValue: {
             usuario: estado.asReadonly(),
-            esAdmin: computed(() => estado()?.esAdmin === true),
             refrescar: () => Promise.resolve(),
             salir: () => Promise.resolve(),
           },
@@ -204,6 +204,36 @@ describe('Cascarón público: la navegación', () => {
     expect(
       [...elemento.querySelectorAll('header a')].map((a) => a.textContent?.trim()),
     ).toContain('Administración');
+  });
+
+  /** Adónde lleva "Administración" en el menú del avatar, o null si no está (T220). */
+  function enlaceAlPanel(usuario: UsuarioActual): string | null {
+    const fixture = montarCon(usuario);
+    const elemento = fixture.nativeElement as HTMLElement;
+
+    elemento
+      .querySelector<HTMLButtonElement>(
+        `header button[aria-label="Menú de ${usuario.nombre}"]`,
+      )!
+      .click();
+    fixture.detectChanges();
+
+    const enlace = [...elemento.querySelectorAll('header a')].find(
+      (a) => a.textContent?.trim() === 'Administración',
+    );
+
+    return enlace?.getAttribute('href') ?? null;
+  }
+
+  it('el panel lleva a cada uno a lo suyo: la agenda al gestor, Clases al profesor (T220)', () => {
+    expect(enlaceAlPanel(ADMIN)).toBe('/administracion/reservas');
+    expect(enlaceAlPanel({ ...SOCIA, esGestor: true })).toBe(
+      '/administracion/reservas',
+    );
+    expect(enlaceAlPanel({ ...SOCIA, profesorId: 4 })).toBe(
+      '/administracion/clases',
+    );
+    expect(enlaceAlPanel(SOCIA)).toBeNull();
   });
 
   it('a la socia el menú de su avatar no le ofrece el panel', () => {

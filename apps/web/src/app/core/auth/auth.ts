@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { computed, inject, Service, signal } from '@angular/core';
+import { inject, Service, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, firstValueFrom, of } from 'rxjs';
 
@@ -17,9 +17,12 @@ export interface UsuarioActual {
   /** Nulo para quien entró con Google: Google no entrega el teléfono. */
   telefono: string | null;
   esAdmin: boolean;
+  /** Ve la agenda del día y anota observaciones (T215). */
+  esGestor: boolean;
   socioId: number | null;
   socioActivo: boolean;
   socioAlDia: boolean;
+  /** Nulo también si la ficha está inactiva: un profesor de baja no entra a Clases. */
   profesorId: number | null;
 }
 
@@ -36,7 +39,6 @@ export class Auth {
 
   /** null si no hay sesión o si todavía no se resolvió la primera consulta. */
   readonly usuario = this.estado.asReadonly();
-  readonly esAdmin = computed(() => this.estado()?.esAdmin === true);
 
   constructor() {
     void this.refrescar();

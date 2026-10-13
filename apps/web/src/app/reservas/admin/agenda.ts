@@ -17,8 +17,10 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { ClaseDelDia, Clases, NIVELES } from '../../clases/clases.service';
+import { Auth } from '../../core/auth/auth';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
+import { ObservacionesDeReserva } from './observaciones-de-reserva';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { CampoFecha } from '../../ui/campo-fecha';
 
@@ -32,7 +34,16 @@ import { CampoFecha } from '../../ui/campo-fecha';
  */
 @Component({
   selector: 'app-agenda-del-dia',
-  imports: [Aviso, EstadoVacio, Insignia, NuevaReserva, EnlaceTelefonoPipe, TelefonoPipe, CampoFecha],
+  imports: [
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    NuevaReserva,
+    ObservacionesDeReserva,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    CampoFecha,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
          La navegación entre días va debajo. -->
@@ -47,10 +58,13 @@ import { CampoFecha } from '../../ui/campo-fecha';
         <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
       </div>
 
-      <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
-        <span class="icono text-base" aria-hidden="true">add</span>
-        Nueva reserva
-      </button>
+      <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
+      @if (puedeTomarHoras()) {
+        <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
+          <span class="icono text-base" aria-hidden="true">add</span>
+          Nueva reserva
+        </button>
+      }
     </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
@@ -93,7 +107,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
       </div>
     </div>
 
-    @if (tomandoHora()) {
+    @if (tomandoHora() && puedeTomarHoras()) {
       <app-nueva-reserva
         [fecha]="fechaActual()"
         (cerrar)="tomandoHora.set(false)"
@@ -205,6 +219,9 @@ import { CampoFecha } from '../../ui/campo-fecha';
                 <app-insignia variante="aviso">Esperando el pago</app-insignia>
               </p>
             }
+
+            <!-- Las notas del mesón (T226): las ven el admin y el gestor, nunca el socio. -->
+            <app-observaciones-de-reserva [reserva]="reserva" (cambio)="reservas.reload()" />
           </li>
           }
         }
@@ -215,6 +232,12 @@ import { CampoFecha } from '../../ui/campo-fecha';
 export class AgendaDelDia {
   private readonly agenda = inject(Agenda);
   private readonly clasesApi = inject(Clases);
+  private readonly usuario = inject(Auth).usuario;
+
+  /** El mesón es del admin; el gestor ve el mismo día sin poder tomar horas (T221). */
+  protected readonly puedeTomarHoras = computed(
+    () => this.usuario()?.esAdmin === true,
+  );
 
   readonly fechaActual = signal(hoyEnElClub());
 

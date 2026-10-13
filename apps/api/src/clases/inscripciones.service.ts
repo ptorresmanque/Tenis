@@ -8,6 +8,7 @@ import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import {
   EstadoClase,
   EstadoInscripcion,
+  EstadoSocio,
   Prisma,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -309,6 +310,34 @@ export class Inscripciones {
 
       return { id: claseId };
     });
+  }
+
+  /**
+   * Los socios activos que se pueden inscribir, con lo justo para elegirlos (T218): ni
+   * correo, ni teléfono, ni deuda. El servidor igual acepta a cualquier socio que
+   * exista (`exigirSocio`); esto es la lista para elegir, no la regla.
+   */
+  async sociosParaInscribir(): Promise<
+    { id: number; nombre: string; numeroSocio: string }[]
+  > {
+    const socios = await this.prisma.socio.findMany({
+      where: { estado: EstadoSocio.ACTIVO },
+      orderBy: [
+        { usuario: { nombre: 'asc' } },
+        { usuario: { apellido: 'asc' } },
+      ],
+      select: {
+        id: true,
+        numeroSocio: true,
+        usuario: { select: { nombre: true, apellido: true } },
+      },
+    });
+
+    return socios.map((socio) => ({
+      id: socio.id,
+      nombre: `${socio.usuario.nombre} ${socio.usuario.apellido}`,
+      numeroSocio: socio.numeroSocio,
+    }));
   }
 
   /** La ficha de la clase con su lista, que es lo que el profesor lleva a la cancha. */

@@ -16,6 +16,7 @@ function usuario(fichas: Partial<UsuarioConFichas> = {}): UsuarioConFichas {
     email: 'carolina@ejemplo.cl',
     telefono: null,
     esAdmin: false,
+    esGestor: false,
     socio: null,
     profesor: null,
     ...fichas,
@@ -85,13 +86,40 @@ describe('usuarioActualDe', () => {
     const actual = usuarioActualDe(
       usuario({
         socio: socio(EstadoSocio.ACTIVO, '2026-12-31'),
-        profesor: { id: 3 },
+        profesor: { id: 3, activo: true },
       }),
       HOY,
     );
 
     expect(actual.socioId).toBe(7);
     expect(actual.profesorId).toBe(3);
+  });
+
+  it('un profesor con la ficha inactiva no es profesor (T215)', () => {
+    // Un profesor que el club dio de baja no da clases, así que deja de entrar a Clases
+    // sin que nadie tenga que acordarse de desvincularlo.
+    const actual = usuarioActualDe(
+      usuario({ profesor: { id: 3, activo: false } }),
+      HOY,
+    );
+
+    expect(actual.profesorId).toBeNull();
+  });
+
+  it('el gestor es un tipo aparte, combinable con los demás (T215)', () => {
+    const actual = usuarioActualDe(
+      usuario({
+        esGestor: true,
+        socio: socio(EstadoSocio.ACTIVO, '2026-12-31'),
+      }),
+      HOY,
+    );
+
+    expect(actual).toMatchObject({
+      esGestor: true,
+      esAdmin: false,
+      socioId: 7,
+    });
   });
 
   it('lleva solo lo que el contrato promete', () => {
@@ -103,6 +131,7 @@ describe('usuarioActualDe', () => {
       'apellido',
       'email',
       'esAdmin',
+      'esGestor',
       'id',
       'nombre',
       'profesorId',

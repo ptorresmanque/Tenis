@@ -59,7 +59,6 @@ export class Configuracion {
     { ruta: 'datos', etiqueta: 'Datos del club', icono: 'storefront' },
     { ruta: 'textos', etiqueta: 'Textos del sitio', icono: 'edit_note' },
     { ruta: 'tienda-y-cafeteria', etiqueta: 'Tienda y cafetería', icono: 'local_cafe' },
-    { ruta: 'administradores', etiqueta: 'Administradores', icono: 'shield_person' },
     { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },
     { ruta: 'preguntas-frecuentes', etiqueta: 'Preguntas frecuentes', icono: 'quiz' },
   ];

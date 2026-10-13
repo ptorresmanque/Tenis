@@ -1,27 +1,20 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import {
-  AdminCanchas,
-  HoraAfectada,
-} from '../../catalogo-canchas/admin/admin-canchas.service';
+import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
+import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
 import {
   diaEnPalabras,
   fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
+import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import {
-  ClaseDelDia,
-  ClaseNueva,
-  Clases,
-  NivelClase,
-  NIVELES,
-} from '../clases.service';
+import { ClaseDelDia, ClaseNueva, Clases, NivelClase, NIVELES } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { InscritosDeLaClase } from './inscritos';
 import { NuevaSerie } from './nueva-serie';
@@ -50,7 +43,17 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-agenda-clases',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase, NuevaSerie, CampoFecha, CampoHora, Esqueleto],
+  imports: [
+    FormsModule,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    InscritosDeLaClase,
+    NuevaSerie,
+    CampoFecha,
+    CampoHora,
+    Esqueleto,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
          abajo, y la navegación entre días va debajo de la cabecera. -->
@@ -191,14 +194,16 @@ const enBlanco = () => ({
       </ul>
     }
 
-    <form
-      class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
-      (ngSubmit)="agendar()"
-    >
+    <form class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="agendar()">
       <h2 class="rotulo-seccion">Agendar una clase</h2>
       <p class="mt-2 text-sm text-muted-foreground">
-        La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos
-        antes de confirmar.
+        @if (profesorFijo() === null) {
+          La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos antes de
+          confirmar.
+        } @else {
+          La cancha queda cerrada esa hora, a tu nombre. Solo en horas libres: si hay
+          reservas, habla con administración.
+        }
       </p>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -212,28 +217,29 @@ const enBlanco = () => ({
           </select>
         </label>
 
-        <label class="block">
-          <span class="text-sm font-medium">Profesor</span>
-          <select class="campo mt-1" name="profesorId" [(ngModel)]="datos.profesorId">
-            <option [value]="0" disabled>Elige un profesor</option>
-            @if (profesores.hasValue()) {
-              @for (profesor of profesores.value(); track profesor.id) {
-                <option [value]="profesor.id">
-                  {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-                </option>
+        <!-- El profesor agenda a su nombre (T222): no elige. -->
+        @if (profesorFijo() === null) {
+          <label class="block">
+            <span class="text-sm font-medium">Profesor</span>
+            <select class="campo mt-1" name="profesorId" [(ngModel)]="datos.profesorId">
+              <option [value]="0" disabled>Elige un profesor</option>
+              @if (profesores.hasValue()) {
+                @for (profesor of profesores.value(); track profesor.id) {
+                  <option [value]="profesor.id">
+                    {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
+                  </option>
+                }
               }
+            </select>
+            @if (profesores.error()) {
+              <span class="text-sm text-destructive"> No se pudieron cargar los profesores. </span>
+            } @else if (profesores.value().length === 0) {
+              <span class="text-sm text-muted-foreground">
+                No hay profesores activos: anota uno primero.
+              </span>
             }
-          </select>
-          @if (profesores.error()) {
-            <span class="text-sm text-destructive">
-              No se pudieron cargar los profesores.
-            </span>
-          } @else if (profesores.value().length === 0) {
-            <span class="text-sm text-muted-foreground">
-              No hay profesores activos: anota uno primero.
-            </span>
-          }
-        </label>
+          </label>
+        }
 
         <div>
           <label class="block text-sm font-medium" for="clase-hora-desde">Desde</label>
@@ -302,6 +308,13 @@ const enBlanco = () => ({
     <!-- El segundo paso, y solo cuando hay algo que perder: agendar sobre una hora
          libre no pregunta nada. Lo que se confirma es esta lista. -->
     @if (porConfirmar(); as afectadas) {
+      <!-- El profesor no cancela reservas (T219): en vez de la confirmación, el aviso,
+           en el mismo lugar para que se vea junto al formulario. -->
+      @if (profesorFijo() !== null) {
+        <app-aviso variante="error" class="mt-3 block">
+          Esta hora tiene reservas. Para agendar encima, habla con administración.
+        </app-aviso>
+      } @else {
       <div
         role="alertdialog"
         aria-labelledby="titulo-clase"
@@ -312,16 +325,14 @@ const enBlanco = () => ({
           {{ afectadas.length === 1 ? 'hora tomada' : 'horas tomadas' }} en ese rango
         </h3>
         <p class="mt-1 text-muted-foreground">
-          Si agendas la clase se cancelan y avisamos por correo. A quien pagó se le
-          devuelve todo. <strong>Cancelar la clase después no las devuelve.</strong>
+          Si agendas la clase se cancelan y avisamos por correo. A quien pagó se le devuelve todo.
+          <strong>Cancelar la clase después no las devuelve.</strong>
         </p>
 
         <ul class="mt-2 grid gap-1">
           @for (tomada of afectadas; track tomada.id) {
             <li>
-              <span class="font-medium">
-                {{ hora(tomada.inicio) }}–{{ hora(tomada.fin) }}
-              </span>
+              <span class="font-medium"> {{ hora(tomada.inicio) }}–{{ hora(tomada.fin) }} </span>
               · {{ tomada.nombre }}
               @if (tomada.pagoEnCurso) {
                 <span class="text-destructive">
@@ -355,6 +366,7 @@ const enBlanco = () => ({
           </button>
         </div>
       </div>
+      }
     }
 
     <!-- La serie (T115), en su propio componente: escribirla, revisarla fecha por fecha
@@ -363,6 +375,7 @@ const enBlanco = () => ({
       class="mt-6"
       [canchas]="canchasActivas()"
       [profesores]="profesores.hasValue() ? profesores.value() : []"
+      [profesorFijo]="profesorFijo()"
       (agendada)="serieAgendada($event)"
     />
   `,
@@ -370,7 +383,17 @@ const enBlanco = () => ({
 export class AgendaDeClases {
   private readonly api = inject(Clases);
   private readonly profes = inject(Profesores);
-  private readonly catalogo = inject(AdminCanchas);
+  private readonly disponibilidad = inject(Disponibilidad);
+  private readonly usuario = inject(Auth).usuario;
+
+  /**
+   * El profesor que no es admin agenda a su nombre (T222): sin selector, sin pedir las
+   * fichas de los demás, y solo en horas libres. `null` para el admin, que elige.
+   */
+  protected readonly profesorFijo = computed(() => {
+    const yo = this.usuario();
+    return yo && !yo.esAdmin ? yo.profesorId : null;
+  });
 
   protected readonly fecha = signal(hoyEnElClub());
   protected readonly hoy = hoyEnElClub();
@@ -395,30 +418,31 @@ export class AgendaDeClases {
   });
 
   /** Solo los activos: el filtro lo impone el servidor, esto es la comodidad. */
+  /** Solo para el admin: al profesor el servidor no le muestra las fichas de los demás. */
   protected readonly profesores = resource({
+    params: () => (this.profesorFijo() === null ? true : undefined),
     loader: () => this.profes.listar(true),
     defaultValue: [],
   });
 
+  /** La lista pública, la misma para el admin y el profesor (T222). */
   protected readonly canchas = resource({
-    loader: () => this.catalogo.canchas(),
+    loader: () => this.disponibilidad.canchas(),
     defaultValue: [],
   });
 
   /**
-   * Solo las activas.
-   *
-   * Una cancha desactivada no tiene grilla, así que el servidor rechaza cualquier
-   * clase sobre ella: ofrecerla en el selector es ofrecer un callejón. Es el mismo
-   * criterio que con los profesores desactivados.
+   * Solo las activas, y ya vienen así: la lista pública no trae las desactivadas, que
+   * no tienen grilla y el servidor rechazaría siempre.
    */
   protected readonly canchasActivas = computed(() =>
-    (this.canchas.hasValue() ? this.canchas.value() : []).filter((cancha) => cancha.activa),
+    this.canchas.hasValue() ? this.canchas.value() : [],
   );
 
-  protected readonly opcionesDeNivel = Object.entries(NIVELES).map(
-    ([valor, etiqueta]) => ({ valor, etiqueta }),
-  );
+  protected readonly opcionesDeNivel = Object.entries(NIVELES).map(([valor, etiqueta]) => ({
+    valor,
+    etiqueta,
+  }));
 
   /** Con un pago abierto el servidor no deja agendar, y el botón lo dice antes. */
   protected readonly hayPagoEnCurso = computed(() =>
@@ -446,6 +470,7 @@ export class AgendaDeClases {
    * apretar sin leer, y entonces la advertencia que importa tampoco se lee.
    */
   protected async agendar(): Promise<void> {
+    this.porConfirmar.set(null);
     await this.intentar('agendar', async () => {
       const { afectadas } = await this.api.simular(this.formulario());
 
@@ -454,6 +479,8 @@ export class AgendaDeClases {
         return;
       }
 
+      // Al profesor, el aviso y no la confirmación: no cancela reservas (T219), y el
+      // servidor lo rechazaría igual.
       this.porConfirmar.set(afectadas);
     });
   }
@@ -466,9 +493,7 @@ export class AgendaDeClases {
   protected async cancelar(clase: ClaseDelDia): Promise<void> {
     // `prompt` y no un formulario propio: el motivo es obligatorio y esta es la
     // única acción de la pantalla que lo pide.
-    const motivo = window.prompt(
-      `¿Por qué se cancela la clase de ${clase.profesor}?`,
-    );
+    const motivo = window.prompt(`¿Por qué se cancela la clase de ${clase.profesor}?`);
 
     if (motivo === null || motivo.trim() === '') return;
 
@@ -534,16 +559,13 @@ export class AgendaDeClases {
       ...this.datos,
       // Los `select` devuelven texto aunque el valor sea un número.
       canchaId: Number(this.datos.canchaId),
-      profesorId: Number(this.datos.profesorId),
+      profesorId: this.profesorFijo() ?? Number(this.datos.profesorId),
       cupoMaximo: Number(this.datos.cupoMaximo),
       fecha: this.fecha(),
     };
   }
 
-  private async intentar(
-    clave: string,
-    accion: () => Promise<void>,
-  ): Promise<void> {
+  private async intentar(clave: string, accion: () => Promise<void>): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);

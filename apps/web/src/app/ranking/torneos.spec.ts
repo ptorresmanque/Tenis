@@ -90,6 +90,7 @@ describe('RankingDeTorneos', () => {
     telefono: null,
     email: 'ana@ejemplo.cl',
     esAdmin: false,
+    esGestor: false,
     socioId: 3,
     socioActivo: true,
     socioAlDia: true,

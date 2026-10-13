@@ -727,6 +727,7 @@ describe('POST /api/reservas — reserva de socio', () => {
       email: usuario.email,
       telefono: usuario.telefono,
       esAdmin: false,
+      esGestor: false,
       socioId,
       socioActivo: true,
       socioAlDia: true,

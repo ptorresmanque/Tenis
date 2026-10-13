@@ -8,6 +8,7 @@ import { ClasesPublicasController } from './clases-publicas.controller';
 import { ClasesPublicas } from './clases-publicas.service';
 import { Clases } from './clases.service';
 import { Inscripciones } from './inscripciones.service';
+import { Pertenencia } from './pertenencia';
 import { ProfesoresController } from './profesores.controller';
 import { Profesores } from './profesores.service';
 
@@ -20,7 +21,7 @@ import { Profesores } from './profesores.service';
  * sin ciclos: la agenda del día junta clases y reservas **en la pantalla**, que es
  * donde el club las mira juntas, y no en un servicio que tendría que conocer las dos.
  *
- * `IdentidadModule` porque `@SoloAdmin()` resuelve `SesionService` en el módulo del
+ * `IdentidadModule` porque los guards de sesión resuelven `SesionService` en el módulo del
  * controlador que lo usa, no en el que lo declara.
  */
 @Module({
@@ -30,6 +31,6 @@ import { Profesores } from './profesores.service';
     ClasesController,
     ClasesPublicasController,
   ],
-  providers: [Profesores, Clases, Inscripciones, ClasesPublicas],
+  providers: [Profesores, Clases, Inscripciones, ClasesPublicas, Pertenencia],
 })
 export class ClasesModule {}

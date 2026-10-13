@@ -73,6 +73,7 @@ describe('Duraciones del socio en horario prime', () => {
       email: `socio-${n}${DOMINIO}`,
       telefono: '56911112222',
       esAdmin: false,
+      esGestor: false,
       socioId: usuario.socio!.id,
       socioActivo: true,
       socioAlDia: true,

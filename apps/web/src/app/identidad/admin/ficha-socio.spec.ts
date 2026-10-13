@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Agenda } from '../../reservas/admin/agenda.service';
 import { FichaSocio } from './ficha-socio';
 import { CambioDeFicha, SocioDelClub, Socios } from './socios.service';
 
@@ -47,7 +48,29 @@ describe('FichaSocio', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Socios, useValue: api }],
+      providers: [
+        { provide: Socios, useValue: api },
+        // T226: la ficha muestra el historial de observaciones del socio.
+        {
+          provide: Agenda,
+          useValue: {
+            historial: vi.fn().mockResolvedValue([
+              {
+                id: 1,
+                texto: 'Se pasó 20 minutos de su hora.',
+                autorId: 5,
+                autorNombre: 'Carolina Díaz',
+                creadaEn: '2026-10-14T23:15:00.000Z',
+                editadaEn: null,
+                reservaId: 40,
+                folio: 'AB23CDE',
+                cancha: 'Cancha 1',
+                inicio: '2026-10-14T22:00:00.000Z',
+              },
+            ]),
+          },
+        },
+      ],
     });
 
     // El componente abre un `<dialog>` con showModal(), que jsdom no implementa.
@@ -81,6 +104,14 @@ describe('FichaSocio', () => {
 
   beforeEach(async () => {
     await montar([UN_CAMBIO]);
+  });
+
+  it('muestra las observaciones del mesón sobre sus reservas (T226)', () => {
+    const texto = elemento().textContent ?? '';
+
+    expect(texto).toContain('Observaciones del mesón');
+    expect(texto).toContain('Se pasó 20 minutos de su hora.');
+    expect(texto).toContain('Cancha 1');
   });
 
   it('llega con los datos del socio puestos', () => {
