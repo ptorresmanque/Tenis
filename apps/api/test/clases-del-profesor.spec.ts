@@ -99,11 +99,8 @@ describe('El profesor en Clases', () => {
   });
 
   const serie = (profesorId: number, horaDesde: string, horaHasta: string) => ({
-    canchaId,
     profesorId,
-    diasSemana: [3],
-    horaDesde,
-    horaHasta,
+    dias: [{ diaSemana: 3, horaDesde, horaHasta, canchaId }],
     desde: '2041-10-15',
     hasta: '2041-11-05',
     cupoMaximo: 6,
@@ -129,6 +126,11 @@ describe('El profesor en Clases', () => {
 
   const limpiar = async () => {
     await prisma.cancha.deleteMany({ where: { nombre: CANCHA } });
+    // Desde T228 la serie ya no cae con su cancha: se borra antes que sus profesores, que
+    // caen con sus cuentas.
+    await prisma.serieDeClases.deleteMany({
+      where: { profesor: { usuario: { email: { endsWith: DOMINIO } } } },
+    });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });

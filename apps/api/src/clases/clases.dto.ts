@@ -22,17 +22,24 @@ export interface ClaseNueva {
   notas: string | null;
 }
 
-/**
- * Una serie de clases (T113): la ficha de una clase, más los días de la semana y el rango
- * de fechas. Las horas quedan como reloj del club; cada fecha las convierte a instantes.
- */
-export interface SerieNueva {
-  canchaId: number;
-  profesorId: number;
-  /** De 0 (domingo) a 6 (sábado), sin repetidos y en orden. */
-  diasSemana: number[];
+/** Un día de la semana de una serie, con su horario y su cancha (T228). */
+export interface DiaDeLaSerie {
+  /** De 0 (domingo) a 6 (sábado). */
+  diaSemana: number;
+  /** Reloj del club, "HH:MM": cada fecha lo convierte a instantes. */
   horaDesde: string;
   horaHasta: string;
+  canchaId: number;
+}
+
+/**
+ * Una serie de clases (T113): la ficha de una clase, más sus días y el rango de fechas.
+ * Desde T228 cada día lleva su horario y su cancha.
+ */
+export interface SerieNueva {
+  profesorId: number;
+  /** Sin días repetidos, en orden de la semana. */
+  dias: DiaDeLaSerie[];
   /** Fechas civiles del club, "AAAA-MM-DD", las dos incluidas. */
   desde: string;
   hasta: string;
@@ -44,22 +51,29 @@ export interface SerieNueva {
 /** El tope de una serie (A10): seis meses. Más largo, se agenda otra. */
 const MESES_MAXIMOS = 6;
 
+const NOMBRE_DEL_DIA = [
+  'domingo',
+  'lunes',
+  'martes',
+  'miércoles',
+  'jueves',
+  'viernes',
+  'sábado',
+];
+
 /**
  * Lee la serie del formulario.
  *
- * Lo de cada clase —cancha, profesor, horas, cupo, nivel, notas— se valida leyendo la
- * primera fecha como una clase suelta: así la serie no tiene reglas propias que se
- * desalineen de las de la clase.
+ * Lo de cada clase —cancha, profesor, horas, cupo, nivel, notas— se valida leyendo **cada
+ * día** como una clase suelta en la primera fecha: así la serie no tiene reglas propias que
+ * se desalineen de las de la clase.
  */
 export function leerSerie(cuerpo: unknown): SerieNueva {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
-  if (!Array.isArray(datos.diasSemana) || datos.diasSemana.length === 0) {
+  if (!Array.isArray(datos.dias) || datos.dias.length === 0) {
     throw new BadRequestException('Elige al menos un día de la semana.');
   }
-  const diasSemana = [...new Set(datos.diasSemana.map(diaValido))].sort(
-    (a, b) => a - b,
-  );
 
   const desde = fechaDeCuerpo(datos.desde, 'El inicio de la serie');
   const hasta = fechaDeCuerpo(datos.hasta, 'El término de la serie');
@@ -85,14 +99,47 @@ export function leerSerie(cuerpo: unknown): SerieNueva {
   }
 
   const fecha = (dia: Date) => dia.toISOString().slice(0, 10);
-  const muestra = leerClaseNueva({ ...datos, fecha: fecha(desde) });
+
+  const vistos = new Set<number>();
+  const dias = (datos.dias as unknown[])
+    .map((crudo): DiaDeLaSerie => {
+      const dia = (crudo ?? {}) as Record<string, unknown>;
+      const diaSemana = diaValido(dia.diaSemana);
+
+      if (vistos.has(diaSemana)) {
+        throw new BadRequestException(
+          `El ${NOMBRE_DEL_DIA[diaSemana]} está dos veces: cada día lleva un solo horario.`,
+        );
+      }
+      vistos.add(diaSemana);
+
+      // Cada día se valida como una clase suelta: horas, cancha y el resto de la ficha.
+      const muestra = leerClaseNueva({
+        ...datos,
+        canchaId: dia.canchaId,
+        horaDesde: dia.horaDesde,
+        horaHasta: dia.horaHasta,
+        fecha: fecha(desde),
+      });
+
+      return {
+        diaSemana,
+        horaDesde: dia.horaDesde as string,
+        horaHasta: dia.horaHasta as string,
+        canchaId: muestra.canchaId,
+      };
+    })
+    .sort((uno, otro) => uno.diaSemana - otro.diaSemana);
+
+  const muestra = leerClaseNueva({
+    ...datos,
+    ...dias[0],
+    fecha: fecha(desde),
+  });
 
   return {
-    canchaId: muestra.canchaId,
     profesorId: muestra.profesorId,
-    diasSemana,
-    horaDesde: datos.horaDesde as string,
-    horaHasta: datos.horaHasta as string,
+    dias,
     desde: fecha(desde),
     hasta: fecha(hasta),
     cupoMaximo: muestra.cupoMaximo,

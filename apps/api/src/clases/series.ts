@@ -42,17 +42,18 @@ function enPalabras(fecha: string): string {
  * un sábado a las 22:00 del club ya es domingo en UTC.
  */
 export function fechasDeLaSerie(
-  serie: Pick<SerieNueva, 'diasSemana' | 'desde' | 'hasta'>,
+  serie: Pick<SerieNueva, 'dias' | 'desde' | 'hasta'>,
 ): string[] {
   const fechas: string[] = [];
   const hasta = new Date(`${serie.hasta}T00:00:00.000Z`);
+  const diasSemana = serie.dias.map((dia) => dia.diaSemana);
 
   for (
     const dia = new Date(`${serie.desde}T00:00:00.000Z`);
     dia <= hasta;
     dia.setUTCDate(dia.getUTCDate() + 1)
   ) {
-    if (serie.diasSemana.includes(dia.getUTCDay())) {
+    if (diasSemana.includes(dia.getUTCDay())) {
       fechas.push(dia.toISOString().slice(0, 10));
     }
   }
@@ -61,14 +62,17 @@ export function fechasDeLaSerie(
 }
 
 /**
- * La serie como clases sueltas, una por fecha. Cada una se lee igual que una clase que
- * agenda el admin a mano, así que las 19:00 son las 19:00 del club antes y después del
- * cambio de horario.
+ * La serie como clases sueltas, una por fecha, **con el horario y la cancha de su día**
+ * (T228). Cada una se lee igual que una clase que agenda el admin a mano, así que las 19:00
+ * son las 19:00 del club antes y después del cambio de horario.
  */
 export function clasesDeLaSerie(serie: SerieNueva): ClaseNueva[] {
-  return fechasDeLaSerie(serie).map((fecha) =>
-    leerClaseNueva({ ...serie, fecha }),
-  );
+  return fechasDeLaSerie(serie).map((fecha) => {
+    const diaSemana = new Date(`${fecha}T00:00:00.000Z`).getUTCDay();
+    const dia = serie.dias.find((uno) => uno.diaSemana === diaSemana)!;
+
+    return leerClaseNueva({ ...serie, ...dia, fecha });
+  });
 }
 
 /**

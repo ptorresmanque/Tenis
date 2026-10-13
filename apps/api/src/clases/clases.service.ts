@@ -166,10 +166,7 @@ export class Clases {
     const { id } = await this.prisma.serieDeClases.create({
       data: {
         profesorId: serie.profesorId,
-        canchaId: serie.canchaId,
-        diasSemana: serie.diasSemana.join(','),
-        horaDesde: serie.horaDesde,
-        horaHasta: serie.horaHasta,
+        dias: { create: serie.dias },
         desde: new Date(`${serie.desde}T00:00:00.000Z`),
         hasta: new Date(`${serie.hasta}T00:00:00.000Z`),
         cupoMaximo: serie.cupoMaximo,

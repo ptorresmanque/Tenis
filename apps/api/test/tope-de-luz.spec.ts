@@ -676,6 +676,10 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
     const clases = () => modulo.get(Clases);
 
     beforeEach(async () => {
+      // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
+      await prisma.serieDeClases.deleteMany({
+        where: { profesor: { nombreVisible: 'Profe T205' } },
+      });
       await prisma.profesor.deleteMany({
         where: { nombreVisible: 'Profe T205' },
       });
@@ -696,6 +700,10 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
       await prisma.clase.deleteMany({
         where: { profesor: { nombreVisible: 'Profe T205' } },
       });
+      await prisma.serieDeClases.deleteMany({
+        where: { profesor: { nombreVisible: 'Profe T205' } },
+      });
+      // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
       await prisma.serieDeClases.deleteMany({
         where: { profesor: { nombreVisible: 'Profe T205' } },
       });
@@ -780,11 +788,15 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
 
     describe('en una serie (clases 10)', () => {
       const unaSerie = () => ({
-        canchaId: luz[2],
         profesorId,
-        diasSemana: [1],
-        horaDesde: '20:00',
-        horaHasta: '21:00',
+        dias: [
+          {
+            diaSemana: 1,
+            horaDesde: '20:00',
+            horaHasta: '21:00',
+            canchaId: luz[2],
+          },
+        ],
         desde: DIA,
         hasta: '2039-06-20',
         cupoMaximo: 6,

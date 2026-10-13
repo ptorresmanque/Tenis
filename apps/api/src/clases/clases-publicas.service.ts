@@ -170,11 +170,16 @@ export class ClasesPublicas {
       orderBy: { id: 'asc' },
       select: {
         id: true,
-        diasSemana: true,
-        horaDesde: true,
-        horaHasta: true,
         nivel: true,
-        cancha: { select: { nombre: true } },
+        dias: {
+          orderBy: { diaSemana: 'asc' },
+          select: {
+            diaSemana: true,
+            horaDesde: true,
+            horaHasta: true,
+            cancha: { select: { nombre: true } },
+          },
+        },
         profesor: { select: { nombreVisible: true } },
         clases: {
           where: queVienen,
@@ -205,11 +210,13 @@ export class ClasesPublicas {
     return series.map((serie) => ({
       id: serie.id,
       profesor: serie.profesor.nombreVisible,
-      cancha: serie.cancha.nombre,
+      // ponytail: el contrato de hoy, leído del primer día; T229 lo cambia por la lista de
+      // días con su horario y su lugar.
+      cancha: serie.dias[0]?.cancha?.nombre ?? '',
       nivel: serie.nivel,
-      diasSemana: serie.diasSemana.split(',').map(Number),
-      horaDesde: serie.horaDesde,
-      horaHasta: serie.horaHasta,
+      diasSemana: serie.dias.map((dia) => dia.diaSemana),
+      horaDesde: serie.dias[0]?.horaDesde ?? '',
+      horaHasta: serie.dias[0]?.horaHasta ?? '',
       hasta: hoyEnElClub(serie.clases[serie.clases.length - 1].inicio)
         .toISOString()
         .slice(0, 10),

@@ -418,7 +418,7 @@ model Cancha {
   bloqueos      Bloqueo[]
   reservas      Reserva[]
   clases        Clase[]
-  series        SerieDeClases[]
+  diasDeSerie   DiaDeSerie[]
   transmisiones Transmision[]
 
   @@map("cancha")
@@ -1034,18 +1034,12 @@ model Clase {
 /// Una serie de clases recurrentes (T113): "martes y jueves de 19 a 20, del 14 de octubre
 /// al 15 de diciembre". Dura como máximo 6 meses (A10).
 ///
-/// Guarda la regla y no las fechas: las fechas son las clases que generó. La hora va como
-/// reloj del club ("19:00") y no como instante, porque una serie que cruza el cambio de
-/// horario tiene que quedar a las 19:00 antes y después.
+/// Guarda la regla y no las fechas: las fechas son las clases que generó. Desde T228 cada
+/// día de la semana tiene su horario y su cancha, en `DiaDeSerie`.
 model SerieDeClases {
   id         Int @id @default(autoincrement())
   profesorId Int @map("profesor_id")
-  canchaId   Int @map("cancha_id")
 
-  /// Los días de la semana, de 0 (domingo) a 6 (sábado), separados por coma: "2,4".
-  diasSemana String @map("dias_semana") @db.VarChar(13)
-  horaDesde  String @map("hora_desde") @db.Char(5)
-  horaHasta  String @map("hora_hasta") @db.Char(5)
   /// Fechas civiles del club, las dos incluidas.
   desde      DateTime @db.Date
   hasta      DateTime @db.Date
@@ -1056,13 +1050,34 @@ model SerieDeClases {
 
   creadaEn DateTime @default(now()) @map("creada_en")
 
-  profesor Profesor @relation(fields: [profesorId], references: [id])
-  cancha   Cancha   @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+  profesor Profesor     @relation(fields: [profesorId], references: [id])
+  dias     DiaDeSerie[]
   clases   Clase[]
 
-  @@index([canchaId])
   @@index([profesorId])
   @@map("serie_de_clases")
+}
+
+/// Un día de la semana de una serie, con su horario y su cancha (T228): "lunes de 19 a 20 en
+/// la Cancha 2, martes de 18 a 19 en la Cancha 1". La hora va como reloj del club ("19:00")
+/// y no como instante, porque una serie que cruza el cambio de horario tiene que quedar a las
+/// 19:00 antes y después. Un solo horario por día.
+model DiaDeSerie {
+  id        Int    @id @default(autoincrement())
+  serieId   Int    @map("serie_id")
+  /// De 0 (domingo) a 6 (sábado).
+  diaSemana Int    @map("dia_semana")
+  horaDesde String @map("hora_desde") @db.Char(5)
+  horaHasta String @map("hora_hasta") @db.Char(5)
+  /// La cancha de ese día. Opcional para la preparación física, que va al gimnasio (T231).
+  canchaId  Int?   @map("cancha_id")
+
+  serie  SerieDeClases @relation(fields: [serieId], references: [id], onDelete: Cascade)
+  cancha Cancha?       @relation(fields: [canchaId], references: [id], onDelete: Cascade)
+
+  @@unique([serieId, diaSemana])
+  @@index([canchaId])
+  @@map("dia_de_serie")
 }
 
 enum EstadoInscripcion {

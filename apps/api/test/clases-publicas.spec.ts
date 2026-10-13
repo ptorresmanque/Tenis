@@ -131,6 +131,10 @@ describe('GET /api/clases/publicas', () => {
     await prisma.cancha.deleteMany({
       where: { nombre: { startsWith: NOMBRE_CANCHA } },
     });
+    // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
+    await prisma.serieDeClases.deleteMany({
+      where: { profesor: { nombreVisible: { startsWith: 'Profe pública' } } },
+    });
     await prisma.profesor.deleteMany({
       where: { nombreVisible: { startsWith: 'Profe pública' } },
     });
@@ -143,6 +147,10 @@ describe('GET /api/clases/publicas', () => {
   beforeEach(async () => {
     await prisma.cancha.deleteMany({
       where: { nombre: { startsWith: NOMBRE_CANCHA } },
+    });
+    // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
+    await prisma.serieDeClases.deleteMany({
+      where: { profesor: { nombreVisible: { startsWith: 'Profe pública' } } },
     });
     await prisma.profesor.deleteMany({
       where: { nombreVisible: { startsWith: 'Profe pública' } },
