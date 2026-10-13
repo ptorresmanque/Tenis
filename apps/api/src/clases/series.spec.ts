@@ -14,12 +14,17 @@ describe('series de clases', () => {
   const JUEVES = 4;
   const LUNES = 1;
 
+  /** Un día de la serie (T228): su horario y su cancha. */
+  const dia = (
+    diaSemana: number,
+    horaDesde = '19:00',
+    horaHasta = '20:00',
+    canchaId = 3,
+  ) => ({ diaSemana, horaDesde, horaHasta, canchaId });
+
   const SERIE = {
-    canchaId: 3,
     profesorId: 5,
-    diasSemana: [MARTES, JUEVES],
-    horaDesde: '19:00',
-    horaHasta: '20:00',
+    dias: [dia(MARTES), dia(JUEVES)],
     desde: '2026-10-14',
     hasta: '2026-12-15',
     cupoMaximo: 6,
@@ -49,7 +54,7 @@ describe('series de clases', () => {
       const fechas = fechasDeLaSerie(
         leerSerie({
           ...SERIE,
-          diasSemana: [6],
+          dias: [dia(6)],
           desde: '2026-10-17',
           hasta: '2026-10-31',
         }),
@@ -66,7 +71,7 @@ describe('series de clases', () => {
       const clases = clasesDeLaSerie(
         leerSerie({
           ...SERIE,
-          diasSemana: [LUNES],
+          dias: [dia(LUNES)],
           desde: '2027-03-01',
           hasta: '2027-05-31',
         }),
@@ -81,6 +86,32 @@ describe('series de clases', () => {
       expect(clases.at(-1)!.inicio.toISOString()).toBe(
         '2027-05-31T23:00:00.000Z',
       );
+    });
+
+    it('**cada fecha usa el horario y la cancha de su día** (T228)', () => {
+      // El pedido del club: lunes de 19 a 20 en una cancha y martes de 18 a 19 en otra.
+      const clases = clasesDeLaSerie(
+        leerSerie({
+          ...SERIE,
+          dias: [
+            dia(MARTES, '18:00', '19:00', 1),
+            dia(LUNES, '19:00', '20:00', 2),
+          ],
+          desde: '2026-10-19',
+          hasta: '2026-10-20',
+        }),
+      );
+
+      expect(
+        clases.map((clase) => ({
+          fecha: clase.fecha,
+          hora: HORA.format(clase.inicio),
+          canchaId: clase.canchaId,
+        })),
+      ).toEqual([
+        { fecha: '2026-10-19', hora: '19:00', canchaId: 2 },
+        { fecha: '2026-10-20', hora: '18:00', canchaId: 1 },
+      ]);
     });
 
     it('cada clase trae la ficha de la serie', () => {
@@ -110,11 +141,28 @@ describe('series de clases', () => {
     });
 
     it('**ningún día de la semana responde 400**', () => {
-      rechaza({ diasSemana: [] }, /al menos un día/);
+      rechaza({ dias: [] }, /al menos un día/);
+      rechaza({ dias: undefined }, /al menos un día/);
     });
 
     it('un día que no existe responde 400', () => {
-      rechaza({ diasSemana: [7] }, /0 \(domingo\) a 6 \(sábado\)/);
+      rechaza({ dias: [dia(7)] }, /0 \(domingo\) a 6 \(sábado\)/);
+    });
+
+    it('**un día repetido responde 400: cada día lleva un solo horario** (T228)', () => {
+      rechaza(
+        { dias: [dia(MARTES), dia(MARTES, '08:00', '09:00')] },
+        /martes.*dos veces/,
+      );
+    });
+
+    it('un día sin cancha responde 400', () => {
+      rechaza(
+        {
+          dias: [{ diaSemana: MARTES, horaDesde: '19:00', horaHasta: '20:00' }],
+        },
+        /cancha/,
+      );
     });
 
     it('una serie que termina antes de empezar responde 400', () => {
@@ -128,17 +176,21 @@ describe('series de clases', () => {
       rechaza({ hasta: '2026-02-30' }, /AAAA-MM-DD/);
     });
 
-    it('lo de cada clase se valida como en una clase suelta', () => {
-      expect(() => leerSerie({ ...SERIE, horaHasta: '18:00' })).toThrow(
-        BadRequestException,
-      );
+    it('lo de cada día se valida como en una clase suelta', () => {
+      expect(() =>
+        leerSerie({
+          ...SERIE,
+          dias: [dia(MARTES), dia(JUEVES, '19:00', '18:00')],
+        }),
+      ).toThrow(BadRequestException);
       rechaza({ nivel: 'EXPERTO' }, /nivel/);
     });
 
-    it('los días repetidos cuentan una vez', () => {
+    it('los días quedan en orden de la semana', () => {
       expect(
-        leerSerie({ ...SERIE, diasSemana: [JUEVES, MARTES, JUEVES] })
-          .diasSemana,
+        leerSerie({ ...SERIE, dias: [dia(JUEVES), dia(MARTES)] }).dias.map(
+          (uno) => uno.diaSemana,
+        ),
       ).toEqual([MARTES, JUEVES]);
     });
   });

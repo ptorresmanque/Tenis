@@ -72,7 +72,9 @@ describe('Rutas protegidas', () => {
     'administracion/configuracion/reglas',
     'administracion/configuracion/datos',
     'administracion/configuracion/textos',
-    'administracion/configuracion/tienda-y-cafeteria',
+    'administracion/configuracion/tienda',
+    'administracion/configuracion/cafeteria',
+    'administracion/configuracion/gimnasio',
     'administracion/configuracion/preguntas-frecuentes',
     'administracion/usuarios',
     'administracion/tours',
@@ -80,6 +82,20 @@ describe('Rutas protegidas', () => {
     'estado',
   ])('%s pasa por el guard del panel', (url) => {
     expect(buscar(url)?.guards).toContain(conPanel);
+  });
+
+  it('**la ruta vieja de la tienda y la cafetería lleva a la tienda** (T236, G6)', () => {
+    expect(buscar('administracion/configuracion/tienda-y-cafeteria')?.ruta.redirectTo).toBe(
+      'tienda',
+    );
+  });
+
+  it.each([
+    ['tienda', 'TIENDA'],
+    ['cafeteria', 'CAFETERIA'],
+    ['gimnasio', 'GIMNASIO'],
+  ])('la pestaña %s le dice al panel qué lugar es (T236)', (ruta, lugar) => {
+    expect(buscar(`administracion/configuracion/${ruta}`)?.ruta.data).toEqual({ lugar });
   });
 
   it('Configuración ya no tiene Administradores: los tipos se dan en Usuarios (T223)', () => {
@@ -148,7 +164,7 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/configuracion/reglas', CascaronAdmin],
     ['administracion/configuracion/datos', CascaronAdmin],
     ['administracion/configuracion/textos', CascaronAdmin],
-    ['administracion/configuracion/tienda-y-cafeteria', CascaronAdmin],
+    ['administracion/configuracion/gimnasio', CascaronAdmin],
     ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
     ['administracion/usuarios', CascaronAdmin],
     ['administracion/tours', CascaronAdmin],

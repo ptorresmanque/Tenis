@@ -1,7 +1,7 @@
 import { httpResource } from '@angular/common/http';
 import { computed, Service } from '@angular/core';
 
-/** Una foto de la tienda o la cafetería (T185), con las dos direcciones de la API. */
+/** Una foto de un lugar del club (T185), con las dos direcciones de la API. */
 export interface FotoDelLugar {
   id: number;
   /** El texto alternativo que escribió el admin, o nulo. */
@@ -11,8 +11,8 @@ export interface FotoDelLugar {
 }
 
 /**
- * La tienda o la cafetería del club (T184), como información: el sitio no vende nada. Sin
- * descripción, el lugar no se muestra.
+ * La tienda, la cafetería o el gimnasio del club (T184, T237), como información: el sitio no
+ * vende nada. Sin descripción, el lugar no se muestra.
  */
 export interface LugarDelClub {
   descripcion: string;
@@ -22,6 +22,18 @@ export interface LugarDelClub {
   whatsapp: string;
   /** Hasta seis, en el orden en que se subieron: la primera es la de la portada (T185). */
   fotos: FotoDelLugar[];
+}
+
+/** Un plan del gimnasio con sus dos precios, en pesos (T235). */
+export interface TarifaDelGimnasio {
+  nombre: string;
+  precioSocioClp: number;
+  precioNoSocioClp: number;
+}
+
+/** El gimnasio (T237): un lugar más, con sus tarifas en el orden que dejó el club. */
+export interface GimnasioDelClub extends LugarDelClub {
+  tarifas: TarifaDelGimnasio[];
 }
 
 /** Espejo de `ClubPublico` en la API. Lo que es público. */
@@ -46,6 +58,7 @@ export interface DatosDelClub {
   elClubCanchas: string;
   tienda: LugarDelClub;
   cafeteria: LugarDelClub;
+  gimnasio: GimnasioDelClub;
 }
 
 /**
@@ -96,6 +109,7 @@ export class Club {
           // Vacías: sin descripción no se muestran, que es lo correcto mientras no se sabe.
           tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
           cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+          gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
         },
   );
 

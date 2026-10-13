@@ -39,6 +39,7 @@ describe('ElClub', () => {
     elClubCanchas: 'Todas de superficie dura.',
     tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
     cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+    gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
   };
 
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {

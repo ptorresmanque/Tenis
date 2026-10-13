@@ -16,8 +16,11 @@ export interface FotoPedida {
 export function leerFotoDelLugar(cuerpo: unknown): FotoPedida {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
-  if (datos.lugar !== 'TIENDA' && datos.lugar !== 'CAFETERIA') {
-    throw new BadRequestException('El lugar tiene que ser TIENDA o CAFETERIA.');
+  const lugares = Object.values(Lugar) as unknown[];
+  if (!lugares.includes(datos.lugar)) {
+    throw new BadRequestException(
+      `El lugar tiene que ser uno de: ${lugares.join(', ')}.`,
+    );
   }
 
   const descripcion = datos.descripcion;
@@ -34,5 +37,5 @@ export function leerFotoDelLugar(cuerpo: unknown): FotoPedida {
     );
   }
 
-  return { lugar: datos.lugar, descripcion: limpia || null };
+  return { lugar: datos.lugar as Lugar, descripcion: limpia || null };
 }

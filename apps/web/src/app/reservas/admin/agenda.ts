@@ -16,7 +16,12 @@ import {
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { ClaseDelDia, Clases, NIVELES } from '../../clases/clases.service';
+import {
+  ClaseDelDia,
+  Clases,
+  cupoEnPalabras,
+  queClaseEs,
+} from '../../clases/clases.service';
 import { Auth } from '../../core/auth/auth';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
@@ -167,15 +172,15 @@ import { CampoFecha } from '../../ui/campo-fecha';
                 <p class="font-display text-lg font-semibold">
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
                 </p>
-                <p class="font-medium">{{ clase.cancha }}</p>
+                <p class="font-medium">{{ clase.lugar }}</p>
                 <app-insignia variante="info" icono="school">
-                  Clase · {{ nivel(clase.nivel) }}
+                  Clase · {{ queClaseEs(clase) }}
                 </app-insignia>
               </div>
               <p class="mt-1">
                 {{ clase.profesor }}
                 <span class="text-sm text-muted-foreground">
-                  · hasta {{ clase.cupoMaximo }} alumnos
+                  · {{ cupoEnPalabras(clase.cupoMaximo) }}
                 </span>
               </p>
             </li>
@@ -283,9 +288,8 @@ export class AgendaDelDia {
     ].sort((una, otra) => una.inicio.localeCompare(otra.inicio)),
   );
 
-  protected nivel(clave: keyof typeof NIVELES): string {
-    return NIVELES[clave] ?? clave;
-  }
+  protected readonly queClaseEs = queClaseEs;
+  protected readonly cupoEnPalabras = cupoEnPalabras;
 
   /** Cambia con cada aviso del servidor y así vuelve a disparar el `resource`. */
   private readonly recargas = signal(0);

@@ -43,18 +43,35 @@ describe('POST /api/admin/clases/series/simulacion', () => {
 
   const enviados: CorreoSaliente[] = [];
 
-  const serie = (parche: Record<string, unknown> = {}) => ({
-    canchaId,
-    profesorId,
-    diasSemana: [2, 4],
-    horaDesde: '19:00',
-    horaHasta: '20:00',
-    desde: '2037-10-14',
-    hasta: '2037-12-15',
-    cupoMaximo: 6,
-    nivel: NivelClase.INICIACION,
-    ...parche,
-  });
+  /**
+   * La serie de siempre: los mismos días, horario y cancha para todos. Desde T228 viaja como
+   * `dias`, uno por día de la semana; el parche puede seguir diciendo `diasSemana`,
+   * `horaDesde`, `horaHasta` y `canchaId`, que se reparten entre los días.
+   */
+  const serie = (parche: Record<string, unknown> = {}) => {
+    const {
+      diasSemana = [2, 4],
+      horaDesde = '19:00',
+      horaHasta = '20:00',
+      canchaId: deLaCancha = canchaId,
+      ...resto
+    } = parche;
+
+    return {
+      profesorId,
+      desde: '2037-10-14',
+      hasta: '2037-12-15',
+      cupoMaximo: 6,
+      nivel: NivelClase.INICIACION,
+      ...resto,
+      dias: (diasSemana as number[]).map((diaSemana) => ({
+        diaSemana,
+        horaDesde,
+        horaHasta,
+        canchaId: deLaCancha,
+      })),
+    };
+  };
 
   interface FechaSimulada {
     fecha: string;
@@ -114,6 +131,10 @@ describe('POST /api/admin/clases/series/simulacion', () => {
     prisma = app.get(PrismaService);
 
     await prisma.cancha.deleteMany({ where: { nombre: NOMBRE_CANCHA } });
+    // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
+    await prisma.serieDeClases.deleteMany({
+      where: { profesor: { nombreVisible: 'Profe Series' } },
+    });
     await prisma.profesor.deleteMany({
       where: { nombreVisible: 'Profe Series' },
     });
@@ -162,7 +183,9 @@ describe('POST /api/admin/clases/series/simulacion', () => {
   // Cada caso parte con la cancha vacía: las series dejan clases y bloqueos.
   beforeEach(async () => {
     await prisma.clase.deleteMany({ where: { canchaId } });
-    await prisma.serieDeClases.deleteMany({ where: { canchaId } });
+    await prisma.serieDeClases.deleteMany({
+      where: { dias: { some: { canchaId } } },
+    });
     await prisma.bloqueo.deleteMany({ where: { canchaId } });
     await prisma.reserva.deleteMany({ where: { canchaId } });
     enviados.length = 0;
@@ -170,6 +193,10 @@ describe('POST /api/admin/clases/series/simulacion', () => {
 
   afterAll(async () => {
     await prisma.cancha.deleteMany({ where: { nombre: NOMBRE_CANCHA } });
+    // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
+    await prisma.serieDeClases.deleteMany({
+      where: { profesor: { nombreVisible: 'Profe Series' } },
+    });
     await prisma.profesor.deleteMany({
       where: { nombreVisible: 'Profe Series' },
     });
@@ -349,14 +376,77 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       );
       expect(clases.every((c) => c.bloqueoId !== null)).toBe(true);
 
-      const guardada = await prisma.serieDeClases.findUniqueOrThrow({
-        where: { id: agendada.id },
+      // T228: un renglón por día, con su horario y su cancha.
+      expect(
+        await prisma.diaDeSerie.findMany({
+          where: { serieId: agendada.id },
+          orderBy: { diaSemana: 'asc' },
+          select: {
+            diaSemana: true,
+            horaDesde: true,
+            horaHasta: true,
+            canchaId: true,
+          },
+        }),
+      ).toEqual([
+        { diaSemana: 2, horaDesde: '19:00', horaHasta: '20:00', canchaId },
+        { diaSemana: 4, horaDesde: '19:00', horaHasta: '20:00', canchaId },
+      ]);
+    });
+
+    it('**cada fecha va con el horario y la cancha de su día** (T228, SPEC-clases.md 18)', async () => {
+      // El pedido del club: lunes de 19 a 20 en una cancha y martes de 18 a 19 en otra.
+      const otra = await prisma.cancha.create({
+        data: {
+          nombre: `${NOMBRE_CANCHA} B`,
+          superficie: Superficie.CEMENTO,
+          horarios: {
+            create: [0, 1, 2, 3, 4, 5, 6].map((diaSemana) => ({
+              diaSemana,
+              horaApertura: '08:00',
+              horaCierre: '22:00',
+            })),
+          },
+        },
+        select: { id: true },
       });
-      expect(guardada).toMatchObject({
-        diasSemana: '2,4',
-        horaDesde: '19:00',
-        horaHasta: '20:00',
-      });
+
+      try {
+        const respuesta = await agendar({
+          ...serie({ desde: '2037-10-19', hasta: '2037-10-27' }),
+          dias: [
+            { diaSemana: 1, horaDesde: '19:00', horaHasta: '20:00', canchaId },
+            {
+              diaSemana: 2,
+              horaDesde: '18:00',
+              horaHasta: '19:00',
+              canchaId: otra.id,
+            },
+          ],
+        }).expect(201);
+
+        const clases = await prisma.clase.findMany({
+          where: { serieId: (respuesta.body as { id: number }).id },
+          orderBy: { inicio: 'asc' },
+          select: { inicio: true, canchaId: true },
+        });
+
+        expect(clases).toEqual([
+          { inicio: instanteEnElClub('2037-10-19', '19:00'), canchaId },
+          {
+            inicio: instanteEnElClub('2037-10-20', '18:00'),
+            canchaId: otra.id,
+          },
+          { inicio: instanteEnElClub('2037-10-26', '19:00'), canchaId },
+          {
+            inicio: instanteEnElClub('2037-10-27', '18:00'),
+            canchaId: otra.id,
+          },
+        ]);
+      } finally {
+        await prisma.clase.deleteMany({ where: { canchaId: otra.id } });
+        await prisma.cancha.delete({ where: { id: otra.id } });
+      }
     });
 
     it('**unas notas de 500 caracteres, el tope, se guardan enteras en la serie y en sus clases**', async () => {
@@ -425,7 +515,11 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       expect(message).toContain('martes 27 de octubre');
       expect(message).toContain(nueva.folio);
       // Antes de escribir nada: ni serie, ni clases, ni la reserva tocada.
-      expect(await prisma.serieDeClases.count({ where: { canchaId } })).toBe(0);
+      expect(
+        await prisma.serieDeClases.count({
+          where: { dias: { some: { canchaId } } },
+        }),
+      ).toBe(0);
       expect(await prisma.clase.count({ where: { canchaId } })).toBe(0);
       expect(
         (await prisma.reserva.findUniqueOrThrow({ where: { id: nueva.id } }))
@@ -685,13 +779,15 @@ describe('POST /api/admin/clases/series/simulacion', () => {
 
     interface SeriePublica {
       id: number;
-      diasSemana: number[];
-      horaDesde: string;
-      horaHasta: string;
+      dias: {
+        diaSemana: number;
+        horaDesde: string;
+        horaHasta: string;
+        lugar: string;
+      }[];
       hasta: string;
       cuposLibres: number;
       profesor: string;
-      cancha: string;
       nivel: string;
     }
 
@@ -764,13 +860,26 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       expect(series.filter((s) => s.id === serieId)).toEqual([
         {
           id: serieId,
-          diasSemana: [2, 4],
-          horaDesde: '19:00',
-          horaHasta: '20:00',
+          tipo: 'TENIS',
+          // T229: cada día con su horario y su lugar.
+          dias: [
+            {
+              diaSemana: 2,
+              horaDesde: '19:00',
+              horaHasta: '20:00',
+              lugar: NOMBRE_CANCHA,
+            },
+            {
+              diaSemana: 4,
+              horaDesde: '19:00',
+              horaHasta: '20:00',
+              lugar: NOMBRE_CANCHA,
+            },
+          ],
           hasta: '2037-12-15',
+          cupoMaximo: 6,
           cuposLibres: 6,
           profesor: 'Profe Series',
-          cancha: NOMBRE_CANCHA,
           nivel: NivelClase.INICIACION,
         },
       ]);

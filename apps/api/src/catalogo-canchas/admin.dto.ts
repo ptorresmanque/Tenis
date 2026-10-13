@@ -142,7 +142,7 @@ export interface TextosDeElClub {
   elClubCanchas: string;
 }
 
-/** La tienda o la cafetería del club (T184), como la publica `GET /api/club`. */
+/** La tienda, la cafetería o el gimnasio del club (T184, T235), como los publica `GET /api/club`. */
 export interface LugarDelClub {
   descripcion: string;
   horario: string;
@@ -150,14 +150,17 @@ export interface LugarDelClub {
   whatsapp: string;
 }
 
-/** Las mismas seis columnas, como las recibe el PATCH. */
-export interface TiendaYCafeteria {
+/** Las mismas columnas de cada lugar, como las recibe el PATCH. */
+export interface LugaresDelClub {
   tiendaDescripcion: string;
   tiendaHorario: string;
   tiendaWhatsapp: string;
   cafeteriaDescripcion: string;
   cafeteriaHorario: string;
   cafeteriaWhatsapp: string;
+  gimnasioDescripcion: string;
+  gimnasioHorario: string;
+  gimnasioWhatsapp: string;
 }
 
 /**
@@ -166,7 +169,7 @@ export interface TiendaYCafeteria {
  * `SPEC-catalogo-canchas.md` § Configuración general del club.
  */
 export interface CambiosDeConfiguracion
-  extends RedesDelClub, TextosDeElClub, TiendaYCafeteria {
+  extends RedesDelClub, TextosDeElClub, LugaresDelClub {
   /** Los datos del club: los edita el mismo formulario, en otra pestaña. */
   nombre: string;
   direccion: string;
@@ -190,6 +193,8 @@ export interface CambiosDeConfiguracion
   topeCanchasConLuzDesde: string;
   /** Qué duraciones toma el socio en horario prime (T212, T213). */
   duracionesSocioPico: DuracionesSocioPico;
+  /** Cuántos alumnos caben en una clase grupal del gimnasio (T235). */
+  gimnasioCupoGrupal: number;
 }
 
 /**
@@ -210,7 +215,7 @@ type ReglasNumericas = Omit<
   | 'longitud'
   | keyof RedesDelClub
   | keyof TextosDeElClub
-  | keyof TiendaYCafeteria
+  | keyof LugaresDelClub
   | 'topeCanchasConLuz'
   | 'topeCanchasConLuzDesde'
   | 'duracionesSocioPico'
@@ -229,6 +234,8 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   // pero no hay cobro que la pague. El tope es contra el dedazo, como el de los torneos.
   cuotaMensualClp: [1, 10_000_000],
   cuotaIncorporacionClp: [1, 10_000_000],
+  // Desde 2: una grupal de uno es la individual. Hasta 40, el tope del cupo de una clase.
+  gimnasioCupoGrupal: [2, 40],
 };
 
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
@@ -241,6 +248,7 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
   diasSancionNoUso: 'La sanción por una hora no usada, en días,',
   cuotaMensualClp: 'La mensualidad',
   cuotaIncorporacionClp: 'La cuota de incorporación',
+  gimnasioCupoGrupal: 'El cupo de una clase grupal del gimnasio',
 };
 
 /**
@@ -263,12 +271,15 @@ const TEXTOS: Record<string, number> = {
   tiendaHorario: 120,
   cafeteriaDescripcion: 600,
   cafeteriaHorario: 120,
+  gimnasioDescripcion: 600,
+  gimnasioHorario: 120,
 };
 
-/** Los WhatsApp de la tienda y la cafetería, con el nombre que lleva su error. */
+/** Los WhatsApp de cada lugar, con el nombre que lleva su error. */
 const WHATSAPP_DE_LUGAR = {
   tiendaWhatsapp: 'El WhatsApp de la tienda',
   cafeteriaWhatsapp: 'El WhatsApp de la cafetería',
+  gimnasioWhatsapp: 'El WhatsApp del gimnasio',
 } as const;
 
 export function leerCambiosDeConfiguracion(
@@ -659,4 +670,62 @@ export function fechaDeCuerpo(valor: unknown, campo: string): Date {
       `${campo} se espera con forma AAAA-MM-DD y tiene que existir.`,
     );
   }
+}
+
+/** Un plan del gimnasio con sus dos precios (T235), como se guarda y como se publica. */
+export interface TarifaDelGimnasio {
+  nombre: string;
+  precioSocioClp: number;
+  precioNoSocioClp: number;
+}
+
+/** Las que caben en la lista: es un bloque de la portada, no un tarifario. */
+const TARIFAS_DEL_GIMNASIO = 10;
+
+/**
+ * Lee la lista completa de tarifas del gimnasio, en el orden de la pantalla.
+ *
+ * **Una fila mala rechaza la lista entera**: guardar las buenas y descartar la mala dejaría
+ * en el sitio una lista que el club no escribió.
+ */
+export function leerTarifasDelGimnasio(cuerpo: unknown): TarifaDelGimnasio[] {
+  const { tarifas } = (cuerpo ?? {}) as Record<string, unknown>;
+
+  if (!Array.isArray(tarifas)) {
+    throw new BadRequestException('Las tarifas van como una lista.');
+  }
+
+  if (tarifas.length > TARIFAS_DEL_GIMNASIO) {
+    throw new BadRequestException(
+      'El gimnasio publica hasta diez tarifas: junta o borra alguna.',
+    );
+  }
+
+  return tarifas.map((cruda: unknown, posicion) => {
+    const fila = (cruda ?? {}) as Record<string, unknown>;
+    const nombre = typeof fila.nombre === 'string' ? fila.nombre.trim() : '';
+
+    if (nombre === '' || nombre.length > 80) {
+      throw new BadRequestException(
+        `La tarifa ${posicion + 1} necesita un nombre de 1 a 80 letras.`,
+      );
+    }
+
+    // El mismo tope que las cuotas: contra el dedazo, no una regla del club.
+    return {
+      nombre,
+      precioSocioClp: entero(
+        fila.precioSocioClp,
+        `El precio socio de "${nombre}"`,
+        0,
+        10_000_000,
+      ),
+      precioNoSocioClp: entero(
+        fila.precioNoSocioClp,
+        `El precio no socio de "${nombre}"`,
+        0,
+        10_000_000,
+      ),
+    };
+  });
 }

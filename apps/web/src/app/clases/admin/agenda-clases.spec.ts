@@ -19,7 +19,8 @@ import { AgendaDeClases } from './agenda-clases';
 describe('AgendaDeClases', () => {
   const CLASE: ClaseDelDia = {
     id: 7,
-    cancha: 'Cancha 1',
+    tipo: 'TENIS',
+    lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',
@@ -128,6 +129,17 @@ describe('AgendaDeClases', () => {
     expect(texto()).toContain('Ana Silva');
     expect(texto()).toContain('Iniciación');
     expect(texto()).toContain('Cancha 1');
+  });
+
+  it('**la del gimnasio dice "Gimnasio", "Preparación física" y si es grupal** (T234)', async () => {
+    await montar([
+      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', nivel: null, cupoMaximo: 8 },
+    ]);
+
+    const fila = texto().replace(/\s+/g, ' ');
+    expect(fila).toContain('Gimnasio');
+    expect(fila).toContain('Preparación física · Grupal');
+    expect(fila).toContain('Ana Silva · hasta 8 alumnos');
   });
 
   it('sin nadie debajo, agendar no pregunta nada', async () => {
@@ -349,6 +361,82 @@ describe('AgendaDeClases', () => {
     it('al admin la serie le deja elegir', () => {
       const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
       expect(serie.componentInstance.profesorFijo()).toBeNull();
+    });
+  });
+
+  /** T233. La clase del gimnasio: sin cancha ni nivel, grupal o individual. */
+  describe('preparación física', () => {
+    /** Marca la opción de un grupo de botones de radio por su etiqueta. */
+    const elegir = async (etiqueta: string) => {
+      Array.from(elemento().querySelectorAll('label'))
+        .find((label) => label.textContent?.trim() === etiqueta)!
+        .querySelector('input')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    const profesor = async () => {
+      const campo = elemento().querySelector<HTMLSelectElement>('select[name="profesorId"]')!;
+      campo.value = '4';
+      campo.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**no pide cancha ni nivel, y la clase viaja con su tipo y sin ellos**', async () => {
+      await elegir('Preparación física');
+      await profesor();
+
+      expect(elemento().querySelector('select[name="canchaId"]')).toBeNull();
+      expect(elemento().querySelector('select[name="nivel"]')).toBeNull();
+
+      await apretar('Agendar clase');
+
+      const enviada = api.simular.mock.calls[0][0] as Record<string, unknown>;
+      expect(enviada).toMatchObject({ tipo: 'PREPARACION_FISICA', profesorId: 4, cupoMaximo: 6 });
+      expect(enviada).not.toHaveProperty('canchaId');
+      expect(enviada).not.toHaveProperty('nivel');
+      expect(texto()).toContain('Clase agendada en el gimnasio');
+    });
+
+    it('**"Individual" manda un alumno, y no pregunta el cupo**', async () => {
+      await elegir('Preparación física');
+      await elegir('Individual');
+
+      expect(elemento().querySelector('input[name="cupoMaximo"]')).toBeNull();
+
+      await apretar('Agendar clase');
+
+      expect(api.simular).toHaveBeenCalledWith(expect.objectContaining({ cupoMaximo: 1 }));
+    });
+
+    it('el gimnasio ocupado se dice con las palabras del servidor', async () => {
+      api.simular.mockRejectedValue({
+        status: 409,
+        error: {
+          motivo: 'GIMNASIO_OCUPADO',
+          message: 'El gimnasio ya tiene una clase de 18:00 a 19:00, con Ana Silva: es una a la vez.',
+        },
+      });
+      await elegir('Preparación física');
+
+      await apretar('Agendar clase');
+
+      expect(texto()).toContain('El gimnasio ya tiene una clase de 18:00 a 19:00');
+    });
+
+    it('volviendo a "Tenis" vuelven la cancha y el nivel, y la clase viaja como tenis', async () => {
+      await elegir('Preparación física');
+      await elegir('Tenis');
+
+      expect(elemento().querySelector('select[name="canchaId"]')).not.toBeNull();
+
+      await apretar('Agendar clase');
+
+      expect(api.simular).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'TENIS', nivel: 'INICIACION' }),
+      );
     });
   });
 });

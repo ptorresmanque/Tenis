@@ -6,6 +6,31 @@ import { HoraAfectada } from '../catalogo-canchas/admin/admin-canchas.service';
 
 export type NivelClase = 'INICIACION' | 'INTERMEDIO' | 'COMPETITIVO' | 'NINOS';
 
+/** Tenis, en una cancha, o preparación física, en el gimnasio (T233). */
+export type TipoClase = 'TENIS' | 'PREPARACION_FISICA';
+
+/**
+ * Qué clase es, como lo dice su insignia (T234): su nivel, o en el gimnasio "Preparación
+ * física" y si es grupal o individual, que es lo que cambia para quien pregunta. La
+ * individual es la de un alumno.
+ */
+export function queClaseEs(clase: {
+  tipo: TipoClase;
+  nivel: NivelClase | null;
+  cupoMaximo: number;
+}): string {
+  if (clase.tipo === 'PREPARACION_FISICA') {
+    return `Preparación física · ${clase.cupoMaximo === 1 ? 'Individual' : 'Grupal'}`;
+  }
+
+  return clase.nivel ? NIVELES[clase.nivel] : '';
+}
+
+/** "hasta 6 alumnos", o "un alumno": "hasta 1 alumnos" se leía mal. */
+export function cupoEnPalabras(cupoMaximo: number): string {
+  return cupoMaximo === 1 ? 'un alumno' : `hasta ${cupoMaximo} alumnos`;
+}
+
 /** Cómo se lee cada nivel en pantalla. */
 export const NIVELES: Record<NivelClase, string> = {
   INICIACION: 'Iniciación',
@@ -17,11 +42,14 @@ export const NIVELES: Record<NivelClase, string> = {
 /** Espejo de una fila de `GET /api/admin/clases`. */
 export interface ClaseDelDia {
   id: number;
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T231). */
+  lugar: string;
   profesor: string;
   inicio: string;
   fin: string;
-  nivel: NivelClase;
+  /** Nulo en preparación física. */
+  nivel: NivelClase | null;
   estado: 'PROGRAMADA' | 'REALIZADA' | 'CANCELADA';
   cupoMaximo: number;
   notas: string | null;
@@ -30,16 +58,18 @@ export interface ClaseDelDia {
 }
 
 /** Lo que el formulario manda para agendar. Horas del club, como las escribe el admin. */
-export interface ClaseNueva {
-  canchaId: number;
+export type ClaseNueva = {
   profesorId: number;
   fecha: string;
   horaDesde: string;
   horaHasta: string;
   cupoMaximo: number;
-  nivel: NivelClase;
   notas?: string;
-}
+} & (
+  | { tipo: 'TENIS'; canchaId: number; nivel: NivelClase }
+  // La del gimnasio va sin cancha y sin nivel: el servidor rechaza las dos (T231).
+  | { tipo: 'PREPARACION_FISICA' }
+);
 
 export type EstadoInscripcion = 'INSCRITA' | 'CANCELADA' | 'ASISTIO' | 'FALTO';
 
@@ -59,11 +89,14 @@ export interface Inscrito {
 /** La clase con su lista: lo que el profesor lleva a la cancha. */
 export interface FichaDeClase {
   id: number;
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T231). */
+  lugar: string;
   profesor: string;
   inicio: string;
   fin: string;
-  nivel: NivelClase;
+  /** Nulo en preparación física. */
+  nivel: NivelClase | null;
   estado: 'PROGRAMADA' | 'REALIZADA' | 'CANCELADA';
   cupoMaximo: number;
   cupoTomado: number;
@@ -92,11 +125,16 @@ export interface ProfesorPublico {
 /** Una clase de la semana, como la ve quien todavía no es del club. */
 export interface ClasePublica {
   id: number;
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T232). */
+  lugar: string;
   profesor: string;
   inicio: string;
   fin: string;
-  nivel: NivelClase;
+  /** Nulo en preparación física. */
+  nivel: NivelClase | null;
+  /** Para decir si es grupal o individual (T234). */
+  cupoMaximo: number;
   cuposLibres: number;
 }
 
@@ -106,37 +144,48 @@ export interface ClasePublica {
  */
 export interface SeriePublica {
   id: number;
+  tipo: TipoClase;
   profesor: string;
-  cancha: string;
-  nivel: NivelClase;
-  /** De 0 (domingo) a 6 (sábado). */
-  diasSemana: number[];
-  horaDesde: string;
-  horaHasta: string;
+  /** Nulo en preparación física. */
+  nivel: NivelClase | null;
+  /** Para decir si es grupal o individual (T234). */
+  cupoMaximo: number;
+  /** Cada día con su horario y su lugar (T229). `diaSemana` va de 0 (domingo) a 6. */
+  dias: { diaSemana: number; horaDesde: string; horaHasta: string; lugar: string }[];
   hasta: string;
   cuposLibres: number;
 }
 
 export interface ResultadoAgendar {
   id: number;
-  bloqueoId: number;
+  /** Nulo en el gimnasio, que no cierra ninguna cancha (T231). */
+  bloqueoId: number | null;
   canceladas: HoraAfectada[];
 }
 
-/**
- * Una serie de clases, como la escribe el admin (T113): la ficha de una clase, los días
- * de la semana —0 es domingo— y el rango de fechas. Dura como máximo 6 meses.
- */
-export interface SerieNueva {
-  canchaId: number;
-  profesorId: number;
-  diasSemana: number[];
+/** Un día de la serie, con su horario y su cancha (T230). */
+export interface DiaDeLaSerie {
+  /** De 0 (domingo) a 6 (sábado). */
+  diaSemana: number;
   horaDesde: string;
   horaHasta: string;
+  /** Sin cancha en el gimnasio (T233). */
+  canchaId?: number;
+}
+
+/**
+ * Una serie de clases, como la escribe el admin (T113): la ficha de una clase, cada día de
+ * la semana con su horario y su cancha, y el rango de fechas. Dura como máximo 6 meses.
+ */
+export interface SerieNueva {
+  tipo: TipoClase;
+  profesorId: number;
+  dias: DiaDeLaSerie[];
   desde: string;
   hasta: string;
   cupoMaximo: number;
-  nivel: NivelClase;
+  /** Sin nivel en el gimnasio (T233). */
+  nivel?: NivelClase;
   notas?: string;
 }
 

@@ -35,7 +35,8 @@ describe('AgendaDelDia', () => {
   /** Una clase ocupa cancha igual que una reserva, y el mesón la mira ahí mismo. */
   const CLASE: ClaseDelDia = {
     id: 7,
-    cancha: 'Cancha 2',
+    tipo: 'TENIS',
+    lugar: 'Cancha 2',
     profesor: 'Ana Silva',
     // 14:00Z en agosto son las 10:00 en Santiago: después de la reserva de arriba.
     inicio: '2026-08-17T14:00:00.000Z',
@@ -193,6 +194,17 @@ describe('AgendaDelDia', () => {
 
     expect(texto()).toContain('Clase');
     expect(texto()).toContain('Iniciación');
+  });
+
+  it('**la del gimnasio dice "Gimnasio", "Preparación física" y si es individual** (T234)', async () => {
+    await montar([], [
+      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', nivel: null, cupoMaximo: 1 },
+    ]);
+
+    const fila = texto().replace(/\s+/g, ' ');
+    expect(fila).toContain('Gimnasio');
+    expect(fila).toContain('Clase · Preparación física · Individual');
+    expect(fila).toContain('Ana Silva · un alumno');
   });
 
   it('**un día con clases y sin reservas no se anuncia como vacío**', async () => {

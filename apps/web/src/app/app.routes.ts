@@ -315,14 +315,22 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./configuracion/textos-del-sitio').then((m) => m.TextosDelSitio),
           },
-          {
-            path: 'tienda-y-cafeteria',
-            title: 'Tienda y cafetería — Administración',
+          // T236. Un componente para los tres lugares: el lugar llega por `data`, como input.
+          // La ruta de antes lleva a la tienda, para no romper un marcador guardado.
+          { path: 'tienda-y-cafeteria', redirectTo: 'tienda' },
+          ...(
+            [
+              ['tienda', 'Tienda', 'TIENDA'],
+              ['cafeteria', 'Cafetería', 'CAFETERIA'],
+              ['gimnasio', 'Gimnasio', 'GIMNASIO'],
+            ] as const
+          ).map(([path, nombre, lugar]) => ({
+            path,
+            title: `${nombre} — Administración`,
+            data: { lugar },
             loadComponent: () =>
-              import('./configuracion/tienda-y-cafeteria').then(
-                (m) => m.TiendaYCafeteriaPanel,
-              ),
-          },
+              import('./configuracion/lugar-del-club').then((m) => m.LugarDelClubPanel),
+          })),
           {
             path: 'categorias-juego',
             title: 'Categorías de juego — Administración',
