@@ -225,41 +225,98 @@ async function topeLleno(
   // Una cancha sin luz no carga la instalación: ni cuenta ni se le aplica.
   if (!cancha?.iluminacion) return null;
 
+  const tope = await leerTope(db, conCandado);
+  if (!tope) return null;
+
+  const parte = parteLimitada(ocupacion.inicio, ocupacion.fin, tope.desde);
+  if (!parte) return null;
+
+  const ocupaciones = await ocupacionesConLuz(db, parte, opciones, conCandado);
+  const peor = excesoEn(ocupaciones, tope, ocupacion);
+
+  return peor ? new TopeDeLuz(peor.instante, peor.canchas, tope.tope) : null;
+}
+
+/**
+ * Para la grilla de un día (T207): dice si un inicio de una cancha ya no cabe en el tope.
+ *
+ * Lee todo lo del día de una vez —cuatro consultas por día y no por bloque— porque la
+ * grilla pregunta por cada inicio de cada cancha. Sin candados: muestra, no decide.
+ */
+export async function lucesDelDia(
+  db: Prisma.TransactionClient,
+  fecha: string,
+  opciones: OpcionesDelTope = {},
+): Promise<(ocupacion: OcupacionNueva) => boolean> {
+  const tope = await leerTope(db, false);
+
+  if (!tope) return () => false;
+
+  const conLuz = new Set(
+    (
+      await db.cancha.findMany({
+        where: { iluminacion: true },
+        select: { id: true },
+      })
+    ).map((c) => c.id),
+  );
+  const ocupaciones = await ocupacionesConLuz(
+    db,
+    {
+      desde: instanteEnElClub(fecha, '00:00'),
+      hasta: instanteEnElClub(fecha, '24:00'),
+    },
+    opciones,
+    false,
+  );
+
+  return (ocupacion) =>
+    conLuz.has(ocupacion.canchaId) &&
+    excesoEn(ocupaciones, tope, ocupacion) !== null;
+}
+
+/** El tope configurado, o `null` si está apagado. */
+async function leerTope(
+  db: Prisma.TransactionClient,
+  conCandado: boolean,
+): Promise<{ tope: number; desde: string } | null> {
   const [configuracion] = await db.$queryRaw<
     { tope: number | null; desde: string }[]
   >`SELECT tope_canchas_con_luz AS tope, tope_canchas_con_luz_desde AS desde
       FROM configuracion_club WHERE id = 1
       ${conCandado ? Prisma.sql`FOR UPDATE` : Prisma.empty}`;
 
-  if (!configuracion || configuracion.tope === null) return null;
-
-  const tope = Number(configuracion.tope);
-  const parte = parteLimitada(
-    ocupacion.inicio,
-    ocupacion.fin,
-    configuracion.desde,
-  );
-
-  if (!parte) return null;
-
-  const ocupaciones = await ocupacionesConLuz(
-    db,
-    ocupacion.canchaId,
-    parte,
-    opciones,
-    conCandado,
-  );
-  const peor = peorInstante(ocupaciones, parte.desde, parte.hasta);
-
-  return peor && peor.canchas.length >= tope
-    ? new TopeDeLuz(peor.instante, peor.canchas, tope)
+  return configuracion && configuracion.tope !== null
+    ? { tope: Number(configuracion.tope), desde: configuracion.desde }
     : null;
 }
 
-/** Lo que ocupa las otras canchas con luz en el rango. */
+/**
+ * El peor instante de la parte limitada del rango, si ya tiene las canchas del tope. La
+ * cancha propia no se cuenta: lo que hay en ella es lo que la ocupación reemplaza o choca
+ * con el índice por rango, no una cancha más encendida.
+ */
+function excesoEn(
+  ocupaciones: Ocupacion[],
+  tope: { tope: number; desde: string },
+  { canchaId, inicio, fin }: OcupacionNueva,
+): PeorInstante | null {
+  const parte = parteLimitada(inicio, fin, tope.desde);
+
+  if (!parte) return null;
+
+  const peor = peorInstante(
+    ocupaciones.filter((o) => o.canchaId !== canchaId),
+    parte.desde,
+    parte.hasta,
+  );
+
+  return peor && peor.canchas.length >= tope.tope ? peor : null;
+}
+
+/** Lo que ocupa las canchas con luz en el rango. */
 async function ocupacionesConLuz(
   db: Prisma.TransactionClient,
-  canchaId: number,
   { desde, hasta }: { desde: Date; hasta: Date },
   { ignorarReservaId = 0, ignorarBloqueoId = 0 }: OpcionesDelTope,
   conCandado: boolean,
@@ -271,7 +328,6 @@ async function ocupacionesConLuz(
     SELECT r.cancha_id AS canchaId, c.nombre AS nombre, r.inicio AS inicio, r.fin AS fin
       FROM reserva r JOIN cancha c ON c.id = r.cancha_id
      WHERE c.iluminacion = TRUE
-       AND r.cancha_id <> ${canchaId}
        AND r.id <> ${ignorarReservaId}
        AND r.estado IN (${Prisma.join(ACTIVAS)})
        AND r.inicio > ${desdeLaMasLarga} AND r.inicio < ${hasta} AND r.fin > ${desde}
@@ -284,7 +340,6 @@ async function ocupacionesConLuz(
     SELECT b.cancha_id AS canchaId, c.nombre AS nombre, b.inicio AS inicio, b.fin AS fin
       FROM bloqueo b JOIN cancha c ON c.id = b.cancha_id
      WHERE c.iluminacion = TRUE
-       AND b.cancha_id <> ${canchaId}
        AND b.id <> ${ignorarBloqueoId}
        AND b.motivo IN (${Prisma.join(ENCIENDEN_LA_LUZ)})
        AND b.inicio < ${hasta} AND b.fin > ${desde}

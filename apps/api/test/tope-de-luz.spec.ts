@@ -19,6 +19,7 @@ import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CierreDeCanchaController } from '../src/reservas/cierre-de-cancha.controller';
+import { DisponibilidadPublicaService } from '../src/reservas/disponibilidad-publica.service';
 import { ReservaDelAdminService } from '../src/reservas/reserva-del-admin.service';
 import { ReservaNoSocioService } from '../src/reservas/reserva-no-socio.service';
 import { ModificacionService } from '../src/reservas/modificacion.service';
@@ -903,6 +904,85 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
       await expect(cierre().simular(unCierre('MANTENCION'))).resolves.toEqual({
         afectadas: [],
       });
+    });
+  });
+
+  describe('la grilla (T207)', () => {
+    const grilla = () => modulo.get(DisponibilidadPublicaService);
+
+    /** El bloque de una cancha a una hora, tal como lo devuelve el día entero. */
+    const enElDia = async (
+      canchaId: number,
+      hora: string,
+      duracionMin: 60 | 90 = 60,
+      excluyendo?: number,
+    ) => {
+      const dia = await grilla().delDia(DIA, duracionMin, excluyendo);
+      const bloque = dia
+        .find((g) => g.cancha.id === canchaId)
+        ?.bloques.find((b) => b.inicio.getTime() === a(hora).getTime());
+
+      return bloque!;
+    };
+
+    let deLaPrimera: { id: number };
+
+    beforeEach(async () => {
+      deLaPrimera = await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+    });
+
+    it('la tercera cancha con luz se ve ocupada a las 20:00, sin precio (48)', async () => {
+      expect(await enElDia(luz[2], '20:00')).toMatchObject({
+        reservado: true,
+        topeDeLuz: true,
+        montoClp: 0,
+      });
+    });
+
+    it('y también en la hora y media que empieza a las 19:30, que pisa las 20:00', async () => {
+      expect(await enElDia(luz[2], '19:30', 90)).toMatchObject({
+        topeDeLuz: true,
+      });
+      expect(await enElDia(luz[2], '18:30', 90)).toMatchObject({
+        reservado: false,
+        topeDeLuz: false,
+      });
+    });
+
+    it('a las 19:00 sigue libre, y una cancha sin luz también a las 20:00', async () => {
+      expect(await enElDia(luz[2], '19:00')).toMatchObject({
+        reservado: false,
+        topeDeLuz: false,
+      });
+      expect(await enElDia(sinLuz, '20:00')).toMatchObject({
+        reservado: false,
+        topeDeLuz: false,
+      });
+    });
+
+    it('la cancha que ya está tomada se ve tomada, no como tope de luz', async () => {
+      expect(await enElDia(luz[0], '20:00')).toMatchObject({
+        reservado: true,
+        topeDeLuz: false,
+      });
+    });
+
+    it('la grilla para mover una de las dos ofrece la tercera a la misma hora', async () => {
+      expect(await enElDia(luz[2], '20:00', 60, deLaPrimera.id)).toMatchObject({
+        reservado: false,
+        topeDeLuz: false,
+      });
+    });
+
+    it('una cancha sola dice lo mismo que el día entero', async () => {
+      const dia = await grilla().delDia(DIA, 60);
+
+      for (const cancha of [...luz, sinLuz]) {
+        expect(await grilla().de(cancha, DIA, 60)).toEqual(
+          dia.find((g) => g.cancha.id === cancha)!.bloques,
+        );
+      }
     });
   });
 });

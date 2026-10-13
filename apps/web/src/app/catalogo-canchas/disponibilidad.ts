@@ -29,6 +29,12 @@ export interface BloqueDisponible {
   motivoBloqueo: string | null;
   /** Alguien ya tomó esa hora. Lo agrega `reservas` sobre lo que calcula el catálogo. */
   reservado: boolean;
+  /**
+   * La cancha está libre pero a esa hora ya no se puede encender: el tope de canchas con luz
+   * está lleno (T207). Viaja con `reservado`, así la grilla pública la ve tomada; el mesón lo
+   * lee para decir por qué. La API lo manda siempre; falta solo en los datos de prueba.
+   */
+  topeDeLuz?: boolean;
 }
 
 export interface GrillaDeCancha {

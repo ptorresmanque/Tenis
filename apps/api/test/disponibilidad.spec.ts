@@ -128,6 +128,8 @@ describe('GET /api/disponibilidad', () => {
       // `reservado` entra al contrato en T23: la grilla la sirve `reservas`, que
       // superpone lo suyo sobre los bloques que calcula `catalogo-canchas`.
       reservado: false,
+      // Y `topeDeLuz` en T207: la cancha libre que ya no se puede encender.
+      topeDeLuz: false,
       inicio: '2026-08-17T13:00:00.000Z',
       fin: '2026-08-17T14:00:00.000Z',
       canchaId,

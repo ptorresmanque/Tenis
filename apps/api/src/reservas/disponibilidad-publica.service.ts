@@ -10,10 +10,17 @@ import { EstadoReserva, EstadoTransaccion } from '../generated/prisma/client';
 import { ExpiracionService } from '../pagos/expiracion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReservaRepository } from './reserva.repository';
+import { lucesDelDia, type OcupacionNueva } from './tope-de-luz';
 
 /** Un bloque de la grilla, ya sabiendo si alguien lo tiene tomado. */
 export interface BloqueConEstado extends BloqueDisponible {
   reservado: boolean;
+  /**
+   * La cancha está libre pero a esa hora ya no se puede encender (T207): el tope de
+   * canchas con luz está lleno. Viaja con `reservado: true`, así la grilla pública la ve
+   * tomada sin decir nada de la luz, y el mesón lee esto para explicar por qué.
+   */
+  topeDeLuz: boolean;
 }
 
 /** Una cancha con sus bloques del día, que es lo que dibuja la grilla. */
@@ -53,11 +60,21 @@ export class DisponibilidadPublicaService {
     excluyendo?: number,
   ): Promise<GrillaDeCancha[]> {
     const canchas = await this.catalogo.canchas();
+    // El tope de luz se lee una vez para el día y no una por cancha.
+    const sinLuz = await lucesDelDia(this.prisma, fecha, {
+      ignorarReservaId: excluyendo,
+    });
 
     return Promise.all(
       canchas.map(async (cancha) => ({
         cancha,
-        bloques: await this.de(cancha.id, fecha, duracionMin, excluyendo),
+        bloques: await this.de(
+          cancha.id,
+          fecha,
+          duracionMin,
+          excluyendo,
+          sinLuz,
+        ),
       })),
     );
   }
@@ -74,6 +91,8 @@ export class DisponibilidadPublicaService {
     fecha: string,
     duracionMin: DuracionMin = 60,
     excluyendo?: number,
+    /** Lo que ya leyó `delDia` del tope de luz, para no leerlo una vez por cancha. */
+    sinLuz?: (ocupacion: OcupacionNueva) => boolean,
   ): Promise<BloqueConEstado[]> {
     const bloques = await this.catalogo.de(canchaId, fecha, duracionMin);
 
@@ -101,14 +120,24 @@ export class DisponibilidadPublicaService {
       select: { inicio: true, fin: true },
     });
 
+    const yaNoSeEnciende =
+      sinLuz ??
+      (await lucesDelDia(this.prisma, fecha, { ignorarReservaId: excluyendo }));
+
     return bloques.map((bloque) => {
-      const reservado = tomadas.some(
+      const tomado = tomadas.some(
         (reserva) => bloque.inicio < reserva.fin && bloque.fin > reserva.inicio,
       );
+      const topeDeLuz =
+        !tomado &&
+        !bloque.bloqueado &&
+        yaNoSeEnciende({ canchaId, inicio: bloque.inicio, fin: bloque.fin });
+      const reservado = tomado || topeDeLuz;
 
       return {
         ...bloque,
         reservado,
+        topeDeLuz,
         // Sin precio si no se puede tomar, igual que el bloqueado en T12: un monto al
         // lado de "reservado" invita a intentar pagarlo.
         montoClp: reservado ? 0 : bloque.montoClp,
