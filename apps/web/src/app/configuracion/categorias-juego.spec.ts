@@ -93,11 +93,11 @@ describe('CategoriasDeJuegoPanel', () => {
     expect(texto()).toContain('no la borra');
   });
 
-  it('avisa que no son las categorías de torneo', () => {
-    // Es la confusión que `SPEC-torneos.md` § Las dos categorías que no son la misma
-    // dice que el módulo más quiere evitar, y el club usa la misma palabra para las
-    // dos cosas.
-    expect(texto()).toContain('Club 250');
+  it('dice para qué más sirven: una tabla del ranking por categoría (T202)', () => {
+    // La categoría de torneo ("Club 250") se eliminó en T199: lo que vale ganar lo pone
+    // el nivel del tour, y la pantalla no puede seguir mandando a buscarla.
+    expect(texto()).toContain('una tabla por categoría');
+    expect(texto()).not.toContain('Club 250');
   });
 
   it('retirar una categoría manda `activa: false` y no la borra', async () => {
