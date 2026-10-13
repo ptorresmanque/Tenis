@@ -173,17 +173,27 @@ export interface TextosDeElClub {
   elClubCanchas: string;
 }
 
-/** Los dos lugares del club que tienen fotos (T185). */
-export type Lugar = 'TIENDA' | 'CAFETERIA';
+/** Los lugares del club, con sus textos y sus fotos (T185, T235). */
+export type Lugar = 'TIENDA' | 'CAFETERIA' | 'GIMNASIO';
 
-/** La tienda y la cafetería (T184), como las guarda la fila: seis columnas. */
-export interface TiendaYCafeteria {
+/** Los textos de cada lugar (T184, T235), como los guarda la fila: tres columnas cada uno. */
+export interface LugaresDelClub {
   tiendaDescripcion: string;
   tiendaHorario: string;
   tiendaWhatsapp: string;
   cafeteriaDescripcion: string;
   cafeteriaHorario: string;
   cafeteriaWhatsapp: string;
+  gimnasioDescripcion: string;
+  gimnasioHorario: string;
+  gimnasioWhatsapp: string;
+}
+
+/** Un plan del gimnasio con sus dos precios, en pesos (T235). */
+export interface TarifaDelGimnasio {
+  nombre: string;
+  precioSocioClp: number;
+  precioNoSocioClp: number;
 }
 
 /**
@@ -210,8 +220,12 @@ export type DuracionesSocioPico = 'UNA_HORA' | 'HORA_Y_MEDIA' | 'AMBAS';
 export type ConfiguracionDelClub = ReglasDelClub &
   DatosDelClub &
   TextosDeElClub &
-  TiendaYCafeteria &
-  TopeDeLuz & { duracionesSocioPico: DuracionesSocioPico };
+  LugaresDelClub &
+  TopeDeLuz & {
+    duracionesSocioPico: DuracionesSocioPico;
+    /** Cuántos alumnos caben en una clase grupal del gimnasio (T235). */
+    gimnasioCupoGrupal: number;
+  };
 
 export interface CanchaNueva {
   nombre: string;
@@ -292,10 +306,35 @@ export class AdminCanchas {
     return firstValueFrom(this.http.delete<void>(`/api/admin/club/fotos/${id}`));
   }
 
-  /** La tienda y la cafetería (T184), con el mismo PATCH que los datos del club. */
-  fijarTiendaYCafeteria(datos: TiendaYCafeteria): Promise<ConfiguracionDelClub> {
+  /** Los textos de un lugar (T184, T236), con el mismo PATCH que los datos del club. */
+  fijarLugar(
+    datos: Partial<LugaresDelClub> & { gimnasioCupoGrupal?: number | null },
+  ): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
       this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', datos),
+    );
+  }
+
+  /** Las tarifas del gimnasio, en su orden (T236). */
+  tarifasDelGimnasio(): Promise<TarifaDelGimnasio[]> {
+    return firstValueFrom(
+      this.http.get<TarifaDelGimnasio[]>('/api/admin/club/gimnasio/tarifas'),
+    );
+  }
+
+  /**
+   * Guarda la lista completa: la que estaba se reemplaza entera (T235). Un monto en blanco
+   * va nulo, y el servidor responde cuál falta.
+   */
+  guardarTarifasDelGimnasio(
+    tarifas: {
+      nombre: string;
+      precioSocioClp: number | null;
+      precioNoSocioClp: number | null;
+    }[],
+  ): Promise<TarifaDelGimnasio[]> {
+    return firstValueFrom(
+      this.http.put<TarifaDelGimnasio[]>('/api/admin/club/gimnasio/tarifas', { tarifas }),
     );
   }
 

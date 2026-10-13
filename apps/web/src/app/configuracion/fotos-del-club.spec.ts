@@ -1,13 +1,14 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
+import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, FotoDelLugar } from '../club/club.service';
 import { FotosDelClubPanel } from './fotos-del-club';
 
 /**
- * T185. Las fotos de la tienda y la cafetería: hasta seis por lugar, la primera es la de
- * la portada. Se suben con un texto alternativo y se borran con confirmación.
+ * T185. Las fotos de cada lugar del club: hasta seis por lugar, la primera es la de la
+ * portada. Se suben con un texto alternativo y se borran con confirmación. Desde T236,
+ * cada pestaña muestra las de su lugar.
  */
 describe('FotosDelClubPanel', () => {
   /** El servicio del sitio, falso: el real pide /api/club y estos tests no tienen HTTP. */
@@ -22,9 +23,11 @@ describe('FotosDelClubPanel', () => {
   });
 
   const montar = async (
-    fotos: { TIENDA: FotoDelLugar[]; CAFETERIA: FotoDelLugar[] } = {
+    lugar: Lugar = 'TIENDA',
+    fotos: Record<Lugar, FotoDelLugar[]> = {
       TIENDA: [foto(1, 'La vitrina de raquetas'), foto(2)],
       CAFETERIA: [],
+      GIMNASIO: [foto(3)],
     },
     subir: () => Promise<unknown> = () => Promise.resolve(foto(9)),
   ) => {
@@ -41,6 +44,7 @@ describe('FotosDelClubPanel', () => {
       ],
     });
     const fixture = TestBed.createComponent(FotosDelClubPanel);
+    fixture.componentRef.setInput('lugar', lugar);
     await fixture.whenStable();
     fixture.detectChanges();
     await fixture.whenStable();
@@ -71,7 +75,7 @@ describe('FotosDelClubPanel', () => {
     return archivo;
   };
 
-  it('muestra las miniaturas de cada lugar, con su texto o uno por omisión', async () => {
+  it('muestra las miniaturas de su lugar, con su texto o uno por omisión', async () => {
     const { elemento } = await montar();
     const imagenes = bloque(elemento, 'Tienda').querySelectorAll('img');
 
@@ -79,6 +83,20 @@ describe('FotosDelClubPanel', () => {
     expect(imagenes[0].getAttribute('src')).toBe('/api/club/fotos/1/miniatura');
     expect(imagenes[0].alt).toBe('La vitrina de raquetas');
     expect(imagenes[1].alt).toBe('Foto de la tienda del club');
+  });
+
+  it('**cada pestaña muestra solo su lugar** (T236)', async () => {
+    const { elemento } = await montar('GIMNASIO');
+
+    expect(elemento.querySelectorAll('section')).toHaveLength(1);
+    expect(bloque(elemento, 'Gimnasio').querySelector('img')?.alt).toBe(
+      'Foto del gimnasio del club',
+    );
+  });
+
+  it('un lugar sin fotos lo dice', async () => {
+    const { elemento } = await montar('CAFETERIA');
+
     expect(bloque(elemento, 'Cafetería').textContent).toContain('Todavía no tiene fotos');
   });
 
@@ -89,7 +107,7 @@ describe('FotosDelClubPanel', () => {
   });
 
   it('sube la foto elegida con su texto, y el sitio vuelve a pedir los datos', async () => {
-    const { fixture, api, elemento } = await montar();
+    const { fixture, api, elemento } = await montar('CAFETERIA');
     const cafeteria = bloque(elemento, 'Cafetería');
     const archivo = await elegirArchivo(fixture, cafeteria);
     const texto = cafeteria.querySelector<HTMLInputElement>('input[type="text"]')!;
@@ -106,12 +124,11 @@ describe('FotosDelClubPanel', () => {
 
   it('**con seis fotos no deja subir otra**, y dice por qué', async () => {
     const llena = [1, 2, 3, 4, 5, 6].map((id) => foto(id));
-    const { elemento } = await montar({ TIENDA: llena, CAFETERIA: [] });
+    const { elemento } = await montar('TIENDA', { TIENDA: llena, CAFETERIA: [], GIMNASIO: [] });
     const tienda = bloque(elemento, 'Tienda');
 
     expect(tienda.textContent).toContain('Ya tiene seis fotos');
     expect(tienda.querySelector<HTMLInputElement>('input[type="file"]')).toBeNull();
-    expect(bloque(elemento, 'Cafetería').querySelector('input[type="file"]')).not.toBeNull();
   });
 
   it('**borrar pide confirmación** y después borra', async () => {
@@ -131,7 +148,7 @@ describe('FotosDelClubPanel', () => {
   });
 
   it('si la API rechaza la foto, muestra su mensaje en el bloque de ese lugar', async () => {
-    const { fixture, elemento } = await montar(undefined, () =>
+    const { fixture, elemento } = await montar('CAFETERIA', undefined, () =>
       Promise.reject({ error: { message: 'Ese archivo no es una imagen que podamos leer.' } }),
     );
     const cafeteria = bloque(elemento, 'Cafetería');
@@ -142,6 +159,5 @@ describe('FotosDelClubPanel', () => {
     fixture.detectChanges();
 
     expect(cafeteria.textContent).toContain('Ese archivo no es una imagen');
-    expect(bloque(elemento, 'Tienda').textContent).not.toContain('Ese archivo');
   });
 });

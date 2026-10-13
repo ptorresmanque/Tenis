@@ -269,7 +269,22 @@ describe('El gimnasio del club', () => {
       },
     );
 
+    it('el panel las lee en su orden, con su propio GET (T236)', async () => {
+      await guardarTarifas([tarifa(3), tarifa(1)]).expect(200);
+
+      const respuesta = await request(servidor())
+        .get('/api/admin/club/gimnasio/tarifas')
+        .set('Cookie', admin)
+        .expect(200);
+
+      expect(respuesta.body).toEqual([tarifa(3), tarifa(1)]);
+    });
+
     it('son del admin: sin sesión 401, con la de un socio 403', async () => {
+      await request(servidor())
+        .get('/api/admin/club/gimnasio/tarifas')
+        .set('Cookie', socio)
+        .expect(403);
       await request(servidor())
         .put('/api/admin/club/gimnasio/tarifas')
         .send({ tarifas: [] })

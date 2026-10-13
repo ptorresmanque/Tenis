@@ -1,4 +1,4 @@
-import { Component, inject, resource, signal } from '@angular/core';
+import { Component, computed, inject, input, resource, signal } from '@angular/core';
 
 import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, FotoDelLugar } from '../club/club.service';
@@ -31,10 +31,17 @@ const LUGARES: {
     porOmision: 'Foto de la cafetería del club',
     ejemplo: 'La barra del café',
   },
+  {
+    lugar: 'GIMNASIO',
+    nombre: 'Gimnasio',
+    conArticulo: 'el gimnasio',
+    porOmision: 'Foto del gimnasio del club',
+    ejemplo: 'Las máquinas del gimnasio',
+  },
 ];
 
 /**
- * Las fotos de la tienda y la cafetería (T185), debajo de sus textos.
+ * Las fotos de un lugar del club (T185), debajo de sus textos: cada pestaña, las suyas (T236).
  *
  * **Fuera del formulario de los textos**: cada lugar sube con su propio formulario, y un
  * formulario no puede ir dentro de otro. Lo que se sube o se borra se ve en el sitio sin
@@ -58,7 +65,7 @@ const LUGARES: {
     } @else if (fotos.isLoading() && !fotos.hasValue()) {
       <app-esqueleto class="mt-3 block" [filas]="2" etiqueta="Cargando las fotos…" />
     } @else {
-      @for (uno of LUGARES; track uno.lugar) {
+      @for (uno of delLugar(); track uno.lugar) {
         <section class="mt-6 border-t border-border pt-4">
           <h3 class="font-display text-sm font-bold tracking-wide uppercase">
             {{ uno.nombre }}
@@ -177,7 +184,9 @@ export class FotosDelClubPanel {
   /** Los datos que lee el sitio público, para que muestre lo recién subido. */
   private readonly sitio = inject(Club);
 
-  protected readonly LUGARES = LUGARES;
+  /** Cada pestaña muestra las de su lugar (T236). */
+  readonly lugar = input.required<Lugar>();
+  protected readonly delLugar = computed(() => LUGARES.filter((uno) => uno.lugar === this.lugar()));
   protected readonly FOTOS_POR_LUGAR = FOTOS_POR_LUGAR;
 
   protected readonly fotos = resource({ loader: () => this.api.fotosDelClub() });
@@ -185,12 +194,18 @@ export class FotosDelClubPanel {
   protected readonly archivos = signal<Record<Lugar, File | null>>({
     TIENDA: null,
     CAFETERIA: null,
+    GIMNASIO: null,
   });
-  protected readonly textos = signal<Record<Lugar, string>>({ TIENDA: '', CAFETERIA: '' });
+  protected readonly textos = signal<Record<Lugar, string>>({
+    TIENDA: '',
+    CAFETERIA: '',
+    GIMNASIO: '',
+  });
   /** El error va en el bloque del lugar que lo causó, no arriba de los dos. */
   protected readonly fallas = signal<Record<Lugar, string | null>>({
     TIENDA: null,
     CAFETERIA: null,
+    GIMNASIO: null,
   });
 
   protected readonly porBorrar = signal<number | null>(null);

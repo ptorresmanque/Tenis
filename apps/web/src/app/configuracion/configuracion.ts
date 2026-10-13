@@ -58,7 +58,10 @@ export class Configuracion {
     { ruta: 'reglas', etiqueta: 'Reglas y cuotas', icono: 'rule' },
     { ruta: 'datos', etiqueta: 'Datos del club', icono: 'storefront' },
     { ruta: 'textos', etiqueta: 'Textos del sitio', icono: 'edit_note' },
-    { ruta: 'tienda-y-cafeteria', etiqueta: 'Tienda y cafetería', icono: 'local_cafe' },
+    // T236. Un lugar por pestaña: ya son tres, y el gimnasio suma su cupo y sus tarifas.
+    { ruta: 'tienda', etiqueta: 'Tienda', icono: 'shopping_bag' },
+    { ruta: 'cafeteria', etiqueta: 'Cafetería', icono: 'local_cafe' },
+    { ruta: 'gimnasio', etiqueta: 'Gimnasio', icono: 'fitness_center' },
     { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },
     { ruta: 'preguntas-frecuentes', etiqueta: 'Preguntas frecuentes', icono: 'quiz' },
   ];
