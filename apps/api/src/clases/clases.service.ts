@@ -397,10 +397,16 @@ export class Clases {
    *
    * El día se recorta en hora del club, como en la agenda de reservas: las 22:00 de
    * un lunes en Santiago son las 02:00Z del martes.
+   *
+   * @param soloDe El profesor cuyas clases se quieren (T218), o `null` para todas.
    */
-  async delDia(fecha: string): Promise<ClaseDelDia[]> {
+  async delDia(
+    fecha: string,
+    soloDe: number | null = null,
+  ): Promise<ClaseDelDia[]> {
     const clases = await this.prisma.clase.findMany({
       where: {
+        ...(soloDe === null ? {} : { profesorId: soloDe }),
         estado: { not: EstadoClase.CANCELADA },
         inicio: {
           gte: instanteEnElClub(fecha, '00:00'),
