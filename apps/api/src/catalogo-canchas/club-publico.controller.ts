@@ -4,7 +4,7 @@ import type { Response } from 'express';
 import { DatosDelClub } from '../comun/club';
 import { carpetaDeSubidas } from '../comun/imagenes';
 import { PrismaService } from '../prisma/prisma.service';
-import { LugarDelClub, TextosDeElClub } from './admin.dto';
+import { LugarDelClub, TarifaDelGimnasio, TextosDeElClub } from './admin.dto';
 import { FotoDelLugar, FotosDelClub } from './fotos-del-club.service';
 import { RedesDelClub } from './redes';
 
@@ -14,7 +14,12 @@ type LugarPublico = LugarDelClub & { fotos: FotoDelLugar[] };
 /** Lo que publica `GET /api/club`. */
 export type ClubPublico = DatosDelClub &
   RedesDelClub &
-  TextosDeElClub & { tienda: LugarPublico; cafeteria: LugarPublico };
+  TextosDeElClub & {
+    tienda: LugarPublico;
+    cafeteria: LugarPublico;
+    /** Con sus tarifas (T235), y sin el cupo grupal, que es de la administración. */
+    gimnasio: LugarPublico & { tarifas: TarifaDelGimnasio[] };
+  };
 
 /**
  * Los datos de contacto del club, para cualquiera.
@@ -23,8 +28,8 @@ export type ClubPublico = DatosDelClub &
  * escritos a mano —o, peor, no los tenían y quedaban en blanco—. Son públicos por
  * definición: es la dirección a la que la gente va a jugar.
  *
- * **Solo el contacto, la ubicación, las redes (T140), los textos de "El club" (T142) y
- * la tienda y la cafetería (T184).** La misma fila guarda las reglas de reserva y los
+ * **Solo el contacto, la ubicación, las redes (T140), los textos de "El club" (T142), la
+ * tienda y la cafetería (T184) y el gimnasio con sus tarifas (T235).** La misma fila guarda las reglas de reserva y los
  * cupos, que son de la administración: devolver la configuración entera acá le contaría
  * al mundo cuántos invitados tiene cada socio por mes.
  */
@@ -44,6 +49,9 @@ export class ClubPublicoController {
       cafeteriaDescripcion,
       cafeteriaHorario,
       cafeteriaWhatsapp,
+      gimnasioDescripcion,
+      gimnasioHorario,
+      gimnasioWhatsapp,
       ...club
     } = await this.prisma.configuracionClub.findFirstOrThrow({
       select: {
@@ -67,12 +75,19 @@ export class ClubPublicoController {
         cafeteriaDescripcion: true,
         cafeteriaHorario: true,
         cafeteriaWhatsapp: true,
+        gimnasioDescripcion: true,
+        gimnasioHorario: true,
+        gimnasioWhatsapp: true,
       },
     });
     const fotos = await this.fotos.porLugar();
+    const tarifas = await this.prisma.tarifaGimnasio.findMany({
+      orderBy: { orden: 'asc' },
+      select: { nombre: true, precioSocioClp: true, precioNoSocioClp: true },
+    });
 
-    // Un objeto por lugar y no seis columnas sueltas: el sitio dibuja los dos con el
-    // mismo componente, y así le pasa uno entero.
+    // Un objeto por lugar y no nueve columnas sueltas: el sitio los dibuja con el mismo
+    // componente, y así le pasa uno entero.
     return {
       ...club,
       tienda: {
@@ -87,10 +102,17 @@ export class ClubPublicoController {
         whatsapp: cafeteriaWhatsapp,
         fotos: fotos.CAFETERIA,
       },
+      gimnasio: {
+        descripcion: gimnasioDescripcion,
+        horario: gimnasioHorario,
+        whatsapp: gimnasioWhatsapp,
+        fotos: fotos.GIMNASIO,
+        tarifas,
+      },
     };
   }
 
-  /** La miniatura de una foto de la tienda o la cafetería (T185), sin sesión. */
+  /** La miniatura de una foto de un lugar del club (T185), sin sesión. */
   @Get('fotos/:id/miniatura')
   async miniatura(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
     await this.enviar(id, 'miniatura', res);

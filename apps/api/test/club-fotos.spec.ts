@@ -39,6 +39,7 @@ describe('Fotos de la tienda y la cafetería', () => {
   type ClubPublico = {
     tienda: { fotos: FotoPublicada[] };
     cafeteria: { fotos: FotoPublicada[] };
+    gimnasio: { fotos: FotoPublicada[] };
   };
 
   /** Una foto como la que saca un celular: grande y con datos adentro. */
@@ -227,6 +228,18 @@ describe('Fotos de la tienda y la cafetería', () => {
     );
 
     await subir('CAFETERIA').expect(201);
+  });
+
+  it('**el gimnasio también tiene sus seis** (T235, G5): la séptima se rechaza', async () => {
+    for (let vez = 0; vez < 6; vez += 1) {
+      await subir('GIMNASIO').expect(201);
+    }
+
+    await subir('GIMNASIO').expect(400);
+
+    const club = await publico();
+    expect(club.gimnasio.fotos).toHaveLength(6);
+    expect(club.tienda.fotos).toHaveLength(0);
   });
 
   it('un lugar que no existe, o un texto de más de 200 letras, responden 400', async () => {

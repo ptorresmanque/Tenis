@@ -114,6 +114,7 @@ describe('Datos del club', () => {
       // Las redes también (T140): están en el pie de todas las páginas.
       // Y los textos de "El club" (T142), que son de esa página pública.
       // Y la tienda y la cafetería (T184), que la portada y "El club" dan a conocer.
+      // Y el gimnasio (T235), sin su cupo grupal, que es de la administración.
       expect(Object.keys(publico.body as object).sort()).toEqual([
         'cafeteria',
         'direccion',
@@ -122,6 +123,7 @@ describe('Datos del club', () => {
         'elClubTitulo',
         'email',
         'facebook',
+        'gimnasio',
         'instagram',
         'latitud',
         'longitud',

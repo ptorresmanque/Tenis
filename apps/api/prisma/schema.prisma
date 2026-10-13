@@ -584,6 +584,12 @@ model ConfiguracionClub {
   cafeteriaHorario     String @default("") @map("cafeteria_horario") @db.VarChar(120)
   cafeteriaWhatsapp    String @default("") @map("cafeteria_whatsapp") @db.VarChar(40)
 
+  /// El gimnasio del club (T235), un tercer lugar con las mismas reglas. Sus tarifas van
+  /// en `TarifaGimnasio`, y su cupo grupal más abajo.
+  gimnasioDescripcion String @default("") @map("gimnasio_descripcion") @db.VarChar(600)
+  gimnasioHorario     String @default("") @map("gimnasio_horario") @db.VarChar(120)
+  gimnasioWhatsapp    String @default("") @map("gimnasio_whatsapp") @db.VarChar(40)
+
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).
@@ -635,6 +641,20 @@ model ConfiguracionClub {
   @@map("configuracion_club")
 }
 
+/// Un plan del gimnasio con su precio (T235): "Clase grupal — socio $5.000, no socio $8.000".
+///
+/// Se muestra y no se cobra: las clases se pagan en el mesón. La lista se guarda entera,
+/// en el orden de la pantalla, así que `orden` es su posición y no un dato que se edite.
+model TarifaGimnasio {
+  id               Int    @id @default(autoincrement())
+  nombre           String @db.VarChar(80)
+  precioSocioClp   Int    @map("precio_socio_clp")
+  precioNoSocioClp Int    @map("precio_no_socio_clp")
+  orden            Int
+
+  @@map("tarifa_gimnasio")
+}
+
 /// Una pregunta frecuente del club (T144), para `/preguntas-frecuentes`.
 ///
 /// La escribe el club desde su panel. Texto plano: la página la muestra tal cual, con
@@ -659,6 +679,7 @@ model PreguntaFrecuente {
 enum Lugar {
   TIENDA
   CAFETERIA
+  GIMNASIO
 }
 
 /// Una foto de la tienda o la cafetería (T185), para la portada y "El club".

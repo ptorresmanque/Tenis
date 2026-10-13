@@ -43,6 +43,7 @@ export class FotosDelClub {
     return {
       TIENDA: filas.filter((f) => f.lugar === 'TIENDA').map(publicar),
       CAFETERIA: filas.filter((f) => f.lugar === 'CAFETERIA').map(publicar),
+      GIMNASIO: filas.filter((f) => f.lugar === 'GIMNASIO').map(publicar),
     };
   }
 
