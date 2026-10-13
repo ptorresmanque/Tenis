@@ -392,18 +392,12 @@ export class AdminCanchas {
   /**
    * Cierra la cancha con lo que haya debajo: cancela, devuelve y avisa.
    *
-   * Ruta distinta de `crearBloqueo` porque son dos operaciones distintas, y la
-   * diferencia importa: aquella crea un bloqueo y nada más.
+   * El panel crea todo bloqueo por acá, también sobre una hora libre: el cierre es el que
+   * cuenta el tope de canchas con luz para los de clase y torneo (T206).
    */
   cerrar(bloqueo: BloqueoNuevo): Promise<ResultadoCierre> {
     return firstValueFrom(
       this.http.post<ResultadoCierre>('/api/admin/cierres', bloqueo),
-    );
-  }
-
-  crearBloqueo(bloqueo: BloqueoNuevo): Promise<Bloqueo> {
-    return firstValueFrom(
-      this.http.post<Bloqueo>('/api/admin/bloqueos', bloqueo),
     );
   }
 
