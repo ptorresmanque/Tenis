@@ -18,6 +18,7 @@ import { UsuarioActual } from '../src/identidad/usuario-actual';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { CierreDeCanchaController } from '../src/reservas/cierre-de-cancha.controller';
 import { ReservaDelAdminService } from '../src/reservas/reserva-del-admin.service';
 import { ReservaNoSocioService } from '../src/reservas/reserva-no-socio.service';
 import { ModificacionService } from '../src/reservas/modificacion.service';
@@ -844,6 +845,64 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
             cuerpoDel(rechazo.reason).motivo === 'TOPE_DE_LUZ',
         ).toBe(true);
       }
+    });
+  });
+
+  describe('el cierre desde el panel de bloqueos (T206)', () => {
+    const cierre = () => modulo.get(CierreDeCanchaController);
+    const unCierre = (
+      motivo: string,
+      horaDesde = '09:00',
+      horaHasta = '23:00',
+    ) => ({
+      canchaId: luz[2],
+      fechaDesde: DIA,
+      horaDesde,
+      fechaHasta: DIA,
+      horaHasta,
+      motivo,
+    });
+
+    beforeEach(async () => {
+      await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+    });
+
+    it('la simulación de un bloqueo de torneo avisa el tope antes de mostrar a quién afecta', async () => {
+      const error: unknown = await cierre()
+        .simular(unCierre('TORNEO'))
+        .catch((e: unknown) => e);
+
+      expect(cuerpoDel(error)).toEqual({
+        motivo: 'TOPE_DE_LUZ',
+        message: `A las 20:00 ya están ocupadas ${PREFIJO} 1 y ${PREFIJO} 2, y el tope de canchas con luz es 2.`,
+      });
+    });
+
+    it('un bloqueo de torneo de 9:00 a 23:00 sobre una tercera cancha con luz no se pone', async () => {
+      const error: unknown = await cierre()
+        .cerrar(unCierre('TORNEO'))
+        .catch((e: unknown) => e);
+
+      expect(cuerpoDel(error).motivo).toBe('TOPE_DE_LUZ');
+      expect(await prisma.bloqueo.count({ where: { canchaId: luz[2] } })).toBe(
+        0,
+      );
+    });
+
+    it('uno de torneo que termina a las 19:00 sí, y uno de otro motivo de noche también', async () => {
+      await cierre().cerrar(unCierre('TORNEO', '09:00', '19:00'));
+      await cierre().cerrar(unCierre('OTRO', '19:00', '23:00'));
+
+      expect(await prisma.bloqueo.count({ where: { canchaId: luz[2] } })).toBe(
+        2,
+      );
+    });
+
+    it('la simulación de una mantención no mira el tope: apaga la cancha', async () => {
+      await expect(cierre().simular(unCierre('MANTENCION'))).resolves.toEqual({
+        afectadas: [],
+      });
     });
   });
 });

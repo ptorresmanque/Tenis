@@ -478,6 +478,16 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
   };
 }
 
+/**
+ * Los bloqueos que encienden la luz de la cancha (T206): una clase o un partido se juegan.
+ * Una mantención u otro cierre la dejan apagada. Los cuenta el tope de canchas con luz de
+ * `reservas`, y por eso estos dos motivos solo se crean por el cierre de cancha.
+ */
+export const ENCIENDEN_LA_LUZ: MotivoBloqueo[] = [
+  MotivoBloqueo.CLASE,
+  MotivoBloqueo.TORNEO,
+];
+
 export interface DatosBloqueo {
   canchaId: number;
   inicio: Date;

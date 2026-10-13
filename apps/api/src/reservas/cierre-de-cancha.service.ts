@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { DatosBloqueo } from '../catalogo-canchas/admin.dto';
+import {
+  type DatosBloqueo,
+  ENCIENDEN_LA_LUZ,
+} from '../catalogo-canchas/admin.dto';
 import { firmaDelClub } from '../comun/club';
 import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
@@ -19,7 +22,6 @@ import { EventosDeReserva } from './eventos';
 import { ACTIVAS } from './reservas.service';
 import {
   conflictoDeLuz,
-  ENCIENDEN_LA_LUZ,
   exigirCupoDeLuz,
   type OcupacionNueva,
   TopeDeLuz,
@@ -137,6 +139,21 @@ export class CierreDeCanchaService {
       pagada: pagadas.has(reserva.id),
       pagoEnCurso: pagandose.has(reserva.id),
     }));
+  }
+
+  /**
+   * La simulación del panel de bloqueos: el tope de canchas con luz primero (T206), y
+   * después a quién afectaría. Que el admin se entere del tope antes de ver la lista, y no
+   * después de confirmarla. `clases` no pasa por acá: revisa el tope en su propio paso
+   * previo, y una serie necesita las afectadas de cada fecha aunque esa fecha no quepa.
+   */
+  async simular(datos: DatosBloqueo): Promise<ReservaAfectada[]> {
+    if (ENCIENDEN_LA_LUZ.includes(datos.motivo)) {
+      const lleno = await this.choqueDeLuz(datos);
+      if (lleno) throw lleno;
+    }
+
+    return this.afectadas(datos);
   }
 
   /**

@@ -6,11 +6,8 @@ import {
   instanteEnElClub,
   ZONA_DEL_CLUB,
 } from '../comun/tiempo';
-import {
-  EstadoReserva,
-  MotivoBloqueo,
-  Prisma,
-} from '../generated/prisma/client';
+import { ENCIENDEN_LA_LUZ } from '../catalogo-canchas/admin.dto';
+import { EstadoReserva, Prisma } from '../generated/prisma/client';
 
 /**
  * El tope de canchas con luz encendida (T203, `SPEC-reservas.md` § Tope de canchas con
@@ -68,12 +65,6 @@ const HORA = new Intl.DateTimeFormat('es-CL', {
 
 /** Las reservas activas: las mismas que ocupan el índice por rango. */
 const ACTIVAS = [EstadoReserva.PENDIENTE_PAGO, EstadoReserva.CONFIRMADA];
-
-/** Los bloqueos que encienden la cancha. Una mantención la deja cerrada y apagada. */
-export const ENCIENDEN_LA_LUZ: MotivoBloqueo[] = [
-  MotivoBloqueo.CLASE,
-  MotivoBloqueo.TORNEO,
-];
 
 /**
  * La reserva más larga que existe, 1 hora y media (`duracion.ts`). Acota hacia atrás la
