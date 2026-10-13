@@ -449,8 +449,11 @@ export async function excesosDeLuz(
     cancha: { iluminacion: true },
   };
   const deLaCancha = { canchaId: true, cancha: { select: { nombre: true } } };
+  // Dos canchas con el mismo orden van por id, como en el resto del catálogo: sin ese
+  // desempate, MariaDB las entrega en cualquier orden.
   const porCancha = [
     { cancha: { orden: 'asc' as const } },
+    { canchaId: 'asc' as const },
     { inicio: 'asc' as const },
   ];
 
