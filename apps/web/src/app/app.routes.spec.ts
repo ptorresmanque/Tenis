@@ -74,12 +74,16 @@ describe('Rutas protegidas', () => {
     'administracion/configuracion/textos',
     'administracion/configuracion/tienda-y-cafeteria',
     'administracion/configuracion/preguntas-frecuentes',
-    'administracion/configuracion/administradores',
+    'administracion/usuarios',
     'administracion/tours',
     'administracion/tours/:id',
     'estado',
   ])('%s pasa por el guard del panel', (url) => {
     expect(buscar(url)?.guards).toContain(conPanel);
+  });
+
+  it('Configuración ya no tiene Administradores: los tipos se dan en Usuarios (T223)', () => {
+    expect(buscar('administracion/configuracion/administradores')).toBeNull();
   });
 
   it('recuperar-contrasena se abre con sesión: el enlace del correo puede abrirse en cualquier navegador', () => {
@@ -146,7 +150,7 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/configuracion/textos', CascaronAdmin],
     ['administracion/configuracion/tienda-y-cafeteria', CascaronAdmin],
     ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
-    ['administracion/configuracion/administradores', CascaronAdmin],
+    ['administracion/usuarios', CascaronAdmin],
     ['administracion/tours', CascaronAdmin],
     ['administracion/tours/:id', CascaronAdmin],
     ['estado', CascaronAdmin],

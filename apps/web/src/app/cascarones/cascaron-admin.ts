@@ -240,6 +240,13 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
     {
+      // T223. Junto a Socios: es donde se da cada tipo, también el de socio.
+      ruta: '/administracion/usuarios',
+      etiqueta: 'Usuarios',
+      icono: 'manage_accounts',
+      trasDivisoria: false,
+    },
+    {
       ruta: '/administracion/ingreso',
       etiqueta: 'Ingreso del club',
       icono: 'payments',

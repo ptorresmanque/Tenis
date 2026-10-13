@@ -175,6 +175,13 @@ export const routes: Routes = [
           ),
       },
       {
+        // T223. Todas las cuentas y sus tipos; reemplaza a Configuración → Administradores.
+        path: 'administracion/usuarios',
+        title: 'Usuarios — Administración',
+        loadComponent: () =>
+          import('./identidad/admin/usuarios').then((m) => m.UsuariosPanel),
+      },
+      {
         path: 'administracion/socios',
         title: 'Socios — Administración',
         loadComponent: () =>
@@ -314,14 +321,6 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./configuracion/tienda-y-cafeteria').then(
                 (m) => m.TiendaYCafeteriaPanel,
-              ),
-          },
-          {
-            path: 'administradores',
-            title: 'Administradores — Administración',
-            loadComponent: () =>
-              import('./configuracion/administradores').then(
-                (m) => m.AdministradoresPanel,
               ),
           },
           {
