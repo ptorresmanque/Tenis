@@ -227,7 +227,7 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
 const NOMBRES: Record<keyof ReglasNumericas, string> = {
   cupoDiarioSocioReservas: 'El cupo diario del socio',
-  cupoPicoSemanalReservas: 'El cupo semanal en horario pico',
+  cupoPicoSemanalReservas: 'El cupo semanal en horario prime',
   invitadosPorMes: 'El número de invitados por mes',
   horasMinModificacion: 'El mínimo de horas para modificar',
   horasReembolsoTotal: 'El plazo del reembolso total, en horas,',
@@ -493,7 +493,7 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
         : diaValido(datos.diaSemana),
     horaDesde,
     horaHasta,
-    esPico: datos.esPico === undefined ? false : booleano(datos.esPico, 'Pico'),
+    esPico: datos.esPico === undefined ? false : booleano(datos.esPico, 'Prime'),
     // Cero es legítimo: una cancha puede ser gratis para el club. Negativo no:
     // sería una tarifa que le paga al cliente.
     montoClp: entero(datos.montoClp, 'El monto', 0),

@@ -176,7 +176,7 @@ describe('ocupación de cancha', () => {
         'franja',
       );
 
-      expect(filas.map((f) => f.etiqueta).sort()).toEqual(['Pico', 'Valle']);
+      expect(filas.map((f) => f.etiqueta).sort()).toEqual(['Normal', 'Prime']);
     });
 
     it('ordena de más ocupada a menos: la pregunta es cuál rinde', () => {

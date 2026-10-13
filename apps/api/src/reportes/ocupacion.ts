@@ -102,7 +102,7 @@ function etiquetaDe(bloque: BloqueMedido, corte: CorteDeOcupacion): string {
     case 'condicion':
       return bloque.techada ? 'Techada' : 'Abierta';
     case 'franja':
-      return bloque.esPico ? 'Pico' : 'Valle';
+      return bloque.esPico ? 'Prime' : 'Normal';
   }
 }
 

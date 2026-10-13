@@ -175,11 +175,11 @@ export function evaluarReservaDeSocio(
       tipo: 'CUPO_PICO',
       mensaje:
         config.cupoPicoSemanalReservas === 0
-          ? 'El club no está tomando reservas de socios en horario pico. Los horarios ' +
-            'fuera de pico siguen disponibles.'
-          : `Ya tienes ${tusReservas(solicitud.reservasPicoDeLaSemana)} en horario pico ` +
+          ? 'El club no está tomando reservas de socios en horario prime. Las horas en ' +
+            'horario normal siguen disponibles.'
+          : `Ya tienes ${tusReservas(solicitud.reservasPicoDeLaSemana)} en horario prime ` +
             `esa semana: el cupo es de ${enReservas(config.cupoPicoSemanalReservas)} ` +
-            'pico por semana, de lunes a domingo. Los horarios fuera de pico siguen ' +
+            'prime por semana, de lunes a domingo. Las horas en horario normal siguen ' +
             'disponibles.',
     };
   }

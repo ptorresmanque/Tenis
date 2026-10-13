@@ -231,8 +231,8 @@ describe('evaluarReservaDeSocio', () => {
 
       expect(rechazo?.tipo).toBe('CUPO_PICO');
       expect(rechazo?.mensaje).toBe(
-        'El club no está tomando reservas de socios en horario pico. Los horarios ' +
-          'fuera de pico siguen disponibles.',
+        'El club no está tomando reservas de socios en horario prime. Las horas en ' +
+          'horario normal siguen disponibles.',
       );
     });
 
@@ -258,8 +258,9 @@ describe('evaluarReservaDeSocio', () => {
 
       expect(rechazo?.tipo).toBe('CUPO_PICO');
       expect(rechazo?.mensaje).toBe(
-        'Ya tienes tus 2 reservas en horario pico esa semana: el cupo es de 2 reservas ' +
-          'pico por semana, de lunes a domingo. Los horarios fuera de pico siguen disponibles.',
+        'Ya tienes tus 2 reservas en horario prime esa semana: el cupo es de 2 reservas ' +
+          'prime por semana, de lunes a domingo. Las horas en horario normal siguen ' +
+          'disponibles.',
       );
     });
 
