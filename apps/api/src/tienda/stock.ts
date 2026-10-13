@@ -14,6 +14,17 @@ export interface Movimiento {
   nota?: string | null;
 }
 
+/** Lo que dejó un movimiento. */
+export interface StockMovido {
+  stock: number;
+  /**
+   * La variante quedó en el umbral de stock bajo o menos y el club no lo sabía (T173).
+   * Quien llama manda el aviso con `CorreosDeLaTienda.stockBajo` **después de confirmar**:
+   * acá se está dentro de la transacción, y si se cae, el aviso no puede haber salido.
+   */
+  avisarStockBajo: boolean;
+}
+
 /**
  * **El único camino para cambiar `Variante.stock`** (T158).
  *
@@ -27,12 +38,12 @@ export interface Movimiento {
  * porque manda la caja que está en el mostrador (`SPEC-tienda.md` § Stock). Decidir si
  * algo se puede vender es de quien llama, no de acá.
  *
- * Devuelve el stock que quedó.
+ * Devuelve el stock que quedó y si hay que avisar que está bajo.
  */
 export async function moverStock(
   tx: Prisma.TransactionClient,
   movimiento: Movimiento,
-): Promise<number> {
+): Promise<StockMovido> {
   const { varianteId, cantidad, motivo } = movimiento;
   const nota = movimiento.nota?.trim() || null;
 
@@ -50,10 +61,12 @@ export async function moverStock(
     );
   }
 
-  const { stock } = await tx.variante.update({
+  // El UPDATE toma la fila: dos ventas a la vez de la misma variante se ordenan, y la
+  // segunda ya ve el aviso que marcó la primera.
+  const { stock, avisoStockBajoEn } = await tx.variante.update({
     where: { id: varianteId },
     data: { stock: { increment: cantidad } },
-    select: { stock: true },
+    select: { stock: true, avisoStockBajoEn: true },
   });
 
   await tx.movimientoStock.create({
@@ -66,5 +79,22 @@ export async function moverStock(
     },
   });
 
-  return stock;
+  const { umbralStockBajo } = await tx.configuracionClub.findFirstOrThrow({
+    select: { umbralStockBajo: true },
+  });
+  const bajo = stock <= umbralStockBajo;
+  // Solo lo que sale avisa: una entrada que la deja en el umbral la cargó el club, que ya
+  // sabe cuánto trajo.
+  const avisarStockBajo = bajo && cantidad < 0 && avisoStockBajoEn === null;
+  // Sobre el umbral se rearma: la próxima bajada vuelve a avisar.
+  const rearmar = !bajo && avisoStockBajoEn !== null;
+
+  if (avisarStockBajo || rearmar) {
+    await tx.variante.update({
+      where: { id: varianteId },
+      data: { avisoStockBajoEn: avisarStockBajo ? new Date() : null },
+    });
+  }
+
+  return { stock, avisarStockBajo };
 }

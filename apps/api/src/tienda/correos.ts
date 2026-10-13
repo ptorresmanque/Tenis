@@ -209,6 +209,47 @@ export function despachado(
   };
 }
 
+/** Una variante en el umbral de stock bajo, con lo que le queda ahora. */
+export interface VarianteConStockBajo {
+  etiqueta: string;
+  stock: number;
+  producto: { id: number; nombre: string };
+}
+
+/**
+ * El aviso de stock bajo (T173), al club: qué variantes y cuánto les queda. Sale una vez
+ * por bajada (`SPEC-tienda.md` § Correos), así que dice cuándo vuelve a salir.
+ */
+export function avisoDeStockBajo(
+  variantes: VarianteConStockBajo[],
+  umbral: number,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  const nombre = (v: VarianteConStockBajo) =>
+    `${v.producto.nombre} · ${v.etiqueta}`;
+  const lista = variantes.map(
+    (v) =>
+      // Con el signo menos tipográfico, como el aviso de stock negativo del pago.
+      `- ${nombre(v)}: ${v.stock < 0 ? `−${-v.stock}` : v.stock} en stock\n` +
+      `  ${origenWeb}/administracion/tienda/productos/${v.producto.id}`,
+  );
+
+  return {
+    asunto:
+      variantes.length === 1
+        ? `Stock bajo: ${nombre(variantes[0])}`
+        : `Stock bajo en ${variantes.length} variantes`,
+    cuerpo:
+      'Hola:\n\n' +
+      `Quedaron en el umbral de stock bajo (${umbral}) o menos:\n\n` +
+      `${lista.join('\n')}\n\n` +
+      'No te avisamos de nuevo hasta que una entrada de mercadería las deje sobre el ' +
+      'umbral y vuelvan a bajar.\n\n' +
+      firmaDelClub(club),
+  };
+}
+
 /**
  * Manda los correos de un pedido recién pagado. **Después de confirmar, nunca dentro**:
  * una falla del correo no puede deshacer un pago, y `enviarOAnotar` la deja en el log.
@@ -260,6 +301,48 @@ export class CorreosDeLaTienda {
     } catch (falla) {
       this.log.error(
         `No se pudieron armar los correos del pedido ${pedidoId}: ${String(falla)}`,
+      );
+    }
+  }
+
+  /**
+   * El aviso de stock bajo (T173), al club. Como los demás, **después de confirmar** el
+   * movimiento que lo causó, y una falla queda en el log.
+   */
+  async stockBajo(varianteIds: number[]): Promise<void> {
+    if (varianteIds.length === 0) return;
+
+    try {
+      const [variantes, club] = await Promise.all([
+        this.prisma.variante.findMany({
+          where: { id: { in: varianteIds } },
+          orderBy: { id: 'asc' },
+          select: {
+            etiqueta: true,
+            stock: true,
+            producto: { select: { id: true, nombre: true } },
+          },
+        }),
+        this.prisma.configuracionClub.findFirstOrThrow(),
+      ]);
+      const aviso = avisoDeStockBajo(
+        variantes,
+        club.umbralStockBajo,
+        club,
+        web(),
+      );
+
+      for (const para of await this.correosDelClub(club.email)) {
+        await enviarOAnotar(
+          this.correo,
+          { para, ...aviso },
+          this.log,
+          `No salió el aviso de stock bajo para ${para}`,
+        );
+      }
+    } catch (falla) {
+      this.log.error(
+        `No se pudo armar el aviso de stock bajo: ${String(falla)}`,
       );
     }
   }

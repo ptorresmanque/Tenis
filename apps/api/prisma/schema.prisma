@@ -1819,6 +1819,10 @@ model Variante {
   stock  Int     @default(0)
   /// Una variante que ya no se vende se desactiva: tiene ventas y movimientos colgando.
   activa Boolean @default(true)
+  /// Cuándo se le avisó al club que quedó en el umbral de stock bajo o menos (T173). Lo
+  /// escribe `moverStock()`: el aviso sale **una vez**, y un movimiento que la deja sobre
+  /// el umbral lo vuelve a nulo para que la próxima bajada avise de nuevo.
+  avisoStockBajoEn DateTime? @map("aviso_stock_bajo_en")
 
   creadaEn      DateTime @default(now()) @map("creada_en")
   actualizadaEn DateTime @updatedAt @map("actualizada_en")

@@ -1,6 +1,7 @@
 import type { DatosDelClub } from '../comun/club';
 import {
   avisoAlClub,
+  avisoDeStockBajo,
   compraConfirmada,
   despachado,
   listoParaRetirar,
@@ -215,6 +216,34 @@ describe('Los correos de la tienda', () => {
       expect(cuerpo).toContain('Av. Siempre Viva 123, Temuco');
       expect(cuerpo).toContain('Lunes a sábado de 9:00 a 20:00');
       expect(cuerpo).toContain(`${ORIGEN}/tienda/pedido/${PEDIDO.token}`);
+    });
+  });
+
+  describe('el aviso de stock bajo (T173)', () => {
+    it('**varias variantes de un pedido van en un solo correo**, cada una con su enlace', () => {
+      const { asunto, cuerpo } = avisoDeStockBajo(
+        [
+          {
+            etiqueta: 'Grip 2',
+            stock: 2,
+            producto: { id: 7, nombre: 'Pure Drive' },
+          },
+          {
+            etiqueta: '42',
+            stock: -1,
+            producto: { id: 9, nombre: 'Gel Resolution' },
+          },
+        ],
+        2,
+        CLUB,
+        ORIGEN,
+      );
+
+      expect(asunto).toBe('Stock bajo en 2 variantes');
+      expect(cuerpo).toContain('umbral de stock bajo (2)');
+      expect(cuerpo).toContain('Pure Drive · Grip 2: 2 en stock');
+      expect(cuerpo).toContain('Gel Resolution · 42: −1 en stock');
+      expect(cuerpo).toContain(`${ORIGEN}/administracion/tienda/productos/9`);
     });
   });
 });

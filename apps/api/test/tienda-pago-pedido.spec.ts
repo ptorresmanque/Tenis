@@ -283,7 +283,8 @@ describe('Tienda: pagar el pedido', () => {
     });
 
     it('**el comprador recibe el detalle y las condiciones de venta; el club, el aviso**', async () => {
-      const raqueta = await producto('Pure Drive', 3);
+      // Lejos del umbral de stock bajo: ese aviso también le llega al club (T173).
+      const raqueta = await producto('Pure Drive', 30);
       const { token } = await crearPedido(raqueta.varianteId);
       const pago = await pagar(token);
 

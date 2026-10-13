@@ -36,6 +36,8 @@ export type VueltaDelPago =
 interface Efecto {
   pedidoId: number;
   motivoRevision: string | null;
+  /** Las variantes que esta venta dejó en el umbral de stock bajo (T173). */
+  stockBajo: number[];
 }
 
 /**
@@ -156,6 +158,7 @@ export class PagoDePedido {
         aplicado.pedidoId,
         aplicado.motivoRevision,
       );
+      await this.correos.stockBajo(aplicado.stockBajo);
     }
 
     const { token } = await this.prisma.pedido.findUniqueOrThrow({
@@ -214,6 +217,7 @@ export class PagoDePedido {
         motivoRevision:
           'Llegó un pago para un pedido que ya no estaba pendiente: puede ser un ' +
           'cobro de más, que hay que devolver.',
+        stockBajo: [],
       };
     }
 
@@ -227,14 +231,16 @@ export class PagoDePedido {
       },
     });
     const faltantes: string[] = [];
+    const stockBajo: number[] = [];
 
     for (const linea of lineas) {
-      const quedo = await moverStock(tx, {
+      const { stock: quedo, avisarStockBajo } = await moverStock(tx, {
         varianteId: linea.varianteId!,
         cantidad: -linea.cantidad,
         motivo: MotivoMovimientoStock.VENTA,
         nota: `Pedido en línea N.º ${pedidoId}`,
       });
+      if (avisarStockBajo) stockBajo.push(linea.varianteId!);
 
       // Por encargo, quedar en negativo es lo esperado: "le debemos uno a alguien".
       if (quedo < 0 && !linea.esEncargo) {
@@ -242,7 +248,8 @@ export class PagoDePedido {
       }
     }
 
-    if (faltantes.length === 0) return { pedidoId, motivoRevision: null };
+    if (faltantes.length === 0)
+      return { pedidoId, motivoRevision: null, stockBajo };
 
     await tx.pedido.update({
       where: { id: pedidoId },
@@ -255,6 +262,7 @@ export class PagoDePedido {
         'El pago llegó con lo comprado ya vendido. ' +
         faltantes.join('. ') +
         '.',
+      stockBajo,
     };
   }
 

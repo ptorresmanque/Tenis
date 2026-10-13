@@ -561,7 +561,7 @@ describe('Tienda: productos, variantes y stock', () => {
     it('suma o resta y deja el movimiento, en la misma transacción', async () => {
       const id = await variante(2);
 
-      const stock = await prisma.$transaction((tx) =>
+      const movido = await prisma.$transaction((tx) =>
         moverStock(tx, {
           varianteId: id,
           cantidad: -1,
@@ -570,7 +570,7 @@ describe('Tienda: productos, variantes y stock', () => {
         }),
       );
 
-      expect(stock).toBe(1);
+      expect(movido).toMatchObject({ stock: 1 });
       expect(
         (
           await prisma.movimientoStock.findMany({
@@ -610,7 +610,7 @@ describe('Tienda: productos, variantes y stock', () => {
     it('**puede dejar el stock negativo**: el encargo y el mesón lo necesitan', async () => {
       const id = await variante(0);
 
-      const stock = await prisma.$transaction((tx) =>
+      const movido = await prisma.$transaction((tx) =>
         moverStock(tx, {
           varianteId: id,
           cantidad: -1,
@@ -619,7 +619,7 @@ describe('Tienda: productos, variantes y stock', () => {
         }),
       );
 
-      expect(stock).toBe(-1);
+      expect(movido).toMatchObject({ stock: -1 });
     });
 
     it('un ajuste sin nota no se hace', async () => {

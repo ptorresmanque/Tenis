@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { MotivoMovimientoStock } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CorreosDeLaTienda } from './correos';
 import type { MovimientoDelPanel } from './movimientos.dto';
 import { moverStock } from './stock';
 
@@ -33,7 +34,10 @@ const MOVIMIENTOS_EN_LA_LISTA = 200;
 /** Las entradas, los ajustes y el historial de stock de una variante (T160). */
 @Injectable()
 export class MovimientosDeStock {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly correos: CorreosDeLaTienda,
+  ) {}
 
   async historial(varianteId: number): Promise<HistorialDeStock> {
     const variante = await this.prisma.variante.findUnique({
@@ -102,9 +106,10 @@ export class MovimientosDeStock {
     if (!existe)
       throw new NotFoundException('No hay una variante con ese número.');
 
-    const stock = await this.prisma.$transaction((tx) =>
+    const { stock, avisarStockBajo } = await this.prisma.$transaction((tx) =>
       moverStock(tx, { varianteId, ...movimiento, usuarioId }),
     );
+    if (avisarStockBajo) await this.correos.stockBajo([varianteId]);
 
     return { stock };
   }
