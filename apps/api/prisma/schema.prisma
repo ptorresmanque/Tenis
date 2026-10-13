@@ -862,6 +862,7 @@ model Reserva {
   socio        Socio?               @relation(fields: [socioId], references: [id], onDelete: SetNull)
   acompanantes AcompananteReserva[]
   reportes     ReporteNoUso[]
+  observaciones ObservacionReserva[]
 
   /// **No es un único común: es el `WITHOUT OVERLAPS` de la migración.** Prisma lo
   /// lee como `(cancha_activa, fin, inicio)` y se declara así solo para que el guardia
@@ -877,6 +878,29 @@ model Reserva {
   /// hace en cada carga y en cada aviso en vivo.
   @@index([inicio])
   @@map("reserva")
+}
+
+/// Una nota del mesón sobre una reserva (T225, `SPEC-reservas.md` § Observaciones del
+/// mesón): el socio que se pasó de su hora, el que dejó la cancha sucia. La escriben el
+/// admin y el gestor, y el socio no la ve nunca.
+model ObservacionReserva {
+  id        Int    @id @default(autoincrement())
+  reservaId Int    @map("reserva_id")
+  texto     String @db.VarChar(500)
+
+  /// `usuarioId` de quien la escribió, **sin clave foránea**, como `CambioSocio.hechoPor`:
+  /// el historial sigue en pie si la cuenta se borra. Sirve para saber quién la corrige.
+  autorId     Int    @map("autor_id")
+  /// Copiado al escribirla, por lo mismo: se lee aunque la cuenta cambie de nombre.
+  autorNombre String @map("autor_nombre") @db.VarChar(120)
+
+  creadaEn  DateTime  @default(now()) @map("creada_en")
+  editadaEn DateTime? @map("editada_en")
+
+  reserva Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+
+  @@index([reservaId])
+  @@map("observacion_reserva")
 }
 
 enum EstadoReporte {

@@ -28,6 +28,8 @@ import { RetornoDeDiferencia } from './retorno-diferencia.service';
 import { ReservaRepository } from './reserva.repository';
 import { ReservasController } from './reservas.controller';
 import { ReservasService } from './reservas.service';
+import { ObservacionesController } from './observaciones.controller';
+import { Observaciones } from './observaciones.service';
 
 /**
  * `reservas` junta a los otros tres módulos: `catalogo-canchas` dice qué bloques
@@ -47,6 +49,7 @@ import { ReservasService } from './reservas.service';
     AdminReportesController,
     CierreDeCanchaController,
     TopeDeLuzController,
+    ObservacionesController,
   ],
   providers: [
     ReservaRepository,
@@ -62,6 +65,7 @@ import { ReservasService } from './reservas.service';
     EventosDeReserva,
     CierreDeCanchaService,
     AvisosDeReserva,
+    Observaciones,
   ],
   exports: [
     ReservaRepository,
