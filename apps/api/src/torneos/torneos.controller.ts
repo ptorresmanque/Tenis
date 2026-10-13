@@ -43,16 +43,16 @@ import { ResultadosDelCuadro } from './resultados.service';
 import { Jugadores } from './jugadores.service';
 import { Torneos } from './torneos.service';
 import {
-  leerCambioDeCategoria,
   leerCambioDeJugador,
   leerCambioDeTorneo,
   leerMedioDePago,
-  leerCategoria,
   leerInscripcionATorneo,
   leerJugadorNuevo,
+  leerNivelDelTour,
   leerResultado,
   leerSiembra,
   leerTorneo,
+  leerTourDelTorneo,
 } from './torneos.dto';
 
 /**
@@ -186,36 +186,9 @@ export class TorneosController {
     return this.jugadores.editar(id, leerCambioDeJugador(cuerpo));
   }
 
-  @Get('categorias-torneo')
-  listarCategorias(@Query('activas') activas = '') {
-    return this.torneos.categorias(activas === '1');
-  }
-
-  @Post('categorias-torneo')
-  crearCategoria(@Body() cuerpo: unknown) {
-    return this.torneos.crearCategoria(leerCategoria(cuerpo));
-  }
-
-  @Patch('categorias-torneo/:id')
   /**
-   * Editar o desactivar.
-   *
-   * Una categoría con torneos jugados **no se borra**: sus puntos ya están repartidos
-   * y la tabla del ranking los sigue contando.
-   */
-  editarCategoria(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() cuerpo: unknown,
-  ) {
-    return this.torneos.editarCategoria(id, leerCambioDeCategoria(cuerpo));
-  }
-
-  /**
-   * Las categorías con que juega el club: 5ª, 4ª, … Honor.
-   *
-   * **Otra ruta y otro servicio que `categorias-torneo`**, que está justo arriba y es
-   * el nivel del torneo del que salen los puntos del ranking. Ver `SPEC-torneos.md`
-   * § Las dos categorías que no son la misma.
+   * Las categorías con que juega el club: 5ª, 4ª, … Honor. Separan cuadros y, desde
+   * T198, tablas del ranking.
    */
   @Get('categorias-juego')
   listarCategoriasDeJuego(@Query('activas') activas = '') {
@@ -247,6 +220,33 @@ export class TorneosController {
   @Post('torneos')
   crearTorneo(@Body() cuerpo: unknown) {
     return this.torneos.crear(leerTorneo(cuerpo));
+  }
+
+  /**
+   * Para qué tours suma un torneo que ya existe (T196). El par torneo–tour es la llave
+   * de la asociación, así que `:tourId` no puede apuntar a la de otro torneo.
+   */
+  @Post('torneos/:id/tours')
+  agregarTour(@Param('id', ParseIntPipe) id: number, @Body() cuerpo: unknown) {
+    return this.torneos.agregarTour(id, leerTourDelTorneo(cuerpo));
+  }
+
+  @Patch('torneos/:id/tours/:tourId')
+  cambiarNivelDelTour(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tourId', ParseIntPipe) tourId: number,
+    @Body() cuerpo: unknown,
+  ) {
+    return this.torneos.cambiarNivel(id, tourId, leerNivelDelTour(cuerpo));
+  }
+
+  @Delete('torneos/:id/tours/:tourId')
+  @HttpCode(204)
+  quitarTour(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tourId', ParseIntPipe) tourId: number,
+  ) {
+    return this.torneos.quitarTour(id, tourId);
   }
 
   /**

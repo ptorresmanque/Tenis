@@ -78,14 +78,11 @@ describe('GET /api/torneos/publicos', () => {
   interface TorneoPublico {
     id: number;
     nombre: string;
-    categoria: string;
     fechaInicio: string;
     estado: string;
     categorias: {
       id: number;
       categoria: string;
-      /** Cuánto vale ganarlo: del cuadro y no del torneo desde T70. */
-      valor: string;
       /** Cuánto cuesta inscribirse en **esta** categoría. */
       montoClp: number;
       cupo: number;
@@ -141,9 +138,6 @@ describe('GET /api/torneos/publicos', () => {
     await prisma.cancha.deleteMany({
       where: { nombre: { startsWith: MARCA } },
     });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatPub' } },
-    });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });
@@ -172,11 +166,6 @@ describe('GET /api/torneos/publicos', () => {
     await crearCuenta('jefe', true);
     cookieAdmin = await entrar('jefe');
 
-    const categoria = await prisma.categoriaTorneo.create({
-      data: { nombre: `CatPub ${Date.now()}`, puntosCampeon: 250 },
-      select: { id: true },
-    });
-
     const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
       orderBy: { orden: 'asc' },
     });
@@ -191,7 +180,6 @@ describe('GET /api/torneos/publicos', () => {
           create: {
             categoriaJuegoId: categoriaJuego.id,
             cupo: 4,
-            categoriaId: categoria.id,
           },
         },
       },
@@ -221,9 +209,8 @@ describe('GET /api/torneos/publicos', () => {
     const suyo = torneos.find((t) => t.id === torneoId);
 
     expect(suyo?.nombre).toContain(MARCA);
-    // **Cuánto vale ganarlo cuelga del cuadro desde T70**, no del torneo: en el mismo
-    // fin de semana, ganar Honor puede valer el doble que ganar la 5ª.
-    expect(suyo?.categorias[0].valor).toContain('CatPub');
+    // Sin categoría de torneo (T199): cuánto vale ganarlo lo dicen sus tours.
+    expect(suyo?.categorias[0]).not.toHaveProperty('valor');
   });
 
   it('**dice cuánto cuesta inscribirse en cada categoría**', async () => {

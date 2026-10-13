@@ -1,26 +1,25 @@
-import { Component, computed, inject, resource } from '@angular/core';
+import { Component, computed, inject, input, resource } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 
-import { diaConAnioEnPalabras } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
-import { EstadoVacio } from '../ui/estado-vacio';
-import { Ranking } from './ranking.service';
-import { TablaInterna } from './tabla-interna';
+import { Tours } from '../tours/tours.service';
 import { Esqueleto } from '../ui/esqueleto';
+import { EstadoVacio } from '../ui/estado-vacio';
+import { TablaDeTour } from './tabla-de-tour';
+import { TablaInterna } from './tabla-interna';
 
 /**
- * El ranking de torneos del club.
+ * `/ranking`: la tabla de un tour, una temporada y una categoría de juego (T200,
+ * `SPEC-ranking.md` § La pantalla).
  *
- * **La pantalla dice qué está contando.** No es un adorno: los puntos caducan a las 52
- * semanas y nadie los borra, así que un lunes cualquiera un jugador baja tres puestos
- * sin que haya pasado nada. Una tabla que no muestra su corte ni los torneos que suma
- * es una llamada al club esa misma tarde.
- *
- * De las personas sale el nombre y el puntaje. Es lo mismo que ya está a la vista de
- * cualquiera que mire el mural.
+ * **Los tres van en la dirección** (`?tour=&temporada=&categoria=`), para que el enlace
+ * a la tabla de la 4ª de 2027 se pueda compartir. Sin ellos: el primer tour por nombre,
+ * su temporada vigente (o la más nueva) y la categoría más alta con filas, que la elige
+ * el servidor.
  */
 @Component({
   selector: 'app-ranking-torneos',
-  imports: [EstadoVacio, Esqueleto, TablaInterna],
+  imports: [EstadoVacio, Esqueleto, TablaDeTour, TablaInterna],
   template: `
     <!-- Cabecera en banda de color y sin fotografía: esta pantalla es una tabla
          de posiciones, y lo que se viene a hacer acá es buscar un nombre en una
@@ -31,123 +30,62 @@ import { Esqueleto } from '../ui/esqueleto';
     >
       <h1 id="ranking" class="titular text-5xl sm:text-7xl">Ranking de torneos</h1>
       <p class="mt-2 max-w-prose text-on-campo/90">
-        Los puntos de cada jugador según hasta dónde llegó en cada torneo, multiplicados
-        por la categoría.
+        Una tabla por tour, temporada y categoría: los puntos de cada jugador según hasta dónde
+        llegó en cada torneo.
       </p>
     </section>
 
-    @if (tabla.error()) {
-      <p class="mt-6 text-destructive">
-        No se pudo cargar el ranking. Reintenta en un momento.
-      </p>
-    } @else if (tabla.value(); as datos) {
-      <p class="mt-4 max-w-prose text-sm text-muted-foreground">
-        <!-- El punto va pegado al cierre del strong y no en la línea siguiente: si se
-             separa, el navegador dibuja "26 de agosto de 2025 ." con un espacio.
-             (Y sin comillas invertidas en este comentario: rompen el template.) -->
-        Suma los torneos terminados desde el
-        <strong>{{ enPalabras(datos.desde) }}</strong
-        >. Los puntos duran 52 semanas y después caducan solos, así que la tabla cambia aunque no se
-        juegue nada.
-      </p>
-
-      @if (datos.posiciones.length === 0) {
-        <app-estado-vacio
-          class="mt-6 block"
-          icono="leaderboard"
-          titulo="Todavía no hay puntos en la ventana"
-          detalle="Cuando termine un torneo, sus puntos aparecen acá sin que nadie los cargue."
-        />
-      } @else {
-        <!-- Una tabla de verdad, al revés que el cuadro: acá las filas son
-             comparables entre sí y las columnas significan lo mismo en todas. Sin
-             encabezados, un lector de pantalla lee cuatro números sueltos por fila. -->
-        <div class="mt-6 overflow-x-auto" data-tabla="torneos">
-          <table class="tabla text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
-            <caption class="sr-only">
-              Puntos por jugador en los torneos de las últimas 52 semanas
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Puesto</th>
-                <th scope="col">Jugador</th>
-                <th scope="col" class="numero">Puntos</th>
-                <th scope="col" class="numero">Torneos</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (fila of datos.posiciones; track fila.jugadorId) {
-                <!-- EL PODIO (TV4.5): del puesto 3 para arriba, con empates, el
-                     puesto va en un rótulo y el nombre y los puntos en la
-                     condensada, como la tabla de una transmisión. Es lo que alguien
-                     busca primero, y sin eso las cuarenta filas se leen iguales.
-                     **Sin rebote ni overshoot en la entrada**: MASTER.md § Motion
-                     lo dice para tabla densa, y D4.4 dejó la pantalla sin foto. -->
-                <tr
-                  [attr.data-podio]="fila.puesto <= 3 ? '' : null"
-                  [class.bg-selected]="fila.puesto <= 3"
-                >
-                  <td class="font-display font-bold">
-                    @if (fila.puesto <= 3) {
-                      <span
-                        class="inline-grid size-9 place-items-center bg-rotulo text-xl
-                               font-extrabold text-on-rotulo"
-                      >
-                        {{ fila.puesto }}
-                      </span>
-                    } @else {
-                      {{ fila.puesto }}
-                    }
-                  </td>
-                  <!-- El nombre es el encabezado de fila, no el puesto: con empates el
-                       puesto se repite, y un encabezado que dice "1" en dos filas no
-                       identifica ninguna. Quien escucha la tabla necesita oír de quién
-                       son los 650 puntos. -->
-                  <th
-                    scope="row"
-                    [class]="
-                      fila.puesto <= 3
-                        ? 'font-display text-lg font-bold tracking-wide uppercase'
-                        : ''
-                    "
-                  >
-                    {{ fila.nombre }}
-                  </th>
-                  <td
-                    class="numero font-semibold"
-                    [class]="fila.puesto <= 3 ? 'font-display text-xl text-primary' : ''"
-                  >
-                    {{ fila.puntos }}
-                  </td>
-                  <!-- Sin rellenos a mano: los ponía la tabla vieja en unas celdas y
-                       no en otras, y las columnas no alineaban con la primitiva. -->
-                  <td class="numero text-muted-foreground">{{ fila.torneos }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-
-      @if (datos.torneos.length > 0) {
-        <section class="mt-8 aparece-al-pasar">
-          <h2 class="font-display text-lg font-bold tracking-wide uppercase">
-            Cuadros que está contando
-          </h2>
-          <ul class="mt-2 grid gap-1 text-sm text-muted-foreground">
-            <!-- Cada cuadro con su nivel y con cuánto valía ganarlo (T70): una misma
-                 Copa aparece tres veces, una por categoría, y no valen lo mismo. -->
-            @for (cuadro of datos.torneos; track cuadro.id) {
-              <li>
-                {{ cuadro.nombre }} · {{ cuadro.categoria }} · {{ cuadro.valor }} ·
-                terminó el {{ enPalabras(cuadro.fechaFin) }}
-              </li>
-            }
-          </ul>
-        </section>
-      }
-    } @else if (tabla.isLoading()) {
+    @if (tours.error()) {
+      <p class="mt-6 text-destructive">No se pudo cargar el ranking. Reintenta en un momento.</p>
+    } @else if (tours.isLoading()) {
       <app-esqueleto class="mt-6 block" [filas]="6" etiqueta="Cargando el ranking…" />
+    } @else if (tours.value().length === 0) {
+      <app-estado-vacio
+        class="mt-6 block"
+        icono="military_tech"
+        titulo="Todavía no hay tours"
+        detalle="Cuando el club arme el primero, su ranking aparece acá."
+      />
+    } @else {
+      <!-- Tour y temporada; la categoría la pone la tabla, que es la que sabe cuáles
+           tienen resultados. Los tres van en la dirección. -->
+      <div class="mt-6 flex flex-wrap items-end gap-4">
+        <label class="block">
+          <span class="text-sm font-medium">Tour</span>
+          <select class="campo mt-1" name="tour" (change)="elegirTour($event)">
+            @for (uno of tours.value(); track uno.id) {
+              <option [value]="uno.id" [selected]="uno.id === tourElegido()?.id">
+                {{ uno.nombre }}
+              </option>
+            }
+          </select>
+        </label>
+
+        @if (temporadas().length > 0) {
+          <label class="block">
+            <span class="text-sm font-medium">Temporada</span>
+            <select class="campo mt-1" name="temporada" (change)="elegirTemporada($event)">
+              @for (una of temporadas(); track una.id) {
+                <option [value]="una.id" [selected]="una.id === temporadaElegida()">
+                  {{ una.nombre }}
+                </option>
+              }
+            </select>
+          </label>
+        }
+      </div>
+
+      @if (temporadaElegida(); as temporadaId) {
+        <app-tabla-de-tour
+          [temporadaId]="temporadaId"
+          [categoriaId]="categoriaElegida()"
+          (categoria)="elegirCategoria($event)"
+        />
+      } @else if (tourDetalle.error()) {
+        <p class="mt-6 text-destructive">No se pudo cargar el tour. Reintenta en un momento.</p>
+      } @else if (tourDetalle.hasValue()) {
+        <p class="mt-6 text-muted-foreground">Este tour todavía no tiene temporadas.</p>
+      }
     }
 
     <!-- La tabla del club solo para socios: el endpoint la niega a los demás, y una
@@ -165,11 +103,94 @@ import { Esqueleto } from '../ui/esqueleto';
   `,
 })
 export class RankingDeTorneos {
-  private readonly api = inject(Ranking);
+  private readonly api = inject(Tours);
+  private readonly router = inject(Router);
+  private readonly ruta = inject(ActivatedRoute);
 
-  protected readonly tabla = resource({ loader: () => this.api.torneos() });
+  /** Llegan de la dirección por `withComponentInputBinding`. */
+  readonly tour = input<string>();
+  readonly temporada = input<string>();
+  readonly categoria = input<string>();
 
-  protected readonly enPalabras = diaConAnioEnPalabras;
+  protected readonly tours = resource({
+    loader: () => this.api.publicos(),
+    defaultValue: [],
+  });
+
+  /** El de la dirección si existe; si no, el primero por nombre. */
+  protected readonly tourElegido = computed(() => {
+    const lista = this.tours.hasValue() ? this.tours.value() : [];
+
+    return lista.find((uno) => uno.id === Number(this.tour())) ?? lista[0] ?? null;
+  });
+
+  /** Las temporadas y la vigente vienen en la página del tour. */
+  protected readonly tourDetalle = resource({
+    params: () => this.tourElegido()?.id,
+    loader: ({ params }) => this.api.publico(params),
+  });
+
+  protected readonly temporadas = computed(() =>
+    this.tourDetalle.hasValue() ? this.tourDetalle.value().temporadas : [],
+  );
+
+  /** La de la dirección si es de este tour; si no, la vigente; si no, la más nueva. */
+  protected readonly temporadaElegida = computed(() => {
+    if (!this.tourDetalle.hasValue()) return null;
+
+    const { temporadas, temporadaVigenteId } = this.tourDetalle.value();
+    const pedida = temporadas.find((una) => una.id === Number(this.temporada()));
+
+    return pedida?.id ?? temporadaVigenteId ?? temporadas[0]?.id ?? null;
+  });
+
+  /** La de la dirección, o nula: la tabla pide la más alta con filas. */
+  protected readonly categoriaElegida = computed(() => {
+    const pedida = Number(this.categoria());
+
+    return Number.isInteger(pedida) && pedida > 0 ? pedida : null;
+  });
+
+  /** La temporada es de un tour: cambiar de tour la suelta, y la categoría con ella. */
+  protected elegirTour(evento: Event): void {
+    this.irA({ tour: this.numeroDe(evento), temporada: null, categoria: null });
+  }
+
+  /** La categoría se suelta: la más alta con filas puede ser otra en otra temporada. */
+  protected elegirTemporada(evento: Event): void {
+    this.irA({
+      tour: this.tourElegido()?.id ?? null,
+      temporada: this.numeroDe(evento),
+      categoria: null,
+    });
+  }
+
+  /**
+   * **Los tres en la dirección**, también el tour y la temporada que salieron por
+   * omisión: con solo `?categoria=`, el enlace de hoy abriría otra temporada cuando cambie
+   * la vigente.
+   */
+  protected elegirCategoria(categoria: number): void {
+    this.irA({
+      tour: this.tourElegido()?.id ?? null,
+      temporada: this.temporadaElegida(),
+      categoria,
+    });
+  }
+
+  /** Cambia la dirección y no un estado suelto: el enlace copiado abre lo mismo. */
+  private irA(queryParams: Record<string, number | null>): void {
+    void this.router.navigate([], {
+      relativeTo: this.ruta,
+      queryParams,
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  private numeroDe(evento: Event): number {
+    return Number((evento.target as HTMLSelectElement).value);
+  }
 
   private readonly sesion = inject(Auth);
   protected readonly esSocio = computed(() => this.sesion.usuario()?.socioId != null);

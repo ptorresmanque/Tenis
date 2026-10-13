@@ -348,6 +348,9 @@ export class CascaronPublico {
     // El calendario de torneos es de las pocas cosas que un tercero mira antes de
     // asociarse: un club con torneos es un club con vida.
     { ruta: '/torneos', etiqueta: 'Torneos' },
+    // T195. Entre los torneos y el ranking: son las ligas a las que suman, y cada una
+    // tiene su tabla.
+    { ruta: '/tours', etiqueta: 'Tours' },
     // Al lado de los torneos porque es su consecuencia: quien mira el cuadro de un
     // torneo terminado quiere saber en qué lo dejó.
     { ruta: '/ranking', etiqueta: 'Ranking' },

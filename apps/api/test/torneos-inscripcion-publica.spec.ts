@@ -67,19 +67,9 @@ describe('POST /api/torneos/:id/inscripcion', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatAbierta' } },
-    });
   };
 
   const crearTorneo = async (extra: Record<string, unknown> = {}) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatAbierta ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
@@ -90,12 +80,10 @@ describe('POST /api/torneos/:id/inscripcion', () => {
         cuadros: {
           create: [
             {
-              categoriaId: categoria.id,
               categoriaJuegoId: await idDe('4ª'),
               cupo: 2,
             },
             {
-              categoriaId: categoria.id,
               categoriaJuegoId: await idDe('Honor'),
               cupo: 4,
             },

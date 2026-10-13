@@ -3,17 +3,19 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { hoyEnElClub } from '../src/comun/tiempo';
+import { sembrarCategoriasDeJuego } from '../src/arranque';
 import { EstadoTorneo } from '../src/generated/prisma/client';
+import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
- * T54: el ranking de torneos.
+ * El ranking de torneos: una tabla por tour, temporada y categoría de juego (T54, rehecho
+ * en T198; `SPEC-ranking.md` § Ranking de torneos).
  *
- * Se calcula al consultar y no se guarda, así que lo que hay que probar acá no es que
- * un proceso corra: es que **la tabla dice la verdad en el momento en que alguien la
- * mira**. Un torneo que caducó deja de sumar solo, y corregir un resultado se ve en la
- * consulta siguiente sin que nadie recalcule nada.
+ * Se calcula al consultar y no se guarda, así que lo que hay que probar no es que un
+ * proceso corra: es que **la tabla dice la verdad en el momento en que alguien la mira**.
+ * Corregir un resultado o editar la tabla de un nivel se ve en la consulta siguiente sin
+ * que nadie recalcule nada.
  */
 describe('GET /api/ranking/torneos', () => {
   let app: INestApplication;
@@ -24,23 +26,17 @@ describe('GET /api/ranking/torneos', () => {
   const DOMINIO = '@ranking.ejemplo.cl';
   const CONTRASENA = 'una-contrasena-larga-2026';
   const MARCA = 'Copa del ranking';
+  const TOUR = 'Tour del ranking';
   const APELLIDO = 'DeLaTabla';
   /**
-   * Uno por jugador: desde T64 el teléfono es único, porque es la llave con que se
-   * decide si dos inscripciones son la misma persona.
-   *
-   * Se siembran ya normalizados porque este archivo escribe con Prisma y no por la
-   * API, que es la que normaliza. Y la comprobación de fuga busca **esa misma forma**:
-   * buscar `+56 9 7777 0001` no encontraría nada ni aunque el número entero estuviera
-   * saliendo publicado.
+   * Uno por jugador: el teléfono es único. Se siembran ya normalizados porque este
+   * archivo escribe con Prisma, y la comprobación de fuga busca **esa misma forma**.
    */
   const GUARDADOS = [
     '56977770001',
     '56977770002',
     '56977770003',
     '56977770004',
-    // Del quinto al octavo son para T70: un torneo con dos cuadros necesita ocho
-    // personas, cuatro por cada uno.
     '56977770005',
     '56977770006',
     '56977770007',
@@ -56,174 +52,202 @@ describe('GET /api/ranking/torneos', () => {
   }
 
   interface Tabla {
-    desde: string;
+    temporada: {
+      id: number;
+      nombre: string;
+      fechaInicio: string;
+      fechaFin: string;
+    };
+    categorias: { id: number; nombre: string }[];
+    categoriaJuegoId: number | null;
     torneos: {
-      /** El del **cuadro** desde T70; el del torneo va aparte. */
+      /** El del **cuadro**; el del torneo va aparte. */
       id: number;
       torneoId: number;
       nombre: string;
       categoria: string;
-      valor: string;
+      nivel: string;
       fechaFin: string;
     }[];
     posiciones: Posicion[];
   }
 
-  const crearCuenta = async (sufijo: string, esAdmin = false) => {
-    await request(app.getHttpServer())
-      .post('/api/auth/registro')
-      .send({
-        email: `${sufijo}${DOMINIO}`,
-        contrasena: CONTRASENA,
-        nombre: `Persona ${sufijo}`,
-        apellido: APELLIDO,
+  const servidor = () => app.getHttpServer() as Parameters<typeof request>[0];
+
+  const tabla = async (
+    temporadaId: number,
+    categoriaJuegoId?: number,
+  ): Promise<Tabla> => {
+    const consulta = new URLSearchParams({ temporada: String(temporadaId) });
+    if (categoriaJuegoId !== undefined) {
+      consulta.set('categoria', String(categoriaJuegoId));
+    }
+
+    return (
+      await request(servidor())
+        .get(`/api/ranking/torneos?${consulta.toString()}`)
+        .expect(200)
+    ).body as Tabla;
+  };
+
+  const puntosDe = (respuesta: Tabla, jugadorId: number) =>
+    respuesta.posiciones.find((fila) => fila.jugadorId === jugadorId)?.puntos;
+
+  const categoria = async (nombre: string) =>
+    (
+      await prisma.categoriaJuego.findUniqueOrThrow({
+        where: { nombre },
+        select: { id: true },
       })
-      .expect(201);
+    ).id;
 
-    await prisma.usuario.update({
-      where: { email: `${sufijo}${DOMINIO}` },
-      data: { esAdmin },
+  /** Una escala con todas sus filas: la primera ronda también suma (D7). */
+  const escala = (campeon: number) => ({
+    puntosCampeon: campeon,
+    puntosFinalista: campeon * 0.6,
+    puntosSemifinal: campeon * 0.36,
+    puntosCuartos: campeon * 0.18,
+    puntosOctavos: 0,
+    puntosDieciseisavos: 0,
+    puntosTreintaidosavos: 0,
+  });
+
+  /**
+   * Un tour con sus temporadas, y en cada una los niveles 500 y 250. Devuelve los ids
+   * por temporada: `temporadas['2027'].nivel250`.
+   */
+  const unTour = async (sufijo: string, nombres = ['2027']) => {
+    const tour = await prisma.tour.create({
+      data: { nombre: `${TOUR} ${sufijo}`, descripcion: '' },
     });
+    const temporadas: Record<
+      string,
+      { id: number; nivel500: number; nivel250: number }
+    > = {};
+
+    for (const nombre of nombres) {
+      const temporada = await prisma.temporadaTour.create({
+        data: {
+          tourId: tour.id,
+          nombre,
+          fechaInicio: new Date(`${nombre}-03-01T00:00:00.000Z`),
+          fechaFin: new Date(`${nombre}-12-15T00:00:00.000Z`),
+          niveles: {
+            create: [
+              { nombre: '500', ...escala(500) },
+              { nombre: '250', ...escala(250) },
+            ],
+          },
+        },
+        include: { niveles: { orderBy: { puntosCampeon: 'desc' } } },
+      });
+
+      temporadas[nombre] = {
+        id: temporada.id,
+        nivel500: temporada.niveles[0].id,
+        nivel250: temporada.niveles[1].id,
+      };
+    }
+
+    return { tourId: tour.id, temporadas };
   };
 
-  const entrar = async (sufijo: string) => {
-    // El login responde 204: no devuelve cuerpo, deja la cookie.
-    const respuesta = await request(app.getHttpServer())
-      .post('/api/auth/login')
-      .send({ email: `${sufijo}${DOMINIO}`, contrasena: CONTRASENA })
-      .expect(204);
-
-    return (respuesta.headers['set-cookie'] as unknown as string[])[0];
-  };
-
-  const tabla = async (): Promise<Tabla> => {
-    const respuesta = await request(app.getHttpServer())
-      .get('/api/ranking/torneos')
-      .expect(200);
-
-    return respuesta.body as Tabla;
-  };
+  /** El cuadro de cuatro de siempre: dos semifinales y la final. */
+  const cuatro = (
+    campeon: number,
+    finalista: number,
+    otros: [number, number],
+  ) => [
+    {
+      ronda: 1,
+      posicion: 1,
+      jugadorAId: campeon,
+      jugadorBId: otros[0],
+      ganadorId: campeon,
+    },
+    {
+      ronda: 1,
+      posicion: 2,
+      jugadorAId: finalista,
+      jugadorBId: otros[1],
+      ganadorId: finalista,
+    },
+    {
+      ronda: 2,
+      posicion: 1,
+      jugadorAId: campeon,
+      jugadorBId: finalista,
+      ganadorId: campeon,
+    },
+  ];
 
   /**
-   * Una fecha civil a tantos días de hoy, hacia atrás. Negativo es hacia adelante.
-   *
-   * Aritmética en milisegundos sobre medianoches UTC: las fechas civiles del club
-   * viven en UTC, así que acá no hay horario de verano que corra un día.
+   * Un torneo escrito directo en la base, con sus asociaciones a tours. Sus cuadros los
+   * pone `unCuadro`. El camino largo —armar y cargar por el panel— tiene su propio test.
    */
-  const haceDias = (dias: number) =>
-    new Date(hoyEnElClub().getTime() - dias * 24 * 60 * 60 * 1000);
-
-  const hace = (semanas: number) => haceDias(semanas * 7);
+  const unTorneo = async (
+    tours: { tourId: number; nivelId: number }[],
+    estado: EstadoTorneo = EstadoTorneo.FINALIZADO,
+  ) =>
+    (
+      await prisma.torneo.create({
+        data: {
+          nombre: `${MARCA} ${Date.now()}-${Math.random()}`,
+          fechaInicio: new Date('2027-05-01T00:00:00.000Z'),
+          fechaFin: new Date('2027-05-03T00:00:00.000Z'),
+          cierreInscripcion: new Date('2027-04-25T00:00:00.000Z'),
+          estado,
+          tours: { create: tours },
+        },
+        select: { id: true },
+      })
+    ).id;
 
   /**
-   * Un torneo ya terminado, escrito directo en la base.
-   *
-   * El camino largo —armar el cuadro y cargar los resultados por el panel— se prueba
-   * en su propio archivo y en el primer test de acá. Para las preguntas de ventana y
-   * de estado alcanza con el torneo puesto, y así el test dice qué está probando.
+   * Un cuadro de cuatro ya jugado. **Hasta T199 el cuadro todavía pide la categoría de
+   * torneo** (A4), aunque el ranking ya no la lee: se le pone una cualquiera.
    */
-  const torneoTerminado = async (opciones: {
-    puntosCampeon: number;
-    fechaFin: Date;
-    campeon: number;
-    finalista: number;
-    otros: [number, number];
-    estado?: EstadoTorneo;
-  }) => {
-    const categoria = await prisma.categoriaTorneo.create({
+  const unCuadro = async (
+    torneoId: number,
+    categoriaJuego: string,
+    campeon: number,
+    finalista: number,
+    otros: [number, number],
+  ) => {
+    const cuadro = await prisma.torneoCategoria.create({
       data: {
-        nombre: `CatRank ${Date.now()}-${Math.random()}`,
-        puntosCampeon: opciones.puntosCampeon,
+        torneoId,
+        categoriaJuegoId: await categoria(categoriaJuego),
+        cupo: 4,
+        semillaSorteo: 1,
       },
       select: { id: true },
     });
 
-    // T62: los partidos cuelgan de un cuadro, no del torneo. **No se crean anidados**
-    // dentro del cuadro: `Partido` tiene dos claves foráneas obligatorias —`torneoId` y
-    // `torneoCategoriaId`— y un `create` anidado solo satisface una. Se crea el torneo
-    // con su cuadro y después los partidos con los dos ids escritos.
-    const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
-      orderBy: { orden: 'asc' },
-    });
-
-    const torneo = await prisma.torneo.create({
-      data: {
-        nombre: `${MARCA} ${Date.now()}-${Math.random()}`,
-        fechaInicio: opciones.fechaFin,
-        fechaFin: opciones.fechaFin,
-        cierreInscripcion: opciones.fechaFin,
-        estado: opciones.estado ?? EstadoTorneo.FINALIZADO,
-        cuadros: {
-          create: {
-            categoriaId: categoria.id,
-            categoriaJuegoId: categoriaJuego.id,
-            cupo: 4,
-            semillaSorteo: 1,
-          },
-        },
-      },
-      select: { id: true, cuadros: { select: { id: true } } },
-    });
-
-    const delCuadro = {
-      torneoId: torneo.id,
-      torneoCategoriaId: torneo.cuadros[0].id,
-    };
-
+    // Los partidos aparte y no anidados: `Partido` tiene dos claves obligatorias,
+    // `torneoId` y `torneoCategoriaId`, y un `create` anidado solo llena una.
     await prisma.partido.createMany({
-      data: [
-        {
-          ...delCuadro,
-          ronda: 1,
-          posicion: 1,
-          jugadorAId: opciones.campeon,
-          jugadorBId: opciones.otros[0],
-          ganadorId: opciones.campeon,
-        },
-        {
-          ...delCuadro,
-          ronda: 1,
-          posicion: 2,
-          jugadorAId: opciones.finalista,
-          jugadorBId: opciones.otros[1],
-          ganadorId: opciones.finalista,
-        },
-        {
-          ...delCuadro,
-          ronda: 2,
-          posicion: 1,
-          jugadorAId: opciones.campeon,
-          jugadorBId: opciones.finalista,
-          ganadorId: opciones.campeon,
-        },
-      ],
+      data: cuatro(campeon, finalista, otros).map((partido) => ({
+        ...partido,
+        torneoId,
+        torneoCategoriaId: cuadro.id,
+      })),
     });
 
-    return torneo.id;
+    return cuadro.id;
   };
 
-  /** Borra los torneos y deja los jugadores, para probar dos ventanas seguidas. */
-  const limpiarTorneos = async () => {
-    // **Acotado a los torneos de este archivo.** Jest corre los archivos en paralelo:
-    // un `deleteMany({})` acá le borra el cuadro a otra suite a mitad de un test, y
-    // eso salía como un fallo intermitente sin causa aparente en otro archivo.
+  const limpiar = async () => {
+    // Acotado a lo de este archivo: Jest corre los archivos en paralelo. Los torneos
+    // primero, porque sus asociaciones frenan el borrado de los tours.
     const mios = { torneo: { nombre: { startsWith: MARCA } } };
     await prisma.partido.deleteMany({ where: mios });
     await prisma.inscripcionTorneo.deleteMany({ where: mios });
     await prisma.torneo.deleteMany({
       where: { nombre: { startsWith: MARCA } },
     });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatRank' } },
-    });
-  };
-
-  const limpiar = async () => {
-    await limpiarTorneos();
+    await prisma.tour.deleteMany({ where: { nombre: { startsWith: TOUR } } });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.usuario.deleteMany({
-      where: { email: { endsWith: DOMINIO } },
-    });
   };
 
   beforeAll(async () => {
@@ -236,18 +260,37 @@ describe('GET /api/ranking/torneos', () => {
     await app.listen(0, '127.0.0.1');
 
     prisma = app.get(PrismaService);
+    await sembrarCategoriasDeJuego(prisma);
+
+    await prisma.usuario.deleteMany({ where: { email: `jefe${DOMINIO}` } });
+    await prisma.usuario.create({
+      data: {
+        email: `jefe${DOMINIO}`,
+        passwordHash: await hashear(CONTRASENA),
+        nombre: 'Jefe',
+        apellido: APELLIDO,
+        esAdmin: true,
+      },
+    });
+    const login = await request(servidor())
+      .post('/api/auth/login')
+      .send({ email: `jefe${DOMINIO}`, contrasena: CONTRASENA })
+      .expect(204);
+    cookieAdmin = (login.headers['set-cookie'] as unknown as string[])[0].split(
+      ';',
+    )[0];
   });
 
   afterAll(async () => {
     await limpiar();
+    await prisma.usuario.deleteMany({
+      where: { email: { endsWith: DOMINIO } },
+    });
     await app.close();
   });
 
   beforeEach(async () => {
     await limpiar();
-
-    await crearCuenta('jefe', true);
-    cookieAdmin = await entrar('jefe');
 
     // Todos llevan teléfono: es lo que la tabla no puede publicar.
     jugadores = [];
@@ -269,474 +312,329 @@ describe('GET /api/ranking/torneos', () => {
     }
   });
 
-  it('**la tabla se ve sin cuenta**', async () => {
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hoyEnElClub(),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
+  /** Un torneo de 4ª en el nivel 250 de la temporada 2027 de un tour. */
+  const elDeSiempre = async () => {
+    const tour = await unTour('A');
+    const temporada = tour.temporadas['2027'];
+    const torneoId = await unTorneo([
+      { tourId: tour.tourId, nivelId: temporada.nivel250 },
+    ]);
+    const cuadroId = await unCuadro(
+      torneoId,
+      '4ª',
+      jugadores[0],
+      jugadores[1],
+      [jugadores[2], jugadores[3]],
+    );
+
+    return { tour, temporada, torneoId, cuadroId };
+  };
+
+  it('**la tabla se ve sin cuenta**, con la escala del nivel y la primera ronda según la tabla (D7)', async () => {
+    const { temporada } = await elDeSiempre();
+
+    const { posiciones } = await tabla(temporada.id, await categoria('4ª'));
+
+    expect(
+      posiciones.map((fila) => [fila.puesto, fila.nombre, fila.puntos]),
+    ).toEqual([
+      [1, `Ana ${APELLIDO}`, 250],
+      [2, `Beto ${APELLIDO}`, 150],
+      // Perdieron entrando, en un cuadro de 4: la fila de semifinal.
+      [3, `Cata ${APELLIDO}`, 90],
+      [3, `Dani ${APELLIDO}`, 90],
+    ]);
+  });
+
+  it('**con la fila en cero, quien perdió entrando no aparece**', async () => {
+    const { temporada } = await elDeSiempre();
+    await prisma.nivelTemporada.update({
+      where: { id: temporada.nivel250 },
+      data: { puntosSemifinal: 0 },
     });
 
-    const { posiciones } = await tabla();
+    const { posiciones } = await tabla(temporada.id, await categoria('4ª'));
 
-    expect(posiciones[0].nombre).toBe(`Ana ${APELLIDO}`);
-    expect(posiciones[0].puntos).toBe(250);
+    expect(posiciones.map((fila) => fila.jugadorId)).toEqual([
+      jugadores[0],
+      jugadores[1],
+    ]);
   });
 
   it('**el campeón queda arriba en cuanto se carga la final, sin recalcular nada**', async () => {
-    // Este sí va por el camino largo: el admin arma el cuadro y carga los tres
-    // resultados por el panel. Es el criterio 1 del spec, y el único lugar donde se
-    // comprueba que el ranking lee lo que el panel escribió.
-    const categoria = await prisma.categoriaTorneo.create({
-      data: { nombre: `CatRank ${Date.now()}`, puntosCampeon: 250 },
-      select: { id: true },
-    });
-
-    const categoriaJuego = await prisma.categoriaJuego.findFirstOrThrow({
-      orderBy: { orden: 'asc' },
-    });
-
-    const torneo = await prisma.torneo.create({
-      data: {
-        nombre: `${MARCA} en vivo`,
-        fechaInicio: hoyEnElClub(),
-        fechaFin: hoyEnElClub(),
-        cierreInscripcion: hoyEnElClub(),
-        cuadros: {
-          create: {
-            categoriaId: categoria.id,
-            categoriaJuegoId: categoriaJuego.id,
-            cupo: 4,
-          },
+    // Por el camino largo: el admin arma el cuadro y carga los resultados por el
+    // panel. Es el único lugar donde se comprueba que el ranking lee lo que el panel
+    // escribió.
+    const tour = await unTour('A');
+    const temporada = tour.temporadas['2027'];
+    const torneoId = await unTorneo(
+      [{ tourId: tour.tourId, nivelId: temporada.nivel250 }],
+      EstadoTorneo.INSCRIPCION,
+    );
+    const cuadroId = (
+      await prisma.torneoCategoria.create({
+        data: {
+          torneoId,
+          categoriaJuegoId: await categoria('4ª'),
+          cupo: 4,
         },
-      },
-      select: { id: true, cuadros: { select: { id: true } } },
-    });
-    const cuadroId = torneo.cuadros[0].id;
+      })
+    ).id;
 
-    for (const jugadorId of jugadores) {
-      await request(app.getHttpServer())
+    for (const jugadorId of jugadores.slice(0, 4)) {
+      await request(servidor())
         .post(`/api/admin/cuadros/${cuadroId}/inscripciones`)
         .set('Cookie', cookieAdmin)
         .send({ jugadorId })
         .expect(201);
     }
-
-    await request(app.getHttpServer())
+    await request(servidor())
       .post(`/api/admin/cuadros/${cuadroId}/armar`)
       .set('Cookie', cookieAdmin)
       .expect(201);
 
-    // Todavía no hay resultados: nadie puntúa.
-    expect((await tabla()).posiciones).toHaveLength(0);
+    // Todavía no hay resultados: el torneo no terminó y nadie suma.
+    expect((await tabla(temporada.id)).posiciones).toHaveLength(0);
 
-    const cuadro = await request(app.getHttpServer())
-      .get(`/api/admin/cuadros/${cuadroId}`)
-      .set('Cookie', cookieAdmin)
-      .expect(200);
-    const partidos = (
-      cuadro.body as {
-        partidos: { id: number; ronda: number; jugadorAId: number | null }[];
-      }
-    ).partidos;
-
-    // Las dos semifinales y después la final, que es la que cierra el torneo.
-    for (const partido of partidos.filter((p) => p.ronda === 1)) {
-      await request(app.getHttpServer())
-        .post(
-          `/api/admin/torneos/${torneo.id}/partidos/${partido.id}/resultado`,
-        )
+    const partidos = async () =>
+      (
+        (
+          await request(servidor())
+            .get(`/api/admin/cuadros/${cuadroId}`)
+            .set('Cookie', cookieAdmin)
+            .expect(200)
+        ).body as {
+          partidos: { id: number; ronda: number; jugadorAId: number }[];
+        }
+      ).partidos;
+    const cargar = (partido: { id: number; jugadorAId: number }) =>
+      request(servidor())
+        .post(`/api/admin/torneos/${torneoId}/partidos/${partido.id}/resultado`)
         .set('Cookie', cookieAdmin)
         .send({ ganadorId: partido.jugadorAId, marcador: '6-4 6-2' })
         .expect(200);
+
+    for (const semi of (await partidos()).filter((p) => p.ronda === 1)) {
+      await cargar(semi);
+    }
+    const final = (await partidos()).find((p) => p.ronda === 2)!;
+    await cargar(final);
+
+    const { posiciones } = await tabla(temporada.id);
+
+    expect(posiciones[0]).toMatchObject({
+      jugadorId: final.jugadorAId,
+      puntos: 250,
+      puesto: 1,
+    });
+    expect(posiciones.map((fila) => fila.puntos)).toEqual([250, 150, 90, 90]);
+  });
+
+  it('**un torneo que es 500 en un tour y 250 en otro da 500 y 250 al mismo campeón**', async () => {
+    const fedal = await unTour('FEDAL');
+    const senior = await unTour('Senior');
+    const torneoId = await unTorneo([
+      { tourId: fedal.tourId, nivelId: fedal.temporadas['2027'].nivel500 },
+      { tourId: senior.tourId, nivelId: senior.temporadas['2027'].nivel250 },
+    ]);
+    await unCuadro(torneoId, '4ª', jugadores[0], jugadores[1], [
+      jugadores[2],
+      jugadores[3],
+    ]);
+    const cuarta = await categoria('4ª');
+
+    const enFedal = await tabla(fedal.temporadas['2027'].id, cuarta);
+    const enSenior = await tabla(senior.temporadas['2027'].id, cuarta);
+
+    expect(puntosDe(enFedal, jugadores[0])).toBe(500);
+    expect(puntosDe(enSenior, jugadores[0])).toBe(250);
+  });
+
+  it('**4ª y Honor van a tablas distintas**, y sin categoría se sirve la más alta', async () => {
+    const tour = await unTour('A');
+    const temporada = tour.temporadas['2027'];
+    const torneoId = await unTorneo([
+      { tourId: tour.tourId, nivelId: temporada.nivel250 },
+    ]);
+    await unCuadro(torneoId, 'Honor', jugadores[0], jugadores[1], [
+      jugadores[2],
+      jugadores[3],
+    ]);
+    await unCuadro(torneoId, '4ª', jugadores[4], jugadores[5], [
+      jugadores[6],
+      jugadores[7],
+    ]);
+    const honor = await categoria('Honor');
+    const cuarta = await categoria('4ª');
+
+    const deHonor = await tabla(temporada.id, honor);
+    const deCuarta = await tabla(temporada.id, cuarta);
+    const porOmision = await tabla(temporada.id);
+
+    expect(deHonor.posiciones.map((fila) => fila.jugadorId)).not.toContain(
+      jugadores[4],
+    );
+    expect(puntosDe(deCuarta, jugadores[4])).toBe(250);
+    expect(puntosDe(deCuarta, jugadores[0])).toBeUndefined();
+    // Las que tienen filas, de la más alta a la más baja: llenan el selector.
+    expect(deHonor.categorias).toEqual([
+      { id: honor, nombre: 'Honor' },
+      { id: cuarta, nombre: '4ª' },
+    ]);
+    expect(porOmision.categoriaJuegoId).toBe(honor);
+    expect(puntosDe(porOmision, jugadores[0])).toBe(250);
+  });
+
+  it('**un torneo de 2027 no suma en 2028**: cada temporada empieza de cero', async () => {
+    const tour = await unTour('A', ['2027', '2028']);
+    const torneoId = await unTorneo([
+      { tourId: tour.tourId, nivelId: tour.temporadas['2027'].nivel250 },
+    ]);
+    await unCuadro(torneoId, '4ª', jugadores[0], jugadores[1], [
+      jugadores[2],
+      jugadores[3],
+    ]);
+
+    const de2028 = await tabla(tour.temporadas['2028'].id);
+
+    expect(de2028.posiciones).toEqual([]);
+    expect(de2028.categorias).toEqual([]);
+    expect((await tabla(tour.temporadas['2027'].id)).posiciones).toHaveLength(
+      4,
+    );
+  });
+
+  it('un torneo que no terminó, o que se canceló, no reparte puntos', async () => {
+    const tour = await unTour('A');
+    const temporada = tour.temporadas['2027'];
+
+    for (const estado of [EstadoTorneo.EN_CURSO, EstadoTorneo.CANCELADO]) {
+      const torneoId = await unTorneo(
+        [{ tourId: tour.tourId, nivelId: temporada.nivel250 }],
+        estado,
+      );
+      await unCuadro(torneoId, '4ª', jugadores[0], jugadores[1], [
+        jugadores[2],
+        jugadores[3],
+      ]);
     }
 
-    const final = (
-      await request(app.getHttpServer())
-        .get(`/api/admin/cuadros/${cuadroId}`)
-        .set('Cookie', cookieAdmin)
-        .expect(200)
-    ).body as { partidos: { id: number; ronda: number; jugadorAId: number }[] };
-    const partidoFinal = final.partidos.find((p) => p.ronda === 2)!;
-
-    await request(app.getHttpServer())
-      .post(
-        `/api/admin/torneos/${torneo.id}/partidos/${partidoFinal.id}/resultado`,
-      )
-      .set('Cookie', cookieAdmin)
-      .send({ ganadorId: partidoFinal.jugadorAId, marcador: '6-4 6-2' })
-      .expect(200);
-
-    const { posiciones } = await tabla();
-
-    expect(posiciones[0].jugadorId).toBe(partidoFinal.jugadorAId);
-    expect(posiciones[0].puntos).toBe(250);
-    expect(posiciones[0].puesto).toBe(1);
-    // El finalista, el 60 %; los dos que perdieron entrando no aparecen.
-    expect(posiciones[1].puntos).toBe(150);
-    expect(posiciones).toHaveLength(2);
-  });
-
-  it('**un torneo que terminó hace 53 semanas ya no suma**', async () => {
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hace(53),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-    });
-
-    expect((await tabla()).posiciones).toHaveLength(0);
-  });
-
-  it('y uno de hace 51 semanas todavía cuenta', async () => {
-    // El par con el anterior: sin este, un corte que dejara todo afuera pasaría.
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hace(51),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-    });
-
-    expect((await tabla()).posiciones).toHaveLength(2);
-  });
-
-  it('**el borde está al día: 364 entra y 365 no**', async () => {
-    // Los de 51 y 53 semanas dejan pasar un corte corrido tres días. La ventana son
-    // 52 semanas exactas, y el día que se cae un torneo del ranking es una llamada
-    // al club: tiene que ser el día que corresponde y no uno cerca.
-    const enElBorde = async (dias: number) => {
-      await limpiarTorneos();
-      await torneoTerminado({
-        puntosCampeon: 250,
-        fechaFin: haceDias(dias),
-        campeon: jugadores[0],
-        finalista: jugadores[1],
-        otros: [jugadores[2], jugadores[3]],
-      });
-
-      return (await tabla()).posiciones.length;
-    };
-
-    expect(await enElBorde(364)).toBe(2);
-    expect(await enElBorde(365)).toBe(0);
-  });
-
-  it('uno que se jugó antes de su fecha suma igual', async () => {
-    // El admin puso el torneo para el mes que viene y se terminó de jugar antes. Los
-    // puntos ya se repartieron: esconderlos hasta que llegue el día sería negar un
-    // torneo que el club vio jugarse. Por eso la ventana tiene un solo borde.
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: haceDias(-21),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-    });
-
-    expect((await tabla()).posiciones).toHaveLength(2);
-  });
-
-  it('un torneo que todavía no termina no reparte puntos', async () => {
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hoyEnElClub(),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-      estado: EstadoTorneo.EN_CURSO,
-    });
-
-    expect((await tabla()).posiciones).toHaveLength(0);
-  });
-
-  it('un torneo cancelado tampoco, aunque tenga resultados cargados', async () => {
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hoyEnElClub(),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-      estado: EstadoTorneo.CANCELADO,
-    });
-
-    expect((await tabla()).posiciones).toHaveLength(0);
-  });
-
-  it('suma los torneos de la ventana, no se queda con el último', async () => {
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hace(30),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-    });
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hace(2),
-      campeon: jugadores[1],
-      finalista: jugadores[0],
-      otros: [jugadores[2], jugadores[3]],
-    });
-
-    const { posiciones } = await tabla();
-
-    // 250 + 150 cada uno, y los dos en el puesto 1.
-    expect(posiciones.map((fila) => [fila.puesto, fila.puntos])).toEqual([
-      [1, 400],
-      [1, 400],
-    ]);
+    expect((await tabla(temporada.id)).posiciones).toEqual([]);
   });
 
   it('**corregir una semifinal cambia la tabla en la consulta siguiente**', async () => {
-    const torneoId = await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hoyEnElClub(),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-    });
+    const { temporada, torneoId } = await elDeSiempre();
+    const cuarta = await categoria('4ª');
+    expect(puntosDe(await tabla(temporada.id, cuarta), jugadores[1])).toBe(150);
 
-    expect((await tabla()).posiciones[1].jugadorId).toBe(jugadores[1]);
-
-    // La semifinal la había ganado Beto; en realidad la ganó Dani, que pasa a ser el
-    // finalista. Deshacer la final es parte de corregir, y lo hace `resultados`.
-    const semi = await prisma.partido.findFirst({
+    // La semifinal la había ganado Beto; en realidad la ganó Dani. Corregirla deshace
+    // la final, y el torneo deja de estar terminado: sale de la tabla.
+    const semi = await prisma.partido.findFirstOrThrow({
       where: { torneoId, ronda: 1, posicion: 2 },
       select: { id: true },
     });
-
-    await request(app.getHttpServer())
-      .post(`/api/admin/torneos/${torneoId}/partidos/${semi!.id}/resultado`)
+    await request(servidor())
+      .post(`/api/admin/torneos/${torneoId}/partidos/${semi.id}/resultado`)
       .set('Cookie', cookieAdmin)
       .send({ ganadorId: jugadores[3] })
       .expect(200);
 
-    const { posiciones } = await tabla();
+    expect((await tabla(temporada.id, cuarta)).posiciones).toEqual([]);
 
-    // Con la final deshecha no hay campeón: quedan los dos finalistas de su semi,
-    // que alcanzaron la ronda 1 y no puntúan. Lo que importa es que **cambió**.
-    expect(posiciones.some((fila) => fila.jugadorId === jugadores[1])).toBe(
-      false,
-    );
+    // Se vuelve a jugar la final, y Dani es el finalista.
+    const final = await prisma.partido.findFirstOrThrow({
+      where: { torneoId, ronda: 2 },
+      select: { id: true },
+    });
+    await request(servidor())
+      .post(`/api/admin/torneos/${torneoId}/partidos/${final.id}/resultado`)
+      .set('Cookie', cookieAdmin)
+      .send({ ganadorId: jugadores[0] })
+      .expect(200);
+
+    const corregida = await tabla(temporada.id, cuarta);
+    expect(puntosDe(corregida, jugadores[3])).toBe(150);
+    expect(puntosDe(corregida, jugadores[1])).toBe(90);
   });
 
-  it('dice desde cuándo está contando y qué torneos cuenta', async () => {
-    // El ranking cambia sin que pase nada: un lunes cualquiera alguien baja tres
-    // puestos porque caducó el torneo del año pasado. Si la pantalla no dice el
-    // corte ni los torneos, el club recibe la llamada.
-    const torneoId = await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hace(10),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
+  it('**editar la tabla del nivel cambia la consulta siguiente**', async () => {
+    const { temporada } = await elDeSiempre();
+
+    await request(servidor())
+      .patch(`/api/admin/niveles/${temporada.nivel250}`)
+      .set('Cookie', cookieAdmin)
+      .send({
+        tabla: {
+          campeon: 300,
+          finalista: 180,
+          semifinal: 0,
+          cuartos: 0,
+          octavos: 0,
+          dieciseisavos: 0,
+          treintaidosavos: 0,
+        },
+      })
+      .expect(200);
+
+    const { posiciones } = await tabla(temporada.id);
+
+    expect(posiciones.map((fila) => fila.puntos)).toEqual([300, 180]);
+  });
+
+  it('**dice qué temporada es y qué cuadros cuenta**, cada uno con su nivel', async () => {
+    const { temporada, torneoId, cuadroId } = await elDeSiempre();
+
+    const respuesta = await tabla(temporada.id);
+
+    expect(respuesta.temporada).toEqual({
+      id: temporada.id,
+      nombre: '2027',
+      fechaInicio: '2027-03-01',
+      fechaFin: '2027-12-15',
     });
-
-    const respuesta = await tabla();
-
-    // Contra los mismos 364 días literales que usa el test del borde, y no contra la
-    // fórmula del servicio escrita otra vez acá: así el corte que se **anuncia** y el
-    // que se **aplica** no pueden separarse sin que caiga uno de los dos.
-    expect(respuesta.desde).toBe(haceDias(364).toISOString().slice(0, 10));
-    // `torneoId` y no `id`: desde T70 lo que la tabla cuenta son **cuadros**, así que
-    // `id` es el del cuadro y el del torneo viaja aparte.
-    expect(respuesta.torneos.map((t) => t.torneoId)).toEqual([torneoId]);
-    expect(respuesta.torneos[0].fechaFin).toBe(
-      hace(10).toISOString().slice(0, 10),
-    );
+    expect(respuesta.torneos).toEqual([
+      {
+        id: cuadroId,
+        torneoId,
+        nombre: expect.stringContaining(MARCA) as string,
+        categoria: '4ª',
+        nivel: '250',
+        fechaFin: '2027-05-03',
+      },
+    ]);
   });
 
   it('**la tabla no publica el teléfono de nadie**', async () => {
-    // Se comprueba sobre el JSON entero: un campo nuevo que lo filtre entra sin que
-    // nadie se acuerde de actualizar este test.
-    await torneoTerminado({
-      puntosCampeon: 250,
-      fechaFin: hoyEnElClub(),
-      campeon: jugadores[0],
-      finalista: jugadores[1],
-      otros: [jugadores[2], jugadores[3]],
-    });
+    // Sobre el JSON entero: un campo nuevo que lo filtre entra sin que nadie se
+    // acuerde de actualizar este test.
+    const { temporada } = await elDeSiempre();
 
-    const crudo = JSON.stringify(await tabla());
+    const crudo = JSON.stringify(await tabla(temporada.id));
 
     for (const guardado of GUARDADOS) expect(crudo).not.toContain(guardado);
     expect(crudo).not.toContain('telefono');
   });
 
   it('sin torneos terminados la tabla viene vacía, no rota', async () => {
-    const respuesta = await tabla();
+    const tour = await unTour('A');
 
-    expect(respuesta.posiciones).toEqual([]);
-    expect(respuesta.torneos).toEqual([]);
+    const respuesta = await tabla(tour.temporadas['2027'].id);
+
+    expect(respuesta).toMatchObject({
+      categorias: [],
+      categoriaJuegoId: null,
+      torneos: [],
+      posiciones: [],
+    });
   });
 
-  /**
-   * T70. Un torneo, dos cuadros que valen distinto.
-   *
-   * Es el criterio obligatorio: la Copa corre Honor y 4ª el mismo fin de semana, y el
-   * club decidió que ganar Honor vale el doble. Antes de T70 el valor colgaba del
-   * torneo y los dos campeones sumaban lo mismo.
-   */
-  describe('un torneo con varios cuadros (T70)', () => {
-    /** Un cuadro de cuatro dentro de un torneo que ya existe. */
-    const unCuadro = async (
-      torneoId: number,
-      opciones: {
-        puntosCampeon: number;
-        categoriaJuego: string;
-        campeon: number;
-        finalista: number;
-        otros: [number, number];
-      },
-    ) => {
-      const valor = await prisma.categoriaTorneo.create({
-        data: {
-          nombre: `CatRank ${Date.now()}-${Math.random()}`,
-          puntosCampeon: opciones.puntosCampeon,
-        },
-        select: { id: true },
-      });
-
-      const nivel = await prisma.categoriaJuego.findUniqueOrThrow({
-        where: { nombre: opciones.categoriaJuego },
-        select: { id: true },
-      });
-
-      const cuadro = await prisma.torneoCategoria.create({
-        data: {
-          torneoId,
-          categoriaId: valor.id,
-          categoriaJuegoId: nivel.id,
-          cupo: 4,
-          semillaSorteo: 1,
-        },
-        select: { id: true },
-      });
-
-      const suyo = { torneoId, torneoCategoriaId: cuadro.id };
-
-      await prisma.partido.createMany({
-        data: [
-          {
-            ...suyo,
-            ronda: 1,
-            posicion: 1,
-            jugadorAId: opciones.campeon,
-            jugadorBId: opciones.otros[0],
-            ganadorId: opciones.campeon,
-          },
-          {
-            ...suyo,
-            ronda: 1,
-            posicion: 2,
-            jugadorAId: opciones.finalista,
-            jugadorBId: opciones.otros[1],
-            ganadorId: opciones.finalista,
-          },
-          {
-            ...suyo,
-            ronda: 2,
-            posicion: 1,
-            jugadorAId: opciones.campeon,
-            jugadorBId: opciones.finalista,
-            ganadorId: opciones.campeon,
-          },
-        ],
-      });
-
-      return cuadro.id;
-    };
-
-    /** Un torneo pelado: sus cuadros los pone cada test. */
-    const unTorneoVacio = async () =>
-      (
-        await prisma.torneo.create({
-          data: {
-            nombre: `${MARCA} dos cuadros ${Date.now()}-${Math.random()}`,
-            fechaInicio: hace(10),
-            fechaFin: hace(10),
-            cierreInscripcion: hace(10),
-            estado: EstadoTorneo.FINALIZADO,
-          },
-          select: { id: true },
-        })
-      ).id;
-
-    it('**el campeón de Honor suma más que el de 4ª, en el mismo torneo**', async () => {
-      const torneoId = await unTorneoVacio();
-
-      await unCuadro(torneoId, {
-        puntosCampeon: 500,
-        categoriaJuego: 'Honor',
-        campeon: jugadores[0],
-        finalista: jugadores[1],
-        otros: [jugadores[2], jugadores[3]],
-      });
-      await unCuadro(torneoId, {
-        puntosCampeon: 250,
-        categoriaJuego: '4ª',
-        campeon: jugadores[4],
-        finalista: jugadores[5],
-        otros: [jugadores[6], jugadores[7]],
-      });
-
-      const respuesta = await tabla();
-      const puntosDe = (jugadorId: number) =>
-        respuesta.posiciones.find((f) => f.jugadorId === jugadorId)?.puntos;
-
-      expect(puntosDe(jugadores[0])).toBe(500);
-      expect(puntosDe(jugadores[4])).toBe(250);
-      // Y los dos son campeones, no uno solo: el torneo reparte dos juegos de puntos.
-      expect(respuesta.torneos).toHaveLength(2);
-    });
-
-    it('**el que perdió la primera ronda de cualquiera de los dos no aparece**', async () => {
-      const torneoId = await unTorneoVacio();
-
-      await unCuadro(torneoId, {
-        puntosCampeon: 500,
-        categoriaJuego: 'Honor',
-        campeon: jugadores[0],
-        finalista: jugadores[1],
-        otros: [jugadores[2], jugadores[3]],
-      });
-      await unCuadro(torneoId, {
-        puntosCampeon: 250,
-        categoriaJuego: '4ª',
-        campeon: jugadores[4],
-        finalista: jugadores[5],
-        otros: [jugadores[6], jugadores[7]],
-      });
-
-      const respuesta = await tabla();
-      const estan = respuesta.posiciones.map((f) => f.jugadorId);
-
-      // Perder en primera ronda da cero, y con cero no se entra a la tabla.
-      expect(estan).not.toContain(jugadores[2]);
-      expect(estan).not.toContain(jugadores[6]);
-    });
-
-    it('**los dos cuadros se nombran con su nivel y su valor**', async () => {
-      // Quien mira la tabla tiene que poder ver de cuál de los tres cuadros salieron
-      // sus puntos: "Copa · Honor · Máster 500" y no solo "Copa".
-      const torneoId = await unTorneoVacio();
-
-      await unCuadro(torneoId, {
-        puntosCampeon: 500,
-        categoriaJuego: 'Honor',
-        campeon: jugadores[0],
-        finalista: jugadores[1],
-        otros: [jugadores[2], jugadores[3]],
-      });
-
-      const respuesta = await tabla();
-
-      expect(respuesta.torneos[0].categoria).toBe('Honor');
-      expect(respuesta.torneos[0].valor).toContain('CatRank');
-      expect(respuesta.torneos[0].torneoId).toBe(torneoId);
-    });
+  it('sin temporada responde 400; una que no existe, 404', async () => {
+    await request(servidor()).get('/api/ranking/torneos').expect(400);
+    await request(servidor())
+      .get('/api/ranking/torneos?temporada=uno')
+      .expect(400);
+    await request(servidor())
+      .get('/api/ranking/torneos?temporada=999999')
+      .expect(404);
   });
 });

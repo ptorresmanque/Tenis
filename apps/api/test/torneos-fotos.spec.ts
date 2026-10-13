@@ -94,20 +94,10 @@ describe('Fotos del torneo', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatFoto' } },
-    });
   };
 
   /** Un cuadro de dos, para tener un partido de verdad al que colgarle una foto. */
   const unTorneoJugado = async () => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatFoto ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
@@ -118,7 +108,6 @@ describe('Fotos del torneo', () => {
           create: {
             categoriaJuegoId: cuartaId,
             cupo: 2,
-            categoriaId: categoria.id,
           },
         },
       },

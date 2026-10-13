@@ -1,3 +1,5 @@
+import type { TablaDePuntos } from '../tours/tabla';
+
 /**
  * El motor del ranking de torneos: puntos por la ronda alcanzada.
  *
@@ -20,14 +22,12 @@ export interface PartidoJugado {
 /**
  * Un **cuadro** terminado, con lo que hace falta para repartir sus puntos.
  *
- * La unidad es el cuadro desde T70: una Copa que corre 5ª, 4ª y Honor entrega tres de
- * éstos, cada uno con su `puntosCampeon`. El motor no se enteró del cambio —siempre
- * contó rondas sobre una lista de partidos con una final—; lo que cambió es quién le
- * pasa las unidades.
+ * La unidad es el cuadro desde T70, y desde T198 cada uno trae **la tabla del nivel**
+ * con que su torneo entró al tour. El motor siempre contó rondas sobre una lista de
+ * partidos con una final; lo que cambia es de dónde sale cuánto vale cada ronda.
  */
 export interface CuadroTerminado {
-  /** De la categoría del cuadro. Es la única perilla configurable de toda la escala. */
-  puntosCampeon: number;
+  tabla: TablaDePuntos;
   partidos: PartidoJugado[];
 }
 
@@ -47,15 +47,17 @@ export interface FilaDeRanking {
 }
 
 /**
- * Qué fracción de los puntos del campeón corresponde a cada ronda, contando desde la
- * final hacia atrás: finalista, semifinal, cuartos, octavos, dieciseisavos.
- *
- * **Del diseño y no configurables.** Lo configurable es `puntosCampeon` por categoría:
- * con una sola perilla el club decide que su Máster vale el doble que un torneo
- * cualquiera, y no puede desordenar la escala dejando la semifinal por encima de la
- * final.
+ * Las filas de la tabla después del campeón, desde la final hacia atrás: perder la final
+ * es la fila del finalista, perder la ronda anterior la de semifinal, y así.
  */
-const FRACCIONES = [0.6, 0.36, 0.18, 0.09, 0.045];
+const FILAS: (keyof TablaDePuntos)[] = [
+  'finalista',
+  'semifinal',
+  'cuartos',
+  'octavos',
+  'dieciseisavos',
+  'treintaidosavos',
+];
 
 /**
  * Los puntos de un jugador en un cuadro.
@@ -64,27 +66,25 @@ const FRACCIONES = [0.6, 0.36, 0.18, 0.09, 0.045];
  *                       ninguno.
  * @param rondas         Cuántas rondas tuvo el cuadro; la final es la última.
  * @param esCampeon      Si ganó la final.
- * @param puntosCampeon  Los de la categoría del cuadro.
+ * @param tabla          La del nivel con que el torneo entró al tour.
  *
- * **Perder en primera ronda da cero**, se llame esa ronda como se llame: en un cuadro
- * de cuatro la primera ronda es la semifinal y tampoco puntúa. Participar no es un
- * logro que ordene una tabla, y darle puntos hace que quien se inscribe en todo suba
- * sin ganar nunca.
+ * **La tabla manda también en la primera ronda** (D7): en un cuadro de 8, quien pierde
+ * en cuartos suma la fila de cuartos. Si el club no quiere premiar la participación,
+ * deja esa fila en cero. Una ronda más lejos que la última fila —la primera de un cuadro
+ * de 128— da cero.
  */
 export function puntosDe(
   rondaAlcanzada: number,
   rondas: number,
   esCampeon: boolean,
-  puntosCampeon: number,
+  tabla: TablaDePuntos,
 ): number {
-  if (esCampeon) return puntosCampeon;
-  if (rondaAlcanzada <= 1) return 0;
+  if (esCampeon) return tabla.campeon;
+  if (rondaAlcanzada < 1) return 0;
 
-  const fraccion = FRACCIONES[rondas - rondaAlcanzada] ?? 0;
+  const fila = FILAS[rondas - rondaAlcanzada];
 
-  // Al final y de una vez: 9 % de 250 son 22,5, y un puntaje con coma no se muestra
-  // ni se suma bien.
-  return Math.round(fraccion * puntosCampeon);
+  return fila ? tabla[fila] : 0;
 }
 
 /**
@@ -135,7 +135,7 @@ export function puntosDelCuadro(cuadro: CuadroTerminado): Map<number, number> {
   return new Map(
     [...alcanzada].map(([jugadorId, ronda]) => [
       jugadorId,
-      puntosDe(ronda, rondas, jugadorId === campeonId, cuadro.puntosCampeon),
+      puntosDe(ronda, rondas, jugadorId === campeonId, cuadro.tabla),
     ]),
   );
 }
@@ -144,20 +144,20 @@ export function puntosDelCuadro(cuadro: CuadroTerminado): Map<number, number> {
 interface Acumulado {
   puntos: number;
   torneos: number;
-  /** La categoría más alta que jugó, para el segundo desempate. */
-  mejorCategoria: number;
+  /** Los puntos de campeón del nivel más alto que jugó, para el segundo desempate. */
+  mejorNivel: number;
 }
 
 /**
  * La tabla completa: suma los torneos, ordena y reparte los puestos.
  *
  * **Se calcula al consultar y no se guarda.** Una tabla materializada hay que
- * recalcularla cuando se corrige un resultado, cuando caduca un torneo y cuando se
- * enlaza un jugador duplicado; el día que uno de esos tres caminos se olvide, la tabla
- * queda mintiendo sin que nada falle. Con los torneos de un club esto son
- * milisegundos.
+ * recalcularla al corregir un resultado, al editar la tabla de un nivel, al asociar o
+ * quitar un torneo y al enlazar un jugador duplicado; el día que uno de esos caminos se
+ * olvide, la tabla queda mintiendo sin que nada falle. Con los torneos de un club esto
+ * son milisegundos.
  *
- * @param cuadros Los que caen dentro de la ventana. Elegirlos es de quien consulta.
+ * @param cuadros Los de una temporada y una categoría. Elegirlos es de quien consulta.
  * @param nombres Cómo se llama cada jugador, para mostrar y para el último desempate.
  */
 export function tablaDeRanking(
@@ -175,13 +175,13 @@ export function tablaDeRanking(
       const suyo = acumulado.get(jugadorId) ?? {
         puntos: 0,
         torneos: 0,
-        mejorCategoria: 0,
+        mejorNivel: 0,
       };
 
       acumulado.set(jugadorId, {
         puntos: suyo.puntos + puntos,
         torneos: suyo.torneos + 1,
-        mejorCategoria: Math.max(suyo.mejorCategoria, cuadro.puntosCampeon),
+        mejorNivel: Math.max(suyo.mejorNivel, cuadro.tabla.campeon),
       });
     }
   }
@@ -193,8 +193,8 @@ export function tablaDeRanking(
     .sort(([unId, una], [otroId, otra]) => {
       if (una.puntos !== otra.puntos) return otra.puntos - una.puntos;
       if (una.torneos !== otra.torneos) return una.torneos - otra.torneos;
-      if (una.mejorCategoria !== otra.mejorCategoria) {
-        return otra.mejorCategoria - una.mejorCategoria;
+      if (una.mejorNivel !== otra.mejorNivel) {
+        return otra.mejorNivel - una.mejorNivel;
       }
 
       return nombreDe(unId).localeCompare(nombreDe(otroId), 'es');

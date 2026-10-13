@@ -23,22 +23,18 @@ export interface CambioDeJugador {
   activo?: boolean;
 }
 
-export interface CategoriaNueva {
-  nombre: string;
-  puntosCampeon: number;
-}
-
-// La categoría de **juego** —el nivel del jugador, 5ª … Honor— se lee en
-// `categorias-juego.dto.ts`. Está aparte a propósito: sus dos lectores tienen forma
-// casi idéntica a `leerCategoria` y `leerCambioDeCategoria` de acá abajo, que leen otra
-// cosa, y juntos son cuatro funciones parecidas entre las que es fácil equivocarse.
-
 export interface TorneoNuevo {
   nombre: string;
   superficie: Superficie | null;
   fechaInicio: Date;
   fechaFin: Date;
   cierreInscripcion: Date;
+}
+
+/** Para qué tour suma un torneo, y con qué nivel. El nivel trae su temporada. */
+export interface TourDelTorneo {
+  tourId: number;
+  nivelId: number;
 }
 
 /**
@@ -89,23 +85,6 @@ export function leerCambioDeJugador(cuerpo: unknown): CambioDeJugador {
   return cambio;
 }
 
-/** Lee una categoría. Los puntos del campeón son su razón de ser. */
-export function leerCategoria(cuerpo: unknown): CategoriaNueva {
-  const datos = (cuerpo ?? {}) as Record<string, unknown>;
-
-  return {
-    nombre: exigirTexto(datos.nombre, 'nombre de la categoría', 80),
-    // De acá salen los de cada ronda, así que un cero deja un torneo que no reparte
-    // nada y una tabla que no se mueve.
-    puntosCampeon: entero(
-      datos.puntosCampeon,
-      'El puntaje del campeón',
-      1,
-      10000,
-    ),
-  };
-}
-
 /**
  * Lee un torneo.
  *
@@ -115,11 +94,22 @@ export function leerCategoria(cuerpo: unknown): CategoriaNueva {
  * **Las tres fechas se comprueban entre sí**: un torneo que termina antes de empezar
  * no se puede jugar, y una inscripción que cierra después del comienzo es aceptar
  * gente para un cuadro que ya se está jugando.
+ *
+ * **Y al menos un tour** (D10, T196): un torneo que no suma para nada no tiene ranking.
+ * Que el nivel sea de ese tour lo comprueba el servicio, que es el que lee la base.
  */
-export function leerTorneo(cuerpo: unknown): TorneoNuevo {
+export function leerTorneo(
+  cuerpo: unknown,
+): TorneoNuevo & { tours: TourDelTorneo[] } {
   const datos = (cuerpo ?? {}) as Record<string, unknown>;
 
   const { fechaInicio, fechaFin, cierreInscripcion } = leerFechas(datos);
+
+  if (!Array.isArray(datos.tours) || datos.tours.length === 0) {
+    throw new BadRequestException(
+      'Elige al menos un tour para el torneo, con su nivel.',
+    );
+  }
 
   return {
     nombre: exigirTexto(datos.nombre, 'nombre del torneo', 120),
@@ -127,7 +117,27 @@ export function leerTorneo(cuerpo: unknown): TorneoNuevo {
     fechaInicio,
     fechaFin,
     cierreInscripcion,
+    tours: datos.tours.map(leerTourDelTorneo),
   };
+}
+
+/** Una asociación: el tour y el nivel, los dos por su número. */
+export function leerTourDelTorneo(cuerpo: unknown): TourDelTorneo {
+  const datos = (cuerpo ?? {}) as Record<string, unknown>;
+
+  return {
+    tourId: entero(datos.tourId, 'El tour', 1),
+    nivelId: leerNivelDelTour(datos),
+  };
+}
+
+/** El nivel solo, para cambiarlo en una asociación que ya existe. */
+export function leerNivelDelTour(cuerpo: unknown): number {
+  return entero(
+    ((cuerpo ?? {}) as Record<string, unknown>).nivelId,
+    'El nivel',
+    1,
+  );
 }
 
 /** Los cambios de un torneo son los mismos campos, todos opcionales. */
@@ -156,37 +166,12 @@ export function leerCambioDeTorneo(cuerpo: unknown): Partial<TorneoNuevo> {
   return cambio;
 }
 
-/** Lee una categoría por cambiar. Desactivarla no obliga a repetir sus puntos. */
-export function leerCambioDeCategoria(
-  cuerpo: unknown,
-): Partial<CategoriaNueva> & { activa?: boolean } {
-  const datos = (cuerpo ?? {}) as Record<string, unknown>;
-  const cambio: Partial<CategoriaNueva> & { activa?: boolean } = {};
-
-  if (datos.nombre !== undefined) {
-    cambio.nombre = exigirTexto(datos.nombre, 'nombre de la categoría', 80);
-  }
-  if (datos.puntosCampeon !== undefined) {
-    cambio.puntosCampeon = entero(
-      datos.puntosCampeon,
-      'El puntaje del campeón',
-      1,
-      10000,
-    );
-  }
-  if (datos.activa !== undefined) {
-    cambio.activa = datos.activa === true;
-  }
-
-  return cambio;
-}
-
 /**
  * Las tres fechas de un torneo, comprobadas entre sí.
  *
  * Sale acá y no dentro de `leerTorneo` porque la edición necesita la misma
- * comprobación: reusar el lector completo obligaba a inventarle un nombre y una
- * categoría al cuerpo para pasar por validaciones que no eran las suyas.
+ * comprobación: reusar el lector completo obligaba a inventarle un nombre al cuerpo
+ * para pasar por validaciones que no eran las suyas.
  */
 function leerFechas(datos: Record<string, unknown>): {
   fechaInicio: Date;
