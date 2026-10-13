@@ -34,7 +34,7 @@ export interface TablaDeTorneos {
    */
   categorias: { id: number; nombre: string }[];
   /** La que se está mostrando: la pedida, o la más alta con filas. Nula sin ninguna. */
-  categoriaId: number | null;
+  categoriaJuegoId: number | null;
   torneos: CuadroContado[];
   posiciones: FilaDeRanking[];
 }
@@ -54,11 +54,11 @@ export class RankingDeTorneos {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * @param categoriaId La categoría de juego pedida. Sin ella, la más alta con filas.
+   * @param categoriaJuegoId La categoría de juego pedida. Sin ella, la más alta con filas.
    */
   async tabla(
     temporadaId: number,
-    categoriaId: number | null = null,
+    categoriaJuegoId: number | null = null,
   ): Promise<TablaDeTorneos> {
     const temporada = await this.prisma.temporadaTour.findUnique({
       where: { id: temporadaId },
@@ -136,7 +136,7 @@ export class RankingDeTorneos {
     const conFilas = tablas
       .filter((una) => una.posiciones.length > 0)
       .sort((una, otra) => otra.orden - una.orden);
-    const elegida = categoriaId ?? conFilas[0]?.id ?? null;
+    const elegida = categoriaJuegoId ?? conFilas[0]?.id ?? null;
     const suya = tablas.find((una) => una.id === elegida);
 
     return {
@@ -146,7 +146,7 @@ export class RankingDeTorneos {
         fechaFin: comoFechaCivil(temporada.fechaFin),
       },
       categorias: conFilas.map(({ id, nombre }) => ({ id, nombre })),
-      categoriaId: elegida,
+      categoriaJuegoId: elegida,
       torneos: (suya?.cuadros ?? []).map((cuadro) => ({
         id: cuadro.id,
         torneoId: cuadro.torneoId,

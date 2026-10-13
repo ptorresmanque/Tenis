@@ -34,14 +34,14 @@ export class RankingController {
       throw new BadRequestException('Dinos de qué temporada es el ranking.');
     }
 
-    const categoriaId =
+    const categoriaJuegoId =
       categoria === undefined ? null : idDeConsulta(categoria);
 
-    if (categoria !== undefined && categoriaId === null) {
+    if (categoria !== undefined && categoriaJuegoId === null) {
       throw new BadRequestException('Esa categoría no existe.');
     }
 
-    return this.torneos.tabla(temporadaId, categoriaId);
+    return this.torneos.tabla(temporadaId, categoriaJuegoId);
   }
 
   /**

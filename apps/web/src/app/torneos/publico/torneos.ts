@@ -145,12 +145,6 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   >
                     {{ nombreEstado(torneo.estado) }}
                   </app-insignia>
-                  <!-- Sin categoría de torneo, sin insignia: quedaba el puro ícono. -->
-                  @if (torneo.categoria) {
-                    <app-insignia variante="neutro" icono="emoji_events">
-                      {{ torneo.categoria }}
-                    </app-insignia>
-                  }
                 </div>
 
                 <h2 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h2>

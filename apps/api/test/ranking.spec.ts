@@ -59,7 +59,7 @@ describe('GET /api/ranking/torneos', () => {
       fechaFin: string;
     };
     categorias: { id: number; nombre: string }[];
-    categoriaId: number | null;
+    categoriaJuegoId: number | null;
     torneos: {
       /** El del **cuadro**; el del torneo va aparte. */
       id: number;
@@ -76,11 +76,11 @@ describe('GET /api/ranking/torneos', () => {
 
   const tabla = async (
     temporadaId: number,
-    categoriaId?: number,
+    categoriaJuegoId?: number,
   ): Promise<Tabla> => {
     const consulta = new URLSearchParams({ temporada: String(temporadaId) });
-    if (categoriaId !== undefined) {
-      consulta.set('categoria', String(categoriaId));
+    if (categoriaJuegoId !== undefined) {
+      consulta.set('categoria', String(categoriaJuegoId));
     }
 
     return (
@@ -214,16 +214,9 @@ describe('GET /api/ranking/torneos', () => {
     finalista: number,
     otros: [number, number],
   ) => {
-    const valor = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatRank ${Date.now()}-${Math.random()}`,
-        puntosCampeon: 1,
-      },
-    });
     const cuadro = await prisma.torneoCategoria.create({
       data: {
         torneoId,
-        categoriaId: valor.id,
         categoriaJuegoId: await categoria(categoriaJuego),
         cupo: 4,
         semillaSorteo: 1,
@@ -254,9 +247,6 @@ describe('GET /api/ranking/torneos', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.tour.deleteMany({ where: { nombre: { startsWith: TOUR } } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatRank' } },
-    });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
   };
 
@@ -381,14 +371,10 @@ describe('GET /api/ranking/torneos', () => {
       [{ tourId: tour.tourId, nivelId: temporada.nivel250 }],
       EstadoTorneo.INSCRIPCION,
     );
-    const valor = await prisma.categoriaTorneo.create({
-      data: { nombre: `CatRank ${Date.now()}`, puntosCampeon: 1 },
-    });
     const cuadroId = (
       await prisma.torneoCategoria.create({
         data: {
           torneoId,
-          categoriaId: valor.id,
           categoriaJuegoId: await categoria('4ª'),
           cupo: 4,
         },
@@ -495,7 +481,7 @@ describe('GET /api/ranking/torneos', () => {
       { id: honor, nombre: 'Honor' },
       { id: cuarta, nombre: '4ª' },
     ]);
-    expect(porOmision.categoriaId).toBe(honor);
+    expect(porOmision.categoriaJuegoId).toBe(honor);
     expect(puntosDe(porOmision, jugadores[0])).toBe(250);
   });
 
@@ -636,7 +622,7 @@ describe('GET /api/ranking/torneos', () => {
 
     expect(respuesta).toMatchObject({
       categorias: [],
-      categoriaId: null,
+      categoriaJuegoId: null,
       torneos: [],
       posiciones: [],
     });

@@ -12,11 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
-import {
-  CategoriaJuego,
-  CategoriaTorneo,
-  Torneos,
-} from '../torneos.service';
+import { CategoriaJuego, Torneos } from '../torneos.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
 const MONTO_INVALIDO =
@@ -53,9 +49,9 @@ function enPesos(texto: string): number | null {
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
-      aria-labelledby="titulo-categorias-torneo"
+      aria-labelledby="titulo-cuadros-del-torneo"
     >
-      <h2 id="titulo-categorias-torneo" class="rotulo-seccion">Categorías del torneo</h2>
+      <h2 id="titulo-cuadros-del-torneo" class="rotulo-seccion">Categorías del torneo</h2>
 
       @if (cuadros.isLoading()) {
         <app-esqueleto class="mt-2 block" [filas]="3" etiqueta="Cargando los cuadros…" />
@@ -74,28 +70,6 @@ function enPesos(texto: string): number | null {
           @for (cuadro of cuadros.value(); track cuadro.id) {
             <li class="flex flex-wrap items-center gap-3 rounded-lg bg-card p-3">
               <span class="font-medium">{{ cuadro.categoria }}</span>
-
-              <label class="flex items-center gap-2 text-sm">
-                <span class="text-muted-foreground">Vale</span>
-                <!-- El seleccionado lo marca cada opción y no el [value] del select:
-                     las opciones llegan después, y el select mostraba la primera. -->
-                <select
-                  class="campo"
-                  [disabled]="trabajando()"
-                  (change)="cambiarValor(cuadro.id, $event)"
-                >
-                  @if (valores.hasValue()) {
-                    @for (valor of valores.value(); track valor.id) {
-                      <option
-                        [value]="valor.id"
-                        [selected]="valor.id === cuadro.categoriaId"
-                      >
-                        {{ valor.nombre }} ({{ valor.puntosCampeon }})
-                      </option>
-                    }
-                  }
-                </select>
-              </label>
 
               <label class="flex items-center gap-2 text-sm">
                 <span class="text-muted-foreground">Cupo</span>
@@ -149,26 +123,10 @@ function enPesos(texto: string): number | null {
       <form class="mt-3 flex flex-wrap items-end gap-3" (ngSubmit)="agregar()">
         <label class="block">
           <span class="text-sm font-medium">Agregar categoría</span>
-          <select class="campo mt-1" name="categoria" [(ngModel)]="categoriaId">
+          <select class="campo mt-1" name="categoriaJuego" [(ngModel)]="categoriaJuegoId">
             <option [value]="0" disabled>Elige una</option>
             @for (categoria of disponibles(); track categoria.id) {
               <option [value]="categoria.id">{{ categoria.nombre }}</option>
-            }
-          </select>
-        </label>
-
-        <label class="block">
-          <!-- **Cuánto vale ganarlo, por cuadro y no por torneo** (T70): el mismo fin
-               de semana, Honor puede ser un Máster y la 5ª un torneo de club. -->
-          <span class="text-sm font-medium">Vale</span>
-          <select class="campo mt-1" name="valor" [(ngModel)]="valorId">
-            <option [value]="0" disabled>Elige uno</option>
-            @if (valores.hasValue()) {
-              @for (valor of valores.value(); track valor.id) {
-                <option [value]="valor.id">
-                  {{ valor.nombre }} ({{ valor.puntosCampeon }} al campeón)
-                </option>
-              }
             }
           </select>
         </label>
@@ -223,10 +181,6 @@ function enPesos(texto: string): number | null {
 
       <p class="mt-2 text-sm text-muted-foreground">
         El cuadro no hace falta que sea potencia de dos: se completa con byes.
-        <!-- **Dicho en pantalla y no solo en un comentario.** Cambiar el valor de un
-             cuadro ya jugado mueve puestos en el ranking, que se cuelga en el mural, y
-             el admin tiene que saberlo antes de tocar el selector. -->
-        Cambiar lo que vale un cuadro <strong>ya jugado</strong> recalcula el ranking.
         Cambiar la inscripción no toca a quien ya pagó ni a quien se inscribió gratis;
         quien tiene el pago pendiente <strong>paga el monto nuevo</strong>.
       </p>
@@ -245,8 +199,7 @@ export class CuadrosDelTorneo {
   /** Avisa al padre para que recargue: la lista de torneos muestra sus cuadros. */
   readonly cambiaron = output<void>();
 
-  protected categoriaId = 0;
-  protected valorId = 0;
+  protected categoriaJuegoId = 0;
   protected cupo = 16;
   protected monto: number | null = 0;
 
@@ -266,12 +219,6 @@ export class CuadrosDelTorneo {
   protected readonly categorias = resource({
     loader: () => this.api.categoriasDeJuego(true),
     defaultValue: [] as CategoriaJuego[],
-  });
-
-  /** Cuánto puede valer ganar un cuadro: "Club 250", "Máster 500". */
-  protected readonly valores = resource({
-    loader: () => this.api.categorias(true),
-    defaultValue: [] as CategoriaTorneo[],
   });
 
   /**
@@ -294,16 +241,10 @@ export class CuadrosDelTorneo {
   });
 
   protected async agregar(): Promise<void> {
-    const categoriaJuegoId = Number(this.categoriaId);
-    const categoriaId = Number(this.valorId);
+    const categoriaJuegoId = Number(this.categoriaJuegoId);
 
     if (!categoriaJuegoId) {
       this.error.set('Elige la categoría que se va a correr.');
-      return;
-    }
-
-    if (!categoriaId) {
-      this.error.set('Elige cuánto vale ganar este cuadro.');
       return;
     }
 
@@ -317,29 +258,11 @@ export class CuadrosDelTorneo {
     await this.intentar('agregar', async () => {
       await this.api.agregarCuadro(this.torneoId(), {
         categoriaJuegoId,
-        categoriaId,
         cupo: Number(this.cupo),
         montoInscripcionClp,
       });
-      this.categoriaId = 0;
+      this.categoriaJuegoId = 0;
     });
-  }
-
-  /**
-   * Cambia cuánto vale ganar un cuadro **que ya existe**.
-   *
-   * Con el torneo terminado, esto reescribe la tabla del ranking. Es lo que se quiere
-   * cuando el club se equivocó al crearlo, y por eso se puede: la alternativa era
-   * borrar el cuadro con sus partidos jugados adentro.
-   */
-  protected async cambiarValor(id: number, evento: Event): Promise<void> {
-    const categoriaId = Number((evento.target as HTMLSelectElement).value);
-
-    if (!categoriaId) return;
-
-    await this.intentar(`cambiarValor-${id}`, () =>
-      this.api.editarCuadro(this.torneoId(), id, { categoriaId }),
-    );
   }
 
   protected async cambiarCupo(id: number, evento: Event): Promise<void> {

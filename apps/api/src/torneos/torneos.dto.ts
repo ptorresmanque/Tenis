@@ -23,16 +23,6 @@ export interface CambioDeJugador {
   activo?: boolean;
 }
 
-export interface CategoriaNueva {
-  nombre: string;
-  puntosCampeon: number;
-}
-
-// La categoría de **juego** —el nivel del jugador, 5ª … Honor— se lee en
-// `categorias-juego.dto.ts`. Está aparte a propósito: sus dos lectores tienen forma
-// casi idéntica a `leerCategoria` y `leerCambioDeCategoria` de acá abajo, que leen otra
-// cosa, y juntos son cuatro funciones parecidas entre las que es fácil equivocarse.
-
 export interface TorneoNuevo {
   nombre: string;
   superficie: Superficie | null;
@@ -93,23 +83,6 @@ export function leerCambioDeJugador(cuerpo: unknown): CambioDeJugador {
   }
 
   return cambio;
-}
-
-/** Lee una categoría. Los puntos del campeón son su razón de ser. */
-export function leerCategoria(cuerpo: unknown): CategoriaNueva {
-  const datos = (cuerpo ?? {}) as Record<string, unknown>;
-
-  return {
-    nombre: exigirTexto(datos.nombre, 'nombre de la categoría', 80),
-    // De acá salen los de cada ronda, así que un cero deja un torneo que no reparte
-    // nada y una tabla que no se mueve.
-    puntosCampeon: entero(
-      datos.puntosCampeon,
-      'El puntaje del campeón',
-      1,
-      10000,
-    ),
-  };
 }
 
 /**
@@ -193,37 +166,12 @@ export function leerCambioDeTorneo(cuerpo: unknown): Partial<TorneoNuevo> {
   return cambio;
 }
 
-/** Lee una categoría por cambiar. Desactivarla no obliga a repetir sus puntos. */
-export function leerCambioDeCategoria(
-  cuerpo: unknown,
-): Partial<CategoriaNueva> & { activa?: boolean } {
-  const datos = (cuerpo ?? {}) as Record<string, unknown>;
-  const cambio: Partial<CategoriaNueva> & { activa?: boolean } = {};
-
-  if (datos.nombre !== undefined) {
-    cambio.nombre = exigirTexto(datos.nombre, 'nombre de la categoría', 80);
-  }
-  if (datos.puntosCampeon !== undefined) {
-    cambio.puntosCampeon = entero(
-      datos.puntosCampeon,
-      'El puntaje del campeón',
-      1,
-      10000,
-    );
-  }
-  if (datos.activa !== undefined) {
-    cambio.activa = datos.activa === true;
-  }
-
-  return cambio;
-}
-
 /**
  * Las tres fechas de un torneo, comprobadas entre sí.
  *
  * Sale acá y no dentro de `leerTorneo` porque la edición necesita la misma
- * comprobación: reusar el lector completo obligaba a inventarle un nombre y una
- * categoría al cuerpo para pasar por validaciones que no eran las suyas.
+ * comprobación: reusar el lector completo obligaba a inventarle un nombre al cuerpo
+ * para pasar por validaciones que no eran las suyas.
  */
 function leerFechas(datos: Record<string, unknown>): {
   fechaInicio: Date;

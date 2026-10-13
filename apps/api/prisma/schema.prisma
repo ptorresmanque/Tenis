@@ -1144,15 +1144,13 @@ model Jugador {
 
 /// El nivel del **jugador**: 5ª, 4ª, 3ª, 2ª, 1ª, Honor.
 ///
-/// **No confundir con `CategoriaTorneo`**, que está justo abajo y es el nivel del
-/// *torneo* —"Club 250"— del que sale la escala entera del ranking. Esta solo separa
-/// cuadros: la 4ª no juega contra Honor. Renombrar las filas de la otra a 5ª…Honor
-/// rompería `SPEC-ranking.md` § De dónde salen los puntos, y es el error que este
-/// comentario existe para evitar.
+/// Separa cuadros —la 4ª no juega contra Honor— y, desde T198, tablas del ranking: cada
+/// tour tiene una por categoría de juego (D4). Lo que vale ganar un torneo lo dice el
+/// nivel con que entró a cada tour (`NivelTemporada`), no esta tabla.
 ///
-/// **Tabla y no enum**, por lo mismo que la otra: el club inventa categorías —un año
-/// aparece una "Sub-18", otro se fusionan la 5ª y la 4ª— y agregar un valor a un enum
-/// es una migración. Se configura desde el panel.
+/// **Tabla y no enum**: el club inventa categorías —un año aparece una "Sub-18", otro
+/// se fusionan la 5ª y la 4ª— y agregar un valor a un enum es una migración. Se
+/// configura desde el panel.
 model CategoriaJuego {
   id     Int    @id @default(autoincrement())
   nombre String @unique @db.VarChar(40)
@@ -1192,14 +1190,8 @@ model TorneoCategoria {
   torneoId         Int @map("torneo_id")
   categoriaJuegoId Int @map("categoria_juego_id")
 
-  /// Cuánto vale ganar **este** cuadro, y no el torneo entero (T70).
-  ///
-  /// Bajó de `Torneo` acá porque un mismo fin de semana corre la 5ª y el Honor, y
-  /// darle los mismos puntos al campeón de los dos deja a la tabla —que es una sola,
-  /// con todos juntos— premiando por igual dos logros que no lo son. Con la categoría
-  /// en el cuadro, el club dice que el de Honor es un Máster 500 y el de 5ª un Club
-  /// 250, torneo por torneo.
-  categoriaId Int @map("categoria_id")
+  // Cuánto vale ganarlo ya no es del cuadro: la categoría de torneo que T70 había puesto
+  // acá se eliminó en T199, y lo dice el nivel de cada tour (`TorneoTour`).
 
   /// Cuántos jugadores entran a **este** cuadro. Los que se pasan van a lista de
   /// espera, como antes.
@@ -1218,33 +1210,15 @@ model TorneoCategoria {
   /// presentarse como el primero.
   armadoEn DateTime? @map("armado_en")
 
-  torneo         Torneo          @relation(fields: [torneoId], references: [id], onDelete: Cascade)
-  categoriaJuego CategoriaJuego  @relation(fields: [categoriaJuegoId], references: [id])
-  categoria      CategoriaTorneo @relation(fields: [categoriaId], references: [id])
+  torneo         Torneo         @relation(fields: [torneoId], references: [id], onDelete: Cascade)
+  categoriaJuego CategoriaJuego @relation(fields: [categoriaJuegoId], references: [id])
 
   inscripciones InscripcionTorneo[]
   partidos      Partido[]
 
   @@unique([torneoId, categoriaJuegoId])
   @@index([categoriaJuegoId])
-  @@index([categoriaId])
   @@map("torneo_categoria")
-}
-
-/// Las categorías que el club inventa: "Club 250", "Club 500", "Máster de fin de año".
-///
-/// **Tabla y no enum**, por la misma razón que las franjas horarias son filas: este año
-/// hay una categoría que el año pasado no existía, y agregar un valor a un enum es una
-/// migración. De `puntosCampeon` salen los de cada ronda; ver `SPEC-ranking.md`.
-model CategoriaTorneo {
-  id            Int     @id @default(autoincrement())
-  nombre        String  @unique @db.VarChar(80)
-  puntosCampeon Int     @map("puntos_campeon")
-  activa        Boolean @default(true)
-
-  cuadros TorneoCategoria[]
-
-  @@map("categoria_torneo")
 }
 
 enum EstadoTorneo {
@@ -1269,10 +1243,10 @@ model Torneo {
   fechaFin          DateTime @map("fecha_fin") @db.Date
   cierreInscripcion DateTime @map("cierre_inscripcion") @db.Date
 
-  /// **`cupo` y `semillaSorteo` se fueron a `TorneoCategoria` en T62**, y `categoriaId`
-  /// en T70. Honor cierra con 8 y la 4ª con 32: un cupo único del torneo no describía
-  /// nada, una semilla única hacía que rearmar Honor volviera a sortear la 4ª, y una
-  /// sola categoría daba los mismos puntos al campeón de Honor y al de 5ª.
+  /// **`cupo` y `semillaSorteo` se fueron a `TorneoCategoria` en T62.** Honor cierra con
+  /// 8 y la 4ª con 32: un cupo único del torneo no describía nada, y una semilla única
+  /// hacía que rearmar Honor volviera a sortear la 4ª. La categoría de torneo bajó al
+  /// cuadro en T70 y se eliminó en T199: lo que vale ganar lo dice cada tour.
   estado EstadoTorneo @default(INSCRIPCION)
 
   creadoEn DateTime @default(now()) @map("creado_en")

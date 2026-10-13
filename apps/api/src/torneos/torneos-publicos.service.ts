@@ -80,8 +80,6 @@ export interface CategoriaPublica {
   /** El nivel del jugador. Es lo que el formulario manda al inscribirse. */
   categoriaJuegoId: number;
   categoria: string;
-  /** Cuánto vale ganarlo: "Club 250". Del cuadro y no del torneo desde T70. */
-  valor: string;
   /**
    * Cuánto cuesta inscribirse en **esta** categoría. 0 = gratis.
    *
@@ -194,10 +192,6 @@ export class TorneosPublicos {
             categoriaJuegoId: true,
             montoInscripcionClp: true,
             categoriaJuego: { select: { nombre: true } },
-            // **Cuánto vale ganar este cuadro** (T70). Cuelga del cuadro y no del
-            // torneo: en el mismo fin de semana, ganar Honor puede valer el doble que
-            // ganar la 5ª.
-            categoria: { select: { nombre: true } },
             // Solo el número: cuántos lugares quedan, no quiénes están.
             _count: {
               select: {
@@ -226,7 +220,6 @@ export class TorneosPublicos {
         id: cuadro.id,
         categoriaJuegoId: cuadro.categoriaJuegoId,
         categoria: cuadro.categoriaJuego.nombre,
-        valor: cuadro.categoria.nombre,
         montoClp: cuadro.montoInscripcionClp,
         cupo: cuadro.cupo,
         cuposLibres: Math.max(cuadro.cupo - cuadro._count.inscripciones, 0),

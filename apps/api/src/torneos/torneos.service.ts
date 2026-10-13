@@ -16,15 +16,10 @@ import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { aplanarTours, TOURS_DEL_TORNEO } from './torneos-publicos.service';
-import type { CategoriaNueva, TorneoNuevo, TourDelTorneo } from './torneos.dto';
+import type { TorneoNuevo, TourDelTorneo } from './torneos.dto';
 
 /**
- * Los torneos del club y las categorías con que se puntúan.
- *
- * **La categoría es una tabla y no un enum** porque el club inventa categorías: este
- * año hay un "Máster de fin de año" que el año pasado no existía, y agregar un valor a
- * un enum es una migración. Es la misma razón por la que las franjas horarias son
- * filas.
+ * Los torneos del club: alta, edición, cancelación, y para qué tours suma cada uno.
  */
 @Injectable()
 export class Torneos {
@@ -32,43 +27,6 @@ export class Torneos {
     private readonly prisma: PrismaService,
     private readonly abandonadas: InscripcionesAbandonadas,
   ) {}
-
-  categorias(soloActivas = false) {
-    return this.prisma.categoriaTorneo.findMany({
-      where: soloActivas ? { activa: true } : {},
-      orderBy: [{ activa: 'desc' }, { puntosCampeon: 'desc' }],
-    });
-  }
-
-  async crearCategoria(datos: CategoriaNueva) {
-    try {
-      return await this.prisma.categoriaTorneo.create({ data: datos });
-    } catch (falla) {
-      // Dos categorías con el mismo nombre son dos filas que el club no puede
-      // distinguir en el selector al crear un torneo.
-      if (esViolacionDeUnicidad(falla)) {
-        throw new ConflictException('Ya hay una categoría con ese nombre.');
-      }
-
-      throw falla;
-    }
-  }
-
-  async editarCategoria(
-    id: number,
-    cambio: Partial<CategoriaNueva> & { activa?: boolean },
-  ) {
-    const { count } = await this.prisma.categoriaTorneo.updateMany({
-      where: { id },
-      data: cambio,
-    });
-
-    if (count === 0) {
-      throw new NotFoundException('No hay una categoría con ese número.');
-    }
-
-    return this.prisma.categoriaTorneo.findUniqueOrThrow({ where: { id } });
-  }
 
   /**
    * Cancela un torneo: **una decisión del club, no un cálculo**.
@@ -172,18 +130,15 @@ export class Torneos {
         fechaFin: true,
         cierreInscripcion: true,
         estado: true,
-        // **El cupo y la categoría ya no son del torneo, son de cada cuadro** (T62 y
-        // T70): Honor cierra con 8 y la 4ª con 32, y ganar Honor puede valer el doble.
-        // La lista los trae para que el panel no tenga que pedir los cuadros de cada
-        // torneo por separado.
+        // **El cupo no es del torneo, es de cada cuadro** (T62): Honor cierra con 8 y la
+        // 4ª con 32. La lista los trae para que el panel no tenga que pedir los cuadros
+        // de cada torneo por separado.
         cuadros: {
           orderBy: { categoriaJuego: { orden: 'asc' } },
           select: {
             id: true,
             cupo: true,
-            categoriaId: true,
             categoriaJuego: { select: { nombre: true } },
-            categoria: { select: { nombre: true, puntosCampeon: true } },
           },
         },
         tours: TOURS_DEL_TORNEO,
@@ -253,9 +208,6 @@ export class Torneos {
         id: cuadro.id,
         categoria: cuadro.categoriaJuego.nombre,
         cupo: cuadro.cupo,
-        categoriaId: cuadro.categoriaId,
-        valor: cuadro.categoria.nombre,
-        puntosCampeon: cuadro.categoria.puntosCampeon,
       })),
       tours: aplanarTours(torneo.tours),
     }));

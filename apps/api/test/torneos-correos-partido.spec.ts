@@ -62,21 +62,11 @@ describe('Los correos de la programación de un partido', () => {
       where: { nombre: { startsWith: MARCA } },
     });
     await prisma.jugador.deleteMany({ where: { apellido: APELLIDO } });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'CatAvisoPartido' } },
-    });
     await prisma.bloqueo.deleteMany({ where: { cancha: { nombre: CANCHA } } });
   };
 
   /** Una final entre Pedro y Andrés, cada uno con el correo de su inscripción. */
   const unaFinal = async (correos: (string | null)[] = [PEDRO, ANDRES]) => {
-    const categoria = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `CatAvisoPartido ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}`,
@@ -87,7 +77,6 @@ describe('Los correos de la programación de un partido', () => {
           create: {
             categoriaJuegoId: cuartaId,
             cupo: 2,
-            categoriaId: categoria.id,
           },
         },
       },

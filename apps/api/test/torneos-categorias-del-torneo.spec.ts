@@ -64,21 +64,7 @@ describe('Torneos: las categorías de un torneo', () => {
     montoInscripcionClp: number;
   }
 
-  /**
-   * Cuánto vale ganar un cuadro. Desde T70 se elige **por cuadro**, así que cada test
-   * de este archivo necesita una a mano para poder agregar uno.
-   */
-  let valorId = 0;
-
   const crearTorneo = async () => {
-    const valor = await prisma.categoriaTorneo.create({
-      data: {
-        nombre: `Nivel ${Date.now()}${Math.random()}`,
-        puntosCampeon: 250,
-      },
-    });
-    valorId = valor.id;
-
     // Desde T196 todo torneo nace sumando para un tour, con un nivel de ese tour.
     const tour = await prisma.tour.create({
       data: {
@@ -130,9 +116,7 @@ describe('Torneos: las categorías de un torneo', () => {
     request(app.getHttpServer())
       .post(`/api/admin/torneos/${torneoId}/categorias`)
       .set('Cookie', cookieAdmin)
-      // El valor por omisión, para que cada test hable solo de lo suyo. El que prueba
-      // el valor lo manda explícito.
-      .send({ categoriaId: valorId, ...cuerpo });
+      .send(cuerpo);
 
   const cuadrosDe = async (torneoId: number) => {
     const respuesta = await request(app.getHttpServer())
@@ -153,9 +137,6 @@ describe('Torneos: las categorías de un torneo', () => {
     // Después de los torneos: sus asociaciones son las que frenan el borrado del tour.
     await prisma.tour.deleteMany({
       where: { nombre: { startsWith: `Tour de ${MARCA}` } },
-    });
-    await prisma.categoriaTorneo.deleteMany({
-      where: { nombre: { startsWith: 'Nivel ' } },
     });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
@@ -284,6 +265,20 @@ describe('Torneos: las categorías de un torneo', () => {
         categoriaJuegoId: cuarta,
         cupo: 8,
       }).expect(409);
+    });
+
+    it('**el cuadro nace sin categoría de torneo** (T199): cuánto vale lo dice el nivel del tour', async () => {
+      const torneoId = await crearTorneo();
+
+      const respuesta = await request(app.getHttpServer())
+        .post(`/api/admin/torneos/${torneoId}/categorias`)
+        .set('Cookie', cookieAdmin)
+        .send({ categoriaJuegoId: await idDe('4ª'), cupo: 8 })
+        .expect(201);
+
+      expect(respuesta.body).not.toHaveProperty('categoriaId');
+      expect(respuesta.body).not.toHaveProperty('valor');
+      expect(respuesta.body).not.toHaveProperty('puntosCampeon');
     });
 
     it('la inscripción es gratis mientras nadie diga otra cosa', async () => {

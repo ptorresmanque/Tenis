@@ -21,7 +21,6 @@ describe('Inicio', () => {
   const ABIERTO: TorneoPublico = {
     id: 5,
     nombre: 'Copa Aniversario',
-    categoria: 'Club 250',
     superficie: 'DURA',
     fechaInicio: '2126-12-01',
     fechaFin: '2126-12-07',
@@ -32,7 +31,6 @@ describe('Inicio', () => {
         id: 7,
         categoriaJuegoId: 20,
         categoria: '4ª',
-        valor: 'Club 250',
         montoClp: 12_000,
         cupo: 8,
         cuposLibres: 3,
