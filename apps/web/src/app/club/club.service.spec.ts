@@ -47,6 +47,7 @@ describe('Club', () => {
       // La tienda y la cafetería, vacías: sin descripción no se muestran (T184).
       tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
       cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+      gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
     });
   });
 

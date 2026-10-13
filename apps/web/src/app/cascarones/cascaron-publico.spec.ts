@@ -114,6 +114,7 @@ describe('Cascarón público: la navegación', () => {
         elClubCanchas: '',
         tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
         cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+        gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
       }).nativeElement as HTMLElement
     ).querySelector('footer');
 

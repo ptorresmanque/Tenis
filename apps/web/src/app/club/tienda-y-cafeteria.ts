@@ -1,15 +1,37 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { Galeria } from '../torneos/publico/galeria';
 import { Club, LugarDelClub } from './club.service';
 import { LOGOS } from './redes-sociales';
 
-/** Lo que cambia entre los dos lugares: cómo se nombran. */
+/** Lo que cambia entre los lugares: cómo se nombran. "De el" y "a el" no se dicen (T237). */
 const LUGARES = [
-  { clave: 'tienda', nombre: 'Tienda', conArticulo: 'la tienda' },
-  { clave: 'cafeteria', nombre: 'Cafetería', conArticulo: 'la cafetería' },
+  {
+    clave: 'tienda',
+    nombre: 'Tienda',
+    conArticulo: 'la tienda',
+    de: 'de la tienda',
+    a: 'a la tienda',
+  },
+  {
+    clave: 'cafeteria',
+    nombre: 'Cafetería',
+    conArticulo: 'la cafetería',
+    de: 'de la cafetería',
+    a: 'a la cafetería',
+  },
+  {
+    clave: 'gimnasio',
+    nombre: 'Gimnasio',
+    conArticulo: 'el gimnasio',
+    de: 'del gimnasio',
+    a: 'al gimnasio',
+  },
 ] as const;
+
+const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
 
 /**
  * La tienda y la cafetería del club (T186), como información: qué son, cuándo atienden,
@@ -37,12 +59,13 @@ const LUGARES = [
         [attr.aria-labelledby]="idDelTitulo()"
       >
         <h2 [id]="idDelTitulo()" class="titular text-5xl sm:text-6xl">
-          {{ forma() === 'resumen' ? 'También en el club' : 'Tienda y cafetería' }}
+          {{ forma() === 'resumen' ? 'También en el club' : titulo() }}
         </h2>
 
         <!-- Dos columnas aunque haya un solo lugar: a todo el ancho, su foto 4/3 medía
-             más de 800 px de alto en escritorio. -->
-        <div class="mt-8 grid gap-8 md:grid-cols-2">
+             más de 800 px de alto en escritorio. En la portada, con los tres, tres desde lg
+             (T237); en «El club» siguen dos, porque cada uno lleva su galería. -->
+        <div class="mt-8 grid gap-8 md:grid-cols-2" [class]="columnas()">
           @for (lugar of lugares(); track lugar.clave) {
             <article class="flex flex-col">
               <!-- El rótulo de la transmisión, encima de la foto y no sobre ella: un
@@ -79,6 +102,36 @@ const LUGARES = [
                   </p>
                 }
 
+                <!-- T237. Las tarifas del gimnasio, para mirar y no para pagar: se pagan en el
+                     mesón. Una tabla, porque son dos precios por plan. -->
+                @if (lugar.tarifas.length > 0) {
+                  <!-- La primitiva, como las tarifas de las canchas: cifras tabulares y una
+                       línea por fila. En su caja con scroll propio, también como allá: a 375 px
+                       un nombre largo no empuja la página, y el encabezado fijo se queda en
+                       la tabla. -->
+                  <div class="mt-4 overflow-x-auto">
+                    <table class="tabla">
+                      <caption class="sr-only">Tarifas {{ lugar.de }}</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Plan</th>
+                          <th scope="col">Socio</th>
+                          <th scope="col">No socio</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (tarifa of lugar.tarifas; track $index) {
+                          <tr>
+                            <th scope="row">{{ tarifa.nombre }}</th>
+                            <td class="whitespace-nowrap">{{ pesos(tarifa.precioSocioClp) }}</td>
+                            <td class="whitespace-nowrap">{{ pesos(tarifa.precioNoSocioClp) }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                }
+
                 @if (forma() === 'completa') {
                   <app-galeria [fotos]="lugar.fotos" titulo="" [porOmision]="lugar.porOmision" />
                 }
@@ -92,7 +145,7 @@ const LUGARES = [
                         target="_blank"
                         rel="noopener"
                         [attr.aria-label]="
-                          'Escribir por WhatsApp a ' + lugar.conArticulo + ' (se abre en otra pestaña)'
+                          'Escribir por WhatsApp ' + lugar.a + ' (se abre en otra pestaña)'
                         "
                       >
                         <svg
@@ -132,19 +185,34 @@ export class TiendaYCafeteria {
   private readonly club = inject(Club).datos;
 
   protected readonly LOGO_WHATSAPP = LOGOS.whatsapp;
+  protected readonly pesos = enPesos;
 
   /** Ids distintos en cada forma: las dos podrían estar en la misma página algún día. */
   protected readonly idDelTitulo = computed(() => `titulo-tienda-y-cafeteria-${this.forma()}`);
 
-  /** Los lugares que se muestran, ya con su enlace y su texto por omisión. */
+  /** Los lugares que se muestran, ya con su enlace, su texto por omisión y sus tarifas. */
   protected readonly lugares = computed(() =>
-    LUGARES.map((lugar) => ({ ...lugar, ...this.club()[lugar.clave] }))
+    LUGARES.map((lugar) => {
+      const datos = this.club()[lugar.clave];
+
+      // Solo el gimnasio tiene tarifas: los otros dos, una lista vacía y no una rama más.
+      return { ...lugar, ...datos, tarifas: 'tarifas' in datos ? datos.tarifas : [] };
+    })
       .filter((lugar) => lugar.descripcion.trim() !== '')
       .map((lugar) => ({
         ...lugar,
-        porOmision: `Foto de ${lugar.conArticulo} del club`,
+        porOmision: `Foto ${lugar.de} del club`,
         enlaceWhatsapp: enlaceDeWhatsapp(lugar, lugar.conArticulo),
       })),
+  );
+
+  /** "Tienda, cafetería y gimnasio": los que aparecen, para el título de «El club». */
+  protected readonly titulo = computed(() =>
+    LISTA.format(this.lugares().map(({ nombre }, i) => (i === 0 ? nombre : nombre.toLowerCase()))),
+  );
+
+  protected readonly columnas = computed(() =>
+    this.forma() === 'resumen' && this.lugares().length === 3 ? 'lg:grid-cols-3' : '',
   );
 }
 

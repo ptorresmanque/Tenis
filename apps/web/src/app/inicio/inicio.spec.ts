@@ -58,7 +58,13 @@ describe('Inicio', () => {
         // La tienda y la cafetería (T186): vacías salvo que el test diga otra cosa.
         {
           provide: Club,
-          useValue: { datos: signal({ tienda: tienda ?? vacio, cafeteria: vacio }) },
+          useValue: {
+            datos: signal({
+              tienda: tienda ?? vacio,
+              cafeteria: vacio,
+              gimnasio: { ...vacio, tarifas: [] },
+            }),
+          },
         },
         {
           provide: Torneos,

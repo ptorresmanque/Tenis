@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AdminCanchas, TarifaDelGimnasio } from '../catalogo-canchas/admin/admin-canchas.service';
-import { Club } from '../club/club.service';
+import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
+import { Club, TarifaDelGimnasio } from '../club/club.service';
 import { TarifasDelGimnasio } from './tarifas-del-gimnasio';
 
 /**

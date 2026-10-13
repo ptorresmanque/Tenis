@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { FotoDelLugar } from '../../club/club.service';
+import { FotoDelLugar, TarifaDelGimnasio } from '../../club/club.service';
 import { Cancha } from '../disponibilidad';
 
 export interface Horario {
@@ -189,12 +189,6 @@ export interface LugaresDelClub {
   gimnasioWhatsapp: string;
 }
 
-/** Un plan del gimnasio con sus dos precios, en pesos (T235). */
-export interface TarifaDelGimnasio {
-  nombre: string;
-  precioSocioClp: number;
-  precioNoSocioClp: number;
-}
 
 /**
  * El tope de canchas con luz (T208): cuántas pueden estar ocupadas a la vez desde una hora,
