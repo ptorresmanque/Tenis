@@ -120,16 +120,22 @@ export interface ResultadoAgendar {
   canceladas: HoraAfectada[];
 }
 
-/**
- * Una serie de clases, como la escribe el admin (T113): la ficha de una clase, los días
- * de la semana —0 es domingo— y el rango de fechas. Dura como máximo 6 meses.
- */
-export interface SerieNueva {
-  canchaId: number;
-  profesorId: number;
-  diasSemana: number[];
+/** Un día de la serie, con su horario y su cancha (T230). */
+export interface DiaDeLaSerie {
+  /** De 0 (domingo) a 6 (sábado). */
+  diaSemana: number;
   horaDesde: string;
   horaHasta: string;
+  canchaId: number;
+}
+
+/**
+ * Una serie de clases, como la escribe el admin (T113): la ficha de una clase, cada día de
+ * la semana con su horario y su cancha, y el rango de fechas. Dura como máximo 6 meses.
+ */
+export interface SerieNueva {
+  profesorId: number;
+  dias: DiaDeLaSerie[];
   desde: string;
   hasta: string;
   cupoMaximo: number;

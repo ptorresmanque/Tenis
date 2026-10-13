@@ -35,11 +35,6 @@ export interface ProfesorPublico {
   especialidad: string;
 }
 
-/**
- * Una serie de clases, como la anuncia el club (T117): una tarjeta en vez de una por fecha.
- * Los días, el horario y hasta cuándo; el cupo es el más chico entre sus clases que vienen,
- * porque la inscripción es a la serie completa (T116).
- */
 /** Un día de la serie, como lo anuncia el club (T229). */
 export interface DiaPublico {
   /** De 0 (domingo) a 6 (sábado). */
@@ -50,6 +45,11 @@ export interface DiaPublico {
   lugar: string;
 }
 
+/**
+ * Una serie de clases, como la anuncia el club (T117): una tarjeta en vez de una por fecha.
+ * Los días con su horario y hasta cuándo; el cupo es el más chico entre sus clases que vienen,
+ * porque la inscripción es a la serie completa (T116).
+ */
 export interface SeriePublica {
   id: number;
   profesor: string;

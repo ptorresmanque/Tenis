@@ -62,19 +62,34 @@ describe('NuevaSerie', () => {
     await esperar();
   };
 
-  /** Llena la serie de los tests: martes y jueves de 19 a 20, del 14 de octubre al 31. */
+  /** Marca o desmarca la casilla de un día. */
+  const marcar = async (dia: string) => {
+    [...el().querySelectorAll('label')]
+      .find((label) => label.textContent?.trim() === dia)!
+      .querySelector('input')!
+      .click();
+    await esperar();
+  };
+
+  /**
+   * Llena la serie de los tests: martes y jueves de 19 a 20 en la Cancha 1, del 14 de octubre
+   * al 31. La cancha se elige en el martes y el jueves nace con ella (T230).
+   */
   const llenar = async (conProfesor = true) => {
-    await escribir('select[name="serie-cancha"]', '2');
     if (conProfesor) await escribir('select[name="serie-profesor"]', '4');
-    for (const dia of ['Martes', 'Jueves']) {
-      [...el().querySelectorAll('label')]
-        .find((label) => label.textContent?.trim() === dia)!
-        .querySelector('input')!
-        .click();
-    }
+    await marcar('Martes');
+    await escribir('select[name="serie-cancha-2"]', '2');
+    await marcar('Jueves');
     await escribir('input[name="serie-desde"]', '2037-10-14');
     await escribir('input[name="serie-hasta"]', '2037-10-31');
   };
+
+  /** Lo que muestra el renglón de un día: su horario y su cancha. */
+  const renglon = (dia: number) => ({
+    desde: el().querySelector<HTMLInputElement>(`input[name="serie-hora-desde-${dia}"]`)?.value,
+    hasta: el().querySelector<HTMLInputElement>(`input[name="serie-hora-hasta-${dia}"]`)?.value,
+    cancha: el().querySelector<HTMLSelectElement>(`select[name="serie-cancha-${dia}"]`)?.value,
+  });
 
   const revisar = async (fechas = FECHAS, conProfesor = true) => {
     api.simularSerie.mockResolvedValue({ fechas });
@@ -105,7 +120,10 @@ describe('NuevaSerie', () => {
     TestBed.configureTestingModule({ providers: [{ provide: Clases, useValue: api }] });
 
     fixture = TestBed.createComponent(NuevaSerie);
-    fixture.componentRef.setInput('canchas', [{ id: 2, nombre: 'Cancha 1' }]);
+    fixture.componentRef.setInput('canchas', [
+      { id: 2, nombre: 'Cancha 1' },
+      { id: 3, nombre: 'Cancha 2' },
+    ]);
     fixture.componentRef.setInput('profesores', [
       { id: 4, nombreVisible: 'Ana Silva', especialidad: 'Iniciación' },
     ]);
@@ -119,11 +137,11 @@ describe('NuevaSerie', () => {
 
     expect(api.simularSerie).toHaveBeenCalledWith(
       expect.objectContaining({
-        canchaId: 2,
         profesorId: 4,
-        diasSemana: [2, 4],
-        horaDesde: '19:00',
-        horaHasta: '20:00',
+        dias: [
+          { diaSemana: 2, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
+          { diaSemana: 4, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
+        ],
         desde: '2037-10-14',
         hasta: '2037-10-31',
       }),
@@ -133,8 +151,87 @@ describe('NuevaSerie', () => {
     expect(texto()).toContain('Cambio de red');
   });
 
+  /** T230. El pedido del club: lunes de 19 a 20 en una cancha y martes de 18 a 19 en otra. */
+  describe('un renglón por día', () => {
+    it('**cada día marcado lleva su horario y su cancha, y la serie viaja con los dos**', async () => {
+      api.simularSerie.mockResolvedValue({ fechas: [] });
+      await escribir('select[name="serie-profesor"]', '4');
+      await marcar('Lunes');
+      await escribir('select[name="serie-cancha-1"]', '2');
+      await marcar('Martes');
+      await escribir('input[name="serie-hora-desde-2"]', '18:00');
+      await escribir('input[name="serie-hora-hasta-2"]', '19:00');
+      await escribir('select[name="serie-cancha-2"]', '3');
+
+      // Cambiar el martes no toca el lunes.
+      expect(renglon(1)).toEqual({ desde: '19:00', hasta: '20:00', cancha: '2' });
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(api.simularSerie).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dias: [
+            { diaSemana: 1, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
+            { diaSemana: 2, horaDesde: '18:00', horaHasta: '19:00', canchaId: 3 },
+          ],
+        }),
+      );
+    });
+
+    it('un día nuevo nace con el horario y la cancha del último día tocado', async () => {
+      await marcar('Lunes');
+      await escribir('input[name="serie-hora-desde-1"]', '17:30');
+      await escribir('input[name="serie-hora-hasta-1"]', '18:30');
+      await escribir('select[name="serie-cancha-1"]', '3');
+      await marcar('Jueves');
+
+      expect(renglon(4)).toEqual({ desde: '17:30', hasta: '18:30', cancha: '3' });
+    });
+
+    it('desmarcar un día saca su renglón, y la serie va sin él', async () => {
+      api.simularSerie.mockResolvedValue({ fechas: [] });
+      await llenar();
+      await marcar('Martes');
+
+      expect(el().querySelector('select[name="serie-cancha-2"]')).toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(api.simularSerie).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dias: [{ diaSemana: 4, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 }],
+        }),
+      );
+    });
+
+    it('un día sin cancha no llama al servidor y dice cuál es', async () => {
+      await escribir('select[name="serie-profesor"]', '4');
+      await marcar('Lunes');
+      await escribir('select[name="serie-cancha-1"]', '2');
+      await marcar('Miércoles');
+      await escribir('select[name="serie-cancha-3"]', '0');
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(api.simularSerie).not.toHaveBeenCalled();
+      expect(texto()).toContain('Elige la cancha del miércoles.');
+    });
+
+    it('los renglones van en el orden de la semana, no en el que se marcaron', async () => {
+      await marcar('Domingo');
+      await marcar('Miércoles');
+      await marcar('Lunes');
+
+      const orden = [...el().querySelectorAll<HTMLSelectElement>('select[name^="serie-cancha-"]')]
+        .map((campo) => campo.name);
+      expect(orden).toEqual(['serie-cancha-1', 'serie-cancha-3', 'serie-cancha-0']);
+    });
+  });
+
   it('sin días de la semana, revisar no llama al servidor y lo dice', async () => {
-    await escribir('select[name="serie-cancha"]', '2');
+    await escribir('select[name="serie-profesor"]', '4');
     boton('Revisar fechas').click();
     await esperar();
 
@@ -169,10 +266,12 @@ describe('NuevaSerie', () => {
     boton('Agendar serie').click();
     await esperar();
 
-    expect(api.agendarSerie).toHaveBeenCalledWith(expect.objectContaining({ diasSemana: [2, 4] }), {
-      '2037-10-20': 'cancelar',
-      '2037-10-22': 'saltar',
-    });
+    expect(api.agendarSerie).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dias: [expect.objectContaining({ diaSemana: 2 }), expect.objectContaining({ diaSemana: 4 })],
+      }),
+      { '2037-10-20': 'cancelar', '2037-10-22': 'saltar' },
+    );
     expect(agendadas).toEqual([
       'Serie agendada: 2 clases. Se saltó 1 fecha. Avisamos a 1 persona que tenía su hora.',
     ]);
@@ -190,7 +289,7 @@ describe('NuevaSerie', () => {
 
   it('si la serie cambia después de revisarla, pide revisarla de nuevo', async () => {
     await revisar([fecha('2037-10-27')]);
-    await escribir('input[name="serie-hora-desde"]', '18:00');
+    await escribir('input[name="serie-hora-desde-4"]', '18:00');
 
     const agendar = boton('Agendar serie');
     expect(agendar.disabled).toBe(true);
