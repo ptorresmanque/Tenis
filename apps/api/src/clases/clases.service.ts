@@ -121,6 +121,23 @@ export class Clases {
     const fechas: FechaDeLaSerie[] = [];
 
     for (const clase of clasesDeLaSerie(serie)) {
+      if (clase.tipo === TipoClase.PREPARACION_FISICA) {
+        // En el gimnasio no hay reservas que cancelar: la fecha que se cruza con otra
+        // clase solo se puede saltar (T232). El cupo es de la serie entera, no de una
+        // fecha, así que ese rechazo se lanza en vez de anotarse.
+        const problema = await problemaDelGimnasio(this.prisma, clase);
+        if (problema instanceof BadRequestException) throw problema;
+
+        fechas.push({
+          fecha: clase.fecha,
+          inicio: clase.inicio,
+          fin: clase.fin,
+          choque: problema?.message ?? null,
+          afectadas: [],
+        });
+        continue;
+      }
+
       const choque = await this.choqueDelRango(
         clase.canchaId,
         clase.fecha,
@@ -184,6 +201,7 @@ export class Clases {
 
     const { id } = await this.prisma.serieDeClases.create({
       data: {
+        tipo: serie.tipo,
         profesorId: serie.profesorId,
         dias: { create: serie.dias },
         desde: new Date(`${serie.desde}T00:00:00.000Z`),

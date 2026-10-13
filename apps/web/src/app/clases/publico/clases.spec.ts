@@ -22,7 +22,7 @@ describe('ClasesPublicas', () => {
 
   const CLASE: ClasePublica = {
     id: 3,
-    cancha: 'Cancha 1',
+    lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     // 21:00Z de un lunes de agosto son las 17:00 en Santiago.
     inicio: '2026-08-17T21:00:00.000Z',

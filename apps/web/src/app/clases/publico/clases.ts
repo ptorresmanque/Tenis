@@ -150,7 +150,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                   {{ nivel(clase.nivel) }}
                 </app-insignia>
                 <span class="text-sm text-muted-foreground">
-                  {{ clase.profesor }} · {{ clase.cancha }}
+                  {{ clase.profesor }} · {{ clase.lugar }}
                 </span>
 
                 @if (clase.cuposLibres === 0) {

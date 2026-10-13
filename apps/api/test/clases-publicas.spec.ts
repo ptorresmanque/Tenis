@@ -78,7 +78,9 @@ describe('GET /api/clases/publicas', () => {
     }[];
     clases: {
       id: number;
-      cancha: string;
+      tipo: string;
+      /** El nombre de la cancha, o "Gimnasio" (T232). */
+      lugar: string;
       profesor: string;
       inicio: string;
       fin: string;
@@ -206,11 +208,12 @@ describe('GET /api/clases/publicas', () => {
     await agendar(2);
 
     const cuerpo = await publicas();
-    const suya = cuerpo.clases.filter((c) => c.cancha === NOMBRE_CANCHA);
+    const suya = cuerpo.clases.filter((c) => c.lugar === NOMBRE_CANCHA);
 
     expect(suya).toHaveLength(1);
     expect(suya[0].profesor).toBe('Profe pública Ana');
     expect(suya[0].nivel).toBe(NivelClase.NINOS);
+    expect(suya[0].tipo).toBe('TENIS');
   });
 
   it('**la respuesta no trae ningún nombre de alumno**', async () => {
@@ -320,7 +323,7 @@ describe('GET /api/clases/publicas', () => {
     await agendar(2, '18:00');
 
     const suyas = (await publicas()).clases.filter(
-      (c) => c.cancha === NOMBRE_CANCHA,
+      (c) => c.lugar === NOMBRE_CANCHA,
     );
 
     expect(suyas[0].inicio < suyas[1].inicio).toBe(true);

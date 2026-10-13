@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 
 import { fechaDelClub, hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
-import { EstadoClase, EstadoInscripcion } from '../generated/prisma/client';
+import {
+  EstadoClase,
+  EstadoInscripcion,
+  TipoClase,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { GIMNASIO } from './gimnasio';
 
@@ -42,7 +46,7 @@ export interface DiaPublico {
   diaSemana: number;
   horaDesde: string;
   horaHasta: string;
-  /** El nombre de la cancha, o "Gimnasio" (T231). */
+  /** El nombre de la cancha, o "Gimnasio" (T232). */
   lugar: string;
 }
 
@@ -53,6 +57,8 @@ export interface DiaPublico {
  */
 export interface SeriePublica {
   id: number;
+  /** Tenis, o preparación física en el gimnasio (T232). */
+  tipo: TipoClase;
   profesor: string;
   /** Nulo en preparación física. */
   nivel: string | null;
@@ -66,8 +72,9 @@ export interface SeriePublica {
 /** Una clase de la semana, como la ve quien todavía no es del club. */
 export interface ClasePublica {
   id: number;
-  /** El nombre de la cancha, o "Gimnasio" (T231). */
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T232). */
+  lugar: string;
   profesor: string;
   inicio: Date;
   fin: Date;
@@ -124,6 +131,7 @@ export class ClasesPublicas {
       orderBy: [{ inicio: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
+        tipo: true,
         inicio: true,
         fin: true,
         nivel: true,
@@ -151,7 +159,8 @@ export class ClasesPublicas {
 
     return clases.map((clase) => ({
       id: clase.id,
-      cancha: clase.cancha?.nombre ?? GIMNASIO,
+      tipo: clase.tipo,
+      lugar: clase.cancha?.nombre ?? GIMNASIO,
       profesor: clase.profesor.nombreVisible,
       inicio: clase.inicio,
       fin: clase.fin,
@@ -181,6 +190,7 @@ export class ClasesPublicas {
       orderBy: { id: 'asc' },
       select: {
         id: true,
+        tipo: true,
         nivel: true,
         dias: {
           orderBy: { diaSemana: 'asc' },
@@ -220,6 +230,7 @@ export class ClasesPublicas {
 
     return series.map((serie) => ({
       id: serie.id,
+      tipo: serie.tipo,
       profesor: serie.profesor.nombreVisible,
       nivel: serie.nivel,
       dias: serie.dias.map((dia) => ({

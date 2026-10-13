@@ -44,14 +44,18 @@ export interface DiaDeLaSerie {
   /** Reloj del club, "HH:MM": cada fecha lo convierte a instantes. */
   horaDesde: string;
   horaHasta: string;
-  canchaId: number;
+  /** Nula en preparación física (T232). */
+  canchaId: number | null;
 }
 
 /**
  * Una serie de clases (T113): la ficha de una clase, más sus días y el rango de fechas.
- * Desde T228 cada día lleva su horario y su cancha.
+ * Desde T228 cada día lleva su horario y su cancha. Es la regla: cada fecha se vuelve a
+ * leer como una `ClaseNueva`, con el tipo que corresponde (T232).
  */
 export interface SerieNueva {
+  /** Una serie no mezcla tipos: tenis con cancha cada día, o todos sus días al gimnasio. */
+  tipo: TipoClase;
   profesorId: number;
   /** Sin días repetidos, en orden de la semana. */
   dias: DiaDeLaSerie[];
@@ -59,7 +63,8 @@ export interface SerieNueva {
   desde: string;
   hasta: string;
   cupoMaximo: number;
-  nivel: NivelClase;
+  /** Nulo en preparación física. */
+  nivel: NivelClase | null;
   notas: string | null;
 }
 
@@ -128,8 +133,9 @@ export function leerSerie(cuerpo: unknown): SerieNueva {
       }
       vistos.add(diaSemana);
 
-      // Cada día se valida como una clase suelta: horas, cancha y el resto de la ficha.
-      const muestra = leerClaseDeTenis({
+      // Cada día se valida como una clase suelta del tipo de la serie: horas, cancha (o
+      // ninguna, en el gimnasio) y el resto de la ficha.
+      const muestra = leerClaseNueva({
         ...datos,
         canchaId: dia.canchaId,
         horaDesde: dia.horaDesde,
@@ -146,13 +152,14 @@ export function leerSerie(cuerpo: unknown): SerieNueva {
     })
     .sort((uno, otro) => uno.diaSemana - otro.diaSemana);
 
-  const muestra = leerClaseDeTenis({
+  const muestra = leerClaseNueva({
     ...datos,
     ...dias[0],
     fecha: fecha(desde),
   });
 
   return {
+    tipo: muestra.tipo,
     profesorId: muestra.profesorId,
     dias,
     desde: fecha(desde),
@@ -236,8 +243,7 @@ function leerTipo(valor: unknown): TipoClase {
   return valor as TipoClase;
 }
 
-/** La clase de tenis. La serie la usa directo: hasta T232 sus días son todos de tenis. */
-export function leerClaseDeTenis(datos: Record<string, unknown>): ClaseDeTenis {
+function leerClaseDeTenis(datos: Record<string, unknown>): ClaseDeTenis {
   const niveles = Object.values(NivelClase) as string[];
   if (typeof datos.nivel !== 'string' || !niveles.includes(datos.nivel)) {
     throw new BadRequestException(

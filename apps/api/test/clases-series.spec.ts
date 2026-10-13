@@ -860,6 +860,7 @@ describe('POST /api/admin/clases/series/simulacion', () => {
       expect(series.filter((s) => s.id === serieId)).toEqual([
         {
           id: serieId,
+          tipo: 'TENIS',
           // T229: cada día con su horario y su lugar.
           dias: [
             {

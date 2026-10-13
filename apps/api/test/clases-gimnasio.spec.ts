@@ -526,6 +526,235 @@ describe('Clases de preparación física en el gimnasio', () => {
     });
   });
 
+  /** T232. La serie del gimnasio: sus días van sin cancha y ella, sin nivel. */
+  describe('series del gimnasio (criterios 18 y 20)', () => {
+    /** Lunes de 7 a 8 y miércoles de 18 a 19, sin cancha. Individual. */
+    const serieDelGimnasio = (parche: object = {}) => ({
+      tipo: TipoClase.PREPARACION_FISICA,
+      profesorId: ficha,
+      dias: [
+        { diaSemana: 1, horaDesde: '07:00', horaHasta: '08:00' },
+        { diaSemana: 3, horaDesde: '18:00', horaHasta: '19:00' },
+      ],
+      desde: '2044-04-04',
+      hasta: '2044-04-13',
+      cupoMaximo: 1,
+      ...parche,
+    });
+
+    it('**genera sus clases en el gimnasio, cada una con el horario de su día**', async () => {
+      const respuesta = await admin()
+        .post('clases/series', { ...serieDelGimnasio(), decisiones: {} })
+        .expect(201);
+      const { id, clases } = respuesta.body as {
+        id: number;
+        clases: { id: number; fecha: string }[];
+      };
+
+      expect(clases.map((clase) => clase.fecha)).toEqual([
+        '2044-04-04',
+        '2044-04-06',
+        '2044-04-11',
+        '2044-04-13',
+      ]);
+      expect(
+        await prisma.clase.findMany({
+          where: { serieId: id },
+          orderBy: { inicio: 'asc' },
+          select: { tipo: true, canchaId: true, nivel: true, inicio: true },
+        }),
+      ).toEqual(
+        [
+          ['2044-04-04', '07:00'],
+          ['2044-04-06', '18:00'],
+          ['2044-04-11', '07:00'],
+          ['2044-04-13', '18:00'],
+        ].map(([fecha, hora]) => ({
+          tipo: TipoClase.PREPARACION_FISICA,
+          canchaId: null,
+          nivel: null,
+          inicio: instanteEnElClub(fecha, hora),
+        })),
+      );
+      expect(
+        await prisma.serieDeClases.findUniqueOrThrow({
+          where: { id },
+          select: {
+            tipo: true,
+            nivel: true,
+            dias: { select: { canchaId: true } },
+          },
+        }),
+      ).toEqual({
+        tipo: TipoClase.PREPARACION_FISICA,
+        nivel: null,
+        dias: [{ canchaId: null }, { canchaId: null }],
+      });
+    });
+
+    it('**la fecha que se cruza con otra del gimnasio solo se salta; sin saltarla, FALTA_DECIDIR**', async () => {
+      // El miércoles 20 ya tiene una suelta a las 18:00.
+      await agendar({ ...gimnasio('18:00', '19:00'), fecha: '2044-04-20' });
+      const serie = serieDelGimnasio({
+        dias: [{ diaSemana: 3, horaDesde: '18:30', horaHasta: '19:30' }],
+        desde: '2044-04-18',
+        hasta: '2044-04-27',
+      });
+
+      const { fechas } = (
+        await admin().post('clases/series/simulacion', serie).expect(200)
+      ).body as {
+        fechas: {
+          fecha: string;
+          choque: string | null;
+          afectadas: unknown[];
+        }[];
+      };
+      expect(fechas).toEqual([
+        expect.objectContaining({
+          fecha: '2044-04-20',
+          choque: expect.stringContaining(
+            'El gimnasio ya tiene una clase',
+          ) as string,
+          afectadas: [],
+        }),
+        expect.objectContaining({
+          fecha: '2044-04-27',
+          choque: null,
+          afectadas: [],
+        }),
+      ]);
+
+      const sinSaltar = await admin()
+        .post('clases/series', { ...serie, decisiones: {} })
+        .expect(409);
+      expect(sinSaltar.body).toMatchObject({ motivo: 'FALTA_DECIDIR' });
+
+      const saltando = await admin()
+        .post('clases/series', {
+          ...serie,
+          decisiones: { '2044-04-20': 'saltar' },
+        })
+        .expect(201);
+      expect(saltando.body).toMatchObject({
+        clases: [{ fecha: '2044-04-27' }],
+        saltadas: ['2044-04-20'],
+      });
+    });
+
+    it('el cupo sobre el tope rechaza la serie entera, no cada fecha', async () => {
+      const respuesta = await admin()
+        .post('clases/series/simulacion', serieDelGimnasio({ cupoMaximo: 9 }))
+        .expect(400);
+
+      expect((respuesta.body as { message: string }).message).toMatch(/8/);
+    });
+
+    const RECHAZOS: [string, () => object, RegExp][] = [
+      [
+        'una del gimnasio con cancha en algún día',
+        () =>
+          serieDelGimnasio({
+            dias: [
+              { diaSemana: 1, horaDesde: '07:00', horaHasta: '08:00' },
+              {
+                diaSemana: 3,
+                horaDesde: '18:00',
+                horaHasta: '19:00',
+                canchaId,
+              },
+            ],
+          }),
+        /cancha/i,
+      ],
+      [
+        'una del gimnasio con nivel',
+        () => serieDelGimnasio({ nivel: NivelClase.INICIACION }),
+        /nivel/i,
+      ],
+      [
+        'una de tenis sin cancha',
+        () =>
+          serieDelGimnasio({
+            tipo: TipoClase.TENIS,
+            nivel: NivelClase.INICIACION,
+          }),
+        /cancha/i,
+      ],
+    ];
+
+    it.each(RECHAZOS)('%s responde 400', async (_caso, cuerpo, mensaje) => {
+      const respuesta = await admin()
+        .post('clases/series/simulacion', cuerpo())
+        .expect(400);
+
+      expect((respuesta.body as { message: string }).message).toMatch(mensaje);
+    });
+
+    it('el profesor agenda una serie del gimnasio a su nombre (26)', async () => {
+      await como('profe')
+        .post('clases/series', {
+          ...serieDelGimnasio({
+            profesorId: fichaDelProfe,
+            desde: '2044-05-02',
+            hasta: '2044-05-04',
+          }),
+          decisiones: {},
+        })
+        .expect(201);
+    });
+  });
+
+  /** T232. Lo público dice el tipo y el lugar: "Gimnasio" donde va la cancha. */
+  describe('lo público', () => {
+    const publicas = async () =>
+      (
+        await request(servidor())
+          .get('/api/clases/publicas?desde=2044-04-04')
+          .expect(200)
+      ).body as {
+        clases: {
+          id: number;
+          tipo: string;
+          lugar: string;
+          nivel: string | null;
+        }[];
+        series: {
+          tipo: string;
+          nivel: string | null;
+          profesor: string;
+          dias: { lugar: string }[];
+        }[];
+      };
+
+    it('**la clase suelta del gimnasio sale con su tipo, "Gimnasio" y sin nivel**', async () => {
+      const { id } = await agendar({
+        ...gimnasio('06:00', '07:00'),
+        fecha: '2044-04-05',
+      });
+
+      expect(
+        (await publicas()).clases.find((clase) => clase.id === id),
+      ).toMatchObject({
+        tipo: TipoClase.PREPARACION_FISICA,
+        lugar: 'Gimnasio',
+        nivel: null,
+      });
+    });
+
+    it('**la serie del gimnasio también, con "Gimnasio" en cada día**', async () => {
+      const deLaPrueba = (await publicas()).series.filter(
+        (serie) => serie.profesor === 'Profe T231',
+      );
+
+      expect(deLaPrueba[0]).toMatchObject({
+        tipo: TipoClase.PREPARACION_FISICA,
+        nivel: null,
+        dias: [{ lugar: 'Gimnasio' }, { lugar: 'Gimnasio' }],
+      });
+    });
+  });
+
   describe('lo que se ve (A7)', () => {
     it('**la agenda del día dice "Gimnasio" donde va la cancha, con el tipo**', async () => {
       const clases = (await admin().get(`clases?fecha=${DIA}`).expect(200))

@@ -94,7 +94,8 @@ export interface ProfesorPublico {
 /** Una clase de la semana, como la ve quien todavía no es del club. */
 export interface ClasePublica {
   id: number;
-  cancha: string;
+  /** El nombre de la cancha, o "Gimnasio" (T232). */
+  lugar: string;
   profesor: string;
   inicio: string;
   fin: string;
