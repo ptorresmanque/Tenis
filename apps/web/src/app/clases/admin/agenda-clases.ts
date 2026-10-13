@@ -308,6 +308,13 @@ const enBlanco = () => ({
     <!-- El segundo paso, y solo cuando hay algo que perder: agendar sobre una hora
          libre no pregunta nada. Lo que se confirma es esta lista. -->
     @if (porConfirmar(); as afectadas) {
+      <!-- El profesor no cancela reservas (T219): en vez de la confirmación, el aviso,
+           en el mismo lugar para que se vea junto al formulario. -->
+      @if (profesorFijo() !== null) {
+        <app-aviso variante="error" class="mt-3 block">
+          Esta hora tiene reservas. Para agendar encima, habla con administración.
+        </app-aviso>
+      } @else {
       <div
         role="alertdialog"
         aria-labelledby="titulo-clase"
@@ -359,6 +366,7 @@ const enBlanco = () => ({
           </button>
         </div>
       </div>
+      }
     }
 
     <!-- La serie (T115), en su propio componente: escribirla, revisarla fecha por fecha
@@ -462,6 +470,7 @@ export class AgendaDeClases {
    * apretar sin leer, y entonces la advertencia que importa tampoco se lee.
    */
   protected async agendar(): Promise<void> {
+    this.porConfirmar.set(null);
     await this.intentar('agendar', async () => {
       const { afectadas } = await this.api.simular(this.formulario());
 
@@ -470,12 +479,8 @@ export class AgendaDeClases {
         return;
       }
 
-      // El profesor no cancela reservas (T219): el servidor lo rechazaría igual.
-      if (this.profesorFijo() !== null) {
-        this.error.set('Esta hora tiene reservas. Para agendar encima, habla con administración.');
-        return;
-      }
-
+      // Al profesor, el aviso y no la confirmación: no cancela reservas (T219), y el
+      // servidor lo rechazaría igual.
       this.porConfirmar.set(afectadas);
     });
   }
