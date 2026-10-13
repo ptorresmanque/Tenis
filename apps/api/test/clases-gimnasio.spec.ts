@@ -739,6 +739,8 @@ describe('Clases de preparación física en el gimnasio', () => {
         tipo: TipoClase.PREPARACION_FISICA,
         lugar: 'Gimnasio',
         nivel: null,
+        // Con el cupo, la página dice si es grupal o individual (T234).
+        cupoMaximo: 1,
       });
     });
 

@@ -9,7 +9,7 @@ import { FormularioContacto } from '../../club/formulario-contacto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Foto } from '../../ui/foto';
 import { Insignia } from '../../ui/insignia';
-import { ClasePublica, Clases, NIVELES, NivelClase, SeriePublica } from '../clases.service';
+import { ClasePublica, Clases, queClaseEs, SeriePublica } from '../clases.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
 /**
@@ -105,7 +105,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                   }
                 </span>
               }
-              <app-insignia variante="info" icono="school">{{ nivel(serie.nivel) }}</app-insignia>
+              <app-insignia variante="info" icono="school">{{ queClaseEs(serie) }}</app-insignia>
               <span class="text-sm text-muted-foreground">{{ detalle(serie) }}</span>
 
               @if (serie.cuposLibres === 0) {
@@ -147,7 +147,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
                 </span>
                 <app-insignia variante="info" icono="school">
-                  {{ nivel(clase.nivel) }}
+                  {{ queClaseEs(clase) }}
                 </app-insignia>
                 <span class="text-sm text-muted-foreground">
                   {{ clase.profesor }} · {{ clase.lugar }}
@@ -207,9 +207,7 @@ export class ClasesPublicas {
   protected readonly hora = horaEnElClub;
   protected readonly enPalabras = diaEnPalabras;
 
-  protected nivel(clave: NivelClase): string {
-    return NIVELES[clave] ?? clave;
-  }
+  protected readonly queClaseEs = queClaseEs;
 
   protected readonly diasDeLaSerie = diasDeLaSerie;
 

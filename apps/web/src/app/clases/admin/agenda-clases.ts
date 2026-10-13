@@ -18,8 +18,10 @@ import {
   ClaseDelDia,
   ClaseNueva,
   Clases,
+  cupoEnPalabras,
   NivelClase,
   NIVELES,
+  queClaseEs,
   TipoClase,
 } from '../clases.service';
 import { Profesores } from '../profesores.service';
@@ -144,7 +146,7 @@ const enBlanco = () => ({
               </p>
               <p class="font-medium">{{ clase.lugar }}</p>
               <app-insignia variante="info" icono="school">
-                {{ nivel(clase.nivel) }}
+                {{ queClaseEs(clase) }}
               </app-insignia>
               @if (clase.estado === 'REALIZADA') {
                 <app-insignia variante="neutro" icono="check">Ya se dio</app-insignia>
@@ -188,7 +190,7 @@ const enBlanco = () => ({
             <p class="mt-1">
               {{ clase.profesor }}
               <span class="text-sm text-muted-foreground">
-                · hasta {{ clase.cupoMaximo }} alumnos
+                · {{ cupoEnPalabras(clase.cupoMaximo) }}
               </span>
             </p>
 
@@ -528,9 +530,8 @@ export class AgendaDeClases {
   protected readonly hora = horaEnElClub;
   protected readonly enPalabras = diaEnPalabras;
 
-  protected nivel(clave: NivelClase): string {
-    return NIVELES[clave] ?? clave;
-  }
+  protected readonly queClaseEs = queClaseEs;
+  protected readonly cupoEnPalabras = cupoEnPalabras;
 
   /**
    * Primer paso: mira a quién afecta.

@@ -22,12 +22,14 @@ describe('ClasesPublicas', () => {
 
   const CLASE: ClasePublica = {
     id: 3,
+    tipo: 'TENIS',
     lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     // 21:00Z de un lunes de agosto son las 17:00 en Santiago.
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',
     nivel: 'NINOS',
+    cupoMaximo: 6,
     cuposLibres: 3,
   };
 
@@ -146,10 +148,12 @@ describe('ClasesPublicas', () => {
 
     const SERIE: SeriePublica = {
       id: 9,
+      tipo: 'TENIS',
       profesor: 'Ana Silva',
       nivel: 'INICIACION',
       dias: [dia(2), dia(4)],
       hasta: '2026-12-15',
+      cupoMaximo: 6,
       cuposLibres: 4,
     };
 
@@ -192,6 +196,51 @@ describe('ClasesPublicas', () => {
 
       expect(texto()).toContain('Sin cupos');
     });
+
+    it('**la del gimnasio dice "Preparación física", "Gimnasio" y "Grupal", sin nivel** (T234)', async () => {
+      await montar(
+        [ANA],
+        [],
+        [
+          {
+            ...SERIE,
+            tipo: 'PREPARACION_FISICA',
+            nivel: null,
+            dias: [dia(2, '19:00', '20:00', 'Gimnasio'), dia(4, '19:00', '20:00', 'Gimnasio')],
+            cupoMaximo: 8,
+          },
+        ],
+      );
+
+      const tarjeta = Array.from(elemento().querySelectorAll('li'))
+        .map((li) => li.textContent!.replace(/\s+/g, ' '))
+        .find((li) => li.includes('hasta el'))!;
+      expect(tarjeta).toContain('Preparación física · Grupal');
+      expect(tarjeta).toContain('Ana Silva · Gimnasio · hasta el 15 de diciembre');
+      expect(tarjeta).not.toContain('Iniciación');
+    });
+  });
+
+  /** T234. La clase suelta del gimnasio, en la semana. */
+  it('**la clase del gimnasio dice "Preparación física", "Gimnasio" e "Individual", sin nivel**', async () => {
+    await montar(
+      [],
+      [
+        {
+          ...CLASE,
+          tipo: 'PREPARACION_FISICA',
+          lugar: 'Gimnasio',
+          nivel: null,
+          cupoMaximo: 1,
+          cuposLibres: 1,
+        },
+      ],
+    );
+
+    const semana = texto().replace(/\s+/g, ' ');
+    expect(semana).toContain('Preparación física · Individual');
+    expect(semana).toContain('Ana Silva · Gimnasio');
+    expect(semana).not.toContain('Niños');
   });
 });
 

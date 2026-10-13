@@ -15,6 +15,7 @@ import { InscritosDeLaClase } from './inscritos';
 describe('InscritosDeLaClase', () => {
   const FICHA: FichaDeClase = {
     id: 7,
+    tipo: 'TENIS',
     lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     inicio: '2026-08-17T21:00:00.000Z',

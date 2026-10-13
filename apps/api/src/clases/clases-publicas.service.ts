@@ -62,6 +62,8 @@ export interface SeriePublica {
   profesor: string;
   /** Nulo en preparación física. */
   nivel: string | null;
+  /** El tamaño de la clase: en el gimnasio, el de uno es individual (T234). */
+  cupoMaximo: number;
   /** Cada día con su horario y su lugar, de domingo a sábado. */
   dias: DiaPublico[];
   /** La fecha civil de su última clase programada: si se canceló desde un día, se acorta. */
@@ -80,6 +82,8 @@ export interface ClasePublica {
   fin: Date;
   /** Nulo en preparación física. */
   nivel: string | null;
+  /** El tamaño de la clase: en el gimnasio, el de uno es individual (T234). */
+  cupoMaximo: number;
   cuposLibres: number;
 }
 
@@ -165,6 +169,7 @@ export class ClasesPublicas {
       inicio: clase.inicio,
       fin: clase.fin,
       nivel: clase.nivel,
+      cupoMaximo: clase.cupoMaximo,
       // Nunca negativo: si el club subió a alguien por encima del cupo, "quedan -1"
       // no es una respuesta que nadie pueda usar.
       cuposLibres: Math.max(clase.cupoMaximo - clase._count.inscripciones, 0),
@@ -192,6 +197,7 @@ export class ClasesPublicas {
         id: true,
         tipo: true,
         nivel: true,
+        cupoMaximo: true,
         dias: {
           orderBy: { diaSemana: 'asc' },
           select: {
@@ -233,6 +239,7 @@ export class ClasesPublicas {
       tipo: serie.tipo,
       profesor: serie.profesor.nombreVisible,
       nivel: serie.nivel,
+      cupoMaximo: serie.cupoMaximo,
       dias: serie.dias.map((dia) => ({
         diaSemana: dia.diaSemana,
         horaDesde: dia.horaDesde,

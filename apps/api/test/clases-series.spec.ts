@@ -877,6 +877,7 @@ describe('POST /api/admin/clases/series/simulacion', () => {
             },
           ],
           hasta: '2037-12-15',
+          cupoMaximo: 6,
           cuposLibres: 6,
           profesor: 'Profe Series',
           nivel: NivelClase.INICIACION,

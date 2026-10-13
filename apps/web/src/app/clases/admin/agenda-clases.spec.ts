@@ -19,6 +19,7 @@ import { AgendaDeClases } from './agenda-clases';
 describe('AgendaDeClases', () => {
   const CLASE: ClaseDelDia = {
     id: 7,
+    tipo: 'TENIS',
     lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     inicio: '2026-08-17T21:00:00.000Z',
@@ -128,6 +129,17 @@ describe('AgendaDeClases', () => {
     expect(texto()).toContain('Ana Silva');
     expect(texto()).toContain('Iniciación');
     expect(texto()).toContain('Cancha 1');
+  });
+
+  it('**la del gimnasio dice "Gimnasio", "Preparación física" y si es grupal** (T234)', async () => {
+    await montar([
+      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', nivel: null, cupoMaximo: 8 },
+    ]);
+
+    const fila = texto().replace(/\s+/g, ' ');
+    expect(fila).toContain('Gimnasio');
+    expect(fila).toContain('Preparación física · Grupal');
+    expect(fila).toContain('Ana Silva · hasta 8 alumnos');
   });
 
   it('sin nadie debajo, agendar no pregunta nada', async () => {
