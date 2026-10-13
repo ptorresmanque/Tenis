@@ -26,7 +26,10 @@ describe('AgendaDelDia', () => {
     nombre: 'Camila Visitante',
     telefono: '+56955556666',
     esSocio: false,
+    socioId: null,
     acompanantes: [],
+    observaciones: [],
+    observacionesAnteriores: 0,
   };
 
   /** Una clase ocupa cancha igual que una reserva, y el mesón la mira ahí mismo. */
@@ -116,6 +119,20 @@ describe('AgendaDelDia', () => {
     expect(texto()).not.toContain('Nueva reserva');
     expect(texto()).toContain('Camila Visitante');
     expect(texto()).toContain('Ana Silva');
+  });
+
+  it('bajo cada reserva van sus observaciones, y anotar una recarga el día sin vaciarlo (T226)', async () => {
+    const observaciones = fixture.debugElement.query(
+      (nodo) => nodo.name === 'app-observaciones-de-reserva',
+    );
+    expect(observaciones.componentInstance.reserva()).toEqual(UNA);
+
+    observaciones.componentInstance.cambio.emit();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(delDia).toHaveBeenCalledTimes(2);
+    expect(texto()).toContain('Camila Visitante');
   });
 
   it('muestra la hora del club, la cancha, quién viene y su teléfono', () => {

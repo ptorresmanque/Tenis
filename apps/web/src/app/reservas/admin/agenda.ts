@@ -20,6 +20,7 @@ import { ClaseDelDia, Clases, NIVELES } from '../../clases/clases.service';
 import { Auth } from '../../core/auth/auth';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
+import { ObservacionesDeReserva } from './observaciones-de-reserva';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { CampoFecha } from '../../ui/campo-fecha';
 
@@ -33,7 +34,16 @@ import { CampoFecha } from '../../ui/campo-fecha';
  */
 @Component({
   selector: 'app-agenda-del-dia',
-  imports: [Aviso, EstadoVacio, Insignia, NuevaReserva, EnlaceTelefonoPipe, TelefonoPipe, CampoFecha],
+  imports: [
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    NuevaReserva,
+    ObservacionesDeReserva,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    CampoFecha,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
          La navegación entre días va debajo. -->
@@ -209,6 +219,9 @@ import { CampoFecha } from '../../ui/campo-fecha';
                 <app-insignia variante="aviso">Esperando el pago</app-insignia>
               </p>
             }
+
+            <!-- Las notas del mesón (T226): las ven el admin y el gestor, nunca el socio. -->
+            <app-observaciones-de-reserva [reserva]="reserva" (cambio)="reservas.reload()" />
           </li>
           }
         }

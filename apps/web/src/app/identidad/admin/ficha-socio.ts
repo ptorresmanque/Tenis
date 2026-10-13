@@ -22,6 +22,7 @@ import {
 } from './socios.service';
 import { CampoFecha } from '../../ui/campo-fecha';
 import { Esqueleto } from '../../ui/esqueleto';
+import { HistorialDeObservaciones } from '../../reservas/admin/historial-de-observaciones';
 
 const ESTADOS: { valor: EstadoSocio; etiqueta: string }[] = [
   { valor: 'ACTIVO', etiqueta: 'Activo' },
@@ -48,7 +49,15 @@ const CAMPOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-ficha-socio',
-  imports: [FormsModule, Aviso, Campo, CampoControl, CampoFecha, Esqueleto],
+  imports: [
+    FormsModule,
+    Aviso,
+    Campo,
+    CampoControl,
+    CampoFecha,
+    Esqueleto,
+    HistorialDeObservaciones,
+  ],
   template: `
     <dialog
       #dialogo
@@ -163,6 +172,13 @@ const CAMPOS: Record<string, string> = {
             }
           </ul>
         }
+      </section>
+
+      <!-- Las notas del mesón sobre sus reservas (T226): las escriben el admin y el
+           gestor, y el socio no las ve. Acá van todas, de la reserva más nueva. -->
+      <section class="mt-6 border-t border-border pt-4" aria-labelledby="observaciones">
+        <h3 id="observaciones" class="subtitulo">Observaciones del mesón</h3>
+        <app-historial-de-observaciones class="mt-2 block" [socioId]="socio().id" />
       </section>
     </dialog>
   `,
