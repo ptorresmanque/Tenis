@@ -20,6 +20,7 @@ import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CierreDeCanchaController } from '../src/reservas/cierre-de-cancha.controller';
 import { DisponibilidadPublicaService } from '../src/reservas/disponibilidad-publica.service';
+import { TopeDeLuzController } from '../src/reservas/tope-de-luz.controller';
 import { ReservaDelAdminService } from '../src/reservas/reserva-del-admin.service';
 import { ReservaNoSocioService } from '../src/reservas/reserva-no-socio.service';
 import { ModificacionService } from '../src/reservas/modificacion.service';
@@ -983,6 +984,44 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
           dia.find((g) => g.cancha.id === cancha)!.bloques,
         );
       }
+    });
+  });
+
+  describe('las horas que ya superan el tope (T208)', () => {
+    const excesos = () => modulo.get(TopeDeLuzController).excesos();
+
+    beforeEach(async () => {
+      // Tomadas con el tope apagado, como las que ya existían el día del despliegue.
+      await configurarTope(null);
+      for (const cancha of [luz[0], luz[1], luz[2]]) {
+        await tomar(cancha, '20:00', '21:00');
+      }
+    });
+
+    it('encender el tope no cancela ninguna, y la lista muestra ese intervalo con lo que ocupa cada cancha (49)', async () => {
+      await configurarTope(2);
+
+      expect(
+        await prisma.reserva.count({
+          where: { canchaId: { in: luz }, estado: EstadoReserva.CONFIRMADA },
+        }),
+      ).toBe(3);
+      const delDia = (await excesos()).find(
+        (exceso) => exceso.desde.getTime() === a('20:00').getTime(),
+      );
+      expect(delDia?.hasta).toEqual(a('21:00'));
+      expect(delDia?.ocupaciones.map(({ cancha }) => cancha)).toEqual([
+        `${PREFIJO} 1`,
+        `${PREFIJO} 2`,
+        `${PREFIJO} 3`,
+      ]);
+      expect(delDia?.ocupaciones[0].detalle).toMatch(
+        /^Reserva [A-Z0-9]+ de Visitante de prueba$/,
+      );
+    });
+
+    it('con el tope apagado la lista sale vacía', async () => {
+      expect(await excesos()).toEqual([]);
     });
   });
 });

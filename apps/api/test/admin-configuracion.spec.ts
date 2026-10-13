@@ -344,6 +344,64 @@ describe('Configuración del club', () => {
       await patch({ cupoDiarioSocioReservas: '2' }).expect(400);
     });
 
+    describe('el tope de canchas con luz (T208)', () => {
+      it('guarda el número y la hora, y lo apaga con nulo', async () => {
+        expect(
+          (
+            await patch({
+              topeCanchasConLuz: 3,
+              topeCanchasConLuzDesde: '20:30',
+            }).expect(200)
+          ).body,
+        ).toMatchObject({
+          topeCanchasConLuz: 3,
+          topeCanchasConLuzDesde: '20:30',
+        });
+        expect(
+          (await patch({ topeCanchasConLuz: null }).expect(200)).body,
+        ).toMatchObject({ topeCanchasConLuz: null });
+      });
+
+      it('un tope de 0, uno que no es entero o uno escrito como texto se rechazan', async () => {
+        const mensaje = async (cuerpo: Record<string, unknown>) =>
+          ((await patch(cuerpo).expect(400)).body as { message: string })
+            .message;
+
+        expect(await mensaje({ topeCanchasConLuz: 0 })).toBe(
+          'El tope de canchas con luz tiene que ser un número entero desde 1.',
+        );
+        await patch({ topeCanchasConLuz: 1.5 }).expect(400);
+        await patch({ topeCanchasConLuz: '2' }).expect(400);
+      });
+
+      it('la hora va en punto o y media', async () => {
+        expect(
+          (
+            (await patch({ topeCanchasConLuzDesde: '19:15' }).expect(400))
+              .body as { message: string }
+          ).message,
+        ).toBe(
+          'La hora del tope de canchas con luz va en punto o y media, por ejemplo 19:00 o 19:30.',
+        );
+        await patch({ topeCanchasConLuzDesde: '25:00' }).expect(400);
+        await patch({ topeCanchasConLuzDesde: 1900 }).expect(400);
+      });
+
+      it('las horas que superan el tope las ve solo el admin', async () => {
+        await request(servidor())
+          .get('/api/admin/tope-de-luz/excesos')
+          .expect(401);
+        await request(servidor())
+          .get('/api/admin/tope-de-luz/excesos')
+          .set('Cookie', socio)
+          .expect(403);
+        await request(servidor())
+          .get('/api/admin/tope-de-luz/excesos')
+          .set('Cookie', admin)
+          .expect(200);
+      });
+    });
+
     it('un cuerpo sin ningún campo conocido no pasa por válido', async () => {
       // Sin esto, un nombre de campo mal escrito responde 200 y el admin cree que
       // guardó algo que no cambió nada.

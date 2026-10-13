@@ -186,11 +186,29 @@ export interface TiendaYCafeteria {
   cafeteriaWhatsapp: string;
 }
 
+/**
+ * El tope de canchas con luz (T208): cuántas pueden estar ocupadas a la vez desde una hora,
+ * porque la instalación eléctrica del club no aguanta más. Nulo es sin tope.
+ */
+export interface TopeDeLuz {
+  topeCanchasConLuz: number | null;
+  /** Reloj del club, "HH:MM", en punto o y media. */
+  topeCanchasConLuzDesde: string;
+}
+
+/** Un intervalo ya tomado con más canchas con luz que el tope, y qué las ocupa. */
+export interface ExcesoDeLuz {
+  desde: string;
+  hasta: string;
+  ocupaciones: { cancha: string; detalle: string }[];
+}
+
 /** Lo que el servidor devuelve de `GET /api/admin/configuracion`: todo lo de la fila. */
 export type ConfiguracionDelClub = ReglasDelClub &
   DatosDelClub &
   TextosDeElClub &
-  TiendaYCafeteria;
+  TiendaYCafeteria &
+  TopeDeLuz;
 
 export interface CanchaNueva {
   nombre: string;
@@ -212,6 +230,13 @@ export class AdminCanchas {
   configuracion(): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
       this.http.get<ConfiguracionDelClub>('/api/admin/configuracion'),
+    );
+  }
+
+  /** Las horas ya tomadas que superan el tope de canchas con luz (T208). */
+  excesosDeLuz(): Promise<ExcesoDeLuz[]> {
+    return firstValueFrom(
+      this.http.get<ExcesoDeLuz[]>('/api/admin/tope-de-luz/excesos'),
     );
   }
 

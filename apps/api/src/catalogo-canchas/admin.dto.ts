@@ -180,6 +180,10 @@ export interface CambiosDeConfiguracion
   /** Lo que vale ser socio. Las cuotas ya emitidas congelaron el suyo y no cambian. */
   cuotaMensualClp: number;
   cuotaIncorporacionClp: number;
+  /** El tope de canchas con luz (T203, T208). Nulo = sin tope. */
+  topeCanchasConLuz: number | null;
+  /** Desde qué hora rige, en el reloj del club: en punto o y media. */
+  topeCanchasConLuzDesde: string;
 }
 
 /**
@@ -201,6 +205,8 @@ type ReglasNumericas = Omit<
   | keyof RedesDelClub
   | keyof TextosDeElClub
   | keyof TiendaYCafeteria
+  | 'topeCanchasConLuz'
+  | 'topeCanchasConLuzDesde'
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -305,6 +311,19 @@ export function leerCambiosDeConfiguracion(
     }
   }
 
+  // T208. El tope de canchas con luz: un entero desde 1, o nulo para apagarlo. Cero no:
+  // "ninguna cancha con luz" es cerrar las canchas de noche, y eso es el horario.
+  if (datos.topeCanchasConLuz !== undefined) {
+    cambios.topeCanchasConLuz =
+      datos.topeCanchasConLuz === null
+        ? null
+        : entero(datos.topeCanchasConLuz, 'El tope de canchas con luz', 1);
+  }
+
+  if (datos.topeCanchasConLuzDesde !== undefined) {
+    cambios.topeCanchasConLuzDesde = horaDelTope(datos.topeCanchasConLuzDesde);
+  }
+
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
   // coordenadas— y se guarda como dos números. Vacío la borra.
   if (datos.ubicacion !== undefined) {
@@ -381,6 +400,20 @@ export function leerHorarios(cuerpo: unknown): DatosHorario[] {
   }
 
   return horarios;
+}
+
+/**
+ * La hora desde la que rige el tope de luz: en punto o y media, como los bordes de la
+ * grilla. Una a las 19:15 cortaría a la mitad un inicio de la grilla.
+ */
+function horaDelTope(valor: unknown): string {
+  if (typeof valor !== 'string' || !/^([01]\d|2[0-3]):(00|30)$/.test(valor)) {
+    throw new BadRequestException(
+      'La hora del tope de canchas con luz va en punto o y media, por ejemplo 19:00 o 19:30.',
+    );
+  }
+
+  return valor;
 }
 
 /**

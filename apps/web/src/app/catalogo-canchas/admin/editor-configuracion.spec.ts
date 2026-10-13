@@ -24,6 +24,7 @@ describe('EditorConfiguracion', () => {
   let api: {
     configuracion: ReturnType<typeof vi.fn>;
     fijarConfiguracion: ReturnType<typeof vi.fn>;
+    excesosDeLuz: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (reglas: ReglasDelClub | Error = REGLAS) => {
@@ -32,6 +33,8 @@ describe('EditorConfiguracion', () => {
         reglas instanceof Error ? Promise.reject(reglas) : Promise.resolve(reglas),
       ),
       fijarConfiguracion: vi.fn().mockResolvedValue(reglas),
+      // El tope de luz va en la misma página (T208) y tiene su propia prueba.
+      excesosDeLuz: vi.fn().mockResolvedValue([]),
     };
 
     TestBed.resetTestingModule();

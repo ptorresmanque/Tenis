@@ -1,5 +1,10 @@
 import { instanteEnElClub } from '../comun/tiempo';
-import { parteLimitada, peorInstante, TopeDeLuz } from './tope-de-luz';
+import {
+  excesosDelTope,
+  parteLimitada,
+  peorInstante,
+  TopeDeLuz,
+} from './tope-de-luz';
 
 /**
  * T203. El barrido del tope de canchas con luz, sin base (`SPEC-reservas.md` § Tope de
@@ -147,5 +152,106 @@ describe('TopeDeLuz', () => {
     expect(uno.paraElAdmin).toBe(
       'A las 19:30 ya está ocupada Basilea, y el tope de canchas con luz es 1.',
     );
+  });
+});
+
+describe('excesosDelTope (T208)', () => {
+  const TOPE = { tope: 2, desde: '19:00' };
+  /** Antes de todo lo de la prueba: lo que ya pasó no se lista. */
+  const ANTES = a('08:00');
+
+  const ocupa2 = (
+    clave: string,
+    canchaId: number,
+    desde: string,
+    hasta: string,
+  ) => ({
+    ...ocupa(canchaId, desde, hasta),
+    clave,
+    detalle: `Reserva ${clave}`,
+  });
+
+  it('sin nada por encima del tope, no hay excesos', () => {
+    expect(
+      excesosDelTope(
+        [ocupa2('a', 1, '20:00', '21:00'), ocupa2('b', 2, '20:00', '21:00')],
+        TOPE,
+        ANTES,
+      ),
+    ).toEqual([]);
+  });
+
+  it('tres canchas con luz a las 20:00 con tope 2: un exceso, con lo que ocupa cada una', () => {
+    expect(
+      excesosDelTope(
+        [
+          ocupa2('a', 1, '20:00', '21:00'),
+          ocupa2('b', 2, '20:00', '21:00'),
+          ocupa2('c', 3, '20:00', '21:00'),
+        ],
+        TOPE,
+        ANTES,
+      ),
+    ).toEqual([
+      {
+        desde: a('20:00'),
+        hasta: a('21:00'),
+        ocupaciones: [
+          { cancha: 'Cancha 1', detalle: 'Reserva a' },
+          { cancha: 'Cancha 2', detalle: 'Reserva b' },
+          { cancha: 'Cancha 3', detalle: 'Reserva c' },
+        ],
+      },
+    ]);
+  });
+
+  it('el exceso dura solo lo que se pisan las tres', () => {
+    const excesos = excesosDelTope(
+      [
+        ocupa2('a', 1, '19:30', '20:30'),
+        ocupa2('b', 2, '20:00', '21:00'),
+        ocupa2('c', 3, '20:00', '21:00'),
+      ],
+      TOPE,
+      ANTES,
+    );
+
+    expect(excesos.map(({ desde, hasta }) => ({ desde, hasta }))).toEqual([
+      { desde: a('20:00'), hasta: a('20:30') },
+    ]);
+  });
+
+  it('antes de la hora del tope no hay exceso, aunque estén las cuatro', () => {
+    expect(
+      excesosDelTope(
+        [1, 2, 3, 4].map((n) => ocupa2(`r${n}`, n, '18:00', '19:00')),
+        TOPE,
+        ANTES,
+      ),
+    ).toEqual([]);
+  });
+
+  it('lo que cruza la hora del tope se lista desde esa hora', () => {
+    const excesos = excesosDelTope(
+      [1, 2, 3].map((n) => ocupa2(`r${n}`, n, '18:30', '20:00')),
+      TOPE,
+      ANTES,
+    );
+
+    expect(excesos.map(({ desde, hasta }) => ({ desde, hasta }))).toEqual([
+      { desde: a('19:00'), hasta: a('20:00') },
+    ]);
+  });
+
+  it('lo que ya pasó no se lista: el exceso empieza ahora', () => {
+    const excesos = excesosDelTope(
+      [1, 2, 3].map((n) => ocupa2(`r${n}`, n, '20:00', '21:00')),
+      TOPE,
+      a('20:30'),
+    );
+
+    expect(excesos.map(({ desde, hasta }) => ({ desde, hasta }))).toEqual([
+      { desde: a('20:30'), hasta: a('21:00') },
+    ]);
   });
 });

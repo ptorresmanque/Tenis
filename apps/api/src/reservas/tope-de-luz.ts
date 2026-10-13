@@ -349,3 +349,160 @@ async function ocupacionesConLuz(
   // El adaptador de MariaDB ya entrega las `DATETIME` como `Date` en UTC.
   return [...reservas, ...bloqueos];
 }
+
+/** Algo que ocupa una cancha con luz, con lo que el admin necesita para llamar. */
+export interface OcupacionConDetalle extends Ocupacion {
+  /** Única entre reservas y bloqueos: une los tramos seguidos de lo mismo. */
+  clave: string;
+  /** "Reserva ABC1234 de Camila Soto", o la descripción del bloqueo. */
+  detalle: string;
+}
+
+/** Un intervalo con más canchas con luz ocupadas que el tope, y qué las ocupa. */
+export interface ExcesoDeLuz {
+  desde: Date;
+  hasta: Date;
+  ocupaciones: { cancha: string; detalle: string }[];
+}
+
+/**
+ * Los intervalos, desde `ahora`, con más canchas con luz ocupadas que el tope (T208).
+ *
+ * Existen porque encender el tope —o bajarlo— no cancela lo que ya estaba tomado: el panel
+ * lo muestra y el club llama. Un barrido sobre los bordes: entre dos bordes seguidos, lo
+ * que ocupa las canchas no cambia. La hora del tope de cada día también es un borde, para
+ * que un tramo no quede mitad antes y mitad después de ella.
+ */
+export function excesosDelTope(
+  ocupaciones: OcupacionConDetalle[],
+  tope: { tope: number; desde: string },
+  ahora: Date,
+): ExcesoDeLuz[] {
+  const bordes = new Set<number>([ahora.getTime()]);
+
+  for (const o of ocupaciones) {
+    bordes.add(o.inicio.getTime());
+    bordes.add(o.fin.getTime());
+    bordes.add(
+      instanteEnElClub(
+        comoFechaCivil(hoyEnElClub(o.inicio)),
+        tope.desde,
+      ).getTime(),
+    );
+  }
+
+  const ordenados = [...bordes]
+    .filter((t) => t >= ahora.getTime())
+    .sort((x, y) => x - y);
+  const excesos: (ExcesoDeLuz & { claves: string })[] = [];
+
+  for (let i = 0; i + 1 < ordenados.length; i++) {
+    const desde = new Date(ordenados[i]);
+    const hasta = new Date(ordenados[i + 1]);
+
+    if (!parteLimitada(desde, hasta, tope.desde)) continue;
+
+    const activas = ocupaciones.filter(
+      (o) => o.inicio <= desde && desde < o.fin,
+    );
+    if (new Set(activas.map((o) => o.canchaId)).size <= tope.tope) continue;
+
+    const claves = activas.map((o) => o.clave).join();
+    const anterior = excesos[excesos.length - 1];
+
+    if (
+      anterior?.hasta.getTime() === desde.getTime() &&
+      anterior.claves === claves
+    ) {
+      anterior.hasta = hasta;
+    } else {
+      excesos.push({
+        desde,
+        hasta,
+        claves,
+        ocupaciones: activas.map((o) => ({
+          cancha: o.nombre,
+          detalle: o.detalle,
+        })),
+      });
+    }
+  }
+
+  return excesos.map(({ desde, hasta, ocupaciones }) => ({
+    desde,
+    hasta,
+    ocupaciones,
+  }));
+}
+
+/** Los excesos del tope desde ahora, leídos de la base (T208). Sin tope, ninguno. */
+export async function excesosDeLuz(
+  db: Prisma.TransactionClient,
+  ahora = new Date(),
+): Promise<ExcesoDeLuz[]> {
+  const tope = await leerTope(db, false);
+
+  if (!tope) return [];
+
+  const conLuzDesdeAhora = {
+    fin: { gt: ahora },
+    cancha: { iluminacion: true },
+  };
+  const deLaCancha = { canchaId: true, cancha: { select: { nombre: true } } };
+  const porCancha = [
+    { cancha: { orden: 'asc' as const } },
+    { inicio: 'asc' as const },
+  ];
+
+  const [reservas, bloqueos] = await Promise.all([
+    db.reserva.findMany({
+      where: { ...conLuzDesdeAhora, estado: { in: ACTIVAS } },
+      select: {
+        id: true,
+        folio: true,
+        nombre: true,
+        inicio: true,
+        fin: true,
+        ...deLaCancha,
+      },
+      orderBy: porCancha,
+    }),
+    db.bloqueo.findMany({
+      where: { ...conLuzDesdeAhora, motivo: { in: ENCIENDEN_LA_LUZ } },
+      select: {
+        id: true,
+        motivo: true,
+        descripcion: true,
+        inicio: true,
+        fin: true,
+        ...deLaCancha,
+      },
+      orderBy: porCancha,
+    }),
+  ]);
+
+  return excesosDelTope(
+    [
+      ...reservas.map((r) => ({
+        canchaId: r.canchaId,
+        nombre: r.cancha.nombre,
+        inicio: r.inicio,
+        fin: r.fin,
+        clave: `reserva-${r.id}`,
+        detalle: `Reserva ${r.folio} de ${r.nombre}`,
+      })),
+      // La descripción es lo que el club lee en la grilla: "Clase — Pedro Soto" o
+      // "Torneo — 4ª, ronda 2". Un bloqueo manual sin descripción dice su motivo.
+      ...bloqueos.map((b) => ({
+        canchaId: b.canchaId,
+        nombre: b.cancha.nombre,
+        inicio: b.inicio,
+        fin: b.fin,
+        clave: `bloqueo-${b.id}`,
+        detalle: b.descripcion ?? (b.motivo === 'CLASE' ? 'Clase' : 'Torneo'),
+      })),
+    ],
+    tope,
+    ahora,
+  );
+}
