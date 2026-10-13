@@ -434,6 +434,103 @@ describe('Programación de partidos', () => {
    * que comparar el texto de la hora probaría el huso horario y no la programación.
    * `instanteEnElClub` es la misma conversión que usa el servidor.
    */
+  describe('el tope de canchas con luz (L1, corrección de la tesis 2026-10-13)', () => {
+    const LUZ = 'Cancha de programación con luz';
+    let conLuz: number[];
+
+    const programarEn = (
+      partido: { torneoId: number; partidoId: number },
+      cancha: number,
+      horaDesde: string,
+      horaHasta: string,
+    ) =>
+      request(app.getHttpServer())
+        .post(
+          `/api/admin/torneos/${partido.torneoId}/partidos/${partido.partidoId}/programacion`,
+        )
+        .set('Cookie', cookieAdmin)
+        .send({ canchaId: cancha, fecha: SABADO, horaDesde, horaHasta });
+
+    beforeEach(async () => {
+      await prisma.cancha.deleteMany({
+        where: { nombre: { startsWith: LUZ } },
+      });
+      await prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { topeCanchasConLuz: 2, topeCanchasConLuzDesde: '19:00' },
+      });
+
+      conLuz = [];
+      for (const n of [1, 2, 3]) {
+        const cancha = await prisma.cancha.create({
+          data: {
+            nombre: `${LUZ} ${n}`,
+            superficie: Superficie.CEMENTO,
+            iluminacion: true,
+            horarios: {
+              create: Array.from({ length: 7 }, (_, diaSemana) => ({
+                diaSemana,
+                horaApertura: '08:00',
+                horaCierre: '23:00',
+              })),
+            },
+          },
+          select: { id: true },
+        });
+        conLuz.push(cancha.id);
+      }
+    });
+
+    afterAll(async () => {
+      await prisma.cancha.deleteMany({
+        where: { nombre: { startsWith: LUZ } },
+      });
+    });
+
+    it('con dos partidos de 20:00 a 21:00 en canchas con luz, uno de 20:30 a 22:00 en una tercera se rechaza; de 21:00 a 22:00, no', async () => {
+      const segundo = await unTorneoJugable();
+      const tercero = await unTorneoJugable();
+      await programarEn(
+        { torneoId, partidoId },
+        conLuz[0],
+        '20:00',
+        '21:00',
+      ).expect(200);
+      await programarEn(segundo, conLuz[1], '20:00', '21:00').expect(200);
+
+      const rechazo = await programarEn(tercero, conLuz[2], '20:30', '22:00');
+
+      expect(rechazo.status).toBe(409);
+      expect(rechazo.body).toMatchObject({
+        motivo: 'TOPE_DE_LUZ',
+        message: `A las 20:30 ya están ocupadas ${LUZ} 1 y ${LUZ} 2, y el tope de canchas con luz es 2.`,
+      });
+      await programarEn(tercero, conLuz[2], '21:00', '22:00').expect(200);
+    });
+
+    it('reprogramar uno de los partidos de las 20:00 a otra cancha con luz, a la misma hora, se acepta', async () => {
+      const segundo = await unTorneoJugable();
+      await programarEn(
+        { torneoId, partidoId },
+        conLuz[0],
+        '20:00',
+        '21:00',
+      ).expect(200);
+      await programarEn(segundo, conLuz[1], '20:00', '21:00').expect(200);
+
+      await programarEn(
+        { torneoId, partidoId },
+        conLuz[2],
+        '20:00',
+        '21:00',
+      ).expect(200);
+
+      expect(
+        await prisma.partido.findUniqueOrThrow({ where: { id: partidoId } }),
+      ).toMatchObject({ programadoInicio: instanteEnElClub(SABADO, '20:00') });
+    });
+  });
+
   const horasLibres = async () => {
     const respuesta = await request(app.getHttpServer())
       .get(`/api/disponibilidad?cancha=${canchaId}&fecha=${SABADO}`)

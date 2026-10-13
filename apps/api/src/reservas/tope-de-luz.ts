@@ -70,7 +70,10 @@ const HORA = new Intl.DateTimeFormat('es-CL', {
 const ACTIVAS = [EstadoReserva.PENDIENTE_PAGO, EstadoReserva.CONFIRMADA];
 
 /** Los bloqueos que encienden la cancha. Una mantención la deja cerrada y apagada. */
-const ENCIENDEN = [MotivoBloqueo.CLASE, MotivoBloqueo.TORNEO];
+export const ENCIENDEN_LA_LUZ: MotivoBloqueo[] = [
+  MotivoBloqueo.CLASE,
+  MotivoBloqueo.TORNEO,
+];
 
 /**
  * La reserva más larga que existe, 1 hora y media (`duracion.ts`). Acota hacia atrás la
@@ -292,7 +295,7 @@ async function ocupacionesConLuz(
      WHERE c.iluminacion = TRUE
        AND b.cancha_id <> ${canchaId}
        AND b.id <> ${ignorarBloqueoId}
-       AND b.motivo IN (${Prisma.join(ENCIENDEN)})
+       AND b.motivo IN (${Prisma.join(ENCIENDEN_LA_LUZ)})
        AND b.inicio < ${hasta} AND b.fin > ${desde}
      ORDER BY c.orden, c.nombre
      ${candado}`;

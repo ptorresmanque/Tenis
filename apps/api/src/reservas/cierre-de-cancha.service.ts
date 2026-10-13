@@ -17,6 +17,14 @@ import { reintentarSiHayDeadlock } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
 import { ACTIVAS } from './reservas.service';
+import {
+  conflictoDeLuz,
+  ENCIENDEN_LA_LUZ,
+  exigirCupoDeLuz,
+  type OcupacionNueva,
+  TopeDeLuz,
+  topeLlenoEn,
+} from './tope-de-luz';
 
 /**
  * El cierre se cuenta en hora del club, que es la que la persona tiene anotada.
@@ -132,6 +140,24 @@ export class CierreDeCanchaService {
   }
 
   /**
+   * El rechazo del tope de canchas con luz para esta ocupación, o `null` si cabe (T205).
+   *
+   * Sin candados: es la comprobación previa de `clases` y `torneos`, y la de una serie
+   * fecha por fecha. Lo que decide es `cerrar`, que lo vuelve a contar adentro de su
+   * transacción. Siempre le habla al admin, el único que cierra canchas.
+   */
+  async choqueDeLuz(
+    ocupacion: OcupacionNueva,
+    reemplaza: number | null = null,
+  ): Promise<ConflictException | null> {
+    const lleno = await topeLlenoEn(this.prisma, ocupacion, {
+      ignorarBloqueoId: reemplaza ?? undefined,
+    });
+
+    return lleno ? conflictoDeLuz(lleno, true) : null;
+  }
+
+  /**
    * Cierra la cancha: crea el bloqueo, cancela lo que queda debajo, devuelve y avisa.
    *
    * El orden de los tres pasos no es de conveniencia:
@@ -157,7 +183,19 @@ export class CierreDeCanchaService {
       tx: Prisma.TransactionClient,
       bloqueoId: number,
     ) => Promise<void>,
+    /** El bloqueo que este reemplaza al mover una clase o un partido (T205). */
+    { reemplaza = null }: { reemplaza?: number | null } = {},
   ): Promise<ResultadoCierre> {
+    const enciende = ENCIENDEN_LA_LUZ.includes(datos.motivo);
+
+    // El tope de canchas con luz se mira **antes de devolver nada**: si cortara recién
+    // adentro de la transacción, el club ya habría devuelto la plata de horas que siguen
+    // vivas. Adentro se vuelve a contar con candado, que es lo que decide.
+    if (enciende) {
+      const lleno = await this.choqueDeLuz(datos, reemplaza);
+      if (lleno) throw lleno;
+    }
+
     const afectadas = await this.afectadas(datos);
 
     this.exigirQueNadieEsteMitadPagando(afectadas);
@@ -173,6 +211,14 @@ export class CierreDeCanchaService {
     // devoluciones ya se hicieron arriba—, así que repetirla no devuelve dos veces.
     const { bloqueoId, ids } = await reintentarSiHayDeadlock(() =>
       this.prisma.$transaction(async (tx) => {
+        // Una clase o un partido encienden la cancha igual que una reserva. Lo que se
+        // cancela debajo está en esta misma cancha, que el tope no cuenta.
+        if (enciende) {
+          await exigirCupoDeLuz(tx, datos, {
+            ignorarBloqueoId: reemplaza ?? undefined,
+          });
+        }
+
         const bloqueo = await tx.bloqueo.create({ data: datos });
 
         await tambienEnLaTransaccion?.(tx, bloqueo.id);
@@ -201,7 +247,21 @@ export class CierreDeCanchaService {
 
         return { bloqueoId: bloqueo.id, ids: debajo.map((r) => r.id) };
       }),
-    );
+    ).catch((error: unknown) => {
+      if (!(error instanceof TopeDeLuz)) throw error;
+
+      // ponytail: el tope se llenó entre la revisión de arriba y la transacción, que son
+      // milisegundos. Si ya se había devuelto algo, esas reservas siguen vivas con la
+      // plata devuelta: se anota para que el club lo resuelva por caja, como las tardías.
+      for (const reserva of afectadas.filter((r) => r.pagada)) {
+        this.log.warn(
+          `Se devolvió el pago de la reserva ${reserva.folio}, pero el cierre no se ` +
+            'hizo por el tope de canchas con luz: la reserva sigue vigente. Revisar a mano.',
+        );
+      }
+
+      throw conflictoDeLuz(error, true);
+    });
 
     const canceladas = await this.fichasDe(ids, afectadas);
 

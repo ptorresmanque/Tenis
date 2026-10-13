@@ -3,12 +3,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { AppModule } from '../src/app.module';
 import { instanteEnElClub } from '../src/comun/tiempo';
+import { Clases } from '../src/clases/clases.service';
 import {
   ConceptoPago,
   EstadoReserva,
   EstadoSocio,
   EstadoTransaccion,
   MotivoBloqueo,
+  NivelClase,
   Superficie,
 } from '../src/generated/prisma/client';
 import { EnviadorCorreo } from '../src/identidad/correo';
@@ -649,6 +651,199 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
         fin: a('19:30'),
         cambioTransaccionId: null,
       });
+    });
+  });
+
+  describe('las clases, que pasan por el cierre de la cancha (T205)', () => {
+    let profesorId: number;
+
+    const unaClase = (canchaId: number, desde: string, hasta: string) => ({
+      canchaId,
+      profesorId,
+      fecha: DIA,
+      inicio: a(desde),
+      fin: a(hasta),
+      cupoMaximo: 6,
+      nivel: NivelClase.INICIACION,
+      notas: null,
+    });
+
+    const clases = () => modulo.get(Clases);
+
+    beforeEach(async () => {
+      await prisma.profesor.deleteMany({
+        where: { nombreVisible: 'Profe T205' },
+      });
+      profesorId = (
+        await prisma.profesor.create({
+          data: {
+            nombreVisible: 'Profe T205',
+            telefono: '56933334444',
+            especialidad: 'Iniciación',
+          },
+          select: { id: true },
+        })
+      ).id;
+    });
+
+    afterAll(async () => {
+      // Sus clases y series primero: la ficha no se borra en cascada.
+      await prisma.clase.deleteMany({
+        where: { profesor: { nombreVisible: 'Profe T205' } },
+      });
+      await prisma.serieDeClases.deleteMany({
+        where: { profesor: { nombreVisible: 'Profe T205' } },
+      });
+      await prisma.profesor.deleteMany({
+        where: { nombreVisible: 'Profe T205' },
+      });
+    });
+
+    it('una clase a las 20:00 en una tercera cancha con luz no se agenda, y la simulación ya lo decía (clases 9)', async () => {
+      await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+
+      const previa: unknown = await clases()
+        .afectadas(unaClase(luz[2], '20:00', '21:00'))
+        .catch((e: unknown) => e);
+      const agendada: unknown = await clases()
+        .agendar(unaClase(luz[2], '20:00', '21:00'))
+        .catch((e: unknown) => e);
+
+      const esperado = {
+        motivo: 'TOPE_DE_LUZ',
+        message: `A las 20:00 ya están ocupadas ${PREFIJO} 1 y ${PREFIJO} 2, y el tope de canchas con luz es 2.`,
+      };
+      expect(cuerpoDel(previa)).toEqual(esperado);
+      expect(cuerpoDel(agendada)).toEqual(esperado);
+      expect(await prisma.clase.count({ where: { profesorId } })).toBe(0);
+      expect(await prisma.bloqueo.count({ where: { canchaId: luz[2] } })).toBe(
+        0,
+      );
+    });
+
+    it('cancelar las reservas de su propia cancha no la libera: el tope lo llenan las otras', async () => {
+      await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+      const debajo = await tomar(luz[2], '18:00', '19:00');
+      await prisma.reserva.update({
+        where: { id: debajo.id },
+        data: { inicio: a('20:00'), fin: a('21:00') },
+      });
+
+      const error: unknown = await clases()
+        .agendar(unaClase(luz[2], '20:00', '21:00'))
+        .catch((e: unknown) => e);
+
+      expect(cuerpoDel(error).motivo).toBe('TOPE_DE_LUZ');
+      // Y la reserva de abajo sigue viva: el tope corta antes de cancelar nada.
+      expect(
+        await prisma.reserva.findUniqueOrThrow({ where: { id: debajo.id } }),
+      ).toMatchObject({ estado: EstadoReserva.CONFIRMADA });
+    });
+
+    it('mover una clase a otra cancha con luz a la misma hora no la cuenta contra sí misma', async () => {
+      const clase = await clases().agendar(unaClase(luz[0], '20:00', '21:00'));
+      await tomar(luz[1], '20:00', '21:00');
+
+      await clases().mover(clase.id, {
+        canchaId: luz[2],
+        fecha: DIA,
+        inicio: a('20:00'),
+        fin: a('21:00'),
+      });
+
+      expect(
+        await prisma.clase.findUniqueOrThrow({ where: { id: clase.id } }),
+      ).toMatchObject({ canchaId: luz[2] });
+    });
+
+    it('mover una clase de las 18:00 a las 20:00 sobre el tope se rechaza', async () => {
+      await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+      const clase = await clases().agendar(unaClase(luz[2], '18:00', '19:00'));
+
+      const error: unknown = await clases()
+        .mover(clase.id, { fecha: DIA, inicio: a('20:00'), fin: a('21:00') })
+        .catch((e: unknown) => e);
+
+      expect(cuerpoDel(error).motivo).toBe('TOPE_DE_LUZ');
+      expect(
+        await prisma.clase.findUniqueOrThrow({ where: { id: clase.id } }),
+      ).toMatchObject({ inicio: a('18:00') });
+    });
+
+    describe('en una serie (clases 10)', () => {
+      const unaSerie = () => ({
+        canchaId: luz[2],
+        profesorId,
+        diasSemana: [1],
+        horaDesde: '20:00',
+        horaHasta: '21:00',
+        desde: DIA,
+        hasta: '2039-06-20',
+        cupoMaximo: 6,
+        nivel: NivelClase.INICIACION,
+        notas: null,
+      });
+
+      beforeEach(async () => {
+        // El tope lleno solo el primer lunes.
+        await tomar(luz[0], '20:00', '21:00');
+        await tomar(luz[1], '20:00', '21:00');
+      });
+
+      it('la fecha que pasaría el tope sale como choque, y la otra no', async () => {
+        const fechas = await clases().simularSerie(unaSerie());
+
+        expect(fechas.map(({ fecha, choque }) => ({ fecha, choque }))).toEqual([
+          {
+            fecha: DIA,
+            choque: `A las 20:00 ya están ocupadas ${PREFIJO} 1 y ${PREFIJO} 2, y el tope de canchas con luz es 2.`,
+          },
+          { fecha: '2039-06-20', choque: null },
+        ]);
+      });
+
+      it('confirmarla sin saltar esa fecha responde FALTA_DECIDIR, y saltándola se agenda la otra', async () => {
+        const sinDecidir: unknown = await clases()
+          .agendarSerie(unaSerie(), {})
+          .catch((e: unknown) => e);
+
+        expect(cuerpoDel(sinDecidir).motivo).toBe('FALTA_DECIDIR');
+        expect(cuerpoDel(sinDecidir).message).toContain('solo se puede saltar');
+
+        const agendada = await clases().agendarSerie(unaSerie(), {
+          [DIA]: 'saltar',
+        });
+
+        expect(agendada.clases.map(({ fecha }) => fecha)).toEqual([
+          '2039-06-20',
+        ]);
+      });
+    });
+
+    it('una clase y una reserva a la vez por la última cancha con luz: entra una (45, el camino del cierre)', async () => {
+      for (let ronda = 0; ronda < 5; ronda++) {
+        await prisma.clase.deleteMany({ where: { profesorId } });
+        await prisma.bloqueo.deleteMany({ where: { canchaId: { in: luz } } });
+        await prisma.reserva.deleteMany({ where: { canchaId: { in: luz } } });
+        await tomar(luz[0], '20:00', '21:00');
+
+        const resultados = await Promise.allSettled([
+          clases().agendar(unaClase(luz[1], '20:00', '21:00')),
+          tomar(luz[2], '20:00', '21:00'),
+        ]);
+
+        expect(resultados.filter((r) => r.status === 'fulfilled')).toHaveLength(
+          1,
+        );
+        const [rechazo] = resultados.filter((r) => r.status === 'rejected');
+        expect(
+          rechazo.reason instanceof TopeDeLuz ||
+            cuerpoDel(rechazo.reason).motivo === 'TOPE_DE_LUZ',
+        ).toBe(true);
+      }
     });
   });
 });
