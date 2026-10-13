@@ -65,6 +65,15 @@ export interface ResultadoCierre {
   canceladas: ReservaAfectada[];
 }
 
+/** El rechazo de `soloLibre` (T219). */
+function horasTomadas(): ConflictException {
+  return new ConflictException({
+    motivo: 'HORAS_TOMADAS',
+    message:
+      'Esta hora tiene reservas. Para agendar encima, habla con administración.',
+  });
+}
+
 /**
  * Cerrar una cancha que ya tiene horas tomadas.
  *
@@ -200,8 +209,15 @@ export class CierreDeCanchaService {
       tx: Prisma.TransactionClient,
       bloqueoId: number,
     ) => Promise<void>,
-    /** El bloqueo que este reemplaza al mover una clase o un partido (T205). */
-    { reemplaza = null }: { reemplaza?: number | null } = {},
+    /**
+     * `reemplaza`: el bloqueo que este reemplaza al mover una clase o un partido (T205).
+     * `soloLibre`: cerrar solo si no hay reservas debajo, sin cancelar ninguna (T219). Es
+     * el profesor que agenda su clase: cancelarle la hora a un socio es decisión del club.
+     */
+    {
+      reemplaza = null,
+      soloLibre = false,
+    }: { reemplaza?: number | null; soloLibre?: boolean } = {},
   ): Promise<ResultadoCierre> {
     const enciende = ENCIENDEN_LA_LUZ.includes(datos.motivo);
 
@@ -214,6 +230,10 @@ export class CierreDeCanchaService {
     }
 
     const afectadas = await this.afectadas(datos);
+
+    // Antes de devolver nada, como el tope: si cortara adentro, el club ya habría
+    // devuelto la plata de horas que siguen vivas.
+    if (soloLibre && afectadas.length > 0) throw horasTomadas();
 
     this.exigirQueNadieEsteMitadPagando(afectadas);
 
@@ -252,6 +272,10 @@ export class CierreDeCanchaService {
           },
           select: { id: true },
         });
+
+        // La que entró entre la revisión de arriba y esta transacción: sin permiso para
+        // cancelar, se aborta todo en vez de quitarle la hora a alguien.
+        if (soloLibre && debajo.length > 0) throw horasTomadas();
 
         await tx.reserva.updateMany({
           where: { id: { in: debajo.map((r) => r.id) } },

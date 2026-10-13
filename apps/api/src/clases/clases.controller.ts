@@ -90,7 +90,7 @@ export class ClasesController {
     const clase = leerClaseNueva(cuerpo);
     exigirSuya(clase.profesorId, yo);
 
-    return this.clases.agendar(clase);
+    return this.clases.agendar(clase, null, { soloLibre: !yo.esAdmin });
   }
 
   /**
@@ -163,7 +163,9 @@ export class ClasesController {
     const serie = leerSerie(cuerpo);
     exigirSuya(serie.profesorId, yo);
 
-    return this.clases.agendarSerie(serie, leerDecisiones(datos.decisiones));
+    return this.clases.agendarSerie(serie, leerDecisiones(datos.decisiones), {
+      soloLibre: !yo.esAdmin,
+    });
   }
 
   /**
@@ -230,7 +232,9 @@ export class ClasesController {
   ) {
     await this.pertenencia.deLaClase(id, yo);
 
-    return this.clases.mover(id, leerMovimiento(cuerpo));
+    return this.clases.mover(id, leerMovimiento(cuerpo), {
+      soloLibre: !yo.esAdmin,
+    });
   }
 
   /**

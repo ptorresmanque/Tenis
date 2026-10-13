@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -144,11 +145,21 @@ export class Clases {
    * devoluciones salen a la pasarela, que no entra en una transacción de la base. Si una
    * fecha falla a mitad de camino —un pago que empezó en ese momento, un cierre nuevo—, las
    * anteriores quedan agendadas y atadas a la serie, y el error lo dice.
+   *
+   * @param soloLibre Quien agenda no es admin (T219): ninguna fecha cancela reservas, y
+   * una decisión `cancelar` se rechaza antes de escribir nada.
    */
   async agendarSerie(
     serie: SerieNueva,
     decisiones: Decisiones,
+    { soloLibre = false }: { soloLibre?: boolean } = {},
   ): Promise<SerieAgendada> {
+    if (soloLibre && Object.values(decisiones).includes('cancelar')) {
+      throw new ForbiddenException(
+        'Cancelar reservas para hacer espacio lo decide administración: salta esa fecha.',
+      );
+    }
+
     const fechas = await this.simularSerie(serie);
     const { agendar, saltadas } = repartirFechas(fechas, decisiones);
 
@@ -174,7 +185,7 @@ export class Clases {
     for (const clase of clasesDeLaSerie(serie)) {
       if (!agendar.includes(clase.fecha)) continue;
 
-      const agendada = await this.agendar(clase, id);
+      const agendada = await this.agendar(clase, id, { soloLibre });
       clases.push({ id: agendada.id, fecha: clase.fecha });
       canceladas.push(...agendada.canceladas);
     }
@@ -182,10 +193,14 @@ export class Clases {
     return { id, clases, saltadas, canceladas };
   }
 
-  /** @param serieId La serie que la agenda, si viene de una (T114). */
+  /**
+   * @param serieId La serie que la agenda, si viene de una (T114).
+   * @param soloLibre Quien agenda no es admin: con reservas debajo, 409 y nada cancelado (T219).
+   */
   async agendar(
     datos: ClaseNueva,
     serieId: number | null = null,
+    { soloLibre = false }: { soloLibre?: boolean } = {},
   ): Promise<ClaseAgendada> {
     const profesor = await this.elProfesor(datos.profesorId);
     await this.exigirRangoUsable(datos.canchaId, datos.fecha, datos);
@@ -212,6 +227,7 @@ export class Clases {
 
         claseId = clase.id;
       },
+      { soloLibre },
     );
 
     return { id: claseId, bloqueoId, canceladas };
@@ -225,7 +241,11 @@ export class Clases {
    * **dentro de la misma transacción** que crea el nuevo, o la cancha queda cerrada
    * en dos horas por una clase que solo se da en una.
    */
-  async mover(id: number, adonde: Movimiento): Promise<ClaseAgendada> {
+  async mover(
+    id: number,
+    adonde: Movimiento,
+    { soloLibre = false }: { soloLibre?: boolean } = {},
+  ): Promise<ClaseAgendada> {
     const clase = await this.laClase(id);
     const canchaId = adonde.canchaId ?? clase.canchaId;
 
@@ -261,7 +281,7 @@ export class Clases {
           await tx.bloqueo.delete({ where: { id: viejo } });
         }
       },
-      { reemplaza: viejo },
+      { reemplaza: viejo, soloLibre },
     );
 
     return { id, bloqueoId, canceladas };

@@ -3,8 +3,10 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { instanteEnElClub } from '../src/comun/tiempo';
 import {
   EstadoClase,
+  EstadoReserva,
   EstadoSocio,
   NivelClase,
   Superficie,
@@ -430,6 +432,150 @@ describe('El profesor en Clases', () => {
 
     it('a un socio sin tipos del panel, la agenda de clases le responde 403', async () => {
       await como('socia').get(`clases?fecha=${DIA}`).expect(403);
+    });
+  });
+
+  describe('solo en horas libres (T219, criterios 13 y 14)', () => {
+    let folio = 0;
+    /** Una reserva confirmada de un visitante sobre la cancha de la prueba. */
+    const reserva = async (fecha: string, desde: string, hasta: string) =>
+      (
+        await prisma.reserva.create({
+          data: {
+            folio: `T219${String((folio += 1)).padStart(3, '0')}`,
+            canchaId,
+            inicio: instanteEnElClub(fecha, desde),
+            fin: instanteEnElClub(fecha, hasta),
+            estado: EstadoReserva.CONFIRMADA,
+            nombre: 'Visitante T219',
+            email: `visitante${DOMINIO}`,
+            telefono: '56900000000',
+          },
+          select: { id: true },
+        })
+      ).id;
+
+    const estadoDe = async (id: number) =>
+      (
+        await prisma.reserva.findUniqueOrThrow({
+          where: { id },
+          select: { estado: true },
+        })
+      ).estado;
+
+    it('agendar sobre una hora reservada responde 409 HORAS_TOMADAS y no cancela nada (13)', async () => {
+      const tomada = await reserva(DIA, '14:00', '15:00');
+      const antes = await prisma.clase.count({ where: { canchaId } });
+
+      const respuesta = await como('profe-a')
+        .post('clases', clase(fichaA, '14:00', '15:00'))
+        .expect(409);
+
+      expect(respuesta.body).toMatchObject({
+        motivo: 'HORAS_TOMADAS',
+        message:
+          'Esta hora tiene reservas. Para agendar encima, habla con administración.',
+      });
+      expect(await estadoDe(tomada)).toBe(EstadoReserva.CONFIRMADA);
+      expect(await prisma.clase.count({ where: { canchaId } })).toBe(antes);
+    });
+
+    it('mover su clase sobre una hora reservada responde 409 y la clase queda donde estaba (13)', async () => {
+      const tomada = await reserva(DIA, '20:00', '21:00');
+      const suya = (
+        (
+          await como('profe-a')
+            .post('clases', clase(fichaA, '09:00', '10:00'))
+            .expect(201)
+        ).body as { id: number }
+      ).id;
+
+      await como('profe-a')
+        .patch(`clases/${suya}`, {
+          fecha: DIA,
+          horaDesde: '20:00',
+          horaHasta: '21:00',
+        })
+        .expect(409);
+
+      expect(await estadoDe(tomada)).toBe(EstadoReserva.CONFIRMADA);
+      expect(
+        await prisma.clase.findUniqueOrThrow({
+          where: { id: suya },
+          select: { inicio: true },
+        }),
+      ).toEqual({ inicio: instanteEnElClub(DIA, '09:00') });
+    });
+
+    describe('en una serie (14)', () => {
+      const SERIE = () => serie(fichaA, '20:00', '21:00');
+      let tomada: number;
+
+      beforeAll(async () => {
+        tomada = await reserva('2041-10-23', '20:00', '21:00');
+      });
+
+      it('la simulación le dice qué fecha tiene reservas', async () => {
+        const body: unknown = (
+          await como('profe-a')
+            .post('clases/series/simulacion', SERIE())
+            .expect(200)
+        ).body;
+        const fechas = (
+          body as { fechas: { fecha: string; afectadas: unknown[] }[] }
+        ).fechas;
+
+        expect(
+          fechas.find((f) => f.fecha === '2041-10-23')?.afectadas,
+        ).toHaveLength(1);
+      });
+
+      it('"cancelar" desde un profesor responde 403 y no agenda ninguna fecha', async () => {
+        const antes = await prisma.serieDeClases.count();
+
+        await como('profe-a')
+          .post('clases/series', {
+            ...SERIE(),
+            decisiones: { '2041-10-23': 'cancelar' },
+          })
+          .expect(403);
+
+        expect(await prisma.serieDeClases.count()).toBe(antes);
+        expect(await estadoDe(tomada)).toBe(EstadoReserva.CONFIRMADA);
+      });
+
+      it('saltándola, se agendan las demás y la reserva sigue en pie', async () => {
+        const body: unknown = (
+          await como('profe-a')
+            .post('clases/series', {
+              ...SERIE(),
+              decisiones: { '2041-10-23': 'saltar' },
+            })
+            .expect(201)
+        ).body;
+
+        expect(body).toMatchObject({
+          saltadas: ['2041-10-23'],
+          canceladas: [],
+        });
+        expect(
+          (body as { clases: { fecha: string }[] }).clases.map((c) => c.fecha),
+        ).toEqual(['2041-10-16', '2041-10-30']);
+        expect(await estadoDe(tomada)).toBe(EstadoReserva.CONFIRMADA);
+      });
+    });
+
+    it('el admin sobre una hora reservada la sigue cancelando (criterio 2)', async () => {
+      const tomada = await reserva(DIA, '08:00', '09:00');
+
+      const body: unknown = (
+        await como('jefe')
+          .post('clases', clase(fichaA, '08:00', '09:00'))
+          .expect(201)
+      ).body;
+
+      expect((body as { canceladas: unknown[] }).canceladas).toHaveLength(1);
+      expect(await estadoDe(tomada)).toBe(EstadoReserva.CANCELADA);
     });
   });
 });
