@@ -5,7 +5,7 @@ import { routes } from './app.routes';
 import { CascaronAdmin } from './cascarones/cascaron-admin';
 import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
-import { soloAdmin } from './core/auth/solo-admin.guard';
+import { conPanel } from './core/auth/con-panel.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 
 /**
@@ -42,8 +42,15 @@ function buscar(url: string): Encontrada | null {
         return { ruta, guards, cascaron: suCascaron };
       }
 
+      // `canActivateChild` del padre corre para cada hijo (T220: así va el del panel).
       const dentro =
-        ruta.children && recorrer(ruta.children, camino, guards, suCascaron);
+        ruta.children &&
+        recorrer(
+          ruta.children,
+          camino,
+          [...guards, ...(ruta.canActivateChild ?? [])],
+          suCascaron,
+        );
       if (dentro) return dentro;
     }
 
@@ -71,8 +78,8 @@ describe('Rutas protegidas', () => {
     'administracion/tours',
     'administracion/tours/:id',
     'estado',
-  ])('%s es solo del admin', (url) => {
-    expect(buscar(url)?.guards).toContain(soloAdmin);
+  ])('%s pasa por el guard del panel', (url) => {
+    expect(buscar(url)?.guards).toContain(conPanel);
   });
 
   it('recuperar-contrasena se abre con sesión: el enlace del correo puede abrirse en cualquier navegador', () => {

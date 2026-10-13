@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { Auth } from '../core/auth/auth';
+import { inicioDelPanel, puedeVer } from '../core/auth/tipos-del-panel';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
 import { MenuDesplegable } from './menu-desplegable';
@@ -44,7 +45,7 @@ import { MenuDesplegable } from './menu-desplegable';
                bg-card md:flex"
       >
         <div class="border-b border-border px-6 py-4">
-          <app-logotipo destino="/administracion/reservas" />
+          <app-logotipo [destino]="inicio()" />
         <span
           class="font-display text-xs font-bold tracking-widest text-muted-foreground uppercase"
         >
@@ -59,7 +60,7 @@ import { MenuDesplegable } from './menu-desplegable';
              pintaría un fondo claro bajo un texto blanco. -->
         <nav aria-label="Administración" class="flex-1 overflow-y-auto py-4">
           <ul class="grid gap-1">
-            @for (item of ITEMS; track item.ruta) {
+            @for (item of items(); track item.ruta) {
               @if (item.trasDivisoria) {
                 <li class="my-2 border-t border-border" aria-hidden="true"></li>
               }
@@ -141,7 +142,7 @@ import { MenuDesplegable } from './menu-desplegable';
         >
           <span class="icono text-2xl" aria-hidden="true">menu</span>
         </button>
-        <app-logotipo destino="/administracion/reservas" />
+        <app-logotipo [destino]="inicio()" />
         <span
           class="font-display text-xs font-bold tracking-widest text-muted-foreground uppercase"
         >
@@ -157,7 +158,7 @@ import { MenuDesplegable } from './menu-desplegable';
         aria-label="Administración"
       >
         <div class="flex items-center justify-between border-b border-border px-4 py-4">
-          <app-logotipo destino="/administracion/reservas" />
+          <app-logotipo [destino]="inicio()" />
         <span
           class="font-display text-xs font-bold tracking-widest text-muted-foreground uppercase"
         >
@@ -175,7 +176,7 @@ import { MenuDesplegable } from './menu-desplegable';
 
         <nav aria-label="Administración" class="p-2">
           <ul class="grid gap-1">
-            @for (item of ITEMS; track item.ruta) {
+            @for (item of items(); track item.ruta) {
               <li>
                 <a
                   [routerLink]="item.ruta"
@@ -219,7 +220,7 @@ export class CascaronAdmin {
   protected readonly usuario = this.auth.usuario;
 
   /** Los ítems de MASTER.md que ya tienen pantalla, en el orden de esa tabla. */
-  protected readonly ITEMS = [
+  private readonly ITEMS = [
     {
       ruta: '/administracion/reservas',
       etiqueta: 'Agenda del día',
@@ -336,6 +337,16 @@ export class CascaronAdmin {
       trasDivisoria: false,
     },
   ];
+
+  /** Los que este usuario puede ver (T220): el gestor, la agenda; el profesor, Clases. */
+  protected readonly items = computed(() =>
+    this.ITEMS.filter((item) => puedeVer(item.ruta, this.usuario())),
+  );
+
+  /** Adónde lleva el logotipo: la portada del panel de cada uno. */
+  protected readonly inicio = computed(
+    () => inicioDelPanel(this.usuario()) ?? '/',
+  );
 
   protected readonly ITEM_MENU =
     'block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted';

@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 import { CascaronAdmin } from './cascarones/cascaron-admin';
 import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
-import { soloAdmin } from './core/auth/solo-admin.guard';
+import { conPanel } from './core/auth/con-panel.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 
 /**
@@ -13,8 +13,8 @@ import { soloVisitantes } from './core/auth/solo-visitantes.guard';
  * uno, y si ningún hijo calza con la URL sigue con el siguiente. Así `/entrar` y
  * `/estado` conservan la URL que ya tenían aunque cambien de cascarón.
  *
- * `soloAdmin` va una sola vez, en el padre del panel: las rutas de adentro lo
- * heredan y una pantalla nueva nace protegida en vez de nacer abierta.
+ * `conPanel` va una sola vez, en el padre del panel, y corre en cada pantalla de adentro:
+ * una pantalla nueva nace solo para el admin hasta que `tipos-del-panel.ts` la abra.
  */
 export const routes: Routes = [
   {
@@ -158,7 +158,7 @@ export const routes: Routes = [
   {
     path: '',
     component: CascaronAdmin,
-    canActivate: [soloAdmin],
+    canActivateChild: [conPanel],
     children: [
       {
         path: 'administracion/reservas',
