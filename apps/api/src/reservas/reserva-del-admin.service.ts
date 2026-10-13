@@ -1,15 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type { DuracionMin } from '../catalogo-canchas/bloques';
+import { fechaDelClub, hoyEnElClub } from '../comun/tiempo';
 import { EstadoSocio } from '../generated/prisma/client';
-import { UsuarioActual } from '../identidad/usuario-actual';
+import { estaAlDia, UsuarioActual } from '../identidad/usuario-actual';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcompananteDeclarado } from './cupo';
-import {
-  fechaCivilDelClub,
-  ReservaCreada,
-  ReservasService,
-} from './reservas.service';
+import { ReservaCreada, ReservasService } from './reservas.service';
 
 /** Lo que el mesón alcanza a ver del cupo antes de tomar la hora por teléfono. */
 export interface CupoDelSocio {
@@ -88,7 +85,7 @@ export class ReservaDelAdminService {
       nombre: `${socio.usuario.nombre} ${socio.usuario.apellido}`.trim(),
       numeroSocio: socio.numeroSocio,
       estado: socio.estado,
-      alDia: fechaCivilDelClub(socio.alDiaHasta) >= fecha,
+      alDia: estaAlDia(socio.alDiaHasta, fechaDelClub(fecha)),
       ...cuenta,
       cupoDiarioSocioReservas: config.cupoDiarioSocioReservas,
       cupoPicoSemanalReservas: config.cupoPicoSemanalReservas,
@@ -158,8 +155,9 @@ export class ReservaDelAdminService {
       esAdmin: false,
       socioId: socio.id,
       socioActivo: socio.estado === EstadoSocio.ACTIVO,
-      socioAlDia:
-        fechaCivilDelClub(socio.alDiaHasta) >= fechaCivilDelClub(ahora),
+      // Con la regla de la sesión y no con una copia: `alDiaHasta` es `DATE` y ya
+      // viene como el día civil; pasarla por la hora de Chile la corre al día anterior.
+      socioAlDia: estaAlDia(socio.alDiaHasta, hoyEnElClub(ahora)),
       profesorId: null,
     };
 

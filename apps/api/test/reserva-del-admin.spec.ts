@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { hoyEnElClub } from '../src/comun/tiempo';
+import { comoFechaCivil, hoyEnElClub } from '../src/comun/tiempo';
 import {
   EstadoReserva,
   EstadoSocio,
@@ -11,6 +11,7 @@ import {
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ReservaDelAdminService } from '../src/reservas/reserva-del-admin.service';
+import { ReservasService } from '../src/reservas/reservas.service';
 
 /**
  * T6.3: la hora que toma el club por teléfono o en el mesón.
@@ -323,6 +324,53 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
       .expect(200);
 
     expect((despues.body as { reservasDelDia: number }).reservasDelDia).toBe(1);
+  });
+
+  describe('la cuota que vence hoy', () => {
+    // `alDiaHasta` es `DATE` y vuelve como medianoche UTC. Pasarla por la hora de Chile
+    // la corría al día anterior: el día del vencimiento, el mesón veía moroso al socio
+    // que su propia sesión ve al día.
+    const venceHoy = async (ahora: Date) => {
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: hoyEnElClub(ahora) },
+      });
+    };
+
+    it('el socio que arma el mesón queda al día, como en su sesión', async () => {
+      const ahora = new Date();
+      await venceHoy(ahora);
+      const espia = jest.spyOn(app.get(ReservasService), 'reservarComoSocio');
+
+      await app.get(ReservaDelAdminService).crear(
+        {
+          canchaId,
+          inicio: new Date(bloques[0].inicio),
+          duracionMin: 60,
+          socioId,
+          acompanantes: [{ nombre: 'Invitado del mesón' }],
+        },
+        ahora,
+      );
+
+      const [comoElSocio] = espia.mock.calls[0];
+      espia.mockRestore();
+      expect(comoElSocio).toMatchObject({ socioId, socioAlDia: true });
+    });
+
+    it('y el cupo que consulta el mesón lo muestra al día', async () => {
+      const ahora = new Date();
+      await venceHoy(ahora);
+
+      const cupo = await request(app.getHttpServer())
+        .get(
+          `/api/admin/reservas/cupo/${socioId}?fecha=${comoFechaCivil(hoyEnElClub(ahora))}`,
+        )
+        .set('Cookie', cookieAdmin)
+        .expect(200);
+
+      expect((cupo.body as { alDia: boolean }).alDia).toBe(true);
+    });
   });
 
   describe('la hora en curso', () => {
