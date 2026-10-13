@@ -8,6 +8,7 @@ import {
 } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventosDeReserva } from './eventos';
+import { exigirCupoDeLuz } from './tope-de-luz';
 
 /**
  * Alguien se adelantó y tomó ese bloque.
@@ -94,13 +95,22 @@ export class ReservaRepository {
         },
       });
 
+    // El tope de canchas con luz (T203) se cuenta en la misma transacción que escribe:
+    // por este método pasan todas las reservas que nacen, así que entra una sola vez.
+    const crearConTope = async (db: Prisma.TransactionClient) => {
+      await exigirCupoDeLuz(db, datos);
+      return escribir(db);
+    };
+
     try {
       // Dentro de una transacción ajena no se puede reintentar acá: si hay deadlock,
       // la base revierte la transacción entera y la repite quien la abrió (ver
       // `conElSocioBloqueado`). Sola, sí: un deadlock no dejó nada escrito.
       const reserva = await (tx
-        ? escribir(tx)
-        : reintentarSiHayDeadlock(() => escribir(this.prisma)));
+        ? crearConTope(tx)
+        : reintentarSiHayDeadlock(() =>
+            this.prisma.$transaction(crearConTope),
+          ));
 
       // Acá y no en cada servicio: por este método pasan todas las reservas que
       // nacen, así que el panel en vivo no depende de que quien agregue un camino

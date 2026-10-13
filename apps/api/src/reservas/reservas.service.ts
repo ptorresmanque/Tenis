@@ -27,6 +27,7 @@ import {
 import { AvisosDeReserva } from './correos';
 import { invitadosAnteriores, mesDelClub } from './invitados';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
+import { conflictoDeLuz, TopeDeLuz } from './tope-de-luz';
 
 /**
  * El cliente de Prisma o el de una transacción en curso: los dos saben consultar.
@@ -175,6 +176,12 @@ export class ReservasService {
           motivo: 'BLOQUE_TOMADO',
           message: error.message,
         });
+      }
+
+      // `tomableHasta` lo cambia solo el mesón: ahí el admin necesita saber qué canchas
+      // llenan el tope; el socio, no.
+      if (error instanceof TopeDeLuz) {
+        throw conflictoDeLuz(error, tomableHasta === 'fin');
       }
 
       throw error;
@@ -453,6 +460,8 @@ export class ReservasService {
           message: error.message,
         });
       }
+
+      if (error instanceof TopeDeLuz) throw conflictoDeLuz(error, true);
 
       throw error;
     }

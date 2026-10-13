@@ -584,6 +584,13 @@ model ConfiguracionClub {
   /// Cuántos días queda sin reservar el socio que tomó una hora y no la usó (T34).
   diasSancionNoUso     Int @default(15) @map("dias_sancion_no_uso")
 
+  /// Cuántas canchas con luz pueden estar ocupadas a la vez desde `topeCanchasConLuzDesde`
+  /// hasta el cierre (T203). La instalación eléctrica del club se corta con más de dos.
+  /// Nulo = sin tope. Lo aplica `reservas/tope-de-luz.ts`.
+  topeCanchasConLuz      Int?   @default(2) @map("tope_canchas_con_luz")
+  /// Reloj del club, en punto o y media.
+  topeCanchasConLuzDesde String @default("19:00") @map("tope_canchas_con_luz_desde") @db.Char(5)
+
   /// Lo que vale la mensualidad hoy. Una columna con nombre, como las otras seis: el
   /// monto histórico no se pierde porque **cada cuota lo congela**, que es justo lo
   /// que una tabla de precios con vigencia vendría a resolver.

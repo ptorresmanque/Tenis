@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeReserva } from './correos';
 import { EventosDeReserva } from './eventos';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
+import { conflictoDeLuz, TopeDeLuz } from './tope-de-luz';
 import { rechazarSiYaPaso } from './reservas.service';
 
 export interface ReservaDeNoSocio {
@@ -299,6 +300,8 @@ export class ReservaNoSocioService {
           message: error.message,
         });
       }
+
+      if (error instanceof TopeDeLuz) throw conflictoDeLuz(error, false);
 
       throw error;
     }
