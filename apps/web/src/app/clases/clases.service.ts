@@ -4,11 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { HoraAfectada } from '../catalogo-canchas/admin/admin-canchas.service';
 
-export type NivelClase =
-  | 'INICIACION'
-  | 'INTERMEDIO'
-  | 'COMPETITIVO'
-  | 'NINOS';
+export type NivelClase = 'INICIACION' | 'INTERMEDIO' | 'COMPETITIVO' | 'NINOS';
 
 /** Cómo se lee cada nivel en pantalla. */
 export const NIVELES: Record<NivelClase, string> = {
@@ -78,9 +74,7 @@ export interface FichaDeClase {
 }
 
 /** Un socio del club o un alumno de afuera, nunca los dos. */
-export type QuienSeInscribe =
-  | { socioId: number }
-  | { nombre: string; telefono: string };
+export type QuienSeInscribe = { socioId: number } | { nombre: string; telefono: string };
 
 /** Un profesor, como lo anuncia el club. Sin tarifa ni teléfono: eso es interno. */
 export interface ProfesorPublico {
@@ -194,34 +188,24 @@ export class Clases {
   }
 
   delDia(fecha: string): Promise<ClaseDelDia[]> {
-    return firstValueFrom(
-      this.http.get<ClaseDelDia[]>('/api/admin/clases', { params: { fecha } }),
-    );
+    return firstValueFrom(this.http.get<ClaseDelDia[]>('/api/admin/clases', { params: { fecha } }));
   }
 
   /** A quién le quitaría la hora. No escribe nada. */
   simular(clase: ClaseNueva): Promise<{ afectadas: HoraAfectada[] }> {
     return firstValueFrom(
-      this.http.post<{ afectadas: HoraAfectada[] }>(
-        '/api/admin/clases/simulacion',
-        clase,
-      ),
+      this.http.post<{ afectadas: HoraAfectada[] }>('/api/admin/clases/simulacion', clase),
     );
   }
 
   agendar(clase: ClaseNueva): Promise<ResultadoAgendar> {
-    return firstValueFrom(
-      this.http.post<ResultadoAgendar>('/api/admin/clases', clase),
-    );
+    return firstValueFrom(this.http.post<ResultadoAgendar>('/api/admin/clases', clase));
   }
 
   /** Lo que la serie generaría, fecha por fecha. No escribe nada (T113). */
   simularSerie(serie: SerieNueva): Promise<{ fechas: FechaDeLaSerie[] }> {
     return firstValueFrom(
-      this.http.post<{ fechas: FechaDeLaSerie[] }>(
-        '/api/admin/clases/series/simulacion',
-        serie,
-      ),
+      this.http.post<{ fechas: FechaDeLaSerie[] }>('/api/admin/clases/series/simulacion', serie),
     );
   }
 
@@ -246,9 +230,7 @@ export class Clases {
     id: number,
     adonde: { fecha: string; horaDesde: string; horaHasta: string; canchaId?: number },
   ): Promise<ResultadoAgendar> {
-    return firstValueFrom(
-      this.http.patch<ResultadoAgendar>(`/api/admin/clases/${id}`, adonde),
-    );
+    return firstValueFrom(this.http.patch<ResultadoAgendar>(`/api/admin/clases/${id}`, adonde));
   }
 
   /** La ficha con su lista de inscritos. */
@@ -259,10 +241,7 @@ export class Clases {
   /** El cupo lo decide el servidor: la pantalla solo lo anticipa. */
   inscribir(claseId: number, quien: QuienSeInscribe): Promise<{ id: number }> {
     return firstValueFrom(
-      this.http.post<{ id: number }>(
-        `/api/admin/clases/${claseId}/inscripciones`,
-        quien,
-      ),
+      this.http.post<{ id: number }>(`/api/admin/clases/${claseId}/inscripciones`, quien),
     );
   }
 
@@ -327,10 +306,10 @@ export class Clases {
     motivo: string,
   ): Promise<{ canceladas: number }> {
     return firstValueFrom(
-      this.http.post<{ canceladas: number }>(
-        `/api/admin/clases/series/${serieId}/cancelacion`,
-        { desde, motivo },
-      ),
+      this.http.post<{ canceladas: number }>(`/api/admin/clases/series/${serieId}/cancelacion`, {
+        desde,
+        motivo,
+      }),
     );
   }
 

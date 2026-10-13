@@ -1,10 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  AdminCanchas,
-  HoraAfectada,
-} from '../../catalogo-canchas/admin/admin-canchas.service';
+import { AdminCanchas, HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { ClaseDelDia, Clases } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { AgendaDeClases } from './agenda-clases';
@@ -202,9 +199,9 @@ describe('AgendaDeClases', () => {
   it('**una cancha desactivada no se ofrece: el servidor la rechaza siempre**', async () => {
     // No tiene grilla, así que agendar sobre ella responde 404. Ofrecerla en el
     // selector es ofrecer un callejón.
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="canchaId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = Array.from(elemento().querySelectorAll('select[name="canchaId"] option')).map(
+      (o) => o.textContent?.trim(),
+    );
 
     expect(opciones).toContain('Cancha 1');
     expect(opciones).not.toContain('Cancha en obras');
@@ -300,4 +297,3 @@ describe('AgendaDeClases', () => {
     });
   });
 });
-

@@ -52,9 +52,7 @@ describe('InscritosDeLaClase', () => {
 
   const montar = async (ficha: FichaDeClase | Error) => {
     api = {
-      ficha: vi.fn(() =>
-        ficha instanceof Error ? Promise.reject(ficha) : Promise.resolve(ficha),
-      ),
+      ficha: vi.fn(() => (ficha instanceof Error ? Promise.reject(ficha) : Promise.resolve(ficha))),
       inscribir: vi.fn().mockResolvedValue({ id: 12 }),
       bajar: vi.fn().mockResolvedValue({ id: 11 }),
       realizar: vi.fn().mockResolvedValue({ id: 7 }),
@@ -115,9 +113,7 @@ describe('InscritosDeLaClase', () => {
   });
 
   it('inscribe a un socio del club', async () => {
-    const select = elemento().querySelector(
-      'select[name="socioId"]',
-    ) as HTMLSelectElement;
+    const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
     select.value = '3';
     select.dispatchEvent(new Event('change'));
     await fixture.whenStable();
@@ -179,9 +175,9 @@ describe('InscritosDeLaClase', () => {
       inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="socioId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = Array.from(elemento().querySelectorAll('select[name="socioId"] option')).map(
+      (o) => o.textContent?.trim(),
+    );
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(false);
   });
@@ -190,22 +186,18 @@ describe('InscritosDeLaClase', () => {
     await montar({
       ...FICHA,
       cupoTomado: 0,
-      inscritos: [
-        { ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' },
-      ],
+      inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="socioId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = Array.from(elemento().querySelectorAll('select[name="socioId"] option')).map(
+      (o) => o.textContent?.trim(),
+    );
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(true);
   });
 
   it('pasar lista manda a los que vinieron', async () => {
-    const casilla = elemento().querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
+    const casilla = elemento().querySelector('input[type="checkbox"]') as HTMLInputElement;
     casilla.checked = true;
     casilla.dispatchEvent(new Event('change'));
     await fixture.whenStable();

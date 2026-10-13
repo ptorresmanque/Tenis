@@ -59,17 +59,12 @@ import { Esqueleto } from '../../ui/esqueleto';
         }
 
         @if (clase.inscritos.length === 0) {
-          <p class="mt-2 text-sm text-muted-foreground">
-            Todavía no hay nadie inscrito.
-          </p>
+          <p class="mt-2 text-sm text-muted-foreground">Todavía no hay nadie inscrito.</p>
         } @else {
           <ul class="mt-2 grid gap-2">
             @for (quien of clase.inscritos; track quien.id) {
               <li class="flex flex-wrap items-center gap-2 text-sm">
-                <span
-                  class="font-medium"
-                  [class.line-through]="quien.estado === 'CANCELADA'"
-                >
+                <span class="font-medium" [class.line-through]="quien.estado === 'CANCELADA'">
                   {{ quien.nombre }}
                 </span>
 
@@ -134,103 +129,99 @@ import { Esqueleto } from '../../ui/esqueleto';
         <!-- A una clase que ya se dio no se inscribe a nadie: el servidor lo rechaza
              y el formulario solo serviría para descubrirlo apretando. -->
         @if (clase.estado === 'PROGRAMADA') {
-        <form class="mt-3 border-t border-border pt-3" (ngSubmit)="inscribir()">
-          <app-selector
-            etiqueta="A quién se inscribe"
-            [opciones]="TIPOS"
-            [(valor)]="tipo"
-          />
+          <form class="mt-3 border-t border-border pt-3" (ngSubmit)="inscribir()">
+            <app-selector etiqueta="A quién se inscribe" [opciones]="TIPOS" [(valor)]="tipo" />
 
-          <div class="mt-2 flex flex-wrap items-end gap-2">
-            @if (tipo() === 'socio') {
-              <label class="flex-1">
-                <span class="text-sm font-medium">Socio</span>
-                <select class="campo campo-chico mt-1" name="socioId" [(ngModel)]="socioId">
-                  <option [value]="0" disabled>Elige un socio</option>
-                  @for (socio of sociosPorInscribir(); track socio.id) {
-                    <option [value]="socio.id">
-                      {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                      {{ socio.usuario.apellido }}
-                    </option>
-                  }
-                </select>
-              </label>
-            } @else {
-              <label class="flex-1">
-                <span class="text-sm font-medium">Nombre del alumno</span>
-                <input class="campo campo-chico mt-1" name="nombre" [(ngModel)]="nombre" />
-              </label>
-              <label class="flex-1">
-                <span class="text-sm font-medium">Teléfono</span>
-                <span class="campo-con-prefijo mt-1">
-                  <span class="prefijo">+56</span>
-                  <input
-                    appTelefono
-                    class="campo campo-chico"
-                    name="telefono"
-                    [(ngModel)]="telefono"
-                  />
-                </span>
-              </label>
-            }
+            <div class="mt-2 flex flex-wrap items-end gap-2">
+              @if (tipo() === 'socio') {
+                <label class="flex-1">
+                  <span class="text-sm font-medium">Socio</span>
+                  <select class="campo campo-chico mt-1" name="socioId" [(ngModel)]="socioId">
+                    <option [value]="0" disabled>Elige un socio</option>
+                    @for (socio of sociosPorInscribir(); track socio.id) {
+                      <option [value]="socio.id">
+                        {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
+                        {{ socio.usuario.apellido }}
+                      </option>
+                    }
+                  </select>
+                </label>
+              } @else {
+                <label class="flex-1">
+                  <span class="text-sm font-medium">Nombre del alumno</span>
+                  <input class="campo campo-chico mt-1" name="nombre" [(ngModel)]="nombre" />
+                </label>
+                <label class="flex-1">
+                  <span class="text-sm font-medium">Teléfono</span>
+                  <span class="campo-con-prefijo mt-1">
+                    <span class="prefijo">+56</span>
+                    <input
+                      appTelefono
+                      class="campo campo-chico"
+                      name="telefono"
+                      [(ngModel)]="telefono"
+                    />
+                  </span>
+                </label>
+              }
 
-            <button
-              type="submit"
-              class="boton boton-secundario boton-chico"
-              [attr.aria-busy]="enCurso() === 'inscribir'"
-              [disabled]="trabajando()"
-            >
-              Inscribir
-            </button>
-            <!-- T116. En cada clase que viene de la serie, en una transacción: si alguna
-                 está llena, el servidor no inscribe en ninguna y dice cuál. -->
-            @if (clase.serieId !== null) {
               <button
-                type="button"
+                type="submit"
                 class="boton boton-secundario boton-chico"
+                [attr.aria-busy]="enCurso() === 'inscribir'"
                 [disabled]="trabajando()"
-                [attr.aria-busy]="enCurso() === 'inscribirEnLaSerie-' + clase.serieId"
-                (click)="inscribirEnLaSerie(clase.serieId)"
               >
-                Inscribir en toda la serie
+                Inscribir
               </button>
-            }
-          </div>
+              <!-- T116. En cada clase que viene de la serie, en una transacción: si alguna
+                 está llena, el servidor no inscribe en ninguna y dice cuál. -->
+              @if (clase.serieId !== null) {
+                <button
+                  type="button"
+                  class="boton boton-secundario boton-chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'inscribirEnLaSerie-' + clase.serieId"
+                  (click)="inscribirEnLaSerie(clase.serieId)"
+                >
+                  Inscribir en toda la serie
+                </button>
+              }
+            </div>
 
-          @if (clase.estado === 'PROGRAMADA' && clase.inscritos.length > 0) {
-            <!-- Dos botones y no uno con una casilla: cerrar sin pasar lista y cerrar
+            @if (clase.estado === 'PROGRAMADA' && clase.inscritos.length > 0) {
+              <!-- Dos botones y no uno con una casilla: cerrar sin pasar lista y cerrar
                  diciendo que no vino nadie son cosas distintas, y con un solo botón
                  la lista vacía significaría las dos. -->
-            <div class="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
-              <button
-                type="button"
-                class="boton boton-secundario boton-chico"
-                [disabled]="trabajando()"
-                [attr.aria-busy]="enCurso() === 'cerrar-true'"
-                (click)="cerrar(true)"
-              >
-                Cerrar la clase con esta lista
-              </button>
-              <button
-                type="button"
-                class="boton boton-texto boton-chico"
-                [disabled]="trabajando()"
-                [attr.aria-busy]="enCurso() === 'cerrar-false'"
-                (click)="cerrar(false)"
-              >
-                Cerrar sin pasar lista
-              </button>
-            </div>
-          }
+              <div class="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                <button
+                  type="button"
+                  class="boton boton-secundario boton-chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cerrar-true'"
+                  (click)="cerrar(true)"
+                >
+                  Cerrar la clase con esta lista
+                </button>
+                <button
+                  type="button"
+                  class="boton boton-texto boton-chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cerrar-false'"
+                  (click)="cerrar(false)"
+                >
+                  Cerrar sin pasar lista
+                </button>
+              </div>
+            }
 
-          @if (lleno()) {
-            <!-- No deshabilita el botón: quien decide es el servidor, y entre esta
+            @if (lleno()) {
+              <!-- No deshabilita el botón: quien decide es el servidor, y entre esta
                  pantalla y el clic alguien pudo bajarse. -->
-            <p class="mt-2 text-sm text-muted-foreground">
-              La clase está llena. Si alguien se baja, se libera el lugar.
-            </p>
-          }
-        </form>
+              <p class="mt-2 text-sm text-muted-foreground">
+                La clase está llena. Si alguien se baja, se libera el lugar.
+              </p>
+            }
+          </form>
         }
       </div>
     }
@@ -368,10 +359,7 @@ export class InscritosDeLaClase {
    */
   protected async cerrar(conLista: boolean): Promise<void> {
     await this.intentar(`cerrar-${conLista}`, async () => {
-      await this.api.realizar(
-        this.claseId(),
-        conLista ? [...this.vinieron()] : null,
-      );
+      await this.api.realizar(this.claseId(), conLista ? [...this.vinieron()] : null);
       this.vinieron.set(new Set());
     });
   }
@@ -380,10 +368,7 @@ export class InscritosDeLaClase {
     await this.intentar(`bajar-${quien.id}`, () => this.api.bajar(this.claseId(), quien.id));
   }
 
-  private async intentar(
-    clave: string,
-    accion: () => Promise<unknown>,
-  ): Promise<void> {
+  private async intentar(clave: string, accion: () => Promise<unknown>): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);

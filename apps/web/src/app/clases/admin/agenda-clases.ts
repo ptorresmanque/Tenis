@@ -1,10 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import {
-  AdminCanchas,
-  HoraAfectada,
-} from '../../catalogo-canchas/admin/admin-canchas.service';
+import { AdminCanchas, HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import {
   diaEnPalabras,
   fechaEnElClub,
@@ -15,13 +12,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import {
-  ClaseDelDia,
-  ClaseNueva,
-  Clases,
-  NivelClase,
-  NIVELES,
-} from '../clases.service';
+import { ClaseDelDia, ClaseNueva, Clases, NivelClase, NIVELES } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { InscritosDeLaClase } from './inscritos';
 import { NuevaSerie } from './nueva-serie';
@@ -50,7 +41,17 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-agenda-clases',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, InscritosDeLaClase, NuevaSerie, CampoFecha, CampoHora, Esqueleto],
+  imports: [
+    FormsModule,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    InscritosDeLaClase,
+    NuevaSerie,
+    CampoFecha,
+    CampoHora,
+    Esqueleto,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
          abajo, y la navegación entre días va debajo de la cabecera. -->
@@ -191,14 +192,11 @@ const enBlanco = () => ({
       </ul>
     }
 
-    <form
-      class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
-      (ngSubmit)="agendar()"
-    >
+    <form class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="agendar()">
       <h2 class="rotulo-seccion">Agendar una clase</h2>
       <p class="mt-2 text-sm text-muted-foreground">
-        La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos
-        antes de confirmar.
+        La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos antes de
+        confirmar.
       </p>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
@@ -225,9 +223,7 @@ const enBlanco = () => ({
             }
           </select>
           @if (profesores.error()) {
-            <span class="text-sm text-destructive">
-              No se pudieron cargar los profesores.
-            </span>
+            <span class="text-sm text-destructive"> No se pudieron cargar los profesores. </span>
           } @else if (profesores.value().length === 0) {
             <span class="text-sm text-muted-foreground">
               No hay profesores activos: anota uno primero.
@@ -312,16 +308,14 @@ const enBlanco = () => ({
           {{ afectadas.length === 1 ? 'hora tomada' : 'horas tomadas' }} en ese rango
         </h3>
         <p class="mt-1 text-muted-foreground">
-          Si agendas la clase se cancelan y avisamos por correo. A quien pagó se le
-          devuelve todo. <strong>Cancelar la clase después no las devuelve.</strong>
+          Si agendas la clase se cancelan y avisamos por correo. A quien pagó se le devuelve todo.
+          <strong>Cancelar la clase después no las devuelve.</strong>
         </p>
 
         <ul class="mt-2 grid gap-1">
           @for (tomada of afectadas; track tomada.id) {
             <li>
-              <span class="font-medium">
-                {{ hora(tomada.inicio) }}–{{ hora(tomada.fin) }}
-              </span>
+              <span class="font-medium"> {{ hora(tomada.inicio) }}–{{ hora(tomada.fin) }} </span>
               · {{ tomada.nombre }}
               @if (tomada.pagoEnCurso) {
                 <span class="text-destructive">
@@ -416,9 +410,10 @@ export class AgendaDeClases {
     (this.canchas.hasValue() ? this.canchas.value() : []).filter((cancha) => cancha.activa),
   );
 
-  protected readonly opcionesDeNivel = Object.entries(NIVELES).map(
-    ([valor, etiqueta]) => ({ valor, etiqueta }),
-  );
+  protected readonly opcionesDeNivel = Object.entries(NIVELES).map(([valor, etiqueta]) => ({
+    valor,
+    etiqueta,
+  }));
 
   /** Con un pago abierto el servidor no deja agendar, y el botón lo dice antes. */
   protected readonly hayPagoEnCurso = computed(() =>
@@ -466,9 +461,7 @@ export class AgendaDeClases {
   protected async cancelar(clase: ClaseDelDia): Promise<void> {
     // `prompt` y no un formulario propio: el motivo es obligatorio y esta es la
     // única acción de la pantalla que lo pide.
-    const motivo = window.prompt(
-      `¿Por qué se cancela la clase de ${clase.profesor}?`,
-    );
+    const motivo = window.prompt(`¿Por qué se cancela la clase de ${clase.profesor}?`);
 
     if (motivo === null || motivo.trim() === '') return;
 
@@ -540,10 +533,7 @@ export class AgendaDeClases {
     };
   }
 
-  private async intentar(
-    clave: string,
-    accion: () => Promise<void>,
-  ): Promise<void> {
+  private async intentar(clave: string, accion: () => Promise<void>): Promise<void> {
     this.error.set(null);
     this.aviso.set(null);
     this.trabajando.set(true);

@@ -425,10 +425,7 @@ export class NuevaSerie {
     };
   }
 
-  private async intentar(
-    clave: string,
-    accion: () => Promise<void>,
-  ): Promise<void> {
+  private async intentar(clave: string, accion: () => Promise<void>): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
