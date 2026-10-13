@@ -125,11 +125,16 @@ describe('Seed de identidad', () => {
     const email = 'duplicado.t4@ejemplo.test';
     const otroEmail = 'duplicado.t4.otro@ejemplo.test';
 
-    beforeEach(async () => {
-      await prisma.usuario.deleteMany({
+    // También al terminar: un socio ACTIVO que queda en la base recibe las cuotas que
+    // emiten los archivos de cuotas, y esas cuotas se suman a los reportes de otros
+    // archivos. Borrar el usuario se lleva en cascada su ficha y sus cuotas.
+    const borrar = () =>
+      prisma.usuario.deleteMany({
         where: { email: { in: [email, otroEmail] } },
       });
-    });
+
+    beforeEach(borrar);
+    afterEach(borrar);
 
     it('rechaza un segundo usuario con el mismo email', async () => {
       await prisma.usuario.create({

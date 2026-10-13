@@ -409,12 +409,17 @@ describe('GET /api/admin/reportes/ingreso', () => {
     });
 
     it('una cuota pendiente no es ingreso, pero se informa aparte', async () => {
+      // Lo impago es de todo el club, y la emisión de agosto que hacen otros archivos
+      // alcanza a los socios que quedan en la base (los del seed, por ejemplo): se mide
+      // lo que suma la cuota de este test y no el total.
+      const antes = await reporte('2026-08-01', '2026-08-31');
+
       await cuota({ periodo: '2026-08', montoClp: 25000 });
 
       const suyo = await reporte('2026-08-01', '2026-08-31');
 
       expect(suyo.totalClp).toBe(0);
-      expect(suyo.cuotasImpagasClp).toBe(25000);
+      expect(suyo.cuotasImpagasClp - antes.cuotasImpagasClp).toBe(25000);
     });
   });
 
