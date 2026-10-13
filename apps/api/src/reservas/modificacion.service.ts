@@ -12,6 +12,7 @@ import { hoyEnElClub, minutosDeRelojEntre } from '../comun/tiempo';
 import {
   EstadoReserva,
   EstadoTransaccion,
+  Prisma,
   Reserva,
 } from '../generated/prisma/client';
 import { UsuarioActual } from '../identidad/usuario-actual';
@@ -30,6 +31,12 @@ import { AvisosDeReserva } from './correos';
 import { EventosDeReserva } from './eventos';
 import { pagadoPor } from './pagado';
 import { BloqueTomado, ReservaRepository } from './reserva.repository';
+import {
+  conflictoDeLuz,
+  exigirCupoDeLuz,
+  TopeDeLuz,
+  topeLlenoEn,
+} from './tope-de-luz';
 import {
   ACTIVAS,
   ClienteDePrisma,
@@ -182,7 +189,12 @@ export class ModificacionService {
     yo: UsuarioActual,
     ahora = new Date(),
   ): Promise<Reserva> {
-    return this.mover(await this.suya(reservaId, yo), destino, ahora);
+    return this.mover(
+      await this.suya(reservaId, yo),
+      destino,
+      ahora,
+      yo.esAdmin,
+    );
   }
 
   /**
@@ -256,6 +268,14 @@ export class ModificacionService {
       });
     }
 
+    // Lo mismo con el tope de canchas con luz (T204): sin candado, porque esto no
+    // escribe; lo que decide es la vuelta de Webpay, que lo vuelve a contar.
+    const lleno = await topeLlenoEn(this.prisma, bloque, {
+      ignorarReservaId: reserva.id,
+    });
+
+    if (lleno) throw conflictoDeLuz(lleno, false);
+
     const compra = await this.prisma.transaccion.findFirstOrThrow({
       where: {
         concepto: 'RESERVA',
@@ -328,6 +348,8 @@ export class ModificacionService {
     reserva: Reserva,
     destino: Destino,
     ahora: Date,
+    /** El admin, que necesita saber qué canchas llenan el tope de luz. */
+    alAdmin = false,
   ): Promise<Reserva> {
     const bloque = await this.destinoValido(reserva, destino, ahora);
 
@@ -354,6 +376,8 @@ export class ModificacionService {
           message: 'Esa hora la acaban de tomar. Elige otra.',
         });
       }
+
+      if (error instanceof TopeDeLuz) throw conflictoDeLuz(error, alAdmin);
 
       throw error;
     }
@@ -446,8 +470,16 @@ export class ModificacionService {
     destino: { canchaId: number },
     bloque: { inicio: Date; fin: Date; esPico: boolean },
   ): Promise<Reserva> {
-    const escribir = (db: ClienteDePrisma) =>
-      db.reserva.update({
+    // El tope de luz va adentro de la transacción que escribe, como al crear (T204). La
+    // hora de antes de esta misma reserva no se cuenta contra la nueva.
+    const escribir = async (db: Prisma.TransactionClient) => {
+      await exigirCupoDeLuz(
+        db,
+        { canchaId: destino.canchaId, inicio: bloque.inicio, fin: bloque.fin },
+        { ignorarReservaId: reserva.id },
+      );
+
+      return db.reserva.update({
         where: { id: reserva.id },
         data: {
           canchaId: destino.canchaId,
@@ -458,9 +490,10 @@ export class ModificacionService {
           esPico: bloque.esPico,
         },
       });
+    };
 
     if (reserva.socioId === null) {
-      return reintentarSiHayDeadlock(() => escribir(this.prisma));
+      return reintentarSiHayDeadlock(() => this.prisma.$transaction(escribir));
     }
 
     return this.reservasDeSocio.conElSocioBloqueado(

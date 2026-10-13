@@ -199,20 +199,45 @@ export async function exigirCupoDeLuz(
   ocupacion: OcupacionNueva,
   opciones: OpcionesDelTope = {},
 ): Promise<void> {
+  const lleno = await topeLleno(db, ocupacion, opciones, true);
+
+  if (lleno) throw lleno;
+}
+
+/**
+ * Lo mismo, sin candados y sin lanzar: para avisar antes de escribir —antes de mandar a
+ * alguien a pagar a Webpay, por ejemplo—, nunca para decidir. Lo que decide es
+ * `exigirCupoDeLuz`, dentro de la transacción que escribe.
+ */
+export function topeLlenoEn(
+  db: Prisma.TransactionClient,
+  ocupacion: OcupacionNueva,
+  opciones: OpcionesDelTope = {},
+): Promise<TopeDeLuz | null> {
+  return topeLleno(db, ocupacion, opciones, false);
+}
+
+async function topeLleno(
+  db: Prisma.TransactionClient,
+  ocupacion: OcupacionNueva,
+  opciones: OpcionesDelTope,
+  conCandado: boolean,
+): Promise<TopeDeLuz | null> {
   const cancha = await db.cancha.findUnique({
     where: { id: ocupacion.canchaId },
     select: { iluminacion: true },
   });
 
   // Una cancha sin luz no carga la instalación: ni cuenta ni se le aplica.
-  if (!cancha?.iluminacion) return;
+  if (!cancha?.iluminacion) return null;
 
   const [configuracion] = await db.$queryRaw<
     { tope: number | null; desde: string }[]
   >`SELECT tope_canchas_con_luz AS tope, tope_canchas_con_luz_desde AS desde
-      FROM configuracion_club WHERE id = 1 FOR UPDATE`;
+      FROM configuracion_club WHERE id = 1
+      ${conCandado ? Prisma.sql`FOR UPDATE` : Prisma.empty}`;
 
-  if (!configuracion || configuracion.tope === null) return;
+  if (!configuracion || configuracion.tope === null) return null;
 
   const tope = Number(configuracion.tope);
   const parte = parteLimitada(
@@ -221,29 +246,32 @@ export async function exigirCupoDeLuz(
     configuracion.desde,
   );
 
-  if (!parte) return;
+  if (!parte) return null;
 
   const ocupaciones = await ocupacionesConLuz(
     db,
     ocupacion.canchaId,
     parte,
     opciones,
+    conCandado,
   );
   const peor = peorInstante(ocupaciones, parte.desde, parte.hasta);
 
-  if (peor && peor.canchas.length >= tope) {
-    throw new TopeDeLuz(peor.instante, peor.canchas, tope);
-  }
+  return peor && peor.canchas.length >= tope
+    ? new TopeDeLuz(peor.instante, peor.canchas, tope)
+    : null;
 }
 
-/** Lo que ocupa las otras canchas con luz en el rango, leído con candado. */
+/** Lo que ocupa las otras canchas con luz en el rango. */
 async function ocupacionesConLuz(
   db: Prisma.TransactionClient,
   canchaId: number,
   { desde, hasta }: { desde: Date; hasta: Date },
   { ignorarReservaId = 0, ignorarBloqueoId = 0 }: OpcionesDelTope,
+  conCandado: boolean,
 ): Promise<Ocupacion[]> {
   const desdeLaMasLarga = new Date(desde.getTime() - RESERVA_MAS_LARGA_MS);
+  const candado = conCandado ? Prisma.sql`LOCK IN SHARE MODE` : Prisma.empty;
 
   const reservas = await db.$queryRaw<Ocupacion[]>`
     SELECT r.cancha_id AS canchaId, c.nombre AS nombre, r.inicio AS inicio, r.fin AS fin
@@ -254,7 +282,7 @@ async function ocupacionesConLuz(
        AND r.estado IN (${Prisma.join(ACTIVAS)})
        AND r.inicio > ${desdeLaMasLarga} AND r.inicio < ${hasta} AND r.fin > ${desde}
      ORDER BY c.orden, c.nombre
-     LOCK IN SHARE MODE`;
+     ${candado}`;
 
   // Los bloqueos no tienen largo máximo —un torneo cierra el día entero— pero la tabla
   // es chica: se recorre sin borde hacia atrás.
@@ -267,7 +295,7 @@ async function ocupacionesConLuz(
        AND b.motivo IN (${Prisma.join(ENCIENDEN)})
        AND b.inicio < ${hasta} AND b.fin > ${desde}
      ORDER BY c.orden, c.nombre
-     LOCK IN SHARE MODE`;
+     ${candado}`;
 
   // El adaptador de MariaDB ya entrega las `DATETIME` como `Date` en UTC.
   return [...reservas, ...bloqueos];

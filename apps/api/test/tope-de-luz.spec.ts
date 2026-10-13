@@ -4,8 +4,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { instanteEnElClub } from '../src/comun/tiempo';
 import {
+  ConceptoPago,
   EstadoReserva,
   EstadoSocio,
+  EstadoTransaccion,
   MotivoBloqueo,
   Superficie,
 } from '../src/generated/prisma/client';
@@ -16,8 +18,10 @@ import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { ReservaDelAdminService } from '../src/reservas/reserva-del-admin.service';
 import { ReservaNoSocioService } from '../src/reservas/reserva-no-socio.service';
+import { ModificacionService } from '../src/reservas/modificacion.service';
 import { ReservaRepository } from '../src/reservas/reserva.repository';
 import { ReservasService } from '../src/reservas/reservas.service';
+import { RetornoDeDiferencia } from '../src/reservas/retorno-diferencia.service';
 import { TopeDeLuz } from '../src/reservas/tope-de-luz';
 
 /**
@@ -474,6 +478,177 @@ describe('Tope de canchas con luz: las reservas que nacen', () => {
           await prisma.reserva.count({ where: { canchaId: { in: luz } } }),
         ).toBe(2);
       }
+    });
+  });
+
+  describe('al mover una reserva y al volver de pagar la diferencia (T204)', () => {
+    const admin: UsuarioActual = {
+      id: 1,
+      nombre: 'Admin',
+      apellido: 'Del Club',
+      email: 'admin@ejemplo.cl',
+      telefono: null,
+      esAdmin: true,
+      socioId: null,
+      socioActivo: false,
+      socioAlDia: false,
+      profesorId: null,
+    };
+
+    const mover = (
+      reservaId: number,
+      canchaId: number,
+      hora: string,
+      yo: UsuarioActual = admin,
+      duracionMin?: 60 | 90,
+    ) =>
+      modulo
+        .get(ModificacionService)
+        .modificar(reservaId, { canchaId, inicio: a(hora), duracionMin }, yo);
+
+    /** Una hora de visitante pagada en línea: la que se cambia desde el enlace. */
+    const pagadaEnLinea = async (
+      canchaId: number,
+      desde: string,
+      hasta: string,
+    ) => {
+      const reserva = await tomar(canchaId, desde, hasta);
+      await prisma.transaccion.create({
+        data: {
+          referencia: `T204-${reserva.id}-${Date.now()}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'doble',
+          estado: EstadoTransaccion.AUTORIZADA,
+          inicioBloqueOriginal: reserva.inicio,
+        },
+      });
+
+      return reserva;
+    };
+
+    const alargarYPagar = (token: string, canchaId: number, hora: string) =>
+      modulo
+        .get(ModificacionService)
+        .pagarDiferenciaPorToken(
+          token,
+          { canchaId, inicio: a(hora), duracionMin: 90 },
+          'https://club.local/api/reservas/retorno-diferencia',
+        );
+
+    it('una de las que llenan el tope se cambia a otra cancha con luz a la misma hora (46)', async () => {
+      const suya = await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+
+      const movida = await mover(suya.id, luz[2], '20:00');
+
+      expect(movida.canchaId).toBe(luz[2]);
+    });
+
+    it('la del socio, también: lo que se mueve no se cuenta contra sí mismo', async () => {
+      const socio = await socioQueReserva(1);
+      const suya = await reservarComoSocio(socio, luz[0], '20:00');
+      await tomar(luz[1], '20:00', '21:00');
+
+      const movida = await mover(suya.id, luz[2], '20:00', socio);
+
+      expect(movida.canchaId).toBe(luz[2]);
+    });
+
+    it('una de otra hora no puede pasar a las 20:00 en una tercera cancha con luz', async () => {
+      await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+      const socio = await socioQueReserva(1);
+      const suya = await reservarComoSocio(socio, luz[2], '18:00');
+
+      const error: unknown = await mover(suya.id, luz[2], '20:00', socio).catch(
+        (e: unknown) => e,
+      );
+
+      expect(cuerpoDel(error)).toEqual({
+        motivo: 'TOPE_DE_LUZ',
+        message:
+          'A esa hora ya están ocupadas todas las canchas con luz que el club puede encender. Elige otra hora.',
+      });
+      expect(
+        await prisma.reserva.findUniqueOrThrow({ where: { id: suya.id } }),
+      ).toMatchObject({ inicio: a('18:00') });
+    });
+
+    it('al admin que la mueve le nombra las canchas', async () => {
+      await tomar(luz[0], '20:00', '21:00');
+      await tomar(luz[1], '20:00', '21:00');
+      const otra = await tomar(luz[2], '18:00', '19:00');
+
+      const error: unknown = await mover(otra.id, luz[2], '20:00').catch(
+        (e: unknown) => e,
+      );
+
+      expect(cuerpoDel(error).message).toBe(
+        `A las 20:00 ya están ocupadas ${PREFIJO} 1 y ${PREFIJO} 2, y el tope de canchas con luz es 2.`,
+      );
+    });
+
+    it('alargarla a 1 hora y media sobre un tramo lleno se rechaza', async () => {
+      await tomar(luz[0], '19:30', '20:30');
+      await tomar(luz[1], '19:30', '20:30');
+      const socio = await socioQueReserva(1);
+      const suya = await reservarComoSocio(socio, luz[2], '18:30');
+
+      const error: unknown = await mover(
+        suya.id,
+        luz[2],
+        '18:30',
+        socio,
+        90,
+      ).catch((e: unknown) => e);
+
+      expect(cuerpoDel(error).motivo).toBe('TOPE_DE_LUZ');
+    });
+
+    it('pedir el cambio pagado hacia una hora con el tope lleno se rechaza antes de ir a Webpay', async () => {
+      await tomar(luz[0], '19:30', '20:30');
+      await tomar(luz[1], '19:30', '20:30');
+      const reserva = await pagadaEnLinea(luz[2], '18:30', '19:30');
+
+      const error: unknown = await alargarYPagar(
+        reserva.token,
+        luz[2],
+        '18:30',
+      ).catch((e: unknown) => e);
+
+      expect(cuerpoDel(error).motivo).toBe('TOPE_DE_LUZ');
+      expect(
+        await prisma.transaccion.count({
+          where: {
+            conceptoId: reserva.id,
+            estado: EstadoTransaccion.PENDIENTE,
+          },
+        }),
+      ).toBe(0);
+    });
+
+    it('si el tope se llena mientras paga la diferencia, se queda en su hora y se le devuelve entera (47)', async () => {
+      await tomar(luz[0], '19:30', '20:30');
+      const reserva = await pagadaEnLinea(luz[2], '18:30', '19:30');
+      const pago = await alargarYPagar(reserva.token, luz[2], '18:30');
+
+      // Mientras está en Webpay, otra persona toma la segunda cancha con luz.
+      await tomar(luz[1], '19:30', '20:30');
+
+      const vuelta = await modulo
+        .get(RetornoDeDiferencia)
+        .confirmar(pago.tokenPasarela);
+
+      expect(vuelta).toMatchObject({ estado: 'SIN_CAMBIO', devueltoClp: 4000 });
+      expect(
+        await prisma.reserva.findUniqueOrThrow({ where: { id: reserva.id } }),
+      ).toMatchObject({
+        inicio: a('18:30'),
+        fin: a('19:30'),
+        cambioTransaccionId: null,
+      });
     });
   });
 });
