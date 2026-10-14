@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -30,7 +31,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-inscritos-torneo',
-  imports: [MatIcon, FormsModule, Aviso, Insignia, TelefonoPipe, Esqueleto],
+  imports: [MatButton, MatIcon, FormsModule, Aviso, Insignia, TelefonoPipe, Esqueleto],
   template: `
     @if (lista.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -62,8 +63,8 @@ import { Esqueleto } from '../../ui/esqueleto';
           <div class="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
-              class="boton boton-chico"
-              [class]="filtro() === 'todos' ? 'boton-primario' : 'boton-secundario'"
+              [matButton]="filtro() === 'todos' ? 'filled' : 'outlined'"
+              class="chico"
               [attr.aria-pressed]="filtro() === 'todos'"
               (click)="filtro.set('todos')"
             >
@@ -71,8 +72,8 @@ import { Esqueleto } from '../../ui/esqueleto';
             </button>
             <button
               type="button"
-              class="boton boton-chico"
-              [class]="filtro() === 'revisar' ? 'boton-primario' : 'boton-secundario'"
+              [matButton]="filtro() === 'revisar' ? 'filled' : 'outlined'"
+              class="chico"
               [attr.aria-pressed]="filtro() === 'revisar'"
               (click)="filtro.set('revisar')"
             >
@@ -152,8 +153,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                          dejaba sin ninguna salida. -->
                     @if (quien.estadoPago === 'PENDIENTE') {
                       <button
+                        matButton="outlined"
                         type="button"
-                        class="boton boton-secundario boton-chico"
+                        class="chico"
                         [attr.aria-expanded]="revisando() === quien.id"
                         (click)="alternarRevision(quien.id)"
                       >
@@ -165,8 +167,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                       </button>
                     }
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico"
+                      class="chico"
                       [disabled]="trabajando()"
                       [attr.aria-busy]="enCurso() === 'retirar-' + quien.id"
                       (click)="retirar(quien)"
@@ -219,17 +222,25 @@ import { Esqueleto } from '../../ui/esqueleto';
                         <p class="text-xs text-muted-foreground">
                           No adjuntó comprobante.
                         </p>
-                        <label class="boton boton-secundario boton-chico cursor-pointer">
+                        <!-- matButton no va en una etiqueta: el botón abre el selector
+                             del campo escondido (T243). -->
+                        <button
+                          matButton="outlined"
+                          type="button"
+                          class="chico"
+                          [disabled]="trabajando()"
+                          (click)="comprobante.click()"
+                        >
                           Adjuntar uno
-                          <input
-                            class="sr-only"
-                            type="file"
-                            accept="image/jpeg,image/png"
-                            [attr.name]="'comprobante-' + quien.id"
-                            [disabled]="trabajando()"
-                            (change)="adjuntar(quien, $event)"
-                          />
-                        </label>
+                        </button>
+                        <input
+                          #comprobante
+                          hidden
+                          type="file"
+                          accept="image/jpeg,image/png"
+                          [attr.name]="'comprobante-' + quien.id"
+                          (change)="adjuntar(quien, $event)"
+                        />
                       </div>
                     }
 
@@ -281,9 +292,12 @@ import { Esqueleto } from '../../ui/esqueleto';
 
                       <!-- Los dos abren el modal; la decisión se toma allá. -->
                       <div class="mt-2 flex flex-wrap gap-2">
+                          <!-- La confirmación va en su diálogo; en la lista, uno por inscrito.
+                               mat-guidelines-ignore: multiples-filled -->
                           <button
+                            matButton="filled"
                             type="button"
-                            class="boton boton-primario boton-chico"
+                            class="chico"
                             [disabled]="trabajando()"
                             (click)="preguntar(quien, 'aprobar')"
                           >
@@ -291,8 +305,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                           </button>
 
                           <button
+                            matButton="outlined"
                             type="button"
-                            class="boton boton-secundario boton-chico"
+                            class="chico"
                             [disabled]="trabajando()"
                             (click)="preguntar(quien, 'rechazar')"
                           >
@@ -323,8 +338,9 @@ import { Esqueleto } from '../../ui/esqueleto';
               <li class="flex flex-wrap items-center gap-2 text-sm">
                 <span>{{ quien.jugador }}</span>
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico ms-auto"
+                  class="chico ms-auto"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'promover-' + quien.id"
                   (click)="promover(quien)"
@@ -379,8 +395,9 @@ import { Esqueleto } from '../../ui/esqueleto';
               </label>
 
               <button
+                matButton="outlined"
                 type="submit"
-                class="boton boton-secundario boton-chico"
+                class="chico"
                 [disabled]="trabajando()"
                 [attr.aria-busy]="enCurso() === 'inscribir'"
               >
@@ -435,15 +452,15 @@ import { Esqueleto } from '../../ui/esqueleto';
 
         <div class="mt-5 flex flex-wrap justify-end gap-2">
           <button
+            matButton
             type="button"
-            class="boton boton-texto"
             (click)="confirmacion.close()"
           >
             Mejor no
           </button>
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario"
             [disabled]="trabajando()"
             [attr.aria-busy]="enCurso() === 'resolver-' + decision.quien.id"
             (click)="resolver(decision.quien)"

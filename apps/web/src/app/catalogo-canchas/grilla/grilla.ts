@@ -9,6 +9,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -36,6 +37,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
 @Component({
   selector: 'app-grilla',
   imports: [
+    MatButton,
     MatIcon,
     RouterLink,
     Reservar,
@@ -110,9 +112,11 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
           titulo="Ninguna cancha cumple ese filtro"
           detalle="El club no tiene canchas de ese tipo publicadas hoy."
         >
+          <!-- Cada lleno va en una rama distinta del mismo if: se ve uno a la vez.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario"
             (click)="filtro.set('todas')"
           >
             Ver todas las canchas
@@ -127,8 +131,8 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
           detalle="El club no la ofrece este día a quien no es socio."
         >
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario"
             (click)="elegirDuracion('60')"
           >
             Ver horas de 1 hora
@@ -209,8 +213,9 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                       <!-- La primitiva y no clases a mano (TV8.2): en 12px y sin .boton no
                            tenía alto táctil ni la confirmación al apretar. -->
                       <button
+                        matButton
                         type="button"
-                        class="boton boton-texto boton-chico"
+                        class="chico"
                         (click)="reportar(reporte.reservaId)"
                       >
                         Reportar hora no usada

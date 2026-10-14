@@ -1,4 +1,5 @@
 import { Component, input, output } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { BloqueDisponible, Cancha } from '../disponibilidad';
 import { enPesos, horaEnElClub } from '../reloj-del-club';
@@ -14,6 +15,7 @@ import { TARIFA_DEL_SOCIO } from './bandas';
  */
 @Component({
   selector: 'app-resumen-de-la-eleccion',
+  imports: [MatButton],
   host: { class: 'contents' },
   template: `
     <div role="status" aria-live="polite">
@@ -55,8 +57,8 @@ import { TARIFA_DEL_SOCIO } from './bandas';
     </div>
 
     <div class="flex gap-2">
-      <button type="button" class="boton boton-texto" (click)="soltar.emit()">Soltar</button>
-      <button type="button" class="boton boton-primario" (click)="reservar.emit()">
+      <button matButton type="button" (click)="soltar.emit()">Soltar</button>
+      <button matButton="filled" type="button" (click)="reservar.emit()">
         Reservar
       </button>
     </div>

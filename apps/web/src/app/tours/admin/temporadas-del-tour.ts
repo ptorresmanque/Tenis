@@ -1,5 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -24,7 +25,7 @@ interface DatosDeTemporada {
  */
 @Component({
   selector: 'app-temporadas-del-tour',
-  imports: [FormsModule, Aviso, CampoFecha, NivelDelTour],
+  imports: [MatButton, FormsModule, Aviso, CampoFecha, NivelDelTour],
   template: `
     <form
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -70,9 +71,12 @@ interface DatosDeTemporada {
           />
         </div>
       </div>
+      <!-- Crear una temporada y editar o borrar otra son formularios distintos, uno por tarjeta.
+           mat-guidelines-ignore: multiples-filled -->
       <button
+        matButton="filled"
         type="submit"
-        class="boton boton-primario mt-3"
+        class="mt-3"
         [disabled]="enCurso() !== null"
         [attr.aria-busy]="enCurso() === 'crear'"
       >
@@ -92,8 +96,9 @@ interface DatosDeTemporada {
           </p>
           <div class="ms-auto flex flex-wrap gap-2">
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico"
+              class="chico"
               (click)="editar(temporada)"
             >
               Editar
@@ -102,8 +107,9 @@ interface DatosDeTemporada {
             <!-- Con torneos no se ofrece borrar: se quedarían sin nivel y sin puntos. -->
             @if (torneosDe(temporada) === 0) {
               <button
+                matButton
                 type="button"
-                class="boton boton-texto boton-chico"
+                class="chico"
                 (click)="porBorrar.set(temporada.id)"
               >
                 Borrar la temporada
@@ -126,15 +132,16 @@ interface DatosDeTemporada {
           </app-aviso>
           <div class="mt-3 flex flex-wrap gap-2">
             <button
+              matButton="filled"
               type="button"
-              class="boton boton-destructivo boton-chico"
+              class="peligro chico"
               [disabled]="enCurso() !== null"
               [attr.aria-busy]="enCurso() === 'borrar-' + temporada.id"
               (click)="borrar(temporada)"
             >
               Sí, borrar
             </button>
-            <button type="button" class="boton boton-texto boton-chico" (click)="porBorrar.set(null)">
+            <button matButton type="button" class="chico" (click)="porBorrar.set(null)">
               Mejor no
             </button>
           </div>
@@ -168,14 +175,15 @@ interface DatosDeTemporada {
             </div>
             <div class="flex flex-wrap gap-2 sm:col-span-3">
               <button
+                matButton="filled"
                 type="submit"
-                class="boton boton-primario boton-chico"
+                class="chico"
                 [disabled]="enCurso() !== null"
                 [attr.aria-busy]="enCurso() === 'guardar-' + temporada.id"
               >
                 Guardar la temporada
               </button>
-              <button type="button" class="boton boton-texto boton-chico" (click)="editando.set(null)">
+              <button matButton type="button" class="chico" (click)="editando.set(null)">
                 Cancelar
               </button>
             </div>

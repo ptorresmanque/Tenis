@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -48,7 +49,16 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-inscripcion-a-torneo',
-  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, RestriccionHoraria, TelefonoDirective],
+  imports: [
+    MatButton,
+    FormsModule,
+    RouterLink,
+    Aviso,
+    Campo,
+    CampoControl,
+    RestriccionHoraria,
+    TelefonoDirective,
+  ],
   template: `
     <!-- La forma de la A (TV4.2): la caja con sombra y sin borde, el título como
          rótulo. Los campos, los pasos y el envío son los de siempre. -->
@@ -60,8 +70,9 @@ const enBlanco = () => ({
           dinos si hay horarios en que no puedas jugar y paga la inscripción.
         </p>
         <button
+          matButton
           type="button"
-          class="boton boton-texto boton-chico mt-1"
+          class="chico mt-1"
           (click)="cambiarModo(false)"
         >
           Inscribir a otra persona
@@ -79,9 +90,11 @@ const enBlanco = () => ({
                    border-primary/30 bg-primary/5 p-3"
           >
             <p class="text-sm">Eres socio: tus datos ya los tenemos.</p>
+            <!-- De contorno: el lleno del formulario es el envío (T241). -->
             <button
+              matButton="outlined"
               type="button"
-              class="boton boton-primario boton-chico"
+              class="chico"
               (click)="cambiarModo(true)"
             >
               Inscribirse como socio
@@ -266,9 +279,12 @@ const enBlanco = () => ({
         <a routerLink="/privacidad" target="_blank" class="underline">política de privacidad</a>.
       </p>
 
+      <!-- El de Pagar con Webpay va en su propia section, que aparece después de inscribirse.
+           mat-guidelines-ignore: multiples-filled -->
       <button
+        matButton="filled"
         type="submit"
-        class="boton boton-primario mt-4"
+        class="mt-4"
         [disabled]="enviando()"
         [attr.aria-busy]="enviando()"
       >
@@ -297,8 +313,8 @@ const enBlanco = () => ({
 
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario"
             [disabled]="pagando()"
             [attr.aria-busy]="pagando()"
             (click)="pagar(pendiente.token)"
@@ -306,16 +322,22 @@ const enBlanco = () => ({
             Pagar con Webpay
           </button>
 
-          <label class="boton boton-secundario cursor-pointer">
+          <!-- matButton no va en una etiqueta: el botón abre el selector del campo escondido. -->
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="pagando()"
+            (click)="comprobante.click()"
+          >
             Adjuntar comprobante de transferencia
-            <input
-              class="sr-only"
-              type="file"
-              accept="image/jpeg,image/png"
-              [disabled]="pagando()"
-              (change)="adjuntar(pendiente.token, $event)"
-            />
-          </label>
+          </button>
+          <input
+            #comprobante
+            hidden
+            type="file"
+            accept="image/jpeg,image/png"
+            (change)="adjuntar(pendiente.token, $event)"
+          />
         </div>
 
         <p class="mt-2 text-sm text-muted-foreground">

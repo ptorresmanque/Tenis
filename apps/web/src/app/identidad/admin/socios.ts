@@ -11,6 +11,7 @@ import {
 import { Esqueleto } from '../../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -52,7 +53,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
  */
 @Component({
   selector: 'app-socios',
-  imports: [MatIcon, Esqueleto, 
+  imports: [MatButton, MatIcon, Esqueleto, 
     FormsModule,
     Aviso,
     Campo,
@@ -117,10 +118,10 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
         </div>
 
         <button
+          matButton="filled"
           type="submit"
           [disabled]="guardando()"
           [attr.aria-busy]="guardando()"
-          class="boton boton-primario"
         >
           Invitar
         </button>
@@ -158,9 +159,9 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
                   socio {{ invitacion.numeroSocio }}
                 </span>
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico ms-auto border-destructive
-                         text-destructive"
+                  class="peligro chico ms-auto"
                   (click)="revocar(invitacion.id, invitacion.email)"
                 >
                   Revocar
@@ -261,8 +262,9 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
                     <!-- Sin cortes: en el teléfono la tabla se desplaza igual, y a
                          su ancho mínimo partía "Ver ficha" en dos líneas (TV7.4). -->
                     <button
+                      matButton="outlined"
                       type="button"
-                      class="boton boton-secundario boton-chico whitespace-nowrap"
+                      class="chico whitespace-nowrap"
                       (click)="editando.set(socio)"
                     >
                       Ver ficha

@@ -1,5 +1,7 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -440,6 +442,16 @@ describe('InscripcionATorneo', () => {
 
       await montar({ ...SOCIA, socioId: null });
       expect(boton('Inscribirse como socio')).toBeUndefined();
+    });
+
+    it('**el lleno es el envío** (T241): el atajo del socio va de contorno', async () => {
+      // Los dos llenos juntos se disputaban la atención; cambiar de camino no es la acción final.
+      await montar(SOCIA);
+      const botones = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+        MatButtonHarness.with({ appearance: 'filled' }),
+      );
+
+      expect(await Promise.all(botones.map((b) => b.getText()))).toEqual(['Inscribirme']);
     });
 
     it('**se salta los datos**: quedan la categoría, los horarios y el pago', async () => {

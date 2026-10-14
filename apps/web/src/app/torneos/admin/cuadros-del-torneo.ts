@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -45,7 +46,7 @@ function enPesos(texto: string): number | null {
  */
 @Component({
   selector: 'app-cuadros-del-torneo',
-  imports: [FormsModule, Aviso, Insignia, Esqueleto],
+  imports: [MatButton, FormsModule, Aviso, Insignia, Esqueleto],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -105,9 +106,9 @@ function enPesos(texto: string): number | null {
               }
 
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico ms-auto
-                       border-destructive text-destructive"
+                class="peligro chico ms-auto"
                 [disabled]="trabajando()"
                 [attr.aria-busy]="enCurso() === 'quitar-' + cuadro.id"
                 (click)="quitar(cuadro.id, cuadro.categoria)"
@@ -160,8 +161,8 @@ function enPesos(texto: string): number | null {
         </label>
 
         <button
+          matButton="outlined"
           type="submit"
-          class="boton boton-secundario"
           [disabled]="trabajando() || disponibles().length === 0"
           [attr.aria-busy]="enCurso() === 'agregar'"
         >

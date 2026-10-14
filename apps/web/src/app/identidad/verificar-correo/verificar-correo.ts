@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { firstValueFrom } from 'rxjs';
 
@@ -19,7 +20,7 @@ import { Campo, CampoControl } from '../../ui/campo';
  */
 @Component({
   selector: 'app-verificar-correo',
-  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
+  imports: [MatButton, ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Verificar correo</h1>
 
@@ -56,10 +57,10 @@ import { Campo, CampoControl } from '../../ui/campo';
           }
 
           <button
+            matButton="filled"
             type="submit"
             [disabled]="enviando() || formulario.invalid"
             [attr.aria-busy]="enviando()"
-            class="boton boton-primario"
           >
             {{ enviando() ? 'Enviando…' : 'Mandar un enlace nuevo' }}
           </button>

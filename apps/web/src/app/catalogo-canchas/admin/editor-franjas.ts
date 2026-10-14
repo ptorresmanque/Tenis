@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { Insignia } from '../../ui/insignia';
 import { enPesos, hoyEnElClub } from '../reloj-del-club';
@@ -37,7 +38,7 @@ const EN_BLANCO: FranjaNueva = {
  */
 @Component({
   selector: 'app-editor-franjas',
-  imports: [FormsModule, Insignia, CampoHora],
+  imports: [MatButton, FormsModule, Insignia, CampoHora],
   template: `
     @if (ambito().franjas.length > 0) {
       <ul class="text-sm text-muted-foreground">
@@ -66,8 +67,9 @@ const EN_BLANCO: FranjaNueva = {
               </app-insignia>
             }
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico text-destructive"
+              class="peligro chico"
               (click)="borrar(franja.id)"
             >
               Quitar
@@ -170,10 +172,11 @@ const EN_BLANCO: FranjaNueva = {
       </label>
 
       <button
+        matButton="outlined"
         type="submit"
         [disabled]="guardando()"
         [attr.aria-busy]="guardando()"
-        class="boton boton-secundario boton-chico"
+        class="chico"
       >
         Agregar tarifa
       </button>

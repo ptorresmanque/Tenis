@@ -1,7 +1,5 @@
 import { Routes } from '@angular/router';
 
-import { CascaronAdmin } from './cascarones/cascaron-admin';
-import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
 import { conPanel } from './core/auth/con-panel.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
@@ -112,7 +110,8 @@ export const routes: Routes = [
   },
   {
     path: '',
-    component: CascaronAuth,
+    // El panel y entrar se bajan con su ruta: el arranque trae solo el sitio público (I6).
+    loadComponent: () => import('./cascarones/cascaron-auth').then((m) => m.CascaronAuth),
     children: [
       {
         path: 'entrar',
@@ -157,7 +156,7 @@ export const routes: Routes = [
   },
   {
     path: '',
-    component: CascaronAdmin,
+    loadComponent: () => import('./cascarones/cascaron-admin').then((m) => m.CascaronAdmin),
     canActivateChild: [conPanel],
     children: [
       {

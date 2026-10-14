@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { Marcador } from '../catalogo-canchas/marcador';
@@ -42,7 +43,7 @@ import { Insignia } from '../ui/insignia';
  */
 @Component({
   selector: 'app-inicio',
-  imports: [RouterLink, Cinta, Esqueleto, Foto, Insignia, Marcador, TiendaYCafeteria],
+  imports: [MatButton, RouterLink, Cinta, Esqueleto, Foto, Insignia, Marcador, TiendaYCafeteria],
   template: `
     <!--
       BANDA 1 — La foto y la promesa.
@@ -92,9 +93,12 @@ import { Insignia } from '../ui/insignia';
         </p>
 
         <div class="mt-2 grid gap-3 sm:max-w-lg sm:grid-cols-2">
+          <!-- Cada lleno va en su propia section de la portada, y el de torneos es uno por tarjeta.
+               mat-guidelines-ignore: multiples-filled -->
           <a
+            matButton="filled"
             routerLink="/disponibilidad"
-            class="boton boton-sobre-campo"
+            class="sobre-campo"
           >
             Ver disponibilidad
           </a>
@@ -113,8 +117,9 @@ import { Insignia } from '../ui/insignia';
               para la misma acción obligan a decidir cuatro veces si son la misma.
             -->
             <a
+              matButton="outlined"
               routerLink="/registro"
-              class="boton boton-contorno-sobre-campo"
+              class="sobre-campo"
             >
               Crear cuenta
             </a>
@@ -169,7 +174,7 @@ import { Insignia } from '../ui/insignia';
                 Socio sin costo.
               </p>
             </div>
-            <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
+            <a matButton="filled" routerLink="/disponibilidad" class="w-full sm:w-auto">
               Reservar
               <span class="sr-only">{{ libre.cancha }} a las {{ hora(libre.inicio) }}</span>
             </a>
@@ -395,9 +400,9 @@ import { Insignia } from '../ui/insignia';
                 <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
                   <span class="text-muted-foreground">Socio o visitante</span>
                   <a
+                    matButton="filled"
                     routerLink="/torneos"
                     [queryParams]="{ inscripcion: torneo.id }"
-                    class="boton boton-primario"
                   >
                     Inscribirme
                     <span class="sr-only">en {{ torneo.nombre }}</span>
@@ -511,12 +516,12 @@ import { Insignia } from '../ui/insignia';
           >
             <div role="cell" class="bg-muted max-sm:sr-only sm:order-2"></div>
             <div role="cell" class="sm:order-1 sm:flex sm:justify-end sm:px-4 sm:py-6 md:px-8">
-              <a routerLink="/registro" class="boton boton-primario w-full sm:w-auto">
+              <a matButton="outlined" routerLink="/registro" class="w-full sm:w-auto">
                 Crear cuenta
               </a>
             </div>
             <div role="cell" class="sm:order-3 sm:px-4 sm:py-6 md:px-8">
-              <a routerLink="/disponibilidad" class="boton boton-primario w-full sm:w-auto">
+              <a matButton="filled" routerLink="/disponibilidad" class="w-full sm:w-auto">
                 Reservar una hora
               </a>
             </div>
@@ -570,7 +575,7 @@ import { Insignia } from '../ui/insignia';
             Elige tu hora de esta semana
           }
         </h2>
-        <a routerLink="/disponibilidad" class="boton boton-sobre-campo">
+        <a matButton="filled" routerLink="/disponibilidad" class="sobre-campo">
           Ver disponibilidad
         </a>
       </div>

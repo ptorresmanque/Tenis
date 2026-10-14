@@ -1,5 +1,6 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -16,7 +17,7 @@ import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
  */
 @Component({
   selector: 'app-editor-prime',
-  imports: [FormsModule, Esqueleto, Selector],
+  imports: [MatButton, FormsModule, Esqueleto, Selector],
   template: `
     <section class="mt-8" aria-labelledby="titulo-prime">
       <h2 id="titulo-prime" class="rotulo-seccion">Duración del socio en horario prime</h2>
@@ -41,10 +42,11 @@ import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
           />
 
           <button
+            matButton="filled"
             type="submit"
             [disabled]="guardando()"
             [attr.aria-busy]="guardando()"
-            class="boton boton-primario mt-4"
+            class="mt-4"
           >
             Guardar la duración
           </button>

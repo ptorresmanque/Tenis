@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Insignia } from '../../ui/insignia';
@@ -51,6 +52,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 @Component({
   selector: 'app-admin-canchas',
   imports: [
+    MatButton,
     FormsModule,
     EditorHorarios,
     EditorFranjas,
@@ -157,11 +159,13 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
           Con iluminación
         </label>
 
+        <!-- Crear y editar son formularios distintos; el de editar va en su tarjeta.
+             mat-guidelines-ignore: multiples-filled -->
         <button
+          matButton="filled"
           type="submit"
           [disabled]="guardando()"
           [attr.aria-busy]="guardando()"
-          class="boton boton-primario"
         >
           Agregar
         </button>
@@ -210,9 +214,10 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 }
 
                 <button
+                  matButton="outlined"
                   type="button"
                   [id]="'editar-ficha-' + cancha.id"
-                  class="boton boton-secundario boton-chico ms-auto"
+                  class="chico ms-auto"
                   [attr.aria-expanded]="editando() === cancha.id"
                   (click)="abrirFicha(cancha)"
                 >
@@ -221,8 +226,9 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 </button>
 
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   (click)="alternarCamara(cancha)"
                 >
                   {{ cancha.tieneCamara ? 'Quitar la cámara' : 'Marcar con cámara' }}
@@ -230,8 +236,9 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 </button>
 
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   (click)="alternarActiva(cancha)"
                 >
                   {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
@@ -240,8 +247,9 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 <!-- Para la cancha creada por error. La que el club dejó de usar se
                      desactiva; el servidor no deja borrar una con historial. -->
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico border-destructive text-destructive"
+                  class="peligro chico"
                   (click)="eliminar(cancha)"
                 >
                   Eliminar
@@ -311,17 +319,19 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   </label>
 
                   <button
+                    matButton="filled"
                     type="submit"
                     [disabled]="guardando()"
                     [attr.aria-busy]="guardando()"
-                    class="boton boton-primario boton-chico"
+                    class="chico"
                   >
                     Guardar la ficha
                     <span class="sr-only">de {{ cancha.nombre }}</span>
                   </button>
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico"
+                    class="chico"
                     (click)="cerrarFicha(cancha.id)"
                   >
                     Cancelar

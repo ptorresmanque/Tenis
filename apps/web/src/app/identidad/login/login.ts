@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { Auth } from '../../core/auth/auth';
 import { Aviso } from '../../ui/aviso';
@@ -20,7 +21,7 @@ const RECHAZOS: Record<string, string> = {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
+  imports: [MatButton, ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Entrar</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -60,10 +61,10 @@ const RECHAZOS: Record<string, string> = {
       }
 
       <button
+        matButton="filled"
         type="submit"
         [disabled]="entrando() || formulario.invalid"
         [attr.aria-busy]="entrando()"
-        class="boton boton-primario"
       >
         {{ entrando() ? 'Entrando…' : 'Entrar' }}
       </button>
@@ -95,7 +96,7 @@ const RECHAZOS: Record<string, string> = {
 
       <!-- Enlace y no botón con fetch: el flujo de OAuth es una navegación de
            verdad, con redirecciones que el navegador tiene que seguir. -->
-      <a href="/api/auth/google" class="boton boton-secundario">Entrar con Google</a>
+      <a matButton="outlined" href="/api/auth/google">Entrar con Google</a>
     </div>
   `,
 })

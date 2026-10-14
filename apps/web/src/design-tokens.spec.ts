@@ -23,6 +23,7 @@ import { PICO_Y_VALLE, VOSEO } from './voseo';
 // El runner de tests de Angular corre desde apps/web. No se usa import.meta.url:
 // dentro del bundle de test no resuelve a una ruta de archivo.
 const css = readFileSync(join(process.cwd(), 'src/styles.css'), 'utf8');
+const tema = readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
 
 /**
  * El cuerpo del bloque CSS que empieza con `apertura`, con las llaves contadas.
@@ -570,12 +571,29 @@ describe('Tipografía', () => {
   });
 
   it('`mat-icon` se comporta como el ícono de antes: mandan las clases del sitio', () => {
-    const tema = readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
     const regla = tema.match(/\.mat-icon\.icono\s*\{([^}]*)\}/)?.[1] ?? '';
 
     for (const propiedad of ['display', 'width', 'height', 'overflow', 'color']) {
       expect(regla).toMatch(new RegExp(`${propiedad}:\\s*revert-layer`));
     }
+  });
+
+  it('**el foco de `matButton` es el anillo del sitio** (T241): Material lo apaga sin capa', () => {
+    // `.mdc-button` trae `outline: none` y su propio indicador, que sin
+    // `strong-focus-indicators` no dibuja nada: con teclado, el botón quedaba sin foco visible.
+    const regla = tema.match(/\.mdc-button\.mat-mdc-button-base\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(regla).toMatch(/outline:\s*revert-layer/);
+  });
+
+  it('**el deshabilitado recibe el puntero** (T241): sin eso no se ve su cursor', () => {
+    // `.mdc-button:disabled` trae `pointer-events: none`: el `cursor: not-allowed` y el
+    // `cursor: progress` del ocupado (T150) no se veían nunca. Un <button> deshabilitado no
+    // dispara clics igual; el enlace deshabilitado de Material no entra (no es `:disabled`).
+    const regla = tema.match(/\.mdc-button\.mat-mdc-button-base:disabled\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(regla).toMatch(/pointer-events:\s*auto/);
+    expect(regla).toMatch(/cursor:\s*not-allowed/);
   });
 });
 
@@ -687,31 +705,20 @@ describe('Uso de los tokens en las plantillas', () => {
     // clase sale con la flecha del sistema y no se lee como pulsable. Los <a>
     // no entran: con href o routerLink el navegador ya pone la manito.
     //
-    // La clase `.boton` de styles.css también cuenta: lo trae puesto. Que lo
-    // siga trayendo lo comprueba el test de abajo, que es la mitad que hace
-    // que esta excepción no sea un agujero.
+    // `matButton` no necesita la clase (T241): Material le pone la manito en
+    // `.mdc-button:hover`.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bboton\b/.test(etiqueta)) continue;
+        if (/\bmatButton\b/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
     }
 
     expect(infractores).toEqual([]);
-  });
-
-  it('la clase .boton trae el cursor puesto', () => {
-    // Si alguien la saca, el test de arriba seguiría dejando pasar todos los
-    // <button class="boton">, y quedarían con la flecha del sistema sin que
-    // nada avise. Este es el caso que hace fallar a esa excepción.
-    const boton = css.match(/\.boton\s*\{[^}]*\}/)?.[0];
-
-    expect(boton).toBeDefined();
-    expect(boton).toMatch(/cursor:\s*pointer/);
   });
 });
 
@@ -887,10 +894,10 @@ describe('Tacto', () => {
     return resultado;
   }
 
-  it('la clase .boton confirma la pulsación', () => {
+  it('el botón de Material confirma la pulsación', () => {
     // Entre que el dedo baja y que la pantalla responde puede pasar media
     // segundo de red. Sin :active, en todo ese rato el botón parece muerto.
-    expect(css).toMatch(/\.boton:active/);
+    expect(tema).toMatch(/\.mdc-button\.mat-mdc-button-base:active/);
   });
 
   it('ningún hover queda fuera de su consulta de medios', () => {
@@ -1180,11 +1187,11 @@ describe('El panel en la A (Fase 7)', () => {
 });
 
 describe('Botones', () => {
-  it('ningún botón ni enlace se arma a mano con relleno y fondo o borde, sin .boton (TV8.2)', () => {
+  it('ningún botón ni enlace se arma a mano con relleno y fondo o borde (TV8.2)', () => {
     // TV2.3 encontró tres —"Ir a pagar" con su "Cancelar", "Crear cuenta" y
     // "Sancionar"— que no heredaban nada de .boton: ni el alto táctil, ni la letra,
     // ni el foco, ni la confirmación al apretar. TV2.4, TV5.2 y TV7.9 los migraron;
-    // esto cuida que no aparezca el cuarto.
+    // esto cuida que no aparezca el cuarto. Desde T243, el botón es `matButton`.
     //
     // Quedan afuera los que no son una acción sino una opción que se marca
     // (aria-pressed, como las horas libres de la grilla) o una pestaña (role="tab"):
@@ -1194,29 +1201,12 @@ describe('Botones', () => {
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<(?:button|a)\b[^>]*>/g)) {
         const clases = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
-        if (/\bboton\b/.test(clases) || /aria-pressed|role="tab"/.test(etiqueta)) continue;
+        if (/\bmatButton\b/.test(etiqueta) || /aria-pressed|role="tab"/.test(etiqueta)) continue;
 
         const relleno = /(?<![\w-])p[xy]?-\d/.test(clases);
         const fondoOBorde = /(?<![\w:-])(bg-(?!transparent)[a-z]|border(?:-\d)?(?=\s|$))/.test(clases);
         if (relleno && fondoOBorde) {
           infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 70)}`);
-        }
-      }
-    }
-
-    expect(infractores).toEqual([]);
-  });
-
-  it('un botón sobre el campo usa su variante y no arma los colores a mano', () => {
-    // Seis botones se armaban con `bg-on-campo text-campo` a mano. La variante
-    // existe para que la fase 3, que llena la portada de bandas de campo, no
-    // repita la mezcla seis veces más (TV2.1).
-    const infractores: string[] = [];
-
-    for (const { archivo, contenido } of plantillas()) {
-      for (const [clases] of contenido.matchAll(/class="[^"]*\bboton\b[^"]*"/g)) {
-        if (/\b(bg|border|text)-on-campo\b|\btext-campo\b/.test(clases)) {
-          infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 80)}`);
         }
       }
     }
@@ -1443,6 +1433,48 @@ describe('El hero se mueve (T148)', () => {
 });
 
 /**
+ * T241–T243. Los botones son `matButton`: `.boton` se fue de `styles.css` en T243.
+ */
+describe('Los botones son de Material (T241–T243)', () => {
+  it('**`styles.css` ya no define `.boton` ni sus variantes** (I1)', () => {
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.boton\b/);
+  });
+
+  it('**ninguna plantilla pinta un botón con `.boton`**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [clase] of contenido.matchAll(/\[?class(?:\.boton[\w-]*)?\]?="[^"]*"/g)) {
+        if (/\bboton\b|\.boton/.test(clase)) infractores.push(`${archivo}: ${clase.slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el color de un `matButton` sale de su clase de tema**, no de una utilidad', () => {
+    // Material pinta el texto, el fondo y el borde con sus tokens y sin capa: un
+    // `text-destructive` en el botón no hace nada, y «Quitar» salía azul (T242). El rojo es
+    // la clase `peligro`, que ajusta los tokens, y sobre una banda de campo, `sobre-campo`
+    // (TV2.1: seis botones armaban `bg-on-campo text-campo` a mano).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of contenido.matchAll(/<(?:button|a)\b[^>]*\bmatButton\b[^>]*>/g)) {
+        const clase = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
+        // `text-sm` y `text-start` no pintan: son tamaño y alineación.
+        const pinta = /(^|\s)(\S+:)?(text|bg|border)-(?!(xs|sm|base|lg|\d?xl|start|end|center)\b)[a-z]/;
+        if (pinta.test(clase)) {
+          infractores.push(`${archivo}: ${clase.replace(/\s+/g, ' ')}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
  * Las carpetas que las reglas de T150 (botón ocupado) y T152 (esqueletos) no revisan.
  * Vacía desde T154: las dos reglas valen para todo el sitio. Se deja la lista para la
  * próxima vez que una regla nueva entre de a poco.
@@ -1461,13 +1493,15 @@ describe('Los botones dicen que están trabajando (T150)', () => {
     /\[disabled\]="[^"]*\b(?:enviando|guardando|procesando|pagando|entrando|subiendo|borrando|creando|cancelando|confirmando|trabajando|cobrando|resolviendo|ocupad[oa])\(\)/;
 
 
+  const ocupado = /\.mdc-button\.mat-mdc-button-base\[aria-busy='true'\]/.source;
+
   it('el botón ocupado lleva un círculo que gira, y no se ve deshabilitado', () => {
-    expect(css).toMatch(/\.boton\[aria-busy='true'\]::before\s*\{[^}]*progress_activity/);
-    expect(css).toMatch(/\.boton\[aria-busy='true'\]:disabled\s*\{[^}]*opacity:\s*1/);
+    expect(tema).toMatch(new RegExp(`${ocupado}::before\\s*\\{[^}]*progress_activity`));
+    expect(tema).toMatch(new RegExp(`${ocupado}:disabled\\s*\\{[^}]*opacity:\\s*1`));
   });
 
   it('el círculo no se lee: es decoración de una espera que el texto ya dice', () => {
-    expect(css).toMatch(/content:\s*'progress_activity'\s*\/\s*''/);
+    expect(tema).toMatch(/content:\s*'progress_activity'\s*\/\s*''/);
   });
 
   it('los botones de ícono se hunden al presionar, como .boton', () => {
@@ -1485,8 +1519,9 @@ describe('Los botones dicen que están trabajando (T150)', () => {
         // envían: se deshabilitan mientras otra acción trabaja, pero no giran. Por
         // convención sus métodos se llaman abrir…, preguntar… o editar…, y ninguno
         // cambia nada (revisado en T154; el abrir del cuadro consulta qué partidos se
-        // deshacen, pero solo lee).
-        if (/\(click\)="(?:abrir|preguntar|editar)\w*\(/.test(boton)) continue;
+        // deshacen, pero solo lee). Tampoco el que abre el selector de un campo de
+        // archivo escondido (T241): el envío lo dispara el campo al elegir.
+        if (/\(click\)="(?:(?:abrir|preguntar|editar)\w*\(|\w+\.click\(\))/.test(boton)) continue;
 
         if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
           infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);

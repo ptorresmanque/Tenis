@@ -17,6 +17,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { Auth } from '../core/auth/auth';
 import { irAPagar } from '../core/pagos/ir-a-pagar';
@@ -42,7 +43,7 @@ const MAXIMO_ACOMPANANTES = 3;
  */
 @Component({
   selector: 'app-reservar',
-  imports: [ReactiveFormsModule, TelefonoDirective],
+  imports: [MatButton, ReactiveFormsModule, TelefonoDirective],
   template: `
     <!-- Elemento dialog nativo y no un div con overlay: el navegador se encarga del
          foco atrapado, del cierre con Escape, del fondo inerte y del backdrop.
@@ -135,8 +136,9 @@ const MAXIMO_ACOMPANANTES = 3;
                   {{ etiqueta(acompanante) }}
                 </span>
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto boton-chico"
+                  class="chico"
                   (click)="quitar($index)"
                 >
                   Quitar<span class="sr-only"> a {{ etiqueta(acompanante) }}</span>
@@ -172,8 +174,8 @@ const MAXIMO_ACOMPANANTES = 3;
                   </datalist>
                 }
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario"
                   [disabled]="porAgregar().trim() === ''"
                   (click)="agregar()"
                 >
@@ -212,15 +214,15 @@ const MAXIMO_ACOMPANANTES = 3;
           }
 
           <div class="flex justify-end gap-2 pt-2">
-            <button type="button" class="boton boton-texto" (click)="dialogo.close()">
+            <button matButton type="button" (click)="dialogo.close()">
               Cancelar
             </button>
             <!-- Primario y no verde (decisión 6 del plan): el verde quedó para
                  "libre", y la acción principal es la misma en todo el sitio. -->
             <button
+              matButton="filled"
               #confirmar
               type="submit"
-              class="boton boton-primario"
               [disabled]="enviando()"
               [attr.aria-busy]="enviando()"
             >
@@ -271,7 +273,8 @@ export class Reservar {
   protected readonly maximo = MAXIMO_ACOMPANANTES;
 
   private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');
-  private readonly confirmar = viewChild.required<ElementRef<HTMLButtonElement>>('confirmar');
+  private readonly confirmar =
+    viewChild.required('confirmar', { read: ElementRef<HTMLButtonElement> });
   private readonly injector = inject(Injector);
 
   /**

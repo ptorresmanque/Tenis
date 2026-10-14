@@ -1,5 +1,6 @@
 import { Component, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -35,7 +36,7 @@ const VACIA: TablaDePuntos = {
  */
 @Component({
   selector: 'app-nivel-del-tour',
-  imports: [FormsModule, Aviso],
+  imports: [MatButton, FormsModule, Aviso],
   template: `
     <!-- El de agregar, con borde punteado: sin eso se veía igual a los guardados y solo
          el botón decía que era otra cosa. -->
@@ -99,16 +100,19 @@ const VACIA: TablaDePuntos = {
           {{ pregunta }}
         </app-aviso>
         <div class="mt-3 flex flex-wrap gap-2">
+          <!-- Cada lleno va en una rama distinta del mismo if: se ve uno a la vez.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario boton-chico"
+            class="chico"
             [disabled]="enCurso() !== null"
             [attr.aria-busy]="enCurso() === 'guardar'"
             (click)="enviar()"
           >
             Sí, guardar
           </button>
-          <button type="button" class="boton boton-texto boton-chico" (click)="preguntando.set(null)">
+          <button matButton type="button" class="chico" (click)="preguntando.set(null)">
             Mejor no
           </button>
         </div>
@@ -116,23 +120,25 @@ const VACIA: TablaDePuntos = {
         <!-- La confirmación en la fila, como al borrar una pregunta frecuente. -->
         <div class="mt-3 flex flex-wrap gap-2">
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-destructivo boton-chico"
+            class="peligro chico"
             [disabled]="enCurso() !== null"
             [attr.aria-busy]="enCurso() === 'borrar'"
             (click)="borrar()"
           >
             Sí, borrar
           </button>
-          <button type="button" class="boton boton-texto boton-chico" (click)="porBorrar.set(false)">
+          <button matButton type="button" class="chico" (click)="porBorrar.set(false)">
             Mejor no
           </button>
         </div>
       } @else {
         <div class="mt-3 flex flex-wrap gap-2">
           <button
+            matButton="outlined"
             type="submit"
-            class="boton boton-secundario boton-chico"
+            class="chico"
             [disabled]="enCurso() !== null"
             [attr.aria-busy]="enCurso() === 'guardar'"
           >
@@ -141,7 +147,7 @@ const VACIA: TablaDePuntos = {
           <!-- Con torneos no se ofrece: se quedarían sin nivel y sin puntos. -->
           @if (nivel(); as suyo) {
             @if (suyo.torneos === 0) {
-              <button type="button" class="boton boton-texto boton-chico" (click)="porBorrar.set(true)">
+              <button matButton type="button" class="chico" (click)="porBorrar.set(true)">
                 Borrar
                 <span class="sr-only">el nivel {{ suyo.nombre }}</span>
               </button>

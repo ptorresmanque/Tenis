@@ -1,4 +1,5 @@
 import { Component, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import {
   diaEnPalabras,
@@ -21,7 +22,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-reportes',
-  imports: [EstadoVacio, Insignia, Esqueleto],
+  imports: [MatButton, EstadoVacio, Insignia, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
     <header class="cabecera-panel">
@@ -95,10 +96,11 @@ import { Esqueleto } from '../../ui/esqueleto';
                   <!-- La primitiva y no clases a mano (hallazgo de TV2.3): el contorno
                        rojo es el de "Eliminar" en las canchas y "Revocar" en socios. -->
                   <button
+                    matButton="outlined"
                     type="button"
                     [disabled]="resolviendo()"
                     [attr.aria-busy]="enCurso() === reportada.reservaId + '-SANCIONAR'"
-                    class="boton boton-secundario boton-chico border-destructive text-destructive"
+                    class="peligro chico"
                     (click)="resolver(reportada, 'SANCIONAR')"
                   >
                     Sancionar
@@ -107,10 +109,11 @@ import { Esqueleto } from '../../ui/esqueleto';
                 }
 
                 <button
+                  matButton
                   type="button"
                   [disabled]="resolviendo()"
                   [attr.aria-busy]="enCurso() === reportada.reservaId + '-DESCARTAR'"
-                  class="boton boton-texto boton-chico"
+                  class="chico"
                   (click)="resolver(reportada, 'DESCARTAR')"
                 >
                   Descartar

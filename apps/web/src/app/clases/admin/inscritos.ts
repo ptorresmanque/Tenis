@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -22,6 +23,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos',
   imports: [
+    MatButton,
     FormsModule,
     Aviso,
     Esqueleto,
@@ -98,8 +100,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                     <span class="text-sm">Vino</span>
                   </label>
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     [attr.aria-busy]="enCurso() === 'bajar-' + quien.id"
                     (click)="bajar(quien)"
@@ -110,8 +113,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                        con su asistencia. -->
                   @if (clase.serieId !== null) {
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico"
+                      class="chico"
                       [disabled]="trabajando()"
                       [attr.aria-busy]="enCurso() === 'sacarDeLaSerie-' + quien.id"
                       (click)="sacarDeLaSerie(clase.serieId, quien)"
@@ -164,8 +168,9 @@ import { Esqueleto } from '../../ui/esqueleto';
               }
 
               <button
+                matButton="outlined"
                 type="submit"
-                class="boton boton-secundario boton-chico"
+                class="chico"
                 [attr.aria-busy]="enCurso() === 'inscribir'"
                 [disabled]="trabajando()"
               >
@@ -175,8 +180,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                  está llena, el servidor no inscribe en ninguna y dice cuál. -->
               @if (clase.serieId !== null) {
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'inscribirEnLaSerie-' + clase.serieId"
                   (click)="inscribirEnLaSerie(clase.serieId)"
@@ -192,8 +198,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                  la lista vacía significaría las dos. -->
               <div class="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'cerrar-true'"
                   (click)="cerrar(true)"
@@ -201,8 +208,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                   Cerrar la clase con esta lista
                 </button>
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto boton-chico"
+                  class="chico"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'cerrar-false'"
                   (click)="cerrar(false)"

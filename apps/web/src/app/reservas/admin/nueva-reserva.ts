@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
@@ -35,7 +36,16 @@ import { TelefonoDirective } from '../../ui/telefono';
  */
 @Component({
   selector: 'app-nueva-reserva',
-  imports: [FormsModule, Aviso, Campo, CampoControl, Insignia, Selector, TelefonoDirective],
+  imports: [
+    MatButton,
+    FormsModule,
+    Aviso,
+    Campo,
+    CampoControl,
+    Insignia,
+    Selector,
+    TelefonoDirective,
+  ],
   template: `
     <dialog
       #dialogo
@@ -227,15 +237,15 @@ import { TelefonoDirective } from '../../ui/telefono';
 
         <div class="flex justify-end gap-2">
           <button
+            matButton
             type="button"
-            class="boton boton-texto"
             (click)="dialogo.close()"
           >
             Cancelar
           </button>
           <button
+            matButton="filled"
             type="submit"
-            class="boton boton-primario"
             [disabled]="enviando()"
             [attr.aria-busy]="enviando()"
           >

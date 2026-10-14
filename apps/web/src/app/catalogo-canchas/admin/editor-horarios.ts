@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
 import { CampoHora } from '../../ui/campo-hora';
@@ -41,7 +42,7 @@ interface FilaDeDia {
  */
 @Component({
   selector: 'app-editor-horarios',
-  imports: [FormsModule, CampoHora],
+  imports: [MatButton, FormsModule, CampoHora],
   template: `
     <form class="mt-2" (ngSubmit)="guardar()">
       <!-- La tabla lleva siete filas de dos horas cada una y no se encoge más:
@@ -104,10 +105,11 @@ interface FilaDeDia {
 
       <div class="mt-2 flex flex-wrap items-center gap-3">
         <button
+          matButton="outlined"
           type="submit"
           [disabled]="guardando()"
           [attr.aria-busy]="guardando()"
-          class="boton boton-secundario boton-chico"
+          class="chico"
         >
           Guardar horario
         </button>

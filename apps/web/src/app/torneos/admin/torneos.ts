@@ -2,6 +2,7 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
@@ -61,6 +62,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-torneos',
   imports: [
+    MatButton,
     MatIcon,
     Esqueleto,
     FormsModule,
@@ -87,8 +89,8 @@ const enBlanco = () => ({
            crear viviera debajo de todos los torneos era uno de los defectos que este
            rediseño venía a arreglar; dejar ahí su botón lo conservaba entero. -->
       <button
+        matButton="outlined"
         type="button"
-        class="boton boton-secundario"
         [attr.aria-expanded]="creando()"
         (click)="creando.set(!creando())"
       >
@@ -166,8 +168,9 @@ const enBlanco = () => ({
       </div>
 
       <button
+        matButton="filled"
         type="submit"
-        class="boton boton-primario mt-3"
+        class="mt-3"
         [attr.aria-busy]="enCurso() === 'crearTorneo'"
         [disabled]="trabajando() || tour().nivelId === null"
       >
@@ -183,8 +186,8 @@ const enBlanco = () => ({
       @for (grupo of GRUPOS; track grupo.id) {
         <button
           type="button"
-          class="boton boton-chico"
-          [class]="grupo_() === grupo.id ? 'boton-primario' : 'boton-secundario'"
+          [matButton]="grupo_() === grupo.id ? 'filled' : 'outlined'"
+          class="chico"
           [attr.aria-pressed]="grupo_() === grupo.id"
           (click)="grupo_.set(grupo.id)"
         >

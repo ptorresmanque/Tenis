@@ -2,6 +2,7 @@ import { Component, computed, inject, resource } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
@@ -36,6 +37,7 @@ import { Esqueleto } from '../ui/esqueleto';
 @Component({
   selector: 'app-el-club',
   imports: [
+    MatButton,
     MatIcon,
     RouterLink,
     Foto,
@@ -238,15 +240,15 @@ import { Esqueleto } from '../ui/esqueleto';
             ></iframe>
             <p class="mt-3 flex flex-wrap gap-3">
               <a
+                matButton="outlined"
                 [href]="mapa.googleMaps"
                 target="_blank"
                 rel="noopener"
-                class="boton boton-secundario"
               >
                 Cómo llegar con Google Maps
                 <span class="sr-only">(se abre en otra pestaña)</span>
               </a>
-              <a [href]="mapa.waze" target="_blank" rel="noopener" class="boton boton-secundario">
+              <a matButton="outlined" [href]="mapa.waze" target="_blank" rel="noopener">
                 Cómo llegar con Waze
                 <span class="sr-only">(se abre en otra pestaña)</span>
               </a>
@@ -270,10 +272,10 @@ import { Esqueleto } from '../ui/esqueleto';
     </section>
 
     <section class="mt-16 flex flex-wrap justify-center gap-3 aparece-al-pasar">
-      <a routerLink="/disponibilidad" class="boton boton-primario">
+      <a matButton="filled" routerLink="/disponibilidad">
         Ver disponibilidad
       </a>
-      <a routerLink="/registro" class="boton boton-secundario">Crear cuenta</a>
+      <a matButton="outlined" routerLink="/registro">Crear cuenta</a>
     </section>
   `,
 })

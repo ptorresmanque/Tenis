@@ -2,6 +2,7 @@ import { Component, computed, inject, input, linkedSignal, resource, signal } fr
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { SUPERFICIES } from '../../catalogo-canchas/superficies';
@@ -45,6 +46,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
 @Component({
   selector: 'app-ficha-torneo',
   imports: [
+    MatButton,
     MatIcon,
     FormsModule,
     RouterLink,
@@ -139,10 +141,8 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
             @for (cuadro of suyo.cuadros; track cuadro.id) {
               <button
                 type="button"
-                class="boton boton-chico"
-                [class]="
-                  elegido() === cuadro.id ? 'boton-primario' : 'boton-secundario'
-                "
+                [matButton]="elegido() === cuadro.id ? 'filled' : 'outlined'"
+                class="chico"
                 [attr.aria-pressed]="elegido() === cuadro.id"
                 (click)="elegido.set(cuadro.id)"
               >
@@ -229,8 +229,9 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
           </div>
 
           <button
+            matButton="filled"
             type="submit"
-            class="boton boton-primario mt-3"
+            class="mt-3"
             [disabled]="trabajando()"
             [attr.aria-busy]="enCurso() === 'guardar-' + suyo.id"
           >
@@ -269,8 +270,9 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
             </p>
 
             <button
+              matButton="outlined"
               type="button"
-              class="boton boton-secundario mt-3"
+              class="mt-3"
               [disabled]="trabajando()"
               [attr.aria-busy]="enCurso() === 'reactivar-' + suyo.id"
               (click)="reactivar(suyo.id)"
@@ -296,8 +298,8 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
                   ¿Seguro? {{ suyo.nombre }} sale del calendario.
                 </span>
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'cancelar-' + suyo.id"
                   (click)="cancelar(suyo.id)"
@@ -305,8 +307,8 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
                   Sí, cancelar el torneo
                 </button>
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto"
                   (click)="confirmando.set(false)"
                 >
                   Mejor no
@@ -314,8 +316,9 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
               </div>
             } @else {
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario mt-3"
+                class="mt-3"
                 (click)="confirmando.set(true)"
               >
                 Cancelar el torneo

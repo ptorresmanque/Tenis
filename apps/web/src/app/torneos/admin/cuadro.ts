@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import {
   diaEnPalabras,
@@ -39,7 +40,16 @@ import { CampoHora } from '../../ui/campo-hora';
  */
 @Component({
   selector: 'app-cuadro-torneo',
-  imports: [MatIcon, FormsModule, Aviso, Insignia, FotoDelPartido, CampoFecha, CampoHora],
+  imports: [
+    MatButton,
+    MatIcon,
+    FormsModule,
+    Aviso,
+    Insignia,
+    FotoDelPartido,
+    CampoFecha,
+    CampoHora,
+  ],
   template: `
     @if (cuadro.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -67,9 +77,12 @@ import { CampoHora } from '../../ui/campo-hora';
             El cuadro se arma cuando cierra la inscripción. Siembra a los que
             correspondan y aprieta el botón: los demás se sortean.
           </p>
+          <!-- Programar y cargar el resultado van cada uno en su diálogo, su propia sección.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario boton-chico mt-2"
+            class="chico mt-2"
             [disabled]="trabajando()"
             [attr.aria-busy]="enCurso() === 'armar'"
             (click)="armar()"
@@ -107,8 +120,9 @@ import { CampoHora } from '../../ui/campo-hora';
 
                       @if (sePuedeCargar(partido)) {
                         <button
+                          matButton
                           type="button"
-                          class="boton boton-texto boton-chico mt-1"
+                          class="chico mt-1"
                           [disabled]="trabajando()"
                           (click)="abrir(partido)"
                         >
@@ -134,8 +148,9 @@ import { CampoHora } from '../../ui/campo-hora';
                           </mat-icon>
                           {{ cuando(partido) }} · {{ partido.cancha }}
                           <button
+                            matButton
                             type="button"
-                            class="boton boton-texto boton-chico"
+                            class="chico"
                             [disabled]="trabajando()"
                             [attr.aria-busy]="enCurso() === 'desprogramar-' + partido.id"
                             (click)="desprogramar(partido)"
@@ -145,8 +160,9 @@ import { CampoHora } from '../../ui/campo-hora';
                         </p>
                       } @else if (sePuedeCargar(partido)) {
                         <button
+                          matButton
                           type="button"
-                          class="boton boton-texto boton-chico mt-1"
+                          class="chico mt-1"
                           [disabled]="trabajando()"
                           (click)="abrirHorario(partido)"
                         >
@@ -163,8 +179,9 @@ import { CampoHora } from '../../ui/campo-hora';
 
 
           <button
+            matButton
             type="button"
-            class="boton boton-texto boton-chico mt-2"
+            class="chico mt-2"
             [disabled]="trabajando()"
             [attr.aria-busy]="enCurso() === 'deshacer'"
             (click)="deshacer()"
@@ -250,16 +267,18 @@ import { CampoHora } from '../../ui/campo-hora';
 
           <div class="flex gap-2 sm:col-span-2">
             <button
+              matButton="filled"
               type="submit"
-              class="boton boton-primario boton-chico"
+              class="chico"
               [disabled]="trabajando()"
               [attr.aria-busy]="enCurso() === 'programar'"
             >
               Programar
             </button>
             <button
+              matButton="outlined"
               type="button"
-              class="boton boton-secundario boton-chico"
+              class="chico"
               (click)="programacion.close()"
             >
               Cancelar
@@ -339,8 +358,9 @@ import { CampoHora } from '../../ui/campo-hora';
 
         <div class="mt-3 flex flex-wrap gap-2">
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario boton-chico"
+            class="chico"
             [disabled]="trabajando() || ganadorId() === null"
             [attr.aria-busy]="enCurso() === 'guardar'"
             (click)="guardar()"
@@ -348,8 +368,9 @@ import { CampoHora } from '../../ui/campo-hora';
             Guardar resultado
           </button>
           <button
+            matButton
             type="button"
-            class="boton boton-texto boton-chico"
+            class="chico"
             (click)="resultado.close()"
           >
             Cancelar

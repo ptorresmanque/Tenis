@@ -2,6 +2,7 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import {
   diaEnPalabras,
@@ -39,7 +40,7 @@ const MOTIVOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-confirmacion-reserva',
-  imports: [MatIcon, RouterLink, Aviso, Esqueleto, Insignia],
+  imports: [MatButton, MatIcon, RouterLink, Aviso, Esqueleto, Insignia],
   template: `
     <section class="mx-auto max-w-lg py-10">
       @if (folio() && !error()) {
@@ -139,9 +140,12 @@ const MOTIVOS: Record<string, string> = {
             {{ folio() }}
           </p>
 
+          <!-- Copiar va en la banda del folio, su propia región; los otros dos se excluyen.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-chico boton-sobre-campo mt-4"
+            class="sobre-campo chico mt-4"
             (click)="copiar()"
           >
             <mat-icon class="text-base" aria-hidden="true">content_copy</mat-icon>
@@ -178,7 +182,7 @@ const MOTIVOS: Record<string, string> = {
           <!-- Solo con ficha de socio: a quien reservó sin cuenta, "Mis reservas" le
                muestra una lista vacía. -->
           @if (esSocio()) {
-            <a routerLink="/mis-reservas" class="boton boton-primario">
+            <a matButton="filled" routerLink="/mis-reservas">
               Ver mis reservas
             </a>
           }
@@ -186,11 +190,11 @@ const MOTIVOS: Record<string, string> = {
                El navegador ya sabe guardarla como PDF, y una plantilla paralela se
                desincroniza de lo que la persona tiene delante en cuanto cambie
                cualquiera de las dos. -->
-          <button type="button" class="boton boton-secundario" (click)="imprimir()">
+          <button matButton="outlined" type="button" (click)="imprimir()">
             <mat-icon class="text-base" aria-hidden="true">download</mat-icon>
             Descargar comprobante
           </button>
-          <a routerLink="/disponibilidad" class="boton boton-secundario">
+          <a matButton="outlined" routerLink="/disponibilidad">
             Reservar otra hora
           </a>
         </div>
@@ -203,9 +207,10 @@ const MOTIVOS: Record<string, string> = {
         @if (esSocio()) {
           <p class="mt-6 text-center">
             <a
+              matButton
               routerLink="/mis-reservas"
               [queryParams]="{ cancelar: folio() }"
-              class="boton boton-texto text-destructive"
+              class="peligro"
             >
               <mat-icon class="text-base" aria-hidden="true">cancel</mat-icon>
               Cancelar esta reserva
@@ -220,7 +225,7 @@ const MOTIVOS: Record<string, string> = {
         <app-aviso variante="error" class="mt-6 block">{{ explicacion() }}</app-aviso>
 
         <div class="mt-8 flex justify-center">
-          <a routerLink="/disponibilidad" class="boton boton-primario">
+          <a matButton="filled" routerLink="/disponibilidad">
             Volver a la disponibilidad
           </a>
         </div>

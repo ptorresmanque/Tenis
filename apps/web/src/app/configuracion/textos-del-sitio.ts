@@ -1,5 +1,6 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { AdminCanchas, TextosDeElClub } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
@@ -45,7 +46,7 @@ const TEXTOS = [
  */
 @Component({
   selector: 'app-textos-del-sitio',
-  imports: [FormsModule, Aviso, Campo, CampoControl],
+  imports: [MatButton, FormsModule, Aviso, Campo, CampoControl],
   template: `
     <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
       @if (configuracion.error()) {
@@ -101,8 +102,8 @@ const TEXTOS = [
 
       <div>
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="guardando() || configuracion.isLoading() || !configuracion.hasValue()"
           [attr.aria-busy]="guardando()"
         >

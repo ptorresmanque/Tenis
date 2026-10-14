@@ -1,5 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { diaEnPalabras, fechaEnElClub, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { Auth } from '../../core/auth/auth';
@@ -18,7 +19,7 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
  */
 @Component({
   selector: 'app-observaciones-de-reserva',
-  imports: [FormsModule, Aviso, HistorialDeObservaciones],
+  imports: [MatButton, FormsModule, Aviso, HistorialDeObservaciones],
   template: `
     @if (reserva().observaciones.length > 0) {
       <ul class="mt-3 grid gap-2 text-sm">
@@ -39,17 +40,21 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
                   [ngModelOptions]="{ standalone: true }"
                 ></textarea>
                 <div class="mt-2 flex flex-wrap gap-2">
+                  <!-- Corregir una y anotar otra son formularios distintos, cada uno con su envío.
+                       mat-guidelines-ignore: multiples-filled -->
                   <button
+                    matButton="filled"
                     type="submit"
-                    class="boton boton-primario boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     [attr.aria-busy]="trabajando()"
                   >
                     Guardar
                   </button>
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico"
+                    class="chico"
                     (click)="corrigiendo.set(null)"
                   >
                     Cancelar
@@ -67,16 +72,18 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
               @if (puedeTocar(observacion)) {
                 <div class="mt-1 flex flex-wrap gap-2">
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     (click)="editarObservacion(observacion)"
                   >
                     Corregir
                   </button>
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico text-destructive"
+                    class="peligro chico"
                     [disabled]="trabajando()"
                     [attr.aria-busy]="borrando() === observacion.id"
                     (click)="borrar(observacion.id)"
@@ -93,14 +100,15 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
 
     <div class="mt-2 flex flex-wrap gap-2">
       @if (!anotando()) {
-        <button type="button" class="boton boton-texto boton-chico" (click)="abrirNueva()">
+        <button matButton type="button" class="chico" (click)="abrirNueva()">
           Anotar observación
         </button>
       }
       @if (reserva().socioId !== null && reserva().observacionesAnteriores > 0) {
         <button
+          matButton
           type="button"
-          class="boton boton-texto boton-chico"
+          class="chico"
           [attr.aria-expanded]="viendoAnteriores()"
           (click)="viendoAnteriores.set(!viendoAnteriores())"
         >
@@ -128,14 +136,15 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
         ></textarea>
         <div class="mt-2 flex flex-wrap gap-2">
           <button
+            matButton="filled"
             type="submit"
-            class="boton boton-primario boton-chico"
+            class="chico"
             [disabled]="trabajando()"
             [attr.aria-busy]="trabajando()"
           >
             Guardar
           </button>
-          <button type="button" class="boton boton-texto boton-chico" (click)="anotando.set(false)">
+          <button matButton type="button" class="chico" (click)="anotando.set(false)">
             Cancelar
           </button>
         </div>

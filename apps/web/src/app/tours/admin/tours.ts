@@ -1,6 +1,7 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -18,7 +19,7 @@ import { Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-tours',
-  imports: [FormsModule, RouterLink, Aviso, Esqueleto, EstadoVacio],
+  imports: [MatButton, FormsModule, RouterLink, Aviso, Esqueleto, EstadoVacio],
   template: `
     <!-- La cabecera del panel (TV7.1). Su acción abre el formulario de crear, como en
          Torneos: secundaria, porque la principal es la del formulario. -->
@@ -31,8 +32,8 @@ import { Tours } from '../tours.service';
       </div>
 
       <button
+        matButton="outlined"
         type="button"
-        class="boton boton-secundario"
         [attr.aria-expanded]="creando()"
         (click)="creando.set(!creando())"
       >
@@ -57,8 +58,8 @@ import { Tours } from '../tours.service';
           />
         </label>
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="creandoTour() || !nombre.trim()"
           [attr.aria-busy]="creandoTour()"
         >

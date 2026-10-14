@@ -6,6 +6,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import {
@@ -126,7 +127,7 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
  */
 @Component({
   selector: 'app-editor-configuracion',
-  imports: [FormsModule, Esqueleto, EditorPrime, EditorTopeDeLuz],
+  imports: [MatButton, FormsModule, Esqueleto, EditorPrime, EditorTopeDeLuz],
   template: `
     <section class="mt-8" aria-labelledby="titulo-reglas">
       <h2 id="titulo-reglas" class="rotulo-seccion">
@@ -175,10 +176,11 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
           }
 
           <button
+            matButton="filled"
             type="submit"
             [disabled]="guardando()"
             [attr.aria-busy]="guardando()"
-            class="boton boton-primario mt-4"
+            class="mt-4"
           >
             Guardar cambios
           </button>

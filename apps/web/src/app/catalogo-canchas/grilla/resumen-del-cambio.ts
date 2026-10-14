@@ -1,4 +1,5 @@
 import { Component, computed, input, output } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { BloqueDisponible, Cancha } from '../disponibilidad';
 import { enPesos, horaEnElClub } from '../reloj-del-club';
@@ -30,6 +31,7 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
  */
 @Component({
   selector: 'app-resumen-del-cambio',
+  imports: [MatButton],
   host: { class: 'contents' },
   template: `
     <div role="status" aria-live="polite">
@@ -43,10 +45,10 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
     </div>
 
     <div class="flex gap-2">
-      <button type="button" class="boton boton-texto" (click)="soltar.emit()">Soltar</button>
+      <button matButton type="button" (click)="soltar.emit()">Soltar</button>
       <button
+        matButton="filled"
         type="button"
-        class="boton boton-primario"
         [disabled]="enviando()"
         [attr.aria-busy]="enviando()"
         (click)="confirmar.emit()"

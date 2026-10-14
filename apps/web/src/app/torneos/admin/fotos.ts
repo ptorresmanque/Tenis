@@ -1,5 +1,6 @@
 import { Component, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -29,7 +30,7 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
  */
 @Component({
   selector: 'app-fotos-del-torneo',
-  imports: [FormsModule, Aviso, Esqueleto],
+  imports: [MatButton, FormsModule, Aviso, Esqueleto],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -60,9 +61,9 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
                 loading="lazy"
               />
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico mt-1 w-full
-                       border-destructive text-destructive"
+                class="peligro chico mt-1 w-full"
                 [disabled]="trabajando()"
                 [attr.aria-busy]="enCurso() === 'quitar-' + foto.id"
                 (click)="quitar(foto)"
@@ -111,8 +112,9 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
         </label>
 
         <button
+          matButton="outlined"
           type="submit"
-          class="boton boton-secundario sm:col-span-3 sm:justify-self-start"
+          class="sm:col-span-3 sm:justify-self-start"
           [disabled]="trabajando() || !archivo()"
           [attr.aria-busy]="enCurso() === 'subir'"
         >

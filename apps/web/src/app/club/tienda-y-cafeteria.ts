@@ -1,6 +1,7 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { Galeria } from '../torneos/publico/galeria';
@@ -49,7 +50,7 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
  */
 @Component({
   selector: 'app-tienda-y-cafeteria',
-  imports: [MatIcon, RouterLink, Galeria],
+  imports: [MatButton, MatIcon, RouterLink, Galeria],
   // Sin caja propia: la sección es la que lleva el margen, y sin lugares no queda ni eso.
   host: { class: 'contents' },
   template: `
@@ -141,7 +142,7 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
                   <p class="mt-auto flex flex-wrap items-center gap-3 pt-5">
                     @if (lugar.whatsapp) {
                       <a
-                        class="boton boton-secundario"
+                        matButton="outlined"
                         [href]="lugar.enlaceWhatsapp"
                         target="_blank"
                         rel="noopener"
