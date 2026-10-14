@@ -368,9 +368,9 @@ html {
   background-color: var(--color-card);
 }
 
-/* El campo chico, como `.campo-chico`: para las filas de edición del panel, donde 50 px por campo
-   convierten una fila de cuatro en una pantalla de scroll. 6 px de relleno arriba y abajo, 8 al
-   costado y la letra de 14. */
+/* El campo chico, que reemplaza a la clase `.campo-chico` de antes (T247): para las filas de
+   edición del panel, donde 50 px por campo convierten una fila de cuatro en una pantalla de
+   scroll. 6 px de relleno arriba y abajo, 8 al costado y la letra de 14. */
 .mat-mdc-form-field.chico {
   @include mat.form-field-overrides(
     (

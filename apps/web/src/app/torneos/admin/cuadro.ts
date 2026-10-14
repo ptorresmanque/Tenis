@@ -20,6 +20,7 @@ import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
+import { overlaysEnElDialogo } from '../../ui/overlays-en-el-dialogo';
 import {
   diaEnPalabras,
   fechaEnElClub,
@@ -66,7 +67,7 @@ const horarioEnBlanco = () => ({
     Insignia,
     FotoDelPartido,
   ],
-  providers: [proveerCampos(), proveerFechaYHora()],
+  providers: [proveerCampos(), proveerFechaYHora(), overlaysEnElDialogo()],
   template: `
     @if (cuadro.error()) {
       <p class="mt-3 text-sm text-destructive">

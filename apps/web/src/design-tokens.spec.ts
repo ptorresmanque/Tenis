@@ -1530,6 +1530,20 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**un calendario dentro de un `<dialog>` modal tiene su panel adentro** (T248)', () => {
+    // Fuera del diálogo modal, el panel se ve pero no recibe clics ni foco. Se va con T252.
+    const infractores = plantillas()
+      .filter(
+        ({ contenido }) =>
+          contenido.includes('showModal') &&
+          contenido.includes('matDatepicker') &&
+          !contenido.includes('overlaysEnElDialogo()'),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ninguna lista es un `<select>` nativo**: todas son `mat-select` (T248, I1)', () => {
     // Los comentarios se quitan antes de buscar: varios nombran el <select> que reemplazan.
     const infractores = plantillas()

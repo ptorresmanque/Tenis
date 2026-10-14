@@ -384,6 +384,18 @@ describe('CuadroDelTorneo', () => {
       expect(elemento().querySelector('dialog[open]')).not.toBeNull();
     });
 
+    it('**el calendario del día se abre dentro del modal**: lo de afuera no recibe clics (T248)', async () => {
+      await apretar('Programar');
+
+      elemento()
+        .querySelector<HTMLButtonElement>('dialog[open] mat-datepicker-toggle button')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(elemento().querySelector('dialog[open] mat-calendar')).not.toBeNull();
+    });
+
     it('manda cancha, día y horas', async () => {
       await apretar('Programar');
       await llenarYMandar();

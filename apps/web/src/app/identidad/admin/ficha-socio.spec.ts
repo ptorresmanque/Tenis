@@ -114,6 +114,16 @@ describe('FichaSocio', () => {
     expect(texto).toContain('Cancha 1');
   });
 
+  it('**el calendario se abre dentro del diálogo**: lo de afuera de un diálogo modal no recibe clics', async () => {
+    elemento()
+      .querySelector<HTMLButtonElement>('mat-datepicker-toggle button')!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elemento().querySelector('dialog mat-calendar')).not.toBeNull();
+  });
+
   it('llega con los datos del socio puestos', () => {
     const numero = elemento().querySelector<HTMLInputElement>('[name="numeroSocio"]');
 

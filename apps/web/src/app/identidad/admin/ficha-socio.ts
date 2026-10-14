@@ -18,6 +18,7 @@ import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
+import { overlaysEnElDialogo } from '../../ui/overlays-en-el-dialogo';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import {
@@ -65,7 +66,7 @@ const CAMPOS: Record<string, string> = {
     Esqueleto,
     HistorialDeObservaciones,
   ],
-  providers: [proveerCampos(), proveerFechaYHora()],
+  providers: [proveerCampos(), proveerFechaYHora(), overlaysEnElDialogo()],
   template: `
     <dialog
       #dialogo
