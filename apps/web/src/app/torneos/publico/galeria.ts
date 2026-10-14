@@ -1,4 +1,5 @@
 import { Component, computed, input, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { Momento } from '../torneos.service';
 
@@ -34,6 +35,7 @@ const TRAMOS: { momento: Momento; titulo: string }[] = [
  */
 @Component({
   selector: 'app-galeria',
+  imports: [MatButton],
   template: `
     @if (fotos().length > 0) {
       <div class="mt-3">
@@ -56,8 +58,9 @@ const TRAMOS: { momento: Momento; titulo: string }[] = [
                 <span>{{ foto.descripcion }}</span>
               }
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico"
+                class="chico"
                 (click)="cerrar()"
               >
                 Cerrar la foto

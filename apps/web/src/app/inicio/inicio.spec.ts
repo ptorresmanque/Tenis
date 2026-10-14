@@ -1,6 +1,8 @@
 import { provideRouter } from '@angular/router';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
@@ -163,6 +165,18 @@ describe('Inicio', () => {
       'Modificas hasta 6 horas antes',
     ];
     const tabla = () => elemento().querySelector('[role="table"]') as HTMLElement;
+
+    it('**una sola llena** (T241): «Reservar una hora»; la otra, de contorno', async () => {
+      // La auditoría de Material del 2026-10-14: dos botones llenos juntos se disputan la
+      // atención. Reservar no pide cuenta ni compromiso, así que es la que queda llena.
+      await montar([]);
+      const raiz = TestbedHarnessEnvironment.loader(fixture);
+      const enLaTabla = (text: string) =>
+        raiz.getHarness(MatButtonHarness.with({ text, ancestor: '[role="table"]' }));
+
+      expect(await (await enLaTabla('Reservar una hora')).getAppearance()).toBe('filled');
+      expect(await (await enLaTabla('Crear cuenta')).getAppearance()).toBe('outlined');
+    });
     /** Las tres celdas de la fila de un rótulo, en el orden del DOM: rótulo, socio, visitante. */
     const fila = (rotulo: string) =>
       [...tabla().querySelectorAll('[role="row"]')]

@@ -11,6 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { Insignia } from '../../ui/insignia';
 import { CuadroPublico, Foto, Torneos, Transmision } from '../torneos.service';
@@ -42,7 +43,7 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
  */
 @Component({
   selector: 'app-cuadro-publico',
-  imports: [MatIcon, Arbol, Esqueleto, Galeria, Insignia, OrdenDeJuego, Reproductor],
+  imports: [MatButton, MatIcon, Arbol, Esqueleto, Galeria, Insignia, OrdenDeJuego, Reproductor],
   template: `
     <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
     <dialog
@@ -65,9 +66,10 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
           <h2 id="titulo-cuadro-publico" class="titular text-2xl">{{ titulo() }}</h2>
         </div>
         <button
+          matButton="outlined"
           #botonCerrar
           type="button"
-          class="boton boton-secundario boton-chico shrink-0"
+          class="chico shrink-0"
           (click)="dialogo.close()"
         >
           Cerrar
@@ -226,7 +228,7 @@ export class CuadroPublicoModal {
   private readonly dialogo =
     viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
   private readonly botonCerrar =
-    viewChild.required<ElementRef<HTMLButtonElement>>('botonCerrar');
+    viewChild.required('botonCerrar', { read: ElementRef<HTMLButtonElement> });
 
   /** Quién lo abrió: al cerrar, el foco vuelve ahí y no al principio de la página. */
   private abridor: HTMLElement | null = null;

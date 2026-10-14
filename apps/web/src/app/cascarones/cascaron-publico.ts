@@ -2,6 +2,7 @@ import { ViewportScroller } from '@angular/common';
 import { Component, computed, ElementRef, inject, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { Club } from '../club/club.service';
 import { RedesSociales } from '../club/redes-sociales';
@@ -34,6 +35,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 @Component({
   selector: 'app-cascaron-publico',
   imports: [
+    MatButton,
     MatIcon,
     RouterOutlet,
     RouterLink,
@@ -121,10 +123,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
               </button>
             </app-menu-desplegable>
           } @else {
-            <a routerLink="/entrar" class="boton boton-texto hidden sm:inline-flex">
+            <a matButton routerLink="/entrar" class="hidden sm:inline-flex">
               Entrar
             </a>
-            <a routerLink="/registro" class="boton boton-primario hidden sm:inline-flex">
+            <!-- El del encabezado y el del menú móvil no se ven juntos: el menú es modal.
+                 mat-guidelines-ignore: multiples-filled -->
+            <a matButton="filled" routerLink="/registro" class="hidden sm:inline-flex">
               Crear cuenta
             </a>
           }
@@ -204,10 +208,10 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         </div>
       } @else {
         <div class="mt-6 grid gap-2 border-t border-border pt-6">
-          <a routerLink="/entrar" class="boton boton-secundario w-full" (click)="panel.close()">
+          <a matButton="outlined" routerLink="/entrar" class="w-full" (click)="panel.close()">
             Entrar
           </a>
-          <a routerLink="/registro" class="boton boton-primario w-full" (click)="panel.close()">
+          <a matButton="filled" routerLink="/registro" class="w-full" (click)="panel.close()">
             Crear cuenta
           </a>
         </div>

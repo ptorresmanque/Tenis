@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
@@ -14,7 +15,7 @@ import { usarTemaPublico } from './tema';
  */
 @Component({
   selector: 'app-cascaron-auth',
-  imports: [RouterOutlet, RouterLink, Logotipo, ConmutadorDeTema],
+  imports: [MatButton, RouterOutlet, RouterLink, Logotipo, ConmutadorDeTema],
   template: `
     <header class="sticky top-0 z-40 border-b border-border bg-card">
       <div class="mx-auto flex h-16 max-w-6xl items-center px-4">
@@ -27,8 +28,9 @@ import { usarTemaPublico } from './tema';
         <app-logotipo clase="h-7 sm:h-9" />
         <app-conmutador-de-tema class="ms-auto" />
         <a
+          matButton
           routerLink="/disponibilidad"
-          class="boton boton-texto whitespace-nowrap"
+          class="whitespace-nowrap"
         >
           Ver disponibilidad
         </a>

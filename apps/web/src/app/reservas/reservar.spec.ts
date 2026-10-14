@@ -1,5 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth } from '../core/auth/auth';
@@ -136,18 +138,18 @@ describe('Reservar', () => {
     expect(texto(fixture)).toContain('Correo');
   });
 
-  it('"Ir a pagar" es el botón primario del sitio, y "Cancelar" también usa la primitiva', () => {
+  it('"Ir a pagar" es la acción llena del diálogo, y "Cancelar" va en texto', async () => {
     // TV5.2: eran botones hechos a mano de 40px, bajo el mínimo táctil, e "Ir a
     // pagar" era el único verde del sitio. Pasa a primario (decisión 6 del plan):
-    // el verde quedó para "libre".
+    // el verde quedó para "libre". Desde T241 son `matButton`.
     const fixture = montar();
-    const botones = [...(fixture.nativeElement as HTMLElement).querySelectorAll('dialog button')];
-    const pagar = botones.find((b) => b.textContent?.includes('Ir a pagar'));
-    const cancelar = botones.find((b) => b.textContent?.trim() === 'Cancelar');
+    const raiz = TestbedHarnessEnvironment.loader(fixture);
+    const pagar = await raiz.getHarness(MatButtonHarness.with({ text: /Ir a pagar/ }));
+    const cancelar = await raiz.getHarness(MatButtonHarness.with({ text: 'Cancelar' }));
 
-    expect(pagar?.classList.contains('boton-primario')).toBe(true);
-    expect(pagar?.classList.contains('bg-accent-strong')).toBe(false);
-    expect(cancelar?.classList.contains('boton')).toBe(true);
+    expect(await pagar.getAppearance()).toBe('filled');
+    expect(await (await pagar.host()).hasClass('bg-accent-strong')).toBe(false);
+    expect(await cancelar.getAppearance()).toBe('text');
   });
 
   it('al socio le pide con quién juega, y no le muestra precio', () => {

@@ -1,5 +1,6 @@
 import { Component, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
@@ -37,7 +38,7 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
  */
 @Component({
   selector: 'app-formulario-contacto',
-  imports: [FormsModule, Aviso, Campo, CampoControl, TelefonoDirective],
+  imports: [MatButton, FormsModule, Aviso, Campo, CampoControl, TelefonoDirective],
   template: `
     <section aria-labelledby="titulo-contacto">
       <h2 id="titulo-contacto" class="titular text-5xl sm:text-6xl">Escríbenos</h2>
@@ -111,8 +112,8 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
 
           <div>
             <button
+              matButton="filled"
               type="submit"
-              class="boton boton-primario"
               [disabled]="enviando()"
               [attr.aria-busy]="enviando()"
             >

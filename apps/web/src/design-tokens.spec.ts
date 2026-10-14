@@ -577,6 +577,26 @@ describe('Tipografía', () => {
       expect(regla).toMatch(new RegExp(`${propiedad}:\\s*revert-layer`));
     }
   });
+
+  it('**el foco de `matButton` es el anillo del sitio** (T241): Material lo apaga sin capa', () => {
+    // `.mdc-button` trae `outline: none` y su propio indicador, que sin
+    // `strong-focus-indicators` no dibuja nada: con teclado, el botón quedaba sin foco visible.
+    const tema = readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
+    const regla = tema.match(/\.mdc-button\.mat-mdc-button-base\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(regla).toMatch(/outline:\s*revert-layer/);
+  });
+
+  it('**el deshabilitado recibe el puntero** (T241): sin eso no se ve su cursor', () => {
+    // `.mdc-button:disabled` trae `pointer-events: none`: el `cursor: not-allowed` y el
+    // `cursor: progress` del ocupado (T150) no se veían nunca. Un <button> deshabilitado no
+    // dispara clics igual; el enlace deshabilitado de Material no entra (no es `:disabled`).
+    const tema = readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
+    const regla = tema.match(/\.mdc-button\.mat-mdc-button-base:disabled\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(regla).toMatch(/pointer-events:\s*auto/);
+    expect(regla).toMatch(/cursor:\s*not-allowed/);
+  });
 });
 
 describe('Uso de los tokens en las plantillas', () => {
@@ -689,13 +709,15 @@ describe('Uso de los tokens en las plantillas', () => {
     //
     // La clase `.boton` de styles.css también cuenta: lo trae puesto. Que lo
     // siga trayendo lo comprueba el test de abajo, que es la mitad que hace
-    // que esta excepción no sea un agujero.
+    // que esta excepción no sea un agujero. `matButton` también (T241): Material
+    // le pone la manito en `.mdc-button:hover`.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
         if (/\bboton\b/.test(etiqueta)) continue;
+        if (/\bmatButton\b/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
@@ -1485,8 +1507,9 @@ describe('Los botones dicen que están trabajando (T150)', () => {
         // envían: se deshabilitan mientras otra acción trabaja, pero no giran. Por
         // convención sus métodos se llaman abrir…, preguntar… o editar…, y ninguno
         // cambia nada (revisado en T154; el abrir del cuadro consulta qué partidos se
-        // deshacen, pero solo lee).
-        if (/\(click\)="(?:abrir|preguntar|editar)\w*\(/.test(boton)) continue;
+        // deshacen, pero solo lee). Tampoco el que abre el selector de un campo de
+        // archivo escondido (T241): el envío lo dispara el campo al elegir.
+        if (/\(click\)="(?:(?:abrir|preguntar|editar)\w*\(|\w+\.click\(\))/.test(boton)) continue;
 
         if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
           infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);

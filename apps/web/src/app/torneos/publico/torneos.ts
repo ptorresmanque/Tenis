@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { diaEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
@@ -65,6 +66,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
 @Component({
   selector: 'app-torneos-publicos',
   imports: [
+    MatButton,
     MatIcon,
     FotoDelSitio,
     Aviso,
@@ -248,15 +250,20 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                               <!-- Abre el modal de la categoría (T135): quiénes juegan
                                    antes de armar, el cuadro después. -->
                               <button
+                                matButton="outlined"
                                 type="button"
-                                class="boton boton-secundario boton-chico max-sm:size-11 max-sm:p-0"
+                                class="chico max-sm:size-11 max-sm:p-0"
                                 aria-haspopup="dialog"
                                 (click)="abrir(categoria.id)"
                               >
                                 <span class="max-sm:sr-only">
                                   {{ categoria.armado ? 'Ver el cuadro' : 'Ver quiénes juegan' }}
                                 </span>
-                                <mat-icon class="text-xl sm:hidden" aria-hidden="true">
+                                <mat-icon
+                                  iconPositionEnd
+                                  class="text-xl sm:hidden"
+                                  aria-hidden="true"
+                                >
                                   {{ categoria.armado ? 'account_tree' : 'groups' }}
                                 </mat-icon>
                               </button>
@@ -270,8 +277,9 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
 
                 @if (torneo.estado === 'INSCRIPCION' && torneo.categorias.length > 0) {
                   <button
+                    matButton="filled"
                     type="button"
-                    class="boton boton-primario mt-4"
+                    class="mt-4"
                     [attr.aria-expanded]="inscribiendo() === torneo.id"
                     (click)="alternarInscripcion(torneo.id)"
                   >

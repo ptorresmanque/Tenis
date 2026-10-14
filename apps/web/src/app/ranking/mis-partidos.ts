@@ -1,4 +1,5 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { diaConAnioEnPalabras, hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
@@ -21,7 +22,7 @@ import { Esqueleto } from '../ui/esqueleto';
  */
 @Component({
   selector: 'app-mis-partidos',
-  imports: [Aviso, EstadoVacio, Esqueleto, Insignia, CampoFecha],
+  imports: [MatButton, Aviso, EstadoVacio, Esqueleto, Insignia, CampoFecha],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
     <p class="mt-2 max-w-prose text-muted-foreground">
@@ -101,9 +102,12 @@ import { Esqueleto } from '../ui/esqueleto';
         <app-aviso variante="error" class="mt-3 block">{{ texto }}</app-aviso>
       }
 
+      <!-- El del formulario va en su section; el de cada partido, en la tarjeta de ese partido.
+           mat-guidelines-ignore: multiples-filled -->
       <button
+        matButton="filled"
         type="button"
-        class="boton boton-primario mt-3"
+        class="mt-3"
         [disabled]="rival() === '' || enviando()"
         [attr.aria-busy]="enviando()"
         (click)="cargar()"
@@ -176,8 +180,9 @@ import { Esqueleto } from '../ui/esqueleto';
               <div class="mt-3 flex flex-wrap gap-2">
                 <!-- Gira solo el que se tocó: los dos comparten enviando(). -->
                 <button
+                  matButton="filled"
                   type="button"
-                  class="boton boton-primario boton-chico"
+                  class="chico"
                   [disabled]="enviando()"
                   [attr.aria-busy]="esLaRespuesta(partido.id, true)"
                   (click)="responder(partido.id, true)"
@@ -185,8 +190,9 @@ import { Esqueleto } from '../ui/esqueleto';
                   Confirmar
                 </button>
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   [disabled]="enviando()"
                   [attr.aria-busy]="esLaRespuesta(partido.id, false)"
                   (click)="responder(partido.id, false)"

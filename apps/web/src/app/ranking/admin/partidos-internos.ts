@@ -1,4 +1,5 @@
 import { Component, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -19,7 +20,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-partidos-internos-panel',
-  imports: [EstadoVacio, Insignia, Esqueleto],
+  imports: [MatButton, EstadoVacio, Insignia, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada partido trae las suyas. -->
     <header class="cabecera-panel">
@@ -36,9 +37,8 @@ import { Esqueleto } from '../../ui/esqueleto';
       @for (opcion of FILTROS; track opcion.valor) {
         <button
           type="button"
-          class="boton boton-chico"
-          [class.boton-primario]="filtro() === opcion.valor"
-          [class.boton-secundario]="filtro() !== opcion.valor"
+          [matButton]="filtro() === opcion.valor ? 'filled' : 'outlined'"
+          class="chico"
           [attr.aria-pressed]="filtro() === opcion.valor"
           (click)="filtro.set(opcion.valor)"
         >
@@ -94,8 +94,9 @@ import { Esqueleto } from '../../ui/esqueleto';
 
             <div class="mt-3 flex flex-wrap gap-2">
               <button
+                matButton="filled"
                 type="button"
-                class="boton boton-primario boton-chico"
+                class="chico"
                 [disabled]="enviando()"
                 [attr.aria-busy]="enCurso() === partido.id + '-CONFIRMADO'"
                 (click)="resolver(partido.id, 'CONFIRMADO')"
@@ -103,8 +104,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                 Dar por jugado
               </button>
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico"
+                class="chico"
                 [disabled]="enviando()"
                 [attr.aria-busy]="enCurso() === partido.id + '-RECHAZADO'"
                 (click)="resolver(partido.id, 'RECHAZADO')"

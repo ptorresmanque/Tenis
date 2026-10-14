@@ -1,5 +1,6 @@
 import { Component, model } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 import { CampoHora } from '../../ui/campo-hora';
 
 /** Una franja en que el jugador **no** puede jugar. */
@@ -34,7 +35,7 @@ const DIAS = [
  */
 @Component({
   selector: 'app-restriccion-horaria',
-  imports: [FormsModule, CampoHora],
+  imports: [MatButton, FormsModule, CampoHora],
   template: `
     <fieldset class="mt-4">
       <legend class="font-display text-sm font-bold tracking-wide uppercase">
@@ -95,8 +96,9 @@ const DIAS = [
               </span>
 
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico ms-auto"
+                class="chico ms-auto"
                 (click)="quitar($index)"
               >
                 Quitar
@@ -108,8 +110,9 @@ const DIAS = [
       }
 
       <button
+        matButton="outlined"
         type="button"
-        class="boton boton-secundario boton-chico mt-2"
+        class="chico mt-2"
         (click)="agregar()"
       >
         Agregar un horario en que no puedo

@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import {
   diaEnPalabras,
@@ -39,7 +40,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
  */
 @Component({
   selector: 'app-reserva-publica',
-  imports: [MatIcon, Aviso, Insignia, RouterLink],
+  imports: [MatButton, MatIcon, Aviso, Insignia, RouterLink],
   template: `
     <section class="mx-auto max-w-md py-10">
       @if (reserva.isLoading()) {
@@ -111,13 +112,13 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
                "mis reservas". La regla de la plata se dice acá, antes del clic. -->
           <div class="mt-6 text-center">
             <a
+              matButton="filled"
               routerLink="/disponibilidad"
               [queryParams]="{
                 moverToken: token(),
                 fecha: fechaDelClub(datos.inicio),
                 duracion: duracionDeLaGrilla(),
               }"
-              class="boton boton-primario"
             >
               <mat-icon class="text-base" aria-hidden="true">schedule</mat-icon>
               Cambiar hora o duración

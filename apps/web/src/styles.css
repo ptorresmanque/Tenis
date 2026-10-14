@@ -950,6 +950,14 @@ body:has(app-barra-fija) app-volver-arriba {
     color: var(--color-warning-strong);
   }
 
+  /* El botón de Material (T241) toma su `inline-flex` de esta capa y no de la suya, que llega
+     sin capa: así las utilidades de Tailwind pueden esconderlo o cambiarlo, como a `.boton`
+     (ver `tema-material.scss`). El `gap` separa el ícono del texto, como en `.boton`. */
+  .mat-mdc-button-base {
+    display: inline-flex;
+    gap: 0.5rem;
+  }
+
   .boton {
     display: inline-flex;
     align-items: center;

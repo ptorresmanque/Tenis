@@ -9,6 +9,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import {
   diaEnPalabras,
@@ -33,7 +34,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
  */
 @Component({
   selector: 'app-mis-reservas',
-  imports: [MatIcon, RouterLink, Aviso, EstadoVacio, Insignia],
+  imports: [MatButton, MatIcon, RouterLink, Aviso, EstadoVacio, Insignia],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis reservas</h1>
 
@@ -50,7 +51,9 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
           titulo="No tienes horas tomadas"
           detalle="Elige una cancha y una hora, y queda reservada al tiro."
         >
-          <a routerLink="/disponibilidad" class="boton boton-primario">
+          <!-- El del estado vacío excluye la lista; en la lista va uno por tarjeta.
+               mat-guidelines-ignore: multiples-filled -->
+          <a matButton="filled" routerLink="/disponibilidad">
             Ver la disponibilidad
           </a>
         </app-estado-vacio>
@@ -125,8 +128,9 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
             </app-aviso>
             <div class="mt-3 flex flex-wrap gap-2">
               <button
+                matButton="filled"
                 type="button"
-                class="boton boton-destructivo boton-chico"
+                class="peligro chico"
                 [disabled]="enviando()"
                 [attr.aria-busy]="enviando()"
                 (click)="confirmarCancelacion(reserva)"
@@ -134,8 +138,9 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 Sí, cancelar
               </button>
               <button
+                matButton
                 type="button"
-                class="boton boton-texto boton-chico"
+                class="chico"
                 (click)="porCancelar.set(null)"
               >
                 Mejor no
@@ -151,6 +156,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
             <div class="mt-3 flex flex-wrap gap-2">
               @if (reserva.sePuedeModificar) {
                 <a
+                  matButton="filled"
                   routerLink="/disponibilidad"
                   [queryParams]="{
                     mover: reserva.id,
@@ -158,23 +164,25 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                     fecha: fechaDelClub(reserva.inicio),
                     duracion: duracionDeLaGrilla(reserva),
                   }"
-                  class="boton boton-primario boton-chico"
+                  class="chico"
                 >
                   <mat-icon class="text-base" aria-hidden="true">schedule</mat-icon>
                   Cambiar hora o duración
                 </a>
               }
               <button
+                matButton
                 type="button"
-                class="boton boton-texto boton-chico"
+                class="chico"
                 (click)="agregarAlCalendario(reserva)"
               >
                 <mat-icon class="text-base" aria-hidden="true">event</mat-icon>
                 Agregar al calendario
               </button>
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico"
+                class="chico"
                 (click)="porCancelar.set(reserva.id)"
               >
                 <mat-icon class="text-base" aria-hidden="true">cancel</mat-icon>

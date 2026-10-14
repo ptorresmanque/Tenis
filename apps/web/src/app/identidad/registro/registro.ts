@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { firstValueFrom } from 'rxjs';
 
@@ -25,7 +26,15 @@ interface CampoDelFormulario {
 
 @Component({
   selector: 'app-registro',
-  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl, TelefonoDirective],
+  imports: [
+    MatButton,
+    ReactiveFormsModule,
+    RouterLink,
+    Aviso,
+    Campo,
+    CampoControl,
+    TelefonoDirective,
+  ],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -79,10 +88,10 @@ interface CampoDelFormulario {
         </p>
 
         <button
+          matButton="filled"
           type="submit"
           [disabled]="enviando() || formulario.invalid"
           [attr.aria-busy]="enviando()"
-          class="boton boton-primario"
         >
           {{ enviando() ? 'Creando…' : 'Crear cuenta' }}
         </button>
