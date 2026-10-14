@@ -71,11 +71,21 @@ interface FilaDeDia {
           Horario de apertura de {{ ambito().nombre }}
         </caption>
         <ng-container matColumnDef="dia">
-          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">Día</th>
-          <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell pe-3 py-1 text-start font-normal">{{ nombreDia(fila.diaSemana) }}</th>
+          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">
+            Día
+          </th>
+          <th
+            *matCellDef="let fila"
+            scope="row"
+            class="mat-mdc-cell mdc-data-table__cell pe-3 py-1 text-start font-normal"
+          >
+            {{ nombreDia(fila.diaSemana) }}
+          </th>
         </ng-container>
         <ng-container matColumnDef="abre">
-          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">Abre</th>
+          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">
+            Abre
+          </th>
           <td mat-cell *matCellDef="let fila" class="pe-3 py-1">
             <mat-checkbox
               [aria-label]="'Abre el ' + nombreDia(fila.diaSemana)"
@@ -86,7 +96,9 @@ interface FilaDeDia {
           </td>
         </ng-container>
         <ng-container matColumnDef="desde">
-          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">Desde</th>
+          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">
+            Desde
+          </th>
           <td mat-cell *matCellDef="let fila" class="pe-3 py-1">
             <mat-form-field class="chico w-32">
               <input
@@ -111,7 +123,9 @@ interface FilaDeDia {
           </td>
         </ng-container>
         <ng-container matColumnDef="hasta">
-          <th mat-header-cell *matHeaderCellDef scope="col" class="text-start font-medium">Hasta</th>
+          <th mat-header-cell *matHeaderCellDef scope="col" class="text-start font-medium">
+            Hasta
+          </th>
           <td mat-cell *matCellDef="let fila" class="py-1">
             <mat-form-field class="chico w-32">
               <input

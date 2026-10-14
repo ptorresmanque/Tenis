@@ -122,7 +122,9 @@ import { LO_HECHO } from '../ui/material';
             </caption>
             <ng-container matColumnDef="categoria">
               <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
-              <td mat-cell *matCellDef="let categoria" class="font-medium">{{ categoria.nombre }}</td>
+              <td mat-cell *matCellDef="let categoria" class="font-medium">
+                {{ categoria.nombre }}
+              </td>
             </ng-container>
             <ng-container matColumnDef="orden">
               <th mat-header-cell *matHeaderCellDef scope="col">Orden</th>

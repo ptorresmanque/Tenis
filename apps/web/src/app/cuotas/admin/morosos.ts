@@ -62,7 +62,9 @@ import { Cuotas } from '../cuotas.service';
           </caption>
           <ng-container matColumnDef="numero">
             <th mat-header-cell *matHeaderCellDef scope="col">Nº</th>
-            <td mat-cell *matCellDef="let moroso" class="font-mono text-sm">{{ moroso.numeroSocio }}</td>
+            <td mat-cell *matCellDef="let moroso" class="font-mono text-sm">
+              {{ moroso.numeroSocio }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="socio">
             <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
@@ -78,7 +80,9 @@ import { Cuotas } from '../cuotas.service';
           </ng-container>
           <ng-container matColumnDef="desde">
             <th mat-header-cell *matHeaderCellDef scope="col">Debe desde</th>
-            <td mat-cell *matCellDef="let moroso" class="whitespace-nowrap">{{ moroso.desdePeriodo }}</td>
+            <td mat-cell *matCellDef="let moroso" class="whitespace-nowrap">
+              {{ moroso.desdePeriodo }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="cuotas">
             <th mat-header-cell *matHeaderCellDef scope="col">Cuotas</th>

@@ -243,7 +243,9 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
             </caption>
             <ng-container matColumnDef="numero">
               <th mat-header-cell *matHeaderCellDef scope="col">Número</th>
-              <td mat-cell *matCellDef="let socio" class="font-mono text-sm">{{ socio.numeroSocio }}</td>
+              <td mat-cell *matCellDef="let socio" class="font-mono text-sm">
+                {{ socio.numeroSocio }}
+              </td>
             </ng-container>
             <ng-container matColumnDef="nombre">
               <th mat-header-cell *matHeaderCellDef scope="col">Nombre</th>
@@ -280,7 +282,9 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
               </td>
             </ng-container>
             <ng-container matColumnDef="acciones">
-              <th mat-header-cell *matHeaderCellDef scope="col"><span class="sr-only">Acciones</span></th>
+              <th mat-header-cell *matHeaderCellDef scope="col">
+                <span class="sr-only">Acciones</span>
+              </th>
               <td mat-cell *matCellDef="let socio">
                 <!-- Sin cortes: en el teléfono la tabla se desplaza igual, y a
                      su ancho mínimo partía "Ver ficha" en dos líneas (TV7.4). -->

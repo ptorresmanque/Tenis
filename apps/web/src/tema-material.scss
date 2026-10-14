@@ -651,7 +651,7 @@ html {
 /*
   LAS TABLAS (T256).
 
-  `mat-table` con la cara de `.tabla`: el encabezado de columna en la condensada de los
+  `mat-table` con la cara de la primitiva que reemplazó: el encabezado de columna en la condensada de los
   rótulos, en mayúscula y sobre el gris, y los datos en la letra de leer (TV2.1). Las
   filas no tienen alto fijo: miden lo que su contenido más el relleno, como antes.
 */
@@ -719,8 +719,8 @@ html .mat-mdc-header-row {
   -moz-osx-font-smoothing: revert-layer;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  html .mat-mdc-table .mat-mdc-row:hover {
-    background-color: var(--color-muted);
-  }
+/* El fondo de la fila, también: el `bg-selected` del podio del ranking va en la fila, y el
+   `background: inherit` de Material se lo quitaba. El resaltado al pasar está en `styles.css`. */
+html .mat-mdc-row {
+  background: revert-layer;
 }

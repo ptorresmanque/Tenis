@@ -286,7 +286,7 @@ describe('Inicio', () => {
 
     it('una tabla por torneo: categoría, inscripción y cupos libres', async () => {
       await montar([ABIERTO]);
-      const tabla = seccion().querySelector('table.tabla');
+      const tabla = seccion().querySelector('table');
       const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
         th.textContent?.trim(),
       );

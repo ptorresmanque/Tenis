@@ -776,18 +776,16 @@ body:has(app-barra-fija) app-volver-arriba {
 /*
   Las primitivas que no necesitan JavaScript.
 
-  La tabla es una clase y no un componente de Angular a propósito: un componente
-  obliga a volver a exponer sus atributos y eventos, y una clase no tiene API que
-  mantener ni llega al bundle de JavaScript. El botón y el campo, que eran clases
-  como ella, ya se fueron: desde T243 y T247 son `matButton` y `mat-form-field` de
-  Angular Material.
+  El botón, el campo y la tabla, que eran clases, ya se fueron: desde T243, T247 y
+  T257 son `matButton`, `mat-form-field` y `mat-table` de Angular Material. Lo que
+  queda acá es la cara que el sitio les pone encima donde Material no la trae.
 
   Las que sí son componentes —insignia, aviso, campo, paginación, estado vacío,
   selector, barra fija— están en `app/ui/`, y son las que tienen estado, ids que
   coordinar o texto que anunciar.
 
   Van en @layer components: las utilidades de Tailwind viven en una capa
-  posterior, así que `class="tabla text-sm"` sigue pudiendo pisar la letra sin
+  posterior, así que un `text-sm` en la plantilla sigue pudiendo pisar la letra sin
   pelear con la especificidad.
 */
 @layer components {
@@ -1002,92 +1000,20 @@ body:has(app-barra-fija) app-volver-arriba {
     scale: 0.92;
   }
 
-  .tabla {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: start;
-    /*
-      Cifras de ancho fijo.
-
-      Sin esto, el 1 es más angosto que el 8 y una columna de montos queda con
-      los dígitos desalineados fila a fila: comparar $12.000 con $120.000 de un
-      vistazo deja de ser posible, que es justo para lo que existe una tabla de
-      plata. En texto no cambia nada porque solo afecta a los números.
-    */
-    font-variant-numeric: tabular-nums;
-  }
-
   /*
-    Solo el encabezado de columna, y se queda mientras se recorre la tabla.
+    LA TABLA (T256, T257): `mat-table` con la cara de la primitiva que reemplazó.
 
-    Dos cosas en una regla porque las dos dependen de lo mismo. Un
-    `<th scope="row">` —el nombre del socio, que es el encabezado de su fila— es
-    una celda de datos: pintarlo en mayúsculas y con fondo lo convertiría en un
-    título de columna que aparece ochenta veces, y pegarlo arriba lo haría flotar
-    sobre el resto.
-
-    Y el `sticky`: el padrón tiene decenas de filas y el reporte de ingresos una
-    por día. Sin esto, a la fila veinte nadie se acuerda de qué columna es cuál.
+    En esta capa, para que `py-2`, `text-right` o el `max-sm:[&_td]:px-2` de la
+    plantilla le sigan ganando: el tema le devuelve a esta capa lo que Material fija sin
+    capa (ver `tema-material.scss`). Las filas heredan la letra de la tabla, así que un
+    `text-sm` en el `<table>` vale para todas sus celdas. Las líneas entre filas son las
+    de Material; el total del pie lleva la suya, que Material no le pone. El encabezado
+    fijo lo pide cada plantilla (`sticky: true`): el padrón tiene decenas de filas, y a la
+    fila veinte nadie se acuerda de qué columna es cuál.
   */
-  .tabla thead th {
-    background-color: var(--color-muted);
-    padding: 0.75rem 1rem;
-    text-align: start;
-    /* La etiqueta de la columna en la condensada, como una tabla de posiciones
-       en una transmisión; los datos siguen en la letra de leer (TV2.1). Un
-       punto más grande que antes porque la condensada es más angosta. */
-    font-family: var(--font-display);
-    font-size: 0.8125rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-muted-foreground);
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
 
-  .tabla td,
-  .tabla tbody th {
-    border-top: 1px solid var(--color-border);
-    padding: 0.75rem 1rem;
-    text-align: start;
-    font-weight: 400;
-  }
-
-  /* La rejilla de edición de horarios y tarifas: misma tabla, menos aire. Con el
-     padding normal, catorce campos por cancha convierten una pantalla de
-     configuración en una de scroll. */
-  .tabla-densa td,
-  .tabla-densa tbody th,
-  .tabla-densa thead th {
-    padding: 0.375rem 0.5rem;
-  }
-
-  /* Los números van a la derecha: es donde el ojo compara magnitudes, porque
-     alinea las unidades con las unidades. Se marca en la celda y en su
-     encabezado, que tienen que ir juntos o la columna se lee torcida. */
-  .tabla .numero,
-  .tabla th.numero {
-    text-align: end;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .tabla tbody tr:hover {
-      background-color: var(--color-muted);
-    }
-  }
-
-  /*
-    LA TABLA DE MATERIAL (T256), con la cara de `.tabla`.
-
-    En esta capa, como la primitiva, para que `py-2`, `text-right` o el
-    `max-sm:[&_td]:px-2` de la plantilla le sigan ganando: el tema le devuelve a esta
-    capa lo que Material fija sin capa (ver `tema-material.scss`). Las filas heredan la
-    letra de la tabla, así que un `text-sm` en el `<table>` vale para todas sus celdas.
-    Las líneas entre filas son las de Material, que dan lo mismo que el borde de arriba
-    de la primitiva; el total del pie lleva el suyo, que Material no le pone.
-  */
+  /* Cifras de ancho fijo: sin esto, el 1 es más angosto que el 8, y una columna de montos
+     queda con los dígitos desalineados fila a fila. En texto no cambia nada. */
   .mat-mdc-table {
     font-variant-numeric: tabular-nums;
   }
@@ -1113,8 +1039,17 @@ body:has(app-barra-fija) app-volver-arriba {
     padding: 0.375rem 0.5rem;
   }
 
+  /* Los números a la derecha, en la celda y en su encabezado: es donde el ojo compara
+     magnitudes, porque alinea las unidades con las unidades. */
   .mat-mdc-table .numero {
     text-align: end;
+  }
+
+  /* Bajo una utilidad: la fila del podio conserva su `bg-selected`, como con la primitiva. */
+  @media (hover: hover) and (pointer: fine) {
+    .mat-mdc-table .mat-mdc-row:hover {
+      background-color: var(--color-muted);
+    }
   }
 }
 

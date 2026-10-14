@@ -2,6 +2,7 @@ import { Component, computed, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
 
 import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
@@ -12,7 +13,13 @@ import { Esqueleto } from '../../ui/esqueleto';
 import { TablaDePuntos, TourPublico, Tours } from '../tours.service';
 
 /** Las filas de la tabla, de la final hacia atrás. */
-const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
+/** Una fila de la tabla de puntos: el resultado y cómo se llama. */
+interface Resultado {
+  clave: keyof TablaDePuntos;
+  nombre: string;
+}
+
+const RESULTADOS: Resultado[] = [
   { clave: 'campeon', nombre: 'Campeón' },
   { clave: 'finalista', nombre: 'Finalista' },
   { clave: 'semifinal', nombre: 'Semifinal' },
@@ -34,7 +41,15 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
  */
 @Component({
   selector: 'app-tour-publico',
-  imports: [MatSelectModule, MatFormFieldModule, RouterLink, Galeria, Esqueleto, TablaDeTour],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    RouterLink,
+    Galeria,
+    Esqueleto,
+    TablaDeTour,
+    MatTableModule,
+  ],
   providers: [proveerCampos()],
   template: `
     @if (tour.error()) {
@@ -113,33 +128,41 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
             <!-- Desplazable dentro de su caja: con cuatro niveles no cabe en 375 px, y la
                  página no puede desbordar de lado. -->
             <div class="mt-4 overflow-x-auto bg-card shadow-md">
-              <table class="tabla">
+              <table mat-table [dataSource]="RESULTADOS">
                 <caption class="sr-only">
                   Puntos por resultado en cada nivel de la temporada
                   {{
                     temporada.nombre
                   }}
                 </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Resultado</th>
-                    @for (nivel of temporada.niveles; track nivel.id) {
-                      <th scope="col" class="text-end">{{ nivel.nombre }}</th>
-                    }
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (resultado of RESULTADOS; track resultado.clave) {
-                    <tr>
-                      <th scope="row">{{ resultado.nombre }}</th>
-                      @for (nivel of temporada.niveles; track nivel.id) {
-                        <td class="text-end font-display text-lg font-bold tabular-nums">
-                          {{ nivel.tabla[resultado.clave] }}
-                        </td>
-                      }
-                    </tr>
-                  }
-                </tbody>
+                <ng-container matColumnDef="resultado">
+                  <th mat-header-cell *matHeaderCellDef scope="col">Resultado</th>
+                  <th
+                    *matCellDef="let resultado"
+                    scope="row"
+                    class="mat-mdc-cell mdc-data-table__cell"
+                  >
+                    {{ resultado.nombre }}
+                  </th>
+                </ng-container>
+                <!-- Una columna por nivel, en el orden de la temporada. -->
+                @for (nivel of temporada.niveles; track nivel.id) {
+                  <ng-container [matColumnDef]="'nivel-' + nivel.id">
+                    <th mat-header-cell *matHeaderCellDef scope="col" class="text-end">
+                      {{ nivel.nombre }}
+                    </th>
+                    <td
+                      mat-cell
+                      *matCellDef="let resultado"
+                      class="text-end font-display text-lg font-bold tabular-nums"
+                    >
+                      {{ puntos(nivel.tabla, resultado) }}
+                    </td>
+                  </ng-container>
+                }
+
+                <tr mat-header-row *matHeaderRowDef="columnas(); sticky: true"></tr>
+                <tr mat-row *matRowDef="let resultado; columns: columnas()"></tr>
               </table>
             </div>
             <p class="mt-3 max-w-prose text-sm text-muted-foreground">
@@ -239,6 +262,18 @@ export class TourPublicoPagina {
       null
     );
   });
+
+  /** Lo que vale un resultado en un nivel. Método y no índice en la plantilla: la fila de
+   *  mat-table llega sin tipo. */
+  protected puntos(tabla: TablaDePuntos, resultado: Resultado): number {
+    return tabla[resultado.clave];
+  }
+
+  /** Las columnas de la tabla de puntos: el resultado, y un nivel por columna. */
+  protected readonly columnas = computed(() => [
+    'resultado',
+    ...(this.elegida()?.niveles ?? []).map((nivel) => `nivel-${nivel.id}`),
+  ]);
 
   /** Los torneos de la temporada elegida, de cualquier año (T201). */
   protected readonly torneos = resource({

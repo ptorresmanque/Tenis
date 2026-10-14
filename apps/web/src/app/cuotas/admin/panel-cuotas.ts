@@ -124,7 +124,9 @@ function mesActual(): string {
           </caption>
           <ng-container matColumnDef="numero">
             <th mat-header-cell *matHeaderCellDef scope="col">Nº</th>
-            <td mat-cell *matCellDef="let cuota" class="font-mono text-sm">{{ cuota.socio.numeroSocio }}</td>
+            <td mat-cell *matCellDef="let cuota" class="font-mono text-sm">
+              {{ cuota.socio.numeroSocio }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="socio">
             <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
@@ -168,7 +170,9 @@ function mesActual(): string {
             </td>
           </ng-container>
           <ng-container matColumnDef="cobrar">
-            <th mat-header-cell *matHeaderCellDef scope="col"><span class="sr-only">Cobrar</span></th>
+            <th mat-header-cell *matHeaderCellDef scope="col">
+              <span class="sr-only">Cobrar</span>
+            </th>
             <td mat-cell *matCellDef="let cuota">
               @if (cuota.estado === 'PENDIENTE') {
                 <div class="flex flex-wrap gap-1">

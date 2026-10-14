@@ -147,17 +147,27 @@ import {
             </ng-container>
             <ng-container matColumnDef="libres">
               <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Libres</th>
-              <td mat-cell *matCellDef="let fila" class="py-2 pr-3 text-right text-muted-foreground">
+              <td
+                mat-cell
+                *matCellDef="let fila"
+                class="py-2 pr-3 text-right text-muted-foreground"
+              >
                 {{ enHoras(fila.libres) }}
               </td>
               <td mat-footer-cell *matFooterCellDef class="numero">{{ enHoras(datos.libres) }}</td>
             </ng-container>
             <ng-container matColumnDef="cerrados">
               <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Cerradas</th>
-              <td mat-cell *matCellDef="let fila" class="py-2 pr-3 text-right text-muted-foreground">
+              <td
+                mat-cell
+                *matCellDef="let fila"
+                class="py-2 pr-3 text-right text-muted-foreground"
+              >
                 {{ enHoras(fila.cerrados) }}
               </td>
-              <td mat-footer-cell *matFooterCellDef class="numero">{{ enHoras(datos.cerrados) }}</td>
+              <td mat-footer-cell *matFooterCellDef class="numero">
+                {{ enHoras(datos.cerrados) }}
+              </td>
             </ng-container>
             <ng-container matColumnDef="ocupacion">
               <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Ocupación</th>

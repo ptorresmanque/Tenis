@@ -139,7 +139,11 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
             </ng-container>
             <ng-container matColumnDef="reservadas">
               <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Reservadas</th>
-              <td mat-cell *matCellDef="let fila" class="py-2 pr-3 text-right text-muted-foreground">
+              <td
+                mat-cell
+                *matCellDef="let fila"
+                class="py-2 pr-3 text-right text-muted-foreground"
+              >
                 {{ fila.reservadas }}
               </td>
               <td mat-footer-cell *matFooterCellDef class="numero">{{ datos.reservadas }}</td>

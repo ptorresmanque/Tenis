@@ -1105,18 +1105,7 @@ describe('Fotos', () => {
 
 
 describe('Tablas', () => {
-  // Las del sitio público pasan en T257, y ahí se va `.tabla` con esta lista.
-  const PUBLICAS_SIN_MIGRAR = [
-    'club/tarifas.ts',
-    'club/tienda-y-cafeteria.ts',
-    'inicio/inicio.ts',
-    'ranking/tabla-de-tour.ts',
-    'ranking/tabla-interna.ts',
-    'torneos/publico/torneos.ts',
-    'tours/publico/tour.ts',
-  ];
-
-  it('toda tabla de datos es un mat-table (T256)', () => {
+  it('toda tabla de datos es un mat-table (T256, T257)', () => {
     // Antes la regla pedía la primitiva `.tabla`: las cuatro de reportes traían
     // `w-full border-collapse text-sm` y sus propias líneas por fila, dos familias de
     // tabla en el mismo panel. Ahora la tabla es la de Material, con la cara de la
@@ -1135,12 +1124,8 @@ describe('Tablas', () => {
 
     for (const { archivo, contenido } of plantillas()) {
       if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
-      const publica = PUBLICAS_SIN_MIGRAR.includes(archivo);
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<table[^>]*>/g)) {
-        const migrada = /\bmat-table\b/.test(etiqueta);
-        if (!migrada && !(publica && /class="[^"]*\btabla\b/.test(etiqueta))) {
-          infractores.push(`${archivo}: ${etiqueta}`);
-        }
+        if (!/\bmat-table\b/.test(etiqueta)) infractores.push(`${archivo}: ${etiqueta}`);
       }
     }
 
@@ -1196,30 +1181,16 @@ describe('Tablas', () => {
     expect(tema).toMatch(/html \.mdc-data-table__cell[^{]*\{[^}]*padding:\s*revert-layer/);
   });
 
-  it('la primitiva alinea los números y les da ancho fijo', () => {
-    // Sin `tabular-nums` el 1 es más angosto que el 8, y una columna de montos
-    // queda con los dígitos desalineados fila a fila: comparar $12.000 con
-    // $120.000 de un vistazo deja de ser posible.
-    const tabla = css.match(/\.tabla\s*\{[^}]*\}/)?.[0];
+  it('**se fue la primitiva `.tabla`** (T257, I1): ni la clase ni sus reglas', () => {
+    // Una tabla es la de Material, con su cara en el tema. Si la clase volviera en una
+    // plantilla, no tendría reglas que la vistieran; si las reglas volvieran, serían una
+    // segunda tabla a la que nada obliga a parecerse a la primera.
+    const conClase = plantillas()
+      .filter(({ contenido }) => /class="[^"]*\btabla(?:-densa)?\b/.test(contenido))
+      .map(({ archivo }) => archivo);
 
-    expect(tabla).toMatch(/font-variant-numeric:\s*tabular-nums/);
-    expect(css).toMatch(/\.tabla\s+\.numero/);
-  });
-
-  it('el encabezado de columna se queda a la vista, y el de fila no', () => {
-    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
-
-    expect(encabezado).toMatch(/position:\s*sticky/);
-    // El `<th scope="row">` es una celda de datos: se estiliza con los `td`.
-    expect(css).toMatch(/\.tabla td,\s*\n\s*\.tabla tbody th/);
-  });
-
-  it('el encabezado de columna va en la letra de los rótulos', () => {
-    // Como una tabla de posiciones en una transmisión: la etiqueta de la columna
-    // en la condensada, y los datos en la letra de leer (TV2.1).
-    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
-
-    expect(encabezado).toMatch(/font-family:\s*var\(--font-display\)/);
+    expect(conClase).toEqual([]);
+    expect(css).not.toMatch(/\.tabla\b/);
   });
 });
 

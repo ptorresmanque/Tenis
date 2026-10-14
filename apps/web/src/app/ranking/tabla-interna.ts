@@ -1,4 +1,5 @@
 import { Component, computed, inject, resource } from '@angular/core';
+import { MatTableModule } from '@angular/material/table';
 
 import { diaConAnioEnPalabras } from '../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../ui/estado-vacio';
@@ -19,7 +20,11 @@ import { Esqueleto } from '../ui/esqueleto';
  */
 @Component({
   selector: 'app-tabla-interna',
-  imports: [EstadoVacio, Esqueleto],
+  imports: [
+    EstadoVacio,
+    Esqueleto,
+    MatTableModule,
+  ],
   template: `
     @if (tabla.error()) {
       <p class="mt-4 text-destructive">
@@ -44,36 +49,49 @@ import { Esqueleto } from '../ui/esqueleto';
         <!-- En el teléfono, menos relleno por celda (TV4.5): con el de la primitiva,
              cinco columnas no caben en 296px. -->
         <div class="mt-4 overflow-x-auto" data-tabla="activos">
-          <table class="tabla text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
+          <table
+            mat-table
+            class="text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2"
+            [dataSource]="activos()"
+          >
             <caption class="sr-only">
               Elo de los socios que jugaron en los últimos seis meses
             </caption>
-            <thead>
-              <tr>
-                <th scope="col">Puesto</th>
-                <th scope="col">Socio</th>
-                <th scope="col" class="numero">Elo</th>
-                <th scope="col" class="numero">Jugados</th>
-                <th scope="col" class="numero">Ganados</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (fila of activos(); track fila.socioId) {
-                <tr>
-                  <td class="font-display font-bold">{{ fila.puesto }}</td>
-                  <!-- El nombre es el encabezado de fila y no el puesto: con empates
-                       el puesto se repite, y uno que dice "1" en dos filas no
-                       identifica ninguna. -->
-                  <th scope="row">
-                    {{ fila.nombre }}
-                  </th>
-                  <td class="numero font-semibold">{{ fila.elo }}</td>
-                  <!-- Sin rellenos a mano: la primitiva alinea las columnas (TV4.5). -->
-                  <td class="numero text-muted-foreground">{{ fila.partidos }}</td>
-                  <td class="numero text-muted-foreground">{{ fila.ganados }}</td>
-                </tr>
-              }
-            </tbody>
+            <ng-container matColumnDef="puesto">
+              <th mat-header-cell *matHeaderCellDef scope="col">Puesto</th>
+              <td mat-cell *matCellDef="let fila" class="font-display font-bold">
+                {{ fila.puesto }}
+              </td>
+            </ng-container>
+            <!-- El nombre es el encabezado de fila y no el puesto: con empates
+                 el puesto se repite, y uno que dice "1" en dos filas no
+                 identifica ninguna. -->
+            <ng-container matColumnDef="socio">
+              <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
+              <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                {{ fila.nombre }}
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="elo">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Elo</th>
+              <td mat-cell *matCellDef="let fila" class="numero font-semibold">{{ fila.elo }}</td>
+            </ng-container>
+            <!-- Sin rellenos a mano: la tabla alinea las columnas (TV4.5). -->
+            <ng-container matColumnDef="jugados">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Jugados</th>
+              <td mat-cell *matCellDef="let fila" class="numero text-muted-foreground">
+                {{ fila.partidos }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="ganados">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Ganados</th>
+              <td mat-cell *matCellDef="let fila" class="numero text-muted-foreground">
+                {{ fila.ganados }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS_ACTIVOS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let fila; columns: COLUMNAS_ACTIVOS"></tr>
           </table>
         </div>
       }
@@ -90,30 +108,33 @@ import { Esqueleto } from '../ui/esqueleto';
           </p>
 
           <div class="mt-3 overflow-x-auto" data-tabla="inactivos">
-            <table class="tabla text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
+            <table
+              mat-table
+              class="text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2"
+              [dataSource]="inactivos()"
+            >
               <caption class="sr-only">
                 Socios fuera de la tabla principal, con su Elo conservado
               </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Socio</th>
-                  <th scope="col" class="numero">Elo</th>
-                  <th scope="col" class="numero">Último partido</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (fila of inactivos(); track fila.socioId) {
-                  <tr>
-                    <th scope="row">
-                      {{ fila.nombre }}
-                    </th>
-                    <td class="numero">{{ fila.elo }}</td>
-                    <td class="numero text-muted-foreground">
-                      {{ enPalabras(fila.ultimoPartido) }}
-                    </td>
-                  </tr>
-                }
-              </tbody>
+              <ng-container matColumnDef="socio">
+                <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
+                <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                  {{ fila.nombre }}
+                </th>
+              </ng-container>
+              <ng-container matColumnDef="elo">
+                <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Elo</th>
+                <td mat-cell *matCellDef="let fila" class="numero">{{ fila.elo }}</td>
+              </ng-container>
+              <ng-container matColumnDef="ultimo">
+                <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Último partido</th>
+                <td mat-cell *matCellDef="let fila" class="numero text-muted-foreground">
+                  {{ enPalabras(fila.ultimoPartido) }}
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="COLUMNAS_INACTIVOS; sticky: true"></tr>
+              <tr mat-row *matRowDef="let fila; columns: COLUMNAS_INACTIVOS"></tr>
             </table>
           </div>
         </section>
@@ -124,6 +145,10 @@ import { Esqueleto } from '../ui/esqueleto';
   `,
 })
 export class TablaInterna {
+  protected readonly COLUMNAS_INACTIVOS = ['socio', 'elo', 'ultimo'];
+
+  protected readonly COLUMNAS_ACTIVOS = ['puesto', 'socio', 'elo', 'jugados', 'ganados'];
+
   private readonly api = inject(Ranking);
 
   protected readonly tabla = resource({ loader: () => this.api.interno() });
