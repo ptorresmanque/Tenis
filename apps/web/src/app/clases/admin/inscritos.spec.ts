@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Clases, FichaDeClase } from '../clases.service';
 import { InscritosDeLaClase } from './inscritos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T47. Quién viene a la clase.
@@ -272,7 +273,7 @@ describe('InscritosDeLaClase', () => {
 
       expect(api.inscribirEnLaSerie).toHaveBeenCalledWith(9, { socioId: 3 });
       expect(api.inscribir).not.toHaveBeenCalled();
-      expect(texto()).toContain('Inscrito en 17 clases de la serie; en 1 ya estaba.');
+      expect(avisoDeLoHecho()).toContain('Inscrito en 17 clases de la serie; en 1 ya estaba.');
     });
 
     it('**sacar de la serie cancela las clases que vienen**', async () => {
@@ -281,7 +282,7 @@ describe('InscritosDeLaClase', () => {
       await apretar('Sacar de la serie');
 
       expect(api.salirDeLaSerie).toHaveBeenCalledWith(9, { socioId: 1 });
-      expect(texto()).toContain('Salió de la serie: se cancelaron 5 clases que venían.');
+      expect(avisoDeLoHecho()).toContain('Salió de la serie: se cancelaron 5 clases que venían.');
     });
 
     it('al alumno de afuera se lo reconoce por su nombre y su teléfono', async () => {

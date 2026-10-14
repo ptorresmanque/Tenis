@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -16,6 +17,7 @@ import { Insignia } from '../../ui/insignia';
 import { Jugador, Torneos } from '../torneos.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * Quiénes juegan torneos.
@@ -60,9 +62,6 @@ import { TelefonoDirective } from '../../ui/telefono';
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
     <form
@@ -212,6 +211,7 @@ import { TelefonoDirective } from '../../ui/telefono';
 export class JugadoresPanel {
   protected readonly errorDelCampo = errorDelCampo;
 
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Torneos);
   private readonly sociosApi = inject(Socios);
 
@@ -228,7 +228,6 @@ export class JugadoresPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -275,7 +274,11 @@ export class JugadoresPanel {
 
       this.socioId = 0;
       this.datos = { nombre: '', apellido: '', telefono: '' };
-      this.aviso.set(`${jugador.nombre} ${jugador.apellido} ya puede jugar torneos.`);
+      this.snackBar.open(
+        `${jugador.nombre} ${jugador.apellido} ya puede jugar torneos.`,
+        undefined,
+        LO_HECHO,
+      );
     });
   }
 
@@ -284,9 +287,11 @@ export class JugadoresPanel {
 
     await this.intentar(`enlazar-${jugador.id}`, async () => {
       await this.api.editarJugador(jugador.id, { socioId });
-      this.aviso.set(
+      this.snackBar.open(
         `${jugador.nombre} ${jugador.apellido} quedó enlazado a su ficha de socio, ` +
           'con los puntos que ya tenía.',
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -302,7 +307,6 @@ export class JugadoresPanel {
     accion: () => Promise<unknown>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 

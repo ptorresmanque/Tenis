@@ -1569,6 +1569,29 @@ describe('Los campos son de Material (T244)', () => {
     expect(snackbar).toContain('supporting-text-color: var(--color-on-rotulo)');
   });
 
+  it('**la confirmación de lo hecho es un snackbar**: un aviso de éxito en línea solo donde hay que leerlo (T255, S2)', () => {
+    // Lo que queda en línea es el resultado que reemplaza a un formulario o que trae algo que
+    // anotar: el folio de la reserva del mesón, los pasos que siguen a una inscripción, el pago
+    // recibido al volver de Webpay. Uno nuevo se agrega acá a propósito, con su razón. Los de
+    // variante enlazada (torneos públicos, reserva pública) son de esa misma clase, la vuelta de
+    // Webpay o del enlace del correo, y la regla no los ve.
+    const enLinea = [
+      'club/formulario-contacto.ts',
+      'cuotas/mi-cuenta.ts',
+      'identidad/recuperar-contrasena/recuperar-contrasena.ts',
+      'identidad/registro/registro.ts',
+      'identidad/verificar-correo/verificar-correo.ts',
+      'reservas/admin/agenda.ts',
+      'torneos/publico/inscripcion.ts',
+    ];
+    const infractores = plantillas()
+      .filter(({ archivo }) => !enLinea.includes(archivo))
+      .filter(({ contenido }) => /<app-aviso[^>]*variante="exito"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ningún `prompt` ni `confirm` del navegador**: son diálogos de Material (T253)', () => {
     const infractores = plantillas()
       .filter(({ contenido }) =>

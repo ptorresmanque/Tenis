@@ -5,6 +5,7 @@ import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Jugador, Torneos } from '../torneos.service';
 import { JugadoresPanel } from './jugadores';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T49. Quiénes juegan torneos.
@@ -113,6 +114,7 @@ describe('JugadoresPanel', () => {
     await apretar('Anotar');
 
     expect(api.crearJugador).toHaveBeenCalledWith({ socioId: 10 });
+    expect(avisoDeLoHecho()).toContain('ya puede jugar torneos');
   });
 
   it('**enlazar solo se ofrece a quien no tiene ficha de socio**', () => {
@@ -131,6 +133,7 @@ describe('JugadoresPanel', () => {
     fixture.detectChanges();
 
     expect(api.editarJugador).toHaveBeenCalledWith(1, { socioId: 10 });
+    expect(avisoDeLoHecho()).toContain('quedó enlazado a su ficha de socio');
   });
 
   it('volver al guion después de un enlace que falló no manda nada', async () => {
