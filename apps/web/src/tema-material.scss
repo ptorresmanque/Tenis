@@ -604,3 +604,33 @@ html .mat-button-toggle-group.iconos {
     padding: 0;
   }
 }
+
+/*
+  LOS DIÁLOGOS (T252).
+
+  MatDialog con la cara del `<dialog>` que reemplaza: el título es un titular —la condensada,
+  gruesa, en cursiva y mayúscula—, y el fondo oscurece con el color del texto a la mitad, como
+  el `backdrop:bg-foreground/50` de antes. El título lleva `html` delante: los estilos del
+  diálogo llegan después y ganarían el empate.
+*/
+html {
+  @include mat.dialog-overrides(
+    (
+      subhead-font: var(--font-display),
+      subhead-weight: 800,
+      subhead-size: 1.5rem,
+      subhead-line-height: 2rem,
+      subhead-tracking: -0.005em,
+      subhead-color: var(--color-foreground),
+    )
+  );
+}
+
+html .mat-mdc-dialog-title {
+  font-style: italic;
+  text-transform: uppercase;
+}
+
+html .cdk-overlay-dark-backdrop {
+  background: color-mix(in srgb, var(--color-foreground) 50%, transparent);
+}
