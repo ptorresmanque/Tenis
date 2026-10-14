@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 export type VarianteInsignia =
   | 'exito'
@@ -53,13 +54,14 @@ export const VARIANTES_INSIGNIA: Record<VarianteInsignia, { clases: string; icon
 
 @Component({
   selector: 'app-insignia',
+  imports: [MatIcon],
   template: `
     <span
       class="inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1
              font-display text-xs font-bold uppercase tracking-wider"
       [class]="variante_().clases"
     >
-      <span class="icono text-sm" aria-hidden="true">{{ icono() || variante_().icono }}</span>
+      <mat-icon class="text-sm" aria-hidden="true">{{ icono() || variante_().icono }}</mat-icon>
       <ng-content />
     </span>
   `,

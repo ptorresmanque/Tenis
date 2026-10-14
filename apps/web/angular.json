@@ -30,7 +30,7 @@
             ],
             "styles": [
               "src/fuentes.css",
-              "@angular/material/prebuilt-themes/azure-blue.css",
+              "src/tema-material.scss",
               "src/styles.css"
             ]
           },

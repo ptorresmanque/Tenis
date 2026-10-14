@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -40,6 +41,7 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
 @Component({
   selector: 'app-ficha-tour',
   imports: [
+    MatIcon,
     FormsModule,
     RouterLink,
     Aviso,
@@ -51,7 +53,7 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
   ],
   template: `
     <a routerLink="/administracion/tours" class="text-sm font-semibold text-primary">
-      <span class="icono align-middle text-base" aria-hidden="true">arrow_back</span>
+      <mat-icon class="align-middle text-base" aria-hidden="true">arrow_back</mat-icon>
       Tours
     </a>
 
@@ -89,7 +91,7 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
             [attr.aria-selected]="activa() === pestana.id"
             (click)="activa.set(pestana.id)"
           >
-            <span class="icono align-middle text-base" aria-hidden="true">{{ pestana.icono }}</span>
+            <mat-icon class="align-middle text-base" aria-hidden="true">{{ pestana.icono }}</mat-icon>
             {{ pestana.nombre }}
           </button>
         }

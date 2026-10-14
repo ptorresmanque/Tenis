@@ -1,4 +1,5 @@
 import { Component, input } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 /**
  * Lo que se ve cuando no hay nada que ver.
@@ -9,13 +10,14 @@ import { Component, input } from '@angular/core';
  */
 @Component({
   selector: 'app-estado-vacio',
+  imports: [MatIcon],
   template: `
     <div
       class="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center"
     >
-      <span class="icono text-4xl text-muted-foreground" aria-hidden="true">
+      <mat-icon class="text-4xl text-muted-foreground" aria-hidden="true">
         {{ icono() }}
-      </span>
+      </mat-icon>
       <p class="mt-3 font-display text-xl font-bold uppercase tracking-wide">{{ titulo() }}</p>
       @if (detalle()) {
         <p class="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">

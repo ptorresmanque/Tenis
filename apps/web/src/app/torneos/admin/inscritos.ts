@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatIcon } from '@angular/material/icon';
 
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -29,7 +30,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-inscritos-torneo',
-  imports: [FormsModule, Aviso, Insignia, TelefonoPipe, Esqueleto],
+  imports: [MatIcon, FormsModule, Aviso, Insignia, TelefonoPipe, Esqueleto],
   template: `
     @if (lista.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -180,9 +181,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                      programar los partidos, así que se lee de un vistazo. -->
                 @if (quien.restricciones.length > 0) {
                   <p class="text-xs text-muted-foreground">
-                    <span class="icono align-middle text-sm" aria-hidden="true">
+                    <mat-icon class="align-middle text-sm" aria-hidden="true">
                       schedule
-                    </span>
+                    </mat-icon>
                     No puede
                     {{ enPalabras(quien.restricciones) }}
                   </p>

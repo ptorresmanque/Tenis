@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { MatIcon } from '@angular/material/icon';
 
 import { Transmision } from '../torneos.service';
 
@@ -20,6 +21,7 @@ import { Transmision } from '../torneos.service';
  */
 @Component({
   selector: 'app-reproductor',
+  imports: [MatIcon],
   template: `
     <figure class="mt-3">
       @if (encendido()) {
@@ -51,9 +53,9 @@ import { Transmision } from '../torneos.service';
             class="absolute inset-0 flex items-center justify-center text-white"
             aria-hidden="true"
           >
-            <span class="icono text-6xl drop-shadow" aria-hidden="true">
+            <mat-icon class="text-6xl drop-shadow" aria-hidden="true">
               play_circle
-            </span>
+            </mat-icon>
           </span>
           <!-- El rótulo de la transmisión (TV4.3): acá es literal, porque es una
                transmisión de verdad. Con aria-hidden, porque el botón ya nombra la
@@ -65,7 +67,7 @@ import { Transmision } from '../torneos.service';
                    corte-fin"
             aria-hidden="true"
           >
-            <span class="icono text-base" aria-hidden="true">videocam</span>
+            <mat-icon class="text-base" aria-hidden="true">videocam</mat-icon>
             {{ transmision().cancha }}
           </span>
           <span class="sr-only">

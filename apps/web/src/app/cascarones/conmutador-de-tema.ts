@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 import { Modo, Tema } from './tema';
 
@@ -27,6 +28,7 @@ const OPCIONES: { modo: Modo; icono: string; etiqueta: string }[] = [
  */
 @Component({
   selector: 'app-conmutador-de-tema',
+  imports: [MatIcon],
   host: { class: 'block' },
   template: `
     <fieldset class="flex items-center gap-0.5 rounded-control bg-muted p-0.5">
@@ -49,7 +51,7 @@ const OPCIONES: { modo: Modo; icono: string; etiqueta: string }[] = [
             [checked]="tema.modo() === opcion.modo"
             (change)="tema.modo.set(opcion.modo)"
           />
-          <span class="icono icono-tema text-lg" aria-hidden="true">{{ opcion.icono }}</span>
+          <mat-icon class="icono-tema text-lg" aria-hidden="true">{{ opcion.icono }}</mat-icon>
           <span class="sr-only">{{ opcion.etiqueta }}</span>
         </label>
       }

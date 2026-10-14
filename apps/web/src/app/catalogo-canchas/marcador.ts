@@ -1,5 +1,6 @@
 import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from './motivos';
@@ -43,7 +44,7 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
  */
 @Component({
   selector: 'app-marcador',
-  imports: [RouterLink],
+  imports: [MatIcon, RouterLink],
   host: { class: 'block' },
   template: `
     <div class="overflow-x-auto">
@@ -74,7 +75,7 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
                 <span class="flex flex-col items-center gap-0.5">
                   {{ cancha.nombre }}
                   @if (cancha.techada) {
-                    <span class="icono text-sm" aria-hidden="true">roofing</span>
+                    <mat-icon class="text-sm" aria-hidden="true">roofing</mat-icon>
                     <span class="sr-only">, techada</span>
                   }
                 </span>
@@ -128,7 +129,7 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
                     }
                     @case ('bloqueada') {
                       <span class="rayas flex h-full items-center justify-center text-on-campo/70">
-                        <span class="icono text-base" aria-hidden="true">{{ celda.icono }}</span>
+                        <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
                         <span class="sr-only">{{ celda.motivo }}</span>
                       </span>
                     }
@@ -161,7 +162,7 @@ function celdaDe(bloque: BloqueDisponible | undefined): Celda {
       </li>
       @for (bloqueo of bloqueos(); track bloqueo.motivo) {
         <li class="flex items-center gap-2">
-          <span class="icono text-base" aria-hidden="true">{{ bloqueo.icono }}</span>
+          <mat-icon class="text-base" aria-hidden="true">{{ bloqueo.icono }}</mat-icon>
           {{ bloqueo.motivo }}
         </li>
       }

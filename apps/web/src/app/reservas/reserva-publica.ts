@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -38,7 +39,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
  */
 @Component({
   selector: 'app-reserva-publica',
-  imports: [Aviso, Insignia, RouterLink],
+  imports: [MatIcon, Aviso, Insignia, RouterLink],
   template: `
     <section class="mx-auto max-w-md py-10">
       @if (reserva.isLoading()) {
@@ -118,7 +119,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
               }"
               class="boton boton-primario"
             >
-              <span class="icono text-base" aria-hidden="true">schedule</span>
+              <mat-icon class="text-base" aria-hidden="true">schedule</mat-icon>
               Cambiar hora o duración
             </a>
             <p class="mt-2 text-sm text-muted-foreground">

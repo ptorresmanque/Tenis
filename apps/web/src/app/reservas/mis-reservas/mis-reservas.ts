@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -32,7 +33,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
  */
 @Component({
   selector: 'app-mis-reservas',
-  imports: [RouterLink, Aviso, EstadoVacio, Insignia],
+  imports: [MatIcon, RouterLink, Aviso, EstadoVacio, Insignia],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis reservas</h1>
 
@@ -159,7 +160,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                   }"
                   class="boton boton-primario boton-chico"
                 >
-                  <span class="icono text-base" aria-hidden="true">schedule</span>
+                  <mat-icon class="text-base" aria-hidden="true">schedule</mat-icon>
                   Cambiar hora o duración
                 </a>
               }
@@ -168,7 +169,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 class="boton boton-texto boton-chico"
                 (click)="agregarAlCalendario(reserva)"
               >
-                <span class="icono text-base" aria-hidden="true">event</span>
+                <mat-icon class="text-base" aria-hidden="true">event</mat-icon>
                 Agregar al calendario
               </button>
               <button
@@ -176,7 +177,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 class="boton boton-secundario boton-chico"
                 (click)="porCancelar.set(reserva.id)"
               >
-                <span class="icono text-base" aria-hidden="true">cancel</span>
+                <mat-icon class="text-base" aria-hidden="true">cancel</mat-icon>
                 Cancelar
               </button>
             </div>

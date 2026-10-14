@@ -1,4 +1,5 @@
 import { afterNextRender, Component, DestroyRef, inject, signal } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 /** Desde dónde aparece: una pantalla y media. Antes, el comienzo está a un gesto. */
 const UMBRAL_EN_PANTALLAS = 1.5;
@@ -24,6 +25,7 @@ const UMBRAL_EN_PANTALLAS = 1.5;
  */
 @Component({
   selector: 'app-volver-arriba',
+  imports: [MatIcon],
   host: { class: 'print:hidden' },
   template: `
     <button
@@ -36,7 +38,7 @@ const UMBRAL_EN_PANTALLAS = 1.5;
       [inert]="!visible()"
       (click)="subir()"
     >
-      <span class="icono text-2xl" aria-hidden="true">arrow_upward</span>
+      <mat-icon class="text-2xl" aria-hidden="true">arrow_upward</mat-icon>
     </button>
   `,
   styles: `

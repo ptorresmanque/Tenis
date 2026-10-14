@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { diaEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
@@ -64,6 +65,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
 @Component({
   selector: 'app-torneos-publicos',
   imports: [
+    MatIcon,
     FotoDelSitio,
     Aviso,
     CuadroPublicoModal,
@@ -254,9 +256,9 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                                 <span class="max-sm:sr-only">
                                   {{ categoria.armado ? 'Ver el cuadro' : 'Ver quiénes juegan' }}
                                 </span>
-                                <span class="icono text-xl sm:hidden" aria-hidden="true">
+                                <mat-icon class="text-xl sm:hidden" aria-hidden="true">
                                   {{ categoria.armado ? 'account_tree' : 'groups' }}
-                                </span>
+                                </mat-icon>
                               </button>
                             </td>
                           </tr>

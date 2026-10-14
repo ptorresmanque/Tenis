@@ -388,6 +388,36 @@ function plantillas(): { archivo: string; contenido: string }[] {
     }));
 }
 
+/**
+ * T239. El tema de Angular Material sale de los tokens del sitio (`SPEC-interfaz.md`, S4): los
+ * componentes de Material se ven como «Transmisión» y no con el azul de fábrica, en claro y en
+ * oscuro, porque cada token del tema apunta a uno del sitio y no a un color.
+ */
+describe('El tema de Material (T239)', () => {
+  const angular = readFileSync(join(process.cwd(), 'angular.json'), 'utf8');
+  const temaMaterial = () => readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
+
+  it('**es el tema del sitio y no el precompilado**', () => {
+    expect(angular).not.toContain('prebuilt-themes');
+    expect(angular).toContain('src/tema-material.scss');
+    expect(temaMaterial()).toMatch(/@include mat\.theme\(/);
+  });
+
+  it('**sus colores apuntan a los tokens del sitio**, para que el modo oscuro llegue solo', () => {
+    for (const token of ['primary', 'on-primary', 'surface', 'on-surface', 'outline', 'error']) {
+      expect(temaMaterial()).toMatch(new RegExp(`(?<![\\w-])${token}: var\\(--color-`));
+    }
+  });
+
+  it('sus esquinas son las del sitio, también la «redonda»', () => {
+    expect(temaMaterial()).toMatch(/corner-full: var\(--radius\)/);
+  });
+
+  it('styles.css ya no define las variables de Material: las define el tema', () => {
+    expect(css).not.toMatch(/--mat-sys-[a-z-]+\s*:/);
+  });
+});
+
 describe('Campos de fecha y hora (T125)', () => {
   it('**ningún label envuelve un campo de fecha u hora**: la lista quedaría en su nombre', () => {
     // Material inserta el calendario y la lista de horas junto al campo, y no al final
@@ -508,20 +538,44 @@ describe('Tipografía', () => {
     expect(infractores).toEqual([]);
   });
 
-  it('todo ícono está oculto al lector de pantalla', () => {
+  it('todo ícono está oculto al lector de pantalla, o dice qué es', () => {
     // El nombre del ícono es texto de verdad dentro del elemento: sin
-    // aria-hidden, el lector lee "check circle" antes del titular.
+    // aria-hidden, el lector lee "check circle" antes del titular. `mat-icon` se oculta solo
+    // (T240); el que se muestra con `aria-hidden="false"` tiene que llevar su nombre.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
-      for (const [etiqueta] of contenido.matchAll(/<[a-z]+[^>]*\bclass="[^"]*\bicono\b[^"]*"[^>]*>/gs)) {
-        if (/aria-hidden="true"|aria-label=/.test(etiqueta)) continue;
+      for (const [etiqueta] of contenido.matchAll(/<mat-icon\b[^>]*>/gs)) {
+        if (!/aria-hidden="false"/.test(etiqueta) || /aria-label=/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 80)}`);
       }
     }
 
     expect(infractores).toEqual([]);
+  });
+
+  it('**ningún ícono se arma a mano: todos son `mat-icon`** (T240)', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of sinComentarios(contenido).matchAll(
+        /<(?!mat-icon)[a-z]+[^>]*\bclass="[^"]*(?<![\w-])icono(?![\w-])[^"]*"[^>]*>/gs,
+      )) {
+        infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('`mat-icon` se comporta como el ícono de antes: mandan las clases del sitio', () => {
+    const tema = readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
+    const regla = tema.match(/\.mat-icon\.icono\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    for (const propiedad of ['display', 'width', 'height', 'overflow', 'color']) {
+      expect(regla).toMatch(new RegExp(`${propiedad}:\\s*revert-layer`));
+    }
   });
 });
 

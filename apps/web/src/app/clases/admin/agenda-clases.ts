@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatIcon } from '@angular/material/icon';
 
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
@@ -56,6 +57,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-agenda-clases',
   imports: [
+    MatIcon,
     FormsModule,
     Aviso,
     EstadoVacio,
@@ -84,7 +86,7 @@ const enBlanco = () => ({
           aria-label="Día anterior"
           (click)="moverDia(-1)"
         >
-          <span class="icono text-base" aria-hidden="true">chevron_left</span>
+          <mat-icon class="text-base" aria-hidden="true">chevron_left</mat-icon>
         </button>
         <button
           type="button"
@@ -100,7 +102,7 @@ const enBlanco = () => ({
           aria-label="Día siguiente"
           (click)="moverDia(1)"
         >
-          <span class="icono text-base" aria-hidden="true">chevron_right</span>
+          <mat-icon class="text-base" aria-hidden="true">chevron_right</mat-icon>
         </button>
       </div>
 

@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
@@ -35,6 +36,7 @@ import { Esqueleto } from '../ui/esqueleto';
 @Component({
   selector: 'app-el-club',
   imports: [
+    MatIcon,
     RouterLink,
     Foto,
     Insignia,
@@ -195,7 +197,7 @@ import { Esqueleto } from '../ui/esqueleto';
             <dt
               class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
             >
-              <span class="icono text-primary" aria-hidden="true">place</span>
+              <mat-icon class="text-primary" aria-hidden="true">place</mat-icon>
               Dónde y cómo ubicarnos
             </dt>
             <dd class="mt-2 grid gap-1 text-muted-foreground">

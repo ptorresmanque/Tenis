@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, linkedSignal, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { SUPERFICIES } from '../../catalogo-canchas/superficies';
@@ -44,6 +45,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
 @Component({
   selector: 'app-ficha-torneo',
   imports: [
+    MatIcon,
     FormsModule,
     RouterLink,
     Aviso,
@@ -59,7 +61,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
   ],
   template: `
     <a routerLink="/administracion/torneos" class="text-sm font-semibold text-primary">
-      <span class="icono align-middle text-base" aria-hidden="true">arrow_back</span>
+      <mat-icon class="align-middle text-base" aria-hidden="true">arrow_back</mat-icon>
       Torneos
     </a>
 
@@ -105,9 +107,9 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
             [attr.aria-selected]="activa() === pestana.id"
             (click)="activa.set(pestana.id)"
           >
-            <span class="icono align-middle text-base" aria-hidden="true">
+            <mat-icon class="align-middle text-base" aria-hidden="true">
               {{ pestana.icono }}
-            </span>
+            </mat-icon>
             {{ pestana.nombre }}
             @if (pestana.id === 'inscritos' && suyo.pagosPorRevisar > 0) {
               <span

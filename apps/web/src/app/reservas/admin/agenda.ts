@@ -6,6 +6,7 @@ import {
   resource,
   signal,
 } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -40,6 +41,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
 @Component({
   selector: 'app-agenda-del-dia',
   imports: [
+    MatIcon,
     Aviso,
     EstadoVacio,
     Insignia,
@@ -66,7 +68,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
       <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
       @if (puedeTomarHoras()) {
         <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
-          <span class="icono text-base" aria-hidden="true">add</span>
+          <mat-icon class="text-base" aria-hidden="true">add</mat-icon>
           Nueva reserva
         </button>
       }
@@ -80,7 +82,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
           aria-label="Día anterior"
           (click)="moverDia(-1)"
         >
-          <span class="icono text-base" aria-hidden="true">chevron_left</span>
+          <mat-icon class="text-base" aria-hidden="true">chevron_left</mat-icon>
         </button>
         <button
           type="button"
@@ -96,7 +98,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
           aria-label="Día siguiente"
           (click)="moverDia(1)"
         >
-          <span class="icono text-base" aria-hidden="true">chevron_right</span>
+          <mat-icon class="text-base" aria-hidden="true">chevron_right</mat-icon>
         </button>
       </div>
 
@@ -129,7 +131,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
         @for (dato of resumenDelDia(); track dato.titulo) {
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p class="flex items-center gap-2 text-sm text-muted-foreground">
-              <span class="icono text-primary" aria-hidden="true">{{ dato.icono }}</span>
+              <mat-icon class="text-primary" aria-hidden="true">{{ dato.icono }}</mat-icon>
               {{ dato.titulo }}
             </p>
             <p class="mt-1 font-display text-3xl font-bold">{{ dato.valor }}</p>
