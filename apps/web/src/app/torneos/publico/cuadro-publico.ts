@@ -10,6 +10,7 @@ import {
   resource,
   viewChild,
 } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 import { Insignia } from '../../ui/insignia';
 import { CuadroPublico, Foto, Torneos, Transmision } from '../torneos.service';
@@ -41,7 +42,7 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
  */
 @Component({
   selector: 'app-cuadro-publico',
-  imports: [Arbol, Esqueleto, Galeria, Insignia, OrdenDeJuego, Reproductor],
+  imports: [MatIcon, Arbol, Esqueleto, Galeria, Insignia, OrdenDeJuego, Reproductor],
   template: `
     <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
     <dialog
@@ -107,13 +108,13 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
                  juego y en el árbol. -->
             <div class="relative">
               <label for="buscar-jugador" class="sr-only">Buscar a un jugador</label>
-              <span
-                class="icono pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
+              <mat-icon
+                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
                        text-lg text-muted-foreground"
                 aria-hidden="true"
               >
                 search
-              </span>
+              </mat-icon>
               <input
                 id="buscar-jugador"
                 type="search"

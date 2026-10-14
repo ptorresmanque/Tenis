@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
@@ -60,6 +61,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-torneos',
   imports: [
+    MatIcon,
     Esqueleto,
     FormsModule,
     RouterLink,
@@ -284,9 +286,9 @@ const enBlanco = () => ({
 
       @if (escondidos() > 0) {
         <p class="mt-3 text-sm text-muted-foreground">
-          <span class="icono align-middle text-base" aria-hidden="true">
+          <mat-icon class="align-middle text-base" aria-hidden="true">
             visibility_off
-          </span>
+          </mat-icon>
           {{ escondidos() }}
           {{ escondidos() === 1 ? 'torneo no se está mostrando' : 'torneos no se están mostrando' }}
           con este filtro.

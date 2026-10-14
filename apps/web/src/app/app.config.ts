@@ -8,11 +8,14 @@ import {
 } from '@angular/router';
 
 import { routes } from './app.routes';
+import { proveerMaterial } from './ui/material';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideHttpClient(withFetch()),
+    // Las opciones de Angular Material para toda la web (T240).
+    proveerMaterial(),
     // La transición entre rutas la hace el navegador con la View Transitions API.
     // Cero dependencias de animación: @angular/animations está deprecado.
     //

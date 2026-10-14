@@ -538,20 +538,44 @@ describe('Tipografía', () => {
     expect(infractores).toEqual([]);
   });
 
-  it('todo ícono está oculto al lector de pantalla', () => {
+  it('todo ícono está oculto al lector de pantalla, o dice qué es', () => {
     // El nombre del ícono es texto de verdad dentro del elemento: sin
-    // aria-hidden, el lector lee "check circle" antes del titular.
+    // aria-hidden, el lector lee "check circle" antes del titular. `mat-icon` se oculta solo
+    // (T240); el que se muestra con `aria-hidden="false"` tiene que llevar su nombre.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
-      for (const [etiqueta] of contenido.matchAll(/<[a-z]+[^>]*\bclass="[^"]*\bicono\b[^"]*"[^>]*>/gs)) {
-        if (/aria-hidden="true"|aria-label=/.test(etiqueta)) continue;
+      for (const [etiqueta] of contenido.matchAll(/<mat-icon\b[^>]*>/gs)) {
+        if (!/aria-hidden="false"/.test(etiqueta) || /aria-label=/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 80)}`);
       }
     }
 
     expect(infractores).toEqual([]);
+  });
+
+  it('**ningún ícono se arma a mano: todos son `mat-icon`** (T240)', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of sinComentarios(contenido).matchAll(
+        /<(?!mat-icon)[a-z]+[^>]*\bclass="[^"]*(?<![\w-])icono(?![\w-])[^"]*"[^>]*>/gs,
+      )) {
+        infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('`mat-icon` se comporta como el ícono de antes: mandan las clases del sitio', () => {
+    const tema = readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
+    const regla = tema.match(/\.mat-icon\.icono\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    for (const propiedad of ['display', 'width', 'height', 'overflow', 'color']) {
+      expect(regla).toMatch(new RegExp(`${propiedad}:\\s*revert-layer`));
+    }
   });
 });
 

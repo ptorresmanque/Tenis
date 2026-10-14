@@ -1,5 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel, puedeVer } from '../core/auth/tipos-del-panel';
@@ -21,6 +22,7 @@ import { MenuDesplegable } from './menu-desplegable';
 @Component({
   selector: 'app-cascaron-admin',
   imports: [
+    MatIcon,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
@@ -78,7 +80,7 @@ import { MenuDesplegable } from './menu-desplegable';
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   "
                 >
-                  <span class="icono text-xl" aria-hidden="true">{{ item.icono }}</span>
+                  <mat-icon class="text-xl" aria-hidden="true">{{ item.icono }}</mat-icon>
                   {{ item.etiqueta }}
                 </a>
               </li>
@@ -110,9 +112,9 @@ import { MenuDesplegable } from './menu-desplegable';
                     {{ sesion.email }}
                   </span>
                 </span>
-                <span class="icono text-muted-foreground" aria-hidden="true">
+                <mat-icon class="text-muted-foreground" aria-hidden="true">
                   more_vert
-                </span>
+                </mat-icon>
               </span>
 
               <a routerLink="/" [class]="ITEM_MENU">Volver al sitio</a>
@@ -140,7 +142,7 @@ import { MenuDesplegable } from './menu-desplegable';
           aria-label="Abrir el menú de administración"
           (click)="cajon.showModal()"
         >
-          <span class="icono text-2xl" aria-hidden="true">menu</span>
+          <mat-icon class="text-2xl" aria-hidden="true">menu</mat-icon>
         </button>
         <app-logotipo [destino]="inicio()" />
         <span
@@ -170,7 +172,7 @@ import { MenuDesplegable } from './menu-desplegable';
             aria-label="Cerrar el menú"
             (click)="cajon.close()"
           >
-            <span class="icono text-2xl" aria-hidden="true">close</span>
+            <mat-icon class="text-2xl" aria-hidden="true">close</mat-icon>
           </button>
         </div>
 
@@ -188,7 +190,7 @@ import { MenuDesplegable } from './menu-desplegable';
                   [class]="enCajon.isActive ? 'bg-rotulo text-on-rotulo' : 'hover:bg-muted'"
                   (click)="cajon.close()"
                 >
-                  <span class="icono text-xl" aria-hidden="true">{{ item.icono }}</span>
+                  <mat-icon class="text-xl" aria-hidden="true">{{ item.icono }}</mat-icon>
                   {{ item.etiqueta }}
                 </a>
               </li>
@@ -200,7 +202,7 @@ import { MenuDesplegable } from './menu-desplegable';
                 class="flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm
                        font-medium transition-colors hover:bg-muted"
               >
-                <span class="icono text-xl" aria-hidden="true">arrow_back</span>
+                <mat-icon class="text-xl" aria-hidden="true">arrow_back</mat-icon>
                 Volver al sitio
               </a>
             </li>

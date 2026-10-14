@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -38,14 +39,14 @@ const MOTIVOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-confirmacion-reserva',
-  imports: [RouterLink, Aviso, Esqueleto, Insignia],
+  imports: [MatIcon, RouterLink, Aviso, Esqueleto, Insignia],
   template: `
     <section class="mx-auto max-w-lg py-10">
       @if (folio() && !error()) {
         <div class="text-center">
-          <p class="icono text-6xl text-accent-strong" aria-hidden="true">
+          <mat-icon class="block text-6xl text-accent-strong" aria-hidden="true">
             check_circle
-          </p>
+          </mat-icon>
           <h1 class="titular mt-3 text-5xl">Reserva confirmada</h1>
           <p class="mt-2 text-muted-foreground">
             Tu hora quedó tomada. Muestra este folio en el club.
@@ -143,7 +144,7 @@ const MOTIVOS: Record<string, string> = {
             class="boton boton-chico boton-sobre-campo mt-4"
             (click)="copiar()"
           >
-            <span class="icono text-base" aria-hidden="true">content_copy</span>
+            <mat-icon class="text-base" aria-hidden="true">content_copy</mat-icon>
             Copiar el folio
           </button>
 
@@ -161,9 +162,9 @@ const MOTIVOS: Record<string, string> = {
           <ul class="mt-3 grid gap-3">
             @for (dato of ANTES_DE_VENIR(); track dato.titulo) {
               <li class="flex gap-3 rounded-xl border border-border bg-card p-4">
-                <span class="icono text-2xl text-primary" aria-hidden="true">
+                <mat-icon class="text-2xl text-primary" aria-hidden="true">
                   {{ dato.icono }}
-                </span>
+                </mat-icon>
                 <div>
                   <p class="font-semibold">{{ dato.titulo }}</p>
                   <p class="text-sm text-muted-foreground">{{ dato.detalle }}</p>
@@ -186,7 +187,7 @@ const MOTIVOS: Record<string, string> = {
                desincroniza de lo que la persona tiene delante en cuanto cambie
                cualquiera de las dos. -->
           <button type="button" class="boton boton-secundario" (click)="imprimir()">
-            <span class="icono text-base" aria-hidden="true">download</span>
+            <mat-icon class="text-base" aria-hidden="true">download</mat-icon>
             Descargar comprobante
           </button>
           <a routerLink="/disponibilidad" class="boton boton-secundario">
@@ -206,7 +207,7 @@ const MOTIVOS: Record<string, string> = {
               [queryParams]="{ cancelar: folio() }"
               class="boton boton-texto text-destructive"
             >
-              <span class="icono text-base" aria-hidden="true">cancel</span>
+              <mat-icon class="text-base" aria-hidden="true">cancel</mat-icon>
               Cancelar esta reserva
             </a>
           </p>

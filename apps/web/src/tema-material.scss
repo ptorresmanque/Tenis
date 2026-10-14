@@ -77,3 +77,17 @@ html {
 .mat-timepicker-toggle .mat-mdc-button-persistent-ripple {
   border-radius: var(--radius);
 }
+
+/* Los íconos se comportan como el <span class="icono"> que reemplazan (T240). `mat-icon` trae sin
+   capa su color heredado, 24 × 24 px, bloque en línea y recorte: le ganaba a cualquier `text-*`,
+   `block` o `size-*` de Tailwind, cortaba el glifo de Material Symbols —más alto que su caja— y
+   pintaba con el color del padre los íconos que la plantilla pinta de otro. `revert-layer`, en
+   una regla sin capa, devuelve esas propiedades a lo que digan las capas del sitio: la clase de
+   la plantilla, o lo que hacía el span si no dice nada. */
+.mat-icon.icono {
+  display: revert-layer;
+  width: revert-layer;
+  height: revert-layer;
+  overflow: revert-layer;
+  color: revert-layer;
+}

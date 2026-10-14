@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 /**
  * Configuración del club: el cascarón con la sub-navegación.
@@ -10,7 +11,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
  */
 @Component({
   selector: 'app-configuracion',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [MatIcon, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya, y
          la navegación entre secciones va debajo. -->
@@ -40,7 +41,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               "
             >
-              <span class="icono text-lg" aria-hidden="true">{{ seccion.icono }}</span>
+              <mat-icon class="text-lg" aria-hidden="true">{{ seccion.icono }}</mat-icon>
               {{ seccion.etiqueta }}
             </a>
           </li>

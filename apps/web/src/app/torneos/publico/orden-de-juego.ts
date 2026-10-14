@@ -1,5 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -27,7 +28,7 @@ interface DiaDeJuego {
  */
 @Component({
   selector: 'app-orden-de-juego',
-  imports: [Insignia, NgTemplateOutlet],
+  imports: [MatIcon, Insignia, NgTemplateOutlet],
   template: `
     @if (porDia().length === 0) {
       <p class="mt-4 text-sm text-muted-foreground">
@@ -121,9 +122,9 @@ interface DiaDeJuego {
             {{ jugador ?? 'Por definir' }}
           </span>
           @if (gano(partido, jugador)) {
-            <span class="icono align-middle text-base text-accent-strong" aria-hidden="true">
+            <mat-icon class="align-middle text-base text-accent-strong" aria-hidden="true">
               check
-            </span>
+            </mat-icon>
             <span class="sr-only">, ganó</span>
           }
         </p>

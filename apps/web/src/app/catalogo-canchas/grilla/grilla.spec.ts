@@ -178,7 +178,7 @@ describe('Grilla', () => {
     [...el().querySelectorAll('table thead th[scope="col"]')]
       .map((th) => {
         const copia = th.cloneNode(true) as Element;
-        copia.querySelectorAll('.icono').forEach((icono) => icono.remove());
+        copia.querySelectorAll('mat-icon').forEach((icono) => icono.remove());
         return enTexto(copia);
       })
       .slice(1);

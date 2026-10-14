@@ -1,4 +1,5 @@
 import { Component, input } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 /**
  * El botón que se lleva el reporte a una planilla.
@@ -14,9 +15,10 @@ import { Component, input } from '@angular/core';
  */
 @Component({
   selector: 'app-descargar-csv',
+  imports: [MatIcon],
   template: `
     <a [href]="url()" download class="boton boton-secundario boton-chico">
-      <span class="icono text-base" aria-hidden="true">download</span>
+      <mat-icon class="text-base" aria-hidden="true">download</mat-icon>
       Descargar CSV
     </a>
   `,

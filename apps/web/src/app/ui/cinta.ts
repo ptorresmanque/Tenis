@@ -1,4 +1,5 @@
 import { Component, input, signal } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 /**
  * La cinta de la transmisión: un rótulo fijo y unos mensajes que pasan (TV3.2).
@@ -29,6 +30,7 @@ import { Component, input, signal } from '@angular/core';
  */
 @Component({
   selector: 'app-cinta',
+  imports: [MatIcon],
   host: { class: 'block' },
   template: `
     <section [attr.aria-label]="etiqueta()" class="bg-campo text-on-campo sm:flex">
@@ -37,7 +39,7 @@ import { Component, input, signal } from '@angular/core';
                font-bold tracking-wider text-on-rotulo uppercase sm:shrink-0 sm:ps-5
                sm:corte-fin"
       >
-        <span class="icono text-base" aria-hidden="true">emoji_events</span>
+        <mat-icon class="text-base" aria-hidden="true">emoji_events</mat-icon>
         <ng-content />
       </div>
 
@@ -51,9 +53,9 @@ import { Component, input, signal } from '@angular/core';
                     class="flex items-center gap-2 font-display text-base font-semibold
                            tracking-wide uppercase"
                   >
-                    <span class="icono text-sm text-on-campo/70" aria-hidden="true">
+                    <mat-icon class="text-sm text-on-campo/70" aria-hidden="true">
                       sports_tennis
-                    </span>
+                    </mat-icon>
                     {{ mensaje }}
                   </li>
                 }
@@ -69,7 +71,7 @@ import { Component, input, signal } from '@angular/core';
           [attr.aria-pressed]="pausada()"
           (click)="pausada.set(!pausada())"
         >
-          <span class="icono" aria-hidden="true">{{ pausada() ? 'play_arrow' : 'pause' }}</span>
+          <mat-icon aria-hidden="true">{{ pausada() ? 'play_arrow' : 'pause' }}</mat-icon>
           <span class="sr-only">Detener la cinta</span>
         </button>
       </div>

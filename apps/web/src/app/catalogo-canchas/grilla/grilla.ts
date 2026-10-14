@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -35,6 +36,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
 @Component({
   selector: 'app-grilla',
   imports: [
+    MatIcon,
     RouterLink,
     Reservar,
     BarraFija,
@@ -170,9 +172,9 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                  font-display text-lg font-bold tracking-wide text-muted-foreground uppercase
                  [&::-webkit-details-marker]:hidden"
         >
-          <span class="icono transition-transform group-open:rotate-90" aria-hidden="true">
+          <mat-icon class="transition-transform group-open:rotate-90" aria-hidden="true">
             chevron_right
-          </span>
+          </mat-icon>
           {{ tituloDeLasPasadas() }}
           @if (hayQueReportar()) {
             <span class="font-sans text-sm font-semibold tracking-normal normal-case">
@@ -267,7 +269,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
               >
                 <span class="inline-flex items-center gap-1">
                   @if (tipo === 'techada') {
-                    <span class="icono text-base" aria-hidden="true">roofing</span>
+                    <mat-icon class="text-base" aria-hidden="true">roofing</mat-icon>
                   }
                   {{ nombreDelTipo[tipo] }}
                 </span>
@@ -290,7 +292,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                   <span
                     class="mt-1 flex items-center gap-0.5 font-sans text-xs font-semibold"
                   >
-                    <span class="icono text-sm" aria-hidden="true">trending_up</span>
+                    <mat-icon class="text-sm" aria-hidden="true">trending_up</mat-icon>
                     prime
                   </span>
                 }
@@ -331,7 +333,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                         [class.text-lg]="esSocio()"
                       >
                         @if (estaElegida(celda)) {
-                          <span class="icono text-sm" aria-hidden="true">check_circle</span>
+                          <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
                         }
                         {{ celda.libres.length }}
                         {{ celda.libres.length === 1 ? 'libre' : 'libres' }}
@@ -358,13 +360,13 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
                       class="mt-1 inline-flex min-h-6 items-center gap-1 text-xs font-semibold
                              text-primary underline"
                     >
-                      <span class="icono text-sm" aria-hidden="true">{{ iconos['CLASE'] }}</span>
+                      <mat-icon class="text-sm" aria-hidden="true">{{ iconos['CLASE'] }}</mat-icon>
                       {{ celda.enClase }} en clase<span class="sr-only">, ver las clases</span>
                     </a>
                   }
                   @if (celda.enTorneo > 0) {
                     <p class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <span class="icono text-sm" aria-hidden="true">{{ iconos['TORNEO'] }}</span>
+                      <mat-icon class="text-sm" aria-hidden="true">{{ iconos['TORNEO'] }}</mat-icon>
                       {{ celda.enTorneo }} en torneo
                     </p>
                   }

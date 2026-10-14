@@ -1,6 +1,7 @@
 import { ViewportScroller } from '@angular/common';
 import { Component, computed, ElementRef, inject, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { Club } from '../club/club.service';
 import { RedesSociales } from '../club/redes-sociales';
@@ -33,6 +34,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 @Component({
   selector: 'app-cascaron-publico',
   imports: [
+    MatIcon,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
@@ -134,7 +136,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
             aria-label="Abrir el menú"
             (click)="panel.showModal()"
           >
-            <span class="icono text-2xl" aria-hidden="true">menu</span>
+            <mat-icon class="text-2xl" aria-hidden="true">menu</mat-icon>
           </button>
         </div>
       </div>
@@ -159,7 +161,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           aria-label="Cerrar el menú"
           (click)="panel.close()"
         >
-          <span class="icono text-2xl" aria-hidden="true">close</span>
+          <mat-icon class="text-2xl" aria-hidden="true">close</mat-icon>
         </button>
       </div>
 

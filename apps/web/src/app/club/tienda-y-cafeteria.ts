@@ -1,5 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { Galeria } from '../torneos/publico/galeria';
@@ -48,7 +49,7 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
  */
 @Component({
   selector: 'app-tienda-y-cafeteria',
-  imports: [RouterLink, Galeria],
+  imports: [MatIcon, RouterLink, Galeria],
   // Sin caja propia: la sección es la que lleva el margen, y sin lugares no queda ni eso.
   host: { class: 'contents' },
   template: `
@@ -97,7 +98,7 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
 
                 @if (lugar.horario) {
                   <p data-horario class="mt-3 flex items-center gap-2 text-muted-foreground">
-                    <span class="icono text-primary" aria-hidden="true">schedule</span>
+                    <mat-icon class="text-primary" aria-hidden="true">schedule</mat-icon>
                     {{ lugar.horario }}
                   </p>
                 }

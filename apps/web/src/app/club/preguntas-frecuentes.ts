@@ -1,5 +1,6 @@
 import { httpResource } from '@angular/common/http';
 import { Component, computed } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 import { Aviso } from '../ui/aviso';
 import { Esqueleto } from '../ui/esqueleto';
@@ -26,7 +27,7 @@ interface PreguntaPublica {
  */
 @Component({
   selector: 'app-preguntas-frecuentes-publicas',
-  imports: [Aviso, Esqueleto, FormularioContacto],
+  imports: [MatIcon, Aviso, Esqueleto, FormularioContacto],
   template: `
     <h1 class="titular text-6xl sm:text-7xl">Preguntas frecuentes</h1>
     <p class="mt-2 max-w-prose text-lg text-muted-foreground">
@@ -54,12 +55,12 @@ interface PreguntaPublica {
                        gap-4 py-4 font-display text-xl font-bold tracking-wide"
               >
                 <span>{{ pregunta.pregunta }}</span>
-                <span
-                  class="icono text-2xl text-primary transition-transform group-open:rotate-180"
+                <mat-icon
+                  class="text-2xl text-primary transition-transform group-open:rotate-180"
                   aria-hidden="true"
                 >
                   expand_more
-                </span>
+                </mat-icon>
               </summary>
               <!-- Texto plano: pre-line respeta los saltos de línea del panel. -->
               <p class="max-w-prose pb-5 whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>

@@ -142,7 +142,7 @@ describe('Cascarón de administración', () => {
 
   it('cada ítem lleva su ícono oculto al lector de pantalla', () => {
     const barra = (montar().nativeElement as HTMLElement).querySelector('aside');
-    const iconos = [...barra!.querySelectorAll('nav a .icono')];
+    const iconos = [...barra!.querySelectorAll('nav a mat-icon')];
 
     expect(iconos).toHaveLength(20);
     expect(iconos.every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true);

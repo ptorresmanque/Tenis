@@ -10,6 +10,7 @@ import {
 
 import { Esqueleto } from '../../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
+import { MatIcon } from '@angular/material/icon';
 
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -51,7 +52,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
  */
 @Component({
   selector: 'app-socios',
-  imports: [Esqueleto, 
+  imports: [MatIcon, Esqueleto, 
     FormsModule,
     Aviso,
     Campo,
@@ -151,7 +152,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
                 class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border
                        border-border bg-card p-3 text-sm shadow-sm"
               >
-                <span class="icono text-muted-foreground" aria-hidden="true">mail</span>
+                <mat-icon class="text-muted-foreground" aria-hidden="true">mail</mat-icon>
                 <span class="font-medium">{{ invitacion.email }}</span>
                 <span class="text-muted-foreground">
                   socio {{ invitacion.numeroSocio }}

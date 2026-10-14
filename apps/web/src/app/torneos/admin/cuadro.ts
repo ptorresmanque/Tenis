@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -38,7 +39,7 @@ import { CampoHora } from '../../ui/campo-hora';
  */
 @Component({
   selector: 'app-cuadro-torneo',
-  imports: [FormsModule, Aviso, Insignia, FotoDelPartido, CampoFecha, CampoHora],
+  imports: [MatIcon, FormsModule, Aviso, Insignia, FotoDelPartido, CampoFecha, CampoHora],
   template: `
     @if (cuadro.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -128,9 +129,9 @@ import { CampoHora } from '../../ui/campo-hora';
                            cancha: desaparece de la disponibilidad sola. -->
                       @if (partido.programadoInicio) {
                         <p class="mt-1 text-xs text-muted-foreground">
-                          <span class="icono align-middle text-sm" aria-hidden="true">
+                          <mat-icon class="align-middle text-sm" aria-hidden="true">
                             event
-                          </span>
+                          </mat-icon>
                           {{ cuando(partido) }} · {{ partido.cancha }}
                           <button
                             type="button"
