@@ -1,7 +1,10 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../ui/campos';
 import {
   AdminCanchas,
   Lugar,
@@ -10,7 +13,6 @@ import {
 import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 import { TelefonoDirective } from '../ui/telefono';
 import { FotosDelClubPanel } from './fotos-del-club';
 import { TarifasDelGimnasio } from './tarifas-del-gimnasio';
@@ -67,15 +69,16 @@ const LARGO_HORARIO = 120;
 @Component({
   selector: 'app-lugar-del-club',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     Aviso,
-    Campo,
-    CampoControl,
     TelefonoDirective,
     FotosDelClubPanel,
     TarifasDelGimnasio,
   ],
+  providers: [proveerCampos()],
   template: `
     <form class="grid max-w-xl gap-6" (ngSubmit)="guardar()">
       @if (configuracion.error()) {
@@ -90,63 +93,57 @@ const LARGO_HORARIO = 120;
 
       <!-- La cuenta va en la ayuda, que el lector lee al entrar al campo, y no en una
            región viva: esa hablaría con cada letra. -->
-      <app-campo
-        etiqueta="Descripción"
-        [ayuda]="datos().queHay + ' ' + quedan(datos().descripcion, LARGO_DESCRIPCION)"
-      >
+      <mat-form-field>
+        <mat-label>Descripción</mat-label>
         <textarea
-          appCampoControl
-          class="campo"
+          matInput
           name="descripcion"
           rows="4"
           [maxlength]="LARGO_DESCRIPCION"
           [ngModel]="valor(datos().descripcion)"
           (ngModelChange)="escribir(datos().descripcion, $event)"
         ></textarea>
-      </app-campo>
+        <mat-hint>
+          {{ datos().queHay + ' ' + quedan(datos().descripcion, LARGO_DESCRIPCION) }}
+        </mat-hint>
+      </mat-form-field>
 
-      <app-campo
-        etiqueta="Horario"
-        ayuda="Como se dice en voz alta: «Lunes a sábado de 9:00 a 20:00»."
-      >
+      <mat-form-field>
+        <mat-label>Horario</mat-label>
         <input
-          appCampoControl
-          class="campo"
+          matInput
           name="horario"
           [maxlength]="LARGO_HORARIO"
           [ngModel]="valor(datos().horario)"
           (ngModelChange)="escribir(datos().horario, $event)"
         />
-      </app-campo>
+        <mat-hint>Como se dice en voz alta: «Lunes a sábado de 9:00 a 20:00».</mat-hint>
+      </mat-form-field>
 
-      <app-campo
-        etiqueta="WhatsApp"
-        ayuda="Los 9 dígitos, el +56 ya va. Si lo dejas en blanco, no hay botón para escribir."
-      >
+      <mat-form-field>
+        <mat-label>WhatsApp</mat-label>
         <!-- El +56 fijo y solo los 9 dígitos (T121), como en «Datos del club». -->
-        <span class="campo-con-prefijo">
-          <span class="prefijo">+56</span>
-          <input
-            appCampoControl
-            appTelefono
-            class="campo"
-            name="whatsapp"
-            [ngModel]="valor(datos().whatsapp)"
-            (ngModelChange)="escribir(datos().whatsapp, $event)"
-          />
-        </span>
-      </app-campo>
+        <span matTextPrefix>+56&nbsp;</span>
+        <input
+          matInput
+          appTelefono
+          #telefono="ngModel"
+          name="whatsapp"
+          [ngModel]="valor(datos().whatsapp)"
+          (ngModelChange)="escribir(datos().whatsapp, $event)"
+        />
+        <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+        <mat-hint>
+          Los 9 dígitos, el +56 ya va. Si lo dejas en blanco, no hay botón para escribir.
+        </mat-hint>
+      </mat-form-field>
 
       @if (lugar() === 'GIMNASIO') {
         <!-- El tope de una clase grupal de preparación física (T231): el servidor rechaza
              una más grande. La individual es de un alumno y no lo usa. -->
-        <app-campo
-          etiqueta="Cupo de una clase grupal"
-          ayuda="Cuántos alumnos caben como máximo, de 2 a 40."
-        >
-          <input
-            appCampoControl
-            class="campo w-28"
+        <mat-form-field>
+          <mat-label>Cupo de una clase grupal</mat-label>
+          <input matInput class="w-28"
             type="number"
             name="cupoGrupal"
             min="2"
@@ -154,7 +151,8 @@ const LARGO_HORARIO = 120;
             [ngModel]="cupoGrupal()"
             (ngModelChange)="cupoEditado.set($event); guardado.set(false)"
           />
-        </app-campo>
+          <mat-hint>Cuántos alumnos caben como máximo, de 2 a 40.</mat-hint>
+        </mat-form-field>
       }
 
       @if (error(); as falla) {
@@ -183,6 +181,8 @@ const LARGO_HORARIO = 120;
   `,
 })
 export class LugarDelClubPanel {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly api = inject(AdminCanchas);
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);

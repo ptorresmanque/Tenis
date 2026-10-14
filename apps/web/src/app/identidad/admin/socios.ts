@@ -21,7 +21,6 @@ import { MatInput } from '@angular/material/input';
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Paginacion } from '../../ui/paginacion';
@@ -67,8 +66,6 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
     Esqueleto,
     FormsModule,
     Aviso,
-    Campo,
-    CampoControl,
     EstadoVacio,
     Insignia,
     Paginacion,
@@ -92,29 +89,29 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
       </p>
 
       <form class="mt-3 flex flex-wrap items-end gap-3" (ngSubmit)="invitar()">
-        <app-campo etiqueta="Correo" class="w-64">
+        <mat-form-field class="w-64">
+          <mat-label>Correo</mat-label>
           <input
-            appCampoControl
+            matInput
             id="email-socio"
             name="email-socio"
             type="email"
-            class="campo"
             [(ngModel)]="formulario.email"
           />
-        </app-campo>
+        </mat-form-field>
 
         <!-- Sin texto de ayuda: el marcador "automático" ya lo dice, y una línea
              de más acá desalinea la fila entera del formulario. -->
-        <app-campo etiqueta="Número" class="w-32">
+        <mat-form-field class="w-32">
+          <mat-label>Número</mat-label>
           <input
-            appCampoControl
+            matInput
             id="numero-socio"
             name="numero-socio"
-            class="campo"
             placeholder="automático"
             [(ngModel)]="formulario.numeroSocio"
           />
-        </app-campo>
+        </mat-form-field>
 
         <mat-form-field class="abre-al-tocar">
           <mat-label>Al día hasta</mat-label>
@@ -197,17 +194,17 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
       </div>
 
       <div class="mt-3 flex flex-wrap items-end gap-3">
-        <app-campo etiqueta="Buscar" class="min-w-64 flex-1">
+        <mat-form-field class="min-w-64 flex-1">
+          <mat-label>Buscar</mat-label>
           <input
-            appCampoControl
+            matInput
             type="search"
             name="buscar"
-            class="campo"
             placeholder="Nombre, correo o número"
             [ngModel]="busqueda()"
             (ngModelChange)="busqueda.set($event)"
           />
-        </app-campo>
+        </mat-form-field>
 
         <app-selector
           etiqueta="Filtrar por estado"

@@ -1,4 +1,5 @@
 import { Provider } from '@angular/core';
+import { AbstractControl } from '@angular/forms';
 import {
   MAT_FORM_FIELD_DEFAULT_OPTIONS,
   MatFormFieldDefaultOptions,
@@ -24,4 +25,21 @@ export function proveerCampos(): Provider[] {
   };
 
   return [{ provide: MAT_FORM_FIELD_DEFAULT_OPTIONS, useValue: opciones }];
+}
+
+/**
+ * El mensaje de un campo que no pasa su validación, para su `mat-error` (T245). Uno solo para
+ * toda la web: el mismo error se dice igual en cada formulario. Vacío si no hay error.
+ */
+export function errorDelCampo(control: AbstractControl | null): string {
+  if (!control) return '';
+  if (control.hasError('required')) return 'Falta este dato.';
+  if (control.hasError('email')) return 'Escribe un correo válido, como nombre@correo.cl.';
+  // El +56 ya va adelante (T121): lo que falta son los 9 dígitos.
+  if (control.hasError('telefono')) return 'Son 9 dígitos, como 9 8765 4321.';
+
+  const corto = control.getError('minlength') as { requiredLength: number } | null;
+  if (corto) return `Tiene que tener al menos ${corto.requiredLength} caracteres.`;
+
+  return '';
 }

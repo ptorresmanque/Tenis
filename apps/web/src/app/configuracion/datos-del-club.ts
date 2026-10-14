@@ -2,12 +2,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../ui/campos';
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 import { TelefonoDirective } from '../ui/telefono';
 
 /** Cada dato con su etiqueta y por qué se pide. El orden es el de la pantalla. */
@@ -100,16 +102,17 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 @Component({
   selector: 'app-datos-del-club',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     NgTemplateOutlet,
     Aviso,
-    Campo,
-    CampoControl,
     TelefonoDirective,
   ],
+  providers: [proveerCampos()],
   template: `
-    <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
+    <form class="grid max-w-xl gap-4" #formulario="ngForm" (ngSubmit)="guardar()">
       @if (club.error()) {
         <app-aviso variante="error">
           No se pudieron cargar los datos del club. Reintenta en un momento.
@@ -118,35 +121,42 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 
       <!-- Un campo, igual para los datos y para las redes. -->
       <ng-template #control let-dato>
-        <app-campo
-          [etiqueta]="dato.etiqueta"
-          [ayuda]="dato.ayuda"
-          [obligatorio]="dato.campo === 'nombre'"
-        >
+        <mat-form-field>
+          <mat-label>
+            {{ dato.etiqueta }}
+            @if (dato.campo === 'nombre') {
+              <span aria-hidden="true">*</span>
+            }
+          </mat-label>
+          <!-- El +56 fijo y solo los 9 dígitos (T121). Cada @if con un solo elemento: así
+               Angular lo proyecta en el prefijo o en el control del campo de Material. -->
           @if (dato.tipo === 'tel') {
-            <!-- El +56 fijo y solo los 9 dígitos (T121). -->
-            <span class="campo-con-prefijo">
-              <span class="prefijo">+56</span>
-              <input
-                appCampoControl
-                appTelefono
-                class="campo"
-                [name]="dato.campo"
-                [ngModel]="valor(dato.campo)"
-                (ngModelChange)="escribir(dato.campo, $event)"
-              />
-            </span>
+            <span matTextPrefix>+56&nbsp;</span>
+          }
+          @if (dato.tipo === 'tel') {
+            <input
+              matInput
+              appTelefono
+              [name]="dato.campo"
+              [ngModel]="valor(dato.campo)"
+              (ngModelChange)="escribir(dato.campo, $event)"
+            />
           } @else {
             <input
-              appCampoControl
-              class="campo"
+              matInput
               [name]="dato.campo"
               [type]="dato.tipo"
               [ngModel]="valor(dato.campo)"
               (ngModelChange)="escribir(dato.campo, $event)"
             />
           }
-        </app-campo>
+          @if (dato.ayuda) {
+            <mat-hint>{{ dato.ayuda }}</mat-hint>
+          }
+          @if (dato.tipo === 'tel') {
+            <mat-error>{{ errorDelCampo(formulario.form.get(dato.campo)) }}</mat-error>
+          }
+        </mat-form-field>
       </ng-template>
 
       @for (dato of DATOS; track dato.campo) {
@@ -194,6 +204,8 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
   `,
 })
 export class DatosDelClub {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly api = inject(AdminCanchas);
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);

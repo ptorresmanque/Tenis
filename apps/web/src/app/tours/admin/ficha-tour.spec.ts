@@ -47,8 +47,8 @@ describe('FichaTour', () => {
   };
 
   const campo = (elemento: HTMLElement, etiqueta: string) =>
-    Array.from(elemento.querySelectorAll('label'))
-      .find((l) => l.textContent?.includes(etiqueta))
+    Array.from(elemento.querySelectorAll('mat-form-field'))
+      .find((l) => l.querySelector('mat-label')?.textContent?.includes(etiqueta))
       ?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
 
   const boton = (elemento: HTMLElement, texto: string) =>
@@ -82,7 +82,7 @@ describe('FichaTour', () => {
     expect(campo(elemento, 'Descripción')?.tagName).toBe('TEXTAREA');
     expect(campo(elemento, 'Descripción')?.value).toBe('La liga del club.');
     expect(campo(elemento, 'Nombre')?.maxLength).toBe(80);
-    expect(campo(elemento, 'Descripción')?.closest('label')?.textContent).toContain(
+    expect(campo(elemento, 'Descripción')?.closest('mat-form-field')?.textContent).toContain(
       'Quedan 1983 caracteres',
     );
   });

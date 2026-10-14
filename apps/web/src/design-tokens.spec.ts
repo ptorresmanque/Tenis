@@ -1496,6 +1496,31 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**ningún `<app-campo>`** (T245, I1): la etiqueta, la ayuda y el error son de Material', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-campo(?![\w-])/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**un campo que se valida dice por qué no pasa**: su `mat-error` (T245)', () => {
+    // Material pinta de rojo el campo inválido que se tocó; sin el texto, el rojo no le dice a
+    // nadie qué corregir. Vale para los formularios con `Validators` y para el teléfono, que
+    // se valida solo (appTelefono).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const valida = contenido.includes('Validators.');
+      for (const [campo] of contenido.matchAll(/<mat-form-field\b[\s\S]*?<\/mat-form-field>/g)) {
+        const debe = (valida && /formControlName/.test(campo)) || /\bappTelefono\b/.test(campo);
+        if (debe && !campo.includes('<mat-error')) infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**el arranque no importa el campo de Material** (I6)', () => {
     for (const archivo of ['src/app/app.config.ts', 'src/app/ui/material.ts']) {
       const fuente = readFileSync(join(process.cwd(), archivo), 'utf8');

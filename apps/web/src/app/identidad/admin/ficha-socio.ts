@@ -19,7 +19,6 @@ import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import {
   CambiosDeFicha,
   EstadoSocio,
@@ -61,8 +60,6 @@ const CAMPOS: Record<string, string> = {
     MatButton,
     FormsModule,
     Aviso,
-    Campo,
-    CampoControl,
     Esqueleto,
     HistorialDeObservaciones,
   ],
@@ -82,27 +79,27 @@ const CAMPOS: Record<string, string> = {
       <p class="text-sm text-muted-foreground">{{ socio().usuario.email }}</p>
 
       <form class="mt-4 grid gap-3" (ngSubmit)="guardar()">
-        <app-campo etiqueta="Número de socio">
+        <mat-form-field>
+          <mat-label>Número de socio</mat-label>
           <input
-            appCampoControl
+            matInput
             name="numeroSocio"
-            class="campo"
             [(ngModel)]="borrador.numeroSocio"
           />
-        </app-campo>
+        </mat-form-field>
 
-        <app-campo etiqueta="Estado">
+        <mat-form-field>
+          <mat-label>Estado</mat-label>
           <select
-            appCampoControl
+            matNativeControl
             name="estado"
-            class="campo"
             [(ngModel)]="borrador.estado"
           >
             @for (opcion of ESTADOS; track opcion.valor) {
               <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
             }
           </select>
-        </app-campo>
+        </mat-form-field>
 
         <mat-form-field>
           <mat-label>Cuota al día hasta</mat-label>
@@ -120,12 +117,11 @@ const CAMPOS: Record<string, string> = {
           <mat-hint>Es el último día en que puede reservar.</mat-hint>
         </mat-form-field>
 
-        <app-campo
-          etiqueta="Motivo"
-          ayuda="Queda en el historial. Sin él, en seis meses nadie sabe por qué."
-        >
-          <input appCampoControl name="motivo" class="campo" [(ngModel)]="motivo" />
-        </app-campo>
+        <mat-form-field>
+          <mat-label>Motivo</mat-label>
+          <input matInput name="motivo" [(ngModel)]="motivo" />
+          <mat-hint>Queda en el historial. Sin él, en seis meses nadie sabe por qué.</mat-hint>
+        </mat-form-field>
 
         @if (error(); as falla) {
           <app-aviso variante="error">{{ falla }}</app-aviso>

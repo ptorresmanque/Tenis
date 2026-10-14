@@ -12,12 +12,14 @@ import {
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { irAPagar } from '../../core/pagos/ir-a-pagar';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { recordarPagoPendiente } from './pago-pendiente';
 import { Franja, franjasParaLaApi, RestriccionHoraria } from './restriccion-horaria';
@@ -50,15 +52,16 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-inscripcion-a-torneo',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     RouterLink,
     Aviso,
-    Campo,
-    CampoControl,
     RestriccionHoraria,
     TelefonoDirective,
   ],
+  providers: [proveerCampos()],
   template: `
     <!-- La forma de la A (TV4.2): la caja con sombra y sin borde, el título como
          rótulo. Los campos, los pasos y el envío son los de siempre. -->
@@ -111,80 +114,73 @@ const enBlanco = () => ({
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         @if (!comoSocio()) {
-          <app-campo etiqueta="Nombre" [obligatorio]="true">
+          <mat-form-field>
+            <mat-label>Nombre <span aria-hidden="true">*</span></mat-label>
             <input
-              appCampoControl
-              class="campo"
+              matInput
               name="nombre"
               autocomplete="given-name"
               maxlength="80"
               [(ngModel)]="datos.nombre"
             />
-          </app-campo>
+          </mat-form-field>
 
-          <app-campo etiqueta="Apellidos" [obligatorio]="true">
+          <mat-form-field>
+            <mat-label>Apellidos <span aria-hidden="true">*</span></mat-label>
             <input
-              appCampoControl
-              class="campo"
+              matInput
               name="apellido"
               autocomplete="family-name"
               maxlength="80"
               [(ngModel)]="datos.apellido"
             />
-          </app-campo>
+          </mat-form-field>
 
-          <app-campo
-            etiqueta="Teléfono"
-            ayuda="Con el que el club te puede llamar. Por ejemplo +56 9 8765 4321."
-            [obligatorio]="true"
-          >
-            <span class="campo-con-prefijo">
-              <span class="prefijo">+56</span>
-              <input
-                appTelefono
-                appCampoControl
-                class="campo"
-                name="telefono"
-                [(ngModel)]="datos.telefono"
-              />
-            </span>
-          </app-campo>
-
-          <app-campo
-            etiqueta="Correo"
-            ayuda="Te escribimos a este correo para confirmar tu inscripción y avisarte de tus partidos."
-            [obligatorio]="true"
-          >
+          <mat-form-field>
+            <mat-label>Teléfono <span aria-hidden="true">*</span></mat-label>
+            <span matTextPrefix>+56&nbsp;</span>
             <input
-              appCampoControl
-              class="campo"
+              matInput
+              appTelefono
+              #telefono="ngModel"
+              name="telefono"
+              [(ngModel)]="datos.telefono"
+            />
+            <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+            <mat-hint>Con el que el club te puede llamar. Por ejemplo +56 9 8765 4321.</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Correo <span aria-hidden="true">*</span></mat-label>
+            <input
+              matInput
               type="email"
               name="email"
               autocomplete="email"
               maxlength="191"
               [(ngModel)]="datos.email"
             />
-          </app-campo>
+            <mat-hint>
+              Te escribimos a este correo para confirmar tu inscripción y avisarte de tus partidos.
+            </mat-hint>
+          </mat-form-field>
 
-          <app-campo
-            etiqueta="Club o de dónde vienes"
-            ayuda="Si no juegas en un club, escribe tu comuna."
-            [obligatorio]="true"
-          >
+          <mat-form-field>
+            <mat-label>Club o de dónde vienes <span aria-hidden="true">*</span></mat-label>
             <input
-              appCampoControl
-              class="campo"
+              matInput
               name="procedencia"
               maxlength="120"
               [(ngModel)]="datos.procedencia"
             />
-          </app-campo>
+            <mat-hint>Si no juegas en un club, escribe tu comuna.</mat-hint>
+          </mat-form-field>
         }
 
-        <app-campo etiqueta="Categoría" class="sm:col-span-2" [obligatorio]="true">
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Categoría <span aria-hidden="true">*</span></mat-label>
           <select
-            appCampoControl
-            class="campo"
+            matNativeControl
             name="categoria"
             [(ngModel)]="datos.categoriaJuegoId"
           >
@@ -200,7 +196,7 @@ const enBlanco = () => ({
               </option>
             }
           </select>
-        </app-campo>
+        </mat-form-field>
       </div>
 
       <app-restriccion-horaria [(franjas)]="franjas" />
@@ -251,21 +247,24 @@ const enBlanco = () => ({
           </div>
 
           @if (datos.medioPago === 'TRANSFERENCIA') {
-            <app-campo
-              etiqueta="Comprobante de la transferencia"
-              ayuda="Una foto o captura, JPG o PNG."
-              class="mt-3 block"
-              [obligatorio]="true"
-            >
+            <!-- Material no tiene campo de archivo, y matInput no admite type="file": el
+                 nativo, con su etiqueta y su ayuda conectadas como en los demás (T245). -->
+            <label class="mt-3 grid gap-1.5">
+              <span class="text-sm font-semibold">
+                Comprobante de la transferencia <span aria-hidden="true">*</span>
+              </span>
               <input
-                appCampoControl
-                class="campo"
+                class="rounded-control border border-border bg-card p-3 text-sm"
                 type="file"
                 name="comprobante"
                 accept="image/jpeg,image/png"
+                aria-describedby="comprobante-ayuda"
                 (change)="elegirComprobante($event)"
               />
-            </app-campo>
+              <span id="comprobante-ayuda" class="text-xs text-muted-foreground">
+                Una foto o captura, JPG o PNG.
+              </span>
+            </label>
           }
         </fieldset>
       }
@@ -355,6 +354,8 @@ const enBlanco = () => ({
   `,
 })
 export class InscripcionATorneo {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly api = inject(Torneos);
   private readonly auth = inject(Auth);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);

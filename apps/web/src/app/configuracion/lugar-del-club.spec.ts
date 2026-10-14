@@ -57,8 +57,8 @@ describe('LugarDelClubPanel', () => {
 
   /** Un campo del formulario por su etiqueta, como lo busca una persona. */
   const campo = (elemento: HTMLElement, etiqueta: string) =>
-    Array.from(elemento.querySelectorAll('form label'))
-      .find((l) => l.textContent?.includes(etiqueta))
+    Array.from(elemento.querySelectorAll('mat-form-field'))
+      .find((l) => l.querySelector('mat-label')?.textContent?.includes(etiqueta))
       ?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
 
   const escribir = async (
@@ -86,7 +86,8 @@ describe('LugarDelClubPanel', () => {
     const { elemento } = await montar();
     const whatsapp = campo(elemento, 'WhatsApp');
 
-    expect(whatsapp?.closest('.campo-con-prefijo')?.textContent).toContain('+56');
+    const prefijo = whatsapp?.closest('mat-form-field')?.querySelector('[matTextPrefix]');
+    expect(prefijo?.textContent).toContain('+56');
     expect(whatsapp?.value.replace(/\D/g, '')).toBe('987654321');
   });
 
@@ -96,7 +97,7 @@ describe('LugarDelClubPanel', () => {
 
     expect(descripcion.maxLength).toBe(600);
     expect(campo(elemento, 'Horario')!.maxLength).toBe(120);
-    expect(descripcion.closest('label')?.textContent).toContain('Quedan 600 caracteres');
+    expect(descripcion.closest('mat-form-field')?.textContent).toContain('Quedan 600 caracteres');
   });
 
   it('**guarda solo lo de su lugar**, con lo que se escribió', async () => {

@@ -64,11 +64,11 @@ describe('DatosDelClub', () => {
       return { fixture, api, elemento: fixture.nativeElement as HTMLElement };
     };
 
-    // Por su etiqueta, como lo encuentra una persona: la etiqueta envuelve al control
-    // (ui/campo.ts) y el `name` lo toma NgModel, no el elemento.
+    // Por su etiqueta, como lo encuentra una persona: la `mat-label` de su campo (T245), y
+    // el `name` lo toma NgModel, no el elemento.
     const campoUbicacion = (elemento: HTMLElement) =>
-      Array.from(elemento.querySelectorAll('label'))
-        .find((l) => l.textContent?.includes('Ubicación en el mapa'))
+      Array.from(elemento.querySelectorAll('mat-form-field'))
+        .find((l) => l.querySelector('mat-label')?.textContent?.includes('Ubicación en el mapa'))
         ?.querySelector('input');
 
     it('muestra la guardada como las coordenadas, que es lo que se puede volver a pegar', async () => {
@@ -143,8 +143,8 @@ describe('DatosDelClub', () => {
     };
 
     const campo = (elemento: HTMLElement, etiqueta: string) =>
-      Array.from(elemento.querySelectorAll('label'))
-        .find((l) => l.textContent?.includes(etiqueta))
+      Array.from(elemento.querySelectorAll('mat-form-field'))
+        .find((l) => l.querySelector('mat-label')?.textContent?.includes(etiqueta))
         ?.querySelector('input');
 
     it('van agrupadas bajo "Redes sociales", con lo que está guardado', async () => {
@@ -161,7 +161,8 @@ describe('DatosDelClub', () => {
       const { elemento } = await montar();
       const whatsapp = campo(elemento, 'WhatsApp');
 
-      expect(whatsapp?.closest('.campo-con-prefijo')?.textContent).toContain('+56');
+      const prefijo = whatsapp?.closest('mat-form-field')?.querySelector('[matTextPrefix]');
+      expect(prefijo?.textContent).toContain('+56');
       expect(whatsapp?.value.replace(/\D/g, '')).toBe('987654321');
     });
 
