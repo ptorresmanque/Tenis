@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { AdminCanchas, CanchaAdmin } from './admin-canchas.service';
 import { EditorFranjas } from './editor-franjas';
 
@@ -197,23 +198,24 @@ describe('EditorFranjas', () => {
    */
   describe('a qué canchas aplica (T99)', () => {
     const CLUB = { id: null, nombre: 'El club', horarios: [], franjas: [] };
-    const aplicaA = () =>
-      elemento().querySelector<HTMLSelectElement>('#aplica-club');
+    const APLICA_A = 'mat-select#aplica-club';
     const enviar = async () => {
       elemento().querySelector('form')?.dispatchEvent(new Event('submit'));
       await fixture.whenStable();
     };
 
     it('en una cancha no se ofrece: ya se sabe si es techada', () => {
-      expect(elemento().querySelector('select')).toBeNull();
+      expect(elemento().querySelector('mat-select')).toBeNull();
     });
 
     it('en las generales se ofrece, y por omisión aplica a todas', async () => {
       await montar(CLUB as never);
 
       expect(
-        Array.from(aplicaA()!.options).map((o) => o.textContent?.trim()),
+        textosDe(fixture, APLICA_A),
       ).toEqual(['Todas las canchas', 'Solo techadas', 'Solo al aire libre']);
+      // «Todas» vale null, y mat-select no muestra una opción nula si no se le pide (T248).
+      expect(elemento().querySelector(APLICA_A)?.textContent?.trim()).toBe('Todas las canchas');
 
       await enviar();
       expect(api.crearFranja).toHaveBeenCalledWith(
@@ -224,14 +226,25 @@ describe('EditorFranjas', () => {
     it('**la de solo techadas viaja con su tipo**', async () => {
       await montar(CLUB as never);
 
-      aplicaA()!.value = aplicaA()!.options[1].value;
-      aplicaA()!.dispatchEvent(new Event('change'));
-      await fixture.whenStable();
+      await elegirOpcion(fixture, APLICA_A, true);
       await enviar();
 
       expect(api.crearFranja).toHaveBeenCalledWith(
         expect.objectContaining({ canchaId: null, techada: true }),
       );
+    });
+
+    it('volver a «Todas las canchas» después de otra la deja en todas', async () => {
+      await montar(CLUB as never);
+
+      await elegirOpcion(fixture, APLICA_A, true);
+      await elegirOpcion(fixture, APLICA_A, null);
+      await enviar();
+
+      expect(api.crearFranja).toHaveBeenCalledWith(
+        expect.objectContaining({ canchaId: null, techada: null }),
+      );
+      expect(elemento().querySelector(APLICA_A)?.textContent?.trim()).toBe('Todas las canchas');
     });
 
     it('la lista dice a qué canchas aplica cada tarifa general', async () => {

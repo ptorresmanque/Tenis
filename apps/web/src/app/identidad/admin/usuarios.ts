@@ -2,14 +2,17 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras, fechaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { Profesores } from '../../clases/profesores.service';
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { TelefonoPipe } from '../../core/telefono';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import { Esqueleto } from '../../ui/esqueleto';
 import { Insignia } from '../../ui/insignia';
 import { AltaDeSocio, Socios } from './socios.service';
@@ -31,16 +34,18 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 @Component({
   selector: 'app-usuarios',
   imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     RouterLink,
     Aviso,
-    Campo,
-    CampoControl,
     Esqueleto,
     Insignia,
     TelefonoPipe,
   ],
+  providers: [proveerCampos()],
   template: `
     <header class="cabecera-panel">
       <div>
@@ -53,15 +58,15 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
     </header>
 
     <form role="search" class="mt-4 flex flex-wrap items-end gap-3" (ngSubmit)="buscar()">
-      <app-campo etiqueta="Buscar por nombre o correo" class="min-w-64 flex-1">
+      <mat-form-field class="min-w-64 flex-1">
+        <mat-label>Buscar por nombre o correo</mat-label>
         <input
-          appCampoControl
+          matInput
           name="busqueda"
           type="search"
-          class="campo"
           [(ngModel)]="textoBuscado"
         />
-      </app-campo>
+      </mat-form-field>
       <button matButton="outlined" type="submit">Buscar</button>
     </form>
 
@@ -187,14 +192,14 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                     class="flex basis-full flex-wrap items-end gap-3"
                     (ngSubmit)="hacerSocio(usuario)"
                   >
-                    <app-campo etiqueta="Número de socio (opcional)" class="min-w-48">
+                    <mat-form-field class="min-w-48">
+                      <mat-label>Número de socio (opcional)</mat-label>
                       <input
-                        appCampoControl
+                        matInput
                         name="numero-socio"
-                        class="campo"
                         [(ngModel)]="numeroSocio"
                       />
-                    </app-campo>
+                    </mat-form-field>
                     <!-- Hacer socio y hacer profesor se excluyen: se abre uno a la vez.
                          mat-guidelines-ignore: multiples-filled -->
                     <button
@@ -220,44 +225,44 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                     class="grid basis-full gap-3 sm:grid-cols-2"
                     (ngSubmit)="hacerProfesor(usuario)"
                   >
-                    <label class="block sm:col-span-2">
-                      <span class="text-sm font-medium">Ficha de profesor</span>
-                      <select class="campo mt-1" name="ficha" [(ngModel)]="ficha">
-                        <option value="" disabled>Elige una ficha</option>
+                    <mat-form-field class="sm:col-span-2">
+                      <mat-label>Ficha de profesor</mat-label>
+                      <mat-select name="ficha" [(ngModel)]="ficha">
+                        <mat-option value="" disabled>Elige una ficha</mat-option>
                         @for (sinCuenta of fichasSinCuenta(); track sinCuenta.id) {
-                          <option [value]="sinCuenta.id">
+                          <mat-option [value]="sinCuenta.id">
                             {{ sinCuenta.nombreVisible }} · {{ sinCuenta.especialidad }}
-                          </option>
+                          </mat-option>
                         }
-                        <option value="nueva">Crear una ficha nueva</option>
-                      </select>
-                    </label>
+                        <mat-option value="nueva">Crear una ficha nueva</mat-option>
+                      </mat-select>
+                    </mat-form-field>
                     @if (ficha === 'nueva') {
-                      <app-campo etiqueta="Nombre con que se anuncia">
+                      <mat-form-field>
+                        <mat-label>Nombre con que se anuncia</mat-label>
                         <input
-                          appCampoControl
+                          matInput
                           name="nombre-visible"
-                          class="campo"
                           [(ngModel)]="fichaNueva.nombreVisible"
                         />
-                      </app-campo>
-                      <app-campo etiqueta="Teléfono">
+                      </mat-form-field>
+                      <mat-form-field>
+                        <mat-label>Teléfono</mat-label>
                         <input
-                          appCampoControl
+                          matInput
                           name="telefono"
                           type="tel"
-                          class="campo"
                           [(ngModel)]="fichaNueva.telefono"
                         />
-                      </app-campo>
-                      <app-campo etiqueta="Especialidad" class="sm:col-span-2">
+                      </mat-form-field>
+                      <mat-form-field class="sm:col-span-2">
+                        <mat-label>Especialidad</mat-label>
                         <input
-                          appCampoControl
+                          matInput
                           name="especialidad"
-                          class="campo"
                           [(ngModel)]="fichaNueva.especialidad"
                         />
-                      </app-campo>
+                      </mat-form-field>
                     }
                     <div class="flex flex-wrap gap-2 sm:col-span-2">
                       <button
@@ -340,7 +345,7 @@ export class UsuariosPanel {
   protected readonly abierta = signal<{ id: number; accion: 'socio' | 'profesor' } | null>(null);
   protected numeroSocio = '';
   /** El id de una ficha sin cuenta, `'nueva'` o vacío. */
-  protected ficha = '';
+  protected ficha: number | 'nueva' | '' = '';
   protected fichaNueva = { nombreVisible: '', telefono: '', especialidad: '' };
 
   /** Las fichas que no tienen cuenta: las únicas que se pueden vincular. Solo al abrir. */

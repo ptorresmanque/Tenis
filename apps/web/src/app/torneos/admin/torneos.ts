@@ -3,6 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora } from '../../ui/fecha-y-hora';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
@@ -17,7 +23,6 @@ import {
   Torneo,
   Torneos,
 } from '../torneos.service';
-import { CampoFecha } from '../../ui/campo-fecha';
 import { ElegirNivel, NivelElegido } from './elegir-nivel';
 
 /**
@@ -46,13 +51,16 @@ const GRUPOS = [
 
 type Grupo = (typeof GRUPOS)[number]['id'];
 
-/** El formulario vacío. Función y no constante, para no compartir el objeto. */
+/**
+ * El formulario vacío. Función y no constante, para no compartir el objeto. Las fechas, como
+ * las entrega el calendario de Material, y a texto recién al crear el torneo (A5, T244).
+ */
 const enBlanco = () => ({
   nombre: '',
   superficie: '' as string,
-  fechaInicio: '',
-  fechaFin: '',
-  cierreInscripcion: '',
+  fechaInicio: null as Date | null,
+  fechaFin: null as Date | null,
+  cierreInscripcion: null as Date | null,
 });
 
 /**
@@ -62,6 +70,10 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-torneos',
   imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     MatIcon,
     Esqueleto,
@@ -70,9 +82,9 @@ const enBlanco = () => ({
     Aviso,
     EstadoVacio,
     Insignia,
-    CampoFecha,
     ElegirNivel,
   ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
          crear; va como secundaria porque la principal es el "Crear torneo" del
@@ -113,52 +125,70 @@ const enBlanco = () => ({
       <h2 class="rotulo-seccion">Crear un torneo</h2>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Nombre</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Nombre</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="nombre"
             placeholder="Copa de verano"
             [(ngModel)]="datos.nombre"
           />
-        </label>
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-fechaInicio">Empieza</label>
-          <app-campo-fecha
-            inputId="nuevo-fechaInicio"
+        <mat-form-field>
+          <mat-label>Empieza</mat-label>
+          <input
+            matInput
+            id="nuevo-fechaInicio"
             name="fechaInicio"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFechaInicio"
             [(ngModel)]="datos.fechaInicio"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
+          <mat-datepicker #calendarioFechaInicio />
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-fechaFin">Termina</label>
-          <app-campo-fecha
-            inputId="nuevo-fechaFin"
+        <mat-form-field>
+          <mat-label>Termina</mat-label>
+          <input
+            matInput
+            id="nuevo-fechaFin"
             name="fechaFin"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFechaFin"
             [(ngModel)]="datos.fechaFin"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
+          <mat-datepicker #calendarioFechaFin />
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-cierreInscripcion">Cierra la inscripción</label>
-          <app-campo-fecha
-            inputId="nuevo-cierreInscripcion"
+        <mat-form-field>
+          <mat-label>Cierra la inscripción</mat-label>
+          <input
+            matInput
+            id="nuevo-cierreInscripcion"
             name="cierreInscripcion"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioCierreInscripcion"
             [(ngModel)]="datos.cierreInscripcion"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioCierreInscripcion" />
+          <mat-datepicker #calendarioCierreInscripcion />
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Superficie</span>
-          <select class="campo mt-1" name="superficie" [(ngModel)]="datos.superficie">
-            <option value="">Sin definir</option>
+        <mat-form-field>
+          <mat-label>Superficie</mat-label>
+          <mat-select name="superficie" [(ngModel)]="datos.superficie">
+            <mat-option value="">Sin definir</mat-option>
             @for (superficie of superficies; track superficie[0]) {
-              <option [value]="superficie[0]">{{ superficie[1] }}</option>
+              <mat-option [value]="superficie[0]">{{ superficie[1] }}</mat-option>
             }
-          </select>
-        </label>
+          </mat-select>
+        </mat-form-field>
 
         <!-- **El primer tour va en el alta** (D10): un torneo que no suma para nada no
              tiene ranking. Los demás se agregan en Ajustes. -->
@@ -195,15 +225,15 @@ const enBlanco = () => ({
         </button>
       }
 
-      <label class="ms-auto flex items-center gap-2 text-sm">
-        <span class="text-muted-foreground">Año</span>
-        <select class="campo campo-chico" name="anio" [(ngModel)]="anio">
-          <option value="">Todos</option>
+      <mat-form-field class="chico">
+        <mat-label>Año</mat-label>
+        <mat-select name="anio" [(ngModel)]="anio">
+          <mat-option value="">Todos</mat-option>
           @for (uno of anios(); track uno) {
-            <option [value]="uno">{{ uno }}</option>
+            <mat-option [value]="uno">{{ uno }}</mat-option>
           }
-        </select>
-      </label>
+        </mat-select>
+      </mat-form-field>
     </div>
 
     @if (torneos.isLoading()) {
@@ -336,7 +366,7 @@ export class TorneosPanel {
    */
   protected readonly grupo_ = signal<Grupo>('activos');
 
-  /** El año, o todos. Como cadena: sale de un `<select>`. */
+  /** El año, o todos. Como cadena: es el valor de las opciones de su lista. */
   protected anio = '';
 
   protected readonly GRUPOS = GRUPOS;
@@ -378,7 +408,6 @@ export class TorneosPanel {
     return GRUPOS.find((uno) => uno.id === grupo)!.estados.includes(torneo.estado);
   }
 
-
   protected recargar(): void {
     this.version.update((veces) => veces + 1);
   }
@@ -395,7 +424,10 @@ export class TorneosPanel {
 
     await this.intentar('crearTorneo', async () => {
       const torneo = await this.api.crearTorneo({
-        ...this.datos,
+        nombre: this.datos.nombre,
+        fechaInicio: fechaATexto(this.datos.fechaInicio),
+        fechaFin: fechaATexto(this.datos.fechaFin),
+        cierreInscripcion: fechaATexto(this.datos.cierreInscripcion),
         superficie: this.datos.superficie || null,
         tours: [{ tourId, nivelId }],
       });

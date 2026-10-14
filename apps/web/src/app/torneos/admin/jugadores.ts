@@ -1,6 +1,10 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { mensajeDelServidor } from '../../core/errores';
@@ -27,6 +31,9 @@ import { TelefonoDirective } from '../../ui/telefono';
 @Component({
   selector: 'app-jugadores',
   imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     Esqueleto,
     FormsModule,
@@ -38,6 +45,7 @@ import { TelefonoDirective } from '../../ui/telefono';
     TelefonoPipe,
     TelefonoDirective,
   ],
+  providers: [proveerCampos()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -72,39 +80,39 @@ import { TelefonoDirective } from '../../ui/telefono';
 
       <div class="mt-3 flex flex-wrap items-end gap-3">
         @if (tipo() === 'socio') {
-          <label class="min-w-64 flex-1">
-            <span class="text-sm font-medium">Socio</span>
-            <select class="campo mt-1" name="socioId" [(ngModel)]="socioId">
-              <option [value]="0" disabled>Elige un socio</option>
+          <mat-form-field class="min-w-64 flex-1">
+            <mat-label>Socio</mat-label>
+            <mat-select name="socioId" [(ngModel)]="socioId">
+              <mat-option [value]="0" disabled>Elige un socio</mat-option>
               @for (socio of sociosSinJugador(); track socio.id) {
-                <option [value]="socio.id">
+                <mat-option [value]="socio.id">
                   {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
                   {{ socio.usuario.apellido }}
-                </option>
+                </mat-option>
               }
-            </select>
-          </label>
+            </mat-select>
+          </mat-form-field>
         } @else {
-          <label class="flex-1">
-            <span class="text-sm font-medium">Nombre</span>
-            <input class="campo mt-1" name="nombre" [(ngModel)]="datos.nombre" />
-          </label>
-          <label class="flex-1">
-            <span class="text-sm font-medium">Apellido</span>
-            <input class="campo mt-1" name="apellido" [(ngModel)]="datos.apellido" />
-          </label>
-          <label class="flex-1">
-            <span class="text-sm font-medium">Teléfono</span>
-            <span class="campo-con-prefijo mt-1">
-              <span class="prefijo">+56</span>
-              <input
-                appTelefono
-                class="campo"
-                name="telefono"
-                [(ngModel)]="datos.telefono"
-              />
-            </span>
-          </label>
+          <mat-form-field class="flex-1">
+            <mat-label>Nombre</mat-label>
+            <input matInput name="nombre" [(ngModel)]="datos.nombre" />
+          </mat-form-field>
+          <mat-form-field class="flex-1">
+            <mat-label>Apellido</mat-label>
+            <input matInput name="apellido" [(ngModel)]="datos.apellido" />
+          </mat-form-field>
+          <mat-form-field class="flex-1">
+            <mat-label>Teléfono</mat-label>
+            <span matTextPrefix>+56&nbsp;</span>
+            <input
+              matInput
+              appTelefono
+              #telefono="ngModel"
+              name="telefono"
+              [(ngModel)]="datos.telefono"
+            />
+            <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+          </mat-form-field>
         }
 
         <button
@@ -159,22 +167,22 @@ import { TelefonoDirective } from '../../ui/telefono';
             @if (!jugador.socioId) {
               <!-- Enlazar escribe un campo: el jugador es el mismo y sus puntos
                    siguen siendo suyos. -->
-              <label class="ms-auto flex items-center gap-2">
-                <span class="text-sm">Enlazar a socio</span>
-                <select
-                  class="campo campo-chico w-auto"
-                  [name]="'enlace-' + jugador.id"
+              <mat-form-field class="chico w-auto">
+                <mat-label>Enlazar a socio</mat-label>
+                <mat-select
+                  [attr.name]="'enlace-' + jugador.id"
+                  [value]="0"
                   [disabled]="trabajando()"
-                  (change)="enlazar(jugador, $any($event.target).value)"
+                  (selectionChange)="enlazar(jugador, $event.value)"
                 >
-                  <option value="0">—</option>
+                  <mat-option [value]="0">—</mat-option>
                   @for (socio of sociosSinJugador(); track socio.id) {
-                    <option [value]="socio.id">
+                    <mat-option [value]="socio.id">
                       {{ socio.numeroSocio }} · {{ socio.usuario.apellido }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
-              </label>
+                </mat-select>
+              </mat-form-field>
             }
 
             <button
@@ -195,6 +203,8 @@ import { TelefonoDirective } from '../../ui/telefono';
   `,
 })
 export class JugadoresPanel {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly api = inject(Torneos);
   private readonly sociosApi = inject(Socios);
 
@@ -262,11 +272,11 @@ export class JugadoresPanel {
     });
   }
 
-  protected async enlazar(jugador: Jugador, socioId: string): Promise<void> {
-    if (socioId === '0') return;
+  protected async enlazar(jugador: Jugador, socioId: number): Promise<void> {
+    if (socioId === 0) return;
 
     await this.intentar(`enlazar-${jugador.id}`, async () => {
-      await this.api.editarJugador(jugador.id, { socioId: Number(socioId) });
+      await this.api.editarJugador(jugador.id, { socioId });
       this.aviso.set(
         `${jugador.nombre} ${jugador.apellido} quedó enlazado a su ficha de socio, ` +
           'con los puntos que ya tenía.',

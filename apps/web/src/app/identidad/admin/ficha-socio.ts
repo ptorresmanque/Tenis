@@ -11,17 +11,22 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
+import { overlaysEnElDialogo } from '../../ui/overlays-en-el-dialogo';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import {
   CambiosDeFicha,
   EstadoSocio,
   SocioDelClub,
   Socios,
 } from './socios.service';
-import { CampoFecha } from '../../ui/campo-fecha';
 import { Esqueleto } from '../../ui/esqueleto';
 import { HistorialDeObservaciones } from '../../reservas/admin/historial-de-observaciones';
 
@@ -51,15 +56,17 @@ const CAMPOS: Record<string, string> = {
 @Component({
   selector: 'app-ficha-socio',
   imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     Aviso,
-    Campo,
-    CampoControl,
-    CampoFecha,
     Esqueleto,
     HistorialDeObservaciones,
   ],
+  providers: [proveerCampos(), proveerFechaYHora(), overlaysEnElDialogo()],
   template: `
     <dialog
       #dialogo
@@ -75,49 +82,48 @@ const CAMPOS: Record<string, string> = {
       <p class="text-sm text-muted-foreground">{{ socio().usuario.email }}</p>
 
       <form class="mt-4 grid gap-3" (ngSubmit)="guardar()">
-        <app-campo etiqueta="Número de socio">
+        <mat-form-field>
+          <mat-label>Número de socio</mat-label>
           <input
-            appCampoControl
+            matInput
             name="numeroSocio"
-            class="campo"
             [(ngModel)]="borrador.numeroSocio"
           />
-        </app-campo>
+        </mat-form-field>
 
-        <app-campo etiqueta="Estado">
-          <select
-            appCampoControl
+        <mat-form-field>
+          <mat-label>Estado</mat-label>
+          <mat-select
             name="estado"
-            class="campo"
             [(ngModel)]="borrador.estado"
           >
             @for (opcion of ESTADOS; track opcion.valor) {
-              <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+              <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
             }
-          </select>
-        </app-campo>
+          </mat-select>
+        </mat-form-field>
 
-        <!-- Sin app-campo: su <label> envolvería el campo, y Material deja el calendario
-             adentro (T126). Las mismas clases que app-campo. -->
-        <div class="grid gap-1.5">
-          <label class="text-sm font-semibold" for="cuota-al-dia-hasta">Cuota al día hasta</label>
-          <app-campo-fecha
-            inputId="cuota-al-dia-hasta"
+        <mat-form-field>
+          <mat-label>Cuota al día hasta</mat-label>
+          <input
+            matInput
+            id="cuota-al-dia-hasta"
             name="alDiaHasta"
-            describedBy="cuota-al-dia-hasta-ayuda"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioAlDiaHasta"
             [(ngModel)]="borrador.alDiaHasta"
           />
-          <span id="cuota-al-dia-hasta-ayuda" class="text-xs text-muted-foreground">
-            Es el último día en que puede reservar.
-          </span>
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioAlDiaHasta" />
+          <mat-datepicker #calendarioAlDiaHasta />
+          <mat-hint>Es el último día en que puede reservar.</mat-hint>
+        </mat-form-field>
 
-        <app-campo
-          etiqueta="Motivo"
-          ayuda="Queda en el historial. Sin él, en seis meses nadie sabe por qué."
-        >
-          <input appCampoControl name="motivo" class="campo" [(ngModel)]="motivo" />
-        </app-campo>
+        <mat-form-field>
+          <mat-label>Motivo</mat-label>
+          <input matInput name="motivo" [(ngModel)]="motivo" />
+          <mat-hint>Queda en el historial. Sin él, en seis meses nadie sabe por qué.</mat-hint>
+        </mat-form-field>
 
         @if (error(); as falla) {
           <app-aviso variante="error">{{ falla }}</app-aviso>
@@ -199,7 +205,8 @@ export class FichaSocio {
   protected readonly borrador = {
     numeroSocio: '',
     estado: 'ACTIVO' as EstadoSocio,
-    alDiaHasta: '',
+    /** Como la entrega el calendario de Material, y a texto al guardar (A5, T244). */
+    alDiaHasta: null as Date | null,
   };
   protected motivo = '';
 
@@ -226,7 +233,7 @@ export class FichaSocio {
 
       this.borrador.numeroSocio = socio.numeroSocio;
       this.borrador.estado = socio.estado;
-      this.borrador.alDiaHasta = socio.alDiaHasta.slice(0, 10);
+      this.borrador.alDiaHasta = textoAFecha(socio.alDiaHasta.slice(0, 10));
 
       if (!elemento.open) elemento.showModal();
     });
@@ -258,9 +265,8 @@ export class FichaSocio {
       cambios.numeroSocio = this.borrador.numeroSocio.trim();
     }
     if (this.borrador.estado !== socio.estado) cambios.estado = this.borrador.estado;
-    if (this.borrador.alDiaHasta !== socio.alDiaHasta.slice(0, 10)) {
-      cambios.alDiaHasta = this.borrador.alDiaHasta;
-    }
+    const alDiaHasta = fechaATexto(this.borrador.alDiaHasta);
+    if (alDiaHasta !== socio.alDiaHasta.slice(0, 10)) cambios.alDiaHasta = alDiaHasta;
 
     if (Object.keys(cambios).length === 0) {
       this.error.set('No cambiaste nada.');

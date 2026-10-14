@@ -8,7 +8,20 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
+import {
+  fechaATexto,
+  horaATexto,
+  proveerFechaYHora,
+  textoAFecha,
+  textoAHora,
+} from '../../ui/fecha-y-hora';
 import {
   diaEnPalabras,
   fechaEnElClub,
@@ -22,8 +35,6 @@ import {
   HoraAfectada,
   MotivoBloqueo,
 } from './admin-canchas.service';
-import { CampoFecha } from '../../ui/campo-fecha';
-import { CampoHora } from '../../ui/campo-hora';
 import { Esqueleto } from '../../ui/esqueleto';
 
 const MOTIVOS: { valor: MotivoBloqueo; etiqueta: string }[] = [
@@ -33,11 +44,12 @@ const MOTIVOS: { valor: MotivoBloqueo; etiqueta: string }[] = [
   { valor: 'OTRO', etiqueta: 'Otro' },
 ];
 
+/** El bloqueo mientras se escribe: las fechas y las horas como las entrega Material (A5, T244). */
 interface Formulario {
-  fechaDesde: string;
-  horaDesde: string;
-  fechaHasta: string;
-  horaHasta: string;
+  fechaDesde: Date | null;
+  horaDesde: Date | null;
+  fechaHasta: Date | null;
+  horaHasta: Date | null;
   motivo: MotivoBloqueo;
   descripcion: string;
 }
@@ -46,10 +58,10 @@ function enBlanco(): Formulario {
   const hoy = hoyEnElClub();
 
   return {
-    fechaDesde: hoy,
-    horaDesde: '10:00',
-    fechaHasta: hoy,
-    horaHasta: '12:00',
+    fechaDesde: textoAFecha(hoy),
+    horaDesde: textoAHora('10:00'),
+    fechaHasta: textoAFecha(hoy),
+    horaHasta: textoAHora('12:00'),
     motivo: 'MANTENCION',
     descripcion: '',
   };
@@ -64,7 +76,17 @@ function enBlanco(): Formulario {
  */
 @Component({
   selector: 'app-editor-bloqueos',
-  imports: [MatButton, FormsModule, CampoFecha, CampoHora, Esqueleto],
+  imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+    Esqueleto,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     @if (bloqueos.isLoading()) {
       <app-esqueleto [filas]="2" etiqueta="Cargando los bloqueos…" />
@@ -105,69 +127,99 @@ function enBlanco(): Formulario {
     }
 
     <form class="mt-2 flex flex-wrap items-end gap-2 text-sm" (ngSubmit)="crear()">
-      <div>
-        <label [for]="'bd-' + cancha().id" class="block font-medium">Desde</label>
-        <div class="mt-1 flex gap-1">
-          <app-campo-fecha
-            [inputId]="'bd-' + cancha().id"
+      <div class="flex gap-1">
+        <mat-form-field class="chico w-40">
+          <mat-label>Desde</mat-label>
+          <input
+            matInput
+            [id]="'bd-' + cancha().id"
             [name]="'bloqueo-fecha-desde-' + cancha().id"
-            claseCampo="campo-chico w-32"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioBloqueoFechaDesde"
             [(ngModel)]="nueva.fechaDesde"
           />
-          <app-campo-hora
-            [inputId]="'bdh-' + cancha().id"
-            etiquetaAccesible="Hora de inicio del bloqueo"
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioBloqueoFechaDesde" />
+          <mat-datepicker #calendarioBloqueoFechaDesde />
+        </mat-form-field>
+        <mat-form-field class="chico w-32">
+          <input
+            matInput
+            [id]="'bdh-' + cancha().id"
             [name]="'bloqueo-hora-desde-' + cancha().id"
-            claseCampo="campo-chico w-24"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojBloqueoHoraDesde"
+            aria-label="Hora de inicio del bloqueo"
             [(ngModel)]="nueva.horaDesde"
           />
-        </div>
+          <mat-timepicker-toggle
+            matIconSuffix
+            aria-label="Elegir la hora"
+            [for]="relojBloqueoHoraDesde"
+          />
+          <mat-timepicker #relojBloqueoHoraDesde />
+        </mat-form-field>
       </div>
 
-      <div>
-        <label [for]="'bh-' + cancha().id" class="block font-medium">Hasta</label>
-        <div class="mt-1 flex gap-1">
-          <app-campo-fecha
-            [inputId]="'bh-' + cancha().id"
+      <div class="flex gap-1">
+        <mat-form-field class="chico w-40">
+          <mat-label>Hasta</mat-label>
+          <input
+            matInput
+            [id]="'bh-' + cancha().id"
             [name]="'bloqueo-fecha-hasta-' + cancha().id"
-            claseCampo="campo-chico w-32"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioBloqueoFechaHasta"
             [(ngModel)]="nueva.fechaHasta"
           />
-          <app-campo-hora
-            [inputId]="'bhh-' + cancha().id"
-            etiquetaAccesible="Hora de término del bloqueo"
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioBloqueoFechaHasta" />
+          <mat-datepicker #calendarioBloqueoFechaHasta />
+        </mat-form-field>
+        <mat-form-field class="chico w-32">
+          <input
+            matInput
+            [id]="'bhh-' + cancha().id"
             [name]="'bloqueo-hora-hasta-' + cancha().id"
-            claseCampo="campo-chico w-24"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojBloqueoHoraHasta"
+            aria-label="Hora de término del bloqueo"
             [(ngModel)]="nueva.horaHasta"
           />
-        </div>
+          <mat-timepicker-toggle
+            matIconSuffix
+            aria-label="Elegir la hora"
+            [for]="relojBloqueoHoraHasta"
+          />
+          <mat-timepicker #relojBloqueoHoraHasta />
+        </mat-form-field>
       </div>
 
-      <div>
-        <label [for]="'bm-' + cancha().id" class="block font-medium">Motivo</label>
-        <select
+      <mat-form-field class="chico">
+        <mat-label>Motivo</mat-label>
+        <mat-select
           [id]="'bm-' + cancha().id"
           [name]="'bloqueo-motivo-' + cancha().id"
-          class="campo campo-chico mt-1"
+          [attr.name]="'bloqueo-motivo-' + cancha().id"
           [(ngModel)]="nueva.motivo"
         >
           @for (motivo of motivos; track motivo.valor) {
-            <option [value]="motivo.valor">{{ motivo.etiqueta }}</option>
+            <mat-option [value]="motivo.valor">{{ motivo.etiqueta }}</mat-option>
           }
-        </select>
-      </div>
+        </mat-select>
+      </mat-form-field>
 
-      <div>
-        <label [for]="'bx-' + cancha().id" class="block font-medium">
-          Detalle <span class="text-muted-foreground">(opcional)</span>
-        </label>
+      <mat-form-field class="chico">
+        <mat-label>Detalle <span class="text-muted-foreground">(opcional)</span></mat-label>
         <input
+          matInput
           [id]="'bx-' + cancha().id"
           [name]="'bloqueo-detalle-' + cancha().id"
-          class="campo campo-chico mt-1"
           [(ngModel)]="nueva.descripcion"
         />
-      </div>
+      </mat-form-field>
 
       <button
         matButton="outlined"
@@ -360,7 +412,11 @@ export class EditorBloqueos {
   private formulario(): BloqueoNuevo {
     return {
       canchaId: this.cancha().id,
-      ...this.nueva,
+      fechaDesde: fechaATexto(this.nueva.fechaDesde),
+      horaDesde: horaATexto(this.nueva.horaDesde),
+      fechaHasta: fechaATexto(this.nueva.fechaHasta),
+      horaHasta: horaATexto(this.nueva.horaHasta),
+      motivo: this.nueva.motivo,
       descripcion: this.nueva.descripcion.trim() || null,
     };
   }

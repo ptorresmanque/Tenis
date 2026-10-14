@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
+import { elegidoEn, elegir as elegirOpcion, textosDe } from '../testing/elegir';
 import { Ranking, TablaDeTorneos } from './ranking.service';
 import { TablaDeTour } from './tabla-de-tour';
 
@@ -74,7 +75,8 @@ describe('TablaDeTour', () => {
       Array.from(fila.querySelectorAll('th, td')).map((celda) => celda.textContent?.trim() ?? ''),
     );
 
-  const selector = () => elemento().querySelector<HTMLSelectElement>('select[name="categoria"]');
+  const CATEGORIA = 'mat-select[name="categoria"]';
+  const selector = () => elemento().querySelector(CATEGORIA);
 
   beforeEach(async () => {
     await montar();
@@ -126,16 +128,12 @@ describe('TablaDeTour', () => {
   });
 
   it('**el selector solo ofrece las categorías con resultados**, con la servida elegida', () => {
-    const opciones = Array.from(selector()!.options).map((o) => o.textContent?.trim());
-
-    expect(opciones).toEqual(['Honor', '4ª']);
-    expect(selector()!.value).toBe('20');
+    expect(textosDe(fixture, CATEGORIA)).toEqual(['Honor', '4ª']);
+    expect(elegidoEn(fixture, CATEGORIA)).toBe('20');
   });
 
   it('elegir otra categoría lo avisa, para que la página la ponga en la dirección', async () => {
-    selector()!.value = '60';
-    selector()!.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
+    await elegirOpcion(fixture, CATEGORIA, '60');
 
     expect(eligio).toHaveBeenCalledWith(60);
   });
@@ -159,7 +157,8 @@ describe('TablaDeTour', () => {
 
     expect(texto()).toContain('Nadie suma puntos en esta categoría todavía.');
     // El selector no puede mostrar «Honor» con la tabla de otra: pide que se elija.
-    expect(selector()!.selectedOptions[0]?.textContent?.trim()).toBe('Elige una categoría');
+    // Con la lista cerrada, el campo muestra el texto de lo elegido (T248).
+    expect(selector()?.textContent?.trim()).toBe('Elige una categoría');
   });
 
   // `value()` de un resource lanza en estado de error.

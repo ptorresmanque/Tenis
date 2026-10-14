@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { CategoriaJuego, CuadroDelTorneo, Torneos } from '../torneos.service';
 import { CuadrosDelTorneo } from './cuadros-del-torneo';
 
@@ -60,10 +61,7 @@ describe('CuadrosDelTorneo', () => {
   const elemento = () => fixture.nativeElement as HTMLElement;
   const texto = () => elemento().textContent ?? '';
 
-  const opciones = () =>
-    Array.from(elemento().querySelectorAll('select option')).map((o) =>
-      o.textContent?.trim(),
-    );
+  const opciones = () => textosDe(fixture, 'mat-select');
 
   const apretar = async (etiqueta: string) => {
     Array.from(elemento().querySelectorAll('button'))
@@ -164,11 +162,7 @@ describe('CuadrosDelTorneo', () => {
    */
   describe('sin categoría de torneo (T199)', () => {
     it('**agregar un cuadro manda la categoría, el cupo y el monto**, y nada más', async () => {
-      const nivel = elemento().querySelector<HTMLSelectElement>(
-        'select[name="categoriaJuego"]',
-      )!;
-      nivel.value = '60';
-      nivel.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="categoriaJuego"]`, '60');
       await fixture.whenStable();
 
       elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
@@ -182,7 +176,7 @@ describe('CuadrosDelTorneo', () => {
     });
 
     it('no hay selector de valor, ni en el alta ni en las filas', () => {
-      expect(elemento().querySelector('select[name="valor"]')).toBeNull();
+      expect(elemento().querySelector('mat-select[name="valor"]')).toBeNull();
       expect(elemento().querySelector('li select')).toBeNull();
       expect(texto()).not.toContain('recalcula el ranking');
     });
@@ -231,11 +225,7 @@ describe('CuadrosDelTorneo', () => {
     });
 
     it('**agregar un cuadro manda su monto**, y cero es gratis', async () => {
-      const nivel = elemento().querySelector<HTMLSelectElement>(
-        'select[name="categoriaJuego"]',
-      )!;
-      nivel.value = '60';
-      nivel.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="categoriaJuego"]`, '60');
       const monto = elemento().querySelector<HTMLInputElement>(
         'input[name="monto"]',
       )!;

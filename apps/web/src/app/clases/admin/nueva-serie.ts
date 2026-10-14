@@ -1,6 +1,11 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { diaEnPalabras, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -8,21 +13,35 @@ import { Aviso } from '../../ui/aviso';
 import {
   Clases,
   DecisionDeFecha,
-  DiaDeLaSerie,
   FechaDeLaSerie,
   NivelClase,
   NIVELES,
   SerieNueva,
   TipoClase,
 } from '../clases.service';
-import { CampoFecha } from '../../ui/campo-fecha';
-import { CampoHora } from '../../ui/campo-hora';
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 
 /** El lugar del día en la semana del club, que empieza el lunes: el domingo, 0, va al final. */
 const enLaSemana = (dia: number) => (dia + 6) % 7;
 
 /** Con lo que nace el primer día marcado. */
-const DIA_EN_BLANCO = { horaDesde: '19:00', horaHasta: '20:00', canchaId: 0 };
+/**
+ * Un día de la serie mientras se escribe: las horas como las entrega el selector de Material,
+ * y a texto recién al mandar la serie (A5, T244).
+ */
+interface DiaDelFormulario {
+  diaSemana: number;
+  horaDesde: Date | null;
+  horaHasta: Date | null;
+  canchaId: number;
+}
+
+const DIA_EN_BLANCO = {
+  horaDesde: textoAHora('19:00'),
+  horaHasta: textoAHora('20:00'),
+  canchaId: 0,
+};
 
 /** Los días en el orden de la semana del club, con el número que espera la API (0 = domingo). */
 const DIAS = [
@@ -42,9 +61,9 @@ const enBlanco = () => ({
   modalidad: 'grupal' as 'grupal' | 'individual',
   profesorId: 0,
   /** Un renglón por día marcado, en el orden de la semana (T230). */
-  dias: [] as DiaDeLaSerie[],
-  desde: '',
-  hasta: '',
+  dias: [] as DiaDelFormulario[],
+  desde: null as Date | null,
+  hasta: null as Date | null,
   cupoMaximo: 6,
   nivel: 'INICIACION' as NivelClase,
   notas: '',
@@ -62,7 +81,17 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-nueva-serie',
-  imports: [MatButton, FormsModule, Aviso, CampoFecha, CampoHora],
+  imports: [
+    MatSelectModule,
+    MatButton,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    FormsModule,
+    Aviso,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   host: { class: 'block' },
   template: `
     <form class="rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="revisar()">
@@ -101,17 +130,17 @@ const enBlanco = () => ({
 
         <!-- El profesor arma su serie a su nombre (T222): no elige. -->
         @if (profesorFijo() === null) {
-          <label class="block">
-            <span class="text-sm font-medium">Profesor</span>
-            <select class="campo mt-1" name="serie-profesor" [(ngModel)]="datos.profesorId">
-              <option [value]="0" disabled>Elige un profesor</option>
+          <mat-form-field>
+            <mat-label>Profesor</mat-label>
+            <mat-select name="serie-profesor" [(ngModel)]="datos.profesorId">
+              <mat-option [value]="0" disabled>Elige un profesor</mat-option>
               @for (profesor of profesores(); track profesor.id) {
-                <option [value]="profesor.id">
+                <mat-option [value]="profesor.id">
                   {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-                </option>
+                </mat-option>
               }
-            </select>
-          </label>
+            </mat-select>
+          </mat-form-field>
         }
 
         <!-- Casillas y no un selector múltiple: se ven los siete a la vez y cada una se
@@ -133,91 +162,98 @@ const enBlanco = () => ({
         </fieldset>
 
         <!-- T230. Cada día con su horario y su cancha: el lunes de 19 a 20 en una y el martes
-             de 18 a 19 en otra. En la cancha, el name va dos veces: uno registra el campo en el
-             formulario y el otro queda en el elemento. Las horas van sin el botón del reloj
-             para que quepan lado a lado a 375 px: la lista se abre igual desde el campo. -->
+             de 18 a 19 en otra. El [name] registra el campo en el formulario y matInput lo
+             deja en el elemento (T246). Las horas van sin el botón del reloj para que quepan
+             lado a lado a 375 px: la lista se abre igual desde el campo. -->
         @for (dia of datos.dias; track dia.diaSemana) {
           <fieldset class="sm:col-span-2">
             <legend class="font-display font-semibold">{{ nombreDelDia(dia.diaSemana) }}</legend>
             <div class="mt-1 flex flex-wrap items-start gap-3">
-              <div>
-                <label class="block text-sm" [for]="'serie-hora-desde-' + dia.diaSemana">Desde</label>
-                <app-campo-hora
-                  class="mt-1"
-                  [inputId]="'serie-hora-desde-' + dia.diaSemana"
+              <mat-form-field class="w-28">
+                <mat-label>Desde</mat-label>
+                <input
+                  matInput
+                  placeholder="hh:mm"
+                  autocomplete="off"
+                  [matTimepicker]="relojDesde"
                   [name]="'serie-hora-desde-' + dia.diaSemana"
-                  claseCampo="w-28"
-                  [conBoton]="false"
                   [(ngModel)]="dia.horaDesde"
                   (ngModelChange)="tocar(dia)"
                 />
-              </div>
+                <mat-timepicker #relojDesde />
+              </mat-form-field>
 
-              <div>
-                <label class="block text-sm" [for]="'serie-hora-hasta-' + dia.diaSemana">Hasta</label>
-                <app-campo-hora
-                  class="mt-1"
-                  [inputId]="'serie-hora-hasta-' + dia.diaSemana"
+              <mat-form-field class="w-28">
+                <mat-label>Hasta</mat-label>
+                <input
+                  matInput
+                  placeholder="hh:mm"
+                  autocomplete="off"
+                  [matTimepicker]="relojHasta"
                   [name]="'serie-hora-hasta-' + dia.diaSemana"
-                  claseCampo="w-28"
-                  [conBoton]="false"
                   [(ngModel)]="dia.horaHasta"
                   (ngModelChange)="tocar(dia)"
                 />
-              </div>
+                <mat-timepicker #relojHasta />
+              </mat-form-field>
 
               @if (datos.tipo === 'TENIS') {
-                <label class="block min-w-40 flex-1">
-                  <span class="block text-sm">Cancha</span>
-                  <select
-                    class="campo mt-1"
+                <mat-form-field class="min-w-40 flex-1">
+                  <mat-label>Cancha</mat-label>
+                  <mat-select
                     [name]="'serie-cancha-' + dia.diaSemana"
                     [attr.name]="'serie-cancha-' + dia.diaSemana"
                     [(ngModel)]="dia.canchaId"
                     (ngModelChange)="tocar(dia)"
                   >
-                    <option [value]="0" disabled>Elige una cancha</option>
+                    <mat-option [value]="0" disabled>Elige una cancha</mat-option>
                     @for (cancha of canchas(); track cancha.id) {
-                      <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                      <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
                     }
-                  </select>
-                </label>
+                  </mat-select>
+                </mat-form-field>
               }
             </div>
           </fieldset>
         }
 
-        <div>
-          <label class="block text-sm font-medium" for="serie-desde">Primera fecha</label>
-          <app-campo-fecha
-            class="mt-1"
-            inputId="serie-desde"
+        <mat-form-field class="w-48">
+          <mat-label>Primera fecha</mat-label>
+          <input
+            matInput
             name="serie-desde"
-            claseCampo="w-36"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioDesde"
             [(ngModel)]="datos.desde"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+          <mat-datepicker #calendarioDesde />
+        </mat-form-field>
 
-        <div>
-          <label class="block text-sm font-medium" for="serie-hasta">Última fecha</label>
-          <app-campo-fecha
-            class="mt-1"
-            inputId="serie-hasta"
+        <mat-form-field class="w-48">
+          <mat-label>Última fecha</mat-label>
+          <input
+            matInput
             name="serie-hasta"
-            claseCampo="w-36"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioHasta"
             [(ngModel)]="datos.hasta"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+          <mat-datepicker #calendarioHasta />
+        </mat-form-field>
 
         @if (datos.tipo === 'TENIS') {
-          <label class="block">
-            <span class="text-sm font-medium">Nivel</span>
-            <select class="campo mt-1" name="serie-nivel" [(ngModel)]="datos.nivel">
+          <mat-form-field>
+            <mat-label>Nivel</mat-label>
+            <mat-select name="serie-nivel" [(ngModel)]="datos.nivel">
               @for (opcion of opcionesDeNivel; track opcion.valor) {
-                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
               }
-            </select>
-          </label>
+            </mat-select>
+          </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
           <fieldset>
@@ -246,28 +282,28 @@ const enBlanco = () => ({
         }
 
         @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
-          <label class="block">
-            <span class="text-sm font-medium">Cupo</span>
+          <mat-form-field>
+            <mat-label>Cupo</mat-label>
             <input
-              class="campo mt-1"
+              matInput
               type="number"
               [min]="datos.tipo === 'TENIS' ? 1 : 2"
               max="40"
               name="serie-cupo"
               [(ngModel)]="datos.cupoMaximo"
             />
-          </label>
+          </mat-form-field>
         }
 
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Notas</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Notas</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="serie-notas"
             placeholder="Opcional: qué se trabaja, qué llevar"
             [(ngModel)]="datos.notas"
           />
-        </label>
+        </mat-form-field>
       </div>
 
       <button
@@ -324,28 +360,29 @@ const enBlanco = () => ({
                 }
               </span>
 
-              <select
-                class="campo campo-chico w-auto"
-                [attr.name]="'decision-' + fila.fecha"
-                [attr.aria-label]="'Qué hacer el ' + enPalabras(fila.fecha)"
-                [value]="decisiones()[fila.fecha] ?? ''"
-                (change)="decidir(fila.fecha, $any($event.target).value)"
-              >
-                @if (fila.choque) {
-                  <option value="">Elige qué hacer</option>
-                  <option value="saltar">Saltar esta fecha</option>
-                } @else if (fila.afectadas.length > 0) {
-                  <option value="">Elige qué hacer</option>
-                  <!-- Cancelarle la hora a un socio lo decide administración (T219). -->
-                  @if (profesorFijo() === null) {
-                    <option value="cancelar">Cancelar sus reservas y avisar</option>
+              <mat-form-field class="chico w-auto">
+                <mat-select
+                  [attr.name]="'decision-' + fila.fecha"
+                  [aria-label]="'Qué hacer el ' + enPalabras(fila.fecha)"
+                  [value]="decisiones()[fila.fecha] ?? ''"
+                  (selectionChange)="decidir(fila.fecha, $event.value)"
+                >
+                  @if (fila.choque) {
+                    <mat-option value="">Elige qué hacer</mat-option>
+                    <mat-option value="saltar">Saltar esta fecha</mat-option>
+                  } @else if (fila.afectadas.length > 0) {
+                    <mat-option value="">Elige qué hacer</mat-option>
+                    <!-- Cancelarle la hora a un socio lo decide administración (T219). -->
+                    @if (profesorFijo() === null) {
+                      <mat-option value="cancelar">Cancelar sus reservas y avisar</mat-option>
+                    }
+                    <mat-option value="saltar">Saltar esta fecha</mat-option>
+                  } @else {
+                    <mat-option value="">Agendar</mat-option>
+                    <mat-option value="saltar">Saltar esta fecha</mat-option>
                   }
-                  <option value="saltar">Saltar esta fecha</option>
-                } @else {
-                  <option value="">Agendar</option>
-                  <option value="saltar">Saltar esta fecha</option>
-                }
-              </select>
+                </mat-select>
+              </mat-form-field>
             </li>
           }
         </ul>
@@ -409,7 +446,7 @@ export class NuevaSerie {
   protected readonly enPalabras = diaEnPalabras;
 
   /** El último renglón que se cambió: el día que se marque nace con su horario y su cancha. */
-  private ultimoTocado: Omit<DiaDeLaSerie, 'diaSemana'> = DIA_EN_BLANCO;
+  private ultimoTocado: Omit<DiaDelFormulario, 'diaSemana'> = DIA_EN_BLANCO;
 
   protected marcado(valor: number): boolean {
     return this.datos.dias.some((dia) => dia.diaSemana === valor);
@@ -429,7 +466,7 @@ export class NuevaSerie {
         );
   }
 
-  protected tocar(dia: DiaDeLaSerie): void {
+  protected tocar(dia: DiaDelFormulario): void {
     this.ultimoTocado = dia;
   }
 
@@ -554,12 +591,12 @@ export class NuevaSerie {
       profesorId: this.profesorFijo() ?? Number(this.datos.profesorId),
       dias: this.datos.dias.map((dia) => ({
         diaSemana: dia.diaSemana,
-        horaDesde: dia.horaDesde,
-        horaHasta: dia.horaHasta,
+        horaDesde: horaATexto(dia.horaDesde),
+        horaHasta: horaATexto(dia.horaHasta),
         ...(enElGimnasio ? {} : { canchaId: Number(dia.canchaId) }),
       })),
-      desde: this.datos.desde,
-      hasta: this.datos.hasta,
+      desde: fechaATexto(this.datos.desde),
+      hasta: fechaATexto(this.datos.hasta),
       cupoMaximo:
         enElGimnasio && this.datos.modalidad === 'individual' ? 1 : Number(this.datos.cupoMaximo),
       ...(enElGimnasio ? {} : { nivel: this.datos.nivel }),

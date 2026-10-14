@@ -12,7 +12,10 @@ import {
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { Insignia } from '../../ui/insignia';
 import { CuadroPublico, Foto, Torneos, Transmision } from '../torneos.service';
 import { Arbol } from './arbol';
@@ -43,7 +46,19 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
  */
 @Component({
   selector: 'app-cuadro-publico',
-  imports: [MatButton, MatIcon, Arbol, Esqueleto, Galeria, Insignia, OrdenDeJuego, Reproductor],
+  imports: [
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    MatIcon,
+    Arbol,
+    Esqueleto,
+    Galeria,
+    Insignia,
+    OrdenDeJuego,
+    Reproductor,
+  ],
+  providers: [proveerCampos()],
   template: `
     <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
     <dialog
@@ -108,25 +123,23 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
           } @else {
             <!-- Un buscador para las dos pestañas (T137): marca lo mismo en el orden de
                  juego y en el árbol. -->
-            <div class="relative">
-              <label for="buscar-jugador" class="sr-only">Buscar a un jugador</label>
-              <mat-icon
-                class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
-                       text-lg text-muted-foreground"
-                aria-hidden="true"
-              >
+            <!-- Sin etiqueta a la vista, como antes: la lupa y el texto de ayuda dicen qué es, y
+                 el lector oye el nombre del campo. -->
+            <mat-form-field class="w-full">
+              <mat-icon matIconPrefix class="text-lg text-muted-foreground" aria-hidden="true">
                 search
               </mat-icon>
               <input
+                matInput
                 id="buscar-jugador"
                 type="search"
-                class="campo ps-9"
+                aria-label="Buscar a un jugador"
                 placeholder="Busca tu nombre o apellido"
                 autocomplete="off"
                 [value]="busqueda()"
                 (input)="busqueda.set(valorDe($event))"
               />
-            </div>
+            </mat-form-field>
             <!-- Cuántos encontró, para el lector de pantalla; el "nadie" también se ve. -->
             <p class="sr-only" aria-live="polite">{{ resumen() }}</p>
             @if (busqueda().trim() !== '' && encontrados() === 0) {

@@ -1,9 +1,12 @@
 import { Component, inject, input, output, resource } from '@angular/core';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../ui/campos';
 import { diaConAnioEnPalabras } from '../catalogo-canchas/reloj-del-club';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
-import { Ranking, TablaDeTorneos } from './ranking.service';
+import { Ranking } from './ranking.service';
 
 /**
  * La tabla de un tour en una temporada y una categoría de juego (T200, `SPEC-ranking.md`
@@ -18,7 +21,8 @@ import { Ranking, TablaDeTorneos } from './ranking.service';
  */
 @Component({
   selector: 'app-tabla-de-tour',
-  imports: [EstadoVacio, Esqueleto],
+  imports: [MatSelectModule, MatFormFieldModule, EstadoVacio, Esqueleto],
+  providers: [proveerCampos()],
   template: `
     @if (tabla.error()) {
       <p class="mt-6 text-destructive">No se pudo cargar el ranking. Reintenta en un momento.</p>
@@ -39,27 +43,24 @@ import { Ranking, TablaDeTorneos } from './ranking.service';
       } @else {
         <!-- Solo las que tienen resultados: una lista con categorías vacías obliga a
              probar una por una. -->
-        <label class="mt-4 block w-fit">
-          <span class="text-sm font-medium">Categoría</span>
-          <select
-            class="campo mt-1"
+        <mat-form-field class="w-fit">
+          <mat-label>Categoría</mat-label>
+          <!-- Una categoría pedida que no tiene filas —un enlace viejo— no está en la lista:
+               no calza con ninguna opción, y el campo muestra «Elige una categoría» en vez
+               de la primera con la tabla de otra. -->
+          <mat-select
             name="categoria"
+            placeholder="Elige una categoría"
             [value]="datos.categoriaJuegoId"
-            (change)="elegir($event)"
+            (selectionChange)="elegir($event.value)"
           >
-            <!-- Una categoría pedida que no tiene filas —un enlace viejo— no está en la
-                 lista: sin esta opción, el selector mostraría la primera con la tabla
-                 de otra. -->
-            @if (!tieneFilas(datos)) {
-              <option value="" disabled selected>Elige una categoría</option>
-            }
             @for (una of datos.categorias; track una.id) {
-              <option [value]="una.id" [selected]="una.id === datos.categoriaJuegoId">
+              <mat-option [value]="una.id">
                 {{ una.nombre }}
-              </option>
+              </mat-option>
             }
-          </select>
-        </label>
+          </mat-select>
+        </mat-form-field>
 
         @if (datos.posiciones.length === 0) {
           <p class="mt-6 text-muted-foreground">Nadie suma puntos en esta categoría todavía.</p>
@@ -167,11 +168,7 @@ export class TablaDeTour {
   /** Con el año: la pregunta es justamente de qué temporada. */
   protected readonly enPalabras = diaConAnioEnPalabras;
 
-  protected tieneFilas(datos: TablaDeTorneos): boolean {
-    return datos.categorias.some((una) => una.id === datos.categoriaJuegoId);
-  }
-
-  protected elegir(evento: Event): void {
-    this.categoria.emit(Number((evento.target as HTMLSelectElement).value));
+  protected elegir(valor: number): void {
+    this.categoria.emit(valor);
   }
 }

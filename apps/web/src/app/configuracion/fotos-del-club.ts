@@ -1,6 +1,9 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, FotoDelLugar } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
@@ -50,7 +53,8 @@ const LUGARES: {
  */
 @Component({
   selector: 'app-fotos-del-club',
-  imports: [MatButton, Aviso, Esqueleto],
+  imports: [MatFormFieldModule, MatInput, MatButton, Aviso, Esqueleto],
+  providers: [proveerCampos()],
   template: `
     <h2 class="rotulo-seccion mt-10">Fotos</h2>
     <p class="mt-2 max-w-prose text-sm text-muted-foreground">
@@ -140,8 +144,10 @@ const LUGARES: {
                 <span class="text-sm font-medium">
                   Archivo <span class="sr-only">para {{ uno.conArticulo }}</span>
                 </span>
+                <!-- Material no tiene campo de archivo, y matInput no admite type="file"
+                     (T247). -->
                 <input
-                  class="campo mt-1"
+                  class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
                   type="file"
                   accept="image/jpeg,image/png"
                   [disabled]="enCurso() !== null"
@@ -149,20 +155,21 @@ const LUGARES: {
                 />
               </label>
 
-              <label class="block">
-                <span class="text-sm font-medium">
-                  Qué se ve en la foto <span class="sr-only">de {{ uno.conArticulo }}</span>
+              <mat-form-field>
+                <mat-label>
+                  Qué se ve en la foto
+                  <span class="sr-only">de {{ uno.conArticulo }}</span>
                   (opcional)
-                </span>
+                </mat-label>
                 <input
-                  class="campo mt-1"
+                  matInput
                   type="text"
                   maxlength="200"
                   [placeholder]="uno.ejemplo"
                   [value]="textos()[uno.lugar]"
                   (input)="escribir(uno.lugar, $event)"
                 />
-              </label>
+              </mat-form-field>
 
               <button
                 matButton="outlined"

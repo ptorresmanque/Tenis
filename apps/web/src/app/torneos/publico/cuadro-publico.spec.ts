@@ -322,8 +322,9 @@ describe('CuadroPublicoModal', () => {
 
       await buscar('ana');
 
-      // Ana Uno juega los dos partidos de la primera ronda del ejemplo.
-      expect(elemento().querySelector('[aria-live]')?.textContent).toContain(
+      // Ana Uno juega los dos partidos de la primera ronda del ejemplo. `p`: el campo de
+      // Material también tiene su aviso vivo, el de la ayuda y el error (T246).
+      expect(elemento().querySelector('p[aria-live]')?.textContent).toContain(
         '2 partidos de "ana"',
       );
     });

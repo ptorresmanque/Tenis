@@ -12,9 +12,9 @@ import {
  * El campo de teléfono (T121): el `+56` va fijo al lado —en un `span` del formulario— y
  * en el campo solo entran los 9 dígitos (decisión 1 de la sexta parte).
  *
- * **Una directiva sobre el mismo `input` y no un componente**: así siguen funcionando la
- * etiqueta, `formControlName`, `ngModel` y `appCampoControl` de `app-campo`, que pone la
- * ayuda y el estado inválido en el control que tiene a mano.
+ * **Una directiva sobre el mismo `input` y no un componente**: así siguen funcionando
+ * `matInput`, `formControlName` y `ngModel`, y el campo de Material pone la ayuda, el `+56`
+ * (`matTextPrefix`) y el estado inválido sobre el control que tiene a mano (T245).
  *
  * Entrega la forma que guarda la API (T120): `56` más los 9 dígitos. Con menos, entrega
  * los dígitos que haya y marca el campo inválido, para que el formulario no se mande y el

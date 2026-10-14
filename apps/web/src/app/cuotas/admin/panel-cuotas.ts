@@ -1,5 +1,8 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { enPesos, hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
@@ -30,7 +33,8 @@ function mesActual(): string {
  */
 @Component({
   selector: 'app-panel-cuotas',
-  imports: [MatButton, Esqueleto, Aviso, EstadoVacio, Insignia],
+  imports: [MatFormFieldModule, MatInput, MatButton, Esqueleto, Aviso, EstadoVacio, Insignia],
+  providers: [proveerCampos()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: se cobra fila por fila. -->
     <header class="cabecera-panel">
@@ -44,16 +48,17 @@ function mesActual(): string {
     </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-4">
-      <div>
-        <label for="mes" class="block text-sm font-medium">Mes</label>
+      <mat-form-field>
+        <mat-label>Mes</mat-label>
         <input
+          matInput
           id="mes"
           type="month"
-          class="campo mt-1 cursor-pointer"
+          class="cursor-pointer"
           [value]="mes()"
           (change)="cambiarMes($event)"
         />
-      </div>
+      </mat-form-field>
 
       @if (datos.hasValue()) {
         @let mes = datos.value();

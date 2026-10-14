@@ -6,13 +6,15 @@ import {
   signal,
 } from '@angular/core';
 
+import { proveerCampos } from '../ui/campos';
 import { Esqueleto } from '../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 import { Insignia } from '../ui/insignia';
 import {
   CategoriaDeJuego,
@@ -31,7 +33,8 @@ import {
  */
 @Component({
   selector: 'app-categorias-juego',
-  imports: [MatButton, Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
+  imports: [MatFormFieldModule, MatInput, MatButton, Esqueleto, FormsModule, Aviso, Insignia],
+  providers: [proveerCampos()],
   template: `
     <section aria-labelledby="agregar">
       <h2 id="agregar" class="rotulo-seccion">
@@ -44,35 +47,32 @@ import {
       </p>
 
       <form class="mt-4 flex flex-wrap items-end gap-3" (ngSubmit)="agregar()">
-        <app-campo etiqueta="Nombre" class="min-w-48 flex-1">
+        <mat-form-field class="min-w-48 flex-1">
+          <mat-label>Nombre</mat-label>
           <input
-            appCampoControl
+            matInput
             name="nombre"
             type="text"
             maxlength="40"
-            class="campo"
             [(ngModel)]="nombre"
           />
-        </app-campo>
+        </mat-form-field>
 
-        <app-campo
-          etiqueta="Orden"
-          ayuda="Mayor es más alta. Honor arriba, la 5ª abajo."
-          class="min-w-40"
-        >
+        <mat-form-field class="min-w-40">
+          <mat-label>Orden</mat-label>
           <!-- Enlace de ida y vuelta escrito a mano y no con la forma corta de dos
                vías: el destino es un linkedSignal, y hay que llamarle set(). -->
           <input
-            appCampoControl
+            matInput
             name="orden"
             type="number"
             min="1"
             max="1000"
-            class="campo"
             [ngModel]="orden()"
             (ngModelChange)="orden.set($event)"
           />
-        </app-campo>
+          <mat-hint>Mayor es más alta. Honor arriba, la 5ª abajo.</mat-hint>
+        </mat-form-field>
 
         <button
           matButton="filled"
@@ -122,19 +122,19 @@ import {
                 <tr>
                   <td class="font-medium">{{ categoria.nombre }}</td>
                   <td class="text-sm text-muted-foreground">
-                    <label class="sr-only" [for]="'orden-' + categoria.id">
-                      Orden de {{ categoria.nombre }}
-                    </label>
-                    <input
-                      [id]="'orden-' + categoria.id"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      class="campo w-18 sm:w-24"
-                      [value]="categoria.orden"
-                      [disabled]="enviando()"
-                      (change)="mover(categoria, $event)"
-                    />
+                    <mat-form-field class="w-18 sm:w-24">
+                      <mat-label>Orden de {{ categoria.nombre }}</mat-label>
+                      <input
+                        matInput
+                        [id]="'orden-' + categoria.id"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        [value]="categoria.orden"
+                        [disabled]="enviando()"
+                        (change)="mover(categoria, $event)"
+                      />
+                    </mat-form-field>
                   </td>
                   <td>
                     <div class="flex flex-wrap items-center gap-2">

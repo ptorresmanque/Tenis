@@ -8,10 +8,12 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { PreguntaFrecuente, PreguntasFrecuentes } from './preguntas-frecuentes.service';
@@ -30,7 +32,8 @@ const LARGO_DE_LA_RESPUESTA = 2000;
  */
 @Component({
   selector: 'app-preguntas-frecuentes',
-  imports: [MatButton, FormsModule, Aviso, Campo, CampoControl, Esqueleto, EstadoVacio],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, Esqueleto, EstadoVacio],
+  providers: [proveerCampos()],
   template: `
     <section aria-labelledby="titulo-preguntas">
       <h2 id="titulo-preguntas" class="rotulo-seccion" tabindex="-1">Preguntas frecuentes</h2>
@@ -40,30 +43,29 @@ const LARGO_DE_LA_RESPUESTA = 2000;
       </p>
 
       <form class="mt-4 grid max-w-xl gap-4" (ngSubmit)="agregar()">
-        <app-campo etiqueta="Pregunta" [obligatorio]="true">
+        <mat-form-field>
+          <mat-label>Pregunta <span aria-hidden="true">*</span></mat-label>
           <input
-            appCampoControl
+            matInput
             name="pregunta"
-            class="campo"
             [maxlength]="LARGO_DE_LA_PREGUNTA"
             [(ngModel)]="nueva.pregunta"
           />
-        </app-campo>
+        </mat-form-field>
 
-        <app-campo
-          etiqueta="Respuesta"
-          [obligatorio]="true"
-          [ayuda]="'Texto simple: los saltos de línea se respetan. ' + quedan(nueva.respuesta)"
-        >
+        <mat-form-field>
+          <mat-label>Respuesta <span aria-hidden="true">*</span></mat-label>
           <textarea
-            appCampoControl
+            matInput
             name="respuesta"
             rows="4"
-            class="campo"
             [maxlength]="LARGO_DE_LA_RESPUESTA"
             [(ngModel)]="nueva.respuesta"
           ></textarea>
-        </app-campo>
+          <mat-hint>
+            {{ 'Texto simple: los saltos de línea se respetan. ' + quedan(nueva.respuesta) }}
+          </mat-hint>
+        </mat-form-field>
 
         <div>
           <!-- Crear, editar y confirmar el borrado son formularios distintos, uno por pregunta.
@@ -113,30 +115,27 @@ const LARGO_DE_LA_RESPUESTA = 2000;
             <li class="rounded-xl border border-border bg-card p-4">
               @if (editando() === pregunta.id) {
                 <form class="grid gap-4" (ngSubmit)="guardar(pregunta)">
-                  <app-campo etiqueta="Pregunta" [obligatorio]="true">
+                  <mat-form-field>
+                    <mat-label>Pregunta <span aria-hidden="true">*</span></mat-label>
                     <input
-                      appCampoControl
+                      matInput
                       [id]="'editar-pregunta-' + pregunta.id"
                       name="pregunta"
-                      class="campo"
                       [maxlength]="LARGO_DE_LA_PREGUNTA"
                       [(ngModel)]="borrador.pregunta"
                     />
-                  </app-campo>
-                  <app-campo
-                    etiqueta="Respuesta"
-                    [obligatorio]="true"
-                    [ayuda]="quedan(borrador.respuesta)"
-                  >
+                  </mat-form-field>
+                  <mat-form-field>
+                    <mat-label>Respuesta <span aria-hidden="true">*</span></mat-label>
                     <textarea
-                      appCampoControl
+                      matInput
                       name="respuesta"
                       rows="4"
-                      class="campo"
                       [maxlength]="LARGO_DE_LA_RESPUESTA"
                       [(ngModel)]="borrador.respuesta"
                     ></textarea>
-                  </app-campo>
+                    <mat-hint>{{ quedan(borrador.respuesta) }}</mat-hint>
+                  </mat-form-field>
                   <div class="flex flex-wrap gap-2">
                     <button
                       matButton="filled"
@@ -165,21 +164,19 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                     <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
                   </div>
 
-                  <div>
-                    <label class="sr-only" [for]="'orden-pregunta-' + pregunta.id">
-                      Orden de «{{ pregunta.pregunta }}»
-                    </label>
+                  <mat-form-field class="w-18 sm:w-24">
+                    <mat-label>Orden de «{{ pregunta.pregunta }}»</mat-label>
                     <input
+                      matInput
                       [id]="'orden-pregunta-' + pregunta.id"
                       type="number"
                       min="0"
                       max="1000"
-                      class="campo w-18 sm:w-24"
                       [value]="pregunta.orden"
                       [disabled]="enviando()"
                       (change)="mover(pregunta, $event)"
                     />
-                  </div>
+                  </mat-form-field>
                 </div>
 
                 @if (porBorrar() === pregunta.id) {

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { InscripcionTorneo, ListaDelCuadro, Torneos } from '../torneos.service';
 import { InscritosDelTorneo } from './inscritos';
 
@@ -209,9 +210,7 @@ describe('InscritosDelTorneo', () => {
   });
 
   it('**a quien ya está en el torneo no se le ofrece de nuevo**', () => {
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="jugadorId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="jugadorId"]');
 
     expect(opciones.some((o) => o?.startsWith('Rojas'))).toBe(true);
     expect(opciones.some((o) => o?.startsWith('Díaz'))).toBe(false);
@@ -224,9 +223,7 @@ describe('InscritosDelTorneo', () => {
       retirados: [{ ...EN_EL_CUADRO, estado: 'RETIRADA' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="jugadorId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="jugadorId"]');
 
     expect(opciones.some((o) => o?.startsWith('Díaz'))).toBe(true);
     expect(texto()).toContain('Se bajaron: Carolina Díaz');
@@ -241,15 +238,19 @@ describe('InscritosDelTorneo', () => {
   it('**con la inscripción cerrada no se ofrece inscribir a nadie**', async () => {
     await montar({ ...LISTA, estado: 'CUADRO_ARMADO' });
 
-    expect(elemento().querySelector('select[name="jugadorId"]')).toBeNull();
+    expect(elemento().querySelector('mat-select[name="jugadorId"]')).toBeNull();
     expect(texto()).toContain('inscripción de este torneo está cerrada');
   });
 
   it('**el correo se pide pero no se exige** (T127): el del mesón puede no tener', async () => {
     const elegir = async (name: string, valor: string) => {
+      // El jugador es una lista de Material (T248): se abre y se elige.
+      if (elemento().querySelector(`mat-select[name="${name}"]`)) {
+        return elegirOpcion(fixture, `mat-select[name="${name}"]`, valor);
+      }
       const control = elemento().querySelector<HTMLInputElement>(`[name="${name}"]`)!;
       control.value = valor;
-      control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? 'change' : 'input'));
+      control.dispatchEvent(new Event('input'));
       await fixture.whenStable();
     };
 
@@ -514,13 +515,7 @@ describe('InscritosDelTorneo', () => {
       await soloElDelMeson();
       await apretar('Resolver');
 
-      const medio = elemento().querySelector<HTMLSelectElement>(
-        '[name^="medio-"]',
-      )!;
-      medio.value = 'EFECTIVO';
-      medio.dispatchEvent(new Event('change'));
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await elegirOpcion(fixture, 'mat-select[name^="medio-"]', 'EFECTIVO');
 
       await apretar('Confirmar el pago');
       await apretar('Sí, confirmar');

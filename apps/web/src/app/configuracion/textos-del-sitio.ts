@@ -1,12 +1,14 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { AdminCanchas, TextosDeElClub } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 
 /**
  * Cada texto con su etiqueta, para qué sirve y cuánto cabe. El largo es el de la columna:
@@ -46,7 +48,8 @@ const TEXTOS = [
  */
 @Component({
   selector: 'app-textos-del-sitio',
-  imports: [MatButton, FormsModule, Aviso, Campo, CampoControl],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  providers: [proveerCampos()],
   template: `
     <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
       @if (configuracion.error()) {
@@ -63,15 +66,16 @@ const TEXTOS = [
         @for (texto of TEXTOS; track texto.campo) {
           <!-- La cuenta va en la ayuda, que el lector lee al entrar al campo, y no en
                una región viva: esa hablaría con cada letra. -->
-          <app-campo
-            [etiqueta]="texto.etiqueta"
-            [ayuda]="texto.ayuda + ' ' + quedan(texto.campo, texto.largo)"
-            [obligatorio]="texto.campo === 'elClubTitulo'"
-          >
+          <mat-form-field>
+            <mat-label>
+              {{ texto.etiqueta }}
+              @if (texto.campo === 'elClubTitulo') {
+                <span aria-hidden="true">*</span>
+              }
+            </mat-label>
             @if (texto.lineas === 1) {
               <input
-                appCampoControl
-                class="campo"
+                matInput
                 [name]="texto.campo"
                 [maxlength]="texto.largo"
                 [ngModel]="formulario()[texto.campo]"
@@ -79,8 +83,7 @@ const TEXTOS = [
               />
             } @else {
               <textarea
-                appCampoControl
-                class="campo"
+                matInput
                 [name]="texto.campo"
                 [rows]="texto.lineas"
                 [maxlength]="texto.largo"
@@ -88,7 +91,8 @@ const TEXTOS = [
                 (ngModelChange)="escribir(texto.campo, $event)"
               ></textarea>
             }
-          </app-campo>
+            <mat-hint>{{ texto.ayuda + ' ' + quedan(texto.campo, texto.largo) }}</mat-hint>
+          </mat-form-field>
         }
       </fieldset>
 

@@ -3,12 +3,14 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
 import { firstValueFrom } from 'rxjs';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 
 /**
  * Recuperar la contraseña, en dos pasos: en /recuperar-contrasena pide el correo, y en
@@ -22,7 +24,8 @@ import { Campo, CampoControl } from '../../ui/campo';
  */
 @Component({
   selector: 'app-recuperar-contrasena',
-  imports: [MatButton, ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
+  imports: [MatFormFieldModule, MatInput, MatButton, ReactiveFormsModule, RouterLink, Aviso],
+  providers: [proveerCampos()],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Recuperar contraseña</h1>
 
@@ -35,15 +38,16 @@ import { Campo, CampoControl } from '../../ui/campo';
         <app-aviso variante="exito" class="mt-6 block">{{ mensaje }}</app-aviso>
       } @else {
         <form class="mt-6 grid gap-4" [formGroup]="pedido" (ngSubmit)="pedir()">
-          <app-campo etiqueta="Correo">
+          <mat-form-field>
+            <mat-label>Correo</mat-label>
             <input
-              appCampoControl
+              matInput
               type="email"
               formControlName="email"
               autocomplete="email"
-              class="campo"
             />
-          </app-campo>
+            <mat-error>{{ errorDelCampo(pedido.controls.email) }}</mat-error>
+          </mat-form-field>
 
           @if (error(); as motivo) {
             <app-aviso variante="error">{{ motivo }}</app-aviso>
@@ -69,18 +73,17 @@ import { Campo, CampoControl } from '../../ui/campo';
         <a matButton="filled" routerLink="/entrar" class="mt-6">Entrar</a>
       } @else {
         <form class="mt-6 grid gap-4" [formGroup]="nueva" (ngSubmit)="restablecer()">
-          <app-campo
-            etiqueta="Contraseña nueva"
-            ayuda="Al menos 10 caracteres. Una frase larga es mejor que símbolos."
-          >
+          <mat-form-field>
+            <mat-label>Contraseña nueva</mat-label>
             <input
-              appCampoControl
+              matInput
               type="password"
               formControlName="contrasena"
               autocomplete="new-password"
-              class="campo"
             />
-          </app-campo>
+            <mat-error>{{ errorDelCampo(nueva.controls.contrasena) }}</mat-error>
+            <mat-hint>Al menos 10 caracteres. Una frase larga es mejor que símbolos.</mat-hint>
+          </mat-form-field>
 
           @if (error(); as motivo) {
             <app-aviso variante="error">{{ motivo }}</app-aviso>
@@ -114,6 +117,8 @@ import { Campo, CampoControl } from '../../ui/campo';
   `,
 })
 export class RecuperarContrasena {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly http = inject(HttpClient);
   private readonly formularios = inject(FormBuilder).nonNullable;
 

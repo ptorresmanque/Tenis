@@ -11,13 +11,16 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { ReservasDelAdmin } from './nueva-reserva.service';
@@ -37,15 +40,17 @@ import { TelefonoDirective } from '../../ui/telefono';
 @Component({
   selector: 'app-nueva-reserva',
   imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     Aviso,
-    Campo,
-    CampoControl,
     Insignia,
     Selector,
     TelefonoDirective,
   ],
+  providers: [proveerCampos()],
   template: `
     <dialog
       #dialogo
@@ -67,26 +72,24 @@ import { TelefonoDirective } from '../../ui/telefono';
           (valorChange)="paraQuien.set($event)"
         />
 
-        <app-campo etiqueta="Cancha">
-          <!-- value y change nativos, no ngModel: el id de la cancha es un número
-               y ngModel lo compara contra el texto del value, así que ninguna
-               opción quedaba marcada. -->
-          <select
-            appCampoControl
+        <mat-form-field>
+          <mat-label>Cancha</mat-label>
+          <!-- value y selectionChange, no ngModel: sin elegir, la cancha es la primera del
+               día (canchaElegida), y eso no es un campo que el formulario guarde. -->
+          <mat-select
             name="cancha"
-            class="campo"
-            (change)="canchaId.set(+$any($event.target).value)"
+            [value]="canchaElegida()"
+            (selectionChange)="canchaId.set($event.value)"
           >
             @for (grilla of grillasDelDia(); track grilla.cancha.id) {
-              <option
+              <mat-option
                 [value]="grilla.cancha.id"
-                [selected]="grilla.cancha.id === canchaElegida()"
               >
                 {{ grilla.cancha.nombre }}
-              </option>
+              </mat-option>
             }
-          </select>
-        </app-campo>
+          </mat-select>
+        </mat-form-field>
         @if (grillas.error()) {
           <p class="text-sm text-destructive">
             No se pudo cargar la disponibilidad. Reintenta en un momento.
@@ -103,24 +106,23 @@ import { TelefonoDirective } from '../../ui/telefono';
           (valorChange)="elegirDuracion($event)"
         />
 
-        <app-campo etiqueta="Hora">
-          <select
-            appCampoControl
+        <mat-form-field>
+          <mat-label>Hora</mat-label>
+          <mat-select
             name="hora"
-            class="campo"
-            (change)="inicio.set($any($event.target).value)"
+            [value]="inicio()"
+            (selectionChange)="inicio.set($event.value)"
           >
             <!-- Mientras llegan, la primera opción lo dice: un esqueleto no cabe dentro de
                  un select (T153). -->
-            <option value="" [selected]="inicio() === ''">
+            <mat-option value="">
               {{ grillas.isLoading() ? 'Cargando las horas libres…' : 'Elige una hora libre' }}
-            </option>
+            </mat-option>
             @for (bloque of libres(); track bloque.inicio) {
               <!-- La cancha vacía que ya no se puede encender (T207): se ve y se explica,
                    para que el mesón no la busque por otro lado. -->
-              <option
+              <mat-option
                 [value]="bloque.inicio"
-                [selected]="bloque.inicio === inicio()"
                 [disabled]="bloque.topeDeLuz"
               >
                 {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
@@ -129,32 +131,32 @@ import { TelefonoDirective } from '../../ui/telefono';
                 } @else if (bloque.esPico) {
                   · hora prime
                 }
-              </option>
+              </mat-option>
             }
-          </select>
-        </app-campo>
+          </mat-select>
+        </mat-form-field>
 
         @if (paraQuien() === 'socio') {
-          <app-campo etiqueta="Socio">
-            <select
-              appCampoControl
+          <mat-form-field>
+            <mat-label>Socio</mat-label>
+            <mat-select
               name="socio"
-              class="campo"
-              (change)="socioId.set(+$any($event.target).value)"
+              [value]="socioId()"
+              (selectionChange)="socioId.set($event.value)"
             >
-              <option [value]="0">
+              <mat-option [value]="0">
                 {{ socios.isLoading() ? 'Cargando los socios…' : 'Elige un socio' }}
-              </option>
+              </mat-option>
               @if (socios.hasValue()) {
                 @for (socio of socios.value().socios; track socio.id) {
-                  <option [value]="socio.id">
+                  <mat-option [value]="socio.id">
                     {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
                     {{ socio.usuario.apellido }}
-                  </option>
+                  </mat-option>
                 }
               }
-            </select>
-          </app-campo>
+            </mat-select>
+          </mat-form-field>
 
           @if (cupo.error()) {
             <p class="text-sm text-destructive">
@@ -189,45 +191,46 @@ import { TelefonoDirective } from '../../ui/telefono';
 
           <!-- El socio no juega solo: la regla es la misma que en la web, y el mesón
                no es una puerta para saltársela. -->
-          <app-campo
-            etiqueta="Con quién juega"
-            ayuda="Con invitados, la reserva gasta una de sus reservas con invitados del mes."
-          >
+          <mat-form-field>
+            <mat-label>Con quién juega</mat-label>
             <input
-              appCampoControl
+              matInput
               name="acompanante"
-              class="campo"
               placeholder="Nombre del invitado"
               [(ngModel)]="acompanante"
             />
-          </app-campo>
+            <mat-hint>
+              Con invitados, la reserva gasta una de sus reservas con invitados del mes.
+            </mat-hint>
+          </mat-form-field>
         } @else {
-          <app-campo etiqueta="A nombre de" [obligatorio]="true">
-            <input appCampoControl name="nombre" class="campo" [(ngModel)]="nombre" />
-          </app-campo>
+          <mat-form-field>
+            <mat-label>A nombre de <span aria-hidden="true">*</span></mat-label>
+            <input matInput name="nombre" [(ngModel)]="nombre" />
+          </mat-form-field>
 
           <div class="grid gap-4 sm:grid-cols-2">
-            <app-campo etiqueta="Teléfono">
-              <span class="campo-con-prefijo">
-                <span class="prefijo">+56</span>
-                <input
-                  appTelefono
-                  appCampoControl
-                  name="telefono"
-                  class="campo"
-                  [(ngModel)]="telefono"
-                />
-              </span>
-            </app-campo>
-            <app-campo etiqueta="Correo">
+            <mat-form-field>
+              <mat-label>Teléfono</mat-label>
+              <span matTextPrefix>+56&nbsp;</span>
               <input
-                appCampoControl
+                matInput
+                appTelefono
+                #telefono="ngModel"
+                name="telefono"
+                [(ngModel)]="telefono"
+              />
+              <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Correo</mat-label>
+              <input
+                matInput
                 name="email"
                 type="email"
-                class="campo"
                 [(ngModel)]="email"
               />
-            </app-campo>
+            </mat-form-field>
           </div>
         }
 
@@ -257,6 +260,8 @@ import { TelefonoDirective } from '../../ui/telefono';
   `,
 })
 export class NuevaReserva {
+  protected readonly errorDelCampo = errorDelCampo;
+
   /** El día que la agenda está mirando: la reserva se toma sobre ese día. */
   readonly fecha = input.required<string>();
   readonly cerrar = output<void>();

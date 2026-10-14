@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
@@ -228,9 +229,7 @@ describe('AgendaDeClases', () => {
     // Una desactivada no tiene grilla, así que agendar sobre ella responde 404. Desde
     // T222 la lista es la pública, que el servidor ya da solo con las activas: la misma
     // para el admin y el profesor, que no puede leer las del panel.
-    const opciones = Array.from(elemento().querySelectorAll('select[name="canchaId"] option')).map(
-      (o) => o.textContent?.trim(),
-    );
+    const opciones = textosDe(fixture, 'mat-select[name="canchaId"]');
 
     expect(canchasPublicas).toHaveBeenCalled();
     expect(opciones).toContain('Cancha 1');
@@ -330,7 +329,7 @@ describe('AgendaDeClases', () => {
     it('no elige profesor ni pide la lista de profesores: la clase queda a su nombre', async () => {
       await montar([], [], PROFESORA);
 
-      expect(elemento().querySelector('select[name="profesorId"]')).toBeNull();
+      expect(elemento().querySelector('mat-select[name="profesorId"]')).toBeNull();
       expect(listarProfesores).not.toHaveBeenCalled();
       expect(texto()).toContain('Solo en horas libres');
 
@@ -377,9 +376,7 @@ describe('AgendaDeClases', () => {
     };
 
     const profesor = async () => {
-      const campo = elemento().querySelector<HTMLSelectElement>('select[name="profesorId"]')!;
-      campo.value = '4';
-      campo.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="profesorId"]`, '4');
       await fixture.whenStable();
       fixture.detectChanges();
     };
@@ -388,8 +385,8 @@ describe('AgendaDeClases', () => {
       await elegir('Preparación física');
       await profesor();
 
-      expect(elemento().querySelector('select[name="canchaId"]')).toBeNull();
-      expect(elemento().querySelector('select[name="nivel"]')).toBeNull();
+      expect(elemento().querySelector('mat-select[name="canchaId"]')).toBeNull();
+      expect(elemento().querySelector('mat-select[name="nivel"]')).toBeNull();
 
       await apretar('Agendar clase');
 
@@ -430,7 +427,7 @@ describe('AgendaDeClases', () => {
       await elegir('Preparación física');
       await elegir('Tenis');
 
-      expect(elemento().querySelector('select[name="canchaId"]')).not.toBeNull();
+      expect(elemento().querySelector('mat-select[name="canchaId"]')).not.toBeNull();
 
       await apretar('Agendar clase');
 

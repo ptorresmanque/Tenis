@@ -794,19 +794,19 @@ body:has(app-barra-fija) app-volver-arriba {
 /*
   Las primitivas que no necesitan JavaScript.
 
-  Campo y tabla son clases y no componentes de Angular a propósito: un componente
+  La tabla es una clase y no un componente de Angular a propósito: un componente
   obliga a volver a exponer sus atributos y eventos, y una clase no tiene API que
-  mantener ni llega al bundle de JavaScript. El botón fue la primera en irse: desde
-  T243 es `matButton` de Angular Material, que es una directiva y sirve igual en
-  un <button> y en un <a>.
+  mantener ni llega al bundle de JavaScript. El botón y el campo, que eran clases
+  como ella, ya se fueron: desde T243 y T247 son `matButton` y `mat-form-field` de
+  Angular Material.
 
   Las que sí son componentes —insignia, aviso, campo, paginación, estado vacío,
   selector, barra fija— están en `app/ui/`, y son las que tienen estado, ids que
   coordinar o texto que anunciar.
 
   Van en @layer components: las utilidades de Tailwind viven en una capa
-  posterior, así que `class="campo border-destructive"` sigue pudiendo pisar el
-  borde sin pelear con la especificidad.
+  posterior, así que `class="tabla text-sm"` sigue pudiendo pisar la letra sin
+  pelear con la especificidad.
 */
 @layer components {
   /*
@@ -987,6 +987,12 @@ body:has(app-barra-fija) app-volver-arriba {
     padding-block: 0.375rem;
   }
 
+  /* El `min-width: 0` del campo de Material, en esta capa: el tema le quita el suyo, que llega
+     sin capa, para que un `min-w-*` de la plantilla le gane (ver `tema-material.scss`). */
+  .mat-mdc-form-field {
+    min-width: 0;
+  }
+
   /* El giro del círculo del botón ocupado (T150), que dibuja `tema-material.scss`. */
   @keyframes girar {
     to {
@@ -1009,58 +1015,6 @@ body:has(app-barra-fija) app-volver-arriba {
 
   .pulsable:active:not(:disabled) {
     scale: 0.92;
-  }
-
-  .campo {
-    width: 100%;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-control);
-    background-color: var(--color-card);
-    padding: 0.75rem 1rem;
-    /* 16px exactos: con menos, Safari en iPhone hace zoom al enfocar. */
-    font-size: 1rem;
-    transition: border-color var(--duracion-menu) var(--ease-salida);
-  }
-
-  .campo:focus {
-    border-color: var(--color-primary);
-  }
-
-  /* Para las rejillas de edición del panel, donde 12/16 de padding por campo
-     convierte una fila de cuatro en una pantalla de scroll. */
-  .campo-chico {
-    padding: 0.375rem 0.5rem;
-    font-size: 0.875rem;
-  }
-
-  .campo:disabled {
-    background-color: var(--color-muted);
-    cursor: not-allowed;
-  }
-
-  /* El teléfono (T121): el +56 fijo, pegado al campo, como una sola caja. El span va
-     antes del input con `appTelefono`, que solo acepta los 9 dígitos. */
-  .campo-con-prefijo {
-    display: flex;
-    align-items: stretch;
-  }
-
-  .campo-con-prefijo > .prefijo {
-    display: flex;
-    align-items: center;
-    padding: 0 0.75rem;
-    border: 1px solid var(--color-border);
-    border-right: 0;
-    border-radius: var(--radius-control);
-    background-color: var(--color-muted);
-    color: var(--color-muted-foreground);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Las esquinas que se tocan conservan su radio: con 2px la unión no se ve, y un radio
-     escrito a mano es justo lo que design-tokens.spec.ts no deja pasar. */
-  .campo-con-prefijo > .campo {
-    min-width: 0;
   }
 
   .tabla {

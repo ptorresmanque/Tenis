@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 
+import { elegidoEn, elegir as elegirOpcion } from '../../testing/elegir';
 import { Ranking, TablaDeTorneos } from '../../ranking/ranking.service';
 import { TorneoPublico } from '../../torneos/torneos.service';
 import { TourPublico, Tours } from '../tours.service';
@@ -175,19 +176,16 @@ describe('TourPublicoPagina', () => {
   });
 
   it('**`?temporada=` abre esa**, con el selector en su lugar', async () => {
-    const { elemento } = await montar(undefined, '11');
+    const { fixture, elemento } = await montar(undefined, '11');
 
     expect(columnas(elemento)).toEqual(['Resultado', 'Máster']);
-    expect(elemento.querySelector<HTMLSelectElement>('select')?.value).toBe('11');
+    expect(elegidoEn(fixture, 'mat-select')).toBe('11');
   });
 
   it('cambiar la temporada la pone en la dirección, para que el enlace se pueda compartir', async () => {
-    const { fixture, navegar, elemento } = await montar();
-    const selector = elemento.querySelector<HTMLSelectElement>('select')!;
+    const { fixture, navegar } = await montar();
 
-    selector.value = '11';
-    selector.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
+    await elegirOpcion(fixture, 'mat-select', '11');
 
     expect(navegar).toHaveBeenCalledWith(
       [],
@@ -223,7 +221,7 @@ describe('TourPublicoPagina', () => {
 
     expect(elemento.querySelector('h1')?.textContent).toContain('Tour FEDAL');
     expect(elemento.querySelector('table')).toBeNull();
-    expect(elemento.querySelector('select')).toBeNull();
+    expect(elemento.querySelector('mat-select')).toBeNull();
     expect(elemento.querySelector('app-galeria')).toBeNull();
     expect(elemento.querySelector('img')).toBeNull();
   });
@@ -258,18 +256,18 @@ describe('TourPublicoPagina', () => {
     });
 
     it('`?categoria=` llega a la tabla, y elegir otra la pone en la dirección con la temporada', async () => {
-      const { fixture, elemento, ranking, navegar } = await montar(undefined, undefined, {
+      const { fixture, ranking, navegar } = await montar(undefined, undefined, {
         categoria: '20',
       });
       expect(ranking).toHaveBeenLastCalledWith(12, 20);
 
-      const categoria = elemento.querySelector<HTMLSelectElement>('select[name="categoria"]')!;
-      categoria.value = '60';
-      categoria.dispatchEvent(new Event('change'));
+      // La tabla de prueba trae Honor (60) elegida: «otra» es la 4ª. Elegir la que ya está no
+      // avisa, como en cualquier lista (T248).
+      await elegirOpcion(fixture, `mat-select[name="categoria"]`, '20');
       await fixture.whenStable();
 
       expect(navegar.mock.lastCall?.[1]).toMatchObject({
-        queryParams: { temporada: 12, categoria: 60 },
+        queryParams: { temporada: 12, categoria: 20 },
       });
     });
 

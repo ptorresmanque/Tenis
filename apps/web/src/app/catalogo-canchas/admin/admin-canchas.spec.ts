@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegidoEn, textosDe } from '../../testing/elegir';
 import { AdminCanchasPanel } from './admin-canchas';
 import { AdminCanchas, Advertencia, CanchaAdmin } from './admin-canchas.service';
 
@@ -108,16 +109,12 @@ describe('AdminCanchasPanel', () => {
 
   it('la cancha nueva ofrece Cemento primero y ya elegido: las ocho del club son de cemento (T94)', async () => {
     await fixture.whenStable();
-    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
-      'select#superficie',
-    )!;
-
-    expect(Array.from(select.options).map((o) => o.textContent?.trim())).toEqual([
+    expect(textosDe(fixture, 'mat-select#superficie')).toEqual([
       'Cemento',
       'Arcilla',
       'Pasto sintético',
     ]);
-    expect(select.value).toBe('CEMENTO');
+    expect(elegidoEn(fixture, 'mat-select#superficie')).toBe('CEMENTO');
   });
 
   it('la cabecera del panel lleva el título y ninguna acción: agregar es una sección (TV7.2)', () => {

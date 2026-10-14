@@ -1,6 +1,9 @@
 import { Component, computed, inject, model, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
 import { Tours } from '../../tours/tours.service';
 
 /** Lo elegido: un tour y uno de sus niveles. Nulos mientras no se elija. */
@@ -23,7 +26,8 @@ export interface NivelElegido {
  */
 @Component({
   selector: 'app-elegir-nivel',
-  imports: [RouterLink],
+  imports: [MatSelectModule, MatFormFieldModule, RouterLink],
+  providers: [proveerCampos()],
   template: `
     @if (tours.error()) {
       <p class="text-sm text-destructive">
@@ -39,36 +43,40 @@ export interface NivelElegido {
       </p>
     } @else {
       <div class="grid gap-3 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-sm font-medium">Tour</span>
-          <select class="campo mt-1" name="tourId" (change)="elegirTour($event)">
-            <option value="" disabled [selected]="eleccion().tourId === null">Elige un tour</option>
-            @for (tour of tours.value(); track tour.id) {
-              <option [value]="tour.id" [selected]="tour.id === eleccion().tourId">
-                {{ tour.nombre }}
-              </option>
-            }
-          </select>
-        </label>
-
-        <label class="block">
-          <span class="text-sm font-medium">Nivel</span>
-          <select
-            class="campo mt-1"
-            name="nivelId"
-            [disabled]="niveles().length === 0"
-            (change)="elegirNivel($event)"
+        <mat-form-field>
+          <mat-label>Tour</mat-label>
+          <mat-select
+            [value]="eleccion().tourId ?? ''"
+            name="tourId"
+            (selectionChange)="elegirTour($event.value)"
           >
-            <option value="" disabled [selected]="eleccion().nivelId === null">
-              {{ eleccion().tourId === null ? 'Primero el tour' : 'Elige el nivel' }}
-            </option>
-            @for (nivel of niveles(); track nivel.id) {
-              <option [value]="nivel.id" [selected]="nivel.id === eleccion().nivelId">
-                {{ nivel.nombre }}
-              </option>
+            <mat-option value="" disabled>Elige un tour</mat-option>
+            @for (tour of tours.value(); track tour.id) {
+              <mat-option [value]="tour.id">
+                {{ tour.nombre }}
+              </mat-option>
             }
-          </select>
-        </label>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Nivel</mat-label>
+          <mat-select
+            name="nivelId"
+            [value]="eleccion().nivelId ?? ''"
+            [disabled]="niveles().length === 0"
+            (selectionChange)="elegirNivel($event.value)"
+          >
+            <mat-option value="" disabled>
+              {{ eleccion().tourId === null ? 'Primero el tour' : 'Elige el nivel' }}
+            </mat-option>
+            @for (nivel of niveles(); track nivel.id) {
+              <mat-option [value]="nivel.id">
+                {{ nivel.nombre }}
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
         @if (ficha.error()) {
           <p class="text-sm text-destructive sm:col-span-2">
@@ -127,16 +135,12 @@ export class ElegirNivel {
     return cargada && this.niveles().length === 0 ? tourId : null;
   });
 
-  protected elegirTour(evento: Event): void {
-    const tourId = Number((evento.target as HTMLSelectElement).value);
-
+  protected elegirTour(tourId: number): void {
     // El nivel era del tour anterior: se vuelve a elegir.
     this.eleccion.set({ tourId, nivelId: null });
   }
 
-  protected elegirNivel(evento: Event): void {
-    const nivelId = Number((evento.target as HTMLSelectElement).value);
-
+  protected elegirNivel(nivelId: number): void {
     this.eleccion.update((eleccion) => ({ ...eleccion, nivelId }));
   }
 }

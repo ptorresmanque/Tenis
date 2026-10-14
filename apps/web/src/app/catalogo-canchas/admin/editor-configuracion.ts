@@ -7,7 +7,10 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import {
   AdminCanchas,
@@ -127,7 +130,16 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
  */
 @Component({
   selector: 'app-editor-configuracion',
-  imports: [MatButton, FormsModule, Esqueleto, EditorPrime, EditorTopeDeLuz],
+  imports: [
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    Esqueleto,
+    EditorPrime,
+    EditorTopeDeLuz,
+  ],
+  providers: [proveerCampos()],
   template: `
     <section class="mt-8" aria-labelledby="titulo-reglas">
       <h2 id="titulo-reglas" class="rotulo-seccion">
@@ -149,27 +161,19 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
 
               <div class="mt-3 grid gap-4 sm:grid-cols-2">
                 @for (regla of grupo.reglas; track regla.campo) {
-                  <div>
-                    <label [for]="regla.campo" class="block text-sm font-medium">
-                      {{ regla.etiqueta }}
-                    </label>
+                  <mat-form-field>
+                    <mat-label>{{ regla.etiqueta }}</mat-label>
                     <input
+                      matInput
                       [id]="regla.campo"
                       [name]="regla.campo"
                       type="number"
                       [min]="regla.minimo"
-                      class="campo mt-1 w-32"
-                      [attr.aria-describedby]="regla.campo + '-ayuda'"
                       [ngModel]="puestos[regla.campo]"
                       (ngModelChange)="cambiar(regla.campo, $event)"
                     />
-                    <p
-                      [id]="regla.campo + '-ayuda'"
-                      class="mt-1 text-xs text-muted-foreground"
-                    >
-                      {{ regla.ayuda }}
-                    </p>
-                  </div>
+                    <mat-hint>{{ regla.ayuda }}</mat-hint>
+                  </mat-form-field>
                 }
               </div>
             </fieldset>

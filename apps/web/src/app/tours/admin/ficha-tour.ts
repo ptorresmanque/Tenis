@@ -13,10 +13,12 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import { Esqueleto } from '../../ui/esqueleto';
 import { FichaDeTour, Tours } from '../tours.service';
 import { GaleriaDelTour } from './galeria-del-tour';
@@ -42,17 +44,18 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
 @Component({
   selector: 'app-ficha-tour',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     MatIcon,
     FormsModule,
     RouterLink,
     Aviso,
-    Campo,
-    CampoControl,
     Esqueleto,
     TemporadasDelTour,
     GaleriaDelTour,
   ],
+  providers: [proveerCampos()],
   template: `
     <a routerLink="/administracion/tours" class="text-sm font-semibold text-primary">
       <mat-icon class="align-middle text-base" aria-hidden="true">arrow_back</mat-icon>
@@ -112,36 +115,33 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
 
         <div class="mt-6 grid gap-8 lg:grid-cols-[1fr_20rem]">
           <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
-            <app-campo etiqueta="Nombre" [obligatorio]="true">
+            <mat-form-field>
+              <mat-label>Nombre <span aria-hidden="true">*</span></mat-label>
               <input
-                appCampoControl
-                class="campo"
+                matInput
                 name="nombre"
                 [maxlength]="LARGO_DEL_NOMBRE"
                 [ngModel]="editado().nombre ?? tour.nombre"
                 (ngModelChange)="escribir('nombre', $event)"
               />
-            </app-campo>
+            </mat-form-field>
 
             <!-- La cuenta va en la ayuda, que el lector lee al entrar al campo, y no en una
                región viva que hablaría con cada letra. -->
-            <app-campo
-              etiqueta="Descripción"
-              [ayuda]="
-                'Texto plano: los saltos de línea se respetan. ' +
-                quedan(editado().descripcion ?? tour.descripcion)
-              "
-            >
+            <mat-form-field>
+              <mat-label>Descripción</mat-label>
               <textarea
-                appCampoControl
-                class="campo"
+                matInput
                 name="descripcion"
                 rows="8"
                 [maxlength]="LARGO_DE_LA_DESCRIPCION"
                 [ngModel]="editado().descripcion ?? tour.descripcion"
                 (ngModelChange)="escribir('descripcion', $event)"
               ></textarea>
-            </app-campo>
+              <mat-hint>
+                {{ 'Texto plano: los saltos de línea se respetan. ' + quedan(editado().descripcion ?? tour.descripcion) }}
+              </mat-hint>
+            </mat-form-field>
 
             <div>
               <!-- Los datos, la imagen y el diálogo son secciones distintas.
@@ -170,12 +170,13 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
                 Todavía no tiene imagen. Es la portada de su tarjeta y de su página.
               </p>
             }
-            <label class="mt-3 block">
+            <!-- Material no tiene campo de archivo, y matInput no admite type="file" (T247). -->
+            <label class="block">
               <span class="text-sm font-medium">
                 {{ tour.imagen ? 'Reemplazar la imagen' : 'Subir la imagen' }}
               </span>
               <input
-                class="campo mt-1"
+                class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
                 type="file"
                 accept="image/jpeg,image/png"
                 [disabled]="enCurso() !== null"

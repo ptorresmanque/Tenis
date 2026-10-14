@@ -1,6 +1,10 @@
 import { Component, computed, input, model, output } from '@angular/core';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
-import { CampoFecha } from '../../ui/campo-fecha';
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
 import { Insignia } from '../../ui/insignia';
 import { Selector } from '../../ui/selector';
 import { Cancha, DuracionMin } from '../disponibilidad';
@@ -42,7 +46,8 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
  */
 @Component({
   selector: 'app-controles-del-dia',
-  imports: [CampoFecha, Insignia, Selector],
+  imports: [MatDatepickerModule, MatFormFieldModule, MatInput, Insignia, Selector],
+  providers: [proveerCampos(), proveerFechaYHora()],
   host: { class: 'contents' },
   template: `
     <div class="mt-4 flex flex-wrap items-end gap-4">
@@ -61,18 +66,22 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
         (valorChange)="fecha.set($event)"
       />
 
-      <div>
-        <label for="fecha" class="block text-sm font-medium">Otro día</label>
-        <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
-             etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
-        <app-campo-fecha
-          class="mt-1"
-          inputId="fecha"
-          claseCampo="w-36 cursor-pointer py-2 transition-colors hover:border-primary"
-          [valor]="fecha()"
-          (valorChange)="cambiarFecha($event)"
+      <!-- El cursor y el borde que responde (abre-al-tocar): sin eso, el campo se lee como
+           una etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
+      <mat-form-field class="w-48 abre-al-tocar">
+        <mat-label>Otro día</mat-label>
+        <input
+          matInput
+          id="fecha"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioFecha"
+          [value]="diaElegido()"
+          (dateChange)="cambiarFecha($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
+        <mat-datepicker #calendarioFecha />
+      </mat-form-field>
     </div>
 
     <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
@@ -132,9 +141,13 @@ export class ControlesDelDia {
     })),
   );
 
-  protected cambiarFecha(valor: string): void {
-    // El input vacío —se puede borrar con el teclado— no dispara una consulta
-    // que la API va a rechazar.
+  /** El día del calendario: un `Date` estable mientras no cambie el día (T244). */
+  protected readonly diaElegido = computed(() => textoAFecha(this.fecha()));
+
+  protected cambiarFecha(fecha: Date | null): void {
+    // El campo vacío —se puede borrar con el teclado— o una fecha que no existe no
+    // disparan una consulta que la API va a rechazar.
+    const valor = fechaATexto(fecha);
     if (valor) {
       this.fecha.set(valor);
     }

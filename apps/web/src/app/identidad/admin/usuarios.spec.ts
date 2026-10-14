@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Profesores } from '../../clases/profesores.service';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { Socios } from './socios.service';
@@ -204,9 +205,12 @@ describe('UsuariosPanel', () => {
       await esperar();
     };
     const escribir = async (dentro: Element, selector: string, valor: string) => {
-      const campo = dentro.querySelector<HTMLInputElement | HTMLSelectElement>(selector)!;
+      // Las listas son de Material (T248): se abren y se elige. La fila abierta es una sola.
+      if (selector.startsWith('mat-select')) return elegirOpcion(fixture, selector, valor);
+
+      const campo = dentro.querySelector<HTMLInputElement>(selector)!;
       campo.value = valor;
-      campo.dispatchEvent(new Event(campo instanceof HTMLSelectElement ? 'change' : 'input'));
+      campo.dispatchEvent(new Event('input'));
       await esperar();
     };
 
@@ -240,13 +244,11 @@ describe('UsuariosPanel', () => {
       const camila = filaDe('Camila Rojas');
       await apretar(camila, 'Hacer profesor');
 
-      const opciones = [
-        ...camila.querySelectorAll<HTMLOptionElement>('select[name="ficha"] option'),
-      ].map((opcion) => opcion.textContent?.trim());
+      const opciones = textosDe(fixture, 'mat-select[name="ficha"]');
       expect(opciones).toContain('Profe Sin Cuenta · Niños');
       expect(opciones).not.toContain('Profe Con Cuenta · Niños');
 
-      await escribir(camila, 'select[name="ficha"]', '9');
+      await escribir(camila, 'mat-select[name="ficha"]', '9');
       await apretar(camila, 'Confirmar');
 
       expect(profesores.vincular).toHaveBeenCalledWith(9, 2);
@@ -256,7 +258,7 @@ describe('UsuariosPanel', () => {
     it('o crea una ficha nueva con su nombre y su teléfono, y la especialidad que se escriba', async () => {
       const camila = filaDe('Camila Rojas');
       await apretar(camila, 'Hacer profesor');
-      await escribir(camila, 'select[name="ficha"]', 'nueva');
+      await escribir(camila, 'mat-select[name="ficha"]', 'nueva');
 
       expect(camila.querySelector<HTMLInputElement>('input[name="nombre-visible"]')!.value).toBe(
         'Camila Rojas',
@@ -293,7 +295,7 @@ describe('UsuariosPanel', () => {
       });
       const camila = filaDe('Camila Rojas');
       await apretar(camila, 'Hacer profesor');
-      await escribir(camila, 'select[name="ficha"]', '9');
+      await escribir(camila, 'mat-select[name="ficha"]', '9');
       await apretar(camila, 'Confirmar');
 
       expect(texto()).toContain('Esta ficha ya tiene una cuenta.');

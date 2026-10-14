@@ -1,4 +1,8 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import {
   diaConAnioEnPalabras,
@@ -6,10 +10,11 @@ import {
   fechaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
+import { proveerCampos } from '../ui/campos';
 import { EstadoVacio } from '../ui/estado-vacio';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { DescargarCsv } from './descargar-csv';
 import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service';
-import { CampoFecha } from '../ui/campo-fecha';
 
 /**
  * El ingreso del club por período.
@@ -24,7 +29,15 @@ import { CampoFecha } from '../ui/campo-fecha';
  */
 @Component({
   selector: 'app-ingreso-panel',
-  imports: [EstadoVacio, DescargarCsv, CampoFecha],
+  imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    EstadoVacio,
+    DescargarCsv,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
          es lo que se lleva. -->
@@ -39,34 +52,48 @@ import { CampoFecha } from '../ui/campo-fecha';
     </header>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-desde">Desde</label>
-        <app-campo-fecha
-          inputId="reporte-desde"
+      <mat-form-field>
+        <mat-label>Desde</mat-label>
+        <input
+          matInput
           name="desde"
-          [valor]="desde()"
-          (valorChange)="desde.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioDesde"
+          [value]="desde()"
+          (dateChange)="desde.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+        <mat-datepicker #calendarioDesde />
+      </mat-form-field>
 
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-hasta">Hasta</label>
-        <app-campo-fecha
-          inputId="reporte-hasta"
+      <mat-form-field>
+        <mat-label>Hasta</mat-label>
+        <input
+          matInput
           name="hasta"
-          [valor]="hasta()"
-          (valorChange)="hasta.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioHasta"
+          [value]="hasta()"
+          (dateChange)="hasta.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+        <mat-datepicker #calendarioHasta />
+      </mat-form-field>
 
-      <label class="grid gap-1 text-sm">
-        <span class="font-medium">Cortado por</span>
-        <select name="corte" class="campo" [value]="corte()" (change)="corte.set(valorDe($event))">
+      <mat-form-field>
+        <mat-label>Cortado por</mat-label>
+        <mat-select
+          name="corte"
+          [value]="corte()"
+          (selectionChange)="corte.set($event.value)"
+        >
           @for (opcion of OPCIONES; track opcion.valor) {
-            <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+            <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
           }
-        </select>
-      </label>
+        </mat-select>
+      </mat-form-field>
     </div>
 
     @if (reporte.error()) {
@@ -143,16 +170,16 @@ export class IngresoPanel {
   );
 
   /** El mes corriente: es lo que el club mira al entrar. */
-  protected readonly desde = signal(`${hoyEnElClub().slice(0, 7)}-01`);
-  protected readonly hasta = signal(hoyEnElClub());
+  protected readonly desde = signal(textoAFecha(`${hoyEnElClub().slice(0, 7)}-01`));
+  protected readonly hasta = signal(textoAFecha(hoyEnElClub()));
 
   /** Por condición, que es la pregunta que motivó el módulo. */
   protected readonly corte = signal('condicion');
 
   protected readonly reporte = resource({
     params: () => ({
-      desde: this.desde(),
-      hasta: this.hasta(),
+      desde: fechaATexto(this.desde()),
+      hasta: fechaATexto(this.hasta()),
       corte: this.corte() as CorteDeIngreso,
     }),
     loader: ({ params }) => this.api.ingreso(params.desde, params.hasta, params.corte),
@@ -162,12 +189,8 @@ export class IngresoPanel {
 
   /** El CSV lleva el mismo rango y corte: si no, el club descarga otra cosa. */
   protected readonly urlDelCsv = computed(() =>
-    this.api.csv('ingreso', this.desde(), this.hasta(), this.corte()),
+    this.api.csv('ingreso', fechaATexto(this.desde()), fechaATexto(this.hasta()), this.corte()),
   );
-
-  protected valorDe(evento: Event): string {
-    return (evento.target as HTMLInputElement | HTMLSelectElement).value;
-  }
 
   protected nombreDelCorte(corte: CorteDeIngreso): string {
     return CORTES_DE_INGRESO[corte] ?? corte;

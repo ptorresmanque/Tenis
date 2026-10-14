@@ -12,7 +12,15 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
+import { overlaysEnElDialogo } from '../../ui/overlays-en-el-dialogo';
 import {
   diaEnPalabras,
   fechaEnElClub,
@@ -27,8 +35,6 @@ import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
 import { Foto, PartidoDelCuadro, Torneos } from '../torneos.service';
 import { FotoDelPartido } from './foto-del-partido';
-import { CampoFecha } from '../../ui/campo-fecha';
-import { CampoHora } from '../../ui/campo-hora';
 
 /**
  * El cuadro del torneo.
@@ -38,18 +44,30 @@ import { CampoHora } from '../../ui/campo-hora';
  * llega. Una mitad en blanco no dice nada; una mitad dibujada dice a quién te toca si
  * ganás.
  */
+/** El horario de un partido sin programar: el día por elegir, y de 10 a 12. */
+const horarioEnBlanco = () => ({
+  canchaId: 0,
+  fecha: null as Date | null,
+  horaDesde: textoAHora('10:00'),
+  horaHasta: textoAHora('12:00'),
+});
+
 @Component({
   selector: 'app-cuadro-torneo',
   imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
     MatButton,
     MatIcon,
     FormsModule,
     Aviso,
     Insignia,
     FotoDelPartido,
-    CampoFecha,
-    CampoHora,
   ],
+  providers: [proveerCampos(), proveerFechaYHora(), overlaysEnElDialogo()],
   template: `
     @if (cuadro.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -221,49 +239,66 @@ import { CampoHora } from '../../ui/campo-hora';
         <!-- Dos columnas y no cuatro: con el botón del calendario, una fecha entera no
              cabía en un cuarto del modal (T126). -->
         <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="programar()">
-          <label class="block">
-            <span class="text-sm font-medium">Cancha</span>
-            <select
-              class="campo mt-1"
+          <mat-form-field>
+            <mat-label>Cancha</mat-label>
+            <mat-select
               name="cancha"
               [(ngModel)]="horario.canchaId"
             >
-              <option [value]="0" disabled>Elige una</option>
+              <mat-option [value]="0" disabled>Elige una</mat-option>
         <!-- **Solo las activas.** El servidor responde 404 sobre una
                    cancha fuera de la grilla, y descubrirlo después de elegir
                    día y hora es un formulario perdido. -->
               @for (cancha of activas(); track cancha.id) {
-                <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
               }
-            </select>
-          </label>
+            </mat-select>
+          </mat-form-field>
 
-          <div class="grid gap-1">
-            <label class="text-sm font-medium" for="programar-fecha">Día</label>
-            <app-campo-fecha
-              inputId="programar-fecha"
+          <mat-form-field>
+            <mat-label>Día</mat-label>
+            <input
+              matInput
+              id="programar-fecha"
               name="fecha"
+              placeholder="dd-mm-aaaa"
+              autocomplete="off"
+              [matDatepicker]="calendarioFecha"
               [(ngModel)]="horario.fecha"
             />
-          </div>
+            <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
+            <mat-datepicker #calendarioFecha />
+          </mat-form-field>
 
-          <div class="grid gap-1">
-            <label class="text-sm font-medium" for="programar-desde">Desde</label>
-            <app-campo-hora
-              inputId="programar-desde"
+          <mat-form-field>
+            <mat-label>Desde</mat-label>
+            <input
+              matInput
+              id="programar-desde"
               name="desde"
+              placeholder="hh:mm"
+              autocomplete="off"
+              [matTimepicker]="relojDesde"
               [(ngModel)]="horario.horaDesde"
             />
-          </div>
+            <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojDesde" />
+            <mat-timepicker #relojDesde />
+          </mat-form-field>
 
-          <div class="grid gap-1">
-            <label class="text-sm font-medium" for="programar-hasta">Hasta</label>
-            <app-campo-hora
-              inputId="programar-hasta"
+          <mat-form-field>
+            <mat-label>Hasta</mat-label>
+            <input
+              matInput
+              id="programar-hasta"
               name="hasta"
+              placeholder="hh:mm"
+              autocomplete="off"
+              [matTimepicker]="relojHasta"
               [(ngModel)]="horario.horaHasta"
             />
-          </div>
+            <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHasta" />
+            <mat-timepicker #relojHasta />
+          </mat-form-field>
 
           <div class="flex gap-2 sm:col-span-2">
             <button
@@ -336,16 +371,16 @@ import { CampoHora } from '../../ui/campo-hora';
           </label>
         </fieldset>
 
-        <label class="mt-2 block">
-          <span class="text-sm font-medium">Marcador</span>
+        <mat-form-field class="chico">
+          <mat-label>Marcador</mat-label>
           <input
-            class="campo campo-chico mt-1"
+            matInput
             name="marcador"
             placeholder="6-4 3-6 7-5"
             [value]="marcador()"
             (input)="marcador.set($any($event.target).value)"
           />
-        </label>
+        </mat-form-field>
 
         <label class="mt-2 flex items-center gap-2">
           <input
@@ -422,12 +457,8 @@ export class CuadroDelTorneo {
 
   /** Qué partido tiene abierto su formulario de horario (T67). */
   protected readonly programando = signal<PartidoDelCuadro | null>(null);
-  protected horario = {
-    canchaId: 0,
-    fecha: '',
-    horaDesde: '10:00',
-    horaHasta: '12:00',
-  };
+  /** La fecha y las horas, como las entrega Material; a texto al programar (A5, T244). */
+  protected horario = horarioEnBlanco();
 
   protected readonly canchas = resource({
     loader: () => this.canchasApi.canchas(),
@@ -483,12 +514,7 @@ export class CuadroDelTorneo {
 
   protected abrirHorario(partido: PartidoDelCuadro): void {
     this.programando.set(partido);
-    this.horario = {
-      canchaId: 0,
-      fecha: '',
-      horaDesde: '10:00',
-      horaHasta: '12:00',
-    };
+    this.horario = horarioEnBlanco();
   }
 
   protected async programar(): Promise<void> {
@@ -504,9 +530,9 @@ export class CuadroDelTorneo {
     await this.intentar('programar', async () => {
       await this.api.programarPartido(this.torneoId(), partido.id, {
         canchaId: Number(this.horario.canchaId),
-        fecha: this.horario.fecha,
-        horaDesde: this.horario.horaDesde,
-        horaHasta: this.horario.horaHasta,
+        fecha: fechaATexto(this.horario.fecha),
+        horaDesde: horaATexto(this.horario.horaDesde),
+        horaHasta: horaATexto(this.horario.horaHasta),
       });
       this.programando.set(null);
     });

@@ -1,9 +1,13 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
 
+import { proveerCampos } from '../../ui/campos';
+import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { mensajeDelServidor } from '../../core/errores';
-import { CampoHora } from '../../ui/campo-hora';
 import { Esqueleto } from '../../ui/esqueleto';
 import { diaEnPalabras, fechaEnElClub, horaEnElClub } from '../reloj-del-club';
 import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
@@ -21,7 +25,8 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
  */
 @Component({
   selector: 'app-editor-tope-de-luz',
-  imports: [MatButton, FormsModule, CampoHora, Esqueleto],
+  imports: [MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule, Esqueleto],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <section class="mt-8" aria-labelledby="titulo-tope-de-luz">
       <h2 id="titulo-tope-de-luz" class="rotulo-seccion">Tope de canchas con luz</h2>
@@ -52,33 +57,37 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
 
           @if (limitar()) {
             <div class="mt-2 flex flex-wrap items-end gap-4">
-              <div>
-                <label for="tope-de-luz-canchas" class="block text-sm font-medium">
-                  Canchas a la vez
-                </label>
+              <mat-form-field class="w-40">
+                <mat-label>Canchas a la vez</mat-label>
                 <input
+                  matInput
                   id="tope-de-luz-canchas"
                   name="topeCanchasConLuz"
                   type="number"
                   min="1"
-                  class="campo mt-1 w-24"
                   [ngModel]="canchas()"
                   (ngModelChange)="canchas.set($event)"
                 />
-              </div>
-              <div>
-                <label for="tope-de-luz-desde" class="block text-sm font-medium">
-                  Desde las
-                </label>
-                <app-campo-hora
-                  class="mt-1"
-                  inputId="tope-de-luz-desde"
+              </mat-form-field>
+              <mat-form-field class="w-32">
+                <mat-label>Desde las</mat-label>
+                <input
+                  matInput
+                  id="tope-de-luz-desde"
                   name="topeCanchasConLuzDesde"
-                  claseCampo="w-24"
+                  placeholder="hh:mm"
+                  autocomplete="off"
+                  [matTimepicker]="relojTopeCanchasConLuzDesde"
                   [ngModel]="desde()"
                   (ngModelChange)="desde.set($event)"
                 />
-              </div>
+                <mat-timepicker-toggle
+                  matIconSuffix
+                  aria-label="Elegir la hora"
+                  [for]="relojTopeCanchasConLuzDesde"
+                />
+                <mat-timepicker #relojTopeCanchasConLuzDesde />
+              </mat-form-field>
             </div>
           }
 
@@ -151,8 +160,9 @@ export class EditorTopeDeLuz {
   protected readonly canchas = linkedSignal<number | null>(
     () => this.configuracion.value()?.topeCanchasConLuz ?? 2,
   );
-  protected readonly desde = linkedSignal(
-    () => this.configuracion.value()?.topeCanchasConLuzDesde ?? '19:00',
+  /** Como la entrega el selector de Material, y a texto al guardar (A5, T244). */
+  protected readonly desde = linkedSignal(() =>
+    textoAHora(this.configuracion.value()?.topeCanchasConLuzDesde ?? '19:00'),
   );
 
   protected cuando(exceso: ExcesoDeLuz): string {
@@ -180,7 +190,7 @@ export class EditorTopeDeLuz {
     try {
       await this.api.fijarConfiguracion({
         topeCanchasConLuz: this.limitar() ? canchas : null,
-        topeCanchasConLuzDesde: this.desde(),
+        topeCanchasConLuzDesde: horaATexto(this.desde()),
       });
       this.aviso.set('Guardado. El tope rige desde la próxima reserva.');
       this.configuracion.reload();

@@ -3,12 +3,14 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
 import { firstValueFrom } from 'rxjs';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 import { TelefonoDirective } from '../../ui/telefono';
 
 interface RespuestaRegistro {
@@ -27,14 +29,15 @@ interface CampoDelFormulario {
 @Component({
   selector: 'app-registro',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     ReactiveFormsModule,
     RouterLink,
     Aviso,
-    Campo,
-    CampoControl,
     TelefonoDirective,
   ],
+  providers: [proveerCampos()],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -48,34 +51,36 @@ interface CampoDelFormulario {
     } @else {
       <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="registrar()">
         @for (campo of campos; track campo.nombre) {
-          <app-campo
-            [etiqueta]="campo.etiqueta"
-            [ayuda]="campo.ayuda ?? ''"
-            [obligatorio]="!campo.opcional"
-          >
+          <!-- El asterisco de lo obligatorio lo pone Material, que lo lee del required del
+               control; el registro lo muestra, como siempre (en el resto va apagado). -->
+          <mat-form-field [hideRequiredMarker]="false">
+            <mat-label>{{ campo.etiqueta }}</mat-label>
+            <!-- El +56 fijo y solo los 9 dígitos (T121). Cada @if con un solo elemento: así
+                 Angular lo proyecta en el prefijo o en el control del campo de Material. -->
             @if (campo.tipo === 'tel') {
-              <!-- El +56 fijo y solo los 9 dígitos (T121). -->
-              <span class="campo-con-prefijo">
-                <span class="prefijo">+56</span>
-                <input
-                  appCampoControl
-                  appTelefono
-                  [formControlName]="campo.nombre"
-                  [required]="!campo.opcional"
-                  class="campo"
-                />
-              </span>
+              <span matTextPrefix>+56&nbsp;</span>
+            }
+            @if (campo.tipo === 'tel') {
+              <input
+                matInput
+                appTelefono
+                [formControlName]="campo.nombre"
+                [required]="!campo.opcional"
+              />
             } @else {
               <input
-                appCampoControl
+                matInput
                 [type]="campo.tipo"
                 [formControlName]="campo.nombre"
                 [autocomplete]="campo.autocomplete"
                 [required]="!campo.opcional"
-                class="campo"
               />
             }
-          </app-campo>
+            @if (campo.ayuda) {
+              <mat-hint>{{ campo.ayuda }}</mat-hint>
+            }
+            <mat-error>{{ errorDelCampo(formulario.get(campo.nombre)) }}</mat-error>
+          </mat-form-field>
         }
 
         @if (error(); as motivo) {
@@ -100,6 +105,8 @@ interface CampoDelFormulario {
   `,
 })
 export class Registro {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly http = inject(HttpClient);
 
   protected readonly formulario = inject(FormBuilder).nonNullable.group({

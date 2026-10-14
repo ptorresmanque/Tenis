@@ -9,9 +9,13 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
 
+import { proveerCampos } from '../../ui/campos';
+import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
-import { CampoHora } from '../../ui/campo-hora';
 
 const DIAS = [
   'Domingo',
@@ -29,8 +33,9 @@ const SEMANA = [0, 1, 2, 3, 4, 5, 6];
 interface FilaDeDia {
   diaSemana: number;
   abre: boolean;
-  horaApertura: string;
-  horaCierre: string;
+  /** Como las entrega el selector de Material, y a texto al guardar (A5, T244). */
+  horaApertura: Date | null;
+  horaCierre: Date | null;
 }
 
 /**
@@ -42,7 +47,8 @@ interface FilaDeDia {
  */
 @Component({
   selector: 'app-editor-horarios',
-  imports: [MatButton, FormsModule, CampoHora],
+  imports: [MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <form class="mt-2" (ngSubmit)="guardar()">
       <!-- La tabla lleva siete filas de dos horas cada una y no se encoge más:
@@ -76,26 +82,48 @@ interface FilaDeDia {
                 />
               </td>
               <td class="pe-3 py-1">
-                <app-campo-hora
-                  [inputId]="'desde-' + clave() + '-' + fila.diaSemana"
-                  claseCampo="campo-chico w-24"
-                  [etiquetaAccesible]="'Apertura del ' + nombreDia(fila.diaSemana)"
-                  [disabled]="!fila.abre"
-                  [ngModel]="fila.horaApertura"
-                  (ngModelChange)="cambiar(fila.diaSemana, { horaApertura: $event })"
-                  [name]="'desde-' + clave() + '-' + fila.diaSemana"
-                />
+                <mat-form-field class="chico w-32">
+                  <input
+                    matInput
+                    [id]="'desde-' + clave() + '-' + fila.diaSemana"
+                    [name]="'desde-' + clave() + '-' + fila.diaSemana"
+                    placeholder="hh:mm"
+                    autocomplete="off"
+                    [matTimepicker]="relojDesde"
+                    [attr.aria-label]="'Apertura del ' + nombreDia(fila.diaSemana)"
+                    [disabled]="!fila.abre"
+                    [ngModel]="fila.horaApertura"
+                    (ngModelChange)="cambiar(fila.diaSemana, { horaApertura: $event })"
+                  />
+                  <mat-timepicker-toggle
+                    matIconSuffix
+                    aria-label="Elegir la hora"
+                    [for]="relojDesde"
+                  />
+                  <mat-timepicker #relojDesde />
+                </mat-form-field>
               </td>
               <td class="py-1">
-                <app-campo-hora
-                  [inputId]="'hasta-' + clave() + '-' + fila.diaSemana"
-                  claseCampo="campo-chico w-24"
-                  [etiquetaAccesible]="'Cierre del ' + nombreDia(fila.diaSemana)"
-                  [disabled]="!fila.abre"
-                  [ngModel]="fila.horaCierre"
-                  (ngModelChange)="cambiar(fila.diaSemana, { horaCierre: $event })"
-                  [name]="'hasta-' + clave() + '-' + fila.diaSemana"
-                />
+                <mat-form-field class="chico w-32">
+                  <input
+                    matInput
+                    [id]="'hasta-' + clave() + '-' + fila.diaSemana"
+                    [name]="'hasta-' + clave() + '-' + fila.diaSemana"
+                    placeholder="hh:mm"
+                    autocomplete="off"
+                    [matTimepicker]="relojHasta"
+                    [attr.aria-label]="'Cierre del ' + nombreDia(fila.diaSemana)"
+                    [disabled]="!fila.abre"
+                    [ngModel]="fila.horaCierre"
+                    (ngModelChange)="cambiar(fila.diaSemana, { horaCierre: $event })"
+                  />
+                  <mat-timepicker-toggle
+                    matIconSuffix
+                    aria-label="Elegir la hora"
+                    [for]="relojHasta"
+                  />
+                  <mat-timepicker #relojHasta />
+                </mat-form-field>
               </td>
             </tr>
           }
@@ -160,8 +188,8 @@ export class EditorHorarios {
           abre: suyo !== undefined,
           // Un día que no abría estrena las horas del club, que es lo que el
           // admin va a querer casi siempre.
-          horaApertura: suyo?.horaApertura ?? '08:00',
-          horaCierre: suyo?.horaCierre ?? '22:00',
+          horaApertura: textoAHora(suyo?.horaApertura ?? '08:00'),
+          horaCierre: textoAHora(suyo?.horaCierre ?? '22:00'),
         };
       }),
   });
@@ -190,8 +218,8 @@ export class EditorHorarios {
           .filter((fila) => fila.abre)
           .map(({ diaSemana, horaApertura, horaCierre }) => ({
             diaSemana,
-            horaApertura,
-            horaCierre,
+            horaApertura: horaATexto(horaApertura),
+            horaCierre: horaATexto(horaCierre),
           })),
       );
 

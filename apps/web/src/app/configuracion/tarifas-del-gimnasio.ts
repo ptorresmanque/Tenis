@@ -1,6 +1,9 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
@@ -29,7 +32,8 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
  */
 @Component({
   selector: 'app-tarifas-del-gimnasio',
-  imports: [MatButton, Aviso],
+  imports: [MatFormFieldModule, MatInput, MatButton, Aviso],
+  providers: [proveerCampos()],
   host: { class: 'block' },
   template: `
     <h2 class="rotulo-seccion mt-10">Tarifas</h2>
@@ -51,46 +55,42 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
             Tarifa {{ i + 1 }}
           </legend>
 
-          <label class="block">
-            <span class="text-sm font-medium">Nombre</span>
+          <mat-form-field>
+            <mat-label>Nombre</mat-label>
             <input
-              class="campo mt-1"
+              matInput
               maxlength="80"
               placeholder="Clase grupal"
               [value]="fila.nombre"
               (input)="cambiar(i, 'nombre', $event)"
             />
-          </label>
+          </mat-form-field>
 
-          <label class="block">
-            <span class="text-sm font-medium">Socio</span>
-            <span class="campo-con-prefijo mt-1">
-              <span class="prefijo">$</span>
-              <input
-                class="campo"
-                type="number"
-                min="0"
-                step="1"
-                [value]="fila.socio"
-                (input)="cambiar(i, 'socio', $event)"
-              />
-            </span>
-          </label>
+          <mat-form-field>
+            <mat-label>Socio</mat-label>
+            <span matTextPrefix>$&nbsp;</span>
+            <input
+              matInput
+              type="number"
+              min="0"
+              step="1"
+              [value]="fila.socio"
+              (input)="cambiar(i, 'socio', $event)"
+            />
+          </mat-form-field>
 
-          <label class="block">
-            <span class="text-sm font-medium">No socio</span>
-            <span class="campo-con-prefijo mt-1">
-              <span class="prefijo">$</span>
-              <input
-                class="campo"
-                type="number"
-                min="0"
-                step="1"
-                [value]="fila.noSocio"
-                (input)="cambiar(i, 'noSocio', $event)"
-              />
-            </span>
-          </label>
+          <mat-form-field>
+            <mat-label>No socio</mat-label>
+            <span matTextPrefix>$&nbsp;</span>
+            <input
+              matInput
+              type="number"
+              min="0"
+              step="1"
+              [value]="fila.noSocio"
+              (input)="cambiar(i, 'noSocio', $event)"
+            />
+          </mat-form-field>
 
           <button
             matButton

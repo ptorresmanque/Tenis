@@ -1,6 +1,9 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../ui/campos';
 import { Auth } from '../core/auth/auth';
 import { Tours } from '../tours/tours.service';
 import { Esqueleto } from '../ui/esqueleto';
@@ -19,7 +22,8 @@ import { TablaInterna } from './tabla-interna';
  */
 @Component({
   selector: 'app-ranking-torneos',
-  imports: [EstadoVacio, Esqueleto, TablaDeTour, TablaInterna],
+  imports: [MatSelectModule, MatFormFieldModule, EstadoVacio, Esqueleto, TablaDeTour, TablaInterna],
+  providers: [proveerCampos()],
   template: `
     <!-- Cabecera en banda de color y sin fotografía: esta pantalla es una tabla
          de posiciones, y lo que se viene a hacer acá es buscar un nombre en una
@@ -50,28 +54,36 @@ import { TablaInterna } from './tabla-interna';
       <!-- Tour y temporada; la categoría la pone la tabla, que es la que sabe cuáles
            tienen resultados. Los tres van en la dirección. -->
       <div class="mt-6 flex flex-wrap items-end gap-4">
-        <label class="block">
-          <span class="text-sm font-medium">Tour</span>
-          <select class="campo mt-1" name="tour" (change)="elegirTour($event)">
+        <mat-form-field>
+          <mat-label>Tour</mat-label>
+          <mat-select
+            [value]="tourElegido()?.id"
+            name="tour"
+            (selectionChange)="elegirTour($event.value)"
+          >
             @for (uno of tours.value(); track uno.id) {
-              <option [value]="uno.id" [selected]="uno.id === tourElegido()?.id">
+              <mat-option [value]="uno.id">
                 {{ uno.nombre }}
-              </option>
+              </mat-option>
             }
-          </select>
-        </label>
+          </mat-select>
+        </mat-form-field>
 
         @if (temporadas().length > 0) {
-          <label class="block">
-            <span class="text-sm font-medium">Temporada</span>
-            <select class="campo mt-1" name="temporada" (change)="elegirTemporada($event)">
+          <mat-form-field>
+            <mat-label>Temporada</mat-label>
+            <mat-select
+              [value]="temporadaElegida()"
+              name="temporada"
+              (selectionChange)="elegirTemporada($event.value)"
+            >
               @for (una of temporadas(); track una.id) {
-                <option [value]="una.id" [selected]="una.id === temporadaElegida()">
+                <mat-option [value]="una.id">
                   {{ una.nombre }}
-                </option>
+                </mat-option>
               }
-            </select>
-          </label>
+            </mat-select>
+          </mat-form-field>
         }
       </div>
 
@@ -152,15 +164,15 @@ export class RankingDeTorneos {
   });
 
   /** La temporada es de un tour: cambiar de tour la suelta, y la categoría con ella. */
-  protected elegirTour(evento: Event): void {
-    this.irA({ tour: this.numeroDe(evento), temporada: null, categoria: null });
+  protected elegirTour(valor: number): void {
+    this.irA({ tour: valor, temporada: null, categoria: null });
   }
 
   /** La categoría se suelta: la más alta con filas puede ser otra en otra temporada. */
-  protected elegirTemporada(evento: Event): void {
+  protected elegirTemporada(valor: number): void {
     this.irA({
       tour: this.tourElegido()?.id ?? null,
-      temporada: this.numeroDe(evento),
+      temporada: valor,
       categoria: null,
     });
   }
@@ -186,10 +198,6 @@ export class RankingDeTorneos {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
-  }
-
-  private numeroDe(evento: Event): number {
-    return Number((evento.target as HTMLSelectElement).value);
   }
 
   private readonly sesion = inject(Auth);

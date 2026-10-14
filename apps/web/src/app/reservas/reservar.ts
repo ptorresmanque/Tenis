@@ -18,7 +18,10 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../ui/campos';
 import { Auth } from '../core/auth/auth';
 import { irAPagar } from '../core/pagos/ir-a-pagar';
 import { BloqueDisponible, Cancha } from '../catalogo-canchas/disponibilidad';
@@ -43,7 +46,8 @@ const MAXIMO_ACOMPANANTES = 3;
  */
 @Component({
   selector: 'app-reservar',
-  imports: [MatButton, ReactiveFormsModule, TelefonoDirective],
+  imports: [MatFormFieldModule, MatInput, MatButton, ReactiveFormsModule, TelefonoDirective],
+  providers: [proveerCampos()],
   template: `
     <!-- Elemento dialog nativo y no un div con overlay: el navegador se encarga del
          foco atrapado, del cierre con Escape, del fondo inerte y del backdrop.
@@ -79,37 +83,38 @@ const MAXIMO_ACOMPANANTES = 3;
 
         <form class="mt-4 space-y-4" [formGroup]="formulario" (ngSubmit)="enviar()">
           @if (!esSocio()) {
-            <div>
-              <label for="nombre" class="block text-sm font-medium">Nombre</label>
+            <mat-form-field>
+              <mat-label>Nombre</mat-label>
               <input
+                matInput
                 id="nombre"
                 formControlName="nombre"
                 autocomplete="name"
-                class="campo mt-1"
               />
-            </div>
-            <div>
-              <label for="email" class="block text-sm font-medium">Correo</label>
+              <mat-error>{{ errorDelCampo(formulario.controls.nombre) }}</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Correo</mat-label>
               <input
+                matInput
                 id="email"
                 type="email"
                 formControlName="email"
                 autocomplete="email"
-                class="campo mt-1"
               />
-            </div>
-            <div>
-              <label for="telefono" class="block text-sm font-medium">Teléfono</label>
-              <span class="campo-con-prefijo mt-1">
-                <span class="prefijo">+56</span>
-                <input
-                  appTelefono
-                  id="telefono"
-                  formControlName="telefono"
-                  class="campo"
-                />
-              </span>
-            </div>
+              <mat-error>{{ errorDelCampo(formulario.controls.email) }}</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Teléfono</mat-label>
+              <span matTextPrefix>+56&nbsp;</span>
+              <input
+                matInput
+                appTelefono
+                id="telefono"
+                formControlName="telefono"
+              />
+              <mat-error>{{ errorDelCampo(formulario.controls.telefono) }}</mat-error>
+            </mat-form-field>
           }
 
           <!-- Con quién juega, de 1 a 3 (T107). Un solo campo: al socio le sugiere los
@@ -152,20 +157,24 @@ const MAXIMO_ACOMPANANTES = 3;
                      mientras se escribe, el teclado y el lector de pantalla. El socio va
                      con su número porque dos pueden llamarse igual. Enter agrega y no
                      envía: con el formulario, Enter reservaba con la mitad escrita. -->
-                <input
-                  #campo
-                  id="acompanante"
-                  class="campo w-auto min-w-0 flex-1"
-                  autocomplete="off"
-                  placeholder="Nombre y apellido"
-                  [attr.aria-label]="
-                    esSocio() ? 'Nombre de un socio o de un invitado' : 'Nombre de quien juega contigo'
-                  "
-                  [attr.list]="esSocio() ? 'sugerencias-acompanante' : null"
-                  [value]="porAgregar()"
-                  (input)="porAgregar.set($any($event.target).value)"
-                  (keydown.enter)="$event.preventDefault(); agregar()"
-                />
+                <mat-form-field class="w-auto min-w-0 flex-1">
+                  <input
+                    matInput
+                    #campo
+                    id="acompanante"
+                    autocomplete="off"
+                    placeholder="Nombre y apellido"
+                    [attr.aria-label]="
+                      esSocio()
+                        ? 'Nombre de un socio o de un invitado'
+                        : 'Nombre de quien juega contigo'
+                    "
+                    [attr.list]="esSocio() ? 'sugerencias-acompanante' : null"
+                    [value]="porAgregar()"
+                    (input)="porAgregar.set($any($event.target).value)"
+                    (keydown.enter)="$event.preventDefault(); agregar()"
+                  />
+                </mat-form-field>
                 @if (esSocio()) {
                   <datalist id="sugerencias-acompanante">
                     @for (sugerencia of sugerencias(); track sugerencia.valor) {
@@ -248,6 +257,8 @@ const MAXIMO_ACOMPANANTES = 3;
   `,
 })
 export class Reservar {
+  protected readonly errorDelCampo = errorDelCampo;
+
   readonly cancha = input.required<Cancha>();
   readonly bloque = input.required<BloqueDisponible>();
 

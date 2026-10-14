@@ -12,7 +12,11 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -31,7 +35,19 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-inscritos-torneo',
-  imports: [MatButton, MatIcon, FormsModule, Aviso, Insignia, TelefonoPipe, Esqueleto],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    MatIcon,
+    FormsModule,
+    Aviso,
+    Insignia,
+    TelefonoPipe,
+    Esqueleto,
+  ],
+  providers: [proveerCampos()],
   template: `
     @if (lista.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -131,10 +147,11 @@ import { Esqueleto } from '../../ui/esqueleto';
                     {{ pago(quien).texto }}
                   </app-insignia>
 
-                  <label class="flex items-center gap-1">
-                    <span class="sr-only">Siembra de {{ quien.jugador }}</span>
+                  <mat-form-field class="chico w-16">
+                    <!-- Sin etiqueta a la vista, como antes: la fila ya dice de quién es. -->
                     <input
-                      class="campo campo-chico w-16"
+                      matInput
+                      [attr.aria-label]="'Siembra de ' + quien.jugador"
                       type="number"
                       min="1"
                       placeholder="—"
@@ -143,7 +160,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                       [disabled]="trabajando() || datos.estado !== 'INSCRIPCION'"
                       (change)="sembrar(quien, $any($event.target).value)"
                     />
-                  </label>
+                  </mat-form-field>
 
                   <!-- Las acciones juntas y al final, siempre en el mismo sitio. -->
                   <div class="flex items-center gap-1 justify-self-end">
@@ -265,30 +282,30 @@ import { Esqueleto } from '../../ui/esqueleto';
                            campo del motivo, heredado de la bandeja vieja: con un
                            campo elástico de por medio, rechazar quedaba en la otra
                            punta de la fila y no se leía como la pareja de confirmar. -->
-                      <label class="mt-2 block text-sm">
-                        <span class="text-muted-foreground">Cómo pagó</span>
-                        <select
-                          class="campo campo-chico mt-1"
+                      <mat-form-field class="chico">
+                        <mat-label>Cómo pagó</mat-label>
+                        <mat-select
+                          [name]="'medio-' + quien.id"
                           [attr.name]="'medio-' + quien.id"
                           [(ngModel)]="medios[quien.id]"
                         >
-                          <option value="">Sin especificar</option>
+                          <mat-option value="">Sin especificar</mat-option>
                           @for (medio of MEDIOS; track medio.valor) {
-                            <option [value]="medio.valor">{{ medio.opcion }}</option>
+                            <mat-option [value]="medio.valor">{{ medio.opcion }}</mat-option>
                           }
-                        </select>
-                      </label>
+                        </mat-select>
+                      </mat-form-field>
 
-                      <label class="mt-2 block text-sm">
-                        <span class="text-muted-foreground">Motivo del rechazo</span>
+                      <mat-form-field class="chico">
+                        <mat-label>Motivo del rechazo</mat-label>
                         <input
-                          class="campo campo-chico mt-1"
-                          [attr.name]="'motivo-' + quien.id"
+                          matInput
+                          [name]="'motivo-' + quien.id"
                           maxlength="200"
                           placeholder="El comprobante es de otro monto"
                           [(ngModel)]="motivos[quien.id]"
                         />
-                      </label>
+                      </mat-form-field>
 
                       <!-- Los dos abren el modal; la decisión se toma allá. -->
                       <div class="mt-2 flex flex-wrap gap-2">
@@ -364,35 +381,34 @@ import { Esqueleto } from '../../ui/esqueleto';
         @if (datos.estado === 'INSCRIPCION') {
           <form class="mt-3 border-t border-border pt-3" (ngSubmit)="inscribir()">
             <div class="flex flex-wrap items-end gap-2">
-              <label class="min-w-64 flex-1">
-                <span class="text-sm font-medium">Inscribir a</span>
-                <select
-                  class="campo campo-chico mt-1"
+              <mat-form-field class="chico min-w-64 flex-1">
+                <mat-label>Inscribir a</mat-label>
+                <mat-select
                   name="jugadorId"
                   [(ngModel)]="jugadorId"
                 >
-                  <option [value]="0" disabled>Elige un jugador</option>
+                  <mat-option [value]="0" disabled>Elige un jugador</mat-option>
                   @for (jugador of porInscribir(); track jugador.id) {
-                    <option [value]="jugador.id">
+                    <mat-option [value]="jugador.id">
                       {{ jugador.apellido }}, {{ jugador.nombre }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
-              </label>
+                </mat-select>
+              </mat-form-field>
 
               <!-- **Se pide pero no se exige** (T127): el que se anota en el mesón puede
                    no tener correo, y sin él no le llegan los avisos del torneo. -->
-              <label class="min-w-56 flex-1">
-                <span class="text-sm font-medium">Correo (opcional)</span>
+              <mat-form-field class="chico min-w-56 flex-1">
+                <mat-label>Correo (opcional)</mat-label>
                 <input
-                  class="campo campo-chico mt-1"
+                  matInput
                   type="email"
                   name="email"
                   autocomplete="off"
                   maxlength="191"
                   [(ngModel)]="correo"
                 />
-              </label>
+              </mat-form-field>
 
               <button
                 matButton="outlined"

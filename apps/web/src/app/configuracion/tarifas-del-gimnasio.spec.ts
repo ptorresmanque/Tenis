@@ -55,8 +55,8 @@ describe('TarifasDelGimnasio', () => {
         (f) => f.querySelector('legend')?.textContent?.trim() === `Tarifa ${fila}`,
       );
 
-      return Array.from(grupo?.querySelectorAll('label') ?? [])
-        .find((l) => l.textContent?.trim().startsWith(etiqueta))
+      return Array.from(grupo?.querySelectorAll('mat-form-field') ?? [])
+        .find((l) => l.querySelector('mat-label')?.textContent?.trim().startsWith(etiqueta))
         ?.querySelector('input');
     };
 

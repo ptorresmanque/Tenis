@@ -419,13 +419,61 @@ describe('El tema de Material (T239)', () => {
   });
 });
 
-describe('Campos de fecha y hora (T125)', () => {
+describe('Campos de fecha y hora (T125, T244)', () => {
+  /** Los `mat-form-field` de una plantilla, enteros: no se anidan. */
+  const camposDe = (contenido: string) => [
+    ...contenido.matchAll(/<mat-form-field\b[\s\S]*?<\/mat-form-field>/g),
+  ].map(([campo]) => campo);
+  const conSelector = /\[mat(?:Datepicker|Timepicker)\]=/;
+
+  it('**ningún `<app-campo-fecha>` ni `<app-campo-hora>`** (T244, I1)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-campo-(?:fecha|hora)\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**todo selector de fecha u hora va en un `mat-form-field` con su nombre** (T244)', () => {
+    // El nombre es la `mat-label`; en la celda de una tabla, que ya nombra su columna, va
+    // el `aria-label` del campo (la apertura de cada día en los horarios).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const campos = camposDe(contenido);
+      const sueltos = campos.reduce((resto, campo) => resto.replace(campo, ''), contenido);
+      if (conSelector.test(sueltos)) infractores.push(`${archivo}: fuera de un mat-form-field`);
+
+      for (const campo of campos.filter((c) => conSelector.test(c))) {
+        if (!/<mat-label\b|aria-label/.test(campo)) infractores.push(`${archivo}: sin nombre`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el botón del reloj dice qué hace, en español** (Material dice «Open…»)', () => {
+    // El del calendario sale en español por `TextosDelCalendario`; el del reloj no tiene un
+    // texto que se pueda cambiar para todos, así que cada uno lleva el suyo.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [boton] of contenido.matchAll(/<mat-timepicker-toggle\b[^>]*>/g)) {
+        if (!/aria-label="Elegir la hora"/.test(boton)) infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ningún label envuelve un campo de fecha u hora**: la lista quedaría en su nombre', () => {
     // Material inserta el calendario y la lista de horas junto al campo, y no al final
     // de la página. Si un <label> envuelve el campo, las 48 horas pasan a ser parte de su
-    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". La etiqueta va al lado,
-    // con `for`.
-    const envuelto = /<label\b[^>]*>(?:(?!<\/label>)[\s\S])*?<app-campo-(?:fecha|hora)\b/;
+    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". El nombre va en la
+    // `mat-label` del campo.
+    const envuelto =
+      // `</label\s*>`: Prettier deja el cierre partido en dos líneas en las casillas.
+      /<label\b[^>]*>(?:(?!<\/label\s*>)[\s\S])*?(?:<app-campo-(?:fecha|hora)\b|\[mat(?:Datepicker|Timepicker)\]=)/;
     const infractores = plantillas()
       .filter(({ contenido }) => envuelto.test(contenido))
       .map(({ archivo }) => archivo);
@@ -1429,6 +1477,100 @@ describe('El hero se mueve (T148)', () => {
 
     expect(contenido).toContain('hero-animado');
     expect(contenido).toContain('hero-texto');
+  });
+});
+
+/**
+ * T244. Los campos de Material, con la cara del sitio y sin cargar el arranque.
+ */
+describe('Los campos son de Material (T244)', () => {
+  it('**todo componente con campos provee `proveerCampos()`**: contorno y etiqueta arriba', () => {
+    // Las opciones de los campos no van en la aplicación: con su token viajaría el campo de
+    // Material entero en el arranque (62 kB). Sin el proveedor, el campo saldría relleno y con
+    // la etiqueta adentro, distinto de todos los demás.
+    const infractores = plantillas()
+      .filter(({ contenido }) => contenido.includes('<mat-form-field'))
+      .filter(({ contenido }) => !/providers:\s*\[[^\]]*proveerCampos\(\)/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<app-campo>`** (T245, I1): la etiqueta, la ayuda y el error son de Material', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-campo(?![\w-])/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**un campo que se valida dice por qué no pasa**: su `mat-error` (T245)', () => {
+    // Material pinta de rojo el campo inválido que se tocó; sin el texto, el rojo no le dice a
+    // nadie qué corregir. Vale para los formularios con `Validators` y para el teléfono, que
+    // se valida solo (appTelefono).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const valida = contenido.includes('Validators.');
+      for (const [campo] of contenido.matchAll(/<mat-form-field\b[\s\S]*?<\/mat-form-field>/g)) {
+        const debe = (valida && /formControlName/.test(campo)) || /\bappTelefono\b/.test(campo);
+        if (debe && !campo.includes('<mat-error')) infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ninguna plantilla arma un campo con `.campo`** (T246, T247, I1)', () => {
+    const conCampo = /class="(?:[^"]* )?(?:campo(?:-chico|-con-prefijo)?|prefijo)(?: [^"]*)?"/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => conCampo.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**los `min-w-*` valen en los campos**: el tema devuelve su `min-width` a las capas', () => {
+    // Material le pone `min-width: 0` al campo, sin capa, y le ganaba a cualquier `min-w-*`: el
+    // buscador de socios, con `min-w-64`, quedaba de 21 px en el teléfono.
+    expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*min-width: revert-layer/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{\s*min-width: 0;/);
+  });
+
+  it('**un calendario dentro de un `<dialog>` modal tiene su panel adentro** (T248)', () => {
+    // Fuera del diálogo modal, el panel se ve pero no recibe clics ni foco. Se va con T252.
+    const infractores = plantillas()
+      .filter(
+        ({ contenido }) =>
+          contenido.includes('showModal') &&
+          contenido.includes('matDatepicker') &&
+          !contenido.includes('overlaysEnElDialogo()'),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ninguna lista es un `<select>` nativo**: todas son `mat-select` (T248, I1)', () => {
+    // Los comentarios se quitan antes de buscar: varios nombran el <select> que reemplazan.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<select\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**`styles.css` ya no define `.campo` ni sus variantes** (T247)', () => {
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.(?:campo|prefijo)\b/);
+  });
+
+  it('**el arranque no importa el campo de Material** (I6)', () => {
+    for (const archivo of ['src/app/app.config.ts', 'src/app/ui/material.ts']) {
+      const fuente = readFileSync(join(process.cwd(), archivo), 'utf8');
+      expect(fuente, archivo).not.toContain('@angular/material/form-field');
+    }
   });
 });
 

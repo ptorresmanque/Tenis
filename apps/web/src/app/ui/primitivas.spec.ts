@@ -2,106 +2,16 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
-import { Campo, CampoControl } from './campo';
 import { Paginacion } from './paginacion';
 import { Selector } from './selector';
 
 /**
- * Las tres primitivas que tienen lógica y no solo clases.
+ * Las primitivas que tienen lógica y no solo clases (el campo se fue a Material en T245).
  *
  * Las otras cuatro —insignia, aviso, estado vacío y barra fija— son marcado con
  * una tabla de variantes, y lo único que puede romperse en ellas es el
  * contraste, que mide `design-tokens.spec.ts` leyendo esa misma tabla.
  */
-
-describe('Campo', () => {
-  @Component({
-    imports: [Campo, CampoControl],
-    template: `
-      <app-campo etiqueta="Correo" [ayuda]="ayuda()" [error]="error()">
-        <input appCampoControl type="email" class="campo" />
-      </app-campo>
-      <!-- Dos en la misma vista: es el caso que rompía con una variable de
-           plantilla, porque las dos se habrían llamado #control. -->
-      <app-campo etiqueta="Teléfono" ayuda="Con el +56 adelante">
-        <input appCampoControl type="tel" class="campo" />
-      </app-campo>
-    `,
-  })
-  class Host {
-    readonly ayuda = signal('Te llega ahí la confirmación');
-    readonly error = signal('');
-  }
-
-  function montar() {
-    TestBed.resetTestingModule();
-    const fixture = TestBed.createComponent(Host);
-    fixture.detectChanges();
-
-    const elemento = fixture.nativeElement as HTMLElement;
-
-    return {
-      fixture,
-      host: fixture.componentInstance,
-      input: elemento.querySelector('input')!,
-      campos: [...elemento.querySelectorAll('app-campo')],
-      descripcion: () =>
-        (elemento.querySelector('input')!.getAttribute('aria-describedby') ?? '')
-          .split(' ')
-          .filter(Boolean)
-          .map((id) => elemento.querySelector(`#${id}`)?.textContent?.trim()),
-    };
-  }
-
-  it('dos campos en el mismo formulario no se pisan los ids', () => {
-    const { campos } = montar();
-
-    const ids = campos.map((campo) => campo.querySelector('span[id]')?.id);
-
-    expect(ids.filter(Boolean)).toHaveLength(2);
-    expect(new Set(ids).size).toBe(2);
-  });
-
-  it('la etiqueta envuelve al control, así que enfocarla lo enfoca', () => {
-    const { input } = montar();
-
-    // Sin `for`/`id`: el <label> de arriba ya es el ancestro del control. Un id
-    // que se pierde en un refactor rompe la asociación sin que se note.
-    expect(input.closest('label')).not.toBeNull();
-  });
-
-  it('el control apunta a su ayuda', () => {
-    const { descripcion } = montar();
-
-    expect(descripcion()).toEqual(['Te llega ahí la confirmación']);
-  });
-
-  it('cuando hay error, el control apunta a los dos y se marca inválido', () => {
-    const { fixture, host, input, descripcion } = montar();
-
-    host.error.set('Ese correo ya tiene cuenta');
-    fixture.detectChanges();
-
-    expect(descripcion()).toEqual([
-      'Te llega ahí la confirmación',
-      'Ese correo ya tiene cuenta',
-    ]);
-    expect(input.getAttribute('aria-invalid')).toBe('true');
-  });
-
-  it('al corregirlo deja de estar inválido', () => {
-    // El campo que queda marcado para siempre se anuncia mal en cada visita
-    // siguiente, y quien lo escucha no tiene forma de saber que ya está bien.
-    const { fixture, host, input } = montar();
-
-    host.error.set('Ese correo ya tiene cuenta');
-    fixture.detectChanges();
-    host.error.set('');
-    fixture.detectChanges();
-
-    expect(input.hasAttribute('aria-invalid')).toBe(false);
-  });
-});
 
 describe('Paginación', () => {
   @Component({

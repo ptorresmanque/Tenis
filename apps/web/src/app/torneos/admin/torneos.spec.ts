@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Tours } from '../../tours/tours.service';
 import { Torneo, Torneos } from '../torneos.service';
 import { TorneosPanel } from './torneos';
@@ -108,9 +109,12 @@ describe('TorneosPanel', () => {
   const texto = () => elemento().textContent ?? '';
 
   const escribir = async (campo: string, valor: string) => {
-    // `:is(...)`: el `name` también queda en el `app-campo-fecha` que envuelve al campo.
+    // Las listas son de Material (T248): se abren y se elige.
+    if (elemento().querySelector(`mat-select[name="${campo}"]`)) {
+      return elegirOpcion(fixture, `mat-select[name="${campo}"]`, valor);
+    }
     const entrada = elemento().querySelector(
-      `:is(input, select, textarea)[name="${campo}"]`,
+      `:is(input, textarea)[name="${campo}"]`,
     ) as HTMLInputElement;
     entrada.value = valor;
     entrada.dispatchEvent(new Event('input'));
@@ -197,9 +201,7 @@ describe('TorneosPanel', () => {
     await abrirElFormulario();
     await escribir('tourId', '1');
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="nivelId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="nivelId"]');
     expect(opciones).toContain('2027 · 500');
   });
 

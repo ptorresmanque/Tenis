@@ -1,6 +1,9 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { TablaDeTour } from '../../ranking/tabla-de-tour';
 import { Galeria } from '../../torneos/publico/galeria';
@@ -31,7 +34,8 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
  */
 @Component({
   selector: 'app-tour-publico',
-  imports: [RouterLink, Galeria, Esqueleto, TablaDeTour],
+  imports: [MatSelectModule, MatFormFieldModule, RouterLink, Galeria, Esqueleto, TablaDeTour],
+  providers: [proveerCampos()],
   template: `
     @if (tour.error()) {
       <section class="py-10">
@@ -88,16 +92,16 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
 
           <div class="mt-4 flex flex-wrap items-end gap-x-4 gap-y-2">
             @if (suyo.temporadas.length > 1) {
-              <label class="block">
-                <span class="text-sm font-medium">Temporada</span>
-                <select class="campo mt-1" [value]="temporada.id" (change)="elegir($event)">
+              <mat-form-field>
+                <mat-label>Temporada</mat-label>
+                <mat-select [value]="temporada.id" (selectionChange)="elegir($event.value)">
                   @for (otra of suyo.temporadas; track otra.id) {
-                    <option [value]="otra.id" [selected]="otra.id === temporada.id">
+                    <mat-option [value]="otra.id">
                       {{ otra.nombre }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
-              </label>
+                </mat-select>
+              </mat-form-field>
             }
             <p class="pb-2 text-muted-foreground">
               Temporada {{ temporada.nombre }}: del {{ enPalabras(temporada.fechaInicio) }} al
@@ -267,9 +271,7 @@ export class TourPublicoPagina {
   }
 
   /** Cambia la dirección y no un estado suelto: el enlace copiado abre lo mismo. */
-  protected elegir(evento: Event): void {
-    const temporada = Number((evento.target as HTMLSelectElement).value);
-
+  protected elegir(temporada: number): void {
     void this.router.navigate([], {
       relativeTo: this.ruta,
       queryParams: { temporada },

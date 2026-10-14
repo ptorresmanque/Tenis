@@ -862,10 +862,11 @@ describe('Grilla', () => {
   });
 
   it('el selector de día también se anuncia como clickeable', () => {
-    // Desde T122 es el campo de Material: se busca por su id, no por el tipo nativo.
+    // Desde T244, la manito y el borde que responde los pone `abre-al-tocar` en su
+    // mat-form-field (tema-material.scss).
     const fecha = (fixture.nativeElement as HTMLElement).querySelector('#fecha');
 
-    expect(fecha?.classList.contains('cursor-pointer')).toBe(true);
+    expect(fecha?.closest('mat-form-field')?.classList.contains('abre-al-tocar')).toBe(true);
   });
 
   it('avisa cuál es hora prime, en la fila y en la leyenda', () => {

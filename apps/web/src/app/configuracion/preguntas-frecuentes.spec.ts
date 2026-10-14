@@ -47,8 +47,8 @@ describe('PreguntasFrecuentesPanel', () => {
       )!;
 
     const campo = (etiqueta: string, dentro: ParentNode = elemento) =>
-      Array.from(dentro.querySelectorAll('label'))
-        .find((l) => l.textContent?.includes(etiqueta))
+      Array.from(dentro.querySelectorAll('mat-form-field'))
+        .find((l) => l.querySelector('mat-label')?.textContent?.includes(etiqueta))
         ?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
 
     const escribir = async (control: HTMLInputElement | HTMLTextAreaElement, valor: string) => {
@@ -107,7 +107,7 @@ describe('PreguntasFrecuentesPanel', () => {
       const respuesta = campo('Respuesta')!;
 
       expect(respuesta.maxLength).toBe(2000);
-      expect(respuesta.closest('label')?.textContent).toContain('Quedan 2000 caracteres');
+      expect(respuesta.closest('mat-form-field')?.textContent).toContain('Quedan 2000 caracteres');
     });
   });
 

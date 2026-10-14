@@ -2,7 +2,20 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
+import {
+  fechaATexto,
+  horaATexto,
+  proveerFechaYHora,
+  textoAFecha,
+  textoAHora,
+} from '../../ui/fecha-y-hora';
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
 import {
@@ -29,8 +42,6 @@ import {
 import { Profesores } from '../profesores.service';
 import { InscritosDeLaClase } from './inscritos';
 import { NuevaSerie } from './nueva-serie';
-import { CampoFecha } from '../../ui/campo-fecha';
-import { CampoHora } from '../../ui/campo-hora';
 import { Esqueleto } from '../../ui/esqueleto';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
@@ -40,8 +51,9 @@ const enBlanco = () => ({
   modalidad: 'grupal' as 'grupal' | 'individual',
   canchaId: 0,
   profesorId: 0,
-  horaDesde: '18:00',
-  horaHasta: '19:00',
+  /** Como las entrega el selector de Material, y a texto al agendar (A5, T244). */
+  horaDesde: textoAHora('18:00'),
+  horaHasta: textoAHora('19:00'),
   cupoMaximo: 6,
   nivel: 'INICIACION' as NivelClase,
   notas: '',
@@ -58,6 +70,11 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-agenda-clases',
   imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
     MatButton,
     MatIcon,
     FormsModule,
@@ -66,10 +83,9 @@ const enBlanco = () => ({
     Insignia,
     InscritosDeLaClase,
     NuevaSerie,
-    CampoFecha,
-    CampoHora,
     Esqueleto,
   ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
          abajo, y la navegación entre días va debajo de la cabecera. -->
@@ -111,16 +127,20 @@ const enBlanco = () => ({
         </button>
       </div>
 
-      <div>
-        <label for="fecha-clases" class="block text-sm font-medium">Ir a un día</label>
-        <app-campo-fecha
-          class="mt-1"
-          inputId="fecha-clases"
-          claseCampo="w-36 cursor-pointer py-2"
-          [valor]="fecha()"
-          (valorChange)="cambiarFecha($event)"
+      <mat-form-field class="w-48 abre-al-tocar">
+        <mat-label>Ir a un día</mat-label>
+        <input
+          matInput
+          id="fecha-clases"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioFechaClases"
+          [value]="diaElegido()"
+          (dateChange)="cambiarFecha($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaClases" />
+        <mat-datepicker #calendarioFechaClases />
+      </mat-form-field>
     </div>
 
     @if (error(); as falla) {
@@ -258,72 +278,83 @@ const enBlanco = () => ({
         </fieldset>
 
         @if (datos.tipo === 'TENIS') {
-          <label class="block">
-            <span class="text-sm font-medium">Cancha</span>
-            <select class="campo mt-1" name="canchaId" [(ngModel)]="datos.canchaId">
-              <option [value]="0" disabled>Elige una cancha</option>
+          <mat-form-field>
+            <mat-label>Cancha</mat-label>
+            <mat-select name="canchaId" [(ngModel)]="datos.canchaId">
+              <mat-option [value]="0" disabled>Elige una cancha</mat-option>
               @for (cancha of canchasActivas(); track cancha.id) {
-                <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
               }
-            </select>
-          </label>
+            </mat-select>
+          </mat-form-field>
         }
 
         <!-- El profesor agenda a su nombre (T222): no elige. -->
         @if (profesorFijo() === null) {
-          <label class="block">
-            <span class="text-sm font-medium">Profesor</span>
-            <select class="campo mt-1" name="profesorId" [(ngModel)]="datos.profesorId">
-              <option [value]="0" disabled>Elige un profesor</option>
-              @if (profesores.hasValue()) {
-                @for (profesor of profesores.value(); track profesor.id) {
-                  <option [value]="profesor.id">
-                    {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-                  </option>
+          <div>
+            <mat-form-field class="w-full">
+              <mat-label>Profesor</mat-label>
+              <mat-select name="profesorId" [(ngModel)]="datos.profesorId">
+                <mat-option [value]="0" disabled>Elige un profesor</mat-option>
+                @if (profesores.hasValue()) {
+                  @for (profesor of profesores.value(); track profesor.id) {
+                    <mat-option [value]="profesor.id">
+                      {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
+                    </mat-option>
+                  }
                 }
-              }
-            </select>
+              </mat-select>
+            </mat-form-field>
+            <!-- Debajo del campo y no en su mat-hint: el color del error lo pisaría Material. -->
             @if (profesores.error()) {
-              <span class="text-sm text-destructive"> No se pudieron cargar los profesores. </span>
+              <p class="text-sm text-destructive">No se pudieron cargar los profesores.</p>
             } @else if (profesores.value().length === 0) {
-              <span class="text-sm text-muted-foreground">
+              <p class="text-sm text-muted-foreground">
                 No hay profesores activos: anota uno primero.
-              </span>
+              </p>
             }
-          </label>
+          </div>
         }
 
-        <div>
-          <label class="block text-sm font-medium" for="clase-hora-desde">Desde</label>
-          <app-campo-hora
-            class="mt-1"
-            inputId="clase-hora-desde"
+        <mat-form-field class="w-36">
+          <mat-label>Desde</mat-label>
+          <input
+            matInput
+            id="clase-hora-desde"
             name="horaDesde"
-            claseCampo="w-28"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojHoraDesde"
             [(ngModel)]="datos.horaDesde"
           />
-        </div>
+          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHoraDesde" />
+          <mat-timepicker #relojHoraDesde />
+        </mat-form-field>
 
-        <div>
-          <label class="block text-sm font-medium" for="clase-hora-hasta">Hasta</label>
-          <app-campo-hora
-            class="mt-1"
-            inputId="clase-hora-hasta"
+        <mat-form-field class="w-36">
+          <mat-label>Hasta</mat-label>
+          <input
+            matInput
+            id="clase-hora-hasta"
             name="horaHasta"
-            claseCampo="w-28"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojHoraHasta"
             [(ngModel)]="datos.horaHasta"
           />
-        </div>
+          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHoraHasta" />
+          <mat-timepicker #relojHoraHasta />
+        </mat-form-field>
 
         @if (datos.tipo === 'TENIS') {
-          <label class="block">
-            <span class="text-sm font-medium">Nivel</span>
-            <select class="campo mt-1" name="nivel" [(ngModel)]="datos.nivel">
+          <mat-form-field>
+            <mat-label>Nivel</mat-label>
+            <mat-select name="nivel" [(ngModel)]="datos.nivel">
               @for (opcion of opcionesDeNivel; track opcion.valor) {
-                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
               }
-            </select>
-          </label>
+            </mat-select>
+          </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
           <fieldset>
@@ -352,28 +383,28 @@ const enBlanco = () => ({
         }
 
         @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
-          <label class="block">
-            <span class="text-sm font-medium">Cupo</span>
+          <mat-form-field>
+            <mat-label>Cupo</mat-label>
             <input
-              class="campo mt-1"
+              matInput
               type="number"
               name="cupoMaximo"
               [min]="datos.tipo === 'TENIS' ? 1 : 2"
               max="40"
               [(ngModel)]="datos.cupoMaximo"
             />
-          </label>
+          </mat-form-field>
         }
 
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Notas</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Notas</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="notas"
             placeholder="Opcional: qué se trabaja, qué llevar"
             [(ngModel)]="datos.notas"
           />
-        </label>
+        </mat-form-field>
       </div>
 
       <!-- Confirmar es un segundo paso, en su recuadro; candidato a MatDialog en los diálogos.
@@ -613,7 +644,12 @@ export class AgendaDeClases {
     });
   }
 
-  protected cambiarFecha(valor: string): void {
+  /** El día del calendario: un `Date` estable mientras no cambie el día (T244). */
+  protected readonly diaElegido = computed(() => textoAFecha(this.fecha()));
+
+  /** El día que se eligió en el calendario; vacío o inválido no consulta nada. */
+  protected cambiarFecha(fecha: Date | null): void {
+    const valor = fechaATexto(fecha);
     if (valor) this.fecha.set(valor);
   }
 
@@ -639,8 +675,8 @@ export class AgendaDeClases {
       // Los `select` devuelven texto aunque el valor sea un número.
       profesorId: this.profesorFijo() ?? Number(this.datos.profesorId),
       fecha: this.fecha(),
-      horaDesde: this.datos.horaDesde,
-      horaHasta: this.datos.horaHasta,
+      horaDesde: horaATexto(this.datos.horaDesde),
+      horaHasta: horaATexto(this.datos.horaHasta),
       notas: this.datos.notas,
     };
 

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion } from '../testing/elegir';
 import { OcupacionPanel } from './ocupacion';
 import { Reportes, ReporteDeOcupacion } from './reportes.service';
 
@@ -140,9 +141,7 @@ describe('OcupacionPanel', () => {
   });
 
   it('cambiar el corte vuelve a pedir el reporte', async () => {
-    const selector = elemento().querySelector<HTMLSelectElement>('select[name="corte"]')!;
-    selector.value = 'franja';
-    selector.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="corte"]`, 'franja');
     await fixture.whenStable();
     fixture.detectChanges();
 
