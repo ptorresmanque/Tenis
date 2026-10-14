@@ -1,5 +1,6 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -25,7 +26,15 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
  */
 @Component({
   selector: 'app-editor-tope-de-luz',
-  imports: [MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule, Esqueleto],
+  imports: [
+    MatCheckbox,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+    Esqueleto,
+  ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <section class="mt-8" aria-labelledby="titulo-tope-de-luz">
@@ -45,15 +54,14 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
         </p>
       } @else {
         <form class="mt-3" (ngSubmit)="guardar()">
-          <label class="flex items-center gap-2 py-2 text-sm">
-            <input
-              type="checkbox"
-              name="limitarLuz"
-              [ngModel]="limitar()"
-              (ngModelChange)="limitar.set($event)"
-            />
+          <mat-checkbox
+            class="block text-sm"
+            name="limitarLuz"
+            [ngModel]="limitar()"
+            (ngModelChange)="limitar.set($event)"
+          >
             Limitar las canchas con luz encendida
-          </label>
+          </mat-checkbox>
 
           @if (limitar()) {
             <div class="mt-2 flex flex-wrap items-end gap-4">

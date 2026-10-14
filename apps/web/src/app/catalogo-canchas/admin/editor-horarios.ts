@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -47,7 +48,7 @@ interface FilaDeDia {
  */
 @Component({
   selector: 'app-editor-horarios',
-  imports: [MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule],
+  imports: [MatCheckbox, MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <form class="mt-2" (ngSubmit)="guardar()">
@@ -73,9 +74,8 @@ interface FilaDeDia {
                 {{ nombreDia(fila.diaSemana) }}
               </th>
               <td class="pe-3 py-1">
-                <input
-                  type="checkbox"
-                  [attr.aria-label]="'Abre el ' + nombreDia(fila.diaSemana)"
+                <mat-checkbox
+                  [aria-label]="'Abre el ' + nombreDia(fila.diaSemana)"
                   [ngModel]="fila.abre"
                   (ngModelChange)="cambiar(fila.diaSemana, { abre: $event })"
                   [name]="'abre-' + clave() + '-' + fila.diaSemana"

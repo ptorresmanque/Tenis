@@ -349,7 +349,8 @@ describe('AdminCanchasPanel', () => {
       expect(campo<HTMLInputElement>('#ficha-nombre-1').value).toBe('Cancha 1');
 
       await escribirNombre('Cancha Central');
-      const techada = campo<HTMLInputElement>('#ficha-techada-1');
+      // El id va en la casilla de Material; su input lleva el mismo id con «-input» (T249).
+      const techada = campo<HTMLInputElement>('#ficha-techada-1-input');
       techada.click();
       await fixture.whenStable();
       await guardar();

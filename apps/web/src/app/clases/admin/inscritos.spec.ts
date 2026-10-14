@@ -179,9 +179,8 @@ describe('InscritosDeLaClase', () => {
   });
 
   it('pasar lista manda a los que vinieron', async () => {
-    const casilla = elemento().querySelector('input[type="checkbox"]') as HTMLInputElement;
-    casilla.checked = true;
-    casilla.dispatchEvent(new Event('change'));
+    // La casilla de Material cambia con el clic, como la usa una persona (T249).
+    elemento().querySelector<HTMLInputElement>('input[type="checkbox"]')!.click();
     await fixture.whenStable();
 
     await apretar('Cerrar la clase con esta lista');

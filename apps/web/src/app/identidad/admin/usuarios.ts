@@ -5,6 +5,7 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSlideToggle, MatSlideToggleChange } from '@angular/material/slide-toggle';
 
 import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras, fechaEnElClub } from '../../catalogo-canchas/reloj-del-club';
@@ -34,6 +35,7 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 @Component({
   selector: 'app-usuarios',
   imports: [
+    MatSlideToggle,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -120,31 +122,28 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                 }
               </div>
 
+              <!-- Interruptores y no casillas: guardan al tocarlos (T249, corrección 1). -->
               <div class="flex gap-4">
-                <label class="inline-flex min-h-11 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    class="size-5"
-                    [attr.name]="'admin-' + usuario.id"
-                    [checked]="usuario.esAdmin"
-                    [disabled]="usuario.id === yo()?.id || trabajando()"
-                    (change)="cambiar(usuario, 'esAdmin', $event)"
-                  />
+                <mat-slide-toggle
+                  class="min-h-11 text-sm"
+                  [name]="'admin-' + usuario.id"
+                  [checked]="usuario.esAdmin"
+                  [disabled]="usuario.id === yo()?.id || trabajando()"
+                  (change)="cambiar(usuario, 'esAdmin', $event)"
+                >
                   Admin
                   <span class="sr-only">: {{ usuario.nombre }} {{ usuario.apellido }}</span>
-                </label>
-                <label class="inline-flex min-h-11 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    class="size-5"
-                    [attr.name]="'gestor-' + usuario.id"
-                    [checked]="usuario.esGestor"
-                    [disabled]="trabajando()"
-                    (change)="cambiar(usuario, 'esGestor', $event)"
-                  />
+                </mat-slide-toggle>
+                <mat-slide-toggle
+                  class="min-h-11 text-sm"
+                  [name]="'gestor-' + usuario.id"
+                  [checked]="usuario.esGestor"
+                  [disabled]="trabajando()"
+                  (change)="cambiar(usuario, 'esGestor', $event)"
+                >
                   Gestor
                   <span class="sr-only">: {{ usuario.nombre }} {{ usuario.apellido }}</span>
-                </label>
+                </mat-slide-toggle>
               </div>
 
               <div class="flex basis-full flex-wrap gap-2">
@@ -460,9 +459,8 @@ export class UsuariosPanel {
   protected async cambiar(
     usuario: UsuarioDeLaLista,
     tipo: 'esAdmin' | 'esGestor',
-    evento: Event,
+    { checked, source }: MatSlideToggleChange,
   ): Promise<void> {
-    const casilla = evento.target as HTMLInputElement;
     const nombre = `${usuario.nombre} ${usuario.apellido}`;
     const etiqueta = tipo === 'esAdmin' ? 'admin' : 'gestor';
 
@@ -471,14 +469,14 @@ export class UsuariosPanel {
     this.trabajando.set(true);
 
     try {
-      await this.api.cambiar(usuario.id, { [tipo]: casilla.checked });
+      await this.api.cambiar(usuario.id, { [tipo]: checked });
       this.aviso.set(
-        casilla.checked ? `${nombre} ahora es ${etiqueta}.` : `${nombre} ya no es ${etiqueta}.`,
+        checked ? `${nombre} ahora es ${etiqueta}.` : `${nombre} ya no es ${etiqueta}.`,
       );
     } catch (falla) {
       // La lista vuelve igual que antes y el `[checked]` no cambia de valor, así que no
-      // repinta: la casilla que el clic marcó se devuelve a mano.
-      casilla.checked = !casilla.checked;
+      // repinta: el interruptor que el clic movió se devuelve a mano.
+      source.checked = !checked;
       this.error.set(mensajeDelServidor(falla, 'No se pudo guardar el cambio.'));
     } finally {
       this.trabajando.set(false);

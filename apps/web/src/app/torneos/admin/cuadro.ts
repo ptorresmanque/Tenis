@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -55,6 +56,7 @@ const horarioEnBlanco = () => ({
 @Component({
   selector: 'app-cuadro-torneo',
   imports: [
+    MatCheckbox,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -382,14 +384,13 @@ const horarioEnBlanco = () => ({
           />
         </mat-form-field>
 
-        <label class="mt-2 flex items-center gap-2">
-          <input
-            type="checkbox"
-            [checked]="walkover()"
-            (change)="walkover.set($any($event.target).checked)"
-          />
-          <span>El rival no se presentó</span>
-        </label>
+        <mat-checkbox
+          class="mt-2 block"
+          [checked]="walkover()"
+          (change)="walkover.set($event.checked)"
+        >
+          El rival no se presentó
+        </mat-checkbox>
 
         <div class="mt-3 flex flex-wrap gap-2">
           <button

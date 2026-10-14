@@ -1,5 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -82,6 +83,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-nueva-serie',
   imports: [
+    MatCheckbox,
     MatSelectModule,
     MatButton,
     MatDatepickerModule,
@@ -149,14 +151,9 @@ const enBlanco = () => ({
           <legend class="text-sm font-medium">Días de la semana</legend>
           <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
             @for (dia of dias; track dia.valor) {
-              <label class="inline-flex min-h-11 items-center gap-2">
-                <input
-                  type="checkbox"
-                  class="size-5"
-                  [checked]="marcado(dia.valor)"
-                  (change)="alternarDia(dia.valor)"
-                />{{ dia.nombre }}</label
-              >
+              <mat-checkbox [checked]="marcado(dia.valor)" (change)="alternarDia(dia.valor)">
+                {{ dia.nombre }}
+              </mat-checkbox>
             }
           </div>
         </fieldset>

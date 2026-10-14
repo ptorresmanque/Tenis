@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -27,6 +28,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos',
   imports: [
+    MatCheckbox,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -98,15 +100,13 @@ import { Esqueleto } from '../../ui/esqueleto';
                 } @else if (quien.estado === 'FALTO') {
                   <app-insignia variante="aviso" icono="cancel">No vino</app-insignia>
                 } @else {
-                  <label class="ms-auto flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      class="size-4"
-                      [checked]="vinieron().has(quien.id)"
-                      (change)="marcar(quien.id, $any($event.target).checked)"
-                    />
-                    <span class="text-sm">Vino</span>
-                  </label>
+                  <mat-checkbox
+                    class="ms-auto text-sm"
+                    [checked]="vinieron().has(quien.id)"
+                    (change)="marcar(quien.id, $event.checked)"
+                  >
+                    Vino
+                  </mat-checkbox>
                   <button
                     matButton
                     type="button"

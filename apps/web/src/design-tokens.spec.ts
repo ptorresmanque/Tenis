@@ -1551,6 +1551,23 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**la manilla del interruptor se ve**: no usa el borde claro del sitio (T249)', () => {
+    // `outline` es el borde de los campos, casi blanco; Material pinta con él la manilla y la
+    // pista del interruptor apagado, y sobre la pista gris no se veían.
+    const interruptor = tema.match(/slide-toggle-overrides\(([\s\S]*?)\);/)?.[1] ?? '';
+
+    expect(interruptor).toContain('unselected-handle-color: var(--color-muted-foreground)');
+    expect(interruptor).toContain('track-outline-color: var(--color-muted-foreground)');
+  });
+
+  it('**ninguna casilla es nativa**: son `mat-checkbox`, o `mat-slide-toggle` si guardan al tocarlas (T249)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /type="checkbox"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ninguna lista es un `<select>` nativo**: todas son `mat-select` (T248, I1)', () => {
     // Los comentarios se quitan antes de buscar: varios nombran el <select> que reemplazan.
     const infractores = plantillas()

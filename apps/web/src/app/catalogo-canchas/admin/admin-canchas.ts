@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -56,6 +57,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 @Component({
   selector: 'app-admin-canchas',
   imports: [
+    MatCheckbox,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -140,31 +142,20 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
           </mat-select>
         </mat-form-field>
 
-        <label class="flex items-center gap-2 py-2 text-sm">
-          <input type="checkbox" name="techada" [(ngModel)]="nueva.techada" />
+        <mat-checkbox class="block text-sm" name="techada" [(ngModel)]="nueva.techada">
           Techada
-        </label>
+        </mat-checkbox>
 
-        <label class="flex items-center gap-2 py-2 text-sm">
-          <input
-            type="checkbox"
-            name="tieneCamara"
-            [(ngModel)]="nueva.tieneCamara"
-          />
+        <mat-checkbox class="block text-sm" name="tieneCamara" [(ngModel)]="nueva.tieneCamara">
           Con cámara
           <span class="text-muted-foreground">
             — solo desde estas se pueden transmitir los partidos
           </span>
-        </label>
+        </mat-checkbox>
 
-        <label class="flex items-center gap-2 py-2 text-sm">
-          <input
-            type="checkbox"
-            name="iluminacion"
-            [(ngModel)]="nueva.iluminacion"
-          />
+        <mat-checkbox class="block text-sm" name="iluminacion" [(ngModel)]="nueva.iluminacion">
           Con iluminación
-        </label>
+        </mat-checkbox>
 
         <!-- Crear y editar son formularios distintos; el de editar va en su tarjeta.
              mat-guidelines-ignore: multiples-filled -->
@@ -297,24 +288,22 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     </mat-select>
                   </mat-form-field>
 
-                  <label class="flex items-center gap-2 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      [id]="'ficha-techada-' + cancha.id"
-                      name="techada"
-                      [(ngModel)]="ficha.techada"
-                    />
+                  <mat-checkbox
+                    class="block text-sm"
+                    [id]="'ficha-techada-' + cancha.id"
+                    name="techada"
+                    [(ngModel)]="ficha.techada"
+                  >
                     Techada
-                  </label>
+                  </mat-checkbox>
 
-                  <label class="flex items-center gap-2 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      name="iluminacion"
-                      [(ngModel)]="ficha.iluminacion"
-                    />
+                  <mat-checkbox
+                    class="block text-sm"
+                    name="iluminacion"
+                    [(ngModel)]="ficha.iluminacion"
+                  >
                     Con iluminación
-                  </label>
+                  </mat-checkbox>
 
                   <button
                     matButton="filled"

@@ -432,3 +432,26 @@ html .mat-mdc-form-field {
 .mat-mdc-form-field {
   overflow-x: clip;
 }
+
+/*
+  LAS CASILLAS Y LOS INTERRUPTORES (T249).
+
+  El interruptor apagado pinta su manilla y el borde de su pista con `outline`, que acá es el borde
+  claro de los campos: sobre la pista gris, la manilla no se veía. Van con el gris del texto
+  secundario, que contrasta con la pista. Las esquinas quedan de 2 px, como todo el sitio (TV2).
+*/
+html {
+  @include mat.slide-toggle-overrides(
+    (
+      unselected-handle-color: var(--color-muted-foreground),
+      track-outline-color: var(--color-muted-foreground),
+    )
+  );
+}
+
+/* La casilla trae aire a la izquierda: su capa de estado de 40 px rodea un cuadro de 18, y el
+   cuadro quedaba 11 px corrido de los campos y del texto de su columna. Se alinea con el borde,
+   y la capa de estado sobresale hacia afuera, como la sombra de un botón. */
+.mat-mdc-checkbox {
+  margin-inline-start: calc((var(--mat-checkbox-state-layer-size, 40px) - 18px) / -2);
+}
