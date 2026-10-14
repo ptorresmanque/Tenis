@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import {
   diaEnPalabras,
@@ -41,6 +42,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
 @Component({
   selector: 'app-agenda-del-dia',
   imports: [
+    MatButton,
     MatIcon,
     Aviso,
     EstadoVacio,
@@ -67,7 +69,7 @@ import { CampoFecha } from '../../ui/campo-fecha';
 
       <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
       @if (puedeTomarHoras()) {
-        <button type="button" class="boton boton-primario" (click)="tomandoHora.set(true)">
+        <button matButton="filled" type="button" (click)="tomandoHora.set(true)">
           <mat-icon class="text-base" aria-hidden="true">add</mat-icon>
           Nueva reserva
         </button>
@@ -77,24 +79,27 @@ import { CampoFecha } from '../../ui/campo-fecha';
     <div class="mt-4 flex flex-wrap items-end gap-3">
       <div class="flex items-center gap-1">
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario boton-chico min-h-11"
+          class="chico min-h-11"
           aria-label="Día anterior"
           (click)="moverDia(-1)"
         >
           <mat-icon class="text-base" aria-hidden="true">chevron_left</mat-icon>
         </button>
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario boton-chico min-h-11"
+          class="chico min-h-11"
           [disabled]="fechaActual() === hoy"
           (click)="fechaActual.set(hoy)"
         >
           Hoy
         </button>
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario boton-chico min-h-11"
+          class="chico min-h-11"
           aria-label="Día siguiente"
           (click)="moverDia(1)"
         >

@@ -1,4 +1,5 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { enPesos, hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
@@ -29,7 +30,7 @@ function mesActual(): string {
  */
 @Component({
   selector: 'app-panel-cuotas',
-  imports: [Esqueleto, Aviso, EstadoVacio, Insignia],
+  imports: [MatButton, Esqueleto, Aviso, EstadoVacio, Insignia],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: se cobra fila por fila. -->
     <header class="cabecera-panel">
@@ -154,8 +155,9 @@ function mesActual(): string {
                   @if (cuota.estado === 'PENDIENTE') {
                     <div class="flex flex-wrap gap-1">
                       <button
+                        matButton="outlined"
                         type="button"
-                        class="boton boton-secundario boton-chico"
+                        class="chico"
                         [disabled]="cobrando()"
                         [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-EFECTIVO'"
                         (click)="cobrar(cuota, 'EFECTIVO')"
@@ -163,8 +165,9 @@ function mesActual(): string {
                         Efectivo
                       </button>
                       <button
+                        matButton="outlined"
                         type="button"
-                        class="boton boton-secundario boton-chico"
+                        class="chico"
                         [disabled]="cobrando()"
                         [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-TRANSFERENCIA'"
                         (click)="cobrar(cuota, 'TRANSFERENCIA')"
@@ -175,8 +178,9 @@ function mesActual(): string {
                            de los que el club usa una vez al mes: un formulario propio
                            para eso es una pantalla más que mantener. -->
                       <button
+                        matButton
                         type="button"
-                        class="boton boton-texto boton-chico"
+                        class="chico"
                         [disabled]="cobrando()"
                         [attr.aria-busy]="enCurso() === 'condonar-' + cuota.id"
                         (click)="condonar(cuota)"
@@ -184,8 +188,9 @@ function mesActual(): string {
                         Condonar
                       </button>
                       <button
+                        matButton
                         type="button"
-                        class="boton boton-texto boton-chico text-destructive"
+                        class="peligro chico"
                         [disabled]="cobrando()"
                         [attr.aria-busy]="enCurso() === 'anular-' + cuota.id"
                         (click)="anular(cuota)"

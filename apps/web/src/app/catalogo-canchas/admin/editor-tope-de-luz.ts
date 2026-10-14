@@ -1,5 +1,6 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { CampoHora } from '../../ui/campo-hora';
@@ -20,7 +21,7 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
  */
 @Component({
   selector: 'app-editor-tope-de-luz',
-  imports: [FormsModule, CampoHora, Esqueleto],
+  imports: [MatButton, FormsModule, CampoHora, Esqueleto],
   template: `
     <section class="mt-8" aria-labelledby="titulo-tope-de-luz">
       <h2 id="titulo-tope-de-luz" class="rotulo-seccion">Tope de canchas con luz</h2>
@@ -82,10 +83,11 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
           }
 
           <button
+            matButton="filled"
             type="submit"
             [disabled]="guardando()"
             [attr.aria-busy]="guardando()"
-            class="boton boton-primario mt-4"
+            class="mt-4"
           >
             Guardar el tope
           </button>

@@ -958,6 +958,32 @@ body:has(app-barra-fija) app-volver-arriba {
     gap: 0.5rem;
   }
 
+  /* Material envuelve el contenido en una etiqueta. Sin caja propia, sus hijos vuelven a ser
+     ítems del botón como en `.boton`: un ícono solo no suma el `gap` de una etiqueta vacía, y
+     un `sr-only` no ocupa lugar. El botón del mes del calendario es de Material y se queda. */
+  .mat-mdc-button-base:not(.mat-calendar-period-button) > .mdc-button__label {
+    display: contents;
+  }
+
+  /* El relleno de `.boton`, y con él su alto: 48 px el lleno (la línea de 24 y 12 de relleno), 52
+     el contorno por su borde. Un ícono con su línea de 24 px agranda el chico, y una etiqueta
+     de dos líneas no se corta. En esta capa, `size-11 p-0` y `min-h-11` les ganan. */
+  .mat-mdc-unelevated-button {
+    padding: 0.75rem var(--mat-button-filled-horizontal-padding);
+  }
+
+  .mat-mdc-outlined-button {
+    padding: 0.75rem var(--mat-button-outlined-horizontal-padding);
+  }
+
+  .mat-mdc-button {
+    padding: 0.5rem var(--mat-button-text-horizontal-padding);
+  }
+
+  .mat-mdc-button-base.chico {
+    padding-block: 0.375rem;
+  }
+
   .boton {
     display: inline-flex;
     align-items: center;

@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../core/errores';
@@ -39,7 +40,7 @@ const MESES = [
  */
 @Component({
   selector: 'app-mi-cuenta',
-  imports: [Aviso, EstadoVacio, Esqueleto, Insignia],
+  imports: [MatButton, Aviso, EstadoVacio, Esqueleto, Insignia],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mi cuenta</h1>
 
@@ -115,8 +116,9 @@ const MESES = [
                   Por pagar
                 </app-insignia>
                 <button
+                  matButton="filled"
                   type="button"
-                  class="boton boton-primario boton-chico"
+                  class="chico"
                   [disabled]="pagando()"
                   [attr.aria-busy]="pagando()"
                   (click)="pagar(cuota)"

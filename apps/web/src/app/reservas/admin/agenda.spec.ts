@@ -1,5 +1,7 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -101,22 +103,28 @@ describe('AgendaDelDia', () => {
     await montar([UNA]);
   });
 
-  it('la cabecera del panel lleva el título y una sola acción principal (TV7.1)', () => {
+  /** Los botones llenos de la cabecera, que es donde va la acción principal. */
+  const llenosDeLaCabecera = () =>
+    TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+      MatButtonHarness.with({ appearance: 'filled', ancestor: '.cabecera-panel' }),
+    );
+
+  it('la cabecera del panel lleva el título y una sola acción principal (TV7.1)', async () => {
     // La regla del panel: una banda compacta con el titular y **una** acción
     // principal. La navegación entre días va debajo, fuera de la cabecera.
     const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
+    const llenos = await llenosDeLaCabecera();
 
     expect(cabecera?.querySelector('h1')?.textContent).toContain('Reservas del día');
-    expect(cabecera?.querySelectorAll('.boton-primario').length).toBe(1);
-    expect(cabecera?.querySelector('.boton-primario')?.textContent).toContain('Nueva reserva');
+    expect(llenos).toHaveLength(1);
+    expect(await llenos[0].getText()).toContain('Nueva reserva');
     expect(cabecera?.querySelector('[aria-label="Día anterior"]')).toBeNull();
   });
 
   it('a la gestora le muestra el día, reservas y clases, sin "Nueva reserva" (T221)', async () => {
     await montar([UNA], [CLASE], GESTORA);
 
-    const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
-    expect(cabecera?.querySelector('.boton-primario')).toBeNull();
+    expect(await llenosDeLaCabecera()).toHaveLength(0);
     expect(texto()).not.toContain('Nueva reserva');
     expect(texto()).toContain('Camila Visitante');
     expect(texto()).toContain('Ana Silva');

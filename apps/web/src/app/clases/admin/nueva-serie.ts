@@ -1,5 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { diaEnPalabras, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -61,7 +62,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-nueva-serie',
-  imports: [FormsModule, Aviso, CampoFecha, CampoHora],
+  imports: [MatButton, FormsModule, Aviso, CampoFecha, CampoHora],
   host: { class: 'block' },
   template: `
     <form class="rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="revisar()">
@@ -270,8 +271,9 @@ const enBlanco = () => ({
       </div>
 
       <button
+        matButton="outlined"
         type="submit"
-        class="boton boton-secundario mt-3"
+        class="mt-3"
         [attr.aria-busy]="enCurso() === 'revisar'"
         [disabled]="trabajando()"
       >
@@ -350,8 +352,8 @@ const enBlanco = () => ({
 
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario"
             aria-describedby="motivo-serie"
             [disabled]="trabajando() || motivoParaNoAgendar() !== null"
             [attr.aria-busy]="enCurso() === 'agendar'"

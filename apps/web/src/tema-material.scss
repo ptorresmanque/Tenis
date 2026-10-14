@@ -97,11 +97,11 @@ html {
   LOS BOTONES, CON LA CARA DE `.boton` (T241).
 
   `matButton` lee sus medidas y colores de tokens `--mat-button-*`. Los de abajo los apuntan a lo
-  que dibujaba `.boton`: 48 px de alto (12 px de relleno y la línea de 24), la condensada en
-  mayúscula, el radio del sitio, y el borde de 2 px en el contorno. Las capas de estado de
-  Material (el velo al pasar, al enfocar y al apretar, y la onda) quedan en cero: el sitio
-  confirma el gesto con el botón mismo —se aclara, sube un píxel y se hunde al apretar—, y el
-  foco lo dibuja el anillo global de `:focus-visible`.
+  que dibujaba `.boton`: el relleno al costado, la condensada en mayúscula, el radio del sitio y
+  el borde de 2 px en el contorno. El alto no es un token: como en `.boton`, sale del relleno y
+  de la línea (`styles.css`). Las capas de estado de Material (el velo al pasar, al enfocar y al
+  apretar, y la onda) quedan en cero: el sitio confirma el gesto con el botón mismo —se aclara,
+  sube un píxel y se hunde al apretar—, y el foco lo dibuja el anillo global de `:focus-visible`.
 */
 $etiqueta: (
   label-text-font: var(--font-display),
@@ -114,7 +114,6 @@ $etiqueta: (
 html {
   @include mat.button-overrides(
     (
-      filled-container-height: 48px,
       filled-horizontal-padding: 1.5rem,
       filled-container-shape: var(--radius-control),
       filled-container-color: var(--color-primary),
@@ -130,8 +129,6 @@ html {
       filled-focus-state-layer-opacity: 0,
       filled-pressed-state-layer-opacity: 0,
       filled-ripple-color: transparent,
-      filled-icon-offset: 0,
-      outlined-container-height: 52px,
       outlined-horizontal-padding: 1.5rem,
       outlined-container-shape: var(--radius-control),
       outlined-outline-width: 2px,
@@ -148,8 +145,6 @@ html {
       outlined-focus-state-layer-opacity: 0,
       outlined-pressed-state-layer-opacity: 0,
       outlined-ripple-color: transparent,
-      outlined-icon-offset: 0,
-      text-container-height: 40px,
       text-horizontal-padding: 0.75rem,
       text-container-shape: var(--radius-control),
       text-label-text-color: var(--color-primary),
@@ -163,8 +158,6 @@ html {
       text-focus-state-layer-opacity: 0,
       text-pressed-state-layer-opacity: 0,
       text-ripple-color: transparent,
-      text-icon-offset: 0,
-      text-with-icon-horizontal-padding: 0.75rem,
     )
   );
 }
@@ -174,24 +167,28 @@ html {
 .mat-calendar {
   @include mat.button-overrides(
     (
-      text-container-height: 40px,
-      text-horizontal-padding: 12px,
       text-label-text-font: var(--mat-sys-label-large-font),
       text-label-text-weight: var(--mat-sys-label-large-weight),
       text-label-text-size: var(--mat-sys-label-large-size),
       text-label-text-tracking: var(--mat-sys-label-large-tracking),
       text-label-text-transform: none,
-      text-icon-offset: -4px,
     )
   );
 }
 
-/* Las clases de tema (A3 del plan): ajustes de tokens, no botones propios. */
+/* Las clases de tema (A3 del plan): ajustes de tokens, no botones propios. `peligro` pinta de
+   rojo cualquier apariencia: el fondo del lleno, y el borde y la letra del contorno y del texto. */
 .mat-mdc-button-base.peligro {
   @include mat.button-overrides(
     (
       filled-container-color: var(--color-destructive),
       filled-disabled-container-color: var(--color-destructive),
+      outlined-outline-color: var(--color-destructive),
+      outlined-disabled-outline-color: var(--color-destructive),
+      outlined-label-text-color: var(--color-destructive),
+      outlined-disabled-label-text-color: var(--color-destructive),
+      text-label-text-color: var(--color-destructive),
+      text-disabled-label-text-color: var(--color-destructive),
     )
   );
 }
@@ -213,17 +210,15 @@ html {
   );
 }
 
-/* Para tablas y tarjetas, donde 48 px se comen la fila: 6 px de relleno y la letra de 14. */
+/* Para tablas y tarjetas, donde 48 px se comen la fila: 12 px de relleno al costado (6 arriba y
+   abajo, en `styles.css`) y la letra de 14. */
 .mat-mdc-button-base.chico {
   @include mat.button-overrides(
     (
-      filled-container-height: 33px,
       filled-horizontal-padding: 0.75rem,
       filled-label-text-size: 0.875rem,
-      outlined-container-height: 37px,
       outlined-horizontal-padding: 0.75rem,
       outlined-label-text-size: 0.875rem,
-      text-container-height: 33px,
       text-label-text-size: 0.875rem,
     )
   );
@@ -235,8 +230,9 @@ html {
    De acá abajo las reglas van sobre `.mdc-button`, que es `matButton` y no `matIconButton`: los
    botones de ícono (las flechas del calendario, el que abre el selector de fecha) siguen como
    Material hasta su propia familia (T243 y la sexta del plan). La segunda clase le gana al
-   empate con el CSS de Material, que se inyecta después. */
-.mdc-button > .mat-icon.icono {
+   empate con el CSS de Material, que se inyecta después; en el ícono, el `html` le gana además a
+   los márgenes que Material le da al que va después de la etiqueta. */
+html .mdc-button > .mat-icon.icono {
   display: revert-layer;
   width: revert-layer;
   height: revert-layer;
@@ -246,31 +242,22 @@ html {
   vertical-align: revert-layer;
 }
 
-/* Lo que `.mdc-button` fija sin capa y las utilidades de Tailwind tienen que poder cambiar
-   (`hidden sm:inline-flex`, un ancho mínimo): vuelve a las capas del sitio, donde
-   `styles.css` le da su `inline-flex` de siempre. El `outline: none` también: sin esto, el
-   anillo global de `:focus-visible` no se ve en ningún botón. */
+/* Lo que Material fija sin capa y las utilidades de Tailwind tienen que poder cambiar
+   (`hidden sm:inline-flex`, `size-11 p-0` en un botón de solo ícono): vuelve a las capas del
+   sitio, donde `styles.css` le da el `inline-flex` y el relleno de cada apariencia. El
+   `outline: none` también: sin esto, el anillo global de `:focus-visible` no se ve en ningún
+   botón. */
 .mdc-button.mat-mdc-button-base {
   display: revert-layer;
   min-width: revert-layer;
   outline: revert-layer;
 }
 
-/* El alto de cada apariencia es un mínimo y no un alto fijo, como en `.boton`: en una fila, el
-   lleno de 48 px se estira junto al contorno de 52, y una etiqueta de dos líneas no se corta. */
-.mdc-button.mat-mdc-unelevated-button {
-  height: auto;
-  min-height: var(--mat-button-filled-container-height);
-}
-
-.mdc-button.mat-mdc-outlined-button {
-  height: auto;
-  min-height: var(--mat-button-outlined-container-height);
-}
-
-.mdc-button.mat-mdc-button {
-  height: auto;
-  min-height: var(--mat-button-text-container-height);
+/* El alto y el relleno, salvo en el botón del mes del calendario, que conserva los de Material.
+   El `html` le gana al relleno que Material le pone al botón de texto que lleva ícono. */
+html .mdc-button.mat-mdc-button-base:not(.mat-calendar-period-button) {
+  height: revert-layer;
+  padding: revert-layer;
 }
 
 /* El gesto de `.boton`: se aclara y sube al pasar, y se hunde al apretar. */

@@ -1,5 +1,6 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -31,7 +32,17 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-profesores',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective, Esqueleto],
+  imports: [
+    MatButton,
+    FormsModule,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    TelefonoDirective,
+    Esqueleto,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -115,15 +126,15 @@ const enBlanco = () => ({
 
       <div class="mt-3 flex flex-wrap gap-2">
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [attr.aria-busy]="enCurso() === 'guardar'"
           [disabled]="trabajando()"
         >
           {{ editando() ? 'Guardar cambios' : 'Anotar profesor' }}
         </button>
         @if (editando()) {
-          <button type="button" class="boton boton-texto" (click)="cancelar()">
+          <button matButton type="button" (click)="cancelar()">
             Cancelar
           </button>
         }
@@ -176,16 +187,18 @@ const enBlanco = () => ({
             }
 
             <button
+              matButton="outlined"
               type="button"
-              class="boton boton-secundario boton-chico"
+              class="chico"
               [disabled]="trabajando()"
               (click)="editar(profesor)"
             >
               Editar
             </button>
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico"
+              class="chico"
               [disabled]="trabajando()"
               [attr.aria-busy]="enCurso() === 'cambiarActividad-' + profesor.id"
               (click)="cambiarActividad(profesor)"

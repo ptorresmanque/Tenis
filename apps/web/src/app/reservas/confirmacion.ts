@@ -210,7 +210,7 @@ const MOTIVOS: Record<string, string> = {
               matButton
               routerLink="/mis-reservas"
               [queryParams]="{ cancelar: folio() }"
-              class="text-destructive"
+              class="peligro"
             >
               <mat-icon class="text-base" aria-hidden="true">cancel</mat-icon>
               Cancelar esta reserva

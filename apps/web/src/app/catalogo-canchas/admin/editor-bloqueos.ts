@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import {
   diaEnPalabras,
@@ -63,7 +64,7 @@ function enBlanco(): Formulario {
  */
 @Component({
   selector: 'app-editor-bloqueos',
-  imports: [FormsModule, CampoFecha, CampoHora, Esqueleto],
+  imports: [MatButton, FormsModule, CampoFecha, CampoHora, Esqueleto],
   template: `
     @if (bloqueos.isLoading()) {
       <app-esqueleto [filas]="2" etiqueta="Cargando los bloqueos…" />
@@ -88,8 +89,9 @@ function enBlanco(): Formulario {
               }
             </span>
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico text-destructive"
+              class="peligro chico"
               (click)="borrar(bloqueo.id)"
             >
               Quitar
@@ -168,10 +170,11 @@ function enBlanco(): Formulario {
       </div>
 
       <button
+        matButton="outlined"
         type="submit"
         [disabled]="guardando()"
         [attr.aria-busy]="guardando()"
-        class="boton boton-secundario boton-chico"
+        class="chico"
       >
         Bloquear
       </button>
@@ -226,8 +229,9 @@ function enBlanco(): Formulario {
 
         <div class="mt-3 flex flex-wrap gap-2">
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-destructivo boton-chico"
+            class="peligro chico"
             [disabled]="guardando() || hayPagoEnCurso()"
             [attr.aria-busy]="guardando()"
             (click)="confirmar()"
@@ -235,8 +239,9 @@ function enBlanco(): Formulario {
             Cerrar igual y avisarles
           </button>
           <button
+            matButton
             type="button"
-            class="boton boton-texto boton-chico"
+            class="chico"
             (click)="porConfirmar.set(null)"
           >
             Mejor no

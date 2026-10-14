@@ -1,4 +1,6 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HoraReportada, Reportes } from './reportes.service';
@@ -68,16 +70,17 @@ describe('ReportesPanel', () => {
     await montar();
   });
 
-  it('"Sancionar" y "Descartar" son botones de la primitiva, no hechos a mano (TV7.9)', () => {
+  it('"Sancionar" y "Descartar" son botones de Material, no hechos a mano (TV7.9)', async () => {
     // Hechos a mano no heredaban nada de .boton: ni el alto, ni la letra, ni el
-    // foco, ni la confirmación al apretar (hallazgo de TV2.3).
-    const botones = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('li button'));
+    // foco, ni la confirmación al apretar (hallazgo de TV2.3). Desde T241, `matButton`.
+    const botones = (fixture.nativeElement as HTMLElement).querySelectorAll('li button');
+    const deMaterial = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+      MatButtonHarness.with({ ancestor: 'li' }),
+    );
+    const textos = await Promise.all(deMaterial.map((b) => b.getText()));
 
-    expect(botones.map((b) => b.textContent?.trim().split(/\s/)[0])).toEqual([
-      'Sancionar',
-      'Descartar',
-    ]);
-    expect(botones.every((b) => b.classList.contains('boton'))).toBe(true);
+    expect(textos.map((t) => t.split(/\s/)[0])).toEqual(['Sancionar', 'Descartar']);
+    expect(deMaterial).toHaveLength(botones.length);
   });
 
   it('muestra la hora en la hora del club, la cancha y a quién se le reservó', () => {

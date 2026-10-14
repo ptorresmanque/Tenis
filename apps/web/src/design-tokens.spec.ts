@@ -1465,6 +1465,65 @@ describe('El hero se mueve (T148)', () => {
 });
 
 /**
+ * T241–T243. Los botones son `matButton`. Mientras dure la migración conviven con `.boton`:
+ * la lista crece con cada tarea, y en T243, cuando `.boton` se va, la regla vale para todo.
+ */
+const CON_MATBUTTON = [
+  // T241: el sitio público.
+  'cascarones/',
+  'club/',
+  'inicio/',
+  'identidad/login/',
+  'identidad/recuperar-contrasena/',
+  'identidad/registro/',
+  'identidad/verificar-correo/',
+  'ranking/',
+  'reservas/',
+  'torneos/publico/',
+  // T242: reservas, canchas, clases, cuotas y reportes del panel.
+  'catalogo-canchas/',
+  'clases/',
+  'cuotas/',
+  'reportes/',
+];
+
+describe('Los botones son de Material (T241–T243)', () => {
+  it('**ninguna carpeta migrada pinta un botón con `.boton`**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      if (!CON_MATBUTTON.some((carpeta) => archivo.startsWith(carpeta))) continue;
+
+      for (const [clase] of contenido.matchAll(/\[?class(?:\.boton[\w-]*)?\]?="[^"]*"/g)) {
+        if (/\bboton\b|\.boton/.test(clase)) infractores.push(`${archivo}: ${clase.slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el color de un `matButton` sale de su clase de tema**, no de una utilidad', () => {
+    // Material pinta el texto, el fondo y el borde con sus tokens y sin capa: un
+    // `text-destructive` en el botón no hace nada, y «Quitar» salía azul (T242). El rojo es
+    // la clase `peligro`, que ajusta los tokens.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of contenido.matchAll(/<(?:button|a)\b[^>]*\bmatButton\b[^>]*>/g)) {
+        const clase = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
+        // `text-sm` y `text-start` no pintan: son tamaño y alineación.
+        const pinta = /(^|\s)(\S+:)?(text|bg|border)-(?!(xs|sm|base|lg|\d?xl|start|end|center)\b)[a-z]/;
+        if (pinta.test(clase)) {
+          infractores.push(`${archivo}: ${clase.replace(/\s+/g, ' ')}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
  * Las carpetas que las reglas de T150 (botón ocupado) y T152 (esqueletos) no revisan.
  * Vacía desde T154: las dos reglas valen para todo el sitio. Se deja la lista para la
  * próxima vez que una regla nueva entre de a poco.

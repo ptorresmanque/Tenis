@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
@@ -57,6 +58,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-agenda-clases',
   imports: [
+    MatButton,
     MatIcon,
     FormsModule,
     Aviso,
@@ -81,24 +83,27 @@ const enBlanco = () => ({
     <div class="mt-4 flex flex-wrap items-end gap-3">
       <div class="flex items-center gap-1">
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario boton-chico"
+          class="chico"
           aria-label="Día anterior"
           (click)="moverDia(-1)"
         >
           <mat-icon class="text-base" aria-hidden="true">chevron_left</mat-icon>
         </button>
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario boton-chico"
+          class="chico"
           [disabled]="fecha() === hoy"
           (click)="fecha.set(hoy)"
         >
           Hoy
         </button>
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario boton-chico"
+          class="chico"
           aria-label="Día siguiente"
           (click)="moverDia(1)"
         >
@@ -154,8 +159,9 @@ const enBlanco = () => ({
                 <app-insignia variante="neutro" icono="check">Ya se dio</app-insignia>
               }
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico ms-auto"
+                class="chico ms-auto"
                 [attr.aria-expanded]="abierta() === clase.id"
                 (click)="alternar(clase.id)"
               >
@@ -165,8 +171,9 @@ const enBlanco = () => ({
                 <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y
                      ofrecerlo es un callejón. -->
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto boton-chico"
+                  class="chico"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
                   (click)="cancelar(clase)"
@@ -177,8 +184,9 @@ const enBlanco = () => ({
                      y las clases anteriores quedan como estaban. -->
                 @if (clase.serieId !== null) {
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
                     (click)="cancelarSerieDesde(clase, clase.serieId)"
@@ -368,9 +376,12 @@ const enBlanco = () => ({
         </label>
       </div>
 
+      <!-- Confirmar es un segundo paso, en su recuadro; candidato a MatDialog en los diálogos.
+           mat-guidelines-ignore: multiples-filled -->
       <button
+        matButton="filled"
         type="submit"
-        class="boton boton-primario mt-3"
+        class="mt-3"
         [attr.aria-busy]="enCurso() === 'agendar'"
         [disabled]="trabajando()"
       >
@@ -422,8 +433,9 @@ const enBlanco = () => ({
 
         <div class="mt-3 flex flex-wrap gap-2">
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-destructivo boton-chico"
+            class="peligro chico"
             [disabled]="trabajando() || hayPagoEnCurso()"
             [attr.aria-busy]="enCurso() === 'confirmar'"
             (click)="confirmar()"
@@ -431,8 +443,9 @@ const enBlanco = () => ({
             Agendar igual y avisarles
           </button>
           <button
+            matButton
             type="button"
-            class="boton boton-texto boton-chico"
+            class="chico"
             (click)="porConfirmar.set(null)"
           >
             Mejor no
