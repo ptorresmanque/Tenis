@@ -388,6 +388,36 @@ function plantillas(): { archivo: string; contenido: string }[] {
     }));
 }
 
+/**
+ * T239. El tema de Angular Material sale de los tokens del sitio (`SPEC-interfaz.md`, S4): los
+ * componentes de Material se ven como «Transmisión» y no con el azul de fábrica, en claro y en
+ * oscuro, porque cada token del tema apunta a uno del sitio y no a un color.
+ */
+describe('El tema de Material (T239)', () => {
+  const angular = readFileSync(join(process.cwd(), 'angular.json'), 'utf8');
+  const temaMaterial = () => readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
+
+  it('**es el tema del sitio y no el precompilado**', () => {
+    expect(angular).not.toContain('prebuilt-themes');
+    expect(angular).toContain('src/tema-material.scss');
+    expect(temaMaterial()).toMatch(/@include mat\.theme\(/);
+  });
+
+  it('**sus colores apuntan a los tokens del sitio**, para que el modo oscuro llegue solo', () => {
+    for (const token of ['primary', 'on-primary', 'surface', 'on-surface', 'outline', 'error']) {
+      expect(temaMaterial()).toMatch(new RegExp(`(?<![\\w-])${token}: var\\(--color-`));
+    }
+  });
+
+  it('sus esquinas son las del sitio, también la «redonda»', () => {
+    expect(temaMaterial()).toMatch(/corner-full: var\(--radius\)/);
+  });
+
+  it('styles.css ya no define las variables de Material: las define el tema', () => {
+    expect(css).not.toMatch(/--mat-sys-[a-z-]+\s*:/);
+  });
+});
+
 describe('Campos de fecha y hora (T125)', () => {
   it('**ningún label envuelve un campo de fecha u hora**: la lista quedaría en su nombre', () => {
     // Material inserta el calendario y la lista de horas junto al campo, y no al final
