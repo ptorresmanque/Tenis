@@ -99,7 +99,8 @@ function enPesos(texto: string): number | null {
                 />
               </mat-form-field>
 
-              <mat-form-field class="w-28">
+              <!-- El ancho lo pide la etiqueta, que va dentro del borde y no puede pasarse. -->
+              <mat-form-field class="w-36">
                 <mat-label>Inscripción $</mat-label>
                 <input
                   matInput
@@ -159,10 +160,9 @@ function enPesos(texto: string): number | null {
         </mat-form-field>
 
         <!-- Por cuadro y no por torneo: Honor puede costar más que la 5ª. -->
-        <mat-form-field class="w-28">
-          <mat-label>
-            Inscripción $ <span class="font-normal text-muted-foreground">(0 es gratis)</span>
-          </mat-label>
+        <!-- «0 es gratis» va en la ayuda: dentro de la etiqueta no cabía y se cortaba. -->
+        <mat-form-field class="w-36">
+          <mat-label>Inscripción $</mat-label>
           <input
             matInput
             type="number"
@@ -171,6 +171,7 @@ function enPesos(texto: string): number | null {
             step="1"
             [(ngModel)]="monto"
           />
+          <mat-hint>0 es gratis</mat-hint>
         </mat-form-field>
 
         <button
