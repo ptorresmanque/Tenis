@@ -650,11 +650,11 @@ html {
 }
 
 /*
-  LAS TABLAS (T256).
+  LAS TABLAS (T256, T257).
 
-  `mat-table` con la cara de la primitiva que reemplazó: el encabezado de columna en la condensada de los
-  rótulos, en mayúscula y sobre el gris, y los datos en la letra de leer (TV2.1). Las
-  filas no tienen alto fijo: miden lo que su contenido más el relleno, como antes.
+  `mat-table` con la cara de la primitiva que reemplazó: el encabezado de columna en la
+  condensada de los rótulos, en mayúscula y sobre el gris, y los datos en la letra de leer
+  (TV2.1). Las filas no tienen alto fijo: miden lo que su contenido más el relleno, como antes.
 */
 html {
   @include mat.table-overrides(
@@ -730,10 +730,10 @@ html .mat-mdc-row {
   LAS INSIGNIAS (T258).
 
   Un `mat-chip` sin interacción dentro de su `mat-chip-set`, con la cara de un rótulo de
-  transmisión (TV2.2): condensada, en mayúscula y con tracking, y el alto de antes —30 px en una línea—, para
-  no mover las filas de las tablas del panel, donde vive la mayoría. La mayúscula es de CSS: el
-  lector de pantalla oye el texto como está escrito. El set es de línea: va al lado de un nombre
-  o de una hora, no en una fila propia.
+  transmisión (TV2.2): condensada, en mayúscula y con tracking, y el alto de antes —30 px en
+  una línea—, para no mover las filas de las tablas del panel, donde vive la mayoría. La
+  mayúscula es de CSS: el lector de pantalla oye el texto como está escrito. El set es de línea:
+  va al lado de un nombre o de una hora, no en una fila propia.
 */
 html .insignias {
   display: inline-flex;

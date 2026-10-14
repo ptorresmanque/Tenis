@@ -46,8 +46,8 @@ import { Esqueleto } from '../ui/esqueleto';
           detalle="En cuanto dos socios carguen uno y lo confirmen, la tabla aparece acá."
         />
       } @else {
-        <!-- En el teléfono, menos relleno por celda (TV4.5): con el de la primitiva,
-             cinco columnas no caben en 296px. -->
+        <!-- En el teléfono, menos relleno por celda (TV4.5): con el de siempre (1rem por
+             lado), cinco columnas no caben en 296px. -->
         <div class="mt-4 overflow-x-auto" data-tabla="activos">
           <table
             mat-table
