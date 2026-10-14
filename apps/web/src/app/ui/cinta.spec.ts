@@ -88,7 +88,7 @@ describe('Cinta', () => {
   it('el nombre del botón no cambia al apretarlo: el estado lo dice aria-pressed', () => {
     const { fixture, el } = montar();
     const boton = el.querySelector('button') as HTMLButtonElement;
-    const nombre = () => boton.querySelector('.sr-only')?.textContent?.trim();
+    const nombre = () => boton.getAttribute('aria-label');
 
     expect(nombre()).toBe('Detener la cinta');
     boton.click();

@@ -767,13 +767,13 @@ describe('Uso de los tokens en las plantillas', () => {
     // no entran: con href o routerLink el navegador ya pone la manito.
     //
     // `matButton` no necesita la clase (T241): Material le pone la manito en
-    // `.mdc-button:hover`.
+    // `.mdc-button:hover`. `matIconButton` tampoco (T260): la trae, y el tema no se la quita.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bmatButton\b/.test(etiqueta)) continue;
+        if (/\bmat(?:Icon)?Button\b/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
@@ -1256,6 +1256,27 @@ describe('Paginación (T259)', () => {
 
     expect(conPaginacion).toEqual([]);
     expect(existsSync(join(process.cwd(), 'src/app/ui/paginacion.ts'))).toBe(false);
+  });
+});
+
+describe('El panel y los botones de ícono (T260)', () => {
+  it('**el botón de ícono es el ancla de sus capas**: si el tema le devuelve la posición, la capa le da `relative`', () => {
+    // Material pone adentro del botón el indicador de foco, el área táctil y la onda, en absoluto.
+    // Sin un `position: relative` debajo del `revert-layer`, se ubicaban contra el cajón entero del
+    // panel y tapaban sus enlaces: ningún clic llegaba a una sección.
+    // El bloque entero hasta su cierre: el selector lleva una interpolación de Sass, con llaves.
+    const delSitio = tema.match(/html \.mat-mdc-icon-button:not\([\s\S]*?\n\}/)?.[0] ?? '';
+    expect(delSitio).toMatch(/position:\s*revert-layer/);
+    expect(css).toMatch(/\.mat-mdc-icon-button\s*\{\s*position:\s*relative;\s*\}/);
+  });
+
+  it('**con el movimiento reducido, el cajón no tiene transiciones**', () => {
+    // La regla global las deja en 0,01 ms, y cada una que terminaba en el cajón le avisaba a
+    // Material que había terminado de abrir: guardaba el cajón como el lugar adonde devolver el
+    // foco, y al cerrarse el foco se perdía en el <body>.
+    expect(tema).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.mat-drawer,[^}]*transition:\s*none !important/,
+    );
   });
 });
 
@@ -1834,7 +1855,8 @@ describe('Los botones dicen que están trabajando (T150)', () => {
   });
 
   it('los botones de ícono se hunden al presionar, como .boton', () => {
-    expect(css).toMatch(/\.pulsable:active:not\(:disabled\)\s*\{[^}]*scale:/);
+    // Desde T260, `matIconButton`; `.pulsable` queda para los del sitio público hasta T261.
+    expect(css).toMatch(/\.mat-mdc-icon-button:active:not\(:disabled\)\s*\{[^}]*scale:/);
   });
 
   it('**todo botón que se deshabilita por un envío lo anuncia con aria-busy**', () => {

@@ -839,3 +839,91 @@ html {
     )
   );
 }
+
+/*
+  LOS BOTONES DE ÍCONO DEL SITIO (T260).
+
+  `matIconButton` con la cara que le pone cada plantilla —el menú y cerrar del panel, la pausa
+  de la cinta, volver arriba—, como `matButton` con la suya: lo que Material fija sin capa
+  (posición, tamaño, relleno, radio, color, fondo, borde y el `outline: none` que esconde el
+  anillo de `:focus-visible`) vuelve a las capas del sitio, donde mandan las utilidades. Sin
+  velo ni onda: el gesto es hundirse al apretar (`styles.css`). Los botones de ícono que Material
+  usa adentro de sus componentes —el calendario, el reloj, el paginador, los chips— conservan
+  los suyos.
+*/
+$botones-de-material: '.mat-datepicker-toggle, .mat-timepicker-toggle, .mat-calendar-header, .mat-mdc-paginator, .mat-mdc-chip';
+
+html .mat-mdc-icon-button:not(:where(#{$botones-de-material}) *) {
+  @include mat.icon-button-overrides(
+    (
+      state-layer-color: transparent,
+      ripple-color: transparent,
+    )
+  );
+  display: revert-layer;
+  position: revert-layer;
+  z-index: revert-layer;
+  width: revert-layer;
+  height: revert-layer;
+  padding: revert-layer;
+  font-size: revert-layer;
+  border: revert-layer;
+  border-radius: revert-layer;
+  outline: revert-layer;
+  color: revert-layer;
+  background-color: revert-layer;
+}
+
+/*
+  EL PANEL (T260): `mat-sidenav` y `mat-toolbar` con los colores del sitio. La barra sobre la
+  tarjeta y con su borde al costado, 16 rem de ancho y sin radio; el velo del cajón, el texto a
+  la mitad, como el `backdrop:bg-foreground/50` del `<dialog>` de antes; la cabecera del teléfono,
+  de 64 px.
+*/
+html {
+  @include mat.sidenav-overrides(
+    (
+      container-background-color: var(--color-card),
+      container-text-color: var(--color-foreground),
+      container-shape: 0,
+      container-width: 16rem,
+      container-divider-color: var(--color-border),
+      content-background-color: transparent,
+      content-text-color: var(--color-foreground),
+      scrim-color: color-mix(in srgb, var(--color-foreground) 50%, transparent),
+    )
+  );
+  @include mat.toolbar-overrides(
+    (
+      container-background-color: var(--color-card),
+      container-text-color: var(--color-foreground),
+      standard-height: 4rem,
+      mobile-height: 4rem,
+    )
+  );
+}
+
+/* Se desplaza el documento, como antes, y no el contenedor: con el `overflow` de Material, la
+   cabecera del teléfono y los encabezados de las tablas no quedarían fijos, y el router no
+   volvería arriba al cambiar de página. La barra no lo necesita: va fija en la ventana. */
+html .mat-drawer-container.panel,
+html .panel > .mat-drawer-content {
+  overflow: visible;
+}
+
+html .panel > .mat-drawer-content {
+  height: auto;
+}
+
+/* Con el movimiento reducido, Material no anima el cajón y lo da por abierto o cerrado de una
+   vez. La regla global de `styles.css` no quita las transiciones, las deja en 0,01 ms, y cada
+   una que terminaba en el cajón le volvía a avisar a Material que había terminado de abrir: a la
+   segunda, guardaba el cajón mismo como el lugar adonde devolver el foco, y al cerrarse el foco
+   se perdía en el <body>. Sin transiciones, Material recibe un solo aviso. */
+@media (prefers-reduced-motion: reduce) {
+  html .mat-drawer,
+  html .mat-drawer-backdrop,
+  html .mat-drawer-content {
+    transition: none !important;
+  }
+}

@@ -1,5 +1,6 @@
 import { afterNextRender, Component, DestroyRef, inject, signal } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatIconButton } from '@angular/material/button';
 
 /** Desde dónde aparece: una pantalla y media. Antes, el comienzo está a un gesto. */
 const UMBRAL_EN_PANTALLAS = 1.5;
@@ -25,13 +26,14 @@ const UMBRAL_EN_PANTALLAS = 1.5;
  */
 @Component({
   selector: 'app-volver-arriba',
-  imports: [MatIcon],
+  imports: [MatIcon, MatIconButton],
   host: { class: 'print:hidden' },
   template: `
     <button
+      matIconButton
       type="button"
       aria-label="Volver arriba"
-      class="volver-arriba pulsable fixed end-4 bottom-4 z-30 flex size-12 cursor-pointer items-center
+      class="volver-arriba fixed end-4 bottom-4 z-30 flex size-12 cursor-pointer items-center
              justify-center rounded-full border border-border bg-card text-primary shadow-lg
              sm:end-6 sm:bottom-6"
       [class.visible]="visible()"
@@ -44,8 +46,8 @@ const UMBRAL_EN_PANTALLAS = 1.5;
   styles: `
     /* Entra subiendo un poco y sale más rápido de lo que entra, como los diálogos.
        visibility va en la transición para que se oculte al terminar de salir. Esta
-       lista reemplaza la de .pulsable, así que repite su escala: sin ella, el botón se
-       hundiría de golpe al presionarlo. */
+       lista reemplaza la del botón de ícono (styles.css), así que repite su escala: sin
+       ella, el botón se hundiría de golpe al presionarlo. */
     .volver-arriba {
       opacity: 0;
       translate: 0 0.75rem;

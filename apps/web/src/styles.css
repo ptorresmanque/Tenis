@@ -986,9 +986,11 @@ body:has(app-barra-fija) app-volver-arriba {
   /*
     Los botones de ícono —menú, cerrar, pausar la cinta, el avatar, volver arriba—
     confirman la pulsación como el botón (T150). Tenían el fondo al pasar el mouse y
-    nada al tocarlos, que en el teléfono es lo único que hay.
+    nada al tocarlos, que en el teléfono es lo único que hay. Desde T260 son
+    `matIconButton`, y `.pulsable` queda para los del sitio público hasta T261.
   */
-  .pulsable {
+  .pulsable,
+  .mat-mdc-icon-button {
     transition:
       color var(--duracion-menu) var(--ease-salida),
       background-color var(--duracion-menu) var(--ease-salida),
@@ -996,8 +998,17 @@ body:has(app-barra-fija) app-volver-arriba {
       scale var(--duracion-pulsacion) var(--ease-salida);
   }
 
-  .pulsable:active:not(:disabled) {
+  .pulsable:active:not(:disabled),
+  .mat-mdc-icon-button:active:not(:disabled) {
     scale: 0.92;
+  }
+
+  /* El ancla de las capas que Material pone adentro del botón de ícono —el indicador de foco,
+     el área táctil, la onda—, que van en absoluto. El tema le devuelve la posición a esta capa
+     para que `fixed` (volver arriba) le gane; sin esta base, esas capas se ubicaban contra el
+     cajón entero del panel y tapaban sus enlaces. */
+  .mat-mdc-icon-button {
+    position: relative;
   }
 
   /*
