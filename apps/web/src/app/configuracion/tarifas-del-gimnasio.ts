@@ -1,4 +1,5 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
@@ -28,7 +29,7 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
  */
 @Component({
   selector: 'app-tarifas-del-gimnasio',
-  imports: [Aviso],
+  imports: [MatButton, Aviso],
   host: { class: 'block' },
   template: `
     <h2 class="rotulo-seccion mt-10">Tarifas</h2>
@@ -92,8 +93,9 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
           </label>
 
           <button
+            matButton
             type="button"
-            class="boton boton-texto boton-chico justify-self-start sm:col-span-3"
+            class="chico justify-self-start sm:col-span-3"
             (click)="quitar(i)"
           >
             Quitar <span class="sr-only">la tarifa {{ i + 1 }}</span>
@@ -105,8 +107,8 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
 
       <div class="flex flex-wrap items-center gap-3">
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario"
           [disabled]="filas().length >= TARIFAS_MAXIMAS"
           (click)="agregar()"
         >
@@ -125,8 +127,8 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
 
       <div>
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="guardando() || !guardadas.hasValue()"
           [attr.aria-busy]="guardando()"
         >

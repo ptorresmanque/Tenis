@@ -229,7 +229,7 @@ html {
 
    De acá abajo las reglas van sobre `.mdc-button`, que es `matButton` y no `matIconButton`: los
    botones de ícono (las flechas del calendario, el que abre el selector de fecha) siguen como
-   Material hasta su propia familia (T243 y la sexta del plan). La segunda clase le gana al
+   Material hasta T260, donde pasan los botones de ícono del sitio. La segunda clase le gana al
    empate con el CSS de Material, que se inyecta después; en el ícono, el `html` le gana además a
    los márgenes que Material le da al que va después de la etiqueta. */
 html .mdc-button > .mat-icon.icono {
@@ -300,8 +300,11 @@ html .mdc-button.mat-mdc-button-base:not(.mat-calendar-period-button) {
 }
 
 /* El botón ocupado (T150), como `.boton`: un círculo que gira junto al texto, que ya dice
-   «Guardando…», y sin verse deshabilitado. No es `showProgress` de Material a propósito: ese
-   esconde la etiqueta, y con ella el nombre del botón para el lector mientras trabaja. */
+   «Guardando…». **No se ve deshabilitado**: trabaja por pedido de la persona, y un botón
+   apagado dice "no puedes" justo cuando pasa "ya va". El círculo es el ícono
+   `progress_activity`, con `/ ''` para que el lector no lea el nombre del glifo; con "reducir
+   movimiento" se queda quieto. No es `showProgress` de Material a propósito: ese esconde la
+   etiqueta, y con ella el nombre del botón para el lector mientras trabaja. */
 .mdc-button.mat-mdc-button-base[aria-busy='true']:disabled {
   cursor: progress;
   opacity: 1;
@@ -313,6 +316,8 @@ html .mdc-button.mat-mdc-button-base:not(.mat-calendar-period-button) {
   font-size: 1.25em;
   font-weight: normal;
   line-height: 1;
+  /* La ligadura se arma con el nombre tal cual: en mayúscula, o separado por el espaciado del
+     botón, no hay ícono. */
   letter-spacing: normal;
   text-transform: none;
   animation: girar var(--duracion-giro) linear infinite;

@@ -1,5 +1,6 @@
 import { Component, computed, input, model } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 /**
  * Anterior / Siguiente con la cuenta al medio.
@@ -14,12 +15,13 @@ import { MatIcon } from '@angular/material/icon';
  */
 @Component({
   selector: 'app-paginacion',
-  imports: [MatIcon],
+  imports: [MatButton, MatIcon],
   template: `
     <nav class="flex items-center justify-between gap-4" aria-label="Paginación">
       <button
+        matButton="outlined"
         type="button"
-        class="boton boton-secundario boton-chico"
+        class="chico"
         [disabled]="pagina() <= 1"
         (click)="mover(-1)"
       >
@@ -32,13 +34,14 @@ import { MatIcon } from '@angular/material/icon';
       </p>
 
       <button
+        matButton="outlined"
         type="button"
-        class="boton boton-secundario boton-chico"
+        class="chico"
         [disabled]="pagina() >= paginas()"
         (click)="mover(1)"
       >
         Siguiente
-        <mat-icon class="text-base" aria-hidden="true">chevron_right</mat-icon>
+        <mat-icon iconPositionEnd class="text-base" aria-hidden="true">chevron_right</mat-icon>
       </button>
     </nav>
   `,

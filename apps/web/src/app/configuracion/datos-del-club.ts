@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
@@ -98,7 +99,15 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
  */
 @Component({
   selector: 'app-datos-del-club',
-  imports: [FormsModule, NgTemplateOutlet, Aviso, Campo, CampoControl, TelefonoDirective],
+  imports: [
+    MatButton,
+    FormsModule,
+    NgTemplateOutlet,
+    Aviso,
+    Campo,
+    CampoControl,
+    TelefonoDirective,
+  ],
   template: `
     <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
       @if (club.error()) {
@@ -173,8 +182,8 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 
       <div>
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="guardando() || club.isLoading() || !club.hasValue()"
           [attr.aria-busy]="guardando()"
         >

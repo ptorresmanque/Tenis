@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { mensajeDelServidor } from '../../core/errores';
@@ -25,7 +26,18 @@ import { TelefonoDirective } from '../../ui/telefono';
  */
 @Component({
   selector: 'app-jugadores',
-  imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
+  imports: [
+    MatButton,
+    Esqueleto,
+    FormsModule,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    Selector,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    TelefonoDirective,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -96,8 +108,8 @@ import { TelefonoDirective } from '../../ui/telefono';
         }
 
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [attr.aria-busy]="enCurso() === 'anotar'"
           [disabled]="trabajando()"
         >
@@ -166,8 +178,9 @@ import { TelefonoDirective } from '../../ui/telefono';
             }
 
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico"
+              class="chico"
               [class.ms-auto]="!!jugador.socioId"
               [disabled]="trabajando()"
               [attr.aria-busy]="enCurso() === 'cambiarActividad-' + jugador.id"

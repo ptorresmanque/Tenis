@@ -8,6 +8,7 @@ import {
 
 import { Esqueleto } from '../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
@@ -30,7 +31,7 @@ import {
  */
 @Component({
   selector: 'app-categorias-juego',
-  imports: [Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
+  imports: [MatButton, Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
   template: `
     <section aria-labelledby="agregar">
       <h2 id="agregar" class="rotulo-seccion">
@@ -74,8 +75,8 @@ import {
         </app-campo>
 
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="enviando()"
           [attr.aria-busy]="enCurso() === 'agregar'"
         >
@@ -148,8 +149,9 @@ import {
                       }
 
                       <button
+                        matButton="outlined"
                         type="button"
-                        class="boton boton-secundario boton-chico whitespace-nowrap"
+                        class="chico whitespace-nowrap"
                         [disabled]="enviando()"
                         [attr.aria-busy]="enCurso() === 'alternar-' + categoria.id"
                         (click)="alternar(categoria)"

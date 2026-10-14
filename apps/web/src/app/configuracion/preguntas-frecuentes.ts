@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
@@ -29,7 +30,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
  */
 @Component({
   selector: 'app-preguntas-frecuentes',
-  imports: [FormsModule, Aviso, Campo, CampoControl, Esqueleto, EstadoVacio],
+  imports: [MatButton, FormsModule, Aviso, Campo, CampoControl, Esqueleto, EstadoVacio],
   template: `
     <section aria-labelledby="titulo-preguntas">
       <h2 id="titulo-preguntas" class="rotulo-seccion" tabindex="-1">Preguntas frecuentes</h2>
@@ -65,9 +66,11 @@ const LARGO_DE_LA_RESPUESTA = 2000;
         </app-campo>
 
         <div>
+          <!-- Crear, editar y confirmar el borrado son formularios distintos, uno por pregunta.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="submit"
-            class="boton boton-primario"
             [disabled]="enviando()"
             [attr.aria-busy]="enCurso() === 'agregar'"
           >
@@ -136,16 +139,18 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                   </app-campo>
                   <div class="flex flex-wrap gap-2">
                     <button
+                      matButton="filled"
                       type="submit"
-                      class="boton boton-primario boton-chico"
+                      class="chico"
                       [disabled]="enviando()"
                       [attr.aria-busy]="enCurso() === 'guardar-' + pregunta.id"
                     >
                       Guardar
                     </button>
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico"
+                      class="chico"
                       (click)="cerrarEdicion(pregunta.id)"
                     >
                       Cancelar
@@ -186,8 +191,9 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                   </app-aviso>
                   <div class="mt-3 flex flex-wrap gap-2">
                     <button
+                      matButton="filled"
                       type="button"
-                      class="boton boton-destructivo boton-chico"
+                      class="peligro chico"
                       [disabled]="enviando()"
                       [attr.aria-busy]="enCurso() === 'borrar-' + pregunta.id"
                       (click)="borrar(pregunta)"
@@ -195,8 +201,9 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                       Sí, borrar
                     </button>
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico"
+                      class="chico"
                       (click)="porBorrar.set(null)"
                     >
                       Mejor no
@@ -205,17 +212,19 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                 } @else {
                   <div class="mt-3 flex flex-wrap gap-2">
                     <button
+                      matButton="outlined"
                       type="button"
                       [id]="'editar-' + pregunta.id"
-                      class="boton boton-secundario boton-chico"
+                      class="chico"
                       (click)="abrirEdicion(pregunta)"
                     >
                       Editar
                       <span class="sr-only">«{{ pregunta.pregunta }}»</span>
                     </button>
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico"
+                      class="chico"
                       (click)="porBorrar.set(pregunta.id)"
                     >
                       Borrar

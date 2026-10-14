@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, FotoDelLugar } from '../club/club.service';
@@ -49,7 +50,7 @@ const LUGARES: {
  */
 @Component({
   selector: 'app-fotos-del-club',
-  imports: [Aviso, Esqueleto],
+  imports: [MatButton, Aviso, Esqueleto],
   template: `
     <h2 class="rotulo-seccion mt-10">Fotos</h2>
     <p class="mt-2 max-w-prose text-sm text-muted-foreground">
@@ -92,8 +93,9 @@ const LUGARES: {
                          es la consecuencia de este botón y no hay foco que atrapar. -->
                     <div class="mt-2 flex flex-wrap gap-2">
                       <button
+                        matButton="filled"
                         type="button"
-                        class="boton boton-destructivo boton-chico"
+                        class="peligro chico"
                         [disabled]="enCurso() !== null"
                         [attr.aria-busy]="enCurso() === 'borrar-' + foto.id"
                         (click)="borrar(uno.lugar, foto)"
@@ -101,8 +103,9 @@ const LUGARES: {
                         Sí, borrar
                       </button>
                       <button
+                        matButton
                         type="button"
-                        class="boton boton-texto boton-chico"
+                        class="chico"
                         (click)="porBorrar.set(null)"
                       >
                         Mejor no
@@ -110,8 +113,9 @@ const LUGARES: {
                     </div>
                   } @else {
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico mt-2"
+                      class="chico mt-2"
                       [disabled]="enCurso() !== null"
                       (click)="porBorrar.set(foto.id)"
                     >
@@ -161,8 +165,9 @@ const LUGARES: {
               </label>
 
               <button
+                matButton="outlined"
                 type="submit"
-                class="boton boton-secundario sm:col-span-2 sm:justify-self-start"
+                class="sm:col-span-2 sm:justify-self-start"
                 [disabled]="enCurso() !== null || !archivos()[uno.lugar]"
                 [attr.aria-busy]="enCurso() === 'subir-' + uno.lugar"
               >

@@ -9,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -24,7 +25,7 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-galeria-del-tour',
-  imports: [FormsModule, Aviso],
+  imports: [MatButton, FormsModule, Aviso],
   template: `
     <form
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -60,8 +61,9 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
         </label>
       </div>
       <button
+        matButton="outlined"
         type="submit"
-        class="boton boton-secundario mt-3"
+        class="mt-3"
         [disabled]="enCurso() !== null || !archivo()"
         [attr.aria-busy]="enCurso() === 'subir'"
       >
@@ -105,8 +107,9 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
               <!-- La confirmación en la foto, como en las fotos de la tienda. -->
               <div class="mt-2 flex flex-wrap gap-2">
                 <button
+                  matButton="filled"
                   type="button"
-                  class="boton boton-destructivo boton-chico"
+                  class="peligro chico"
                   [disabled]="enCurso() !== null"
                   [attr.aria-busy]="enCurso() === 'borrar-' + foto.id"
                   (click)="borrar(foto)"
@@ -114,8 +117,9 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
                   Sí, borrar
                 </button>
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto boton-chico"
+                  class="chico"
                   (click)="porBorrar.set(null)"
                 >
                   Mejor no
@@ -124,8 +128,9 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
             } @else {
               <div class="mt-2 flex flex-wrap gap-2">
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   [disabled]="enCurso() !== null"
                   [attr.aria-busy]="enCurso() === 'pie-' + foto.id"
                   (click)="guardarPie(foto)"
@@ -133,8 +138,9 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
                   Guardar el pie
                 </button>
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto boton-chico"
+                  class="chico"
                   (click)="porBorrar.set(foto.id)"
                 >
                   Borrar

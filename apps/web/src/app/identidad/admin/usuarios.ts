@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 
 import { diaConAnioEnPalabras, fechaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { Profesores } from '../../clases/profesores.service';
@@ -29,7 +30,17 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
  */
 @Component({
   selector: 'app-usuarios',
-  imports: [FormsModule, RouterLink, Aviso, Campo, CampoControl, Esqueleto, Insignia, TelefonoPipe],
+  imports: [
+    MatButton,
+    FormsModule,
+    RouterLink,
+    Aviso,
+    Campo,
+    CampoControl,
+    Esqueleto,
+    Insignia,
+    TelefonoPipe,
+  ],
   template: `
     <header class="cabecera-panel">
       <div>
@@ -51,7 +62,7 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
           [(ngModel)]="textoBuscado"
         />
       </app-campo>
-      <button type="submit" class="boton boton-secundario">Buscar</button>
+      <button matButton="outlined" type="submit">Buscar</button>
     </form>
 
     @if (error(); as falla) {
@@ -134,8 +145,9 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
               <div class="flex basis-full flex-wrap gap-2">
                 @if (!usuario.socio) {
                   <button
+                    matButton="outlined"
                     type="button"
-                    class="boton boton-secundario boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     (click)="abrir(usuario, 'socio')"
                   >
@@ -145,8 +157,9 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                 }
                 @if (usuario.profesor; as profesor) {
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     [attr.aria-busy]="enCurso() === 'quitar-' + usuario.id"
                     (click)="quitarProfesor(usuario, profesor.id)"
@@ -156,8 +169,9 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                   </button>
                 } @else {
                   <button
+                    matButton="outlined"
                     type="button"
-                    class="boton boton-secundario boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     (click)="abrir(usuario, 'profesor')"
                   >
@@ -181,15 +195,18 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                         [(ngModel)]="numeroSocio"
                       />
                     </app-campo>
+                    <!-- Hacer socio y hacer profesor se excluyen: se abre uno a la vez.
+                         mat-guidelines-ignore: multiples-filled -->
                     <button
+                      matButton="filled"
                       type="submit"
-                      class="boton boton-primario boton-chico"
+                      class="chico"
                       [disabled]="trabajando()"
                       [attr.aria-busy]="enCurso() === 'socio-' + usuario.id"
                     >
                       Confirmar
                     </button>
-                    <button type="button" class="boton boton-texto boton-chico" (click)="cerrar()">
+                    <button matButton type="button" class="chico" (click)="cerrar()">
                       Cancelar
                     </button>
                     <p class="basis-full text-sm text-muted-foreground">
@@ -244,16 +261,18 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                     }
                     <div class="flex flex-wrap gap-2 sm:col-span-2">
                       <button
+                        matButton="filled"
                         type="submit"
-                        class="boton boton-primario boton-chico"
+                        class="chico"
                         [disabled]="trabajando()"
                         [attr.aria-busy]="enCurso() === 'profesor-' + usuario.id"
                       >
                         Confirmar
                       </button>
                       <button
+                        matButton
                         type="button"
-                        class="boton boton-texto boton-chico"
+                        class="chico"
                         (click)="cerrar()"
                       >
                         Cancelar
@@ -269,8 +288,9 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
         @if (paginas() > 1) {
           <nav aria-label="Páginas de usuarios" class="mt-3 flex flex-wrap items-center gap-3">
             <button
+              matButton="outlined"
               type="button"
-              class="boton boton-secundario boton-chico"
+              class="chico"
               [disabled]="pagina() === 1"
               (click)="irA(pagina() - 1)"
             >
@@ -278,8 +298,9 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
             </button>
             <span class="text-sm">Página {{ pagina() }} de {{ paginas() }}</span>
             <button
+              matButton="outlined"
               type="button"
-              class="boton boton-secundario boton-chico"
+              class="chico"
               [disabled]="pagina() === paginas()"
               (click)="irA(pagina() + 1)"
             >

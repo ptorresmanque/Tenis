@@ -1,5 +1,6 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import {
   Contacto,
@@ -31,7 +32,17 @@ const TIPOS: Record<TipoSolicitud, string> = {
  */
 @Component({
   selector: 'app-solicitudes',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, Esqueleto],
+  imports: [
+    MatButton,
+    FormsModule,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+    Selector,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    Esqueleto,
+  ],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada consulta trae las suyas. -->
     <header class="cabecera-panel">
@@ -141,8 +152,9 @@ const TIPOS: Record<TipoSolicitud, string> = {
 
                 @if (solicitud.tipo === 'SOCIO' && !solicitud.invitacionId) {
                   <button
+                    matButton="filled"
                     type="button"
-                    class="boton boton-primario boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     [attr.aria-busy]="enCurso() === 'invitar-' + solicitud.id"
                     (click)="invitar(solicitud)"
@@ -152,8 +164,9 @@ const TIPOS: Record<TipoSolicitud, string> = {
                 }
 
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'ATENDIDA'"
                   (click)="resolver(solicitud, 'ATENDIDA')"
@@ -161,8 +174,9 @@ const TIPOS: Record<TipoSolicitud, string> = {
                   Marcar atendida
                 </button>
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto boton-chico"
+                  class="chico"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'DESCARTADA'"
                   (click)="resolver(solicitud, 'DESCARTADA')"

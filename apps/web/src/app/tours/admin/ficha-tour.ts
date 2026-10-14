@@ -12,6 +12,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -41,6 +42,7 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
 @Component({
   selector: 'app-ficha-tour',
   imports: [
+    MatButton,
     MatIcon,
     FormsModule,
     RouterLink,
@@ -142,9 +144,11 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
             </app-campo>
 
             <div>
+              <!-- Los datos, la imagen y el diálogo son secciones distintas.
+                   mat-guidelines-ignore: multiples-filled -->
               <button
+                matButton="filled"
                 type="submit"
-                class="boton boton-primario"
                 [disabled]="enCurso() !== null"
                 [attr.aria-busy]="enCurso() === 'guardar'"
               >
@@ -189,8 +193,9 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
             borrar.
           </p>
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-destructivo boton-chico mt-3"
+            class="peligro chico mt-3"
             [disabled]="enCurso() !== null"
             (click)="confirmando.set(true)"
           >
@@ -215,12 +220,13 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
         niveles y su galería. Esto no se puede deshacer.
       </p>
       <div class="mt-5 flex flex-wrap justify-end gap-2">
-        <button type="button" class="boton boton-texto" (click)="confirmando.set(false)">
+        <button matButton type="button" (click)="confirmando.set(false)">
           Mejor no
         </button>
         <button
+          matButton="filled"
           type="button"
-          class="boton boton-destructivo"
+          class="peligro"
           [disabled]="enCurso() !== null"
           [attr.aria-busy]="enCurso() === 'borrar'"
           (click)="borrar()"

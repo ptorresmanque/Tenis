@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -50,6 +51,7 @@ const CAMPOS: Record<string, string> = {
 @Component({
   selector: 'app-ficha-socio',
   imports: [
+    MatButton,
     FormsModule,
     Aviso,
     Campo,
@@ -123,15 +125,15 @@ const CAMPOS: Record<string, string> = {
 
         <div class="flex flex-wrap justify-end gap-2">
           <button
+            matButton
             type="button"
-            class="boton boton-texto"
             (click)="dialogo.close()"
           >
             Cancelar
           </button>
           <button
+            matButton="filled"
             type="submit"
-            class="boton boton-primario"
             [disabled]="guardando()"
             [attr.aria-busy]="guardando()"
           >

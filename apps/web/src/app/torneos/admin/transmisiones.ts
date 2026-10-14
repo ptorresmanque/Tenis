@@ -1,5 +1,6 @@
 import { Component, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { CanchaAdmin } from '../../catalogo-canchas/admin/admin-canchas.service';
@@ -30,7 +31,7 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-transmisiones-del-torneo',
-  imports: [FormsModule, Aviso, CampoFecha, CampoHora],
+  imports: [MatButton, FormsModule, Aviso, CampoFecha, CampoHora],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -60,7 +61,8 @@ const enBlanco = () => ({
               }
 
               <a
-                class="boton boton-secundario boton-chico"
+                matButton="outlined"
+                class="chico"
                 [href]="transmision.url"
                 target="_blank"
                 rel="noopener"
@@ -69,9 +71,9 @@ const enBlanco = () => ({
               </a>
 
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico ms-auto
-                       border-destructive text-destructive"
+                class="peligro chico ms-auto"
                 [disabled]="trabajando()"
                 [attr.aria-busy]="enCurso() === 'quitar-' + transmision.id"
                 (click)="quitar(transmision)"
@@ -158,8 +160,9 @@ const enBlanco = () => ({
         </label>
 
         <button
+          matButton="outlined"
           type="submit"
-          class="boton boton-secundario sm:col-span-2 sm:justify-self-start"
+          class="sm:col-span-2 sm:justify-self-start"
           [disabled]="trabajando()"
           [attr.aria-busy]="enCurso() === 'anunciar'"
         >

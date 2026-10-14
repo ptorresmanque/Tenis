@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
 
 import {
   AdminCanchas,
@@ -66,6 +67,7 @@ const LARGO_HORARIO = 120;
 @Component({
   selector: 'app-lugar-del-club',
   imports: [
+    MatButton,
     FormsModule,
     Aviso,
     Campo,
@@ -163,8 +165,8 @@ const LARGO_HORARIO = 120;
 
       <div>
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="guardando() || configuracion.isLoading() || !configuracion.hasValue()"
           [attr.aria-busy]="guardando()"
         >
