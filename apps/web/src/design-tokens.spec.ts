@@ -1530,6 +1530,13 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**los `min-w-*` valen en los campos**: el tema devuelve su `min-width` a las capas', () => {
+    // Material le pone `min-width: 0` al campo, sin capa, y le ganaba a cualquier `min-w-*`: el
+    // buscador de socios, con `min-w-64`, quedaba de 21 px en el teléfono.
+    expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*min-width: revert-layer/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{\s*min-width: 0;/);
+  });
+
   it('**un calendario dentro de un `<dialog>` modal tiene su panel adentro** (T248)', () => {
     // Fuera del diálogo modal, el panel se ve pero no recibe clics ni foco. Se va con T252.
     const infractores = plantillas()

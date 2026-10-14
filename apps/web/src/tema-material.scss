@@ -417,6 +417,15 @@ html {
   flex-grow: 0;
 }
 
+/* Material le pone al campo `min-width: 0` sin capa, y le ganaba a los `min-w-*` de Tailwind: el
+   buscador de socios, con `min-w-64`, quedaba de 21 px al lado del selector en el teléfono.
+   `revert-layer` le devuelve el valor a las capas del sitio: la clase de la plantilla, o el 0 de
+   Material, que `styles.css` repite en `@layer components`. Con `html` delante, porque los
+   estilos del campo llegan después y ganarían el empate. */
+html .mat-mdc-form-field {
+  min-width: revert-layer;
+}
+
 /* La etiqueta se ve al 75 %, pero su caja sin escalar cuenta para el ancho de la página: una
    etiqueta larga en un teléfono la empujaba hacia el lado (T248, e2e/sin-desborde). Solo lo
    horizontal: la etiqueta va montada sobre el borde de arriba. */

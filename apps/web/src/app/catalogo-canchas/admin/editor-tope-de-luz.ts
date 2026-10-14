@@ -57,7 +57,7 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
 
           @if (limitar()) {
             <div class="mt-2 flex flex-wrap items-end gap-4">
-              <mat-form-field class="w-24">
+              <mat-form-field class="w-40">
                 <mat-label>Canchas a la vez</mat-label>
                 <input
                   matInput

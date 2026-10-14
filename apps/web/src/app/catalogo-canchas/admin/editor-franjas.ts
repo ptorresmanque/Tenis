@@ -160,7 +160,8 @@ const EN_BLANCO: FranjaNueva = {
         <mat-timepicker #relojFranjaHasta />
       </mat-form-field>
 
-      <mat-form-field class="chico w-28">
+      <!-- El ancho lo pide la etiqueta, que va dentro del borde y no puede pasarse de él. -->
+      <mat-form-field class="chico w-36">
         <mat-label>Precio 1 hora</mat-label>
         <input
           matInput
@@ -173,7 +174,7 @@ const EN_BLANCO: FranjaNueva = {
         />
       </mat-form-field>
 
-      <mat-form-field class="chico w-28">
+      <mat-form-field class="chico w-48">
         <mat-label>Precio 1 hora y media</mat-label>
         <input
           matInput
