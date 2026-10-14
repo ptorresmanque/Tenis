@@ -11,6 +11,7 @@ import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
@@ -22,7 +23,6 @@ import {
 } from '../../catalogo-canchas/reloj-del-club';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import {
   ClaseDelDia,
   Clases,
@@ -53,11 +53,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
     MatIcon,
     Aviso,
     EstadoVacio,
-    Insignia,
     NuevaReserva,
     ObservacionesDeReserva,
     EnlaceTelefonoPipe,
     TelefonoPipe,
+    MatChipsModule,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -69,7 +69,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
           <h1 class="titular text-4xl">Reservas del día</h1>
           <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
                que alguien recargue por las dudas cada dos minutos. -->
-          <app-insignia variante="exito" icono="sensors">En vivo</app-insignia>
+          <mat-chip-set class="insignias">
+            <mat-chip class="insignia exito">
+              <mat-icon matChipAvatar aria-hidden="true">sensors</mat-icon>
+              En vivo
+            </mat-chip>
+          </mat-chip-set>
         </div>
         <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
       </div>
@@ -191,9 +196,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
                 </p>
                 <p class="font-medium">{{ clase.lugar }}</p>
-                <app-insignia variante="info" icono="school">
-                  Clase · {{ queClaseEs(clase) }}
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia info">
+                    <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                    Clase · {{ queClaseEs(clase) }}
+                  </mat-chip>
+                </mat-chip-set>
               </div>
               <p class="mt-1">
                 {{ clase.profesor }}
@@ -239,7 +247,12 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
               <!-- Insignia y borde punteado, no solo un color: ocupa la cancha
                    pero puede caerse, y esa diferencia hay que poder leerla. -->
               <p class="mt-2">
-                <app-insignia variante="aviso">Esperando el pago</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia aviso">
+                    <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                    Esperando el pago
+                  </mat-chip>
+                </mat-chip-set>
               </p>
             }
 

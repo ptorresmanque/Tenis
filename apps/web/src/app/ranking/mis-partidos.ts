@@ -5,6 +5,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { proveerCampos } from '../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
@@ -12,7 +14,6 @@ import { diaConAnioEnPalabras, hoyEnElClub } from '../catalogo-canchas/reloj-del
 import { Auth } from '../core/auth/auth';
 import { Aviso } from '../ui/aviso';
 import { EstadoVacio } from '../ui/estado-vacio';
-import { Insignia } from '../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ranking.service';
 import { Esqueleto } from '../ui/esqueleto';
 
@@ -38,7 +39,8 @@ import { Esqueleto } from '../ui/esqueleto';
     Aviso,
     EstadoVacio,
     Esqueleto,
-    Insignia,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -174,9 +176,12 @@ import { Esqueleto } from '../ui/esqueleto';
                   Perdiste con {{ partido.rival }}
                 }
               </p>
-              <app-insignia [variante]="color(partido.estado)" icono="flag">
-                {{ nombreEstado(partido.estado) }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia" [class]="color(partido.estado)">
+                  <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                  {{ nombreEstado(partido.estado) }}
+                </mat-chip>
+              </mat-chip-set>
               @if (partido.marcador) {
                 <p
                   class="ms-auto font-display text-3xl font-bold tabular-nums"

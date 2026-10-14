@@ -780,9 +780,9 @@ body:has(app-barra-fija) app-volver-arriba {
   T257 son `matButton`, `mat-form-field` y `mat-table` de Angular Material. Lo que
   queda acá es la cara que el sitio les pone encima donde Material no la trae.
 
-  Las que sí son componentes —insignia, aviso, campo, paginación, estado vacío,
-  selector, barra fija— están en `app/ui/`, y son las que tienen estado, ids que
-  coordinar o texto que anunciar.
+  Los componentes propios que quedan —aviso, paginación, estado vacío, barra fija—
+  están en `app/ui/`, y son los que tienen estado, ids que coordinar o texto que
+  anunciar. La insignia, el campo y el selector ya son de Material.
 
   Van en @layer components: las utilidades de Tailwind viven en una capa
   posterior, así que un `text-sm` en la plantilla sigue pudiendo pisar la letra sin

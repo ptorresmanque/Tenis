@@ -1,3 +1,4 @@
+@use 'sass:list';
 @use 'sass:map';
 @use '@angular/material' as mat;
 
@@ -723,4 +724,101 @@ html .mat-mdc-header-row {
    `background: inherit` de Material se lo quitaba. El resaltado al pasar está en `styles.css`. */
 html .mat-mdc-row {
   background: revert-layer;
+}
+
+/*
+  LAS INSIGNIAS (T258).
+
+  Un `mat-chip` sin interacción dentro de su `mat-chip-set`, con la cara de un rótulo de
+  transmisión (TV2.2): condensada, en mayúscula y con tracking, y el alto de antes —30 px en una línea—, para
+  no mover las filas de las tablas del panel, donde vive la mayoría. La mayúscula es de CSS: el
+  lector de pantalla oye el texto como está escrito. El set es de línea: va al lado de un nombre
+  o de una hora, no en una fila propia.
+*/
+html .insignias {
+  display: inline-flex;
+
+  .mdc-evolution-chip-set__chips,
+  .mdc-evolution-chip {
+    margin: 0;
+  }
+}
+
+html .insignia {
+  @include mat.chips-overrides(
+    (
+      container-height: auto,
+      container-shape-radius: var(--radius-control),
+      outline-width: 1px,
+      label-text-font: var(--font-display),
+      label-text-size: 0.75rem,
+      label-text-line-height: 1rem,
+      label-text-weight: 700,
+      label-text-tracking: 0.05em,
+      with-avatar-avatar-size: 0.875rem,
+      with-icon-icon-size: 0.875rem,
+      hover-state-layer-opacity: 0,
+      focus-state-layer-opacity: 0,
+    )
+  );
+  text-transform: uppercase;
+
+  /* El aire de antes: 11 px del borde al ícono, 6 hasta el texto y 11 al otro borde, y 5 arriba
+     y abajo. Sin alto fijo y con el texto que se parte: en una celda angosta, «Por cobrar» va en
+     dos líneas, como antes, en vez de empujar la tabla. Con una línea mide 30 px, por el ícono. */
+  &.mat-mdc-chip .mdc-evolution-chip__graphic {
+    height: 1.25rem;
+    padding: 0 0.375rem 0 0.6875rem;
+  }
+
+  &.mat-mdc-chip .mdc-evolution-chip__action--primary {
+    height: auto;
+    padding: 0.3125rem 0.6875rem 0.3125rem 0;
+  }
+
+  &.mat-mdc-chip .mdc-evolution-chip__text-label {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .mat-icon {
+    height: 1.25rem;
+    line-height: 1.25rem;
+  }
+}
+
+/*
+  Cada variante: el fondo y el borde, como un token y cuánto de él se ve sobre la tarjeta, y el
+  texto, que también pinta el ícono. design-tokens lee este mapa y mide el contraste: el texto
+  queda por encima de 4.5:1 en las seis. `libre` usa `accent-soft`, el fondo sólido del bloque
+  disponible de la grilla.
+*/
+$insignias: (
+  exito: (fondo: accent-strong 10%, borde: accent-strong 20%, texto: accent-strong),
+  aviso: (fondo: warning-soft 100%, borde: warning 30%, texto: warning-strong),
+  error: (fondo: destructive 10%, borde: destructive 20%, texto: destructive-strong),
+  info: (fondo: primary 10%, borde: primary 20%, texto: primary),
+  neutro: (fondo: muted 100%, borde: border 100%, texto: muted-foreground),
+  libre: (fondo: accent-soft 100%, borde: accent-strong 20%, texto: accent-strong),
+);
+
+@function mezcla($token) {
+  @return color-mix(
+    in oklab,
+    var(--color-#{list.nth($token, 1)}) list.nth($token, 2),
+    transparent
+  );
+}
+
+@each $nombre, $variante in $insignias {
+  html .insignia.#{$nombre} {
+    @include mat.chips-overrides(
+      (
+        elevated-container-color: mezcla(map.get($variante, fondo)),
+        outline-color: mezcla(map.get($variante, borde)),
+        label-text-color: var(--color-#{map.get($variante, texto)}),
+        with-icon-icon-color: var(--color-#{map.get($variante, texto)}),
+      )
+    );
+  }
 }

@@ -3,12 +3,12 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
 import { Club } from './club.service';
 import { Foto } from '../ui/foto';
-import { Insignia } from '../ui/insignia';
 import { FormularioContacto } from './formulario-contacto';
 import { enlacesDelMapa } from './mapa';
 import { RedesSociales } from './redes-sociales';
@@ -41,7 +41,6 @@ import { Esqueleto } from '../ui/esqueleto';
     MatIcon,
     RouterLink,
     Foto,
-    Insignia,
     FormularioContacto,
     Tarifas,
     EnlaceTelefonoPipe,
@@ -49,6 +48,7 @@ import { Esqueleto } from '../ui/esqueleto';
     RedesSociales,
     Esqueleto,
     TiendaYCafeteria,
+    MatChipsModule,
   ],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
@@ -126,13 +126,19 @@ import { Esqueleto } from '../ui/esqueleto';
                       {{ cancha.nombre }}
                     </span>
                     <span class="flex flex-wrap gap-2">
-                      <app-insignia variante="info" icono="sports_tennis">
-                        {{ superficie(cancha.superficie) }}
-                      </app-insignia>
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia info">
+                          <mat-icon matChipAvatar aria-hidden="true">sports_tennis</mat-icon>
+                          {{ superficie(cancha.superficie) }}
+                        </mat-chip>
+                      </mat-chip-set>
                       @if (cancha.iluminacion) {
-                        <app-insignia variante="neutro" icono="lightbulb">
-                          Con iluminación
-                        </app-insignia>
+                        <mat-chip-set class="insignias">
+                          <mat-chip class="insignia neutro">
+                            <mat-icon matChipAvatar aria-hidden="true">lightbulb</mat-icon>
+                            Con iluminación
+                          </mat-chip>
+                        </mat-chip-set>
                       }
                     </span>
                   </li>

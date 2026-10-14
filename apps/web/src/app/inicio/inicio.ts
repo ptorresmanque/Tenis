@@ -2,6 +2,8 @@ import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { Marcador } from '../catalogo-canchas/marcador';
@@ -17,7 +19,6 @@ import { Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
-import { Insignia } from '../ui/insignia';
 
 /**
  * La portada.
@@ -50,10 +51,11 @@ import { Insignia } from '../ui/insignia';
     Cinta,
     Esqueleto,
     Foto,
-    Insignia,
     Marcador,
     TiendaYCafeteria,
     MatTableModule,
+    MatChipsModule,
+    MatIcon,
   ],
   template: `
     <!--
@@ -363,9 +365,12 @@ import { Insignia } from '../ui/insignia';
                   aria-hidden="true"
                 ></div>
 
-                <app-insignia class="self-start" variante="libre" icono="how_to_reg">
-                  Inscripción abierta
-                </app-insignia>
+                <mat-chip-set class="insignias self-start">
+                  <mat-chip class="insignia libre">
+                    <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
+                    Inscripción abierta
+                  </mat-chip>
+                </mat-chip-set>
                 <h3 class="titular text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
                 <p class="max-w-prose text-on-campo/90">
                   Del {{ enPalabras(torneo.fechaInicio) }} al

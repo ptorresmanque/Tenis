@@ -15,11 +15,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { confirmar } from '../../ui/dialogo-de-confirmacion';
 import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
-import { Insignia } from '../../ui/insignia';
 import { hoyEnElClub, horaEnElClub } from '../reloj-del-club';
 import { nombreDeSuperficie, SUPERFICIES } from '../superficies';
 import {
@@ -71,8 +72,9 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     EditorFranjas,
     EditorBloqueos,
     ReglasGeneralesPanel,
-    Insignia,
     Esqueleto,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -210,7 +212,12 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 @if (!cancha.activa) {
                   <!-- Con palabras y no solo con el borde: una línea punteada no
                        dice por sí sola qué significa. -->
-                  <app-insignia variante="neutro" icono="block">Desactivada</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                      Desactivada
+                    </mat-chip>
+                  </mat-chip-set>
                 }
 
                 <button

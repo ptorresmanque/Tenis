@@ -10,6 +10,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
 import {
   diaEnPalabras,
@@ -20,7 +21,6 @@ import {
 } from '../../catalogo-canchas/reloj-del-club';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { descargarIcs } from '../calendario';
 import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
 
@@ -34,7 +34,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
  */
 @Component({
   selector: 'app-mis-reservas',
-  imports: [MatButton, MatIcon, RouterLink, Aviso, EstadoVacio, Insignia],
+  imports: [MatButton, MatIcon, RouterLink, Aviso, EstadoVacio, MatChipsModule],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis reservas</h1>
 
@@ -98,13 +98,28 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 {{ reserva.cancha }}
               </h2>
               @if (reserva.estado === 'PENDIENTE_PAGO') {
-                <app-insignia variante="aviso">Esperando el pago</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia aviso">
+                    <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                    Esperando el pago
+                  </mat-chip>
+                </mat-chip-set>
               } @else {
-                <app-insignia variante="exito">Confirmada</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia exito">
+                    <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                    Confirmada
+                  </mat-chip>
+                </mat-chip-set>
               }
               @if (reserva.esPico) {
                 <!-- Ámbar, como el rótulo "Prime" del marcador y de las tarifas. -->
-                <app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia aviso">
+                    <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                    Hora prime
+                  </mat-chip>
+                </mat-chip-set>
               }
             </div>
 

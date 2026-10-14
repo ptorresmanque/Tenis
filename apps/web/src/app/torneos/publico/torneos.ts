@@ -12,6 +12,7 @@ import { Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { diaEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
@@ -21,7 +22,6 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 // galería del torneo. Este es el componente que reserva el hueco de una
 // foto del sitio mientras el club no la entrega.
 import { Foto as FotoDelSitio } from '../../ui/foto';
-import { Insignia } from '../../ui/insignia';
 import { CuadroPublicoModal } from './cuadro-publico';
 import { InscripcionATorneo } from './inscripcion';
 import { olvidarPagoPendiente } from './pago-pendiente';
@@ -75,9 +75,9 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
     CuadroPublicoModal,
     EstadoVacio,
     Esqueleto,
-    Insignia,
     InscripcionATorneo,
     RouterLink,
+    MatChipsModule,
   ],
   template: `
     <section
@@ -145,12 +145,15 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                 <!-- Insignias de fondo sólido: las translúcidas no se leen sobre el
                      campo (lo midió TV3.4). -->
                 <div class="flex flex-wrap items-center gap-2">
-                  <app-insignia
-                    [variante]="torneo.estado === 'INSCRIPCION' ? 'libre' : 'neutro'"
-                    icono="flag"
-                  >
-                    {{ nombreEstado(torneo.estado) }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip
+                      class="insignia"
+                      [class]="torneo.estado === 'INSCRIPCION' ? 'libre' : 'neutro'"
+                    >
+                      <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                      {{ nombreEstado(torneo.estado) }}
+                    </mat-chip>
+                  </mat-chip-set>
                 </div>
 
                 <h2 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h2>

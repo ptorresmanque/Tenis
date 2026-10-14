@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { VARIANTES_AVISO } from './app/ui/aviso';
-import { VARIANTES_INSIGNIA } from './app/ui/insignia';
+import { ICONO_DE_INSIGNIA } from './app/ui/insignias';
 import { PICO_Y_VALLE, VOSEO } from './voseo';
 
 /**
@@ -322,14 +322,9 @@ describe('Contraste de los tokens de color', () => {
       return `#${[1, 3, 5].map((i) => canal(i).toString(16).padStart(2, '0')).join('')}`;
     }
 
-    const variantes = [
-      ...Object.entries(VARIANTES_INSIGNIA).map(
-        ([nombre, v]) => [`insignia ${nombre}`, v.clases] as const,
-      ),
-      ...Object.entries(VARIANTES_AVISO).map(
-        ([nombre, v]) => [`aviso ${nombre}`, v.clases] as const,
-      ),
-    ];
+    const variantes = Object.entries(VARIANTES_AVISO).map(
+      ([nombre, v]) => [`aviso ${nombre}`, v.clases] as const,
+    );
 
     it.each(variantes)('%s se lee sobre su propio fondo (4.5:1)', (_, clases) => {
       const fondo = sobre(color('card'), deClase(clases, 'bg'));
@@ -338,11 +333,29 @@ describe('Contraste de los tokens de color', () => {
       expect(contraste(texto, fondo)).toBeGreaterThanOrEqual(4.5);
     });
 
+    // Las de la insignia viven en el tema desde T258, en el mapa `$insignias`: el fondo y el
+    // borde como un token y su porcentaje sobre la tarjeta, y el texto como un token.
+    const insignias = [
+      ...tema.matchAll(/^\s+(\w+): \(fondo: ([a-z-]+) (\d+)%, borde: [a-z-]+ \d+%, texto: ([a-z-]+)\)/gm),
+    ].map(([, nombre, fondo, porcentaje, texto]) => [`insignia ${nombre}`, fondo, Number(porcentaje), texto] as const);
+
+    it('el mapa de las insignias trae las seis variantes', () => {
+      expect(insignias.map(([nombre]) => nombre.replace('insignia ', '')).sort()).toEqual(
+        Object.keys(ICONO_DE_INSIGNIA).sort(),
+      );
+    });
+
+    it.each(insignias)('%s se lee sobre su propio fondo (4.5:1)', (_, fondo, porcentaje, texto) => {
+      const visto = sobre(color('card'), [color(fondo), porcentaje / 100]);
+
+      expect(contraste(color(texto), visto)).toBeGreaterThanOrEqual(4.5);
+    });
+
     it('cada variante trae su ícono: el color no puede ser la única señal', () => {
       // El anti-patrón del master. Una insignia que solo cambia de color no
       // dice nada a quien no distingue el verde del rojo.
       const sinIcono = [
-        ...Object.entries(VARIANTES_INSIGNIA),
+        ...Object.entries(ICONO_DE_INSIGNIA).map(([nombre, icono]) => [nombre, { icono }] as const),
         ...Object.entries(VARIANTES_AVISO),
       ]
         .filter(([, variante]) => !variante.icono)
@@ -1191,6 +1204,47 @@ describe('Tablas', () => {
 
     expect(conClase).toEqual([]);
     expect(css).not.toMatch(/\.tabla\b/);
+  });
+});
+
+describe('Insignias (T258)', () => {
+  it('**ninguna `<app-insignia`**: la insignia es un `mat-chip` de Material', () => {
+    const conInsignia = plantillas()
+      .filter(({ contenido }) => contenido.includes('<app-insignia'))
+      .map(({ archivo }) => archivo);
+
+    expect(conInsignia).toEqual([]);
+    expect(existsSync(join(process.cwd(), 'src/app/ui/insignia.ts'))).toBe(false);
+  });
+
+  it('**toda insignia es un chip dentro de su `mat-chip-set`, y trae su ícono**', () => {
+    // El ícono no es decoración: el par verde/rojo es justo el que no distingue quien tiene
+    // daltonismo rojo-verde, así que un estado dicho solo con color no se dice. Ícono y texto
+    // lo dicen igual en blanco y negro (la regla del master).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      // Los atributos, con sus comillas: un `[class]="cupos > 2 ? …"` tiene un `>` adentro.
+      // `(?=[\s>])` y no `\b`: con `\b` también calza `<mat-chip-set`, y se come el chip de adentro.
+      const chips = /<mat-chip(?=[\s>])((?:[^>"]|"[^"]*")*)>([\s\S]*?)<\/mat-chip>/g;
+      for (const m of contenido.matchAll(chips)) {
+        if (!/class="[^"]*\binsignia\b/.test(m[1])) continue;
+        const antes = contenido.slice(0, m.index);
+        const enSuSet = antes.lastIndexOf('<mat-chip-set') > antes.lastIndexOf('</mat-chip-set>');
+        const conIcono = /<mat-icon\b[^>]*\bmatChipAvatar\b/.test(m[2]);
+        if (!enSuSet || !conIcono) infractores.push(`${archivo}: ${m[0].slice(0, 90)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('el tema le da a la insignia la cara de rótulo, y a cada variante su color', () => {
+    // Condensada, en mayúscula y con tracking (TV2.2), y el alto de antes, para no mover las
+    // filas de las tablas del panel. Los colores salen del mapa `$insignias`, que es el que mide
+    // el contraste.
+    expect(tema).toMatch(/\.insignia\s*\{[^}]*mat\.chips-overrides\([^;]*label-text-font:\s*var\(--font-display\)/);
+    expect(tema).toMatch(/@each \$nombre, \$variante in \$insignias[\s\S]*?\.insignia\.#\{\$nombre\}/);
   });
 });
 

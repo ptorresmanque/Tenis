@@ -16,13 +16,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { dialogoSegun } from '../../ui/dialogo';
 import { proveerCampos } from '../../ui/campos';
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Insignia, VarianteInsignia } from '../../ui/insignia';
+import { VarianteInsignia } from '../../ui/insignias';
 import { InscripcionTorneo, Torneos } from '../torneos.service';
 import { TelefonoPipe } from '../../core/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -47,9 +48,9 @@ import { Esqueleto } from '../../ui/esqueleto';
     MatIcon,
     FormsModule,
     Aviso,
-    Insignia,
     TelefonoPipe,
     Esqueleto,
+    MatChipsModule,
   ],
   providers: [proveerCampos()],
   template: `
@@ -63,12 +64,15 @@ import { Esqueleto } from '../../ui/esqueleto';
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-center gap-2">
           <h2 class="rotulo-seccion">Inscritos</h2>
-          <app-insignia
-            [variante]="datos.inscritos.length >= datos.cupo ? 'aviso' : 'neutro'"
-            icono="group"
-          >
-            {{ datos.inscritos.length }} de {{ datos.cupo }}
-          </app-insignia>
+          <mat-chip-set class="insignias">
+            <mat-chip
+              class="insignia"
+              [class]="datos.inscritos.length >= datos.cupo ? 'aviso' : 'neutro'"
+            >
+              <mat-icon matChipAvatar aria-hidden="true">group</mat-icon>
+              {{ datos.inscritos.length }} de {{ datos.cupo }}
+            </mat-chip>
+          </mat-chip-set>
           @if (datos.montoClp > 0) {
             <span class="text-sm text-muted-foreground">
               inscripción {{ pesos(datos.montoClp) }}
@@ -127,9 +131,12 @@ import { Esqueleto } from '../../ui/esqueleto';
                   <div class="min-w-0">
                     <span class="font-medium">{{ quien.jugador }}</span>
                     @if (quien.numeroSocio) {
-                      <app-insignia variante="info" icono="badge" class="ms-2">
-                        Socio {{ quien.numeroSocio }}
-                      </app-insignia>
+                      <mat-chip-set class="insignias ms-2">
+                        <mat-chip class="insignia info">
+                          <mat-icon matChipAvatar aria-hidden="true">badge</mat-icon>
+                          Socio {{ quien.numeroSocio }}
+                        </mat-chip>
+                      </mat-chip-set>
                     } @else if (quien.procedencia) {
                       <span class="ms-2 text-muted-foreground">
                         {{ quien.procedencia }}
@@ -137,13 +144,12 @@ import { Esqueleto } from '../../ui/esqueleto';
                     }
                   </div>
 
-                  <app-insignia
-                    class="justify-self-start"
-                    [variante]="pago(quien).variante"
-                    [icono]="pago(quien).icono"
-                  >
-                    {{ pago(quien).texto }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias justify-self-start">
+                    <mat-chip class="insignia" [class]="pago(quien).variante">
+                      <mat-icon matChipAvatar aria-hidden="true">{{ pago(quien).icono }}</mat-icon>
+                      {{ pago(quien).texto }}
+                    </mat-chip>
+                  </mat-chip-set>
 
                   <mat-form-field class="chico w-16">
                     <!-- Sin etiqueta a la vista, como antes: la fila ya dice de quién es. -->

@@ -5,6 +5,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 import { pedirMotivo } from '../../ui/dialogo-de-motivo';
 import { proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -13,7 +15,6 @@ import { enPesos, hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { CuotaDelMes, Cuotas, MedioPago } from '../cuotas.service';
 import { LO_HECHO } from '../../ui/material';
 
@@ -46,7 +47,8 @@ function mesActual(): string {
     Esqueleto,
     Aviso,
     EstadoVacio,
-    Insignia,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -136,9 +138,12 @@ function mesActual(): string {
                 <!-- Marcada y no escondida: es deuda de este mes, y un socio nuevo
                      debe dos cuotas. Sin la marca, el club ve su nombre dos veces
                      con montos distintos y no entiende. -->
-                <app-insignia variante="info" icono="person_add">
-                  Incorporación
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia info">
+                    <mat-icon matChipAvatar aria-hidden="true">person_add</mat-icon>
+                    Incorporación
+                  </mat-chip>
+                </mat-chip-set>
               }
             </td>
           </ng-container>
@@ -157,15 +162,26 @@ function mesActual(): string {
             <th mat-header-cell *matHeaderCellDef scope="col">Estado</th>
             <td mat-cell *matCellDef="let cuota">
               @if (cuota.estado === 'PAGADA') {
-                <app-insignia variante="exito" icono="check_circle">
-                  Pagada
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia exito">
+                    <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                    Pagada
+                  </mat-chip>
+                </mat-chip-set>
               } @else if (cuota.estado === 'ANULADA') {
-                <app-insignia variante="neutro" icono="block">Anulada</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia neutro">
+                    <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                    Anulada
+                  </mat-chip>
+                </mat-chip-set>
               } @else {
-                <app-insignia variante="aviso" icono="schedule">
-                  Por cobrar
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia aviso">
+                    <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                    Por cobrar
+                  </mat-chip>
+                </mat-chip-set>
               }
             </td>
           </ng-container>

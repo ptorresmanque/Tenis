@@ -3,10 +3,11 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
-import { Insignia } from '../../ui/insignia';
 import { Cancha, DuracionMin } from '../disponibilidad';
 import { diaEnPalabras, proximosDias } from '../reloj-del-club';
 
@@ -46,7 +47,14 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
  */
 @Component({
   selector: 'app-controles-del-dia',
-  imports: [MatDatepickerModule, MatFormFieldModule, MatInput, Insignia, MatButtonToggleModule],
+  imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButtonToggleModule,
+    MatChipsModule,
+    MatIcon,
+  ],
   providers: [proveerCampos(), proveerFechaYHora()],
   host: { class: 'contents' },
   template: `
@@ -134,9 +142,30 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
          distinguen por color, y esto es lo que dice qué significa cada uno. Cada celda
          sin libres dice además por qué (T103). -->
     <ul class="mt-4 flex flex-wrap gap-2">
-      <li><app-insignia variante="libre">Libre</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="lock">Sin libres</app-insignia></li>
-      <li><app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia></li>
+      <li>
+        <mat-chip-set class="insignias">
+          <mat-chip class="insignia libre">
+            <mat-icon matChipAvatar aria-hidden="true">circle</mat-icon>
+            Libre
+          </mat-chip>
+        </mat-chip-set>
+      </li>
+      <li>
+        <mat-chip-set class="insignias">
+          <mat-chip class="insignia neutro">
+            <mat-icon matChipAvatar aria-hidden="true">lock</mat-icon>
+            Sin libres
+          </mat-chip>
+        </mat-chip-set>
+      </li>
+      <li>
+        <mat-chip-set class="insignias">
+          <mat-chip class="insignia aviso">
+            <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+            Hora prime
+          </mat-chip>
+        </mat-chip-set>
+      </li>
     </ul>
   `,
 })

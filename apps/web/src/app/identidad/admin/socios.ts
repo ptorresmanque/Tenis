@@ -20,12 +20,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { Paginacion } from '../../ui/paginacion';
 import { FichaSocio } from './ficha-socio';
 import {
@@ -71,10 +71,10 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
     FormsModule,
     Aviso,
     EstadoVacio,
-    Insignia,
     Paginacion,
     MatButtonToggleModule,
     FichaSocio,
+    MatChipsModule,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -190,9 +190,12 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
     <section class="mt-8" aria-labelledby="titulo-socios">
       <div class="flex flex-wrap items-center gap-3">
         <h2 id="titulo-socios" class="rotulo-seccion">Socios</h2>
-        <app-insignia variante="info" icono="group">
-          {{ listado.hasValue() ? listado.value().socios.length : 0 }}
-        </app-insignia>
+        <mat-chip-set class="insignias">
+          <mat-chip class="insignia info">
+            <mat-icon matChipAvatar aria-hidden="true">group</mat-icon>
+            {{ listado.hasValue() ? listado.value().socios.length : 0 }}
+          </mat-chip>
+        </mat-chip-set>
       </div>
 
       <div class="mt-3 flex flex-wrap items-end gap-3">
@@ -265,13 +268,26 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
                 <!-- Calculado acá y no leído de la fecha: si no, el admin
                      compara mentalmente seis fechas contra hoy, una por una. -->
                 @if (socio.estado !== 'ACTIVO') {
-                  <app-insignia variante="neutro" icono="pause_circle">
-                    {{ nombreEstado(socio.estado) }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">pause_circle</mat-icon>
+                      {{ nombreEstado(socio.estado) }}
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else if (moroso(socio.alDiaHasta)) {
-                  <app-insignia variante="error">Cuota vencida</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia error">
+                      <mat-icon matChipAvatar aria-hidden="true">cancel</mat-icon>
+                      Cuota vencida
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else {
-                  <app-insignia variante="exito">Al día</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia exito">
+                      <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                      Al día
+                    </mat-chip>
+                  </mat-chip-set>
                 }
               </td>
             </ng-container>

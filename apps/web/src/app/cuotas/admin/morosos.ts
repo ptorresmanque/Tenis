@@ -1,11 +1,12 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { Cuotas } from '../cuotas.service';
 
 /**
@@ -20,8 +21,7 @@ import { Cuotas } from '../cuotas.service';
  */
 @Component({
   selector: 'app-morosos',
-  imports: [
-    MatTableModule,Esqueleto, RouterLink, EstadoVacio, Insignia],
+  imports: [MatTableModule, Esqueleto, RouterLink, EstadoVacio, MatChipsModule, MatIcon],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: es una pantalla para mirar. -->
     <header class="cabecera-panel">
@@ -87,12 +87,12 @@ import { Cuotas } from '../cuotas.service';
           <ng-container matColumnDef="cuotas">
             <th mat-header-cell *matHeaderCellDef scope="col">Cuotas</th>
             <td mat-cell *matCellDef="let moroso">
-              <app-insignia
-                [variante]="moroso.cuotasImpagas > 2 ? 'error' : 'aviso'"
-                icono="receipt_long"
-              >
-                {{ moroso.cuotasImpagas }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia" [class]="moroso.cuotasImpagas > 2 ? 'error' : 'aviso'">
+                  <mat-icon matChipAvatar aria-hidden="true">receipt_long</mat-icon>
+                  {{ moroso.cuotasImpagas }}
+                </mat-chip>
+              </mat-chip-set>
             </td>
           </ng-container>
           <ng-container matColumnDef="total">

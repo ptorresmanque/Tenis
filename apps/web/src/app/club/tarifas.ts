@@ -1,9 +1,10 @@
 import { httpResource } from '@angular/common/http';
 import { Component, computed } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
-import { Insignia } from '../ui/insignia';
 import { Esqueleto } from '../ui/esqueleto';
 
 /** Espejo de `TarifaPublica` en la API. */
@@ -54,11 +55,7 @@ const DIAS = [
  */
 @Component({
   selector: 'app-tarifas',
-  imports: [
-    Esqueleto,
-    Insignia,
-    MatTableModule,
-  ],
+  imports: [Esqueleto, MatTableModule, MatChipsModule, MatIcon],
   template: `
     <section aria-labelledby="titulo-tarifas">
       <h2 id="titulo-tarifas" class="titular text-5xl sm:text-6xl">Tarifas y horarios</h2>
@@ -93,7 +90,12 @@ const DIAS = [
                     >{{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}</span
                   >
                   @if (tarifa.esPico) {
-                    <app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia aviso">
+                        <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                        Hora prime
+                      </mat-chip>
+                    </mat-chip-set>
                   }
                 </div>
 
@@ -143,9 +145,12 @@ const DIAS = [
                   @if (tarifa.esPico) {
                     <!-- Ámbar, como el rótulo "Prime" del marcador de la portada: la
                          misma idea no cambia de color de una página a otra. -->
-                    <app-insignia variante="aviso" icono="trending_up">
-                      Hora prime
-                    </app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia aviso">
+                        <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                        Hora prime
+                      </mat-chip>
+                    </mat-chip-set>
                   }
                 </td>
               </ng-container>

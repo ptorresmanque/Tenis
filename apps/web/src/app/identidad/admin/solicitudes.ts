@@ -5,6 +5,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { proveerCampos } from '../../ui/campos';
 import {
@@ -15,7 +17,6 @@ import {
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
 import { LO_HECHO } from '../../ui/material';
@@ -44,11 +45,12 @@ const TIPOS: Record<TipoSolicitud, string> = {
     FormsModule,
     Aviso,
     EstadoVacio,
-    Insignia,
     MatButtonToggleModule,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     Esqueleto,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -102,17 +104,27 @@ const TIPOS: Record<TipoSolicitud, string> = {
         @for (solicitud of solicitudes.value(); track solicitud.id) {
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div class="flex flex-wrap items-center gap-2">
-              <app-insignia
-                [variante]="solicitud.tipo === 'SOCIO' ? 'info' : 'neutro'"
-                icono="mail"
-              >
-                {{ nombreTipo(solicitud.tipo) }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia" [class]="solicitud.tipo === 'SOCIO' ? 'info' : 'neutro'">
+                  <mat-icon matChipAvatar aria-hidden="true">mail</mat-icon>
+                  {{ nombreTipo(solicitud.tipo) }}
+                </mat-chip>
+              </mat-chip-set>
 
               @if (solicitud.estado === 'ATENDIDA') {
-                <app-insignia variante="exito" icono="check">Atendida</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia exito">
+                    <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
+                    Atendida
+                  </mat-chip>
+                </mat-chip-set>
               } @else if (solicitud.estado === 'DESCARTADA') {
-                <app-insignia variante="neutro" icono="block">Descartada</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia neutro">
+                    <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                    Descartada
+                  </mat-chip>
+                </mat-chip-set>
               }
 
               <span class="ms-auto text-sm text-muted-foreground">

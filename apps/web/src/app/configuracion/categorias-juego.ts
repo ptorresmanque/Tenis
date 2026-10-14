@@ -14,10 +14,11 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Insignia } from '../ui/insignia';
 import {
   CategoriaDeJuego,
   CategoriasDeJuego as ApiCategoriasDeJuego,
@@ -43,8 +44,9 @@ import { LO_HECHO } from '../ui/material';
     Esqueleto,
     FormsModule,
     Aviso,
-    Insignia,
     MatTableModule,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -149,13 +151,19 @@ import { LO_HECHO } from '../ui/material';
               <td mat-cell *matCellDef="let categoria">
                 <div class="flex flex-wrap items-center gap-2">
                   @if (categoria.activa) {
-                    <app-insignia variante="exito" icono="check_circle">
-                      Se ofrece
-                    </app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia exito">
+                        <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                        Se ofrece
+                      </mat-chip>
+                    </mat-chip-set>
                   } @else {
-                    <app-insignia variante="neutro" icono="visibility_off">
-                      Retirada
-                    </app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">visibility_off</mat-icon>
+                        Retirada
+                      </mat-chip>
+                    </mat-chip-set>
                   }
 
                   <button

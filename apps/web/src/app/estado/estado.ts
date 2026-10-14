@@ -1,7 +1,8 @@
 import { Component } from '@angular/core';
 import { httpResource } from '@angular/common/http';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
-import { Insignia } from '../ui/insignia';
 
 /** Espejo de EstadoSalud en apps/api/src/salud/salud.service.ts. */
 export interface EstadoSalud {
@@ -14,7 +15,7 @@ export interface EstadoSalud {
 
 @Component({
   selector: 'app-estado',
-  imports: [Insignia],
+  imports: [MatChipsModule, MatIcon],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: es una pantalla para mirar. -->
     <header class="cabecera-panel">
@@ -36,14 +37,24 @@ export interface EstadoSalud {
 
       @if (salud.hasValue()) {
         <p class="mt-3 flex flex-wrap items-center gap-3">
-          <app-insignia variante="exito">Conectada</app-insignia>
+          <mat-chip-set class="insignias">
+            <mat-chip class="insignia exito">
+              <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+              Conectada
+            </mat-chip>
+          </mat-chip-set>
           <span class="font-mono text-lg">
             {{ salud.value().baseDatos.versionMotor }}
           </span>
         </p>
       } @else if (salud.error()) {
         <p class="mt-3 flex flex-wrap items-center gap-3">
-          <app-insignia variante="error">Sin conexión</app-insignia>
+          <mat-chip-set class="insignias">
+            <mat-chip class="insignia error">
+              <mat-icon matChipAvatar aria-hidden="true">cancel</mat-icon>
+              Sin conexión
+            </mat-chip>
+          </mat-chip-set>
           <span class="text-lg">La API no responde o la base está caída.</span>
         </p>
       } @else if (salud.isLoading()) {

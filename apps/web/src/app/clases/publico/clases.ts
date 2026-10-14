@@ -1,4 +1,6 @@
 import { Component, computed, inject, resource } from '@angular/core';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -8,7 +10,6 @@ import {
 import { FormularioContacto } from '../../club/formulario-contacto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Foto } from '../../ui/foto';
-import { Insignia } from '../../ui/insignia';
 import { ClasePublica, Clases, queClaseEs, SeriePublica } from '../clases.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -26,7 +27,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-clases-publicas',
-  imports: [EstadoVacio, Esqueleto, Foto, Insignia, FormularioContacto],
+  imports: [EstadoVacio, Esqueleto, Foto, FormularioContacto, MatChipsModule, MatIcon],
   template: `
     <section
       class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
@@ -105,15 +106,28 @@ import { Esqueleto } from '../../ui/esqueleto';
                   }
                 </span>
               }
-              <app-insignia variante="info" icono="school">{{ queClaseEs(serie) }}</app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia info">
+                  <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                  {{ queClaseEs(serie) }}
+                </mat-chip>
+              </mat-chip-set>
               <span class="text-sm text-muted-foreground">{{ detalle(serie) }}</span>
 
               @if (serie.cuposLibres === 0) {
-                <app-insignia variante="neutro" icono="block" class="ms-auto">Sin cupos</app-insignia>
+                <mat-chip-set class="insignias ms-auto">
+                  <mat-chip class="insignia neutro">
+                    <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                    Sin cupos
+                  </mat-chip>
+                </mat-chip-set>
               } @else {
-                <app-insignia variante="libre" icono="event_available" class="ms-auto">
-                  {{ serie.cuposLibres }} {{ serie.cuposLibres === 1 ? 'cupo' : 'cupos' }}
-                </app-insignia>
+                <mat-chip-set class="insignias ms-auto">
+                  <mat-chip class="insignia libre">
+                    <mat-icon matChipAvatar aria-hidden="true">event_available</mat-icon>
+                    {{ serie.cuposLibres }} {{ serie.cuposLibres === 1 ? 'cupo' : 'cupos' }}
+                  </mat-chip>
+                </mat-chip-set>
               }
             </li>
           }
@@ -146,23 +160,32 @@ import { Esqueleto } from '../../ui/esqueleto';
                 <span class="font-display text-2xl font-bold tabular-nums">
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
                 </span>
-                <app-insignia variante="info" icono="school">
-                  {{ queClaseEs(clase) }}
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia info">
+                    <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                    {{ queClaseEs(clase) }}
+                  </mat-chip>
+                </mat-chip-set>
                 <span class="text-sm text-muted-foreground">
                   {{ clase.profesor }} · {{ clase.lugar }}
                 </span>
 
                 @if (clase.cuposLibres === 0) {
-                  <app-insignia variante="neutro" icono="block" class="ms-auto">
-                    Sin cupos
-                  </app-insignia>
+                  <mat-chip-set class="insignias ms-auto">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                      Sin cupos
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else {
                   <!-- Cupos libres: el verde de "libre", con fondo sólido. -->
-                  <app-insignia variante="libre" icono="event_available" class="ms-auto">
-                    {{ clase.cuposLibres }}
-                    {{ clase.cuposLibres === 1 ? 'cupo' : 'cupos' }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias ms-auto">
+                    <mat-chip class="insignia libre">
+                      <mat-icon matChipAvatar aria-hidden="true">event_available</mat-icon>
+                      {{ clase.cuposLibres }}
+                      {{ clase.cuposLibres === 1 ? 'cupo' : 'cupos' }}
+                    </mat-chip>
+                  </mat-chip-set>
                 }
               </li>
             }
