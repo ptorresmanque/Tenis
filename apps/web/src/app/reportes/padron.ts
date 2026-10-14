@@ -2,6 +2,7 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
 
 import {
   diaConAnioEnPalabras,
@@ -28,7 +29,8 @@ import { Reportes } from './reportes.service';
  */
 @Component({
   selector: 'app-padron-panel',
-  imports: [MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv],
+  imports: [
+    MatTableModule,MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
@@ -96,36 +98,39 @@ import { Reportes } from './reportes.service';
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="tabla text-sm">
+          <table mat-table class="text-sm" [dataSource]="datos.meses">
             <caption class="sr-only">
               Altas, bajas y deuda por mes
             </caption>
-            <thead>
-              <tr>
-                <th scope="col">Mes</th>
-                <th scope="col" class="numero">Altas</th>
-                <th scope="col" class="numero">Bajas</th>
-                <th scope="col" class="numero">Deuda</th>
-                <th scope="col" class="numero">Socios con deuda</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (mes of datos.meses; track mes.periodo) {
-                <tr>
-                  <th scope="row">
-                    {{ mes.periodo }}
-                  </th>
-                  <td class="numero">{{ mes.altas }}</td>
-                  <td class="numero">{{ mes.bajas }}</td>
-                  <td class="numero font-semibold">
-                    {{ pesos(mes.deudaClp) }}
-                  </td>
-                  <td class="py-2 text-right text-muted-foreground">
-                    {{ mes.sociosConDeuda }}
-                  </td>
-                </tr>
-              }
-            </tbody>
+            <ng-container matColumnDef="mes">
+              <th mat-header-cell *matHeaderCellDef scope="col">Mes</th>
+              <th *matCellDef="let mes" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                {{ mes.periodo }}
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="altas">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Altas</th>
+              <td mat-cell *matCellDef="let mes" class="numero">{{ mes.altas }}</td>
+            </ng-container>
+            <ng-container matColumnDef="bajas">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Bajas</th>
+              <td mat-cell *matCellDef="let mes" class="numero">{{ mes.bajas }}</td>
+            </ng-container>
+            <ng-container matColumnDef="deuda">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Deuda</th>
+              <td mat-cell *matCellDef="let mes" class="numero font-semibold">
+                {{ pesos(mes.deudaClp) }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="conDeuda">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Socios con deuda</th>
+              <td mat-cell *matCellDef="let mes" class="py-2 text-right text-muted-foreground">
+                {{ mes.sociosConDeuda }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let mes; columns: COLUMNAS"></tr>
           </table>
         </div>
       }
@@ -178,6 +183,8 @@ export class PadronPanel {
   protected readonly urlDelCsv = computed(() =>
     this.api.csv('padron', fechaATexto(this.desde()), fechaATexto(this.hasta())),
   );
+
+  protected readonly COLUMNAS = ['mes', 'altas', 'bajas', 'deuda', 'conDeuda'];
 
   protected readonly pesos = enPesos;
 

@@ -647,3 +647,80 @@ html {
     )
   );
 }
+
+/*
+  LAS TABLAS (T256).
+
+  `mat-table` con la cara de `.tabla`: el encabezado de columna en la condensada de los
+  rótulos, en mayúscula y sobre el gris, y los datos en la letra de leer (TV2.1). Las
+  filas no tienen alto fijo: miden lo que su contenido más el relleno, como antes.
+*/
+html {
+  @include mat.table-overrides(
+    (
+      background-color: transparent,
+      header-container-height: auto,
+      row-item-container-height: auto,
+      footer-container-height: auto,
+      header-headline-font: var(--font-display),
+      header-headline-size: 0.8125rem,
+      header-headline-weight: 700,
+      header-headline-tracking: 0.06em,
+      header-headline-color: var(--color-muted-foreground),
+      row-item-outline-color: var(--color-border),
+    )
+  );
+}
+
+html .mat-mdc-table .mat-mdc-header-cell {
+  background-color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+/* Lo que Material fija sin capa vuelve a `styles.css`, donde las utilidades le ganan: el
+   relleno, la alineación, el `overflow: hidden` —que cortaría el anillo de foco de un campo
+   o un botón en la celda— y el peso del encabezado, para que el `font-medium` de una rejilla
+   de edición le gane al de los rótulos. */
+html .mdc-data-table__cell,
+html .mdc-data-table__header-cell,
+html .mat-mdc-header-cell {
+  padding: revert-layer;
+  text-align: revert-layer;
+  overflow: revert-layer;
+  font-weight: revert-layer;
+}
+
+/* El espaciado y la interlínea de cada celda, también: un `text-sm` en la celda trae la suya. */
+html .mat-mdc-cell,
+html .mat-mdc-footer-cell {
+  letter-spacing: revert-layer;
+  line-height: revert-layer;
+}
+
+/* La letra de las filas es la de la tabla: también la del `<tbody>`, que Material marca como
+   `mdc-data-table__content` y le fija la suya. */
+html .mdc-data-table__content,
+html .mat-mdc-row,
+html .mat-mdc-footer-row {
+  font-family: revert-layer;
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  line-height: revert-layer;
+  color: revert-layer;
+  -webkit-font-smoothing: revert-layer;
+  -moz-osx-font-smoothing: revert-layer;
+}
+
+/* El encabezado conserva su letra, pero la interlínea es la de la tabla, como antes, y no
+   tiene suavizado propio: se dibuja como el resto. */
+html .mat-mdc-header-row {
+  line-height: revert-layer;
+  -webkit-font-smoothing: revert-layer;
+  -moz-osx-font-smoothing: revert-layer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html .mat-mdc-table .mat-mdc-row:hover {
+    background-color: var(--color-muted);
+  }
+}

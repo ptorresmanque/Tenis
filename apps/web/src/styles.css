@@ -1077,6 +1077,45 @@ body:has(app-barra-fija) app-volver-arriba {
       background-color: var(--color-muted);
     }
   }
+
+  /*
+    LA TABLA DE MATERIAL (T256), con la cara de `.tabla`.
+
+    En esta capa, como la primitiva, para que `py-2`, `text-right` o el
+    `max-sm:[&_td]:px-2` de la plantilla le sigan ganando: el tema le devuelve a esta
+    capa lo que Material fija sin capa (ver `tema-material.scss`). Las filas heredan la
+    letra de la tabla, así que un `text-sm` en el `<table>` vale para todas sus celdas.
+    Las líneas entre filas son las de Material, que dan lo mismo que el borde de arriba
+    de la primitiva; el total del pie lleva el suyo, que Material no le pone.
+  */
+  .mat-mdc-table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mat-mdc-table .mdc-data-table__header-cell,
+  .mat-mdc-table .mdc-data-table__cell {
+    padding: 0.75rem 1rem;
+    text-align: start;
+  }
+
+  /* El `<th scope="row">` es una celda de datos, no un título en negrita. */
+  .mat-mdc-table tbody th,
+  .mat-mdc-table tfoot th {
+    font-weight: 400;
+  }
+
+  .mat-mdc-table .mat-mdc-footer-cell {
+    border-top: 1px solid var(--color-border);
+  }
+
+  .mat-mdc-table.densa .mdc-data-table__header-cell,
+  .mat-mdc-table.densa .mdc-data-table__cell {
+    padding: 0.375rem 0.5rem;
+  }
+
+  .mat-mdc-table .numero {
+    text-align: end;
+  }
 }
 
 /* Nada se mueve para quien pidió que no se mueva. Incluye las transiciones de

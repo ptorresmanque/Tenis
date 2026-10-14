@@ -108,6 +108,20 @@ describe('EditorHorarios', () => {
     expect(api.fijarHorarios).toHaveBeenCalledWith(7, []);
   });
 
+  it('**editar un día no rehace su fila**: el campo que se está escribiendo no pierde el foco (T256)', async () => {
+    // Cada cambio deja una lista nueva. Sin decirle a la tabla cómo reconocer una fila, la
+    // tira y la vuelve a dibujar, y el campo de la hora se va de abajo del cursor.
+    const desde = () => elemento().querySelector<HTMLInputElement>('input[name="desde-7-1"]');
+    const campo = desde()!;
+
+    campo.value = '09:30';
+    campo.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(desde()).toBe(campo);
+  });
+
   it('marcar un día nuevo lo manda con el horario del club', async () => {
     casillas()[3].click();
     await fixture.whenStable();

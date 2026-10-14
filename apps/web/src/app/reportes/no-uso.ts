@@ -3,6 +3,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
 
 import {
   diaConAnioEnPalabras,
@@ -29,6 +30,7 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
 @Component({
   selector: 'app-no-uso-panel',
   imports: [
+    MatTableModule,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -108,47 +110,53 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="tabla text-sm">
+          <table mat-table class="text-sm" [dataSource]="datos.filas">
             <caption class="sr-only">
               Horas no usadas del período, cortadas por
               {{
                 nombreDelCorte(datos.corte)
               }}
             </caption>
-            <thead>
-              <tr>
-                <th scope="col">Corte</th>
-                <th scope="col" class="numero">No usadas</th>
-                <th scope="col" class="numero">Reservadas</th>
-                <th scope="col" class="numero">Proporción</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (fila of datos.filas; track fila.etiqueta) {
-                <tr>
-                  <th scope="row">
-                    {{ fila.etiqueta }}
-                  </th>
-                  <td class="numero">{{ fila.noUsadas }}</td>
-                  <td class="py-2 pr-3 text-right text-muted-foreground">
-                    {{ fila.reservadas }}
-                  </td>
-                  <td class="numero font-semibold">
-                    {{ enPorcentaje(fila) }}
-                  </td>
-                </tr>
-              }
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="numero font-semibold">{{ datos.noUsadas }}</td>
-                <td class="numero">{{ datos.reservadas }}</td>
-                <td class="numero font-semibold">
-                  {{ enPorcentaje(datos) }}
-                </td>
-              </tr>
-            </tfoot>
+            <ng-container matColumnDef="corte">
+              <th mat-header-cell *matHeaderCellDef scope="col">Corte</th>
+              <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                {{ fila.etiqueta }}
+              </th>
+              <th
+                *matFooterCellDef
+                scope="row"
+                class="mat-mdc-footer-cell mdc-data-table__cell font-semibold"
+              >
+                Total
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="noUsadas">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">No usadas</th>
+              <td mat-cell *matCellDef="let fila" class="numero">{{ fila.noUsadas }}</td>
+              <td mat-footer-cell *matFooterCellDef class="numero font-semibold">
+                {{ datos.noUsadas }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="reservadas">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Reservadas</th>
+              <td mat-cell *matCellDef="let fila" class="py-2 pr-3 text-right text-muted-foreground">
+                {{ fila.reservadas }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef class="numero">{{ datos.reservadas }}</td>
+            </ng-container>
+            <ng-container matColumnDef="proporcion">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Proporción</th>
+              <td mat-cell *matCellDef="let fila" class="numero font-semibold">
+                {{ enPorcentaje(fila) }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef class="numero font-semibold">
+                {{ enPorcentaje(datos) }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let fila; columns: COLUMNAS"></tr>
+            <tr mat-footer-row *matFooterRowDef="COLUMNAS"></tr>
           </table>
         </div>
       }
@@ -198,6 +206,8 @@ export class NoUsoPanel {
   protected readonly urlDelCsv = computed(() =>
     this.api.csv('no-uso', fechaATexto(this.desde()), fechaATexto(this.hasta()), this.corte()),
   );
+
+  protected readonly COLUMNAS = ['corte', 'noUsadas', 'reservadas', 'proporcion'];
 
   protected nombreDelCorte(corte: CorteDeNoUso): string {
     return CORTES_DE_NO_USO[corte] ?? corte;

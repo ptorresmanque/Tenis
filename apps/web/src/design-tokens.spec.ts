@@ -1105,36 +1105,95 @@ describe('Fotos', () => {
 
 
 describe('Tablas', () => {
-  it('toda tabla usa la primitiva, no un juego de clases propio', () => {
-    // Las cuatro de reportes traían `w-full border-collapse text-sm` y sus
-    // propias líneas por fila: dos familias de tabla en el mismo panel, con
-    // encabezados distintos y sin cifras tabulares. La primitiva es lo que hace
-    // que el padrón y el reporte de ingresos se lean como el mismo sistema.
+  // Las del sitio público pasan en T257, y ahí se va `.tabla` con esta lista.
+  const PUBLICAS_SIN_MIGRAR = [
+    'club/tarifas.ts',
+    'club/tienda-y-cafeteria.ts',
+    'inicio/inicio.ts',
+    'ranking/tabla-de-tour.ts',
+    'ranking/tabla-interna.ts',
+    'torneos/publico/torneos.ts',
+    'tours/publico/tour.ts',
+  ];
+
+  it('toda tabla de datos es un mat-table (T256)', () => {
+    // Antes la regla pedía la primitiva `.tabla`: las cuatro de reportes traían
+    // `w-full border-collapse text-sm` y sus propias líneas por fila, dos familias de
+    // tabla en el mismo panel. Ahora la tabla es la de Material, con la cara de la
+    // primitiva en el tema, y la regla cuida lo mismo: un solo sistema.
     //
     // La excepción es el marcador de la portada (TV3.3): no es una tabla de
-    // datos sino el tablero de la transmisión, sobre campo. La primitiva le
-    // pondría encabezado gris, una línea por fila y un hover gris, y habría que
-    // deshacer cada cosa a mano. Va por archivo, no por clase, para que no sea
-    // una puerta que cualquier tabla pueda usar.
+    // datos sino el tablero de la transmisión, sobre campo. Va por archivo, no por
+    // clase, para que no sea una puerta que cualquier tabla pueda usar.
     //
     // La otra es la disponibilidad (T103), por lo mismo: es un tablero de botones de
-    // 44px, uno por celda, separados entre sí. La primitiva los juntaría con
-    // `border-collapse`, les sumaría 2rem de relleno por celda —a 375px no caben dos
-    // columnas—, pegaría el encabezado bajo la cabecera del sitio y pintaría la fila
-    // entera de gris al pasar el ratón por un botón.
+    // 44px, uno por celda, separados entre sí. Una tabla de datos los juntaría, les
+    // sumaría 2rem de relleno por celda —a 375px no caben dos columnas— y pintaría la
+    // fila entera de gris al pasar el ratón por un botón.
     const infractores: string[] = [];
     const excepciones = ['catalogo-canchas/marcador.ts', 'catalogo-canchas/grilla/grilla.ts'];
 
     for (const { archivo, contenido } of plantillas()) {
       if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
+      const publica = PUBLICAS_SIN_MIGRAR.includes(archivo);
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<table[^>]*>/g)) {
-        if (!/class="[^"]*\btabla\b/.test(etiqueta)) {
+        const migrada = /\bmat-table\b/.test(etiqueta);
+        if (!migrada && !(publica && /class="[^"]*\btabla\b/.test(etiqueta))) {
           infractores.push(`${archivo}: ${etiqueta}`);
         }
       }
     }
 
     expect(infractores).toEqual([]);
+  });
+
+  it('**el encabezado de columna de un mat-table se queda a la vista** (T256)', () => {
+    // El padrón tiene decenas de filas y el reporte de ingresos una por día: sin esto, a
+    // la fila veinte nadie se acuerda de qué columna es cuál. Era el `sticky` de la
+    // primitiva; en Material es la fila de encabezado la que lo pide.
+    const infractores = plantillas()
+      .flatMap(({ archivo, contenido }) =>
+        [...contenido.matchAll(/\*matHeaderRowDef="([^"]*)"/g)].map(([, def]) => ({ archivo, def })),
+      )
+      .filter(({ def }) => !/sticky:\s*true/.test(def))
+      .map(({ archivo, def }) => `${archivo}: ${def}`);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el encabezado de fila sigue siendo un `<th scope="row">`**, con la cara de una celda (T256)', () => {
+    // `mat-cell` solo se pone en un `<td>`. El nombre del socio en el padrón, o el día en
+    // el reporte de ingresos, es el encabezado de su fila: el lector de pantalla lo dice
+    // al cruzar las columnas. Va como `<th scope="row">` con las clases de la celda.
+    const infractores = plantillas()
+      .flatMap(({ archivo, contenido }) =>
+        [...contenido.matchAll(/<th\b[^>]*\*mat(?:Cell|FooterCell)Def[^>]*>/g)].map(([etiqueta]) => ({
+          archivo,
+          etiqueta,
+        })),
+      )
+      .filter(
+        ({ etiqueta }) =>
+          !/scope="row"/.test(etiqueta) ||
+          !/class="[^"]*\bmdc-data-table__cell\b/.test(etiqueta) ||
+          !/class="[^"]*\bmat-mdc-(?:footer-)?cell\b/.test(etiqueta),
+      )
+      .map(({ archivo, etiqueta }) => `${archivo}: ${etiqueta}`);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('la tabla de Material lleva la cara de la primitiva (T256)', () => {
+    // Cifras de ancho fijo y los números a la derecha, en la capa de componentes, para que
+    // las utilidades de la plantilla le sigan ganando. El tema le devuelve a esa capa lo que
+    // Material fija sin capa —el relleno, la alineación, la letra y el alto de las filas—, y
+    // pone el encabezado en la condensada de los rótulos.
+    const base = css.match(/\.mat-mdc-table\s*\{[^}]*\}/)?.[0];
+
+    expect(base).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    expect(css).toMatch(/\.mat-mdc-table\s+\.numero/);
+    expect(tema).toMatch(/mat\.table-overrides\([^;]*header-headline-font:\s*var\(--font-display\)/);
+    expect(tema).toMatch(/html \.mdc-data-table__cell[^{]*\{[^}]*padding:\s*revert-layer/);
   });
 
   it('la primitiva alinea los números y les da ancho fijo', () => {

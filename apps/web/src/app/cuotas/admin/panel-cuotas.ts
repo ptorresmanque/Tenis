@@ -4,6 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
 import { pedirMotivo } from '../../ui/dialogo-de-motivo';
 import { proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -37,7 +38,16 @@ function mesActual(): string {
  */
 @Component({
   selector: 'app-panel-cuotas',
-  imports: [MatFormFieldModule, MatInput, MatButton, Esqueleto, Aviso, EstadoVacio, Insignia],
+  imports: [
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    MatTableModule,
+    Esqueleto,
+    Aviso,
+    EstadoVacio,
+    Insignia,
+  ],
   providers: [proveerCampos()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: se cobra fila por fila. -->
@@ -108,111 +118,114 @@ function mesActual(): string {
       />
     } @else {
       <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
-        <table class="tabla">
+        <table mat-table [dataSource]="cuotas()">
           <caption class="sr-only">
             Cuotas de {{ mes() }}, {{ cuotas().length }} en total
           </caption>
-          <thead>
-            <tr>
-              <th scope="col">Nº</th>
-              <th scope="col">Socio</th>
-              <th scope="col">Monto</th>
-              <th scope="col">Estado</th>
-              <th scope="col"><span class="sr-only">Cobrar</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (cuota of cuotas(); track cuota.id) {
-              <tr>
-                <td class="font-mono text-sm">{{ cuota.socio.numeroSocio }}</td>
-                <td class="font-medium">
-                  {{ cuota.socio.nombre }}
-                  @if (cuota.tipo === 'INCORPORACION') {
-                    <!-- Marcada y no escondida: es deuda de este mes, y un socio nuevo
-                         debe dos cuotas. Sin la marca, el club ve su nombre dos veces
-                         con montos distintos y no entiende. -->
-                    <app-insignia variante="info" icono="person_add">
-                      Incorporación
-                    </app-insignia>
-                  }
-                </td>
-                <td class="whitespace-nowrap">
-                  {{ pesos(cuota.montoClp - cuota.descuentoClp) }}
-                  @if (cuota.descuentoClp > 0) {
-                    <span class="block text-xs text-muted-foreground">
-                      con {{ pesos(cuota.descuentoClp) }} de descuento
-                    </span>
-                  }
-                </td>
-                <td>
-                  @if (cuota.estado === 'PAGADA') {
-                    <app-insignia variante="exito" icono="check_circle">
-                      Pagada
-                    </app-insignia>
-                  } @else if (cuota.estado === 'ANULADA') {
-                    <app-insignia variante="neutro" icono="block">Anulada</app-insignia>
-                  } @else {
-                    <app-insignia variante="aviso" icono="schedule">
-                      Por cobrar
-                    </app-insignia>
-                  }
-                </td>
-                <td>
-                  @if (cuota.estado === 'PENDIENTE') {
-                    <div class="flex flex-wrap gap-1">
-                      <button
-                        matButton="outlined"
-                        type="button"
-                        class="chico"
-                        [disabled]="cobrando()"
-                        [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-EFECTIVO'"
-                        (click)="cobrar(cuota, 'EFECTIVO')"
-                      >
-                        Efectivo
-                      </button>
-                      <button
-                        matButton="outlined"
-                        type="button"
-                        class="chico"
-                        [disabled]="cobrando()"
-                        [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-TRANSFERENCIA'"
-                        (click)="cobrar(cuota, 'TRANSFERENCIA')"
-                      >
-                        Transferencia
-                      </button>
-                      <!-- Los dos ajustes piden un motivo que el servidor exige, y son
-                           de los que el club usa una vez al mes: un formulario propio
-                           para eso es una pantalla más que mantener. -->
-                      <button
-                        matButton
-                        type="button"
-                        class="chico"
-                        [disabled]="cobrando()"
-                        [attr.aria-busy]="enCurso() === 'condonar-' + cuota.id"
-                        (click)="condonar(cuota)"
-                      >
-                        Condonar
-                      </button>
-                      <button
-                        matButton
-                        type="button"
-                        class="peligro chico"
-                        [disabled]="cobrando()"
-                        [attr.aria-busy]="enCurso() === 'anular-' + cuota.id"
-                        (click)="anular(cuota)"
-                      >
-                        Anular
-                      </button>
-                    </div>
-                  } @else if (cuota.medio) {
-                    <span class="text-sm text-muted-foreground">
-                      {{ nombreMedio(cuota.medio) }}
-                    </span>
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
+          <ng-container matColumnDef="numero">
+            <th mat-header-cell *matHeaderCellDef scope="col">Nº</th>
+            <td mat-cell *matCellDef="let cuota" class="font-mono text-sm">{{ cuota.socio.numeroSocio }}</td>
+          </ng-container>
+          <ng-container matColumnDef="socio">
+            <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
+            <td mat-cell *matCellDef="let cuota" class="font-medium">
+              {{ cuota.socio.nombre }}
+              @if (cuota.tipo === 'INCORPORACION') {
+                <!-- Marcada y no escondida: es deuda de este mes, y un socio nuevo
+                     debe dos cuotas. Sin la marca, el club ve su nombre dos veces
+                     con montos distintos y no entiende. -->
+                <app-insignia variante="info" icono="person_add">
+                  Incorporación
+                </app-insignia>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="monto">
+            <th mat-header-cell *matHeaderCellDef scope="col">Monto</th>
+            <td mat-cell *matCellDef="let cuota" class="whitespace-nowrap">
+              {{ pesos(cuota.montoClp - cuota.descuentoClp) }}
+              @if (cuota.descuentoClp > 0) {
+                <span class="block text-xs text-muted-foreground">
+                  con {{ pesos(cuota.descuentoClp) }} de descuento
+                </span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="estado">
+            <th mat-header-cell *matHeaderCellDef scope="col">Estado</th>
+            <td mat-cell *matCellDef="let cuota">
+              @if (cuota.estado === 'PAGADA') {
+                <app-insignia variante="exito" icono="check_circle">
+                  Pagada
+                </app-insignia>
+              } @else if (cuota.estado === 'ANULADA') {
+                <app-insignia variante="neutro" icono="block">Anulada</app-insignia>
+              } @else {
+                <app-insignia variante="aviso" icono="schedule">
+                  Por cobrar
+                </app-insignia>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="cobrar">
+            <th mat-header-cell *matHeaderCellDef scope="col"><span class="sr-only">Cobrar</span></th>
+            <td mat-cell *matCellDef="let cuota">
+              @if (cuota.estado === 'PENDIENTE') {
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico"
+                    [disabled]="cobrando()"
+                    [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-EFECTIVO'"
+                    (click)="cobrar(cuota, 'EFECTIVO')"
+                  >
+                    Efectivo
+                  </button>
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico"
+                    [disabled]="cobrando()"
+                    [attr.aria-busy]="enCurso() === 'cobrar-' + cuota.id + '-TRANSFERENCIA'"
+                    (click)="cobrar(cuota, 'TRANSFERENCIA')"
+                  >
+                    Transferencia
+                  </button>
+                  <!-- Los dos ajustes piden un motivo que el servidor exige, y son
+                       de los que el club usa una vez al mes: un formulario propio
+                       para eso es una pantalla más que mantener. -->
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    [disabled]="cobrando()"
+                    [attr.aria-busy]="enCurso() === 'condonar-' + cuota.id"
+                    (click)="condonar(cuota)"
+                  >
+                    Condonar
+                  </button>
+                  <button
+                    matButton
+                    type="button"
+                    class="peligro chico"
+                    [disabled]="cobrando()"
+                    [attr.aria-busy]="enCurso() === 'anular-' + cuota.id"
+                    (click)="anular(cuota)"
+                  >
+                    Anular
+                  </button>
+                </div>
+              } @else if (cuota.medio) {
+                <span class="text-sm text-muted-foreground">
+                  {{ nombreMedio(cuota.medio) }}
+                </span>
+              }
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+          <tr mat-row *matRowDef="let cuota; columns: COLUMNAS"></tr>
         </table>
       </div>
     }
@@ -249,6 +262,8 @@ export class PanelDeCuotas {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
+
+  protected readonly COLUMNAS = ['numero', 'socio', 'monto', 'estado', 'cobrar'];
 
   protected readonly pesos = enPesos;
 
