@@ -932,8 +932,22 @@ html .mat-drawer-container > .mat-drawer-content {
   height: auto;
 }
 
-/* El cajón del sitio público (T261): entra por la derecha y mide lo que medía el <dialog>,
-   cuatro quintos de la pantalla hasta 20 rem. */
+/* El cajón del sitio público (T263): una capa fija sobre la ventana, que deja pasar los clics a la
+   página mientras está cerrado; abierto, toman los clics el cajón y su velo. */
+html .mat-drawer-container.cajon-flotante {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+
+  .mat-drawer,
+  .mat-drawer-backdrop.mat-drawer-shown {
+    pointer-events: auto;
+  }
+}
+
+/* Entra por la derecha y mide lo que medía el <dialog>, cuatro quintos de la pantalla hasta
+   20 rem (T261). */
 html .cajon-del-sitio {
   @include mat.sidenav-overrides(
     (

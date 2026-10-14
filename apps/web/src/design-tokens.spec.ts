@@ -1296,6 +1296,22 @@ describe('Pestañas (T262)', () => {
   });
 });
 
+describe('El arranque (T263, I6)', () => {
+  it('**el trazado del logotipo no viaja en el JavaScript**: va en un SVG aparte, con los colores del tema', () => {
+    // Eran 22 kB de trazado en el arranque, en cada visita. Con <use> el archivo se guarda en
+    // caché, y la copia que dibuja hereda las variables: los dos tonos cambian con el tema
+    // oscuro y sobre la banda de campo, como cuando iba en la plantilla.
+    const componente = readFileSync(join(process.cwd(), 'src/app/cascarones/logotipo.ts'), 'utf8');
+    const archivo = readFileSync(join(process.cwd(), 'public/logotipo.svg'), 'utf8');
+
+    expect(componente).toMatch(/<use href="\/logotipo\.svg#logotipo"/);
+    expect(componente).not.toMatch(/<path\b/);
+    expect(archivo).toMatch(/<symbol id="logotipo"/);
+    expect(archivo).toMatch(/fill:\s*var\(--color-logo-marca\b/);
+    expect(archivo).toMatch(/fill:\s*var\(--color-logo-texto\b/);
+  });
+});
+
 describe('El panel en la A (Fase 7)', () => {
   // Las carpetas ya migradas. Cada tarea de la Fase 7 suma la suya, y en el
   // Checkpoint G la lista es el panel entero: la regla queda cuidando que una

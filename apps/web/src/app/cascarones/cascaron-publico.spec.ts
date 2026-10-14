@@ -75,8 +75,9 @@ describe('Cascarón público: la navegación', () => {
     return fixture;
   }
 
-  /** Montado y con los bloques @defer dibujados: el menú de la cuenta y la barra de progreso
-      llegan al quedar libre el navegador (T261, T262), y en la prueba no hay que esperarlos. */
+  /** Montado y con los bloques @defer dibujados: el menú de la cuenta, la barra de progreso y el
+      cajón del teléfono llegan al quedar libre el navegador (T261–T263), y en la prueba no hay
+      que esperarlos. */
   async function montarConElMenu(usuario: UsuarioActual): Promise<ComponentFixture<CascaronPublico>> {
     const fixture = montarCon(usuario);
     for (const bloque of await fixture.getDeferBlocks()) {
@@ -282,35 +283,35 @@ describe('Cascarón público: la navegación', () => {
     expect(enlaces).toContain('Mis reservas');
   });
 
-  describe('el menú del teléfono es un mat-sidenav (T261)', () => {
-    const abierto = (elemento: HTMLElement) =>
-      elemento.querySelector('mat-sidenav')!.classList.contains('mat-drawer-opened');
+  describe('el menú del teléfono es un mat-sidenav (T261), diferido (T263)', () => {
+    const abierto = () =>
+      document.querySelector('app-menu-del-telefono mat-sidenav')!.classList.contains('mat-drawer-opened');
 
     it('**se abre con su botón, y al cerrarse el foco vuelve a él**', async () => {
-      const fixture = montarCon(null);
+      const fixture = await montarConElMenu(SOCIA);
       const elemento = fixture.nativeElement as HTMLElement;
       document.body.appendChild(elemento);
       const abrir = elemento.querySelector<HTMLButtonElement>('button[aria-label="Abrir el menú"]')!;
 
-      expect(abierto(elemento)).toBe(false);
+      expect(abierto()).toBe(false);
 
       abrir.focus();
       abrir.click();
       await fixture.whenStable();
       fixture.detectChanges();
-      expect(abierto(elemento)).toBe(true);
+      expect(abierto()).toBe(true);
 
       elemento.querySelector<HTMLButtonElement>('mat-sidenav button[aria-label="Cerrar el menú"]')!.click();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(abierto(elemento)).toBe(false);
+      expect(abierto()).toBe(false);
       expect(document.activeElement).toBe(abrir);
       elemento.remove();
     });
 
     it('elegir una sección lo cierra', async () => {
-      const fixture = montarCon(null);
+      const fixture = await montarConElMenu(SOCIA);
       const elemento = fixture.nativeElement as HTMLElement;
 
       elemento.querySelector<HTMLButtonElement>('button[aria-label="Abrir el menú"]')!.click();
@@ -320,15 +321,22 @@ describe('Cascarón público: la navegación', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(abierto(elemento)).toBe(false);
+      expect(abierto()).toBe(false);
     });
 
-    it('ofrece lo mismo que la barra: el menú se define en un solo lugar', () => {
-      const elemento = montarCon(SOCIA).nativeElement as HTMLElement;
+    it('ofrece lo mismo que la barra: el menú se define en un solo lugar', async () => {
+      const elemento = (await montarConElMenu(SOCIA)).nativeElement as HTMLElement;
       const textos = (selector: string) =>
         [...elemento.querySelectorAll(selector)].map((a) => a.textContent?.trim());
 
       expect(textos('mat-sidenav nav a')).toEqual(textos('header nav a'));
+    });
+
+    it('**no viaja en el arranque**: se dibuja recién al quedar libre el navegador o al tocar el menú', () => {
+      const elemento = montarCon(SOCIA).nativeElement as HTMLElement;
+
+      expect(elemento.querySelector('app-menu-del-telefono')).toBeNull();
+      expect(elemento.querySelector('button[aria-label="Abrir el menú"]')).not.toBeNull();
     });
   });
 });
