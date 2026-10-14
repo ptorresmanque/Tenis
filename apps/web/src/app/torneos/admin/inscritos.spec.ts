@@ -313,6 +313,16 @@ describe('InscritosDelTorneo', () => {
       expect(texto()).toContain('sin pagar');
     });
 
+    it('**el filtro es un grupo de opciones**, no dos botones de acción (T251, auditoría)', async () => {
+      // Pintados como acción principal, «Todos» y «Por revisar» parecían dos cosas que hacer.
+      await conPagos();
+      const grupo = elemento().querySelector('mat-button-toggle-group[aria-label="Filtrar inscritos"]');
+      const opciones = Array.from(grupo?.querySelectorAll('button[role="radio"]') ?? []);
+
+      expect(opciones.map((o) => o.textContent?.trim().split(' ')[0])).toEqual(['Todos', 'Por']);
+      expect(opciones.map((o) => o.getAttribute('aria-checked'))).toEqual(['true', 'false']);
+    });
+
     it('el filtro por revisar deja solo a quien espera que lo miren', async () => {
       await conPagos();
 

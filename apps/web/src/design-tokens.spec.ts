@@ -1560,12 +1560,28 @@ describe('Los campos son de Material (T244)', () => {
     expect(interruptor).toContain('track-outline-color: var(--color-muted-foreground)');
   });
 
-  it('**ningún radio es nativo**: son `mat-radio-group` (T250)', () => {
-    // El selector y el conmutador de tema pasan a mat-button-toggle-group en T251.
-    const enT251 = ['ui/selector.ts', 'cascarones/conmutador-de-tema.ts'];
+  it('**ningún radio es nativo**: son `mat-radio-group` o `mat-button-toggle-group` (T250, T251)', () => {
     const infractores = plantillas()
-      .filter(({ archivo }) => !enT251.some((pendiente) => archivo.endsWith(pendiente)))
       .filter(({ contenido }) => /type="radio"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `app-selector`**: los grupos de opciones son `mat-button-toggle-group` (T251)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-selector\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+    expect(existsSync(join(RAIZ, 'ui/selector.ts'))).toBe(false);
+  });
+
+  it('**un filtro no es un botón que cambia de apariencia**: es un toggle group (T251)', () => {
+    // `[matButton]="elegido ? 'filled' : 'outlined'"` con aria-pressed: la elegida parecía la
+    // acción principal de la pantalla.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /\[matButton\]="[^"]*\?/.test(contenido))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);

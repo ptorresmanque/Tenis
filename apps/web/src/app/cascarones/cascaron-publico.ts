@@ -90,7 +90,14 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         </nav>
 
         <div class="ms-auto flex items-center gap-2">
-          <app-conmutador-de-tema />
+          <!-- Al quedar libre el navegador y no en el arranque (I6): el grupo de opciones de
+               Material pesa 84 kB, y el conmutador no es lo primero que se mira. El
+               placeholder mide lo mismo, para que la barra no salte cuando llega. -->
+          @defer (on idle) {
+            <app-conmutador-de-tema />
+          } @placeholder {
+            <div class="h-9 w-26.5" aria-hidden="true"></div>
+          }
 
           @if (usuario(); as sesion) {
             <app-menu-desplegable

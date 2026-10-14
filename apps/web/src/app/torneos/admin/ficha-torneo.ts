@@ -7,6 +7,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
@@ -51,6 +52,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
 @Component({
   selector: 'app-ficha-torneo',
   imports: [
+    MatButtonToggleModule,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -146,18 +148,17 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
              elegía a media página y el elegido se arrastraba de un torneo a otro. -->
         @if (activa() !== 'ajustes' && activa() !== 'multimedia') {
           <div class="mt-4 flex flex-wrap items-center gap-2">
-            <span class="text-sm font-medium">Cuadro:</span>
-            @for (cuadro of suyo.cuadros; track cuadro.id) {
-              <button
-                type="button"
-                [matButton]="elegido() === cuadro.id ? 'filled' : 'outlined'"
-                class="chico"
-                [attr.aria-pressed]="elegido() === cuadro.id"
-                (click)="elegido.set(cuadro.id)"
-              >
-                {{ cuadro.categoria }}
-              </button>
-            }
+            <span id="cuadro-de-la-ficha" class="text-sm font-medium">Cuadro:</span>
+            <mat-button-toggle-group
+              aria-labelledby="cuadro-de-la-ficha"
+              hideSingleSelectionIndicator
+              [value]="elegido()"
+              (change)="elegido.set($event.value)"
+            >
+              @for (cuadro of suyo.cuadros; track cuadro.id) {
+                <mat-button-toggle [value]="cuadro.id">{{ cuadro.categoria }}</mat-button-toggle>
+              }
+            </mat-button-toggle-group>
           </div>
         }
 

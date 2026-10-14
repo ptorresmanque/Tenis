@@ -10,6 +10,10 @@ import { Reservas } from '../../reservas/reservas.service';
 import { Auth } from '../../core/auth/auth';
 import { Disponibilidad, GrillaDeCancha } from '../disponibilidad';
 import { Grilla } from './grilla';
+import { alternar, opcionesDelGrupo } from '../../testing/alternar';
+
+/** El grupo de la duración, entre los varios grupos de opciones de la pantalla. */
+const DURACION = 'mat-button-toggle-group[aria-label="Duración"]';
 
 /**
  * La pantalla principal de la demo. Lo que se prueba acá es lo que el master
@@ -211,8 +215,9 @@ describe('Grilla', () => {
       DIA[0],
     ];
     const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
-    const chips = () => [...barra().querySelectorAll<HTMLInputElement>('input[type="radio"]')];
-    const nombreDelChip = (chip: HTMLInputElement) => enTexto(chip.closest('label')!);
+    // Las canchas de la barra son un mat-button-toggle-group (T251): cada una es un botón.
+    const chips = () => [...barra().querySelectorAll<HTMLButtonElement>('mat-button-toggle button')];
+    const nombreDelChip = (chip: HTMLButtonElement) => enTexto(chip);
     const elegirLaDeLas8 = async () => {
       filaDe('08:00').querySelector('button')!.click();
       await fixture.whenStable();
@@ -224,7 +229,7 @@ describe('Grilla', () => {
       await elegirLaDeLas8();
 
       expect(chips().map(nombreDelChip)).toEqual(['Cancha 3', 'Cancha 1']);
-      expect(chips()[0].checked).toBe(true);
+      expect(chips()[0].getAttribute('aria-checked')).toBe('true');
     });
 
     it('**cambiar de cancha en la barra cambia la cancha y el precio que se paga**', async () => {
@@ -697,10 +702,9 @@ describe('Grilla', () => {
    * "mover"— para que recargar o compartir el enlace no la pierda.
    */
   describe('la duración', () => {
-    const radio = (valor: string) =>
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
-        `input[type="radio"][value="${valor}"]`,
-      );
+    /** Si la duración con ese valor está elegida (T251: es un mat-button-toggle-group). */
+    const elegida = (valor: string) =>
+      opcionesDelGrupo(fixture, DURACION).find((o) => o.valor === valor)?.elegida;
     const SIN_HORA_Y_MEDIA: GrillaDeCancha[] = [
       {
         cancha: DIA[0].cancha,
@@ -731,18 +735,18 @@ describe('Grilla', () => {
 
     it('sin duración en la URL pide la grilla de 1 hora', () => {
       expect(pedirDia).toHaveBeenCalledWith(expect.any(String), 60);
-      expect(radio('60')?.checked).toBe(true);
+      expect(elegida('60')).toBe(true);
     });
 
     it('**con ?duracion=90 pide la grilla de 1 hora y media**', async () => {
       await montar(DIA, { duracion: '90' });
 
       expect(pedirDia).toHaveBeenCalledWith(expect.any(String), 90);
-      expect(radio('90')?.checked).toBe(true);
+      expect(elegida('90')).toBe(true);
     });
 
-    it('elegir 1 hora y media la deja en la URL, y volver a 1 hora la saca', () => {
-      radio('90')!.click();
+    it('elegir 1 hora y media la deja en la URL, y volver a 1 hora la saca', async () => {
+      await alternar(fixture, '90', DURACION);
       expect(navegar).toHaveBeenLastCalledWith(
         [],
         expect.objectContaining({
@@ -751,7 +755,7 @@ describe('Grilla', () => {
         }),
       );
 
-      radio('60')!.click();
+      await alternar(fixture, '60', DURACION);
       expect(navegar).toHaveBeenLastCalledWith(
         [],
         expect.objectContaining({ queryParams: { duracion: null } }),
@@ -843,13 +847,13 @@ describe('Grilla', () => {
       // "Mis reservas" manda `duracion=90` cuando la reserva es de 1 hora y media.
       await montar(DIA, { mover: '5', duracion: '90' });
 
-      expect(radio('90')?.checked).toBe(true);
+      expect(elegida('90')).toBe(true);
       // De la grilla que no cuenta la reserva que se mueve, no de la pública: si no, la
       // hora y media en el mismo lugar sale ocupada por ella misma.
       expect(pedirDiaParaMover).toHaveBeenCalledWith(5, expect.any(String), 90);
       expect(pedirDia).not.toHaveBeenCalled();
 
-      radio('60')!.click();
+      await alternar(fixture, '60', DURACION);
       // Sin soltar el modo mover: la URL conserva `mover` y solo cambia la duración.
       expect(navegar).toHaveBeenLastCalledWith(
         [],
@@ -921,11 +925,7 @@ describe('Grilla', () => {
     ];
 
     const elegirFiltro = async (valor: string) => {
-      const radio = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
-        `input[type=radio][value="${valor}"]`,
-      )!;
-
-      radio.click();
+      await alternar(fixture, valor, '[aria-label="Filtrar canchas"]');
       await fixture.whenStable();
       fixture.detectChanges();
     };
@@ -1423,9 +1423,7 @@ describe('Grilla', () => {
     it('cambiar la duración suelta lo elegido: su fin y su precio eran de la otra', async () => {
       await elegirPrimerBloque();
 
-      (fixture.nativeElement as HTMLElement)
-        .querySelector<HTMLInputElement>('input[type="radio"][value="90"]')!
-        .click();
+      await alternar(fixture, '90', DURACION);
       await fixture.whenStable();
       fixture.detectChanges();
 
@@ -1438,7 +1436,7 @@ describe('Grilla', () => {
       await elegirPrimerBloque();
 
       el()
-        .querySelector<HTMLInputElement>('app-controles-del-dia input[type="radio"]:not(:checked)')!
+        .querySelector<HTMLButtonElement>('app-controles-del-dia button[role="radio"][aria-checked="false"]')!
         .click();
       await fixture.whenStable();
       fixture.detectChanges();

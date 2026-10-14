@@ -1,5 +1,6 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -20,7 +21,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-partidos-internos-panel',
-  imports: [MatButton, EstadoVacio, Insignia, Esqueleto],
+  imports: [MatButtonToggleModule, MatButton, EstadoVacio, Insignia, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada partido trae las suyas. -->
     <header class="cabecera-panel">
@@ -33,19 +34,18 @@ import { Esqueleto } from '../../ui/esqueleto';
       </div>
     </header>
 
-    <div class="mt-4 flex flex-wrap gap-2">
+    <!-- Un filtro es un grupo de opciones, no botones de acción (T251). -->
+    <mat-button-toggle-group
+      class="mt-4"
+      aria-label="Filtrar partidos"
+      hideSingleSelectionIndicator
+      [value]="filtro()"
+      (change)="filtro.set($event.value)"
+    >
       @for (opcion of FILTROS; track opcion.valor) {
-        <button
-          type="button"
-          [matButton]="filtro() === opcion.valor ? 'filled' : 'outlined'"
-          class="chico"
-          [attr.aria-pressed]="filtro() === opcion.valor"
-          (click)="filtro.set(opcion.valor)"
-        >
-          {{ opcion.etiqueta }}
-        </button>
+        <mat-button-toggle [value]="opcion.valor">{{ opcion.etiqueta }}</mat-button-toggle>
       }
-    </div>
+    </mat-button-toggle-group>
 
     @if (partidos.error()) {
       <p class="mt-6 text-destructive">

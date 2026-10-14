@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { proveerCampos } from '../../ui/campos';
 import {
@@ -14,7 +15,6 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -43,7 +43,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
     Aviso,
     EstadoVacio,
     Insignia,
-    Selector,
+    MatButtonToggleModule,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     Esqueleto,
@@ -61,12 +61,19 @@ const TIPOS: Record<TipoSolicitud, string> = {
       </div>
     </header>
 
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Filtrar consultas"
-      [opciones]="FILTROS"
-      [(valor)]="filtro"
-    />
+    <mat-button-toggle-group
+      class="mt-4"
+      aria-label="Filtrar consultas"
+      hideSingleSelectionIndicator
+      [value]="filtro()"
+      (change)="filtro.set($event.value)"
+    >
+      @for (opcion of FILTROS; track opcion.valor) {
+        <mat-button-toggle [value]="opcion.valor">
+          {{ opcion.etiqueta }}
+        </mat-button-toggle>
+      }
+    </mat-button-toggle-group>
 
     <!-- Fuera del bloque de la lista: atender la última solicitud la saca de la
          bandeja, y con el aviso adentro el admin veía desaparecer la fila sin ninguna

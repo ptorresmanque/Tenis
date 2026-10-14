@@ -14,6 +14,7 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
@@ -22,7 +23,6 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { ReservasDelAdmin } from './nueva-reserva.service';
 import { TelefonoDirective } from '../../ui/telefono';
 
@@ -47,7 +47,7 @@ import { TelefonoDirective } from '../../ui/telefono';
     FormsModule,
     Aviso,
     Insignia,
-    Selector,
+    MatButtonToggleModule,
     TelefonoDirective,
   ],
   providers: [proveerCampos()],
@@ -65,12 +65,18 @@ import { TelefonoDirective } from '../../ui/telefono';
       </p>
 
       <form class="mt-4 grid gap-4" (ngSubmit)="crear()">
-        <app-selector
-          etiqueta="Para quién es la hora"
-          [opciones]="PARA_QUIEN"
-          [valor]="paraQuien()"
-          (valorChange)="paraQuien.set($event)"
-        />
+        <mat-button-toggle-group
+          aria-label="Para quién es la hora"
+          hideSingleSelectionIndicator
+          [value]="paraQuien()"
+          (change)="paraQuien.set($event.value)"
+        >
+          @for (opcion of PARA_QUIEN; track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              {{ opcion.etiqueta }}
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
 
         <mat-form-field>
           <mat-label>Cancha</mat-label>
@@ -99,12 +105,18 @@ import { TelefonoDirective } from '../../ui/telefono';
         <!-- Antes de la hora, porque decide qué horas quedan libres. Se ofrece la hora y
              media aunque la franja no tenga su precio: el socio no paga, y el visitante
              paga en el mostrador (T85). -->
-        <app-selector
-          etiqueta="Duración"
-          [opciones]="DURACIONES"
-          [valor]="'' + duracion()"
-          (valorChange)="elegirDuracion($event)"
-        />
+        <mat-button-toggle-group
+          aria-label="Duración"
+          hideSingleSelectionIndicator
+          [value]="'' + duracion()"
+          (change)="elegirDuracion($event.value)"
+        >
+          @for (opcion of DURACIONES; track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              {{ opcion.etiqueta }}
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
 
         <mat-form-field>
           <mat-label>Hora</mat-label>

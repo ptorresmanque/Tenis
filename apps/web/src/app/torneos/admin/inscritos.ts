@@ -15,6 +15,7 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { proveerCampos } from '../../ui/campos';
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
@@ -36,6 +37,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos-torneo',
   imports: [
+    MatButtonToggleModule,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -76,26 +78,20 @@ import { Esqueleto } from '../../ui/esqueleto';
              estado de la base: es toda pendiente que no se resuelve sola, y la única
              que se resuelve sola es la que eligió Webpay y no pagó. -->
         @if (porRevisar(datos.inscritos).length > 0 || filtro() !== 'todos') {
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              [matButton]="filtro() === 'todos' ? 'filled' : 'outlined'"
-              class="chico"
-              [attr.aria-pressed]="filtro() === 'todos'"
-              (click)="filtro.set('todos')"
-            >
-              Todos {{ datos.inscritos.length }}
-            </button>
-            <button
-              type="button"
-              [matButton]="filtro() === 'revisar' ? 'filled' : 'outlined'"
-              class="chico"
-              [attr.aria-pressed]="filtro() === 'revisar'"
-              (click)="filtro.set('revisar')"
-            >
+          <!-- Un grupo de opciones y no dos botones pintados como acción principal (T251,
+               corrección de la auditoría). -->
+          <mat-button-toggle-group
+            class="mt-2"
+            aria-label="Filtrar inscritos"
+            hideSingleSelectionIndicator
+            [value]="filtro()"
+            (change)="filtro.set($event.value)"
+          >
+            <mat-button-toggle value="todos">Todos {{ datos.inscritos.length }}</mat-button-toggle>
+            <mat-button-toggle value="revisar">
               Por revisar {{ porRevisar(datos.inscritos).length }}
-            </button>
-          </div>
+            </mat-button-toggle>
+          </mat-button-toggle-group>
         }
 
         @if (error(); as falla) {

@@ -17,6 +17,7 @@ import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -24,7 +25,6 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { Paginacion } from '../../ui/paginacion';
-import { Selector } from '../../ui/selector';
 import { FichaSocio } from './ficha-socio';
 import {
   AltaDeSocio,
@@ -69,7 +69,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
     EstadoVacio,
     Insignia,
     Paginacion,
-    Selector,
+    MatButtonToggleModule,
     FichaSocio,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
@@ -206,12 +206,18 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
           />
         </mat-form-field>
 
-        <app-selector
-          etiqueta="Filtrar por estado"
-          [opciones]="FILTROS"
-          [valor]="filtro()"
-          (valorChange)="filtro.set($event)"
-        />
+        <mat-button-toggle-group
+          aria-label="Filtrar por estado"
+          hideSingleSelectionIndicator
+          [value]="filtro()"
+          (change)="filtro.set($event.value)"
+        >
+          @for (opcion of FILTROS; track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              {{ opcion.etiqueta }}
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
       </div>
 
       @if (listado.isLoading()) {

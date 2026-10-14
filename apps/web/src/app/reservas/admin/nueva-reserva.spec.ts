@@ -6,6 +6,7 @@ import { Socios } from '../../identidad/admin/socios.service';
 import { NuevaReserva } from './nueva-reserva';
 import { ReservasDelAdmin } from './nueva-reserva.service';
 import { elegir, opcionesDe } from '../../testing/elegir';
+import { alternar } from '../../testing/alternar';
 
 /**
  * La hora que el club toma en el mesón. Lo que se prueba acá es qué horas ofrece:
@@ -185,7 +186,7 @@ describe('NuevaReserva', () => {
       fixture.detectChanges();
     };
     const elegirDuracion = async (valor: '60' | '90') => {
-      raiz().querySelector<HTMLInputElement>(`input[type="radio"][value="${valor}"]`)!.click();
+      await alternar(fixture, valor, 'mat-button-toggle-group[aria-label="Duración"]');
       await actualizar();
     };
     const elegirHora = async (inicio: string) => {

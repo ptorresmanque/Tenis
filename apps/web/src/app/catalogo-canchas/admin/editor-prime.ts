@@ -1,10 +1,10 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Esqueleto } from '../../ui/esqueleto';
-import { Selector } from '../../ui/selector';
 import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
 
 /**
@@ -17,7 +17,7 @@ import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
  */
 @Component({
   selector: 'app-editor-prime',
-  imports: [MatButton, FormsModule, Esqueleto, Selector],
+  imports: [MatButton, FormsModule, Esqueleto, MatButtonToggleModule],
   template: `
     <section class="mt-8" aria-labelledby="titulo-prime">
       <h2 id="titulo-prime" class="rotulo-seccion">Duración del socio en horario prime</h2>
@@ -34,12 +34,18 @@ import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
         </p>
       } @else {
         <form class="mt-3" (ngSubmit)="guardar()">
-          <app-selector
-            etiqueta="En horario prime, el socio reserva"
-            [opciones]="OPCIONES"
-            [valor]="elegida()"
-            (valorChange)="elegir($event)"
-          />
+          <mat-button-toggle-group
+            aria-label="En horario prime, el socio reserva"
+            hideSingleSelectionIndicator
+            [value]="elegida()"
+            (change)="elegir($event.value)"
+          >
+            @for (opcion of OPCIONES; track opcion.valor) {
+              <mat-button-toggle [value]="opcion.valor">
+                {{ opcion.etiqueta }}
+              </mat-button-toggle>
+            }
+          </mat-button-toggle-group>
 
           <button
             matButton="filled"
