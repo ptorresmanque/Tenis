@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { elegidoEn, textosDe } from '../../testing/elegir';
 import { AdminCanchasPanel } from './admin-canchas';
 import { AdminCanchas, Advertencia, CanchaAdmin } from './admin-canchas.service';
+import { responder, textoDelDialogo } from '../../testing/dialogos';
 
 /**
  * T13. El panel del club. Lo que se prueba acá es lo que el admin decide mirando:
@@ -177,25 +178,22 @@ describe('AdminCanchasPanel', () => {
 
   describe('eliminación (T29)', () => {
     it('pregunta antes de borrar, y nombra la cancha en la pregunta', async () => {
-      const preguntado = vi
-        .spyOn(window, 'confirm')
-        .mockReturnValue(false);
-
       boton('Eliminar')?.click();
       await fixture.whenStable();
 
-      // Cancelar deja todo como estaba: borrar una cancha no se deshace.
-      expect(preguntado.mock.calls[0][0]).toContain('Cancha 1');
+      // La pregunta es un diálogo (T253). Descartar deja todo como estaba: borrar una cancha
+      // no se deshace.
+      expect(textoDelDialogo()).toContain('¿Eliminar Cancha 1?');
+      await responder(fixture, false);
       expect(api.eliminar).not.toHaveBeenCalled();
     });
 
     it('confirmado, la borra y la saca de la lista', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       api.canchas.mockResolvedValue([]);
 
       boton('Eliminar')?.click();
       await fixture.whenStable();
-      fixture.detectChanges();
+      await responder(fixture, true);
 
       expect(api.eliminar).toHaveBeenCalledWith(1);
       // Por el encabezado y no por el texto de la página: el aviso de que se borró
@@ -209,7 +207,6 @@ describe('AdminCanchasPanel', () => {
     it('si el servidor dice que tiene historial, lo repite tal cual', async () => {
       // El mensaje del servidor explica qué hacer —desactivarla— y cuántas
       // reservas hay en juego. Uno genérico manda al admin a adivinar.
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       api.eliminar.mockRejectedValue({
         error: {
           message: 'Esta cancha tiene 3 reservas en su historial. Desactívala.',
@@ -218,7 +215,7 @@ describe('AdminCanchasPanel', () => {
 
       boton('Eliminar')?.click();
       await fixture.whenStable();
-      fixture.detectChanges();
+      await responder(fixture, true);
 
       expect(texto()).toContain('Desactívala');
       expect(texto()).toContain('Cancha 1');

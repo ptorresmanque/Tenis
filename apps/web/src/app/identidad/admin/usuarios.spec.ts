@@ -9,6 +9,7 @@ import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { Socios } from './socios.service';
 import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 import { UsuariosPanel } from './usuarios';
+import { responder, textoDelDialogo } from '../../testing/dialogos';
 
 /**
  * T223. La lista de usuarios del panel, que reemplaza a Administradores
@@ -284,14 +285,24 @@ describe('UsuariosPanel', () => {
     });
 
     it('"Quitar profesor" pregunta antes, y desvincula sin borrar la ficha (30)', async () => {
-      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
       await apretar(filaDe('Ana Silva'), 'Quitar profesor');
 
-      expect(confirmar.mock.calls[0][0]).toContain('La ficha y sus clases quedan');
+      // La pregunta es un diálogo (T253), con la pregunta de título.
+      expect(textoDelDialogo()).toContain('¿Quitarle Clases a Ana Silva?');
+      expect(textoDelDialogo()).toContain('La ficha y sus clases quedan');
+      expect(profesores.desvincular).not.toHaveBeenCalled();
+
+      await responder(fixture, true);
+
       expect(profesores.desvincular).toHaveBeenCalledWith(4);
       expect(texto()).toContain('Ana Silva ya no entra a Clases.');
-      confirmar.mockRestore();
+    });
+
+    it('descartar «Quitar profesor» no desvincula', async () => {
+      await apretar(filaDe('Ana Silva'), 'Quitar profesor');
+      await responder(fixture, false);
+
+      expect(profesores.desvincular).not.toHaveBeenCalled();
     });
 
     it('si otro ya vinculó esa ficha, dice el 409', async () => {

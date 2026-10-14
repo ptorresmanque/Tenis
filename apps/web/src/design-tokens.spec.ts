@@ -1562,6 +1562,18 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**ningún `prompt` ni `confirm` del navegador**: son diálogos de Material (T253)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /\b(?:window\.)?(?:prompt|confirm)\(/.test(
+          contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''),
+        ),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ningún `<dialog>` nativo fuera de los cascarones**: los diálogos son MatDialog (T252)', () => {
     // El menú del teléfono de los cascarones se va en la Fase 61, con la navegación.
     const infractores = plantillas()

@@ -1,12 +1,14 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggle, MatSlideToggleChange } from '@angular/material/slide-toggle';
 
+import { confirmar } from '../../ui/dialogo-de-confirmacion';
 import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras, fechaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { Profesores } from '../../clases/profesores.service';
@@ -319,6 +321,7 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
   `,
 })
 export class UsuariosPanel {
+  private readonly dialogos = inject(MatDialog);
   private readonly api = inject(Usuarios);
   private readonly socios = inject(Socios);
   private readonly profesores = inject(Profesores);
@@ -409,13 +412,13 @@ export class UsuariosPanel {
   /** Desvincula: la ficha y sus clases quedan, y la persona deja de entrar a Clases. */
   protected async quitarProfesor(usuario: UsuarioDeLaLista, fichaId: number): Promise<void> {
     const nombre = `${usuario.nombre} ${usuario.apellido}`;
-    if (
-      !window.confirm(
-        `¿Quitarle Clases a ${nombre}? La ficha y sus clases quedan; solo deja de entrar.`,
-      )
-    ) {
-      return;
-    }
+    const si = await confirmar(this.dialogos, {
+      titulo: `¿Quitarle Clases a ${nombre}?`,
+      detalle: 'La ficha y sus clases quedan; solo deja de entrar.',
+      confirmar: 'Sí, quitar',
+      peligro: true,
+    });
+    if (!si) return;
 
     await this.hacer(
       `quitar-${usuario.id}`,

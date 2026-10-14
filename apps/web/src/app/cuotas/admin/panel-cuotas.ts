@@ -1,7 +1,9 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { pedirMotivo } from '../../ui/dialogo-de-motivo';
 import { proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -219,6 +221,7 @@ function mesActual(): string {
 })
 export class PanelDeCuotas {
   private readonly api = inject(Cuotas);
+  private readonly dialogos = inject(MatDialog);
 
   protected readonly mes = signal(mesActual());
 
@@ -283,9 +286,12 @@ export class PanelDeCuotas {
    * mes se lo dieron igual.
    */
   protected async condonar(cuota: CuotaDelMes): Promise<void> {
-    const motivo = this.pedirMotivo(
-      `¿Por qué se le condona la cuota a ${cuota.socio.nombre}? Queda escrito en la cuota.`,
-    );
+    const motivo = await pedirMotivo(this.dialogos, {
+      titulo: `¿Condonar la cuota de ${cuota.socio.nombre}?`,
+      detalle: 'Queda al día ese mes igual, y el motivo queda escrito en la cuota.',
+      etiqueta: 'Por qué se condona',
+      confirmar: 'Condonar',
+    });
 
     if (motivo === null) return;
 
@@ -302,10 +308,13 @@ export class PanelDeCuotas {
    * nunca debió existir.
    */
   protected async anular(cuota: CuotaDelMes): Promise<void> {
-    const motivo = this.pedirMotivo(
-      `¿Por qué se anula esta cuota de ${cuota.socio.nombre}? No es lo mismo que ` +
-        'condonarla: anular es decir que no correspondía emitirla.',
-    );
+    const motivo = await pedirMotivo(this.dialogos, {
+      titulo: `¿Anular la cuota de ${cuota.socio.nombre}?`,
+      detalle: 'No es lo mismo que condonarla: anular es decir que no correspondía emitirla.',
+      etiqueta: 'Por qué se anula',
+      confirmar: 'Anular',
+      peligro: true,
+    });
 
     if (motivo === null) return;
 
@@ -313,13 +322,6 @@ export class PanelDeCuotas {
       await this.api.ajustar(cuota.id, { anular: true, motivo });
       this.aviso.set(`Anulada la cuota de ${cuota.socio.nombre}.`);
     });
-  }
-
-  /** El motivo, o `null` si la persona canceló o lo dejó en blanco. */
-  private pedirMotivo(pregunta: string): string | null {
-    const escrito = window.prompt(pregunta)?.trim();
-
-    return escrito ? escrito : null;
   }
 
   /**

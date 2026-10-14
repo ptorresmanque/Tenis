@@ -9,6 +9,7 @@ import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { ClaseDelDia, Clases } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { AgendaDeClases } from './agenda-clases';
+import { darMotivo, textoDelDialogo } from '../../testing/dialogos';
 
 /**
  * T46. Agendar una clase es cerrar la cancha, y esta pantalla lo trata como tal.
@@ -199,17 +200,22 @@ describe('AgendaDeClases', () => {
   });
 
   it('cancelar una clase exige un motivo, y sin él no llama al servidor', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('  ');
-
     await apretar('Cancelar clase');
+
+    // El motivo se pide en un diálogo (T253): en blanco no deja confirmar, y descartar no hace nada.
+    expect(textoDelDialogo()).toContain('¿Cancelar la clase de');
+    expect(
+      document.querySelector<HTMLButtonElement>('mat-dialog-container button[type="submit"]')!
+        .disabled,
+    ).toBe(true);
+    await darMotivo(fixture, null);
 
     expect(api.cancelar).not.toHaveBeenCalled();
   });
 
   it('con motivo, la cancela y lo dice', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('Se enfermó');
-
     await apretar('Cancelar clase');
+    await darMotivo(fixture, 'Se enfermó');
 
     expect(api.cancelar).toHaveBeenCalledWith(7, 'Se enfermó');
     expect(texto()).toContain('vuelve a estar disponible');
@@ -305,9 +311,10 @@ describe('AgendaDeClases', () => {
 
     it('**en una clase de una serie, cancela esa y las siguientes, con el motivo**', async () => {
       await montar([{ ...CLASE, serieId: 9 }]);
-      vi.spyOn(window, 'prompt').mockReturnValue('Fin de temporada');
 
       await apretar('Cancelar desde esta fecha');
+      expect(textoDelDialogo()).toContain('¿Cancelar la serie de');
+      await darMotivo(fixture, 'Fin de temporada');
 
       // El día de la clase, en hora del club: 21:00Z del 17 de agosto son las 17:00 del 17.
       expect(api.cancelarSerieDesde).toHaveBeenCalledWith(9, '2026-08-17', 'Fin de temporada');
@@ -316,9 +323,9 @@ describe('AgendaDeClases', () => {
 
     it('sin motivo no cancela nada', async () => {
       await montar([{ ...CLASE, serieId: 9 }]);
-      vi.spyOn(window, 'prompt').mockReturnValue('   ');
 
       await apretar('Cancelar desde esta fecha');
+      await darMotivo(fixture, null);
 
       expect(api.cancelarSerieDesde).not.toHaveBeenCalled();
     });

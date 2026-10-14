@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
@@ -9,6 +10,7 @@ import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatSelectModule } from '@angular/material/select';
 
+import { pedirMotivo } from '../../ui/dialogo-de-motivo';
 import { proveerCampos } from '../../ui/campos';
 import {
   fechaATexto,
@@ -478,6 +480,7 @@ const enBlanco = () => ({
   `,
 })
 export class AgendaDeClases {
+  private readonly dialogos = inject(MatDialog);
   private readonly api = inject(Clases);
   private readonly profes = inject(Profesores);
   private readonly disponibilidad = inject(Disponibilidad);
@@ -587,11 +590,16 @@ export class AgendaDeClases {
   }
 
   protected async cancelar(clase: ClaseDelDia): Promise<void> {
-    // `prompt` y no un formulario propio: el motivo es obligatorio y esta es la
-    // única acción de la pantalla que lo pide.
-    const motivo = window.prompt(`¿Por qué se cancela la clase de ${clase.profesor}?`);
+    // El motivo es obligatorio: el diálogo no deja confirmar sin él (T253).
+    const motivo = await pedirMotivo(this.dialogos, {
+      titulo: `¿Cancelar la clase de ${clase.profesor}?`,
+      detalle: 'La cancha vuelve a estar disponible, y el motivo queda escrito.',
+      etiqueta: 'Por qué se cancela',
+      confirmar: 'Cancelar la clase',
+      peligro: true,
+    });
 
-    if (motivo === null || motivo.trim() === '') return;
+    if (motivo === null) return;
 
     await this.intentar(`cancelar-${clase.id}`, async () => {
       await this.api.cancelar(clase.id, motivo);
@@ -609,11 +617,15 @@ export class AgendaDeClases {
   /** Cancela esta clase y las siguientes de su serie, con el motivo (T117). */
   protected async cancelarSerieDesde(clase: ClaseDelDia, serieId: number): Promise<void> {
     const desde = fechaEnElClub(clase.inicio);
-    const motivo = window.prompt(
-      `¿Por qué se cancela la serie de ${clase.profesor} desde el ${diaEnPalabras(desde)}?`,
-    );
+    const motivo = await pedirMotivo(this.dialogos, {
+      titulo: `¿Cancelar la serie de ${clase.profesor} desde el ${diaEnPalabras(desde)}?`,
+      detalle: 'Se cancelan esa clase y las siguientes de la serie.',
+      etiqueta: 'Por qué se cancela',
+      confirmar: 'Cancelar la serie',
+      peligro: true,
+    });
 
-    if (motivo === null || motivo.trim() === '') return;
+    if (motivo === null) return;
 
     await this.intentar(`cancelarSerieDesde-${clase.id}`, async () => {
       const { canceladas } = await this.api.cancelarSerieDesde(serieId, desde, motivo);

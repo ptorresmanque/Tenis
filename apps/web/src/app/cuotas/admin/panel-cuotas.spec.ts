@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CuotaDelMes, Cuotas, MesDeCuotas } from '../cuotas.service';
 import { PanelDeCuotas } from './panel-cuotas';
+import { darMotivo, textoDelDialogo } from '../../testing/dialogos';
 
 /**
  * T40. Las cuotas del mes.
@@ -210,9 +211,10 @@ describe('PanelDeCuotas', () => {
   it('**condonar y anular son botones distintos, y la pantalla lo explica**', async () => {
     // Son decisiones opuestas: una dice que el mes se le dio igual y la otra que la
     // cuota no correspondía. Un solo botón "quitar" obligaría a elegir en silencio.
-    vi.spyOn(window, 'prompt').mockReturnValue('Estuvo lesionada');
-
+    // El motivo se pide en un diálogo (T253), con la pregunta de título.
     await apretar('Condonar');
+    expect(textoDelDialogo()).toContain('¿Condonar la cuota de');
+    await darMotivo(fixture, 'Estuvo lesionada');
     expect(api.ajustar).toHaveBeenCalledWith(1, {
       condonar: true,
       motivo: 'Estuvo lesionada',
@@ -220,6 +222,8 @@ describe('PanelDeCuotas', () => {
     expect(elemento().textContent).toContain('Queda al día ese mes igual');
 
     await apretar('Anular');
+    expect(textoDelDialogo()).toContain('¿Anular la cuota de');
+    await darMotivo(fixture, 'Estuvo lesionada');
     expect(api.ajustar).toHaveBeenCalledWith(1, {
       anular: true,
       motivo: 'Estuvo lesionada',
@@ -227,12 +231,16 @@ describe('PanelDeCuotas', () => {
   });
 
   it('**sin motivo no se manda nada: el servidor lo exigiría igual**', async () => {
-    // Cancelar el prompt, o dejarlo en blanco, no es "condonar sin motivo".
-    vi.spyOn(window, 'prompt').mockReturnValue(null);
+    // Descartar el diálogo no es "condonar sin motivo", y en blanco no deja confirmar.
     await apretar('Condonar');
+    await darMotivo(fixture, null);
 
-    vi.spyOn(window, 'prompt').mockReturnValue('   ');
     await apretar('Anular');
+    expect(
+      document.querySelector<HTMLButtonElement>('mat-dialog-container button[type="submit"]')!
+        .disabled,
+    ).toBe(true);
+    await darMotivo(fixture, null);
 
     expect(api.ajustar).not.toHaveBeenCalled();
   });
