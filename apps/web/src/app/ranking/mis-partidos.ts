@@ -1,13 +1,17 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { diaConAnioEnPalabras, hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { Aviso } from '../ui/aviso';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { Insignia } from '../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ranking.service';
-import { CampoFecha } from '../ui/campo-fecha';
 import { Esqueleto } from '../ui/esqueleto';
 
 /**
@@ -22,7 +26,17 @@ import { Esqueleto } from '../ui/esqueleto';
  */
 @Component({
   selector: 'app-mis-partidos',
-  imports: [MatButton, Aviso, EstadoVacio, Esqueleto, Insignia, CampoFecha],
+  imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    Aviso,
+    EstadoVacio,
+    Esqueleto,
+    Insignia,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
     <p class="mt-2 max-w-prose text-muted-foreground">
@@ -67,17 +81,22 @@ import { Esqueleto } from '../ui/esqueleto';
           </select>
         </label>
 
-        <div class="grid gap-1 text-sm">
-          <label class="font-medium" for="jugado-en">Cuándo</label>
-          <app-campo-fecha
-            inputId="jugado-en"
+        <mat-form-field class="w-48">
+          <mat-label>Cuándo</mat-label>
+          <input
+            matInput
+            id="jugado-en"
             name="jugadoEn"
-            claseCampo="w-36"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioJugadoEn"
             [max]="hoy"
-            [valor]="jugadoEn()"
-            (valorChange)="jugadoEn.set($event)"
+            [value]="jugadoEn()"
+            (dateChange)="jugadoEn.set($event.value)"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioJugadoEn" />
+          <mat-datepicker #calendarioJugadoEn />
+        </mat-form-field>
 
         <label class="grid gap-1 text-sm">
           <span class="font-medium">Marcador (opcional)</span>
@@ -236,13 +255,15 @@ export class MisPartidos {
 
   protected readonly rival = signal('');
   protected readonly ganador = signal<'yo' | 'rival'>('yo');
-  protected readonly jugadoEn = signal(hoyEnElClub());
+  /** Como lo entrega el calendario de Material, y a texto al cargar el partido (A5, T244). */
+  protected readonly jugadoEn = signal(textoAFecha(hoyEnElClub()));
   protected readonly marcador = signal('');
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
 
   /** Hoy, para que el calendario no ofrezca el futuro. */
-  protected readonly hoy = hoyEnElClub();
+  /** El último día que se puede elegir: un partido no se carga antes de jugarse. */
+  protected readonly hoy = textoAFecha(hoyEnElClub());
 
   protected readonly enPalabras = diaConAnioEnPalabras;
 
@@ -276,7 +297,7 @@ export class MisPartidos {
         // opciones, pero el cuerpo lo puede escribir cualquiera.
         ganadorSocioId: this.ganador() === 'rival' ? rivalSocioId : (this.miSocioId() ?? 0),
         marcador: this.marcador().trim() || null,
-        jugadoEn: this.jugadoEn(),
+        jugadoEn: fechaATexto(this.jugadoEn()),
       });
 
       this.rival.set('');

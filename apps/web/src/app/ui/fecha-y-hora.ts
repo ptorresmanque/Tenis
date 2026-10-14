@@ -12,8 +12,9 @@ import { MatDatepickerIntl } from '@angular/material/datepicker';
  * Lo que los selectores de Angular Material necesitan para hablar como el club (T122):
  * fechas `dd-mm-aaaa`, la semana desde el lunes, 24 horas y los textos en español.
  *
- * Se provee en cada campo y no en la aplicación: así Material viaja solo con las rutas
- * que tienen un campo de fecha u hora, no en el arranque de todo el sitio.
+ * Lo provee cada componente con un campo de fecha u hora (junto a `proveerCampos()`), y no
+ * la aplicación: así Material viaja solo con las rutas que tienen uno, no en el arranque de
+ * todo el sitio.
  */
 
 /** La forma en que se escribe y se lee una fecha en el campo. */

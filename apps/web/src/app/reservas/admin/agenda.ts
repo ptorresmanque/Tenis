@@ -8,7 +8,12 @@ import {
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
 import {
   diaEnPalabras,
   fechaEnElClub,
@@ -29,7 +34,6 @@ import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
 import { ObservacionesDeReserva } from './observaciones-de-reserva';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
-import { CampoFecha } from '../../ui/campo-fecha';
 
 /**
  * El día del club, para quien atiende el mesón.
@@ -42,6 +46,9 @@ import { CampoFecha } from '../../ui/campo-fecha';
 @Component({
   selector: 'app-agenda-del-dia',
   imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     MatIcon,
     Aviso,
@@ -51,8 +58,8 @@ import { CampoFecha } from '../../ui/campo-fecha';
     ObservacionesDeReserva,
     EnlaceTelefonoPipe,
     TelefonoPipe,
-    CampoFecha,
   ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
          La navegación entre días va debajo. -->
@@ -107,16 +114,20 @@ import { CampoFecha } from '../../ui/campo-fecha';
         </button>
       </div>
 
-      <div>
-        <label for="fecha" class="block text-sm font-medium">Ir a un día</label>
-        <app-campo-fecha
-          class="mt-1"
-          inputId="fecha"
-          claseCampo="min-h-11 w-36 cursor-pointer py-2"
-          [valor]="fechaActual()"
-          (valorChange)="cambiarFecha($event)"
+      <mat-form-field class="w-48 abre-al-tocar">
+        <mat-label>Ir a un día</mat-label>
+        <input
+          matInput
+          id="fecha"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioFecha"
+          [value]="diaElegido()"
+          (dateChange)="cambiarFecha($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
+        <mat-datepicker #calendarioFecha />
+      </mat-form-field>
     </div>
 
     @if (tomandoHora() && puedeTomarHoras()) {
@@ -368,7 +379,12 @@ export class AgendaDelDia {
     ];
   });
 
-  protected cambiarFecha(valor: string): void {
+  /** El día del calendario: un `Date` estable mientras no cambie el día (T244). */
+  protected readonly diaElegido = computed(() => textoAFecha(this.fechaActual()));
+
+  /** El día que se eligió en el calendario; vacío o inválido no consulta nada. */
+  protected cambiarFecha(fecha: Date | null): void {
+    const valor = fechaATexto(fecha);
     if (valor) this.fechaActual.set(valor);
   }
 

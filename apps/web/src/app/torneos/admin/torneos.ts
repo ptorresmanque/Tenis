@@ -3,6 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora } from '../../ui/fecha-y-hora';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
@@ -17,7 +22,6 @@ import {
   Torneo,
   Torneos,
 } from '../torneos.service';
-import { CampoFecha } from '../../ui/campo-fecha';
 import { ElegirNivel, NivelElegido } from './elegir-nivel';
 
 /**
@@ -46,13 +50,16 @@ const GRUPOS = [
 
 type Grupo = (typeof GRUPOS)[number]['id'];
 
-/** El formulario vacío. Función y no constante, para no compartir el objeto. */
+/**
+ * El formulario vacío. Función y no constante, para no compartir el objeto. Las fechas, como
+ * las entrega el calendario de Material, y a texto recién al crear el torneo (A5, T244).
+ */
 const enBlanco = () => ({
   nombre: '',
   superficie: '' as string,
-  fechaInicio: '',
-  fechaFin: '',
-  cierreInscripcion: '',
+  fechaInicio: null as Date | null,
+  fechaFin: null as Date | null,
+  cierreInscripcion: null as Date | null,
 });
 
 /**
@@ -62,6 +69,9 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-torneos',
   imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     MatIcon,
     Esqueleto,
@@ -70,9 +80,9 @@ const enBlanco = () => ({
     Aviso,
     EstadoVacio,
     Insignia,
-    CampoFecha,
     ElegirNivel,
   ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
          crear; va como secundaria porque la principal es el "Crear torneo" del
@@ -123,32 +133,50 @@ const enBlanco = () => ({
           />
         </label>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-fechaInicio">Empieza</label>
-          <app-campo-fecha
-            inputId="nuevo-fechaInicio"
+        <mat-form-field>
+          <mat-label>Empieza</mat-label>
+          <input
+            matInput
+            id="nuevo-fechaInicio"
             name="fechaInicio"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFechaInicio"
             [(ngModel)]="datos.fechaInicio"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
+          <mat-datepicker #calendarioFechaInicio />
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-fechaFin">Termina</label>
-          <app-campo-fecha
-            inputId="nuevo-fechaFin"
+        <mat-form-field>
+          <mat-label>Termina</mat-label>
+          <input
+            matInput
+            id="nuevo-fechaFin"
             name="fechaFin"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFechaFin"
             [(ngModel)]="datos.fechaFin"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
+          <mat-datepicker #calendarioFechaFin />
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-cierreInscripcion">Cierra la inscripción</label>
-          <app-campo-fecha
-            inputId="nuevo-cierreInscripcion"
+        <mat-form-field>
+          <mat-label>Cierra la inscripción</mat-label>
+          <input
+            matInput
+            id="nuevo-cierreInscripcion"
             name="cierreInscripcion"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioCierreInscripcion"
             [(ngModel)]="datos.cierreInscripcion"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioCierreInscripcion" />
+          <mat-datepicker #calendarioCierreInscripcion />
+        </mat-form-field>
 
         <label class="block">
           <span class="text-sm font-medium">Superficie</span>
@@ -395,7 +423,10 @@ export class TorneosPanel {
 
     await this.intentar('crearTorneo', async () => {
       const torneo = await this.api.crearTorneo({
-        ...this.datos,
+        nombre: this.datos.nombre,
+        fechaInicio: fechaATexto(this.datos.fechaInicio),
+        fechaFin: fechaATexto(this.datos.fechaFin),
+        cierreInscripcion: fechaATexto(this.datos.cierreInscripcion),
         superficie: this.datos.superficie || null,
         tours: [{ tourId, nivelId }],
       });

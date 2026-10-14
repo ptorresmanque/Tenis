@@ -85,7 +85,6 @@ describe('TemporadasDelTour', () => {
     nombre: string,
     valor: string,
   ) => {
-    // `:is(...)`: el `name` también queda en el `app-campo-fecha` que envuelve al campo.
     const entrada = raiz.querySelector<HTMLInputElement>(`input[name="${nombre}"]`)!;
     entrada.value = valor;
     entrada.dispatchEvent(new Event('input'));

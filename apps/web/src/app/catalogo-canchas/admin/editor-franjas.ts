@@ -1,17 +1,22 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
 
+import { proveerCampos } from '../../ui/campos';
+import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { Insignia } from '../../ui/insignia';
 import { enPesos, hoyEnElClub } from '../reloj-del-club';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
-import { CampoHora } from '../../ui/campo-hora';
 
 interface FranjaNueva {
   /** Solo en las generales del club (T99): nulo = todas las canchas. */
   techada: boolean | null;
-  horaDesde: string;
-  horaHasta: string;
+  /** Como las entrega el selector de Material, y a texto al crear la franja (A5, T244). */
+  horaDesde: Date | null;
+  horaHasta: Date | null;
   esPico: boolean;
   montoClp: number;
   /** Vacío es nulo: la hora y media no se vende en esta franja (T79). */
@@ -20,8 +25,8 @@ interface FranjaNueva {
 
 const EN_BLANCO: FranjaNueva = {
   techada: null,
-  horaDesde: '08:00',
-  horaHasta: '18:00',
+  horaDesde: textoAHora('08:00'),
+  horaHasta: textoAHora('18:00'),
   esPico: false,
   montoClp: 12000,
   // Vacío a propósito: un precio sugerido se aceptaría sin mirarlo, y es plata.
@@ -38,7 +43,8 @@ const EN_BLANCO: FranjaNueva = {
  */
 @Component({
   selector: 'app-editor-franjas',
-  imports: [MatButton, FormsModule, Insignia, CampoHora],
+  imports: [MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule, Insignia],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     @if (ambito().franjas.length > 0) {
       <ul class="text-sm text-muted-foreground">
@@ -111,27 +117,37 @@ const EN_BLANCO: FranjaNueva = {
         </div>
       }
 
-      <div>
-        <label [for]="'desde-' + clave()" class="block font-medium">Desde</label>
-        <app-campo-hora
-          class="mt-1"
-          [inputId]="'desde-' + clave()"
+      <mat-form-field class="chico w-32">
+        <mat-label>Desde</mat-label>
+        <input
+          matInput
+          [id]="'desde-' + clave()"
           [name]="'franja-desde-' + clave()"
-          claseCampo="campo-chico w-24"
+          [attr.name]="'franja-desde-' + clave()"
+          placeholder="hh:mm"
+          autocomplete="off"
+          [matTimepicker]="relojFranjaDesde"
           [(ngModel)]="nueva.horaDesde"
         />
-      </div>
+        <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojFranjaDesde" />
+        <mat-timepicker #relojFranjaDesde />
+      </mat-form-field>
 
-      <div>
-        <label [for]="'hasta-' + clave()" class="block font-medium">Hasta</label>
-        <app-campo-hora
-          class="mt-1"
-          [inputId]="'hasta-' + clave()"
+      <mat-form-field class="chico w-32">
+        <mat-label>Hasta</mat-label>
+        <input
+          matInput
+          [id]="'hasta-' + clave()"
           [name]="'franja-hasta-' + clave()"
-          claseCampo="campo-chico w-24"
+          [attr.name]="'franja-hasta-' + clave()"
+          placeholder="hh:mm"
+          autocomplete="off"
+          [matTimepicker]="relojFranjaHasta"
           [(ngModel)]="nueva.horaHasta"
         />
-      </div>
+        <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojFranjaHasta" />
+        <mat-timepicker #relojFranjaHasta />
+      </mat-form-field>
 
       <div>
         <label [for]="'monto-' + clave()" class="block font-medium">Precio 1 hora</label>
@@ -226,6 +242,8 @@ export class EditorFranjas {
         // formulario para el caso que casi nunca se usa.
         diaSemana: null,
         ...this.nueva,
+        horaDesde: horaATexto(this.nueva.horaDesde),
+        horaHasta: horaATexto(this.nueva.horaHasta),
         // Rige desde hoy: cambiar el precio de una franja no puede alterar lo que
         // ya se cobró, así que se crea una nueva en vez de editar la anterior.
         vigenteDesde: hoyEnElClub(),

@@ -8,10 +8,15 @@ import {
   untracked,
 } from '@angular/core';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora } from '../../ui/fecha-y-hora';
 import { Esqueleto } from '../../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -28,7 +33,6 @@ import {
   SocioDelClub,
   Socios,
 } from './socios.service';
-import { CampoFecha } from '../../ui/campo-fecha';
 
 const ESTADOS: Record<EstadoSocio, string> = {
   ACTIVO: 'Activo',
@@ -39,10 +43,11 @@ const ESTADOS: Record<EstadoSocio, string> = {
 interface Formulario {
   email: string;
   numeroSocio: string;
-  alDiaHasta: string;
+  /** Como la entrega el calendario de Material, y a texto al dar el alta (A5, T244). */
+  alDiaHasta: Date | null;
 }
 
-const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
+const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
 
 /**
  * Los socios del club, desde la administración.
@@ -53,7 +58,13 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
  */
 @Component({
   selector: 'app-socios',
-  imports: [MatButton, MatIcon, Esqueleto, 
+  imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    MatIcon,
+    Esqueleto,
     FormsModule,
     Aviso,
     Campo,
@@ -63,8 +74,8 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
     Paginacion,
     Selector,
     FichaSocio,
-    CampoFecha,
   ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: dar de alta es su sección. -->
     <header class="cabecera-panel">
@@ -105,17 +116,20 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: '' };
           />
         </app-campo>
 
-        <!-- Sin app-campo: su <label> envolvería el campo, y Material deja el calendario
-             adentro (T126). Las mismas clases que app-campo. -->
-        <div class="grid gap-1.5">
-          <label class="text-sm font-semibold" for="al-dia-hasta">Al día hasta</label>
-          <app-campo-fecha
-            inputId="al-dia-hasta"
+        <mat-form-field class="abre-al-tocar">
+          <mat-label>Al día hasta</mat-label>
+          <input
+            matInput
+            id="al-dia-hasta"
             name="al-dia-hasta"
-            claseCampo="cursor-pointer transition-colors hover:border-primary"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioAlDiaHasta"
             [(ngModel)]="formulario.alDiaHasta"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioAlDiaHasta" />
+          <mat-datepicker #calendarioAlDiaHasta />
+        </mat-form-field>
 
         <button
           matButton="filled"
@@ -404,9 +418,8 @@ export class SociosPanel {
     if (this.formulario.numeroSocio.trim()) {
       datos.numeroSocio = this.formulario.numeroSocio.trim();
     }
-    if (this.formulario.alDiaHasta) {
-      datos.alDiaHasta = this.formulario.alDiaHasta;
-    }
+    const alDiaHasta = fechaATexto(this.formulario.alDiaHasta);
+    if (alDiaHasta) datos.alDiaHasta = alDiaHasta;
 
     this.guardando.set(true);
     try {

@@ -3,7 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { SUPERFICIES } from '../../catalogo-canchas/superficies';
 import { mensajeDelServidor } from '../../core/errores';
@@ -17,7 +22,6 @@ import { InscritosDelTorneo } from './inscritos';
 import { ToursDelTorneo } from './tours-del-torneo';
 import { TransmisionesDelTorneo } from './transmisiones';
 import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
-import { CampoFecha } from '../../ui/campo-fecha';
 
 /** Las cuatro cosas que se le hacen a un torneo, y en el orden en que se hacen. */
 type Pestana = 'inscritos' | 'cuadro' | 'multimedia' | 'ajustes';
@@ -46,6 +50,9 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
 @Component({
   selector: 'app-ficha-torneo',
   imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     MatIcon,
     FormsModule,
@@ -59,8 +66,8 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
     TransmisionesDelTorneo,
     FotosDelTorneo,
     ToursDelTorneo,
-    CampoFecha,
   ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <a routerLink="/administracion/torneos" class="text-sm font-semibold text-primary">
       <mat-icon class="align-middle text-base" aria-hidden="true">arrow_back</mat-icon>
@@ -186,32 +193,50 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
               />
             </label>
 
-            <div class="grid gap-1">
-              <label class="text-sm font-medium" for="ficha-fechaInicio">Empieza</label>
-              <app-campo-fecha
-                inputId="ficha-fechaInicio"
+            <mat-form-field>
+              <mat-label>Empieza</mat-label>
+              <input
+                matInput
+                id="ficha-fechaInicio"
                 name="fechaInicio"
+                placeholder="dd-mm-aaaa"
+                autocomplete="off"
+                [matDatepicker]="calendarioFechaInicio"
                 [(ngModel)]="datos().fechaInicio"
               />
-            </div>
+              <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
+              <mat-datepicker #calendarioFechaInicio />
+            </mat-form-field>
 
-            <div class="grid gap-1">
-              <label class="text-sm font-medium" for="ficha-fechaFin">Termina</label>
-              <app-campo-fecha
-                inputId="ficha-fechaFin"
+            <mat-form-field>
+              <mat-label>Termina</mat-label>
+              <input
+                matInput
+                id="ficha-fechaFin"
                 name="fechaFin"
+                placeholder="dd-mm-aaaa"
+                autocomplete="off"
+                [matDatepicker]="calendarioFechaFin"
                 [(ngModel)]="datos().fechaFin"
               />
-            </div>
+              <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
+              <mat-datepicker #calendarioFechaFin />
+            </mat-form-field>
 
-            <div class="grid gap-1">
-              <label class="text-sm font-medium" for="ficha-cierreInscripcion">Cierra la inscripción</label>
-              <app-campo-fecha
-                inputId="ficha-cierreInscripcion"
+            <mat-form-field>
+              <mat-label>Cierra la inscripción</mat-label>
+              <input
+                matInput
+                id="ficha-cierreInscripcion"
                 name="cierreInscripcion"
+                placeholder="dd-mm-aaaa"
+                autocomplete="off"
+                [matDatepicker]="calendarioCierreInscripcion"
                 [(ngModel)]="datos().cierreInscripcion"
               />
-            </div>
+              <mat-datepicker-toggle matIconSuffix [for]="calendarioCierreInscripcion" />
+              <mat-datepicker #calendarioCierreInscripcion />
+            </mat-form-field>
 
             <label class="block">
               <span class="text-sm font-medium">Superficie</span>
@@ -397,14 +422,15 @@ export class FichaDeTorneo {
    * `linkedSignal` y no un objeto suelto: los datos llegan cuando responde el servidor,
    * así que el formulario tiene que rellenarse solo al cargar y volver a rellenarse si
    * se guarda o se cambia de torneo. Un formulario vacío obligaría a reescribir las
-   * cinco cosas para corregir una.
+   * cinco cosas para corregir una. Las fechas, como las entrega el calendario de Material,
+   * y a texto recién al guardar (A5, T244).
    */
   protected readonly datos = linkedSignal(() => ({
     nombre: this.torneo()?.nombre ?? '',
     superficie: this.torneo()?.superficie ?? '',
-    fechaInicio: this.torneo()?.fechaInicio ?? '',
-    fechaFin: this.torneo()?.fechaFin ?? '',
-    cierreInscripcion: this.torneo()?.cierreInscripcion ?? '',
+    fechaInicio: textoAFecha(this.torneo()?.fechaInicio),
+    fechaFin: textoAFecha(this.torneo()?.fechaFin),
+    cierreInscripcion: textoAFecha(this.torneo()?.cierreInscripcion),
   }));
 
   protected readonly guardado = signal(false);
@@ -420,9 +446,13 @@ export class FichaDeTorneo {
     this.guardado.set(false);
 
     await this.intentar(`guardar-${id}`, async () => {
+      const datos = this.datos();
       await this.api.editarTorneo(id, {
-        ...this.datos(),
-        superficie: this.datos().superficie || null,
+        nombre: datos.nombre,
+        fechaInicio: fechaATexto(datos.fechaInicio),
+        fechaFin: fechaATexto(datos.fechaFin),
+        cierreInscripcion: fechaATexto(datos.cierreInscripcion),
+        superficie: datos.superficie || null,
       });
       this.guardado.set(true);
     });

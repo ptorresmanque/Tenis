@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { Franja, RestriccionHoraria } from './restriccion-horaria';
+import { horaATexto, textoAHora } from '../../ui/fecha-y-hora';
+import { Franja, franjasParaLaApi, RestriccionHoraria } from './restriccion-horaria';
 
 /**
  * T65. Las franjas en que un inscrito no puede jugar.
@@ -12,6 +13,13 @@ import { Franja, RestriccionHoraria } from './restriccion-horaria';
  */
 describe('RestriccionHoraria', () => {
   let fixture: ComponentFixture<RestriccionHoraria>;
+
+  /** Una franja como la tiene el componente: las horas en `Date` (T244). */
+  const franja = (diaSemana: number, desde: string, hasta: string): Franja => ({
+    diaSemana,
+    horaDesde: textoAHora(desde),
+    horaHasta: textoAHora(hasta),
+  });
 
   const montar = async (franjas: Franja[]) => {
     TestBed.resetTestingModule();
@@ -52,10 +60,10 @@ describe('RestriccionHoraria', () => {
   it('agregar deja una franja de lunes a viernes, no del fin de semana', async () => {
     await apretar('Agregar');
 
-    const [franja] = fixture.componentInstance.franjas();
-    expect(franja.diaSemana).toBeGreaterThanOrEqual(1);
-    expect(franja.diaSemana).toBeLessThanOrEqual(5);
-    expect(franja.horaDesde < franja.horaHasta).toBe(true);
+    const [nueva] = franjasParaLaApi(fixture.componentInstance.franjas());
+    expect(nueva.diaSemana).toBeGreaterThanOrEqual(1);
+    expect(nueva.diaSemana).toBeLessThanOrEqual(5);
+    expect(nueva.horaDesde < nueva.horaHasta).toBe(true);
   });
 
   it('se pueden agregar varias, que es el caso del que trabaja', async () => {
@@ -67,14 +75,11 @@ describe('RestriccionHoraria', () => {
   });
 
   it('quitar saca la que se apretó y deja las demás', async () => {
-    await montar([
-      { diaSemana: 1, horaDesde: '09:00', horaHasta: '12:00' },
-      { diaSemana: 3, horaDesde: '18:00', horaHasta: '21:00' },
-    ]);
+    await montar([franja(1, '09:00', '12:00'), franja(3, '18:00', '21:00')]);
 
     await apretar('Quitar');
 
-    expect(fixture.componentInstance.franjas()).toEqual([
+    expect(franjasParaLaApi(fixture.componentInstance.franjas())).toEqual([
       { diaSemana: 3, horaDesde: '18:00', horaHasta: '21:00' },
     ]);
   });
@@ -82,9 +87,7 @@ describe('RestriccionHoraria', () => {
   it('**editar una franja no muta el arreglo**', async () => {
     // Con `mutate` la señal no avisa del cambio y el formulario manda al servidor lo
     // que había antes. Se comprueba por identidad, no por contenido.
-    const original: Franja[] = [
-      { diaSemana: 1, horaDesde: '09:00', horaHasta: '12:00' },
-    ];
+    const original = [franja(1, '09:00', '12:00')];
     await montar(original);
 
     // Desde T123 es el campo de Material: se busca por su nombre, no por el tipo nativo.
@@ -96,7 +99,7 @@ describe('RestriccionHoraria', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.franjas()).not.toBe(original);
-    expect(original[0].horaDesde).toBe('09:00');
+    expect(horaATexto(original[0].horaDesde)).toBe('09:00');
   });
 
   it('dice que el club no lo publica, que es lo que la gente duda', () => {

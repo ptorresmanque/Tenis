@@ -419,13 +419,61 @@ describe('El tema de Material (T239)', () => {
   });
 });
 
-describe('Campos de fecha y hora (T125)', () => {
+describe('Campos de fecha y hora (T125, T244)', () => {
+  /** Los `mat-form-field` de una plantilla, enteros: no se anidan. */
+  const camposDe = (contenido: string) => [
+    ...contenido.matchAll(/<mat-form-field\b[\s\S]*?<\/mat-form-field>/g),
+  ].map(([campo]) => campo);
+  const conSelector = /\[mat(?:Datepicker|Timepicker)\]=/;
+
+  it('**ningún `<app-campo-fecha>` ni `<app-campo-hora>`** (T244, I1)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-campo-(?:fecha|hora)\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**todo selector de fecha u hora va en un `mat-form-field` con su nombre** (T244)', () => {
+    // El nombre es la `mat-label`; en la celda de una tabla, que ya nombra su columna, va
+    // el `aria-label` del campo (la apertura de cada día en los horarios).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const campos = camposDe(contenido);
+      const sueltos = campos.reduce((resto, campo) => resto.replace(campo, ''), contenido);
+      if (conSelector.test(sueltos)) infractores.push(`${archivo}: fuera de un mat-form-field`);
+
+      for (const campo of campos.filter((c) => conSelector.test(c))) {
+        if (!/<mat-label\b|aria-label/.test(campo)) infractores.push(`${archivo}: sin nombre`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el botón del reloj dice qué hace, en español** (Material dice «Open…»)', () => {
+    // El del calendario sale en español por `TextosDelCalendario`; el del reloj no tiene un
+    // texto que se pueda cambiar para todos, así que cada uno lleva el suyo.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [boton] of contenido.matchAll(/<mat-timepicker-toggle\b[^>]*>/g)) {
+        if (!/aria-label="Elegir la hora"/.test(boton)) infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ningún label envuelve un campo de fecha u hora**: la lista quedaría en su nombre', () => {
     // Material inserta el calendario y la lista de horas junto al campo, y no al final
     // de la página. Si un <label> envuelve el campo, las 48 horas pasan a ser parte de su
-    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". La etiqueta va al lado,
-    // con `for`.
-    const envuelto = /<label\b[^>]*>(?:(?!<\/label>)[\s\S])*?<app-campo-(?:fecha|hora)\b/;
+    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". El nombre va en la
+    // `mat-label` del campo.
+    const envuelto =
+      // `</label\s*>`: Prettier deja el cierre partido en dos líneas en las casillas.
+      /<label\b[^>]*>(?:(?!<\/label\s*>)[\s\S])*?(?:<app-campo-(?:fecha|hora)\b|\[mat(?:Datepicker|Timepicker)\]=)/;
     const infractores = plantillas()
       .filter(({ contenido }) => envuelto.test(contenido))
       .map(({ archivo }) => archivo);

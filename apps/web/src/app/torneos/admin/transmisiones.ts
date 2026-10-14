@@ -1,23 +1,30 @@
 import { Component, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { CanchaAdmin } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Transmision, Torneos } from '../torneos.service';
-import { CampoFecha } from '../../ui/campo-fecha';
-import { CampoHora } from '../../ui/campo-hora';
 
-/** El formulario vacío. Función y no constante, para no compartir el objeto. */
+/**
+ * El formulario vacío. Función y no constante, para no compartir el objeto. La fecha y las
+ * horas, como las entrega Material, y a texto recién al guardar (A5, T244).
+ */
 const enBlanco = () => ({
   canchaId: 0,
   enlace: '',
-  fecha: '',
-  horaDesde: '09:00',
-  horaHasta: '19:00',
+  fecha: null as Date | null,
+  horaDesde: textoAHora('09:00'),
+  horaHasta: textoAHora('19:00'),
   titulo: '',
 });
 
@@ -31,7 +38,16 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-transmisiones-del-torneo',
-  imports: [MatButton, FormsModule, Aviso, CampoFecha, CampoHora],
+  imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+    Aviso,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -121,32 +137,50 @@ const enBlanco = () => ({
           }
         </label>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="transmision-fecha">Día</label>
-          <app-campo-fecha
-            inputId="transmision-fecha"
+        <mat-form-field>
+          <mat-label>Día</mat-label>
+          <input
+            matInput
+            id="transmision-fecha"
             name="fecha"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFecha"
             [(ngModel)]="datos.fecha"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
+          <mat-datepicker #calendarioFecha />
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="transmision-desde">Desde</label>
-          <app-campo-hora
-            inputId="transmision-desde"
+        <mat-form-field>
+          <mat-label>Desde</mat-label>
+          <input
+            matInput
+            id="transmision-desde"
             name="desde"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojDesde"
             [(ngModel)]="datos.horaDesde"
           />
-        </div>
+          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojDesde" />
+          <mat-timepicker #relojDesde />
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="transmision-hasta">Hasta</label>
-          <app-campo-hora
-            inputId="transmision-hasta"
+        <mat-form-field>
+          <mat-label>Hasta</mat-label>
+          <input
+            matInput
+            id="transmision-hasta"
             name="hasta"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojHasta"
             [(ngModel)]="datos.horaHasta"
           />
-        </div>
+          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHasta" />
+          <mat-timepicker #relojHasta />
+        </mat-form-field>
 
         <label class="block sm:col-span-2">
           <span class="text-sm font-medium">Título (opcional)</span>
@@ -236,9 +270,9 @@ export class TransmisionesDelTorneo {
       await this.api.anunciarTransmision(this.torneoId(), {
         canchaId: Number(this.datos.canchaId),
         enlace: this.datos.enlace.trim(),
-        fecha: this.datos.fecha,
-        horaDesde: this.datos.horaDesde,
-        horaHasta: this.datos.horaHasta,
+        fecha: fechaATexto(this.datos.fecha),
+        horaDesde: horaATexto(this.datos.horaDesde),
+        horaHasta: horaATexto(this.datos.horaHasta),
         titulo: this.datos.titulo.trim() || undefined,
       });
       this.datos = enBlanco();

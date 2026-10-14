@@ -20,7 +20,7 @@ import { Aviso } from '../../ui/aviso';
 import { Campo, CampoControl } from '../../ui/campo';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { recordarPagoPendiente } from './pago-pendiente';
-import { Franja, RestriccionHoraria } from './restriccion-horaria';
+import { Franja, franjasParaLaApi, RestriccionHoraria } from './restriccion-horaria';
 import { TelefonoDirective } from '../../ui/telefono';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
@@ -578,7 +578,7 @@ export class InscripcionATorneo {
       const hecha = comoSocio
         ? await this.api.inscribirseComoSocio(
             this.torneoId(),
-            { categoriaJuegoId, medioPago, restricciones: this.franjas() },
+            { categoriaJuegoId, medioPago, restricciones: franjasParaLaApi(this.franjas()) },
             comprobante,
           )
         : await this.api.inscribirseEnTorneo(
@@ -591,7 +591,7 @@ export class InscripcionATorneo {
               email,
               categoriaJuegoId,
               medioPago,
-              restricciones: this.franjas(),
+              restricciones: franjasParaLaApi(this.franjas()),
             },
             comprobante,
           );

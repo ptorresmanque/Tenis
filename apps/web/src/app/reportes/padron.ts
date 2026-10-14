@@ -1,4 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
 import {
   diaConAnioEnPalabras,
@@ -6,10 +9,11 @@ import {
   fechaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
+import { proveerCampos } from '../ui/campos';
 import { EstadoVacio } from '../ui/estado-vacio';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { DescargarCsv } from './descargar-csv';
 import { Reportes } from './reportes.service';
-import { CampoFecha } from '../ui/campo-fecha';
 
 /**
  * El padrón y la morosidad en el tiempo.
@@ -24,7 +28,8 @@ import { CampoFecha } from '../ui/campo-fecha';
  */
 @Component({
   selector: 'app-padron-panel',
-  imports: [EstadoVacio, DescargarCsv, CampoFecha],
+  imports: [MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
          es lo que se lleva. -->
@@ -39,25 +44,35 @@ import { CampoFecha } from '../ui/campo-fecha';
     </header>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-2">
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-desde">Desde</label>
-        <app-campo-fecha
-          inputId="reporte-desde"
+      <mat-form-field>
+        <mat-label>Desde</mat-label>
+        <input
+          matInput
           name="desde"
-          [valor]="desde()"
-          (valorChange)="desde.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioDesde"
+          [value]="desde()"
+          (dateChange)="desde.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+        <mat-datepicker #calendarioDesde />
+      </mat-form-field>
 
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-hasta">Hasta</label>
-        <app-campo-fecha
-          inputId="reporte-hasta"
+      <mat-form-field>
+        <mat-label>Hasta</mat-label>
+        <input
+          matInput
           name="hasta"
-          [valor]="hasta()"
-          (valorChange)="hasta.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioHasta"
+          [value]="hasta()"
+          (dateChange)="hasta.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+        <mat-datepicker #calendarioHasta />
+      </mat-form-field>
     </div>
 
     @if (reporte.error()) {
@@ -139,11 +154,11 @@ import { CampoFecha } from '../ui/campo-fecha';
 export class PadronPanel {
   private readonly api = inject(Reportes);
 
-  protected readonly desde = signal(`${hoyEnElClub().slice(0, 5)}01-01`);
-  protected readonly hasta = signal(hoyEnElClub());
+  protected readonly desde = signal(textoAFecha(`${hoyEnElClub().slice(0, 5)}01-01`));
+  protected readonly hasta = signal(textoAFecha(hoyEnElClub()));
 
   protected readonly reporte = resource({
-    params: () => ({ desde: this.desde(), hasta: this.hasta() }),
+    params: () => ({ desde: fechaATexto(this.desde()), hasta: fechaATexto(this.hasta()) }),
     loader: ({ params }) => this.api.padron(params.desde, params.hasta),
   });
 
@@ -160,7 +175,9 @@ export class PadronPanel {
     ];
   });
 
-  protected readonly urlDelCsv = computed(() => this.api.csv('padron', this.desde(), this.hasta()));
+  protected readonly urlDelCsv = computed(() =>
+    this.api.csv('padron', fechaATexto(this.desde()), fechaATexto(this.hasta())),
+  );
 
   protected readonly pesos = enPesos;
 
