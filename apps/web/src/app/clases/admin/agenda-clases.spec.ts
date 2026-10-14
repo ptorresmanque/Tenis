@@ -365,11 +365,13 @@ describe('AgendaDeClases', () => {
 
   /** T233. La clase del gimnasio: sin cancha ni nivel, grupal o individual. */
   describe('preparación física', () => {
-    /** Marca la opción de un grupo de botones de radio por su etiqueta. */
+    /**
+     * Marca la opción de un grupo de botones de radio por su etiqueta. En el radio de Material
+     * la etiqueta va al lado del input, y un clic en ella lo marca, como en el navegador (T250).
+     */
     const elegir = async (etiqueta: string) => {
       Array.from(elemento().querySelectorAll('label'))
         .find((label) => label.textContent?.trim() === etiqueta)!
-        .querySelector('input')!
         .click();
       await fixture.whenStable();
       fixture.detectChanges();

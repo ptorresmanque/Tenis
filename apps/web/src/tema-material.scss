@@ -450,8 +450,48 @@ html {
 }
 
 /* La casilla trae aire a la izquierda: su capa de estado de 40 px rodea un cuadro de 18, y el
-   cuadro quedaba 11 px corrido de los campos y del texto de su columna. Se alinea con el borde,
-   y la capa de estado sobresale hacia afuera, como la sombra de un botón. */
-.mat-mdc-checkbox {
+   cuadro quedaba 11 px corrido de los campos y del texto de su columna. La que abre su
+   contenedor se corre para calzar con el borde, y su capa de estado sobresale hacia afuera. Las
+   de en medio de una fila conservan ese aire: sin él, en los días de una serie, cada cuadro
+   quedaba tan cerca de la etiqueta anterior como de la suya (T250). */
+.mat-mdc-checkbox:first-child {
   margin-inline-start: calc((var(--mat-checkbox-state-layer-size, 40px) - 18px) / -2);
+}
+
+/* El radio, igual que la casilla: su capa de estado de 40 px rodea un círculo de 20. Se corre el
+   grupo y no cada radio: en fila, el primero calza con su columna y los demás conservan su aire;
+   en columna, calzan todos (T250). Las tarjetas no se corren: su borde es la caja. */
+.mat-mdc-radio-group:not(:has(.opcion-tarjeta)) {
+  margin-inline-start: calc((var(--mat-radio-state-layer-size, 40px) - 20px) / -2);
+}
+
+/* Una opción que se toca entera, como el medio de pago de una inscripción: el borde es la caja,
+   la etiqueta la llena para que todo su ancho sea blanco, y la elegida se marca con el borde del
+   color primario y la letra más gruesa. */
+.mat-mdc-radio-button.opcion-tarjeta {
+  display: block;
+  border: 1px solid var(--color-border);
+  padding-inline-start: 0.25rem;
+
+  .mdc-form-field {
+    display: flex;
+    width: 100%;
+  }
+
+  .mdc-label {
+    display: flex;
+    flex: 1;
+    align-self: stretch;
+    align-items: center;
+    padding-inline-end: 0.75rem;
+    cursor: pointer;
+  }
+
+  &.mat-mdc-radio-checked {
+    border-color: var(--color-primary);
+
+    .mdc-label {
+      font-weight: 600;
+    }
+  }
 }

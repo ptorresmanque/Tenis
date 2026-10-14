@@ -1560,6 +1560,17 @@ describe('Los campos son de Material (T244)', () => {
     expect(interruptor).toContain('track-outline-color: var(--color-muted-foreground)');
   });
 
+  it('**ningún radio es nativo**: son `mat-radio-group` (T250)', () => {
+    // El selector y el conmutador de tema pasan a mat-button-toggle-group en T251.
+    const enT251 = ['ui/selector.ts', 'cascarones/conmutador-de-tema.ts'];
+    const infractores = plantillas()
+      .filter(({ archivo }) => !enT251.some((pendiente) => archivo.endsWith(pendiente)))
+      .filter(({ contenido }) => /type="radio"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ninguna casilla es nativa**: son `mat-checkbox`, o `mat-slide-toggle` si guardan al tocarlas (T249)', () => {
     const infractores = plantillas()
       .filter(({ contenido }) => /type="checkbox"/.test(contenido))

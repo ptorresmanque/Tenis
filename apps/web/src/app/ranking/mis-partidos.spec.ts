@@ -162,12 +162,20 @@ describe('MisPartidos', () => {
       expect(opciones).toContain('Beto Dos · S-20');
     });
 
-    it('manda el partido con quien ganó', async () => {
-      const seleccionar = (nombre: string, valor: string) =>
-        elegirOpcion(fixture, `mat-select[name="${nombre}"]`, valor);
+    it('**«Quién ganó» son dos botones de opción**, a la vista y sin abrir nada (T250)', () => {
+      // Dos opciones opuestas no van en una lista (corrección 5 de la auditoría).
+      const opciones = Array.from(
+        elemento().querySelectorAll('mat-radio-group[name="ganador"] mat-radio-button'),
+      ).map((opcion) => opcion.textContent?.trim());
 
-      await seleccionar('rival', '10');
-      await seleccionar('ganador', 'rival');
+      expect(opciones).toEqual(['Gané yo', 'Ganó el rival']);
+      expect(elemento().querySelector('mat-select[name="ganador"]')).toBeNull();
+    });
+
+    it('manda el partido con quien ganó', async () => {
+      await elegirOpcion(fixture, 'mat-select[name="rival"]', '10');
+      elemento().querySelector<HTMLInputElement>('input[name="ganador"][value="rival"]')!.click();
+      await fixture.whenStable();
       fixture.detectChanges();
 
       await apretar(botonEn(elemento(), 'Cargar el partido'));

@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatRadioModule } from '@angular/material/radio';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -70,6 +71,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-agenda-clases',
   imports: [
+    MatRadioModule,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -253,29 +255,18 @@ const enBlanco = () => ({
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <!-- T233. Primero el tipo: la clase del gimnasio no lleva cancha ni nivel. -->
-        <fieldset class="sm:col-span-2">
-          <legend class="text-sm font-medium">Tipo de clase</legend>
-          <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-            <label class="inline-flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                class="size-5"
-                name="tipo"
-                value="TENIS"
-                [(ngModel)]="datos.tipo"
-              />Tenis</label
-            >
-            <label class="inline-flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                class="size-5"
-                name="tipo"
-                value="PREPARACION_FISICA"
-                [(ngModel)]="datos.tipo"
-              />Preparación física</label
-            >
-          </div>
-        </fieldset>
+        <div class="sm:col-span-2">
+          <span id="tipo-de-clase" class="text-sm font-medium">Tipo de clase</span>
+          <mat-radio-group
+            class="mt-1 flex flex-wrap gap-x-4"
+            name="tipo"
+            aria-labelledby="tipo-de-clase"
+            [(ngModel)]="datos.tipo"
+          >
+            <mat-radio-button value="TENIS">Tenis</mat-radio-button>
+            <mat-radio-button value="PREPARACION_FISICA">Preparación física</mat-radio-button>
+          </mat-radio-group>
+        </div>
 
         @if (datos.tipo === 'TENIS') {
           <mat-form-field>
@@ -357,29 +348,18 @@ const enBlanco = () => ({
           </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
-          <fieldset>
-            <legend class="text-sm font-medium">Modalidad</legend>
-            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-              <label class="inline-flex min-h-11 items-center gap-2">
-                <input
-                  type="radio"
-                  class="size-5"
-                  name="modalidad"
-                  value="grupal"
-                  [(ngModel)]="datos.modalidad"
-                />Grupal</label
-              >
-              <label class="inline-flex min-h-11 items-center gap-2">
-                <input
-                  type="radio"
-                  class="size-5"
-                  name="modalidad"
-                  value="individual"
-                  [(ngModel)]="datos.modalidad"
-                />Individual</label
-              >
-            </div>
-          </fieldset>
+          <div>
+            <span id="modalidad-de-clase" class="text-sm font-medium">Modalidad</span>
+            <mat-radio-group
+              class="mt-1 flex flex-wrap gap-x-4"
+              name="modalidad"
+              aria-labelledby="modalidad-de-clase"
+              [(ngModel)]="datos.modalidad"
+            >
+              <mat-radio-button value="grupal">Grupal</mat-radio-button>
+              <mat-radio-button value="individual">Individual</mat-radio-button>
+            </mat-radio-group>
+          </div>
         }
 
         @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
