@@ -79,9 +79,10 @@ const VACIA: TablaDePuntos = {
         }
       </div>
 
-      <!-- Dos columnas en el teléfono, siete en escritorio: las siete en fila no caben
-           en 375 px y obligarían a desplazar el formulario de lado. -->
-      <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+      <!-- Dos columnas en el teléfono, cuatro en escritorio y siete en una pantalla ancha: la
+           etiqueta va dentro del borde, y con el menú al lado, a 1280 px, «Treintaidosavos»
+           no cabía en un séptimo y se cortaba. -->
+      <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-7">
         @for (fila of FILAS; track fila.clave) {
           <mat-form-field>
             <mat-label>{{ fila.etiqueta }}</mat-label>
