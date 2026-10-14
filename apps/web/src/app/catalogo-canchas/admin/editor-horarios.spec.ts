@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas, CanchaAdmin } from './admin-canchas.service';
 import { EditorHorarios } from './editor-horarios';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T13. El horario de apertura es lo que decide qué bloques existen: un día que se
@@ -136,6 +137,6 @@ describe('EditorHorarios', () => {
   it('confirma cuando el horario quedó guardado', async () => {
     await guardar();
 
-    expect(elemento().textContent).toContain('Horario guardado');
+    expect(avisoDeLoHecho()).toContain('Horario guardado');
   });
 });

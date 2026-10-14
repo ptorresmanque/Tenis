@@ -1,11 +1,13 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Esqueleto } from '../../ui/esqueleto';
 import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * Qué duraciones toma el socio en horario prime (T213, `SPEC-reservas.md` § Duración del
@@ -60,8 +62,6 @@ import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
           <p role="status" aria-live="polite" class="mt-2 text-sm">
             @if (error()) {
               <span class="text-destructive">{{ error() }}</span>
-            } @else if (aviso()) {
-              <span class="text-accent-strong">{{ aviso() }}</span>
             }
           </p>
         </form>
@@ -70,6 +70,7 @@ import { AdminCanchas, DuracionesSocioPico } from './admin-canchas.service';
   `,
 })
 export class EditorPrime {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
 
   protected readonly OPCIONES: { valor: DuracionesSocioPico; etiqueta: string }[] = [
@@ -80,7 +81,6 @@ export class EditorPrime {
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   protected readonly configuracion = resource({
     loader: () => this.api.configuracion(),
@@ -98,12 +98,11 @@ export class EditorPrime {
 
   protected async guardar(): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.guardando.set(true);
 
     try {
       await this.api.fijarConfiguracion({ duracionesSocioPico: this.elegida() });
-      this.aviso.set('Guardado. Rige desde la próxima reserva.');
+      this.snackBar.open('Guardado. Rige desde la próxima reserva.', undefined, LO_HECHO);
       this.configuracion.reload();
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla));

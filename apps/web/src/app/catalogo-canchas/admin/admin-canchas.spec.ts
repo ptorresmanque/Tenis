@@ -5,6 +5,7 @@ import { elegidoEn, textosDe } from '../../testing/elegir';
 import { AdminCanchasPanel } from './admin-canchas';
 import { AdminCanchas, Advertencia, CanchaAdmin } from './admin-canchas.service';
 import { responder, textoDelDialogo } from '../../testing/dialogos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T13. El panel del club. Lo que se prueba acá es lo que el admin decide mirando:
@@ -173,7 +174,7 @@ describe('AdminCanchasPanel', () => {
     fixture.detectChanges();
 
     expect(api.editar).toHaveBeenCalledWith(1, { activa: false });
-    expect(texto()).toContain('Sus reservas siguen ahí');
+    expect(avisoDeLoHecho()).toContain('Sus reservas siguen ahí');
   });
 
   describe('eliminación (T29)', () => {

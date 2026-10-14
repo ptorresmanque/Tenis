@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -20,6 +21,7 @@ import {
 import { Esqueleto } from '../../ui/esqueleto';
 import { EditorPrime } from './editor-prime';
 import { EditorTopeDeLuz } from './editor-tope-de-luz';
+import { LO_HECHO } from '../../ui/material';
 
 interface Regla {
   campo: keyof ReglasDelClub;
@@ -192,8 +194,6 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
           <p role="status" aria-live="polite" class="mt-2 text-sm">
             @if (error()) {
               <span class="text-destructive">{{ error() }}</span>
-            } @else if (aviso()) {
-              <span class="text-accent-strong">{{ aviso() }}</span>
             }
           </p>
         </form>
@@ -206,13 +206,13 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
   `,
 })
 export class EditorConfiguracion {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
 
   protected readonly grupos = GRUPOS;
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   protected readonly reglas = resource({
     loader: () => this.api.configuracion(),
@@ -265,18 +265,20 @@ export class EditorConfiguracion {
       // Se ataja acá y no en el viaje de ida: el servidor respondería 400, pero
       // "tiene que ser un número entero" a la vuelta explica menos que decirlo
       // ahora, con el campo vacío a la vista.
-      this.aviso.set(null);
       this.error.set('Completa todas las reglas: ninguna puede quedar vacía.');
       return;
     }
 
     this.error.set(null);
-    this.aviso.set(null);
     this.guardando.set(true);
 
     try {
       await this.api.fijarConfiguracion(completas);
-      this.aviso.set('Guardado. Las reglas rigen desde ahora; las cuotas, desde la próxima.');
+      this.snackBar.open(
+        'Guardado. Las reglas rigen desde ahora; las cuotas, desde la próxima.',
+        undefined,
+        LO_HECHO,
+      );
       // Se relee del servidor en vez de creerle al formulario: lo que queda en pantalla
       // es lo que quedó guardado de verdad.
       this.reglas.reload();

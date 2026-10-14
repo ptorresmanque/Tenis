@@ -8,6 +8,7 @@ import {
   HoraAfectada,
 } from './admin-canchas.service';
 import { EditorBloqueos } from './editor-bloqueos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T14 y T36. Cerrar una cancha por mantención. El rango se escribe en hora del club
@@ -186,7 +187,7 @@ describe('EditorBloqueos', () => {
     fixture.detectChanges();
 
     expect(api.cerrar).toHaveBeenCalled();
-    expect(elemento().textContent).toContain('Avisamos a la persona');
+    expect(avisoDeLoHecho()).toContain('Avisamos a la persona');
   });
 
   it('"Mejor no" deja todo como estaba', async () => {

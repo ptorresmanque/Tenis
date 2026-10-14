@@ -2,6 +2,7 @@ import { Component, inject, linkedSignal, resource, signal } from '@angular/core
 import { FormsModule } from '@angular/forms';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
@@ -12,6 +13,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Esqueleto } from '../../ui/esqueleto';
 import { diaEnPalabras, fechaEnElClub, horaEnElClub } from '../reloj-del-club';
 import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * El tope de canchas con luz, en Reglas (T208).
@@ -112,8 +114,6 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
           <p role="status" aria-live="polite" class="mt-2 text-sm">
             @if (error()) {
               <span class="text-destructive">{{ error() }}</span>
-            } @else if (aviso()) {
-              <span class="text-accent-strong">{{ aviso() }}</span>
             }
           </p>
         </form>
@@ -146,11 +146,11 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
   `,
 })
 export class EditorTopeDeLuz {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   protected readonly configuracion = resource({
     loader: () => this.api.configuracion(),
@@ -186,13 +186,11 @@ export class EditorTopeDeLuz {
     // Se ataja acá: un número vacío viajaría como nulo, que para el servidor es apagar el
     // tope, y el admin que solo borró el campo no quiso eso.
     if (this.limitar() && !(Number.isInteger(canchas) && (canchas ?? 0) >= 1)) {
-      this.aviso.set(null);
       this.error.set('El tope tiene que ser de 1 cancha o más.');
       return;
     }
 
     this.error.set(null);
-    this.aviso.set(null);
     this.guardando.set(true);
 
     try {
@@ -200,7 +198,7 @@ export class EditorTopeDeLuz {
         topeCanchasConLuz: this.limitar() ? canchas : null,
         topeCanchasConLuzDesde: horaATexto(this.desde()),
       });
-      this.aviso.set('Guardado. El tope rige desde la próxima reserva.');
+      this.snackBar.open('Guardado. El tope rige desde la próxima reserva.', undefined, LO_HECHO);
       this.configuracion.reload();
       this.excesos.reload();
     } catch (falla) {

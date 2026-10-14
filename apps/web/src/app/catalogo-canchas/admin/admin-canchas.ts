@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -31,6 +32,7 @@ import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
 import { ReglasGeneralesPanel } from './reglas-generales';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 const DIAS = [
   'Domingo',
@@ -174,8 +176,6 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
       <p role="status" aria-live="polite" class="mt-2 text-sm">
         @if (error()) {
           <span class="text-destructive">{{ error() }}</span>
-        } @else if (aviso()) {
-          <span class="text-accent-strong">{{ aviso() }}</span>
         }
       </p>
     </section>
@@ -392,6 +392,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 })
 export class AdminCanchasPanel {
   private readonly dialogos = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
 
   /** Las opciones del `select`, en el orden en que están escritas en la tabla. */
@@ -400,7 +401,6 @@ export class AdminCanchasPanel {
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   /** La cancha cuya ficha está abierta. Una a la vez: se viene a corregir una. */
   protected readonly editando = signal<number | null>(null);
@@ -436,7 +436,6 @@ export class AdminCanchasPanel {
 
   protected async crear(): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
 
     if (!this.nueva.nombre.trim()) {
       this.error.set('Ponle un nombre a la cancha.');
@@ -446,7 +445,7 @@ export class AdminCanchasPanel {
     this.guardando.set(true);
     try {
       const creada = await this.api.crear({ ...this.nueva });
-      this.aviso.set(`${creada.nombre} ya está en la grilla.`);
+      this.snackBar.open(`${creada.nombre} ya está en la grilla.`, undefined, LO_HECHO);
       Object.assign(this.nueva, CANCHA_EN_BLANCO);
       this.recargar();
     } catch (falla) {
@@ -458,14 +457,15 @@ export class AdminCanchasPanel {
 
   protected async alternarActiva(cancha: CanchaAdmin): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
 
     try {
       await this.api.editar(cancha.id, { activa: !cancha.activa });
-      this.aviso.set(
+      this.snackBar.open(
         cancha.activa
           ? `${cancha.nombre} salió de la grilla pública. Sus reservas siguen ahí.`
           : `${cancha.nombre} volvió a la grilla.`,
+        undefined,
+        LO_HECHO,
       );
       this.recargar();
     } catch (falla) {
@@ -484,14 +484,15 @@ export class AdminCanchasPanel {
    */
   protected async alternarCamara(cancha: CanchaAdmin): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
 
     try {
       await this.api.editar(cancha.id, { tieneCamara: !cancha.tieneCamara });
-      this.aviso.set(
+      this.snackBar.open(
         cancha.tieneCamara
           ? `${cancha.nombre} ya no se puede transmitir.`
           : `${cancha.nombre} queda disponible para transmitir.`,
+        undefined,
+        LO_HECHO,
       );
       this.recargar();
     } catch (falla) {
@@ -523,7 +524,6 @@ export class AdminCanchasPanel {
    */
   protected async guardarFicha(cancha: CanchaAdmin): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.errorFicha.set(null);
 
     const nombre = this.ficha.nombre.trim();
@@ -535,10 +535,12 @@ export class AdminCanchasPanel {
     this.guardando.set(true);
     try {
       await this.api.editar(cancha.id, { ...this.ficha, nombre });
-      this.aviso.set(
+      this.snackBar.open(
         nombre === cancha.nombre
           ? `Se guardó la ficha de ${nombre}.`
           : `${cancha.nombre} ahora se llama ${nombre}.`,
+        undefined,
+        LO_HECHO,
       );
       this.cerrarFicha(cancha.id);
       this.recargar();
@@ -562,7 +564,6 @@ export class AdminCanchasPanel {
    */
   protected async eliminar(cancha: CanchaAdmin): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
 
     const si = await confirmar(this.dialogos, {
       titulo: `¿Eliminar ${cancha.nombre}?`,
@@ -574,7 +575,7 @@ export class AdminCanchasPanel {
 
     try {
       await this.api.eliminar(cancha.id);
-      this.aviso.set(`${cancha.nombre} ya no está en el club.`);
+      this.snackBar.open(`${cancha.nombre} ya no está en el club.`, undefined, LO_HECHO);
       this.recargar();
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla));

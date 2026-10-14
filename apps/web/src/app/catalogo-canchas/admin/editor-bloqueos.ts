@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -36,6 +37,7 @@ import {
   MotivoBloqueo,
 } from './admin-canchas.service';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 const MOTIVOS: { valor: MotivoBloqueo; etiqueta: string }[] = [
   { valor: 'MANTENCION', etiqueta: 'Mantención' },
@@ -235,9 +237,6 @@ function enBlanco(): Formulario {
         @if (error()) {
           <span class="text-destructive">{{ error() }}</span>
         }
-        @if (aviso()) {
-          <span class="text-accent-strong">{{ aviso() }}</span>
-        }
       </span>
     </form>
 
@@ -304,6 +303,7 @@ function enBlanco(): Formulario {
   `,
 })
 export class EditorBloqueos {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
 
   readonly cancha = input.required<CanchaAdmin>();
@@ -312,7 +312,6 @@ export class EditorBloqueos {
   protected readonly nueva: Formulario = enBlanco();
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   /** Las horas que el cierre se llevaría, mientras el admin decide. */
   protected readonly porConfirmar = signal<HoraAfectada[] | null>(null);
@@ -359,7 +358,6 @@ export class EditorBloqueos {
    */
   protected async crear(): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.guardando.set(true);
 
     try {
@@ -401,10 +399,12 @@ export class EditorBloqueos {
     this.version.update((v) => v + 1);
 
     if (canceladas.length > 0) {
-      this.aviso.set(
+      this.snackBar.open(
         canceladas.length === 1
           ? 'Cancha cerrada. Avisamos a la persona que tenía esa hora.'
           : `Cancha cerrada. Avisamos a las ${canceladas.length} personas afectadas.`,
+        undefined,
+        LO_HECHO,
       );
     }
   }

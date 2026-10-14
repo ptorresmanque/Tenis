@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas, ReglasDelClub } from './admin-canchas.service';
 import { EditorConfiguracion } from './editor-configuracion';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T30. Las reglas del club. Hasta acá el panel las nombraba —"vale el general del
@@ -112,6 +113,7 @@ describe('EditorConfiguracion', () => {
     expect(api.fijarConfiguracion).toHaveBeenCalledWith(
       expect.objectContaining({ invitadosPorMes: 6 }),
     );
+    expect(avisoDeLoHecho()).toContain('Las reglas rigen desde ahora');
   });
 
   it('**los cupos dicen "reservas", no "horas"** (T84)', () => {
