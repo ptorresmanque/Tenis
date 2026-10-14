@@ -141,9 +141,11 @@ const LARGO_HORARIO = 120;
       @if (lugar() === 'GIMNASIO') {
         <!-- El tope de una clase grupal de preparación física (T231): el servidor rechaza
              una más grande. La individual es de un alumno y no lo usa. -->
-        <mat-form-field>
+        <!-- El ancho en el campo y no en el input: el campo es de bloque y llenaría la fila. -->
+        <mat-form-field class="w-56">
           <mat-label>Cupo de una clase grupal</mat-label>
-          <input matInput class="w-28"
+          <input
+            matInput
             type="number"
             name="cupoGrupal"
             min="2"

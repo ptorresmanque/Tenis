@@ -423,6 +423,7 @@ html {
    Material, que `styles.css` repite en `@layer components`. Con `html` delante, porque los
    estilos del campo llegan después y ganarían el empate. */
 html .mat-mdc-form-field {
+  display: revert-layer;
   min-width: revert-layer;
 }
 

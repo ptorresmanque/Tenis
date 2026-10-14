@@ -1534,7 +1534,15 @@ describe('Los campos son de Material (T244)', () => {
     // Material le pone `min-width: 0` al campo, sin capa, y le ganaba a cualquier `min-w-*`: el
     // buscador de socios, con `min-w-64`, quedaba de 21 px en el teléfono.
     expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*min-width: revert-layer/);
-    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{\s*min-width: 0;/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{[^}]*min-width: 0;/);
+  });
+
+  it('**un campo ocupa el ancho de su formulario**, como `.campo`: es de bloque y no en línea', () => {
+    // `.campo` llevaba width: 100%. Material deja el campo en inline-flex y mide lo que su
+    // contenido: en la reserva del sitio, el nombre medía 212 de 335 px. De bloque, llena el
+    // formulario, y en una fila flex o en una grilla no cambia nada.
+    expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*display: revert-layer/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{[^}]*display: flex;/);
   });
 
   it('**la manilla del interruptor se ve**: no usa el borde claro del sitio (T249)', () => {

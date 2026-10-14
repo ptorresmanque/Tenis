@@ -970,8 +970,11 @@ body:has(app-barra-fija) app-volver-arriba {
   }
 
   /* El `min-width: 0` del campo de Material, en esta capa: el tema le quita el suyo, que llega
-     sin capa, para que un `min-w-*` de la plantilla le gane (ver `tema-material.scss`). */
+     sin capa, para que un `min-w-*` de la plantilla le gane (ver `tema-material.scss`).
+     De bloque y no en línea, como `.campo`, que llevaba width: 100%: en un formulario ocupa
+     todo el ancho, y en una fila flex o en una grilla no cambia nada. */
   .mat-mdc-form-field {
+    display: flex;
     min-width: 0;
   }
 
