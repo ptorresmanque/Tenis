@@ -118,8 +118,12 @@ export function textoAFecha(texto: string | null | undefined): Date | null {
   return partes ? new Date(+partes[1], +partes[2] - 1, +partes[3]) : null;
 }
 
-/** El día de un `Date`, como lo usan los formularios: `AAAA-MM-DD`. */
-export function fechaATexto(fecha: Date): string {
+/**
+ * El día de un `Date`, como lo espera la API: `AAAA-MM-DD`. Vacío si el campo quedó vacío
+ * (nulo) o con una fecha que no existe (inválida), como los campos de antes (T244).
+ */
+export function fechaATexto(fecha: Date | null): string {
+  if (!esValida(fecha)) return '';
   const dos = (n: number) => String(n).padStart(2, '0');
   return `${fecha.getFullYear()}-${dos(fecha.getMonth() + 1)}-${dos(fecha.getDate())}`;
 }
@@ -135,8 +139,13 @@ export function textoAHora(texto: string | null | undefined): Date | null {
   return partes ? new Date(2000, 0, 1, +partes[1], +partes[2]) : null;
 }
 
-/** La hora de un `Date`, como la usan los formularios: `HH:mm`. */
-export function horaATexto(hora: Date): string {
+/** La hora de un `Date`, como la espera la API: `HH:mm`; vacía si no hay una válida. */
+export function horaATexto(hora: Date | null): string {
+  if (!esValida(hora)) return '';
   const dos = (n: number) => String(n).padStart(2, '0');
   return `${dos(hora.getHours())}:${dos(hora.getMinutes())}`;
+}
+
+function esValida(fecha: Date | null): fecha is Date {
+  return fecha !== null && !Number.isNaN(fecha.getTime());
 }

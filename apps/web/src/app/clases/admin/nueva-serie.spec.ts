@@ -1,4 +1,8 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDatepickerInputHarness } from '@angular/material/datepicker/testing';
+import { MatFormFieldHarness } from '@angular/material/form-field/testing';
+import { MatTimepickerInputHarness } from '@angular/material/timepicker/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
@@ -130,6 +134,20 @@ describe('NuevaSerie', () => {
     agendadas = [];
     fixture.componentInstance.agendada.subscribe((mensaje) => agendadas.push(mensaje));
     await esperar();
+  });
+
+  it('**las horas y las fechas son campos de Material**, con su etiqueta (T244)', async () => {
+    await marcar('Martes');
+    const raiz = TestbedHarnessEnvironment.loader(fixture);
+    const etiquetas = await Promise.all(
+      (await raiz.getAllHarnesses(MatFormFieldHarness)).map((campo) => campo.getLabel()),
+    );
+
+    expect(etiquetas).toEqual(
+      expect.arrayContaining(['Desde', 'Hasta', 'Primera fecha', 'Última fecha']),
+    );
+    expect(await raiz.getAllHarnesses(MatTimepickerInputHarness)).toHaveLength(2);
+    expect(await raiz.getAllHarnesses(MatDatepickerInputHarness)).toHaveLength(2);
   });
 
   it('**revisar manda la serie con los días marcados y muestra cada fecha**', async () => {

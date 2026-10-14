@@ -1433,6 +1433,30 @@ describe('El hero se mueve (T148)', () => {
 });
 
 /**
+ * T244. Los campos de Material, con la cara del sitio y sin cargar el arranque.
+ */
+describe('Los campos son de Material (T244)', () => {
+  it('**todo componente con campos provee `proveerCampos()`**: contorno y etiqueta arriba', () => {
+    // Las opciones de los campos no van en la aplicación: con su token viajaría el campo de
+    // Material entero en el arranque (62 kB). Sin el proveedor, el campo saldría relleno y con
+    // la etiqueta adentro, distinto de todos los demás.
+    const infractores = plantillas()
+      .filter(({ contenido }) => contenido.includes('<mat-form-field'))
+      .filter(({ contenido }) => !/providers:\s*\[[^\]]*proveerCampos\(\)/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el arranque no importa el campo de Material** (I6)', () => {
+    for (const archivo of ['src/app/app.config.ts', 'src/app/ui/material.ts']) {
+      const fuente = readFileSync(join(process.cwd(), archivo), 'utf8');
+      expect(fuente, archivo).not.toContain('@angular/material/form-field');
+    }
+  });
+});
+
+/**
  * T241–T243. Los botones son `matButton`: `.boton` se fue de `styles.css` en T243.
  */
 describe('Los botones son de Material (T241–T243)', () => {

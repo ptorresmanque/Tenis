@@ -322,3 +322,48 @@ html .mdc-button.mat-mdc-button-base:not(.mat-calendar-period-button) {
   text-transform: none;
   animation: girar var(--duracion-giro) linear infinite;
 }
+
+/*
+  LOS CAMPOS, CON LA CARA DE `.campo` (T244).
+
+  50 px de alto (12 de relleno arriba y abajo, la línea de 24 y el borde), la letra de 16 —con
+  menos, Safari en iPhone hace zoom al enfocar—, el borde de 1 px del color de los bordes del
+  sitio y el radio del control. Al enfocar, el borde toma el primario y no engorda: como
+  `.campo:focus`. Las capas de estado quedan en cero, como en los botones.
+*/
+html {
+  @include mat.form-field-overrides(
+    (
+      container-height: 50px,
+      container-vertical-padding: 12px,
+      container-text-font: var(--font-sans),
+      container-text-size: 1rem,
+      container-text-line-height: 1.5rem,
+      outlined-container-shape: var(--radius-control),
+      outlined-outline-width: 1px,
+      outlined-focus-outline-width: 1px,
+      outlined-outline-color: var(--color-border),
+      outlined-hover-outline-color: var(--color-border),
+      outlined-focus-outline-color: var(--color-primary),
+      outlined-label-text-font: var(--font-sans),
+      // La etiqueta, siempre arriba, se ve en 14 y en 500, como la de arriba del `.campo`.
+      // Material la achica a 0,75 al subirla al borde: el token va dividido por eso.
+      outlined-label-text-populated-size: calc(0.875rem / 0.75),
+      outlined-label-text-weight: 500,
+      outlined-label-text-color: var(--color-foreground),
+      outlined-focus-label-text-color: var(--color-primary),
+      outlined-input-text-color: var(--color-foreground),
+      outlined-input-text-placeholder-color: var(--color-muted-foreground),
+      subscript-text-font: var(--font-sans),
+      hover-state-layer-opacity: 0,
+      focus-state-layer-opacity: 0,
+    )
+  );
+}
+
+/* El fondo de tarjeta de `.campo`: el contorno de Material es transparente, y sobre el fondo
+   gris del panel el campo se perdía. */
+.mat-form-field-appearance-outline .mat-mdc-text-field-wrapper {
+  border-radius: var(--radius-control);
+  background-color: var(--color-card);
+}
