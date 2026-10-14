@@ -1,4 +1,5 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatRadioModule } from '@angular/material/radio';
 import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -28,6 +29,7 @@ import { Esqueleto } from '../ui/esqueleto';
 @Component({
   selector: 'app-mis-partidos',
   imports: [
+    MatRadioModule,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -69,19 +71,21 @@ import { Esqueleto } from '../ui/esqueleto';
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field>
-          <mat-label>Quién ganó</mat-label>
-          <!-- «Quién ganó» pasa a botones de opción en T250 (corrección 5 de la auditoría).
-               mat-guidelines-ignore: select-pocas-opciones -->
-          <mat-select
+        <!-- Dos opciones opuestas, a la vista: botones de opción y no una lista (T250,
+             corrección 5 de la auditoría). -->
+        <div>
+          <span id="quien-gano" class="text-sm font-medium">Quién ganó</span>
+          <mat-radio-group
+            class="mt-1 flex flex-wrap gap-x-4"
             name="ganador"
+            aria-labelledby="quien-gano"
             [value]="ganador()"
-            (selectionChange)="ganador.set($event.value === 'rival' ? 'rival' : 'yo')"
+            (change)="ganador.set($event.value === 'rival' ? 'rival' : 'yo')"
           >
-            <mat-option value="yo">Gané yo</mat-option>
-            <mat-option value="rival">Ganó el rival</mat-option>
-          </mat-select>
-        </mat-form-field>
+            <mat-radio-button value="yo">Gané yo</mat-radio-button>
+            <mat-radio-button value="rival">Ganó el rival</mat-radio-button>
+          </mat-radio-group>
+        </div>
 
         <mat-form-field class="w-48">
           <mat-label>Cuándo</mat-label>

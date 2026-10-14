@@ -14,9 +14,9 @@ import { UsuariosPanel } from './usuarios';
  * T223. La lista de usuarios del panel, que reemplaza a Administradores
  * (`SPEC-identidad.md` § Tipos de usuario, criterios 25–27).
  *
- * Lo que este archivo cuida: que la búsqueda la haga el servidor, que las casillas de
- * admin y gestor guarden al tiro, y que una regla del admin rechazada se lea y deje la
- * casilla como estaba.
+ * Lo que este archivo cuida: que la búsqueda la haga el servidor, que los interruptores de
+ * admin y gestor guarden al tiro, y que una regla del admin rechazada se lea y deje el
+ * interruptor como estaba.
  */
 describe('UsuariosPanel', () => {
   const YO: UsuarioActual = {
@@ -82,8 +82,14 @@ describe('UsuariosPanel', () => {
     await fixture.whenStable();
     fixture.detectChanges();
   };
-  const casilla = (tipo: 'admin' | 'gestor', id: number) =>
-    el().querySelector<HTMLInputElement>(`input[name="${tipo}-${id}"]`)!;
+  /**
+   * Admin y Gestor guardan al tocarlos: son interruptores y no casillas (T249, corrección 1 de
+   * la auditoría). Un interruptor de Material es un botón con `role="switch"`.
+   */
+  const interruptor = (tipo: 'admin' | 'gestor', id: number) =>
+    el().querySelector<HTMLButtonElement>(`button[role="switch"][name="${tipo}-${id}"]`)!;
+  const prendido = (tipo: 'admin' | 'gestor', id: number) =>
+    interruptor(tipo, id).getAttribute('aria-checked') === 'true';
 
   const montar = async (usuarios = LISTA, total = usuarios.length) => {
     api = {
@@ -127,9 +133,9 @@ describe('UsuariosPanel', () => {
     expect(texto()).toContain('camila@ejemplo.cl');
     expect(texto()).toContain('Socio N° 001');
     expect(texto()).toContain('Profesor');
-    expect(casilla('admin', 1).checked).toBe(true);
-    expect(casilla('gestor', 3).checked).toBe(true);
-    expect(casilla('gestor', 2).checked).toBe(false);
+    expect(prendido('admin', 1)).toBe(true);
+    expect(prendido('gestor', 3)).toBe(true);
+    expect(prendido('gestor', 2)).toBe(false);
   });
 
   it('la búsqueda la hace el servidor, desde la primera página', async () => {
@@ -142,8 +148,8 @@ describe('UsuariosPanel', () => {
     expect(api.listar).toHaveBeenLastCalledWith('ana', 1);
   });
 
-  it('marcar gestor guarda al tiro y vuelve a pedir la lista', async () => {
-    casilla('gestor', 2).click();
+  it('prender gestor guarda al tiro y vuelve a pedir la lista', async () => {
+    interruptor('gestor', 2).click();
     await esperar();
 
     expect(api.cambiar).toHaveBeenCalledWith(2, { esGestor: true });
@@ -152,22 +158,22 @@ describe('UsuariosPanel', () => {
   });
 
   it('a uno mismo no le ofrece quitarse el admin: el servidor tampoco lo deja (27)', () => {
-    expect(casilla('admin', 1).disabled).toBe(true);
-    expect(casilla('admin', 2).disabled).toBe(false);
+    expect(interruptor('admin', 1).disabled).toBe(true);
+    expect(interruptor('admin', 2).disabled).toBe(false);
   });
 
-  it('si el servidor rechaza, dice su mensaje y la casilla vuelve a como estaba (27)', async () => {
+  it('si el servidor rechaza, dice su mensaje y el interruptor vuelve a como estaba (27)', async () => {
     api.cambiar.mockRejectedValue({
       status: 409,
       error: { message: 'Es la última persona con acceso al panel.' },
     });
 
-    casilla('admin', 2).click();
+    interruptor('admin', 2).click();
     await esperar();
 
     expect(texto()).toContain('Es la última persona con acceso al panel.');
     expect(api.listar).toHaveBeenCalledTimes(2);
-    expect(casilla('admin', 2).checked).toBe(false);
+    expect(prendido('admin', 2)).toBe(false);
   });
 
   it('de a 50: dice cuántos son y pasa de página', async () => {

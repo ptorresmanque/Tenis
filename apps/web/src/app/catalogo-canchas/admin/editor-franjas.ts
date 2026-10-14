@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -45,6 +46,7 @@ const EN_BLANCO: FranjaNueva = {
 @Component({
   selector: 'app-editor-franjas',
   imports: [
+    MatCheckbox,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -188,14 +190,9 @@ const EN_BLANCO: FranjaNueva = {
         />
       </mat-form-field>
 
-      <label class="flex items-center gap-2 py-1">
-        <input
-          type="checkbox"
-          [name]="'franja-prime-' + clave()"
-          [(ngModel)]="nueva.esPico"
-        />
+      <mat-checkbox class="block" [name]="'franja-prime-' + clave()" [(ngModel)]="nueva.esPico">
         Hora prime
-      </label>
+      </mat-checkbox>
 
       <button
         matButton="outlined"

@@ -432,3 +432,175 @@ html .mat-mdc-form-field {
 .mat-mdc-form-field {
   overflow-x: clip;
 }
+
+/*
+  LAS CASILLAS Y LOS INTERRUPTORES (T249).
+
+  El interruptor apagado pinta su manilla y el borde de su pista con `outline`, que acá es el borde
+  claro de los campos: sobre la pista gris, la manilla no se veía. Van con el gris del texto
+  secundario, que contrasta con la pista. Las esquinas quedan de 2 px, como todo el sitio (TV2).
+*/
+html {
+  @include mat.slide-toggle-overrides(
+    (
+      unselected-handle-color: var(--color-muted-foreground),
+      track-outline-color: var(--color-muted-foreground),
+    )
+  );
+}
+
+/* La casilla trae aire a la izquierda: su capa de estado de 40 px rodea un cuadro de 18, y el
+   cuadro quedaba 11 px corrido de los campos y del texto de su columna. La que abre su
+   contenedor se corre para calzar con el borde, y su capa de estado sobresale hacia afuera. Las
+   de en medio de una fila conservan ese aire: sin él, en los días de una serie, cada cuadro
+   quedaba tan cerca de la etiqueta anterior como de la suya (T250). */
+.mat-mdc-checkbox:first-child {
+  margin-inline-start: calc((var(--mat-checkbox-state-layer-size, 40px) - 18px) / -2);
+}
+
+/* El radio, igual que la casilla: su capa de estado de 40 px rodea un círculo de 20. Se corre el
+   grupo y no cada radio: en fila, el primero calza con su columna y los demás conservan su aire;
+   en columna, calzan todos (T250). Las tarjetas no se corren: su borde es la caja. */
+.mat-mdc-radio-group:not(:has(.opcion-tarjeta)) {
+  margin-inline-start: calc((var(--mat-radio-state-layer-size, 40px) - 20px) / -2);
+}
+
+/* Una opción que se toca entera, como el medio de pago de una inscripción: el borde es la caja,
+   la etiqueta la llena para que todo su ancho sea blanco, y la elegida se marca con el borde del
+   color primario y la letra más gruesa. */
+.mat-mdc-radio-button.opcion-tarjeta {
+  display: block;
+  border: 1px solid var(--color-border);
+  padding-inline-start: 0.25rem;
+
+  .mdc-form-field {
+    display: flex;
+    width: 100%;
+  }
+
+  .mdc-label {
+    display: flex;
+    flex: 1;
+    align-self: stretch;
+    align-items: center;
+    padding-inline-end: 0.75rem;
+    cursor: pointer;
+  }
+
+  &.mat-mdc-radio-checked {
+    border-color: var(--color-primary);
+
+    .mdc-label {
+      font-weight: 600;
+    }
+  }
+}
+
+/*
+  LOS GRUPOS DE OPCIONES, CON LA CARA DE `app-selector` (T251).
+
+  `mat-button-toggle-group` reemplaza al selector propio y a los filtros que eran botones que
+  cambiaban de apariencia. Por omisión es el control segmentado de los filtros: una placa gris
+  con las opciones adentro, y la elegida con el rótulo, la placa de la transmisión (TV2.3).
+  Cada grupo lleva `hideSingleSelectionIndicator`: el rótulo ya marca la elegida. Con la clase
+  `chips` es la tira de días de la disponibilidad, y con `iconos`, el conmutador de tema.
+
+  Con `html` delante: los estilos del grupo llegan después y ganarían el empate.
+*/
+html {
+  @include mat.button-toggle-overrides(
+    (
+      shape: var(--radius-lg),
+      height: 2rem,
+      background-color: transparent,
+      text-color: var(--color-muted-foreground),
+      selected-state-background-color: var(--color-rotulo),
+      selected-state-text-color: var(--color-on-rotulo),
+      divider-color: transparent,
+      label-text-font: var(--font-display),
+      label-text-size: 0.875rem,
+      label-text-weight: 700,
+      label-text-tracking: normal,
+      hover-state-layer-opacity: 0,
+      focus-state-layer-opacity: 0,
+    )
+  );
+}
+
+/* La placa: las opciones van adentro, separadas, y el anillo de foco cabe en el relleno. Si no
+   caben, la placa se desplaza de lado, como el selector de antes: Material recorta lo que se
+   sale, y en un teléfono la séptima cancha de la barra quedaba oculta y sin poder tocarse. */
+html .mat-button-toggle-group-appearance-standard {
+  max-width: 100%;
+  overflow-x: auto;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 0;
+  background-color: var(--color-muted);
+}
+
+html .mat-button-toggle-group-appearance-standard .mat-button-toggle {
+  border-radius: var(--radius-md);
+  transition: color 150ms, background-color 150ms;
+}
+
+/* La tira de días: cada día es una ficha con el nombre arriba y el número abajo, y la tira se
+   desplaza de lado dentro de su contenedor (`overflow-x-auto` en la plantilla). */
+html .mat-button-toggle-group.chips {
+  --mat-button-toggle-label-text-size: 0.75rem;
+  --mat-button-toggle-label-text-tracking: var(--tracking-wider);
+
+  display: flex;
+  width: max-content;
+  gap: 0.5rem;
+  padding: 0 0 0.25rem;
+  overflow: visible;
+  background-color: transparent;
+
+  .mat-button-toggle {
+    min-width: 4rem;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-card);
+  }
+
+  .mat-button-toggle-checked {
+    border-color: var(--color-rotulo);
+    background-color: var(--color-rotulo);
+  }
+
+  .mat-button-toggle-label-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.5rem 0.75rem;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+}
+
+/* El conmutador de tema: tres íconos en una placa más chica, y el elegido sobre la tarjeta y
+   con el color primario, como antes de T251. */
+html .mat-button-toggle-group.iconos {
+  --mat-button-toggle-selected-state-background-color: var(--color-card);
+  --mat-button-toggle-selected-state-text-color: var(--color-primary);
+
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: var(--radius-control);
+
+  .mat-button-toggle {
+    border-radius: var(--radius-control);
+  }
+
+  .mat-button-toggle-label-content {
+    display: flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+}

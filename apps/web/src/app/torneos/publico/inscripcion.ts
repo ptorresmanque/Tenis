@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatRadioModule } from '@angular/material/radio';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -53,6 +54,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-inscripcion-a-torneo',
   imports: [
+    MatRadioModule,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -208,7 +210,10 @@ const enBlanco = () => ({
            rechaza la inscripción que llega sin él. -->
       @if (montoElegido() > 0) {
         <fieldset class="mt-4 border border-border p-4">
-          <legend class="px-1 font-display text-sm font-bold tracking-wide uppercase">
+          <legend
+            id="como-vas-a-pagar"
+            class="px-1 font-display text-sm font-bold tracking-wide uppercase"
+          >
             Cómo vas a pagar los {{ enPesos(montoElegido()) }}
           </legend>
 
@@ -217,35 +222,21 @@ const enBlanco = () => ({
             subes el comprobante de tu transferencia.
           </p>
 
-          <!-- Cada medio es una opción de 44px de alto que se toca entera: el radio
-               solo, de 16px, era el único blanco. La elegida se marca con el borde. -->
-          <div class="mt-3 grid gap-2">
-            <label
-              class="flex min-h-11 cursor-pointer items-center gap-3 border border-border px-3
-                     text-sm has-[:checked]:border-primary has-[:checked]:font-semibold"
-            >
-              <input
-                type="radio"
-                name="medioPago"
-                value="WEBPAY"
-                [(ngModel)]="datos.medioPago"
-              />
+          <!-- Cada medio es una opción que se toca entera, no solo el círculo: la caja es
+               la etiqueta. La elegida se marca con el borde (opcion-tarjeta, en el tema). -->
+          <mat-radio-group
+            class="mt-3 grid gap-2"
+            name="medioPago"
+            aria-labelledby="como-vas-a-pagar"
+            [(ngModel)]="datos.medioPago"
+          >
+            <mat-radio-button class="opcion-tarjeta" value="WEBPAY">
               Pagar ahora con Webpay
-            </label>
-
-            <label
-              class="flex min-h-11 cursor-pointer items-center gap-3 border border-border px-3
-                     text-sm has-[:checked]:border-primary has-[:checked]:font-semibold"
-            >
-              <input
-                type="radio"
-                name="medioPago"
-                value="TRANSFERENCIA"
-                [(ngModel)]="datos.medioPago"
-              />
+            </mat-radio-button>
+            <mat-radio-button class="opcion-tarjeta" value="TRANSFERENCIA">
               Ya transferí y adjunto el comprobante
-            </label>
-          </div>
+            </mat-radio-button>
+          </mat-radio-group>
 
           @if (datos.medioPago === 'TRANSFERENCIA') {
             <!-- Material no tiene campo de archivo, y matInput no admite type="file": el

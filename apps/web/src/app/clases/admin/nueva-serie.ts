@@ -1,5 +1,7 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -82,6 +84,8 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-nueva-serie',
   imports: [
+    MatRadioModule,
+    MatCheckbox,
     MatSelectModule,
     MatButton,
     MatDatepickerModule,
@@ -104,29 +108,18 @@ const enBlanco = () => ({
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <!-- T233. Una serie no mezcla tipos: de tenis, con una cancha por día, o todos sus
              días al gimnasio. -->
-        <fieldset class="sm:col-span-2">
-          <legend class="text-sm font-medium">Tipo de clase</legend>
-          <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-            <label class="inline-flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                class="size-5"
-                name="serie-tipo"
-                value="TENIS"
-                [(ngModel)]="datos.tipo"
-              />Tenis</label
-            >
-            <label class="inline-flex min-h-11 items-center gap-2">
-              <input
-                type="radio"
-                class="size-5"
-                name="serie-tipo"
-                value="PREPARACION_FISICA"
-                [(ngModel)]="datos.tipo"
-              />Preparación física</label
-            >
-          </div>
-        </fieldset>
+        <div class="sm:col-span-2">
+          <span id="tipo-de-serie" class="text-sm font-medium">Tipo de clase</span>
+          <mat-radio-group
+            class="mt-1 flex flex-wrap gap-x-4"
+            name="serie-tipo"
+            aria-labelledby="tipo-de-serie"
+            [(ngModel)]="datos.tipo"
+          >
+            <mat-radio-button value="TENIS">Tenis</mat-radio-button>
+            <mat-radio-button value="PREPARACION_FISICA">Preparación física</mat-radio-button>
+          </mat-radio-group>
+        </div>
 
         <!-- El profesor arma su serie a su nombre (T222): no elige. -->
         @if (profesorFijo() === null) {
@@ -149,14 +142,9 @@ const enBlanco = () => ({
           <legend class="text-sm font-medium">Días de la semana</legend>
           <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
             @for (dia of dias; track dia.valor) {
-              <label class="inline-flex min-h-11 items-center gap-2">
-                <input
-                  type="checkbox"
-                  class="size-5"
-                  [checked]="marcado(dia.valor)"
-                  (change)="alternarDia(dia.valor)"
-                />{{ dia.nombre }}</label
-              >
+              <mat-checkbox [checked]="marcado(dia.valor)" (change)="alternarDia(dia.valor)">
+                {{ dia.nombre }}
+              </mat-checkbox>
             }
           </div>
         </fieldset>
@@ -256,29 +244,18 @@ const enBlanco = () => ({
           </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
-          <fieldset>
-            <legend class="text-sm font-medium">Modalidad</legend>
-            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2">
-              <label class="inline-flex min-h-11 items-center gap-2">
-                <input
-                  type="radio"
-                  class="size-5"
-                  name="serie-modalidad"
-                  value="grupal"
-                  [(ngModel)]="datos.modalidad"
-                />Grupal</label
-              >
-              <label class="inline-flex min-h-11 items-center gap-2">
-                <input
-                  type="radio"
-                  class="size-5"
-                  name="serie-modalidad"
-                  value="individual"
-                  [(ngModel)]="datos.modalidad"
-                />Individual</label
-              >
-            </div>
-          </fieldset>
+          <div>
+            <span id="modalidad-de-serie" class="text-sm font-medium">Modalidad</span>
+            <mat-radio-group
+              class="mt-1 flex flex-wrap gap-x-4"
+              name="serie-modalidad"
+              aria-labelledby="modalidad-de-serie"
+              [(ngModel)]="datos.modalidad"
+            >
+              <mat-radio-button value="grupal">Grupal</mat-radio-button>
+              <mat-radio-button value="individual">Individual</mat-radio-button>
+            </mat-radio-group>
+          </div>
         }
 
         @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {

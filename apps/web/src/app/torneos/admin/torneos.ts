@@ -7,6 +7,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora } from '../../ui/fecha-y-hora';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -70,6 +71,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-torneos',
   imports: [
+    MatButtonToggleModule,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -213,19 +215,20 @@ const enBlanco = () => ({
          se ven los que dan trabajo hoy; sin el número al lado, el día que alguien
          busque un torneo viejo va a creer que se borró. -->
     <div class="mt-4 flex flex-wrap items-center gap-2">
-      @for (grupo of GRUPOS; track grupo.id) {
-        <button
-          type="button"
-          [matButton]="grupo_() === grupo.id ? 'filled' : 'outlined'"
-          class="chico"
-          [attr.aria-pressed]="grupo_() === grupo.id"
-          (click)="grupo_.set(grupo.id)"
-        >
-          {{ grupo.nombre }} {{ cuantos(grupo.id) }}
-        </button>
-      }
+      <mat-button-toggle-group
+        aria-label="Filtrar torneos"
+        hideSingleSelectionIndicator
+        [value]="grupo_()"
+        (change)="grupo_.set($event.value)"
+      >
+        @for (grupo of GRUPOS; track grupo.id) {
+          <mat-button-toggle [value]="grupo.id">
+            {{ grupo.nombre }} {{ cuantos(grupo.id) }}
+          </mat-button-toggle>
+        }
+      </mat-button-toggle-group>
 
-      <mat-form-field class="chico">
+      <mat-form-field class="chico ms-auto">
         <mat-label>Año</mat-label>
         <mat-select name="anio" [(ngModel)]="anio">
           <mat-option value="">Todos</mat-option>

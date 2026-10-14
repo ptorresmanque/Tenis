@@ -172,7 +172,7 @@ describe('FichaDeTorneo', () => {
     await pestana('Cuadro');
 
     const elegido = Array.from(elemento().querySelectorAll('button')).find(
-      (b) => b.getAttribute('aria-pressed') === 'true',
+      (b) => b.getAttribute('aria-checked') === 'true',
     );
     expect(elegido?.textContent?.trim()).toBe('4ª');
   });
@@ -186,7 +186,7 @@ describe('FichaDeTorneo', () => {
 
     const elegido = () =>
       Array.from(elemento().querySelectorAll('button'))
-        .find((b) => b.getAttribute('aria-pressed') === 'true')
+        .find((b) => b.getAttribute('aria-checked') === 'true')
         ?.textContent?.trim();
 
     it('**abre los inscritos de la categoría del comprobante**', async () => {

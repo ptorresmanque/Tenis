@@ -10,6 +10,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -17,7 +18,6 @@ import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Selector } from '../../ui/selector';
 import {
   BloqueDisponible,
   Cancha,
@@ -44,7 +44,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
     BarraFija,
     ControlesDelDia,
     EstadoVacio,
-    Selector,
+    MatButtonToggleModule,
     ResumenDeLaEleccion,
     ResumenDelCambio,
   ],
@@ -390,13 +390,18 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
     @if (elegido(); as eleccion) {
       <app-barra-fija>
         @if (eleccion.libres.length > 1) {
-          <app-selector
-            class="w-full"
-            etiqueta="Cancha"
-            [opciones]="canchasDeLaCelda()"
-            [valor]="'' + eleccion.cancha.id"
-            (valorChange)="cambiarDeCancha($event)"
-          />
+          <mat-button-toggle-group
+            aria-label="Cancha"
+            hideSingleSelectionIndicator
+            [value]="'' + eleccion.cancha.id"
+            (change)="cambiarDeCancha($event.value)"
+          >
+            @for (opcion of canchasDeLaCelda(); track opcion.valor) {
+              <mat-button-toggle [value]="opcion.valor">
+                {{ opcion.etiqueta }}
+              </mat-button-toggle>
+            }
+          </mat-button-toggle-group>
         }
         @if (mover.activo()) {
           <!-- Desde el enlace, solo con lo pagado a la vista: sin eso, el resumen le diría

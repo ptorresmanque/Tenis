@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas } from './admin-canchas.service';
 import { EditorPrime } from './editor-prime';
+import { alternar, opcionesDelGrupo } from '../../testing/alternar';
 
 /**
  * T213. Qué duraciones toma el socio en horario prime: solo 1 hora, solo 1 hora y media o
@@ -33,8 +34,8 @@ describe('EditorPrime', () => {
   };
 
   const raiz = () => fixture.nativeElement as HTMLElement;
-  const opcion = (valor: string) =>
-    raiz().querySelector<HTMLInputElement>(`input[type="radio"][value="${valor}"]`)!;
+  /** La opción marcada del grupo (T251: es un mat-button-toggle-group). */
+  const marcada = () => opcionesDelGrupo(fixture).find((o) => o.elegida)?.valor;
 
   beforeEach(async () => {
     await montar();
@@ -44,12 +45,11 @@ describe('EditorPrime', () => {
     expect(raiz().textContent).toContain('Solo 1 hora');
     expect(raiz().textContent).toContain('Solo 1 hora y media');
     expect(raiz().textContent).toContain('Las dos');
-    expect(opcion('UNA_HORA').checked).toBe(true);
+    expect(marcada()).toBe('UNA_HORA');
   });
 
   it('guarda la elegida y avisa', async () => {
-    opcion('AMBAS').click();
-    fixture.detectChanges();
+    await alternar(fixture, 'AMBAS');
     raiz().querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -63,6 +63,6 @@ describe('EditorPrime', () => {
   it('parte en la que dice el servidor', async () => {
     await montar('HORA_Y_MEDIA');
 
-    expect(opcion('HORA_Y_MEDIA').checked).toBe(true);
+    expect(marcada()).toBe('HORA_Y_MEDIA');
   });
 });

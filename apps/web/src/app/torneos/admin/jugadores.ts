@@ -4,6 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -12,7 +13,6 @@ import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { Jugador, Torneos } from '../torneos.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
@@ -40,7 +40,7 @@ import { TelefonoDirective } from '../../ui/telefono';
     Aviso,
     EstadoVacio,
     Insignia,
-    Selector,
+    MatButtonToggleModule,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     TelefonoDirective,
@@ -71,12 +71,19 @@ import { TelefonoDirective } from '../../ui/telefono';
     >
       <h2 class="rotulo-seccion">Anotar un jugador</h2>
 
-      <app-selector
-        class="mt-3 block"
-        etiqueta="A quién se anota"
-        [opciones]="TIPOS"
-        [(valor)]="tipo"
-      />
+      <mat-button-toggle-group
+        class="mt-3"
+        aria-label="A quién se anota"
+        hideSingleSelectionIndicator
+        [value]="tipo()"
+        (change)="tipo.set($event.value)"
+      >
+        @for (opcion of TIPOS; track opcion.valor) {
+          <mat-button-toggle [value]="opcion.valor">
+            {{ opcion.etiqueta }}
+          </mat-button-toggle>
+        }
+      </mat-button-toggle-group>
 
       <div class="mt-3 flex flex-wrap items-end gap-3">
         @if (tipo() === 'socio') {
@@ -167,7 +174,7 @@ import { TelefonoDirective } from '../../ui/telefono';
             @if (!jugador.socioId) {
               <!-- Enlazar escribe un campo: el jugador es el mismo y sus puntos
                    siguen siendo suyos. -->
-              <mat-form-field class="chico w-auto">
+              <mat-form-field class="chico ms-auto w-auto">
                 <mat-label>Enlazar a socio</mat-label>
                 <mat-select
                   [attr.name]="'enlace-' + jugador.id"

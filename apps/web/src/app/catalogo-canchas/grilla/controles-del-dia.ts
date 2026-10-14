@@ -2,11 +2,11 @@ import { Component, computed, input, model, output } from '@angular/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
 import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { Cancha, DuracionMin } from '../disponibilidad';
 import { diaEnPalabras, proximosDias } from '../reloj-del-club';
 
@@ -46,7 +46,7 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
  */
 @Component({
   selector: 'app-controles-del-dia',
-  imports: [MatDatepickerModule, MatFormFieldModule, MatInput, Insignia, Selector],
+  imports: [MatDatepickerModule, MatFormFieldModule, MatInput, Insignia, MatButtonToggleModule],
   providers: [proveerCampos(), proveerFechaYHora()],
   host: { class: 'contents' },
   template: `
@@ -57,14 +57,25 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
 
            A ancho completo: compartiendo fila con el campo de fecha, los siete
            chips no llegaban a encogerse. -->
-      <app-selector
-        class="w-full"
-        etiqueta="Día"
-        estilo="chips"
-        [opciones]="chipsDeDia()"
-        [valor]="fecha()"
-        (valorChange)="fecha.set($event)"
-      />
+      <!-- La tira se desplaza de lado acá, no en el grupo: a 375 px no caben los siete días. -->
+      <div class="min-w-0 max-w-full overflow-x-auto w-full">
+        <mat-button-toggle-group
+          class="chips"
+          aria-label="Día"
+          hideSingleSelectionIndicator
+          [value]="fecha()"
+          (change)="fecha.set($event.value)"
+        >
+          @for (opcion of chipsDeDia(); track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              <span>{{ opcion.etiqueta }}</span>
+              @if (opcion.sub) {
+                <span class="text-xl font-extrabold leading-none">{{ opcion.sub }}</span>
+              }
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </div>
 
       <!-- El cursor y el borde que responde (abre-al-tocar): sin eso, el campo se lee como
            una etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
@@ -88,24 +99,36 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
 
     <!-- También al mover (T87): parte en la de la reserva, que trae el enlace de "mis
          reservas", y cambiarla es alargarla o acortarla. -->
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Duración"
-      [opciones]="DURACIONES"
-      [valor]="'' + duracion()"
-      (valorChange)="cambiarDuracion.emit($event)"
-    />
+    <mat-button-toggle-group
+      class="mt-4"
+      aria-label="Duración"
+      hideSingleSelectionIndicator
+      [value]="'' + duracion()"
+      (change)="cambiarDuracion.emit($event.value)"
+    >
+      @for (opcion of DURACIONES; track opcion.valor) {
+        <mat-button-toggle [value]="opcion.valor">
+          {{ opcion.etiqueta }}
+        </mat-button-toggle>
+      }
+    </mat-button-toggle-group>
 
     <!-- Los filtros salen de lo que la cancha ya declara —techada e
          iluminación—, así que filtran en el navegador sobre lo que ya llegó:
          una consulta más al servidor no traería nada nuevo. -->
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Filtrar canchas"
-      [opciones]="FILTROS"
-      [valor]="filtro()"
-      (valorChange)="filtro.set($event)"
-    />
+    <mat-button-toggle-group
+      class="mt-4"
+      aria-label="Filtrar canchas"
+      hideSingleSelectionIndicator
+      [value]="filtro()"
+      (change)="filtro.set($event.value)"
+    >
+      @for (opcion of FILTROS; track opcion.valor) {
+        <mat-button-toggle [value]="opcion.valor">
+          {{ opcion.etiqueta }}
+        </mat-button-toggle>
+      }
+    </mat-button-toggle-group>
 
     <!-- La leyenda no es decoración: la celda libre, la que no tiene y la hora prime se
          distinguen por color, y esto es lo que dice qué significa cada uno. Cada celda

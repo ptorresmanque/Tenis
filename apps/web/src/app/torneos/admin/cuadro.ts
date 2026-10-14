@@ -10,6 +10,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatCheckbox } from '@angular/material/checkbox';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -55,6 +57,8 @@ const horarioEnBlanco = () => ({
 @Component({
   selector: 'app-cuadro-torneo',
   imports: [
+    MatRadioModule,
+    MatCheckbox,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -347,29 +351,19 @@ const horarioEnBlanco = () => ({
           </p>
         }
 
-        <fieldset class="mt-2">
-          <legend class="text-sm font-medium">Quién ganó</legend>
-          <label class="mt-1 flex items-center gap-2">
-            <input
-              type="radio"
-              name="ganador"
-              [value]="partido.jugadorAId"
-              [checked]="ganadorId() === partido.jugadorAId"
-              (change)="ganadorId.set(partido.jugadorAId)"
-            />
-            {{ partido.jugadorA }}
-          </label>
-          <label class="flex items-center gap-2">
-            <input
-              type="radio"
-              name="ganador"
-              [value]="partido.jugadorBId"
-              [checked]="ganadorId() === partido.jugadorBId"
-              (change)="ganadorId.set(partido.jugadorBId)"
-            />
-            {{ partido.jugadorB }}
-          </label>
-        </fieldset>
+        <div class="mt-2">
+          <span id="ganador-del-partido" class="text-sm font-medium">Quién ganó</span>
+          <mat-radio-group
+            class="mt-1 grid"
+            name="ganador"
+            aria-labelledby="ganador-del-partido"
+            [value]="ganadorId()"
+            (change)="ganadorId.set($event.value)"
+          >
+            <mat-radio-button [value]="partido.jugadorAId">{{ partido.jugadorA }}</mat-radio-button>
+            <mat-radio-button [value]="partido.jugadorBId">{{ partido.jugadorB }}</mat-radio-button>
+          </mat-radio-group>
+        </div>
 
         <mat-form-field class="chico">
           <mat-label>Marcador</mat-label>
@@ -382,14 +376,13 @@ const horarioEnBlanco = () => ({
           />
         </mat-form-field>
 
-        <label class="mt-2 flex items-center gap-2">
-          <input
-            type="checkbox"
-            [checked]="walkover()"
-            (change)="walkover.set($any($event.target).checked)"
-          />
-          <span>El rival no se presentó</span>
-        </label>
+        <mat-checkbox
+          class="mt-2 block"
+          [checked]="walkover()"
+          (change)="walkover.set($event.checked)"
+        >
+          El rival no se presentó
+        </mat-checkbox>
 
         <div class="mt-3 flex flex-wrap gap-2">
           <button

@@ -1551,6 +1551,50 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**la manilla del interruptor se ve**: no usa el borde claro del sitio (T249)', () => {
+    // `outline` es el borde de los campos, casi blanco; Material pinta con él la manilla y la
+    // pista del interruptor apagado, y sobre la pista gris no se veían.
+    const interruptor = tema.match(/slide-toggle-overrides\(([\s\S]*?)\);/)?.[1] ?? '';
+
+    expect(interruptor).toContain('unselected-handle-color: var(--color-muted-foreground)');
+    expect(interruptor).toContain('track-outline-color: var(--color-muted-foreground)');
+  });
+
+  it('**ningún radio es nativo**: son `mat-radio-group` o `mat-button-toggle-group` (T250, T251)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /type="radio"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `app-selector`**: los grupos de opciones son `mat-button-toggle-group` (T251)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-selector\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+    expect(existsSync(join(RAIZ, 'ui/selector.ts'))).toBe(false);
+  });
+
+  it('**un filtro no es un botón que cambia de apariencia**: es un toggle group (T251)', () => {
+    // `[matButton]="elegido ? 'filled' : 'outlined'"` con aria-pressed: la elegida parecía la
+    // acción principal de la pantalla.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /\[matButton\]="[^"]*\?/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ninguna casilla es nativa**: son `mat-checkbox`, o `mat-slide-toggle` si guardan al tocarlas (T249)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /type="checkbox"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ninguna lista es un `<select>` nativo**: todas son `mat-select` (T248, I1)', () => {
     // Los comentarios se quitan antes de buscar: varios nombran el <select> que reemplazan.
     const infractores = plantillas()
