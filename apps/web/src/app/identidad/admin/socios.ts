@@ -21,12 +21,13 @@ import { MatInput } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatPaginator } from '@angular/material/paginator';
 
 import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Paginacion } from '../../ui/paginacion';
+import { proveerPaginador } from '../../ui/paginador';
 import { FichaSocio } from './ficha-socio';
 import {
   AltaDeSocio,
@@ -71,12 +72,12 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
     FormsModule,
     Aviso,
     EstadoVacio,
-    Paginacion,
+    MatPaginator,
     MatButtonToggleModule,
     FichaSocio,
     MatChipsModule,
   ],
-  providers: [proveerCampos(), proveerFechaYHora()],
+  providers: [proveerCampos(), proveerFechaYHora(), proveerPaginador()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: dar de alta es su sección. -->
     <header class="cabecera-panel">
@@ -334,11 +335,14 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
         }
 
         @if (filtrados().length > POR_PAGINA) {
-          <app-paginacion
-            class="mt-4 block"
-            [(pagina)]="paginaActual"
-            [total]="filtrados().length"
-            [porPagina]="POR_PAGINA"
+          <mat-paginator
+            class="mt-4"
+            aria-label="Páginas del padrón"
+            hidePageSize
+            [length]="filtrados().length"
+            [pageSize]="POR_PAGINA"
+            [pageIndex]="paginaActual() - 1"
+            (page)="paginaActual.set($event.pageIndex + 1)"
           />
         }
       }

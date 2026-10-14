@@ -822,3 +822,20 @@ $insignias: (
     );
   }
 }
+
+/*
+  LA PAGINACIÓN (T259): `mat-paginator` sobre el fondo de la página, con la cuenta en la letra
+  de leer, chica y en gris, como la de antes.
+*/
+html {
+  @include mat.paginator-overrides(
+    (
+      container-background-color: transparent,
+      container-text-font: var(--font-sans),
+      container-text-size: 0.875rem,
+      container-text-color: var(--color-muted-foreground),
+      enabled-icon-color: var(--color-foreground),
+      disabled-icon-color: color-mix(in oklab, var(--color-muted-foreground) 50%, transparent),
+    )
+  );
+}

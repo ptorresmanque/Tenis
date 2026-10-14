@@ -1248,6 +1248,17 @@ describe('Insignias (T258)', () => {
   });
 });
 
+describe('Paginación (T259)', () => {
+  it('**ninguna `<app-paginacion`**: la paginación es un `mat-paginator`', () => {
+    const conPaginacion = plantillas()
+      .filter(({ contenido }) => contenido.includes('<app-paginacion'))
+      .map(({ archivo }) => archivo);
+
+    expect(conPaginacion).toEqual([]);
+    expect(existsSync(join(process.cwd(), 'src/app/ui/paginacion.ts'))).toBe(false);
+  });
+});
+
 describe('El panel en la A (Fase 7)', () => {
   // Las carpetas ya migradas. Cada tarea de la Fase 7 suma la suya, y en el
   // Checkpoint G la lista es el panel entero: la regla queda cuidando que una
