@@ -1,7 +1,10 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
@@ -23,6 +26,8 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     Aviso,
@@ -33,6 +38,7 @@ import { Esqueleto } from '../../ui/esqueleto';
     TelefonoPipe,
     TelefonoDirective,
   ],
+  providers: [proveerCampos()],
   template: `
     @if (ficha.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -137,9 +143,9 @@ import { Esqueleto } from '../../ui/esqueleto';
 
             <div class="mt-2 flex flex-wrap items-end gap-2">
               @if (tipo() === 'socio') {
-                <label class="flex-1">
-                  <span class="text-sm font-medium">Socio</span>
-                  <select class="campo campo-chico mt-1" name="socioId" [(ngModel)]="socioId">
+                <mat-form-field class="chico flex-1">
+                  <mat-label>Socio</mat-label>
+                  <select matNativeControl name="socioId" [(ngModel)]="socioId">
                     <option [value]="0" disabled>Elige un socio</option>
                     @for (socio of sociosPorInscribir(); track socio.id) {
                       <option [value]="socio.id">
@@ -147,24 +153,24 @@ import { Esqueleto } from '../../ui/esqueleto';
                       </option>
                     }
                   </select>
-                </label>
+                </mat-form-field>
               } @else {
-                <label class="flex-1">
-                  <span class="text-sm font-medium">Nombre del alumno</span>
-                  <input class="campo campo-chico mt-1" name="nombre" [(ngModel)]="nombre" />
-                </label>
-                <label class="flex-1">
-                  <span class="text-sm font-medium">Teléfono</span>
-                  <span class="campo-con-prefijo mt-1">
-                    <span class="prefijo">+56</span>
-                    <input
-                      appTelefono
-                      class="campo campo-chico"
-                      name="telefono"
-                      [(ngModel)]="telefono"
-                    />
-                  </span>
-                </label>
+                <mat-form-field class="chico flex-1">
+                  <mat-label>Nombre del alumno</mat-label>
+                  <input matInput name="nombre" [(ngModel)]="nombre" />
+                </mat-form-field>
+                <mat-form-field class="chico flex-1">
+                  <mat-label>Teléfono</mat-label>
+                  <span matTextPrefix>+56&nbsp;</span>
+                  <input
+                    matInput
+                    appTelefono
+                    #telefono="ngModel"
+                    name="telefono"
+                    [(ngModel)]="telefono"
+                  />
+                  <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+                </mat-form-field>
               }
 
               <button
@@ -234,6 +240,8 @@ import { Esqueleto } from '../../ui/esqueleto';
   `,
 })
 export class InscritosDeLaClase {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly api = inject(Clases);
 
   readonly claseId = input.required<number>();

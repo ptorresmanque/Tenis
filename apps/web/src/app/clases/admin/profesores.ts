@@ -1,7 +1,10 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -33,6 +36,8 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-profesores',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     Aviso,
@@ -43,6 +48,7 @@ const enBlanco = () => ({
     TelefonoDirective,
     Esqueleto,
   ],
+  providers: [proveerCampos()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
     <header class="cabecera-panel">
@@ -71,46 +77,46 @@ const enBlanco = () => ({
       </h2>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-sm font-medium">Cómo se anuncia</span>
+        <mat-form-field>
+          <mat-label>Cómo se anuncia</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="nombreVisible"
             required
             placeholder="Ana Silva"
             [(ngModel)]="datos.nombreVisible"
           />
-        </label>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Teléfono</span>
-          <span class="campo-con-prefijo mt-1">
-            <span class="prefijo">+56</span>
-            <input
-              appTelefono
-              class="campo"
-              name="telefono"
-              required
-              [(ngModel)]="datos.telefono"
-            />
-          </span>
-        </label>
-
-        <label class="block">
-          <span class="text-sm font-medium">Especialidad</span>
+        <mat-form-field>
+          <mat-label>Teléfono</mat-label>
+          <span matTextPrefix>+56&nbsp;</span>
           <input
-            class="campo mt-1"
+            matInput
+            appTelefono
+            #telefono="ngModel"
+            name="telefono"
+            required
+            [(ngModel)]="datos.telefono"
+          />
+          <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Especialidad</mat-label>
+          <input
+            matInput
             name="especialidad"
             required
             placeholder="Iniciación, Competitivo, Niños"
             [(ngModel)]="datos.especialidad"
           />
-        </label>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Tarifa por hora</span>
+        <mat-form-field>
+          <mat-label>Tarifa por hora</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="tarifaHoraClp"
             type="number"
             min="0"
@@ -118,10 +124,8 @@ const enBlanco = () => ({
             placeholder="Opcional"
             [(ngModel)]="datos.tarifaHoraClp"
           />
-          <span class="text-sm text-muted-foreground">
-            Lo que el club le paga. No se publica.
-          </span>
-        </label>
+          <mat-hint>Lo que el club le paga. No se publica.</mat-hint>
+        </mat-form-field>
       </div>
 
       <div class="mt-3 flex flex-wrap gap-2">
@@ -217,6 +221,8 @@ const enBlanco = () => ({
   `,
 })
 export class ProfesoresPanel {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly api = inject(Profesores);
 
   protected readonly editando = signal<number | null>(null);

@@ -9,7 +9,10 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Insignia } from '../../ui/insignia';
 import { hoyEnElClub, horaEnElClub } from '../reloj-del-club';
@@ -52,6 +55,8 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 @Component({
   selector: 'app-admin-canchas',
   imports: [
+    MatFormFieldModule,
+    MatInput,
     MatButton,
     FormsModule,
     EditorHorarios,
@@ -61,6 +66,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     Insignia,
     Esqueleto,
   ],
+  providers: [proveerCampos()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya. -->
     <header class="cabecera-panel">
@@ -108,30 +114,30 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
       </h2>
 
       <form class="mt-3 flex flex-wrap items-end gap-3" (ngSubmit)="crear()">
-        <div>
-          <label for="nombre" class="block text-sm font-medium">Nombre</label>
+        <mat-form-field>
+          <mat-label>Nombre</mat-label>
           <input
+            matInput
             id="nombre"
             name="nombre"
             required
-            class="campo mt-1"
             [(ngModel)]="nueva.nombre"
           />
-        </div>
+        </mat-form-field>
 
-        <div>
-          <label for="superficie" class="block text-sm font-medium">Superficie</label>
+        <mat-form-field>
+          <mat-label>Superficie</mat-label>
           <select
+            matNativeControl
             id="superficie"
             name="superficie"
-            class="campo mt-1"
             [(ngModel)]="nueva.superficie"
           >
             @for (opcion of superficies; track opcion[0]) {
               <option [value]="opcion[0]">{{ opcion[1] }}</option>
             }
           </select>
-        </div>
+        </mat-form-field>
 
         <label class="flex items-center gap-2 py-2 text-sm">
           <input type="checkbox" name="techada" [(ngModel)]="nueva.techada" />
@@ -263,41 +269,33 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   class="mt-3 flex flex-wrap items-end gap-3 border-t border-border pt-3"
                   (ngSubmit)="guardarFicha(cancha)"
                 >
-                  <div>
-                    <label
-                      [attr.for]="'ficha-nombre-' + cancha.id"
-                      class="block text-sm font-medium"
-                      >Nombre</label
-                    >
+                  <mat-form-field>
+                    <mat-label>Nombre</mat-label>
                     <input
+                      matInput
                       #campoNombre
                       [id]="'ficha-nombre-' + cancha.id"
                       name="nombre"
                       required
-                      class="campo mt-1"
                       [attr.aria-invalid]="errorFicha() ? true : null"
-                      [attr.aria-describedby]="'ficha-error-' + cancha.id"
+                      [aria-describedby]="'ficha-error-' + cancha.id"
                       [(ngModel)]="ficha.nombre"
                     />
-                  </div>
+                  </mat-form-field>
 
-                  <div>
-                    <label
-                      [attr.for]="'ficha-superficie-' + cancha.id"
-                      class="block text-sm font-medium"
-                      >Superficie</label
-                    >
+                  <mat-form-field>
+                    <mat-label>Superficie</mat-label>
                     <select
+                      matNativeControl
                       [id]="'ficha-superficie-' + cancha.id"
                       name="superficie"
-                      class="campo mt-1"
                       [(ngModel)]="ficha.superficie"
                     >
                       @for (opcion of superficies; track opcion[0]) {
                         <option [value]="opcion[0]">{{ opcion[1] }}</option>
                       }
                     </select>
-                  </div>
+                  </mat-form-field>
 
                   <label class="flex items-center gap-2 py-2 text-sm">
                     <input

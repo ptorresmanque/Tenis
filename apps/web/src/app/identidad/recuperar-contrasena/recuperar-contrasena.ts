@@ -38,7 +38,7 @@ import { Aviso } from '../../ui/aviso';
         <app-aviso variante="exito" class="mt-6 block">{{ mensaje }}</app-aviso>
       } @else {
         <form class="mt-6 grid gap-4" [formGroup]="pedido" (ngSubmit)="pedir()">
-          <mat-form-field hideRequiredMarker>
+          <mat-form-field>
             <mat-label>Correo</mat-label>
             <input
               matInput
@@ -73,7 +73,7 @@ import { Aviso } from '../../ui/aviso';
         <a matButton="filled" routerLink="/entrar" class="mt-6">Entrar</a>
       } @else {
         <form class="mt-6 grid gap-4" [formGroup]="nueva" (ngSubmit)="restablecer()">
-          <mat-form-field hideRequiredMarker>
+          <mat-form-field>
             <mat-label>Contraseña nueva</mat-label>
             <input
               matInput

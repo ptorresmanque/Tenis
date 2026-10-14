@@ -1,6 +1,9 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { TablaDeTour } from '../../ranking/tabla-de-tour';
 import { Galeria } from '../../torneos/publico/galeria';
@@ -31,7 +34,8 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
  */
 @Component({
   selector: 'app-tour-publico',
-  imports: [RouterLink, Galeria, Esqueleto, TablaDeTour],
+  imports: [MatFormFieldModule, MatInput, RouterLink, Galeria, Esqueleto, TablaDeTour],
+  providers: [proveerCampos()],
   template: `
     @if (tour.error()) {
       <section class="py-10">
@@ -88,16 +92,16 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
 
           <div class="mt-4 flex flex-wrap items-end gap-x-4 gap-y-2">
             @if (suyo.temporadas.length > 1) {
-              <label class="block">
-                <span class="text-sm font-medium">Temporada</span>
-                <select class="campo mt-1" [value]="temporada.id" (change)="elegir($event)">
+              <mat-form-field>
+                <mat-label>Temporada</mat-label>
+                <select matNativeControl [value]="temporada.id" (change)="elegir($event)">
                   @for (otra of suyo.temporadas; track otra.id) {
                     <option [value]="otra.id" [selected]="otra.id === temporada.id">
                       {{ otra.nombre }}
                     </option>
                   }
                 </select>
-              </label>
+              </mat-form-field>
             }
             <p class="pb-2 text-muted-foreground">
               Temporada {{ temporada.nombre }}: del {{ enPalabras(temporada.fechaInicio) }} al

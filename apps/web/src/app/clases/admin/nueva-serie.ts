@@ -128,9 +128,9 @@ const enBlanco = () => ({
 
         <!-- El profesor arma su serie a su nombre (T222): no elige. -->
         @if (profesorFijo() === null) {
-          <label class="block">
-            <span class="text-sm font-medium">Profesor</span>
-            <select class="campo mt-1" name="serie-profesor" [(ngModel)]="datos.profesorId">
+          <mat-form-field>
+            <mat-label>Profesor</mat-label>
+            <select matNativeControl name="serie-profesor" [(ngModel)]="datos.profesorId">
               <option [value]="0" disabled>Elige un profesor</option>
               @for (profesor of profesores(); track profesor.id) {
                 <option [value]="profesor.id">
@@ -138,7 +138,7 @@ const enBlanco = () => ({
                 </option>
               }
             </select>
-          </label>
+          </mat-form-field>
         }
 
         <!-- Casillas y no un selector múltiple: se ven los siete a la vez y cada una se
@@ -160,10 +160,9 @@ const enBlanco = () => ({
         </fieldset>
 
         <!-- T230. Cada día con su horario y su cancha: el lunes de 19 a 20 en una y el martes
-             de 18 a 19 en otra. En la cancha, el name va dos veces: uno registra el campo en el
-             formulario y el otro queda en el elemento, igual en las horas. Las horas van sin
-             el botón del reloj para que quepan lado a lado a 375 px: la lista se abre igual
-             desde el campo. -->
+             de 18 a 19 en otra. El [name] registra el campo en el formulario y matInput lo
+             deja en el elemento (T246). Las horas van sin el botón del reloj para que quepan
+             lado a lado a 375 px: la lista se abre igual desde el campo. -->
         @for (dia of datos.dias; track dia.diaSemana) {
           <fieldset class="sm:col-span-2">
             <legend class="font-display font-semibold">{{ nombreDelDia(dia.diaSemana) }}</legend>
@@ -176,7 +175,6 @@ const enBlanco = () => ({
                   autocomplete="off"
                   [matTimepicker]="relojDesde"
                   [name]="'serie-hora-desde-' + dia.diaSemana"
-                  [attr.name]="'serie-hora-desde-' + dia.diaSemana"
                   [(ngModel)]="dia.horaDesde"
                   (ngModelChange)="tocar(dia)"
                 />
@@ -191,7 +189,6 @@ const enBlanco = () => ({
                   autocomplete="off"
                   [matTimepicker]="relojHasta"
                   [name]="'serie-hora-hasta-' + dia.diaSemana"
-                  [attr.name]="'serie-hora-hasta-' + dia.diaSemana"
                   [(ngModel)]="dia.horaHasta"
                   (ngModelChange)="tocar(dia)"
                 />
@@ -199,12 +196,11 @@ const enBlanco = () => ({
               </mat-form-field>
 
               @if (datos.tipo === 'TENIS') {
-                <label class="block min-w-40 flex-1">
-                  <span class="block text-sm">Cancha</span>
+                <mat-form-field class="min-w-40 flex-1">
+                  <mat-label>Cancha</mat-label>
                   <select
-                    class="campo mt-1"
+                    matNativeControl
                     [name]="'serie-cancha-' + dia.diaSemana"
-                    [attr.name]="'serie-cancha-' + dia.diaSemana"
                     [(ngModel)]="dia.canchaId"
                     (ngModelChange)="tocar(dia)"
                   >
@@ -213,7 +209,7 @@ const enBlanco = () => ({
                       <option [value]="cancha.id">{{ cancha.nombre }}</option>
                     }
                   </select>
-                </label>
+                </mat-form-field>
               }
             </div>
           </fieldset>
@@ -248,14 +244,14 @@ const enBlanco = () => ({
         </mat-form-field>
 
         @if (datos.tipo === 'TENIS') {
-          <label class="block">
-            <span class="text-sm font-medium">Nivel</span>
-            <select class="campo mt-1" name="serie-nivel" [(ngModel)]="datos.nivel">
+          <mat-form-field>
+            <mat-label>Nivel</mat-label>
+            <select matNativeControl name="serie-nivel" [(ngModel)]="datos.nivel">
               @for (opcion of opcionesDeNivel; track opcion.valor) {
                 <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
               }
             </select>
-          </label>
+          </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
           <fieldset>
@@ -284,28 +280,28 @@ const enBlanco = () => ({
         }
 
         @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
-          <label class="block">
-            <span class="text-sm font-medium">Cupo</span>
+          <mat-form-field>
+            <mat-label>Cupo</mat-label>
             <input
-              class="campo mt-1"
+              matInput
               type="number"
               [min]="datos.tipo === 'TENIS' ? 1 : 2"
               max="40"
               name="serie-cupo"
               [(ngModel)]="datos.cupoMaximo"
             />
-          </label>
+          </mat-form-field>
         }
 
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Notas</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Notas</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="serie-notas"
             placeholder="Opcional: qué se trabaja, qué llevar"
             [(ngModel)]="datos.notas"
           />
-        </label>
+        </mat-form-field>
       </div>
 
       <button
@@ -362,28 +358,30 @@ const enBlanco = () => ({
                 }
               </span>
 
-              <select
-                class="campo campo-chico w-auto"
-                [attr.name]="'decision-' + fila.fecha"
-                [attr.aria-label]="'Qué hacer el ' + enPalabras(fila.fecha)"
-                [value]="decisiones()[fila.fecha] ?? ''"
-                (change)="decidir(fila.fecha, $any($event.target).value)"
-              >
-                @if (fila.choque) {
-                  <option value="">Elige qué hacer</option>
-                  <option value="saltar">Saltar esta fecha</option>
-                } @else if (fila.afectadas.length > 0) {
-                  <option value="">Elige qué hacer</option>
-                  <!-- Cancelarle la hora a un socio lo decide administración (T219). -->
-                  @if (profesorFijo() === null) {
-                    <option value="cancelar">Cancelar sus reservas y avisar</option>
+              <mat-form-field class="chico w-auto">
+                <select
+                  matNativeControl
+                  [name]="'decision-' + fila.fecha"
+                  [attr.aria-label]="'Qué hacer el ' + enPalabras(fila.fecha)"
+                  [value]="decisiones()[fila.fecha] ?? ''"
+                  (change)="decidir(fila.fecha, $any($event.target).value)"
+                >
+                  @if (fila.choque) {
+                    <option value="">Elige qué hacer</option>
+                    <option value="saltar">Saltar esta fecha</option>
+                  } @else if (fila.afectadas.length > 0) {
+                    <option value="">Elige qué hacer</option>
+                    <!-- Cancelarle la hora a un socio lo decide administración (T219). -->
+                    @if (profesorFijo() === null) {
+                      <option value="cancelar">Cancelar sus reservas y avisar</option>
+                    }
+                    <option value="saltar">Saltar esta fecha</option>
+                  } @else {
+                    <option value="">Agendar</option>
+                    <option value="saltar">Saltar esta fecha</option>
                   }
-                  <option value="saltar">Saltar esta fecha</option>
-                } @else {
-                  <option value="">Agendar</option>
-                  <option value="saltar">Saltar esta fecha</option>
-                }
-              </select>
+                </select>
+              </mat-form-field>
             </li>
           }
         </ul>

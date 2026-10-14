@@ -1,6 +1,9 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { Auth } from '../core/auth/auth';
 import { Tours } from '../tours/tours.service';
 import { Esqueleto } from '../ui/esqueleto';
@@ -19,7 +22,8 @@ import { TablaInterna } from './tabla-interna';
  */
 @Component({
   selector: 'app-ranking-torneos',
-  imports: [EstadoVacio, Esqueleto, TablaDeTour, TablaInterna],
+  imports: [MatFormFieldModule, MatInput, EstadoVacio, Esqueleto, TablaDeTour, TablaInterna],
+  providers: [proveerCampos()],
   template: `
     <!-- Cabecera en banda de color y sin fotografía: esta pantalla es una tabla
          de posiciones, y lo que se viene a hacer acá es buscar un nombre en una
@@ -50,28 +54,28 @@ import { TablaInterna } from './tabla-interna';
       <!-- Tour y temporada; la categoría la pone la tabla, que es la que sabe cuáles
            tienen resultados. Los tres van en la dirección. -->
       <div class="mt-6 flex flex-wrap items-end gap-4">
-        <label class="block">
-          <span class="text-sm font-medium">Tour</span>
-          <select class="campo mt-1" name="tour" (change)="elegirTour($event)">
+        <mat-form-field>
+          <mat-label>Tour</mat-label>
+          <select matNativeControl name="tour" (change)="elegirTour($event)">
             @for (uno of tours.value(); track uno.id) {
               <option [value]="uno.id" [selected]="uno.id === tourElegido()?.id">
                 {{ uno.nombre }}
               </option>
             }
           </select>
-        </label>
+        </mat-form-field>
 
         @if (temporadas().length > 0) {
-          <label class="block">
-            <span class="text-sm font-medium">Temporada</span>
-            <select class="campo mt-1" name="temporada" (change)="elegirTemporada($event)">
+          <mat-form-field>
+            <mat-label>Temporada</mat-label>
+            <select matNativeControl name="temporada" (change)="elegirTemporada($event)">
               @for (una of temporadas(); track una.id) {
                 <option [value]="una.id" [selected]="una.id === temporadaElegida()">
                   {{ una.nombre }}
                 </option>
               }
             </select>
-          </label>
+          </mat-form-field>
         }
       </div>
 

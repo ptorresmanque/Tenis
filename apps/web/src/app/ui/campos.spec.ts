@@ -39,6 +39,10 @@ describe('proveerCampos', () => {
     expect(elCampo().floatLabel).toBe('always');
   });
 
+  it('**sin asterisco por omisión**: en el sitio lo obligatorio se marca donde se pide', () => {
+    expect(elCampo().hideRequiredMarker).toBe(true);
+  });
+
   it('**el lugar del error no se reserva** si el campo no tiene uno', () => {
     expect(elCampo().subscriptSizing).toBe('dynamic');
   });

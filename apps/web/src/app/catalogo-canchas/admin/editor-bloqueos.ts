@@ -132,7 +132,6 @@ function enBlanco(): Formulario {
             matInput
             [id]="'bd-' + cancha().id"
             [name]="'bloqueo-fecha-desde-' + cancha().id"
-            [attr.name]="'bloqueo-fecha-desde-' + cancha().id"
             placeholder="dd-mm-aaaa"
             autocomplete="off"
             [matDatepicker]="calendarioBloqueoFechaDesde"
@@ -146,7 +145,6 @@ function enBlanco(): Formulario {
             matInput
             [id]="'bdh-' + cancha().id"
             [name]="'bloqueo-hora-desde-' + cancha().id"
-            [attr.name]="'bloqueo-hora-desde-' + cancha().id"
             placeholder="hh:mm"
             autocomplete="off"
             [matTimepicker]="relojBloqueoHoraDesde"
@@ -169,7 +167,6 @@ function enBlanco(): Formulario {
             matInput
             [id]="'bh-' + cancha().id"
             [name]="'bloqueo-fecha-hasta-' + cancha().id"
-            [attr.name]="'bloqueo-fecha-hasta-' + cancha().id"
             placeholder="dd-mm-aaaa"
             autocomplete="off"
             [matDatepicker]="calendarioBloqueoFechaHasta"
@@ -183,7 +180,6 @@ function enBlanco(): Formulario {
             matInput
             [id]="'bhh-' + cancha().id"
             [name]="'bloqueo-hora-hasta-' + cancha().id"
-            [attr.name]="'bloqueo-hora-hasta-' + cancha().id"
             placeholder="hh:mm"
             autocomplete="off"
             [matTimepicker]="relojBloqueoHoraHasta"
@@ -199,31 +195,29 @@ function enBlanco(): Formulario {
         </mat-form-field>
       </div>
 
-      <div>
-        <label [for]="'bm-' + cancha().id" class="block font-medium">Motivo</label>
+      <mat-form-field class="chico">
+        <mat-label>Motivo</mat-label>
         <select
+          matNativeControl
           [id]="'bm-' + cancha().id"
           [name]="'bloqueo-motivo-' + cancha().id"
-          class="campo campo-chico mt-1"
           [(ngModel)]="nueva.motivo"
         >
           @for (motivo of motivos; track motivo.valor) {
             <option [value]="motivo.valor">{{ motivo.etiqueta }}</option>
           }
         </select>
-      </div>
+      </mat-form-field>
 
-      <div>
-        <label [for]="'bx-' + cancha().id" class="block font-medium">
-          Detalle <span class="text-muted-foreground">(opcional)</span>
-        </label>
+      <mat-form-field class="chico">
+        <mat-label>Detalle <span class="text-muted-foreground">(opcional)</span></mat-label>
         <input
+          matInput
           [id]="'bx-' + cancha().id"
           [name]="'bloqueo-detalle-' + cancha().id"
-          class="campo campo-chico mt-1"
           [(ngModel)]="nueva.descripcion"
         />
-      </div>
+      </mat-form-field>
 
       <button
         matButton="outlined"

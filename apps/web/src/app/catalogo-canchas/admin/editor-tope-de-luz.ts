@@ -57,20 +57,18 @@ import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
 
           @if (limitar()) {
             <div class="mt-2 flex flex-wrap items-end gap-4">
-              <div>
-                <label for="tope-de-luz-canchas" class="block text-sm font-medium">
-                  Canchas a la vez
-                </label>
+              <mat-form-field class="w-24">
+                <mat-label>Canchas a la vez</mat-label>
                 <input
+                  matInput
                   id="tope-de-luz-canchas"
                   name="topeCanchasConLuz"
                   type="number"
                   min="1"
-                  class="campo mt-1 w-24"
                   [ngModel]="canchas()"
                   (ngModelChange)="canchas.set($event)"
                 />
-              </div>
+              </mat-form-field>
               <mat-form-field class="w-32">
                 <mat-label>Desde las</mat-label>
                 <input

@@ -410,3 +410,9 @@ html {
 .mat-mdc-form-field.abre-al-tocar .mat-mdc-input-element {
   cursor: pointer;
 }
+
+/* La caja del campo conserva su alto aunque la fila se estire: en una grilla, si la ayuda del
+   vecino ocupa dos líneas, Material le pasaba ese alto a la caja (T246). */
+.mat-mdc-form-field .mat-mdc-text-field-wrapper {
+  flex-grow: 0;
+}

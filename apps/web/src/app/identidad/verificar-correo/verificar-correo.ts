@@ -45,7 +45,7 @@ import { Aviso } from '../../ui/aviso';
         }
 
         <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="pedir()">
-          <mat-form-field hideRequiredMarker>
+          <mat-form-field>
             <mat-label>Correo</mat-label>
             <input
               matInput

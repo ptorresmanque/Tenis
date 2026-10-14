@@ -48,11 +48,11 @@ import { Esqueleto } from '../ui/esqueleto';
       <h2 class="font-display text-lg font-bold tracking-wide uppercase">Cargar un partido</h2>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <label class="grid gap-1 text-sm">
-          <span class="font-medium">Contra quién jugaste</span>
+        <mat-form-field>
+          <mat-label>Contra quién jugaste</mat-label>
           <select
+            matNativeControl
             name="rival"
-            class="campo"
             [value]="rival()"
             (change)="rival.set(valorDe($event))"
           >
@@ -66,20 +66,20 @@ import { Esqueleto } from '../ui/esqueleto';
               }
             }
           </select>
-        </label>
+        </mat-form-field>
 
-        <label class="grid gap-1 text-sm">
-          <span class="font-medium">Quién ganó</span>
+        <mat-form-field>
+          <mat-label>Quién ganó</mat-label>
           <select
+            matNativeControl
             name="ganador"
-            class="campo"
             [value]="ganador()"
             (change)="ganador.set(valorDe($event) === 'rival' ? 'rival' : 'yo')"
           >
             <option value="yo">Gané yo</option>
             <option value="rival">Ganó el rival</option>
           </select>
-        </label>
+        </mat-form-field>
 
         <mat-form-field class="w-48">
           <mat-label>Cuándo</mat-label>
@@ -98,17 +98,17 @@ import { Esqueleto } from '../ui/esqueleto';
           <mat-datepicker #calendarioJugadoEn />
         </mat-form-field>
 
-        <label class="grid gap-1 text-sm">
-          <span class="font-medium">Marcador (opcional)</span>
+        <mat-form-field>
+          <mat-label>Marcador (opcional)</mat-label>
           <input
+            matInput
             type="text"
             name="marcador"
-            class="campo"
             placeholder="6-4 6-2"
             [value]="marcador()"
             (change)="marcador.set(valorDe($event))"
           />
-        </label>
+        </mat-form-field>
       </div>
 
       <!-- Dicho antes de que apriete, no después: quien carga un partido y no ve

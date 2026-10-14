@@ -87,7 +87,6 @@ interface FilaDeDia {
                     matInput
                     [id]="'desde-' + clave() + '-' + fila.diaSemana"
                     [name]="'desde-' + clave() + '-' + fila.diaSemana"
-                    [attr.name]="'desde-' + clave() + '-' + fila.diaSemana"
                     placeholder="hh:mm"
                     autocomplete="off"
                     [matTimepicker]="relojDesde"
@@ -110,7 +109,6 @@ interface FilaDeDia {
                     matInput
                     [id]="'hasta-' + clave() + '-' + fila.diaSemana"
                     [name]="'hasta-' + clave() + '-' + fila.diaSemana"
-                    [attr.name]="'hasta-' + clave() + '-' + fila.diaSemana"
                     placeholder="hh:mm"
                     autocomplete="off"
                     [matTimepicker]="relojHasta"

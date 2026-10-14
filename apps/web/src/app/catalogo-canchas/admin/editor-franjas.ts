@@ -102,19 +102,19 @@ const EN_BLANCO: FranjaNueva = {
     <form class="mt-2 flex flex-wrap items-end gap-2 text-sm" (ngSubmit)="agregar()">
       @if (ambito().id === null) {
         <!-- T99. Solo en las generales: una cancha ya sabe si es techada (T98). -->
-        <div>
-          <label [for]="'aplica-' + clave()" class="block font-medium">Aplica a</label>
+        <mat-form-field class="chico">
+          <mat-label>Aplica a</mat-label>
           <select
+            matNativeControl
             [id]="'aplica-' + clave()"
             [name]="'franja-aplica-' + clave()"
-            class="campo campo-chico mt-1"
             [(ngModel)]="nueva.techada"
           >
             <option [ngValue]="null">Todas las canchas</option>
             <option [ngValue]="true">Solo techadas</option>
             <option [ngValue]="false">Solo al aire libre</option>
           </select>
-        </div>
+        </mat-form-field>
       }
 
       <mat-form-field class="chico w-32">
@@ -123,7 +123,6 @@ const EN_BLANCO: FranjaNueva = {
           matInput
           [id]="'desde-' + clave()"
           [name]="'franja-desde-' + clave()"
-          [attr.name]="'franja-desde-' + clave()"
           placeholder="hh:mm"
           autocomplete="off"
           [matTimepicker]="relojFranjaDesde"
@@ -139,7 +138,6 @@ const EN_BLANCO: FranjaNueva = {
           matInput
           [id]="'hasta-' + clave()"
           [name]="'franja-hasta-' + clave()"
-          [attr.name]="'franja-hasta-' + clave()"
           placeholder="hh:mm"
           autocomplete="off"
           [matTimepicker]="relojFranjaHasta"
@@ -149,34 +147,32 @@ const EN_BLANCO: FranjaNueva = {
         <mat-timepicker #relojFranjaHasta />
       </mat-form-field>
 
-      <div>
-        <label [for]="'monto-' + clave()" class="block font-medium">Precio 1 hora</label>
+      <mat-form-field class="chico w-28">
+        <mat-label>Precio 1 hora</mat-label>
         <input
+          matInput
           type="number"
           min="0"
           step="500"
           [id]="'monto-' + clave()"
           [name]="'franja-monto-' + clave()"
-          class="campo campo-chico mt-1 w-28"
           [(ngModel)]="nueva.montoClp"
         />
-      </div>
+      </mat-form-field>
 
-      <div>
-        <label [for]="'monto90-' + clave()" class="block font-medium">
-          Precio 1 hora y media
-        </label>
+      <mat-form-field class="chico w-28">
+        <mat-label>Precio 1 hora y media</mat-label>
         <input
+          matInput
           type="number"
           min="1"
           step="500"
           placeholder="No se vende"
           [id]="'monto90-' + clave()"
           [name]="'franja-monto90-' + clave()"
-          class="campo campo-chico mt-1 w-28"
           [(ngModel)]="nueva.montoClp90"
         />
-      </div>
+      </mat-form-field>
 
       <label class="flex items-center gap-2 py-1">
         <input

@@ -1,5 +1,8 @@
 import { Component, inject, input, output, resource } from '@angular/core';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { diaConAnioEnPalabras } from '../catalogo-canchas/reloj-del-club';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
@@ -18,7 +21,8 @@ import { Ranking, TablaDeTorneos } from './ranking.service';
  */
 @Component({
   selector: 'app-tabla-de-tour',
-  imports: [EstadoVacio, Esqueleto],
+  imports: [MatFormFieldModule, MatInput, EstadoVacio, Esqueleto],
+  providers: [proveerCampos()],
   template: `
     @if (tabla.error()) {
       <p class="mt-6 text-destructive">No se pudo cargar el ranking. Reintenta en un momento.</p>
@@ -39,10 +43,10 @@ import { Ranking, TablaDeTorneos } from './ranking.service';
       } @else {
         <!-- Solo las que tienen resultados: una lista con categorías vacías obliga a
              probar una por una. -->
-        <label class="mt-4 block w-fit">
-          <span class="text-sm font-medium">Categoría</span>
+        <mat-form-field class="w-fit">
+          <mat-label>Categoría</mat-label>
           <select
-            class="campo mt-1"
+            matNativeControl
             name="categoria"
             [value]="datos.categoriaJuegoId"
             (change)="elegir($event)"
@@ -59,7 +63,7 @@ import { Ranking, TablaDeTorneos } from './ranking.service';
               </option>
             }
           </select>
-        </label>
+        </mat-form-field>
 
         @if (datos.posiciones.length === 0) {
           <p class="mt-6 text-muted-foreground">Nadie suma puntos en esta categoría todavía.</p>

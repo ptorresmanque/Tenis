@@ -36,8 +36,7 @@ const RECHAZOS: Record<string, string> = {
     }
 
     <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="entrar()">
-      <!-- Sin asterisco, como antes: en una pantalla de dos campos, los dos se piden. -->
-      <mat-form-field hideRequiredMarker>
+      <mat-form-field>
         <mat-label>Correo</mat-label>
         <input
           matInput
@@ -48,7 +47,7 @@ const RECHAZOS: Record<string, string> = {
         <mat-error>{{ errorDelCampo(formulario.controls.email) }}</mat-error>
       </mat-form-field>
 
-      <mat-form-field hideRequiredMarker>
+      <mat-form-field>
         <mat-label>Contraseña</mat-label>
         <input
           matInput

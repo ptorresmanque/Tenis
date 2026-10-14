@@ -1,7 +1,10 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { diaEnPalabras, fechaEnElClub, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -19,7 +22,8 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
  */
 @Component({
   selector: 'app-observaciones-de-reserva',
-  imports: [MatButton, FormsModule, Aviso, HistorialDeObservaciones],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, HistorialDeObservaciones],
+  providers: [proveerCampos()],
   template: `
     @if (reserva().observaciones.length > 0) {
       <ul class="mt-3 grid gap-2 text-sm">
@@ -27,18 +31,18 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
           <li class="rounded-lg bg-muted p-2">
             @if (corrigiendo() === observacion.id) {
               <form (ngSubmit)="guardarCorreccion(observacion.id)">
-                <label class="sr-only" [attr.for]="'corregir-' + observacion.id">
-                  Corregir la observación
-                </label>
-                <textarea
-                  class="campo"
-                  rows="2"
-                  maxlength="500"
-                  [attr.id]="'corregir-' + observacion.id"
-                  [attr.name]="'corregir-' + observacion.id"
-                  [(ngModel)]="textoCorregido"
-                  [ngModelOptions]="{ standalone: true }"
-                ></textarea>
+                <mat-form-field>
+                  <mat-label>Corregir la observación</mat-label>
+                  <textarea
+                    matInput
+                    rows="2"
+                    maxlength="500"
+                    [attr.id]="'corregir-' + observacion.id"
+                    [name]="'corregir-' + observacion.id"
+                    [(ngModel)]="textoCorregido"
+                    [ngModelOptions]="{ standalone: true }"
+                  ></textarea>
+                </mat-form-field>
                 <div class="mt-2 flex flex-wrap gap-2">
                   <!-- Corregir una y anotar otra son formularios distintos, cada uno con su envío.
                        mat-guidelines-ignore: multiples-filled -->
@@ -124,16 +128,18 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
 
     @if (anotando()) {
       <form class="mt-2" (ngSubmit)="anotar()">
-        <label class="sr-only" [attr.for]="'nueva-' + reserva().id">Nueva observación</label>
-        <textarea
-          class="campo"
-          rows="2"
-          maxlength="500"
-          name="nueva-observacion"
-          placeholder="Qué pasó con esta reserva"
-          [attr.id]="'nueva-' + reserva().id"
-          [(ngModel)]="textoNuevo"
-        ></textarea>
+        <mat-form-field>
+          <mat-label>Nueva observación</mat-label>
+          <textarea
+            matInput
+            rows="2"
+            maxlength="500"
+            name="nueva-observacion"
+            placeholder="Qué pasó con esta reserva"
+            [attr.id]="'nueva-' + reserva().id"
+            [(ngModel)]="textoNuevo"
+          ></textarea>
+        </mat-form-field>
         <div class="mt-2 flex flex-wrap gap-2">
           <button
             matButton="filled"

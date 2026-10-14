@@ -69,11 +69,11 @@ const DIAS = [
         <ul class="mt-3 grid gap-2">
           @for (franja of franjas(); track $index) {
             <li class="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-2">
-              <label class="text-sm">
-                <span class="sr-only">Día de la franja {{ $index + 1 }}</span>
+              <mat-form-field>
+                <mat-label>Día de la franja {{ $index + 1 }}</mat-label>
                 <select
-                  class="campo"
-                  [attr.name]="'dia' + $index"
+                  matNativeControl
+                  [name]="'dia' + $index"
                   [ngModel]="franja.diaSemana"
                   (ngModelChange)="cambiar($index, { diaSemana: +$event })"
                 >
@@ -81,7 +81,7 @@ const DIAS = [
                     <option [value]="dia.valor">{{ dia.nombre }}</option>
                   }
                 </select>
-              </label>
+              </mat-form-field>
 
               <!-- Desde, a y hasta bajan juntos de línea; sin el botón del reloj caben en
                    una fila a 375px (T123). -->
@@ -91,7 +91,6 @@ const DIAS = [
                     matInput
                     [id]="'desde-' + $index"
                     [name]="'desde' + $index"
-                    [attr.name]="'desde' + $index"
                     placeholder="hh:mm"
                     autocomplete="off"
                     [matTimepicker]="relojDesde"
@@ -109,7 +108,6 @@ const DIAS = [
                     matInput
                     [id]="'hasta-' + $index"
                     [name]="'hasta' + $index"
-                    [attr.name]="'hasta' + $index"
                     placeholder="hh:mm"
                     autocomplete="off"
                     [matTimepicker]="relojHasta"

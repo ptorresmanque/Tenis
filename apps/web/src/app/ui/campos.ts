@@ -13,6 +13,9 @@ import {
  *   la de arriba del `.campo`, y el campo vacío muestra su formato («dd-mm-aaaa»).
  * - **El lugar del error no se reserva** si no hay error: un formulario sin errores no queda con
  *   huecos debajo de cada campo.
+ * - **Sin el asterisco de lo obligatorio**, salvo donde se pide (`[hideRequiredMarker]="false"`
+ *   o a mano en la etiqueta): en el sitio nunca fue automático, y una pantalla de dos campos
+ *   que se piden los dos no necesita marcarlos (T246).
  *
  * Se provee en cada componente con campos y no en la aplicación, como `proveerFechaYHora()`:
  * con el token viaja el campo de Material entero, y el arranque del sitio no tiene ninguno.
@@ -22,6 +25,7 @@ export function proveerCampos(): Provider[] {
     appearance: 'outline',
     floatLabel: 'always',
     subscriptSizing: 'dynamic',
+    hideRequiredMarker: true,
   };
 
   return [{ provide: MAT_FORM_FIELD_DEFAULT_OPTIONS, useValue: opciones }];

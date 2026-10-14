@@ -1521,6 +1521,17 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**ninguna carpeta migrada arma un campo con `.campo`** (T246; en T247, toda la web)', () => {
+    const migradas = ['club/', 'inicio/', 'reservas/', 'torneos/publico/', 'ranking/', 'tours/publico/',
+      'clases/', 'catalogo-canchas/', 'cascarones/', 'cuotas/'];
+    const infractores = plantillas()
+      .filter(({ archivo }) => migradas.some((carpeta) => archivo.startsWith(carpeta)))
+      .filter(({ contenido }) => /class="(?:[^"]* )?campo(?:-chico|-con-prefijo)?(?: [^"]*)?"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**el arranque no importa el campo de Material** (I6)', () => {
     for (const archivo of ['src/app/app.config.ts', 'src/app/ui/material.ts']) {
       const fuente = readFileSync(join(process.cwd(), archivo), 'utf8');

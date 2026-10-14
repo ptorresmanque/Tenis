@@ -51,8 +51,9 @@ interface CampoDelFormulario {
     } @else {
       <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="registrar()">
         @for (campo of campos; track campo.nombre) {
-          <mat-form-field>
-            <!-- El asterisco de lo obligatorio lo pone Material: el control lleva required. -->
+          <!-- El asterisco de lo obligatorio lo pone Material, que lo lee del required del
+               control; el registro lo muestra, como siempre (en el resto va apagado). -->
+          <mat-form-field [hideRequiredMarker]="false">
             <mat-label>{{ campo.etiqueta }}</mat-label>
             <!-- El +56 fijo y solo los 9 dígitos (T121). Cada @if con un solo elemento: así
                  Angular lo proyecta en el prefijo o en el control del campo de Material. -->

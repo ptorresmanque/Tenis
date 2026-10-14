@@ -276,39 +276,42 @@ const enBlanco = () => ({
         </fieldset>
 
         @if (datos.tipo === 'TENIS') {
-          <label class="block">
-            <span class="text-sm font-medium">Cancha</span>
-            <select class="campo mt-1" name="canchaId" [(ngModel)]="datos.canchaId">
+          <mat-form-field>
+            <mat-label>Cancha</mat-label>
+            <select matNativeControl name="canchaId" [(ngModel)]="datos.canchaId">
               <option [value]="0" disabled>Elige una cancha</option>
               @for (cancha of canchasActivas(); track cancha.id) {
                 <option [value]="cancha.id">{{ cancha.nombre }}</option>
               }
             </select>
-          </label>
+          </mat-form-field>
         }
 
         <!-- El profesor agenda a su nombre (T222): no elige. -->
         @if (profesorFijo() === null) {
-          <label class="block">
-            <span class="text-sm font-medium">Profesor</span>
-            <select class="campo mt-1" name="profesorId" [(ngModel)]="datos.profesorId">
-              <option [value]="0" disabled>Elige un profesor</option>
-              @if (profesores.hasValue()) {
-                @for (profesor of profesores.value(); track profesor.id) {
-                  <option [value]="profesor.id">
-                    {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-                  </option>
+          <div>
+            <mat-form-field class="w-full">
+              <mat-label>Profesor</mat-label>
+              <select matNativeControl name="profesorId" [(ngModel)]="datos.profesorId">
+                <option [value]="0" disabled>Elige un profesor</option>
+                @if (profesores.hasValue()) {
+                  @for (profesor of profesores.value(); track profesor.id) {
+                    <option [value]="profesor.id">
+                      {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
+                    </option>
+                  }
                 }
-              }
-            </select>
+              </select>
+            </mat-form-field>
+            <!-- Debajo del campo y no en su mat-hint: el color del error lo pisaría Material. -->
             @if (profesores.error()) {
-              <span class="text-sm text-destructive"> No se pudieron cargar los profesores. </span>
+              <p class="text-sm text-destructive">No se pudieron cargar los profesores.</p>
             } @else if (profesores.value().length === 0) {
-              <span class="text-sm text-muted-foreground">
+              <p class="text-sm text-muted-foreground">
                 No hay profesores activos: anota uno primero.
-              </span>
+              </p>
             }
-          </label>
+          </div>
         }
 
         <mat-form-field class="w-36">
@@ -342,14 +345,14 @@ const enBlanco = () => ({
         </mat-form-field>
 
         @if (datos.tipo === 'TENIS') {
-          <label class="block">
-            <span class="text-sm font-medium">Nivel</span>
-            <select class="campo mt-1" name="nivel" [(ngModel)]="datos.nivel">
+          <mat-form-field>
+            <mat-label>Nivel</mat-label>
+            <select matNativeControl name="nivel" [(ngModel)]="datos.nivel">
               @for (opcion of opcionesDeNivel; track opcion.valor) {
                 <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
               }
             </select>
-          </label>
+          </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
           <fieldset>
@@ -378,28 +381,28 @@ const enBlanco = () => ({
         }
 
         @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
-          <label class="block">
-            <span class="text-sm font-medium">Cupo</span>
+          <mat-form-field>
+            <mat-label>Cupo</mat-label>
             <input
-              class="campo mt-1"
+              matInput
               type="number"
               name="cupoMaximo"
               [min]="datos.tipo === 'TENIS' ? 1 : 2"
               max="40"
               [(ngModel)]="datos.cupoMaximo"
             />
-          </label>
+          </mat-form-field>
         }
 
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Notas</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Notas</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="notas"
             placeholder="Opcional: qué se trabaja, qué llevar"
             [(ngModel)]="datos.notas"
           />
-        </label>
+        </mat-form-field>
       </div>
 
       <!-- Confirmar es un segundo paso, en su recuadro; candidato a MatDialog en los diálogos.
