@@ -416,3 +416,10 @@ html {
 .mat-mdc-form-field .mat-mdc-text-field-wrapper {
   flex-grow: 0;
 }
+
+/* La etiqueta se ve al 75 %, pero su caja sin escalar cuenta para el ancho de la página: una
+   etiqueta larga en un teléfono la empujaba hacia el lado (T248, e2e/sin-desborde). Solo lo
+   horizontal: la etiqueta va montada sobre el borde de arriba. */
+.mat-mdc-form-field {
+  overflow-x: clip;
+}
