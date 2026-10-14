@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
 import { LugarDelClubPanel } from './lugar-del-club';
+import { avisoDeLoHecho } from '../testing/snackbar';
 
 /**
  * T184 y T236. Cada lugar del club en su pestaña: la tienda, la cafetería y el gimnasio,
@@ -132,7 +133,7 @@ describe('LugarDelClubPanel', () => {
     fixture.detectChanges();
 
     expect(club.recargar).toHaveBeenCalledTimes(1);
-    expect(elemento.textContent).toContain('Guardado');
+    expect(avisoDeLoHecho()).toContain('Guardado');
   });
 
   it('si la API rechaza, muestra su mensaje', async () => {

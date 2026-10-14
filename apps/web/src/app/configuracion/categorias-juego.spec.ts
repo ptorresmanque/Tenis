@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CategoriaDeJuego, CategoriasDeJuego } from './categorias-juego.service';
 import { CategoriasDeJuegoPanel } from './categorias-juego';
+import { avisoDeLoHecho } from '../testing/snackbar';
 
 /**
  * T60. Las categorías con que juega el club.
@@ -130,7 +131,7 @@ describe('CategoriasDeJuegoPanel', () => {
   it('al moverla, el aviso dice el orden nuevo', async () => {
     await escribirOrden(QUINTA.id, '35');
 
-    expect(texto()).toContain('5ª quedó con el orden 35.');
+    expect(avisoDeLoHecho()).toContain('5ª quedó con el orden 35.');
   });
 
   it('mover una categoría manda el lugar nuevo', async () => {

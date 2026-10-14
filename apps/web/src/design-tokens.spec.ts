@@ -1562,6 +1562,13 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**el snackbar es la placa del rótulo**, la del sitio y no el gris de Material (T254)', () => {
+    const snackbar = tema.match(/snack-bar-overrides\(([\s\S]*?)\);/)?.[1] ?? '';
+
+    expect(snackbar).toContain('container-color: var(--color-rotulo)');
+    expect(snackbar).toContain('supporting-text-color: var(--color-on-rotulo)');
+  });
+
   it('**ningún `prompt` ni `confirm` del navegador**: son diálogos de Material (T253)', () => {
     const infractores = plantillas()
       .filter(({ contenido }) =>

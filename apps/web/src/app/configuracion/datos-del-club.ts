@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -11,6 +12,7 @@ import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
 import { TelefonoDirective } from '../ui/telefono';
+import { LO_HECHO } from '../ui/material';
 
 /** Cada dato con su etiqueta y por qué se pide. El orden es el de la pantalla. */
 const DATOS = [
@@ -184,10 +186,6 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 
       @if (error(); as falla) {
         <app-aviso variante="error">{{ falla }}</app-aviso>
-      } @else if (guardado()) {
-        <app-aviso variante="exito">
-          Guardado. El sitio ya muestra estos datos.
-        </app-aviso>
       }
 
       <div>
@@ -206,6 +204,7 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 export class DatosDelClub {
   protected readonly errorDelCampo = errorDelCampo;
 
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);
@@ -226,7 +225,6 @@ export class DatosDelClub {
   protected readonly editado = signal<Partial<Formulario>>({});
 
   protected readonly guardando = signal(false);
-  protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected formulario(): Formulario {
@@ -259,12 +257,10 @@ export class DatosDelClub {
 
   protected escribir(campo: keyof Formulario, valor: string): void {
     this.editado.update((actual) => ({ ...actual, [campo]: valor }));
-    this.guardado.set(false);
   }
 
   protected async guardar(): Promise<void> {
     this.error.set(null);
-    this.guardado.set(false);
 
     if (!this.formulario().nombre.trim()) {
       // El servidor también lo rechaza; acá se dice sin gastar el viaje.
@@ -281,7 +277,7 @@ export class DatosDelClub {
       this.club.reload();
       this.sitio.recargar();
       this.editado.set({});
-      this.guardado.set(true);
+      this.snackBar.open('Guardado. El sitio ya muestra estos datos.', undefined, LO_HECHO);
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla, 'No se pudieron guardar los datos.'));
     } finally {

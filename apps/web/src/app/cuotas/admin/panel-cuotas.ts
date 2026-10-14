@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { pedirMotivo } from '../../ui/dialogo-de-motivo';
@@ -13,6 +14,7 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { CuotaDelMes, Cuotas, MedioPago } from '../cuotas.service';
+import { LO_HECHO } from '../../ui/material';
 
 const MEDIOS: Record<MedioPago, string> = {
   EFECTIVO: 'Efectivo',
@@ -89,9 +91,6 @@ function mesActual(): string {
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
     @if (datos.isLoading()) {
@@ -220,6 +219,7 @@ function mesActual(): string {
   `,
 })
 export class PanelDeCuotas {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Cuotas);
   private readonly dialogos = inject(MatDialog);
 
@@ -249,7 +249,6 @@ export class PanelDeCuotas {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   protected readonly pesos = enPesos;
 
@@ -273,10 +272,12 @@ export class PanelDeCuotas {
       // La incorporación no extiende la vigencia —compra la entrada, no tiempo—, así
       // que prometer que "queda al día hasta fin de mes" sería mentirle al admin justo
       // en la pantalla donde va a cobrar la mensualidad a continuación.
-      this.aviso.set(
+      this.snackBar.open(
         cuota.tipo === 'INCORPORACION'
           ? `Cobrada la incorporación de ${cuota.socio.nombre}. Ya puede reservar; su mensualidad va aparte.`
           : `Cobrada la cuota de ${cuota.socio.nombre}. Queda al día hasta fin de ${cuota.periodo}.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -297,8 +298,10 @@ export class PanelDeCuotas {
 
     await this.intentar(`condonar-${cuota.id}`, async () => {
       await this.api.ajustar(cuota.id, { condonar: true, motivo });
-      this.aviso.set(
+      this.snackBar.open(
         `Condonada la cuota de ${cuota.socio.nombre}. Queda al día ese mes igual.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -320,7 +323,7 @@ export class PanelDeCuotas {
 
     await this.intentar(`anular-${cuota.id}`, async () => {
       await this.api.ajustar(cuota.id, { anular: true, motivo });
-      this.aviso.set(`Anulada la cuota de ${cuota.socio.nombre}.`);
+      this.snackBar.open(`Anulada la cuota de ${cuota.socio.nombre}.`, undefined, LO_HECHO);
     });
   }
 
@@ -335,7 +338,6 @@ export class PanelDeCuotas {
     accion: () => Promise<void>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.cobrando.set(true);
     this.enCurso.set(clave);
 

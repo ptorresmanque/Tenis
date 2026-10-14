@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -24,6 +25,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 import { FichaDeTour, Tours } from '../tours.service';
 import { GaleriaDelTour } from './galeria-del-tour';
 import { TemporadasDelTour } from './temporadas-del-tour';
+import { LO_HECHO } from '../../ui/material';
 
 /** Lo que se le hace a un tour. */
 type Pestana = 'datos' | 'temporadas' | 'galeria';
@@ -111,8 +113,6 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
       } @else {
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-        } @else if (aviso(); as texto) {
-          <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
         }
 
         <div class="mt-6 grid gap-8 lg:grid-cols-[1fr_20rem]">
@@ -235,6 +235,7 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
   `,
 })
 export class FichaTour {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Tours);
   private readonly router = inject(Router);
 
@@ -274,7 +275,6 @@ export class FichaTour {
   /** Qué acción está viajando, para que gire su botón y no todos (T153). */
   protected readonly enCurso = signal<'guardar' | 'imagen' | 'borrar' | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly confirmacion = viewChild.required<TemplateRef<unknown>>('confirmacion');
 
@@ -295,7 +295,6 @@ export class FichaTour {
 
   protected escribir(campo: 'nombre' | 'descripcion', valor: string): void {
     this.editado.update((actual) => ({ ...actual, [campo]: valor }));
-    this.aviso.set(null);
   }
 
   protected async guardar(): Promise<void> {
@@ -310,7 +309,7 @@ export class FichaTour {
       });
       this.editado.set({});
       this.ficha.reload();
-      this.aviso.set('Guardado.');
+      this.snackBar.open('Guardado.', undefined, LO_HECHO);
     });
   }
 
@@ -325,7 +324,7 @@ export class FichaTour {
       await this.api.subirImagen(tour.id, archivo);
       this.version.set(Date.now());
       this.ficha.reload();
-      this.aviso.set('Imagen guardada.');
+      this.snackBar.open('Imagen guardada.', undefined, LO_HECHO);
     });
     entrada.value = '';
   }
@@ -349,7 +348,6 @@ export class FichaTour {
     accion: () => Promise<void>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.enCurso.set(clave);
 
     try {

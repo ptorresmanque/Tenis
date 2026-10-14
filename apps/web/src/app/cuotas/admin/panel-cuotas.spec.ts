@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CuotaDelMes, Cuotas, MesDeCuotas } from '../cuotas.service';
 import { PanelDeCuotas } from './panel-cuotas';
 import { darMotivo, textoDelDialogo } from '../../testing/dialogos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T40. Las cuotas del mes.
@@ -145,7 +146,7 @@ describe('PanelDeCuotas', () => {
 
     expect(api.cobrar).toHaveBeenCalledWith(1, 'EFECTIVO');
     expect(elemento().textContent).toContain('Carolina Díaz');
-    expect(elemento().textContent).toContain('hasta fin de 2026-08');
+    expect(avisoDeLoHecho()).toContain('hasta fin de 2026-08');
   });
 
   it('la transferencia es el otro botón, no un menú', async () => {
@@ -204,8 +205,8 @@ describe('PanelDeCuotas', () => {
 
     await apretar('Efectivo');
 
-    expect(elemento().textContent).toContain('su mensualidad va aparte');
-    expect(elemento().textContent).not.toContain('Queda al día hasta');
+    expect(avisoDeLoHecho()).toContain('su mensualidad va aparte');
+    expect(avisoDeLoHecho()).not.toContain('Queda al día hasta');
   });
 
   it('**condonar y anular son botones distintos, y la pantalla lo explica**', async () => {
@@ -219,7 +220,7 @@ describe('PanelDeCuotas', () => {
       condonar: true,
       motivo: 'Estuvo lesionada',
     });
-    expect(elemento().textContent).toContain('Queda al día ese mes igual');
+    expect(avisoDeLoHecho()).toContain('Queda al día ese mes igual');
 
     await apretar('Anular');
     expect(textoDelDialogo()).toContain('¿Anular la cuota de');

@@ -635,3 +635,15 @@ html .mat-mdc-dialog-title {
 html .cdk-overlay-dark-backdrop {
   background: color-mix(in srgb, var(--color-foreground) 50%, transparent);
 }
+
+/* La confirmación de lo hecho (T254): un snackbar sobre la placa del rótulo, la del sitio (TV2.3),
+   y no sobre el gris de Material. En modo oscuro el rótulo se aclara, como hace el snackbar. */
+html {
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--color-rotulo),
+      supporting-text-color: var(--color-on-rotulo),
+      supporting-text-font: var(--font-sans),
+    )
+  );
+}

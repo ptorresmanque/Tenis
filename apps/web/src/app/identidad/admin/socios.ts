@@ -14,6 +14,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -32,6 +33,7 @@ import {
   SocioDelClub,
   Socios,
 } from './socios.service';
+import { LO_HECHO } from '../../ui/material';
 
 const ESTADOS: Record<EstadoSocio, string> = {
   ACTIVO: 'Activo',
@@ -140,8 +142,6 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
 
       @if (error(); as falla) {
         <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-      } @else if (aviso(); as texto) {
-        <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
       }
     </section>
 
@@ -319,6 +319,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
   `,
 })
 export class SociosPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Socios);
 
   protected readonly formulario: Formulario = { ...EN_BLANCO };
@@ -391,7 +392,6 @@ export class SociosPanel {
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   /** Se recarga al cambiar, que es lo que refresca las dos listas tras cada acción. */
   private readonly version = signal(0);
@@ -407,7 +407,6 @@ export class SociosPanel {
 
   protected async invitar(): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
 
     const email = this.formulario.email.trim().toLowerCase();
     if (!email) {
@@ -427,8 +426,10 @@ export class SociosPanel {
     this.guardando.set(true);
     try {
       await this.api.invitar(datos);
-      this.aviso.set(
+      this.snackBar.open(
         `${email} queda como socio en cuanto cree su cuenta con ese correo.`,
+        undefined,
+        LO_HECHO,
       );
       Object.assign(this.formulario, EN_BLANCO);
       this.recargar();
@@ -441,11 +442,10 @@ export class SociosPanel {
 
   protected async revocar(id: number, email: string): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
 
     try {
       await this.api.revocar(id);
-      this.aviso.set(`Se anuló la invitación de ${email}.`);
+      this.snackBar.open(`Se anuló la invitación de ${email}.`, undefined, LO_HECHO);
       this.recargar();
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla));
