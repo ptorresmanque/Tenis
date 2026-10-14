@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { VARIANTES_AVISO } from './app/ui/aviso';
-import { VARIANTES_INSIGNIA } from './app/ui/insignia';
+import { ICONO_DE_INSIGNIA } from './app/ui/insignias';
 import { PICO_Y_VALLE, VOSEO } from './voseo';
 
 /**
@@ -322,14 +322,9 @@ describe('Contraste de los tokens de color', () => {
       return `#${[1, 3, 5].map((i) => canal(i).toString(16).padStart(2, '0')).join('')}`;
     }
 
-    const variantes = [
-      ...Object.entries(VARIANTES_INSIGNIA).map(
-        ([nombre, v]) => [`insignia ${nombre}`, v.clases] as const,
-      ),
-      ...Object.entries(VARIANTES_AVISO).map(
-        ([nombre, v]) => [`aviso ${nombre}`, v.clases] as const,
-      ),
-    ];
+    const variantes = Object.entries(VARIANTES_AVISO).map(
+      ([nombre, v]) => [`aviso ${nombre}`, v.clases] as const,
+    );
 
     it.each(variantes)('%s se lee sobre su propio fondo (4.5:1)', (_, clases) => {
       const fondo = sobre(color('card'), deClase(clases, 'bg'));
@@ -338,11 +333,29 @@ describe('Contraste de los tokens de color', () => {
       expect(contraste(texto, fondo)).toBeGreaterThanOrEqual(4.5);
     });
 
+    // Las de la insignia viven en el tema desde T258, en el mapa `$insignias`: el fondo y el
+    // borde como un token y su porcentaje sobre la tarjeta, y el texto como un token.
+    const insignias = [
+      ...tema.matchAll(/^\s+(\w+): \(fondo: ([a-z-]+) (\d+)%, borde: [a-z-]+ \d+%, texto: ([a-z-]+)\)/gm),
+    ].map(([, nombre, fondo, porcentaje, texto]) => [`insignia ${nombre}`, fondo, Number(porcentaje), texto] as const);
+
+    it('el mapa de las insignias trae las seis variantes', () => {
+      expect(insignias.map(([nombre]) => nombre.replace('insignia ', '')).sort()).toEqual(
+        Object.keys(ICONO_DE_INSIGNIA).sort(),
+      );
+    });
+
+    it.each(insignias)('%s se lee sobre su propio fondo (4.5:1)', (_, fondo, porcentaje, texto) => {
+      const visto = sobre(color('card'), [color(fondo), porcentaje / 100]);
+
+      expect(contraste(color(texto), visto)).toBeGreaterThanOrEqual(4.5);
+    });
+
     it('cada variante trae su ícono: el color no puede ser la única señal', () => {
       // El anti-patrón del master. Una insignia que solo cambia de color no
       // dice nada a quien no distingue el verde del rojo.
       const sinIcono = [
-        ...Object.entries(VARIANTES_INSIGNIA),
+        ...Object.entries(ICONO_DE_INSIGNIA).map(([nombre, icono]) => [nombre, { icono }] as const),
         ...Object.entries(VARIANTES_AVISO),
       ]
         .filter(([, variante]) => !variante.icono)
@@ -1105,62 +1118,144 @@ describe('Fotos', () => {
 
 
 describe('Tablas', () => {
-  it('toda tabla usa la primitiva, no un juego de clases propio', () => {
-    // Las cuatro de reportes traían `w-full border-collapse text-sm` y sus
-    // propias líneas por fila: dos familias de tabla en el mismo panel, con
-    // encabezados distintos y sin cifras tabulares. La primitiva es lo que hace
-    // que el padrón y el reporte de ingresos se lean como el mismo sistema.
+  it('toda tabla de datos es un mat-table (T256, T257)', () => {
+    // Antes la regla pedía la primitiva `.tabla`: las cuatro de reportes traían
+    // `w-full border-collapse text-sm` y sus propias líneas por fila, dos familias de
+    // tabla en el mismo panel. Ahora la tabla es la de Material, con la cara de la
+    // primitiva en el tema, y la regla cuida lo mismo: un solo sistema.
     //
     // La excepción es el marcador de la portada (TV3.3): no es una tabla de
-    // datos sino el tablero de la transmisión, sobre campo. La primitiva le
-    // pondría encabezado gris, una línea por fila y un hover gris, y habría que
-    // deshacer cada cosa a mano. Va por archivo, no por clase, para que no sea
-    // una puerta que cualquier tabla pueda usar.
+    // datos sino el tablero de la transmisión, sobre campo. Va por archivo, no por
+    // clase, para que no sea una puerta que cualquier tabla pueda usar.
     //
     // La otra es la disponibilidad (T103), por lo mismo: es un tablero de botones de
-    // 44px, uno por celda, separados entre sí. La primitiva los juntaría con
-    // `border-collapse`, les sumaría 2rem de relleno por celda —a 375px no caben dos
-    // columnas—, pegaría el encabezado bajo la cabecera del sitio y pintaría la fila
-    // entera de gris al pasar el ratón por un botón.
+    // 44px, uno por celda, separados entre sí. Una tabla de datos los juntaría, les
+    // sumaría 2rem de relleno por celda —a 375px no caben dos columnas— y pintaría la
+    // fila entera de gris al pasar el ratón por un botón.
     const infractores: string[] = [];
     const excepciones = ['catalogo-canchas/marcador.ts', 'catalogo-canchas/grilla/grilla.ts'];
 
     for (const { archivo, contenido } of plantillas()) {
       if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<table[^>]*>/g)) {
-        if (!/class="[^"]*\btabla\b/.test(etiqueta)) {
-          infractores.push(`${archivo}: ${etiqueta}`);
-        }
+        if (!/\bmat-table\b/.test(etiqueta)) infractores.push(`${archivo}: ${etiqueta}`);
       }
     }
 
     expect(infractores).toEqual([]);
   });
 
-  it('la primitiva alinea los números y les da ancho fijo', () => {
-    // Sin `tabular-nums` el 1 es más angosto que el 8, y una columna de montos
-    // queda con los dígitos desalineados fila a fila: comparar $12.000 con
-    // $120.000 de un vistazo deja de ser posible.
-    const tabla = css.match(/\.tabla\s*\{[^}]*\}/)?.[0];
+  it('**el encabezado de columna de un mat-table se queda a la vista** (T256)', () => {
+    // El padrón tiene decenas de filas y el reporte de ingresos una por día: sin esto, a
+    // la fila veinte nadie se acuerda de qué columna es cuál. Era el `sticky` de la
+    // primitiva; en Material es la fila de encabezado la que lo pide.
+    const infractores = plantillas()
+      .flatMap(({ archivo, contenido }) =>
+        [...contenido.matchAll(/\*matHeaderRowDef="([^"]*)"/g)].map(([, def]) => ({ archivo, def })),
+      )
+      .filter(({ def }) => !/sticky:\s*true/.test(def))
+      .map(({ archivo, def }) => `${archivo}: ${def}`);
 
-    expect(tabla).toMatch(/font-variant-numeric:\s*tabular-nums/);
-    expect(css).toMatch(/\.tabla\s+\.numero/);
+    expect(infractores).toEqual([]);
   });
 
-  it('el encabezado de columna se queda a la vista, y el de fila no', () => {
-    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
+  it('**el encabezado de fila sigue siendo un `<th scope="row">`**, con la cara de una celda (T256)', () => {
+    // `mat-cell` solo se pone en un `<td>`. El nombre del socio en el padrón, o el día en
+    // el reporte de ingresos, es el encabezado de su fila: el lector de pantalla lo dice
+    // al cruzar las columnas. Va como `<th scope="row">` con las clases de la celda.
+    const infractores = plantillas()
+      .flatMap(({ archivo, contenido }) =>
+        [...contenido.matchAll(/<th\b[^>]*\*mat(?:Cell|FooterCell)Def[^>]*>/g)].map(([etiqueta]) => ({
+          archivo,
+          etiqueta,
+        })),
+      )
+      .filter(
+        ({ etiqueta }) =>
+          !/scope="row"/.test(etiqueta) ||
+          !/class="[^"]*\bmdc-data-table__cell\b/.test(etiqueta) ||
+          !/class="[^"]*\bmat-mdc-(?:footer-)?cell\b/.test(etiqueta),
+      )
+      .map(({ archivo, etiqueta }) => `${archivo}: ${etiqueta}`);
 
-    expect(encabezado).toMatch(/position:\s*sticky/);
-    // El `<th scope="row">` es una celda de datos: se estiliza con los `td`.
-    expect(css).toMatch(/\.tabla td,\s*\n\s*\.tabla tbody th/);
+    expect(infractores).toEqual([]);
   });
 
-  it('el encabezado de columna va en la letra de los rótulos', () => {
-    // Como una tabla de posiciones en una transmisión: la etiqueta de la columna
-    // en la condensada, y los datos en la letra de leer (TV2.1).
-    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
+  it('la tabla de Material lleva la cara de la primitiva (T256)', () => {
+    // Cifras de ancho fijo y los números a la derecha, en la capa de componentes, para que
+    // las utilidades de la plantilla le sigan ganando. El tema le devuelve a esa capa lo que
+    // Material fija sin capa —el relleno, la alineación, la letra y el alto de las filas—, y
+    // pone el encabezado en la condensada de los rótulos.
+    const base = css.match(/\.mat-mdc-table\s*\{[^}]*\}/)?.[0];
 
-    expect(encabezado).toMatch(/font-family:\s*var\(--font-display\)/);
+    expect(base).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    expect(css).toMatch(/\.mat-mdc-table\s+\.numero/);
+    expect(tema).toMatch(/mat\.table-overrides\([^;]*header-headline-font:\s*var\(--font-display\)/);
+    expect(tema).toMatch(/html \.mdc-data-table__cell[^{]*\{[^}]*padding:\s*revert-layer/);
+  });
+
+  it('**se fue la primitiva `.tabla`** (T257, I1): ni la clase ni sus reglas', () => {
+    // Una tabla es la de Material, con su cara en el tema. Si la clase volviera en una
+    // plantilla, no tendría reglas que la vistieran; si las reglas volvieran, serían una
+    // segunda tabla a la que nada obliga a parecerse a la primera.
+    const conClase = plantillas()
+      .filter(({ contenido }) => /class="[^"]*\btabla(?:-densa)?\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(conClase).toEqual([]);
+    expect(css).not.toMatch(/\.tabla\b/);
+  });
+});
+
+describe('Insignias (T258)', () => {
+  it('**ninguna `<app-insignia`**: la insignia es un `mat-chip` de Material', () => {
+    const conInsignia = plantillas()
+      .filter(({ contenido }) => contenido.includes('<app-insignia'))
+      .map(({ archivo }) => archivo);
+
+    expect(conInsignia).toEqual([]);
+    expect(existsSync(join(process.cwd(), 'src/app/ui/insignia.ts'))).toBe(false);
+  });
+
+  it('**toda insignia es un chip dentro de su `mat-chip-set`, y trae su ícono**', () => {
+    // El ícono no es decoración: el par verde/rojo es justo el que no distingue quien tiene
+    // daltonismo rojo-verde, así que un estado dicho solo con color no se dice. Ícono y texto
+    // lo dicen igual en blanco y negro (la regla del master).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      // Los atributos, con sus comillas: un `[class]="cupos > 2 ? …"` tiene un `>` adentro.
+      // `(?=[\s>])` y no `\b`: con `\b` también calza `<mat-chip-set`, y se come el chip de adentro.
+      const chips = /<mat-chip(?=[\s>])((?:[^>"]|"[^"]*")*)>([\s\S]*?)<\/mat-chip>/g;
+      for (const m of contenido.matchAll(chips)) {
+        if (!/class="[^"]*\binsignia\b/.test(m[1])) continue;
+        const antes = contenido.slice(0, m.index);
+        const enSuSet = antes.lastIndexOf('<mat-chip-set') > antes.lastIndexOf('</mat-chip-set>');
+        const conIcono = /<mat-icon\b[^>]*\bmatChipAvatar\b/.test(m[2]);
+        if (!enSuSet || !conIcono) infractores.push(`${archivo}: ${m[0].slice(0, 90)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('el tema le da a la insignia la cara de rótulo, y a cada variante su color', () => {
+    // Condensada, en mayúscula y con tracking (TV2.2), y el alto de antes, para no mover las
+    // filas de las tablas del panel. Los colores salen del mapa `$insignias`, que es el que mide
+    // el contraste.
+    expect(tema).toMatch(/\.insignia\s*\{[^}]*mat\.chips-overrides\([^;]*label-text-font:\s*var\(--font-display\)/);
+    expect(tema).toMatch(/@each \$nombre, \$variante in \$insignias[\s\S]*?\.insignia\.#\{\$nombre\}/);
+  });
+});
+
+describe('Paginación (T259)', () => {
+  it('**ninguna `<app-paginacion`**: la paginación es un `mat-paginator`', () => {
+    const conPaginacion = plantillas()
+      .filter(({ contenido }) => contenido.includes('<app-paginacion'))
+      .map(({ archivo }) => archivo);
+
+    expect(conPaginacion).toEqual([]);
+    expect(existsSync(join(process.cwd(), 'src/app/ui/paginacion.ts'))).toBe(false);
   });
 });
 

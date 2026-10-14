@@ -15,10 +15,10 @@ import { MatButton } from '@angular/material/button';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { dialogoSegun } from '../../ui/dialogo';
 import { proveerCampos } from '../../ui/campos';
-import { Insignia } from '../../ui/insignia';
 import { CuadroPublico, Foto, Torneos, Transmision } from '../torneos.service';
 import { Arbol } from './arbol';
 import { esBye, esDe } from './busqueda';
@@ -57,9 +57,9 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
     Arbol,
     Esqueleto,
     Galeria,
-    Insignia,
     OrdenDeJuego,
     Reproductor,
+    MatChipsModule,
   ],
   providers: [proveerCampos()],
   template: `
@@ -103,9 +103,19 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
                       <span>{{ inscrito.nombre }}</span>
                     </span>
                     @if (inscrito.pago === 'PAGADO') {
-                      <app-insignia variante="exito">Pagado</app-insignia>
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia exito">
+                          <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                          Pagado
+                        </mat-chip>
+                      </mat-chip-set>
                     } @else if (inscrito.pago === 'PENDIENTE') {
-                      <app-insignia variante="aviso">Pago pendiente</app-insignia>
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia aviso">
+                          <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                          Pago pendiente
+                        </mat-chip>
+                      </mat-chip-set>
                     }
                   </li>
                 }

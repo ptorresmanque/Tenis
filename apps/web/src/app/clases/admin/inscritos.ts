@@ -7,11 +7,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Insignia } from '../../ui/insignia';
 import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
@@ -38,11 +39,12 @@ import { LO_HECHO } from '../../ui/material';
     FormsModule,
     Aviso,
     Esqueleto,
-    Insignia,
     MatButtonToggleModule,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     TelefonoDirective,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -56,12 +58,15 @@ import { LO_HECHO } from '../../ui/material';
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
           <h3 class="subtitulo">Quién viene</h3>
-          <app-insignia
-            [variante]="clase.cupoTomado >= clase.cupoMaximo ? 'aviso' : 'neutro'"
-            icono="group"
-          >
-            {{ clase.cupoTomado }} de {{ clase.cupoMaximo }}
-          </app-insignia>
+          <mat-chip-set class="insignias">
+            <mat-chip
+              class="insignia"
+              [class]="clase.cupoTomado >= clase.cupoMaximo ? 'aviso' : 'neutro'"
+            >
+              <mat-icon matChipAvatar aria-hidden="true">group</mat-icon>
+              {{ clase.cupoTomado }} de {{ clase.cupoMaximo }}
+            </mat-chip>
+          </mat-chip-set>
         </div>
 
         @if (error(); as falla) {
@@ -79,11 +84,19 @@ import { LO_HECHO } from '../../ui/material';
                 </span>
 
                 @if (quien.esSocio) {
-                  <app-insignia variante="info" icono="badge">
-                    Socio {{ quien.numeroSocio }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia info">
+                      <mat-icon matChipAvatar aria-hidden="true">badge</mat-icon>
+                      Socio {{ quien.numeroSocio }}
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else {
-                  <app-insignia variante="neutro" icono="person">Alumno</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">person</mat-icon>
+                      Alumno
+                    </mat-chip>
+                  </mat-chip-set>
                 }
 
                 @if (quien.telefono) {
@@ -95,9 +108,19 @@ import { LO_HECHO } from '../../ui/material';
                 @if (quien.estado === 'CANCELADA') {
                   <span class="text-muted-foreground">Se bajó</span>
                 } @else if (quien.estado === 'ASISTIO') {
-                  <app-insignia variante="exito" icono="check_circle">Vino</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia exito">
+                      <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                      Vino
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else if (quien.estado === 'FALTO') {
-                  <app-insignia variante="aviso" icono="cancel">No vino</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia aviso">
+                      <mat-icon matChipAvatar aria-hidden="true">cancel</mat-icon>
+                      No vino
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else {
                   <mat-checkbox
                     class="ms-auto text-sm"

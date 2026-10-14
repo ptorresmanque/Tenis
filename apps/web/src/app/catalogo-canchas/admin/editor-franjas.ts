@@ -6,10 +6,11 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { proveerCampos } from '../../ui/campos';
 import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
-import { Insignia } from '../../ui/insignia';
 import { enPesos, hoyEnElClub } from '../reloj-del-club';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
 
@@ -53,7 +54,8 @@ const EN_BLANCO: FranjaNueva = {
     MatTimepickerModule,
     MatButton,
     FormsModule,
-    Insignia,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -79,9 +81,12 @@ const EN_BLANCO: FranjaNueva = {
             @if (franja.montoClp90 === null) {
               <!-- Sin ese precio, quien no es socio no puede reservar 1 hora y media en
                    esta franja (T79). Es una omisión casi siempre, no una decisión. -->
-              <app-insignia variante="aviso" icono="warning">
-                Falta el precio de 1 hora y media
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia aviso">
+                  <mat-icon matChipAvatar aria-hidden="true">warning</mat-icon>
+                  Falta el precio de 1 hora y media
+                </mat-chip>
+              </mat-chip-set>
             }
             <button
               matButton

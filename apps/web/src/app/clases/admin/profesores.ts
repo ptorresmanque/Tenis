@@ -4,13 +4,14 @@ import { MatButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { Profesor, Profesores } from '../profesores.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
@@ -44,11 +45,12 @@ const enBlanco = () => ({
     FormsModule,
     Aviso,
     EstadoVacio,
-    Insignia,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     TelefonoDirective,
     Esqueleto,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -180,13 +182,19 @@ const enBlanco = () => ({
             </div>
 
             @if (profesor.activo) {
-              <app-insignia variante="exito" icono="check_circle">
-                Dando clases
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia exito">
+                  <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                  Dando clases
+                </mat-chip>
+              </mat-chip-set>
             } @else {
-              <app-insignia variante="neutro" icono="pause_circle">
-                Desactivado
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia neutro">
+                  <mat-icon matChipAvatar aria-hidden="true">pause_circle</mat-icon>
+                  Desactivado
+                </mat-chip>
+              </mat-chip-set>
             }
 
             <button

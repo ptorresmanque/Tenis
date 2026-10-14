@@ -1,10 +1,11 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno } from '../ranking.service';
 import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -21,7 +22,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-partidos-internos-panel',
-  imports: [MatButtonToggleModule, MatButton, EstadoVacio, Insignia, Esqueleto],
+  imports: [MatButtonToggleModule, MatButton, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada partido trae las suyas. -->
     <header class="cabecera-panel">
@@ -68,11 +69,19 @@ import { Esqueleto } from '../../ui/esqueleto';
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <p class="titulo-tarjeta">{{ partido.socioA }} contra {{ partido.socioB }}</p>
-              <app-insignia variante="neutro" icono="flag">
-                {{ nombreEstado(partido.estado) }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia neutro">
+                  <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                  {{ nombreEstado(partido.estado) }}
+                </mat-chip>
+              </mat-chip-set>
               @if (partido.resueltoPorAdmin) {
-                <app-insignia variante="info" icono="gavel"> Resuelto por el club </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia info">
+                    <mat-icon matChipAvatar aria-hidden="true">gavel</mat-icon>
+                    Resuelto por el club
+                  </mat-chip>
+                </mat-chip-set>
               }
             </div>
 

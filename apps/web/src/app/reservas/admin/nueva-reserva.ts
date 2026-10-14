@@ -16,6 +16,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { dialogoSegun } from '../../ui/dialogo';
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
@@ -24,7 +26,6 @@ import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
-import { Insignia } from '../../ui/insignia';
 import { ReservasDelAdmin } from './nueva-reserva.service';
 import { TelefonoDirective } from '../../ui/telefono';
 
@@ -49,9 +50,10 @@ import { TelefonoDirective } from '../../ui/telefono';
     MatButton,
     FormsModule,
     Aviso,
-    Insignia,
     MatButtonToggleModule,
     TelefonoDirective,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -178,9 +180,19 @@ import { TelefonoDirective } from '../../ui/telefono';
                 <p class="flex flex-wrap items-center gap-2 text-sm font-semibold">
                   Cupo de {{ datos.nombre }}
                   @if (datos.alDia) {
-                    <app-insignia variante="exito">Al día</app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia exito">
+                        <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                        Al día
+                      </mat-chip>
+                    </mat-chip-set>
                   } @else {
-                    <app-insignia variante="error">Cuota vencida</app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia error">
+                        <mat-icon matChipAvatar aria-hidden="true">cancel</mat-icon>
+                        Cuota vencida
+                      </mat-chip>
+                    </mat-chip-set>
                   }
                 </p>
                 <ul class="mt-2 grid gap-1 text-sm text-muted-foreground">

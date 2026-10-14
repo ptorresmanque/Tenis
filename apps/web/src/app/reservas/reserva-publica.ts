@@ -2,6 +2,7 @@ import { Component, computed, inject, input, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
 import {
   diaEnPalabras,
@@ -12,7 +13,7 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Club } from '../club/club.service';
 import { Aviso } from '../ui/aviso';
-import { Insignia, VarianteInsignia } from '../ui/insignia';
+import { VarianteInsignia } from '../ui/insignias';
 import { ReservasPublicas } from './reserva-publica.service';
 
 const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono: string }> =
@@ -40,7 +41,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
  */
 @Component({
   selector: 'app-reserva-publica',
-  imports: [MatButton, MatIcon, Aviso, Insignia, RouterLink],
+  imports: [MatButton, MatIcon, Aviso, RouterLink, MatChipsModule],
   template: `
     <section class="mx-auto max-w-md py-10">
       @if (reserva.isLoading()) {
@@ -64,9 +65,12 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
              nombre como titular y la hora en su rótulo. -->
         <div class="bg-card p-6 text-center shadow-md">
           <p>
-            <app-insignia [variante]="estado().variante" [icono]="estado().icono">
-              {{ estado().texto }}
-            </app-insignia>
+            <mat-chip-set class="insignias">
+              <mat-chip class="insignia" [class]="estado().variante">
+                <mat-icon matChipAvatar aria-hidden="true">{{ estado().icono }}</mat-icon>
+                {{ estado().texto }}
+              </mat-chip>
+            </mat-chip-set>
           </p>
 
           <h1 class="titular mt-4 text-4xl">{{ datos.nombre }}</h1>
@@ -95,7 +99,12 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
 
           @if (datos.esPico) {
             <p class="mt-3">
-              <app-insignia variante="aviso" icono="trending_up">Hora prime</app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia aviso">
+                  <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                  Hora prime
+                </mat-chip>
+              </mat-chip-set>
             </p>
           }
         </div>

@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
 import {
   diaEnPalabras,
@@ -12,7 +13,7 @@ import {
 import { Club } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { Aviso } from '../ui/aviso';
-import { Insignia } from '../ui/insignia';
+import { ICONO_DE_INSIGNIA } from '../ui/insignias';
 import { enlaceDeReserva, qrDeReserva } from './qr';
 import { ReservasPublicas } from './reserva-publica.service';
 import { Esqueleto } from '../ui/esqueleto';
@@ -40,7 +41,7 @@ const MOTIVOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-confirmacion-reserva',
-  imports: [MatButton, MatIcon, RouterLink, Aviso, Esqueleto, Insignia],
+  imports: [MatButton, MatIcon, RouterLink, Aviso, Esqueleto, MatChipsModule],
   template: `
     <section class="mx-auto max-w-lg py-10">
       @if (folio() && !error()) {
@@ -56,9 +57,14 @@ const MOTIVOS: Record<string, string> = {
                no paga la hora y la del mesón se cobra en efectivo, así que la
                insignia afirmaba un pago que en dos de los tres casos no existió. -->
           <p class="mt-3">
-            <app-insignia [variante]="esperandoElPago() ? 'aviso' : 'exito'">
-              {{ esperandoElPago() ? 'Esperando el pago' : 'Confirmada' }}
-            </app-insignia>
+            <mat-chip-set class="insignias">
+              <mat-chip class="insignia" [class]="esperandoElPago() ? 'aviso' : 'exito'">
+                <mat-icon matChipAvatar aria-hidden="true">
+                  {{ ICONO_DE_INSIGNIA[esperandoElPago() ? 'aviso' : 'exito'] }}
+                </mat-icon>
+                {{ esperandoElPago() ? 'Esperando el pago' : 'Confirmada' }}
+              </mat-chip>
+            </mat-chip-set>
           </p>
         </div>
 
@@ -234,6 +240,8 @@ const MOTIVOS: Record<string, string> = {
   `,
 })
 export class ConfirmacionReserva {
+  protected readonly ICONO_DE_INSIGNIA = ICONO_DE_INSIGNIA;
+
   private readonly parametros = toSignal(inject(ActivatedRoute).queryParamMap);
 
   private readonly auth = inject(Auth);

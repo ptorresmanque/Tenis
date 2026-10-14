@@ -2,6 +2,7 @@ import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatTableModule } from '@angular/material/table';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { Galeria } from '../torneos/publico/galeria';
@@ -50,7 +51,13 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
  */
 @Component({
   selector: 'app-tienda-y-cafeteria',
-  imports: [MatButton, MatIcon, RouterLink, Galeria],
+  imports: [
+    MatButton,
+    MatIcon,
+    RouterLink,
+    Galeria,
+    MatTableModule,
+  ],
   // Sin caja propia: la sección es la que lleva el margen, y sin lugares no queda ni eso.
   host: { class: 'contents' },
   template: `
@@ -112,24 +119,33 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
                        un nombre largo no empuja la página, y el encabezado fijo se queda en
                        la tabla. -->
                   <div class="mt-4 overflow-x-auto">
-                    <table class="tabla">
+                    <table mat-table [dataSource]="lugar.tarifas">
                       <caption class="sr-only">Tarifas {{ lugar.de }}</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Plan</th>
-                          <th scope="col">Socio</th>
-                          <th scope="col">No socio</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (tarifa of lugar.tarifas; track $index) {
-                          <tr>
-                            <th scope="row">{{ tarifa.nombre }}</th>
-                            <td class="whitespace-nowrap">{{ pesos(tarifa.precioSocioClp) }}</td>
-                            <td class="whitespace-nowrap">{{ pesos(tarifa.precioNoSocioClp) }}</td>
-                          </tr>
-                        }
-                      </tbody>
+                      <ng-container matColumnDef="plan">
+                        <th mat-header-cell *matHeaderCellDef scope="col">Plan</th>
+                        <th
+                          *matCellDef="let tarifa"
+                          scope="row"
+                          class="mat-mdc-cell mdc-data-table__cell"
+                        >
+                          {{ tarifa.nombre }}
+                        </th>
+                      </ng-container>
+                      <ng-container matColumnDef="socio">
+                        <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
+                        <td mat-cell *matCellDef="let tarifa" class="whitespace-nowrap">
+                          {{ pesos(tarifa.precioSocioClp) }}
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="noSocio">
+                        <th mat-header-cell *matHeaderCellDef scope="col">No socio</th>
+                        <td mat-cell *matCellDef="let tarifa" class="whitespace-nowrap">
+                          {{ pesos(tarifa.precioNoSocioClp) }}
+                        </td>
+                      </ng-container>
+
+                      <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+                      <tr mat-row *matRowDef="let tarifa; columns: COLUMNAS"></tr>
                     </table>
                   </div>
                 }
@@ -182,6 +198,8 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
   `,
 })
 export class TiendaYCafeteria {
+  protected readonly COLUMNAS = ['plan', 'socio', 'noSocio'];
+
   readonly forma = input<'resumen' | 'completa'>('resumen');
 
   private readonly club = inject(Club).datos;

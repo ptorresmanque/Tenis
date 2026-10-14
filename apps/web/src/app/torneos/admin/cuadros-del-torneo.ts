@@ -12,11 +12,12 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Insignia } from '../../ui/insignia';
 import { CategoriaJuego, Torneos } from '../torneos.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -57,8 +58,9 @@ function enPesos(texto: string): number | null {
     MatButton,
     FormsModule,
     Aviso,
-    Insignia,
     Esqueleto,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -117,7 +119,12 @@ function enPesos(texto: string): number | null {
               </mat-form-field>
 
               @if (cuadro.semillaSorteo !== null) {
-                <app-insignia variante="info" icono="lock">Armado</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia info">
+                    <mat-icon matChipAvatar aria-hidden="true">lock</mat-icon>
+                    Armado
+                  </mat-chip>
+                </mat-chip-set>
               }
 
               <button

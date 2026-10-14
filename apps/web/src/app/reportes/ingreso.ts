@@ -3,6 +3,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
 
 import {
   diaConAnioEnPalabras,
@@ -34,6 +35,7 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
+    MatTableModule,
     EstadoVacio,
     DescargarCsv,
   ],
@@ -108,37 +110,37 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="tabla text-sm">
+          <table mat-table class="text-sm" [dataSource]="datos.filas">
             <caption class="sr-only">
               Ingreso del período, cortado por
               {{
                 nombreDelCorte(datos.corte)
               }}
             </caption>
-            <thead>
-              <tr>
-                <th scope="col">Corte</th>
-                <th scope="col" class="numero">Ingreso</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (fila of datos.filas; track fila.etiqueta) {
-                <tr>
-                  <th scope="row">
-                    {{ fila.etiqueta }}
-                  </th>
-                  <td class="numero">{{ pesos(fila.montoClp) }}</td>
-                </tr>
-              }
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="numero font-semibold">
-                  {{ pesos(datos.totalClp) }}
-                </td>
-              </tr>
-            </tfoot>
+            <ng-container matColumnDef="corte">
+              <th mat-header-cell *matHeaderCellDef scope="col">Corte</th>
+              <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                {{ fila.etiqueta }}
+              </th>
+              <th
+                *matFooterCellDef
+                scope="row"
+                class="mat-mdc-footer-cell mdc-data-table__cell font-semibold"
+              >
+                Total
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="ingreso">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Ingreso</th>
+              <td mat-cell *matCellDef="let fila" class="numero">{{ pesos(fila.montoClp) }}</td>
+              <td mat-footer-cell *matFooterCellDef class="numero font-semibold">
+                {{ pesos(datos.totalClp) }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let fila; columns: COLUMNAS"></tr>
+            <tr mat-footer-row *matFooterRowDef="COLUMNAS"></tr>
           </table>
         </div>
       }
@@ -186,6 +188,8 @@ export class IngresoPanel {
   });
 
   protected readonly pesos = enPesos;
+
+  protected readonly COLUMNAS = ['corte', 'ingreso'];
 
   /** El CSV lleva el mismo rango y corte: si no, el club descarga otra cosa. */
   protected readonly urlDelCsv = computed(() =>

@@ -6,6 +6,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -13,7 +15,6 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { Jugador, Torneos } from '../torneos.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
@@ -41,11 +42,12 @@ import { LO_HECHO } from '../../ui/material';
     FormsModule,
     Aviso,
     EstadoVacio,
-    Insignia,
     MatButtonToggleModule,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     TelefonoDirective,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -157,11 +159,19 @@ import { LO_HECHO } from '../../ui/material';
             </span>
 
             @if (jugador.numeroSocio) {
-              <app-insignia variante="info" icono="badge">
-                Socio {{ jugador.numeroSocio }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia info">
+                  <mat-icon matChipAvatar aria-hidden="true">badge</mat-icon>
+                  Socio {{ jugador.numeroSocio }}
+                </mat-chip>
+              </mat-chip-set>
             } @else {
-              <app-insignia variante="neutro" icono="person">De afuera</app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia neutro">
+                  <mat-icon matChipAvatar aria-hidden="true">person</mat-icon>
+                  De afuera
+                </mat-chip>
+              </mat-chip-set>
             }
 
             @if (jugador.telefono) {

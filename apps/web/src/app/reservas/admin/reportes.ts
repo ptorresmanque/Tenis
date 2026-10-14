@@ -1,5 +1,7 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -8,7 +10,6 @@ import {
 } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { Decision, HoraReportada, Reportes } from './reportes.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -22,7 +23,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-reportes',
-  imports: [MatButton, EstadoVacio, Insignia, Esqueleto],
+  imports: [MatButton, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
     <header class="cabecera-panel">
@@ -66,9 +67,12 @@ import { Esqueleto } from '../../ui/esqueleto';
                   {{ dia(reportada.inicio) }}, {{ hora(reportada.inicio) }}–{{ hora(reportada.fin) }}
                 </h2>
                 <span class="text-sm text-muted-foreground">{{ reportada.cancha }}</span>
-                <app-insignia variante="error" icono="flag">
-                  {{ reportada.reportes === 1 ? '1 reporte' : reportada.reportes + ' reportes' }}
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia error">
+                    <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                    {{ reportada.reportes === 1 ? '1 reporte' : reportada.reportes + ' reportes' }}
+                  </mat-chip>
+                </mat-chip-set>
               </div>
 
               @if (reportada.socio; as socio) {

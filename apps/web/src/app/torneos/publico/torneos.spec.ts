@@ -337,7 +337,7 @@ describe('TorneosPublicos', () => {
   it('las categorías van como tabla de posiciones: categoría, inscripción y cupos', () => {
     // TV4.2: mientras la inscripción está abierta, lo que se compara entre
     // categorías es cuánto cuesta y cuánto lugar queda.
-    const tabla = elemento().querySelector('li table.tabla');
+    const tabla = elemento().querySelector('li table');
     const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
       th.textContent?.trim(),
     );

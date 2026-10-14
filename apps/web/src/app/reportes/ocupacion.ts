@@ -3,6 +3,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
 
 import {
   diaConAnioEnPalabras,
@@ -35,6 +36,7 @@ import {
 @Component({
   selector: 'app-ocupacion-panel',
   imports: [
+    MatTableModule,
     MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -116,52 +118,70 @@ import {
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="tabla text-sm">
+          <table mat-table class="text-sm" [dataSource]="datos.filas">
             <caption class="sr-only">
               Ocupación del período, cortada por
               {{
                 nombreDelCorte(datos.corte)
               }}
             </caption>
-            <thead>
-              <tr>
-                <th scope="col">Corte</th>
-                <th scope="col" class="numero">Ocupadas</th>
-                <th scope="col" class="numero">Libres</th>
-                <th scope="col" class="numero">Cerradas</th>
-                <th scope="col" class="numero">Ocupación</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (fila of datos.filas; track fila.etiqueta) {
-                <tr>
-                  <th scope="row">
-                    {{ fila.etiqueta }}
-                  </th>
-                  <td class="numero">{{ enHoras(fila.ocupados) }}</td>
-                  <td class="py-2 pr-3 text-right text-muted-foreground">
-                    {{ enHoras(fila.libres) }}
-                  </td>
-                  <td class="py-2 pr-3 text-right text-muted-foreground">
-                    {{ enHoras(fila.cerrados) }}
-                  </td>
-                  <td class="numero font-semibold">
-                    {{ enPorcentaje(fila) }}
-                  </td>
-                </tr>
-              }
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="numero font-semibold">{{ enHoras(datos.ocupados) }}</td>
-                <td class="numero">{{ enHoras(datos.libres) }}</td>
-                <td class="numero">{{ enHoras(datos.cerrados) }}</td>
-                <td class="numero font-semibold">
-                  {{ enPorcentaje(datos) }}
-                </td>
-              </tr>
-            </tfoot>
+            <ng-container matColumnDef="corte">
+              <th mat-header-cell *matHeaderCellDef scope="col">Corte</th>
+              <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                {{ fila.etiqueta }}
+              </th>
+              <th
+                *matFooterCellDef
+                scope="row"
+                class="mat-mdc-footer-cell mdc-data-table__cell font-semibold"
+              >
+                Total
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="ocupados">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Ocupadas</th>
+              <td mat-cell *matCellDef="let fila" class="numero">{{ enHoras(fila.ocupados) }}</td>
+              <td mat-footer-cell *matFooterCellDef class="numero font-semibold">
+                {{ enHoras(datos.ocupados) }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="libres">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Libres</th>
+              <td
+                mat-cell
+                *matCellDef="let fila"
+                class="py-2 pr-3 text-right text-muted-foreground"
+              >
+                {{ enHoras(fila.libres) }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef class="numero">{{ enHoras(datos.libres) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="cerrados">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Cerradas</th>
+              <td
+                mat-cell
+                *matCellDef="let fila"
+                class="py-2 pr-3 text-right text-muted-foreground"
+              >
+                {{ enHoras(fila.cerrados) }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef class="numero">
+                {{ enHoras(datos.cerrados) }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="ocupacion">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Ocupación</th>
+              <td mat-cell *matCellDef="let fila" class="numero font-semibold">
+                {{ enPorcentaje(fila) }}
+              </td>
+              <td mat-footer-cell *matFooterCellDef class="numero font-semibold">
+                {{ enPorcentaje(datos) }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let fila; columns: COLUMNAS"></tr>
+            <tr mat-footer-row *matFooterRowDef="COLUMNAS"></tr>
           </table>
         </div>
       }
@@ -209,6 +229,8 @@ export class OcupacionPanel {
   protected readonly urlDelCsv = computed(() =>
     this.api.csv('ocupacion', fechaATexto(this.desde()), fechaATexto(this.hasta()), this.corte()),
   );
+
+  protected readonly COLUMNAS = ['corte', 'ocupados', 'libres', 'cerrados', 'ocupacion'];
 
   protected nombreDelCorte(corte: CorteDeOcupacion): string {
     return CORTES_DE_OCUPACION[corte] ?? corte;

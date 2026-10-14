@@ -19,6 +19,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { dialogoSegun } from '../../ui/dialogo';
 import { proveerCampos } from '../../ui/campos';
@@ -34,7 +35,6 @@ import {
   CanchaAdmin,
 } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Aviso } from '../../ui/aviso';
-import { Insignia } from '../../ui/insignia';
 import { Foto, PartidoDelCuadro, Torneos } from '../torneos.service';
 import { FotoDelPartido } from './foto-del-partido';
 
@@ -69,8 +69,8 @@ const horarioEnBlanco = () => ({
     MatIcon,
     FormsModule,
     Aviso,
-    Insignia,
     FotoDelPartido,
+    MatChipsModule,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -136,9 +136,12 @@ const horarioEnBlanco = () => ({
                         </p>
                       }
                       @if (partido.walkover) {
-                        <app-insignia variante="neutro" icono="block">
-                          No se presentó
-                        </app-insignia>
+                        <mat-chip-set class="insignias">
+                          <mat-chip class="insignia neutro">
+                            <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                            No se presentó
+                          </mat-chip>
+                        </mat-chip-set>
                       }
 
                       @if (sePuedeCargar(partido)) {

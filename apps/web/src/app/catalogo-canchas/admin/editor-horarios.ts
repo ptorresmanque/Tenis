@@ -14,6 +14,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatTableModule } from '@angular/material/table';
 
 import { proveerCampos } from '../../ui/campos';
 import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
@@ -50,86 +51,107 @@ interface FilaDeDia {
  */
 @Component({
   selector: 'app-editor-horarios',
-  imports: [MatCheckbox, MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule],
+  imports: [
+    MatCheckbox,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+    MatTableModule,
+  ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <form class="mt-2" (ngSubmit)="guardar()">
       <!-- La tabla lleva siete filas de dos horas cada una y no se encoge más:
            el scroll va acá para que no empuje el ancho del documento entero. -->
       <div class="overflow-x-auto">
-      <table class="tabla tabla-densa text-sm">
+      <table mat-table class="densa text-sm" [dataSource]="filas()" [trackBy]="porDia">
         <caption class="sr-only">
           Horario de apertura de {{ ambito().nombre }}
         </caption>
-        <thead>
-          <tr class="text-muted-foreground">
-            <th scope="col" class="pe-3 text-start font-medium">Día</th>
-            <th scope="col" class="pe-3 text-start font-medium">Abre</th>
-            <th scope="col" class="pe-3 text-start font-medium">Desde</th>
-            <th scope="col" class="text-start font-medium">Hasta</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (fila of filas(); track fila.diaSemana) {
-            <tr>
-              <th scope="row" class="pe-3 py-1 text-start font-normal">
-                {{ nombreDia(fila.diaSemana) }}
-              </th>
-              <td class="pe-3 py-1">
-                <mat-checkbox
-                  [aria-label]="'Abre el ' + nombreDia(fila.diaSemana)"
-                  [ngModel]="fila.abre"
-                  (ngModelChange)="cambiar(fila.diaSemana, { abre: $event })"
-                  [name]="'abre-' + clave() + '-' + fila.diaSemana"
-                />
-              </td>
-              <td class="pe-3 py-1">
-                <mat-form-field class="chico w-32">
-                  <input
-                    matInput
-                    [id]="'desde-' + clave() + '-' + fila.diaSemana"
-                    [name]="'desde-' + clave() + '-' + fila.diaSemana"
-                    placeholder="hh:mm"
-                    autocomplete="off"
-                    [matTimepicker]="relojDesde"
-                    [attr.aria-label]="'Apertura del ' + nombreDia(fila.diaSemana)"
-                    [disabled]="!fila.abre"
-                    [ngModel]="fila.horaApertura"
-                    (ngModelChange)="cambiar(fila.diaSemana, { horaApertura: $event })"
-                  />
-                  <mat-timepicker-toggle
-                    matIconSuffix
-                    aria-label="Elegir la hora"
-                    [for]="relojDesde"
-                  />
-                  <mat-timepicker #relojDesde />
-                </mat-form-field>
-              </td>
-              <td class="py-1">
-                <mat-form-field class="chico w-32">
-                  <input
-                    matInput
-                    [id]="'hasta-' + clave() + '-' + fila.diaSemana"
-                    [name]="'hasta-' + clave() + '-' + fila.diaSemana"
-                    placeholder="hh:mm"
-                    autocomplete="off"
-                    [matTimepicker]="relojHasta"
-                    [attr.aria-label]="'Cierre del ' + nombreDia(fila.diaSemana)"
-                    [disabled]="!fila.abre"
-                    [ngModel]="fila.horaCierre"
-                    (ngModelChange)="cambiar(fila.diaSemana, { horaCierre: $event })"
-                  />
-                  <mat-timepicker-toggle
-                    matIconSuffix
-                    aria-label="Elegir la hora"
-                    [for]="relojHasta"
-                  />
-                  <mat-timepicker #relojHasta />
-                </mat-form-field>
-              </td>
-            </tr>
-          }
-        </tbody>
+        <ng-container matColumnDef="dia">
+          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">
+            Día
+          </th>
+          <th
+            *matCellDef="let fila"
+            scope="row"
+            class="mat-mdc-cell mdc-data-table__cell pe-3 py-1 text-start font-normal"
+          >
+            {{ nombreDia(fila.diaSemana) }}
+          </th>
+        </ng-container>
+        <ng-container matColumnDef="abre">
+          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">
+            Abre
+          </th>
+          <td mat-cell *matCellDef="let fila" class="pe-3 py-1">
+            <mat-checkbox
+              [aria-label]="'Abre el ' + nombreDia(fila.diaSemana)"
+              [ngModel]="fila.abre"
+              (ngModelChange)="cambiar(fila.diaSemana, { abre: $event })"
+              [name]="'abre-' + clave() + '-' + fila.diaSemana"
+            />
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="desde">
+          <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">
+            Desde
+          </th>
+          <td mat-cell *matCellDef="let fila" class="pe-3 py-1">
+            <mat-form-field class="chico w-32">
+              <input
+                matInput
+                [id]="'desde-' + clave() + '-' + fila.diaSemana"
+                [name]="'desde-' + clave() + '-' + fila.diaSemana"
+                placeholder="hh:mm"
+                autocomplete="off"
+                [matTimepicker]="relojDesde"
+                [attr.aria-label]="'Apertura del ' + nombreDia(fila.diaSemana)"
+                [disabled]="!fila.abre"
+                [ngModel]="fila.horaApertura"
+                (ngModelChange)="cambiar(fila.diaSemana, { horaApertura: $event })"
+              />
+              <mat-timepicker-toggle
+                matIconSuffix
+                aria-label="Elegir la hora"
+                [for]="relojDesde"
+              />
+              <mat-timepicker #relojDesde />
+            </mat-form-field>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="hasta">
+          <th mat-header-cell *matHeaderCellDef scope="col" class="text-start font-medium">
+            Hasta
+          </th>
+          <td mat-cell *matCellDef="let fila" class="py-1">
+            <mat-form-field class="chico w-32">
+              <input
+                matInput
+                [id]="'hasta-' + clave() + '-' + fila.diaSemana"
+                [name]="'hasta-' + clave() + '-' + fila.diaSemana"
+                placeholder="hh:mm"
+                autocomplete="off"
+                [matTimepicker]="relojHasta"
+                [attr.aria-label]="'Cierre del ' + nombreDia(fila.diaSemana)"
+                [disabled]="!fila.abre"
+                [ngModel]="fila.horaCierre"
+                (ngModelChange)="cambiar(fila.diaSemana, { horaCierre: $event })"
+              />
+              <mat-timepicker-toggle
+                matIconSuffix
+                aria-label="Elegir la hora"
+                [for]="relojHasta"
+              />
+              <mat-timepicker #relojHasta />
+            </mat-form-field>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+        <tr mat-row *matRowDef="let fila; columns: COLUMNAS"></tr>
       </table>
       </div>
 
@@ -166,6 +188,11 @@ export class EditorHorarios {
    * ámbito sin id que aparezca después.
    */
   protected readonly clave = computed(() => this.ambito().id ?? 'club');
+
+  /** La fila es del día, no del objeto: si no, la tabla la rehace en cada tecla. */
+  protected readonly porDia = (_: number, fila: FilaDeDia) => fila.diaSemana;
+
+  protected readonly COLUMNAS = ['dia', 'abre', 'desde', 'hasta'];
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);

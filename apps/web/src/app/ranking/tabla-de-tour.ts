@@ -1,6 +1,7 @@
 import { Component, inject, input, output, resource } from '@angular/core';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
 
 import { proveerCampos } from '../ui/campos';
 import { diaConAnioEnPalabras } from '../catalogo-canchas/reloj-del-club';
@@ -21,7 +22,13 @@ import { Ranking } from './ranking.service';
  */
 @Component({
   selector: 'app-tabla-de-tour',
-  imports: [MatSelectModule, MatFormFieldModule, EstadoVacio, Esqueleto],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    EstadoVacio,
+    Esqueleto,
+    MatTableModule,
+  ],
   providers: [proveerCampos()],
   template: `
     @if (tabla.error()) {
@@ -68,64 +75,79 @@ import { Ranking } from './ranking.service';
           <!-- Una tabla de verdad, al revés que el cuadro: acá las filas son
                comparables entre sí y las columnas significan lo mismo en todas. -->
           <div class="mt-6 overflow-x-auto" data-tabla="torneos">
-            <table class="tabla text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2">
+            <table
+              mat-table
+              class="text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2"
+              [dataSource]="datos.posiciones"
+            >
               <caption class="sr-only">
                 Puntos por jugador en la temporada
                 {{
                   datos.temporada.nombre
                 }}
               </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Puesto</th>
-                  <th scope="col">Jugador</th>
-                  <th scope="col" class="numero">Puntos</th>
-                  <th scope="col" class="numero">Torneos</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (fila of datos.posiciones; track fila.jugadorId) {
-                  <!-- EL PODIO (TV4.5): del puesto 3 para arriba, con empates, el puesto
-                       va en un rótulo y el nombre y los puntos en la condensada. Es lo
-                       que alguien busca primero. -->
-                  <tr
-                    [attr.data-podio]="fila.puesto <= 3 ? '' : null"
-                    [class.bg-selected]="fila.puesto <= 3"
-                  >
-                    <td class="font-display font-bold">
-                      @if (fila.puesto <= 3) {
-                        <span
-                          class="inline-grid size-9 place-items-center bg-rotulo text-xl
-                                 font-extrabold text-on-rotulo"
-                        >
-                          {{ fila.puesto }}
-                        </span>
-                      } @else {
-                        {{ fila.puesto }}
-                      }
-                    </td>
-                    <!-- El nombre es el encabezado de fila, no el puesto: con empates el
-                         puesto se repite y no identifica a nadie. -->
-                    <th
-                      scope="row"
-                      [class]="
-                        fila.puesto <= 3
-                          ? 'font-display text-lg font-bold tracking-wide uppercase'
-                          : ''
-                      "
+              <ng-container matColumnDef="puesto">
+                <th mat-header-cell *matHeaderCellDef scope="col">Puesto</th>
+                <td mat-cell *matCellDef="let fila" class="font-display font-bold">
+                  @if (fila.puesto <= 3) {
+                    <span
+                      class="inline-grid size-9 place-items-center bg-rotulo text-xl
+                             font-extrabold text-on-rotulo"
                     >
-                      {{ fila.nombre }}
-                    </th>
-                    <td
-                      class="numero font-semibold"
-                      [class]="fila.puesto <= 3 ? 'font-display text-xl text-primary' : ''"
-                    >
-                      {{ fila.puntos }}
-                    </td>
-                    <td class="numero text-muted-foreground">{{ fila.torneos }}</td>
-                  </tr>
-                }
-              </tbody>
+                      {{ fila.puesto }}
+                    </span>
+                  } @else {
+                    {{ fila.puesto }}
+                  }
+                </td>
+              </ng-container>
+              <!-- El nombre es el encabezado de fila, no el puesto: con empates el
+                   puesto se repite y no identifica a nadie. -->
+              <ng-container matColumnDef="jugador">
+                <th mat-header-cell *matHeaderCellDef scope="col">Jugador</th>
+                <th
+                  *matCellDef="let fila"
+                  scope="row"
+                  class="mat-mdc-cell mdc-data-table__cell"
+                  [class.font-display]="fila.puesto <= 3"
+                  [class.text-lg]="fila.puesto <= 3"
+                  [class.font-bold]="fila.puesto <= 3"
+                  [class.tracking-wide]="fila.puesto <= 3"
+                  [class.uppercase]="fila.puesto <= 3"
+                >
+                  {{ fila.nombre }}
+                </th>
+              </ng-container>
+              <ng-container matColumnDef="puntos">
+                <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Puntos</th>
+                <td
+                  mat-cell
+                  *matCellDef="let fila"
+                  class="numero font-semibold"
+                  [class.font-display]="fila.puesto <= 3"
+                  [class.text-xl]="fila.puesto <= 3"
+                  [class.text-primary]="fila.puesto <= 3"
+                >
+                  {{ fila.puntos }}
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="torneos">
+                <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Torneos</th>
+                <td mat-cell *matCellDef="let fila" class="numero text-muted-foreground">
+                  {{ fila.torneos }}
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+              <!-- EL PODIO (TV4.5): del puesto 3 para arriba, con empates, el puesto
+                   va en un rótulo y el nombre y los puntos en la condensada. Es lo
+                   que alguien busca primero. -->
+              <tr
+                mat-row
+                *matRowDef="let fila; columns: COLUMNAS"
+                [attr.data-podio]="fila.puesto <= 3 ? '' : null"
+                [class.bg-selected]="fila.puesto <= 3"
+              ></tr>
             </table>
           </div>
         }
@@ -152,6 +174,8 @@ import { Ranking } from './ranking.service';
   `,
 })
 export class TablaDeTour {
+  protected readonly COLUMNAS = ['puesto', 'jugador', 'puntos', 'torneos'];
+
   private readonly api = inject(Ranking);
 
   readonly temporadaId = input.required<number>();

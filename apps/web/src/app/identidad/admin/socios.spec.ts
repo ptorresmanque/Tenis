@@ -186,6 +186,62 @@ describe('SociosPanel', () => {
   });
 
   // `value()` de un resource lanza en estado de error aunque tenga `defaultValue`.
+  describe('con más socios de los que caben en una página (T259)', () => {
+    const MUCHOS: ListadoDeSocios = {
+      ...LISTADO,
+      socios: Array.from({ length: 25 }, (_, n) => ({
+        ...LISTADO.socios[0],
+        id: n + 1,
+        numeroSocio: String(n + 1).padStart(3, '0'),
+      })),
+    };
+
+    const elemento = () => fixture.nativeElement as HTMLElement;
+    const boton = (nombre: string) =>
+      elemento().querySelector<HTMLButtonElement>(`mat-paginator button[aria-label="${nombre}"]`)!;
+    const cuenta = () => elemento().querySelector('mat-paginator [role="status"]')?.textContent?.trim();
+    const primero = () => elemento().querySelector('tbody td')?.textContent?.trim();
+    const pasar = async (nombre: string) => {
+      boton(nombre).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    beforeEach(async () => {
+      await montar(MUCHOS);
+    });
+
+    it('**cuenta las páginas por lo alto**: 25 en tandas de 10 son 3', () => {
+      expect(cuenta()).toBe('Página 1 de 3');
+      expect(primero()).toBe('001');
+    });
+
+    it('pasa de página y muestra la tanda siguiente, y vuelve', async () => {
+      await pasar('Página siguiente');
+
+      expect(cuenta()).toBe('Página 2 de 3');
+      expect(primero()).toBe('011');
+
+      await pasar('Página anterior');
+
+      expect(cuenta()).toBe('Página 1 de 3');
+    });
+
+    it('en la primera no se va atrás, y en la última no adelante', async () => {
+      expect(boton('Página anterior').getAttribute('aria-disabled')).toBe('true');
+
+      await pasar('Página siguiente');
+      await pasar('Página siguiente');
+
+      expect(cuenta()).toBe('Página 3 de 3');
+      expect(boton('Página siguiente').getAttribute('aria-disabled')).toBe('true');
+    });
+  });
+
+  it('con una sola página no hay paginación', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('mat-paginator')).toBeNull();
+  });
+
   it('si el padrón no carga, lo dice', async () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({

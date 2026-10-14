@@ -10,6 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { pedirMotivo } from '../../ui/dialogo-de-motivo';
 import { proveerCampos } from '../../ui/campos';
@@ -32,7 +33,6 @@ import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import {
   ClaseDelDia,
   ClaseNueva,
@@ -86,10 +86,10 @@ const enBlanco = () => ({
     FormsModule,
     Aviso,
     EstadoVacio,
-    Insignia,
     InscritosDeLaClase,
     NuevaSerie,
     Esqueleto,
+    MatChipsModule,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -175,11 +175,19 @@ const enBlanco = () => ({
                 {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
               </p>
               <p class="font-medium">{{ clase.lugar }}</p>
-              <app-insignia variante="info" icono="school">
-                {{ queClaseEs(clase) }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia info">
+                  <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                  {{ queClaseEs(clase) }}
+                </mat-chip>
+              </mat-chip-set>
               @if (clase.estado === 'REALIZADA') {
-                <app-insignia variante="neutro" icono="check">Ya se dio</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia neutro">
+                    <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
+                    Ya se dio
+                  </mat-chip>
+                </mat-chip-set>
               }
               <button
                 matButton="outlined"

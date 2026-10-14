@@ -9,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora } from '../../ui/fecha-y-hora';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -18,7 +19,6 @@ import { SUPERFICIES } from '../../catalogo-canchas/superficies';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import {
   ESTADOS_TORNEO,
   EstadoTorneo,
@@ -85,8 +85,8 @@ const enBlanco = () => ({
     RouterLink,
     Aviso,
     EstadoVacio,
-    Insignia,
     ElegirNivel,
+    MatChipsModule,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -262,12 +262,15 @@ const enBlanco = () => ({
               >
                 {{ torneo.nombre }}
               </a>
-              <app-insignia
-                [variante]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
-                icono="flag"
-              >
-                {{ nombreEstado(torneo.estado) }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip
+                  class="insignia"
+                  [class]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
+                >
+                  <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                  {{ nombreEstado(torneo.estado) }}
+                </mat-chip>
+              </mat-chip-set>
               <span class="text-sm text-muted-foreground">
                 {{ enPalabras(torneo.fechaInicio) }} —
                 {{ enPalabras(torneo.fechaFin) }}
@@ -293,16 +296,22 @@ const enBlanco = () => ({
               <p class="mt-2 flex flex-wrap gap-2">
                 @if (torneo.pagosPorRevisar > 0) {
                   <a [routerLink]="['/administracion/torneos', torneo.id]">
-                    <app-insignia variante="aviso" icono="receipt_long">
-                      {{ torneo.pagosPorRevisar }}
-                      {{ torneo.pagosPorRevisar === 1 ? 'pago' : 'pagos' }} por revisar
-                    </app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia aviso">
+                        <mat-icon matChipAvatar aria-hidden="true">receipt_long</mat-icon>
+                        {{ torneo.pagosPorRevisar }}
+                        {{ torneo.pagosPorRevisar === 1 ? 'pago' : 'pagos' }} por revisar
+                      </mat-chip>
+                    </mat-chip-set>
                   </a>
                 }
                 @if (torneo.enEspera > 0) {
-                  <app-insignia variante="neutro" icono="hourglass_empty">
-                    {{ torneo.enEspera }} en lista de espera
-                  </app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">hourglass_empty</mat-icon>
+                      {{ torneo.enEspera }} en lista de espera
+                    </mat-chip>
+                  </mat-chip-set>
                 }
               </p>
             }

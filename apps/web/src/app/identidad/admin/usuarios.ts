@@ -8,6 +8,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggle, MatSlideToggleChange } from '@angular/material/slide-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { confirmar } from '../../ui/dialogo-de-confirmacion';
 import { proveerCampos } from '../../ui/campos';
@@ -18,7 +20,6 @@ import { mensajeDelServidor } from '../../core/errores';
 import { TelefonoPipe } from '../../core/telefono';
 import { Aviso } from '../../ui/aviso';
 import { Esqueleto } from '../../ui/esqueleto';
-import { Insignia } from '../../ui/insignia';
 import { AltaDeSocio, Socios } from './socios.service';
 import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 import { LO_HECHO } from '../../ui/material';
@@ -48,8 +49,9 @@ import { LO_HECHO } from '../../ui/material';
     RouterLink,
     Aviso,
     Esqueleto,
-    Insignia,
     TelefonoPipe,
+    MatChipsModule,
+    MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
@@ -97,7 +99,12 @@ import { LO_HECHO } from '../../ui/material';
                 <p class="font-medium">
                   {{ usuario.nombre }} {{ usuario.apellido }}
                   @if (usuario.id === yo()?.id) {
-                    <app-insignia variante="neutro" icono="person">Eres tú</app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">person</mat-icon>
+                        Eres tú
+                      </mat-chip>
+                    </mat-chip-set>
                   }
                 </p>
                 <p class="text-sm break-all text-muted-foreground">
@@ -112,15 +119,21 @@ import { LO_HECHO } from '../../ui/material';
               <div class="flex flex-wrap gap-2">
                 @if (usuario.socio; as socio) {
                   <a routerLink="/administracion/socios">
-                    <app-insignia variante="info" icono="group">
-                      Socio N° {{ socio.numeroSocio }}
-                    </app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia info">
+                        <mat-icon matChipAvatar aria-hidden="true">group</mat-icon>
+                        Socio N° {{ socio.numeroSocio }}
+                      </mat-chip>
+                    </mat-chip-set>
                   </a>
                 }
                 @if (usuario.profesor; as profesor) {
-                  <app-insignia variante="neutro" icono="school">
-                    Profesor{{ profesor.activo ? '' : ' (inactivo)' }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                      Profesor{{ profesor.activo ? '' : ' (inactivo)' }}
+                    </mat-chip>
+                  </mat-chip-set>
                 }
               </div>
 

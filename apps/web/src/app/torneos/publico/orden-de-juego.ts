@@ -1,13 +1,14 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
 
 import {
   diaEnPalabras,
   fechaEnElClub,
   horaEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
-import { Insignia, VarianteInsignia } from '../../ui/insignia';
+import { ICONO_DE_INSIGNIA, VarianteInsignia } from '../../ui/insignias';
 import { PartidoPublico } from '../torneos.service';
 import { coincide, esBye, esDe } from './busqueda';
 
@@ -28,7 +29,7 @@ interface DiaDeJuego {
  */
 @Component({
   selector: 'app-orden-de-juego',
-  imports: [MatIcon, Insignia, NgTemplateOutlet],
+  imports: [MatIcon, NgTemplateOutlet, MatChipsModule],
   template: `
     @if (porDia().length === 0) {
       <p class="mt-4 text-sm text-muted-foreground">
@@ -104,9 +105,14 @@ interface DiaDeJuego {
                text-muted-foreground uppercase"
       >
         {{ partido.ronda_nombre }}
-        <app-insignia class="ms-auto" [variante]="estado(partido).variante">
-          {{ estado(partido).texto }}
-        </app-insignia>
+        <mat-chip-set class="insignias ms-auto">
+          <mat-chip class="insignia" [class]="estado(partido).variante">
+            <mat-icon matChipAvatar aria-hidden="true">
+              {{ ICONO_DE_INSIGNIA[estado(partido).variante] }}
+            </mat-icon>
+            {{ estado(partido).texto }}
+          </mat-chip>
+        </mat-chip-set>
       </p>
       @for (jugador of [partido.jugadorA, partido.jugadorB]; track $index) {
         <p
@@ -141,6 +147,8 @@ interface DiaDeJuego {
   `,
 })
 export class OrdenDeJuego {
+  protected readonly ICONO_DE_INSIGNIA = ICONO_DE_INSIGNIA;
+
   readonly partidos = input.required<PartidoPublico[]>();
 
   /** Lo que se busca en el modal. */

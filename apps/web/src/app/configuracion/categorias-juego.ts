@@ -13,10 +13,12 @@ import { MatButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Insignia } from '../ui/insignia';
 import {
   CategoriaDeJuego,
   CategoriasDeJuego as ApiCategoriasDeJuego,
@@ -35,7 +37,17 @@ import { LO_HECHO } from '../ui/material';
  */
 @Component({
   selector: 'app-categorias-juego',
-  imports: [MatFormFieldModule, MatInput, MatButton, Esqueleto, FormsModule, Aviso, Insignia],
+  imports: [
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    Esqueleto,
+    FormsModule,
+    Aviso,
+    MatTableModule,
+    MatChipsModule,
+    MatIcon,
+  ],
   providers: [proveerCampos()],
   template: `
     <section aria-labelledby="agregar">
@@ -106,64 +118,71 @@ import { LO_HECHO } from '../ui/material';
                (TV7.3): con el aire de la tabla normal no cabía ni a 375, se
                desplazaba 6px y partía "Volver a ofrecer" en dos líneas. Así
                mide justo los 326px que quedan a 360. -->
-          <table class="tabla tabla-densa">
+          <table mat-table class="densa" [dataSource]="categorias.value() ?? []">
             <caption class="sr-only">
               Categorías de juego, de la más baja a la más alta
             </caption>
-            <thead>
-              <tr>
-                <th scope="col">Categoría</th>
-                <th scope="col">Orden</th>
-                <th scope="col">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (categoria of categorias.value() ?? []; track categoria.id) {
-                <tr>
-                  <td class="font-medium">{{ categoria.nombre }}</td>
-                  <td class="text-sm text-muted-foreground">
-                    <mat-form-field class="w-18 sm:w-24">
-                      <mat-label>Orden de {{ categoria.nombre }}</mat-label>
-                      <input
-                        matInput
-                        [id]="'orden-' + categoria.id"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        [value]="categoria.orden"
-                        [disabled]="enviando()"
-                        (change)="mover(categoria, $event)"
-                      />
-                    </mat-form-field>
-                  </td>
-                  <td>
-                    <div class="flex flex-wrap items-center gap-2">
-                      @if (categoria.activa) {
-                        <app-insignia variante="exito" icono="check_circle">
-                          Se ofrece
-                        </app-insignia>
-                      } @else {
-                        <app-insignia variante="neutro" icono="visibility_off">
-                          Retirada
-                        </app-insignia>
-                      }
+            <ng-container matColumnDef="categoria">
+              <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
+              <td mat-cell *matCellDef="let categoria" class="font-medium">
+                {{ categoria.nombre }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="orden">
+              <th mat-header-cell *matHeaderCellDef scope="col">Orden</th>
+              <td mat-cell *matCellDef="let categoria" class="text-sm text-muted-foreground">
+                <mat-form-field class="w-18 sm:w-24">
+                  <mat-label>Orden de {{ categoria.nombre }}</mat-label>
+                  <input
+                    matInput
+                    [id]="'orden-' + categoria.id"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    [value]="categoria.orden"
+                    [disabled]="enviando()"
+                    (change)="mover(categoria, $event)"
+                  />
+                </mat-form-field>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="estado">
+              <th mat-header-cell *matHeaderCellDef scope="col">Estado</th>
+              <td mat-cell *matCellDef="let categoria">
+                <div class="flex flex-wrap items-center gap-2">
+                  @if (categoria.activa) {
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia exito">
+                        <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                        Se ofrece
+                      </mat-chip>
+                    </mat-chip-set>
+                  } @else {
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">visibility_off</mat-icon>
+                        Retirada
+                      </mat-chip>
+                    </mat-chip-set>
+                  }
 
-                      <button
-                        matButton="outlined"
-                        type="button"
-                        class="chico whitespace-nowrap"
-                        [disabled]="enviando()"
-                        [attr.aria-busy]="enCurso() === 'alternar-' + categoria.id"
-                        (click)="alternar(categoria)"
-                      >
-                        {{ categoria.activa ? 'Retirar' : 'Volver a ofrecer' }}
-                        <span class="sr-only">{{ categoria.nombre }}</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico whitespace-nowrap"
+                    [disabled]="enviando()"
+                    [attr.aria-busy]="enCurso() === 'alternar-' + categoria.id"
+                    (click)="alternar(categoria)"
+                  >
+                    {{ categoria.activa ? 'Retirar' : 'Volver a ofrecer' }}
+                    <span class="sr-only">{{ categoria.nombre }}</span>
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let categoria; columns: COLUMNAS"></tr>
           </table>
         </div>
 
@@ -188,6 +207,8 @@ export class CategoriasDeJuegoPanel {
   protected readonly error = signal<string | null>(null);
 
   private readonly version = signal(0);
+
+  protected readonly COLUMNAS = ['categoria', 'orden', 'estado'];
 
   protected readonly categorias = resource({
     params: () => ({ version: this.version() }),

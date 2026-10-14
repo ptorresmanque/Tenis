@@ -1,6 +1,9 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
+import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { Marcador } from '../catalogo-canchas/marcador';
@@ -16,7 +19,6 @@ import { Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
-import { Insignia } from '../ui/insignia';
 
 /**
  * La portada.
@@ -43,7 +45,18 @@ import { Insignia } from '../ui/insignia';
  */
 @Component({
   selector: 'app-inicio',
-  imports: [MatButton, RouterLink, Cinta, Esqueleto, Foto, Insignia, Marcador, TiendaYCafeteria],
+  imports: [
+    MatButton,
+    RouterLink,
+    Cinta,
+    Esqueleto,
+    Foto,
+    Marcador,
+    TiendaYCafeteria,
+    MatTableModule,
+    MatChipsModule,
+    MatIcon,
+  ],
   template: `
     <!--
       BANDA 1 — La foto y la promesa.
@@ -352,9 +365,12 @@ import { Insignia } from '../ui/insignia';
                   aria-hidden="true"
                 ></div>
 
-                <app-insignia class="self-start" variante="libre" icono="how_to_reg">
-                  Inscripción abierta
-                </app-insignia>
+                <mat-chip-set class="insignias self-start">
+                  <mat-chip class="insignia libre">
+                    <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
+                    Inscripción abierta
+                  </mat-chip>
+                </mat-chip-set>
                 <h3 class="titular text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
                 <p class="max-w-prose text-on-campo/90">
                   Del {{ enPalabras(torneo.fechaInicio) }} al
@@ -367,34 +383,39 @@ import { Insignia } from '../ui/insignia';
                    cada cuadro, así que un precio del torneo mentiría —Honor puede
                    costar el doble que la 5ª el mismo fin de semana—. -->
               <div class="flex flex-col p-4 sm:p-7">
-                <table class="tabla">
+                <table mat-table [dataSource]="torneo.categorias">
                   <caption class="sr-only">
                     Categorías de {{ torneo.nombre }}
                   </caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Categoría</th>
-                      <th scope="col">Inscripción</th>
-                      <th scope="col" class="numero">Cupos libres</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (categoria of torneo.categorias; track categoria.id) {
-                      <tr>
-                        <td class="font-display text-2xl font-extrabold text-primary">
-                          {{ categoria.categoria }}
-                        </td>
-                        <td>{{ precio(categoria.montoClp) }}</td>
-                        <td class="numero">
-                          @if (categoria.cuposLibres > 0) {
-                            {{ categoria.cuposLibres }} de {{ categoria.cupo }}
-                          } @else {
-                            <span class="font-semibold text-warning-strong">Lista de espera</span>
-                          }
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
+                  <ng-container matColumnDef="categoria">
+                    <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
+                    <td
+                      mat-cell
+                      *matCellDef="let categoria"
+                      class="font-display text-2xl font-extrabold text-primary"
+                    >
+                      {{ categoria.categoria }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="inscripcion">
+                    <th mat-header-cell *matHeaderCellDef scope="col">Inscripción</th>
+                    <td mat-cell *matCellDef="let categoria">{{ precio(categoria.montoClp) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="cupos">
+                    <th mat-header-cell *matHeaderCellDef scope="col" class="numero">
+                      Cupos libres
+                    </th>
+                    <td mat-cell *matCellDef="let categoria" class="numero">
+                      @if (categoria.cuposLibres > 0) {
+                        {{ categoria.cuposLibres }} de {{ categoria.cupo }}
+                      } @else {
+                        <span class="font-semibold text-warning-strong">Lista de espera</span>
+                      }
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="COLUMNAS_DE_CATEGORIAS; sticky: true"></tr>
+                  <tr mat-row *matRowDef="let categoria; columns: COLUMNAS_DE_CATEGORIAS"></tr>
                 </table>
 
                 <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
@@ -583,6 +604,8 @@ import { Insignia } from '../ui/insignia';
   `,
 })
 export class Inicio {
+  protected readonly COLUMNAS_DE_CATEGORIAS = ['categoria', 'inscripcion', 'cupos'];
+
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly auth = inject(Auth);
   private readonly torneos = inject(Torneos);

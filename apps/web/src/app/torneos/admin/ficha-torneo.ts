@@ -9,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
@@ -17,7 +18,6 @@ import { SUPERFICIES } from '../../catalogo-canchas/superficies';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { CuadroDelTorneo } from './cuadro';
 import { CuadrosDelTorneo } from './cuadros-del-torneo';
 import { FotosDelTorneo } from './fotos';
@@ -65,13 +65,13 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
     RouterLink,
     Aviso,
     EstadoVacio,
-    Insignia,
     InscritosDelTorneo,
     CuadroDelTorneo,
     CuadrosDelTorneo,
     TransmisionesDelTorneo,
     FotosDelTorneo,
     ToursDelTorneo,
+    MatChipsModule,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -91,12 +91,15 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
         <div>
           <div class="flex flex-wrap items-center gap-3">
             <h1 class="titular text-4xl">{{ suyo.nombre }}</h1>
-            <app-insignia
-              [variante]="suyo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
-              icono="flag"
-            >
-              {{ nombreEstado(suyo.estado) }}
-            </app-insignia>
+            <mat-chip-set class="insignias">
+              <mat-chip
+                class="insignia"
+                [class]="suyo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
+              >
+                <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                {{ nombreEstado(suyo.estado) }}
+              </mat-chip>
+            </mat-chip-set>
           </div>
           <p class="mt-1 text-sm text-muted-foreground">
             {{ enPalabras(suyo.fechaInicio) }} — {{ enPalabras(suyo.fechaFin) }} ·
