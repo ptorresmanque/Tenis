@@ -23,7 +23,8 @@ import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 interface Encontrada {
   ruta: Route;
   guards: unknown[];
-  cascaron: unknown;
+  /** El cascarón, venga en la ruta (`component`) o se cargue con ella (`loadComponent`). */
+  cascaron: () => Promise<unknown>;
 }
 
 function buscar(url: string): Encontrada | null {
@@ -31,12 +32,19 @@ function buscar(url: string): Encontrada | null {
     rutas: Routes,
     prefijo: string,
     heredados: unknown[],
-    cascaron: unknown,
+    cascaron: () => Promise<unknown>,
   ): Encontrada | null => {
     for (const ruta of rutas) {
       const camino = [prefijo, ruta.path].filter(Boolean).join('/');
       const guards = [...heredados, ...(ruta.canActivate ?? [])];
-      const suCascaron = ruta.component ?? cascaron;
+      // Los cascarones son las rutas de primer nivel con hijos; más adentro, un
+      // `loadComponent` con hijos es una página con pestañas (Configuración).
+      const esCascaron = rutas === routes && ruta.children !== undefined;
+      const suCascaron = ruta.component
+        ? async () => ruta.component
+        : esCascaron && ruta.loadComponent
+          ? async () => ruta.loadComponent?.()
+          : cascaron;
 
       if (camino === url && (ruta.loadComponent ?? ruta.redirectTo)) {
         return { ruta, guards, cascaron: suCascaron };
@@ -57,7 +65,7 @@ function buscar(url: string): Encontrada | null {
     return null;
   };
 
-  return recorrer(routes, '', [], null);
+  return recorrer(routes, '', [], async () => null);
 }
 
 describe('Rutas protegidas', () => {
@@ -170,7 +178,23 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/tours', CascaronAdmin],
     ['administracion/tours/:id', CascaronAdmin],
     ['estado', CascaronAdmin],
-  ])('/%s se dibuja dentro del cascarón que le toca', (url, cascaron) => {
-    expect(buscar(url)?.cascaron).toBe(cascaron);
+  ])('/%s se dibuja dentro del cascarón que le toca', async (url, cascaron) => {
+    expect(await buscar(url)?.cascaron()).toBe(cascaron);
+  });
+});
+
+describe('El arranque solo trae el sitio público (I6)', () => {
+  // Quien visita la portada no necesita el panel ni la pantalla de entrar: sus cascarones,
+  // con lo que importan, se bajan con su ruta. Con `MatButton` en el cascarón público
+  // (T241), el arranque pasó los 500 kB del aviso.
+  const padreDe = (hijo: string) => routes.find((r) => r.children?.some((h) => h.path === hijo));
+
+  it.each(['entrar', 'administracion/reservas'])('el cascarón de /%s baja con su ruta', (url) => {
+    expect(padreDe(url)?.component).toBeUndefined();
+    expect(padreDe(url)?.loadComponent).toBeDefined();
+  });
+
+  it('el público sí viene en el arranque: es lo primero que se ve', () => {
+    expect(padreDe('disponibilidad')?.component).toBe(CascaronPublico);
   });
 });

@@ -10,7 +10,6 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { describe, expect, it } from 'vitest';
 
 import { routes } from '../../app.routes';
-import { CascaronAdmin } from '../../cascarones/cascaron-admin';
 import { Auth, UsuarioActual } from './auth';
 import { conPanel } from './con-panel.guard';
 
@@ -126,7 +125,10 @@ describe('conPanel', () => {
   });
 
   it('corre en cada pantalla del panel, no solo al entrar: va como canActivateChild', () => {
-    const panel = routes.find((ruta) => ruta.component === CascaronAdmin);
+    // El cascarón del panel se carga con su ruta (I6): se lo reconoce por sus hijos.
+    const panel = routes.find((ruta) =>
+      ruta.children?.some((hijo) => hijo.path === 'administracion/reservas'),
+    );
 
     expect(panel?.canActivateChild).toEqual([conPanel]);
   });
