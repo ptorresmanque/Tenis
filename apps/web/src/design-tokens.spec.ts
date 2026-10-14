@@ -767,13 +767,14 @@ describe('Uso de los tokens en las plantillas', () => {
     // no entran: con href o routerLink el navegador ya pone la manito.
     //
     // `matButton` no necesita la clase (T241): Material le pone la manito en
-    // `.mdc-button:hover`. `matIconButton` tampoco (T260): la trae, y el tema no se la quita.
+    // `.mdc-button:hover`. `matIconButton` y `mat-menu-item` tampoco (T260, T261): la traen,
+    // y el tema no se la quita.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bmat(?:Icon)?Button\b/.test(etiqueta)) continue;
+        if (/\bmat(?:Icon)?Button\b|\bmat-menu-item\b/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
@@ -1720,10 +1721,8 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
-  it('**ningún `<dialog>` nativo fuera de los cascarones**: los diálogos son MatDialog (T252)', () => {
-    // El menú del teléfono de los cascarones se va en la Fase 61, con la navegación.
+  it('**ningún `<dialog>` nativo**: los diálogos son MatDialog (T252) y los cajones, mat-sidenav (T260, T261)', () => {
     const infractores = plantillas()
-      .filter(({ archivo }) => !archivo.startsWith('cascarones/'))
       .filter(({ contenido }) =>
         /<dialog\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
       )
@@ -1855,8 +1854,9 @@ describe('Los botones dicen que están trabajando (T150)', () => {
   });
 
   it('los botones de ícono se hunden al presionar, como .boton', () => {
-    // Desde T260, `matIconButton`; `.pulsable` queda para los del sitio público hasta T261.
+    // Desde T260, `matIconButton`; la clase `pulsable` que lo hacía se fue en T261.
     expect(css).toMatch(/\.mat-mdc-icon-button:active:not\(:disabled\)\s*\{[^}]*scale:/);
+    expect(css).not.toMatch(/\.pulsable\b/);
   });
 
   it('**todo botón que se deshabilita por un envío lo anuncia con aria-busy**', () => {

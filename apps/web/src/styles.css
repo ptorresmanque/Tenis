@@ -491,102 +491,6 @@ html[data-tema='publico'][data-modo='oscuro'] {
   :where(:has(> .sr-only)) {
     position: relative;
   }
-
-  /*
-    LOS DIÁLOGOS ENTRAN Y SALEN.
-
-    Los ocho `<dialog>` del sitio aparecían y desaparecían de golpe. Un elemento
-    que se materializa encima del contenido sin transición se lee como un fallo
-    de renderizado, no como una respuesta: la persona no alcanza a ver de dónde
-    salió y tiene que volver a orientarse.
-
-    Va acá y no en cada componente porque son ocho y ninguno tiene una razón
-    para animarse distinto del resto. `allow-discrete` es lo que permite animar
-    la salida de un elemento que termina en `display: none`; sin eso, la entrada
-    anima y la salida sigue siendo un corte.
-
-    **La salida es la mitad de larga que la entrada.** Al entrar, el diálogo se
-    está presentando y conviene verlo llegar. Al salir ya no interesa: lo único
-    que hace una salida lenta es demorar a alguien que ya decidió irse.
-
-    `prefers-reduced-motion` lo apaga entero desde la regla global de abajo.
-  */
-  dialog {
-    opacity: 0;
-    transform: scale(0.96);
-    transition:
-      opacity var(--duracion-salida) var(--ease-salida),
-      transform var(--duracion-salida) var(--ease-salida),
-      overlay var(--duracion-salida) allow-discrete,
-      display var(--duracion-salida) allow-discrete;
-  }
-
-  dialog[open] {
-    opacity: 1;
-    transform: scale(1);
-    transition-duration: var(--duracion-dialogo);
-  }
-
-  @starting-style {
-    dialog[open] {
-      opacity: 0;
-      transform: scale(0.96);
-    }
-  }
-
-  dialog::backdrop {
-    opacity: 0;
-    transition:
-      opacity var(--duracion-salida) var(--ease-salida),
-      overlay var(--duracion-salida) allow-discrete,
-      display var(--duracion-salida) allow-discrete;
-  }
-
-  dialog[open]::backdrop {
-    opacity: 1;
-    transition-duration: var(--duracion-dialogo);
-  }
-
-  @starting-style {
-    dialog[open]::backdrop {
-      opacity: 0;
-    }
-  }
-
-  /*
-    El cajón del menú lateral entra desde el borde, no desde el centro.
-
-    Escalar un panel que está pegado al lado izquierdo lo hace crecer desde un
-    punto donde no hay nada. Viene de donde lo abrieron: la continuidad
-    espacial es lo que hace que el gesto de cerrar se sienta obvio después.
-  */
-  dialog.dialogo-cajon-inicio,
-  dialog.dialogo-cajon-fin {
-    transition-timing-function: var(--ease-cajon);
-  }
-
-  dialog.dialogo-cajon-inicio {
-    transform: translateX(-100%);
-  }
-
-  dialog.dialogo-cajon-fin {
-    transform: translateX(100%);
-  }
-
-  dialog.dialogo-cajon-inicio[open],
-  dialog.dialogo-cajon-fin[open] {
-    transform: translateX(0);
-  }
-
-  @starting-style {
-    dialog.dialogo-cajon-inicio[open] {
-      transform: translateX(-100%);
-    }
-
-    dialog.dialogo-cajon-fin[open] {
-      transform: translateX(100%);
-    }
-  }
 }
 
 /* El corte en diagonal del final de un rótulo, como la pestaña de un zócalo de
@@ -987,9 +891,8 @@ body:has(app-barra-fija) app-volver-arriba {
     Los botones de ícono —menú, cerrar, pausar la cinta, el avatar, volver arriba—
     confirman la pulsación como el botón (T150). Tenían el fondo al pasar el mouse y
     nada al tocarlos, que en el teléfono es lo único que hay. Desde T260 son
-    `matIconButton`, y `.pulsable` queda para los del sitio público hasta T261.
+    `matIconButton`, y la clase `pulsable` que lo hacía se fue en T261.
   */
-  .pulsable,
   .mat-mdc-icon-button {
     transition:
       color var(--duracion-menu) var(--ease-salida),
@@ -998,7 +901,6 @@ body:has(app-barra-fija) app-volver-arriba {
       scale var(--duracion-pulsacion) var(--ease-salida);
   }
 
-  .pulsable:active:not(:disabled),
   .mat-mdc-icon-button:active:not(:disabled) {
     scale: 0.92;
   }

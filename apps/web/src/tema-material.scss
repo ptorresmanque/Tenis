@@ -875,7 +875,7 @@ html .mat-mdc-icon-button:not(:where(#{$botones-de-material}) *) {
 }
 
 /*
-  EL PANEL (T260): `mat-sidenav` y `mat-toolbar` con los colores del sitio. La barra sobre la
+  EL PANEL Y EL SITIO (T260, T261): `mat-sidenav` y `mat-toolbar` con los colores del sitio. La barra sobre la
   tarjeta y con su borde al costado, 16 rem de ancho y sin radio; el velo del cajón, el texto a
   la mitad, como el `backdrop:bg-foreground/50` del `<dialog>` de antes; la cabecera del teléfono,
   de 64 px.
@@ -899,20 +899,47 @@ html {
       container-text-color: var(--color-foreground),
       standard-height: 4rem,
       mobile-height: 4rem,
+      title-text-font: var(--font-sans),
+      title-text-size: 1rem,
+      title-text-line-height: 1.5,
+      title-text-weight: 400,
+      title-text-tracking: normal,
     )
   );
+}
+
+/* La barra del sitio se centra con `mx-auto`, como el contenedor de antes: Material le fija
+   `margin: 0` sin capa. Y sus botones conservan los colores del tema: Material les pone el del
+   texto de la barra a los que no llevan `color`, y «Entrar» salía negro. */
+html .mat-toolbar {
+  margin: revert-layer;
+}
+
+html .mat-toolbar .mat-mdc-button-base.mat-mdc-button-base.mat-unthemed {
+  --mat-button-text-label-text-color: inherit;
+  --mat-button-outlined-label-text-color: inherit;
 }
 
 /* Se desplaza el documento, como antes, y no el contenedor: con el `overflow` de Material, la
    cabecera del teléfono y los encabezados de las tablas no quedarían fijos, y el router no
    volvería arriba al cambiar de página. La barra no lo necesita: va fija en la ventana. */
-html .mat-drawer-container.panel,
-html .panel > .mat-drawer-content {
+html .mat-drawer-container,
+html .mat-drawer-container > .mat-drawer-content {
   overflow: visible;
 }
 
-html .panel > .mat-drawer-content {
+html .mat-drawer-container > .mat-drawer-content {
   height: auto;
+}
+
+/* El cajón del sitio público (T261): entra por la derecha y mide lo que medía el <dialog>,
+   cuatro quintos de la pantalla hasta 20 rem. */
+html .cajon-del-sitio {
+  @include mat.sidenav-overrides(
+    (
+      container-width: min(80vw, 20rem),
+    )
+  );
 }
 
 /* Con el movimiento reducido, Material no anima el cajón y lo da por abierto o cerrado de una
@@ -926,4 +953,29 @@ html .panel > .mat-drawer-content {
   html .mat-drawer-content {
     transition: none !important;
   }
+}
+
+/*
+  EL MENÚ DE LA CUENTA (T261): `mat-menu` con la cara del desplegable de antes, sobre la tarjeta y
+  con el radio grande; los ítems en la letra de leer, chicos y semigruesos, y el gris al pasar o
+  al llegar con las flechas.
+*/
+html {
+  @include mat.menu-overrides(
+    (
+      container-color: var(--color-card),
+      container-shape: 0.75rem,
+      divider-color: var(--color-border),
+      item-label-text-color: var(--color-foreground),
+      item-label-text-font: var(--font-sans),
+      item-label-text-size: 0.875rem,
+      item-label-text-weight: 500,
+      item-label-text-line-height: 1.25rem,
+      item-label-text-tracking: normal,
+      item-leading-spacing: 0.75rem,
+      item-trailing-spacing: 0.75rem,
+      item-hover-state-layer-color: var(--color-muted),
+      item-focus-state-layer-color: var(--color-muted),
+    )
+  );
 }

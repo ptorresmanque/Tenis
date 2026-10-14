@@ -2,7 +2,10 @@ import { ViewportScroller } from '@angular/common';
 import { Component, computed, ElementRef, inject, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
-import { MatButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatToolbar } from '@angular/material/toolbar';
 
 import { Club } from '../club/club.service';
 import { RedesSociales } from '../club/redes-sociales';
@@ -12,7 +15,6 @@ import { Auth } from '../core/auth/auth';
 import { inicioDelPanel } from '../core/auth/tipos-del-panel';
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
-import { MenuDesplegable } from './menu-desplegable';
 import { usarTemaPublico } from './tema';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
@@ -36,13 +38,18 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
   selector: 'app-cascaron-publico',
   imports: [
     MatButton,
+    MatIconButton,
     MatIcon,
+    MatMenu,
+    MatMenuItem,
+    MatMenuTrigger,
+    MatSidenavModule,
+    MatToolbar,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
     Logotipo,
     ConmutadorDeTema,
-    MenuDesplegable,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     RedesSociales,
@@ -60,268 +67,285 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       Saltar al contenido
     </a>
 
-    <header
-      #encabezado
-      class="sticky top-0 z-40 border-b border-border bg-card shadow-sm print:hidden"
-    >
-      <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
-        <app-logotipo />
+    <mat-sidenav-container>
+      <!-- El menú del teléfono, un mat-sidenav que entra por la derecha (T261): el foco
+           queda adentro, Esc o el velo lo cierran, y al cerrarse vuelve al botón que lo abrió. -->
+      <mat-sidenav
+        #panel
+        class="cajon-del-sitio p-6"
+        position="end"
+        mode="over"
+        fixedInViewport
+        aria-label="Menú"
+      >
+        <div class="flex items-center justify-between">
+          <app-logotipo />
+          <button
+            matIconButton
+            type="button"
+            class="rounded-lg p-2 hover:bg-muted"
+            aria-label="Cerrar el menú"
+            (click)="panel.close()"
+          >
+            <mat-icon class="text-2xl" aria-hidden="true">close</mat-icon>
+          </button>
+        </div>
 
-        <!-- Desde lg y no desde md: con sesión de socio el menú lleva ocho
-             enlaces, que a 768px se salen 247px de la pantalla. Medido el
-             2026-09-08 a ese ancho, que es el de una tablet vertical y el de una
-             ventana a media pantalla.
-             En mayúscula (TV2.4) los ocho a 1024 partían "Mis reservas" y otros
-             tres en dos líneas: necesitaban 997px y había 992. Por eso no se
-             parten (whitespace-nowrap) y llevan menos relleno hasta xl. -->
-        <nav aria-label="Principal" class="hidden gap-1 text-sm lg:flex">
+        <nav aria-label="Principal" class="mt-6 grid gap-1">
           @for (item of navegacion(); track item.ruta) {
             <a
               [routerLink]="item.ruta"
-              routerLinkActive="text-primary underline decoration-2 underline-offset-8"
+              routerLinkActive="bg-selected text-primary"
               ariaCurrentWhenActive="page"
-              class="rounded-md px-2 py-2 font-display font-bold whitespace-nowrap
-                     uppercase tracking-wide text-muted-foreground transition-colors
-                     hover:bg-muted hover:text-foreground xl:px-3"
+              class="flex min-h-12 items-center rounded-lg px-3 font-display text-lg
+                     font-bold uppercase tracking-wide transition-colors hover:bg-muted"
+              (click)="panel.close()"
             >
               {{ item.etiqueta }}
             </a>
           }
         </nav>
 
-        <div class="ms-auto flex items-center gap-2">
-          <!-- Al quedar libre el navegador y no en el arranque (I6): el grupo de opciones de
-               Material pesa 84 kB, y el conmutador no es lo primero que se mira. El
-               placeholder mide lo mismo, para que la barra no salte cuando llega. -->
-          @defer (on idle) {
-            <app-conmutador-de-tema />
-          } @placeholder {
-            <div class="h-9 w-26.5" aria-hidden="true"></div>
-          }
-
-          @if (usuario(); as sesion) {
-            <app-menu-desplegable
-              [etiqueta]="'Menú de ' + sesion.nombre"
-              claseBoton="pulsable flex size-10 items-center justify-center rounded-full
-                          bg-primary text-sm font-bold text-on-primary hover:opacity-90"
-            >
-              <span disparador>{{ iniciales() }}</span>
-
-              <p class="border-b border-border px-3 py-2">
-                <span class="block font-semibold">{{ sesion.nombre }}</span>
-                <span class="block text-xs text-muted-foreground">
-                  {{ sesion.email }}
-                </span>
-              </p>
-
-              @if (sesion.socioId !== null) {
-                <a routerLink="/mis-reservas" [class]="ITEM_MENU">Mis reservas</a>
-                <a routerLink="/mi-cuenta" [class]="ITEM_MENU">Mi cuenta</a>
-              }
-              @if (inicioDelPanel(); as destino) {
-                <a [routerLink]="destino" [class]="ITEM_MENU">Administración</a>
-              }
-              <button
-                type="button"
-                (click)="salir()"
-                [class]="ITEM_MENU + ' w-full cursor-pointer text-start'"
+        @if (usuario(); as sesion) {
+          <div class="mt-6 grid gap-1 border-t border-border pt-6">
+            <p class="px-3 pb-2 font-semibold">{{ sesion.nombre }}</p>
+            @if (inicioDelPanel(); as destino) {
+              <a
+                [routerLink]="destino"
+                class="flex min-h-12 items-center rounded-lg px-3 font-medium
+                       transition-colors hover:bg-muted"
+                (click)="panel.close()"
               >
-                Salir
-              </button>
-            </app-menu-desplegable>
-          } @else {
-            <a matButton routerLink="/entrar" class="hidden sm:inline-flex">
+                Administración
+              </a>
+            }
+            <button
+              type="button"
+              class="flex min-h-12 cursor-pointer items-center rounded-lg px-3
+                     text-start font-medium transition-colors hover:bg-muted"
+              (click)="panel.close(); salir()"
+            >
+              Salir
+            </button>
+          </div>
+        } @else {
+          <div class="mt-6 grid gap-2 border-t border-border pt-6">
+            <a matButton="outlined" routerLink="/entrar" class="w-full" (click)="panel.close()">
               Entrar
             </a>
-            <!-- El del encabezado y el del menú móvil no se ven juntos: el menú es modal.
-                 mat-guidelines-ignore: multiples-filled -->
-            <a matButton="filled" routerLink="/registro" class="hidden sm:inline-flex">
+            <a matButton="filled" routerLink="/registro" class="w-full" (click)="panel.close()">
               Crear cuenta
             </a>
-          }
-
-          <button
-            type="button"
-            class="pulsable cursor-pointer rounded-lg p-2 text-foreground hover:bg-muted
-                   lg:hidden"
-            aria-label="Abrir el menú"
-            (click)="panel.showModal()"
-          >
-            <mat-icon class="text-2xl" aria-hidden="true">menu</mat-icon>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- El cajón es un diálogo nativo abierto con showModal(): el foco queda
-         atrapado adentro, Esc lo cierra, y closedby="any" agrega el cierre al
-         tocar afuera. Los tres sin una línea de JavaScript nuestra; donde el
-         navegador todavía no soporte closedby, quedan Esc y la cruz. -->
-    <dialog
-      #panel
-      closedby="any"
-      class="dialogo-cajon-fin m-0 ms-auto h-dvh w-4/5 max-w-xs bg-card p-6 shadow-xl
-             backdrop:bg-foreground/50"
-      aria-label="Menú"
-    >
-      <div class="flex items-center justify-between">
-        <app-logotipo />
-        <button
-          type="button"
-          class="pulsable cursor-pointer rounded-lg p-2 hover:bg-muted"
-          aria-label="Cerrar el menú"
-          (click)="panel.close()"
-        >
-          <mat-icon class="text-2xl" aria-hidden="true">close</mat-icon>
-        </button>
-      </div>
-
-      <nav aria-label="Principal" class="mt-6 grid gap-1">
-        @for (item of navegacion(); track item.ruta) {
-          <a
-            [routerLink]="item.ruta"
-            routerLinkActive="bg-selected text-primary"
-            ariaCurrentWhenActive="page"
-            class="flex min-h-12 items-center rounded-lg px-3 font-display text-lg
-                   font-bold uppercase tracking-wide transition-colors hover:bg-muted"
-            (click)="panel.close()"
-          >
-            {{ item.etiqueta }}
-          </a>
+          </div>
         }
-      </nav>
+      </mat-sidenav>
 
-      @if (usuario(); as sesion) {
-        <div class="mt-6 grid gap-1 border-t border-border pt-6">
-          <p class="px-3 pb-2 font-semibold">{{ sesion.nombre }}</p>
-          @if (inicioDelPanel(); as destino) {
-            <a
-              [routerLink]="destino"
-              class="flex min-h-12 items-center rounded-lg px-3 font-medium
-                     transition-colors hover:bg-muted"
-              (click)="panel.close()"
-            >
-              Administración
-            </a>
-          }
-          <button
-            type="button"
-            class="flex min-h-12 cursor-pointer items-center rounded-lg px-3
-                   text-start font-medium transition-colors hover:bg-muted"
-            (click)="panel.close(); salir()"
-          >
-            Salir
-          </button>
-        </div>
-      } @else {
-        <div class="mt-6 grid gap-2 border-t border-border pt-6">
-          <a matButton="outlined" routerLink="/entrar" class="w-full" (click)="panel.close()">
-            Entrar
-          </a>
-          <a matButton="filled" routerLink="/registro" class="w-full" (click)="panel.close()">
-            Crear cuenta
-          </a>
-        </div>
-      }
-    </dialog>
+      <mat-sidenav-content>
+        <header
+          #encabezado
+          class="sticky top-0 z-40 border-b border-border bg-card shadow-sm print:hidden"
+        >
+          <mat-toolbar class="mx-auto max-w-6xl gap-6">
+            <app-logotipo />
 
-    <!-- tabindex -1: "Saltar al contenido" y "Volver arriba" (T149) le pasan el foco.
-         Sin anillo: el foco va al comienzo de la página, no a un control. -->
-    <main id="contenido" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8 focus:outline-none">
-      <router-outlet />
-    </main>
-
-    <app-volver-arriba />
-
-    <!-- El pie, en banda de campo y no de rótulo: en oscuro el rótulo es una
-         placa clara, y un pie claro a todo el ancho sería la zona más brillante
-         de la pantalla (revisión de TV1.4). El logotipo usa sus colores para
-         fondo oscuro, porque en claro su azul es el mismo del campo. -->
-    <footer class="logotipo-sobre-campo mt-16 bg-campo text-on-campo print:hidden">
-      <div class="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <app-logotipo />
-          <p class="mt-3 max-w-xs text-sm text-on-campo/80">
-            Canchas duras, todas de la misma superficie. Reserva en línea.
-          </p>
-          <!-- Las redes que el club cargó (T141). El margen negativo alinea el primer
-               logo con el texto: la caja táctil mide el doble que el dibujo. -->
-          <app-redes-sociales clase="mt-3 -ms-3" />
-        </div>
-
-        <nav aria-labelledby="pie-reservas">
-          <h2 id="pie-reservas" class="font-display text-sm font-bold uppercase">
-            Reservas
-          </h2>
-          <ul class="mt-3 grid gap-2 text-sm text-on-campo/80">
-            @for (item of navegacion(); track item.ruta) {
-              <li>
-                <a [routerLink]="item.ruta" class="hover:text-on-campo hover:underline">
+            <!-- Desde lg y no desde md: con sesión de socio el menú lleva ocho
+                 enlaces, que a 768px se salen 247px de la pantalla. Medido el
+                 2026-09-08 a ese ancho, que es el de una tablet vertical y el de una
+                 ventana a media pantalla.
+                 En mayúscula (TV2.4) los ocho a 1024 partían "Mis reservas" y otros
+                 tres en dos líneas: necesitaban 997px y había 992. Por eso no se
+                 parten (whitespace-nowrap) y llevan menos relleno hasta xl. -->
+            <nav aria-label="Principal" class="hidden gap-1 text-sm lg:flex">
+              @for (item of navegacion(); track item.ruta) {
+                <a
+                  [routerLink]="item.ruta"
+                  routerLinkActive="text-primary underline decoration-2 underline-offset-8"
+                  ariaCurrentWhenActive="page"
+                  class="rounded-md px-2 py-2 font-display font-bold whitespace-nowrap
+                         uppercase tracking-wide text-muted-foreground transition-colors
+                         hover:bg-muted hover:text-foreground xl:px-3"
+                >
                   {{ item.etiqueta }}
                 </a>
-              </li>
-            }
-          </ul>
-        </nav>
+              }
+            </nav>
 
-        <!-- Acá decía "todos los días, de 08:00 a 22:00", escrito a mano y
-             repetido en las quince pantallas públicas. El horario de verdad sale
-             del endpoint de horarios y el club lo edita desde su panel: sábado y
-             domingo cierran a las 20:00, así que la frase era falsa en dos de
-             cada siete días. Se enlaza en vez de pedir esa consulta en cada
-             página solo para el pie. -->
-        <div>
-          <h2 class="font-display text-sm font-bold uppercase">Horarios</h2>
-          <p class="mt-3 text-sm text-on-campo/80">
-            <a routerLink="/el-club" class="underline hover:text-on-campo">
-              Mira el horario de cada día
-            </a>
+            <div class="ms-auto flex items-center gap-2">
+              <!-- Al quedar libre el navegador y no en el arranque (I6): el grupo de opciones de
+                   Material pesa 84 kB, y el conmutador no es lo primero que se mira. El
+                   placeholder mide lo mismo, para que la barra no salte cuando llega. -->
+              @defer (on idle) {
+                <app-conmutador-de-tema />
+              } @placeholder {
+                <div class="h-9 w-26.5" aria-hidden="true"></div>
+              }
+
+              @if (usuario(); as sesion) {
+                <!-- El menú de la cuenta es un mat-menu (T261): se usa con las flechas como un
+                     menú, Esc lo cierra y le devuelve el foco al avatar. Llega al quedar libre el
+                     navegador y no en el arranque (I6), como el conmutador: el menú y su overlay
+                     pesan 82 kB. El placeholder es el mismo círculo con las iniciales. -->
+                @defer (on idle) {
+                  <button
+                    matIconButton
+                    type="button"
+                    class="flex size-10 items-center justify-center rounded-full bg-primary text-sm
+                           font-bold text-on-primary hover:opacity-90"
+                    [attr.aria-label]="'Menú de ' + sesion.nombre"
+                    [matMenuTriggerFor]="menuDeLaCuenta"
+                  >
+                    {{ iniciales() }}
+                  </button>
+
+                  <mat-menu #menuDeLaCuenta="matMenu" xPosition="before">
+                    <p class="border-b border-border px-3 py-2" role="none">
+                      <span class="block font-semibold">{{ sesion.nombre }}</span>
+                      <span class="block text-xs text-muted-foreground">
+                        {{ sesion.email }}
+                      </span>
+                    </p>
+
+                    @if (sesion.socioId !== null) {
+                      <a mat-menu-item routerLink="/mis-reservas">Mis reservas</a>
+                      <a mat-menu-item routerLink="/mi-cuenta">Mi cuenta</a>
+                    }
+                    @if (inicioDelPanel(); as destino) {
+                      <a mat-menu-item [routerLink]="destino">Administración</a>
+                    }
+                    <button mat-menu-item type="button" (click)="salir()">Salir</button>
+                  </mat-menu>
+                } @placeholder {
+                  <span
+                    class="flex size-10 items-center justify-center rounded-full bg-primary text-sm
+                           font-bold text-on-primary"
+                    aria-hidden="true"
+                  >
+                    {{ iniciales() }}
+                  </span>
+                }
+              } @else {
+                <a matButton routerLink="/entrar" class="hidden sm:inline-flex">
+                  Entrar
+                </a>
+                <!-- El del encabezado y el del menú móvil no se ven juntos: el menú es modal.
+                     mat-guidelines-ignore: multiples-filled -->
+                <a matButton="filled" routerLink="/registro" class="hidden sm:inline-flex">
+                  Crear cuenta
+                </a>
+              }
+
+              <button
+                matIconButton
+                type="button"
+                class="rounded-lg p-2 text-foreground hover:bg-muted lg:hidden"
+                aria-label="Abrir el menú"
+                (click)="panel.open()"
+              >
+                <mat-icon class="text-2xl" aria-hidden="true">menu</mat-icon>
+              </button>
+            </div>
+          </mat-toolbar>
+        </header>
+
+        <!-- tabindex -1: "Saltar al contenido" y "Volver arriba" (T149) le pasan el foco.
+             Sin anillo: el foco va al comienzo de la página, no a un control. -->
+        <main id="contenido" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8 focus:outline-none">
+          <router-outlet />
+        </main>
+
+        <app-volver-arriba />
+
+        <!-- El pie, en banda de campo y no de rótulo: en oscuro el rótulo es una
+             placa clara, y un pie claro a todo el ancho sería la zona más brillante
+             de la pantalla (revisión de TV1.4). El logotipo usa sus colores para
+             fondo oscuro, porque en claro su azul es el mismo del campo. -->
+        <footer class="logotipo-sobre-campo mt-16 bg-campo text-on-campo print:hidden">
+          <div class="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <app-logotipo />
+              <p class="mt-3 max-w-xs text-sm text-on-campo/80">
+                Canchas duras, todas de la misma superficie. Reserva en línea.
+              </p>
+              <!-- Las redes que el club cargó (T141). El margen negativo alinea el primer
+                   logo con el texto: la caja táctil mide el doble que el dibujo. -->
+              <app-redes-sociales clase="mt-3 -ms-3" />
+            </div>
+
+            <nav aria-labelledby="pie-reservas">
+              <h2 id="pie-reservas" class="font-display text-sm font-bold uppercase">
+                Reservas
+              </h2>
+              <ul class="mt-3 grid gap-2 text-sm text-on-campo/80">
+                @for (item of navegacion(); track item.ruta) {
+                  <li>
+                    <a [routerLink]="item.ruta" class="hover:text-on-campo hover:underline">
+                      {{ item.etiqueta }}
+                    </a>
+                  </li>
+                }
+              </ul>
+            </nav>
+
+            <!-- Acá decía "todos los días, de 08:00 a 22:00", escrito a mano y
+                 repetido en las quince pantallas públicas. El horario de verdad sale
+                 del endpoint de horarios y el club lo edita desde su panel: sábado y
+                 domingo cierran a las 20:00, así que la frase era falsa en dos de
+                 cada siete días. Se enlaza en vez de pedir esa consulta en cada
+                 página solo para el pie. -->
+            <div>
+              <h2 class="font-display text-sm font-bold uppercase">Horarios</h2>
+              <p class="mt-3 text-sm text-on-campo/80">
+                <a routerLink="/el-club" class="underline hover:text-on-campo">
+                  Mira el horario de cada día
+                </a>
+              </p>
+            </div>
+
+            <!-- Los datos salen de la configuración del club, no de acá: el día que se
+                 mude, lo cambia el admin desde su panel y no hace falta un despliegue.
+                 Cada línea aparece solo si tiene algo que decir. -->
+            <div>
+              <h2 class="font-display text-sm font-bold uppercase">Contacto</h2>
+              <ul class="mt-3 grid gap-1 text-sm text-on-campo/80">
+                <!-- T146. Primero: es lo que conviene mirar antes de escribir o llamar. -->
+                <li>
+                  <a routerLink="/preguntas-frecuentes" class="hover:text-on-campo hover:underline">
+                    Preguntas frecuentes
+                  </a>
+                </li>
+                @if (club().direccion) {
+                  <li>{{ club().direccion }}</li>
+                }
+                @if (club().telefono) {
+                  <li>
+                    <a [href]="club().telefono | enlaceTelefono" class="hover:text-on-campo hover:underline">
+                      {{ club().telefono | telefono }}
+                    </a>
+                  </li>
+                }
+                @if (club().email) {
+                  <li>
+                    <a [href]="'mailto:' + club().email" class="hover:text-on-campo hover:underline">
+                      {{ club().email }}
+                    </a>
+                  </li>
+                }
+              </ul>
+            </div>
+          </div>
+
+          <!-- En el teléfono, aire abajo para que "Volver arriba" (T149), que flota en
+               ese rincón, no tape el enlace de la política al llegar al final. -->
+          <p
+            class="border-t border-on-campo/20 px-4 pt-6 pb-20 text-center text-sm text-on-campo/80
+                   sm:pb-6"
+          >
+            © 2026 FEDAL Tennis Center ·
+            <a routerLink="/privacidad" class="underline hover:text-on-campo">Política de privacidad</a>
           </p>
-        </div>
-
-        <!-- Los datos salen de la configuración del club, no de acá: el día que se
-             mude, lo cambia el admin desde su panel y no hace falta un despliegue.
-             Cada línea aparece solo si tiene algo que decir. -->
-        <div>
-          <h2 class="font-display text-sm font-bold uppercase">Contacto</h2>
-          <ul class="mt-3 grid gap-1 text-sm text-on-campo/80">
-            <!-- T146. Primero: es lo que conviene mirar antes de escribir o llamar. -->
-            <li>
-              <a routerLink="/preguntas-frecuentes" class="hover:text-on-campo hover:underline">
-                Preguntas frecuentes
-              </a>
-            </li>
-            @if (club().direccion) {
-              <li>{{ club().direccion }}</li>
-            }
-            @if (club().telefono) {
-              <li>
-                <a [href]="club().telefono | enlaceTelefono" class="hover:text-on-campo hover:underline">
-                  {{ club().telefono | telefono }}
-                </a>
-              </li>
-            }
-            @if (club().email) {
-              <li>
-                <a [href]="'mailto:' + club().email" class="hover:text-on-campo hover:underline">
-                  {{ club().email }}
-                </a>
-              </li>
-            }
-          </ul>
-        </div>
-      </div>
-
-      <!-- En el teléfono, aire abajo para que "Volver arriba" (T149), que flota en
-           ese rincón, no tape el enlace de la política al llegar al final. -->
-      <p
-        class="border-t border-on-campo/20 px-4 pt-6 pb-20 text-center text-sm text-on-campo/80
-               sm:pb-6"
-      >
-        © 2026 FEDAL Tennis Center ·
-        <a routerLink="/privacidad" class="underline hover:text-on-campo">Política de privacidad</a>
-      </p>
-    </footer>
+        </footer>
+      </mat-sidenav-content>
+    </mat-sidenav-container>
   `,
 })
 export class CascaronPublico {
@@ -349,11 +373,6 @@ export class CascaronPublico {
       (this.encabezado()?.nativeElement.offsetHeight ?? 0) + 16,
     ]);
   }
-
-  /** Un ítem del menú desplegable. Es una constante y no una clase de CSS
-      porque la comparten un enlace y un botón, que no son el mismo elemento. */
-  protected readonly ITEM_MENU =
-    'block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted';
 
   protected readonly navegacion = computed(() => [
     { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },

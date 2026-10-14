@@ -170,9 +170,10 @@ describe('Cascarón de administración', () => {
       .click();
     fixture.detectChanges();
 
-    const textos = [...elemento.querySelectorAll('mat-sidenav a, mat-sidenav button')].map((e) =>
-      e.textContent?.trim(),
-    );
+    // Es un mat-menu (T261): sus ítems se dibujan en el overlay, no en la barra.
+    const textos = [
+      ...document.querySelectorAll('.mat-mdc-menu-panel a, .mat-mdc-menu-panel button'),
+    ].map((e) => e.textContent?.trim());
 
     expect(textos).toContain('Volver al sitio');
     expect(textos).toContain('Salir');

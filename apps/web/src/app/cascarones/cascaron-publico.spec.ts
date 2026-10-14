@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockState, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
@@ -55,7 +55,8 @@ describe('Cascarón público: la navegación', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([]),
+        // Un comodín vacío: elegir una sección navega, y sin rutas el router lo rechaza.
+        provideRouter([{ path: '**', children: [] }]),
         ...(club ? [{ provide: Club, useValue: { datos: signal(club) } }] : []),
         {
           provide: Auth,
@@ -69,6 +70,18 @@ describe('Cascarón público: la navegación', () => {
     });
 
     const fixture = TestBed.createComponent(CascaronPublico);
+    fixture.detectChanges();
+
+    return fixture;
+  }
+
+  /** Montado y con los bloques @defer dibujados: el menú de la cuenta llega al quedar libre el
+      navegador (T261), y en la prueba no hay que esperarlo. */
+  async function montarConElMenu(usuario: UsuarioActual): Promise<ComponentFixture<CascaronPublico>> {
+    const fixture = montarCon(usuario);
+    for (const bloque of await fixture.getDeferBlocks()) {
+      await bloque.render(DeferBlockState.Complete);
+    }
     fixture.detectChanges();
 
     return fixture;
@@ -181,13 +194,17 @@ describe('Cascarón público: la navegación', () => {
     expect(enlacesCon(null)).not.toContain('Mis reservas');
   });
 
+  /** Lo que ofrece el menú de la cuenta, que es un mat-menu y se dibuja en el overlay (T261). */
+  const enElMenu = () =>
+    [...document.querySelectorAll('.mat-mdc-menu-panel a, .mat-mdc-menu-panel button')];
+
   it('la barra del admin es la misma que la de cualquiera', () => {
     expect(enlacesCon(ADMIN)).not.toContain('Administración');
     expect(enlacesCon(ADMIN)).not.toContain('Estado del sistema');
   });
 
-  it('el admin llega al panel por el menú de su avatar', () => {
-    const fixture = montarCon(ADMIN);
+  it('el admin llega al panel por el menú de su avatar', async () => {
+    const fixture = await montarConElMenu(ADMIN);
     const elemento = fixture.nativeElement as HTMLElement;
 
     const avatar = elemento.querySelector<HTMLButtonElement>(
@@ -202,14 +219,29 @@ describe('Cascarón público: la navegación', () => {
     fixture.detectChanges();
 
     expect(avatar!.getAttribute('aria-expanded')).toBe('true');
-    expect(
-      [...elemento.querySelectorAll('header a')].map((a) => a.textContent?.trim()),
-    ).toContain('Administración');
+    expect(enElMenu().map((a) => a.textContent?.trim())).toContain('Administración');
+  });
+
+  it('**el menú de la cuenta se usa con el teclado como un menú** (T261)', async () => {
+    const fixture = await montarConElMenu(SOCIA);
+    const elemento = fixture.nativeElement as HTMLElement;
+    const avatar = elemento.querySelector<HTMLButtonElement>(
+      'header button[aria-label="Menú de Camila Rojas"]',
+    )!;
+
+    avatar.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const panel = document.querySelector('.mat-mdc-menu-panel')!;
+    expect(panel.getAttribute('role')).toBe('menu');
+    expect(enElMenu().every((item) => item.getAttribute('role') === 'menuitem')).toBe(true);
+    expect(avatar.getAttribute('aria-haspopup')).toBe('menu');
   });
 
   /** Adónde lleva "Administración" en el menú del avatar, o null si no está (T220). */
-  function enlaceAlPanel(usuario: UsuarioActual): string | null {
-    const fixture = montarCon(usuario);
+  async function enlaceAlPanel(usuario: UsuarioActual): Promise<string | null> {
+    const fixture = await montarConElMenu(usuario);
     const elemento = fixture.nativeElement as HTMLElement;
 
     elemento
@@ -219,26 +251,24 @@ describe('Cascarón público: la navegación', () => {
       .click();
     fixture.detectChanges();
 
-    const enlace = [...elemento.querySelectorAll('header a')].find(
-      (a) => a.textContent?.trim() === 'Administración',
-    );
+    const enlace = enElMenu().find((a) => a.textContent?.trim() === 'Administración');
 
     return enlace?.getAttribute('href') ?? null;
   }
 
-  it('el panel lleva a cada uno a lo suyo: la agenda al gestor, Clases al profesor (T220)', () => {
-    expect(enlaceAlPanel(ADMIN)).toBe('/administracion/reservas');
-    expect(enlaceAlPanel({ ...SOCIA, esGestor: true })).toBe(
+  it('el panel lleva a cada uno a lo suyo: la agenda al gestor, Clases al profesor (T220)', async () => {
+    expect(await enlaceAlPanel(ADMIN)).toBe('/administracion/reservas');
+    expect(await enlaceAlPanel({ ...SOCIA, esGestor: true })).toBe(
       '/administracion/reservas',
     );
-    expect(enlaceAlPanel({ ...SOCIA, profesorId: 4 })).toBe(
+    expect(await enlaceAlPanel({ ...SOCIA, profesorId: 4 })).toBe(
       '/administracion/clases',
     );
-    expect(enlaceAlPanel(SOCIA)).toBeNull();
+    expect(await enlaceAlPanel(SOCIA)).toBeNull();
   });
 
-  it('a la socia el menú de su avatar no le ofrece el panel', () => {
-    const fixture = montarCon(SOCIA);
+  it('a la socia el menú de su avatar no le ofrece el panel', async () => {
+    const fixture = await montarConElMenu(SOCIA);
     const elemento = fixture.nativeElement as HTMLElement;
 
     elemento
@@ -246,11 +276,59 @@ describe('Cascarón público: la navegación', () => {
       .click();
     fixture.detectChanges();
 
-    const enlaces = [...elemento.querySelectorAll('header a')].map((a) =>
-      a.textContent?.trim(),
-    );
+    const enlaces = enElMenu().map((a) => a.textContent?.trim());
 
     expect(enlaces).not.toContain('Administración');
     expect(enlaces).toContain('Mis reservas');
+  });
+
+  describe('el menú del teléfono es un mat-sidenav (T261)', () => {
+    const abierto = (elemento: HTMLElement) =>
+      elemento.querySelector('mat-sidenav')!.classList.contains('mat-drawer-opened');
+
+    it('**se abre con su botón, y al cerrarse el foco vuelve a él**', async () => {
+      const fixture = montarCon(null);
+      const elemento = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(elemento);
+      const abrir = elemento.querySelector<HTMLButtonElement>('button[aria-label="Abrir el menú"]')!;
+
+      expect(abierto(elemento)).toBe(false);
+
+      abrir.focus();
+      abrir.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(abierto(elemento)).toBe(true);
+
+      elemento.querySelector<HTMLButtonElement>('mat-sidenav button[aria-label="Cerrar el menú"]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(abierto(elemento)).toBe(false);
+      expect(document.activeElement).toBe(abrir);
+      elemento.remove();
+    });
+
+    it('elegir una sección lo cierra', async () => {
+      const fixture = montarCon(null);
+      const elemento = fixture.nativeElement as HTMLElement;
+
+      elemento.querySelector<HTMLButtonElement>('button[aria-label="Abrir el menú"]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      elemento.querySelector<HTMLAnchorElement>('mat-sidenav nav a')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(abierto(elemento)).toBe(false);
+    });
+
+    it('ofrece lo mismo que la barra: el menú se define en un solo lugar', () => {
+      const elemento = montarCon(SOCIA).nativeElement as HTMLElement;
+      const textos = (selector: string) =>
+        [...elemento.querySelectorAll(selector)].map((a) => a.textContent?.trim());
+
+      expect(textos('mat-sidenav nav a')).toEqual(textos('header nav a'));
+    });
   });
 });

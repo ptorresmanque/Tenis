@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatIconButton } from '@angular/material/button';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbar } from '@angular/material/toolbar';
 import { map } from 'rxjs';
@@ -12,7 +13,6 @@ import { Auth } from '../core/auth/auth';
 import { inicioDelPanel, puedeVer } from '../core/auth/tipos-del-panel';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
-import { MenuDesplegable } from './menu-desplegable';
 
 /**
  * El panel de administración: barra lateral a la izquierda y contenido.
@@ -30,13 +30,15 @@ import { MenuDesplegable } from './menu-desplegable';
   imports: [
     MatIcon,
     MatIconButton,
+    MatMenu,
+    MatMenuItem,
+    MatMenuTrigger,
     MatSidenavModule,
     MatToolbar,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
     Logotipo,
-    MenuDesplegable,
     ProgresoDeNavegacion,
   ],
   template: `
@@ -123,42 +125,37 @@ import { MenuDesplegable } from './menu-desplegable';
 
           <div class="border-t border-border p-3">
             @if (usuario(); as sesion) {
-              <app-menu-desplegable
-                [etiqueta]="'Opciones de ' + sesion.nombre"
-                claseBoton="flex w-full items-center gap-3 rounded-lg p-2 text-start
-                            transition-colors hover:bg-muted"
-                clasePanel="start-0 bottom-full mb-2"
+              <!-- Un mat-menu (T261), que se abre hacia arriba: al pie de la barra no hay
+                   lugar abajo. -->
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-center gap-3 rounded-lg p-2 text-start
+                       transition-colors hover:bg-muted"
+                [attr.aria-label]="'Opciones de ' + sesion.nombre"
+                [matMenuTriggerFor]="menuDelPie"
               >
-                <span disparador class="flex w-full items-center gap-3">
-                  <span
-                    class="flex size-9 shrink-0 items-center justify-center rounded-full
-                           bg-primary text-xs font-bold text-on-primary"
-                    aria-hidden="true"
-                  >
-                    {{ iniciales() }}
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-semibold">
-                      {{ sesion.nombre }}
-                    </span>
-                    <span class="block truncate text-xs text-muted-foreground">
-                      {{ sesion.email }}
-                    </span>
-                  </span>
-                  <mat-icon class="text-muted-foreground" aria-hidden="true">
-                    more_vert
-                  </mat-icon>
-                </span>
-
-                <a routerLink="/" [class]="ITEM_MENU">Volver al sitio</a>
-                <button
-                  type="button"
-                  (click)="salir()"
-                  [class]="ITEM_MENU + ' w-full cursor-pointer text-start'"
+                <span
+                  class="flex size-9 shrink-0 items-center justify-center rounded-full
+                         bg-primary text-xs font-bold text-on-primary"
+                  aria-hidden="true"
                 >
-                  Salir
-                </button>
-              </app-menu-desplegable>
+                  {{ iniciales() }}
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-semibold">
+                    {{ sesion.nombre }}
+                  </span>
+                  <span class="block truncate text-xs text-muted-foreground">
+                    {{ sesion.email }}
+                  </span>
+                </span>
+                <mat-icon class="text-muted-foreground" aria-hidden="true">more_vert</mat-icon>
+              </button>
+
+              <mat-menu #menuDelPie="matMenu" yPosition="above">
+                <a mat-menu-item routerLink="/">Volver al sitio</a>
+                <button mat-menu-item type="button" (click)="salir()">Salir</button>
+              </mat-menu>
             }
           </div>
         </div>
@@ -346,9 +343,6 @@ export class CascaronAdmin {
   protected readonly inicio = computed(
     () => inicioDelPanel(this.usuario()) ?? '/',
   );
-
-  protected readonly ITEM_MENU =
-    'block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted';
 
   protected readonly iniciales = computed(() =>
     (this.usuario()?.nombre ?? '')
