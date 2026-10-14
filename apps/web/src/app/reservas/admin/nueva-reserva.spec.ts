@@ -5,6 +5,7 @@ import { Disponibilidad, GrillaDeCancha } from '../../catalogo-canchas/disponibi
 import { Socios } from '../../identidad/admin/socios.service';
 import { NuevaReserva } from './nueva-reserva';
 import { ReservasDelAdmin } from './nueva-reserva.service';
+import { elegir, opcionesDe } from '../../testing/elegir';
 
 /**
  * La hora que el club toma en el mesón. Lo que se prueba acá es qué horas ofrece:
@@ -59,13 +60,9 @@ describe('NuevaReserva', () => {
   let fixture: ComponentFixture<NuevaReserva>;
 
   const horasOfrecidas = () =>
-    Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLOptionElement>(
-        'select[name="hora"] option',
-      ),
-    )
-      .filter((opcion) => opcion.value)
-      .map((opcion) => opcion.textContent?.trim());
+    opcionesDe(fixture, 'mat-select[name="hora"]')
+      .filter((opcion) => opcion.valor)
+      .map((opcion) => opcion.texto);
 
   beforeEach(async () => {
     // jsdom no implementa el diálogo nativo, y el constructor lo abre en un
@@ -126,14 +123,12 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const opcion = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLOptionElement>(
-        'select[name="hora"] option',
-      ),
-    ).find((una) => una.textContent?.includes('12:00–13:00'));
+    const opcion = opcionesDe(fixture, 'mat-select[name="hora"]').find((una) =>
+      una.texto.includes('12:00–13:00'),
+    );
 
-    expect(opcion?.disabled).toBe(true);
-    expect(opcion?.textContent).toContain('Tope de luz');
+    expect(opcion?.deshabilitada).toBe(true);
+    expect(opcion?.texto).toContain('Tope de luz');
   });
 
   it('al socio no le ofrece la duración que el club no le permite en prime (T213)', async () => {
@@ -194,9 +189,7 @@ describe('NuevaReserva', () => {
       await actualizar();
     };
     const elegirHora = async (inicio: string) => {
-      const hora = raiz().querySelector<HTMLSelectElement>('select[name="hora"]')!;
-      hora.value = inicio;
-      hora.dispatchEvent(new Event('change'));
+      await elegir(fixture, 'mat-select[name="hora"]', inicio);
       await actualizar();
     };
     const enviar = async () => {
@@ -302,13 +295,7 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const socio = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
-      'select[name="socio"]',
-    )!;
-    socio.value = '3';
-    socio.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await elegir(fixture, 'mat-select[name="socio"]', 3);
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'No se pudo cargar el cupo',
@@ -359,13 +346,7 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const socio = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
-      'select[name="socio"]',
-    )!;
-    socio.value = '3';
-    socio.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await elegir(fixture, 'mat-select[name="socio"]', 3);
 
     const texto = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('Reservas de ese día: 1 de 1');
@@ -375,7 +356,7 @@ describe('NuevaReserva', () => {
     expect(texto).not.toMatch(/Horas (de ese día|prime)/);
   });
 
-  it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', () => {
+  it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', async () => {
     const nunca = () => new Promise<never>(() => undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -388,6 +369,10 @@ describe('NuevaReserva', () => {
 
     const pendiente = TestBed.createComponent(NuevaReserva);
     pendiente.componentRef.setInput('fecha', '2026-08-17');
+    pendiente.detectChanges();
+    // El mat-select muestra la opción elegida un momento después (T248). Sin `whenStable`: lo
+    // que se carga no llega nunca, y esperarlo no terminaría.
+    await new Promise((listo) => setTimeout(listo));
     pendiente.detectChanges();
 
     expect((pendiente.nativeElement as HTMLElement).textContent).toContain(

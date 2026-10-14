@@ -9,7 +9,7 @@ import { Cancha } from './disponibilidad';
  * va a mostrar `POLVO_LADRILLO` en mayúsculas y nadie lo va a ver hasta que un
  * socio pregunte.
  *
- * El `<select>` del panel se arma desde acá con `Object.entries`: la lista de
+ * La lista del panel se arma desde acá con `Object.entries`: la lista de
  * opciones y la de nombres no pueden discrepar si son la misma. Por eso el orden de
  * las claves es el de las opciones: cemento primero, que es la superficie de las
  * ocho canchas del club (T94).

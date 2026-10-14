@@ -1530,6 +1530,17 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**ninguna lista es un `<select>` nativo**: todas son `mat-select` (T248, I1)', () => {
+    // Los comentarios se quitan antes de buscar: varios nombran el <select> que reemplazan.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<select\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**`styles.css` ya no define `.campo` ni sus variantes** (T247)', () => {
     expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.(?:campo|prefijo)\b/);
   });

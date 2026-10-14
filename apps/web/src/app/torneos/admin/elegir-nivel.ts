@@ -1,7 +1,7 @@
 import { Component, computed, inject, model, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { Tours } from '../../tours/tours.service';
@@ -26,7 +26,7 @@ export interface NivelElegido {
  */
 @Component({
   selector: 'app-elegir-nivel',
-  imports: [MatFormFieldModule, MatInput, RouterLink],
+  imports: [MatSelectModule, MatFormFieldModule, RouterLink],
   providers: [proveerCampos()],
   template: `
     @if (tours.error()) {
@@ -45,33 +45,37 @@ export interface NivelElegido {
       <div class="grid gap-3 sm:grid-cols-2">
         <mat-form-field>
           <mat-label>Tour</mat-label>
-          <select matNativeControl name="tourId" (change)="elegirTour($event)">
-            <option value="" disabled [selected]="eleccion().tourId === null">Elige un tour</option>
+          <mat-select
+            [value]="eleccion().tourId ?? ''"
+            name="tourId"
+            (selectionChange)="elegirTour($event.value)"
+          >
+            <mat-option value="" disabled>Elige un tour</mat-option>
             @for (tour of tours.value(); track tour.id) {
-              <option [value]="tour.id" [selected]="tour.id === eleccion().tourId">
+              <mat-option [value]="tour.id">
                 {{ tour.nombre }}
-              </option>
+              </mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field>
           <mat-label>Nivel</mat-label>
-          <select
-            matNativeControl
+          <mat-select
             name="nivelId"
+            [value]="eleccion().nivelId ?? ''"
             [disabled]="niveles().length === 0"
-            (change)="elegirNivel($event)"
+            (selectionChange)="elegirNivel($event.value)"
           >
-            <option value="" disabled [selected]="eleccion().nivelId === null">
+            <mat-option value="" disabled>
               {{ eleccion().tourId === null ? 'Primero el tour' : 'Elige el nivel' }}
-            </option>
+            </mat-option>
             @for (nivel of niveles(); track nivel.id) {
-              <option [value]="nivel.id" [selected]="nivel.id === eleccion().nivelId">
+              <mat-option [value]="nivel.id">
                 {{ nivel.nombre }}
-              </option>
+              </mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         @if (ficha.error()) {
@@ -131,16 +135,12 @@ export class ElegirNivel {
     return cargada && this.niveles().length === 0 ? tourId : null;
   });
 
-  protected elegirTour(evento: Event): void {
-    const tourId = Number((evento.target as HTMLSelectElement).value);
-
+  protected elegirTour(tourId: number): void {
     // El nivel era del tour anterior: se vuelve a elegir.
     this.eleccion.set({ tourId, nivelId: null });
   }
 
-  protected elegirNivel(evento: Event): void {
-    const nivelId = Number((evento.target as HTMLSelectElement).value);
-
+  protected elegirNivel(nivelId: number): void {
     this.eleccion.update((eleccion) => ({ ...eleccion, nivelId }));
   }
 }

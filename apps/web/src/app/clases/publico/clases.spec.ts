@@ -3,6 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegidoEn } from '../../testing/elegir';
 import { ClasePublica, Clases, ProfesorPublico, SeriePublica } from '../clases.service';
 import { ClasesPublicas } from './clases';
 
@@ -87,11 +88,7 @@ describe('ClasesPublicas', () => {
   });
 
   it('**la consulta sale marcada como de clases**', () => {
-    const select = elemento().querySelector(
-      'select[name="tipo"]',
-    ) as HTMLSelectElement;
-
-    expect(select.value).toBe('CLASES');
+    expect(elegidoEn(fixture, 'mat-select[name="tipo"]')).toBe('CLASES');
   });
 
   it('**no se puede inscribir desde el sitio: el club es quien inscribe**', () => {
@@ -107,7 +104,7 @@ describe('ClasesPublicas', () => {
 
     expect(texto()).toContain('No hay clases programadas esta semana');
     // Y el formulario sigue ahí: es justo cuando más sirve preguntar.
-    expect(elemento().querySelector('select[name="tipo"]')).not.toBeNull();
+    expect(elemento().querySelector('mat-select[name="tipo"]')).not.toBeNull();
   });
 
   it('sin profesores cargados todavía, la página no se rompe', async () => {

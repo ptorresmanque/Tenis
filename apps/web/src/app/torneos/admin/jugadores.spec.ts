@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Jugador, Torneos } from '../torneos.service';
 import { JugadoresPanel } from './jugadores';
@@ -99,20 +100,14 @@ describe('JugadoresPanel', () => {
   });
 
   it('**al socio que ya tiene jugador no se le ofrece anotarlo otra vez**', () => {
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="socioId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="socioId"]');
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(true);
     expect(opciones.some((o) => o?.startsWith('001'))).toBe(false);
   });
 
   it('anotar a un socio manda su ficha, no un nombre escrito a mano', async () => {
-    const select = elemento().querySelector(
-      'select[name="socioId"]',
-    ) as HTMLSelectElement;
-    select.value = '10';
-    select.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="socioId"]`, '10');
     await fixture.whenStable();
 
     await apretar('Anotar');
@@ -122,33 +117,33 @@ describe('JugadoresPanel', () => {
 
   it('**enlazar solo se ofrece a quien no tiene ficha de socio**', () => {
     // Al que ya está enlazado no se le puede cambiar de persona desde acá.
-    const selects = elemento().querySelectorAll('select[name^="enlace-"]');
+    const selects = elemento().querySelectorAll('mat-select[name^="enlace-"]');
 
     expect(selects).toHaveLength(1);
     expect(selects[0].getAttribute('name')).toBe('enlace-1');
+    // Sin elegir, dice el guion y no queda en blanco, como el <select> de antes (T248).
+    expect(selects[0].textContent?.trim()).toBe('—');
   });
 
   it('enlazar escribe el socio sobre el jugador que ya existe', async () => {
-    const select = elemento().querySelector(
-      'select[name="enlace-1"]',
-    ) as HTMLSelectElement;
-    select.value = '10';
-    select.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="enlace-1"]`, '10');
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(api.editarJugador).toHaveBeenCalledWith(1, { socioId: 10 });
   });
 
-  it('elegir el guion en el selector de enlace no hace nada', async () => {
-    const select = elemento().querySelector(
-      'select[name="enlace-1"]',
-    ) as HTMLSelectElement;
-    select.value = '0';
-    select.dispatchEvent(new Event('change'));
+  it('volver al guion después de un enlace que falló no manda nada', async () => {
+    // Al abrir, el guion ya está elegido y elegirlo no avisa: se llega a él desde otro (T248).
+    api.editarJugador.mockRejectedValueOnce({ error: { message: 'No se pudo.' } });
+    await elegirOpcion(fixture, `mat-select[name="enlace-1"]`, '10');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    await elegirOpcion(fixture, `mat-select[name="enlace-1"]`, '0');
     await fixture.whenStable();
 
-    expect(api.editarJugador).not.toHaveBeenCalled();
+    expect(api.editarJugador).toHaveBeenCalledTimes(1);
   });
 
   it('si el socio ya juega con otro nombre, lo dice con las palabras del servidor', async () => {
@@ -156,11 +151,7 @@ describe('JugadoresPanel', () => {
       error: { message: 'Ese socio ya juega como Carolina Díaz.' },
     });
 
-    const select = elemento().querySelector(
-      'select[name="enlace-1"]',
-    ) as HTMLSelectElement;
-    select.value = '10';
-    select.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="enlace-1"]`, '10');
     await fixture.whenStable();
     fixture.detectChanges();
 

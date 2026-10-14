@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import {
   AdminCanchas,
   CanchaAdmin,
@@ -100,9 +101,7 @@ describe('TransmisionesDelTorneo', () => {
   });
 
   it('**solo ofrece las canchas con cámara**', () => {
-    const opciones = Array.from(elemento().querySelectorAll('option')).map((o) =>
-      o.textContent?.trim(),
-    );
+    const opciones = textosDe(fixture, 'mat-select');
 
     expect(opciones).toContain('Cancha 1');
     expect(opciones).not.toContain('Cancha 2');
@@ -121,9 +120,7 @@ describe('TransmisionesDelTorneo', () => {
   it('anunciar manda enlace, cancha y ventana', async () => {
     await escribir('enlace', 'https://youtu.be/dQw4w9WgXcQ');
     await escribir('fecha', '2026-11-07');
-    const cancha = elemento().querySelector<HTMLSelectElement>('[name="cancha"]')!;
-    cancha.value = '1';
-    cancha.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, 'mat-select[name="cancha"]', '1');
     await fixture.whenStable();
 
     await anunciar();
@@ -140,9 +137,7 @@ describe('TransmisionesDelTorneo', () => {
 
   it('**sin día no se manda**: la ventana no se puede adivinar', async () => {
     await escribir('enlace', 'https://youtu.be/dQw4w9WgXcQ');
-    const cancha = elemento().querySelector<HTMLSelectElement>('[name="cancha"]')!;
-    cancha.value = '1';
-    cancha.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, 'mat-select[name="cancha"]', '1');
     await fixture.whenStable();
 
     await anunciar();
@@ -158,9 +153,7 @@ describe('TransmisionesDelTorneo', () => {
     });
     await escribir('enlace', 'https://vimeo.com/1');
     await escribir('fecha', '2026-11-07');
-    const cancha = elemento().querySelector<HTMLSelectElement>('[name="cancha"]')!;
-    cancha.value = '1';
-    cancha.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, 'mat-select[name="cancha"]', '1');
     await fixture.whenStable();
 
     await anunciar();

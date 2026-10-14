@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
@@ -34,7 +34,7 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
  */
 @Component({
   selector: 'app-tour-publico',
-  imports: [MatFormFieldModule, MatInput, RouterLink, Galeria, Esqueleto, TablaDeTour],
+  imports: [MatSelectModule, MatFormFieldModule, RouterLink, Galeria, Esqueleto, TablaDeTour],
   providers: [proveerCampos()],
   template: `
     @if (tour.error()) {
@@ -94,13 +94,13 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
             @if (suyo.temporadas.length > 1) {
               <mat-form-field>
                 <mat-label>Temporada</mat-label>
-                <select matNativeControl [value]="temporada.id" (change)="elegir($event)">
+                <mat-select [value]="temporada.id" (selectionChange)="elegir($event.value)">
                   @for (otra of suyo.temporadas; track otra.id) {
-                    <option [value]="otra.id" [selected]="otra.id === temporada.id">
+                    <mat-option [value]="otra.id">
                       {{ otra.nombre }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
             }
             <p class="pb-2 text-muted-foreground">
@@ -271,9 +271,7 @@ export class TourPublicoPagina {
   }
 
   /** Cambia la dirección y no un estado suelto: el enlace copiado abre lo mismo. */
-  protected elegir(evento: Event): void {
-    const temporada = Number((evento.target as HTMLSelectElement).value);
-
+  protected elegir(temporada: number): void {
     void this.router.navigate([], {
       relativeTo: this.ruta,
       queryParams: { temporada },

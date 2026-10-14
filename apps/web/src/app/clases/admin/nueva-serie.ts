@@ -5,6 +5,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { diaEnPalabras, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -81,6 +82,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-nueva-serie',
   imports: [
+    MatSelectModule,
     MatButton,
     MatDatepickerModule,
     MatFormFieldModule,
@@ -130,14 +132,14 @@ const enBlanco = () => ({
         @if (profesorFijo() === null) {
           <mat-form-field>
             <mat-label>Profesor</mat-label>
-            <select matNativeControl name="serie-profesor" [(ngModel)]="datos.profesorId">
-              <option [value]="0" disabled>Elige un profesor</option>
+            <mat-select name="serie-profesor" [(ngModel)]="datos.profesorId">
+              <mat-option [value]="0" disabled>Elige un profesor</mat-option>
               @for (profesor of profesores(); track profesor.id) {
-                <option [value]="profesor.id">
+                <mat-option [value]="profesor.id">
                   {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-                </option>
+                </mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
         }
 
@@ -198,17 +200,17 @@ const enBlanco = () => ({
               @if (datos.tipo === 'TENIS') {
                 <mat-form-field class="min-w-40 flex-1">
                   <mat-label>Cancha</mat-label>
-                  <select
-                    matNativeControl
+                  <mat-select
                     [name]="'serie-cancha-' + dia.diaSemana"
+                    [attr.name]="'serie-cancha-' + dia.diaSemana"
                     [(ngModel)]="dia.canchaId"
                     (ngModelChange)="tocar(dia)"
                   >
-                    <option [value]="0" disabled>Elige una cancha</option>
+                    <mat-option [value]="0" disabled>Elige una cancha</mat-option>
                     @for (cancha of canchas(); track cancha.id) {
-                      <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                      <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
               }
             </div>
@@ -246,11 +248,11 @@ const enBlanco = () => ({
         @if (datos.tipo === 'TENIS') {
           <mat-form-field>
             <mat-label>Nivel</mat-label>
-            <select matNativeControl name="serie-nivel" [(ngModel)]="datos.nivel">
+            <mat-select name="serie-nivel" [(ngModel)]="datos.nivel">
               @for (opcion of opcionesDeNivel; track opcion.valor) {
-                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
@@ -359,28 +361,27 @@ const enBlanco = () => ({
               </span>
 
               <mat-form-field class="chico w-auto">
-                <select
-                  matNativeControl
-                  [name]="'decision-' + fila.fecha"
-                  [attr.aria-label]="'Qué hacer el ' + enPalabras(fila.fecha)"
+                <mat-select
+                  [attr.name]="'decision-' + fila.fecha"
+                  [aria-label]="'Qué hacer el ' + enPalabras(fila.fecha)"
                   [value]="decisiones()[fila.fecha] ?? ''"
-                  (change)="decidir(fila.fecha, $any($event.target).value)"
+                  (selectionChange)="decidir(fila.fecha, $event.value)"
                 >
                   @if (fila.choque) {
-                    <option value="">Elige qué hacer</option>
-                    <option value="saltar">Saltar esta fecha</option>
+                    <mat-option value="">Elige qué hacer</mat-option>
+                    <mat-option value="saltar">Saltar esta fecha</mat-option>
                   } @else if (fila.afectadas.length > 0) {
-                    <option value="">Elige qué hacer</option>
+                    <mat-option value="">Elige qué hacer</mat-option>
                     <!-- Cancelarle la hora a un socio lo decide administración (T219). -->
                     @if (profesorFijo() === null) {
-                      <option value="cancelar">Cancelar sus reservas y avisar</option>
+                      <mat-option value="cancelar">Cancelar sus reservas y avisar</mat-option>
                     }
-                    <option value="saltar">Saltar esta fecha</option>
+                    <mat-option value="saltar">Saltar esta fecha</mat-option>
                   } @else {
-                    <option value="">Agendar</option>
-                    <option value="saltar">Saltar esta fecha</option>
+                    <mat-option value="">Agendar</mat-option>
+                    <mat-option value="saltar">Saltar esta fecha</mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
             </li>
           }

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Clases, FichaDeClase } from '../clases.service';
 import { InscritosDeLaClase } from './inscritos';
 
@@ -100,9 +101,7 @@ describe('InscritosDeLaClase', () => {
   });
 
   it('inscribe a un socio del club', async () => {
-    const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
-    select.value = '3';
-    select.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="socioId"]`, '3');
     await fixture.whenStable();
 
     await apretar('Inscribir');
@@ -162,9 +161,7 @@ describe('InscritosDeLaClase', () => {
       inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002' }],
     });
 
-    const opciones = Array.from(elemento().querySelectorAll('select[name="socioId"] option')).map(
-      (o) => o.textContent?.trim(),
-    );
+    const opciones = textosDe(fixture, 'mat-select[name="socioId"]');
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(false);
   });
@@ -176,9 +173,7 @@ describe('InscritosDeLaClase', () => {
       inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' }],
     });
 
-    const opciones = Array.from(elemento().querySelectorAll('select[name="socioId"] option')).map(
-      (o) => o.textContent?.trim(),
-    );
+    const opciones = textosDe(fixture, 'mat-select[name="socioId"]');
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(true);
   });
@@ -222,7 +217,7 @@ describe('InscritosDeLaClase', () => {
       ),
     ).toBe(false);
     // Ni se inscribe a nadie más: la clase ya pasó.
-    expect(elemento().querySelector('select[name="socioId"]')).toBeNull();
+    expect(elemento().querySelector('mat-select[name="socioId"]')).toBeNull();
   });
 
   it('sin nadie inscrito lo dice, en vez de una lista vacía', async () => {
@@ -271,9 +266,7 @@ describe('InscritosDeLaClase', () => {
 
     it('**inscribe al socio elegido en toda la serie y dice en cuántas clases**', async () => {
       await montar(DE_UNA_SERIE);
-      const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
-      select.value = '3';
-      select.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="socioId"]`, '3');
       await fixture.whenStable();
 
       await apretar('Inscribir en toda la serie');
@@ -324,9 +317,7 @@ describe('InscritosDeLaClase', () => {
             'No hay cupo en la clase del jueves 22 de octubre: no se inscribió en ninguna clase de la serie.',
         },
       });
-      const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
-      select.value = '3';
-      select.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="socioId"]`, '3');
       await fixture.whenStable();
 
       await apretar('Inscribir en toda la serie');

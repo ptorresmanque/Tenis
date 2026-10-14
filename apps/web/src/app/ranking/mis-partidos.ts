@@ -3,6 +3,7 @@ import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
@@ -27,6 +28,7 @@ import { Esqueleto } from '../ui/esqueleto';
 @Component({
   selector: 'app-mis-partidos',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -50,35 +52,35 @@ import { Esqueleto } from '../ui/esqueleto';
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <mat-form-field>
           <mat-label>Contra quién jugaste</mat-label>
-          <select
-            matNativeControl
+          <mat-select
             name="rival"
             [value]="rival()"
-            (change)="rival.set(valorDe($event))"
+            (selectionChange)="rival.set($event.value)"
           >
-            <option value="">Elige un socio…</option>
+            <mat-option value="">Elige un socio…</mat-option>
             <!-- Con el número al lado: dos socios que se llaman igual no es un caso
                  raro en un club, y elegir al equivocado le crea un partido a un
                  tercero que después tiene que rechazarlo. -->
             @if (rivales.hasValue()) {
               @for (quien of rivales.value(); track quien.socioId) {
-                <option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</option>
+                <mat-option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</mat-option>
               }
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field>
           <mat-label>Quién ganó</mat-label>
-          <select
-            matNativeControl
+          <!-- «Quién ganó» pasa a botones de opción en T250 (corrección 5 de la auditoría).
+               mat-guidelines-ignore: select-pocas-opciones -->
+          <mat-select
             name="ganador"
             [value]="ganador()"
-            (change)="ganador.set(valorDe($event) === 'rival' ? 'rival' : 'yo')"
+            (selectionChange)="ganador.set($event.value === 'rival' ? 'rival' : 'yo')"
           >
-            <option value="yo">Gané yo</option>
-            <option value="rival">Ganó el rival</option>
-          </select>
+            <mat-option value="yo">Gané yo</mat-option>
+            <mat-option value="rival">Ganó el rival</mat-option>
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field class="w-48">
@@ -268,7 +270,7 @@ export class MisPartidos {
   protected readonly enPalabras = diaConAnioEnPalabras;
 
   protected valorDe(evento: Event): string {
-    return (evento.target as HTMLSelectElement | HTMLInputElement).value;
+    return (evento.target as HTMLInputElement).value;
   }
 
   protected nombreEstado(estado: EstadoPartidoInterno): string {

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Cuadro, PartidoDelCuadro, Torneos } from '../torneos.service';
 import { CuadroDelTorneo } from './cuadro';
@@ -355,9 +356,7 @@ describe('CuadroDelTorneo', () => {
     };
 
     const llenarYMandar = async () => {
-      const cancha = elemento().querySelector<HTMLSelectElement>('[name="cancha"]')!;
-      cancha.value = '1';
-      cancha.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, 'mat-select[name="cancha"]', '1');
       await fixture.whenStable();
       await escribir('fecha', '2026-11-07');
       await escribir('desde', '19:00');
@@ -412,9 +411,7 @@ describe('CuadroDelTorneo', () => {
 
     it('**sin día no se manda**: la hora sola no ubica el partido', async () => {
       await apretar('Programar');
-      const cancha = elemento().querySelector<HTMLSelectElement>('[name="cancha"]')!;
-      cancha.value = '1';
-      cancha.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, 'mat-select[name="cancha"]', '1');
       await fixture.whenStable();
 
       elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
@@ -427,9 +424,7 @@ describe('CuadroDelTorneo', () => {
     it('**no ofrece una cancha desactivada**: el servidor la rechaza con un 404', async () => {
       await apretar('Programar');
 
-      const opciones = Array.from(elemento().querySelectorAll('option')).map((o) =>
-        o.textContent?.trim(),
-      );
+      const opciones = textosDe(fixture, 'mat-select');
 
       expect(opciones).toContain('Cancha 1');
       expect(opciones).not.toContain('Cancha vieja');

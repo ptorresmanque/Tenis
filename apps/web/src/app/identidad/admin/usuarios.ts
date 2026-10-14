@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras, fechaEnElClub } from '../../catalogo-canchas/reloj-del-club';
@@ -33,6 +34,7 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 @Component({
   selector: 'app-usuarios',
   imports: [
+    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -225,15 +227,15 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                   >
                     <mat-form-field class="sm:col-span-2">
                       <mat-label>Ficha de profesor</mat-label>
-                      <select matNativeControl name="ficha" [(ngModel)]="ficha">
-                        <option value="" disabled>Elige una ficha</option>
+                      <mat-select name="ficha" [(ngModel)]="ficha">
+                        <mat-option value="" disabled>Elige una ficha</mat-option>
                         @for (sinCuenta of fichasSinCuenta(); track sinCuenta.id) {
-                          <option [value]="sinCuenta.id">
+                          <mat-option [value]="sinCuenta.id">
                             {{ sinCuenta.nombreVisible }} · {{ sinCuenta.especialidad }}
-                          </option>
+                          </mat-option>
                         }
-                        <option value="nueva">Crear una ficha nueva</option>
-                      </select>
+                        <mat-option value="nueva">Crear una ficha nueva</mat-option>
+                      </mat-select>
                     </mat-form-field>
                     @if (ficha === 'nueva') {
                       <mat-form-field>
@@ -343,7 +345,7 @@ export class UsuariosPanel {
   protected readonly abierta = signal<{ id: number; accion: 'socio' | 'profesor' } | null>(null);
   protected numeroSocio = '';
   /** El id de una ficha sin cuenta, `'nueva'` o vacío. */
-  protected ficha = '';
+  protected ficha: number | 'nueva' | '' = '';
   protected fichaNueva = { nombreVisible: '', telefono: '', especialidad: '' };
 
   /** Las fichas que no tienen cuenta: las únicas que se pueden vincular. Solo al abrir. */

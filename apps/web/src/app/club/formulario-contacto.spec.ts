@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { valoresDe } from '../testing/elegir';
 import { Contacto } from './contacto.service';
 import { FormularioContacto } from './formulario-contacto';
 
@@ -106,7 +107,7 @@ describe('FormularioContacto', () => {
   });
 
   it('los cuatro públicos del club están en el selector', () => {
-    const opciones = [...elemento().querySelectorAll('option')].map((o) => o.value);
+    const opciones = valoresDe(fixture, 'mat-select');
 
     expect(opciones).toEqual(['SOCIO', 'CLASES', 'EMPRESA', 'OTRO']);
   });

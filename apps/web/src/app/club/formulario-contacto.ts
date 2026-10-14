@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { errorDelCampo, proveerCampos } from '../ui/campos';
 import { mensajeDelServidor } from '../core/errores';
@@ -40,7 +41,15 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
  */
 @Component({
   selector: 'app-formulario-contacto',
-  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, TelefonoDirective],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    Aviso,
+    TelefonoDirective,
+  ],
   providers: [proveerCampos()],
   template: `
     <section aria-labelledby="titulo-contacto">
@@ -58,11 +67,11 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
         <form class="mt-4 grid max-w-xl gap-4" (ngSubmit)="enviar()">
           <mat-form-field>
             <mat-label>¿De qué se trata?</mat-label>
-            <select matNativeControl name="tipo" [(ngModel)]="datos.tipo">
+            <mat-select name="tipo" [(ngModel)]="datos.tipo">
               @for (opcion of TIPOS; track opcion.valor) {
-                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field>

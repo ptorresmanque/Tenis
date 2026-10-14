@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
@@ -26,6 +27,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos',
   imports: [
+    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -145,14 +147,14 @@ import { Esqueleto } from '../../ui/esqueleto';
               @if (tipo() === 'socio') {
                 <mat-form-field class="chico flex-1">
                   <mat-label>Socio</mat-label>
-                  <select matNativeControl name="socioId" [(ngModel)]="socioId">
-                    <option [value]="0" disabled>Elige un socio</option>
+                  <mat-select name="socioId" [(ngModel)]="socioId">
+                    <mat-option [value]="0" disabled>Elige un socio</mat-option>
                     @for (socio of sociosPorInscribir(); track socio.id) {
-                      <option [value]="socio.id">
+                      <mat-option [value]="socio.id">
                         {{ socio.numeroSocio }} · {{ socio.nombre }}
-                      </option>
+                      </mat-option>
                     }
-                  </select>
+                  </mat-select>
                 </mat-form-field>
               } @else {
                 <mat-form-field class="chico flex-1">

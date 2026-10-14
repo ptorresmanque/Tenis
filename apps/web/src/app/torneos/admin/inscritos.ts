@@ -14,6 +14,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
@@ -35,6 +36,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos-torneo',
   imports: [
+    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -282,16 +284,16 @@ import { Esqueleto } from '../../ui/esqueleto';
                            punta de la fila y no se leía como la pareja de confirmar. -->
                       <mat-form-field class="chico">
                         <mat-label>Cómo pagó</mat-label>
-                        <select
-                          matNativeControl
+                        <mat-select
                           [name]="'medio-' + quien.id"
+                          [attr.name]="'medio-' + quien.id"
                           [(ngModel)]="medios[quien.id]"
                         >
-                          <option value="">Sin especificar</option>
+                          <mat-option value="">Sin especificar</mat-option>
                           @for (medio of MEDIOS; track medio.valor) {
-                            <option [value]="medio.valor">{{ medio.opcion }}</option>
+                            <mat-option [value]="medio.valor">{{ medio.opcion }}</mat-option>
                           }
-                        </select>
+                        </mat-select>
                       </mat-form-field>
 
                       <mat-form-field class="chico">
@@ -381,18 +383,17 @@ import { Esqueleto } from '../../ui/esqueleto';
             <div class="flex flex-wrap items-end gap-2">
               <mat-form-field class="chico min-w-64 flex-1">
                 <mat-label>Inscribir a</mat-label>
-                <select
-                  matNativeControl
+                <mat-select
                   name="jugadorId"
                   [(ngModel)]="jugadorId"
                 >
-                  <option [value]="0" disabled>Elige un jugador</option>
+                  <mat-option [value]="0" disabled>Elige un jugador</mat-option>
                   @for (jugador of porInscribir(); track jugador.id) {
-                    <option [value]="jugador.id">
+                    <mat-option [value]="jugador.id">
                       {{ jugador.apellido }}, {{ jugador.nombre }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
 
               <!-- **Se pide pero no se exige** (T127): el que se anota en el mesón puede

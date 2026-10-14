@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
@@ -55,6 +56,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 @Component({
   selector: 'app-admin-canchas',
   imports: [
+    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -127,16 +129,15 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
         <mat-form-field>
           <mat-label>Superficie</mat-label>
-          <select
-            matNativeControl
+          <mat-select
             id="superficie"
             name="superficie"
             [(ngModel)]="nueva.superficie"
           >
             @for (opcion of superficies; track opcion[0]) {
-              <option [value]="opcion[0]">{{ opcion[1] }}</option>
+              <mat-option [value]="opcion[0]">{{ opcion[1] }}</mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         <label class="flex items-center gap-2 py-2 text-sm">
@@ -285,16 +286,15 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 
                   <mat-form-field>
                     <mat-label>Superficie</mat-label>
-                    <select
-                      matNativeControl
+                    <mat-select
                       [id]="'ficha-superficie-' + cancha.id"
                       name="superficie"
                       [(ngModel)]="ficha.superficie"
                     >
                       @for (opcion of superficies; track opcion[0]) {
-                        <option [value]="opcion[0]">{{ opcion[1] }}</option>
+                        <mat-option [value]="opcion[0]">{{ opcion[1] }}</mat-option>
                       }
-                    </select>
+                    </mat-select>
                   </mat-form-field>
 
                   <label class="flex items-center gap-2 py-2 text-sm">

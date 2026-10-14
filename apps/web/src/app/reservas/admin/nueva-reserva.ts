@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
@@ -39,6 +40,7 @@ import { TelefonoDirective } from '../../ui/telefono';
 @Component({
   selector: 'app-nueva-reserva',
   imports: [
+    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -72,23 +74,21 @@ import { TelefonoDirective } from '../../ui/telefono';
 
         <mat-form-field>
           <mat-label>Cancha</mat-label>
-          <!-- value y change nativos, no ngModel: el id de la cancha es un número
-               y ngModel lo compara contra el texto del value, así que ninguna
-               opción quedaba marcada. -->
-          <select
-            matNativeControl
+          <!-- value y selectionChange, no ngModel: sin elegir, la cancha es la primera del
+               día (canchaElegida), y eso no es un campo que el formulario guarde. -->
+          <mat-select
             name="cancha"
-            (change)="canchaId.set(+$any($event.target).value)"
+            [value]="canchaElegida()"
+            (selectionChange)="canchaId.set($event.value)"
           >
             @for (grilla of grillasDelDia(); track grilla.cancha.id) {
-              <option
+              <mat-option
                 [value]="grilla.cancha.id"
-                [selected]="grilla.cancha.id === canchaElegida()"
               >
                 {{ grilla.cancha.nombre }}
-              </option>
+              </mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
         @if (grillas.error()) {
           <p class="text-sm text-destructive">
@@ -108,22 +108,21 @@ import { TelefonoDirective } from '../../ui/telefono';
 
         <mat-form-field>
           <mat-label>Hora</mat-label>
-          <select
-            matNativeControl
+          <mat-select
             name="hora"
-            (change)="inicio.set($any($event.target).value)"
+            [value]="inicio()"
+            (selectionChange)="inicio.set($event.value)"
           >
             <!-- Mientras llegan, la primera opción lo dice: un esqueleto no cabe dentro de
                  un select (T153). -->
-            <option value="" [selected]="inicio() === ''">
+            <mat-option value="">
               {{ grillas.isLoading() ? 'Cargando las horas libres…' : 'Elige una hora libre' }}
-            </option>
+            </mat-option>
             @for (bloque of libres(); track bloque.inicio) {
               <!-- La cancha vacía que ya no se puede encender (T207): se ve y se explica,
                    para que el mesón no la busque por otro lado. -->
-              <option
+              <mat-option
                 [value]="bloque.inicio"
-                [selected]="bloque.inicio === inicio()"
                 [disabled]="bloque.topeDeLuz"
               >
                 {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
@@ -132,31 +131,31 @@ import { TelefonoDirective } from '../../ui/telefono';
                 } @else if (bloque.esPico) {
                   · hora prime
                 }
-              </option>
+              </mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         @if (paraQuien() === 'socio') {
           <mat-form-field>
             <mat-label>Socio</mat-label>
-            <select
-              matNativeControl
+            <mat-select
               name="socio"
-              (change)="socioId.set(+$any($event.target).value)"
+              [value]="socioId()"
+              (selectionChange)="socioId.set($event.value)"
             >
-              <option [value]="0">
+              <mat-option [value]="0">
                 {{ socios.isLoading() ? 'Cargando los socios…' : 'Elige un socio' }}
-              </option>
+              </mat-option>
               @if (socios.hasValue()) {
                 @for (socio of socios.value().socios; track socio.id) {
-                  <option [value]="socio.id">
+                  <mat-option [value]="socio.id">
                     {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
                     {{ socio.usuario.apellido }}
-                  </option>
+                  </mat-option>
                 }
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           @if (cupo.error()) {

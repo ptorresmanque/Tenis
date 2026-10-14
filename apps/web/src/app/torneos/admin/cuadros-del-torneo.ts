@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
@@ -49,7 +50,16 @@ function enPesos(texto: string): number | null {
  */
 @Component({
   selector: 'app-cuadros-del-torneo',
-  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, Insignia, Esqueleto],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    Aviso,
+    Insignia,
+    Esqueleto,
+  ],
   providers: [proveerCampos()],
   template: `
     <section
@@ -128,12 +138,12 @@ function enPesos(texto: string): number | null {
       <form class="mt-3 flex flex-wrap items-end gap-3" (ngSubmit)="agregar()">
         <mat-form-field>
           <mat-label>Agregar categoría</mat-label>
-          <select matNativeControl name="categoriaJuego" [(ngModel)]="categoriaJuegoId">
-            <option [value]="0" disabled>Elige una</option>
+          <mat-select name="categoriaJuego" [(ngModel)]="categoriaJuegoId">
+            <mat-option [value]="0" disabled>Elige una</mat-option>
             @for (categoria of disponibles(); track categoria.id) {
-              <option [value]="categoria.id">{{ categoria.nombre }}</option>
+              <mat-option [value]="categoria.id">{{ categoria.nombre }}</mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field class="w-24">

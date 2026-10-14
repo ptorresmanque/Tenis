@@ -12,6 +12,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import {
@@ -76,6 +77,7 @@ function enBlanco(): Formulario {
 @Component({
   selector: 'app-editor-bloqueos',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -197,16 +199,16 @@ function enBlanco(): Formulario {
 
       <mat-form-field class="chico">
         <mat-label>Motivo</mat-label>
-        <select
-          matNativeControl
+        <mat-select
           [id]="'bm-' + cancha().id"
           [name]="'bloqueo-motivo-' + cancha().id"
+          [attr.name]="'bloqueo-motivo-' + cancha().id"
           [(ngModel)]="nueva.motivo"
         >
           @for (motivo of motivos; track motivo.valor) {
-            <option [value]="motivo.valor">{{ motivo.etiqueta }}</option>
+            <mat-option [value]="motivo.valor">{{ motivo.etiqueta }}</mat-option>
           }
-        </select>
+        </mat-select>
       </mat-form-field>
 
       <mat-form-field class="chico">

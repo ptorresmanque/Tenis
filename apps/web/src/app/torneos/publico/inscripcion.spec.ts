@@ -6,6 +6,7 @@ import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
+import { elegir, textosDe } from '../../testing/elegir';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -80,6 +81,11 @@ describe('InscripcionATorneo', () => {
 
   const escribir = async (campos: Record<string, string>) => {
     for (const [name, valor] of Object.entries(campos)) {
+      // Las listas son de Material (T248): se abren y se elige, como una persona.
+      if (elemento().querySelector(`mat-select[name="${name}"]`)) {
+        await elegir(fixture, `mat-select[name="${name}"]`, valor);
+        continue;
+      }
       const control = elemento().querySelector<HTMLInputElement>(
         `[name="${name}"]`,
       )!;
@@ -140,9 +146,7 @@ describe('InscripcionATorneo', () => {
   });
 
   it('**solo ofrece las categorías que ese torneo corre**', () => {
-    const opciones = Array.from(
-      elemento().querySelectorAll('select option'),
-    ).map((o) => o.textContent?.trim() ?? '');
+    const opciones = textosDe(fixture, 'mat-select[name="categoria"]');
 
     expect(opciones.some((o) => o.startsWith('4ª'))).toBe(true);
     expect(opciones.some((o) => o.startsWith('Honor'))).toBe(true);
@@ -150,7 +154,9 @@ describe('InscripcionATorneo', () => {
   });
 
   it('avisa cuáles ya no tienen cupo, antes de que la persona elija', () => {
-    expect(texto()).toContain('sin cupos, quedarías en lista de espera');
+    // En la opción misma: se ve al abrir la lista, antes de elegir (T248).
+    const opciones = textosDe(fixture, 'mat-select[name="categoria"]').join(' ');
+    expect(opciones).toContain('sin cupos, quedarías en lista de espera');
   });
 
   it('**pide el correo y dice para qué**: ahí le llegan la confirmación y sus partidos (T127)', () => {
@@ -198,7 +204,9 @@ describe('InscripcionATorneo', () => {
   });
 
   it('sin categoría elegida no llama al servidor', async () => {
-    await escribir({ ...completo, categoria: '0' });
+    // Sin elegirla: «Elige la categoría» está deshabilitada y no se puede volver a ella (T248).
+    const sinCategoria = Object.entries(completo).filter(([nombre]) => nombre !== 'categoria');
+    await escribir(Object.fromEntries(sinCategoria));
     await enviar();
 
     expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
@@ -278,8 +286,9 @@ describe('InscripcionATorneo', () => {
     });
 
     it('el selector dice cuánto cuesta cada categoría', async () => {
-      expect(texto()).toContain('$15.000');
-      expect(texto()).toContain('gratis');
+      const opciones = textosDe(fixture, 'mat-select[name="categoria"]').join(' ');
+      expect(opciones).toContain('$15.000');
+      expect(opciones).toContain('gratis');
     });
   });
 

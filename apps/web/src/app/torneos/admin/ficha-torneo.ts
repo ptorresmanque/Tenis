@@ -6,6 +6,7 @@ import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
@@ -50,6 +51,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
 @Component({
   selector: 'app-ficha-torneo',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -240,16 +242,15 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
 
             <mat-form-field>
               <mat-label>Superficie</mat-label>
-              <select
-                matNativeControl
+              <mat-select
                 name="superficie"
                 [(ngModel)]="datos().superficie"
               >
-                <option value="">Sin definir</option>
+                <mat-option value="">Sin definir</mat-option>
                 @for (superficie of superficies; track superficie[0]) {
-                  <option [value]="superficie[0]">{{ superficie[1] }}</option>
+                  <mat-option [value]="superficie[0]">{{ superficie[1] }}</mat-option>
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
           </div>
 

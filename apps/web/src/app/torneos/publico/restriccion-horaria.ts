@@ -4,6 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
@@ -52,7 +53,14 @@ const DIAS = [
  */
 @Component({
   selector: 'app-restriccion-horaria',
-  imports: [MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+  ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <fieldset class="mt-4">
@@ -71,17 +79,17 @@ const DIAS = [
             <li class="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-2">
               <mat-form-field>
                 <!-- Sin etiqueta a la vista, como antes: el lector oye el número de la franja. -->
-                <select
-                  matNativeControl
-                  [attr.aria-label]="'Día de la franja ' + ($index + 1)"
+                <mat-select
+                  [aria-label]="'Día de la franja ' + ($index + 1)"
                   [name]="'dia' + $index"
+                  [attr.name]="'dia' + $index"
                   [ngModel]="franja.diaSemana"
                   (ngModelChange)="cambiar($index, { diaSemana: +$event })"
                 >
                   @for (dia of DIAS; track dia.valor) {
-                    <option [value]="dia.valor">{{ dia.nombre }}</option>
+                    <mat-option [value]="dia.valor">{{ dia.nombre }}</mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
 
               <!-- Desde, a y hasta bajan juntos de línea; sin el botón del reloj caben en

@@ -14,6 +14,7 @@ import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
@@ -52,6 +53,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-inscripcion-a-torneo',
   imports: [
+    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -179,23 +181,22 @@ const enBlanco = () => ({
 
         <mat-form-field class="sm:col-span-2">
           <mat-label>Categoría <span aria-hidden="true">*</span></mat-label>
-          <select
-            matNativeControl
+          <mat-select
             name="categoria"
             [(ngModel)]="datos.categoriaJuegoId"
           >
-            <option [value]="0" disabled>Elige tu categoría</option>
+            <mat-option [value]="0" disabled>Elige tu categoría</mat-option>
             <!-- Solo las que corre **este** torneo: ofrecer las seis del club
                  produciría una inscripción a un cuadro que no existe. -->
             @for (categoria of categorias(); track categoria.id) {
-              <option [value]="categoria.categoriaJuegoId">
+              <mat-option [value]="categoria.categoriaJuegoId">
                 {{ categoria.categoria }} — {{ precio(categoria.montoClp) }}
                 @if (categoria.cuposLibres === 0) {
                   — sin cupos, quedarías en lista de espera
                 }
-              </option>
+              </mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
       </div>
 

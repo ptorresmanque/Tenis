@@ -4,6 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
@@ -43,7 +44,15 @@ const EN_BLANCO: FranjaNueva = {
  */
 @Component({
   selector: 'app-editor-franjas',
-  imports: [MatFormFieldModule, MatInput, MatTimepickerModule, MatButton, FormsModule, Insignia],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+    Insignia,
+  ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     @if (ambito().franjas.length > 0) {
@@ -104,16 +113,20 @@ const EN_BLANCO: FranjaNueva = {
         <!-- T99. Solo en las generales: una cancha ya sabe si es techada (T98). -->
         <mat-form-field class="chico">
           <mat-label>Aplica a</mat-label>
-          <select
-            matNativeControl
+          <!-- Tres opciones en una fila apretada: queda como lista (SPEC-interfaz, corrección 5).
+               «Todas» es null: sin canSelectNullableOptions, mat-select la toma por vacía.
+               mat-guidelines-ignore: select-pocas-opciones -->
+          <mat-select
             [id]="'aplica-' + clave()"
             [name]="'franja-aplica-' + clave()"
+            [attr.name]="'franja-aplica-' + clave()"
+            canSelectNullableOptions
             [(ngModel)]="nueva.techada"
           >
-            <option [ngValue]="null">Todas las canchas</option>
-            <option [ngValue]="true">Solo techadas</option>
-            <option [ngValue]="false">Solo al aire libre</option>
-          </select>
+            <mat-option [value]="null">Todas las canchas</mat-option>
+            <mat-option [value]="true">Solo techadas</mat-option>
+            <mat-option [value]="false">Solo al aire libre</mat-option>
+          </mat-select>
         </mat-form-field>
       }
 

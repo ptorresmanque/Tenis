@@ -5,6 +5,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
@@ -39,6 +40,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-transmisiones-del-torneo',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -119,15 +121,15 @@ const enBlanco = () => ({
         <div>
           <mat-form-field class="w-full">
             <mat-label>Cancha</mat-label>
-            <select matNativeControl name="cancha" [(ngModel)]="datos.canchaId">
-              <option [value]="0" disabled>Elige una</option>
+            <mat-select name="cancha" [(ngModel)]="datos.canchaId">
+              <mat-option [value]="0" disabled>Elige una</mat-option>
               <!-- **Solo las que tienen cámara.** El servidor rechaza las otras; acá ni
                    se ofrecen, para que el club no descubra el problema después de
                    anunciar el partido. -->
               @for (cancha of conCamara(); track cancha.id) {
-                <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
           <!-- Debajo del campo y no en su mat-hint: el color del error lo pisaría Material. -->
           @if (canchas.error()) {

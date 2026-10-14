@@ -14,6 +14,7 @@ import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
@@ -54,6 +55,7 @@ const CAMPOS: Record<string, string> = {
 @Component({
   selector: 'app-ficha-socio',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -90,15 +92,14 @@ const CAMPOS: Record<string, string> = {
 
         <mat-form-field>
           <mat-label>Estado</mat-label>
-          <select
-            matNativeControl
+          <mat-select
             name="estado"
             [(ngModel)]="borrador.estado"
           >
             @for (opcion of ESTADOS; track opcion.valor) {
-              <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+              <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field>

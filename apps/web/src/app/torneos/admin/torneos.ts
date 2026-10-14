@@ -6,6 +6,7 @@ import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora } from '../../ui/fecha-y-hora';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -69,6 +70,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-torneos',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -180,12 +182,12 @@ const enBlanco = () => ({
 
         <mat-form-field>
           <mat-label>Superficie</mat-label>
-          <select matNativeControl name="superficie" [(ngModel)]="datos.superficie">
-            <option value="">Sin definir</option>
+          <mat-select name="superficie" [(ngModel)]="datos.superficie">
+            <mat-option value="">Sin definir</mat-option>
             @for (superficie of superficies; track superficie[0]) {
-              <option [value]="superficie[0]">{{ superficie[1] }}</option>
+              <mat-option [value]="superficie[0]">{{ superficie[1] }}</mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
 
         <!-- **El primer tour va en el alta** (D10): un torneo que no suma para nada no
@@ -225,12 +227,12 @@ const enBlanco = () => ({
 
       <mat-form-field class="chico">
         <mat-label>Año</mat-label>
-        <select matNativeControl name="anio" [(ngModel)]="anio">
-          <option value="">Todos</option>
+        <mat-select name="anio" [(ngModel)]="anio">
+          <mat-option value="">Todos</mat-option>
           @for (uno of anios(); track uno) {
-            <option [value]="uno">{{ uno }}</option>
+            <mat-option [value]="uno">{{ uno }}</mat-option>
           }
-        </select>
+        </mat-select>
       </mat-form-field>
     </div>
 
@@ -364,7 +366,7 @@ export class TorneosPanel {
    */
   protected readonly grupo_ = signal<Grupo>('activos');
 
-  /** El año, o todos. Como cadena: sale de un `<select>`. */
+  /** El año, o todos. Como cadena: es el valor de las opciones de su lista. */
   protected anio = '';
 
   protected readonly GRUPOS = GRUPOS;
@@ -405,7 +407,6 @@ export class TorneosPanel {
   private enElGrupo(torneo: Torneo, grupo: Grupo): boolean {
     return GRUPOS.find((uno) => uno.id === grupo)!.estados.includes(torneo.estado);
   }
-
 
   protected recargar(): void {
     this.version.update((veces) => veces + 1);

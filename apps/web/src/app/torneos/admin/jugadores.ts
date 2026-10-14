@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -30,6 +31,7 @@ import { TelefonoDirective } from '../../ui/telefono';
 @Component({
   selector: 'app-jugadores',
   imports: [
+    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -80,15 +82,15 @@ import { TelefonoDirective } from '../../ui/telefono';
         @if (tipo() === 'socio') {
           <mat-form-field class="min-w-64 flex-1">
             <mat-label>Socio</mat-label>
-            <select matNativeControl name="socioId" [(ngModel)]="socioId">
-              <option [value]="0" disabled>Elige un socio</option>
+            <mat-select name="socioId" [(ngModel)]="socioId">
+              <mat-option [value]="0" disabled>Elige un socio</mat-option>
               @for (socio of sociosSinJugador(); track socio.id) {
-                <option [value]="socio.id">
+                <mat-option [value]="socio.id">
                   {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
                   {{ socio.usuario.apellido }}
-                </option>
+                </mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
         } @else {
           <mat-form-field class="flex-1">
@@ -167,19 +169,19 @@ import { TelefonoDirective } from '../../ui/telefono';
                    siguen siendo suyos. -->
               <mat-form-field class="chico w-auto">
                 <mat-label>Enlazar a socio</mat-label>
-                <select
-                  matNativeControl
-                  [name]="'enlace-' + jugador.id"
+                <mat-select
+                  [attr.name]="'enlace-' + jugador.id"
+                  [value]="0"
                   [disabled]="trabajando()"
-                  (change)="enlazar(jugador, $any($event.target).value)"
+                  (selectionChange)="enlazar(jugador, $event.value)"
                 >
-                  <option value="0">—</option>
+                  <mat-option [value]="0">—</mat-option>
                   @for (socio of sociosSinJugador(); track socio.id) {
-                    <option [value]="socio.id">
+                    <mat-option [value]="socio.id">
                       {{ socio.numeroSocio }} · {{ socio.usuario.apellido }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
+                </mat-select>
               </mat-form-field>
             }
 
@@ -270,11 +272,11 @@ export class JugadoresPanel {
     });
   }
 
-  protected async enlazar(jugador: Jugador, socioId: string): Promise<void> {
-    if (socioId === '0') return;
+  protected async enlazar(jugador: Jugador, socioId: number): Promise<void> {
+    if (socioId === 0) return;
 
     await this.intentar(`enlazar-${jugador.id}`, async () => {
-      await this.api.editarJugador(jugador.id, { socioId: Number(socioId) });
+      await this.api.editarJugador(jugador.id, { socioId });
       this.aviso.set(
         `${jugador.nombre} ${jugador.apellido} quedó enlazado a su ficha de socio, ` +
           'con los puntos que ya tenía.',

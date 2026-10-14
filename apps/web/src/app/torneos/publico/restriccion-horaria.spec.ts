@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { textosDe } from '../../testing/elegir';
 import { horaATexto, textoAHora } from '../../ui/fecha-y-hora';
 import { Franja, franjasParaLaApi, RestriccionHoraria } from './restriccion-horaria';
 
@@ -46,9 +47,7 @@ describe('RestriccionHoraria', () => {
   it('**no ofrece sábado ni domingo**', async () => {
     await apretar('Agregar');
 
-    const dias = Array.from(elemento().querySelectorAll('option')).map((o) =>
-      o.textContent?.trim(),
-    );
+    const dias = textosDe(fixture, 'mat-select');
     expect(dias).toEqual(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']);
   });
 

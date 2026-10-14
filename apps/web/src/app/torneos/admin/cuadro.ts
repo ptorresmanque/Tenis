@@ -16,6 +16,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
@@ -53,6 +54,7 @@ const horarioEnBlanco = () => ({
 @Component({
   selector: 'app-cuadro-torneo',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -238,19 +240,18 @@ const horarioEnBlanco = () => ({
         <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="programar()">
           <mat-form-field>
             <mat-label>Cancha</mat-label>
-            <select
-              matNativeControl
+            <mat-select
               name="cancha"
               [(ngModel)]="horario.canchaId"
             >
-              <option [value]="0" disabled>Elige una</option>
+              <mat-option [value]="0" disabled>Elige una</mat-option>
         <!-- **Solo las activas.** El servidor responde 404 sobre una
                    cancha fuera de la grilla, y descubrirlo después de elegir
                    día y hora es un formulario perdido. -->
               @for (cancha of activas(); track cancha.id) {
-                <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field>

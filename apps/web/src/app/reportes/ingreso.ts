@@ -2,6 +2,7 @@ import { Component, computed, inject, resource, signal } from '@angular/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
 import {
   diaConAnioEnPalabras,
@@ -28,7 +29,14 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
  */
 @Component({
   selector: 'app-ingreso-panel',
-  imports: [MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv],
+  imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    EstadoVacio,
+    DescargarCsv,
+  ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
@@ -76,16 +84,15 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
 
       <mat-form-field>
         <mat-label>Cortado por</mat-label>
-        <select
-          matNativeControl
+        <mat-select
           name="corte"
           [value]="corte()"
-          (change)="corte.set(valorDe($event))"
+          (selectionChange)="corte.set($event.value)"
         >
           @for (opcion of OPCIONES; track opcion.valor) {
-            <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+            <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
           }
-        </select>
+        </mat-select>
       </mat-form-field>
     </div>
 
@@ -184,10 +191,6 @@ export class IngresoPanel {
   protected readonly urlDelCsv = computed(() =>
     this.api.csv('ingreso', fechaATexto(this.desde()), fechaATexto(this.hasta()), this.corte()),
   );
-
-  protected valorDe(evento: Event): string {
-    return (evento.target as HTMLInputElement | HTMLSelectElement).value;
-  }
 
   protected nombreDelCorte(corte: CorteDeIngreso): string {
     return CORTES_DE_INGRESO[corte] ?? corte;

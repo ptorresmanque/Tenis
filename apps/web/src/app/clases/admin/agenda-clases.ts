@@ -6,6 +6,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
 import { proveerCampos } from '../../ui/campos';
 import {
@@ -69,6 +70,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-agenda-clases',
   imports: [
+    MatSelectModule,
     MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
@@ -278,12 +280,12 @@ const enBlanco = () => ({
         @if (datos.tipo === 'TENIS') {
           <mat-form-field>
             <mat-label>Cancha</mat-label>
-            <select matNativeControl name="canchaId" [(ngModel)]="datos.canchaId">
-              <option [value]="0" disabled>Elige una cancha</option>
+            <mat-select name="canchaId" [(ngModel)]="datos.canchaId">
+              <mat-option [value]="0" disabled>Elige una cancha</mat-option>
               @for (cancha of canchasActivas(); track cancha.id) {
-                <option [value]="cancha.id">{{ cancha.nombre }}</option>
+                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
         }
 
@@ -292,16 +294,16 @@ const enBlanco = () => ({
           <div>
             <mat-form-field class="w-full">
               <mat-label>Profesor</mat-label>
-              <select matNativeControl name="profesorId" [(ngModel)]="datos.profesorId">
-                <option [value]="0" disabled>Elige un profesor</option>
+              <mat-select name="profesorId" [(ngModel)]="datos.profesorId">
+                <mat-option [value]="0" disabled>Elige un profesor</mat-option>
                 @if (profesores.hasValue()) {
                   @for (profesor of profesores.value(); track profesor.id) {
-                    <option [value]="profesor.id">
+                    <mat-option [value]="profesor.id">
                       {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-                    </option>
+                    </mat-option>
                   }
                 }
-              </select>
+              </mat-select>
             </mat-form-field>
             <!-- Debajo del campo y no en su mat-hint: el color del error lo pisaría Material. -->
             @if (profesores.error()) {
@@ -347,11 +349,11 @@ const enBlanco = () => ({
         @if (datos.tipo === 'TENIS') {
           <mat-form-field>
             <mat-label>Nivel</mat-label>
-            <select matNativeControl name="nivel" [(ngModel)]="datos.nivel">
+            <mat-select name="nivel" [(ngModel)]="datos.nivel">
               @for (opcion of opcionesDeNivel; track opcion.valor) {
-                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
               }
-            </select>
+            </mat-select>
           </mat-form-field>
         } @else {
           <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->

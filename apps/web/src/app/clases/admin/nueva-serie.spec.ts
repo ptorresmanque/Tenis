@@ -6,6 +6,7 @@ import { MatTimepickerInputHarness } from '@angular/material/timepicker/testing'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
+import { elegidoEn, elegir, valoresDe } from '../../testing/elegir';
 import { Clases, FechaDeLaSerie } from '../clases.service';
 import { NuevaSerie } from './nueva-serie';
 
@@ -57,11 +58,14 @@ describe('NuevaSerie', () => {
   };
 
   const escribir = async (selector: string, valor: string) => {
-    const campo = el().querySelector<HTMLInputElement | HTMLSelectElement>(selector)!;
+    // Las listas son de Material (T248): se abren y se elige, como una persona.
+    if (selector.startsWith('mat-select')) return elegir(fixture, selector, valor);
+
+    const campo = el().querySelector<HTMLInputElement>(selector)!;
     campo.value = valor;
     // Un campo de texto avisa al escribir y al terminar (`change`): el de fecha de Material
     // toma el valor al terminar, como cuando se sale del campo (T125).
-    if (!(campo instanceof HTMLSelectElement)) campo.dispatchEvent(new Event('input'));
+    campo.dispatchEvent(new Event('input'));
     campo.dispatchEvent(new Event('change'));
     await esperar();
   };
@@ -80,9 +84,9 @@ describe('NuevaSerie', () => {
    * al 31. La cancha se elige en el martes y el jueves nace con ella (T230).
    */
   const llenar = async (conProfesor = true) => {
-    if (conProfesor) await escribir('select[name="serie-profesor"]', '4');
+    if (conProfesor) await escribir('mat-select[name="serie-profesor"]', '4');
     await marcar('Martes');
-    await escribir('select[name="serie-cancha-2"]', '2');
+    await escribir('mat-select[name="serie-cancha-2"]', '2');
     await marcar('Jueves');
     await escribir('input[name="serie-desde"]', '2037-10-14');
     await escribir('input[name="serie-hasta"]', '2037-10-31');
@@ -92,7 +96,7 @@ describe('NuevaSerie', () => {
   const renglon = (dia: number) => ({
     desde: el().querySelector<HTMLInputElement>(`input[name="serie-hora-desde-${dia}"]`)?.value,
     hasta: el().querySelector<HTMLInputElement>(`input[name="serie-hora-hasta-${dia}"]`)?.value,
-    cancha: el().querySelector<HTMLSelectElement>(`select[name="serie-cancha-${dia}"]`)?.value,
+    cancha: elegidoEn(fixture, `mat-select[name="serie-cancha-${dia}"]`),
   });
 
   const revisar = async (fechas = FECHAS, conProfesor = true) => {
@@ -103,7 +107,7 @@ describe('NuevaSerie', () => {
   };
 
   const decidir = async (dia: string, valor: string) => {
-    await escribir(`select[name="decision-${dia}"]`, valor);
+    await escribir(`mat-select[name="decision-${dia}"]`, valor);
   };
 
   beforeEach(async () => {
@@ -175,13 +179,13 @@ describe('NuevaSerie', () => {
   describe('un renglón por día', () => {
     it('**cada día marcado lleva su horario y su cancha, y la serie viaja con los dos**', async () => {
       api.simularSerie.mockResolvedValue({ fechas: [] });
-      await escribir('select[name="serie-profesor"]', '4');
+      await escribir('mat-select[name="serie-profesor"]', '4');
       await marcar('Lunes');
-      await escribir('select[name="serie-cancha-1"]', '2');
+      await escribir('mat-select[name="serie-cancha-1"]', '2');
       await marcar('Martes');
       await escribir('input[name="serie-hora-desde-2"]', '18:00');
       await escribir('input[name="serie-hora-hasta-2"]', '19:00');
-      await escribir('select[name="serie-cancha-2"]', '3');
+      await escribir('mat-select[name="serie-cancha-2"]', '3');
 
       // Cambiar el martes no toca el lunes.
       expect(renglon(1)).toEqual({ desde: '19:00', hasta: '20:00', cancha: '2' });
@@ -203,7 +207,7 @@ describe('NuevaSerie', () => {
       await marcar('Lunes');
       await escribir('input[name="serie-hora-desde-1"]', '17:30');
       await escribir('input[name="serie-hora-hasta-1"]', '18:30');
-      await escribir('select[name="serie-cancha-1"]', '3');
+      await escribir('mat-select[name="serie-cancha-1"]', '3');
       await marcar('Jueves');
 
       expect(renglon(4)).toEqual({ desde: '17:30', hasta: '18:30', cancha: '3' });
@@ -214,7 +218,7 @@ describe('NuevaSerie', () => {
       await llenar();
       await marcar('Martes');
 
-      expect(el().querySelector('select[name="serie-cancha-2"]')).toBeNull();
+      expect(el().querySelector('mat-select[name="serie-cancha-2"]')).toBeNull();
 
       boton('Revisar fechas').click();
       await esperar();
@@ -227,11 +231,10 @@ describe('NuevaSerie', () => {
     });
 
     it('un día sin cancha no llama al servidor y dice cuál es', async () => {
-      await escribir('select[name="serie-profesor"]', '4');
-      await marcar('Lunes');
-      await escribir('select[name="serie-cancha-1"]', '2');
+      // El miércoles se marca sin elegirle cancha: «Elige una cancha» está deshabilitada y no
+      // se puede volver a ella, como en cualquier lista (T248).
+      await escribir('mat-select[name="serie-profesor"]', '4');
       await marcar('Miércoles');
-      await escribir('select[name="serie-cancha-3"]', '0');
       boton('Revisar fechas').click();
       await esperar();
 
@@ -244,14 +247,15 @@ describe('NuevaSerie', () => {
       await marcar('Miércoles');
       await marcar('Lunes');
 
-      const orden = [...el().querySelectorAll<HTMLSelectElement>('select[name^="serie-cancha-"]')]
-        .map((campo) => campo.name);
+      const orden = [...el().querySelectorAll('mat-select[name^="serie-cancha-"]')].map((campo) =>
+        campo.getAttribute('name'),
+      );
       expect(orden).toEqual(['serie-cancha-1', 'serie-cancha-3', 'serie-cancha-0']);
     });
   });
 
   it('sin días de la semana, revisar no llama al servidor y lo dice', async () => {
-    await escribir('select[name="serie-profesor"]', '4');
+    await escribir('mat-select[name="serie-profesor"]', '4');
     boton('Revisar fechas').click();
     await esperar();
 
@@ -273,8 +277,8 @@ describe('NuevaSerie', () => {
     await revisar();
 
     const opciones = [
-      ...el().querySelectorAll<HTMLOptionElement>('select[name="decision-2037-10-22"] option'),
-    ].map((opcion) => opcion.value);
+      ...valoresDe(fixture, 'mat-select[name="decision-2037-10-22"]'),
+    ];
     expect(opciones).toEqual(['', 'saltar']);
   });
 
@@ -357,12 +361,8 @@ describe('NuevaSerie', () => {
 
     expect(api.simularSerie).toHaveBeenCalledTimes(2);
     expect(texto()).toContain('martes 27 de octubre (reservas ZZ9)');
-    expect(el().querySelector<HTMLSelectElement>('select[name="decision-2037-10-22"]')!.value).toBe(
-      'saltar',
-    );
-    expect(el().querySelector<HTMLSelectElement>('select[name="decision-2037-10-27"]')!.value).toBe(
-      '',
-    );
+    expect(elegidoEn(fixture, 'mat-select[name="decision-2037-10-22"]')).toBe('saltar');
+    expect(elegidoEn(fixture, 'mat-select[name="decision-2037-10-27"]')).toBe('');
     expect(boton('Agendar serie').disabled).toBe(true);
   });
 
@@ -373,13 +373,13 @@ describe('NuevaSerie', () => {
     beforeEach(async () => {
       api.simularSerie.mockResolvedValue({ fechas: [] });
       await marcar('Preparación física');
-      await escribir('select[name="serie-profesor"]', '4');
+      await escribir('mat-select[name="serie-profesor"]', '4');
       await marcar('Lunes');
     });
 
     it('**los días no piden cancha, no hay nivel, y la serie viaja con su tipo y sin ellos**', async () => {
-      expect(el().querySelector('select[name="serie-cancha-1"]')).toBeNull();
-      expect(el().querySelector('select[name="serie-nivel"]')).toBeNull();
+      expect(el().querySelector('mat-select[name="serie-cancha-1"]')).toBeNull();
+      expect(el().querySelector('mat-select[name="serie-nivel"]')).toBeNull();
 
       boton('Revisar fechas').click();
       await esperar();
@@ -407,7 +407,7 @@ describe('NuevaSerie', () => {
     it('**volviendo a "Tenis", el día vuelve a pedir su cancha**', async () => {
       await marcar('Tenis');
 
-      expect(el().querySelector('select[name="serie-cancha-1"]')).not.toBeNull();
+      expect(el().querySelector('mat-select[name="serie-cancha-1"]')).not.toBeNull();
 
       boton('Revisar fechas').click();
       await esperar();
@@ -426,7 +426,7 @@ describe('NuevaSerie', () => {
     });
 
     it('no ofrece elegir profesor, y la serie va a su nombre', async () => {
-      expect(el().querySelector('select[name="serie-profesor"]')).toBeNull();
+      expect(el().querySelector('mat-select[name="serie-profesor"]')).toBeNull();
 
       await revisar(FECHAS, false);
 
@@ -437,8 +437,8 @@ describe('NuevaSerie', () => {
       await revisar(FECHAS, false);
 
       const opciones = [
-        ...el().querySelectorAll<HTMLOptionElement>('select[name="decision-2037-10-20"] option'),
-      ].map((opcion) => opcion.value);
+        ...valoresDe(fixture, 'mat-select[name="decision-2037-10-20"]'),
+      ];
 
       expect(opciones).toEqual(['', 'saltar']);
       expect(texto()).toContain('Para cancelarlas, habla con administración');
