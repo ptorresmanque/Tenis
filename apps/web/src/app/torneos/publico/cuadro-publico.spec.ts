@@ -127,6 +127,13 @@ describe('CuadroPublicoModal', () => {
   const elemento = () => dialogo() ?? (fixture.nativeElement as HTMLElement);
   const texto = () => elemento().textContent ?? '';
 
+  /** El árbol está en la segunda pestaña: Material dibuja solo la elegida (T262). */
+  const verElArbol = async () => {
+    elemento().querySelectorAll<HTMLElement>('[role="tab"]')[1].click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+
   describe('antes de armar: quiénes juegan', () => {
     it('**en el orden en que se inscribieron**, numerados', async () => {
       await montar(SIN_ARMAR);
@@ -172,6 +179,7 @@ describe('CuadroPublicoModal', () => {
       // En 375px una tabla de cuatro rondas queda ilegible, y este cuadro se mira
       // sobre todo desde el teléfono, en el club.
       await montar();
+      await verElArbol();
       const cuadro = elemento().querySelector('[data-cuadro]');
 
       expect(cuadro).not.toBeNull();
@@ -181,8 +189,10 @@ describe('CuadroPublicoModal', () => {
 
     it('muestra el marcador y quién ganó', async () => {
       await montar();
-
+      // El marcador, en el orden de juego; quién ganó, también en el árbol.
       expect(texto()).toContain('6-4 6-2');
+      await verElArbol();
+
       expect(
         elemento().querySelector('[data-cuadro] [data-gano]')?.textContent,
       ).toContain('Ana Uno');
@@ -191,13 +201,11 @@ describe('CuadroPublicoModal', () => {
     it('**primero el orden de juego** (T136): cuándo y dónde se juega', async () => {
       await montar();
 
-      const orden = elemento().querySelector('app-orden-de-juego');
-      expect(orden).not.toBeNull();
-      // Antes que el árbol, que queda debajo hasta que T137 lo pase a su pestaña.
-      expect(
-        orden!.compareDocumentPosition(elemento().querySelector('[data-cuadro]')!) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
+      // Es la primera pestaña y la elegida; el árbol, la segunda (T137, T262).
+      const primera = elemento().querySelector('[role="tab"]');
+      expect(primera?.textContent?.trim()).toBe('Por día');
+      expect(primera?.getAttribute('aria-selected')).toBe('true');
+      expect(elemento().querySelector('app-orden-de-juego')).not.toBeNull();
     });
 
     it('el título lo dice, con el nombre del torneo arriba', async () => {
@@ -210,14 +218,15 @@ describe('CuadroPublicoModal', () => {
     });
   });
 
-  describe('las pestañas: por día y el árbol (T137)', () => {
+  describe('las pestañas: por día y el árbol (T137, de Material desde T262)', () => {
     const pestanas = () => [...elemento().querySelectorAll<HTMLElement>('[role="tab"]')];
-    const panel = (id: string) =>
-      elemento().querySelector<HTMLElement>(`[role="tabpanel"]#panel-${id}`)!;
-    const tecla = async (key: string) => {
-      (document.activeElement as HTMLElement).dispatchEvent(
-        new KeyboardEvent('keydown', { key, bubbles: true }),
-      );
+    const paneles = () => [...elemento().querySelectorAll<HTMLElement>('[role="tabpanel"]')];
+    const enPantalla = (selector: string) => elemento().querySelector(selector) !== null;
+    /** CDK lee `keyCode`, que jsdom deja en 0 si el evento solo trae `key`. */
+    const tecla = async (key: string, keyCode: number) => {
+      const evento = new KeyboardEvent('keydown', { key, bubbles: true });
+      Object.defineProperty(evento, 'keyCode', { get: () => keyCode });
+      (document.activeElement as HTMLElement).dispatchEvent(evento);
       await fixture.whenStable();
       fixture.detectChanges();
     };
@@ -227,15 +236,15 @@ describe('CuadroPublicoModal', () => {
 
       expect(pestanas().map((p) => p.textContent?.trim())).toEqual(['Por día', 'El árbol']);
       expect(pestanas()[0].getAttribute('aria-selected')).toBe('true');
-      expect(panel('dia').hidden).toBe(false);
-      expect(panel('arbol').hidden).toBe(true);
+      expect(enPantalla('app-orden-de-juego')).toBe(true);
+      expect(enPantalla('app-arbol')).toBe(false);
     });
 
     it('cada pestaña dice qué panel controla, y el panel quién lo nombra', async () => {
       await montar();
 
-      expect(pestanas()[1].getAttribute('aria-controls')).toBe('panel-arbol');
-      expect(panel('arbol').getAttribute('aria-labelledby')).toBe('pestana-arbol');
+      expect(pestanas()[1].getAttribute('aria-controls')).toBe(paneles()[1].id);
+      expect(paneles()[1].getAttribute('aria-labelledby')).toBe(pestanas()[1].id);
     });
 
     it('apretar "El árbol" lo muestra', async () => {
@@ -246,28 +255,29 @@ describe('CuadroPublicoModal', () => {
       fixture.detectChanges();
 
       expect(pestanas()[1].getAttribute('aria-selected')).toBe('true');
-      expect(panel('arbol').hidden).toBe(false);
-      expect(panel('dia').hidden).toBe(true);
+      expect(enPantalla('app-arbol')).toBe(true);
+      expect(enPantalla('app-orden-de-juego')).toBe(false);
     });
 
-    it('**con el teclado**: las flechas mueven la pestaña y el foco; Inicio y Fin van a los extremos', async () => {
+    it('**con el teclado**: las flechas mueven el foco y dan la vuelta, Inicio y Fin van a los extremos, y Enter elige', async () => {
       await montar();
       pestanas()[0].focus();
 
-      await tecla('ArrowRight');
+      await tecla('ArrowRight', 39);
       expect(document.activeElement).toBe(pestanas()[1]);
-      expect(panel('arbol').hidden).toBe(false);
-
       // Al final da la vuelta, como pide el patrón de pestañas de ARIA.
-      await tecla('ArrowRight');
+      await tecla('ArrowRight', 39);
       expect(document.activeElement).toBe(pestanas()[0]);
+      await tecla('End', 35);
+      expect(document.activeElement).toBe(pestanas()[1]);
+      await tecla('Home', 36);
+      expect(document.activeElement).toBe(pestanas()[0]);
+      await tecla('ArrowLeft', 37);
+      expect(document.activeElement).toBe(pestanas()[1]);
 
-      await tecla('End');
-      expect(document.activeElement).toBe(pestanas()[1]);
-      await tecla('Home');
-      expect(document.activeElement).toBe(pestanas()[0]);
-      await tecla('ArrowLeft');
-      expect(document.activeElement).toBe(pestanas()[1]);
+      await tecla('Enter', 13);
+      expect(pestanas()[1].getAttribute('aria-selected')).toBe('true');
+      expect(enPantalla('app-arbol')).toBe(true);
     });
 
     it('**solo la pestaña elegida entra en el orden del tabulador**', async () => {
@@ -292,6 +302,7 @@ describe('CuadroPublicoModal', () => {
       await buscar('beto');
 
       expect(elemento().querySelector('app-orden-de-juego [data-tuyo]')).not.toBeNull();
+      await verElArbol();
       expect(elemento().querySelector('app-arbol [data-tuyo]')).not.toBeNull();
     });
 

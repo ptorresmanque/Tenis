@@ -11,6 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatButton } from '@angular/material/button';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -60,6 +61,7 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
     OrdenDeJuego,
     Reproductor,
     MatChipsModule,
+    MatTabsModule,
   ],
   providers: [proveerCampos()],
   template: `
@@ -149,57 +151,29 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
               </p>
             }
 
-            <!-- El patrón de pestañas de ARIA: las flechas mueven la pestaña y el foco, y
-                 solo la elegida entra en el orden del tabulador. -->
-            <div
-              role="tablist"
+            <!-- Las pestañas de Material (T262): las flechas recorren las pestañas, Enter o
+                 Espacio eligen, y solo la elegida entra en el orden del tabulador. Cada
+                 categoría empieza en "Por día". -->
+            <mat-tab-group
+              class="mt-3"
               aria-label="Cómo ver el cuadro"
-              class="mt-3 flex gap-5 border-b border-border"
+              mat-stretch-tabs="false"
+              mat-align-tabs="start"
+              [selectedIndex]="indiceDeLaVista()"
+              (selectedIndexChange)="vista.set(PESTANAS[$event].id)"
             >
-              @for (pestana of PESTANAS; track pestana.id) {
-                <button
-                  type="button"
-                  role="tab"
-                  [id]="'pestana-' + pestana.id"
-                  [attr.aria-controls]="'panel-' + pestana.id"
-                  [attr.aria-selected]="vista() === pestana.id"
-                  [tabIndex]="vista() === pestana.id ? 0 : -1"
-                  class="-mb-px cursor-pointer border-b-2 py-2 font-display text-sm font-bold
-                         tracking-wide uppercase"
-                  [class]="
-                    vista() === pestana.id
-                      ? 'border-primary text-foreground'
-                      : 'border-transparent text-muted-foreground'
-                  "
-                  (click)="vista.set(pestana.id)"
-                  (keydown)="moverPestana($event)"
-                >
-                  {{ pestana.nombre }}
-                </button>
-              }
-            </div>
-
-            <!-- **Primero cuándo y dónde se juega** (T136, opción C); el árbol, al lado. -->
-            <div
-              role="tabpanel"
-              id="panel-dia"
-              aria-labelledby="pestana-dia"
-              tabindex="0"
-              class="mt-3"
-              [hidden]="vista() !== 'dia'"
-            >
-              <app-orden-de-juego [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
-            </div>
-            <div
-              role="tabpanel"
-              id="panel-arbol"
-              aria-labelledby="pestana-arbol"
-              tabindex="0"
-              class="mt-3"
-              [hidden]="vista() !== 'arbol'"
-            >
-              <app-arbol [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
-            </div>
+              <!-- **Primero cuándo y dónde se juega** (T136, opción C); el árbol, al lado. -->
+              <mat-tab [label]="PESTANAS[0].nombre">
+                <app-orden-de-juego
+                  class="mt-3 block"
+                  [partidos]="cuadro.partidos"
+                  [busqueda]="busqueda()"
+                />
+              </mat-tab>
+              <mat-tab [label]="PESTANAS[1].nombre">
+                <app-arbol class="mt-3 block" [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
+              </mat-tab>
+            </mat-tab-group>
           }
 
           <!-- Del torneo y no de la categoría: la entrega de premios y el live de la
@@ -272,6 +246,11 @@ export class CuadroPublicoModal {
     return 'dia';
   });
 
+  /** La vista como índice de `mat-tab-group`, que cuenta las pestañas desde cero. */
+  protected readonly indiceDeLaVista = computed(() =>
+    PESTANAS.findIndex((pestana) => pestana.id === this.vista()),
+  );
+
   /** Los partidos del que se busca, sin los byes: lo que el resumen cuenta. */
   protected readonly encontrados = computed(
     () =>
@@ -329,31 +308,6 @@ export class CuadroPublicoModal {
           : { width: '56rem', maxWidth: '94vw', maxHeight: '90dvh' }),
       },
     );
-  }
-
-  /**
-   * Las flechas, Inicio y Fin mueven la pestaña y el foco (patrón de pestañas de ARIA).
-   * Al final da la vuelta.
-   */
-  protected moverPestana(evento: KeyboardEvent): void {
-    const ids = PESTANAS.map((pestana) => pestana.id);
-    const actual = ids.indexOf(this.vista());
-    const destino: Record<string, number> = {
-      ArrowRight: (actual + 1) % ids.length,
-      ArrowLeft: (actual - 1 + ids.length) % ids.length,
-      Home: 0,
-      End: ids.length - 1,
-    };
-    const siguiente = destino[evento.key];
-    if (siguiente === undefined) return;
-
-    evento.preventDefault();
-    this.vista.set(ids[siguiente]);
-    // Desde la lista de pestañas y no desde el componente: el diálogo se dibuja fuera de él.
-    (evento.target as HTMLElement)
-      .closest('[role="tablist"]')
-      ?.querySelector<HTMLElement>(`#pestana-${ids[siguiente]}`)
-      ?.focus();
   }
 
   protected valorDe(evento: Event): string {

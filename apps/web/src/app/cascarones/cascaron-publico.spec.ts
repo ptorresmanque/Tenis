@@ -75,8 +75,8 @@ describe('Cascarón público: la navegación', () => {
     return fixture;
   }
 
-  /** Montado y con los bloques @defer dibujados: el menú de la cuenta llega al quedar libre el
-      navegador (T261), y en la prueba no hay que esperarlo. */
+  /** Montado y con los bloques @defer dibujados: el menú de la cuenta y la barra de progreso
+      llegan al quedar libre el navegador (T261, T262), y en la prueba no hay que esperarlos. */
   async function montarConElMenu(usuario: UsuarioActual): Promise<ComponentFixture<CascaronPublico>> {
     const fixture = montarCon(usuario);
     for (const bloque of await fixture.getDeferBlocks()) {
@@ -144,8 +144,8 @@ describe('Cascarón público: la navegación', () => {
     );
   });
 
-  it('dice cuando una página tarda en cargar (T151)', () => {
-    const elemento = montarCon(null).nativeElement as HTMLElement;
+  it('dice cuando una página tarda en cargar (T151)', async () => {
+    const elemento = (await montarConElMenu(ADMIN)).nativeElement as HTMLElement;
 
     expect(elemento.querySelector('app-progreso-de-navegacion')).not.toBeNull();
   });

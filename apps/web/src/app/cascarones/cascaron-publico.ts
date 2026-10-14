@@ -57,7 +57,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     ProgresoDeNavegacion,
   ],
   template: `
-    <app-progreso-de-navegacion />
+    <!-- Al quedar libre el navegador (I6), como el conmutador: la barra solo hace falta cuando
+         una navegación tarda, y la de Material pesa 14 kB. -->
+    @defer (on idle) {
+      <app-progreso-de-navegacion />
+    }
 
     <a
       href="#contenido"

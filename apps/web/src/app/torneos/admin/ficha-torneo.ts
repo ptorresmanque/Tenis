@@ -2,6 +2,7 @@ import { Component, computed, inject, input, linkedSignal, resource, signal } fr
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -72,6 +73,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
     FotosDelTorneo,
     ToursDelTorneo,
     MatChipsModule,
+    MatTabsModule,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -108,26 +110,25 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
         </div>
       </header>
 
-      <!-- Pestañas y no enlaces: cambian lo que se muestra sin cambiar de página, y
-           el lector de pantalla tiene que oír cuál está activa. -->
-      <div class="mt-4 flex flex-wrap gap-1 border-b border-border" role="tablist">
+      <!-- Pestañas y no enlaces: cambian lo que se muestra sin cambiar de página. Son de
+           Material (T262): el lector de pantalla oye cuál está activa, y las flechas las
+           recorren. El panel es uno para las cuatro: el cuadro elegido vale para dos. -->
+      <nav
+        mat-tab-nav-bar
+        class="envuelve compacta mt-4"
+        disablePagination
+        mat-stretch-tabs="false"
+        aria-label="Secciones del torneo"
+        [tabPanel]="panelDelTorneo"
+      >
         @for (pestana of PESTANAS; track pestana.id) {
           <button
+            mat-tab-link
             type="button"
-            role="tab"
-            class="-mb-px cursor-pointer border-b-2 px-3 py-2 font-display text-sm font-bold
-                   tracking-wide uppercase"
-            [class]="
-              activa() === pestana.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground'
-            "
-            [attr.aria-selected]="activa() === pestana.id"
+            [active]="activa() === pestana.id"
             (click)="activa.set(pestana.id)"
           >
-            <mat-icon class="align-middle text-base" aria-hidden="true">
-              {{ pestana.icono }}
-            </mat-icon>
+            <mat-icon class="me-2 text-base" aria-hidden="true">{{ pestana.icono }}</mat-icon>
             {{ pestana.nombre }}
             @if (pestana.id === 'inscritos' && suyo.pagosPorRevisar > 0) {
               <span
@@ -139,224 +140,226 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
             }
           </button>
         }
-      </div>
+      </nav>
 
-      @if (suyo.cuadros.length === 0) {
-        <app-estado-vacio
-          class="mt-4 block"
-          icono="category"
-          titulo="Este torneo todavía no corre ninguna categoría"
-          detalle="Agrégale una en Ajustes: el cupo y el precio son de cada cuadro."
-        />
-      } @else {
-        <!-- **El cuadro se elige una vez y vale para todas las pestañas.** Antes se
-             elegía a media página y el elegido se arrastraba de un torneo a otro. -->
-        @if (activa() !== 'ajustes' && activa() !== 'multimedia') {
-          <div class="mt-4 flex flex-wrap items-center gap-2">
-            <span id="cuadro-de-la-ficha" class="text-sm font-medium">Cuadro:</span>
-            <mat-button-toggle-group
-              aria-labelledby="cuadro-de-la-ficha"
-              hideSingleSelectionIndicator
-              [value]="elegido()"
-              (change)="elegido.set($event.value)"
-            >
-              @for (cuadro of suyo.cuadros; track cuadro.id) {
-                <mat-button-toggle [value]="cuadro.id">{{ cuadro.categoria }}</mat-button-toggle>
-              }
-            </mat-button-toggle-group>
-          </div>
-        }
-
-        @if (activa() === 'inscritos' && elegido(); as cuadroId) {
-          <app-inscritos-torneo [cuadroId]="cuadroId" />
-        }
-
-        @if (activa() === 'cuadro' && elegido(); as cuadroId) {
-          <app-cuadro-torneo [cuadroId]="cuadroId" />
-        }
-      }
-
-      @if (activa() === 'multimedia') {
-        <app-transmisiones-del-torneo [torneoId]="suyo.id" />
-        <app-fotos-del-torneo [torneoId]="suyo.id" />
-      }
-
-      @if (activa() === 'ajustes') {
-        <!-- **Los datos del torneo primero**: es lo que identifica lo que se está
-             mirando. Después sus tours y sus cuadros, y al final lo destructivo. -->
-        <form
-          class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
-          (ngSubmit)="guardar(suyo.id)"
-        >
-          <h2 class="rotulo-seccion">Datos del torneo</h2>
-
-          <div class="mt-3 grid gap-3 sm:grid-cols-2">
-            <mat-form-field class="sm:col-span-2">
-              <mat-label>Nombre</mat-label>
-              <input
-                matInput
-                name="nombre"
-                maxlength="120"
-                [(ngModel)]="datos().nombre"
-              />
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label>Empieza</mat-label>
-              <input
-                matInput
-                id="ficha-fechaInicio"
-                name="fechaInicio"
-                placeholder="dd-mm-aaaa"
-                autocomplete="off"
-                [matDatepicker]="calendarioFechaInicio"
-                [(ngModel)]="datos().fechaInicio"
-              />
-              <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
-              <mat-datepicker #calendarioFechaInicio />
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label>Termina</mat-label>
-              <input
-                matInput
-                id="ficha-fechaFin"
-                name="fechaFin"
-                placeholder="dd-mm-aaaa"
-                autocomplete="off"
-                [matDatepicker]="calendarioFechaFin"
-                [(ngModel)]="datos().fechaFin"
-              />
-              <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
-              <mat-datepicker #calendarioFechaFin />
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label>Cierra la inscripción</mat-label>
-              <input
-                matInput
-                id="ficha-cierreInscripcion"
-                name="cierreInscripcion"
-                placeholder="dd-mm-aaaa"
-                autocomplete="off"
-                [matDatepicker]="calendarioCierreInscripcion"
-                [(ngModel)]="datos().cierreInscripcion"
-              />
-              <mat-datepicker-toggle matIconSuffix [for]="calendarioCierreInscripcion" />
-              <mat-datepicker #calendarioCierreInscripcion />
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label>Superficie</mat-label>
-              <mat-select
-                name="superficie"
-                [(ngModel)]="datos().superficie"
+      <mat-tab-nav-panel #panelDelTorneo>
+        @if (suyo.cuadros.length === 0) {
+          <app-estado-vacio
+            class="mt-4 block"
+            icono="category"
+            titulo="Este torneo todavía no corre ninguna categoría"
+            detalle="Agrégale una en Ajustes: el cupo y el precio son de cada cuadro."
+          />
+        } @else {
+          <!-- **El cuadro se elige una vez y vale para todas las pestañas.** Antes se
+               elegía a media página y el elegido se arrastraba de un torneo a otro. -->
+          @if (activa() !== 'ajustes' && activa() !== 'multimedia') {
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <span id="cuadro-de-la-ficha" class="text-sm font-medium">Cuadro:</span>
+              <mat-button-toggle-group
+                aria-labelledby="cuadro-de-la-ficha"
+                hideSingleSelectionIndicator
+                [value]="elegido()"
+                (change)="elegido.set($event.value)"
               >
-                <mat-option value="">Sin definir</mat-option>
-                @for (superficie of superficies; track superficie[0]) {
-                  <mat-option [value]="superficie[0]">{{ superficie[1] }}</mat-option>
+                @for (cuadro of suyo.cuadros; track cuadro.id) {
+                  <mat-button-toggle [value]="cuadro.id">{{ cuadro.categoria }}</mat-button-toggle>
                 }
-              </mat-select>
-            </mat-form-field>
-          </div>
+              </mat-button-toggle-group>
+            </div>
+          }
 
-          <button
-            matButton="filled"
-            type="submit"
-            class="mt-3"
-            [disabled]="trabajando()"
-            [attr.aria-busy]="enCurso() === 'guardar-' + suyo.id"
+          @if (activa() === 'inscritos' && elegido(); as cuadroId) {
+            <app-inscritos-torneo [cuadroId]="cuadroId" />
+          }
+
+          @if (activa() === 'cuadro' && elegido(); as cuadroId) {
+            <app-cuadro-torneo [cuadroId]="cuadroId" />
+          }
+        }
+
+        @if (activa() === 'multimedia') {
+          <app-transmisiones-del-torneo [torneoId]="suyo.id" />
+          <app-fotos-del-torneo [torneoId]="suyo.id" />
+        }
+
+        @if (activa() === 'ajustes') {
+          <!-- **Los datos del torneo primero**: es lo que identifica lo que se está
+               mirando. Después sus tours y sus cuadros, y al final lo destructivo. -->
+          <form
+            class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
+            (ngSubmit)="guardar(suyo.id)"
           >
-            Guardar cambios
-          </button>
-        </form>
+            <h2 class="rotulo-seccion">Datos del torneo</h2>
 
-        <app-tours-del-torneo [torneo]="suyo" (cambiaron)="torneos.reload()" />
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+              <mat-form-field class="sm:col-span-2">
+                <mat-label>Nombre</mat-label>
+                <input
+                  matInput
+                  name="nombre"
+                  maxlength="120"
+                  [(ngModel)]="datos().nombre"
+                />
+              </mat-form-field>
 
-        <app-cuadros-del-torneo [torneoId]="suyo.id" (cambiaron)="torneos.reload()" />
+              <mat-form-field>
+                <mat-label>Empieza</mat-label>
+                <input
+                  matInput
+                  id="ficha-fechaInicio"
+                  name="fechaInicio"
+                  placeholder="dd-mm-aaaa"
+                  autocomplete="off"
+                  [matDatepicker]="calendarioFechaInicio"
+                  [(ngModel)]="datos().fechaInicio"
+                />
+                <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
+                <mat-datepicker #calendarioFechaInicio />
+              </mat-form-field>
 
-        <!-- **Cancelar es lo último de la pantalla y lo único destructivo.** Va con su
-             borde rojo, separado del resto, y diciendo antes lo que no hace: el
-             sistema no le devuelve la plata a nadie. -->
-        <section
-          class="mt-6 rounded-xl border border-destructive/30 bg-card p-4"
-          aria-labelledby="titulo-cancelar"
-        >
-          <!-- En rojo, como la alarma de las canchas: es la zona que no tiene
-               vuelta atrás para los inscritos. -->
-          <h2 id="titulo-cancelar" class="rotulo-seccion bg-destructive text-on-primary">
-            {{ suyo.estado === 'CANCELADO' ? 'Torneo cancelado' : 'Cancelar el torneo' }}
-          </h2>
+              <mat-form-field>
+                <mat-label>Termina</mat-label>
+                <input
+                  matInput
+                  id="ficha-fechaFin"
+                  name="fechaFin"
+                  placeholder="dd-mm-aaaa"
+                  autocomplete="off"
+                  [matDatepicker]="calendarioFechaFin"
+                  [(ngModel)]="datos().fechaFin"
+                />
+                <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
+                <mat-datepicker #calendarioFechaFin />
+              </mat-form-field>
 
-          @if (suyo.estado === 'CANCELADO') {
-            <p class="mt-1 max-w-prose text-sm text-muted-foreground">
-              No aparece en el calendario público y no acepta inscripciones. Sus
-              inscritos, cuadros y partidos siguen guardados: reactivarlo lo devuelve a
-              donde estaba.
-            </p>
+              <mat-form-field>
+                <mat-label>Cierra la inscripción</mat-label>
+                <input
+                  matInput
+                  id="ficha-cierreInscripcion"
+                  name="cierreInscripcion"
+                  placeholder="dd-mm-aaaa"
+                  autocomplete="off"
+                  [matDatepicker]="calendarioCierreInscripcion"
+                  [(ngModel)]="datos().cierreInscripcion"
+                />
+                <mat-datepicker-toggle matIconSuffix [for]="calendarioCierreInscripcion" />
+                <mat-datepicker #calendarioCierreInscripcion />
+              </mat-form-field>
+
+              <mat-form-field>
+                <mat-label>Superficie</mat-label>
+                <mat-select
+                  name="superficie"
+                  [(ngModel)]="datos().superficie"
+                >
+                  <mat-option value="">Sin definir</mat-option>
+                  @for (superficie of superficies; track superficie[0]) {
+                    <mat-option [value]="superficie[0]">{{ superficie[1] }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
 
             <button
-              matButton="outlined"
-              type="button"
+              matButton="filled"
+              type="submit"
               class="mt-3"
               [disabled]="trabajando()"
-              [attr.aria-busy]="enCurso() === 'reactivar-' + suyo.id"
-              (click)="reactivar(suyo.id)"
+              [attr.aria-busy]="enCurso() === 'guardar-' + suyo.id"
             >
-              Reactivar el torneo
+              Guardar cambios
             </button>
-          } @else if (suyo.estado === 'FINALIZADO') {
-            <p class="mt-1 max-w-prose text-sm text-muted-foreground">
-              Este torneo ya se jugó: sus puntos están en el ranking y sus partidos en
-              el historial, así que no se cancela.
-            </p>
-          } @else {
-            <p class="mt-1 max-w-prose text-sm text-muted-foreground">
-              Desaparece del calendario público y deja de aceptar inscripciones. No se
-              borra nada y se puede deshacer.
-              <strong>El sistema no devuelve el dinero de las inscripciones pagadas</strong>:
-              eso lo resuelve el club por su cuenta.
-            </p>
+          </form>
 
-            @if (confirmando()) {
-              <div class="mt-3 flex flex-wrap items-center gap-2">
-                <span class="text-sm font-medium">
-                  ¿Seguro? {{ suyo.nombre }} sale del calendario.
-                </span>
-                <button
-                  matButton="outlined"
-                  type="button"
-                  [disabled]="trabajando()"
-                  [attr.aria-busy]="enCurso() === 'cancelar-' + suyo.id"
-                  (click)="cancelar(suyo.id)"
-                >
-                  Sí, cancelar el torneo
-                </button>
-                <button
-                  matButton
-                  type="button"
-                  (click)="confirmando.set(false)"
-                >
-                  Mejor no
-                </button>
-              </div>
-            } @else {
+          <app-tours-del-torneo [torneo]="suyo" (cambiaron)="torneos.reload()" />
+
+          <app-cuadros-del-torneo [torneoId]="suyo.id" (cambiaron)="torneos.reload()" />
+
+          <!-- **Cancelar es lo último de la pantalla y lo único destructivo.** Va con su
+               borde rojo, separado del resto, y diciendo antes lo que no hace: el
+               sistema no le devuelve la plata a nadie. -->
+          <section
+            class="mt-6 rounded-xl border border-destructive/30 bg-card p-4"
+            aria-labelledby="titulo-cancelar"
+          >
+            <!-- En rojo, como la alarma de las canchas: es la zona que no tiene
+                 vuelta atrás para los inscritos. -->
+            <h2 id="titulo-cancelar" class="rotulo-seccion bg-destructive text-on-primary">
+              {{ suyo.estado === 'CANCELADO' ? 'Torneo cancelado' : 'Cancelar el torneo' }}
+            </h2>
+
+            @if (suyo.estado === 'CANCELADO') {
+              <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+                No aparece en el calendario público y no acepta inscripciones. Sus
+                inscritos, cuadros y partidos siguen guardados: reactivarlo lo devuelve a
+                donde estaba.
+              </p>
+
               <button
                 matButton="outlined"
                 type="button"
                 class="mt-3"
-                (click)="confirmando.set(true)"
+                [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'reactivar-' + suyo.id"
+                (click)="reactivar(suyo.id)"
               >
-                Cancelar el torneo
+                Reactivar el torneo
               </button>
-            }
-          }
+            } @else if (suyo.estado === 'FINALIZADO') {
+              <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+                Este torneo ya se jugó: sus puntos están en el ranking y sus partidos en
+                el historial, así que no se cancela.
+              </p>
+            } @else {
+              <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+                Desaparece del calendario público y deja de aceptar inscripciones. No se
+                borra nada y se puede deshacer.
+                <strong>El sistema no devuelve el dinero de las inscripciones pagadas</strong>:
+                eso lo resuelve el club por su cuenta.
+              </p>
 
-          @if (error(); as falla) {
-            <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-          }
-        </section>
-      }
+              @if (confirmando()) {
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                  <span class="text-sm font-medium">
+                    ¿Seguro? {{ suyo.nombre }} sale del calendario.
+                  </span>
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'cancelar-' + suyo.id"
+                    (click)="cancelar(suyo.id)"
+                  >
+                    Sí, cancelar el torneo
+                  </button>
+                  <button
+                    matButton
+                    type="button"
+                    (click)="confirmando.set(false)"
+                  >
+                    Mejor no
+                  </button>
+                </div>
+              } @else {
+                <button
+                  matButton="outlined"
+                  type="button"
+                  class="mt-3"
+                  (click)="confirmando.set(true)"
+                >
+                  Cancelar el torneo
+                </button>
+              }
+            }
+
+            @if (error(); as falla) {
+              <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
+            }
+          </section>
+        }
+      </mat-tab-nav-panel>
     } @else if (!torneos.isLoading()) {
       <app-estado-vacio
         class="mt-4 block"

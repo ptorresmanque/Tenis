@@ -979,3 +979,88 @@ html {
     )
   );
 }
+
+/* LA BARRA DE NAVEGACIÓN (T262): `mat-progress-bar` en el azul del sitio, de 4 px y sin pista,
+   como la de antes. */
+html {
+  @include mat.progress-bar-overrides(
+    (
+      active-indicator-color: var(--color-primary),
+      track-color: transparent,
+      active-indicator-height: 0.25rem,
+      track-height: 0.25rem,
+    )
+  );
+}
+
+/*
+  LAS PESTAÑAS (T262): las de Material con la cara de las de antes. La etiqueta en la condensada,
+  en mayúscula y gruesa; la activa en el azul, con su raya de 2 px, y las otras en gris hasta que
+  se les pasa encima. Sin ondas: el sitio no las usa en ningún botón.
+*/
+html {
+  @include mat.tabs-overrides(
+    (
+      label-text-font: var(--font-display),
+      label-text-size: 0.875rem,
+      label-text-weight: 700,
+      label-text-tracking: 0.025em,
+      container-height: 3rem,
+      divider-color: var(--color-border),
+      divider-height: 1px,
+      active-indicator-color: var(--color-primary),
+      active-hover-indicator-color: var(--color-primary),
+      active-focus-indicator-color: var(--color-primary),
+      active-indicator-height: 2px,
+      active-indicator-shape: 0,
+      active-label-text-color: var(--color-primary),
+      active-hover-label-text-color: var(--color-primary),
+      active-focus-label-text-color: var(--color-primary),
+      inactive-label-text-color: var(--color-muted-foreground),
+      inactive-hover-label-text-color: var(--color-foreground),
+      inactive-focus-label-text-color: var(--color-foreground),
+      active-ripple-color: transparent,
+      inactive-ripple-color: transparent,
+      pagination-icon-color: var(--color-foreground),
+    )
+  );
+}
+
+html .mdc-tab__text-label {
+  text-transform: uppercase;
+}
+
+/* Las barras de pestañas del panel pasan a la línea siguiente en vez de desplazarse, como
+   antes: configuración tiene ocho secciones, y a 375 px una barra que se desplaza dejaba ver
+   una y media. Van con `disablePagination`, y la raya de la activa es de cada pestaña. */
+html .mat-mdc-tab-nav-bar.envuelve {
+  .mat-mdc-tab-link-container {
+    overflow: visible;
+  }
+
+  .mat-mdc-tab-links {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  /* El aire de antes: 12 px por lado, y 16 desde 640 px en las secciones de configuración. */
+  .mat-mdc-tab-link {
+    min-width: 0;
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (min-width: 40rem) {
+  html .mat-mdc-tab-nav-bar.envuelve.holgada .mat-mdc-tab-link {
+    padding-inline: 1rem;
+  }
+}
+
+/* Las de las fichas eran más bajas que las de configuración: 38 px. */
+html .mat-mdc-tab-nav-bar.compacta {
+  @include mat.tabs-overrides(
+    (
+      container-height: 2.375rem,
+    )
+  );
+}

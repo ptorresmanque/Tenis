@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatTabsModule } from '@angular/material/tabs';
 
 /**
  * Configuración del club: el cascarón con la sub-navegación.
@@ -11,7 +12,7 @@ import { MatIcon } from '@angular/material/icon';
  */
 @Component({
   selector: 'app-configuracion',
-  imports: [MatIcon, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [MatIcon, RouterOutlet, RouterLink, RouterLinkActive, MatTabsModule],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya, y
          la navegación entre secciones va debajo. -->
@@ -24,34 +25,33 @@ import { MatIcon } from '@angular/material/icon';
       </div>
     </header>
 
-    <nav aria-label="Secciones de configuración" class="mt-4 border-b border-border">
-      <ul class="flex flex-wrap gap-1">
-        @for (seccion of SECCIONES; track seccion.ruta) {
-          <li>
-            <a
-              [routerLink]="seccion.ruta"
-              routerLinkActive
-              ariaCurrentWhenActive="page"
-              #activa="routerLinkActive"
-              class="flex min-h-12 items-center gap-2 border-b-2 px-3 font-display text-sm
-                     font-bold tracking-wide uppercase transition-colors sm:px-4"
-              [class]="
-                activa.isActive
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              "
-            >
-              <mat-icon class="text-lg" aria-hidden="true">{{ seccion.icono }}</mat-icon>
-              {{ seccion.etiqueta }}
-            </a>
-          </li>
-        }
-      </ul>
+    <!-- Una pestaña por sección, cada una su ruta (T262): mat-tab-nav-bar con su panel, que
+         es donde se dibuja la ruta elegida. Las flechas recorren las pestañas. -->
+    <nav
+      mat-tab-nav-bar
+      class="envuelve holgada mt-4"
+        disablePagination
+        mat-stretch-tabs="false"
+      aria-label="Secciones de configuración"
+      [tabPanel]="panelDeConfiguracion"
+    >
+      @for (seccion of SECCIONES; track seccion.ruta) {
+        <a
+          mat-tab-link
+          [routerLink]="seccion.ruta"
+          routerLinkActive
+          #activa="routerLinkActive"
+          [active]="activa.isActive"
+        >
+          <mat-icon class="me-2 text-lg" aria-hidden="true">{{ seccion.icono }}</mat-icon>
+          {{ seccion.etiqueta }}
+        </a>
+      }
     </nav>
 
-    <div class="mt-6">
+    <mat-tab-nav-panel #panelDeConfiguracion class="mt-6 block">
       <router-outlet />
-    </div>
+    </mat-tab-nav-panel>
   `,
 })
 export class Configuracion {

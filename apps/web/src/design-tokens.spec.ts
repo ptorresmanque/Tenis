@@ -767,14 +767,14 @@ describe('Uso de los tokens en las plantillas', () => {
     // no entran: con href o routerLink el navegador ya pone la manito.
     //
     // `matButton` no necesita la clase (T241): Material le pone la manito en
-    // `.mdc-button:hover`. `matIconButton` y `mat-menu-item` tampoco (T260, T261): la traen,
+    // `.mdc-button:hover`. `matIconButton`, `mat-menu-item` y `mat-tab-link` tampoco (T260-T262): la traen,
     // y el tema no se la quita.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bmat(?:Icon)?Button\b|\bmat-menu-item\b/.test(etiqueta)) continue;
+        if (/\bmat(?:Icon)?Button\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
@@ -1278,6 +1278,21 @@ describe('El panel y los botones de ícono (T260)', () => {
     expect(tema).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.mat-drawer,[^}]*transition:\s*none !important/,
     );
+  });
+});
+
+describe('Pestañas (T262)', () => {
+  it('**ningún `role="tab"` hecho a mano**: las pestañas son de Material', () => {
+    // `mat-tab-nav-bar` y `mat-tab-group` ponen los roles, el `aria-selected`, el
+    // `aria-controls` y las flechas. Hechas a mano, cada una llevaba su propio teclado, y dos
+    // de las tres no tenían ninguno.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /role="tab(?:list|panel)?"/.test(contenido.replace(/<!--[\s\S]*?-->/g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
   });
 });
 
