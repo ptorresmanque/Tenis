@@ -228,7 +228,7 @@ const enBlanco = () => ({
         }
       </mat-button-toggle-group>
 
-      <mat-form-field class="chico">
+      <mat-form-field class="chico ms-auto">
         <mat-label>Año</mat-label>
         <mat-select name="anio" [(ngModel)]="anio">
           <mat-option value="">Todos</mat-option>

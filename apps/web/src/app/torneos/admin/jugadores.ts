@@ -174,7 +174,7 @@ import { TelefonoDirective } from '../../ui/telefono';
             @if (!jugador.socioId) {
               <!-- Enlazar escribe un campo: el jugador es el mismo y sus puntos
                    siguen siendo suyos. -->
-              <mat-form-field class="chico w-auto">
+              <mat-form-field class="chico ms-auto w-auto">
                 <mat-label>Enlazar a socio</mat-label>
                 <mat-select
                   [attr.name]="'enlace-' + jugador.id"
