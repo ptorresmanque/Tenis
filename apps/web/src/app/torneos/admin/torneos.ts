@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -25,6 +26,7 @@ import {
   Torneos,
 } from '../torneos.service';
 import { ElegirNivel, NivelElegido } from './elegir-nivel';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * Los tres grupos con que el club mira su temporada.
@@ -114,9 +116,6 @@ const enBlanco = () => ({
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
     @if (creando()) {
@@ -228,7 +227,7 @@ const enBlanco = () => ({
         }
       </mat-button-toggle-group>
 
-      <mat-form-field class="chico ms-auto">
+      <mat-form-field class="chico ms-auto w-28">
         <mat-label>Año</mat-label>
         <mat-select name="anio" [(ngModel)]="anio">
           <mat-option value="">Todos</mat-option>
@@ -334,6 +333,7 @@ const enBlanco = () => ({
   `,
 })
 export class TorneosPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Torneos);
 
   /** La lista compartida del catálogo: una copia acá sería la quinta. */
@@ -347,7 +347,6 @@ export class TorneosPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -439,8 +438,10 @@ export class TorneosPanel {
       this.tour.set({ tourId: null, nivelId: null });
       // **El torneo nace sin cuadros y hay que decirlo**: sin categorías no se puede
       // inscribir a nadie, y un torneo vacío en la lista no explica por qué.
-      this.aviso.set(
+      this.snackBar.open(
         `${torneo.nombre} creado. Ábrelo y agrégale las categorías que va a correr.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -450,7 +451,6 @@ export class TorneosPanel {
     accion: () => Promise<unknown>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 

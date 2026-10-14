@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Contacto, Solicitud } from '../../club/contacto.service';
 import { SolicitudesPanel } from './solicitudes';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T38. La bandeja del club.
@@ -77,8 +78,8 @@ describe('SolicitudesPanel', () => {
     await apretar('Dar de alta');
 
     expect(api.invitar).toHaveBeenCalledWith(12);
-    expect(elemento().textContent).toContain('ya está invitada');
-    // Y el aviso convive con el estado vacío, en vez de ser reemplazado por él.
+    expect(avisoDeLoHecho()).toContain('ya está invitada');
+    // El aviso es un snackbar (T254): no le quita el lugar al estado vacío.
     expect(elemento().textContent).toContain('Nada por responder');
   });
 

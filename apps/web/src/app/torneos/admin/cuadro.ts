@@ -1,12 +1,11 @@
 import {
   Component,
-  ElementRef,
   computed,
-  effect,
   inject,
   input,
   resource,
   signal,
+  TemplateRef,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -14,15 +13,16 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatSelectModule } from '@angular/material/select';
 
+import { dialogoSegun } from '../../ui/dialogo';
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
-import { overlaysEnElDialogo } from '../../ui/overlays-en-el-dialogo';
 import {
   diaEnPalabras,
   fechaEnElClub,
@@ -57,6 +57,7 @@ const horarioEnBlanco = () => ({
 @Component({
   selector: 'app-cuadro-torneo',
   imports: [
+    MatDialogModule,
     MatRadioModule,
     MatCheckbox,
     MatSelectModule,
@@ -71,7 +72,7 @@ const horarioEnBlanco = () => ({
     Insignia,
     FotoDelPartido,
   ],
-  providers: [proveerCampos(), proveerFechaYHora(), overlaysEnElDialogo()],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     @if (cuadro.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -220,222 +221,191 @@ const horarioEnBlanco = () => ({
     <!-- **Programar va en un modal.** Es una tarea con foco —cancha, día y dos
          horas, que el servidor puede rechazar por la restricción de un jugador— y
          debajo del cuadro había que buscar el formulario con la vista después de
-         cada clic. Se abre con showModal, como la ficha del socio: es lo único
-         que vuelve inerte el resto y atrapa el foco. -->
-    <dialog
-      #programacion
-      closedby="any"
-      class="m-auto w-[min(40rem,92vw)] rounded-2xl bg-card p-6 shadow-xl
-             backdrop:bg-foreground/50"
-      aria-labelledby="titulo-programar"
-      (close)="programando.set(null)"
-    >
+         cada clic. Es un MatDialog, como la ficha del socio: vuelve inerte el resto y
+         atrapa el foco (T252). -->
+    <ng-template #programacion>
       @if (programando(); as partido) {
-        <h2 id="titulo-programar" class="titular text-2xl">
-          Programar el partido
-        </h2>
-        <p class="mt-1 max-w-prose text-sm text-muted-foreground">
-          Cerrar la cancha a esa hora es parte de programar: deja de ofrecerse en
-          la grilla. El servidor rechaza el horario si alguno de los dos jugadores
-          dijo que no puede, y <strong>dice quién y cuándo</strong>.
-        </p>
+        <h2 mat-dialog-title>Programar el partido</h2>
+        <mat-dialog-content>
+          <p class="mt-1 max-w-prose text-sm text-muted-foreground">
+            Cerrar la cancha a esa hora es parte de programar: deja de ofrecerse en
+            la grilla. El servidor rechaza el horario si alguno de los dos jugadores
+            dijo que no puede, y <strong>dice quién y cuándo</strong>.
+          </p>
 
-        <!-- Dos columnas y no cuatro: con el botón del calendario, una fecha entera no
-             cabía en un cuarto del modal (T126). -->
-        <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="programar()">
-          <mat-form-field>
-            <mat-label>Cancha</mat-label>
-            <mat-select
-              name="cancha"
-              [(ngModel)]="horario.canchaId"
-            >
-              <mat-option [value]="0" disabled>Elige una</mat-option>
-        <!-- **Solo las activas.** El servidor responde 404 sobre una
-                   cancha fuera de la grilla, y descubrirlo después de elegir
-                   día y hora es un formulario perdido. -->
-              @for (cancha of activas(); track cancha.id) {
-                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <!-- Dos columnas y no cuatro: con el botón del calendario, una fecha entera no
+               cabía en un cuarto del modal (T126). -->
+          <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="programar()">
+            <mat-form-field>
+              <mat-label>Cancha</mat-label>
+              <mat-select
+                name="cancha"
+                [(ngModel)]="horario.canchaId"
+              >
+                <mat-option [value]="0" disabled>Elige una</mat-option>
+          <!-- **Solo las activas.** El servidor responde 404 sobre una
+                     cancha fuera de la grilla, y descubrirlo después de elegir
+                     día y hora es un formulario perdido. -->
+                @for (cancha of activas(); track cancha.id) {
+                  <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
-          <mat-form-field>
-            <mat-label>Día</mat-label>
-            <input
-              matInput
-              id="programar-fecha"
-              name="fecha"
-              placeholder="dd-mm-aaaa"
-              autocomplete="off"
-              [matDatepicker]="calendarioFecha"
-              [(ngModel)]="horario.fecha"
-            />
-            <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
-            <mat-datepicker #calendarioFecha />
-          </mat-form-field>
+            <mat-form-field>
+              <mat-label>Día</mat-label>
+              <input
+                matInput
+                id="programar-fecha"
+                name="fecha"
+                placeholder="dd-mm-aaaa"
+                autocomplete="off"
+                [matDatepicker]="calendarioFecha"
+                [(ngModel)]="horario.fecha"
+              />
+              <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
+              <mat-datepicker #calendarioFecha />
+            </mat-form-field>
 
-          <mat-form-field>
-            <mat-label>Desde</mat-label>
-            <input
-              matInput
-              id="programar-desde"
-              name="desde"
-              placeholder="hh:mm"
-              autocomplete="off"
-              [matTimepicker]="relojDesde"
-              [(ngModel)]="horario.horaDesde"
-            />
-            <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojDesde" />
-            <mat-timepicker #relojDesde />
-          </mat-form-field>
+            <mat-form-field>
+              <mat-label>Desde</mat-label>
+              <input
+                matInput
+                id="programar-desde"
+                name="desde"
+                placeholder="hh:mm"
+                autocomplete="off"
+                [matTimepicker]="relojDesde"
+                [(ngModel)]="horario.horaDesde"
+              />
+              <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojDesde" />
+              <mat-timepicker #relojDesde />
+            </mat-form-field>
 
-          <mat-form-field>
-            <mat-label>Hasta</mat-label>
-            <input
-              matInput
-              id="programar-hasta"
-              name="hasta"
-              placeholder="hh:mm"
-              autocomplete="off"
-              [matTimepicker]="relojHasta"
-              [(ngModel)]="horario.horaHasta"
-            />
-            <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHasta" />
-            <mat-timepicker #relojHasta />
-          </mat-form-field>
+            <mat-form-field>
+              <mat-label>Hasta</mat-label>
+              <input
+                matInput
+                id="programar-hasta"
+                name="hasta"
+                placeholder="hh:mm"
+                autocomplete="off"
+                [matTimepicker]="relojHasta"
+                [(ngModel)]="horario.horaHasta"
+              />
+              <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHasta" />
+              <mat-timepicker #relojHasta />
+            </mat-form-field>
 
-          <div class="flex gap-2 sm:col-span-2">
-            <button
-              matButton="filled"
-              type="submit"
-              class="chico"
-              [disabled]="trabajando()"
-              [attr.aria-busy]="enCurso() === 'programar'"
-            >
-              Programar
-            </button>
-            <button
-              matButton="outlined"
-              type="button"
-              class="chico"
-              (click)="programacion.close()"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
+            <div class="flex gap-2 sm:col-span-2">
+              <button
+                matButton="filled"
+                type="submit"
+                class="chico"
+                [disabled]="trabajando()"
+                [attr.aria-busy]="enCurso() === 'programar'"
+              >
+                Programar
+              </button>
+              <button matButton="outlined" type="button" class="chico" mat-dialog-close>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </mat-dialog-content>
       }
-    </dialog>
+    </ng-template>
     <!-- El resultado también en modal: era un div con role de alertdialog dibujado en
          línea —un modal de mentira— vecino de los dos que sí lo son. -->
-    <dialog
-      #resultado
-      closedby="any"
-      class="m-auto w-[min(32rem,92vw)] rounded-2xl bg-card p-6 text-sm shadow-xl
-             backdrop:bg-foreground/50"
-      aria-labelledby="titulo-resultado"
-      (close)="cargando.set(null)"
-    >
+    <ng-template #resultado>
       @if (cargando(); as partido) {
-        <h2 id="titulo-resultado" class="titular text-2xl">
-          {{ partido.jugadorA }} contra {{ partido.jugadorB }}
-        </h2>
+        <h2 mat-dialog-title>{{ partido.jugadorA }} contra {{ partido.jugadorB }}</h2>
+        <mat-dialog-content class="text-sm">
 
-        @if (deshace() > 0) {
-          <!-- Lo que se confirma no es "¿seguro?", es este número: corregir una
-               semifinal borra la final que ya se jugó. -->
-          <p class="mt-1 text-destructive">
-            Cambiar este resultado deshace {{ deshace() }}
-            {{ deshace() === 1 ? 'partido ya jugado' : 'partidos ya jugados' }}
-            más adelante en el cuadro.
-          </p>
-        }
+          @if (deshace() > 0) {
+            <!-- Lo que se confirma no es "¿seguro?", es este número: corregir una
+                 semifinal borra la final que ya se jugó. -->
+            <p class="mt-1 text-destructive">
+              Cambiar este resultado deshace {{ deshace() }}
+              {{ deshace() === 1 ? 'partido ya jugado' : 'partidos ya jugados' }}
+              más adelante en el cuadro.
+            </p>
+          }
 
-        <div class="mt-2">
-          <span id="ganador-del-partido" class="text-sm font-medium">Quién ganó</span>
-          <mat-radio-group
-            class="mt-1 grid"
-            name="ganador"
-            aria-labelledby="ganador-del-partido"
-            [value]="ganadorId()"
-            (change)="ganadorId.set($event.value)"
+          <div class="mt-2">
+            <span id="ganador-del-partido" class="text-sm font-medium">Quién ganó</span>
+            <mat-radio-group
+              class="mt-1 grid"
+              name="ganador"
+              aria-labelledby="ganador-del-partido"
+              [value]="ganadorId()"
+              (change)="ganadorId.set($event.value)"
+            >
+              <mat-radio-button [value]="partido.jugadorAId">{{ partido.jugadorA }}</mat-radio-button>
+              <mat-radio-button [value]="partido.jugadorBId">{{ partido.jugadorB }}</mat-radio-button>
+            </mat-radio-group>
+          </div>
+
+          <mat-form-field class="chico">
+            <mat-label>Marcador</mat-label>
+            <input
+              matInput
+              name="marcador"
+              placeholder="6-4 3-6 7-5"
+              [value]="marcador()"
+              (input)="marcador.set($any($event.target).value)"
+            />
+          </mat-form-field>
+
+          <mat-checkbox
+            class="mt-2 block"
+            [checked]="walkover()"
+            (change)="walkover.set($event.checked)"
           >
-            <mat-radio-button [value]="partido.jugadorAId">{{ partido.jugadorA }}</mat-radio-button>
-            <mat-radio-button [value]="partido.jugadorBId">{{ partido.jugadorB }}</mat-radio-button>
-          </mat-radio-group>
-        </div>
+            El rival no se presentó
+          </mat-checkbox>
 
-        <mat-form-field class="chico">
-          <mat-label>Marcador</mat-label>
-          <input
-            matInput
-            name="marcador"
-            placeholder="6-4 3-6 7-5"
-            [value]="marcador()"
-            (input)="marcador.set($any($event.target).value)"
-          />
-        </mat-form-field>
-
-        <mat-checkbox
-          class="mt-2 block"
-          [checked]="walkover()"
-          (change)="walkover.set($event.checked)"
-        >
-          El rival no se presentó
-        </mat-checkbox>
-
-        <div class="mt-3 flex flex-wrap gap-2">
-          <button
-            matButton="filled"
-            type="button"
-            class="chico"
-            [disabled]="trabajando() || ganadorId() === null"
-            [attr.aria-busy]="enCurso() === 'guardar'"
-            (click)="guardar()"
-          >
-            Guardar resultado
-          </button>
-          <button
-            matButton
-            type="button"
-            class="chico"
-            (click)="resultado.close()"
-          >
-            Cancelar
-          </button>
-        </div>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button
+              matButton="filled"
+              type="button"
+              class="chico"
+              [disabled]="trabajando() || ganadorId() === null"
+              [attr.aria-busy]="enCurso() === 'guardar'"
+              (click)="guardar()"
+            >
+              Guardar resultado
+            </button>
+            <button matButton type="button" class="chico" mat-dialog-close>Cancelar</button>
+          </div>
+        </mat-dialog-content>
       }
-    </dialog>
+    </ng-template>
   `,
 })
 export class CuadroDelTorneo {
   private readonly api = inject(Torneos);
   private readonly canchasApi = inject(AdminCanchas);
 
-  private readonly programacion =
-    viewChild.required<ElementRef<HTMLDialogElement>>('programacion');
+  private readonly programacion = viewChild.required<TemplateRef<unknown>>('programacion');
 
-  private readonly resultado =
-    viewChild.required<ElementRef<HTMLDialogElement>>('resultado');
+  private readonly resultado = viewChild.required<TemplateRef<unknown>>('resultado');
 
   constructor() {
     // Abrir y cerrar siguen a la señal, y no al revés: así la tecla Esc, el clic en el
     // fondo y el botón de cancelar terminan todos en el mismo estado.
-    effect(() =>
-      this.seguirALaSenal(this.programacion(), this.programando() !== null),
+    dialogoSegun(
+      () => this.programando() !== null,
+      this.programacion,
+      () => this.programando.set(null),
+      { width: '40rem', maxWidth: '92vw' },
     );
-    effect(() => this.seguirALaSenal(this.resultado(), this.cargando() !== null));
-  }
-
-  /** El vaivén del `<dialog>`, en un solo sitio para los dos. */
-  private seguirALaSenal(
-    dialogo: ElementRef<HTMLDialogElement>,
-    abierto: boolean,
-  ): void {
-    const elemento = dialogo.nativeElement;
-
-    if (abierto && !elemento.open) elemento.showModal();
-    if (!abierto && elemento.open) elemento.close();
+    dialogoSegun(
+      () => this.cargando() !== null,
+      this.resultado,
+      () => this.cargando.set(null),
+      { width: '32rem', maxWidth: '92vw' },
+    );
   }
 
   /**

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -24,6 +25,7 @@ import { InscritosDelTorneo } from './inscritos';
 import { ToursDelTorneo } from './tours-del-torneo';
 import { TransmisionesDelTorneo } from './transmisiones';
 import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
+import { LO_HECHO } from '../../ui/material';
 
 /** Las cuatro cosas que se le hacen a un torneo, y en el orden en que se hacen. */
 type Pestana = 'inscritos' | 'cuadro' | 'multimedia' | 'ajustes';
@@ -264,12 +266,6 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
           >
             Guardar cambios
           </button>
-
-          @if (guardado()) {
-            <app-aviso variante="exito" class="mt-3 block">
-              Listo: los datos del torneo quedaron guardados.
-            </app-aviso>
-          }
         </form>
 
         <app-tours-del-torneo [torneo]="suyo" (cambiaron)="torneos.reload()" />
@@ -369,6 +365,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
   `,
 })
 export class FichaDeTorneo {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Torneos);
 
   /** Llega de la ruta por `withComponentInputBinding`. */
@@ -435,8 +432,6 @@ export class FichaDeTorneo {
     cierreInscripcion: textoAFecha(this.torneo()?.cierreInscripcion),
   }));
 
-  protected readonly guardado = signal(false);
-
   /**
    * Guarda los datos del torneo.
    *
@@ -445,8 +440,6 @@ export class FichaDeTorneo {
    * torneo que termina antes de empezar en dos pasos que por separado se ven bien.
    */
   protected async guardar(id: number): Promise<void> {
-    this.guardado.set(false);
-
     await this.intentar(`guardar-${id}`, async () => {
       const datos = this.datos();
       await this.api.editarTorneo(id, {
@@ -456,7 +449,7 @@ export class FichaDeTorneo {
         cierreInscripcion: fechaATexto(datos.cierreInscripcion),
         superficie: datos.superficie || null,
       });
-      this.guardado.set(true);
+      this.snackBar.open('Listo: los datos del torneo quedaron guardados.', undefined, LO_HECHO);
     });
   }
 

@@ -1,5 +1,6 @@
 import { Component, inject, linkedSignal, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -8,6 +9,7 @@ import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
+import { LO_HECHO } from '../ui/material';
 
 /** Lo mismo que valida la API: es un bloque de la portada, no un tarifario. */
 const TARIFAS_MAXIMAS = 10;
@@ -121,8 +123,6 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
 
       @if (error(); as falla) {
         <app-aviso variante="error">{{ falla }}</app-aviso>
-      } @else if (guardado()) {
-        <app-aviso variante="exito">Guardadas. La portada y «El club» ya las muestran.</app-aviso>
       }
 
       <div>
@@ -139,6 +139,7 @@ const monto = (texto: string) => (texto.trim() === '' ? null : Number(texto));
   `,
 })
 export class TarifasDelGimnasio {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);
@@ -157,7 +158,6 @@ export class TarifasDelGimnasio {
   );
 
   protected readonly guardando = signal(false);
-  protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected cambiar(posicion: number, campo: keyof Fila, evento: Event): void {
@@ -166,23 +166,19 @@ export class TarifasDelGimnasio {
     this.filas.update((filas) =>
       filas.map((fila, i) => (i === posicion ? { ...fila, [campo]: valor } : fila)),
     );
-    this.guardado.set(false);
   }
 
   protected agregar(): void {
     this.filas.update((filas) => [...filas, { nombre: '', socio: '', noSocio: '' }]);
-    this.guardado.set(false);
   }
 
   protected quitar(posicion: number): void {
     this.filas.update((filas) => filas.filter((_, i) => i !== posicion));
-    this.guardado.set(false);
   }
 
   protected async guardar(evento: Event): Promise<void> {
     evento.preventDefault();
     this.error.set(null);
-    this.guardado.set(false);
     this.guardando.set(true);
 
     try {
@@ -195,7 +191,7 @@ export class TarifasDelGimnasio {
       );
       this.guardadas.reload();
       this.sitio.recargar();
-      this.guardado.set(true);
+      this.snackBar.open('Guardadas. La portada y «El club» ya las muestran.', undefined, LO_HECHO);
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla, 'No se pudieron guardar las tarifas.'));
     } finally {

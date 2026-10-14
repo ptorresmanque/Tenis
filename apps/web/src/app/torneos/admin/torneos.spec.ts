@@ -6,6 +6,7 @@ import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Tours } from '../../tours/tours.service';
 import { Torneo, Torneos } from '../torneos.service';
 import { TorneosPanel } from './torneos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T49. Los torneos del panel.
@@ -182,6 +183,8 @@ describe('TorneosPanel', () => {
         tours: [{ tourId: 1, nivelId: 5 }],
       }),
     );
+    // Nace sin categorías, y el aviso dice qué falta para inscribir a alguien.
+    expect(avisoDeLoHecho()).toContain('agrégale las categorías');
   });
 
   it('**sin tour y nivel el formulario no deja crear** (D10)', async () => {

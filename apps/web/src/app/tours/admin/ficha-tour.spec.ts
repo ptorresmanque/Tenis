@@ -130,20 +130,20 @@ describe('FichaTour', () => {
     );
   });
 
+  /** El diálogo es de Material (T252): se dibuja en el contenedor de overlays, no en la ficha. */
+  const dialogo = () => document.querySelector<HTMLElement>('mat-dialog-container');
+
   it('**borrar pide confirmación**, y al confirmar vuelve a la lista', async () => {
     const { fixture, api, navegar, elemento } = await montar();
-    const dialogo = elemento.querySelector('dialog')!;
-    dialogo.showModal = vi.fn(() => dialogo.setAttribute('open', ''));
-    dialogo.close = vi.fn(() => dialogo.removeAttribute('open'));
 
     boton(elemento, 'Borrar el tour')!.click();
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(dialogo.showModal).toHaveBeenCalled();
+    expect(dialogo()?.textContent).toContain('se borra con sus temporadas');
     expect(api.borrar).not.toHaveBeenCalled();
 
-    boton(dialogo, 'Sí, borrar')!.click();
+    boton(dialogo()!, 'Sí, borrar')!.click();
     await fixture.whenStable();
 
     expect(api.borrar).toHaveBeenCalledWith(3);
@@ -158,18 +158,16 @@ describe('FichaTour', () => {
           error: { message: 'Ese tour suma para 2 torneos. Quítaselos antes de borrarlo.' },
         }),
     });
-    const dialogo = elemento.querySelector('dialog')!;
-    dialogo.showModal = vi.fn(() => dialogo.setAttribute('open', ''));
-    dialogo.close = vi.fn(() => dialogo.removeAttribute('open'));
-
     boton(elemento, 'Borrar el tour')!.click();
     fixture.detectChanges();
     await fixture.whenStable();
-    boton(dialogo, 'Sí, borrar')!.click();
+    boton(dialogo()!, 'Sí, borrar')!.click();
     await fixture.whenStable();
     fixture.detectChanges();
 
+    // La pregunta se cierra y el mensaje queda en la ficha.
     expect(elemento.textContent).toContain('Ese tour suma para 2 torneos');
+    expect(dialogo()).toBeNull();
     expect(navegar).not.toHaveBeenCalled();
   });
 

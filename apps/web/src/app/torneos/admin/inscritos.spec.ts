@@ -122,17 +122,6 @@ describe('InscritosDelTorneo', () => {
       providers: [{ provide: Torneos, useValue: api }],
     });
 
-    // El componente abre un `<dialog>` con showModal(), que jsdom no implementa.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = false;
-    });
 
     fixture = TestBed.createComponent(InscritosDelTorneo);
     fixture.componentRef.setInput('cuadroId', 5);
@@ -141,10 +130,15 @@ describe('InscritosDelTorneo', () => {
   };
 
   const elemento = () => fixture.nativeElement as HTMLElement;
-  const texto = () => elemento().textContent ?? '';
+  /**
+   * La confirmación es un MatDialog (T252): se dibuja en el contenedor de overlays, fuera del
+   * componente. El texto y los botones de la pantalla incluyen los suyos.
+   */
+  const dialogo = () => document.querySelector<HTMLElement>('mat-dialog-container');
+  const texto = () => (elemento().textContent ?? '') + (dialogo()?.textContent ?? '');
 
   const apretar = async (etiqueta: string) => {
-    Array.from(elemento().querySelectorAll('button'))
+    [...elemento().querySelectorAll('button'), ...(dialogo()?.querySelectorAll('button') ?? [])]
       .find((b) => b.textContent?.trim().startsWith(etiqueta))
       ?.click();
     await fixture.whenStable();
@@ -399,15 +393,14 @@ describe('InscritosDelTorneo', () => {
     });
 
     it('**la pregunta va en un modal**, no en una tira más dentro de la fila', async () => {
-      // `showModal` y no el atributo `open`: es lo único que vuelve inerte el resto de
-      // la página y atrapa el foco, que es lo que hace que una confirmación se lea
-      // como tal. Mismo patrón que la ficha del socio.
+      // Un modal vuelve inerte el resto de la página y atrapa el foco, que es lo que hace
+      // que una confirmación se lea como tal. Mismo patrón que la ficha del socio.
       await conPagos();
       await apretar('Revisar');
 
       await apretar('Confirmar el pago');
 
-      expect(elemento().querySelector('dialog[open]')).not.toBeNull();
+      expect(dialogo()).not.toBeNull();
     });
 
     it('**y se cierra al resolver**, para no chocar contra el 409 del segundo clic', async () => {
@@ -432,7 +425,7 @@ describe('InscritosDelTorneo', () => {
       expect(texto()).toContain('Escribe el motivo');
       // Sin motivo no se abre el modal: sería pedir que confirmen algo que el propio
       // formulario va a rechazar dos pasos después.
-      expect(elemento().querySelector('dialog[open]')).toBeNull();
+      expect(dialogo()).toBeNull();
     });
 
     it('con motivo escrito, rechaza y avisa de que libera el cupo', async () => {
@@ -457,7 +450,7 @@ describe('InscritosDelTorneo', () => {
       await apretar('Rechazar');
 
       expect(api.rechazarPago).not.toHaveBeenCalled();
-      expect(elemento().querySelector('dialog[open]')?.textContent).toContain(
+      expect(dialogo()?.textContent).toContain(
         'libera el cupo',
       );
     });

@@ -1,6 +1,7 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -14,6 +15,7 @@ import { Profesor, Profesores } from '../profesores.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 /** El formulario vacío. Función y no constante: si no, todos comparten el objeto. */
 const enBlanco = () => ({
@@ -63,9 +65,6 @@ const enBlanco = () => ({
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
     <form
@@ -223,6 +222,7 @@ const enBlanco = () => ({
 export class ProfesoresPanel {
   protected readonly errorDelCampo = errorDelCampo;
 
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Profesores);
 
   protected readonly editando = signal<number | null>(null);
@@ -232,7 +232,6 @@ export class ProfesoresPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -267,10 +266,14 @@ export class ProfesoresPanel {
     await this.intentar('guardar', async () => {
       if (id === null) {
         await this.api.crear(ficha);
-        this.aviso.set(`${ficha.nombreVisible} ya está en la lista.`);
+        this.snackBar.open(`${ficha.nombreVisible} ya está en la lista.`, undefined, LO_HECHO);
       } else {
         await this.api.editar(id, ficha);
-        this.aviso.set(`La ficha de ${ficha.nombreVisible} quedó actualizada.`);
+        this.snackBar.open(
+          `La ficha de ${ficha.nombreVisible} quedó actualizada.`,
+          undefined,
+          LO_HECHO,
+        );
       }
 
       this.cancelar();
@@ -280,10 +283,12 @@ export class ProfesoresPanel {
   protected async cambiarActividad(profesor: Profesor): Promise<void> {
     await this.intentar(`cambiarActividad-${profesor.id}`, async () => {
       await this.api.editar(profesor.id, { activo: !profesor.activo });
-      this.aviso.set(
+      this.snackBar.open(
         profesor.activo
           ? `${profesor.nombreVisible} no aparecerá para agendar clases nuevas.`
           : `${profesor.nombreVisible} vuelve a estar disponible.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -293,7 +298,6 @@ export class ProfesoresPanel {
     accion: () => Promise<void>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 

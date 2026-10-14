@@ -60,18 +60,15 @@ describe('NuevaReserva', () => {
 
   let fixture: ComponentFixture<NuevaReserva>;
 
+  /** Es un MatDialog (T252): su contenido está en el contenedor de overlays. */
+  const dialogo = () => document.querySelector('mat-dialog-container') as HTMLElement;
+
   const horasOfrecidas = () =>
     opcionesDe(fixture, 'mat-select[name="hora"]')
       .filter((opcion) => opcion.valor)
       .map((opcion) => opcion.texto);
 
   beforeEach(async () => {
-    // jsdom no implementa el diálogo nativo, y el constructor lo abre en un
-    // microtask: sin esto, el error salta después del test y no dentro de él.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
-      this.open = true;
-    });
-
     // Las 10:40 del club: la de las 08:00 ya terminó, la de las 10:00 está
     // corriendo y la de las 12:00 no empieza.
     vi.setSystemTime('2026-08-17T14:40:00.000Z');
@@ -180,7 +177,7 @@ describe('NuevaReserva', () => {
     let pedirDia: ReturnType<typeof vi.fn>;
     let crear: ReturnType<typeof vi.fn>;
 
-    const raiz = () => fixture.nativeElement as HTMLElement;
+    const raiz = dialogo;
     const actualizar = async () => {
       await fixture.whenStable();
       fixture.detectChanges();
@@ -238,6 +235,18 @@ describe('NuevaReserva', () => {
       expect(crear).toHaveBeenCalledWith(expect.objectContaining({ duracionMin: 90 }));
     });
 
+    it('**creada la reserva, avisa con el folio y el diálogo se cierra** (T252)', async () => {
+      const avisos: string[] = [];
+      fixture.componentInstance.creada.subscribe((folio) => avisos.push(folio));
+      fixture.componentInstance.cerrar.subscribe(() => avisos.push('cerrar'));
+
+      await elegirHora(DIA[0].bloques[2].inicio);
+      await enviar();
+
+      expect(avisos).toEqual(['MESON1', 'cerrar']);
+      expect(document.querySelector('mat-dialog-container')).toBeNull();
+    });
+
     it('cambiar la duración suelta la hora elegida: era de la otra lista', async () => {
       await elegirHora(DIA[0].bloques[2].inicio);
       await elegirDuracion('90');
@@ -265,7 +274,7 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+    expect(dialogo().textContent).toContain(
       'No se pudo cargar la disponibilidad',
     );
   });
@@ -298,7 +307,7 @@ describe('NuevaReserva', () => {
 
     await elegir(fixture, 'mat-select[name="socio"]', 3);
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+    expect(dialogo().textContent).toContain(
       'No se pudo cargar el cupo',
     );
   });
@@ -349,7 +358,7 @@ describe('NuevaReserva', () => {
 
     await elegir(fixture, 'mat-select[name="socio"]', 3);
 
-    const texto = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
+    const texto = (dialogo().textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('Reservas de ese día: 1 de 1');
     expect(texto).toContain('Reservas prime de la semana: 0 de 2');
     // El cupo cuenta reservas con invitados, no personas (A5, T105).
@@ -376,7 +385,7 @@ describe('NuevaReserva', () => {
     await new Promise((listo) => setTimeout(listo));
     pendiente.detectChanges();
 
-    expect((pendiente.nativeElement as HTMLElement).textContent).toContain(
+    expect(dialogo().textContent).toContain(
       'Cargando las horas libres…',
     );
   });

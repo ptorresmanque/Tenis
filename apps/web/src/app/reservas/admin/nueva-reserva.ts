@@ -1,21 +1,23 @@
 import {
   Component,
   computed,
-  ElementRef,
   inject,
   input,
   output,
   resource,
   signal,
+  TemplateRef,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
+import { dialogoSegun } from '../../ui/dialogo';
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
@@ -34,12 +36,13 @@ import { TelefonoDirective } from '../../ui/telefono';
  * jugaste" mientras la persona está al teléfono es una conversación; decirlo después
  * de apretar, una llamada de vuelta.
  *
- * Es un `<dialog>` abierto con `showModal()`: el foco queda atrapado y `Esc` cierra,
- * sin código nuestro.
+ * Es un MatDialog (T252): el foco queda atrapado, `Esc` cierra y el foco vuelve al botón
+ * «Nueva reserva», sin código nuestro.
  */
 @Component({
   selector: 'app-nueva-reserva',
   imports: [
+    MatDialogModule,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -52,223 +55,214 @@ import { TelefonoDirective } from '../../ui/telefono';
   ],
   providers: [proveerCampos()],
   template: `
-    <dialog
-      #dialogo
-      closedby="any"
-      class="w-full max-w-lg rounded-xl bg-card p-6 shadow-xl backdrop:bg-foreground/50"
-      (close)="cerrar.emit()"
-    >
-      <h2 class="titular text-2xl">Nueva reserva</h2>
-      <p class="mt-1 text-sm text-muted-foreground">
-        Para el {{ fecha() }}. La hora queda confirmada al instante: el cobro del
-        visitante se hace en el mesón.
-      </p>
+    <ng-template #dialogo>
+      <h2 mat-dialog-title>Nueva reserva</h2>
+      <mat-dialog-content>
+        <p class="text-sm text-muted-foreground">
+          Para el {{ fecha() }}. La hora queda confirmada al instante: el cobro del
+          visitante se hace en el mesón.
+        </p>
 
-      <form class="mt-4 grid gap-4" (ngSubmit)="crear()">
-        <mat-button-toggle-group
-          aria-label="Para quién es la hora"
-          hideSingleSelectionIndicator
-          [value]="paraQuien()"
-          (change)="paraQuien.set($event.value)"
-        >
-          @for (opcion of PARA_QUIEN; track opcion.valor) {
-            <mat-button-toggle [value]="opcion.valor">
-              {{ opcion.etiqueta }}
-            </mat-button-toggle>
-          }
-        </mat-button-toggle-group>
-
-        <mat-form-field>
-          <mat-label>Cancha</mat-label>
-          <!-- value y selectionChange, no ngModel: sin elegir, la cancha es la primera del
-               día (canchaElegida), y eso no es un campo que el formulario guarde. -->
-          <mat-select
-            name="cancha"
-            [value]="canchaElegida()"
-            (selectionChange)="canchaId.set($event.value)"
+        <form class="mt-4 grid gap-4" (ngSubmit)="crear()">
+          <mat-button-toggle-group
+            aria-label="Para quién es la hora"
+            hideSingleSelectionIndicator
+            [value]="paraQuien()"
+            (change)="paraQuien.set($event.value)"
           >
-            @for (grilla of grillasDelDia(); track grilla.cancha.id) {
-              <mat-option
-                [value]="grilla.cancha.id"
-              >
-                {{ grilla.cancha.nombre }}
-              </mat-option>
+            @for (opcion of PARA_QUIEN; track opcion.valor) {
+              <mat-button-toggle [value]="opcion.valor">
+                {{ opcion.etiqueta }}
+              </mat-button-toggle>
             }
-          </mat-select>
-        </mat-form-field>
-        @if (grillas.error()) {
-          <p class="text-sm text-destructive">
-            No se pudo cargar la disponibilidad. Reintenta en un momento.
-          </p>
-        }
+          </mat-button-toggle-group>
 
-        <!-- Antes de la hora, porque decide qué horas quedan libres. Se ofrece la hora y
-             media aunque la franja no tenga su precio: el socio no paga, y el visitante
-             paga en el mostrador (T85). -->
-        <mat-button-toggle-group
-          aria-label="Duración"
-          hideSingleSelectionIndicator
-          [value]="'' + duracion()"
-          (change)="elegirDuracion($event.value)"
-        >
-          @for (opcion of DURACIONES; track opcion.valor) {
-            <mat-button-toggle [value]="opcion.valor">
-              {{ opcion.etiqueta }}
-            </mat-button-toggle>
-          }
-        </mat-button-toggle-group>
-
-        <mat-form-field>
-          <mat-label>Hora</mat-label>
-          <mat-select
-            name="hora"
-            [value]="inicio()"
-            (selectionChange)="inicio.set($event.value)"
-          >
-            <!-- Mientras llegan, la primera opción lo dice: un esqueleto no cabe dentro de
-                 un select (T153). -->
-            <mat-option value="">
-              {{ grillas.isLoading() ? 'Cargando las horas libres…' : 'Elige una hora libre' }}
-            </mat-option>
-            @for (bloque of libres(); track bloque.inicio) {
-              <!-- La cancha vacía que ya no se puede encender (T207): se ve y se explica,
-                   para que el mesón no la busque por otro lado. -->
-              <mat-option
-                [value]="bloque.inicio"
-                [disabled]="bloque.topeDeLuz"
-              >
-                {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
-                @if (bloque.topeDeLuz) {
-                  · Tope de luz
-                } @else if (bloque.esPico) {
-                  · hora prime
-                }
-              </mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        @if (paraQuien() === 'socio') {
           <mat-form-field>
-            <mat-label>Socio</mat-label>
+            <mat-label>Cancha</mat-label>
+            <!-- value y selectionChange, no ngModel: sin elegir, la cancha es la primera del
+                 día (canchaElegida), y eso no es un campo que el formulario guarde. -->
             <mat-select
-              name="socio"
-              [value]="socioId()"
-              (selectionChange)="socioId.set($event.value)"
+              name="cancha"
+              [value]="canchaElegida()"
+              (selectionChange)="canchaId.set($event.value)"
             >
-              <mat-option [value]="0">
-                {{ socios.isLoading() ? 'Cargando los socios…' : 'Elige un socio' }}
+              @for (grilla of grillasDelDia(); track grilla.cancha.id) {
+                <mat-option
+                  [value]="grilla.cancha.id"
+                >
+                  {{ grilla.cancha.nombre }}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          @if (grillas.error()) {
+            <p class="text-sm text-destructive">
+              No se pudo cargar la disponibilidad. Reintenta en un momento.
+            </p>
+          }
+
+          <!-- Antes de la hora, porque decide qué horas quedan libres. Se ofrece la hora y
+               media aunque la franja no tenga su precio: el socio no paga, y el visitante
+               paga en el mostrador (T85). -->
+          <mat-button-toggle-group
+            aria-label="Duración"
+            hideSingleSelectionIndicator
+            [value]="'' + duracion()"
+            (change)="elegirDuracion($event.value)"
+          >
+            @for (opcion of DURACIONES; track opcion.valor) {
+              <mat-button-toggle [value]="opcion.valor">
+                {{ opcion.etiqueta }}
+              </mat-button-toggle>
+            }
+          </mat-button-toggle-group>
+
+          <mat-form-field>
+            <mat-label>Hora</mat-label>
+            <mat-select
+              name="hora"
+              [value]="inicio()"
+              (selectionChange)="inicio.set($event.value)"
+            >
+              <!-- Mientras llegan, la primera opción lo dice: un esqueleto no cabe dentro de
+                   un select (T153). -->
+              <mat-option value="">
+                {{ grillas.isLoading() ? 'Cargando las horas libres…' : 'Elige una hora libre' }}
               </mat-option>
-              @if (socios.hasValue()) {
-                @for (socio of socios.value().socios; track socio.id) {
-                  <mat-option [value]="socio.id">
-                    {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                    {{ socio.usuario.apellido }}
-                  </mat-option>
-                }
+              @for (bloque of libres(); track bloque.inicio) {
+                <!-- La cancha vacía que ya no se puede encender (T207): se ve y se explica,
+                     para que el mesón no la busque por otro lado. -->
+                <mat-option
+                  [value]="bloque.inicio"
+                  [disabled]="bloque.topeDeLuz"
+                >
+                  {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
+                  @if (bloque.topeDeLuz) {
+                    · Tope de luz
+                  } @else if (bloque.esPico) {
+                    · hora prime
+                  }
+                </mat-option>
               }
             </mat-select>
           </mat-form-field>
 
-          @if (cupo.error()) {
-            <p class="text-sm text-destructive">
-              No se pudo cargar el cupo del socio. Reintenta en un momento.
-            </p>
-          } @else if (cupo.value(); as datos) {
-            <div class="rounded-xl border border-border bg-muted p-4">
-              <p class="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                Cupo de {{ datos.nombre }}
-                @if (datos.alDia) {
-                  <app-insignia variante="exito">Al día</app-insignia>
-                } @else {
-                  <app-insignia variante="error">Cuota vencida</app-insignia>
+          @if (paraQuien() === 'socio') {
+            <mat-form-field>
+              <mat-label>Socio</mat-label>
+              <mat-select
+                name="socio"
+                [value]="socioId()"
+                (selectionChange)="socioId.set($event.value)"
+              >
+                <mat-option [value]="0">
+                  {{ socios.isLoading() ? 'Cargando los socios…' : 'Elige un socio' }}
+                </mat-option>
+                @if (socios.hasValue()) {
+                  @for (socio of socios.value().socios; track socio.id) {
+                    <mat-option [value]="socio.id">
+                      {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
+                      {{ socio.usuario.apellido }}
+                    </mat-option>
+                  }
                 }
+              </mat-select>
+            </mat-form-field>
+
+            @if (cupo.error()) {
+              <p class="text-sm text-destructive">
+                No se pudo cargar el cupo del socio. Reintenta en un momento.
               </p>
-              <ul class="mt-2 grid gap-1 text-sm text-muted-foreground">
-                <li>
-                  Reservas de ese día: {{ datos.reservasDelDia }} de
-                  {{ datos.cupoDiarioSocioReservas }}
-                </li>
-                <li>
-                  Reservas prime de la semana: {{ datos.reservasPicoDeLaSemana }} de
-                  {{ datos.cupoPicoSemanalReservas }}
-                </li>
-                <li>
-                  Reservas con invitados del mes: {{ datos.reservasConInvitadosDelMes }} de
-                  {{ datos.invitadosPorMes }}
-                </li>
-              </ul>
+            } @else if (cupo.value(); as datos) {
+              <div class="rounded-xl border border-border bg-muted p-4">
+                <p class="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                  Cupo de {{ datos.nombre }}
+                  @if (datos.alDia) {
+                    <app-insignia variante="exito">Al día</app-insignia>
+                  } @else {
+                    <app-insignia variante="error">Cuota vencida</app-insignia>
+                  }
+                </p>
+                <ul class="mt-2 grid gap-1 text-sm text-muted-foreground">
+                  <li>
+                    Reservas de ese día: {{ datos.reservasDelDia }} de
+                    {{ datos.cupoDiarioSocioReservas }}
+                  </li>
+                  <li>
+                    Reservas prime de la semana: {{ datos.reservasPicoDeLaSemana }} de
+                    {{ datos.cupoPicoSemanalReservas }}
+                  </li>
+                  <li>
+                    Reservas con invitados del mes: {{ datos.reservasConInvitadosDelMes }} de
+                    {{ datos.invitadosPorMes }}
+                  </li>
+                </ul>
+              </div>
+            }
+
+            <!-- El socio no juega solo: la regla es la misma que en la web, y el mesón
+                 no es una puerta para saltársela. -->
+            <mat-form-field>
+              <mat-label>Con quién juega</mat-label>
+              <input
+                matInput
+                name="acompanante"
+                placeholder="Nombre del invitado"
+                [(ngModel)]="acompanante"
+              />
+              <mat-hint>
+                Con invitados, la reserva gasta una de sus reservas con invitados del mes.
+              </mat-hint>
+            </mat-form-field>
+          } @else {
+            <mat-form-field>
+              <mat-label>A nombre de <span aria-hidden="true">*</span></mat-label>
+              <input matInput name="nombre" [(ngModel)]="nombre" />
+            </mat-form-field>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <mat-form-field>
+                <mat-label>Teléfono</mat-label>
+                <span matTextPrefix>+56&nbsp;</span>
+                <input
+                  matInput
+                  appTelefono
+                  #telefono="ngModel"
+                  name="telefono"
+                  [(ngModel)]="telefono"
+                />
+                <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Correo</mat-label>
+                <input
+                  matInput
+                  name="email"
+                  type="email"
+                  [(ngModel)]="email"
+                />
+              </mat-form-field>
             </div>
           }
 
-          <!-- El socio no juega solo: la regla es la misma que en la web, y el mesón
-               no es una puerta para saltársela. -->
-          <mat-form-field>
-            <mat-label>Con quién juega</mat-label>
-            <input
-              matInput
-              name="acompanante"
-              placeholder="Nombre del invitado"
-              [(ngModel)]="acompanante"
-            />
-            <mat-hint>
-              Con invitados, la reserva gasta una de sus reservas con invitados del mes.
-            </mat-hint>
-          </mat-form-field>
-        } @else {
-          <mat-form-field>
-            <mat-label>A nombre de <span aria-hidden="true">*</span></mat-label>
-            <input matInput name="nombre" [(ngModel)]="nombre" />
-          </mat-form-field>
+          @if (error(); as falla) {
+            <app-aviso variante="error">{{ falla }}</app-aviso>
+          }
 
-          <div class="grid gap-4 sm:grid-cols-2">
-            <mat-form-field>
-              <mat-label>Teléfono</mat-label>
-              <span matTextPrefix>+56&nbsp;</span>
-              <input
-                matInput
-                appTelefono
-                #telefono="ngModel"
-                name="telefono"
-                [(ngModel)]="telefono"
-              />
-              <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
-            </mat-form-field>
-            <mat-form-field>
-              <mat-label>Correo</mat-label>
-              <input
-                matInput
-                name="email"
-                type="email"
-                [(ngModel)]="email"
-              />
-            </mat-form-field>
+          <div class="flex justify-end gap-2">
+            <button matButton type="button" mat-dialog-close>Cancelar</button>
+            <button
+              matButton="filled"
+              type="submit"
+              [disabled]="enviando()"
+              [attr.aria-busy]="enviando()"
+            >
+              {{ enviando() ? 'Creando…' : 'Crear reserva' }}
+            </button>
           </div>
-        }
-
-        @if (error(); as falla) {
-          <app-aviso variante="error">{{ falla }}</app-aviso>
-        }
-
-        <div class="flex justify-end gap-2">
-          <button
-            matButton
-            type="button"
-            (click)="dialogo.close()"
-          >
-            Cancelar
-          </button>
-          <button
-            matButton="filled"
-            type="submit"
-            [disabled]="enviando()"
-            [attr.aria-busy]="enviando()"
-          >
-            {{ enviando() ? 'Creando…' : 'Crear reserva' }}
-          </button>
-        </div>
-      </form>
-    </dialog>
+        </form>
+      </mat-dialog-content>
+    </ng-template>
   `,
 })
 export class NuevaReserva {
@@ -283,8 +277,9 @@ export class NuevaReserva {
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly sociosApi = inject(Socios);
 
-  private readonly dialogo =
-    viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
+  private readonly dialogo = viewChild.required<TemplateRef<unknown>>('dialogo');
+  /** Abierto mientras exista; crear la reserva lo apaga, y el diálogo se cierra solo. */
+  private readonly abierto = signal(true);
 
   protected readonly PARA_QUIEN = [
     { valor: 'socio', etiqueta: 'Un socio' },
@@ -366,9 +361,12 @@ export class NuevaReserva {
   });
 
   constructor() {
-    // Se abre al montarse: el componente solo existe mientras el diálogo está en
-    // pantalla, así que no hay un estado "cerrado" que mantener.
-    queueMicrotask(() => this.dialogo().nativeElement.showModal());
+    // Se abre al montarse: el componente solo existe mientras el diálogo está en pantalla.
+    // Al cerrarse, por donde sea, avisa a la agenda para que lo quite.
+    dialogoSegun(this.abierto, this.dialogo, () => this.cerrar.emit(), {
+      width: '32rem',
+      maxWidth: '92vw',
+    });
   }
 
   protected elegirDuracion(valor: string): void {
@@ -408,7 +406,7 @@ export class NuevaReserva {
       });
 
       this.creada.emit(folio);
-      this.dialogo().nativeElement.close();
+      this.abierto.set(false);
     } catch (falla) {
       // El mensaje del servidor tal cual: ya viene escrito para una persona, con el
       // cupo que se pasó y hasta cuándo.

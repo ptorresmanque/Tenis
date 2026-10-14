@@ -1,9 +1,11 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
+import { confirmar } from '../../ui/dialogo-de-confirmacion';
 import { proveerCampos } from '../../ui/campos';
 import { diaEnPalabras, fechaEnElClub, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { Auth } from '../../core/auth/auth';
@@ -169,6 +171,7 @@ import { HistorialDeObservaciones } from './historial-de-observaciones';
   `,
 })
 export class ObservacionesDeReserva {
+  private readonly dialogos = inject(MatDialog);
   private readonly agenda = inject(Agenda);
   private readonly yo = inject(Auth).usuario;
 
@@ -217,7 +220,13 @@ export class ObservacionesDeReserva {
   }
 
   protected async borrar(id: number): Promise<void> {
-    if (!window.confirm('¿Borrar esta observación? No queda rastro de ella.')) return;
+    const si = await confirmar(this.dialogos, {
+      titulo: '¿Borrar esta observación?',
+      detalle: 'No queda rastro de ella.',
+      confirmar: 'Sí, borrar',
+      peligro: true,
+    });
+    if (!si) return;
 
     this.borrando.set(id);
     await this.intentar(() => this.agenda.borrar(id));

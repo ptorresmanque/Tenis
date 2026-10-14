@@ -9,6 +9,8 @@ import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { ClaseDelDia, Clases } from '../clases.service';
 import { Profesores } from '../profesores.service';
 import { AgendaDeClases } from './agenda-clases';
+import { darMotivo, textoDelDialogo } from '../../testing/dialogos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T46. Agendar una clase es cerrar la cancha, y esta pantalla lo trata como tal.
@@ -172,7 +174,7 @@ describe('AgendaDeClases', () => {
     expect(api.agendar).toHaveBeenCalled();
     // En singular de verdad: "1 persona que tenían esa hora" es lo que sale de
     // pluralizar media frase y dejar el verbo en plural.
-    expect(texto()).toContain('Avisamos a la persona que tenía esa hora');
+    expect(avisoDeLoHecho()).toContain('Avisamos a la persona que tenía esa hora');
   });
 
   it('"Mejor no" deja todo como estaba', async () => {
@@ -199,20 +201,25 @@ describe('AgendaDeClases', () => {
   });
 
   it('cancelar una clase exige un motivo, y sin él no llama al servidor', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('  ');
-
     await apretar('Cancelar clase');
+
+    // El motivo se pide en un diálogo (T253): en blanco no deja confirmar, y descartar no hace nada.
+    expect(textoDelDialogo()).toContain('¿Cancelar la clase de');
+    expect(
+      document.querySelector<HTMLButtonElement>('mat-dialog-container button[type="submit"]')!
+        .disabled,
+    ).toBe(true);
+    await darMotivo(fixture, null);
 
     expect(api.cancelar).not.toHaveBeenCalled();
   });
 
   it('con motivo, la cancela y lo dice', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('Se enfermó');
-
     await apretar('Cancelar clase');
+    await darMotivo(fixture, 'Se enfermó');
 
     expect(api.cancelar).toHaveBeenCalledWith(7, 'Se enfermó');
-    expect(texto()).toContain('vuelve a estar disponible');
+    expect(avisoDeLoHecho()).toContain('vuelve a estar disponible');
   });
 
   it('si el servidor rechaza, lo dice con sus palabras', async () => {
@@ -292,7 +299,7 @@ describe('AgendaDeClases', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(texto()).toContain('Serie agendada: 18 clases.');
+      expect(avisoDeLoHecho()).toContain('Serie agendada: 18 clases.');
       expect(api.delDia).toHaveBeenCalledTimes(2);
     });
   });
@@ -305,20 +312,21 @@ describe('AgendaDeClases', () => {
 
     it('**en una clase de una serie, cancela esa y las siguientes, con el motivo**', async () => {
       await montar([{ ...CLASE, serieId: 9 }]);
-      vi.spyOn(window, 'prompt').mockReturnValue('Fin de temporada');
 
       await apretar('Cancelar desde esta fecha');
+      expect(textoDelDialogo()).toContain('¿Cancelar la serie de');
+      await darMotivo(fixture, 'Fin de temporada');
 
       // El día de la clase, en hora del club: 21:00Z del 17 de agosto son las 17:00 del 17.
       expect(api.cancelarSerieDesde).toHaveBeenCalledWith(9, '2026-08-17', 'Fin de temporada');
-      expect(texto()).toContain('Se cancelaron 5 clases de la serie');
+      expect(avisoDeLoHecho()).toContain('Se cancelaron 5 clases de la serie');
     });
 
     it('sin motivo no cancela nada', async () => {
       await montar([{ ...CLASE, serieId: 9 }]);
-      vi.spyOn(window, 'prompt').mockReturnValue('   ');
 
       await apretar('Cancelar desde esta fecha');
+      await darMotivo(fixture, null);
 
       expect(api.cancelarSerieDesde).not.toHaveBeenCalled();
     });
@@ -396,7 +404,7 @@ describe('AgendaDeClases', () => {
       expect(enviada).toMatchObject({ tipo: 'PREPARACION_FISICA', profesorId: 4, cupoMaximo: 6 });
       expect(enviada).not.toHaveProperty('canchaId');
       expect(enviada).not.toHaveProperty('nivel');
-      expect(texto()).toContain('Clase agendada en el gimnasio');
+      expect(avisoDeLoHecho()).toContain('Clase agendada en el gimnasio');
     });
 
     it('**"Individual" manda un alumno, y no pregunta el cupo**', async () => {

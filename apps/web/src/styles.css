@@ -587,24 +587,6 @@ html[data-tema='publico'][data-modo='oscuro'] {
       transform: translateX(100%);
     }
   }
-
-  /* La hoja del flujo de reserva sube desde abajo en el teléfono, que es donde
-     está pegada al borde inferior. En escritorio es un modal y escala. */
-  @media (max-width: 639px) {
-    dialog.dialogo-hoja {
-      transform: translateY(100%);
-    }
-
-    dialog.dialogo-hoja[open] {
-      transform: translateY(0);
-    }
-
-    @starting-style {
-      dialog.dialogo-hoja[open] {
-        transform: translateY(100%);
-      }
-    }
-  }
 }
 
 /* El corte en diagonal del final de un rótulo, como la pestaña de un zócalo de
@@ -988,8 +970,11 @@ body:has(app-barra-fija) app-volver-arriba {
   }
 
   /* El `min-width: 0` del campo de Material, en esta capa: el tema le quita el suyo, que llega
-     sin capa, para que un `min-w-*` de la plantilla le gane (ver `tema-material.scss`). */
+     sin capa, para que un `min-w-*` de la plantilla le gane (ver `tema-material.scss`).
+     De bloque y no en línea, como `.campo`, que llevaba width: 100%: en un formulario ocupa
+     todo el ancho, y en una fila flex o en una grilla no cambia nada. */
   .mat-mdc-form-field {
+    display: flex;
     min-width: 0;
   }
 

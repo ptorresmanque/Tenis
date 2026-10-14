@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { CuadroPublico, PartidoPublico, Torneos } from '../torneos.service';
 import { CuadroPublicoModal } from './cuadro-publico';
@@ -122,24 +122,10 @@ describe('CuadroPublicoModal', () => {
     await fixture.whenStable();
   };
 
-  const elemento = () => fixture.nativeElement as HTMLElement;
+  /** Es un MatDialog (T252): su contenido está en el contenedor de overlays. */
+  const dialogo = () => document.querySelector<HTMLElement>('mat-dialog-container');
+  const elemento = () => dialogo() ?? (fixture.nativeElement as HTMLElement);
   const texto = () => elemento().textContent ?? '';
-  const dialogo = () => elemento().querySelector('dialog')!;
-
-  beforeEach(() => {
-    // jsdom no implementa `showModal` ni `close`.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = false;
-      this.dispatchEvent(new Event('close'));
-    });
-  });
 
   describe('antes de armar: quiénes juegan', () => {
     it('**en el orden en que se inscribieron**, numerados', async () => {
@@ -348,14 +334,16 @@ describe('CuadroPublicoModal', () => {
     it('**se abre al recibir un cuadro, y el foco entra al botón de cerrar**', async () => {
       await montar();
 
-      expect(dialogo().open).toBe(true);
+      expect(dialogo()).not.toBeNull();
+      // MatDialog enfoca primero su contenedor y después el botón, un turno más tarde.
+      await new Promise((listo) => setTimeout(listo));
       expect(document.activeElement?.textContent?.trim()).toBe('Cerrar');
     });
 
     it('sin cuadro elegido no se abre ni pide nada', async () => {
       await montar(ARMADO, [], [], null);
 
-      expect(dialogo().open).toBe(false);
+      expect(dialogo()).toBeNull();
       expect(api.cuadroPublico).not.toHaveBeenCalled();
     });
 
@@ -365,8 +353,9 @@ describe('CuadroPublicoModal', () => {
       abridor.focus();
 
       await montar();
-      // Escape, el clic en el fondo y el botón terminan todos en el evento `close`.
-      dialogo().close();
+      [...dialogo()!.querySelectorAll('button')]
+        .find((boton) => boton.textContent?.trim() === 'Cerrar')!
+        .click();
       await fixture.whenStable();
 
       expect(cerrados).toBe(1);
@@ -374,10 +363,17 @@ describe('CuadroPublicoModal', () => {
       abridor.remove();
     });
 
-    it('**se cierra con Escape y con un clic en el fondo**', async () => {
+    it('**se cierra con Escape**, y avisa igual que con el botón', async () => {
       await montar();
 
-      expect(dialogo().getAttribute('closedby')).toBe('any');
+      // Material mira el keyCode (27), que jsdom no llena desde `key`.
+      const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+      Object.defineProperty(escape, 'keyCode', { value: 27 });
+      document.body.dispatchEvent(escape);
+      await fixture.whenStable();
+
+      expect(dialogo()).toBeNull();
+      expect(cerrados).toBe(1);
     });
 
     it('**no muestra el cuadro de otra categoría mientras carga el suyo**', async () => {

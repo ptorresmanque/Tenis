@@ -1,22 +1,23 @@
 import {
   Component,
-  ElementRef,
   computed,
-  effect,
   inject,
   input,
   resource,
   signal,
+  TemplateRef,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
+import { dialogoSegun } from '../../ui/dialogo';
 import { proveerCampos } from '../../ui/campos';
 import { enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
@@ -37,6 +38,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos-torneo',
   imports: [
+    MatDialogModule,
     MatButtonToggleModule,
     MatSelectModule,
     MatFormFieldModule,
@@ -431,45 +433,34 @@ import { Esqueleto } from '../../ui/esqueleto';
       </div>
     }
 
-    <!-- **La confirmación es un modal de verdad**, no una tira más dentro de la fila.
-         Se abre con showModal y no con el atributo open: es lo único que vuelve inerte
-         el resto de la página y atrapa el foco, que es lo que hace que una pregunta se
-         lea como una pregunta. Mismo patrón que la ficha del socio y la reserva. -->
-    <dialog
-      #confirmacion
-      closedby="any"
-      class="m-auto w-[min(28rem,92vw)] rounded-2xl bg-card p-6 shadow-xl
-             backdrop:bg-foreground/50"
-      aria-labelledby="titulo-confirmacion"
-      (close)="confirmando.set(null)"
-    >
+    <!-- **La confirmación es un modal de verdad**, no una tira más dentro de la fila: un
+         MatDialog vuelve inerte el resto de la página y atrapa el foco, que es lo que hace
+         que una pregunta se lea como una pregunta (T252). Mismo patrón que la ficha del
+         socio y la reserva. -->
+    <ng-template #confirmacion>
       @if (confirmando(); as decision) {
-        <h2 id="titulo-confirmacion" class="titular text-2xl">
-          {{ decision.accion === 'aprobar' ? 'Confirmar el pago' : 'Rechazar el pago' }}
+        <h2 mat-dialog-title>
+          {{ decision.accion === 'aprobar' ? '¿Confirmar el pago?' : '¿Rechazar el pago?' }}
         </h2>
 
-        <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-          @if (decision.accion === 'aprobar') {
-            {{ decision.quien.jugador }} queda pagado
-            @if (medios[decision.quien.id]) {
-              {{ comoPago(medios[decision.quien.id]) }}
+        <mat-dialog-content>
+          <p class="max-w-prose text-sm text-muted-foreground">
+            @if (decision.accion === 'aprobar') {
+              {{ decision.quien.jugador }} queda pagado
+              @if (medios[decision.quien.id]) {
+                {{ comoPago(medios[decision.quien.id]) }}
+              }
+              . Esto no se deshace desde acá.
+            } @else {
+              Rechazar el pago de {{ decision.quien.jugador }}
+              <strong>libera el cupo</strong>: pasa al primero de la lista de espera, y
+              su inscripción queda retirada.
             }
-            . Esto no se deshace desde acá.
-          } @else {
-            Rechazar el pago de {{ decision.quien.jugador }}
-            <strong>libera el cupo</strong>: pasa al primero de la lista de espera, y
-            su inscripción queda retirada.
-          }
-        </p>
+          </p>
+        </mat-dialog-content>
 
-        <div class="mt-5 flex flex-wrap justify-end gap-2">
-          <button
-            matButton
-            type="button"
-            (click)="confirmacion.close()"
-          >
-            Mejor no
-          </button>
+        <mat-dialog-actions>
+          <button matButton type="button" mat-dialog-close>Mejor no</button>
           <button
             matButton="filled"
             type="button"
@@ -483,9 +474,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                 : 'Sí, rechazar'
             }}
           </button>
-        </div>
+        </mat-dialog-actions>
       }
-    </dialog>
+    </ng-template>
   `,
 })
 export class InscritosDelTorneo {
@@ -647,20 +638,17 @@ export class InscritosDelTorneo {
     accion: 'aprobar' | 'rechazar';
   } | null>(null);
 
-  private readonly confirmacion =
-    viewChild.required<ElementRef<HTMLDialogElement>>('confirmacion');
+  private readonly confirmacion = viewChild.required<TemplateRef<unknown>>('confirmacion');
 
   constructor() {
-    // Abrir y cerrar el `<dialog>` sigue a la señal, en vez de que cada botón lo haga
-    // a mano: así el `closedby="any"` —la tecla Esc y el clic en el fondo— y el botón
-    // de "mejor no" terminan todos en el mismo estado.
-    effect(() => {
-      const abierto = this.confirmando() !== null;
-      const elemento = this.confirmacion().nativeElement;
-
-      if (abierto && !elemento.open) elemento.showModal();
-      if (!abierto && elemento.open) elemento.close();
-    });
+    // El diálogo sigue a la señal, en vez de que cada botón lo abra y lo cierre a mano: así
+    // la tecla Esc, el clic en el fondo y "Mejor no" terminan todos en el mismo estado.
+    dialogoSegun(
+      () => this.confirmando() !== null,
+      this.confirmacion,
+      () => this.confirmando.set(null),
+      { width: '28rem', maxWidth: '92vw' },
+    );
   }
 
   /**

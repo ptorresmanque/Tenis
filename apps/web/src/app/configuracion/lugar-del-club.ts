@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -16,6 +17,7 @@ import { Aviso } from '../ui/aviso';
 import { TelefonoDirective } from '../ui/telefono';
 import { FotosDelClubPanel } from './fotos-del-club';
 import { TarifasDelGimnasio } from './tarifas-del-gimnasio';
+import { LO_HECHO } from '../ui/material';
 
 /**
  * Cada lugar con sus tres campos. El largo es el de la columna: `maxlength` no deja
@@ -141,15 +143,17 @@ const LARGO_HORARIO = 120;
       @if (lugar() === 'GIMNASIO') {
         <!-- El tope de una clase grupal de preparación física (T231): el servidor rechaza
              una más grande. La individual es de un alumno y no lo usa. -->
-        <mat-form-field>
+        <!-- El ancho en el campo y no en el input: el campo es de bloque y llenaría la fila. -->
+        <mat-form-field class="w-56">
           <mat-label>Cupo de una clase grupal</mat-label>
-          <input matInput class="w-28"
+          <input
+            matInput
             type="number"
             name="cupoGrupal"
             min="2"
             max="40"
             [ngModel]="cupoGrupal()"
-            (ngModelChange)="cupoEditado.set($event); guardado.set(false)"
+            (ngModelChange)="cupoEditado.set($event)"
           />
           <mat-hint>Cuántos alumnos caben como máximo, de 2 a 40.</mat-hint>
         </mat-form-field>
@@ -157,8 +161,6 @@ const LARGO_HORARIO = 120;
 
       @if (error(); as falla) {
         <app-aviso variante="error">{{ falla }}</app-aviso>
-      } @else if (guardado()) {
-        <app-aviso variante="exito">Guardado. La portada y «El club» ya lo muestran.</app-aviso>
       }
 
       <div>
@@ -183,6 +185,7 @@ const LARGO_HORARIO = 120;
 export class LugarDelClubPanel {
   protected readonly errorDelCampo = errorDelCampo;
 
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);
@@ -207,7 +210,6 @@ export class LugarDelClubPanel {
   protected readonly cupoEditado = signal<number | null | undefined>(undefined);
 
   protected readonly guardando = signal(false);
-  protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
 
   private guardados() {
@@ -232,14 +234,12 @@ export class LugarDelClubPanel {
 
   protected escribir(campo: keyof LugaresDelClub, valor: string): void {
     this.editado.update((actual) => ({ ...actual, [campo]: valor }));
-    this.guardado.set(false);
   }
 
   protected async guardar(): Promise<void> {
     const { descripcion, horario, whatsapp, conArticulo } = this.datos();
 
     this.error.set(null);
-    this.guardado.set(false);
     this.guardando.set(true);
 
     try {
@@ -256,7 +256,7 @@ export class LugarDelClubPanel {
       this.sitio.recargar();
       this.editado.set({});
       this.cupoEditado.set(undefined);
-      this.guardado.set(true);
+      this.snackBar.open('Guardado. La portada y «El club» ya lo muestran.', undefined, LO_HECHO);
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla, `No se pudo guardar ${conArticulo}.`));
     } finally {

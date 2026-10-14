@@ -10,6 +10,7 @@ import { proveerCampos } from '../ui/campos';
 import { Esqueleto } from '../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -20,6 +21,7 @@ import {
   CategoriaDeJuego,
   CategoriasDeJuego as ApiCategoriasDeJuego,
 } from './categorias-juego.service';
+import { LO_HECHO } from '../ui/material';
 
 /**
  * Las categorías con que juega el club.
@@ -86,8 +88,6 @@ import {
 
       @if (error(); as falla) {
         <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-      } @else if (aviso(); as texto) {
-        <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
       }
     </section>
 
@@ -177,6 +177,7 @@ import {
   `,
 })
 export class CategoriasDeJuegoPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(ApiCategoriasDeJuego);
 
   protected nombre = '';
@@ -185,7 +186,6 @@ export class CategoriasDeJuegoPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T153). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -232,7 +232,7 @@ export class CategoriasDeJuegoPanel {
 
     await this.contra('agregar', async () => {
       await this.api.crear(nombre, orden);
-      this.aviso.set(`${nombre} ya se puede elegir al inscribirse.`);
+      this.snackBar.open(`${nombre} ya se puede elegir al inscribirse.`, undefined, LO_HECHO);
       this.nombre = '';
       // El lugar no se avanza a mano: la recarga de `contra` trae la categoría recién
       // creada y `orden` se recalcula sola desde la lista.
@@ -244,10 +244,12 @@ export class CategoriasDeJuegoPanel {
 
     await this.contra(`alternar-${categoria.id}`, async () => {
       await this.api.editar(categoria.id, { activa: !categoria.activa });
-      this.aviso.set(
+      this.snackBar.open(
         categoria.activa
           ? `${categoria.nombre} deja de ofrecerse.`
           : `${categoria.nombre} vuelve a ofrecerse.`,
+        undefined,
+        LO_HECHO,
       );
     }, 'No se pudo cambiar la categoría.');
   }
@@ -274,7 +276,7 @@ export class CategoriasDeJuegoPanel {
 
     await this.contra(`mover-${categoria.id}`, async () => {
       await this.api.editar(categoria.id, { orden });
-      this.aviso.set(`${categoria.nombre} quedó con el orden ${orden}.`);
+      this.snackBar.open(`${categoria.nombre} quedó con el orden ${orden}.`, undefined, LO_HECHO);
     }, 'No se pudo mover la categoría.');
   }
 
@@ -303,7 +305,6 @@ export class CategoriasDeJuegoPanel {
 
   private limpiarMensajes(): void {
     this.error.set(null);
-    this.aviso.set(null);
   }
 }
 

@@ -9,6 +9,8 @@ import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { Socios } from './socios.service';
 import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 import { UsuariosPanel } from './usuarios';
+import { responder, textoDelDialogo } from '../../testing/dialogos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T223. La lista de usuarios del panel, que reemplaza a Administradores
@@ -154,7 +156,7 @@ describe('UsuariosPanel', () => {
 
     expect(api.cambiar).toHaveBeenCalledWith(2, { esGestor: true });
     expect(api.listar).toHaveBeenCalledTimes(2);
-    expect(texto()).toContain('Camila Rojas ahora es gestor.');
+    expect(avisoDeLoHecho()).toContain('Camila Rojas ahora es gestor.');
   });
 
   it('a uno mismo no le ofrece quitarse el admin: el servidor tampoco lo deja (27)', () => {
@@ -231,7 +233,7 @@ describe('UsuariosPanel', () => {
         numeroSocio: '010',
       });
       expect(api.listar).toHaveBeenCalledTimes(2);
-      expect(texto()).toContain('Ana Silva ya tiene ficha de socio.');
+      expect(avisoDeLoHecho()).toContain('Ana Silva ya tiene ficha de socio.');
     });
 
     it('sin número, el servidor pone el siguiente', async () => {
@@ -258,7 +260,7 @@ describe('UsuariosPanel', () => {
       await apretar(camila, 'Confirmar');
 
       expect(profesores.vincular).toHaveBeenCalledWith(9, 2);
-      expect(texto()).toContain('Camila Rojas ya entra a Clases.');
+      expect(avisoDeLoHecho()).toContain('Camila Rojas ya entra a Clases.');
     });
 
     it('o crea una ficha nueva con su nombre y su teléfono, y la especialidad que se escriba', async () => {
@@ -284,14 +286,24 @@ describe('UsuariosPanel', () => {
     });
 
     it('"Quitar profesor" pregunta antes, y desvincula sin borrar la ficha (30)', async () => {
-      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
       await apretar(filaDe('Ana Silva'), 'Quitar profesor');
 
-      expect(confirmar.mock.calls[0][0]).toContain('La ficha y sus clases quedan');
+      // La pregunta es un diálogo (T253), con la pregunta de título.
+      expect(textoDelDialogo()).toContain('¿Quitarle Clases a Ana Silva?');
+      expect(textoDelDialogo()).toContain('La ficha y sus clases quedan');
+      expect(profesores.desvincular).not.toHaveBeenCalled();
+
+      await responder(fixture, true);
+
       expect(profesores.desvincular).toHaveBeenCalledWith(4);
-      expect(texto()).toContain('Ana Silva ya no entra a Clases.');
-      confirmar.mockRestore();
+      expect(avisoDeLoHecho()).toContain('Ana Silva ya no entra a Clases.');
+    });
+
+    it('descartar «Quitar profesor» no desvincula', async () => {
+      await apretar(filaDe('Ana Silva'), 'Quitar profesor');
+      await responder(fixture, false);
+
+      expect(profesores.desvincular).not.toHaveBeenCalled();
     });
 
     it('si otro ya vinculó esa ficha, dice el 409', async () => {

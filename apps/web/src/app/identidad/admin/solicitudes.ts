@@ -1,6 +1,7 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -17,6 +18,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Insignia } from '../../ui/insignia';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 const TIPOS: Record<TipoSolicitud, string> = {
   SOCIO: 'Quiere asociarse',
@@ -75,15 +77,11 @@ const TIPOS: Record<TipoSolicitud, string> = {
       }
     </mat-button-toggle-group>
 
-    <!-- Fuera del bloque de la lista: atender la última solicitud la saca de la
-         bandeja, y con el aviso adentro el admin veía desaparecer la fila sin ninguna
-         confirmación de lo que acababa de hacer. Justo en la acción que da de alta a
-         un socio. -->
+    <!-- Fuera del bloque de la lista: atender la última solicitud la saca de la bandeja. La
+         confirmación de lo hecho sale en un snackbar (T254), que tampoco se va con la fila;
+         acá queda el error, que hay que leer. -->
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
     @if (solicitudes.isLoading()) {
@@ -206,6 +204,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
   `,
 })
 export class SolicitudesPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Contacto);
 
   protected readonly FILTROS = [
@@ -222,7 +221,6 @@ export class SolicitudesPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -250,10 +248,12 @@ export class SolicitudesPanel {
   ): Promise<void> {
     await this.intentar(`resolver-${solicitud.id}-${estado}`, async () => {
       await this.api.resolver(solicitud.id, estado, this.notas[solicitud.id] ?? '');
-      this.aviso.set(
+      this.snackBar.open(
         estado === 'ATENDIDA'
           ? `La consulta de ${solicitud.nombre} queda como atendida.`
           : `Descartaste la consulta de ${solicitud.nombre}.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -261,8 +261,10 @@ export class SolicitudesPanel {
   protected async invitar(solicitud: Solicitud): Promise<void> {
     await this.intentar(`invitar-${solicitud.id}`, async () => {
       await this.api.invitar(solicitud.id);
-      this.aviso.set(
+      this.snackBar.open(
         `${solicitud.nombre} ya está invitada: le llega el alta a ${solicitud.email}.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -272,7 +274,6 @@ export class SolicitudesPanel {
     accion: () => Promise<void>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 

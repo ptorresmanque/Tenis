@@ -10,6 +10,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
@@ -17,6 +18,7 @@ import { MatTimepickerModule } from '@angular/material/timepicker';
 import { proveerCampos } from '../../ui/campos';
 import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
+import { LO_HECHO } from '../../ui/material';
 
 const DIAS = [
   'Domingo',
@@ -145,8 +147,6 @@ interface FilaDeDia {
         <span role="status" aria-live="polite" class="text-sm">
           @if (error()) {
             <span class="text-destructive">{{ error() }}</span>
-          } @else if (aviso()) {
-            <span class="text-accent-strong">{{ aviso() }}</span>
           }
         </span>
       </div>
@@ -154,6 +154,7 @@ interface FilaDeDia {
   `,
 })
 export class EditorHorarios {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
 
   readonly ambito = input.required<AmbitoDeReglas>();
@@ -168,7 +169,6 @@ export class EditorHorarios {
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   /**
    * Los siete días siempre, marcando cuáles abren. Una lista con solo los días que
@@ -208,7 +208,6 @@ export class EditorHorarios {
 
   protected async guardar(): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.guardando.set(true);
 
     try {
@@ -223,7 +222,7 @@ export class EditorHorarios {
           })),
       );
 
-      this.aviso.set('Horario guardado.');
+      this.snackBar.open('Horario guardado.', undefined, LO_HECHO);
       this.guardado.emit();
     } catch (falla) {
       // El mensaje del servidor: "El cierre tiene que ser posterior a la apertura"

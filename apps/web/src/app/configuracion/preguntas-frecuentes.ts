@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -17,6 +18,7 @@ import { Aviso } from '../ui/aviso';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { PreguntaFrecuente, PreguntasFrecuentes } from './preguntas-frecuentes.service';
+import { LO_HECHO } from '../ui/material';
 
 /** Lo que cabe: el largo de la columna de la pregunta y el tope de la API (T144). */
 const LARGO_DE_LA_PREGUNTA = 191;
@@ -86,8 +88,6 @@ const LARGO_DE_LA_RESPUESTA = 2000;
       @if (origen() === null) {
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-        } @else if (aviso(); as texto) {
-          <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
         }
       }
     </section>
@@ -234,8 +234,6 @@ const LARGO_DE_LA_RESPUESTA = 2000;
               @if (origen() === pregunta.id) {
                 @if (error(); as falla) {
                   <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-                } @else if (aviso(); as texto) {
-                  <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
                 }
               }
             </li>
@@ -246,6 +244,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
   `,
 })
 export class PreguntasFrecuentesPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(PreguntasFrecuentes);
   private readonly injector = inject(Injector);
 
@@ -261,7 +260,6 @@ export class PreguntasFrecuentesPanel {
 
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
   /** Qué acción está viajando, para que gire su botón y no todos (T153). */
   protected readonly enCurso = signal<string | null>(null);
   /** De qué fila es el mensaje; nulo si es del formulario de agregar. */
@@ -293,7 +291,7 @@ export class PreguntasFrecuentesPanel {
 
     await this.contra('agregar', async () => {
       await this.api.crear(this.nueva.pregunta.trim(), this.nueva.respuesta.trim());
-      this.aviso.set('Pregunta agregada al final de la lista.');
+      this.snackBar.open('Pregunta agregada al final de la lista.', undefined, LO_HECHO);
       this.nueva = { pregunta: '', respuesta: '' };
     }, 'No se pudo agregar la pregunta.');
   }
@@ -332,7 +330,7 @@ export class PreguntasFrecuentesPanel {
         pregunta: this.borrador.pregunta.trim(),
         respuesta: this.borrador.respuesta.trim(),
       });
-      this.aviso.set('Pregunta guardada.');
+      this.snackBar.open('Pregunta guardada.', undefined, LO_HECHO);
       this.cerrarEdicion(pregunta.id);
     }, 'No se pudo guardar la pregunta.');
   }
@@ -352,7 +350,11 @@ export class PreguntasFrecuentesPanel {
 
     await this.contra(`mover-${pregunta.id}`, async () => {
       await this.api.editar(pregunta.id, { orden });
-      this.aviso.set(`«${pregunta.pregunta}» quedó con el orden ${orden}.`);
+      this.snackBar.open(
+        `«${pregunta.pregunta}» quedó con el orden ${orden}.`,
+        undefined,
+        LO_HECHO,
+      );
     }, 'No se pudo mover la pregunta.');
   }
 
@@ -363,7 +365,7 @@ export class PreguntasFrecuentesPanel {
       await this.api.borrar(pregunta.id);
       // La fila se va: el aviso sale arriba, junto al título.
       this.origen.set(null);
-      this.aviso.set(`«${pregunta.pregunta}» ya no aparece en el sitio.`);
+      this.snackBar.open(`«${pregunta.pregunta}» ya no aparece en el sitio.`, undefined, LO_HECHO);
       // La fila se va con sus botones y el foco vuelve al título, salvo que mientras
       // tanto se haya abierto otra confirmación: esa sigue siendo de la persona.
       if (this.porBorrar() === pregunta.id) {
@@ -404,7 +406,6 @@ export class PreguntasFrecuentesPanel {
 
   private limpiarMensajes(origen: number | null): void {
     this.error.set(null);
-    this.aviso.set(null);
     this.origen.set(origen);
   }
 }

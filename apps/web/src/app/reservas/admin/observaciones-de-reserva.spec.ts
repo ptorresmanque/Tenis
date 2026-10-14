@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { Agenda, ObservacionDeReserva, ReservaDelDia } from './agenda.service';
 import { ObservacionesDeReserva } from './observaciones-de-reserva';
+import { responder, textoDelDialogo } from '../../testing/dialogos';
 
 /**
  * T226. Las observaciones bajo cada reserva de la agenda (`SPEC-reservas.md` §
@@ -180,14 +181,23 @@ describe('ObservacionesDeReserva', () => {
   });
 
   it('borrar pregunta antes', async () => {
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     await apretar('Borrar', filaDe('Se pasó 20 minutos'));
 
-    expect(confirmar).toHaveBeenCalled();
+    // La pregunta es un diálogo (T253), con la pregunta de título.
+    expect(textoDelDialogo()).toContain('¿Borrar esta observación?');
+    expect(api.borrar).not.toHaveBeenCalled();
+
+    await responder(fixture, true);
+
     expect(api.borrar).toHaveBeenCalledWith(1);
     expect(cambios).toBe(1);
-    confirmar.mockRestore();
+  });
+
+  it('descartar el borrado no borra nada', async () => {
+    await apretar('Borrar', filaDe('Se pasó 20 minutos'));
+    await responder(fixture, false);
+
+    expect(api.borrar).not.toHaveBeenCalled();
   });
 
   it('"2 observaciones anteriores" abre el historial, sin repetir las de esta reserva (53)', async () => {

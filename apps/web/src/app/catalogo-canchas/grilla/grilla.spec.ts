@@ -249,9 +249,6 @@ describe('Grilla', () => {
     });
 
     it('lo que se reserva es la cancha que quedó marcada', async () => {
-      HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
-        this.open = true;
-      });
       await montar(TRES);
       await elegirLaDeLas8();
       chips()[1].click();
@@ -1342,15 +1339,6 @@ describe('Grilla', () => {
     });
 
     it('la barra muestra lo elegido y su precio, y de ahí sale el formulario', async () => {
-      // jsdom no implementa el diálogo nativo que abre `app-reservar`. Se apuntala
-      // acá y no con un guardia en el componente, por lo mismo que en `reservar.spec`:
-      // el que está roto es el entorno de prueba, no el código.
-      HTMLDialogElement.prototype.showModal = vi.fn(function (
-        this: HTMLDialogElement,
-      ) {
-        this.open = true;
-      });
-
       await elegirPrimerBloque();
 
       const barra = (fixture.nativeElement as HTMLElement).querySelector(
@@ -1373,12 +1361,6 @@ describe('Grilla', () => {
     it('al confirmar, el token viaja con el folio a la pantalla de confirmación', async () => {
       // Sin el token, el socio llegaba a una confirmación con un número y nada
       // más: el resumen y el QR salen de él.
-      HTMLDialogElement.prototype.showModal = vi.fn(function (
-        this: HTMLDialogElement,
-      ) {
-        this.open = true;
-      });
-
       await elegirPrimerBloque();
 
       const barra = (fixture.nativeElement as HTMLElement).querySelector(

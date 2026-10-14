@@ -1,12 +1,15 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggle, MatSlideToggleChange } from '@angular/material/slide-toggle';
 
+import { confirmar } from '../../ui/dialogo-de-confirmacion';
 import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras, fechaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { Profesores } from '../../clases/profesores.service';
@@ -18,6 +21,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 import { Insignia } from '../../ui/insignia';
 import { AltaDeSocio, Socios } from './socios.service';
 import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * Todas las cuentas del club y sus tipos (T223, `SPEC-identidad.md` § Tipos de usuario).
@@ -74,8 +78,6 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-    } @else if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
     }
 
     @if (listado.error()) {
@@ -319,6 +321,8 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
   `,
 })
 export class UsuariosPanel {
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialogos = inject(MatDialog);
   private readonly api = inject(Usuarios);
   private readonly socios = inject(Socios);
   private readonly profesores = inject(Profesores);
@@ -333,7 +337,6 @@ export class UsuariosPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   protected readonly listado = resource({
     params: () => ({ q: this.busqueda(), pagina: this.pagina() }),
@@ -409,13 +412,13 @@ export class UsuariosPanel {
   /** Desvincula: la ficha y sus clases quedan, y la persona deja de entrar a Clases. */
   protected async quitarProfesor(usuario: UsuarioDeLaLista, fichaId: number): Promise<void> {
     const nombre = `${usuario.nombre} ${usuario.apellido}`;
-    if (
-      !window.confirm(
-        `¿Quitarle Clases a ${nombre}? La ficha y sus clases quedan; solo deja de entrar.`,
-      )
-    ) {
-      return;
-    }
+    const si = await confirmar(this.dialogos, {
+      titulo: `¿Quitarle Clases a ${nombre}?`,
+      detalle: 'La ficha y sus clases quedan; solo deja de entrar.',
+      confirmar: 'Sí, quitar',
+      peligro: true,
+    });
+    if (!si) return;
 
     await this.hacer(
       `quitar-${usuario.id}`,
@@ -426,13 +429,12 @@ export class UsuariosPanel {
 
   private async hacer(clave: string, accion: () => Promise<unknown>, exito: string): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 
     try {
       await accion();
-      this.aviso.set(exito);
+      this.snackBar.open(exito, undefined, LO_HECHO);
       this.abierta.set(null);
       this.listado.reload();
     } catch (falla) {
@@ -465,13 +467,14 @@ export class UsuariosPanel {
     const etiqueta = tipo === 'esAdmin' ? 'admin' : 'gestor';
 
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
 
     try {
       await this.api.cambiar(usuario.id, { [tipo]: checked });
-      this.aviso.set(
+      this.snackBar.open(
         checked ? `${nombre} ahora es ${etiqueta}.` : `${nombre} ya no es ${etiqueta}.`,
+        undefined,
+        LO_HECHO,
       );
     } catch (falla) {
       // La lista vuelve igual que antes y el `[checked]` no cambia de valor, así que no

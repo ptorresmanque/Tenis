@@ -423,6 +423,7 @@ html {
    Material, que `styles.css` repite en `@layer components`. Con `html` delante, porque los
    estilos del campo llegan después y ganarían el empate. */
 html .mat-mdc-form-field {
+  display: revert-layer;
   min-width: revert-layer;
 }
 
@@ -603,4 +604,46 @@ html .mat-button-toggle-group.iconos {
     justify-content: center;
     padding: 0;
   }
+}
+
+/*
+  LOS DIÁLOGOS (T252).
+
+  MatDialog con la cara del `<dialog>` que reemplaza: el título es un titular —la condensada,
+  gruesa, en cursiva y mayúscula—, y el fondo oscurece con el color del texto a la mitad, como
+  el `backdrop:bg-foreground/50` de antes. El título lleva `html` delante: los estilos del
+  diálogo llegan después y ganarían el empate.
+*/
+html {
+  @include mat.dialog-overrides(
+    (
+      subhead-font: var(--font-display),
+      subhead-weight: 800,
+      subhead-size: 1.5rem,
+      subhead-line-height: 2rem,
+      subhead-tracking: -0.005em,
+      subhead-color: var(--color-foreground),
+    )
+  );
+}
+
+html .mat-mdc-dialog-title {
+  font-style: italic;
+  text-transform: uppercase;
+}
+
+html .cdk-overlay-dark-backdrop {
+  background: color-mix(in srgb, var(--color-foreground) 50%, transparent);
+}
+
+/* La confirmación de lo hecho (T254): un snackbar sobre la placa del rótulo, la del sitio (TV2.3),
+   y no sobre el gris de Material. En modo oscuro el rótulo se aclara, como hace el snackbar. */
+html {
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--color-rotulo),
+      supporting-text-color: var(--color-on-rotulo),
+      supporting-text-font: var(--font-sans),
+    )
+  );
 }

@@ -135,14 +135,6 @@ describe('TorneosPublicos', () => {
   };
 
   beforeEach(async () => {
-    // jsdom no implementa `showModal` ni `close` (T135: el cuadro va en un modal).
-    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
-      this.open = false;
-      this.dispatchEvent(new Event('close'));
-    });
     // Sin marca de pago a medias: cada test que la quiere la pone. Sin limpiarla, la
     // de un test suelta el cupo en el siguiente.
     sessionStorage.clear();
@@ -390,7 +382,7 @@ describe('TorneosPublicos', () => {
     it('**abrir una categoría abre su modal y lo pone en la dirección**', async () => {
       await apretar('Ver quiénes juegan');
 
-      expect(elemento().querySelector('dialog')?.open).toBe(true);
+      expect(document.querySelector('mat-dialog-container')).not.toBeNull();
       expect(api.cuadroPublico).toHaveBeenCalledWith(7);
       expect(navegar).toHaveBeenLastCalledWith(
         [],
@@ -404,17 +396,20 @@ describe('TorneosPublicos', () => {
       fixture.detectChanges();
       await fixture.whenStable();
 
-      expect(elemento().querySelector('dialog')?.open).toBe(true);
+      expect(document.querySelector('mat-dialog-container')).not.toBeNull();
       expect(api.cuadroPublico).toHaveBeenCalledWith(7);
     });
 
     it('cerrarlo lo saca de la dirección', async () => {
       await apretar('Ver quiénes juegan');
 
-      elemento().querySelector('dialog')!.close();
+      // El cuadro es un MatDialog (T252): se cierra con su botón.
+      [...document.querySelectorAll<HTMLButtonElement>('mat-dialog-container button')]
+        .find((b) => b.textContent?.trim() === 'Cerrar')!
+        .click();
       await fixture.whenStable();
 
-      expect(elemento().querySelector('dialog')?.open).toBe(false);
+      expect(document.querySelector('mat-dialog-container')).toBeNull();
       expect(navegar).toHaveBeenLastCalledWith(
         [],
         expect.objectContaining({ queryParams: { cuadro: null } }),

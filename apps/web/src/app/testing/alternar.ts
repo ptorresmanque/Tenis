@@ -1,4 +1,4 @@
-import { DebugElement } from '@angular/core';
+import { DebugElement, getDebugNode } from '@angular/core';
 import { ComponentFixture } from '@angular/core/testing';
 import { MatButtonToggle } from '@angular/material/button-toggle';
 import { By } from '@angular/platform-browser';
@@ -11,7 +11,11 @@ import { By } from '@angular/platform-browser';
  * persona.
  */
 function toggles(fixture: ComponentFixture<unknown>, grupo?: string): DebugElement[] {
-  const raiz = grupo ? fixture.debugElement.query(By.css(grupo)) : fixture.debugElement;
+  // Un grupo dentro de un MatDialog no cuelga del componente, sino de la aplicación (T252).
+  const raiz = grupo
+    ? (fixture.debugElement.query(By.css(grupo)) ??
+      (getDebugNode(document.querySelector(grupo)) as DebugElement | null))
+    : fixture.debugElement;
   if (!raiz) throw new Error(`No hay un grupo ${grupo}`);
   return raiz.queryAll(By.directive(MatButtonToggle));
 }

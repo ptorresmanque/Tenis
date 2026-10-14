@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas, ExcesoDeLuz } from './admin-canchas.service';
 import { EditorTopeDeLuz } from './editor-tope-de-luz';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T208. El tope de canchas con luz en Reglas: encenderlo, cuántas canchas y desde qué
@@ -114,6 +115,7 @@ describe('EditorTopeDeLuz', () => {
       topeCanchasConLuzDesde: '19:00',
     });
     expect(api.excesosDeLuz).toHaveBeenCalledTimes(2);
+    expect(avisoDeLoHecho()).toContain('El tope rige desde la próxima reserva');
   });
 
   it('un tope vacío no se manda: lo dice antes', async () => {

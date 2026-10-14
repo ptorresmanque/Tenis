@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Profesor, Profesores } from '../profesores.service';
 import { ProfesoresPanel } from './profesores';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T45. La ficha del profesor en el panel.
@@ -105,6 +106,7 @@ describe('ProfesoresPanel', () => {
       especialidad: 'Competitivo',
       tarifaHoraClp: null,
     });
+    expect(avisoDeLoHecho()).toContain('Felipe Morales ya está en la lista.');
   });
 
   it('después de anotar, el formulario queda vacío para el siguiente', async () => {
@@ -141,12 +143,14 @@ describe('ProfesoresPanel', () => {
       especialidad: 'Competitivo',
       tarifaHoraClp: 18000,
     });
+    expect(avisoDeLoHecho()).toContain('La ficha de Ana Silva quedó actualizada.');
   });
 
   it('**desactivar solo cambia el estado, no toca el resto de la ficha**', async () => {
     await apretar('Desactivar');
 
     expect(api.editar).toHaveBeenCalledWith(1, { activo: false });
+    expect(avisoDeLoHecho()).toContain('no aparecerá para agendar clases nuevas');
   });
 
   it('al desactivado se le ofrece reactivarlo', async () => {

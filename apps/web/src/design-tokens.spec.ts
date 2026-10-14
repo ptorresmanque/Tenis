@@ -1534,21 +1534,15 @@ describe('Los campos son de Material (T244)', () => {
     // Material le pone `min-width: 0` al campo, sin capa, y le ganaba a cualquier `min-w-*`: el
     // buscador de socios, con `min-w-64`, quedaba de 21 px en el teléfono.
     expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*min-width: revert-layer/);
-    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{\s*min-width: 0;/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{[^}]*min-width: 0;/);
   });
 
-  it('**un calendario dentro de un `<dialog>` modal tiene su panel adentro** (T248)', () => {
-    // Fuera del diálogo modal, el panel se ve pero no recibe clics ni foco. Se va con T252.
-    const infractores = plantillas()
-      .filter(
-        ({ contenido }) =>
-          contenido.includes('showModal') &&
-          contenido.includes('matDatepicker') &&
-          !contenido.includes('overlaysEnElDialogo()'),
-      )
-      .map(({ archivo }) => archivo);
-
-    expect(infractores).toEqual([]);
+  it('**un campo ocupa el ancho de su formulario**, como `.campo`: es de bloque y no en línea', () => {
+    // `.campo` llevaba width: 100%. Material deja el campo en inline-flex y mide lo que su
+    // contenido: en la reserva del sitio, el nombre medía 212 de 335 px. De bloque, llena el
+    // formulario, y en una fila flex o en una grilla no cambia nada.
+    expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*display: revert-layer/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{[^}]*display: flex;/);
   });
 
   it('**la manilla del interruptor se ve**: no usa el borde claro del sitio (T249)', () => {
@@ -1563,6 +1557,60 @@ describe('Los campos son de Material (T244)', () => {
   it('**ningún radio es nativo**: son `mat-radio-group` o `mat-button-toggle-group` (T250, T251)', () => {
     const infractores = plantillas()
       .filter(({ contenido }) => /type="radio"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el snackbar es la placa del rótulo**, la del sitio y no el gris de Material (T254)', () => {
+    const snackbar = tema.match(/snack-bar-overrides\(([\s\S]*?)\);/)?.[1] ?? '';
+
+    expect(snackbar).toContain('container-color: var(--color-rotulo)');
+    expect(snackbar).toContain('supporting-text-color: var(--color-on-rotulo)');
+  });
+
+  it('**la confirmación de lo hecho es un snackbar**: un aviso de éxito en línea solo donde hay que leerlo (T255, S2)', () => {
+    // Lo que queda en línea es el resultado que reemplaza a un formulario o que trae algo que
+    // anotar: el folio de la reserva del mesón, los pasos que siguen a una inscripción, el pago
+    // recibido al volver de Webpay. Uno nuevo se agrega acá a propósito, con su razón. Los de
+    // variante enlazada (torneos públicos, reserva pública) son de esa misma clase, la vuelta de
+    // Webpay o del enlace del correo, y la regla no los ve.
+    const enLinea = [
+      'club/formulario-contacto.ts',
+      'cuotas/mi-cuenta.ts',
+      'identidad/recuperar-contrasena/recuperar-contrasena.ts',
+      'identidad/registro/registro.ts',
+      'identidad/verificar-correo/verificar-correo.ts',
+      'reservas/admin/agenda.ts',
+      'torneos/publico/inscripcion.ts',
+    ];
+    const infractores = plantillas()
+      .filter(({ archivo }) => !enLinea.includes(archivo))
+      .filter(({ contenido }) => /<app-aviso[^>]*variante="exito"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `prompt` ni `confirm` del navegador**: son diálogos de Material (T253)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /\b(?:window\.)?(?:prompt|confirm)\(/.test(
+          contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''),
+        ),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<dialog>` nativo fuera de los cascarones**: los diálogos son MatDialog (T252)', () => {
+    // El menú del teléfono de los cascarones se va en la Fase 61, con la navegación.
+    const infractores = plantillas()
+      .filter(({ archivo }) => !archivo.startsWith('cascarones/'))
+      .filter(({ contenido }) =>
+        /<dialog\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);

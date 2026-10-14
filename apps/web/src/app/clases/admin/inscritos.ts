@@ -2,6 +2,7 @@ import { Component, computed, inject, input, resource, signal } from '@angular/c
 import { FormsModule } from '@angular/forms';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -15,6 +16,7 @@ import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * Quién viene a una clase.
@@ -64,9 +66,6 @@ import { Esqueleto } from '../../ui/esqueleto';
 
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
-        }
-        @if (aviso(); as texto) {
-          <app-aviso variante="exito" class="mt-2 block">{{ texto }}</app-aviso>
         }
 
         @if (clase.inscritos.length === 0) {
@@ -255,6 +254,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 export class InscritosDeLaClase {
   protected readonly errorDelCampo = errorDelCampo;
 
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Clases);
 
   readonly claseId = input.required<number>();
@@ -273,7 +273,6 @@ export class InscritosDeLaClase {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -330,9 +329,11 @@ export class InscritosDeLaClase {
     await this.intentar(`inscribirEnLaSerie-${serieId}`, async () => {
       const { inscritas, yaEstaba } = await this.api.inscribirEnLaSerie(serieId, quien);
       this.limpiarFormulario();
-      this.aviso.set(
+      this.snackBar.open(
         `Inscrito en ${inscritas} ${inscritas === 1 ? 'clase' : 'clases'} de la serie` +
           (yaEstaba > 0 ? `; en ${yaEstaba} ya estaba.` : '.'),
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -350,8 +351,10 @@ export class InscritosDeLaClase {
     // Por inscrito y no por serie: la serie es la misma en todas las filas.
     await this.intentar(`sacarDeLaSerie-${quien.id}`, async () => {
       const { canceladas } = await this.api.salirDeLaSerie(serieId, persona);
-      this.aviso.set(
+      this.snackBar.open(
         `Salió de la serie: se ${canceladas === 1 ? 'canceló 1 clase que venía' : `cancelaron ${canceladas} clases que venían`}.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -400,7 +403,6 @@ export class InscritosDeLaClase {
 
   private async intentar(clave: string, accion: () => Promise<unknown>): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 

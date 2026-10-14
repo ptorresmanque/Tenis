@@ -6,6 +6,7 @@ import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service
 import { Tours } from '../../tours/tours.service';
 import { Torneo, Torneos } from '../torneos.service';
 import { FichaDeTorneo } from './ficha-torneo';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * La ficha de un torneo del panel.
@@ -330,6 +331,7 @@ describe('FichaDeTorneo', () => {
         fechaFin: '2026-12-07',
         cierreInscripcion: '2026-12-01',
       });
+      expect(avisoDeLoHecho()).toContain('los datos del torneo quedaron guardados');
     });
 
     it('el error del servidor se muestra tal cual', async () => {

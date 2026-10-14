@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, TarifaDelGimnasio } from '../club/club.service';
 import { TarifasDelGimnasio } from './tarifas-del-gimnasio';
+import { avisoDeLoHecho } from '../testing/snackbar';
 
 /**
  * T236. Las tarifas del gimnasio: filas de nombre, precio socio y precio no socio, que se
@@ -90,7 +91,7 @@ describe('TarifasDelGimnasio', () => {
   });
 
   it('**agregar, escribir y guardar manda la lista completa, en el orden de la pantalla**', async () => {
-    const { api, elemento, escribir, apretar } = await montar();
+    const { api, escribir, apretar } = await montar();
 
     await apretar('Agregar una tarifa');
     await escribir(3, 'Nombre', 'Mensual');
@@ -104,7 +105,7 @@ describe('TarifasDelGimnasio', () => {
       { nombre: 'Mensual', precioSocioClp: 20000, precioNoSocioClp: 30000 },
     ]);
     expect(club.recargar).toHaveBeenCalledTimes(1);
-    expect(elemento.textContent).toContain('Guardadas');
+    expect(avisoDeLoHecho()).toContain('Guardadas');
   });
 
   it('quitar una fila la saca de la lista que se guarda', async () => {

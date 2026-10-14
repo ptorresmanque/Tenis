@@ -1,14 +1,17 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatSelectModule } from '@angular/material/select';
 
+import { pedirMotivo } from '../../ui/dialogo-de-motivo';
 import { proveerCampos } from '../../ui/campos';
 import {
   fechaATexto,
@@ -44,6 +47,7 @@ import { Profesores } from '../profesores.service';
 import { InscritosDeLaClase } from './inscritos';
 import { NuevaSerie } from './nueva-serie';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -147,9 +151,6 @@ const enBlanco = () => ({
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
     @if (clases.isLoading()) {
@@ -478,6 +479,8 @@ const enBlanco = () => ({
   `,
 })
 export class AgendaDeClases {
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialogos = inject(MatDialog);
   private readonly api = inject(Clases);
   private readonly profes = inject(Profesores);
   private readonly disponibilidad = inject(Disponibilidad);
@@ -501,7 +504,6 @@ export class AgendaDeClases {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   /** Las horas que la clase se llevaría por delante, ya vistas por el admin. */
   protected readonly porConfirmar = signal<HoraAfectada[] | null>(null);
@@ -587,39 +589,54 @@ export class AgendaDeClases {
   }
 
   protected async cancelar(clase: ClaseDelDia): Promise<void> {
-    // `prompt` y no un formulario propio: el motivo es obligatorio y esta es la
-    // única acción de la pantalla que lo pide.
-    const motivo = window.prompt(`¿Por qué se cancela la clase de ${clase.profesor}?`);
+    // El motivo es obligatorio: el diálogo no deja confirmar sin él (T253).
+    const motivo = await pedirMotivo(this.dialogos, {
+      titulo: `¿Cancelar la clase de ${clase.profesor}?`,
+      detalle: 'La cancha vuelve a estar disponible, y el motivo queda escrito.',
+      etiqueta: 'Por qué se cancela',
+      confirmar: 'Cancelar la clase',
+      peligro: true,
+    });
 
-    if (motivo === null || motivo.trim() === '') return;
+    if (motivo === null) return;
 
     await this.intentar(`cancelar-${clase.id}`, async () => {
       await this.api.cancelar(clase.id, motivo);
-      this.aviso.set('Clase cancelada. La cancha vuelve a estar disponible.');
+      this.snackBar.open(
+        'Clase cancelada. La cancha vuelve a estar disponible.',
+        undefined,
+        LO_HECHO,
+      );
     });
   }
 
   /** La serie quedó agendada: se dice cuánto y se recarga el día, que puede tener una. */
   protected serieAgendada(resumen: string): void {
     this.error.set(null);
-    this.aviso.set(resumen);
+    this.snackBar.open(resumen, undefined, LO_HECHO);
     this.version.update((v) => v + 1);
   }
 
   /** Cancela esta clase y las siguientes de su serie, con el motivo (T117). */
   protected async cancelarSerieDesde(clase: ClaseDelDia, serieId: number): Promise<void> {
     const desde = fechaEnElClub(clase.inicio);
-    const motivo = window.prompt(
-      `¿Por qué se cancela la serie de ${clase.profesor} desde el ${diaEnPalabras(desde)}?`,
-    );
+    const motivo = await pedirMotivo(this.dialogos, {
+      titulo: `¿Cancelar la serie de ${clase.profesor} desde el ${diaEnPalabras(desde)}?`,
+      detalle: 'Se cancelan esa clase y las siguientes de la serie.',
+      etiqueta: 'Por qué se cancela',
+      confirmar: 'Cancelar la serie',
+      peligro: true,
+    });
 
-    if (motivo === null || motivo.trim() === '') return;
+    if (motivo === null) return;
 
     await this.intentar(`cancelarSerieDesde-${clase.id}`, async () => {
       const { canceladas } = await this.api.cancelarSerieDesde(serieId, desde, motivo);
-      this.aviso.set(
+      this.snackBar.open(
         `Se cancelaron ${canceladas} ${canceladas === 1 ? 'clase' : 'clases'} de la serie, ` +
           `desde el ${diaEnPalabras(desde)}. Esas horas vuelven a estar disponibles.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -647,7 +664,7 @@ export class AgendaDeClases {
 
     this.porConfirmar.set(null);
     this.datos = enBlanco();
-    this.aviso.set(agendada(clase, canceladas.length));
+    this.snackBar.open(agendada(clase, canceladas.length), undefined, LO_HECHO);
   }
 
   private formulario(): ClaseNueva {
@@ -679,7 +696,6 @@ export class AgendaDeClases {
 
   private async intentar(clave: string, accion: () => Promise<void>): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 

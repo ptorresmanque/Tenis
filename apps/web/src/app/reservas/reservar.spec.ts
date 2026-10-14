@@ -66,12 +66,17 @@ describe('Reservar', () => {
     return fixture;
   };
 
-  const texto = (fixture: ReturnType<typeof montar>) =>
-    (fixture.nativeElement as HTMLElement).textContent ?? '';
+  /**
+   * La reserva es un MatDialog (T252): su contenido está en el contenedor de overlays y no en
+   * el componente.
+   */
+  const contenido = () => document.querySelector('mat-dialog-container') as HTMLElement;
+
+  const texto = () => contenido()?.textContent ?? '';
 
   /** Escribe en el campo de con quién juega y aprieta "Agregar". */
   const agregar = async (fixture: ReturnType<typeof montar>, nombre: string) => {
-    const elemento = fixture.nativeElement as HTMLElement;
+    const elemento = contenido();
     const campo = elemento.querySelector<HTMLInputElement>('#acompanante')!;
     campo.value = nombre;
     campo.dispatchEvent(new Event('input'));
@@ -84,32 +89,19 @@ describe('Reservar', () => {
   };
 
   const enviar = async (fixture: ReturnType<typeof montar>) => {
-    (fixture.nativeElement as HTMLElement)
+    contenido()
       .querySelector('form')!
       .dispatchEvent(new Event('submit'));
     await fixture.whenStable();
     fixture.detectChanges();
   };
 
-  const sugerencias = (fixture: ReturnType<typeof montar>) =>
-    [...(fixture.nativeElement as HTMLElement).querySelectorAll('datalist option')].map(
+  const sugerencias = () =>
+    [...contenido().querySelectorAll('datalist option')].map(
       (opcion) => `${(opcion as HTMLOptionElement).value} (${(opcion as HTMLOptionElement).label})`,
     );
 
   beforeEach(() => {
-    // jsdom no implementa el diálogo nativo: `showModal` y `close` no existen y el
-    // componente se cae al abrirse. Se apuntalan acá y no con un guardia en el
-    // componente, porque el que está roto es el entorno de prueba, no el código —
-    // en el navegador el diálogo abre, atrapa el foco y cierra con Escape, y eso se
-    // verificó a mano.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
-      this.open = false;
-      this.dispatchEvent(new Event('close'));
-    });
-
     usuario.set(null);
     reservas.reservarComoSocio.mockReset();
     reservas.reservarComoNoSocio.mockReset();
@@ -131,11 +123,11 @@ describe('Reservar', () => {
   });
 
   it('al visitante le pide sus datos y le muestra el precio', () => {
-    const fixture = montar();
+    montar();
 
-    expect(texto(fixture)).toContain('Reservar y pagar');
-    expect(texto(fixture)).toContain('$12.000');
-    expect(texto(fixture)).toContain('Correo');
+    expect(texto()).toContain('Reservar y pagar');
+    expect(texto()).toContain('$12.000');
+    expect(texto()).toContain('Correo');
   });
 
   it('"Ir a pagar" es la acción llena del diálogo, y "Cancelar" va en texto', async () => {
@@ -143,7 +135,8 @@ describe('Reservar', () => {
     // pagar" era el único verde del sitio. Pasa a primario (decisión 6 del plan):
     // el verde quedó para "libre". Desde T241 son `matButton`.
     const fixture = montar();
-    const raiz = TestbedHarnessEnvironment.loader(fixture);
+    // Desde la raíz del documento: el diálogo de Material no cuelga del componente (T252).
+    const raiz = TestbedHarnessEnvironment.documentRootLoader(fixture);
     const pagar = await raiz.getHarness(MatButtonHarness.with({ text: /Ir a pagar/ }));
     const cancelar = await raiz.getHarness(MatButtonHarness.with({ text: 'Cancelar' }));
 
@@ -154,19 +147,19 @@ describe('Reservar', () => {
 
   it('al socio le pide con quién juega, y no le muestra precio', () => {
     usuario.set({ socioId: 4 });
-    const fixture = montar();
+    montar();
 
     // El socio no paga: mostrarle un monto lo haría dudar de si le van a cobrar.
-    expect(texto(fixture)).toContain('¿Con quién vas a jugar?');
-    expect(texto(fixture)).not.toContain('$12.000');
+    expect(texto()).toContain('¿Con quién vas a jugar?');
+    expect(texto()).not.toContain('$12.000');
   });
 
   it('al socio le dice que una reserva con invitados gasta un cupo, traiga uno o tres (T105)', () => {
     usuario.set({ socioId: 4 });
-    const fixture = montar();
+    montar();
 
-    expect(texto(fixture)).toContain('una de tus reservas con invitados del mes');
-    expect(texto(fixture)).toContain('traiga uno o tres');
+    expect(texto()).toContain('una de tus reservas con invitados del mes');
+    expect(texto()).toContain('traiga uno o tres');
   });
 
   /**
@@ -187,9 +180,9 @@ describe('Reservar', () => {
     it('el campo sugiere los socios del club con su número y sus invitados anteriores', async () => {
       // El número va en la sugerencia: dos socios pueden llamarse igual, y tecleado a mano
       // el error aparecía recién al enviar.
-      const fixture = await montarSocio();
+      await montarSocio();
 
-      expect(sugerencias(fixture)).toEqual([
+      expect(sugerencias()).toEqual([
         'Ana Fuentes · N.º 008 (Socio del club)',
         'Bruno Salas · N.º 012 (Socio del club)',
         'Juan Pérez (Invitado anterior)',
@@ -204,9 +197,9 @@ describe('Reservar', () => {
       await agregar(fixture, 'Carla Nueva');
 
       // El tercero cierra la lista: el campo se va y dice por qué.
-      const elemento = fixture.nativeElement as HTMLElement;
+      const elemento = contenido();
       expect(elemento.querySelector('#acompanante')).toBeNull();
-      expect(texto(fixture)).toContain('3 es el máximo por reserva');
+      expect(texto()).toContain('3 es el máximo por reserva');
 
       await enviar(fixture);
 
@@ -227,8 +220,8 @@ describe('Reservar', () => {
       await agregar(fixture, 'Ana Fuentes · N.º 008');
       await agregar(fixture, 'Carla Nueva');
 
-      expect(texto(fixture)).toContain('Ana Fuentes · socio N.º 008');
-      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+      expect(texto()).toContain('Ana Fuentes · socio N.º 008');
+      expect(texto()).toContain('Carla Nueva · invitado');
     });
 
     it('un socio escrito a mano, sin elegirlo de la lista, entra como socio y no gasta cupo', async () => {
@@ -250,12 +243,12 @@ describe('Reservar', () => {
       await agregar(fixture, 'Ana Fuentes · N.º 008');
       await agregar(fixture, 'Juan Pérez');
 
-      expect(sugerencias(fixture)).toEqual(['Bruno Salas · N.º 012 (Socio del club)']);
+      expect(sugerencias()).toEqual(['Bruno Salas · N.º 012 (Socio del club)']);
     });
 
     it('Enter en el campo agrega a la persona, no envía la reserva', async () => {
       const fixture = await montarSocio();
-      const campo = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      const campo = contenido().querySelector<HTMLInputElement>(
         '#acompanante',
       )!;
       campo.value = 'Carla Nueva';
@@ -265,14 +258,14 @@ describe('Reservar', () => {
       fixture.detectChanges();
 
       expect(reservas.reservarComoSocio).not.toHaveBeenCalled();
-      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+      expect(texto()).toContain('Carla Nueva · invitado');
     });
 
     it('lo escrito sin apretar "Agregar" también cuenta al reservar', async () => {
       // "Agregar" es un paso que se salta fácil: sin esto, la reserva fallaba por no
       // declarar a nadie con el nombre escrito a la vista.
       const fixture = await montarSocio();
-      const campo = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      const campo = contenido().querySelector<HTMLInputElement>(
         '#acompanante',
       )!;
       campo.value = 'Carla Nueva';
@@ -291,7 +284,7 @@ describe('Reservar', () => {
       await enviar(fixture);
 
       expect(reservas.reservarComoSocio).not.toHaveBeenCalled();
-      expect(texto(fixture)).toContain('al menos una persona');
+      expect(texto()).toContain('al menos una persona');
     });
 
     it('si la lista de socios no carga, lo dice y deja reintentar', async () => {
@@ -300,27 +293,27 @@ describe('Reservar', () => {
       reservas.socios.mockRejectedValue(new Error('sin red'));
       const fixture = await montarSocio();
 
-      expect(texto(fixture)).toContain('No pudimos cargar la lista de socios');
-      expect(sugerencias(fixture)).toEqual(['Juan Pérez (Invitado anterior)']);
+      expect(texto()).toContain('No pudimos cargar la lista de socios');
+      expect(sugerencias()).toEqual(['Juan Pérez (Invitado anterior)']);
 
       // Y el reintento vuelve a preguntar: sin eso, el aviso es un callejón sin salida.
       reservas.socios.mockResolvedValue([{ numeroSocio: '008', nombre: 'Ana Fuentes' }]);
-      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      Array.from(contenido().querySelectorAll('button'))
         .find((boton) => boton.textContent?.includes('Reintentar'))!
         .click();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(sugerencias(fixture)).toContain('Ana Fuentes · N.º 008 (Socio del club)');
+      expect(sugerencias()).toContain('Ana Fuentes · N.º 008 (Socio del club)');
     });
 
     it('si sus invitados anteriores no cargan, el campo sigue sirviendo sin ellos', async () => {
       reservas.misInvitados.mockRejectedValue(new Error('sin red'));
       const fixture = await montarSocio();
 
-      expect(sugerencias(fixture)).toHaveLength(2);
+      expect(sugerencias()).toHaveLength(2);
       await agregar(fixture, 'Carla Nueva');
-      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+      expect(texto()).toContain('Carla Nueva · invitado');
     });
   });
 
@@ -341,7 +334,7 @@ describe('Reservar', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      const campo = (fixture.nativeElement as HTMLElement).querySelector('#acompanante');
+      const campo = contenido().querySelector('#acompanante');
       expect(campo).not.toBeNull();
       expect(campo?.getAttribute('list')).toBeNull();
       expect(reservas.socios).not.toHaveBeenCalled();
@@ -356,7 +349,7 @@ describe('Reservar', () => {
       await enviar(fixture);
 
       expect(reservas.reservarComoNoSocio).not.toHaveBeenCalled();
-      expect(texto(fixture)).toContain('al menos una persona');
+      expect(texto()).toContain('al menos una persona');
     });
 
     it('manda los nombres que escribió', async () => {
@@ -394,7 +387,7 @@ describe('Reservar', () => {
     fixture.detectChanges();
 
     const valor = (id: string) =>
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      contenido().querySelector<HTMLInputElement>(
         `#${id}`,
       )!.value;
 
@@ -407,13 +400,13 @@ describe('Reservar', () => {
   it('el visitante con datos incompletos no llega a la pasarela', async () => {
     const fixture = montar();
 
-    (fixture.nativeElement as HTMLElement)
+    contenido()
       .querySelector('form')!
       .dispatchEvent(new Event('submit'));
     await fixture.whenStable();
 
     expect(reservas.reservarComoNoSocio).not.toHaveBeenCalled();
-    expect(texto(fixture)).toContain('Revisa tu nombre');
+    expect(texto()).toContain('Revisa tu nombre');
   });
 
   it('cerrar el diálogo avisa a la grilla para que lo desmonte', async () => {
@@ -425,7 +418,9 @@ describe('Reservar', () => {
       cerrado = true;
     });
 
-    (fixture.nativeElement as HTMLElement).querySelector('dialog')!.close();
+    [...contenido().querySelectorAll('button')]
+      .find((boton) => boton.textContent?.trim() === 'Cancelar')!
+      .click();
     await fixture.whenStable();
 
     expect(cerrado).toBe(true);
@@ -499,7 +494,7 @@ describe('Reservar', () => {
     await agregar(fixture, 'Carla Nueva');
     await enviar(fixture);
 
-    expect(texto(fixture)).toContain('Ya tienes tu reserva de ese día');
+    expect(texto()).toContain('Ya tienes tu reserva de ese día');
   });
 });
 

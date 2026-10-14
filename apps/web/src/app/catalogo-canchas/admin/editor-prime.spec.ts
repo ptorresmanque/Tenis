@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminCanchas } from './admin-canchas.service';
 import { EditorPrime } from './editor-prime';
 import { alternar, opcionesDelGrupo } from '../../testing/alternar';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T213. Qué duraciones toma el socio en horario prime: solo 1 hora, solo 1 hora y media o
@@ -57,7 +58,7 @@ describe('EditorPrime', () => {
     expect(api.fijarConfiguracion).toHaveBeenCalledWith({
       duracionesSocioPico: 'AMBAS',
     });
-    expect(raiz().textContent).toContain('Guardado. Rige desde la próxima reserva.');
+    expect(avisoDeLoHecho()).toContain('Guardado. Rige desde la próxima reserva.');
   });
 
   it('parte en la que dice el servidor', async () => {
