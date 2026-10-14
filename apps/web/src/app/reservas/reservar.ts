@@ -7,17 +7,21 @@ import {
   inject,
   Injector,
   input,
+  linkedSignal,
   output,
   resource,
   signal,
+  TemplateRef,
   viewChild,
 } from '@angular/core';
+import { BreakpointObserver } from '@angular/cdk/layout';
 import {
   FormBuilder,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -32,6 +36,7 @@ import {
   Reservas,
   SocioDelDirectorio,
 } from './reservas.service';
+import { dialogoSegun } from '../ui/dialogo';
 import { TelefonoDirective } from '../ui/telefono';
 
 /** El mismo tope que la API (`MAXIMO_ACOMPANANTES` en `reservas.dto.ts`, T105). */
@@ -46,201 +51,197 @@ const MAXIMO_ACOMPANANTES = 3;
  */
 @Component({
   selector: 'app-reservar',
-  imports: [MatFormFieldModule, MatInput, MatButton, ReactiveFormsModule, TelefonoDirective],
+  imports: [
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    ReactiveFormsModule,
+    TelefonoDirective,
+  ],
   providers: [proveerCampos()],
   template: `
-    <!-- Elemento dialog nativo y no un div con overlay: el navegador se encarga del
-         foco atrapado, del cierre con Escape, del fondo inerte y del backdrop.
-         Hacerlo a mano son treinta líneas de JS que además hay que mantener
-         accesibles. Ojo: sin acentos graves acá adentro, que cierran el template. -->
-    <!-- En el template, "dialogo" es esta referencia y no el viewChild: la
-         referencia gana, y por eso acá se llama close() directo sobre el elemento. -->
-    <dialog
-      #dialogo
-      aria-labelledby="titulo-reserva"
-      class="dialogo-hoja w-full max-w-md rounded-t-2xl bg-card p-5 shadow-lg
-             backdrop:bg-black/40 sm:rounded-2xl"
-      (close)="cerrar.emit()"
-    >
-      <section>
-        <h2 id="titulo-reserva" class="titular text-2xl">
-          {{ esSocio() ? 'Reservar tu hora' : 'Reservar y pagar' }}
-        </h2>
-
-        <p class="mt-1 text-muted-foreground">
-          {{ cancha().nombre }} · {{ hora(bloque().inicio) }}–{{ hora(bloque().fin) }}
-        </p>
-
-        <!-- Sin precio no llega: la grilla no le ofrece al visitante una duración que esa
-             franja no vende (T83b). -->
-        @let arriendo = bloque().montoClp;
-        @if (!esSocio() && arriendo !== null) {
-          <!-- En azul y no en verde: el verde quedó para "libre" (decisión 6). -->
-          <p class="mt-2 font-display text-3xl font-bold text-primary">
-            {{ pesos(arriendo) }}
+    <!-- Un MatDialog y no un div con overlay (T252): atrapa el foco, cierra con Escape,
+         vuelve inerte el fondo y devuelve el foco a la celda al cerrarse. En el teléfono
+         es una hoja pegada abajo. Ojo: sin acentos graves acá adentro, que cierran el
+         template. -->
+    <ng-template #dialogo>
+      <h2 mat-dialog-title>{{ esSocio() ? 'Reservar tu hora' : 'Reservar y pagar' }}</h2>
+      <mat-dialog-content>
+        <section>
+          <p class="text-muted-foreground">
+            {{ cancha().nombre }} · {{ hora(bloque().inicio) }}–{{ hora(bloque().fin) }}
           </p>
-        }
 
-        <form class="mt-4 space-y-4" [formGroup]="formulario" (ngSubmit)="enviar()">
-          @if (!esSocio()) {
-            <mat-form-field>
-              <mat-label>Nombre</mat-label>
-              <input
-                matInput
-                id="nombre"
-                formControlName="nombre"
-                autocomplete="name"
-              />
-              <mat-error>{{ errorDelCampo(formulario.controls.nombre) }}</mat-error>
-            </mat-form-field>
-            <mat-form-field>
-              <mat-label>Correo</mat-label>
-              <input
-                matInput
-                id="email"
-                type="email"
-                formControlName="email"
-                autocomplete="email"
-              />
-              <mat-error>{{ errorDelCampo(formulario.controls.email) }}</mat-error>
-            </mat-form-field>
-            <mat-form-field>
-              <mat-label>Teléfono</mat-label>
-              <span matTextPrefix>+56&nbsp;</span>
-              <input
-                matInput
-                appTelefono
-                id="telefono"
-                formControlName="telefono"
-              />
-              <mat-error>{{ errorDelCampo(formulario.controls.telefono) }}</mat-error>
-            </mat-form-field>
+          <!-- Sin precio no llega: la grilla no le ofrece al visitante una duración que esa
+               franja no vende (T83b). -->
+          @let arriendo = bloque().montoClp;
+          @if (!esSocio() && arriendo !== null) {
+            <!-- En azul y no en verde: el verde quedó para "libre" (decisión 6). -->
+            <p class="mt-2 font-display text-3xl font-bold text-primary">
+              {{ pesos(arriendo) }}
+            </p>
           }
 
-          <!-- Con quién juega, de 1 a 3 (T107). Un solo campo: al socio le sugiere los
-               socios del club y sus invitados anteriores; lo que no está en ninguna lista
-               queda como invitado nuevo. Al visitante, sin sugerencias: serían el padrón. -->
-          <fieldset class="space-y-3">
-            <legend class="font-display text-sm font-bold tracking-wide uppercase">
-              ¿Con quién vas a jugar?
-            </legend>
-            <p class="text-sm text-muted-foreground">
-              @if (esSocio()) {
-                Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta
-                una de tus reservas con invitados del mes, traiga uno o tres.
-              } @else {
-                Escribe el nombre de cada persona, de una a tres.
-              }
-            </p>
-
-            <!-- Cómo se leyó cada nombre, a la vista: un socio escrito a mano que quedó
-                 como invitado se corrige acá, antes de gastar cupo. -->
-            @for (acompanante of acompanantes(); track $index) {
-              <div class="flex items-center gap-2">
-                <span class="flex-1 border border-border px-3 py-2 text-sm font-semibold">
-                  {{ etiqueta(acompanante) }}
-                </span>
-                <button
-                  matButton
-                  type="button"
-                  class="chico"
-                  (click)="quitar($index)"
-                >
-                  Quitar<span class="sr-only"> a {{ etiqueta(acompanante) }}</span>
-                </button>
-              </div>
+          <form class="mt-4 space-y-4" [formGroup]="formulario" (ngSubmit)="enviar()">
+            @if (!esSocio()) {
+              <mat-form-field>
+                <mat-label>Nombre</mat-label>
+                <input
+                  matInput
+                  id="nombre"
+                  formControlName="nombre"
+                  autocomplete="name"
+                />
+                <mat-error>{{ errorDelCampo(formulario.controls.nombre) }}</mat-error>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Correo</mat-label>
+                <input
+                  matInput
+                  id="email"
+                  type="email"
+                  formControlName="email"
+                  autocomplete="email"
+                />
+                <mat-error>{{ errorDelCampo(formulario.controls.email) }}</mat-error>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Teléfono</mat-label>
+                <span matTextPrefix>+56&nbsp;</span>
+                <input
+                  matInput
+                  appTelefono
+                  id="telefono"
+                  formControlName="telefono"
+                />
+                <mat-error>{{ errorDelCampo(formulario.controls.telefono) }}</mat-error>
+              </mat-form-field>
             }
 
-            @if (acompanantes().length < maximo) {
-              <div class="flex flex-wrap gap-2">
-                <!-- datalist y no un combobox hecho a mano: el navegador trae el filtro
-                     mientras se escribe, el teclado y el lector de pantalla. El socio va
-                     con su número porque dos pueden llamarse igual. Enter agrega y no
-                     envía: con el formulario, Enter reservaba con la mitad escrita. -->
-                <mat-form-field class="w-auto min-w-0 flex-1">
-                  <input
-                    matInput
-                    #campo
-                    id="acompanante"
-                    autocomplete="off"
-                    placeholder="Nombre y apellido"
-                    [attr.aria-label]="
-                      esSocio()
-                        ? 'Nombre de un socio o de un invitado'
-                        : 'Nombre de quien juega contigo'
-                    "
-                    [attr.list]="esSocio() ? 'sugerencias-acompanante' : null"
-                    [value]="porAgregar()"
-                    (input)="porAgregar.set($any($event.target).value)"
-                    (keydown.enter)="$event.preventDefault(); agregar()"
-                  />
-                </mat-form-field>
-                @if (esSocio()) {
-                  <datalist id="sugerencias-acompanante">
-                    @for (sugerencia of sugerencias(); track sugerencia.valor) {
-                      <option [value]="sugerencia.valor" [label]="sugerencia.tipo"></option>
-                    }
-                  </datalist>
-                }
-                <button
-                  matButton="outlined"
-                  type="button"
-                  [disabled]="porAgregar().trim() === ''"
-                  (click)="agregar()"
-                >
-                  Agregar
-                </button>
-              </div>
-            } @else {
+            <!-- Con quién juega, de 1 a 3 (T107). Un solo campo: al socio le sugiere los
+                 socios del club y sus invitados anteriores; lo que no está en ninguna lista
+                 queda como invitado nuevo. Al visitante, sin sugerencias: serían el padrón. -->
+            <fieldset class="space-y-3">
+              <legend class="font-display text-sm font-bold tracking-wide uppercase">
+                ¿Con quién vas a jugar?
+              </legend>
               <p class="text-sm text-muted-foreground">
-                Listo: {{ maximo }} es el máximo por reserva.
+                @if (esSocio()) {
+                  Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta
+                  una de tus reservas con invitados del mes, traiga uno o tres.
+                } @else {
+                  Escribe el nombre de cada persona, de una a tres.
+                }
+              </p>
+
+              <!-- Cómo se leyó cada nombre, a la vista: un socio escrito a mano que quedó
+                   como invitado se corrige acá, antes de gastar cupo. -->
+              @for (acompanante of acompanantes(); track $index) {
+                <div class="flex items-center gap-2">
+                  <span class="flex-1 border border-border px-3 py-2 text-sm font-semibold">
+                    {{ etiqueta(acompanante) }}
+                  </span>
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    (click)="quitar($index)"
+                  >
+                    Quitar<span class="sr-only"> a {{ etiqueta(acompanante) }}</span>
+                  </button>
+                </div>
+              }
+
+              @if (acompanantes().length < maximo) {
+                <div class="flex flex-wrap gap-2">
+                  <!-- datalist y no un combobox hecho a mano: el navegador trae el filtro
+                       mientras se escribe, el teclado y el lector de pantalla. El socio va
+                       con su número porque dos pueden llamarse igual. Enter agrega y no
+                       envía: con el formulario, Enter reservaba con la mitad escrita. -->
+                  <mat-form-field class="w-auto min-w-0 flex-1">
+                    <input
+                      matInput
+                      #campo
+                      id="acompanante"
+                      autocomplete="off"
+                      placeholder="Nombre y apellido"
+                      [attr.aria-label]="
+                        esSocio()
+                          ? 'Nombre de un socio o de un invitado'
+                          : 'Nombre de quien juega contigo'
+                      "
+                      [attr.list]="esSocio() ? 'sugerencias-acompanante' : null"
+                      [value]="porAgregar()"
+                      (input)="porAgregar.set($any($event.target).value)"
+                      (keydown.enter)="$event.preventDefault(); agregar()"
+                    />
+                  </mat-form-field>
+                  @if (esSocio()) {
+                    <datalist id="sugerencias-acompanante">
+                      @for (sugerencia of sugerencias(); track sugerencia.valor) {
+                        <option [value]="sugerencia.valor" [label]="sugerencia.tipo"></option>
+                      }
+                    </datalist>
+                  }
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    [disabled]="porAgregar().trim() === ''"
+                    (click)="agregar()"
+                  >
+                    Agregar
+                  </button>
+                </div>
+              } @else {
+                <p class="text-sm text-muted-foreground">
+                  Listo: {{ maximo }} es el máximo por reserva.
+                </p>
+              }
+
+              <!-- La lista que no cargó no es una lista vacía, y sin ella un socio escrito a
+                   mano quedaría como invitado y gastaría cupo: se dice, con la salida. -->
+              @if (esSocio() && socios.error()) {
+                <p role="alert" class="bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  No pudimos cargar la lista de socios: uno escrito a mano quedaría como
+                  invitado.
+                  <button
+                    type="button"
+                    class="cursor-pointer font-semibold underline"
+                    (click)="socios.reload()"
+                  >
+                    Reintentar
+                  </button>
+                </p>
+              }
+            </fieldset>
+
+            @if (error()) {
+              <!-- El mensaje del servidor tal cual: ya viene escrito para la persona,
+                   con el límite y cuándo se renueva. -->
+              <p role="alert" class="bg-destructive/10 p-3 text-destructive">
+                {{ error() }}
               </p>
             }
 
-            <!-- La lista que no cargó no es una lista vacía, y sin ella un socio escrito a
-                 mano quedaría como invitado y gastaría cupo: se dice, con la salida. -->
-            @if (esSocio() && socios.error()) {
-              <p role="alert" class="bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                No pudimos cargar la lista de socios: uno escrito a mano quedaría como
-                invitado.
-                <button
-                  type="button"
-                  class="cursor-pointer font-semibold underline"
-                  (click)="socios.reload()"
-                >
-                  Reintentar
-                </button>
-              </p>
-            }
-          </fieldset>
-
-          @if (error()) {
-            <!-- El mensaje del servidor tal cual: ya viene escrito para la persona,
-                 con el límite y cuándo se renueva. -->
-            <p role="alert" class="bg-destructive/10 p-3 text-destructive">
-              {{ error() }}
-            </p>
-          }
-
-          <div class="flex justify-end gap-2 pt-2">
-            <button matButton type="button" (click)="dialogo.close()">
-              Cancelar
-            </button>
-            <!-- Primario y no verde (decisión 6 del plan): el verde quedó para
-                 "libre", y la acción principal es la misma en todo el sitio. -->
-            <button
-              matButton="filled"
-              #confirmar
-              type="submit"
-              [disabled]="enviando()"
-              [attr.aria-busy]="enviando()"
-            >
-              {{ enviando() ? 'Enviando…' : esSocio() ? 'Reservar' : 'Ir a pagar' }}
-            </button>
-          </div>
-        </form>
-      </section>
-    </dialog>
+            <div class="flex justify-end gap-2 pt-2">
+              <button matButton type="button" mat-dialog-close>Cancelar</button>
+              <!-- Primario y no verde (decisión 6 del plan): el verde quedó para
+                   "libre", y la acción principal es la misma en todo el sitio. -->
+              <button
+                matButton="filled"
+                #confirmar
+                type="submit"
+                [disabled]="enviando()"
+                [attr.aria-busy]="enviando()"
+              >
+                {{ enviando() ? 'Enviando…' : esSocio() ? 'Reservar' : 'Ir a pagar' }}
+              </button>
+            </div>
+          </form>
+        </section>
+      </mat-dialog-content>
+    </ng-template>
   `,
   styles: `
     dialog {
@@ -266,8 +267,16 @@ export class Reservar {
   /** El folio y el token de la reserva recién creada, para la confirmación. */
   readonly reservado = output<{ folio: string; token: string }>();
 
-  private readonly dialogo =
-    viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
+  private readonly dialogo = viewChild.required<TemplateRef<unknown>>('dialogo');
+
+  /**
+   * Abierto mientras exista, y otra vez con cada bloque: la grilla reusa este componente al
+   * elegir otro —cambia el input, no se vuelve a crear—, y cerrado no se reabriría nunca más.
+   */
+  private readonly abierto = linkedSignal(() => {
+    this.bloque();
+    return true;
+  });
 
   private readonly auth = inject(Auth);
   private readonly reservas = inject(Reservas);
@@ -345,19 +354,20 @@ export class Reservar {
   });
 
   constructor() {
-    // `showModal()` y no el atributo `open`: solo la primera vuelve el resto de la
-    // página inerte y atrapa el foco.
-    //
-    // En un `effect` y no en `afterNextRender`: la grilla reusa este componente al
-    // elegir otro bloque —cambia el input, no se vuelve a crear—, y con un
-    // enganche de una sola vez el diálogo no se reabría nunca más. El efecto
-    // depende del bloque, así que cada elección lo vuelve a mostrar.
-    effect(() => {
-      this.bloque();
-      const elemento = this.dialogo().nativeElement;
-
-      if (!elemento.open) elemento.showModal();
-    });
+    // En el teléfono, una hoja pegada abajo y a todo el ancho, que es donde está el pulgar;
+    // en escritorio, un modal al centro.
+    const telefono = inject(BreakpointObserver).isMatched('(max-width: 639px)');
+    dialogoSegun(
+      this.abierto,
+      this.dialogo,
+      () => {
+        this.abierto.set(false);
+        this.cerrar.emit();
+      },
+      telefono
+        ? { position: { bottom: '0' }, width: '100%', maxWidth: '100%' }
+        : { width: '28rem', maxWidth: '92vw' },
+    );
 
     // Quien ya entró —con Google o con su contraseña— no vuelve a teclear lo que su
     // cuenta ya sabe. Solo mientras no haya tocado nada: si empezó a corregir el

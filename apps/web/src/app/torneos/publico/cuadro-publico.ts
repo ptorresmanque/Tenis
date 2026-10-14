@@ -1,20 +1,22 @@
+import { BreakpointObserver } from '@angular/cdk/layout';
 import {
   Component,
   computed,
-  effect,
-  ElementRef,
   inject,
   input,
   linkedSignal,
   output,
   resource,
+  TemplateRef,
   viewChild,
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
+import { dialogoSegun } from '../../ui/dialogo';
 import { proveerCampos } from '../../ui/campos';
 import { Insignia } from '../../ui/insignia';
 import { CuadroPublico, Foto, Torneos, Transmision } from '../torneos.service';
@@ -40,13 +42,14 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
  * del pago, que es lo único que se publica de cada uno. **Después, el cuadro.** Debajo,
  * las fotos y los lives del torneo, que antes se abrían bajo la categoría.
  *
- * Es un `<dialog>` con `showModal()`: el navegador atrapa el foco, vuelve inerte el resto
- * y cierra con Escape. Lo abre la página, que es la que sabe de `?cuadro=<id>`; este
- * componente solo sigue a `cuadroId` y avisa cuando se cierra.
+ * Es un MatDialog (T252): atrapa el foco, vuelve inerte el resto, cierra con Escape y
+ * devuelve el foco a quien lo abrió. Lo abre la página, que es la que sabe de
+ * `?cuadro=<id>`; este componente solo sigue a `cuadroId` y avisa cuando se cierra.
  */
 @Component({
   selector: 'app-cuadro-publico',
   imports: [
+    MatDialogModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -60,16 +63,10 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
   ],
   providers: [proveerCampos()],
   template: `
-    <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
-    <dialog
-      #dialogo
-      closedby="any"
-      aria-labelledby="titulo-cuadro-publico"
-      class="m-auto max-h-[90dvh] w-[min(56rem,94vw)] overflow-y-auto rounded-2xl bg-card
-             p-0 shadow-xl backdrop:bg-foreground/50 max-sm:m-0 max-sm:h-dvh
-             max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:rounded-none"
-      (close)="alCerrar()"
-    >
+    <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. La
+         cabecera queda fija y el resto se desplaza debajo, por eso no lleva
+         mat-dialog-content, que se desplaza por su cuenta. -->
+    <ng-template #dialogo>
       <header
         class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b
                border-border bg-card px-5 py-4"
@@ -80,13 +77,7 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
           }
           <h2 id="titulo-cuadro-publico" class="titular text-2xl">{{ titulo() }}</h2>
         </div>
-        <button
-          matButton="outlined"
-          #botonCerrar
-          type="button"
-          class="chico shrink-0"
-          (click)="dialogo.close()"
-        >
+        <button matButton="outlined" type="button" class="chico shrink-0" mat-dialog-close>
           Cerrar
         </button>
       </header>
@@ -225,12 +216,11 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
           <app-esqueleto [filas]="4" etiqueta="Cargando el cuadro…" />
         }
       </div>
-    </dialog>
+    </ng-template>
   `,
 })
 export class CuadroPublicoModal {
   private readonly api = inject(Torneos);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** El cuadro que se mira, o nulo con el modal cerrado. */
   readonly cuadroId = input<number | null>(null);
@@ -238,13 +228,7 @@ export class CuadroPublicoModal {
   /** Se cerró: con Escape, con un clic en el fondo o con el botón. */
   readonly cerrar = output<void>();
 
-  private readonly dialogo =
-    viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
-  private readonly botonCerrar =
-    viewChild.required('botonCerrar', { read: ElementRef<HTMLButtonElement> });
-
-  /** Quién lo abrió: al cerrar, el foco vuelve ahí y no al principio de la página. */
-  private abridor: HTMLElement | null = null;
+  private readonly dialogo = viewChild.required<TemplateRef<unknown>>('dialogo');
 
   protected readonly consulta = resource({
     params: () => this.cuadroId() ?? undefined,
@@ -319,27 +303,22 @@ export class CuadroPublicoModal {
   });
 
   constructor() {
-    // Abrir y cerrar sigue a `cuadroId`: así Escape, el fondo y el botón —que terminan
-    // todos en el evento `close`— y un cambio de la dirección dejan el mismo estado.
-    effect(() => {
-      const abierto = this.cuadroId() !== null;
-      const dialogo = this.dialogo().nativeElement;
-
-      if (abierto && !dialogo.open) {
-        this.abridor = document.activeElement as HTMLElement | null;
-        dialogo.showModal();
-        // El primer control del modal; el navegador hace lo mismo, y así no depende de él.
-        this.botonCerrar().nativeElement.focus();
-      }
-
-      if (!abierto && dialogo.open) dialogo.close();
-    });
-  }
-
-  protected alCerrar(): void {
-    this.cerrar.emit();
-    this.abridor?.focus();
-    this.abridor = null;
+    // Abrir y cerrar sigue a `cuadroId`: así Escape, el fondo, el botón y un cambio de la
+    // dirección dejan el mismo estado. El foco entra al botón de cerrar —el primero que se
+    // puede tocar— y al cerrarse vuelve a quien lo abrió: los dos los hace MatDialog.
+    const telefono = inject(BreakpointObserver).isMatched('(max-width: 639px)');
+    dialogoSegun(
+      () => this.cuadroId() !== null,
+      this.dialogo,
+      () => this.cerrar.emit(),
+      {
+        ariaLabelledBy: 'titulo-cuadro-publico',
+        autoFocus: 'button[mat-dialog-close]',
+        ...(telefono
+          ? { width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' }
+          : { width: '56rem', maxWidth: '94vw', maxHeight: '90dvh' }),
+      },
+    );
   }
 
   /**
@@ -360,8 +339,10 @@ export class CuadroPublicoModal {
 
     evento.preventDefault();
     this.vista.set(ids[siguiente]);
-    this.host.nativeElement
-      .querySelector<HTMLElement>(`#pestana-${ids[siguiente]}`)
+    // Desde la lista de pestañas y no desde el componente: el diálogo se dibuja fuera de él.
+    (evento.target as HTMLElement)
+      .closest('[role="tablist"]')
+      ?.querySelector<HTMLElement>(`#pestana-${ids[siguiente]}`)
       ?.focus();
   }
 
