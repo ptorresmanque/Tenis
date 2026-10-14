@@ -164,21 +164,19 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                     <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
                   </div>
 
-                  <div>
-                    <label class="sr-only" [for]="'orden-pregunta-' + pregunta.id">
-                      Orden de «{{ pregunta.pregunta }}»
-                    </label>
+                  <mat-form-field class="w-18 sm:w-24">
+                    <mat-label>Orden de «{{ pregunta.pregunta }}»</mat-label>
                     <input
+                      matInput
                       [id]="'orden-pregunta-' + pregunta.id"
                       type="number"
                       min="0"
                       max="1000"
-                      class="campo w-18 sm:w-24"
                       [value]="pregunta.orden"
                       [disabled]="enviando()"
                       (change)="mover(pregunta, $event)"
                     />
-                  </div>
+                  </mat-form-field>
                 </div>
 
                 @if (porBorrar() === pregunta.id) {

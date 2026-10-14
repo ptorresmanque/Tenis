@@ -74,14 +74,19 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
         <mat-datepicker #calendarioHasta />
       </mat-form-field>
 
-      <label class="grid gap-1 text-sm">
-        <span class="font-medium">Cortado por</span>
-        <select name="corte" class="campo" [value]="corte()" (change)="corte.set(valorDe($event))">
+      <mat-form-field>
+        <mat-label>Cortado por</mat-label>
+        <select
+          matNativeControl
+          name="corte"
+          [value]="corte()"
+          (change)="corte.set(valorDe($event))"
+        >
           @for (opcion of OPCIONES; track opcion.valor) {
             <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
           }
         </select>
-      </label>
+      </mat-form-field>
     </div>
 
     @if (reporte.error()) {

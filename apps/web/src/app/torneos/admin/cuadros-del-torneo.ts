@@ -9,7 +9,10 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Insignia } from '../../ui/insignia';
@@ -46,7 +49,8 @@ function enPesos(texto: string): number | null {
  */
 @Component({
   selector: 'app-cuadros-del-torneo',
-  imports: [MatButton, FormsModule, Aviso, Insignia, Esqueleto],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, Insignia, Esqueleto],
+  providers: [proveerCampos()],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -72,10 +76,10 @@ function enPesos(texto: string): number | null {
             <li class="flex flex-wrap items-center gap-3 rounded-lg bg-card p-3">
               <span class="font-medium">{{ cuadro.categoria }}</span>
 
-              <label class="flex items-center gap-2 text-sm">
-                <span class="text-muted-foreground">Cupo</span>
+              <mat-form-field class="w-20">
+                <mat-label>Cupo</mat-label>
                 <input
-                  class="campo w-20"
+                  matInput
                   type="number"
                   min="2"
                   max="256"
@@ -83,12 +87,12 @@ function enPesos(texto: string): number | null {
                   [disabled]="trabajando()"
                   (change)="cambiarCupo(cuadro.id, $event)"
                 />
-              </label>
+              </mat-form-field>
 
-              <label class="flex items-center gap-2 text-sm">
-                <span class="text-muted-foreground">Inscripción $</span>
+              <mat-form-field class="w-28">
+                <mat-label>Inscripción $</mat-label>
                 <input
-                  class="campo w-28"
+                  matInput
                   type="number"
                   min="0"
                   step="1"
@@ -99,7 +103,7 @@ function enPesos(texto: string): number | null {
                   [disabled]="trabajando()"
                   (change)="cambiarMonto(cuadro.id, $event)"
                 />
-              </label>
+              </mat-form-field>
 
               @if (cuadro.semillaSorteo !== null) {
                 <app-insignia variante="info" icono="lock">Armado</app-insignia>
@@ -122,43 +126,42 @@ function enPesos(texto: string): number | null {
       }
 
       <form class="mt-3 flex flex-wrap items-end gap-3" (ngSubmit)="agregar()">
-        <label class="block">
-          <span class="text-sm font-medium">Agregar categoría</span>
-          <select class="campo mt-1" name="categoriaJuego" [(ngModel)]="categoriaJuegoId">
+        <mat-form-field>
+          <mat-label>Agregar categoría</mat-label>
+          <select matNativeControl name="categoriaJuego" [(ngModel)]="categoriaJuegoId">
             <option [value]="0" disabled>Elige una</option>
             @for (categoria of disponibles(); track categoria.id) {
               <option [value]="categoria.id">{{ categoria.nombre }}</option>
             }
           </select>
-        </label>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Cupo</span>
+        <mat-form-field class="w-24">
+          <mat-label>Cupo</mat-label>
           <input
-            class="campo mt-1 w-24"
+            matInput
             type="number"
             name="cupo"
             min="2"
             max="256"
             [(ngModel)]="cupo"
           />
-        </label>
+        </mat-form-field>
 
-        <label class="block">
-          <!-- Por cuadro y no por torneo: Honor puede costar más que la 5ª. -->
-          <span class="text-sm font-medium">
-            Inscripción $
-            <span class="font-normal text-muted-foreground">(0 es gratis)</span>
-          </span>
+        <!-- Por cuadro y no por torneo: Honor puede costar más que la 5ª. -->
+        <mat-form-field class="w-28">
+          <mat-label>
+            Inscripción $ <span class="font-normal text-muted-foreground">(0 es gratis)</span>
+          </mat-label>
           <input
-            class="campo mt-1 w-28"
+            matInput
             type="number"
             name="monto"
             min="0"
             step="1"
             [(ngModel)]="monto"
           />
-        </label>
+        </mat-form-field>
 
         <button
           matButton="outlined"

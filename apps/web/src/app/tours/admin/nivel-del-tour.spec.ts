@@ -50,8 +50,8 @@ describe('NivelDelTour', () => {
   };
 
   const campo = (elemento: HTMLElement, etiqueta: string) =>
-    Array.from(elemento.querySelectorAll('label'))
-      .find((l) => l.textContent?.trim().startsWith(etiqueta))
+    Array.from(elemento.querySelectorAll('mat-form-field'))
+      .find((l) => l.querySelector('mat-label')?.textContent?.trim().startsWith(etiqueta))
       ?.querySelector('input') as HTMLInputElement;
 
   const escribir = async (

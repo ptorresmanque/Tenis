@@ -122,19 +122,19 @@ import {
                 <tr>
                   <td class="font-medium">{{ categoria.nombre }}</td>
                   <td class="text-sm text-muted-foreground">
-                    <label class="sr-only" [for]="'orden-' + categoria.id">
-                      Orden de {{ categoria.nombre }}
-                    </label>
-                    <input
-                      [id]="'orden-' + categoria.id"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      class="campo w-18 sm:w-24"
-                      [value]="categoria.orden"
-                      [disabled]="enviando()"
-                      (change)="mover(categoria, $event)"
-                    />
+                    <mat-form-field class="w-18 sm:w-24">
+                      <mat-label>Orden de {{ categoria.nombre }}</mat-label>
+                      <input
+                        matInput
+                        [id]="'orden-' + categoria.id"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        [value]="categoria.orden"
+                        [disabled]="enviando()"
+                        (change)="mover(categoria, $event)"
+                      />
+                    </mat-form-field>
                   </td>
                   <td>
                     <div class="flex flex-wrap items-center gap-2">

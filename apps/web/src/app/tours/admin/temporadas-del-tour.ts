@@ -67,16 +67,16 @@ const paraLaApi = (datos: DatosDeTemporada) => ({
         </p>
       }
       <div class="mt-3 grid gap-3 sm:grid-cols-3">
-        <label class="block">
-          <span class="text-sm font-medium">Nombre</span>
+        <mat-form-field>
+          <mat-label>Nombre</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="nombre"
             maxlength="40"
             placeholder="2027"
             [(ngModel)]="nueva.nombre"
           />
-        </label>
+        </mat-form-field>
         <mat-form-field>
           <mat-label>Empieza</mat-label>
           <input
@@ -188,10 +188,10 @@ const paraLaApi = (datos: DatosDeTemporada) => ({
             [attr.aria-label]="'Editar la temporada ' + temporada.nombre"
             (ngSubmit)="guardar(temporada)"
           >
-            <label class="block">
-              <span class="text-sm font-medium">Nombre</span>
-              <input class="campo mt-1" name="nombre" maxlength="40" [(ngModel)]="borrador.nombre" />
-            </label>
+            <mat-form-field>
+              <mat-label>Nombre</mat-label>
+              <input matInput name="nombre" maxlength="40" [(ngModel)]="borrador.nombre" />
+            </mat-form-field>
             <mat-form-field>
               <mat-label>Empieza</mat-label>
               <input

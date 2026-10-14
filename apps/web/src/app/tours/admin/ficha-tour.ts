@@ -170,12 +170,13 @@ const LARGO_DE_LA_DESCRIPCION = 2000;
                 Todavía no tiene imagen. Es la portada de su tarjeta y de su página.
               </p>
             }
-            <label class="mt-3 block">
+            <!-- Material no tiene campo de archivo, y matInput no admite type="file" (T247). -->
+            <label class="block">
               <span class="text-sm font-medium">
                 {{ tour.imagen ? 'Reemplazar la imagen' : 'Subir la imagen' }}
               </span>
               <input
-                class="campo mt-1"
+                class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
                 type="file"
                 accept="image/jpeg,image/png"
                 [disabled]="enCurso() !== null"

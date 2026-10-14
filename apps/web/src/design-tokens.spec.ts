@@ -1521,15 +1521,17 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
-  it('**ninguna carpeta migrada arma un campo con `.campo`** (T246; en T247, toda la web)', () => {
-    const migradas = ['club/', 'inicio/', 'reservas/', 'torneos/publico/', 'ranking/', 'tours/publico/',
-      'clases/', 'catalogo-canchas/', 'cascarones/', 'cuotas/'];
+  it('**ninguna plantilla arma un campo con `.campo`** (T246, T247, I1)', () => {
+    const conCampo = /class="(?:[^"]* )?(?:campo(?:-chico|-con-prefijo)?|prefijo)(?: [^"]*)?"/;
     const infractores = plantillas()
-      .filter(({ archivo }) => migradas.some((carpeta) => archivo.startsWith(carpeta)))
-      .filter(({ contenido }) => /class="(?:[^"]* )?campo(?:-chico|-con-prefijo)?(?: [^"]*)?"/.test(contenido))
+      .filter(({ contenido }) => conCampo.test(contenido))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);
+  });
+
+  it('**`styles.css` ya no define `.campo` ni sus variantes** (T247)', () => {
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.(?:campo|prefijo)\b/);
   });
 
   it('**el arranque no importa el campo de Material** (I6)', () => {

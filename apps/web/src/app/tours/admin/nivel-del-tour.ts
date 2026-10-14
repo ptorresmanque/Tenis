@@ -1,7 +1,10 @@
 import { Component, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { NivelDelPanel, TablaDePuntos, Tours } from '../tours.service';
@@ -36,7 +39,8 @@ const VACIA: TablaDePuntos = {
  */
 @Component({
   selector: 'app-nivel-del-tour',
-  imports: [MatButton, FormsModule, Aviso],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  providers: [proveerCampos()],
   template: `
     <!-- El de agregar, con borde punteado: sin eso se veía igual a los guardados y solo
          el botón decía que era otra cosa. -->
@@ -47,17 +51,17 @@ const VACIA: TablaDePuntos = {
       (ngSubmit)="guardar()"
     >
       <div class="flex flex-wrap items-end gap-3">
-        <label class="block w-36">
-          <span class="text-xs font-medium">Nivel</span>
+        <mat-form-field class="w-36">
+          <mat-label>Nivel</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="nombre"
             maxlength="40"
             placeholder="500"
             [ngModel]="nombre()"
             (ngModelChange)="nombre.set($event)"
           />
-        </label>
+        </mat-form-field>
         @if (nivel(); as suyo) {
           <p class="pb-2 text-sm text-muted-foreground">
             @switch (suyo.torneos) {
@@ -79,10 +83,11 @@ const VACIA: TablaDePuntos = {
            en 375 px y obligarían a desplazar el formulario de lado. -->
       <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         @for (fila of FILAS; track fila.clave) {
-          <label class="block">
-            <span class="text-xs font-medium">{{ fila.etiqueta }}</span>
+          <mat-form-field>
+            <mat-label>{{ fila.etiqueta }}</mat-label>
             <input
-              class="campo mt-1 tabular-nums"
+              matInput
+              class="tabular-nums"
               type="number"
               inputmode="numeric"
               min="0"
@@ -91,7 +96,7 @@ const VACIA: TablaDePuntos = {
               [ngModel]="tabla()[fila.clave]"
               (ngModelChange)="escribir(fila.clave, $event)"
             />
-          </label>
+          </mat-form-field>
         }
       </div>
 

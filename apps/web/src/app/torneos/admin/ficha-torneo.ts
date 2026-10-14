@@ -183,15 +183,15 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
           <h2 class="rotulo-seccion">Datos del torneo</h2>
 
           <div class="mt-3 grid gap-3 sm:grid-cols-2">
-            <label class="block sm:col-span-2">
-              <span class="text-sm font-medium">Nombre</span>
+            <mat-form-field class="sm:col-span-2">
+              <mat-label>Nombre</mat-label>
               <input
-                class="campo mt-1"
+                matInput
                 name="nombre"
                 maxlength="120"
                 [(ngModel)]="datos().nombre"
               />
-            </label>
+            </mat-form-field>
 
             <mat-form-field>
               <mat-label>Empieza</mat-label>
@@ -238,10 +238,10 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
               <mat-datepicker #calendarioCierreInscripcion />
             </mat-form-field>
 
-            <label class="block">
-              <span class="text-sm font-medium">Superficie</span>
+            <mat-form-field>
+              <mat-label>Superficie</mat-label>
               <select
-                class="campo mt-1"
+                matNativeControl
                 name="superficie"
                 [(ngModel)]="datos().superficie"
               >
@@ -250,7 +250,7 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
                   <option [value]="superficie[0]">{{ superficie[1] }}</option>
                 }
               </select>
-            </label>
+            </mat-form-field>
           </div>
 
           <button

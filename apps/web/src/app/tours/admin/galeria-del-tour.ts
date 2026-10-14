@@ -10,7 +10,10 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
@@ -25,7 +28,8 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-galeria-del-tour',
-  imports: [MatButton, FormsModule, Aviso],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  providers: [proveerCampos()],
   template: `
     <form
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -38,27 +42,28 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
         que traen adentro, entre ellos el lugar donde se sacaron.
       </p>
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <!-- Material no tiene campo de archivo, y matInput no admite type="file" (T247). -->
         <label class="block">
           <span class="text-sm font-medium">Archivo</span>
           <input
+            class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
             #entradaArchivo
-            class="campo mt-1"
             type="file"
             accept="image/jpeg,image/png"
             [disabled]="enCurso() !== null"
             (change)="elegir($event)"
           />
         </label>
-        <label class="block">
-          <span class="text-sm font-medium">Pie de foto (opcional)</span>
+        <mat-form-field>
+          <mat-label>Pie de foto (opcional)</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="pie"
             maxlength="200"
             placeholder="La premiación de 2027"
             [(ngModel)]="pie"
           />
-        </label>
+        </mat-form-field>
       </div>
       <button
         matButton="outlined"
@@ -89,19 +94,19 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
               [alt]="foto.descripcion ?? 'Foto de ' + tour().nombre"
               loading="lazy"
             />
-            <label class="mt-2 block">
-              <!-- La posición, para el lector de pantalla: el mismo «Pie de foto» repetido
+            <!-- La posición, para el lector de pantalla: el mismo «Pie de foto» repetido
                    en cada fila no dice de cuál es. -->
-              <span class="text-xs font-medium">
+            <mat-form-field>
+              <mat-label>
                 Pie de foto <span class="sr-only">(foto {{ i + 1 }} de {{ total }})</span>
-              </span>
+              </mat-label>
               <input
-                class="campo mt-1"
+                matInput
                 maxlength="200"
                 [ngModel]="pies()[foto.id] ?? ''"
                 (ngModelChange)="escribirPie(foto.id, $event)"
               />
-            </label>
+            </mat-form-field>
 
             @if (porBorrar() === foto.id) {
               <!-- La confirmación en la foto, como en las fotos de la tienda. -->

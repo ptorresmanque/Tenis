@@ -223,9 +223,9 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                     class="grid basis-full gap-3 sm:grid-cols-2"
                     (ngSubmit)="hacerProfesor(usuario)"
                   >
-                    <label class="block sm:col-span-2">
-                      <span class="text-sm font-medium">Ficha de profesor</span>
-                      <select class="campo mt-1" name="ficha" [(ngModel)]="ficha">
+                    <mat-form-field class="sm:col-span-2">
+                      <mat-label>Ficha de profesor</mat-label>
+                      <select matNativeControl name="ficha" [(ngModel)]="ficha">
                         <option value="" disabled>Elige una ficha</option>
                         @for (sinCuenta of fichasSinCuenta(); track sinCuenta.id) {
                           <option [value]="sinCuenta.id">
@@ -234,7 +234,7 @@ import { UsuarioDeLaLista, Usuarios } from './usuarios.service';
                         }
                         <option value="nueva">Crear una ficha nueva</option>
                       </select>
-                    </label>
+                    </mat-form-field>
                     @if (ficha === 'nueva') {
                       <mat-form-field>
                         <mat-label>Nombre con que se anuncia</mat-label>

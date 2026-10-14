@@ -103,39 +103,41 @@ const enBlanco = () => ({
       }
 
       <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="anunciar()">
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Enlace del video de YouTube</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Enlace del video de YouTube</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="enlace"
             placeholder="https://youtu.be/…"
             [(ngModel)]="datos.enlace"
           />
-          <span class="text-sm text-muted-foreground">
-            Sirve cualquiera de sus formas. Del enlace solo se guarda el identificador
-            del video.
-          </span>
-        </label>
+          <mat-hint>
+            Sirve cualquiera de sus formas. Del enlace solo se guarda el identificador del video.
+          </mat-hint>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Cancha</span>
-          <select class="campo mt-1" name="cancha" [(ngModel)]="datos.canchaId">
-            <option [value]="0" disabled>Elige una</option>
-            <!-- **Solo las que tienen cámara.** El servidor rechaza las otras; acá ni
-                 se ofrecen, para que el club no descubra el problema después de
-                 anunciar el partido. -->
-            @for (cancha of conCamara(); track cancha.id) {
-              <option [value]="cancha.id">{{ cancha.nombre }}</option>
-            }
-          </select>
+        <div>
+          <mat-form-field class="w-full">
+            <mat-label>Cancha</mat-label>
+            <select matNativeControl name="cancha" [(ngModel)]="datos.canchaId">
+              <option [value]="0" disabled>Elige una</option>
+              <!-- **Solo las que tienen cámara.** El servidor rechaza las otras; acá ni
+                   se ofrecen, para que el club no descubra el problema después de
+                   anunciar el partido. -->
+              @for (cancha of conCamara(); track cancha.id) {
+                <option [value]="cancha.id">{{ cancha.nombre }}</option>
+              }
+            </select>
+          </mat-form-field>
+          <!-- Debajo del campo y no en su mat-hint: el color del error lo pisaría Material. -->
           @if (canchas.error()) {
-            <span class="text-sm text-destructive">No se pudieron cargar las canchas.</span>
+            <p class="text-sm text-destructive">No se pudieron cargar las canchas.</p>
           } @else if (conCamara().length === 0 && !canchas.isLoading()) {
-            <span class="text-sm text-muted-foreground">
+            <p class="text-sm text-muted-foreground">
               Ninguna cancha está marcada con cámara. Márcala en Canchas.
-            </span>
+            </p>
           }
-        </label>
+        </div>
 
         <mat-form-field>
           <mat-label>Día</mat-label>
@@ -182,16 +184,16 @@ const enBlanco = () => ({
           <mat-timepicker #relojHasta />
         </mat-form-field>
 
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Título (opcional)</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Título (opcional)</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="titulo"
             maxlength="120"
             placeholder="Cancha 1 — sábado"
             [(ngModel)]="datos.titulo"
           />
-        </label>
+        </mat-form-field>
 
         <button
           matButton="outlined"

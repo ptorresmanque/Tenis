@@ -236,10 +236,10 @@ const horarioEnBlanco = () => ({
         <!-- Dos columnas y no cuatro: con el botón del calendario, una fecha entera no
              cabía en un cuarto del modal (T126). -->
         <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="programar()">
-          <label class="block">
-            <span class="text-sm font-medium">Cancha</span>
+          <mat-form-field>
+            <mat-label>Cancha</mat-label>
             <select
-              class="campo mt-1"
+              matNativeControl
               name="cancha"
               [(ngModel)]="horario.canchaId"
             >
@@ -251,7 +251,7 @@ const horarioEnBlanco = () => ({
                 <option [value]="cancha.id">{{ cancha.nombre }}</option>
               }
             </select>
-          </label>
+          </mat-form-field>
 
           <mat-form-field>
             <mat-label>Día</mat-label>
@@ -369,16 +369,16 @@ const horarioEnBlanco = () => ({
           </label>
         </fieldset>
 
-        <label class="mt-2 block">
-          <span class="text-sm font-medium">Marcador</span>
+        <mat-form-field class="chico">
+          <mat-label>Marcador</mat-label>
           <input
-            class="campo campo-chico mt-1"
+            matInput
             name="marcador"
             placeholder="6-4 3-6 7-5"
             [value]="marcador()"
             (input)="marcador.set($any($event.target).value)"
           />
-        </label>
+        </mat-form-field>
 
         <label class="mt-2 flex items-center gap-2">
           <input

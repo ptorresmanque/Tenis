@@ -70,9 +70,10 @@ const DIAS = [
           @for (franja of franjas(); track $index) {
             <li class="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-2">
               <mat-form-field>
-                <mat-label>Día de la franja {{ $index + 1 }}</mat-label>
+                <!-- Sin etiqueta a la vista, como antes: el lector oye el número de la franja. -->
                 <select
                   matNativeControl
+                  [attr.aria-label]="'Día de la franja ' + ($index + 1)"
                   [name]="'dia' + $index"
                   [ngModel]="franja.diaSemana"
                   (ngModelChange)="cambiar($index, { diaSemana: +$event })"

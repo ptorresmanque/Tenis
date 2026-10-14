@@ -1,7 +1,10 @@
 import { Component, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Foto, Momento, Torneos } from '../torneos.service';
@@ -30,7 +33,8 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
  */
 @Component({
   selector: 'app-fotos-del-torneo',
-  imports: [MatButton, FormsModule, Aviso, Esqueleto],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, Esqueleto],
+  providers: [proveerCampos()],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -79,30 +83,31 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
       }
 
       <form class="mt-3 grid gap-3 sm:grid-cols-3" (ngSubmit)="subir()">
-        <label class="block">
-          <span class="text-sm font-medium">Momento</span>
-          <select class="campo mt-1" name="momento" [(ngModel)]="datos.momento">
+        <mat-form-field>
+          <mat-label>Momento</mat-label>
+          <select matNativeControl name="momento" [(ngModel)]="datos.momento">
             @for (tramo of tramos; track tramo.valor) {
               <option [value]="tramo.valor">{{ tramo.etiqueta }}</option>
             }
           </select>
-        </label>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Pie de foto (opcional)</span>
+        <mat-form-field>
+          <mat-label>Pie de foto (opcional)</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="descripcion"
             maxlength="200"
             placeholder="La entrega de premios"
             [(ngModel)]="datos.descripcion"
           />
-        </label>
+        </mat-form-field>
 
+        <!-- Material no tiene campo de archivo, y matInput no admite type="file" (T247). -->
         <label class="block">
           <span class="text-sm font-medium">Archivo</span>
           <input
-            class="campo mt-1"
+            class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
             type="file"
             name="archivo"
             accept="image/jpeg,image/png"

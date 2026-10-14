@@ -2,7 +2,10 @@ import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -19,7 +22,17 @@ import { Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-tours',
-  imports: [MatButton, FormsModule, RouterLink, Aviso, Esqueleto, EstadoVacio],
+  imports: [
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    RouterLink,
+    Aviso,
+    Esqueleto,
+    EstadoVacio,
+  ],
+  providers: [proveerCampos()],
   template: `
     <!-- La cabecera del panel (TV7.1). Su acción abre el formulario de crear, como en
          Torneos: secundaria, porque la principal es la del formulario. -->
@@ -47,16 +60,16 @@ import { Tours } from '../tours.service';
                shadow-sm"
         (ngSubmit)="crear()"
       >
-        <label class="block min-w-0 flex-1">
-          <span class="text-sm font-medium">Nombre</span>
+        <mat-form-field class="min-w-0 flex-1">
+          <mat-label>Nombre</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="nombre"
             maxlength="80"
             placeholder="Tour FEDAL"
             [(ngModel)]="nombre"
           />
-        </label>
+        </mat-form-field>
         <button
           matButton="filled"
           type="submit"

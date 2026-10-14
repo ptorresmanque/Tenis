@@ -1,6 +1,9 @@
 import { Component, computed, inject, model, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { Tours } from '../../tours/tours.service';
 
 /** Lo elegido: un tour y uno de sus niveles. Nulos mientras no se elija. */
@@ -23,7 +26,8 @@ export interface NivelElegido {
  */
 @Component({
   selector: 'app-elegir-nivel',
-  imports: [RouterLink],
+  imports: [MatFormFieldModule, MatInput, RouterLink],
+  providers: [proveerCampos()],
   template: `
     @if (tours.error()) {
       <p class="text-sm text-destructive">
@@ -39,9 +43,9 @@ export interface NivelElegido {
       </p>
     } @else {
       <div class="grid gap-3 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-sm font-medium">Tour</span>
-          <select class="campo mt-1" name="tourId" (change)="elegirTour($event)">
+        <mat-form-field>
+          <mat-label>Tour</mat-label>
+          <select matNativeControl name="tourId" (change)="elegirTour($event)">
             <option value="" disabled [selected]="eleccion().tourId === null">Elige un tour</option>
             @for (tour of tours.value(); track tour.id) {
               <option [value]="tour.id" [selected]="tour.id === eleccion().tourId">
@@ -49,12 +53,12 @@ export interface NivelElegido {
               </option>
             }
           </select>
-        </label>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Nivel</span>
+        <mat-form-field>
+          <mat-label>Nivel</mat-label>
           <select
-            class="campo mt-1"
+            matNativeControl
             name="nivelId"
             [disabled]="niveles().length === 0"
             (change)="elegirNivel($event)"
@@ -68,7 +72,7 @@ export interface NivelElegido {
               </option>
             }
           </select>
-        </label>
+        </mat-form-field>
 
         @if (ficha.error()) {
           <p class="text-sm text-destructive sm:col-span-2">
