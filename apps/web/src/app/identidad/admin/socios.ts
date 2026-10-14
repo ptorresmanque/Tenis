@@ -296,8 +296,8 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
           </table>
         </div>
 
-        <!-- Fuera de la tabla: un <dialog> dentro de un <td> hereda su ancho y sus
-             reglas de layout, y el navegador lo dibuja donde no corresponde. -->
+        <!-- La ficha es un MatDialog (T252): se dibuja sobre la página, y acá solo vive
+             mientras está abierta. -->
         @if (editando(); as socio) {
           <app-ficha-socio
             [socio]="socio"

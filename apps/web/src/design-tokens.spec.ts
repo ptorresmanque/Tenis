@@ -1537,20 +1537,6 @@ describe('Los campos son de Material (T244)', () => {
     expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{\s*min-width: 0;/);
   });
 
-  it('**un calendario dentro de un `<dialog>` modal tiene su panel adentro** (T248)', () => {
-    // Fuera del diálogo modal, el panel se ve pero no recibe clics ni foco. Se va con T252.
-    const infractores = plantillas()
-      .filter(
-        ({ contenido }) =>
-          contenido.includes('showModal') &&
-          contenido.includes('matDatepicker') &&
-          !contenido.includes('overlaysEnElDialogo()'),
-      )
-      .map(({ archivo }) => archivo);
-
-    expect(infractores).toEqual([]);
-  });
-
   it('**la manilla del interruptor se ve**: no usa el borde claro del sitio (T249)', () => {
     // `outline` es el borde de los campos, casi blanco; Material pinta con él la manilla y la
     // pista del interruptor apagado, y sobre la pista gris no se veían.

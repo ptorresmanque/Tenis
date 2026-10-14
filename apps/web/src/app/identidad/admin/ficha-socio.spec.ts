@@ -73,23 +73,14 @@ describe('FichaSocio', () => {
       ],
     });
 
-    // El componente abre un `<dialog>` con showModal(), que jsdom no implementa.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
-      this.open = false;
-    });
-
     fixture = TestBed.createComponent(FichaSocio);
     fixture.componentRef.setInput('socio', SOCIA);
     await fixture.whenStable();
     fixture.detectChanges();
   };
 
-  const elemento = () => fixture.nativeElement as HTMLElement;
+  /** La ficha es un MatDialog (T252): su contenido está en el contenedor de overlays. */
+  const elemento = () => document.querySelector('mat-dialog-container') as HTMLElement;
   const escribir = (nombre: string, valor: string) => {
     const campo = elemento().querySelector<HTMLInputElement>(`[name="${nombre}"]`)!;
     campo.value = valor;
@@ -114,14 +105,29 @@ describe('FichaSocio', () => {
     expect(texto).toContain('Cancha 1');
   });
 
-  it('**el calendario se abre dentro del diálogo**: lo de afuera de un diálogo modal no recibe clics', async () => {
+  it('es un diálogo de Material, con el nombre del socio de título', () => {
+    expect(elemento()).not.toBeNull();
+    expect(elemento().querySelector('[mat-dialog-title]')?.textContent).toContain('Carolina');
+  });
+
+  it('el calendario de la cuota se abre desde la ficha', async () => {
     elemento()
       .querySelector<HTMLButtonElement>('mat-datepicker-toggle button')!
       .click();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(elemento().querySelector('dialog mat-calendar')).not.toBeNull();
+    expect(document.querySelector('mat-calendar')).not.toBeNull();
+  });
+
+  it('cerrar la ficha avisa al panel', async () => {
+    let cerrada = false;
+    fixture.componentInstance.cerrado.subscribe(() => (cerrada = true));
+
+    [...elemento().querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cancelar')!.click();
+    await fixture.whenStable();
+
+    expect(cerrada).toBe(true);
   });
 
   it('llega con los datos del socio puestos', () => {

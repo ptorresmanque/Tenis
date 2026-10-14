@@ -1,3 +1,4 @@
+import { DebugElement, getDebugNode } from '@angular/core';
 import { ComponentFixture } from '@angular/core/testing';
 import { MatSelect } from '@angular/material/select';
 import { By } from '@angular/platform-browser';
@@ -11,7 +12,10 @@ import { By } from '@angular/platform-browser';
  * `ngModel` al día.
  */
 function select(fixture: ComponentFixture<unknown>, selector: string): MatSelect {
-  const elemento = fixture.debugElement.query(By.css(selector));
+  // Una lista dentro de un MatDialog no cuelga del componente, sino de la aplicación (T252).
+  const elemento =
+    fixture.debugElement.query(By.css(selector)) ??
+    (getDebugNode(document.querySelector(selector)) as DebugElement | null);
   if (!elemento) throw new Error(`No hay un mat-select ${selector}`);
   return elemento.injector.get(MatSelect);
 }
@@ -63,7 +67,9 @@ export function elegidoEn(
   fixture: ComponentFixture<unknown>,
   selector: string,
 ): string | undefined {
-  if (!fixture.debugElement.query(By.css(selector))) return undefined;
+  if (!fixture.debugElement.query(By.css(selector)) && !document.querySelector(selector)) {
+    return undefined;
+  }
   const valor = select(fixture, selector).value as unknown;
   return valor === null || valor === undefined ? '' : String(valor);
 }

@@ -139,18 +139,6 @@ describe('CuadroDelTorneo', () => {
       ],
     });
 
-    // El componente abre un `<dialog>` con showModal(), que jsdom no implementa.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = false;
-    });
-
     fixture = TestBed.createComponent(CuadroDelTorneo);
     fixture.componentRef.setInput('cuadroId', 5);
     await fixture.whenStable();
@@ -158,10 +146,16 @@ describe('CuadroDelTorneo', () => {
   };
 
   const elemento = () => fixture.nativeElement as HTMLElement;
-  const texto = () => elemento().textContent ?? '';
+  /**
+   * Programar y cargar el resultado son MatDialog (T252): se dibujan en el contenedor de
+   * overlays. `zona()` es el diálogo abierto, o la pantalla si no hay ninguno.
+   */
+  const dialogo = () => document.querySelector<HTMLElement>('mat-dialog-container');
+  const zona = () => dialogo() ?? elemento();
+  const texto = () => (elemento().textContent ?? '') + (dialogo()?.textContent ?? '');
 
   const apretar = async (etiqueta: string) => {
-    Array.from(elemento().querySelectorAll('button'))
+    [...elemento().querySelectorAll('button'), ...(dialogo()?.querySelectorAll('button') ?? [])]
       .find((b) => b.textContent?.trim().startsWith(etiqueta))
       ?.click();
     await fixture.whenStable();
@@ -260,18 +254,15 @@ describe('CuadroDelTorneo', () => {
     // comportarse distinto.
     await apretar('Cargar resultado');
 
-    const abierto = elemento().querySelector('dialog[open]');
-    expect(abierto?.textContent).toContain('Quién ganó');
+    expect(dialogo()?.textContent).toContain('Quién ganó');
   });
 
   it('cargar un resultado manda el ganador y el marcador', async () => {
     await apretar('Cargar resultado');
 
-    const radios = elemento().querySelectorAll('input[type="radio"]');
+    const radios = zona().querySelectorAll('input[type="radio"]');
     (radios[1] as HTMLInputElement).click();
-    const marcador = elemento().querySelector(
-      'input[name="marcador"]',
-    ) as HTMLInputElement;
+    const marcador = zona().querySelector('input[name="marcador"]') as HTMLInputElement;
     marcador.value = '6-4 6-3';
     marcador.dispatchEvent(new Event('input'));
     await fixture.whenStable();
@@ -347,7 +338,7 @@ describe('CuadroDelTorneo', () => {
    */
   describe('programar el partido (T67)', () => {
     const escribir = async (name: string, valor: string) => {
-      const campo = elemento().querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+      const campo = zona().querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
       campo.value = valor;
       campo.dispatchEvent(new Event('input'));
       campo.dispatchEvent(new Event('change'));
@@ -362,7 +353,7 @@ describe('CuadroDelTorneo', () => {
       await escribir('desde', '19:00');
       await escribir('hasta', '20:30');
 
-      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
+      zona().querySelector('form')!.dispatchEvent(new Event('submit'));
       await fixture.whenStable();
       fixture.detectChanges();
     };
@@ -372,7 +363,7 @@ describe('CuadroDelTorneo', () => {
 
       await apretar('Programar');
 
-      expect(elemento().querySelector('dialog[open]')).not.toBeNull();
+      expect(dialogo()).not.toBeNull();
     });
 
     it('**el formulario va en un modal**, no en un bloque más bajo el cuadro', async () => {
@@ -381,19 +372,17 @@ describe('CuadroDelTorneo', () => {
       // debajo del cuadro había que buscarlo con la vista después de cada clic.
       await apretar('Programar');
 
-      expect(elemento().querySelector('dialog[open]')).not.toBeNull();
+      expect(dialogo()).not.toBeNull();
     });
 
-    it('**el calendario del día se abre dentro del modal**: lo de afuera no recibe clics (T248)', async () => {
+    it('el calendario del día se abre desde el modal', async () => {
       await apretar('Programar');
 
-      elemento()
-        .querySelector<HTMLButtonElement>('dialog[open] mat-datepicker-toggle button')!
-        .click();
+      dialogo()!.querySelector<HTMLButtonElement>('mat-datepicker-toggle button')!.click();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(elemento().querySelector('dialog[open] mat-calendar')).not.toBeNull();
+      expect(document.querySelector('mat-calendar')).not.toBeNull();
     });
 
     it('manda cancha, día y horas', async () => {
@@ -426,7 +415,7 @@ describe('CuadroDelTorneo', () => {
       await elegirOpcion(fixture, 'mat-select[name="cancha"]', '1');
       await fixture.whenStable();
 
-      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
+      zona().querySelector('form')!.dispatchEvent(new Event('submit'));
       await fixture.whenStable();
       fixture.detectChanges();
 
