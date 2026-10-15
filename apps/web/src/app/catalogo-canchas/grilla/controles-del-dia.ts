@@ -55,15 +55,15 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
   providers: [proveerCampos(), proveerFechaYHora()],
   host: { class: 'contents' },
   template: `
-    <div class="mt-4 flex flex-wrap items-end gap-4">
+    <!-- Dos renglones al ancho del tablero (D1, T267): arriba el día, abajo qué se busca.
+         En pantallas anchas, una columna sola dejaba media pantalla en blanco al lado de
+         cada grupo; en el teléfono se apilan como antes. -->
+    <div class="mt-4 flex flex-wrap items-end justify-between gap-4 md:flex-nowrap">
       <!-- La semana a un toque. El calendario sigue estando al lado para ir más
            lejos: siete chips cubren lo que la gente reserva de verdad, y el resto
-           no justifica un calendario propio pudiendo usar el del sistema.
-
-           A ancho completo: compartiendo fila con el campo de fecha, los siete
-           chips no llegaban a encogerse. -->
-      <!-- La tira se desplaza de lado acá, no en el grupo: a 375 px no caben los siete días. -->
-      <div class="min-w-0 max-w-full overflow-x-auto w-full">
+           no justifica un calendario propio pudiendo usar el del sistema. La tira se
+           desplaza de lado acá, no en el grupo: a 375 px no caben los siete días. -->
+      <div class="w-full min-w-0 max-w-full overflow-x-auto md:w-auto">
         <mat-button-toggle-group
           class="chips"
           aria-label="Día"
@@ -84,7 +84,7 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
 
       <!-- El cursor y el borde que responde (abre-al-tocar): sin eso, el campo se lee como
            una etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
-      <mat-form-field class="w-48 abre-al-tocar">
+      <mat-form-field class="w-48 shrink-0 abre-al-tocar">
         <mat-label>Otro día</mat-label>
         <input
           matInput
@@ -102,38 +102,55 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
 
     <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
 
-    <!-- También al mover (T87): parte en la de la reserva, que trae el enlace de "mis
-         reservas", y cambiarla es alargarla o acortarla. -->
-    <mat-button-toggle-group
-      class="mt-4"
-      aria-label="Duración"
-      hideSingleSelectionIndicator
-      [value]="'' + duracion()"
-      (change)="cambiarDuracion.emit($event.value)"
-    >
-      @for (opcion of DURACIONES; track opcion.valor) {
-        <mat-button-toggle [value]="opcion.valor">
-          {{ opcion.etiqueta }}
-        </mat-button-toggle>
-      }
-    </mat-button-toggle-group>
+    <!-- El rótulo a la vista dice qué es cada grupo; el lector lo oye del aria-label. -->
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          class="font-display text-xs font-bold tracking-wide text-muted-foreground uppercase"
+          aria-hidden="true"
+        >
+          Duración
+        </span>
+        <!-- También al mover (T87): parte en la de la reserva, que trae el enlace de "mis
+             reservas", y cambiarla es alargarla o acortarla. -->
+        <mat-button-toggle-group
+          aria-label="Duración"
+          hideSingleSelectionIndicator
+          [value]="'' + duracion()"
+          (change)="cambiarDuracion.emit($event.value)"
+        >
+          @for (opcion of DURACIONES; track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              {{ opcion.etiqueta }}
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </div>
 
-    <!-- Los filtros salen de lo que la cancha ya declara —techada e
-         iluminación—, así que filtran en el navegador sobre lo que ya llegó:
-         una consulta más al servidor no traería nada nuevo. -->
-    <mat-button-toggle-group
-      class="mt-4"
-      aria-label="Filtrar canchas"
-      hideSingleSelectionIndicator
-      [value]="filtro()"
-      (change)="filtro.set($event.value)"
-    >
-      @for (opcion of FILTROS; track opcion.valor) {
-        <mat-button-toggle [value]="opcion.valor">
-          {{ opcion.etiqueta }}
-        </mat-button-toggle>
-      }
-    </mat-button-toggle-group>
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          class="font-display text-xs font-bold tracking-wide text-muted-foreground uppercase"
+          aria-hidden="true"
+        >
+          Canchas
+        </span>
+        <!-- Los filtros salen de lo que la cancha ya declara —techada e
+             iluminación—, así que filtran en el navegador sobre lo que ya llegó:
+             una consulta más al servidor no traería nada nuevo. -->
+        <mat-button-toggle-group
+          aria-label="Filtrar canchas"
+          hideSingleSelectionIndicator
+          [value]="filtro()"
+          (change)="filtro.set($event.value)"
+        >
+          @for (opcion of FILTROS; track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              {{ opcion.etiqueta }}
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </div>
+    </div>
   `,
 })
 export class ControlesDelDia {
