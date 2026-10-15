@@ -11,6 +11,7 @@ import { map } from 'rxjs';
 
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel, puedeVer } from '../core/auth/tipos-del-panel';
+import { tiposDelUsuario } from '../core/auth/tipos-del-usuario';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
 
@@ -25,6 +26,135 @@ import { Logotipo } from './logotipo';
  * módulos que todavía no existen: un ítem deshabilitado que nunca se habilita es
  * ruido permanente en la barra que el club mira todo el día.
  */
+/**
+ * Los ítems de MASTER.md que ya tienen pantalla, en el orden de esa tabla. Exportados desde
+ * T277: la etiqueta es también el título de la pantalla, y una prueba lo cuida.
+ */
+export const SECCIONES_DEL_PANEL = [
+  {
+    ruta: '/administracion/reservas',
+    etiqueta: 'Agenda del día',
+    icono: 'calendar_today',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/canchas',
+    etiqueta: 'Canchas',
+    icono: 'sports_tennis',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/socios',
+    etiqueta: 'Socios',
+    icono: 'group',
+    trasDivisoria: false,
+  },
+  {
+    // T223. Junto a Socios: es donde se da cada tipo, también el de socio.
+    ruta: '/administracion/usuarios',
+    etiqueta: 'Usuarios',
+    icono: 'manage_accounts',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/ingreso',
+    etiqueta: 'Ingreso del club',
+    icono: 'payments',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/ocupacion',
+    etiqueta: 'Ocupación de cancha',
+    icono: 'donut_large',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/no-uso',
+    etiqueta: 'Horas no usadas',
+    icono: 'timer_off',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/padron',
+    etiqueta: 'Padrón y morosidad',
+    icono: 'group',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/reportes',
+    etiqueta: 'Horas reportadas',
+    icono: 'flag',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/cuotas',
+    etiqueta: 'Cuotas',
+    icono: 'payments',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/morosos',
+    etiqueta: 'Socios con deuda',
+    icono: 'money_off',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/clases',
+    etiqueta: 'Clases',
+    icono: 'event_note',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/profesores',
+    etiqueta: 'Profesores',
+    icono: 'school',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/torneos',
+    etiqueta: 'Torneos',
+    icono: 'emoji_events',
+    trasDivisoria: false,
+  },
+  {
+    // T191. Junto a Torneos: son las ligas a las que suman.
+    ruta: '/administracion/tours',
+    etiqueta: 'Tours',
+    icono: 'military_tech',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/jugadores',
+    etiqueta: 'Jugadores',
+    icono: 'groups',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/partidos-internos',
+    etiqueta: 'Partidos entre socios',
+    icono: 'handshake',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/solicitudes',
+    etiqueta: 'Consultas al club',
+    icono: 'drafts',
+    trasDivisoria: false,
+  },
+  {
+    ruta: '/administracion/configuracion',
+    etiqueta: 'Configuración',
+    icono: 'settings',
+    trasDivisoria: true,
+  },
+  {
+    ruta: '/estado',
+    etiqueta: 'Estado del sistema',
+    icono: 'monitor_heart',
+    trasDivisoria: false,
+  },
+];
+
 @Component({
   selector: 'app-cascaron-admin',
   imports: [
@@ -145,8 +275,9 @@ import { Logotipo } from './logotipo';
                   <span class="block truncate text-sm font-semibold">
                     {{ sesion.nombre }}
                   </span>
+                  <!-- Lo que es en el club, y no el correo, que ya sabe (T276). -->
                   <span class="block truncate text-xs text-muted-foreground">
-                    {{ sesion.email }}
+                    {{ tipos() }}
                   </span>
                 </span>
                 <mat-icon class="text-muted-foreground" aria-hidden="true">more_vert</mat-icon>
@@ -208,141 +339,21 @@ export class CascaronAdmin {
 
   protected readonly usuario = this.auth.usuario;
 
-  /** Los ítems de MASTER.md que ya tienen pantalla, en el orden de esa tabla. */
-  private readonly ITEMS = [
-    {
-      ruta: '/administracion/reservas',
-      etiqueta: 'Agenda del día',
-      icono: 'calendar_today',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/canchas',
-      etiqueta: 'Canchas',
-      icono: 'sports_tennis',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/socios',
-      etiqueta: 'Socios',
-      icono: 'group',
-      trasDivisoria: false,
-    },
-    {
-      // T223. Junto a Socios: es donde se da cada tipo, también el de socio.
-      ruta: '/administracion/usuarios',
-      etiqueta: 'Usuarios',
-      icono: 'manage_accounts',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/ingreso',
-      etiqueta: 'Ingreso del club',
-      icono: 'payments',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/ocupacion',
-      etiqueta: 'Ocupación de cancha',
-      icono: 'donut_large',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/no-uso',
-      etiqueta: 'Horas no usadas',
-      icono: 'timer_off',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/padron',
-      etiqueta: 'Padrón y morosidad',
-      icono: 'group',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/reportes',
-      etiqueta: 'Horas reportadas',
-      icono: 'flag',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/cuotas',
-      etiqueta: 'Cuotas',
-      icono: 'payments',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/morosos',
-      etiqueta: 'Socios con deuda',
-      icono: 'money_off',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/clases',
-      etiqueta: 'Clases',
-      icono: 'event_note',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/profesores',
-      etiqueta: 'Profesores',
-      icono: 'school',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/torneos',
-      etiqueta: 'Torneos',
-      icono: 'emoji_events',
-      trasDivisoria: false,
-    },
-    {
-      // T191. Junto a Torneos: son las ligas a las que suman.
-      ruta: '/administracion/tours',
-      etiqueta: 'Tours',
-      icono: 'military_tech',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/jugadores',
-      etiqueta: 'Jugadores',
-      icono: 'groups',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/partidos-internos',
-      etiqueta: 'Partidos entre socios',
-      icono: 'handshake',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/solicitudes',
-      etiqueta: 'Consultas al club',
-      icono: 'drafts',
-      trasDivisoria: false,
-    },
-    {
-      ruta: '/administracion/configuracion',
-      etiqueta: 'Configuración',
-      icono: 'settings',
-      trasDivisoria: true,
-    },
-    {
-      ruta: '/estado',
-      etiqueta: 'Estado del sistema',
-      icono: 'monitor_heart',
-      trasDivisoria: false,
-    },
-  ];
-
   /** Los que este usuario puede ver (T220): el gestor, la agenda; el profesor, Clases. */
   protected readonly items = computed(() =>
-    this.ITEMS.filter((item) => puedeVer(item.ruta, this.usuario())),
+    SECCIONES_DEL_PANEL.filter((item) => puedeVer(item.ruta, this.usuario())),
   );
 
   /** Adónde lleva el logotipo: la portada del panel de cada uno. */
   protected readonly inicio = computed(
     () => inicioDelPanel(this.usuario()) ?? '/',
   );
+
+  /** «Administrador · Socio», o «Invitado» (T276). */
+  protected readonly tipos = computed(() => {
+    const usuario = this.usuario();
+    return usuario ? tiposDelUsuario(usuario).join(' · ') : '';
+  });
 
   protected readonly iniciales = computed(() =>
     (this.usuario()?.nombre ?? '')

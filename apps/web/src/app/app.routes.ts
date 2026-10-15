@@ -161,7 +161,7 @@ export const routes: Routes = [
     children: [
       {
         path: 'administracion/reservas',
-        title: 'Reservas del día — Administración',
+        title: 'Agenda del día — Administración',
         loadComponent: () =>
           import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
       },

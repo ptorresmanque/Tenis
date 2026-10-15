@@ -124,7 +124,7 @@ describe('AdminCanchasPanel', () => {
     // una: cada sección trae la suya, y "Agregar" vive con su formulario.
     const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
 
-    expect(cabecera?.querySelector('h1')?.textContent).toContain('Canchas del club');
+    expect(cabecera?.querySelector('h1')?.textContent).toContain('Canchas');
     expect(cabecera?.querySelectorAll('button, a').length).toBe(0);
   });
 

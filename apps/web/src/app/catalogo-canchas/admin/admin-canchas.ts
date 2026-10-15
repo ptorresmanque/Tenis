@@ -80,7 +80,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya. -->
     <header class="cabecera-panel">
-      <h1 class="titular text-4xl">Canchas del club</h1>
+      <h1 class="titular text-4xl">Canchas</h1>
     </header>
 
     @if (advertencias.hasValue() && advertencias.value().length > 0) {

@@ -81,7 +81,7 @@ const EN_BLANCO: Formulario = { email: '', numeroSocio: '', alDiaHasta: null };
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: dar de alta es su sección. -->
     <header class="cabecera-panel">
-      <h1 class="titular text-4xl">Socios del club</h1>
+      <h1 class="titular text-4xl">Socios</h1>
     </header>
 
     <section class="mt-6" aria-labelledby="titulo-alta">

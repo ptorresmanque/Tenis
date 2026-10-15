@@ -149,14 +149,15 @@ describe('Cascarón de administración', () => {
     expect(iconos.every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true);
   });
 
-  it('el pie identifica a quien tiene la sesión abierta', () => {
-    const elemento = montar().nativeElement as HTMLElement;
+  it('el pie dice quién tiene la sesión abierta y qué es en el club (T276)', () => {
+    const elemento = montar({ ...ADMIN, socioId: 4 }).nativeElement as HTMLElement;
     const pie = elemento.querySelector<HTMLButtonElement>(
       'mat-sidenav button[aria-label="Opciones de Rodrigo Torres"]',
     );
 
     expect(pie).not.toBeNull();
-    expect(pie!.textContent).toContain('admin@clubdetenis.cl');
+    expect(pie!.textContent).toContain('Rodrigo Torres');
+    expect(pie!.textContent?.replace(/\s+/g, ' ')).toContain('Administrador · Socio');
   });
 
   it('el menú del pie ofrece salir y volver al sitio', () => {
