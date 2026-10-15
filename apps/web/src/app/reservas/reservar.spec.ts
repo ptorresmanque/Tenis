@@ -5,6 +5,7 @@ import { TestKey } from '@angular/cdk/testing';
 import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatChipGridHarness } from '@angular/material/chips/testing';
+import { MatFormFieldHarness } from '@angular/material/form-field/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth } from '../core/auth/auth';
@@ -202,6 +203,19 @@ describe('Reservar', () => {
         'Bruno Salas · N.º 012 · Socio del club',
         'Juan Pérez · Invitado anterior',
       ]);
+    });
+
+    it('el campo dice para quién es: un socio o un invitado (T107, T280)', async () => {
+      const fixture = await montarSocio();
+      const etiquetas = await Promise.all(
+        (
+          await TestbedHarnessEnvironment.documentRootLoader(fixture).getAllHarnesses(
+            MatFormFieldHarness,
+          )
+        ).map((campo) => campo.getLabel()),
+      );
+
+      expect(etiquetas).toContain('Nombre de un socio o de un invitado');
     });
 
     it('**las sugerencias se filtran por lo escrito, sin mirar tildes ni mayúsculas** (T280)', async () => {
@@ -413,6 +427,22 @@ describe('Reservar', () => {
         email: 'patricio@ejemplo.cl',
         telefono: '+56 9 1111 2222',
       });
+
+    it('el campo dice que es para quien juega con él, no para su propio nombre (T280)', async () => {
+      // Su formulario ya tiene «Nombre»: «Nombre y apellido» a secas no decía de quién.
+      conDatos();
+      const fixture = montar();
+      await fixture.whenStable();
+
+      const etiquetas = await Promise.all(
+        (
+          await TestbedHarnessEnvironment.documentRootLoader(fixture).getAllHarnesses(
+            MatFormFieldHarness,
+          )
+        ).map((campo) => campo.getLabel()),
+      );
+      expect(etiquetas).toContain('Nombre de quien juega contigo');
+    });
 
     it('escribe los nombres sin sugerencias, y no se le piden socios ni invitados anteriores', async () => {
       conDatos();

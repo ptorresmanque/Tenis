@@ -86,7 +86,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                   </mat-chip-set>
                 }
               </div>
-  
+
               <!-- Dos redacciones y no una con el nombre metido dos veces: el caso
                    normal es que quien lo carga diga que ganó él, y ahí "lo cargó
                    Carolina diciendo que ganó Carolina" se lee como un error. -->
@@ -102,7 +102,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                   por {{ partido.marcador }}
                 }
               </p>
-  
+
               <div class="mt-3 flex flex-wrap gap-2">
                 <button
                   matButton="filled"

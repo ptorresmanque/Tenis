@@ -113,7 +113,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
                     {{ nombreTipo(solicitud.tipo) }}
                   </mat-chip>
                 </mat-chip-set>
-  
+
                 @if (solicitud.estado === 'ATENDIDA') {
                   <mat-chip-set class="insignias">
                     <mat-chip class="insignia exito">
@@ -129,12 +129,12 @@ const TIPOS: Record<TipoSolicitud, string> = {
                     </mat-chip>
                   </mat-chip-set>
                 }
-  
+
                 <span class="ms-auto text-sm text-muted-foreground">
                   {{ cuando(solicitud.creadaEn) }}
                 </span>
               </div>
-  
+
               <h2 class="mt-2 titulo-tarjeta">
                 {{ solicitud.nombre }}
               </h2>
@@ -153,17 +153,17 @@ const TIPOS: Record<TipoSolicitud, string> = {
                   </a>
                 }
               </p>
-  
+
               @if (solicitud.mensaje) {
                 <p class="mt-2 text-sm">{{ solicitud.mensaje }}</p>
               }
-  
+
               @if (solicitud.nota) {
                 <p class="mt-2 rounded-lg bg-muted p-2 text-sm">
                   <span class="font-medium">Nota:</span> {{ solicitud.nota }}
                 </p>
               }
-  
+
               @if (solicitud.estado === 'NUEVA') {
                 <div class="mt-3 flex flex-wrap items-end gap-2">
                   <mat-form-field class="chico flex-1">
@@ -176,7 +176,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
                       [(ngModel)]="notas[solicitud.id]"
                     />
                   </mat-form-field>
-  
+
                   @if (solicitud.tipo === 'SOCIO' && !solicitud.invitacionId) {
                     <button
                       matButton="filled"
@@ -189,7 +189,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
                       Dar de alta como socio
                     </button>
                   }
-  
+
                   <button
                     matButton="outlined"
                     type="button"

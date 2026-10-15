@@ -76,7 +76,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                     </mat-chip>
                   </mat-chip-set>
                 </div>
-  
+
                 @if (reportada.socio; as socio) {
                   <p class="mt-1 text-sm">
                     Reservada por
@@ -96,7 +96,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                     sancionar.
                   </p>
                 }
-  
+
                 <div class="mt-3 flex flex-wrap gap-2">
                   @if (reportada.socio) {
                     <!-- La primitiva y no clases a mano (hallazgo de TV2.3): el contorno
@@ -113,7 +113,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                       <span class="sr-only">a {{ reportada.socio!.nombre }}</span>
                     </button>
                   }
-  
+
                   <button
                     matButton
                     type="button"

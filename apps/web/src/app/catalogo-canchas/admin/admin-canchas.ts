@@ -221,7 +221,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                       </mat-chip>
                     </mat-chip-set>
                   }
-  
+
                   <button
                     matButton="outlined"
                     type="button"
@@ -233,7 +233,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     Editar ficha
                     <span class="sr-only">de {{ cancha.nombre }}</span>
                   </button>
-  
+
                   <button
                     matButton="outlined"
                     type="button"
@@ -243,7 +243,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     {{ cancha.tieneCamara ? 'Quitar la cámara' : 'Marcar con cámara' }}
                     <span class="sr-only">de {{ cancha.nombre }}</span>
                   </button>
-  
+
                   <button
                     matButton="outlined"
                     type="button"
@@ -252,7 +252,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                   >
                     {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
                   </button>
-  
+
                   <!-- Para la cancha creada por error. La que el club dejó de usar se
                        desactiva; el servidor no deja borrar una con historial. -->
                   <button
@@ -264,7 +264,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     Eliminar
                   </button>
                 </div>
-  
+
                 @if (editando() === cancha.id) {
                   <!-- T96. Corregir la ficha sin borrar la cancha: borrarla se llevaría su
                        historial. Techada importa además por la tarifa de su tipo (T98). -->
@@ -285,7 +285,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                         [(ngModel)]="ficha.nombre"
                       />
                     </mat-form-field>
-  
+
                     <mat-form-field>
                       <mat-label>Superficie</mat-label>
                       <mat-select
@@ -298,7 +298,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                         }
                       </mat-select>
                     </mat-form-field>
-  
+
                     <mat-checkbox
                       class="block text-sm"
                       [id]="'ficha-techada-' + cancha.id"
@@ -307,7 +307,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     >
                       Techada
                     </mat-checkbox>
-  
+
                     <mat-checkbox
                       class="block text-sm"
                       name="iluminacion"
@@ -315,7 +315,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     >
                       Con iluminación
                     </mat-checkbox>
-  
+
                     <button
                       matButton="filled"
                       type="submit"
@@ -334,7 +334,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     >
                       Cancelar
                     </button>
-  
+
                     <!-- Junto al campo y no en el aviso de arriba: el nombre repetido es
                          lo que hay que corregir, y el aviso queda a una pantalla de acá. -->
                     <p
@@ -346,7 +346,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     </p>
                   </form>
                 }
-  
+
                 <p class="mt-1 text-sm text-muted-foreground">
                   {{ nombreSuperficie(cancha.superficie) }}
                   @if (cancha.techada) {
@@ -359,16 +359,16 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                     · Con cámara
                   }
                 </p>
-  
+
                 <!--
                   Los tres editores plegados, con details nativo.
-  
+
                   Con ocho canchas abiertas a la vez la pantalla medía 10.683px en
                   el teléfono y 7.292px en el escritorio: ocho pantallazos de
                   scroll para cambiar una tarifa, y 269 campos de formulario
                   cargados a la vez. Es una pantalla de configuración, y quien
                   entra viene a tocar **una** cancha.
-  
+
                   Un panel de Material (T281; antes, un details): trae el estado, el
                   teclado y el anuncio al lector de pantalla. Y con matExpansionPanelContent
                   los editores se crean recién al abrirlo: antes, cada cancha montaba los
@@ -389,10 +389,10 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                       </p>
                     }
                     <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
-  
+
                     <h4 class="mt-3 subtitulo">Tarifas propias</h4>
                     <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
-  
+
                     <h4 class="mt-3 subtitulo">Bloqueos</h4>
                     <app-editor-bloqueos [cancha]="cancha" />
                   </ng-template>

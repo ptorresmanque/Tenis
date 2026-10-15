@@ -33,7 +33,7 @@ export interface EstadoSalud {
         <h2 id="titulo-bd" class="rotulo-seccion">
           Base de datos
         </h2>
-  
+
         @if (salud.hasValue()) {
           <p class="mt-3 flex flex-wrap items-center gap-3">
             <mat-chip-set class="insignias">

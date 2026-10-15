@@ -150,7 +150,11 @@ const MAXIMO_ACOMPANANTES = 3;
                    justo «socio N.º …» o «invitado», que es lo que se revisa. -->
               <div class="flex flex-wrap items-start gap-x-2">
                 <mat-form-field class="min-w-64 flex-1">
-                  <mat-label>{{ esSocio() ? 'Socio o invitado' : 'Nombre y apellido' }}</mat-label>
+                  <!-- Los nombres de antes (T107), a la vista: en el formulario del visitante,
+                       que ya tiene su propio «Nombre», «Nombre y apellido» no decía de quién. -->
+                  <mat-label>{{
+                    esSocio() ? 'Nombre de un socio o de un invitado' : 'Nombre de quien juega contigo'
+                  }}</mat-label>
                   <mat-chip-grid #listaDeChips>
                     @for (acompanante of acompanantes(); track $index) {
                       <mat-chip-row (removed)="quitar($index)">

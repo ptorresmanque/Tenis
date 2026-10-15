@@ -167,7 +167,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                       <!-- Un adelanto: la respuesta entera se lee al editarla. -->
                       <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
                     </div>
-  
+
                     <mat-form-field class="w-18 sm:w-24">
                       <mat-label>Orden de «{{ pregunta.pregunta }}»</mat-label>
                       <input
@@ -182,7 +182,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                       />
                     </mat-form-field>
                   </div>
-  
+
                   @if (porBorrar() === pregunta.id) {
                     <!-- La confirmación en la fila, como al cancelar una reserva: es la
                          consecuencia de esta pregunta y no hay foco que atrapar. -->
@@ -234,7 +234,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                     </div>
                   }
                 }
-  
+
                 @if (origen() === pregunta.id) {
                   @if (error(); as falla) {
                     <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>

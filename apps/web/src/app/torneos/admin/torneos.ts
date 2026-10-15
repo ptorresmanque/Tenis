@@ -282,7 +282,7 @@ const enBlanco = () => ({
                   }
                 </span>
               </div>
-  
+
               <p class="mt-1 text-sm text-muted-foreground">
                 @if (torneo.cuadros.length === 0) {
                   Todavía no corre ninguna categoría.
@@ -292,7 +292,7 @@ const enBlanco = () => ({
                   }
                 }
               </p>
-  
+
               <!-- El trabajo pendiente, en la tarjeta: es lo que evita entrar a los
                    tres torneos abiertos para descubrir que dos estaban al día. -->
               @if (torneo.pagosPorRevisar > 0 || torneo.enEspera > 0) {

@@ -109,7 +109,7 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
                   (ngModelChange)="escribirPie(foto.id, $event)"
                 />
               </mat-form-field>
-  
+
               @if (porBorrar() === foto.id) {
                 <!-- La confirmación en la foto, como en las fotos de la tienda. -->
                 <div class="mt-2 flex flex-wrap gap-2">
@@ -155,7 +155,7 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
                   </button>
                 </div>
               }
-  
+
               @if (origen() === foto.id && error(); as falla) {
                 <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
               }

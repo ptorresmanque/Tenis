@@ -230,18 +230,18 @@ const enBlanco = () => ({
                   }
                 }
               </div>
-  
+
               <p class="mt-1">
                 {{ clase.profesor }}
                 <span class="text-sm text-muted-foreground">
                   · {{ cupoEnPalabras(clase.cupoMaximo) }}
                 </span>
               </p>
-  
+
               @if (clase.notas) {
                 <p class="mt-1 text-sm text-muted-foreground">{{ clase.notas }}</p>
               }
-  
+
               @if (abierta() === clase.id) {
                 <app-inscritos [claseId]="clase.id" />
               }
