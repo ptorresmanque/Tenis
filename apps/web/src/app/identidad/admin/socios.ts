@@ -34,14 +34,11 @@ import {
   EstadoSocio,
   SocioDelClub,
   Socios,
+  cuotaVencida,
+  enDiaMes,
+  ESTADOS_SOCIO,
 } from './socios.service';
 import { LO_HECHO } from '../../ui/material';
-
-const ESTADOS: Record<EstadoSocio, string> = {
-  ACTIVO: 'Activo',
-  SUSPENDIDO: 'Suspendido',
-  RETIRADO: 'Retirado',
-};
 
 interface Formulario {
   email: string;
@@ -490,21 +487,12 @@ export class SociosPanel {
   }
 
   protected nombreEstado(estado: EstadoSocio): string {
-    return ESTADOS[estado] ?? estado;
+    return ESTADOS_SOCIO[estado] ?? estado;
   }
 
-  /**
-   * El día que vence **todavía cuenta como al día**, igual que en la regla del
-   * servidor: la fecha del papel es la última que vale.
-   */
   protected moroso(alDiaHasta: string): boolean {
-    return alDiaHasta.slice(0, 10) < this.hoy;
+    return cuotaVencida(alDiaHasta, this.hoy);
   }
 
-  /** "30-11-2026", como lo escribiría el club. */
-  protected enDiaMes(fecha: string): string {
-    const [ano, mes, dia] = fecha.slice(0, 10).split('-');
-
-    return `${dia}-${mes}-${ano}`;
-  }
+  protected readonly enDiaMes = enDiaMes;
 }

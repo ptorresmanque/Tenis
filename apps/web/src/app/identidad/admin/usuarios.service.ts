@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { EstadoSocio } from './socios.service';
+
 /** Una fila de la lista de usuarios (T223), como la arma `GET /api/admin/usuarios`. */
 export interface UsuarioDeLaLista {
   id: number;
@@ -13,7 +15,13 @@ export interface UsuarioDeLaLista {
   creadoEn: string;
   esAdmin: boolean;
   esGestor: boolean;
-  socio: { id: number; numeroSocio: string; estado: string } | null;
+  socio: {
+    id: number;
+    numeroSocio: string;
+    estado: EstadoSocio;
+    /** Instante ISO del último día pagado (T295). */
+    alDiaHasta: string | null;
+  } | null;
   profesor: { id: number; nombreVisible: string; activo: boolean } | null;
 }
 
@@ -22,7 +30,13 @@ export interface ListadoDeUsuarios {
   total: number;
   pagina: number;
   porPagina: number;
+  /** Las fichas de profesor activas que no tienen cuenta (SPEC-panel.md D14). */
+  profesoresSinCuenta: number;
 }
+
+/** Los filtros de Personas (T296), como los entiende la API (T295). Sin tipo: todos. */
+export type TipoDePersona = 'socios' | 'profesores' | 'gestores' | 'administradores' | 'sin-tipo';
+export type OrdenDePersonas = 'nombre' | 'numero';
 
 /** Los tipos que se encienden con una casilla. Socio y profesor son fichas (T224). */
 export type CambioDeTipos = Partial<Pick<UsuarioDeLaLista, 'esAdmin' | 'esGestor'>>;
@@ -31,11 +45,19 @@ export type CambioDeTipos = Partial<Pick<UsuarioDeLaLista, 'esAdmin' | 'esGestor
 export class Usuarios {
   private readonly http = inject(HttpClient);
 
-  /** La búsqueda la hace el servidor: cada palabra en el nombre, el apellido o el correo. */
-  listar(q: string, pagina: number): Promise<ListadoDeUsuarios> {
+  /**
+   * La búsqueda la hace el servidor: cada palabra en el nombre, el apellido, el correo o el
+   * número de socio. El tipo y el orden, desde T296, para Personas.
+   */
+  listar(
+    q: string,
+    pagina: number,
+    tipo?: TipoDePersona,
+    orden?: OrdenDePersonas,
+  ): Promise<ListadoDeUsuarios> {
     return firstValueFrom(
       this.http.get<ListadoDeUsuarios>('/api/admin/usuarios', {
-        params: { q, pagina },
+        params: { q, pagina, ...(tipo && { tipo }), ...(orden && { orden }) },
       }),
     );
   }

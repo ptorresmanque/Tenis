@@ -57,7 +57,7 @@ describe('UsuariosPanel', () => {
       email: 'admin@clubdetenis.cl',
       esAdmin: true,
     }),
-    fila({ id: 2, socio: { id: 7, numeroSocio: '001', estado: 'ACTIVO' } }),
+    fila({ id: 2, socio: { id: 7, numeroSocio: '001', estado: 'ACTIVO', alDiaHasta: null } }),
     fila({
       id: 3,
       nombre: 'Ana',

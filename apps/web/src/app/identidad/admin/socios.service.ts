@@ -5,6 +5,28 @@ import { firstValueFrom } from 'rxjs';
 /** Espejo de `EstadoSocio` en el schema. */
 export type EstadoSocio = 'ACTIVO' | 'SUSPENDIDO' | 'RETIRADO';
 
+/** Cómo se dice cada estado. Lo leen el padrón y Personas (T296). */
+export const ESTADOS_SOCIO: Record<EstadoSocio, string> = {
+  ACTIVO: 'Activo',
+  SUSPENDIDO: 'Suspendido',
+  RETIRADO: 'Retirado',
+};
+
+/**
+ * Si la cuota está vencida. El día que vence **todavía cuenta como al día**, igual que en la
+ * regla del servidor: la fecha del papel es la última que vale.
+ */
+export function cuotaVencida(alDiaHasta: string, hoy: string): boolean {
+  return alDiaHasta.slice(0, 10) < hoy;
+}
+
+/** "30-11-2026", como lo escribiría el club. */
+export function enDiaMes(fecha: string): string {
+  const [ano, mes, dia] = fecha.slice(0, 10).split('-');
+
+  return `${dia}-${mes}-${ano}`;
+}
+
 export interface SocioDelClub {
   id: number;
   numeroSocio: string;
