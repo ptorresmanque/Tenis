@@ -32,5 +32,7 @@ import { Profesores } from './profesores.service';
     ClasesPublicasController,
   ],
   providers: [Profesores, Clases, Inscripciones, ClasesPublicas, Pertenencia],
+  // El informe del día de `reportes` lee las clases del día (T273).
+  exports: [Clases],
 })
 export class ClasesModule {}

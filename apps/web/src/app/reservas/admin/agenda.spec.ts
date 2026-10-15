@@ -132,6 +132,24 @@ describe('AgendaDelDia', () => {
     expect(texto()).toContain('Ana Silva');
   });
 
+  it('**baja el CSV del día que se está mirando, también la gestora** (T273)', async () => {
+    const enlace = () =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+        'app-descargar-csv a',
+      );
+
+    expect(enlace()?.getAttribute('href')).toBe(
+      `/api/admin/agenda.csv?fecha=${fixture.componentInstance.fechaActual()}`,
+    );
+
+    fixture.componentInstance.fechaActual.set('2026-08-20');
+    fixture.detectChanges();
+    expect(enlace()?.getAttribute('href')).toBe('/api/admin/agenda.csv?fecha=2026-08-20');
+
+    await montar([UNA], [], GESTORA);
+    expect(enlace()).not.toBeNull();
+  });
+
   it('bajo cada reserva van sus observaciones, y anotar una recarga el día sin vaciarlo (T226)', async () => {
     const observaciones = fixture.debugElement.query(
       (nodo) => nodo.name === 'app-observaciones-de-reserva',

@@ -34,6 +34,7 @@ import { Agenda, ReservaDelDia } from './agenda.service';
 import { NuevaReserva } from './nueva-reserva';
 import { ObservacionesDeReserva } from './observaciones-de-reserva';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
+import { DescargarCsv } from '../../reportes/descargar-csv';
 
 /**
  * El día del club, para quien atiende el mesón.
@@ -58,6 +59,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
     EnlaceTelefonoPipe,
     TelefonoPipe,
     MatChipsModule,
+    DescargarCsv,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -79,13 +81,19 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
         <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
       </div>
 
-      <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
-      @if (puedeTomarHoras()) {
-        <button matButton="filled" type="button" (click)="tomandoHora.set(true)">
-          <mat-icon class="text-base" aria-hidden="true">add</mat-icon>
-          Nueva reserva
-        </button>
-      }
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- El día que se está mirando, en una planilla (T273): lo bajan el admin y el
+             gestor, como los reportes. -->
+        <app-descargar-csv [url]="'/api/admin/agenda.csv?fecha=' + fechaActual()" />
+
+        <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
+        @if (puedeTomarHoras()) {
+          <button matButton="filled" type="button" (click)="tomandoHora.set(true)">
+            <mat-icon class="text-base" aria-hidden="true">add</mat-icon>
+            Nueva reserva
+          </button>
+        }
+      </div>
     </header>
 
     <div class="mt-4 flex flex-wrap items-end gap-3">

@@ -15,6 +15,7 @@ import {
   ocupacionACsv,
   padronACsv,
 } from './csv-de-reportes';
+import { descargaCsv } from './csv';
 import { Corte, esCorte } from './ingreso';
 import { IngresoDelClub } from './ingreso.service';
 import { CorteDeNoUso, esCorteDeNoUso, HorasNoUsadas } from './no-uso.service';
@@ -75,7 +76,7 @@ export class ReportesController {
       this.exigirCorte(corte),
     );
 
-    return this.comoDescarga(
+    return descargaCsv(
       res,
       `ingreso-${reporte.desde}-a-${reporte.hasta}`,
       ingresoACsv(reporte),
@@ -114,7 +115,7 @@ export class ReportesController {
       this.exigirCorteDeOcupacion(corte),
     );
 
-    return this.comoDescarga(
+    return descargaCsv(
       res,
       `ocupacion-${reporte.desde}-a-${reporte.hasta}`,
       ocupacionACsv(reporte),
@@ -148,7 +149,7 @@ export class ReportesController {
       this.exigirCorteDeNoUso(corte),
     );
 
-    return this.comoDescarga(
+    return descargaCsv(
       res,
       `no-uso-${reporte.desde}-a-${reporte.hasta}`,
       noUsoACsv(reporte),
@@ -175,7 +176,7 @@ export class ReportesController {
       this.exigirFecha(hasta, 'hasta'),
     );
 
-    return this.comoDescarga(
+    return descargaCsv(
       res,
       `padron-${reporte.desde}-a-${reporte.hasta}`,
       padronACsv(reporte),
@@ -188,16 +189,6 @@ export class ReportesController {
    * El nombre lleva el rango: al tercer reporte descargado, tres archivos llamados
    * "ingreso.csv" en la carpeta de descargas no se distinguen entre sí.
    */
-  private comoDescarga(res: Response, nombre: string, csv: string): string {
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${nombre}.csv"`,
-    );
-
-    return csv;
-  }
-
   private exigirFecha(valor: string | undefined, campo: string): string {
     if (typeof valor !== 'string' || !esFechaDelClub(valor)) {
       throw new BadRequestException(

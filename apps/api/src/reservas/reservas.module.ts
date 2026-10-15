@@ -75,6 +75,8 @@ import { Observaciones } from './observaciones.service';
     // Lo usa `clases` para agendar: la clase cierra la cancha con la misma cascada
     // que el cierre por mantención, no con una copia más blanda.
     CierreDeCanchaService,
+    // Lo usa el informe del día de `reportes` (T273).
+    AgendaService,
   ],
 })
 export class ReservasModule {}

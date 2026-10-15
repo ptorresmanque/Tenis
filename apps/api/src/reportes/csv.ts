@@ -1,3 +1,5 @@
+import type { Response } from 'express';
+
 /**
  * La salida a planilla.
  *
@@ -57,10 +59,30 @@ function comoCelda(valor: Celda): string {
   // hora de la ocupación (T77) se abre como texto o como fecha y la columna no suma.
   if (typeof valor === 'number') return String(valor).replace('.', ',');
 
+  // Un texto que empieza como fórmula se abre como texto (inyección de CSV, OWASP): el
+  // nombre de un visitante lo escribe cualquiera desde la web (T273), y un
+  // "=HYPERLINK(...)" se ejecutaría en el Excel del club. Excel no muestra el apóstrofo.
+  const texto = /^[=+\-@\t\r]/.test(valor) ? `'${valor}` : valor;
+
   const necesitaComillas =
-    valor.includes(SEPARADOR) || valor.includes('"') || /[\r\n]/.test(valor);
+    texto.includes(SEPARADOR) || texto.includes('"') || /[\r\n]/.test(texto);
 
   // La comilla de adentro se duplica; si no, el campo queda abierto y se come el
   // resto del archivo.
-  return necesitaComillas ? `"${valor.replaceAll('"', '""')}"` : valor;
+  return necesitaComillas ? `"${texto.replaceAll('"', '""')}"` : texto;
+}
+
+/**
+ * Lo manda como descarga: el navegador sabe qué hacer con el `<a download>` de la web, y
+ * el nombre del archivo dice qué es y de cuándo. Lo comparten los reportes y la agenda.
+ */
+export function descargaCsv(
+  res: Response,
+  nombre: string,
+  csv: string,
+): string {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${nombre}.csv"`);
+
+  return csv;
 }
