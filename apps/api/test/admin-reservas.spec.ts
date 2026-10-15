@@ -126,6 +126,8 @@ describe('GET /api/admin/reservas', () => {
     expect((respuesta.body as unknown[])[0]).toMatchObject({
       folio: 'T26AAA1',
       cancha: NOMBRE_CANCHA,
+      // El tablero de la agenda ubica la reserva por el id de su cancha (T269).
+      canchaId,
       nombre: 'Visitante Uno',
       // El teléfono es el punto del panel: por lluvia o mantención, el club llama.
       telefono: '+56911112222',

@@ -43,6 +43,7 @@ describe('ObservacionesDeReserva', () => {
     id: 40,
     folio: 'AB23CDE',
     cancha: 'Cancha 1',
+    canchaId: 1,
     inicio: '2026-10-14T22:00:00.000Z',
     fin: '2026-10-14T23:00:00.000Z',
     estado: 'CONFIRMADA',

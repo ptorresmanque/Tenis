@@ -21,6 +21,7 @@ describe('AgendaDelDia', () => {
     id: 1,
     folio: 'AB23CDE',
     cancha: 'Cancha 1',
+    canchaId: 1,
     // 12:00Z en agosto son las 08:00 en Santiago.
     inicio: '2026-08-17T12:00:00.000Z',
     fin: '2026-08-17T13:00:00.000Z',
@@ -39,6 +40,7 @@ describe('AgendaDelDia', () => {
     id: 7,
     tipo: 'TENIS',
     lugar: 'Cancha 2',
+    canchaId: 2,
     profesor: 'Ana Silva',
     // 14:00Z en agosto son las 10:00 en Santiago: después de la reserva de arriba.
     inicio: '2026-08-17T14:00:00.000Z',
@@ -206,7 +208,7 @@ describe('AgendaDelDia', () => {
 
   it('**la del gimnasio dice "Gimnasio", "Preparación física" y si es individual** (T234)', async () => {
     await montar([], [
-      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', nivel: null, cupoMaximo: 1 },
+      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', canchaId: null, nivel: null, cupoMaximo: 1 },
     ]);
 
     const fila = texto().replace(/\s+/g, ' ');

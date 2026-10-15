@@ -7,6 +7,8 @@ export interface ReservaDelDia {
   id: number;
   folio: string;
   cancha: string;
+  /** Para ubicarla en el tablero de la agenda (T269). */
+  canchaId: number;
   inicio: string;
   fin: string;
   estado: 'PENDIENTE_PAGO' | 'CONFIRMADA';

@@ -35,6 +35,8 @@ export interface ClaseDelDia {
   tipo: TipoClase;
   /** El nombre de la cancha, o "Gimnasio" (T231, A7). */
   lugar: string;
+  /** La cancha, para el tablero de la agenda (T269); nula en el gimnasio. */
+  canchaId: number | null;
   profesor: string;
   inicio: Date;
   fin: Date;
@@ -552,6 +554,7 @@ export class Clases {
         cupoMaximo: true,
         notas: true,
         serieId: true,
+        canchaId: true,
         cancha: { select: { nombre: true } },
         profesor: { select: { nombreVisible: true } },
       },
@@ -561,6 +564,7 @@ export class Clases {
       id: clase.id,
       tipo: clase.tipo,
       lugar: clase.cancha?.nombre ?? GIMNASIO,
+      canchaId: clase.canchaId,
       profesor: clase.profesor.nombreVisible,
       inicio: clase.inicio,
       fin: clase.fin,

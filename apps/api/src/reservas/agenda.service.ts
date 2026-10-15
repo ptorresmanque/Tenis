@@ -14,6 +14,8 @@ export interface ReservaDelDia {
   id: number;
   folio: string;
   cancha: string;
+  /** Para ubicarla en el tablero de la agenda, que tiene una columna por cancha (T269). */
+  canchaId: number;
   inicio: Date;
   fin: Date;
   estado: EstadoReserva;
@@ -63,6 +65,7 @@ export class AgendaService {
         nombre: true,
         telefono: true,
         socioId: true,
+        canchaId: true,
         cancha: { select: { nombre: true } },
         acompanantes: {
           select: {
@@ -88,6 +91,7 @@ export class AgendaService {
       id: reserva.id,
       folio: reserva.folio,
       cancha: reserva.cancha.nombre,
+      canchaId: reserva.canchaId,
       inicio: reserva.inicio,
       fin: reserva.fin,
       estado: reserva.estado,

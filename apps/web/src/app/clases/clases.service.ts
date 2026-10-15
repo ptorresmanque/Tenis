@@ -45,6 +45,8 @@ export interface ClaseDelDia {
   tipo: TipoClase;
   /** El nombre de la cancha, o "Gimnasio" (T231). */
   lugar: string;
+  /** La cancha, para el tablero de la agenda (T269); nula en el gimnasio. */
+  canchaId: number | null;
   profesor: string;
   inicio: string;
   fin: string;
