@@ -33,16 +33,6 @@ import { NuevaCancha } from './nueva-cancha';
 import { Esqueleto } from '../../ui/esqueleto';
 import { LO_HECHO } from '../../ui/material';
 
-const DIAS = [
-  'Domingo',
-  'Lunes',
-  'Martes',
-  'Miércoles',
-  'Jueves',
-  'Viernes',
-  'Sábado',
-];
-
 /** Lo que se corrige de una cancha que ya existe (T96). */
 type FichaDeCancha = Pick<
   CanchaAdmin,
@@ -495,10 +485,6 @@ export class AdminCanchasPanel {
   protected recargar(): void {
     this.canchas.reload();
     this.alarma.recargar();
-  }
-
-  protected nombreDia(dia: number): string {
-    return DIAS[dia] ?? `Día ${dia}`;
   }
 
   protected readonly nombreSuperficie = nombreDeSuperficie;
