@@ -91,7 +91,7 @@ function enBlanco(): Formulario {
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     @if (bloqueos.isLoading()) {
-      <app-esqueleto [filas]="2" etiqueta="Cargando los bloqueos…" />
+      <app-esqueleto compacto etiqueta="Cargando los bloqueos…" />
     } @else if (bloqueos.error()) {
       <p class="text-sm text-destructive">
         No se pudieron cargar los bloqueos. Reintenta en un momento.

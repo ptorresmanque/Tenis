@@ -143,7 +143,7 @@ const CAMPOS: Record<string, string> = {
           <h3 id="historial" class="subtitulo">Qué se le cambió</h3>
 
           @if (historial.isLoading()) {
-            <app-esqueleto class="mt-2 block" [filas]="3" etiqueta="Cargando el historial…" />
+            <app-esqueleto class="mt-2 block" compacto etiqueta="Cargando el historial…" />
           } @else if (historial.error()) {
             <p class="mt-2 text-sm text-destructive">
               No se pudo cargar el historial. Reintenta en un momento.
