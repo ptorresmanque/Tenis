@@ -1866,3 +1866,13 @@ model PartidoInterno {
   @@index([socioBId])
   @@map("partido_interno")
 }
+
+/// Cada día en que salió el informe de reservas por correo (T275). La fecha es la llave: se
+/// registra antes de mandar, así dos corridas del cron el mismo día no lo repiten, y si el
+/// proceso muere a mitad, tampoco.
+model InformeDiarioEnviado {
+  fecha     DateTime @id @db.Date
+  enviadoEn DateTime @default(now()) @map("enviado_en")
+
+  @@map("informe_diario_enviado")
+}

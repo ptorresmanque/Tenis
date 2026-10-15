@@ -468,7 +468,7 @@ describe('Configuración del club', () => {
     });
 
     it('una hora fuera de 0 a 23 se rechaza y dice por qué', async () => {
-      const mensaje = async (cuerpo: object) =>
+      const mensaje = async (cuerpo: Record<string, unknown>) =>
         ((await patch(cuerpo).expect(400)).body as { message: string }).message;
 
       expect(await mensaje({ informeDiarioHora: 24 })).toBe(
