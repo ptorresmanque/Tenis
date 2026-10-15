@@ -55,14 +55,12 @@ export class Profesores {
   }
 
   /**
-   * Anota un profesor.
-   *
-   * **La cuenta es opcional.** El profesor sin cuenta es al que el admin le agenda las
-   * clases; con cuenta, entra al panel a ver las suyas (`SPEC-clases.md` § El profesor
-   * en el panel). Exigirla obligaría a crear credenciales para anotar un teléfono.
+   * Anota un profesor, con su cuenta: entra al panel a ver y agendar sus clases
+   * (`SPEC-clases.md` § El profesor en el panel). Desde T297 la cuenta no es opcional
+   * (SPEC-panel.md D12); las fichas de antes sin cuenta siguen dando clases (D14).
    */
-  async crear(ficha: FichaNueva, usuarioId: number | null = null) {
-    if (usuarioId !== null) await this.exigirUsuario(usuarioId);
+  async crear(ficha: FichaNueva, usuarioId: number) {
+    await this.exigirUsuario(usuarioId);
 
     try {
       return await this.prisma.profesor.create({
@@ -113,11 +111,6 @@ export class Profesores {
     });
   }
 
-  /** Le quita la cuenta: la ficha y sus clases quedan, y la persona deja de entrar. */
-  desvincular(id: number) {
-    return this.editar(id, { usuarioId: null });
-  }
-
   private async exigirUsuario(id: number): Promise<void> {
     const existe = await this.prisma.usuario.count({ where: { id } });
     if (existe === 0) {
@@ -126,7 +119,7 @@ export class Profesores {
   }
 
   /** Cambia lo que venga y deja lo demás. Activar y desactivar entran por acá. */
-  async editar(id: number, cambio: CambioDeFicha | { usuarioId: null }) {
+  async editar(id: number, cambio: CambioDeFicha) {
     const { count } = await this.prisma.profesor.updateMany({
       where: { id },
       data: cambio,

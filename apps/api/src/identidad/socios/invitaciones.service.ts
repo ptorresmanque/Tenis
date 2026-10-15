@@ -8,8 +8,10 @@ import {
 import { hoyEnElClub } from '../../comun/tiempo';
 import {
   EstadoSocio,
+  EstadoSolicitud,
   InvitacionSocio,
   Prisma,
+  TipoSolicitud,
 } from '../../generated/prisma/client';
 import { esViolacionDeUnicidad } from '../../prisma/errores';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -53,11 +55,12 @@ export class InvitacionesService {
   }
 
   /**
-   * Da de alta a un socio con solo su correo.
+   * Da de alta a un socio con solo su correo: **la ficha se crea en el acto**, y la
+   * invitación nace usada. Queda como el rastro de a quién hizo socio el club y cuándo.
    *
-   * **Si el correo ya tiene cuenta, la ficha se crea en el acto** y la invitación
-   * nace usada. Sin eso, invitar a alguien que ya se había registrado como
-   * visitante no produce ningún efecto visible y el admin no se entera.
+   * **Solo a quien ya tiene cuenta** (T297, SPEC-panel.md D12): el circuito es
+   * interesado → cuenta → socio. Las invitaciones de antes, a correos sin cuenta, se
+   * siguen cumpliendo al registrarse (`asociarSiInvitado`, D14), pero ya no se crean.
    */
   async invitar(datos: DatosInvitacion): Promise<InvitacionSocio> {
     const email = datos.email.trim().toLowerCase();
@@ -67,7 +70,13 @@ export class InvitacionesService {
       select: { id: true, socio: { select: { id: true } } },
     });
 
-    if (usuario?.socio) {
+    if (!usuario) {
+      throw new ConflictException(
+        'Ese correo no tiene cuenta todavía: pídele que se registre en el sitio.',
+      );
+    }
+
+    if (usuario.socio) {
       throw new ConflictException(
         'Ese correo ya es socio del club. Su ficha se edita desde la lista de socios.',
       );
@@ -92,9 +101,7 @@ export class InvitacionesService {
       );
     }
 
-    if (usuario) {
-      await this.asociar(usuario.id, invitacion);
-    }
+    await this.asociar(usuario.id, invitacion);
 
     return invitacion;
   }
@@ -158,6 +165,12 @@ export class InvitacionesService {
    * Juntas o ninguna: con la ficha creada y la invitación abierta, el próximo
    * registro con ese correo intentaría crear un segundo socio con el mismo número
    * y chocaría contra el único, dejando a esa persona sin poder entrar.
+   *
+   * **Y enlaza la consulta «Quiero asociarme» de ese correo** (T297, SPEC-panel.md
+   * A14): desde que el alta ya no sale de la bandeja de consultas, este es el único
+   * lugar donde se sabe que un interesado se volvió socio. Las consultas de tipo Socio
+   * sin enlace quedan enlazadas a la invitación, y las Nuevas pasan a Atendidas: ya
+   * nadie tiene que contestarlas. Una ya enlazada no se toca.
    */
   private async asociar(
     usuarioId: number,
@@ -177,6 +190,25 @@ export class InvitacionesService {
       await tx.invitacionSocio.update({
         where: { id: invitacion.id },
         data: { usadaEn: new Date() },
+      });
+
+      const suyas = {
+        tipo: TipoSolicitud.SOCIO,
+        email: invitacion.email,
+        invitacionId: null,
+      };
+      // Primero las Nuevas, que además se atienden; después el resto, solo el enlace.
+      await tx.solicitudContacto.updateMany({
+        where: { ...suyas, estado: EstadoSolicitud.NUEVA },
+        data: {
+          invitacionId: invitacion.id,
+          estado: EstadoSolicitud.ATENDIDA,
+          atendidaEn: new Date(),
+        },
+      });
+      await tx.solicitudContacto.updateMany({
+        where: suyas,
+        data: { invitacionId: invitacion.id },
       });
     });
   }

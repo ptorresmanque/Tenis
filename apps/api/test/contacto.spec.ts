@@ -227,73 +227,12 @@ describe('POST /api/contacto y la bandeja del club', () => {
     expect(guardada.atendidaPor).not.toBeNull();
   });
 
-  it('**atender una de tipo SOCIO crea la invitación, y quedan enlazadas**', async () => {
-    // El circuito que justifica la tabla: interesado → invitación → cuenta → socio. Sin
-    // el enlace, el club no puede contar cuántos interesados terminaron adentro, que
-    // es la única forma de saber si el sitio sirvió para algo.
+  it('**la bandeja ya no da de alta: el alta es en Personas** (T297, D13)', async () => {
+    // Desde T297 nadie se vuelve socio sin cuenta, y la cuenta la crea la persona. Su
+    // consulta se enlaza sola cuando el admin la marca Socio (socios-invitacion.spec.ts).
     await request(app.getHttpServer())
       .post('/api/contacto')
       .send(unaSolicitud())
-      .expect(201);
-    const [solicitud] = await bandeja();
-
-    const respuesta = await request(app.getHttpServer())
-      .post(`/api/admin/solicitudes/${solicitud.id}/invitacion`)
-      .set('Cookie', cookieAdmin)
-      .send({ numeroSocio: 'CON-001' })
-      .expect(201);
-
-    const invitacion = respuesta.body as { id: number; email: string };
-    expect(invitacion.email).toBe(`ana${DOMINIO}`);
-
-    const guardada = await prisma.solicitudContacto.findUniqueOrThrow({
-      where: { id: solicitud.id },
-    });
-
-    expect(guardada.invitacionId).toBe(invitacion.id);
-    expect(guardada.estado).toBe('ATENDIDA');
-  });
-
-  it('**si ya la habían invitado antes, la solicitud se enlaza igual**', async () => {
-    // Pasa de verdad y de dos formas: el club la invitó desde la pantalla de socios y
-    // después ve su consulta en la bandeja, o un intento anterior creó la invitación y
-    // se cayó antes de enlazarla. Sin esto la solicitud queda atascada para siempre
-    // —invitar responde 409 por el correo único— y esa conversión no se cuenta nunca.
-    await request(app.getHttpServer())
-      .post('/api/contacto')
-      .send(unaSolicitud())
-      .expect(201);
-    const [solicitud] = await bandeja();
-
-    const yaInvitada = await request(app.getHttpServer())
-      .post('/api/admin/socios/invitaciones')
-      .set('Cookie', cookieAdmin)
-      .send({ email: `ana${DOMINIO}` })
-      .expect(201);
-
-    const respuesta = await request(app.getHttpServer())
-      .post(`/api/admin/solicitudes/${solicitud.id}/invitacion`)
-      .set('Cookie', cookieAdmin)
-      .send({})
-      .expect(201);
-
-    // La misma invitación, no una segunda.
-    expect((respuesta.body as { id: number }).id).toBe(
-      (yaInvitada.body as { id: number }).id,
-    );
-
-    const guardada = await prisma.solicitudContacto.findUniqueOrThrow({
-      where: { id: solicitud.id },
-    });
-    expect(guardada.invitacionId).toBe((yaInvitada.body as { id: number }).id);
-  });
-
-  it('solo las de tipo SOCIO se convierten en invitación', async () => {
-    // Invitar como socio a quien preguntó por clases para su hijo es meter en el
-    // padrón a alguien que no lo pidió.
-    await request(app.getHttpServer())
-      .post('/api/contacto')
-      .send(unaSolicitud({ tipo: 'CLASES' }))
       .expect(201);
     const [solicitud] = await bandeja();
 
@@ -301,7 +240,7 @@ describe('POST /api/contacto y la bandeja del club', () => {
       .post(`/api/admin/solicitudes/${solicitud.id}/invitacion`)
       .set('Cookie', cookieAdmin)
       .send({})
-      .expect(409);
+      .expect(404);
   });
 
   it('la bandeja se filtra por estado y por tipo', async () => {
