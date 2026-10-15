@@ -38,6 +38,28 @@ export interface ListadoDeUsuarios {
 export type TipoDePersona = 'socios' | 'profesores' | 'gestores' | 'administradores' | 'sin-tipo';
 export type OrdenDePersonas = 'nombre' | 'numero';
 
+/** La ficha de una cuenta en Personas (T298), como la arma `GET /api/admin/usuarios/:id`. */
+export interface FichaDeCuenta extends Omit<UsuarioDeLaLista, 'socio' | 'profesor'> {
+  socio: {
+    id: number;
+    numeroSocio: string;
+    estado: EstadoSocio;
+    /** Fecha civil, como instante ISO a medianoche. */
+    alDiaHasta: string;
+    sancionadoHasta: string | null;
+  } | null;
+  profesor: {
+    id: number;
+    nombreVisible: string;
+    telefono: string;
+    especialidad: string;
+    tarifaHoraClp: number | null;
+    activo: boolean;
+    /** Para pedir confirmación antes de quitarle el Profesor (SPEC-panel.md A6). */
+    clasesPorVenir: number;
+  } | null;
+}
+
 /** Los tipos que se encienden con una casilla. Socio y profesor son fichas (T224). */
 export type CambioDeTipos = Partial<Pick<UsuarioDeLaLista, 'esAdmin' | 'esGestor'>>;
 
@@ -60,6 +82,11 @@ export class Usuarios {
         params: { q, pagina, ...(tipo && { tipo }), ...(orden && { orden }) },
       }),
     );
+  }
+
+  /** Una cuenta con sus fichas, para su ficha en Personas (T298). */
+  ficha(id: number): Promise<FichaDeCuenta> {
+    return firstValueFrom(this.http.get<FichaDeCuenta>(`/api/admin/usuarios/${id}`));
   }
 
   cambiar(id: number, cambio: CambioDeTipos): Promise<UsuarioDeLaLista> {

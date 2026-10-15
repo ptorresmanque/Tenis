@@ -86,6 +86,7 @@ describe('Rutas protegidas', () => {
     'administracion/no-uso/periodo',
     'administracion/clases/agendar',
     'administracion/personas',
+    'administracion/personas/:id',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',

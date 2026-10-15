@@ -226,6 +226,13 @@ export const routes: Routes = [
           import('./identidad/admin/personas/personas').then((m) => m.PersonasPanel),
       },
       {
+        // T298 (SPEC-panel.md D2): la ficha de una cuenta, con Datos · Tipos · Cuota.
+        path: 'administracion/personas/:id',
+        title: 'Personas · Ficha — Administración',
+        loadComponent: () =>
+          import('./identidad/admin/personas/ficha-persona').then((m) => m.FichaPersona),
+      },
+      {
         path: 'administracion/usuarios',
         pathMatch: 'full',
         redirectTo: '/administracion/personas',
