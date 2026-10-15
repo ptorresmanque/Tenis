@@ -14,8 +14,8 @@ export interface Pendientes {
 
 /**
  * Cuánto espera al admin. Lo lee el badge de «Por revisar» en Horas no usadas y, desde T301, el
- * menú. Es un conteo y no las listas: el panel lo pide en cada navegación, y las listas ya
- * tienen sus pantallas.
+ * menú. Es un conteo y no las listas: la pantalla lo pide al abrirse, y el menú lo pedirá en
+ * cada navegación (A10); las listas ya tienen sus pantallas.
  *
  * **Una hora con dos reportes es una hora por revisar**: el admin resuelve la hora, no cada
  * aviso (como agrupa `ReportesService.pendientes`).

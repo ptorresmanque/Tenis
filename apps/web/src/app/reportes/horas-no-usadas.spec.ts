@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Pendientes } from '../core/pendientes';
 import { HorasNoUsadas } from './horas-no-usadas';
@@ -12,13 +12,16 @@ import { HorasNoUsadas } from './horas-no-usadas';
  * solo cuenta lo resuelto.
  */
 describe('Horas no usadas', () => {
+  const recargar = vi.fn();
+
   const montar = (horasPorRevisar: number) => {
+    recargar.mockClear();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         {
           provide: Pendientes,
-          useValue: { conteo: signal({ horasPorRevisar, consultasSinAtender: 0 }) },
+          useValue: { conteo: signal({ horasPorRevisar, consultasSinAtender: 0 }), recargar },
         },
       ],
     });
@@ -40,5 +43,11 @@ describe('Horas no usadas', () => {
       '/administracion/no-uso/periodo',
     ]);
     expect(pestanas[0].querySelector('.mat-badge-content')?.textContent?.trim()).toBe('3');
+  });
+
+  it('pide el conteo de nuevo al entrar: el badge no queda con el número de la vez anterior', () => {
+    montar(0);
+
+    expect(recargar).toHaveBeenCalledOnce();
   });
 });

@@ -104,7 +104,7 @@ import { Cuotas } from '../cuotas.service';
 
       <p class="mt-4 text-sm text-muted-foreground">
         Para cobrar una cuota, ábrela en
-        <a routerLink="/administracion/cuotas" class="underline">las cuotas del mes</a>.
+        <a routerLink="/administracion/finanzas/cuotas" class="underline">las cuotas del mes</a>.
       </p>
     }
   `,

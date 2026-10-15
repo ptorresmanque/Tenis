@@ -24,7 +24,14 @@ import { PestanasDeLaPantalla } from '../ui/pestanas-de-la-pantalla';
   `,
 })
 export class HorasNoUsadas {
-  private readonly conteo = inject(Pendientes).conteo;
+  private readonly pendientes = inject(Pendientes);
+  private readonly conteo = this.pendientes.conteo;
+
+  constructor() {
+    // El conteo se pidió la primera vez que se abrió el panel, y desde entonces un socio pudo
+    // reportar otra hora. La primera vez no repite la petición: un recurso que carga no recarga.
+    this.pendientes.recargar();
+  }
 
   protected readonly pestanas = computed(() => {
     const porRevisar = this.conteo()?.horasPorRevisar ?? 0;
