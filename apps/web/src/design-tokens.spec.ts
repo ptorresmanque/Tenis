@@ -2016,3 +2016,20 @@ describe('Lo que espera muestra un esqueleto (T152)', () => {
     expect(infractores).toEqual([]);
   });
 });
+
+/**
+ * T291 (SPEC-panel.md D9). Crear se abre con un FAB y un diálogo, y no con un botón que cambia
+ * entre «Crear…» y «Cerrar» y despliega el formulario en la página: era un mismo control con
+ * dos significados, y el formulario abierto empujaba la lista hacia abajo.
+ */
+describe('Crear no se alterna con Cerrar (T291)', () => {
+  it('**ningún botón cambia entre «Crear…» y «Cerrar»**', () => {
+    // Desde T292 sin excepciones: Torneos, Tours y Jugadores crean con un FAB y un diálogo.
+    const alterna = /\?\s*'Cerrar'\s*:\s*'Crear|\?\s*'Crear[^']*'\s*:\s*'Cerrar'/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => alterna.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
