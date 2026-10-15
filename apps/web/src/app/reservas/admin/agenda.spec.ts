@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Disponibilidad, GrillaDeCancha } from '../../catalogo-canchas/disponibilidad';
 import { ClaseDelDia, Clases } from '../../clases/clases.service';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { AgendaDelDia } from './agenda';
 
@@ -228,6 +229,23 @@ describe('AgendaDelDia', () => {
     const formulario = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-reserva');
     expect(formulario.componentInstance.cancha()).toBe(2);
     expect(formulario.componentInstance.inicio()).toBe('2026-08-17T13:00:00.000Z');
+  });
+
+  it('**la hora tomada se confirma con el snackbar, no con un aviso que se queda** (T283)', async () => {
+    const tablero = fixture.debugElement.query((nodo) => nodo.name === 'app-tablero-de-la-agenda');
+    tablero.componentInstance.tomar.emit({ canchaId: 2, inicio: '2026-08-17T13:00:00.000Z' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    fixture.debugElement
+      .query((nodo) => nodo.name === 'app-nueva-reserva')
+      .componentInstance.creada.emit('AB23CDE');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(avisoDeLoHecho()).toBe('Hora tomada. Folio AB23CDE.');
+    // El tablero ya la muestra: un aviso fijo arriba solo empujaba la tabla.
+    expect(texto()).not.toContain('Hora tomada');
   });
 
   it('el botón de la cabecera la abre sin cancha ni hora', async () => {

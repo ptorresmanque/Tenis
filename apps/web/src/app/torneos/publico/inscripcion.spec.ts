@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { elegir, textosDe } from '../../testing/elegir';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -213,6 +214,14 @@ describe('InscripcionATorneo', () => {
     expect(texto()).toContain('Elige la categoría');
   });
 
+  it('**«quedaste inscrito» se confirma con el snackbar** (T283)', async () => {
+    await escribir(completo);
+    await enviar();
+
+    expect(avisoDeLoHecho()).toContain('quedaste inscrito');
+    expect(texto()).not.toContain('quedaste inscrito');
+  });
+
   it('**la lista de espera se dice, no se esconde**', async () => {
     // Es la respuesta que la pantalla no puede adivinar: el cupo lo decide el servidor
     // en el momento, y quien quedó fuera tiene que saberlo antes de irse.
@@ -227,7 +236,9 @@ describe('InscripcionATorneo', () => {
     await elegirMedio('WEBPAY');
     await enviar();
 
+    // En la página y no en un snackbar que se va solo (T283): hay que leerlo antes de irse.
     expect(texto()).toContain('lista de espera');
+    expect(avisoDeLoHecho()).toBe('');
   });
 
   describe('el pago va en el mismo envío', () => {
