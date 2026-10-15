@@ -1,29 +1,21 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatCard } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatRadioModule } from '@angular/material/radio';
-import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatTimepickerModule } from '@angular/material/timepicker';
 import { MatSelectModule } from '@angular/material/select';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 import { pedirMotivo } from '../../ui/dialogo-de-motivo';
 import { proveerCampos } from '../../ui/campos';
-import {
-  fechaATexto,
-  horaATexto,
-  proveerFechaYHora,
-  textoAFecha,
-  textoAHora,
-} from '../../ui/fecha-y-hora';
+import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
+import { SelectorDeDia } from '../../catalogo-canchas/grilla/selector-de-dia';
 import {
   diaEnPalabras,
   fechaEnElClub,
@@ -76,80 +68,33 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-agenda-clases',
   imports: [
-    MatCard,
     MatRadioModule,
     MatSelectModule,
-    MatDatepickerModule,
     MatFormFieldModule,
     MatInput,
     MatTimepickerModule,
     MatButton,
-    MatIcon,
     FormsModule,
     Aviso,
     EstadoVacio,
     InscritosDeLaClase,
     NuevaSerie,
     Esqueleto,
-    MatChipsModule,
+    MatExpansionModule,
+    SelectorDeDia,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
-         abajo, y la navegación entre días va debajo de la cabecera. -->
+    <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de abajo. -->
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Clases</h1>
-        <p class="mt-1 text-muted-foreground">{{ enPalabras(fecha()) }}</p>
       </div>
     </header>
 
-    <div class="mt-4 flex flex-wrap items-end gap-3">
-      <div class="flex items-center gap-1">
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico"
-          aria-label="Día anterior"
-          (click)="moverDia(-1)"
-        >
-          <mat-icon class="text-base" aria-hidden="true">chevron_left</mat-icon>
-        </button>
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico"
-          [disabled]="fecha() === hoy"
-          (click)="fecha.set(hoy)"
-        >
-          Hoy
-        </button>
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico"
-          aria-label="Día siguiente"
-          (click)="moverDia(1)"
-        >
-          <mat-icon class="text-base" aria-hidden="true">chevron_right</mat-icon>
-        </button>
-      </div>
-
-      <mat-form-field class="w-48 abre-al-tocar">
-        <mat-label>Ir a un día</mat-label>
-        <input
-          matInput
-          id="fecha-clases"
-          placeholder="dd-mm-aaaa"
-          autocomplete="off"
-          [matDatepicker]="calendarioFechaClases"
-          [value]="diaElegido()"
-          (dateChange)="cambiarFecha($event.value)"
-        />
-        <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaClases" />
-        <mat-datepicker #calendarioFechaClases />
-      </mat-form-field>
-    </div>
+    <!-- El día se elige como en la agenda (T293): la semana a un toque, «Otro día» y el día en
+         palabras. Antes, flechas y un calendario propios. -->
+    <app-selector-de-dia [(fecha)]="fecha" />
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -169,86 +114,69 @@ const enBlanco = () => ({
         detalle="Agenda una con el formulario de abajo."
       />
     } @else {
-      <ul class="mt-4 space-y-3">
+      <!-- Cada clase es un panel (T293): cerrado, dice lo que hace falta para ubicarla, y al
+           abrirlo muestra sus notas y sus inscritos, que se piden recién ahí. Antes era una
+           tarjeta con un botón «Ver inscritos / Ocultar inscritos» hecho a mano. Independientes
+           (multi): abrir una no cierra otra. -->
+      <mat-accordion multi class="mt-4 block">
         @for (clase of clases.value(); track clase.id) {
-          <li>
-            <mat-card appearance="outlined" class="p-4">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <p class="font-display text-lg font-semibold">
+          <mat-expansion-panel class="border-b border-border">
+            <mat-expansion-panel-header>
+              <mat-panel-title class="flex-wrap gap-x-2">
+                <span class="font-display text-lg font-semibold">
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
-                </p>
-                <p class="font-medium">{{ clase.lugar }}</p>
-                <mat-chip-set class="insignias">
-                  <mat-chip class="insignia info">
-                    <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
-                    {{ queClaseEs(clase) }}
-                  </mat-chip>
-                </mat-chip-set>
+                </span>
+                <span class="font-medium">{{ clase.lugar }}</span>
+              </mat-panel-title>
+              <mat-panel-description class="flex-wrap">
+                {{ queClaseEs(clase) }} · {{ clase.profesor }} ·
+                {{ cupoEnPalabras(clase.cupoMaximo) }}
                 @if (clase.estado === 'REALIZADA') {
-                  <mat-chip-set class="insignias">
-                    <mat-chip class="insignia neutro">
-                      <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
-                      Ya se dio
-                    </mat-chip>
-                  </mat-chip-set>
+                  · Ya se dio
                 }
-                <button
-                  matButton="outlined"
-                  type="button"
-                  class="chico ms-auto"
-                  [attr.aria-expanded]="abierta() === clase.id"
-                  (click)="alternar(clase.id)"
-                >
-                  {{ abierta() === clase.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
-                </button>
-                @if (clase.estado === 'PROGRAMADA') {
-                  <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y
-                       ofrecerlo es un callejón. -->
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <ng-template matExpansionPanelContent>
+              @if (clase.notas) {
+                <p class="text-sm text-muted-foreground">{{ clase.notas }}</p>
+              }
+              <app-inscritos [claseId]="clase.id" />
+            </ng-template>
+
+            @if (clase.estado === 'PROGRAMADA') {
+              <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y ofrecerlo
+                   es un callejón. -->
+              <mat-action-row>
+                <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla y
+                     las clases anteriores quedan como estaban. -->
+                @if (clase.serieId !== null) {
                   <button
                     matButton
                     type="button"
                     class="chico"
                     [disabled]="trabajando()"
-                    [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
-                    (click)="cancelar(clase)"
+                    [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
+                    (click)="cancelarSerieDesde(clase, clase.serieId)"
                   >
-                    Cancelar clase
+                    Cancelar desde esta fecha
                   </button>
-                  <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla
-                       y las clases anteriores quedan como estaban. -->
-                  @if (clase.serieId !== null) {
-                    <button
-                      matButton
-                      type="button"
-                      class="chico"
-                      [disabled]="trabajando()"
-                      [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
-                      (click)="cancelarSerieDesde(clase, clase.serieId)"
-                    >
-                      Cancelar desde esta fecha
-                    </button>
-                  }
                 }
-              </div>
-
-              <p class="mt-1">
-                {{ clase.profesor }}
-                <span class="text-sm text-muted-foreground">
-                  · {{ cupoEnPalabras(clase.cupoMaximo) }}
-                </span>
-              </p>
-
-              @if (clase.notas) {
-                <p class="mt-1 text-sm text-muted-foreground">{{ clase.notas }}</p>
-              }
-
-              @if (abierta() === clase.id) {
-                <app-inscritos [claseId]="clase.id" />
-              }
-            </mat-card>
-          </li>
+                <button
+                  matButton
+                  type="button"
+                  class="chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
+                  (click)="cancelar(clase)"
+                >
+                  Cancelar clase
+                </button>
+              </mat-action-row>
+            }
+          </mat-expansion-panel>
         }
-      </ul>
+      </mat-accordion>
     }
 
     <form class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="agendar()">
@@ -508,7 +436,6 @@ export class AgendaDeClases {
   });
 
   protected readonly fecha = signal(hoyEnElClub());
-  protected readonly hoy = hoyEnElClub();
 
   protected datos = enBlanco();
 
@@ -560,15 +487,7 @@ export class AgendaDeClases {
     (this.porConfirmar() ?? []).some((hora) => hora.pagoEnCurso),
   );
 
-  /** Qué clase tiene su lista abierta. Una a la vez: el día entero no cabe. */
-  protected readonly abierta = signal<number | null>(null);
-
-  protected alternar(id: number): void {
-    this.abierta.update((actual) => (actual === id ? null : id));
-  }
-
   protected readonly hora = horaEnElClub;
-  protected readonly enPalabras = diaEnPalabras;
 
   protected readonly queClaseEs = queClaseEs;
   protected readonly cupoEnPalabras = cupoEnPalabras;
@@ -651,23 +570,6 @@ export class AgendaDeClases {
         LO_HECHO,
       );
     });
-  }
-
-  /** El día del calendario: un `Date` estable mientras no cambie el día (T244). */
-  protected readonly diaElegido = computed(() => textoAFecha(this.fecha()));
-
-  /** El día que se eligió en el calendario; vacío o inválido no consulta nada. */
-  protected cambiarFecha(fecha: Date | null): void {
-    const valor = fechaATexto(fecha);
-    if (valor) this.fecha.set(valor);
-  }
-
-  /** Se mueve desde el mediodía UTC: los domingos del cambio de hora no tienen 24. */
-  protected moverDia(pasos: number): void {
-    const dia = new Date(`${this.fecha()}T12:00:00.000Z`);
-    dia.setUTCDate(dia.getUTCDate() + pasos);
-
-    this.fecha.set(fechaEnElClub(dia));
   }
 
   private async crear(): Promise<void> {

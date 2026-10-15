@@ -1,10 +1,12 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
+import { SelectorDeDia } from '../../catalogo-canchas/grilla/selector-de-dia';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { ClaseDelDia, Clases } from '../clases.service';
 import { Profesores } from '../profesores.service';
@@ -71,6 +73,8 @@ describe('AgendaDeClases', () => {
     agendar: ReturnType<typeof vi.fn>;
     cancelar: ReturnType<typeof vi.fn>;
     cancelarSerieDesde: ReturnType<typeof vi.fn>;
+    ficha: ReturnType<typeof vi.fn>;
+    socios: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (
@@ -97,6 +101,10 @@ describe('AgendaDeClases', () => {
       agendar: vi.fn().mockResolvedValue({ id: 1, bloqueoId: 2, canceladas: [] }),
       cancelar: vi.fn().mockResolvedValue({ id: 7 }),
       cancelarSerieDesde: vi.fn().mockResolvedValue({ canceladas: 5 }),
+      // Los piden los inscritos de una clase, al abrir su panel (T293). Sin responder: las
+      // pruebas que abren uno solo miran que se pidan.
+      ficha: vi.fn(() => new Promise(() => undefined)),
+      socios: vi.fn(() => new Promise(() => undefined)),
     };
 
     TestBed.resetTestingModule();
@@ -133,6 +141,62 @@ describe('AgendaDeClases', () => {
     expect(texto()).toContain('Ana Silva');
     expect(texto()).toContain('Iniciación');
     expect(texto()).toContain('Cancha 1');
+  });
+
+  it('**el día se elige con el selector de la agenda**, y la lista es la de ese día (T293)', async () => {
+    // Las flechas y el calendario propios de Clases se fueron: el mismo selector que la agenda.
+    expect(elemento().querySelector('[aria-label="Día anterior"]')).toBeNull();
+    const selector = fixture.debugElement.query(By.directive(SelectorDeDia));
+
+    (selector.componentInstance as SelectorDeDia).fecha.set('2026-08-20');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.delDia).toHaveBeenLastCalledWith('2026-08-20');
+  });
+
+  describe('cada clase es un panel (T293)', () => {
+    const cabeceras = () => [
+      ...elemento().querySelectorAll<HTMLElement>('mat-expansion-panel-header'),
+    ];
+    /** Abre con un clic y sin esperar: los inscritos dejan su pedido abierto. */
+    const abrir = async (indice: number) => {
+      cabeceras()[indice].click();
+      fixture.detectChanges();
+      await new Promise((listo) => setTimeout(listo));
+    };
+
+    it('**cerrado, con la hora, el lugar, el tipo, el profesor y el cupo en su cabecera**', () => {
+      const [cabecera] = cabeceras();
+      const resumen = cabecera.textContent!.replace(/\s+/g, ' ');
+
+      expect(resumen).toMatch(/\d\d:\d\d–\d\d:\d\d/);
+      expect(resumen).toContain('Cancha 1');
+      expect(resumen).toContain('Iniciación');
+      expect(resumen).toContain('Ana Silva');
+      expect(resumen).toContain('hasta 6 alumnos');
+      expect(cabecera.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('**los inscritos se piden recién al abrirla**; ya no hay «Ver inscritos»', async () => {
+      expect(texto()).not.toContain('Ver inscritos');
+      expect(elemento().querySelector('app-inscritos')).toBeNull();
+
+      await abrir(0);
+
+      expect(cabeceras()[0].getAttribute('aria-expanded')).toBe('true');
+      expect(elemento().querySelector('app-inscritos')).not.toBeNull();
+      expect(api.ficha).toHaveBeenCalledWith(7);
+    });
+
+    it('abrir una clase no cierra otra', async () => {
+      await montar([CLASE, { ...CLASE, id: 8, lugar: 'Cancha 2' }]);
+
+      await abrir(0);
+      await abrir(1);
+
+      expect(cabeceras().map((c) => c.getAttribute('aria-expanded'))).toEqual(['true', 'true']);
+    });
   });
 
   it('**la del gimnasio dice "Gimnasio", "Preparación física" y si es grupal** (T234)', async () => {
