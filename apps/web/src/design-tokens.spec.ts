@@ -768,13 +768,14 @@ describe('Uso de los tokens en las plantillas', () => {
     //
     // `matButton` no necesita la clase (T241): Material le pone la manito en
     // `.mdc-button:hover`. `matIconButton`, `mat-menu-item` y `mat-tab-link` tampoco (T260-T262): la traen,
-    // y el tema no se la quita.
+    // y el tema no se la quita. Ni `matChipRemove` (T280): es una `.mdc-evolution-chip__action`.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bmat(?:Icon)?Button\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta)) continue;
+        if (/\bmat(?:Icon)?Button\b|\bmatChipRemove\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta))
+          continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
@@ -1805,6 +1806,18 @@ describe('Los campos son de Material (T244)', () => {
     const infractores = plantillas()
       .filter(({ contenido }) =>
         /<select\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<datalist>`**: las sugerencias son `mat-autocomplete` (T280)', () => {
+    // El datalist del navegador no se puede marcar como «Socio del club» de forma que se
+    // lea igual en todos, y no se ve como el resto de los campos.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<datalist\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
       )
       .map(({ archivo }) => archivo);
 

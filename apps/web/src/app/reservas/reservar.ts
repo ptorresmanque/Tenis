@@ -20,9 +20,12 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
+import { MatAutocompleteModule, MatAutocompleteTrigger } from '@angular/material/autocomplete';
 import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
 
 import { errorDelCampo, proveerCampos } from '../ui/campos';
@@ -52,8 +55,11 @@ const MAXIMO_ACOMPANANTES = 3;
 @Component({
   selector: 'app-reservar',
   imports: [
+    MatAutocompleteModule,
+    MatChipsModule,
     MatDialogModule,
     MatFormFieldModule,
+    MatIcon,
     MatInput,
     MatButton,
     ReactiveFormsModule,
@@ -135,65 +141,63 @@ const MAXIMO_ACOMPANANTES = 3;
                 }
               </p>
 
-              <!-- Cómo se leyó cada nombre, a la vista: un socio escrito a mano que quedó
-                   como invitado se corrige acá, antes de gastar cupo. -->
-              @for (acompanante of acompanantes(); track $index) {
-                <div class="flex items-center gap-2">
-                  <span class="flex-1 border border-border px-3 py-2 text-sm font-semibold">
-                    {{ etiqueta(acompanante) }}
-                  </span>
-                  <button
-                    matButton
-                    type="button"
-                    class="chico"
-                    (click)="quitar($index)"
-                  >
-                    Quitar<span class="sr-only"> a {{ etiqueta(acompanante) }}</span>
-                  </button>
-                </div>
-              }
-
-              @if (acompanantes().length < maximo) {
-                <div class="flex flex-wrap gap-2">
-                  <!-- datalist y no un combobox hecho a mano: el navegador trae el filtro
-                       mientras se escribe, el teclado y el lector de pantalla. El socio va
-                       con su número porque dos pueden llamarse igual. Enter agrega y no
-                       envía: con el formulario, Enter reservaba con la mitad escrita. -->
-                  <mat-form-field class="w-auto min-w-0 flex-1">
+              <!-- Los que ya se agregaron son chips (T280), con cómo se leyó cada nombre: un
+                   socio escrito a mano que quedó como invitado se corrige acá, antes de gastar
+                   cupo. Al socio le sugiere los socios del club, con su número porque dos
+                   pueden llamarse igual, y sus invitados anteriores. Enter agrega y no envía:
+                   con el formulario, Enter reservaba con la mitad escrita. El botón baja de
+                   línea antes que apretar el campo: en el teléfono, un chip angosto cortaba
+                   justo «socio N.º …» o «invitado», que es lo que se revisa. -->
+              <div class="flex flex-wrap items-start gap-x-2">
+                <mat-form-field class="min-w-64 flex-1">
+                  <mat-label>{{ esSocio() ? 'Socio o invitado' : 'Nombre y apellido' }}</mat-label>
+                  <mat-chip-grid #listaDeChips>
+                    @for (acompanante of acompanantes(); track $index) {
+                      <mat-chip-row (removed)="quitar($index)">
+                        {{ etiqueta(acompanante) }}
+                        <button matChipRemove [attr.aria-label]="'Quitar a ' + etiqueta(acompanante)">
+                          <mat-icon aria-hidden="true">cancel</mat-icon>
+                        </button>
+                      </mat-chip-row>
+                    }
                     <input
-                      matInput
                       #campo
                       id="acompanante"
-                      autocomplete="off"
-                      placeholder="Nombre y apellido"
-                      [attr.aria-label]="
-                        esSocio()
-                          ? 'Nombre de un socio o de un invitado'
-                          : 'Nombre de quien juega contigo'
-                      "
-                      [attr.list]="esSocio() ? 'sugerencias-acompanante' : null"
+                      [placeholder]="esSocio() ? 'Nombre y apellido' : ''"
+                      [matChipInputFor]="listaDeChips"
+                      [matAutocomplete]="sugeridas"
+                      [matAutocompleteDisabled]="!esSocio()"
+                      [disabled]="acompanantes().length >= maximo"
                       [value]="porAgregar()"
                       (input)="porAgregar.set($any($event.target).value)"
-                      (keydown.enter)="$event.preventDefault(); agregar()"
+                      (matChipInputTokenEnd)="alApretarEnter()"
                     />
-                  </mat-form-field>
-                  @if (esSocio()) {
-                    <datalist id="sugerencias-acompanante">
-                      @for (sugerencia of sugerencias(); track sugerencia.valor) {
-                        <option [value]="sugerencia.valor" [label]="sugerencia.tipo"></option>
-                      }
-                    </datalist>
-                  }
+                  </mat-chip-grid>
+                  <mat-autocomplete
+                    #sugeridas="matAutocomplete"
+                    (optionSelected)="elegir($event.option.value)"
+                  >
+                    @for (sugerencia of filtradas(); track sugerencia.valor) {
+                      <mat-option [value]="sugerencia.valor"
+                        >{{ sugerencia.valor
+                        }}<span class="text-muted-foreground"> · {{ sugerencia.tipo }}</span></mat-option
+                      >
+                    }
+                  </mat-autocomplete>
+                </mat-form-field>
+                @if (acompanantes().length < maximo) {
                   <button
                     matButton="outlined"
                     type="button"
+                    class="mt-2"
                     [disabled]="porAgregar().trim() === ''"
                     (click)="agregar()"
                   >
                     Agregar
                   </button>
-                </div>
-              } @else {
+                }
+              </div>
+              @if (acompanantes().length >= maximo) {
                 <p class="text-sm text-muted-foreground">
                   Listo: {{ maximo }} es el máximo por reserva.
                 </p>
@@ -293,6 +297,7 @@ export class Reservar {
   protected readonly maximo = MAXIMO_ACOMPANANTES;
 
   private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');
+  private readonly disparador = viewChild(MatAutocompleteTrigger);
   private readonly confirmar =
     viewChild.required('confirmar', { read: ElementRef<HTMLButtonElement> });
   private readonly injector = inject(Injector);
@@ -353,6 +358,19 @@ export class Reservar {
     ];
   });
 
+  /**
+   * Las sugerencias que calzan con lo escrito (T280): el datalist filtraba solo, el
+   * autocompletar de Material muestra lo que se le da. Sin tildes ni mayúsculas, como se
+   * comparan los nombres al agregarlos.
+   */
+  protected readonly filtradas = computed(() => {
+    const escrito = clave(this.porAgregar());
+
+    return escrito === ''
+      ? this.sugerencias()
+      : this.sugerencias().filter(({ valor }) => clave(valor).includes(escrito));
+  });
+
   constructor() {
     // En el teléfono, una hoja pegada abajo y a todo el ancho, que es donde está el pulgar;
     // en escritorio, un modal al centro.
@@ -407,12 +425,34 @@ export class Reservar {
       socio ? { numeroSocio: socio.numeroSocio } : { nombre: valor },
     ]);
     this.porAgregar.set('');
+    // A mano y no solo con la señal: si ya estaba vacía, el campo se quedaría con el texto
+    // de la sugerencia que el autocompletar escribió.
+    const campo = this.campo()?.nativeElement;
+    if (campo) campo.value = '';
     this.error.set(null);
 
+    const lleno = this.acompanantes().length >= MAXIMO_ACOMPANANTES;
     afterNextRender(
-      () => (this.campo() ?? this.confirmar()).nativeElement.focus(),
+      () => (lleno ? this.confirmar().nativeElement : campo)?.focus(),
       { injector: this.injector },
     );
+  }
+
+  /** La sugerencia elegida, con el mouse o con las flechas y Enter. */
+  protected elegir(valor: string): void {
+    this.porAgregar.set(valor);
+    this.agregar();
+  }
+
+  /**
+   * Enter en el campo. Si había una sugerencia marcada con las flechas, la agrega el
+   * autocompletar (`elegir`): agregar también lo escrito metería «ana» como invitada,
+   * además de la socia elegida. Quién atiende Enter primero depende del orden de los
+   * imports; con esta guarda, el resultado no.
+   */
+  protected alApretarEnter(): void {
+    if (this.disparador()?.activeOption) return;
+    this.agregar();
   }
 
   /**

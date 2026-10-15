@@ -1,7 +1,10 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
+import { TestKey } from '@angular/cdk/testing';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatChipGridHarness } from '@angular/material/chips/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth } from '../core/auth/auth';
@@ -96,10 +99,22 @@ describe('Reservar', () => {
     fixture.detectChanges();
   };
 
-  const sugerencias = () =>
-    [...contenido().querySelectorAll('datalist option')].map(
-      (opcion) => `${(opcion as HTMLOptionElement).value} (${(opcion as HTMLOptionElement).label})`,
+  /** Lo que ofrece el autocompletar (T280): se abre con el foco, como lo abre la persona. */
+  const sugerencias = async (fixture: ReturnType<typeof montar>) => {
+    const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+      MatAutocompleteHarness,
     );
+    await auto.focus();
+    return Promise.all((await auto.getOptions()).map((opcion) => opcion.getText()));
+  };
+
+  /** Los chips de los que ya se agregaron, en orden. */
+  const chips = async (fixture: ReturnType<typeof montar>) => {
+    const grilla = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+      MatChipGridHarness,
+    );
+    return grilla.getRows();
+  };
 
   beforeEach(() => {
     usuario.set(null);
@@ -180,13 +195,80 @@ describe('Reservar', () => {
     it('el campo sugiere los socios del club con su número y sus invitados anteriores', async () => {
       // El número va en la sugerencia: dos socios pueden llamarse igual, y tecleado a mano
       // el error aparecía recién al enviar.
-      await montarSocio();
+      const fixture = await montarSocio();
 
-      expect(sugerencias()).toEqual([
-        'Ana Fuentes · N.º 008 (Socio del club)',
-        'Bruno Salas · N.º 012 (Socio del club)',
-        'Juan Pérez (Invitado anterior)',
+      expect(await sugerencias(fixture)).toEqual([
+        'Ana Fuentes · N.º 008 · Socio del club',
+        'Bruno Salas · N.º 012 · Socio del club',
+        'Juan Pérez · Invitado anterior',
       ]);
+    });
+
+    it('**las sugerencias se filtran por lo escrito, sin mirar tildes ni mayúsculas** (T280)', async () => {
+      // El datalist filtraba solo; el autocompletar de Material filtra lo que se le da.
+      const fixture = await montarSocio();
+      const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+        MatAutocompleteHarness,
+      );
+
+      await auto.enterText('perez');
+
+      expect(
+        await Promise.all((await auto.getOptions()).map((opcion) => opcion.getText())),
+      ).toEqual(['Juan Pérez · Invitado anterior']);
+    });
+
+    it('**elegir una sugerencia la agrega como chip y deja el campo vacío** (T280)', async () => {
+      const fixture = await montarSocio();
+      const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+        MatAutocompleteHarness,
+      );
+
+      await auto.enterText('ana');
+      await auto.selectOption({ text: /Ana Fuentes/ });
+      fixture.detectChanges();
+
+      const [chip] = await chips(fixture);
+      expect(await chip.getText()).toContain('Ana Fuentes · socio N.º 008');
+      expect(await auto.getValue()).toBe('');
+    });
+
+    it('**Enter con una sugerencia marcada agrega esa, no lo que se alcanzó a escribir** (T280)', async () => {
+      // El campo de chips también agrega con Enter: sin cuidarlo, «ana» entraba como
+      // invitada además de la socia elegida.
+      const fixture = await montarSocio();
+      const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+        MatAutocompleteHarness,
+      );
+      await auto.enterText('ana');
+      // El host del harness es el campo mismo.
+      const entrada = await auto.host();
+
+      await entrada.sendKeys(TestKey.DOWN_ARROW);
+      await entrada.sendKeys(TestKey.ENTER);
+      await enviar(fixture);
+
+      expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+        expect.objectContaining({ acompanantes: [{ numeroSocio: '008' }] }),
+      );
+    });
+
+    it('**el chip se quita con su botón y con la tecla Borrar** (T280)', async () => {
+      const fixture = await montarSocio();
+      await agregar(fixture, 'Carla Nueva');
+      await agregar(fixture, 'Juan Pérez');
+
+      const [carla] = await chips(fixture);
+      await (await carla.getRemoveButton()).click();
+      fixture.detectChanges();
+      expect(await Promise.all((await chips(fixture)).map((chip) => chip.getText()))).toEqual([
+        expect.stringContaining('Juan Pérez · invitado'),
+      ]);
+
+      const [juan] = await chips(fixture);
+      await juan.remove();
+      fixture.detectChanges();
+      expect(await chips(fixture)).toHaveLength(0);
     });
 
     it('**agrega un socio, un invitado anterior y uno nuevo, y no puede agregar un cuarto**', async () => {
@@ -196,9 +278,9 @@ describe('Reservar', () => {
       await agregar(fixture, 'Juan Pérez');
       await agregar(fixture, 'Carla Nueva');
 
-      // El tercero cierra la lista: el campo se va y dice por qué.
+      // El tercero cierra la lista: el campo se apaga y dice por qué.
       const elemento = contenido();
-      expect(elemento.querySelector('#acompanante')).toBeNull();
+      expect(elemento.querySelector<HTMLInputElement>('#acompanante')!.disabled).toBe(true);
       expect(texto()).toContain('3 es el máximo por reserva');
 
       await enviar(fixture);
@@ -243,7 +325,7 @@ describe('Reservar', () => {
       await agregar(fixture, 'Ana Fuentes · N.º 008');
       await agregar(fixture, 'Juan Pérez');
 
-      expect(sugerencias()).toEqual(['Bruno Salas · N.º 012 (Socio del club)']);
+      expect(await sugerencias(fixture)).toEqual(['Bruno Salas · N.º 012 · Socio del club']);
     });
 
     it('Enter en el campo agrega a la persona, no envía la reserva', async () => {
@@ -253,10 +335,14 @@ describe('Reservar', () => {
       )!;
       campo.value = 'Carla Nueva';
       campo.dispatchEvent(new Event('input'));
-      campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+      // Con keyCode, como lo manda el navegador: el campo de chips lo mira para reconocer
+      // Enter (T280). El preventDefault es lo que evita que el formulario se envíe.
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, cancelable: true });
+      campo.dispatchEvent(enter);
       await fixture.whenStable();
       fixture.detectChanges();
 
+      expect(enter.defaultPrevented).toBe(true);
       expect(reservas.reservarComoSocio).not.toHaveBeenCalled();
       expect(texto()).toContain('Carla Nueva · invitado');
     });
@@ -294,7 +380,7 @@ describe('Reservar', () => {
       const fixture = await montarSocio();
 
       expect(texto()).toContain('No pudimos cargar la lista de socios');
-      expect(sugerencias()).toEqual(['Juan Pérez (Invitado anterior)']);
+      expect(await sugerencias(fixture)).toEqual(['Juan Pérez · Invitado anterior']);
 
       // Y el reintento vuelve a preguntar: sin eso, el aviso es un callejón sin salida.
       reservas.socios.mockResolvedValue([{ numeroSocio: '008', nombre: 'Ana Fuentes' }]);
@@ -304,14 +390,14 @@ describe('Reservar', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(sugerencias()).toContain('Ana Fuentes · N.º 008 (Socio del club)');
+      expect(await sugerencias(fixture)).toContain('Ana Fuentes · N.º 008 · Socio del club');
     });
 
     it('si sus invitados anteriores no cargan, el campo sigue sirviendo sin ellos', async () => {
       reservas.misInvitados.mockRejectedValue(new Error('sin red'));
       const fixture = await montarSocio();
 
-      expect(sugerencias()).toHaveLength(2);
+      expect(await sugerencias(fixture)).toHaveLength(2);
       await agregar(fixture, 'Carla Nueva');
       expect(texto()).toContain('Carla Nueva · invitado');
     });
@@ -334,9 +420,10 @@ describe('Reservar', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
+      // Sin autocompletar: el campo no se anuncia como combobox ni abre lista alguna.
       const campo = contenido().querySelector('#acompanante');
       expect(campo).not.toBeNull();
-      expect(campo?.getAttribute('list')).toBeNull();
+      expect(campo?.getAttribute('role')).toBeNull();
       expect(reservas.socios).not.toHaveBeenCalled();
       expect(reservas.misInvitados).not.toHaveBeenCalled();
     });
