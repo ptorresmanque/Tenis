@@ -6,13 +6,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { elegidoEn, textosDe } from '../../testing/elegir';
 import { AdminCanchasPanel } from './admin-canchas';
-import { AdminCanchas, Advertencia, CanchaAdmin } from './admin-canchas.service';
+import { AdminCanchas, CanchaAdmin, HorasSinTarifa } from './admin-canchas.service';
 import { responder, textoDelDialogo } from '../../testing/dialogos';
 import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T13. El panel del club. Lo que se prueba acá es lo que el admin decide mirando:
- * cuáles canchas están fuera de la grilla y qué horas se están regalando.
+ * cuáles canchas están fuera de la grilla.
+ *
+ * Desde T288 es la pestaña «Canchas»: el título y la alarma de horas sin tarifa van en la
+ * pantalla madre (`canchas.spec.ts`), y el horario y las tarifas del club, en sus pestañas.
  */
 describe('AdminCanchasPanel', () => {
   const CANCHA: CanchaAdmin = {
@@ -45,45 +48,31 @@ describe('AdminCanchasPanel', () => {
   let fixture: ComponentFixture<AdminCanchasPanel>;
   let api: {
     canchas: ReturnType<typeof vi.fn>;
-    advertencias: ReturnType<typeof vi.fn>;
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     eliminar: ReturnType<typeof vi.fn>;
     bloqueos: ReturnType<typeof vi.fn>;
-    configuracion: ReturnType<typeof vi.fn>;
-    general: ReturnType<typeof vi.fn>;
   };
+  /** La alarma de la pantalla madre, que la lista relee al cambiar una cancha. */
+  let alarma: { recargar: ReturnType<typeof vi.fn> };
 
-  const montar = async (
-    canchas: CanchaAdmin[],
-    advertencias: Advertencia[] = [],
-  ) => {
+  const montar = async (canchas: CanchaAdmin[]) => {
     api = {
       canchas: vi.fn().mockResolvedValue(canchas),
-      advertencias: vi.fn().mockResolvedValue(advertencias),
       crear: vi.fn().mockResolvedValue(canchas[0]),
       editar: vi.fn().mockResolvedValue(canchas[0]),
       eliminar: vi.fn().mockResolvedValue(undefined),
       // Lo pide el editor de bloqueos, que el panel monta dentro de cada cancha.
       bloqueos: vi.fn().mockResolvedValue([]),
-      // Y esto el panel de lo general del club, que monta los mismos editores con
-      // un ámbito sin id. Su propio spec es `reglas-generales.spec.ts`.
-      general: vi.fn().mockResolvedValue({ horarios: [], franjas: [] }),
-      // Y esto el editor de reglas, que va arriba de todo. Su propio spec es
-      // `editor-configuracion.spec.ts`; acá solo tiene que poder montarse.
-      configuracion: vi.fn().mockResolvedValue({
-        cupoDiarioSocioReservas: 1,
-        cupoPicoSemanalReservas: 2,
-        invitadosPorMes: 4,
-        horasMinModificacion: 6,
-        horasReembolsoTotal: 24,
-        diasSancionNoUso: 15,
-      }),
     };
+    alarma = { recargar: vi.fn() };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: AdminCanchas, useValue: api }],
+      providers: [
+        { provide: AdminCanchas, useValue: api },
+        { provide: HorasSinTarifa, useValue: alarma },
+      ],
     });
 
     fixture = TestBed.createComponent(AdminCanchasPanel);
@@ -94,9 +83,9 @@ describe('AdminCanchasPanel', () => {
   const texto = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
 
   /**
-   * Por texto exacto y no por subcadena: la pantalla monta los editores del club
-   * antes de la lista, y "Agregar" por subcadena encontraba "Agregar tarifa" —el
-   * test pasaba a apretar otro botón sin que nadie se enterara.
+   * Por texto exacto y no por subcadena: cada cancha monta sus editores al abrirla, y
+   * "Agregar" por subcadena encontraba "Agregar tarifa" —el test pasaba a apretar otro
+   * botón sin que nadie se enterara.
    */
   const boton = (etiqueta: string) =>
     Array.from(
@@ -122,25 +111,14 @@ describe('AdminCanchasPanel', () => {
     expect(elegidoEn(fixture, 'mat-select#superficie')).toBe('CEMENTO');
   });
 
-  it('la cabecera del panel lleva el título y ninguna acción: agregar es una sección (TV7.2)', () => {
-    // La cabecera admite una sola acción principal, y esta pantalla no tiene
-    // una: cada sección trae la suya, y "Agregar" vive con su formulario.
-    const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
-
-    expect(cabecera?.querySelector('h1')?.textContent).toContain('Canchas');
-    expect(cabecera?.querySelectorAll('button, a').length).toBe(0);
-  });
-
-  it('cada sección se encabeza con un rótulo, también la alarma de tarifas (TV7.2)', async () => {
-    await montar([CANCHA], [
-      { canchaId: 1, nombre: 'Cancha 1', sinTarifa: ['2026-08-17T11:00:00.000Z'] },
-    ]);
+  it('cada sección se encabeza con un rótulo (TV7.2)', () => {
     const titulos = [
       ...(fixture.nativeElement as HTMLElement).querySelectorAll('section > h2'),
     ];
 
-    // Las cuatro: la alarma, lo general del club, agregar y la lista.
-    expect(titulos.length).toBe(4);
+    // Las dos: agregar y la lista. La alarma y lo general del club se fueron a la pantalla
+    // madre y a sus pestañas (T288).
+    expect(titulos.length).toBe(2);
     expect(titulos.every((h2) => h2.classList.contains('rotulo-seccion'))).toBe(true);
   });
 
@@ -226,25 +204,12 @@ describe('AdminCanchasPanel', () => {
     });
   });
 
-  describe('advertencias de tarifa', () => {
-    it('avisa qué horas quedaron sin cobrar y en qué cancha', async () => {
-      await montar([CANCHA], [
-        {
-          canchaId: 1,
-          nombre: 'Cancha 1',
-          // 11:00Z son las 07:00 en el club: la advertencia se lee en la hora
-          // del club, que es la que el admin va a buscar en el horario.
-          sinTarifa: ['2026-08-17T11:00:00.000Z'],
-        },
-      ]);
+  it('**cambiar una cancha relee la alarma de horas sin tarifa**, que va arriba (T288)', async () => {
+    // Desactivarla o cambiar sus tarifas cambia qué horas quedan sin cobrar.
+    boton('Desactivar')?.click();
+    await fixture.whenStable();
 
-      expect(texto()).toContain('Horas sin tarifa hoy');
-      expect(texto()).toContain('07:00');
-    });
-
-    it('sin horas sueltas no muestra la alarma', () => {
-      expect(texto()).not.toContain('Horas sin tarifa hoy');
-    });
+    expect(alarma.recargar).toHaveBeenCalledTimes(1);
   });
 
   describe('alta', () => {
@@ -461,13 +426,9 @@ describe('AdminCanchasPanel', () => {
       providers: [
         {
           provide: AdminCanchas,
-          useValue: {
-            canchas: caida,
-            advertencias: caida,
-            general: caida,
-            configuracion: caida,
-          },
+          useValue: { canchas: caida },
         },
+        { provide: HorasSinTarifa, useValue: { recargar: vi.fn() } },
       ],
     });
 

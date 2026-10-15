@@ -74,6 +74,8 @@ function buscar(url: string): Encontrada | null {
 describe('Rutas protegidas', () => {
   it.each([
     'administracion/canchas',
+    'administracion/canchas/horario',
+    'administracion/canchas/tarifas',
     'administracion/reservas',
     'administracion/reservas/ocupacion',
     'administracion/finanzas/ingreso',
@@ -139,6 +141,19 @@ describe('Rutas protegidas', () => {
       'Horas no usadas · Período — Administración',
     );
   });
+
+  it.each([
+    ['horario', 'Horario'],
+    ['tarifas', 'Tarifas'],
+  ])(
+    '**la pestaña %s de Canchas le dice a la pantalla qué parte del club es** (T288)',
+    (parte, etiqueta) => {
+      const { ruta } = buscar(`administracion/canchas/${parte}`)!;
+
+      expect(ruta.data).toEqual({ parte });
+      expect(ruta.title).toBe(`Canchas · ${etiqueta} — Administración`);
+    },
+  );
 
   it('**la ruta vieja de la tienda y la cafetería lleva a la tienda** (T236, G6)', () => {
     expect(buscar('administracion/configuracion/tienda-y-cafeteria')?.ruta.redirectTo).toBe(

@@ -184,10 +184,38 @@ export const routes: Routes = [
       {
         path: 'administracion/canchas',
         title: 'Canchas — Administración',
+        // T288 (SPEC-panel.md D1): la lista, el horario y las tarifas del club, en pestañas.
         loadComponent: () =>
-          import('./catalogo-canchas/admin/admin-canchas').then(
-            (m) => m.AdminCanchasPanel,
-          ),
+          import('./catalogo-canchas/admin/canchas').then((m) => m.PantallaDeCanchas),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            title: 'Canchas — Administración',
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/admin-canchas').then(
+                (m) => m.AdminCanchasPanel,
+              ),
+          },
+          {
+            path: 'horario',
+            title: 'Canchas · Horario — Administración',
+            data: { parte: 'horario' },
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/reglas-generales').then(
+                (m) => m.ReglasGeneralesPanel,
+              ),
+          },
+          {
+            path: 'tarifas',
+            title: 'Canchas · Tarifas — Administración',
+            data: { parte: 'tarifas' },
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/reglas-generales').then(
+                (m) => m.ReglasGeneralesPanel,
+              ),
+          },
+        ],
       },
       {
         // T223. Todas las cuentas y sus tipos; reemplaza a Configuración → Administradores.
