@@ -63,12 +63,6 @@ export const SECCIONES_DEL_PANEL = [
     trasDivisoria: false,
   },
   {
-    ruta: '/administracion/ocupacion',
-    etiqueta: 'Ocupación de cancha',
-    icono: 'donut_large',
-    trasDivisoria: false,
-  },
-  {
     ruta: '/administracion/no-uso',
     etiqueta: 'Horas no usadas',
     icono: 'timer_off',

@@ -75,6 +75,7 @@ describe('Rutas protegidas', () => {
   it.each([
     'administracion/canchas',
     'administracion/reservas',
+    'administracion/reservas/ocupacion',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',
@@ -93,6 +94,15 @@ describe('Rutas protegidas', () => {
     'estado',
   ])('%s pasa por el guard del panel', (url) => {
     expect(buscar(url)?.guards).toContain(conPanel);
+  });
+
+  it('**la ocupación vive en la agenda: su ruta vieja redirige** (T285, A1)', () => {
+    expect(buscar('administracion/ocupacion')?.ruta.redirectTo).toBe(
+      '/administracion/reservas/ocupacion',
+    );
+    expect(buscar('administracion/reservas/ocupacion')?.ruta.title).toBe(
+      'Agenda del día · Ocupación — Administración',
+    );
   });
 
   it('**la ruta vieja de la tienda y la cafetería lleva a la tienda** (T236, G6)', () => {

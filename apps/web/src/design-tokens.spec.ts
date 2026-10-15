@@ -769,12 +769,13 @@ describe('Uso de los tokens en las plantillas', () => {
     // `matButton` no necesita la clase (T241): Material le pone la manito en
     // `.mdc-button:hover`. `matIconButton`, `mat-menu-item` y `mat-tab-link` tampoco (T260-T262): la traen,
     // y el tema no se la quita. Ni `matChipRemove` (T280): es una `.mdc-evolution-chip__action`.
+    // Ni `matFab` (T285): Material le pone la manito en `.mat-mdc-fab-base:hover`.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bmat(?:Icon)?Button\b|\bmatChipRemove\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta))
+        if (/\bmat(?:Icon)?Button\b|\bmatFab\b|\bmatChipRemove\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta))
           continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);

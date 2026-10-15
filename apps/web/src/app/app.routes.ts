@@ -162,8 +162,24 @@ export const routes: Routes = [
       {
         path: 'administracion/reservas',
         title: 'Agenda del día — Administración',
+        // T285 (SPEC-panel.md D5): la agenda y la ocupación, en pestañas con su ruta.
         loadComponent: () =>
-          import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
+          import('./reservas/admin/panel-de-la-agenda').then((m) => m.PanelDeLaAgenda),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            title: 'Agenda del día — Administración',
+            loadComponent: () =>
+              import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
+          },
+          {
+            path: 'ocupacion',
+            title: 'Agenda del día · Ocupación — Administración',
+            loadComponent: () =>
+              import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
+          },
+        ],
       },
       {
         path: 'administracion/canchas',
@@ -262,10 +278,10 @@ export const routes: Routes = [
           import('./reportes/ingreso').then((m) => m.IngresoPanel),
       },
       {
+        // La pantalla pasó a ser una pestaña de la agenda (T285); los marcadores siguen andando.
         path: 'administracion/ocupacion',
-        title: 'Ocupación de cancha — Administración',
-        loadComponent: () =>
-          import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/reservas/ocupacion',
       },
       {
         path: 'administracion/no-uso',

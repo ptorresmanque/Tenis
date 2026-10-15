@@ -48,17 +48,12 @@ import {
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
-         es lo que se lleva. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Ocupación de cancha</h1>
-        <p class="mt-1 text-muted-foreground">
-          Qué proporción de las horas que el club abrió se ocupó de verdad. Cuenta sobre las horas que
-          existieron ese día según el horario de apertura, no sobre el día entero.
-        </p>
-      </div>
-    </header>
+    <!-- Es una pestaña de la agenda (T285): el titular va en la pantalla madre. El CSV va con
+         la tabla, que es lo que se lleva. -->
+    <p class="max-w-prose text-muted-foreground">
+      Qué proporción de las horas que el club abrió se ocupó de verdad. Cuenta sobre las horas que
+      existieron ese día según el horario de apertura, no sobre el día entero.
+    </p>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
       <mat-form-field>
