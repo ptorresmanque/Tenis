@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
 import { Marcador } from './marcador';
-import { enPesos, horaEnElClub } from './reloj-del-club';
+import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
 /**
  * El marcador de la portada: las horas que quedan hoy contra las canchas (TV3.3).
@@ -97,14 +97,18 @@ describe('Marcador', () => {
     expect(horas[1]).toContain(horaEnElClub(enTres.toISOString()));
   });
 
-  it('la celda libre lleva a la disponibilidad y dice qué cancha y a qué hora', () => {
+  it('la celda libre lleva a esa cancha y esa hora en la disponibilidad (T266)', () => {
     const enDos = enHoras(2);
     const el = montar([{ cancha: cancha(1), bloques: [bloque(1, enDos)] }]);
     const enlace = celda(el, 0, 1).querySelector('a');
+    const hora = horaEnElClub(enDos.toISOString());
 
+    // La disponibilidad la marca al llegar: el día, la cancha y la hora de la celda.
+    expect(enlace?.getAttribute('href')).toBe(
+      `/disponibilidad?fecha=${fechaEnElClub(enDos)}&cancha=1&inicio=${hora}`,
+    );
     // El nombre entero va en aria-label y empieza con lo que se ve (WCAG 2.5.3).
     // Con un sr-only, Chrome ponía un espacio antes de los dos puntos.
-    expect(enlace?.getAttribute('href')).toBe('/disponibilidad');
     expect(enlace?.textContent?.trim()).toBe('Libre');
     expect(enlace?.getAttribute('aria-label')).toBe(
       `Libre: reservar la Cancha 1 a las ${horaEnElClub(enDos.toISOString())}`,

@@ -6,7 +6,7 @@ import { MatButtonHarness } from '@angular/material/button/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
-import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
+import { enPesos, fechaEnElClub, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { Club, LugarDelClub } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
@@ -381,7 +381,11 @@ describe('Inicio', () => {
       expect(zocalo().textContent).toContain(horaEnElClub(enDosHoras.toISOString()));
       expect(zocalo().textContent).toContain('Cancha 3');
       expect(zocalo().textContent).toContain(enPesos(12_000));
-      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+      // "Reservar" lleva a esa hora marcada en la disponibilidad (T266).
+      const hora = horaEnElClub(enDosHoras.toISOString());
+      expect(zocalo().querySelector('a')?.getAttribute('href')).toBe(
+        `/disponibilidad?fecha=${fechaEnElClub(enDosHoras)}&cancha=3&inicio=${hora}`,
+      );
     });
 
     it('mientras busca, lo dice en vez de quedar en blanco', async () => {

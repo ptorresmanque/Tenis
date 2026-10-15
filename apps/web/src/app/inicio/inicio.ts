@@ -10,6 +10,7 @@ import { Marcador } from '../catalogo-canchas/marcador';
 import {
   diaEnPalabras,
   enPesos,
+  fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
@@ -187,7 +188,17 @@ import { Foto } from '../ui/foto';
                 Socio sin costo.
               </p>
             </div>
-            <a matButton="filled" routerLink="/disponibilidad" class="w-full sm:w-auto">
+            <!-- A esa hora y en esa cancha, marcada al llegar (T266). -->
+            <a
+              matButton="filled"
+              routerLink="/disponibilidad"
+              [queryParams]="{
+                fecha: fecha(libre.inicio),
+                cancha: libre.canchaId,
+                inicio: hora(libre.inicio),
+              }"
+              class="w-full sm:w-auto"
+            >
               Reservar
               <span class="sr-only">{{ libre.cancha }} a las {{ hora(libre.inicio) }}</span>
             </a>
@@ -821,5 +832,6 @@ export class Inicio {
   ];
 
   protected readonly hora = horaEnElClub;
+  protected readonly fecha = fechaEnElClub;
   protected readonly pesos = enPesos;
 }

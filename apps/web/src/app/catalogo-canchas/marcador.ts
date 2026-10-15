@@ -4,7 +4,7 @@ import { MatIcon } from '@angular/material/icon';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from './motivos';
-import { enPesos, horaEnElClub } from './reloj-del-club';
+import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
 type Celda =
   | { estado: 'libre'; bloque: BloqueDisponible }
@@ -59,10 +59,11 @@ const claveDe = (canchaId: number, inicio: string) =>
  * "Libre", la bloqueada lleva el ícono de su motivo, la cerrada una raya, y todas
  * dicen su estado en palabras al lector.
  *
- * **La celda libre lleva a `/disponibilidad`**, como el "Reservar" de "Libre hoy"
- * al que reemplaza. Va con `tabindex="-1"`: con ocho canchas y seis horas serían
- * cuarenta y ocho paradas de teclado hacia la misma página, que ya tiene su camino
- * en "Ver todos los horarios" y en el zócalo. El lector de pantalla igual la activa.
+ * **La celda libre lleva a `/disponibilidad` con su día, su cancha y su hora** (T266),
+ * y la disponibilidad la marca al llegar. Va con `tabindex="-1"`: con ocho canchas y
+ * seis horas serían cuarenta y ocho paradas de teclado hacia la misma página, que ya
+ * tiene su camino en "Ver todos los horarios" y en el zócalo. El lector de pantalla
+ * igual la activa.
  *
  * **En disponibilidad, la celda libre se elige ahí mismo** (`modo="elegir"`, T264): es
  * un botón que avisa la cancha y el bloque, y la grilla le dice cuál quedó elegida, el
@@ -178,6 +179,7 @@ const claveDe = (canchaId: number, inicio: string) =>
                              lo que se ve, como pide WCAG 2.5.3. -->
                         <a
                           routerLink="/disponibilidad"
+                          [queryParams]="{ fecha: fila.fecha, cancha: celda.cancha.id, inicio: fila.hora }"
                           tabindex="-1"
                           [attr.aria-label]="
                             'Libre: reservar la ' + celda.cancha.nombre + ' a las ' + fila.hora
@@ -361,6 +363,7 @@ export class Marcador {
         return {
           instante,
           hora: horaEnElClub(new Date(instante).toISOString()),
+          fecha: fechaEnElClub(new Date(instante)),
           prime: deLaHora.some(({ bloque }) => bloque?.esPico),
           // De una cancha que se puede tomar: la API manda en 0 el monto de la reservada
           // y de la bloqueada, y la leyenda decía "arriendo $0".

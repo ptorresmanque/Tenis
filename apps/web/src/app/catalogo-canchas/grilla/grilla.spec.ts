@@ -276,6 +276,55 @@ describe('Grilla', () => {
     });
   });
 
+  /**
+   * T266. La celda que se tocó en la portada llega en la URL y la disponibilidad la marca:
+   * quien llega no tiene que volver a buscarla entre ocho canchas.
+   */
+  describe('la celda que viene de la portada (T266)', () => {
+    const barra = () => el().querySelector('app-barra-fija') as HTMLElement | null;
+
+    it('**marca esa cancha a esa hora y abre la barra para reservar**', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: '1', inicio: '18:00' });
+
+      const marcada = el().querySelector('app-marcador button[aria-pressed="true"]');
+      expect(marcada?.getAttribute('aria-label')).toContain('de 18:00 a 19:00');
+      expect(enTexto(barra()!)).toContain('Cancha 1');
+      expect(enTexto(barra()!)).toContain('Reservar');
+    });
+
+    it('si ya no está libre, no marca nada y lo dice', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: '1', inicio: '10:00' });
+
+      expect(barra()).toBeNull();
+      expect(texto()).toContain('La hora que elegiste ya no está libre');
+
+      // Elegir otra lo da por resuelto.
+      celdas()[0].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(texto()).not.toContain('ya no está libre');
+    });
+
+    it('una cancha o una hora mal escrita no marca nada y no dice nada', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: 'uno', inicio: '18' });
+
+      expect(barra()).toBeNull();
+      expect(texto()).not.toContain('ya no está libre');
+    });
+
+    it('cambiar de día la suelta y no la vuelve a marcar', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: '1', inicio: '18:00' });
+
+      const dia = fixture.debugElement.query((nodo) => nodo.name === 'app-controles-del-dia');
+      // set() del model emite el cambio, como el selector de días.
+      dia.componentInstance.fecha.set('2026-08-18');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(barra()).toBeNull();
+    });
+  });
+
   it('si todavía no pasó ninguna hora, no hay grupo plegado', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
   });

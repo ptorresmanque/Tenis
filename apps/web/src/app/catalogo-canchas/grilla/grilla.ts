@@ -1,10 +1,15 @@
 import {
+  afterNextRender,
   Component,
   computed,
+  effect,
+  ElementRef,
   inject,
+  Injector,
   linkedSignal,
   resource,
   signal,
+  untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -64,6 +69,12 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
           Pagaste {{ pesos(pagado) }}: si la nueva vale menos, no se devuelve la
           diferencia.
         }
+      </p>
+    }
+
+    @if (avisoDeLaPortada(); as aviso) {
+      <p role="status" class="mt-3 rounded-lg bg-muted p-3 text-sm font-medium">
+        {{ aviso }}
       </p>
     }
 
@@ -335,6 +346,22 @@ export class Grilla {
 
   protected readonly avisoDeReporte = signal<string | null>(null);
 
+  /**
+   * La celda que se tocó en la portada (T266): `?cancha=3&inicio=19:00`, con su `fecha`.
+   * Mal escrita, nula: no marca nada ni avisa de una hora que nadie eligió.
+   */
+  private readonly pedida = computed(() => {
+    const cancha = Number(this.parametros()?.get('cancha'));
+    const inicio = this.parametros()?.get('inicio') ?? '';
+
+    return Number.isInteger(cancha) && cancha > 0 && /^\d{2}:\d{2}$/.test(inicio)
+      ? { cancha, inicio }
+      : null;
+  });
+
+  /** Si la de la portada ya no estaba libre al llegar, lo que se le dice. */
+  protected readonly avisoDeLaPortada = signal<string | null>(null);
+
   protected readonly grillas = resource({
     params: () => ({
       fecha: this.fecha(),
@@ -393,6 +420,42 @@ export class Grilla {
 
   /** La cancha marcada en el tablero, la que muestra la barra de abajo. */
   protected readonly elegido = signal<CeldaElegible | null>(null);
+
+  private readonly injector = inject(Injector);
+  private readonly anfitrion = inject<ElementRef<HTMLElement>>(ElementRef);
+  private yaSeMarcoLaDeLaPortada = false;
+
+  /**
+   * Marca la de la portada la primera vez que llega su día, y la deja a la vista. Una sola
+   * vez: cambiar de día o de duración la suelta como a cualquier otra, y volver no la
+   * vuelve a marcar. Con `resolved` y no con `hasValue`: antes de cargar, el valor por
+   * omisión es una lista vacía y la daría por tomada.
+   */
+  private readonly marcarLaDeLaPortada = effect(() => {
+    const pedida = this.pedida();
+    if (this.yaSeMarcoLaDeLaPortada || !pedida || this.grillas.status() !== 'resolved') return;
+    this.yaSeMarcoLaDeLaPortada = true;
+
+    untracked(() => {
+      const grilla = this.grillas.value().find(({ cancha }) => cancha.id === pedida.cancha);
+      const bloque = grilla?.bloques.find(({ inicio }) => this.hora(inicio) === pedida.inicio);
+
+      if (!grilla || !bloque || this.noSePuedeTomar(bloque)) {
+        this.avisoDeLaPortada.set('La hora que elegiste ya no está libre: elige otra en el tablero.');
+        return;
+      }
+
+      this.elegirCelda({ cancha: grilla.cancha, bloque });
+      // jsdom no implementa scrollIntoView: en las pruebas, la celda queda donde está.
+      afterNextRender(
+        () =>
+          this.anfitrion.nativeElement
+            .querySelector('app-marcador [aria-pressed="true"]')
+            ?.scrollIntoView?.({ block: 'center' }),
+        { injector: this.injector },
+      );
+    });
+  });
 
   /** La marcada, como la lee el tablero. */
   protected readonly laElegida = computed(() => {
@@ -629,6 +692,7 @@ export class Grilla {
     if (this.mover.porToken() !== null && this.mover.pagadoPorElEnlace() === null) return;
 
     this.elegido.set(celda);
+    this.avisoDeLaPortada.set(null);
   }
 
   /** El socio mueve sin pagar; desde el enlace, con la diferencia de por medio (T91). */
