@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module';
 import {
   EstadoReserva,
   EstadoSocio,
+  MotivoBloqueo,
   Superficie,
 } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -366,5 +367,80 @@ describe('GET /api/admin/reservas', () => {
 
   it('una fecha ilegible se rechaza con 400 y no con 500', async () => {
     expect((await pedirElDia('30-02-2026')).status).toBe(400);
+  });
+
+  /**
+   * T270. El tablero de la agenda dibuja lo cerrado con su rango exacto: deducirlo de los
+   * bloques de una hora que empiezan cada media hora marcaría cerrada la media hora de
+   * antes. Las clases no vienen: la agenda ya las trae con su profesor.
+   */
+  describe('los bloqueos del día (T270)', () => {
+    const pedirBloqueos = (fecha = DIA, cookie = cookieAdmin) =>
+      request(app.getHttpServer())
+        .get('/api/admin/reservas/bloqueos')
+        .query({ fecha })
+        .set('Cookie', cookie);
+
+    it('trae los del día con su rango exacto, y no los de clase', async () => {
+      await prisma.bloqueo.createMany({
+        data: [
+          {
+            canchaId,
+            inicio: new Date(A_LAS_10),
+            fin: new Date(A_LAS_11),
+            motivo: MotivoBloqueo.MANTENCION,
+          },
+          {
+            canchaId,
+            inicio: new Date(A_LAS_11),
+            fin: new Date('2026-08-17T16:00:00.000Z'),
+            motivo: MotivoBloqueo.CLASE,
+          },
+          {
+            canchaId,
+            inicio: new Date('2026-08-18T14:00:00.000Z'),
+            fin: new Date('2026-08-18T15:00:00.000Z'),
+            motivo: MotivoBloqueo.TORNEO,
+          },
+        ],
+      });
+
+      const respuesta = await pedirBloqueos();
+
+      expect(respuesta.status).toBe(200);
+      expect(respuesta.body).toEqual([
+        {
+          canchaId,
+          inicio: A_LAS_10,
+          fin: A_LAS_11,
+          motivo: MotivoBloqueo.MANTENCION,
+          descripcion: null,
+        },
+      ]);
+    });
+
+    it('uno de varios días también cuenta ese día', async () => {
+      await prisma.bloqueo.create({
+        data: {
+          canchaId,
+          inicio: new Date('2026-08-16T12:00:00.000Z'),
+          fin: new Date('2026-08-19T02:00:00.000Z'),
+          motivo: MotivoBloqueo.MANTENCION,
+          descripcion: 'Cambio de carpeta',
+        },
+      });
+
+      const respuesta = await pedirBloqueos();
+
+      expect(respuesta.body).toHaveLength(1);
+      expect(respuesta.body).toMatchObject([
+        { descripcion: 'Cambio de carpeta' },
+      ]);
+    });
+
+    it('un socio no los ve, y una fecha ilegible es 400', async () => {
+      expect((await pedirBloqueos(DIA, cookieSocio)).status).toBe(403);
+      expect((await pedirBloqueos('30-02-2026')).status).toBe(400);
+    });
   });
 });
