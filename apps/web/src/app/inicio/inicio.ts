@@ -170,7 +170,7 @@ import { Foto } from '../ui/foto';
           class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
         >
           @if (grillas.isLoading() || grillasDeManana.isLoading()) {
-            <app-esqueleto class="flex-1" [filas]="1" etiqueta="Buscando la próxima hora libre…" />
+            <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
           } @else if (grillas.error()) {
             <p class="text-muted-foreground">
               No pudimos cargar las horas de hoy.

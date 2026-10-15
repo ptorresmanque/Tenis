@@ -13,6 +13,7 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Club } from '../club/club.service';
 import { Aviso } from '../ui/aviso';
+import { Esqueleto } from '../ui/esqueleto';
 import { VarianteInsignia } from '../ui/insignias';
 import { ReservasPublicas } from './reserva-publica.service';
 
@@ -41,11 +42,11 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
  */
 @Component({
   selector: 'app-reserva-publica',
-  imports: [MatButton, MatIcon, Aviso, RouterLink, MatChipsModule],
+  imports: [MatButton, MatIcon, Aviso, RouterLink, MatChipsModule, Esqueleto],
   template: `
     <section class="mx-auto max-w-md py-10">
       @if (reserva.isLoading()) {
-        <p class="text-center text-muted-foreground">Buscando la reserva…</p>
+        <app-esqueleto [filas]="3" etiqueta="Buscando la reserva…" />
       } @else if (reserva.error()) {
         <app-aviso variante="error" titulo="Este enlace no lleva a ninguna reserva">
           Puede estar mal copiado o pertenecer a una reserva que ya no existe.
