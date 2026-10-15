@@ -70,7 +70,7 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
 
         <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
         @if (puedeTomarHoras()) {
-          <button matButton="filled" type="button" (click)="tomandoHora.set(true)">
+          <button matButton="filled" type="button" (click)="tomandoHora.set(SIN_FRANJA)">
             <mat-icon class="text-base" aria-hidden="true">add</mat-icon>
             Nueva reserva
           </button>
@@ -82,10 +82,12 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
          el día en palabras. Duración y canchas no van: la agenda muestra todo el día. -->
     <app-selector-de-dia [(fecha)]="fechaActual" />
 
-    @if (tomandoHora() && puedeTomarHoras()) {
+    @if (puedeTomarHoras() && tomandoHora(); as franja) {
       <app-nueva-reserva
         [fecha]="fechaActual()"
-        (cerrar)="tomandoHora.set(false)"
+        [cancha]="franja.canchaId"
+        [inicio]="franja.inicio"
+        (cerrar)="tomandoHora.set(null)"
         (creada)="anunciarCreada($event)"
       />
     }
@@ -149,7 +151,7 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
           [bloqueos]="bloqueosSeguros()"
           [puedeTomar]="puedeTomarHoras()"
           (abrir)="idDeLaFicha.set($event.id)"
-          (tomar)="tomandoHora.set(true)"
+          (tomar)="tomandoHora.set($event)"
         />
       </section>
     }
@@ -270,8 +272,12 @@ export class AgendaDelDia {
       : `${reservas} y ${clases} ${clases === 1 ? 'clase' : 'clases'} este día.`;
   };
 
-  /** El formulario del mesón está abierto. */
-  protected readonly tomandoHora = signal(false);
+  /**
+   * El formulario del mesón está abierto: desde la cabecera, sin franja; desde una franja
+   * libre del tablero, con su cancha y su hora (T272). Solo el admin llega a abrirlo.
+   */
+  protected readonly tomandoHora = signal<FranjaPedida | null>(null);
+  protected readonly SIN_FRANJA: FranjaPedida = { canchaId: null, inicio: null };
   protected readonly avisoDeCreacion = signal<string | null>(null);
 
   /**
@@ -279,7 +285,7 @@ export class AgendaDelDia {
    * servidor que las que entran por la web, y la agenda ya se repuebla con eso.
    */
   protected anunciarCreada(folio: string): void {
-    this.tomandoHora.set(false);
+    this.tomandoHora.set(null);
     this.avisoDeCreacion.set(`Hora tomada. Folio ${folio}.`);
   }
 
@@ -308,4 +314,10 @@ export class AgendaDelDia {
       },
     ];
   });
+}
+
+/** La franja desde la que se abre «Nueva reserva»: nula en lo que se elige en el formulario. */
+interface FranjaPedida {
+  canchaId: number | null;
+  inicio: string | null;
 }

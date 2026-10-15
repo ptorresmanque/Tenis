@@ -219,6 +219,29 @@ describe('AgendaDelDia', () => {
     expect(disponibilidadDelDia).toHaveBeenLastCalledWith('2026-08-20');
   });
 
+  it('**al admin, la franja libre abre «Nueva reserva» con esa cancha y esa hora** (T272)', async () => {
+    const tablero = fixture.debugElement.query((nodo) => nodo.name === 'app-tablero-de-la-agenda');
+    tablero.componentInstance.tomar.emit({ canchaId: 2, inicio: '2026-08-17T13:00:00.000Z' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const formulario = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-reserva');
+    expect(formulario.componentInstance.cancha()).toBe(2);
+    expect(formulario.componentInstance.inicio()).toBe('2026-08-17T13:00:00.000Z');
+  });
+
+  it('el botón de la cabecera la abre sin cancha ni hora', async () => {
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.cabecera-panel button')!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const formulario = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-reserva');
+    expect(formulario.componentInstance.cancha()).toBeNull();
+    expect(formulario.componentInstance.inicio()).toBeNull();
+  });
+
   it('**tocar la reserva abre su ficha: la hora, la cancha y su teléfono**', async () => {
     await abrirLaFicha();
 
