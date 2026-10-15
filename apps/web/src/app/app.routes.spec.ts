@@ -85,6 +85,8 @@ describe('Rutas protegidas', () => {
     'administracion/no-uso/por-revisar',
     'administracion/no-uso/periodo',
     'administracion/clases/agendar',
+    'administracion/personas',
+    'administracion/personas/:id',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',
@@ -139,6 +141,14 @@ describe('Rutas protegidas', () => {
     expect(buscar('administracion/no-uso/periodo')?.ruta.title).toBe(
       'Horas no usadas · Período — Administración',
     );
+  });
+
+  it.each([
+    ['socios', '/administracion/personas?tipo=socios'],
+    ['usuarios', '/administracion/personas'],
+    ['profesores', '/administracion/personas?tipo=profesores'],
+  ])('**/administracion/%s es Personas, con su filtro** (T296, A1)', (vieja, nueva) => {
+    expect(buscar(`administracion/${vieja}`)?.ruta.redirectTo).toBe(nueva);
   });
 
   it('**agendar una clase es su página, dentro de Clases** (T294)', () => {

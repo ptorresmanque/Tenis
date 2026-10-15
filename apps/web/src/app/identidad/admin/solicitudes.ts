@@ -1,5 +1,6 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
 import { MatCard } from '@angular/material/card';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -33,9 +34,10 @@ const TIPOS: Record<TipoSolicitud, string> = {
  * La bandeja: quién le escribió al club y qué se hizo con cada consulta.
  *
  * **El número que el club necesita de acá no es cuántas llegaron, es cuántas
- * terminaron en un socio.** Por eso la de tipo "quiere asociarse" tiene su propio
- * botón, que crea la invitación con el correo ya puesto y deja las dos filas
- * enlazadas: es el circuito completo, y sin él nadie puede decir si tener sitio sirvió.
+ * terminaron en un socio.** Desde T297 (SPEC-panel.md D13) el alta no sale de acá: la
+ * persona crea su cuenta en el sitio y el admin la marca Socio en Personas, y ahí su
+ * consulta «Quiere asociarse» se enlaza y se atiende sola (A14). La bandeja atiende o
+ * descarta, y a quien quiere asociarse le dice cómo seguir.
  */
 @Component({
   selector: 'app-solicitudes',
@@ -45,6 +47,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
     MatInput,
     MatButton,
     FormsModule,
+    RouterLink,
     Aviso,
     EstadoVacio,
     MatButtonToggleModule,
@@ -164,6 +167,21 @@ const TIPOS: Record<TipoSolicitud, string> = {
                 </p>
               }
 
+              @if (solicitud.tipo === 'SOCIO' && solicitud.estado === 'NUEVA') {
+                <!-- T297 (D13): el alta ya no sale de acá. Esta consulta se atiende sola
+                     cuando se marca Socio la cuenta de este correo. -->
+                <p class="mt-2 text-sm text-muted-foreground">
+                  Para hacerla socia: que cree su cuenta en el sitio con este correo, y márcala
+                  Socio en su ficha de
+                  <a
+                    class="font-semibold text-primary underline"
+                    routerLink="/administracion/personas"
+                    [queryParams]="{ tipo: 'sin-tipo' }"
+                    >Personas</a
+                  >. Esta consulta se marca atendida sola.
+                </p>
+              }
+
               @if (solicitud.estado === 'NUEVA') {
                 <div class="mt-3 flex flex-wrap items-end gap-2">
                   <mat-form-field class="chico flex-1">
@@ -176,19 +194,6 @@ const TIPOS: Record<TipoSolicitud, string> = {
                       [(ngModel)]="notas[solicitud.id]"
                     />
                   </mat-form-field>
-
-                  @if (solicitud.tipo === 'SOCIO' && !solicitud.invitacionId) {
-                    <button
-                      matButton="filled"
-                      type="button"
-                      class="chico"
-                      [disabled]="trabajando()"
-                      [attr.aria-busy]="enCurso() === 'invitar-' + solicitud.id"
-                      (click)="invitar(solicitud)"
-                    >
-                      Dar de alta como socio
-                    </button>
-                  }
 
                   <button
                     matButton="outlined"
@@ -268,17 +273,6 @@ export class SolicitudesPanel {
         estado === 'ATENDIDA'
           ? `La consulta de ${solicitud.nombre} queda como atendida.`
           : `Descartaste la consulta de ${solicitud.nombre}.`,
-        undefined,
-        LO_HECHO,
-      );
-    });
-  }
-
-  protected async invitar(solicitud: Solicitud): Promise<void> {
-    await this.intentar(`invitar-${solicitud.id}`, async () => {
-      await this.api.invitar(solicitud.id);
-      this.snackBar.open(
-        `${solicitud.nombre} ya está invitada: le llega el alta a ${solicitud.email}.`,
         undefined,
         LO_HECHO,
       );

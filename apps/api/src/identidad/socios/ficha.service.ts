@@ -28,8 +28,8 @@ export interface CambiosDeFicha {
  * **Hasta T37 esto no existía**: cambiar el estado de un socio o extenderle la cuota
  * exigía escribir en la base, que es literalmente la problemática 2.4 del perfil —el
  * padrón se corregía a mano sin constancia de quién ni cuándo—. El mensaje de
- * `invitar` ya prometía que "su ficha se edita desde la lista de socios"; ahora es
- * verdad.
+ * `invitar` ya prometía que la ficha se editaba desde el panel; ahora es verdad. Desde
+ * T299 se edita en Personas, en la pestaña «Cuota» de la ficha de la cuenta.
  *
  * Cada cambio pasa por `CambiosDeSocio` en la misma transacción. Ver `SPEC-identidad.md`
  * § Cambiar la ficha de un socio deja rastro.

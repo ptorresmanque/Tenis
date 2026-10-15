@@ -1,13 +1,11 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
 import { EstadoSolicitud, TipoSolicitud } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { InvitacionesService } from '../socios/invitaciones.service';
 
 export interface SolicitudNueva {
   tipo: TipoSolicitud;
@@ -28,10 +26,7 @@ export interface SolicitudNueva {
  */
 @Injectable()
 export class ContactoService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly invitaciones: InvitacionesService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   recibir(datos: SolicitudNueva) {
     return this.prisma.solicitudContacto.create({ data: datos });
@@ -73,78 +68,6 @@ export class ContactoService {
         atendidaPor: adminUsuarioId,
       },
     });
-  }
-
-  /**
-   * Convierte la solicitud en una invitación de socio: el circuito completo.
-   *
-   * Interesado → invitación → cuenta → socio. **El enlace entre las dos filas es lo
-   * que permite contar la conversión**; sin él, "llegaron treinta interesados" y
-   * "entraron cuatro socios" son dos números que nadie puede juntar.
-   *
-   * Reusa `InvitacionesService` y no crea la invitación acá: esa operación ya sabe
-   * asociar en el acto a quien tenga cuenta, y duplicarla dejaría dos altas de socio
-   * que se comportan distinto.
-   */
-  async invitar(
-    id: number,
-    numeroSocio: string | undefined,
-    adminUsuarioId: number,
-  ) {
-    const solicitud = await this.laSolicitud(id);
-
-    if (solicitud.tipo !== TipoSolicitud.SOCIO) {
-      throw new ConflictException(
-        'Esa solicitud no es de alguien que quiera asociarse. Invitar como socio a ' +
-          'quien preguntó por otra cosa lo mete en el padrón sin haberlo pedido.',
-      );
-    }
-
-    if (solicitud.invitacionId !== null) {
-      throw new ConflictException('Esa solicitud ya tiene su invitación.');
-    }
-
-    const invitacion = await this.laInvitacionDe(solicitud.email, numeroSocio);
-
-    await this.prisma.solicitudContacto.update({
-      where: { id },
-      data: {
-        invitacionId: invitacion.id,
-        estado: EstadoSolicitud.ATENDIDA,
-        atendidaEn: new Date(),
-        atendidaPor: adminUsuarioId,
-      },
-    });
-
-    return invitacion;
-  }
-
-  /**
-   * La invitación de ese correo: la nueva, o la que ya existía.
-   *
-   * **Reintentar tiene que poder enlazar**, y por dos caminos que pasan de verdad: el
-   * club la invitó desde la pantalla de socios y después ve su consulta en la bandeja,
-   * o un intento anterior creó la invitación y se cayó antes de escribir el enlace. En
-   * los dos casos `invitar` responde 409 por el correo único, y sin esto la solicitud
-   * queda atascada para siempre: esa conversión no se cuenta nunca.
-   *
-   * Una invitación **ya usada** también sirve de enlace: significa que esa persona ya
-   * entró al club, que es exactamente la conversión que se quiere contar.
-   */
-  private async laInvitacionDe(email: string, numeroSocio: string | undefined) {
-    try {
-      return await this.invitaciones.invitar({ email, numeroSocio });
-    } catch (falla) {
-      const existente = await this.prisma.invitacionSocio.findUnique({
-        where: { email },
-      });
-
-      // Sin invitación previa, el 409 era por otra cosa —el correo ya es socio, o el
-      // número de socio está tomado— y esos sí los tiene que ver el admin.
-      if (!existente) throw falla;
-
-      return existente;
-    }
   }
 
   private async laSolicitud(id: number) {

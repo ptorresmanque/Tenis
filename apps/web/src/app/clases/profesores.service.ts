@@ -14,7 +14,7 @@ export interface Profesor {
   usuarioId: number | null;
 }
 
-/** La ficha como se manda al crear. La cuenta va aparte y es opcional (T224). */
+/** La ficha como se manda al crear. La cuenta va aparte (T224), y desde T297 no es opcional. */
 export type FichaNueva = Omit<Profesor, 'id' | 'activo' | 'usuarioId'>;
 
 /** Un cambio parcial: lo que no vaya, no se toca. */
@@ -39,8 +39,8 @@ export class Profesores {
     );
   }
 
-  /** Con `usuarioId`, la ficha nace con cuenta y esa persona entra a Clases (T224). */
-  crear(ficha: FichaNueva, usuarioId?: number): Promise<Profesor> {
+  /** La ficha nace con la cuenta, y esa persona entra a Clases (T224, T297). */
+  crear(ficha: FichaNueva, usuarioId: number): Promise<Profesor> {
     return firstValueFrom(
       this.http.post<Profesor>('/api/admin/profesores', { ...ficha, usuarioId }),
     );
@@ -50,13 +50,6 @@ export class Profesores {
   vincular(id: number, usuarioId: number): Promise<Profesor> {
     return firstValueFrom(
       this.http.post<Profesor>(`/api/admin/profesores/${id}/cuenta`, { usuarioId }),
-    );
-  }
-
-  /** Le quita la cuenta: la ficha y sus clases quedan. */
-  desvincular(id: number): Promise<Profesor> {
-    return firstValueFrom(
-      this.http.delete<Profesor>(`/api/admin/profesores/${id}/cuenta`),
     );
   }
 

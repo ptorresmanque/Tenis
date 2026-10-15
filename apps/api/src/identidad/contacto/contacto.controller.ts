@@ -77,20 +77,4 @@ export class SolicitudesController {
 
     return this.servicio.resolver(id, estado, nota, yo.id);
   }
-
-  /** Convierte la solicitud en un alta de socio, y deja las dos filas enlazadas. */
-  @Post(':id/invitacion')
-  invitar(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() cuerpo: unknown,
-    @Yo() yo: UsuarioActual,
-  ) {
-    const datos = (cuerpo ?? {}) as Record<string, unknown>;
-    const numeroSocio =
-      typeof datos.numeroSocio === 'string' && datos.numeroSocio.trim() !== ''
-        ? datos.numeroSocio.trim()
-        : undefined;
-
-    return this.servicio.invitar(id, numeroSocio, yo.id);
-  }
 }

@@ -218,17 +218,29 @@ export const routes: Routes = [
         ],
       },
       {
-        // T223. Todas las cuentas y sus tipos; reemplaza a Configuración → Administradores.
-        path: 'administracion/usuarios',
-        title: 'Usuarios — Administración',
+        // T296 (SPEC-panel.md D2): las cuentas del club en una tabla, con su filtro en la URL.
+        // Reemplaza a Socios, Usuarios y Profesores, que redirigen acá con su filtro.
+        path: 'administracion/personas',
+        title: 'Personas — Administración',
         loadComponent: () =>
-          import('./identidad/admin/usuarios').then((m) => m.UsuariosPanel),
+          import('./identidad/admin/personas/personas').then((m) => m.PersonasPanel),
+      },
+      {
+        // T298 (SPEC-panel.md D2): la ficha de una cuenta, con Datos · Tipos · Cuota.
+        path: 'administracion/personas/:id',
+        title: 'Personas · Ficha — Administración',
+        loadComponent: () =>
+          import('./identidad/admin/personas/ficha-persona').then((m) => m.FichaPersona),
+      },
+      {
+        path: 'administracion/usuarios',
+        pathMatch: 'full',
+        redirectTo: '/administracion/personas',
       },
       {
         path: 'administracion/socios',
-        title: 'Socios — Administración',
-        loadComponent: () =>
-          import('./identidad/admin/socios').then((m) => m.SociosPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/personas?tipo=socios',
       },
       {
         // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
@@ -258,10 +270,11 @@ export const routes: Routes = [
           import('./clases/admin/agendar-clase').then((m) => m.AgendarClase),
       },
       {
+        // Los profesores son un filtro de Personas desde T296: la ficha de cada uno es la de su
+        // cuenta (D12).
         path: 'administracion/profesores',
-        title: 'Profesores — Administración',
-        loadComponent: () =>
-          import('./clases/admin/profesores').then((m) => m.ProfesoresPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/personas?tipo=profesores',
       },
       {
         path: 'administracion/torneos',

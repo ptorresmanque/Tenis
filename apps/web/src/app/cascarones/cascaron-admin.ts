@@ -44,16 +44,10 @@ export const SECCIONES_DEL_PANEL = [
     trasDivisoria: false,
   },
   {
-    ruta: '/administracion/socios',
-    etiqueta: 'Socios',
+    // T296. Socios, Usuarios y Profesores en una sola tabla de cuentas (SPEC-panel.md D2).
+    ruta: '/administracion/personas',
+    etiqueta: 'Personas',
     icono: 'group',
-    trasDivisoria: false,
-  },
-  {
-    // T223. Junto a Socios: es donde se da cada tipo, también el de socio.
-    ruta: '/administracion/usuarios',
-    etiqueta: 'Usuarios',
-    icono: 'manage_accounts',
     trasDivisoria: false,
   },
   {
@@ -73,12 +67,6 @@ export const SECCIONES_DEL_PANEL = [
     ruta: '/administracion/clases',
     etiqueta: 'Clases',
     icono: 'event_note',
-    trasDivisoria: false,
-  },
-  {
-    ruta: '/administracion/profesores',
-    etiqueta: 'Profesores',
-    icono: 'school',
     trasDivisoria: false,
   },
   {

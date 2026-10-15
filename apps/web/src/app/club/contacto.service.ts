@@ -55,14 +55,4 @@ export class Contacto {
       this.http.patch<Solicitud>(`/api/admin/solicitudes/${id}`, { estado, nota }),
     );
   }
-
-  /** Convierte la solicitud en un alta de socio. Solo vale para las de tipo `SOCIO`. */
-  invitar(id: number): Promise<{ id: number; email: string }> {
-    return firstValueFrom(
-      this.http.post<{ id: number; email: string }>(
-        `/api/admin/solicitudes/${id}/invitacion`,
-        {},
-      ),
-    );
-  }
 }
