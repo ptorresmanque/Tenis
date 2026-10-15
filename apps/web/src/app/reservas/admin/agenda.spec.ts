@@ -154,7 +154,7 @@ describe('AgendaDelDia', () => {
     const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
     const llenos = await llenosDeLaCabecera();
 
-    expect(cabecera?.querySelector('h1')?.textContent).toContain('Reservas del día');
+    expect(cabecera?.querySelector('h1')?.textContent).toContain('Agenda del día');
     expect(llenos).toHaveLength(1);
     expect(await llenos[0].getText()).toContain('Nueva reserva');
     expect(cabecera?.querySelector('[aria-label="Día anterior"]')).toBeNull();

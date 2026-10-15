@@ -51,7 +51,7 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
     <header class="cabecera-panel">
       <div>
         <div class="flex flex-wrap items-center gap-3">
-          <h1 class="titular text-4xl">Reservas del día</h1>
+          <h1 class="titular text-4xl">Agenda del día</h1>
           <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
                que alguien recargue por las dudas cada dos minutos. -->
           <mat-chip-set class="insignias">

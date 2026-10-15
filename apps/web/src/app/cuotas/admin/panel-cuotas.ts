@@ -55,7 +55,7 @@ function mesActual(): string {
     <!-- La cabecera del panel (TV7.1), sin acción: se cobra fila por fila. -->
     <header class="cabecera-panel">
       <div>
-        <h1 class="titular text-4xl">Cuotas del club</h1>
+        <h1 class="titular text-4xl">Cuotas</h1>
         <p class="mt-1 text-muted-foreground">
           La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes. La
           incorporación aparece en el mes en que el socio entró.

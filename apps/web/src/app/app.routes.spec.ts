@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Route, Routes } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { routes } from './app.routes';
-import { CascaronAdmin } from './cascarones/cascaron-admin';
+import { CascaronAdmin, SECCIONES_DEL_PANEL } from './cascarones/cascaron-admin';
 import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
 import { conPanel } from './core/auth/con-panel.guard';
@@ -197,4 +200,34 @@ describe('El arranque solo trae el sitio público (I6)', () => {
   it('el público sí viene en el arranque: es lo primero que se ve', () => {
     expect(padreDe('disponibilidad')?.component).toBe(CascaronPublico);
   });
+});
+
+/**
+ * T277. El nombre del menú lateral es el de la pantalla, en su título y en la pestaña del
+ * navegador (SPEC-revision-qa.md, A7): «Agenda del día» en el menú y «Reservas del día» en
+ * la pantalla confundían. El título se lee del archivo de la pantalla, el que importa su
+ * ruta, como lee las plantillas design-tokens.spec.ts.
+ */
+describe('El panel se titula como su menú (T277)', () => {
+  const fuente = readFileSync(join(process.cwd(), 'src/app/app.routes.ts'), 'utf8');
+
+  /** El archivo de la pantalla de una ruta: el del `import` que la carga. */
+  const archivoDe = (url: string): string => {
+    const encontrado = fuente.match(new RegExp(`path: '${url}'[\\s\\S]*?import\\('\\./([^']+)'\\)`));
+    if (!encontrado) throw new Error(`No encontré la pantalla de ${url}`);
+    return join(process.cwd(), 'src/app', `${encontrado[1]}.ts`);
+  };
+
+  for (const { ruta, etiqueta } of SECCIONES_DEL_PANEL) {
+    it(`«${etiqueta}»: la pantalla y la pestaña se llaman como el ítem`, () => {
+      const url = ruta.replace(/^\//, '');
+      const titulo = readFileSync(archivoDe(url), 'utf8')
+        .match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      expect(titulo).toBe(etiqueta);
+      expect(buscar(url)?.ruta.title).toBe(`${etiqueta} — Administración`);
+    });
+  }
 });
