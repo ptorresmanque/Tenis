@@ -380,6 +380,11 @@ describe('GET /api/admin/reservas', () => {
         .get('/api/admin/reservas/bloqueos')
         .query({ fecha })
         .set('Cookie', cookie);
+    /** Los de la cancha de esta prueba: el endpoint trae los de todas, y otras dejan los suyos. */
+    const deEstaCancha = (cuerpo: unknown) =>
+      (cuerpo as { canchaId: number }[]).filter(
+        (uno) => uno.canchaId === canchaId,
+      );
 
     it('trae los del día con su rango exacto, y no los de clase', async () => {
       await prisma.bloqueo.createMany({
@@ -408,7 +413,7 @@ describe('GET /api/admin/reservas', () => {
       const respuesta = await pedirBloqueos();
 
       expect(respuesta.status).toBe(200);
-      expect(respuesta.body).toEqual([
+      expect(deEstaCancha(respuesta.body)).toEqual([
         {
           canchaId,
           inicio: A_LAS_10,
@@ -432,9 +437,8 @@ describe('GET /api/admin/reservas', () => {
 
       const respuesta = await pedirBloqueos();
 
-      expect(respuesta.body).toHaveLength(1);
-      expect(respuesta.body).toMatchObject([
-        { descripcion: 'Cambio de carpeta' },
+      expect(deEstaCancha(respuesta.body)).toEqual([
+        expect.objectContaining({ descripcion: 'Cambio de carpeta' }),
       ]);
     });
 
