@@ -10,6 +10,7 @@ import { IngresoDelClub } from './ingreso.service';
 import { HorasNoUsadas } from './no-uso.service';
 import { OcupacionDeCancha } from './ocupacion.service';
 import { PadronDelClub } from './padron.service';
+import { PendientesController } from './pendientes.controller';
 import { ReportesController } from './reportes.controller';
 
 /**
@@ -29,7 +30,11 @@ import { ReportesController } from './reportes.controller';
  */
 @Module({
   imports: [IdentidadModule, ReservasModule, ClasesModule],
-  controllers: [ReportesController, InformeDelDiaController],
+  controllers: [
+    ReportesController,
+    InformeDelDiaController,
+    PendientesController,
+  ],
   providers: [
     IngresoDelClub,
     OcupacionDeCancha,

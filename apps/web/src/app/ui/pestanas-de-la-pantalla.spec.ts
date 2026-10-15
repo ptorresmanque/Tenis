@@ -41,6 +41,29 @@ describe('Las pestañas de la pantalla', () => {
     expect(el.querySelector('mat-tab-nav-panel router-outlet')).not.toBeNull();
   });
 
+  it('**una pestaña puede llevar un badge con su número y su descripción** (T287, A10)', () => {
+    const el = montar([
+      { ruta: '/administracion/no-uso/por-revisar', etiqueta: 'Por revisar', insignia: 3, descripcion: '3 horas por revisar' },
+      { ruta: '/administracion/no-uso/periodo', etiqueta: 'Período' },
+    ]);
+    const [conBadge, sinBadge] = [...el.querySelectorAll('nav[mat-tab-nav-bar] a')];
+
+    expect(conBadge.querySelector('.mat-badge-content')?.textContent?.trim()).toBe('3');
+    // El lector oye «Por revisar: 3 horas por revisar», no un «3» suelto (el número es
+    // aria-hidden). Va como texto oculto: matBadgeDescription no llega al lector en este caso.
+    expect(conBadge.querySelector('.sr-only')?.textContent).toBe(': 3 horas por revisar');
+    expect(sinBadge.querySelector('.mat-badge-content')).toBeNull();
+  });
+
+  it('sin nada que esperar, no hay badge', () => {
+    const el = montar([
+      { ruta: '/a', etiqueta: 'Por revisar', insignia: 0, descripcion: 'nada' },
+      { ruta: '/b', etiqueta: 'Período' },
+    ]);
+
+    expect(el.querySelector('.mat-badge')?.classList).toContain('mat-badge-hidden');
+  });
+
   it('**con una sola pestaña no hay barra**: solo el contenido (A3)', () => {
     const el = montar([{ ruta: '/administracion/reservas', etiqueta: 'Agenda' }]);
 

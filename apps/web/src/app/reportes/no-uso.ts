@@ -42,18 +42,13 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
-         es lo que se lleva. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Horas no usadas</h1>
-        <p class="mt-1 text-muted-foreground">
-          Horas que alguien tomó y dejó vacías, sobre el total reservado del período. Solo cuentan las
-          que el club <strong>confirmó</strong> al resolver el reporte: uno pendiente es una acusación
-          que nadie miró todavía.
-        </p>
-      </div>
-    </header>
+    <!-- Es la pestaña «Período» de Horas no usadas (T287): el titular va en la pantalla madre.
+         El CSV va con la tabla, que es lo que se lleva. -->
+    <p class="max-w-prose text-muted-foreground">
+      Horas que alguien tomó y dejó vacías, sobre el total reservado del período. Solo cuentan las
+      que el club <strong>confirmó</strong> al resolver el reporte: uno pendiente es una acusación
+      que nadie miró todavía.
+    </p>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
       <mat-form-field>

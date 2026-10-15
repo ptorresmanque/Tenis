@@ -79,7 +79,7 @@ describe('Cascarón de administración', () => {
     expect(elemento.querySelector('app-progreso-de-navegacion')).not.toBeNull();
   });
 
-  it('lista las dieciséis secciones que hoy tienen pantalla (pestañas: la ocupación en la agenda, T285; Finanzas, T286)', () => {
+  it('lista las quince secciones que hoy tienen pantalla (pestañas: la ocupación en la agenda, T285; Finanzas, T286; las horas reportadas, T287)', () => {
     expect(itemsDeLaBarra()).toEqual([
       '/administracion/reservas',
       '/administracion/canchas',
@@ -87,7 +87,6 @@ describe('Cascarón de administración', () => {
       '/administracion/usuarios',
       '/administracion/finanzas',
       '/administracion/no-uso',
-      '/administracion/reportes',
       '/administracion/clases',
       '/administracion/profesores',
       '/administracion/torneos',
@@ -141,7 +140,7 @@ describe('Cascarón de administración', () => {
     const barra = (montar().nativeElement as HTMLElement).querySelector('mat-sidenav');
     const iconos = [...barra!.querySelectorAll('nav a mat-icon')];
 
-    expect(iconos).toHaveLength(16);
+    expect(iconos).toHaveLength(15);
     expect(iconos.every((i) => i.getAttribute('aria-hidden') === 'true')).toBe(true);
   });
 

@@ -681,6 +681,19 @@ html .mat-mdc-fab-base.fab-de-la-pantalla {
   text-transform: uppercase;
 }
 
+/* Los badges de lo que espera (T287): el rojo de los errores del sitio, para que se lean como
+   «hay que hacer algo», con la letra de leer en negrita. */
+html {
+  @include mat.badge-overrides(
+    (
+      background-color: var(--color-destructive),
+      text-color: var(--color-on-primary),
+      text-font: var(--font-sans),
+      text-weight: 700,
+    )
+  );
+}
+
 /*
   LOS PANELES DESPLEGABLES (T281).
 

@@ -80,6 +80,8 @@ describe('Rutas protegidas', () => {
     'administracion/finanzas/padron',
     'administracion/finanzas/cuotas',
     'administracion/finanzas/morosos',
+    'administracion/no-uso/por-revisar',
+    'administracion/no-uso/periodo',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',
@@ -125,6 +127,18 @@ describe('Rutas protegidas', () => {
       );
     },
   );
+
+  it('**Horas reportadas es la pestaña «Por revisar» de Horas no usadas** (T287, A1)', () => {
+    expect(buscar('administracion/reportes')?.ruta.redirectTo).toBe(
+      '/administracion/no-uso/por-revisar',
+    );
+    expect(buscar('administracion/no-uso/por-revisar')?.ruta.title).toBe(
+      'Horas no usadas · Por revisar — Administración',
+    );
+    expect(buscar('administracion/no-uso/periodo')?.ruta.title).toBe(
+      'Horas no usadas · Período — Administración',
+    );
+  });
 
   it('**la ruta vieja de la tienda y la cafetería lleva a la tienda** (T236, G6)', () => {
     expect(buscar('administracion/configuracion/tienda-y-cafeteria')?.ruta.redirectTo).toBe(

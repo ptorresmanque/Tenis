@@ -70,12 +70,6 @@ export const SECCIONES_DEL_PANEL = [
     trasDivisoria: false,
   },
   {
-    ruta: '/administracion/reportes',
-    etiqueta: 'Horas reportadas',
-    icono: 'flag',
-    trasDivisoria: false,
-  },
-  {
     ruta: '/administracion/clases',
     etiqueta: 'Clases',
     icono: 'event_note',

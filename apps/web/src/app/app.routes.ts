@@ -319,8 +319,24 @@ export const routes: Routes = [
       {
         path: 'administracion/no-uso',
         title: 'Horas no usadas — Administración',
+        // T287 (SPEC-panel.md D6): lo que hay que revisar y la estadística, en pestañas.
         loadComponent: () =>
-          import('./reportes/no-uso').then((m) => m.NoUsoPanel),
+          import('./reportes/horas-no-usadas').then((m) => m.HorasNoUsadas),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'por-revisar' },
+          {
+            path: 'por-revisar',
+            title: 'Horas no usadas · Por revisar — Administración',
+            loadComponent: () =>
+              import('./reservas/admin/reportes').then((m) => m.ReportesPanel),
+          },
+          {
+            path: 'periodo',
+            title: 'Horas no usadas · Período — Administración',
+            loadComponent: () =>
+              import('./reportes/no-uso').then((m) => m.NoUsoPanel),
+          },
+        ],
       },
       {
         // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
@@ -329,10 +345,10 @@ export const routes: Routes = [
         redirectTo: '/administracion/finanzas/padron',
       },
       {
+        // Pasó a ser la pestaña «Por revisar» de Horas no usadas (T287).
         path: 'administracion/reportes',
-        title: 'Horas reportadas — Administración',
-        loadComponent: () =>
-          import('./reservas/admin/reportes').then((m) => m.ReportesPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/no-uso/por-revisar',
       },
       {
         // Tres secciones bajo un mismo cascarón con sub-navegación, como decidió
