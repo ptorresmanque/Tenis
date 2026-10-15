@@ -249,6 +249,15 @@ export const routes: Routes = [
           import('./clases/admin/agenda-clases').then((m) => m.AgendaDeClases),
       },
       {
+        // T294 (SPEC-panel.md D7): agendar una clase o una serie, en su página. La abre el FAB
+        // de Clases con el día en `?fecha=`. El profesor entra igual: su línea en el mapa de
+        // permisos vale para todo lo que cuelga de /administracion/clases.
+        path: 'administracion/clases/agendar',
+        title: 'Clases · Agendar — Administración',
+        loadComponent: () =>
+          import('./clases/admin/agendar-clase').then((m) => m.AgendarClase),
+      },
+      {
         path: 'administracion/profesores',
         title: 'Profesores — Administración',
         loadComponent: () =>

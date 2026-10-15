@@ -1,155 +1,69 @@
-import { Component, computed, inject, resource, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { MatCard } from '@angular/material/card';
+import { Component, inject, input, linkedSignal, resource, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { MatRadioModule } from '@angular/material/radio';
+import { MatButton, MatFabAnchor } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
-import { MatButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
-import { MatTimepickerModule } from '@angular/material/timepicker';
-import { MatSelectModule } from '@angular/material/select';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 import { pedirMotivo } from '../../ui/dialogo-de-motivo';
-import { proveerCampos } from '../../ui/campos';
+import { SelectorDeDia } from '../../catalogo-canchas/grilla/selector-de-dia';
 import {
-  fechaATexto,
-  horaATexto,
-  proveerFechaYHora,
-  textoAFecha,
-  textoAHora,
-} from '../../ui/fecha-y-hora';
-import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
-import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
-import {
+  diaDeLaUrl,
   diaEnPalabras,
   fechaEnElClub,
   horaEnElClub,
-  hoyEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
-import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import {
-  ClaseDelDia,
-  ClaseNueva,
-  Clases,
-  cupoEnPalabras,
-  NivelClase,
-  NIVELES,
-  queClaseEs,
-  TipoClase,
-} from '../clases.service';
-import { Profesores } from '../profesores.service';
+import { ClaseDelDia, Clases, cupoEnPalabras, queClaseEs } from '../clases.service';
 import { InscritosDeLaClase } from './inscritos';
-import { NuevaSerie } from './nueva-serie';
 import { Esqueleto } from '../../ui/esqueleto';
 import { LO_HECHO } from '../../ui/material';
 
-/** El formulario vacío. Función y no constante, para no compartir el objeto. */
-const enBlanco = () => ({
-  tipo: 'TENIS' as TipoClase,
-  /** Solo en el gimnasio: la individual es de un alumno y no pregunta el cupo (T233). */
-  modalidad: 'grupal' as 'grupal' | 'individual',
-  canchaId: 0,
-  profesorId: 0,
-  /** Como las entrega el selector de Material, y a texto al agendar (A5, T244). */
-  horaDesde: textoAHora('18:00'),
-  horaHasta: textoAHora('19:00'),
-  cupoMaximo: 6,
-  nivel: 'INICIACION' as NivelClase,
-  notas: '',
-});
-
 /**
- * Las clases del club, día por día.
- *
- * **Agendar una clase cierra la cancha**, y por eso esta pantalla pregunta antes de
- * confirmar cuando hay horas tomadas debajo: es la misma operación que el cierre por
- * mantención y merece la misma advertencia. Lo que se confirma no es "¿seguro?", es
- * la lista de a quién se le quita la hora.
+ * Las clases del club, día por día. Agendar es otra página (T294), adonde lleva el FAB.
  */
 @Component({
   selector: 'app-agenda-clases',
+  // Espacio al final para que el FAB no tape la última clase (A9).
+  host: { class: 'block pb-24' },
   imports: [
-    MatCard,
-    MatRadioModule,
-    MatSelectModule,
-    MatDatepickerModule,
-    MatFormFieldModule,
-    MatInput,
-    MatTimepickerModule,
     MatButton,
+    MatFabAnchor,
     MatIcon,
-    FormsModule,
+    RouterLink,
     Aviso,
     EstadoVacio,
     InscritosDeLaClase,
-    NuevaSerie,
     Esqueleto,
-    MatChipsModule,
+    MatExpansionModule,
+    SelectorDeDia,
   ],
-  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: agendar es el formulario de
-         abajo, y la navegación entre días va debajo de la cabecera. -->
+    <!-- La cabecera del panel (TV7.1), sin acción: agendar es el FAB, que lleva a su página
+         con el día que se está mirando (T294). -->
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Clases</h1>
-        <p class="mt-1 text-muted-foreground">{{ enPalabras(fecha()) }}</p>
       </div>
     </header>
 
-    <div class="mt-4 flex flex-wrap items-end gap-3">
-      <div class="flex items-center gap-1">
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico"
-          aria-label="Día anterior"
-          (click)="moverDia(-1)"
-        >
-          <mat-icon class="text-base" aria-hidden="true">chevron_left</mat-icon>
-        </button>
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico"
-          [disabled]="fecha() === hoy"
-          (click)="fecha.set(hoy)"
-        >
-          Hoy
-        </button>
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico"
-          aria-label="Día siguiente"
-          (click)="moverDia(1)"
-        >
-          <mat-icon class="text-base" aria-hidden="true">chevron_right</mat-icon>
-        </button>
-      </div>
+    <!-- El día se elige como en la agenda (T293): la semana a un toque, «Otro día» y el día en
+         palabras. Antes, flechas y un calendario propios. -->
+    <app-selector-de-dia [fecha]="dia()" (fechaChange)="irAlDia($event)" />
 
-      <mat-form-field class="w-48 abre-al-tocar">
-        <mat-label>Ir a un día</mat-label>
-        <input
-          matInput
-          id="fecha-clases"
-          placeholder="dd-mm-aaaa"
-          autocomplete="off"
-          [matDatepicker]="calendarioFechaClases"
-          [value]="diaElegido()"
-          (dateChange)="cambiarFecha($event.value)"
-        />
-        <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaClases" />
-        <mat-datepicker #calendarioFechaClases />
-      </mat-form-field>
-    </div>
+    <a
+      matFab
+      extended
+      class="fab-de-la-pantalla"
+      routerLink="/administracion/clases/agendar"
+      [queryParams]="{ fecha: dia() }"
+    >
+      <mat-icon aria-hidden="true">add</mat-icon>
+      Agendar
+    </a>
 
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
@@ -166,439 +80,117 @@ const enBlanco = () => ({
         class="mt-4 block"
         icono="school"
         titulo="No hay clases este día"
-        detalle="Agenda una con el formulario de abajo."
+        detalle="Agenda una con «Agendar»."
       />
     } @else {
-      <ul class="mt-4 space-y-3">
+      <!-- Cada clase es un panel (T293): cerrado, dice lo que hace falta para ubicarla, y al
+           abrirlo muestra sus notas y sus inscritos, que se piden recién ahí. Antes era una
+           tarjeta con un botón «Ver inscritos / Ocultar inscritos» hecho a mano. Independientes
+           (multi): abrir una no cierra otra. -->
+      <mat-accordion multi class="mt-4 block">
         @for (clase of clases.value(); track clase.id) {
-          <li>
-            <mat-card appearance="outlined" class="p-4">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <p class="font-display text-lg font-semibold">
+          <mat-expansion-panel class="border-b border-border">
+            <mat-expansion-panel-header>
+              <mat-panel-title class="flex-wrap gap-x-2">
+                <span class="font-display text-lg font-semibold">
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
-                </p>
-                <p class="font-medium">{{ clase.lugar }}</p>
-                <mat-chip-set class="insignias">
-                  <mat-chip class="insignia info">
-                    <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
-                    {{ queClaseEs(clase) }}
-                  </mat-chip>
-                </mat-chip-set>
+                </span>
+                <span class="font-medium">{{ clase.lugar }}</span>
+              </mat-panel-title>
+              <mat-panel-description class="flex-wrap">
+                {{ queClaseEs(clase) }} · {{ clase.profesor }} ·
+                {{ cupoEnPalabras(clase.cupoMaximo) }}
                 @if (clase.estado === 'REALIZADA') {
-                  <mat-chip-set class="insignias">
-                    <mat-chip class="insignia neutro">
-                      <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
-                      Ya se dio
-                    </mat-chip>
-                  </mat-chip-set>
+                  · Ya se dio
                 }
-                <button
-                  matButton="outlined"
-                  type="button"
-                  class="chico ms-auto"
-                  [attr.aria-expanded]="abierta() === clase.id"
-                  (click)="alternar(clase.id)"
-                >
-                  {{ abierta() === clase.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
-                </button>
-                @if (clase.estado === 'PROGRAMADA') {
-                  <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y
-                       ofrecerlo es un callejón. -->
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <ng-template matExpansionPanelContent>
+              @if (clase.notas) {
+                <p class="text-sm text-muted-foreground">{{ clase.notas }}</p>
+              }
+              <app-inscritos [claseId]="clase.id" />
+            </ng-template>
+
+            @if (clase.estado === 'PROGRAMADA') {
+              <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y ofrecerlo
+                   es un callejón. -->
+              <mat-action-row>
+                <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla y
+                     las clases anteriores quedan como estaban. -->
+                @if (clase.serieId !== null) {
                   <button
                     matButton
                     type="button"
                     class="chico"
                     [disabled]="trabajando()"
-                    [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
-                    (click)="cancelar(clase)"
+                    [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
+                    (click)="cancelarSerieDesde(clase, clase.serieId)"
                   >
-                    Cancelar clase
+                    Cancelar desde esta fecha
                   </button>
-                  <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla
-                       y las clases anteriores quedan como estaban. -->
-                  @if (clase.serieId !== null) {
-                    <button
-                      matButton
-                      type="button"
-                      class="chico"
-                      [disabled]="trabajando()"
-                      [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
-                      (click)="cancelarSerieDesde(clase, clase.serieId)"
-                    >
-                      Cancelar desde esta fecha
-                    </button>
-                  }
                 }
-              </div>
-
-              <p class="mt-1">
-                {{ clase.profesor }}
-                <span class="text-sm text-muted-foreground">
-                  · {{ cupoEnPalabras(clase.cupoMaximo) }}
-                </span>
-              </p>
-
-              @if (clase.notas) {
-                <p class="mt-1 text-sm text-muted-foreground">{{ clase.notas }}</p>
-              }
-
-              @if (abierta() === clase.id) {
-                <app-inscritos [claseId]="clase.id" />
-              }
-            </mat-card>
-          </li>
-        }
-      </ul>
-    }
-
-    <form class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="agendar()">
-      <h2 class="rotulo-seccion">Agendar una clase</h2>
-      <p class="mt-2 text-sm text-muted-foreground">
-        @if (datos.tipo === 'PREPARACION_FISICA') {
-          En el gimnasio: no cierra ninguna cancha. Es una clase a la vez, y si se cruza con
-          otra te lo decimos.
-        } @else if (profesorFijo() === null) {
-          La cancha queda cerrada esa hora. Si hay reservas debajo, te las mostramos antes de
-          confirmar.
-        } @else {
-          La cancha queda cerrada esa hora, a tu nombre. Solo en horas libres: si hay
-          reservas, habla con administración.
-        }
-      </p>
-
-      <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <!-- T233. Primero el tipo: la clase del gimnasio no lleva cancha ni nivel. -->
-        <div class="sm:col-span-2">
-          <span id="tipo-de-clase" class="text-sm font-medium">Tipo de clase</span>
-          <mat-radio-group
-            class="mt-1 flex flex-wrap gap-x-4"
-            name="tipo"
-            aria-labelledby="tipo-de-clase"
-            [(ngModel)]="datos.tipo"
-          >
-            <mat-radio-button value="TENIS">Tenis</mat-radio-button>
-            <mat-radio-button value="PREPARACION_FISICA">Preparación física</mat-radio-button>
-          </mat-radio-group>
-        </div>
-
-        @if (datos.tipo === 'TENIS') {
-          <mat-form-field>
-            <mat-label>Cancha</mat-label>
-            <mat-select name="canchaId" [(ngModel)]="datos.canchaId">
-              <mat-option [value]="0" disabled>Elige una cancha</mat-option>
-              @for (cancha of canchasActivas(); track cancha.id) {
-                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        }
-
-        <!-- El profesor agenda a su nombre (T222): no elige. -->
-        @if (profesorFijo() === null) {
-          <div>
-            <mat-form-field class="w-full">
-              <mat-label>Profesor</mat-label>
-              <mat-select name="profesorId" [(ngModel)]="datos.profesorId">
-                <mat-option [value]="0" disabled>Elige un profesor</mat-option>
-                @if (profesores.hasValue()) {
-                  @for (profesor of profesores.value(); track profesor.id) {
-                    <mat-option [value]="profesor.id">
-                      {{ profesor.nombreVisible }} · {{ profesor.especialidad }}
-                    </mat-option>
-                  }
-                }
-              </mat-select>
-            </mat-form-field>
-            <!-- Debajo del campo y no en su mat-hint: el color del error lo pisaría Material. -->
-            @if (profesores.error()) {
-              <p class="text-sm text-destructive">No se pudieron cargar los profesores.</p>
-            } @else if (profesores.value().length === 0) {
-              <p class="text-sm text-muted-foreground">
-                No hay profesores activos: anota uno primero.
-              </p>
+                <button
+                  matButton
+                  type="button"
+                  class="chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
+                  (click)="cancelar(clase)"
+                >
+                  Cancelar clase
+                </button>
+              </mat-action-row>
             }
-          </div>
+          </mat-expansion-panel>
         }
-
-        <mat-form-field class="w-36">
-          <mat-label>Desde</mat-label>
-          <input
-            matInput
-            id="clase-hora-desde"
-            name="horaDesde"
-            placeholder="hh:mm"
-            autocomplete="off"
-            [matTimepicker]="relojHoraDesde"
-            [(ngModel)]="datos.horaDesde"
-          />
-          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHoraDesde" />
-          <mat-timepicker #relojHoraDesde />
-        </mat-form-field>
-
-        <mat-form-field class="w-36">
-          <mat-label>Hasta</mat-label>
-          <input
-            matInput
-            id="clase-hora-hasta"
-            name="horaHasta"
-            placeholder="hh:mm"
-            autocomplete="off"
-            [matTimepicker]="relojHoraHasta"
-            [(ngModel)]="datos.horaHasta"
-          />
-          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHoraHasta" />
-          <mat-timepicker #relojHoraHasta />
-        </mat-form-field>
-
-        @if (datos.tipo === 'TENIS') {
-          <mat-form-field>
-            <mat-label>Nivel</mat-label>
-            <mat-select name="nivel" [(ngModel)]="datos.nivel">
-              @for (opcion of opcionesDeNivel; track opcion.valor) {
-                <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        } @else {
-          <!-- Grupal hasta el cupo que configura el club; el servidor rechaza uno mayor. -->
-          <div>
-            <span id="modalidad-de-clase" class="text-sm font-medium">Modalidad</span>
-            <mat-radio-group
-              class="mt-1 flex flex-wrap gap-x-4"
-              name="modalidad"
-              aria-labelledby="modalidad-de-clase"
-              [(ngModel)]="datos.modalidad"
-            >
-              <mat-radio-button value="grupal">Grupal</mat-radio-button>
-              <mat-radio-button value="individual">Individual</mat-radio-button>
-            </mat-radio-group>
-          </div>
-        }
-
-        @if (datos.tipo === 'TENIS' || datos.modalidad === 'grupal') {
-          <mat-form-field>
-            <mat-label>Cupo</mat-label>
-            <input
-              matInput
-              type="number"
-              name="cupoMaximo"
-              [min]="datos.tipo === 'TENIS' ? 1 : 2"
-              max="40"
-              [(ngModel)]="datos.cupoMaximo"
-            />
-          </mat-form-field>
-        }
-
-        <mat-form-field class="sm:col-span-2">
-          <mat-label>Notas</mat-label>
-          <input
-            matInput
-            name="notas"
-            placeholder="Opcional: qué se trabaja, qué llevar"
-            [(ngModel)]="datos.notas"
-          />
-        </mat-form-field>
-      </div>
-
-      <!-- Confirmar es un segundo paso, en su recuadro; candidato a MatDialog en los diálogos.
-           mat-guidelines-ignore: multiples-filled -->
-      <button
-        matButton="filled"
-        type="submit"
-        class="mt-3"
-        [attr.aria-busy]="enCurso() === 'agendar'"
-        [disabled]="trabajando()"
-      >
-        Agendar clase
-      </button>
-    </form>
-
-    <!-- El segundo paso, y solo cuando hay algo que perder: agendar sobre una hora
-         libre no pregunta nada. Lo que se confirma es esta lista. -->
-    @if (porConfirmar(); as afectadas) {
-      <!-- El profesor no cancela reservas (T219): en vez de la confirmación, el aviso,
-           en el mismo lugar para que se vea junto al formulario. -->
-      @if (profesorFijo() !== null) {
-        <app-aviso variante="error" class="mt-3 block">
-          Esta hora tiene reservas. Para agendar encima, habla con administración.
-        </app-aviso>
-      } @else {
-      <div
-        role="alertdialog"
-        aria-labelledby="titulo-clase"
-        class="mt-3 rounded-xl border border-destructive bg-card p-4 text-sm"
-      >
-        <h3 id="titulo-clase" class="font-display font-semibold text-destructive">
-          Hay {{ afectadas.length }}
-          {{ afectadas.length === 1 ? 'hora tomada' : 'horas tomadas' }} en ese rango
-        </h3>
-        <p class="mt-1 text-muted-foreground">
-          Si agendas la clase se cancelan y avisamos por correo. A quien pagó se le devuelve todo.
-          <strong>Cancelar la clase después no las devuelve.</strong>
-        </p>
-
-        <ul class="mt-2 grid gap-1">
-          @for (tomada of afectadas; track tomada.id) {
-            <li>
-              <span class="font-medium"> {{ hora(tomada.inicio) }}–{{ hora(tomada.fin) }} </span>
-              · {{ tomada.nombre }}
-              @if (tomada.pagoEnCurso) {
-                <span class="text-destructive">
-                  (pagándose ahora, no se puede agendar todavía)
-                </span>
-              } @else if (tomada.pagada) {
-                <span class="text-destructive">(pagada, se devuelve)</span>
-              } @else if (tomada.esSocio) {
-                <span class="text-muted-foreground">(socio, recupera su cupo)</span>
-              }
-            </li>
-          }
-        </ul>
-
-        <div class="mt-3 flex flex-wrap gap-2">
-          <button
-            matButton="filled"
-            type="button"
-            class="peligro chico"
-            [disabled]="trabajando() || hayPagoEnCurso()"
-            [attr.aria-busy]="enCurso() === 'confirmar'"
-            (click)="confirmar()"
-          >
-            Agendar igual y avisarles
-          </button>
-          <button
-            matButton
-            type="button"
-            class="chico"
-            (click)="porConfirmar.set(null)"
-          >
-            Mejor no
-          </button>
-        </div>
-      </div>
-      }
+      </mat-accordion>
     }
-
-    <!-- La serie (T115), en su propio componente: escribirla, revisarla fecha por fecha
-         y agendarla son tres pasos que no caben en el formulario de la clase suelta. -->
-    <app-nueva-serie
-      class="mt-6"
-      [canchas]="canchasActivas()"
-      [profesores]="profesores.hasValue() ? profesores.value() : []"
-      [profesorFijo]="profesorFijo()"
-      (agendada)="serieAgendada($event)"
-    />
   `,
 })
 export class AgendaDeClases {
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialogos = inject(MatDialog);
   private readonly api = inject(Clases);
-  private readonly profes = inject(Profesores);
-  private readonly disponibilidad = inject(Disponibilidad);
-  private readonly usuario = inject(Auth).usuario;
+  private readonly router = inject(Router);
+  private readonly ruta = inject(ActivatedRoute);
 
-  /**
-   * El profesor que no es admin agenda a su nombre (T222): sin selector, sin pedir las
-   * fichas de los demás, y solo en horas libres. `null` para el admin, que elige.
-   */
-  protected readonly profesorFijo = computed(() => {
-    const yo = this.usuario();
-    return yo && !yo.esAdmin ? yo.profesorId : null;
-  });
-
-  protected readonly fecha = signal(hoyEnElClub());
-  protected readonly hoy = hoyEnElClub();
-
-  protected datos = enBlanco();
+  /** El día que trae la URL: así se vuelve a él después de agendar (T294). Sin él, hoy. */
+  readonly fecha = input<string>();
+  protected readonly dia = linkedSignal(() => diaDeLaUrl(this.fecha()));
 
   protected readonly trabajando = signal(false);
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
-  /** Las horas que la clase se llevaría por delante, ya vistas por el admin. */
-  protected readonly porConfirmar = signal<HoraAfectada[] | null>(null);
-
   private readonly version = signal(0);
 
   protected readonly clases = resource({
-    params: () => ({ fecha: this.fecha(), version: this.version() }),
+    params: () => ({ fecha: this.dia(), version: this.version() }),
     loader: ({ params }) => this.api.delDia(params.fecha),
     defaultValue: [] as ClaseDelDia[],
   });
 
-  /** Solo los activos: el filtro lo impone el servidor, esto es la comodidad. */
-  /** Solo para el admin: al profesor el servidor no le muestra las fichas de los demás. */
-  protected readonly profesores = resource({
-    params: () => (this.profesorFijo() === null ? true : undefined),
-    loader: () => this.profes.listar(true),
-    defaultValue: [],
-  });
-
-  /** La lista pública, la misma para el admin y el profesor (T222). */
-  protected readonly canchas = resource({
-    loader: () => this.disponibilidad.canchas(),
-    defaultValue: [],
-  });
-
-  /**
-   * Solo las activas, y ya vienen así: la lista pública no trae las desactivadas, que
-   * no tienen grilla y el servidor rechazaría siempre.
-   */
-  protected readonly canchasActivas = computed(() =>
-    this.canchas.hasValue() ? this.canchas.value() : [],
-  );
-
-  protected readonly opcionesDeNivel = Object.entries(NIVELES).map(([valor, etiqueta]) => ({
-    valor,
-    etiqueta,
-  }));
-
-  /** Con un pago abierto el servidor no deja agendar, y el botón lo dice antes. */
-  protected readonly hayPagoEnCurso = computed(() =>
-    (this.porConfirmar() ?? []).some((hora) => hora.pagoEnCurso),
-  );
-
-  /** Qué clase tiene su lista abierta. Una a la vez: el día entero no cabe. */
-  protected readonly abierta = signal<number | null>(null);
-
-  protected alternar(id: number): void {
-    this.abierta.update((actual) => (actual === id ? null : id));
-  }
-
   protected readonly hora = horaEnElClub;
-  protected readonly enPalabras = diaEnPalabras;
-
-  protected readonly queClaseEs = queClaseEs;
-  protected readonly cupoEnPalabras = cupoEnPalabras;
 
   /**
-   * Primer paso: mira a quién afecta.
-   *
-   * Sin nadie debajo, agenda de una: preguntar por preguntar entrena a la gente a
-   * apretar sin leer, y entonces la advertencia que importa tampoco se lee.
+   * El día elegido, también en la URL: «Atrás» desde la página de agendar vuelve a él, y el
+   * enlace se comparte. Reemplazando la entrada y no sumando una: cambiar de día no es un paso
+   * que se quiera deshacer con «Atrás».
    */
-  protected async agendar(): Promise<void> {
-    this.porConfirmar.set(null);
-    await this.intentar('agendar', async () => {
-      const { afectadas } = await this.api.simular(this.formulario());
-
-      if (afectadas.length === 0) {
-        await this.crear();
-        return;
-      }
-
-      // Al profesor, el aviso y no la confirmación: no cancela reservas (T219), y el
-      // servidor lo rechazaría igual.
-      this.porConfirmar.set(afectadas);
+  protected irAlDia(dia: string): void {
+    this.dia.set(dia);
+    void this.router.navigate([], {
+      relativeTo: this.ruta,
+      queryParams: { fecha: dia },
+      replaceUrl: true,
     });
   }
 
-  /** Segundo paso: el admin ya vio a quién deja sin hora. */
-  protected async confirmar(): Promise<void> {
-    await this.intentar('confirmar', () => this.crear());
-  }
+  protected readonly queClaseEs = queClaseEs;
+  protected readonly cupoEnPalabras = cupoEnPalabras;
 
   protected async cancelar(clase: ClaseDelDia): Promise<void> {
     // El motivo es obligatorio: el diálogo no deja confirmar sin él (T253).
@@ -620,13 +212,6 @@ export class AgendaDeClases {
         LO_HECHO,
       );
     });
-  }
-
-  /** La serie quedó agendada: se dice cuánto y se recarga el día, que puede tener una. */
-  protected serieAgendada(resumen: string): void {
-    this.error.set(null);
-    this.snackBar.open(resumen, undefined, LO_HECHO);
-    this.version.update((v) => v + 1);
   }
 
   /** Cancela esta clase y las siguientes de su serie, con el motivo (T117). */
@@ -653,59 +238,6 @@ export class AgendaDeClases {
     });
   }
 
-  /** El día del calendario: un `Date` estable mientras no cambie el día (T244). */
-  protected readonly diaElegido = computed(() => textoAFecha(this.fecha()));
-
-  /** El día que se eligió en el calendario; vacío o inválido no consulta nada. */
-  protected cambiarFecha(fecha: Date | null): void {
-    const valor = fechaATexto(fecha);
-    if (valor) this.fecha.set(valor);
-  }
-
-  /** Se mueve desde el mediodía UTC: los domingos del cambio de hora no tienen 24. */
-  protected moverDia(pasos: number): void {
-    const dia = new Date(`${this.fecha()}T12:00:00.000Z`);
-    dia.setUTCDate(dia.getUTCDate() + pasos);
-
-    this.fecha.set(fechaEnElClub(dia));
-  }
-
-  private async crear(): Promise<void> {
-    const clase = this.formulario();
-    const { canceladas } = await this.api.agendar(clase);
-
-    this.porConfirmar.set(null);
-    this.datos = enBlanco();
-    this.snackBar.open(agendada(clase, canceladas.length), undefined, LO_HECHO);
-  }
-
-  private formulario(): ClaseNueva {
-    const ficha = {
-      // Los `select` devuelven texto aunque el valor sea un número.
-      profesorId: this.profesorFijo() ?? Number(this.datos.profesorId),
-      fecha: this.fecha(),
-      horaDesde: horaATexto(this.datos.horaDesde),
-      horaHasta: horaATexto(this.datos.horaHasta),
-      notas: this.datos.notas,
-    };
-
-    if (this.datos.tipo === 'PREPARACION_FISICA') {
-      return {
-        ...ficha,
-        tipo: 'PREPARACION_FISICA',
-        cupoMaximo: this.datos.modalidad === 'individual' ? 1 : Number(this.datos.cupoMaximo),
-      };
-    }
-
-    return {
-      ...ficha,
-      tipo: 'TENIS',
-      canchaId: Number(this.datos.canchaId),
-      nivel: this.datos.nivel,
-      cupoMaximo: Number(this.datos.cupoMaximo),
-    };
-  }
-
   private async intentar(clave: string, accion: () => Promise<void>): Promise<void> {
     this.error.set(null);
     this.trabajando.set(true);
@@ -715,22 +247,10 @@ export class AgendaDeClases {
       await accion();
       this.version.update((v) => v + 1);
     } catch (falla) {
-      // El del servidor: dice si la hora no existe en la grilla, si la cancha ya
-      // estaba cerrada o si el profesor está desactivado.
-      this.error.set(mensajeDelServidor(falla, 'No se pudo agendar la clase.'));
+      this.error.set(mensajeDelServidor(falla, 'No se pudo cancelar la clase.'));
     } finally {
       this.trabajando.set(false);
       this.enCurso.set(null);
     }
   }
-}
-
-/** Lo que dice la agenda al agendar: dónde quedó la clase y a cuántos se avisó. */
-function agendada(clase: ClaseNueva, canceladas: number): string {
-  if (clase.tipo === 'PREPARACION_FISICA') return 'Clase agendada en el gimnasio.';
-  if (canceladas === 0) return 'Clase agendada. La cancha queda cerrada esa hora.';
-
-  return canceladas === 1
-    ? 'Clase agendada. Avisamos a la persona que tenía esa hora.'
-    : `Clase agendada. Avisamos a las ${canceladas} personas que tenían esa hora.`;
 }

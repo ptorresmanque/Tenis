@@ -67,6 +67,11 @@ export function hoyEnElClub(ahora = new Date()): string {
   return fechaEnElClub(ahora);
 }
 
+/** El día que llega en la URL (`?fecha=2026-10-16`), u hoy en el club si no viene o no es un día. */
+export function diaDeLaUrl(fecha: string | undefined, ahora = new Date()): string {
+  return fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoyEnElClub(ahora);
+}
+
 /** La hora que marca el reloj del club en ese instante, "HH:MM". */
 export function horaEnElClub(instante: string | Date): string {
   return RELOJ.format(new Date(instante));

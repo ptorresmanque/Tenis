@@ -56,6 +56,11 @@ describe('tipos del panel', () => {
       expect(puedeVer('/estado', GESTOR)).toBe(false);
     });
 
+    it('**el profesor agenda en su página; el gestor no** (T294)', () => {
+      expect(puedeVer('/administracion/clases/agendar?fecha=2026-10-16', PROFESOR)).toBe(true);
+      expect(puedeVer('/administracion/clases/agendar', GESTOR)).toBe(false);
+    });
+
     it('el profesor ve Clases y nada más', () => {
       expect(puedeVer('/administracion/clases', PROFESOR)).toBe(true);
       expect(puedeVer('/administracion/reservas', PROFESOR)).toBe(false);

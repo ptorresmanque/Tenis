@@ -230,10 +230,7 @@ export class TorneosPanel {
   private readonly router = inject(Router);
   private readonly api = inject(Torneos);
 
-  private readonly version = signal(0);
-
   protected readonly torneos = resource({
-    params: () => this.version(),
     loader: () => this.api.torneos(),
     defaultValue: [] as Torneo[],
   });
@@ -287,10 +284,6 @@ export class TorneosPanel {
 
   private enElGrupo(torneo: Torneo, grupo: Grupo): boolean {
     return GRUPOS.find((uno) => uno.id === grupo)!.estados.includes(torneo.estado);
-  }
-
-  protected recargar(): void {
-    this.version.update((veces) => veces + 1);
   }
 
   protected readonly enPalabras = diaEnPalabras;

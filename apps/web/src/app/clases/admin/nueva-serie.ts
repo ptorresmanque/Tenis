@@ -99,8 +99,8 @@ const enBlanco = () => ({
   host: { class: 'block' },
   template: `
     <form class="rounded-xl border border-border bg-card p-4 shadow-sm" (ngSubmit)="revisar()">
-      <h2 class="rotulo-seccion">Agendar una serie</h2>
-      <p class="mt-2 text-sm text-muted-foreground">
+      <!-- Sin rótulo propio desde T294: lo nombra «Una serie», en la página de agendar. -->
+      <p class="text-sm text-muted-foreground">
         Una clase por cada día marcado entre las dos fechas, hasta 6 meses. Antes de agendar te
         mostramos cada fecha y lo que tiene encima.
       </p>
