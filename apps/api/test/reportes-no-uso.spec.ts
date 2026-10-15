@@ -3,7 +3,11 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { comoFechaCivil, hoyEnElClub } from '../src/comun/tiempo';
+import {
+  comoFechaCivil,
+  hoyEnElClub,
+  instanteEnElClub,
+} from '../src/comun/tiempo';
 import { hashear } from '../src/identidad/contrasena';
 import {
   EstadoReserva,
@@ -519,15 +523,29 @@ describe('Reportes de hora no usada', () => {
         data: { sancionadoHasta: new Date(Date.now() + 5 * 24 * 3600_000) },
       });
 
-      const manana = new Date(Date.now() + 24 * 3600_000)
-        .toISOString()
-        .slice(0, 10);
+      // Mañana en el club, y con el horario de la cancha puesto acá. Sin él, la hora
+      // existía solo si otra suite había dejado sembrado el del club: en una base
+      // recién migrada la grilla venía vacía y la reserva caía en un 404 antes de
+      // llegar a la sanción.
+      const manana = new Date(hoyEnElClub().getTime() + 24 * 3600_000);
+      await prisma.horarioApertura.create({
+        data: {
+          canchaId,
+          diaSemana: manana.getUTCDay(),
+          horaApertura: '08:00',
+          horaCierre: '22:00',
+        },
+      });
+
       const respuesta = await request(servidor())
         .post('/api/reservas')
         .set('Cookie', testigo)
         .send({
           canchaId,
-          inicio: `${manana}T14:00:00.000Z`,
+          inicio: instanteEnElClub(
+            comoFechaCivil(manana),
+            '10:00',
+          ).toISOString(),
           acompanantes: [{ nombre: 'Ana Invitada' }],
         });
 
