@@ -12,6 +12,7 @@ import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel } from '../core/auth/tipos-del-panel';
+import { tiposDelUsuario } from '../core/auth/tipos-del-usuario';
 import { Logotipo } from './logotipo';
 import { MenuDelTelefono } from './menu-del-telefono';
 import { ConmutadorDeTema } from './conmutador-de-tema';
@@ -84,7 +85,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
              ventana a media pantalla.
              En mayúscula (TV2.4) los ocho a 1024 partían "Mis reservas" y otros
              tres en dos líneas: necesitaban 997px y había 992. Por eso no se
-             parten (whitespace-nowrap) y llevan menos relleno hasta xl. -->
+             parten (whitespace-nowrap) y llevan poco relleno. Desde T276 también desde
+             xl: con el nombre y los tipos junto al avatar, a 1280 faltaban 30px. -->
         <nav aria-label="Principal" class="hidden gap-1 text-sm lg:flex">
           @for (item of navegacion(); track item.ruta) {
             <a
@@ -93,7 +95,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
               ariaCurrentWhenActive="page"
               class="rounded-md px-2 py-2 font-display font-bold whitespace-nowrap
                      uppercase tracking-wide text-muted-foreground transition-colors
-                     hover:bg-muted hover:text-foreground xl:px-3"
+                     hover:bg-muted hover:text-foreground"
             >
               {{ item.etiqueta }}
             </a>
@@ -111,6 +113,19 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           }
 
           @if (usuario(); as sesion) {
+            <!-- Quién tiene la sesión y qué es en el club, a la vista (T276): todos sus tipos.
+                 Donde cabe: de md a lg, que no tiene los enlaces en la barra, y desde xl. En
+                 el teléfono y entre lg y xl, los enlaces la llenan, y va dentro del menú. Con
+                 tope de ancho: los tipos pasan a otra línea antes de empujar la barra. Texto
+                 plano y fuera del @defer: no suma al arranque. -->
+            <p
+              data-cuenta
+              class="hidden max-w-28 text-end leading-tight md:block lg:hidden xl:block"
+            >
+              <span class="block text-sm font-semibold">{{ sesion.nombre }}</span>
+              <span class="block text-xs text-muted-foreground">{{ tipos() }}</span>
+            </p>
+
             <!-- El menú de la cuenta es un mat-menu (T261): se usa con las flechas como un
                  menú, Esc lo cierra y le devuelve el foco al avatar. Llega al quedar libre el
                  navegador y no en el arranque (I6), como el conmutador: el menú y su overlay
@@ -130,6 +145,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
               <mat-menu #menuDeLaCuenta="matMenu" xPosition="before">
                 <p class="border-b border-border px-3 py-2" role="none">
                   <span class="block font-semibold">{{ sesion.nombre }}</span>
+                  <span class="block text-xs">{{ tipos() }}</span>
                   <span class="block text-xs text-muted-foreground">
                     {{ sesion.email }}
                   </span>
@@ -339,6 +355,12 @@ export class CascaronPublico {
       : []),
     { ruta: '/el-club', etiqueta: 'El club' },
   ]);
+
+  /** «Administrador · Socio», o «Invitado» (T276). */
+  protected readonly tipos = computed(() => {
+    const usuario = this.usuario();
+    return usuario ? tiposDelUsuario(usuario).join(' · ') : '';
+  });
 
   protected readonly iniciales = computed(() =>
     (this.usuario()?.nombre ?? '')

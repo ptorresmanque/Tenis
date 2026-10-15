@@ -11,6 +11,7 @@ import { map } from 'rxjs';
 
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel, puedeVer } from '../core/auth/tipos-del-panel';
+import { tiposDelUsuario } from '../core/auth/tipos-del-usuario';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
 
@@ -145,8 +146,9 @@ import { Logotipo } from './logotipo';
                   <span class="block truncate text-sm font-semibold">
                     {{ sesion.nombre }}
                   </span>
+                  <!-- Lo que es en el club, y no el correo, que ya sabe (T276). -->
                   <span class="block truncate text-xs text-muted-foreground">
-                    {{ sesion.email }}
+                    {{ tipos() }}
                   </span>
                 </span>
                 <mat-icon class="text-muted-foreground" aria-hidden="true">more_vert</mat-icon>
@@ -343,6 +345,12 @@ export class CascaronAdmin {
   protected readonly inicio = computed(
     () => inicioDelPanel(this.usuario()) ?? '/',
   );
+
+  /** «Administrador · Socio», o «Invitado» (T276). */
+  protected readonly tipos = computed(() => {
+    const usuario = this.usuario();
+    return usuario ? tiposDelUsuario(usuario).join(' · ') : '';
+  });
 
   protected readonly iniciales = computed(() =>
     (this.usuario()?.nombre ?? '')

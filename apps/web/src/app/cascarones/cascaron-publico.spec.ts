@@ -159,6 +159,34 @@ describe('Cascarón público: la navegación', () => {
     expect(elemento.querySelector('main#contenido')?.getAttribute('tabindex')).toBe('-1');
   });
 
+  /** T276. Quién tiene la sesión y qué es en el club, a la vista (A6). */
+  it('**junto al avatar, el nombre y todos los tipos de la cuenta**', () => {
+    const cuenta = () =>
+      (montarCon({ ...SOCIA, esAdmin: true }).nativeElement as HTMLElement).querySelector(
+        '[data-cuenta]',
+      );
+
+    expect(cuenta()?.textContent).toContain('Camila Rojas');
+    expect(cuenta()?.textContent?.replace(/\s+/g, ' ')).toContain('Administrador · Socio');
+  });
+
+  it('una cuenta sin tipos dice «Invitado»', () => {
+    const elemento = montarCon({ ...SOCIA, socioId: null }).nativeElement as HTMLElement;
+
+    expect(elemento.querySelector('[data-cuenta]')?.textContent).toContain('Invitado');
+  });
+
+  it('en el teléfono, los tipos van dentro del menú de la cuenta', async () => {
+    const fixture = await montarConElMenu(SOCIA);
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('header button[aria-label="Menú de Camila Rojas"]')!
+      .click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.querySelector('.mat-mdc-menu-panel')?.textContent).toContain('Socio');
+  });
+
   it('le ofrece crear cuenta a quien no ha entrado', () => {
     expect(enlacesCon(null)).toContain('Crear cuenta');
   });
