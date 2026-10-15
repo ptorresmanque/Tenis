@@ -184,10 +184,38 @@ export const routes: Routes = [
       {
         path: 'administracion/canchas',
         title: 'Canchas — Administración',
+        // T288 (SPEC-panel.md D1): la lista, el horario y las tarifas del club, en pestañas.
         loadComponent: () =>
-          import('./catalogo-canchas/admin/admin-canchas').then(
-            (m) => m.AdminCanchasPanel,
-          ),
+          import('./catalogo-canchas/admin/canchas').then((m) => m.PantallaDeCanchas),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            title: 'Canchas — Administración',
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/admin-canchas').then(
+                (m) => m.AdminCanchasPanel,
+              ),
+          },
+          {
+            path: 'horario',
+            title: 'Canchas · Horario — Administración',
+            data: { parte: 'horario' },
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/reglas-generales').then(
+                (m) => m.ReglasGeneralesPanel,
+              ),
+          },
+          {
+            path: 'tarifas',
+            title: 'Canchas · Tarifas — Administración',
+            data: { parte: 'tarifas' },
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/reglas-generales').then(
+                (m) => m.ReglasGeneralesPanel,
+              ),
+          },
+        ],
       },
       {
         // T223. Todas las cuentas y sus tipos; reemplaza a Configuración → Administradores.
@@ -351,8 +379,8 @@ export const routes: Routes = [
         redirectTo: '/administracion/no-uso/por-revisar',
       },
       {
-        // Tres secciones bajo un mismo cascarón con sub-navegación, como decidió
-        // R.5. La cuarta —avisos y correos— entra acá cuando exista.
+        // Las secciones bajo un mismo cascarón con pestañas, como decidió R.5. Desde T290
+        // son cinco: lo del club y los servicios van en paneles dentro de su pestaña.
         path: 'administracion/configuracion',
         title: 'Configuración — Administración',
         loadComponent: () =>
@@ -361,62 +389,51 @@ export const routes: Routes = [
           { path: '', pathMatch: 'full', redirectTo: 'reglas' },
           {
             path: 'reglas',
-            title: 'Reglas y cuotas — Administración',
+            title: 'Configuración · Reglas y cuotas — Administración',
             loadComponent: () =>
               import('./catalogo-canchas/admin/editor-configuracion').then(
                 (m) => m.EditorConfiguracion,
               ),
           },
+          // T290 (SPEC-panel.md D11). Los datos, los textos y las preguntas frecuentes, en paneles.
           {
-            path: 'datos',
-            title: 'Datos del club — Administración',
-            loadComponent: () =>
-              import('./configuracion/datos-del-club').then((m) => m.DatosDelClub),
+            path: 'el-club',
+            title: 'Configuración · El club — Administración',
+            loadComponent: () => import('./configuracion/el-club').then((m) => m.ElClub),
           },
+          // T290. La tienda, la cafetería y el gimnasio (T236), en paneles.
           {
-            path: 'textos',
-            title: 'Textos del sitio — Administración',
-            loadComponent: () =>
-              import('./configuracion/textos-del-sitio').then((m) => m.TextosDelSitio),
+            path: 'servicios',
+            title: 'Configuración · Servicios — Administración',
+            loadComponent: () => import('./configuracion/servicios').then((m) => m.Servicios),
           },
-          // T236. Un componente para los tres lugares: el lugar llega por `data`, como input.
-          // La ruta de antes lleva a la tienda, para no romper un marcador guardado.
-          { path: 'tienda-y-cafeteria', redirectTo: 'tienda' },
-          ...(
-            [
-              ['tienda', 'Tienda', 'TIENDA'],
-              ['cafeteria', 'Cafetería', 'CAFETERIA'],
-              ['gimnasio', 'Gimnasio', 'GIMNASIO'],
-            ] as const
-          ).map(([path, nombre, lugar]) => ({
-            path,
-            title: `${nombre} — Administración`,
-            data: { lugar },
-            loadComponent: () =>
-              import('./configuracion/lugar-del-club').then((m) => m.LugarDelClubPanel),
-          })),
           {
             path: 'categorias-juego',
-            title: 'Categorías de juego — Administración',
+            title: 'Configuración · Categorías de juego — Administración',
             loadComponent: () =>
               import('./configuracion/categorias-juego').then(
                 (m) => m.CategoriasDeJuegoPanel,
               ),
           },
           {
-            path: 'preguntas-frecuentes',
-            title: 'Preguntas frecuentes — Administración',
-            loadComponent: () =>
-              import('./configuracion/preguntas-frecuentes').then(
-                (m) => m.PreguntasFrecuentesPanel,
-              ),
-          },
-          {
             path: 'informe-diario',
-            title: 'Informe diario — Administración',
+            title: 'Configuración · Informe diario — Administración',
             loadComponent: () =>
               import('./configuracion/informe-diario').then((m) => m.InformeDiario),
           },
+          // Las pestañas que pasaron a ser paneles (T290), y la de antes de T236: los
+          // marcadores siguen andando.
+          ...(
+            [
+              ['datos', 'el-club'],
+              ['textos', 'el-club'],
+              ['preguntas-frecuentes', 'el-club'],
+              ['tienda', 'servicios'],
+              ['cafeteria', 'servicios'],
+              ['gimnasio', 'servicios'],
+              ['tienda-y-cafeteria', 'servicios'],
+            ] as const
+          ).map(([path, redirectTo]) => ({ path, redirectTo })),
         ],
       },
       {

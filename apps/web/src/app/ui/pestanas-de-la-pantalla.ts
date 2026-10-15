@@ -23,8 +23,9 @@ export interface PestanaDeLaPantalla {
  * SPEC-panel.md A2): `mat-tab-nav-bar` con una ruta por pestaña, como Configuración (T262), así
  * el enlace a una pestaña se comparte y las rutas viejas redirigen a la suya.
  *
- * La usan la agenda, Finanzas y Horas no usadas; Canchas, desde T288. El `<h1>` y la descripción quedan en
- * cada pantalla: el título es de la pantalla, y la prueba de T277 lo busca en su archivo.
+ * La usan la agenda, Finanzas, Horas no usadas, Canchas y Configuración. El `<h1>` y la
+ * descripción quedan en cada pantalla: el título es de la pantalla, y la prueba de T277 lo busca
+ * en su archivo.
  *
  * **Con una sola pestaña no hay barra** (A3): es lo que ve el gestor en la agenda, y una barra
  * de una pestaña no dice nada.

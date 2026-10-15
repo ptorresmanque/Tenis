@@ -1957,8 +1957,11 @@ describe('Los botones dicen que están trabajando (T150)', () => {
         // convención sus métodos se llaman abrir…, preguntar… o editar…, y ninguno
         // cambia nada (revisado en T154; el abrir del cuadro consulta qué partidos se
         // deshacen, pero solo lee). Tampoco el que abre el selector de un campo de
-        // archivo escondido (T241): el envío lo dispara el campo al elegir.
+        // archivo escondido (T241): el envío lo dispara el campo al elegir. Ni el que cierra
+        // un diálogo (`mat-dialog-close`, T289), que se deshabilita mientras el diálogo guarda
+        // para que no quede a medias, pero no es el que guarda.
         if (/\(click\)="(?:(?:abrir|preguntar|editar)\w*\(|\w+\.click\(\))/.test(boton)) continue;
+        if (/\bmat-dialog-close\b/.test(boton)) continue;
 
         if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
           infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);

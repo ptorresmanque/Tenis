@@ -74,6 +74,8 @@ function buscar(url: string): Encontrada | null {
 describe('Rutas protegidas', () => {
   it.each([
     'administracion/canchas',
+    'administracion/canchas/horario',
+    'administracion/canchas/tarifas',
     'administracion/reservas',
     'administracion/reservas/ocupacion',
     'administracion/finanzas/ingreso',
@@ -88,12 +90,10 @@ describe('Rutas protegidas', () => {
     'administracion/morosos',
     'administracion/solicitudes',
     'administracion/configuracion/reglas',
-    'administracion/configuracion/datos',
-    'administracion/configuracion/textos',
-    'administracion/configuracion/tienda',
-    'administracion/configuracion/cafeteria',
-    'administracion/configuracion/gimnasio',
-    'administracion/configuracion/preguntas-frecuentes',
+    'administracion/configuracion/el-club',
+    'administracion/configuracion/servicios',
+    'administracion/configuracion/categorias-juego',
+    'administracion/configuracion/informe-diario',
     'administracion/usuarios',
     'administracion/tours',
     'administracion/tours/:id',
@@ -140,18 +140,45 @@ describe('Rutas protegidas', () => {
     );
   });
 
-  it('**la ruta vieja de la tienda y la cafetería lleva a la tienda** (T236, G6)', () => {
-    expect(buscar('administracion/configuracion/tienda-y-cafeteria')?.ruta.redirectTo).toBe(
-      'tienda',
-    );
-  });
+  it.each([
+    ['horario', 'Horario'],
+    ['tarifas', 'Tarifas'],
+  ])(
+    '**la pestaña %s de Canchas le dice a la pantalla qué parte del club es** (T288)',
+    (parte, etiqueta) => {
+      const { ruta } = buscar(`administracion/canchas/${parte}`)!;
+
+      expect(ruta.data).toEqual({ parte });
+      expect(ruta.title).toBe(`Canchas · ${etiqueta} — Administración`);
+    },
+  );
 
   it.each([
-    ['tienda', 'TIENDA'],
-    ['cafeteria', 'CAFETERIA'],
-    ['gimnasio', 'GIMNASIO'],
-  ])('la pestaña %s le dice al panel qué lugar es (T236)', (ruta, lugar) => {
-    expect(buscar(`administracion/configuracion/${ruta}`)?.ruta.data).toEqual({ lugar });
+    ['datos', 'el-club'],
+    ['textos', 'el-club'],
+    ['preguntas-frecuentes', 'el-club'],
+    ['tienda', 'servicios'],
+    ['cafeteria', 'servicios'],
+    ['gimnasio', 'servicios'],
+    // La de antes de T236, que ya llevaba a la tienda.
+    ['tienda-y-cafeteria', 'servicios'],
+  ])(
+    '**la pestaña vieja «%s» de Configuración lleva a «%s»** (T290, A1)',
+    (vieja, nueva) => {
+      expect(buscar(`administracion/configuracion/${vieja}`)?.ruta.redirectTo).toBe(nueva);
+    },
+  );
+
+  it.each([
+    ['reglas', 'Reglas y cuotas'],
+    ['el-club', 'El club'],
+    ['servicios', 'Servicios'],
+    ['categorias-juego', 'Categorías de juego'],
+    ['informe-diario', 'Informe diario'],
+  ])('la pestaña %s de Configuración se titula «%s»', (ruta, etiqueta) => {
+    expect(buscar(`administracion/configuracion/${ruta}`)?.ruta.title).toBe(
+      `Configuración · ${etiqueta} — Administración`,
+    );
   });
 
   it('Configuración ya no tiene Administradores: los tipos se dan en Usuarios (T223)', () => {

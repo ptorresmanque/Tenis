@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Service } from '@angular/core';
+import { inject, Injectable, resource, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { FotoDelLugar, TarifaDelGimnasio } from '../../club/club.service';
 import { Cancha } from '../disponibilidad';
+import { hoyEnElClub } from '../reloj-del-club';
 
 export interface Horario {
   id: number;
@@ -439,5 +440,26 @@ export class AdminCanchas {
 
   borrarBloqueo(id: number): Promise<void> {
     return firstValueFrom(this.http.delete<void>(`/api/admin/bloqueos/${id}`));
+  }
+}
+
+/**
+ * Las horas abiertas de hoy que salen en $0, para la alarma de la pantalla de Canchas (T288).
+ *
+ * La alarma va arriba de las tres pestañas, y lo que la cambia se guarda dentro de ellas: una
+ * cancha nueva, su horario, una tarifa del club. Por eso la provee la pantalla madre
+ * (`providers`), y cada pestaña la relee con `recargar()` al guardar.
+ */
+@Injectable()
+export class HorasSinTarifa {
+  private readonly api = inject(AdminCanchas);
+
+  readonly advertencias = resource({
+    loader: () => this.api.advertencias(hoyEnElClub()),
+    defaultValue: [],
+  });
+
+  recargar(): void {
+    this.advertencias.reload();
   }
 }

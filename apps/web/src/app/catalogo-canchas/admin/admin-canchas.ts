@@ -8,10 +8,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { MatCard } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatCheckbox } from '@angular/material/checkbox';
-import { MatButton } from '@angular/material/button';
+import { MatButton, MatFabButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -23,17 +24,12 @@ import { MatIcon } from '@angular/material/icon';
 import { confirmar } from '../../ui/dialogo-de-confirmacion';
 import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
-import { hoyEnElClub, horaEnElClub } from '../reloj-del-club';
 import { nombreDeSuperficie, SUPERFICIES } from '../superficies';
-import {
-  AdminCanchas,
-  CanchaAdmin,
-  CanchaNueva,
-} from './admin-canchas.service';
+import { AdminCanchas, CanchaAdmin, HorasSinTarifa } from './admin-canchas.service';
 import { EditorBloqueos } from './editor-bloqueos';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
-import { ReglasGeneralesPanel } from './reglas-generales';
+import { NuevaCancha } from './nueva-cancha';
 import { Esqueleto } from '../../ui/esqueleto';
 import { LO_HECHO } from '../../ui/material';
 
@@ -53,16 +49,10 @@ type FichaDeCancha = Pick<
   'nombre' | 'superficie' | 'techada' | 'iluminacion'
 >;
 
-const CANCHA_EN_BLANCO: CanchaNueva = {
-  nombre: '',
-  superficie: 'CEMENTO',
-  techada: false,
-  tieneCamara: false,
-  iluminacion: false,
-};
-
 @Component({
   selector: 'app-admin-canchas',
+  // Espacio al final para que el FAB no tape la última tarjeta (A9).
+  host: { class: 'block pb-24' },
   imports: [
     MatCard,
     MatCheckbox,
@@ -70,11 +60,11 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     MatFormFieldModule,
     MatInput,
     MatButton,
+    MatFabButton,
     FormsModule,
     EditorHorarios,
     EditorFranjas,
     EditorBloqueos,
-    ReglasGeneralesPanel,
     Esqueleto,
     MatChipsModule,
     MatExpansionModule,
@@ -82,114 +72,24 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
   ],
   providers: [proveerCampos()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya. -->
-    <header class="cabecera-panel">
-      <h1 class="titular text-4xl">Canchas</h1>
-    </header>
+    <!-- Es la pestaña «Canchas» (T288): el titular y la alarma de horas sin tarifa van en la
+         pantalla madre, y el horario y las tarifas del club, en sus pestañas. Agregar una
+         cancha es el FAB, que abre su diálogo (T289). -->
+    <button matFab extended type="button" class="fab-de-la-pantalla" (click)="agregar()">
+      <mat-icon aria-hidden="true">add</mat-icon>
+      Nueva cancha
+    </button>
 
-    @if (advertencias.hasValue() && advertencias.value().length > 0) {
-      <!-- Antes que la lista: es lo único de esta pantalla que cuesta plata si
-           nadie lo mira. -->
-      <section
-        class="mt-4 rounded-xl border border-destructive bg-card p-4"
-        aria-labelledby="titulo-advertencias"
-      >
-        <!-- El rótulo de la alarma va en rojo: es la única sección que pide que
-             alguien haga algo hoy. -->
-        <h2
-          id="titulo-advertencias"
-          class="rotulo-seccion bg-destructive text-on-primary"
-        >
-          Horas sin tarifa hoy
-        </h2>
-        <p class="mt-2 text-sm text-muted-foreground">
-          Estas horas están abiertas y salen en $0. Casi siempre significa que
-          falta una franja, no que el club las regale.
-        </p>
-        <ul class="mt-2 space-y-1 text-sm">
-          @for (aviso of advertencias.value(); track aviso.canchaId) {
-            <li>
-              <span class="font-medium">{{ aviso.nombre }}</span>:
-              {{ horasDe(aviso.sinTarifa) }}
-            </li>
-          }
-        </ul>
-      </section>
-    }
+    <p role="status" aria-live="polite" class="text-sm">
+      @if (error()) {
+        <span class="text-destructive">{{ error() }}</span>
+      }
+    </p>
 
-    <!-- Antes de las canchas: son las reglas que valen para todas, y la lista de
-         abajo dice "vale el general del club" refiriéndose a esto. -->
-
-    <app-reglas-generales (cambiado)="recargar()" />
-
-    <section class="mt-8" aria-labelledby="titulo-nueva">
-      <h2 id="titulo-nueva" class="rotulo-seccion">
-        Agregar una cancha
-      </h2>
-
-      <form class="mt-3 flex flex-wrap items-end gap-3" (ngSubmit)="crear()">
-        <mat-form-field>
-          <mat-label>Nombre</mat-label>
-          <input
-            matInput
-            id="nombre"
-            name="nombre"
-            required
-            [(ngModel)]="nueva.nombre"
-          />
-        </mat-form-field>
-
-        <mat-form-field>
-          <mat-label>Superficie</mat-label>
-          <mat-select
-            id="superficie"
-            name="superficie"
-            [(ngModel)]="nueva.superficie"
-          >
-            @for (opcion of superficies; track opcion[0]) {
-              <mat-option [value]="opcion[0]">{{ opcion[1] }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-checkbox class="block text-sm" name="techada" [(ngModel)]="nueva.techada">
-          Techada
-        </mat-checkbox>
-
-        <mat-checkbox class="block text-sm" name="tieneCamara" [(ngModel)]="nueva.tieneCamara">
-          Con cámara
-          <span class="text-muted-foreground">
-            — solo desde estas se pueden transmitir los partidos
-          </span>
-        </mat-checkbox>
-
-        <mat-checkbox class="block text-sm" name="iluminacion" [(ngModel)]="nueva.iluminacion">
-          Con iluminación
-        </mat-checkbox>
-
-        <!-- Crear y editar son formularios distintos; el de editar va en su tarjeta.
-             mat-guidelines-ignore: multiples-filled -->
-        <button
-          matButton="filled"
-          type="submit"
-          [disabled]="guardando()"
-          [attr.aria-busy]="guardando()"
-        >
-          Agregar
-        </button>
-      </form>
-
-      <p role="status" aria-live="polite" class="mt-2 text-sm">
-        @if (error()) {
-          <span class="text-destructive">{{ error() }}</span>
-        }
-      </p>
-    </section>
-
-    <section class="mt-8" aria-labelledby="titulo-listado">
-      <h2 id="titulo-listado" class="rotulo-seccion">
-        Canchas
-      </h2>
+    <section aria-labelledby="titulo-listado">
+      <!-- Para el lector y no a la vista: la pestaña ya dice «Canchas», y sin este título las
+           tarjetas (h3) quedarían colgando del h1. -->
+      <h2 id="titulo-listado" class="sr-only">Canchas del club</h2>
 
       <!-- Solo la primera carga: al recargar tras una acción la lista se queda donde
            está. Reemplazada por "Cargando…", se llevaba el botón que tenía el foco. -->
@@ -409,10 +309,11 @@ export class AdminCanchasPanel {
   private readonly dialogos = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
+  /** La alarma de la pantalla madre: una cancha nueva o una tarifa suya la pueden apagar. */
+  private readonly alarma = inject(HorasSinTarifa);
 
   /** Las opciones del `select`, en el orden en que están escritas en la tabla. */
   protected readonly superficies = Object.entries(SUPERFICIES);
-  protected readonly nueva: CanchaNueva = { ...CANCHA_EN_BLANCO };
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -444,30 +345,17 @@ export class AdminCanchasPanel {
     defaultValue: [],
   });
 
-  protected readonly advertencias = resource({
-    loader: () => this.api.advertencias(hoyEnElClub()),
-    defaultValue: [],
-  });
+  /** Abre el alta (T289). El diálogo crea la cancha y muestra sus errores; acá, lo que sigue. */
+  protected async agregar(): Promise<void> {
+    const creada = await firstValueFrom(
+      this.dialogos
+        .open<NuevaCancha, void, CanchaAdmin>(NuevaCancha, { width: '32rem', maxWidth: '92vw' })
+        .afterClosed(),
+    );
+    if (!creada) return;
 
-  protected async crear(): Promise<void> {
-    this.error.set(null);
-
-    if (!this.nueva.nombre.trim()) {
-      this.error.set('Ponle un nombre a la cancha.');
-      return;
-    }
-
-    this.guardando.set(true);
-    try {
-      const creada = await this.api.crear({ ...this.nueva });
-      this.snackBar.open(`${creada.nombre} ya está en la grilla.`, undefined, LO_HECHO);
-      Object.assign(this.nueva, CANCHA_EN_BLANCO);
-      this.recargar();
-    } catch (falla) {
-      this.error.set(mensajeDelServidor(falla));
-    } finally {
-      this.guardando.set(false);
-    }
+    this.snackBar.open(`${creada.nombre} ya está en la grilla.`, undefined, LO_HECHO);
+    this.recargar();
   }
 
   protected async alternarActiva(cancha: CanchaAdmin): Promise<void> {
@@ -491,7 +379,7 @@ export class AdminCanchasPanel {
   /**
    * Marca o desmarca la cámara de una cancha **que ya existe**.
    *
-   * La casilla del formulario de arriba solo sirve para la cancha que se está creando,
+   * La casilla del alta (el diálogo de «Nueva cancha») solo sirve para la cancha que se crea,
    * y una cámara casi nunca se instala el mismo día que se hizo la cancha: el club
    * tiene sus canchas cargadas hace meses y monta la cámara antes del torneo. Sin este
    * botón, la única forma de marcarla sería borrar la cancha y volver a crearla, que se
@@ -598,7 +486,7 @@ export class AdminCanchasPanel {
   }
 
   /**
-   * Relee canchas y advertencias: una tarifa nueva puede apagar una advertencia.
+   * Relee las canchas y la alarma de arriba: una tarifa nueva puede apagar una advertencia.
    *
    * Con `reload()` y no cambiando un parámetro: así el recurso queda en `reloading` y
    * conserva la lista mientras relee. Con un parámetro nuevo pasaba a `loading`, la
@@ -606,7 +494,7 @@ export class AdminCanchasPanel {
    */
   protected recargar(): void {
     this.canchas.reload();
-    this.advertencias.reload();
+    this.alarma.recargar();
   }
 
   protected nombreDia(dia: number): string {
@@ -614,9 +502,4 @@ export class AdminCanchasPanel {
   }
 
   protected readonly nombreSuperficie = nombreDeSuperficie;
-
-  /** Las horas de una advertencia, en la hora del club y separadas por comas. */
-  protected horasDe(instantes: string[]): string {
-    return instantes.map((instante) => horaEnElClub(instante)).join(', ');
-  }
 }

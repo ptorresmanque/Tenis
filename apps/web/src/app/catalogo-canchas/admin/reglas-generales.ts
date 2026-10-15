@@ -1,9 +1,30 @@
-import { Component, computed, inject, output, resource } from '@angular/core';
+import { Component, computed, inject, input, resource } from '@angular/core';
 
-import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
+import { AdminCanchas, AmbitoDeReglas, HorasSinTarifa } from './admin-canchas.service';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
 import { Esqueleto } from '../../ui/esqueleto';
+
+/** Cuál de las dos pestañas de Canchas es: la ruta se lo pasa en `data` (T288). */
+export type ParteDeLasReglas = 'horario' | 'tarifas';
+
+/** Lo que dice cada pestaña; el editor es lo único que cambia en la plantilla. */
+const TEXTOS: Record<ParteDeLasReglas, { descripcion: string; cargando: string; falla: string }> = {
+  horario: {
+    descripcion:
+      'El horario de apertura de todo el club. Rige en toda cancha que no tenga el suyo: ' +
+      'lo que una cancha define para sí misma le gana a esto.',
+    cargando: 'Cargando el horario…',
+    falla: 'No se pudo cargar el horario del club.',
+  },
+  tarifas: {
+    descripcion:
+      'Las tarifas de todo el club. Rigen en toda cancha que no tenga las suyas: ' +
+      'lo que una cancha define para sí misma le gana a esto.',
+    cargando: 'Cargando las tarifas…',
+    falla: 'No se pudieron cargar las tarifas del club.',
+  },
+};
 
 /**
  * El horario y las tarifas que rigen donde la cancha no dice otra cosa.
@@ -14,43 +35,38 @@ import { Esqueleto } from '../../ui/esqueleto';
  * Reusa los mismos editores que cada cancha, pasándoles un ámbito sin id. Dos
  * copias con la misma tabla debajo terminan divergiendo, y la del club, que se
  * toca una vez al año, sería la que envejece.
+ *
+ * Desde T288 son las pestañas Horario y Tarifas de Canchas: la misma pantalla, con una parte
+ * cada una. Lo que se guarda relee la alarma de horas sin tarifa, que va arriba de las pestañas.
  */
 @Component({
   selector: 'app-reglas-generales',
   imports: [EditorHorarios, EditorFranjas, Esqueleto],
   template: `
-    <section class="mt-8" aria-labelledby="titulo-general">
-      <h2 id="titulo-general" class="rotulo-seccion">
-        Horario y tarifas generales
-      </h2>
-      <p class="mt-2 text-sm text-muted-foreground">
-        Rigen en toda cancha que no tenga lo suyo propio. Lo que una cancha define
-        para sí misma le gana a esto.
-      </p>
+    <p class="max-w-prose text-muted-foreground">{{ textos().descripcion }}</p>
 
-      @if (general.isLoading()) {
-        <app-esqueleto class="mt-3 block" [filas]="4" etiqueta="Cargando el horario y las tarifas…" />
-      } @else if (general.error()) {
-        <p class="mt-3 text-destructive">
-          No se pudieron cargar el horario y las tarifas generales. Reintenta en un momento.
-        </p>
-      } @else if (club(); as ambito) {
-        <div class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-          <h3 class="subtitulo">Horario de apertura</h3>
+    @if (general.isLoading()) {
+      <app-esqueleto class="mt-4 block" [filas]="4" [etiqueta]="textos().cargando" />
+    } @else if (general.error()) {
+      <p class="mt-4 text-destructive">{{ textos().falla }} Reintenta en un momento.</p>
+    } @else if (club(); as ambito) {
+      <div class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        @if (parte() === 'horario') {
           <app-editor-horarios [ambito]="ambito" (guardado)="recargar()" />
-
-          <h3 class="mt-4 subtitulo">Tarifas</h3>
+        } @else {
           <app-editor-franjas [ambito]="ambito" (cambiado)="recargar()" />
-        </div>
-      }
-    </section>
+        }
+      </div>
+    }
   `,
 })
 export class ReglasGeneralesPanel {
   private readonly api = inject(AdminCanchas);
-
   /** Cambiar lo general cambia qué horas quedan sin tarifa en cada cancha. */
-  readonly cambiado = output<void>();
+  private readonly alarma = inject(HorasSinTarifa);
+
+  readonly parte = input.required<ParteDeLasReglas>();
+  protected readonly textos = computed(() => TEXTOS[this.parte()]);
 
   protected readonly general = resource({
     loader: () => this.api.general(),
@@ -74,6 +90,6 @@ export class ReglasGeneralesPanel {
 
   protected recargar(): void {
     this.general.reload();
-    this.cambiado.emit();
+    this.alarma.recargar();
   }
 }
