@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCard } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatButton } from '@angular/material/button';
@@ -16,6 +17,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIcon } from '@angular/material/icon';
 
 import { confirmar } from '../../ui/dialogo-de-confirmacion';
@@ -62,6 +64,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
 @Component({
   selector: 'app-admin-canchas',
   imports: [
+    MatCard,
     MatCheckbox,
     MatSelectModule,
     MatFormFieldModule,
@@ -74,6 +77,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     ReglasGeneralesPanel,
     Esqueleto,
     MatChipsModule,
+    MatExpansionModule,
     MatIcon,
   ],
   providers: [proveerCampos()],
@@ -201,195 +205,199 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
             <!-- La desactivada se marca con el borde punteado y no con opacidad:
                  apagada, su texto y sus botones quedaban bajo 4,5:1, y "Reactivar"
                  y "Eliminar" se siguen usando. -->
-            <li
-              class="rounded-xl border border-border bg-card p-4 shadow-sm"
-              [class.border-dashed]="!cancha.activa"
-            >
-              <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h3 class="titulo-tarjeta">
-                  {{ cancha.nombre }}
-                </h3>
-                @if (!cancha.activa) {
-                  <!-- Con palabras y no solo con el borde: una línea punteada no
-                       dice por sí sola qué significa. -->
-                  <mat-chip-set class="insignias">
-                    <mat-chip class="insignia neutro">
-                      <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
-                      Desactivada
-                    </mat-chip>
-                  </mat-chip-set>
-                }
-
-                <button
-                  matButton="outlined"
-                  type="button"
-                  [id]="'editar-ficha-' + cancha.id"
-                  class="chico ms-auto"
-                  [attr.aria-expanded]="editando() === cancha.id"
-                  (click)="abrirFicha(cancha)"
-                >
-                  Editar ficha
-                  <span class="sr-only">de {{ cancha.nombre }}</span>
-                </button>
-
-                <button
-                  matButton="outlined"
-                  type="button"
-                  class="chico"
-                  (click)="alternarCamara(cancha)"
-                >
-                  {{ cancha.tieneCamara ? 'Quitar la cámara' : 'Marcar con cámara' }}
-                  <span class="sr-only">de {{ cancha.nombre }}</span>
-                </button>
-
-                <button
-                  matButton="outlined"
-                  type="button"
-                  class="chico"
-                  (click)="alternarActiva(cancha)"
-                >
-                  {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
-                </button>
-
-                <!-- Para la cancha creada por error. La que el club dejó de usar se
-                     desactiva; el servidor no deja borrar una con historial. -->
-                <button
-                  matButton="outlined"
-                  type="button"
-                  class="peligro chico"
-                  (click)="eliminar(cancha)"
-                >
-                  Eliminar
-                </button>
-              </div>
-
-              @if (editando() === cancha.id) {
-                <!-- T96. Corregir la ficha sin borrar la cancha: borrarla se llevaría su
-                     historial. Techada importa además por la tarifa de su tipo (T98). -->
-                <form
-                  class="mt-3 flex flex-wrap items-end gap-3 border-t border-border pt-3"
-                  (ngSubmit)="guardarFicha(cancha)"
-                >
-                  <mat-form-field>
-                    <mat-label>Nombre</mat-label>
-                    <input
-                      matInput
-                      #campoNombre
-                      [id]="'ficha-nombre-' + cancha.id"
-                      name="nombre"
-                      required
-                      [attr.aria-invalid]="errorFicha() ? true : null"
-                      [aria-describedby]="'ficha-error-' + cancha.id"
-                      [(ngModel)]="ficha.nombre"
-                    />
-                  </mat-form-field>
-
-                  <mat-form-field>
-                    <mat-label>Superficie</mat-label>
-                    <mat-select
-                      [id]="'ficha-superficie-' + cancha.id"
-                      name="superficie"
-                      [(ngModel)]="ficha.superficie"
-                    >
-                      @for (opcion of superficies; track opcion[0]) {
-                        <mat-option [value]="opcion[0]">{{ opcion[1] }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
-
-                  <mat-checkbox
-                    class="block text-sm"
-                    [id]="'ficha-techada-' + cancha.id"
-                    name="techada"
-                    [(ngModel)]="ficha.techada"
-                  >
-                    Techada
-                  </mat-checkbox>
-
-                  <mat-checkbox
-                    class="block text-sm"
-                    name="iluminacion"
-                    [(ngModel)]="ficha.iluminacion"
-                  >
-                    Con iluminación
-                  </mat-checkbox>
+            <li>
+              <mat-card appearance="outlined" class="p-4" [class.border-dashed]="!cancha.activa">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <h3 class="titulo-tarjeta">
+                    {{ cancha.nombre }}
+                  </h3>
+                  @if (!cancha.activa) {
+                    <!-- Con palabras y no solo con el borde: una línea punteada no
+                         dice por sí sola qué significa. -->
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                        Desactivada
+                      </mat-chip>
+                    </mat-chip-set>
+                  }
 
                   <button
-                    matButton="filled"
-                    type="submit"
-                    [disabled]="guardando()"
-                    [attr.aria-busy]="guardando()"
-                    class="chico"
+                    matButton="outlined"
+                    type="button"
+                    [id]="'editar-ficha-' + cancha.id"
+                    class="chico ms-auto"
+                    [attr.aria-expanded]="editando() === cancha.id"
+                    (click)="abrirFicha(cancha)"
                   >
-                    Guardar la ficha
+                    Editar ficha
                     <span class="sr-only">de {{ cancha.nombre }}</span>
                   </button>
+
                   <button
-                    matButton
+                    matButton="outlined"
                     type="button"
                     class="chico"
-                    (click)="cerrarFicha(cancha.id)"
+                    (click)="alternarCamara(cancha)"
                   >
-                    Cancelar
+                    {{ cancha.tieneCamara ? 'Quitar la cámara' : 'Marcar con cámara' }}
+                    <span class="sr-only">de {{ cancha.nombre }}</span>
                   </button>
 
-                  <!-- Junto al campo y no en el aviso de arriba: el nombre repetido es
-                       lo que hay que corregir, y el aviso queda a una pantalla de acá. -->
-                  <p
-                    [id]="'ficha-error-' + cancha.id"
-                    aria-live="polite"
-                    class="w-full text-sm text-destructive"
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico"
+                    (click)="alternarActiva(cancha)"
                   >
-                    {{ errorFicha() }}
-                  </p>
-                </form>
-              }
+                    {{ cancha.activa ? 'Desactivar' : 'Reactivar' }}
+                  </button>
 
-              <p class="mt-1 text-sm text-muted-foreground">
-                {{ nombreSuperficie(cancha.superficie) }}
-                @if (cancha.techada) {
-                  · Techada
+                  <!-- Para la cancha creada por error. La que el club dejó de usar se
+                       desactiva; el servidor no deja borrar una con historial. -->
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="peligro chico"
+                    (click)="eliminar(cancha)"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+
+                @if (editando() === cancha.id) {
+                  <!-- T96. Corregir la ficha sin borrar la cancha: borrarla se llevaría su
+                       historial. Techada importa además por la tarifa de su tipo (T98). -->
+                  <form
+                    class="mt-3 flex flex-wrap items-end gap-3 border-t border-border pt-3"
+                    (ngSubmit)="guardarFicha(cancha)"
+                  >
+                    <mat-form-field>
+                      <mat-label>Nombre</mat-label>
+                      <input
+                        matInput
+                        #campoNombre
+                        [id]="'ficha-nombre-' + cancha.id"
+                        name="nombre"
+                        required
+                        [attr.aria-invalid]="errorFicha() ? true : null"
+                        [aria-describedby]="'ficha-error-' + cancha.id"
+                        [(ngModel)]="ficha.nombre"
+                      />
+                    </mat-form-field>
+
+                    <mat-form-field>
+                      <mat-label>Superficie</mat-label>
+                      <mat-select
+                        [id]="'ficha-superficie-' + cancha.id"
+                        name="superficie"
+                        [(ngModel)]="ficha.superficie"
+                      >
+                        @for (opcion of superficies; track opcion[0]) {
+                          <mat-option [value]="opcion[0]">{{ opcion[1] }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+
+                    <mat-checkbox
+                      class="block text-sm"
+                      [id]="'ficha-techada-' + cancha.id"
+                      name="techada"
+                      [(ngModel)]="ficha.techada"
+                    >
+                      Techada
+                    </mat-checkbox>
+
+                    <mat-checkbox
+                      class="block text-sm"
+                      name="iluminacion"
+                      [(ngModel)]="ficha.iluminacion"
+                    >
+                      Con iluminación
+                    </mat-checkbox>
+
+                    <button
+                      matButton="filled"
+                      type="submit"
+                      [disabled]="guardando()"
+                      [attr.aria-busy]="guardando()"
+                      class="chico"
+                    >
+                      Guardar la ficha
+                      <span class="sr-only">de {{ cancha.nombre }}</span>
+                    </button>
+                    <button
+                      matButton
+                      type="button"
+                      class="chico"
+                      (click)="cerrarFicha(cancha.id)"
+                    >
+                      Cancelar
+                    </button>
+
+                    <!-- Junto al campo y no en el aviso de arriba: el nombre repetido es
+                         lo que hay que corregir, y el aviso queda a una pantalla de acá. -->
+                    <p
+                      [id]="'ficha-error-' + cancha.id"
+                      aria-live="polite"
+                      class="w-full text-sm text-destructive"
+                    >
+                      {{ errorFicha() }}
+                    </p>
+                  </form>
                 }
-                @if (cancha.iluminacion) {
-                  · Con iluminación
-                }
-                @if (cancha.tieneCamara) {
-                  · Con cámara
-                }
-              </p>
 
-              <!--
-                Los tres editores plegados, con details nativo.
+                <p class="mt-1 text-sm text-muted-foreground">
+                  {{ nombreSuperficie(cancha.superficie) }}
+                  @if (cancha.techada) {
+                    · Techada
+                  }
+                  @if (cancha.iluminacion) {
+                    · Con iluminación
+                  }
+                  @if (cancha.tieneCamara) {
+                    · Con cámara
+                  }
+                </p>
 
-                Con ocho canchas abiertas a la vez la pantalla medía 10.683px en
-                el teléfono y 7.292px en el escritorio: ocho pantallazos de
-                scroll para cambiar una tarifa, y 269 campos de formulario
-                cargados a la vez. Es una pantalla de configuración, y quien
-                entra viene a tocar **una** cancha.
+                <!--
+                  Los tres editores plegados, con details nativo.
 
-                details y no un acordeón propio: el navegador ya trae el estado,
-                el teclado y el anuncio al lector de pantalla. Cero JavaScript.
-              -->
-              <details class="mt-3 border-t border-border pt-3">
-                <summary class="cursor-pointer text-sm font-semibold">
-                  Horario, tarifas y bloqueos
-                  <span class="sr-only">de {{ cancha.nombre }}</span>
-                </summary>
+                  Con ocho canchas abiertas a la vez la pantalla medía 10.683px en
+                  el teléfono y 7.292px en el escritorio: ocho pantallazos de
+                  scroll para cambiar una tarifa, y 269 campos de formulario
+                  cargados a la vez. Es una pantalla de configuración, y quien
+                  entra viene a tocar **una** cancha.
 
-                <h4 class="mt-3 subtitulo">Horario de apertura</h4>
-                @if (cancha.horarios.length === 0) {
-                  <p class="text-sm text-muted-foreground">
-                    Sin horario propio: vale el general del club.
-                  </p>
-                }
-                <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
+                  Un panel de Material (T281; antes, un details): trae el estado, el
+                  teclado y el anuncio al lector de pantalla. Y con matExpansionPanelContent
+                  los editores se crean recién al abrirlo: antes, cada cancha montaba los
+                  suyos y pedía sus bloqueos aunque nadie la abriera.
+                -->
+                <mat-expansion-panel class="mt-3 border-t border-border">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title class="text-sm font-semibold">
+                      Horario, tarifas y bloqueos
+                      <span class="sr-only">&nbsp;de {{ cancha.nombre }}</span>
+                    </mat-panel-title>
+                  </mat-expansion-panel-header>
+                  <ng-template matExpansionPanelContent>
+                    <h4 class="subtitulo">Horario de apertura</h4>
+                    @if (cancha.horarios.length === 0) {
+                      <p class="text-sm text-muted-foreground">
+                        Sin horario propio: vale el general del club.
+                      </p>
+                    }
+                    <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
 
-                <h4 class="mt-3 subtitulo">Tarifas propias</h4>
-                <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
+                    <h4 class="mt-3 subtitulo">Tarifas propias</h4>
+                    <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
 
-                <h4 class="mt-3 subtitulo">Bloqueos</h4>
-                <app-editor-bloqueos [cancha]="cancha" />
-              </details>
+                    <h4 class="mt-3 subtitulo">Bloqueos</h4>
+                    <app-editor-bloqueos [cancha]="cancha" />
+                  </ng-template>
+                </mat-expansion-panel>
+              </mat-card>
             </li>
           }
         </ul>

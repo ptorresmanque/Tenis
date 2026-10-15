@@ -1,5 +1,6 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCard } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatIcon } from '@angular/material/icon';
@@ -75,6 +76,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-agenda-clases',
   imports: [
+    MatCard,
     MatRadioModule,
     MatSelectModule,
     MatDatepickerModule,
@@ -169,79 +171,81 @@ const enBlanco = () => ({
     } @else {
       <ul class="mt-4 space-y-3">
         @for (clase of clases.value(); track clase.id) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p class="font-display text-lg font-semibold">
-                {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
-              </p>
-              <p class="font-medium">{{ clase.lugar }}</p>
-              <mat-chip-set class="insignias">
-                <mat-chip class="insignia info">
-                  <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
-                  {{ queClaseEs(clase) }}
-                </mat-chip>
-              </mat-chip-set>
-              @if (clase.estado === 'REALIZADA') {
+          <li>
+            <mat-card appearance="outlined" class="p-4">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p class="font-display text-lg font-semibold">
+                  {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
+                </p>
+                <p class="font-medium">{{ clase.lugar }}</p>
                 <mat-chip-set class="insignias">
-                  <mat-chip class="insignia neutro">
-                    <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
-                    Ya se dio
+                  <mat-chip class="insignia info">
+                    <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                    {{ queClaseEs(clase) }}
                   </mat-chip>
                 </mat-chip-set>
-              }
-              <button
-                matButton="outlined"
-                type="button"
-                class="chico ms-auto"
-                [attr.aria-expanded]="abierta() === clase.id"
-                (click)="alternar(clase.id)"
-              >
-                {{ abierta() === clase.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
-              </button>
-              @if (clase.estado === 'PROGRAMADA') {
-                <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y
-                     ofrecerlo es un callejón. -->
+                @if (clase.estado === 'REALIZADA') {
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
+                      Ya se dio
+                    </mat-chip>
+                  </mat-chip-set>
+                }
                 <button
-                  matButton
+                  matButton="outlined"
                   type="button"
-                  class="chico"
-                  [disabled]="trabajando()"
-                  [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
-                  (click)="cancelar(clase)"
+                  class="chico ms-auto"
+                  [attr.aria-expanded]="abierta() === clase.id"
+                  (click)="alternar(clase.id)"
                 >
-                  Cancelar clase
+                  {{ abierta() === clase.id ? 'Ocultar inscritos' : 'Ver inscritos' }}
                 </button>
-                <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla
-                     y las clases anteriores quedan como estaban. -->
-                @if (clase.serieId !== null) {
+                @if (clase.estado === 'PROGRAMADA') {
+                  <!-- Una clase que ya se dio no se cancela: el servidor lo rechaza y
+                       ofrecerlo es un callejón. -->
                   <button
                     matButton
                     type="button"
                     class="chico"
                     [disabled]="trabajando()"
-                    [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
-                    (click)="cancelarSerieDesde(clase, clase.serieId)"
+                    [attr.aria-busy]="enCurso() === 'cancelar-' + clase.id"
+                    (click)="cancelar(clase)"
                   >
-                    Cancelar desde esta fecha
+                    Cancelar clase
                   </button>
+                  <!-- T117. Esta y las siguientes de la serie: las horas vuelven a la grilla
+                       y las clases anteriores quedan como estaban. -->
+                  @if (clase.serieId !== null) {
+                    <button
+                      matButton
+                      type="button"
+                      class="chico"
+                      [disabled]="trabajando()"
+                      [attr.aria-busy]="enCurso() === 'cancelarSerieDesde-' + clase.id"
+                      (click)="cancelarSerieDesde(clase, clase.serieId)"
+                    >
+                      Cancelar desde esta fecha
+                    </button>
+                  }
                 }
+              </div>
+
+              <p class="mt-1">
+                {{ clase.profesor }}
+                <span class="text-sm text-muted-foreground">
+                  · {{ cupoEnPalabras(clase.cupoMaximo) }}
+                </span>
+              </p>
+
+              @if (clase.notas) {
+                <p class="mt-1 text-sm text-muted-foreground">{{ clase.notas }}</p>
               }
-            </div>
 
-            <p class="mt-1">
-              {{ clase.profesor }}
-              <span class="text-sm text-muted-foreground">
-                · {{ cupoEnPalabras(clase.cupoMaximo) }}
-              </span>
-            </p>
-
-            @if (clase.notas) {
-              <p class="mt-1 text-sm text-muted-foreground">{{ clase.notas }}</p>
-            }
-
-            @if (abierta() === clase.id) {
-              <app-inscritos [claseId]="clase.id" />
-            }
+              @if (abierta() === clase.id) {
+                <app-inscritos [claseId]="clase.id" />
+              }
+            </mat-card>
           </li>
         }
       </ul>

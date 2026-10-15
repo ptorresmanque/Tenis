@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { MatCard } from '@angular/material/card';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -41,7 +42,7 @@ const MOTIVOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-confirmacion-reserva',
-  imports: [MatButton, MatIcon, RouterLink, Aviso, Esqueleto, MatChipsModule],
+  imports: [MatCard, MatButton, MatIcon, RouterLink, Aviso, Esqueleto, MatChipsModule],
   template: `
     <section class="mx-auto max-w-lg py-10">
       @if (folio() && !error()) {
@@ -113,9 +114,7 @@ const MOTIVOS: Record<string, string> = {
           </div>
 
           @if (qr(); as imagen) {
-            <div
-              class="mt-4 rounded-xl border border-border bg-card p-6 text-center shadow-sm"
-            >
+            <mat-card appearance="outlined" class="mt-4 p-6 text-center">
               <h2 class="font-display text-lg font-bold tracking-wide uppercase">
                 Tu entrada a la cancha
               </h2>
@@ -132,7 +131,7 @@ const MOTIVOS: Record<string, string> = {
               <p class="mt-2 text-xs break-all text-muted-foreground">
                 <a [href]="enlace()" class="underline">{{ enlace() }}</a>
               </p>
-            </div>
+            </mat-card>
           }
         }
 
@@ -171,7 +170,7 @@ const MOTIVOS: Record<string, string> = {
           <h2 id="antes-de-venir" class="titular text-3xl">Antes de venir</h2>
           <ul class="mt-3 grid gap-3">
             @for (dato of ANTES_DE_VENIR(); track dato.titulo) {
-              <li class="flex gap-3 rounded-xl border border-border bg-card p-4">
+              <li class="flex gap-3">
                 <mat-icon class="text-2xl text-primary" aria-hidden="true">
                   {{ dato.icono }}
                 </mat-icon>

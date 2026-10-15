@@ -16,6 +16,7 @@ import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
@@ -25,6 +26,7 @@ import { Aviso } from '../../ui/aviso';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { recordarPagoPendiente } from './pago-pendiente';
 import { Franja, franjasParaLaApi, RestriccionHoraria } from './restriccion-horaria';
+import { LO_HECHO } from '../../ui/material';
 import { TelefonoDirective } from '../../ui/telefono';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
@@ -284,8 +286,8 @@ const enBlanco = () => ({
 
       @if (error(); as falla) {
         <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-      } @else if (listo(); as hecho) {
-        <app-aviso variante="exito" class="mt-3 block">{{ hecho }}</app-aviso>
+      } @else if (enEspera(); as texto) {
+        <app-aviso variante="aviso" class="mt-3 block">{{ texto }}</app-aviso>
       }
     </form>
 
@@ -350,6 +352,7 @@ export class InscripcionATorneo {
 
   private readonly api = inject(Torneos);
   private readonly auth = inject(Auth);
+  private readonly snackBar = inject(MatSnackBar);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
@@ -386,7 +389,8 @@ export class InscripcionATorneo {
 
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly listo = signal<string | null>(null);
+  /** Quedó en lista de espera: se dice en la página, porque hay que leerlo antes de irse. */
+  protected readonly enEspera = signal<string | null>(null);
 
   /** Si el formulario llegó con los datos de la cuenta. Se dice, por quien inscribe a otro. */
   protected readonly precargado = signal(false);
@@ -523,7 +527,7 @@ export class InscripcionATorneo {
 
   protected async inscribirse(): Promise<void> {
     this.error.set(null);
-    this.listo.set(null);
+    this.enEspera.set(null);
 
     const categoriaJuegoId = Number(this.datos.categoriaJuegoId);
 
@@ -592,12 +596,20 @@ export class InscripcionATorneo {
       // **Lo que se muestra es lo que respondió el servidor**, no lo que la pantalla
       // esperaba: quien queda en lista de espera tiene que enterarse ahora y no el día
       // del torneo.
-      this.listo.set(
-        hecha.estado === 'INSCRITA'
-          ? `Listo, ${hecha.jugador}: quedaste inscrito en ${hecha.categoria}.`
-          : `${hecha.jugador}, ${hecha.categoria} ya llenó su cuadro: quedaste en ` +
+      // Inscrito es lo hecho, y va al snackbar (T283); la lista de espera se queda en la
+      // página.
+      if (hecha.estado === 'INSCRITA') {
+        this.snackBar.open(
+          `Listo, ${hecha.jugador}: quedaste inscrito en ${hecha.categoria}.`,
+          undefined,
+          LO_HECHO,
+        );
+      } else {
+        this.enEspera.set(
+          `${hecha.jugador}, ${hecha.categoria} ya llenó su cuadro: quedaste en ` +
             'la lista de espera y el club te llama si se libera un lugar.',
-      );
+        );
+      }
 
       const aWebpay = hecha.estadoPago === 'PENDIENTE' && medioPago === 'WEBPAY';
 

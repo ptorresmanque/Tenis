@@ -9,6 +9,7 @@ import {
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
 import { SelectorDeDia } from '../../catalogo-canchas/grilla/selector-de-dia';
@@ -16,9 +17,9 @@ import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { ClaseDelDia, Clases } from '../../clases/clases.service';
 import { Auth } from '../../core/auth/auth';
 import { DescargarCsv } from '../../reportes/descargar-csv';
-import { Aviso } from '../../ui/aviso';
 import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
+import { LO_HECHO } from '../../ui/material';
 import { Agenda, BloqueoDelDia, ReservaDelDia } from './agenda.service';
 import { FichaDeLaReserva } from './ficha-de-la-reserva';
 import { NuevaReserva } from './nueva-reserva';
@@ -38,7 +39,6 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
     MatButton,
     MatChipsModule,
     MatIcon,
-    Aviso,
     DescargarCsv,
     EstadoVacio,
     FichaDeLaReserva,
@@ -94,14 +94,10 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
       />
     }
 
-    @if (avisoDeCreacion(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
-    }
-
     @if (reservasSeguras().length > 0) {
       <ul class="mt-6 grid gap-3 sm:grid-cols-3">
         @for (dato of resumenDelDia(); track dato.titulo) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <li>
             <p class="flex items-center gap-2 text-sm text-muted-foreground">
               <mat-icon class="text-primary" aria-hidden="true">{{ dato.icono }}</mat-icon>
               {{ dato.titulo }}
@@ -172,6 +168,7 @@ export class AgendaDelDia {
   private readonly clasesApi = inject(Clases);
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly usuario = inject(Auth).usuario;
+  private readonly snackBar = inject(MatSnackBar);
 
   /** El mesón es del admin; el gestor ve el mismo día sin poder tomar horas (T221). */
   protected readonly puedeTomarHoras = computed(
@@ -280,15 +277,16 @@ export class AgendaDelDia {
    */
   protected readonly tomandoHora = signal<FranjaPedida | null>(null);
   protected readonly SIN_FRANJA: FranjaPedida = { canchaId: null, inicio: null };
-  protected readonly avisoDeCreacion = signal<string | null>(null);
 
   /**
    * La lista no se recarga acá a mano: la reserva nueva dispara el mismo aviso del
-   * servidor que las que entran por la web, y la agenda ya se repuebla con eso.
+   * servidor que las que entran por la web, y la agenda ya se repuebla con eso. Lo hecho
+   * se confirma con el snackbar (T283): el tablero ya la muestra, y un aviso fijo arriba
+   * solo empujaba la tabla.
    */
   protected anunciarCreada(folio: string): void {
     this.tomandoHora.set(null);
-    this.avisoDeCreacion.set(`Hora tomada. Folio ${folio}.`);
+    this.snackBar.open(`Hora tomada. Folio ${folio}.`, undefined, LO_HECHO);
   }
 
   /**

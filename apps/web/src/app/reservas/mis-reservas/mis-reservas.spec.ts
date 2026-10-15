@@ -9,6 +9,7 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReservaMia, Reservas } from '../reservas.service';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 import { MisReservas } from './mis-reservas';
 
 /**
@@ -176,6 +177,42 @@ describe('MisReservas', () => {
     await apretar('Sí, cancelar');
 
     expect(texto()).not.toContain('Sí, cancelar');
+  });
+
+  it('**la cancelación se confirma con el snackbar** (T283)', async () => {
+    // Lo hecho no se queda pegado arriba de la lista: la reserva ya no está en ella.
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({})) },
+        },
+        {
+          provide: Reservas,
+          useValue: {
+            mias: () => Promise.resolve([UNA]),
+            cancelar: vi.fn().mockResolvedValue({
+              folio: 'AB23CDE',
+              huboDevolucion: true,
+              motivo: null,
+            }),
+          },
+        },
+      ],
+    });
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    await apretar('Cancelar');
+    await apretar('Sí, cancelar');
+
+    expect(avisoDeLoHecho()).toBe(
+      'Cancelamos la reserva AB23CDE y la devolución ya está en camino.',
+    );
+    expect(texto()).not.toContain('Cancelamos la reserva');
   });
 
   it('un folio que no está en la lista no abre nada, pero lo dice', async () => {

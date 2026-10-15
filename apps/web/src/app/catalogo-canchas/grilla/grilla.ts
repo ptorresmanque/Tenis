@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatIcon } from '@angular/material/icon';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatButton } from '@angular/material/button';
 
 import { Auth } from '../../core/auth/auth';
@@ -41,7 +41,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
   selector: 'app-grilla',
   imports: [
     MatButton,
-    MatIcon,
+    MatExpansionModule,
     Marcador,
     Reservar,
     BarraFija,
@@ -167,25 +167,22 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
          tabla abriría con veinte filas "Ya pasó" antes de la primera hora tomable.
          No se quitan: ahí está el botón para reportar una hora no usada (T35), y
          el título del grupo avisa cuando hay alguna. Fuera de la tabla: dentro serían
-         filas que dicen lo mismo en cada celda. <details> y no un botón a mano: el
-         desplegable nativo trae el teclado y el estado para el lector. -->
+         filas que dicen lo mismo en cada celda. Un panel de Material (T281; antes, un
+         <details>): trae el teclado y el estado para el lector. -->
     @if (pasadas().length > 0) {
-      <details class="group mt-6 border-t border-border pt-4">
-        <summary
-          class="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-2
-                 font-display text-lg font-bold tracking-wide text-muted-foreground uppercase
-                 [&::-webkit-details-marker]:hidden"
-        >
-          <mat-icon class="transition-transform group-open:rotate-90" aria-hidden="true">
-            chevron_right
-          </mat-icon>
-          {{ tituloDeLasPasadas() }}
-          @if (hayQueReportar()) {
-            <span class="font-sans text-sm font-semibold tracking-normal normal-case">
-              · puedes reportar horas que no se usaron
+      <mat-expansion-panel class="mt-6 border-t border-border">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <span class="flex flex-wrap items-baseline gap-x-2 text-muted-foreground">
+              <span class="font-display text-lg font-bold tracking-wide uppercase">{{
+                tituloDeLasPasadas()
+              }}</span>
+              @if (hayQueReportar()) {
+                <span class="text-sm font-semibold">· puedes reportar horas que no se usaron</span>
+              }
             </span>
-          }
-        </summary>
+          </mat-panel-title>
+        </mat-expansion-panel-header>
         <ul>
           @for (fila of pasadas(); track fila.inicio) {
             <li class="mt-3">
@@ -230,7 +227,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
             </li>
           }
         </ul>
-      </details>
+      </mat-expansion-panel>
     }
 
     <!--

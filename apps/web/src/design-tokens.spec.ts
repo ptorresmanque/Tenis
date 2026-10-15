@@ -768,13 +768,14 @@ describe('Uso de los tokens en las plantillas', () => {
     //
     // `matButton` no necesita la clase (T241): Material le pone la manito en
     // `.mdc-button:hover`. `matIconButton`, `mat-menu-item` y `mat-tab-link` tampoco (T260-T262): la traen,
-    // y el tema no se la quita.
+    // y el tema no se la quita. Ni `matChipRemove` (T280): es una `.mdc-evolution-chip__action`.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bmat(?:Icon)?Button\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta)) continue;
+        if (/\bmat(?:Icon)?Button\b|\bmatChipRemove\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta))
+          continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
@@ -1729,17 +1730,17 @@ describe('Los campos son de Material (T244)', () => {
 
   it('**la confirmación de lo hecho es un snackbar**: un aviso de éxito en línea solo donde hay que leerlo (T255, S2)', () => {
     // Lo que queda en línea es el resultado que reemplaza a un formulario o que trae algo que
-    // anotar: el folio de la reserva del mesón, los pasos que siguen a una inscripción, el pago
-    // recibido al volver de Webpay. Uno nuevo se agrega acá a propósito, con su razón. Los de
-    // variante enlazada (torneos públicos, reserva pública) son de esa misma clase, la vuelta de
-    // Webpay o del enlace del correo, y la regla no los ve.
+    // anotar: los pasos que siguen a una inscripción, el pago recibido al volver de Webpay. Uno
+    // nuevo se agrega acá a propósito, con su razón. Los de variante enlazada (torneos públicos,
+    // reserva pública) son de esa misma clase, la vuelta de Webpay o del enlace del correo, y la
+    // regla no los ve. El folio de la reserva del mesón salió de la lista en T283: el tablero
+    // muestra la reserva y su ficha el folio, y la confirmación es el snackbar.
     const enLinea = [
       'club/formulario-contacto.ts',
       'cuotas/mi-cuenta.ts',
       'identidad/recuperar-contrasena/recuperar-contrasena.ts',
       'identidad/registro/registro.ts',
       'identidad/verificar-correo/verificar-correo.ts',
-      'reservas/admin/agenda.ts',
       'torneos/publico/inscripcion.ts',
     ];
     const infractores = plantillas()
@@ -1807,6 +1808,48 @@ describe('Los campos son de Material (T244)', () => {
         /<select\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
       )
       .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<datalist>`**: las sugerencias son `mat-autocomplete` (T280)', () => {
+    // El datalist del navegador no se puede marcar como «Socio del club» de forma que se
+    // lea igual en todos, y no se ve como el resto de los campos.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<datalist\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<details>`**: lo que se despliega es un `mat-expansion-panel` (T281)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<details\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**toda `mat-card` va con contorno, y ninguna dentro de otra** (T282)', () => {
+    // La tarjeta del sitio es la de borde (S1); una dentro de otra es lo que el skill prohíbe.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      let profundidad = 0;
+      for (const [etiqueta] of contenido.matchAll(/<\/?mat-card\b[^>]*>/g)) {
+        if (etiqueta.startsWith('</')) {
+          profundidad--;
+          continue;
+        }
+        profundidad++;
+        if (!/appearance="outlined"/.test(etiqueta)) infractores.push(`${archivo}: sin contorno`);
+        if (profundidad > 1) infractores.push(`${archivo}: una dentro de otra`);
+      }
+    }
 
     expect(infractores).toEqual([]);
   });

@@ -11,6 +11,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
   diaEnPalabras,
@@ -22,6 +23,7 @@ import {
 import { Aviso } from '../../ui/aviso';
 import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
+import { LO_HECHO } from '../../ui/material';
 import { descargarIcs } from '../calendario';
 import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
 
@@ -227,6 +229,7 @@ export class MisReservas {
 
   private readonly ruta = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly snackBar = inject(MatSnackBar);
 
   /** El folio que llega desde la confirmación con "Cancelar esta reserva". */
   private readonly folioPorCancelar = toSignal(this.ruta.queryParamMap);
@@ -323,10 +326,14 @@ export class MisReservas {
         lista.filter((otra) => otra.id !== reserva.id),
       );
       this.porCancelar.set(null);
-      this.aviso.set(
+      // Lo hecho, con el snackbar (T283): la reserva ya salió de la lista. En la página
+      // quedan los avisos que hay que leer, como el rechazo.
+      this.snackBar.open(
         resultado.huboDevolucion
           ? `Cancelamos la reserva ${resultado.folio} y la devolución ya está en camino.`
           : `Cancelamos la reserva ${resultado.folio}.`,
+        undefined,
+        LO_HECHO,
       );
     } catch (falla) {
       const rechazo = mensajeDeRechazo(falla);

@@ -354,7 +354,7 @@ describe('Grilla', () => {
   });
 
   it('si todavía no pasó ninguna hora, no hay grupo plegado', () => {
-    expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('mat-expansion-panel')).toBeNull();
   });
 
   /** T104. La barra dice qué quedó elegido y con cuánto, antes de "Reservar". */
@@ -464,10 +464,12 @@ describe('Grilla', () => {
     it('las horas que ya pasaron se pliegan en un grupo que dice de cuándo a cuándo', () => {
       // Desde T103 hay una fila por inicio, cada media hora: "20 horas que ya pasaron" a las
       // 18:00 serían diez horas del reloj. El rango no se presta a esa confusión.
-      const grupo = el().querySelector('details');
+      const grupo = el().querySelector('mat-expansion-panel');
+      const cabecera = grupo!.querySelector('mat-expansion-panel-header')!;
 
-      expect(grupo?.open).toBe(false);
-      expect(enTexto(grupo!.querySelector('summary')!)).toContain(
+      // Un panel de Material (T281): el lector anuncia que está cerrado.
+      expect(cabecera.getAttribute('aria-expanded')).toBe('false');
+      expect(enTexto(cabecera)).toContain(
         'Horas que ya pasaron, de 08:00 a 10:00',
       );
       expect(grupo?.textContent).toContain('Ya pasó');
@@ -654,7 +656,7 @@ describe('Grilla', () => {
       await montar(MEDIAS_HORAS);
 
       expect(inicios()[0]).toBe('08:30');
-      expect(enTexto(el().querySelector('details summary')!)).toContain(
+      expect(enTexto(el().querySelector('mat-expansion-panel-header')!)).toContain(
         'La hora de las 08:00 ya pasó',
       );
     });
@@ -990,9 +992,9 @@ describe('Grilla', () => {
       // A las 10:40 la hora tomada de las 08:00 ya pasó y queda en el grupo.
       vi.setSystemTime('2026-08-17T14:40:00.000Z');
       await montar(RESERVADO, {}, { socioId: 7, reportables: laReportable });
-      const grupo = (fixture.nativeElement as HTMLElement).querySelector('details');
+      const grupo = (fixture.nativeElement as HTMLElement).querySelector('mat-expansion-panel');
 
-      expect(grupo?.querySelector('summary')?.textContent).toContain('reportar');
+      expect(grupo?.querySelector('mat-expansion-panel-header')?.textContent).toContain('reportar');
       expect(
         [...(grupo?.querySelectorAll('button') ?? [])].some((b) =>
           b.textContent?.includes('Reportar hora no usada'),

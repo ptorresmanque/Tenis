@@ -1,4 +1,7 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatCardHarness } from '@angular/material/card/testing';
+import { MatExpansionPanelHarness } from '@angular/material/expansion/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { elegidoEn, textosDe } from '../../testing/elegir';
@@ -311,6 +314,38 @@ describe('AdminCanchasPanel', () => {
 
       expect(texto()).toContain('transmitir');
     });
+  });
+
+  it('**cada cancha es una tarjeta de Material, con contorno** (T282)', async () => {
+    // Una cosa con sus acciones: el caso del skill para mat-card. La sección de alta, en
+    // cambio, sigue siendo una sección.
+    const tarjetas = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+      MatCardHarness,
+    );
+
+    expect(tarjetas).toHaveLength(1);
+    expect(await tarjetas[0].getText()).toContain('Cancha 1');
+    expect(await (await tarjetas[0].host()).hasClass('mat-mdc-card-outlined')).toBe(true);
+  });
+
+  /**
+   * T281. «Horario, tarifas y bloqueos» de cada cancha es un panel de Material, cerrado. Sus
+   * editores se crean recién al abrirlo: con ocho canchas, eran 269 campos montados a la vez
+   * y un pedido de bloqueos por cancha que nadie había abierto.
+   */
+  it('**horario, tarifas y bloqueos van en un panel cerrado, y se cargan al abrirlo** (T281)', async () => {
+    const panel = await TestbedHarnessEnvironment.loader(fixture).getHarness(
+      MatExpansionPanelHarness.with({ title: /Horario, tarifas y bloqueos/ }),
+    );
+
+    expect(await panel.isExpanded()).toBe(false);
+    expect(api.bloqueos).not.toHaveBeenCalled();
+
+    await panel.expand();
+    await fixture.whenStable();
+
+    expect(api.bloqueos).toHaveBeenCalled();
+    expect(await panel.getTextContent()).toContain('Horario de apertura');
   });
 
   describe('la ficha de la cancha (T96)', () => {

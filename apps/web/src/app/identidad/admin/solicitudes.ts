@@ -1,6 +1,7 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -39,6 +40,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
 @Component({
   selector: 'app-solicitudes',
   imports: [
+    MatCard,
     MatFormFieldModule,
     MatInput,
     MatButton,
@@ -102,113 +104,115 @@ const TIPOS: Record<TipoSolicitud, string> = {
     } @else {
       <ul class="mt-4 grid gap-3">
         @for (solicitud of solicitudes.value(); track solicitud.id) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div class="flex flex-wrap items-center gap-2">
-              <mat-chip-set class="insignias">
-                <mat-chip class="insignia" [class]="solicitud.tipo === 'SOCIO' ? 'info' : 'neutro'">
-                  <mat-icon matChipAvatar aria-hidden="true">mail</mat-icon>
-                  {{ nombreTipo(solicitud.tipo) }}
-                </mat-chip>
-              </mat-chip-set>
-
-              @if (solicitud.estado === 'ATENDIDA') {
+          <li>
+            <mat-card appearance="outlined" class="p-4">
+              <div class="flex flex-wrap items-center gap-2">
                 <mat-chip-set class="insignias">
-                  <mat-chip class="insignia exito">
-                    <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
-                    Atendida
+                  <mat-chip class="insignia" [class]="solicitud.tipo === 'SOCIO' ? 'info' : 'neutro'">
+                    <mat-icon matChipAvatar aria-hidden="true">mail</mat-icon>
+                    {{ nombreTipo(solicitud.tipo) }}
                   </mat-chip>
                 </mat-chip-set>
-              } @else if (solicitud.estado === 'DESCARTADA') {
-                <mat-chip-set class="insignias">
-                  <mat-chip class="insignia neutro">
-                    <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
-                    Descartada
-                  </mat-chip>
-                </mat-chip-set>
-              }
 
-              <span class="ms-auto text-sm text-muted-foreground">
-                {{ cuando(solicitud.creadaEn) }}
-              </span>
-            </div>
+                @if (solicitud.estado === 'ATENDIDA') {
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia exito">
+                      <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
+                      Atendida
+                    </mat-chip>
+                  </mat-chip-set>
+                } @else if (solicitud.estado === 'DESCARTADA') {
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                      Descartada
+                    </mat-chip>
+                  </mat-chip-set>
+                }
 
-            <h2 class="mt-2 titulo-tarjeta">
-              {{ solicitud.nombre }}
-            </h2>
-            <p class="text-sm text-muted-foreground">
-              @if (solicitud.email) {
-                <a [href]="'mailto:' + solicitud.email" class="underline">
-                  {{ solicitud.email }}
-                </a>
-              }
-              @if (solicitud.email && solicitud.telefono) {
-                ·
-              }
-              @if (solicitud.telefono) {
-                <a [href]="solicitud.telefono | enlaceTelefono" class="underline">
-                  {{ solicitud.telefono | telefono }}
-                </a>
-              }
-            </p>
+                <span class="ms-auto text-sm text-muted-foreground">
+                  {{ cuando(solicitud.creadaEn) }}
+                </span>
+              </div>
 
-            @if (solicitud.mensaje) {
-              <p class="mt-2 text-sm">{{ solicitud.mensaje }}</p>
-            }
-
-            @if (solicitud.nota) {
-              <p class="mt-2 rounded-lg bg-muted p-2 text-sm">
-                <span class="font-medium">Nota:</span> {{ solicitud.nota }}
+              <h2 class="mt-2 titulo-tarjeta">
+                {{ solicitud.nombre }}
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                @if (solicitud.email) {
+                  <a [href]="'mailto:' + solicitud.email" class="underline">
+                    {{ solicitud.email }}
+                  </a>
+                }
+                @if (solicitud.email && solicitud.telefono) {
+                  ·
+                }
+                @if (solicitud.telefono) {
+                  <a [href]="solicitud.telefono | enlaceTelefono" class="underline">
+                    {{ solicitud.telefono | telefono }}
+                  </a>
+                }
               </p>
-            }
 
-            @if (solicitud.estado === 'NUEVA') {
-              <div class="mt-3 flex flex-wrap items-end gap-2">
-                <mat-form-field class="chico flex-1">
-                  <!-- Sin etiqueta a la vista, como antes: la fila ya dice de quién es. -->
-                  <input
-                    matInput
-                    [attr.aria-label]="'Nota sobre ' + solicitud.nombre"
-                    placeholder="Qué se hizo (opcional)"
-                    [name]="'nota-' + solicitud.id"
-                    [(ngModel)]="notas[solicitud.id]"
-                  />
-                </mat-form-field>
+              @if (solicitud.mensaje) {
+                <p class="mt-2 text-sm">{{ solicitud.mensaje }}</p>
+              }
 
-                @if (solicitud.tipo === 'SOCIO' && !solicitud.invitacionId) {
+              @if (solicitud.nota) {
+                <p class="mt-2 rounded-lg bg-muted p-2 text-sm">
+                  <span class="font-medium">Nota:</span> {{ solicitud.nota }}
+                </p>
+              }
+
+              @if (solicitud.estado === 'NUEVA') {
+                <div class="mt-3 flex flex-wrap items-end gap-2">
+                  <mat-form-field class="chico flex-1">
+                    <!-- Sin etiqueta a la vista, como antes: la fila ya dice de quién es. -->
+                    <input
+                      matInput
+                      [attr.aria-label]="'Nota sobre ' + solicitud.nombre"
+                      placeholder="Qué se hizo (opcional)"
+                      [name]="'nota-' + solicitud.id"
+                      [(ngModel)]="notas[solicitud.id]"
+                    />
+                  </mat-form-field>
+
+                  @if (solicitud.tipo === 'SOCIO' && !solicitud.invitacionId) {
+                    <button
+                      matButton="filled"
+                      type="button"
+                      class="chico"
+                      [disabled]="trabajando()"
+                      [attr.aria-busy]="enCurso() === 'invitar-' + solicitud.id"
+                      (click)="invitar(solicitud)"
+                    >
+                      Dar de alta como socio
+                    </button>
+                  }
+
                   <button
-                    matButton="filled"
+                    matButton="outlined"
                     type="button"
                     class="chico"
                     [disabled]="trabajando()"
-                    [attr.aria-busy]="enCurso() === 'invitar-' + solicitud.id"
-                    (click)="invitar(solicitud)"
+                    [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'ATENDIDA'"
+                    (click)="resolver(solicitud, 'ATENDIDA')"
                   >
-                    Dar de alta como socio
+                    Marcar atendida
                   </button>
-                }
-
-                <button
-                  matButton="outlined"
-                  type="button"
-                  class="chico"
-                  [disabled]="trabajando()"
-                  [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'ATENDIDA'"
-                  (click)="resolver(solicitud, 'ATENDIDA')"
-                >
-                  Marcar atendida
-                </button>
-                <button
-                  matButton
-                  type="button"
-                  class="chico"
-                  [disabled]="trabajando()"
-                  [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'DESCARTADA'"
-                  (click)="resolver(solicitud, 'DESCARTADA')"
-                >
-                  Descartar
-                </button>
-              </div>
-            }
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'DESCARTADA'"
+                    (click)="resolver(solicitud, 'DESCARTADA')"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              }
+            </mat-card>
           </li>
         }
       </ul>

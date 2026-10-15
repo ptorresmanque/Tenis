@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -34,7 +35,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
  */
 @Component({
   selector: 'app-preguntas-frecuentes',
-  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, Esqueleto, EstadoVacio],
+  imports: [MatCard, MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, Esqueleto, EstadoVacio],
   providers: [proveerCampos()],
   template: `
     <section aria-labelledby="titulo-preguntas">
@@ -112,130 +113,134 @@ const LARGO_DE_LA_RESPUESTA = 2000;
       } @else {
         <ol class="grid gap-3">
           @for (pregunta of lista(); track pregunta.id) {
-            <li class="rounded-xl border border-border bg-card p-4">
-              @if (editando() === pregunta.id) {
-                <form class="grid gap-4" (ngSubmit)="guardar(pregunta)">
-                  <mat-form-field>
-                    <mat-label>Pregunta <span aria-hidden="true">*</span></mat-label>
-                    <input
-                      matInput
-                      [id]="'editar-pregunta-' + pregunta.id"
-                      name="pregunta"
-                      [maxlength]="LARGO_DE_LA_PREGUNTA"
-                      [(ngModel)]="borrador.pregunta"
-                    />
-                  </mat-form-field>
-                  <mat-form-field>
-                    <mat-label>Respuesta <span aria-hidden="true">*</span></mat-label>
-                    <textarea
-                      matInput
-                      name="respuesta"
-                      rows="4"
-                      [maxlength]="LARGO_DE_LA_RESPUESTA"
-                      [(ngModel)]="borrador.respuesta"
-                    ></textarea>
-                    <mat-hint>{{ quedan(borrador.respuesta) }}</mat-hint>
-                  </mat-form-field>
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      matButton="filled"
-                      type="submit"
-                      class="chico"
-                      [disabled]="enviando()"
-                      [attr.aria-busy]="enCurso() === 'guardar-' + pregunta.id"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      matButton
-                      type="button"
-                      class="chico"
-                      (click)="cerrarEdicion(pregunta.id)"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              } @else {
-                <div class="flex items-start gap-4">
-                  <div class="min-w-0 flex-1">
-                    <h3 class="font-semibold">{{ pregunta.pregunta }}</h3>
-                    <!-- Un adelanto: la respuesta entera se lee al editarla. -->
-                    <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
-                  </div>
-
-                  <mat-form-field class="w-18 sm:w-24">
-                    <mat-label>Orden de «{{ pregunta.pregunta }}»</mat-label>
-                    <input
-                      matInput
-                      [id]="'orden-pregunta-' + pregunta.id"
-                      type="number"
-                      min="0"
-                      max="1000"
-                      [value]="pregunta.orden"
-                      [disabled]="enviando()"
-                      (change)="mover(pregunta, $event)"
-                    />
-                  </mat-form-field>
-                </div>
-
-                @if (porBorrar() === pregunta.id) {
-                  <!-- La confirmación en la fila, como al cancelar una reserva: es la
-                       consecuencia de esta pregunta y no hay foco que atrapar. -->
-                  <app-aviso variante="aviso" [urgente]="true" class="mt-3 block">
-                    «{{ pregunta.pregunta }}» deja de aparecer en el sitio. Esto no se
-                    puede deshacer.
-                  </app-aviso>
-                  <div class="mt-3 flex flex-wrap gap-2">
-                    <button
-                      matButton="filled"
-                      type="button"
-                      class="peligro chico"
-                      [disabled]="enviando()"
-                      [attr.aria-busy]="enCurso() === 'borrar-' + pregunta.id"
-                      (click)="borrar(pregunta)"
-                    >
-                      Sí, borrar
-                    </button>
-                    <button
-                      matButton
-                      type="button"
-                      class="chico"
-                      (click)="porBorrar.set(null)"
-                    >
-                      Mejor no
-                    </button>
-                  </div>
+            <li>
+              <mat-card appearance="outlined" class="p-4">
+                @if (editando() === pregunta.id) {
+                  <form class="grid gap-4" (ngSubmit)="guardar(pregunta)">
+                    <mat-form-field>
+                      <mat-label>Pregunta <span aria-hidden="true">*</span></mat-label>
+                      <input
+                        matInput
+                        [id]="'editar-pregunta-' + pregunta.id"
+                        name="pregunta"
+                        [maxlength]="LARGO_DE_LA_PREGUNTA"
+                        [(ngModel)]="borrador.pregunta"
+                      />
+                    </mat-form-field>
+                    <mat-form-field>
+                      <mat-label>Respuesta <span aria-hidden="true">*</span></mat-label>
+                      <textarea
+                        matInput
+                        name="respuesta"
+                        rows="4"
+                        [maxlength]="LARGO_DE_LA_RESPUESTA"
+                        [(ngModel)]="borrador.respuesta"
+                      ></textarea>
+                      <mat-hint>{{ quedan(borrador.respuesta) }}</mat-hint>
+                    </mat-form-field>
+                    <div class="flex flex-wrap gap-2">
+                      <!-- Guardar y confirmar el borrado son ramas distintas de la misma tarjeta:
+                           nunca están las dos a la vista. mat-guidelines-ignore: multiples-filled -->
+                      <button
+                        matButton="filled"
+                        type="submit"
+                        class="chico"
+                        [disabled]="enviando()"
+                        [attr.aria-busy]="enCurso() === 'guardar-' + pregunta.id"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        matButton
+                        type="button"
+                        class="chico"
+                        (click)="cerrarEdicion(pregunta.id)"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
                 } @else {
-                  <div class="mt-3 flex flex-wrap gap-2">
-                    <button
-                      matButton="outlined"
-                      type="button"
-                      [id]="'editar-' + pregunta.id"
-                      class="chico"
-                      (click)="abrirEdicion(pregunta)"
-                    >
-                      Editar
-                      <span class="sr-only">«{{ pregunta.pregunta }}»</span>
-                    </button>
-                    <button
-                      matButton
-                      type="button"
-                      class="chico"
-                      (click)="porBorrar.set(pregunta.id)"
-                    >
-                      Borrar
-                      <span class="sr-only">«{{ pregunta.pregunta }}»</span>
-                    </button>
-                  </div>
-                }
-              }
+                  <div class="flex items-start gap-4">
+                    <div class="min-w-0 flex-1">
+                      <h3 class="font-semibold">{{ pregunta.pregunta }}</h3>
+                      <!-- Un adelanto: la respuesta entera se lee al editarla. -->
+                      <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
+                    </div>
 
-              @if (origen() === pregunta.id) {
-                @if (error(); as falla) {
-                  <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
+                    <mat-form-field class="w-18 sm:w-24">
+                      <mat-label>Orden de «{{ pregunta.pregunta }}»</mat-label>
+                      <input
+                        matInput
+                        [id]="'orden-pregunta-' + pregunta.id"
+                        type="number"
+                        min="0"
+                        max="1000"
+                        [value]="pregunta.orden"
+                        [disabled]="enviando()"
+                        (change)="mover(pregunta, $event)"
+                      />
+                    </mat-form-field>
+                  </div>
+
+                  @if (porBorrar() === pregunta.id) {
+                    <!-- La confirmación en la fila, como al cancelar una reserva: es la
+                         consecuencia de esta pregunta y no hay foco que atrapar. -->
+                    <app-aviso variante="aviso" [urgente]="true" class="mt-3 block">
+                      «{{ pregunta.pregunta }}» deja de aparecer en el sitio. Esto no se
+                      puede deshacer.
+                    </app-aviso>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        matButton="filled"
+                        type="button"
+                        class="peligro chico"
+                        [disabled]="enviando()"
+                        [attr.aria-busy]="enCurso() === 'borrar-' + pregunta.id"
+                        (click)="borrar(pregunta)"
+                      >
+                        Sí, borrar
+                      </button>
+                      <button
+                        matButton
+                        type="button"
+                        class="chico"
+                        (click)="porBorrar.set(null)"
+                      >
+                        Mejor no
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        matButton="outlined"
+                        type="button"
+                        [id]="'editar-' + pregunta.id"
+                        class="chico"
+                        (click)="abrirEdicion(pregunta)"
+                      >
+                        Editar
+                        <span class="sr-only">«{{ pregunta.pregunta }}»</span>
+                      </button>
+                      <button
+                        matButton
+                        type="button"
+                        class="chico"
+                        (click)="porBorrar.set(pregunta.id)"
+                      >
+                        Borrar
+                        <span class="sr-only">«{{ pregunta.pregunta }}»</span>
+                      </button>
+                    </div>
+                  }
                 }
-              }
+
+                @if (origen() === pregunta.id) {
+                  @if (error(); as falla) {
+                    <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
+                  }
+                }
+              </mat-card>
             </li>
           }
         </ol>
