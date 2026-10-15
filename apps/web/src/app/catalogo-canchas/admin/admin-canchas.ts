@@ -8,10 +8,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { MatCard } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatCheckbox } from '@angular/material/checkbox';
-import { MatButton } from '@angular/material/button';
+import { MatButton, MatFabButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -24,15 +25,11 @@ import { confirmar } from '../../ui/dialogo-de-confirmacion';
 import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { nombreDeSuperficie, SUPERFICIES } from '../superficies';
-import {
-  AdminCanchas,
-  CanchaAdmin,
-  CanchaNueva,
-  HorasSinTarifa,
-} from './admin-canchas.service';
+import { AdminCanchas, CanchaAdmin, HorasSinTarifa } from './admin-canchas.service';
 import { EditorBloqueos } from './editor-bloqueos';
 import { EditorFranjas } from './editor-franjas';
 import { EditorHorarios } from './editor-horarios';
+import { NuevaCancha } from './nueva-cancha';
 import { Esqueleto } from '../../ui/esqueleto';
 import { LO_HECHO } from '../../ui/material';
 
@@ -52,16 +49,10 @@ type FichaDeCancha = Pick<
   'nombre' | 'superficie' | 'techada' | 'iluminacion'
 >;
 
-const CANCHA_EN_BLANCO: CanchaNueva = {
-  nombre: '',
-  superficie: 'CEMENTO',
-  techada: false,
-  tieneCamara: false,
-  iluminacion: false,
-};
-
 @Component({
   selector: 'app-admin-canchas',
+  // Espacio al final para que el FAB no tape la última tarjeta (A9).
+  host: { class: 'block pb-24' },
   imports: [
     MatCard,
     MatCheckbox,
@@ -69,6 +60,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     MatFormFieldModule,
     MatInput,
     MatButton,
+    MatFabButton,
     FormsModule,
     EditorHorarios,
     EditorFranjas,
@@ -81,75 +73,23 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
   providers: [proveerCampos()],
   template: `
     <!-- Es la pestaña «Canchas» (T288): el titular y la alarma de horas sin tarifa van en la
-         pantalla madre, y el horario y las tarifas del club, en sus pestañas. -->
-    <section aria-labelledby="titulo-nueva">
-      <h2 id="titulo-nueva" class="rotulo-seccion">
-        Agregar una cancha
-      </h2>
+         pantalla madre, y el horario y las tarifas del club, en sus pestañas. Agregar una
+         cancha es el FAB, que abre su diálogo (T289). -->
+    <button matFab extended type="button" class="fab-de-la-pantalla" (click)="agregar()">
+      <mat-icon aria-hidden="true">add</mat-icon>
+      Nueva cancha
+    </button>
 
-      <form class="mt-3 flex flex-wrap items-end gap-3" (ngSubmit)="crear()">
-        <mat-form-field>
-          <mat-label>Nombre</mat-label>
-          <input
-            matInput
-            id="nombre"
-            name="nombre"
-            required
-            [(ngModel)]="nueva.nombre"
-          />
-        </mat-form-field>
+    <p role="status" aria-live="polite" class="text-sm">
+      @if (error()) {
+        <span class="text-destructive">{{ error() }}</span>
+      }
+    </p>
 
-        <mat-form-field>
-          <mat-label>Superficie</mat-label>
-          <mat-select
-            id="superficie"
-            name="superficie"
-            [(ngModel)]="nueva.superficie"
-          >
-            @for (opcion of superficies; track opcion[0]) {
-              <mat-option [value]="opcion[0]">{{ opcion[1] }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-checkbox class="block text-sm" name="techada" [(ngModel)]="nueva.techada">
-          Techada
-        </mat-checkbox>
-
-        <mat-checkbox class="block text-sm" name="tieneCamara" [(ngModel)]="nueva.tieneCamara">
-          Con cámara
-          <span class="text-muted-foreground">
-            — solo desde estas se pueden transmitir los partidos
-          </span>
-        </mat-checkbox>
-
-        <mat-checkbox class="block text-sm" name="iluminacion" [(ngModel)]="nueva.iluminacion">
-          Con iluminación
-        </mat-checkbox>
-
-        <!-- Crear y editar son formularios distintos; el de editar va en su tarjeta.
-             mat-guidelines-ignore: multiples-filled -->
-        <button
-          matButton="filled"
-          type="submit"
-          [disabled]="guardando()"
-          [attr.aria-busy]="guardando()"
-        >
-          Agregar
-        </button>
-      </form>
-
-      <p role="status" aria-live="polite" class="mt-2 text-sm">
-        @if (error()) {
-          <span class="text-destructive">{{ error() }}</span>
-        }
-      </p>
-    </section>
-
-    <section class="mt-8" aria-labelledby="titulo-listado">
-      <h2 id="titulo-listado" class="rotulo-seccion">
-        Canchas
-      </h2>
+    <section aria-labelledby="titulo-listado">
+      <!-- Para el lector y no a la vista: la pestaña ya dice «Canchas», y sin este título las
+           tarjetas (h3) quedarían colgando del h1. -->
+      <h2 id="titulo-listado" class="sr-only">Canchas del club</h2>
 
       <!-- Solo la primera carga: al recargar tras una acción la lista se queda donde
            está. Reemplazada por "Cargando…", se llevaba el botón que tenía el foco. -->
@@ -374,7 +314,6 @@ export class AdminCanchasPanel {
 
   /** Las opciones del `select`, en el orden en que están escritas en la tabla. */
   protected readonly superficies = Object.entries(SUPERFICIES);
-  protected readonly nueva: CanchaNueva = { ...CANCHA_EN_BLANCO };
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -406,25 +345,17 @@ export class AdminCanchasPanel {
     defaultValue: [],
   });
 
-  protected async crear(): Promise<void> {
-    this.error.set(null);
+  /** Abre el alta (T289). El diálogo crea la cancha y muestra sus errores; acá, lo que sigue. */
+  protected async agregar(): Promise<void> {
+    const creada = await firstValueFrom(
+      this.dialogos
+        .open<NuevaCancha, void, CanchaAdmin>(NuevaCancha, { width: '32rem', maxWidth: '92vw' })
+        .afterClosed(),
+    );
+    if (!creada) return;
 
-    if (!this.nueva.nombre.trim()) {
-      this.error.set('Ponle un nombre a la cancha.');
-      return;
-    }
-
-    this.guardando.set(true);
-    try {
-      const creada = await this.api.crear({ ...this.nueva });
-      this.snackBar.open(`${creada.nombre} ya está en la grilla.`, undefined, LO_HECHO);
-      Object.assign(this.nueva, CANCHA_EN_BLANCO);
-      this.recargar();
-    } catch (falla) {
-      this.error.set(mensajeDelServidor(falla));
-    } finally {
-      this.guardando.set(false);
-    }
+    this.snackBar.open(`${creada.nombre} ya está en la grilla.`, undefined, LO_HECHO);
+    this.recargar();
   }
 
   protected async alternarActiva(cancha: CanchaAdmin): Promise<void> {
@@ -448,7 +379,7 @@ export class AdminCanchasPanel {
   /**
    * Marca o desmarca la cámara de una cancha **que ya existe**.
    *
-   * La casilla del formulario de arriba solo sirve para la cancha que se está creando,
+   * La casilla del alta (el diálogo de «Nueva cancha») solo sirve para la cancha que se crea,
    * y una cámara casi nunca se instala el mismo día que se hizo la cancha: el club
    * tiene sus canchas cargadas hace meses y monta la cámara antes del torneo. Sin este
    * botón, la única forma de marcarla sería borrar la cancha y volver a crearla, que se

@@ -101,25 +101,16 @@ describe('AdminCanchasPanel', () => {
     expect(texto()).toContain('Arcilla');
   });
 
-  it('la cancha nueva ofrece Cemento primero y ya elegido: las ocho del club son de cemento (T94)', async () => {
-    await fixture.whenStable();
-    expect(textosDe(fixture, 'mat-select#superficie')).toEqual([
-      'Cemento',
-      'Arcilla',
-      'Pasto sintético',
-    ]);
-    expect(elegidoEn(fixture, 'mat-select#superficie')).toBe('CEMENTO');
-  });
-
-  it('cada sección se encabeza con un rótulo (TV7.2)', () => {
+  it('la lista lleva su título para el lector, sin repetir a la vista el de la pestaña (T289)', () => {
+    // La alarma y lo general del club se fueron a la pantalla madre y a sus pestañas (T288), y
+    // el alta, al diálogo (T289). Queda la lista, bajo la pestaña «Canchas»: un rótulo visible
+    // diría lo mismo una tercera vez, pero sin título las tarjetas (h3) quedarían sin su h2.
     const titulos = [
       ...(fixture.nativeElement as HTMLElement).querySelectorAll('section > h2'),
     ];
 
-    // Las dos: agregar y la lista. La alarma y lo general del club se fueron a la pantalla
-    // madre y a sus pestañas (T288).
-    expect(titulos.length).toBe(2);
-    expect(titulos.every((h2) => h2.classList.contains('rotulo-seccion'))).toBe(true);
+    expect(titulos.map((h2) => h2.textContent?.trim())).toEqual(['Canchas del club']);
+    expect(titulos[0].classList).toContain('sr-only');
   });
 
   it('a una cancha desactivada la nombra, no solo la apaga', async () => {
@@ -212,35 +203,126 @@ describe('AdminCanchasPanel', () => {
     expect(alarma.recargar).toHaveBeenCalledTimes(1);
   });
 
-  describe('alta', () => {
-    it('no manda una cancha sin nombre', async () => {
-      boton('Agregar')?.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
+  describe('alta con el FAB y el diálogo (T289)', () => {
+    const fab = () =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.mat-mdc-fab-base',
+      );
+    const dialogo = () => document.querySelector<HTMLElement>('mat-dialog-container');
+    const enElDialogo = (etiqueta: string) =>
+      [...(dialogo()?.querySelectorAll('button') ?? [])].find(
+        (b) => b.textContent?.trim() === etiqueta,
+      );
+    const esperar = async () => {
+      // Dos vueltas: el diálogo responde, y después la lista sigue con lo que esperaba.
+      for (let i = 0; i < 2; i++) {
+        await fixture.whenStable();
+        fixture.detectChanges();
+      }
+    };
+    const abrir = async () => {
+      fab()[0].click();
+      await esperar();
+    };
+    const escribirNombre = async (nombre: string) => {
+      // NgForm conecta el campo un microtask después de crearlo: antes, escribir no llega.
+      await Promise.resolve();
+      const campo = dialogo()!.querySelector<HTMLInputElement>('#nombre')!;
+      campo.value = nombre;
+      campo.dispatchEvent(new Event('input'));
+      await esperar();
+    };
 
-      expect(api.crear).not.toHaveBeenCalled();
-      expect(texto()).toContain('Ponle un nombre');
+    it('**un solo FAB, «Nueva cancha»**, y la página deja espacio para que no tape la última tarjeta', () => {
+      expect(fab().length).toBe(1);
+      expect(fab()[0].textContent).toContain('Nueva cancha');
+      expect(fab()[0].classList).toContain('mdc-fab--extended');
+      expect((fixture.nativeElement as HTMLElement).classList).toContain('pb-24');
     });
 
-    it('muestra el motivo que dio el servidor, no uno genérico', async () => {
+    it('el formulario de alta ya no está en la página: lo abre el FAB', async () => {
+      expect((fixture.nativeElement as HTMLElement).querySelector('#nombre')).toBeNull();
+
+      await abrir();
+
+      expect(dialogo()?.querySelector('[mat-dialog-title]')?.textContent).toContain(
+        'Nueva cancha',
+      );
+    });
+
+    it('ofrece Cemento primero y ya elegido: las ocho del club son de cemento (T94)', async () => {
+      await abrir();
+
+      expect(textosDe(fixture, 'mat-select#superficie')).toEqual([
+        'Cemento',
+        'Arcilla',
+        'Pasto sintético',
+      ]);
+      expect(elegidoEn(fixture, 'mat-select#superficie')).toBe('CEMENTO');
+    });
+
+    it('no manda una cancha sin nombre, y lo dice en el diálogo', async () => {
+      await abrir();
+      await escribirNombre('   ');
+      enElDialogo('Agregar')!.click();
+      await esperar();
+
+      expect(api.crear).not.toHaveBeenCalled();
+      expect(textoDelDialogo()).toContain('Ponle un nombre');
+    });
+
+    it('muestra en el diálogo el motivo que dio el servidor, y no lo cierra', async () => {
       // "Ya hay una cancha con ese nombre" dice qué arreglar; "algo salió mal"
-      // obliga a adivinar.
+      // obliga a adivinar. Y cerrado, habría que volver a escribir todo.
       api.crear.mockRejectedValue({
         error: { message: 'Ya hay una cancha con ese nombre.' },
       });
+      await abrir();
+      await escribirNombre('Cancha 1');
+      enElDialogo('Agregar')!.click();
+      await esperar();
 
-      const input = (fixture.nativeElement as HTMLElement).querySelector(
-        '#nombre',
-      ) as HTMLInputElement;
-      input.value = 'Cancha 1';
-      input.dispatchEvent(new Event('input'));
+      expect(textoDelDialogo()).toContain('Ya hay una cancha con ese nombre.');
+      expect(api.canchas).toHaveBeenCalledTimes(1);
+    });
+
+    it('mientras guarda no se puede cerrar: la cancha quedaría creada sin aparecer en la lista', async () => {
+      let responderAlta!: (cancha: CanchaAdmin) => void;
+      api.crear.mockReturnValue(new Promise((listo) => (responderAlta = listo)));
+      await abrir();
+      await escribirNombre('Cancha 9');
+      enElDialogo('Agregar')!.click();
       await fixture.whenStable();
 
-      boton('Agregar')?.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      expect(enElDialogo('Cancelar')!.disabled).toBe(true);
+      // Con un clic en el fondo, que es como se descarta el diálogo sin botón.
+      document.querySelector<HTMLElement>('.cdk-overlay-backdrop')!.click();
+      await esperar();
+      expect(dialogo()).not.toBeNull();
 
-      expect(texto()).toContain('Ya hay una cancha con ese nombre.');
+      responderAlta({ ...CANCHA, id: 9, nombre: 'Cancha 9' });
+      await esperar();
+      expect(avisoDeLoHecho()).toContain('Cancha 9 ya está en la grilla.');
+    });
+
+    it('**al crearla, el diálogo se cierra, la lista y la alarma se releen y el aviso lo confirma**', async () => {
+      api.crear.mockResolvedValue({ ...CANCHA, id: 9, nombre: 'Cancha 9' });
+      await abrir();
+      await escribirNombre('Cancha 9');
+      enElDialogo('Agregar')!.click();
+      await esperar();
+
+      expect(api.crear).toHaveBeenCalledWith({
+        nombre: 'Cancha 9',
+        superficie: 'CEMENTO',
+        techada: false,
+        tieneCamara: false,
+        iluminacion: false,
+      });
+      expect(textoDelDialogo()).toBe('');
+      expect(avisoDeLoHecho()).toContain('Cancha 9 ya está en la grilla.');
+      expect(api.canchas).toHaveBeenCalledTimes(2);
+      expect(alarma.recargar).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -257,8 +339,8 @@ describe('AdminCanchasPanel', () => {
     });
 
     it('**una cancha que ya existe se puede marcar con cámara**', async () => {
-      // La casilla del formulario de arriba solo vale para la que se está creando, y
-      // la cámara se instala meses después de cargar la cancha.
+      // La casilla del alta solo vale para la que se está creando, y la cámara se
+      // instala meses después de cargar la cancha.
       camara('Marcar con cámara')?.click();
       await fixture.whenStable();
 
@@ -277,7 +359,9 @@ describe('AdminCanchasPanel', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(texto()).toContain('transmitir');
+      // En el aviso de lo hecho. Hasta T289 la prueba miraba la página, y pasaba por la
+      // casilla del alta, que también dice «transmitir».
+      expect(avisoDeLoHecho()).toContain('queda disponible para transmitir');
     });
   });
 
