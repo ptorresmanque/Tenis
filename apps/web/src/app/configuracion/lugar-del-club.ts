@@ -64,8 +64,8 @@ const LARGO_HORARIO = 120;
  * Un lugar del club —la tienda, la cafetería o el gimnasio— como información para la
  * portada y «El club» (T184, T236). El sitio no vende nada: eso es la Etapa 2.
  *
- * **Un componente para las tres pestañas**: el lugar llega por los datos de la ruta, y lo
- * que cambia de uno a otro son sus columnas. El gimnasio suma el cupo de una clase grupal
+ * **Un componente para los tres lugares**: el lugar llega como input, desde su panel en la
+ * pestaña «Servicios» (T290), y lo que cambia de uno a otro son sus columnas. El gimnasio suma el cupo de una clase grupal
  * y el editor de sus tarifas. Lo que se guarda acá se ve en el sitio sin recargar.
  */
 @Component({
@@ -190,7 +190,7 @@ export class LugarDelClubPanel {
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);
 
-  /** Llega por los datos de la ruta (A8). */
+  /** Lo pasa su panel en «Servicios» (T290); hasta ahí llegaba por los datos de la ruta. */
   readonly lugar = input.required<Lugar>();
   protected readonly datos = computed(() => LUGARES[this.lugar()]);
 
