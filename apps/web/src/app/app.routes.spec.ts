@@ -84,6 +84,7 @@ describe('Rutas protegidas', () => {
     'administracion/finanzas/morosos',
     'administracion/no-uso/por-revisar',
     'administracion/no-uso/periodo',
+    'administracion/clases/agendar',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',
@@ -137,6 +138,12 @@ describe('Rutas protegidas', () => {
     );
     expect(buscar('administracion/no-uso/periodo')?.ruta.title).toBe(
       'Horas no usadas · Período — Administración',
+    );
+  });
+
+  it('**agendar una clase es su página, dentro de Clases** (T294)', () => {
+    expect(buscar('administracion/clases/agendar')?.ruta.title).toBe(
+      'Clases · Agendar — Administración',
     );
   });
 

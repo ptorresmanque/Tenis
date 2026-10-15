@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  diaDeLaUrl,
   diaEnPalabras,
   enPesos,
   fechaEnElClub,
@@ -135,5 +136,20 @@ describe('minutosDe', () => {
     expect(minutosDe({ inicio: '2026-10-05T22:00:00.000Z', fin: '2026-10-05T23:00:00.000Z' })).toBe(
       60,
     );
+  });
+});
+
+/** T294. El día que llega en `?fecha=`: Clases y su página de agendar vuelven al mismo día. */
+describe('diaDeLaUrl', () => {
+  const MEDIODIA = new Date('2026-10-15T15:00:00.000Z');
+
+  it('usa el día que viene en la URL', () => {
+    expect(diaDeLaUrl('2026-10-20', MEDIODIA)).toBe('2026-10-20');
+  });
+
+  it('sin día, o con algo que no es un día, es hoy en el club', () => {
+    expect(diaDeLaUrl(undefined, MEDIODIA)).toBe('2026-10-15');
+    expect(diaDeLaUrl('mañana', MEDIODIA)).toBe('2026-10-15');
+    expect(diaDeLaUrl('2026-10-20T00:00', MEDIODIA)).toBe('2026-10-15');
   });
 });
