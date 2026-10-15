@@ -76,6 +76,10 @@ describe('Rutas protegidas', () => {
     'administracion/canchas',
     'administracion/reservas',
     'administracion/reservas/ocupacion',
+    'administracion/finanzas/ingreso',
+    'administracion/finanzas/padron',
+    'administracion/finanzas/cuotas',
+    'administracion/finanzas/morosos',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',
@@ -104,6 +108,23 @@ describe('Rutas protegidas', () => {
       'Agenda del día · Ocupación — Administración',
     );
   });
+
+  it.each([
+    ['ingreso', 'ingreso', 'Ingreso'],
+    ['padron', 'padron', 'Padrón y morosidad'],
+    ['cuotas', 'cuotas', 'Cuotas'],
+    ['morosos', 'morosos', 'Socios con deuda'],
+  ])(
+    '**/administracion/%s es la pestaña «%s» de Finanzas** (T286, A1)',
+    (vieja, pestana, etiqueta) => {
+      expect(buscar(`administracion/${vieja}`)?.ruta.redirectTo).toBe(
+        `/administracion/finanzas/${pestana}`,
+      );
+      expect(buscar(`administracion/finanzas/${pestana}`)?.ruta.title).toBe(
+        `Finanzas · ${etiqueta} — Administración`,
+      );
+    },
+  );
 
   it('**la ruta vieja de la tienda y la cafetería lleva a la tienda** (T236, G6)', () => {
     expect(buscar('administracion/configuracion/tienda-y-cafeteria')?.ruta.redirectTo).toBe(

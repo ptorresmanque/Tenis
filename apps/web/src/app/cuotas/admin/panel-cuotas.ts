@@ -52,16 +52,11 @@ function mesActual(): string {
   ],
   providers: [proveerCampos()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: se cobra fila por fila. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Cuotas</h1>
-        <p class="mt-1 text-muted-foreground">
-          La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes. La
-          incorporación aparece en el mes en que el socio entró.
-        </p>
-      </div>
-    </header>
+    <!-- Es una pestaña de Finanzas (T286): el titular va en la pantalla madre. -->
+    <p class="max-w-prose text-muted-foreground">
+      La cuota de cada socio activo, mes a mes. Se emite sola al abrir el mes. La
+      incorporación aparece en el mes en que el socio entró.
+    </p>
 
     <div class="mt-4 flex flex-wrap items-end gap-4">
       <mat-form-field>

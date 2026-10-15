@@ -203,16 +203,16 @@ export const routes: Routes = [
           import('./identidad/admin/socios').then((m) => m.SociosPanel),
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/cuotas',
-        title: 'Cuotas — Administración',
-        loadComponent: () =>
-          import('./cuotas/admin/panel-cuotas').then((m) => m.PanelDeCuotas),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/cuotas',
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/morosos',
-        title: 'Socios con deuda — Administración',
-        loadComponent: () =>
-          import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/morosos',
       },
       {
         path: 'administracion/clases',
@@ -272,10 +272,43 @@ export const routes: Routes = [
           import('./identidad/admin/solicitudes').then((m) => m.SolicitudesPanel),
       },
       {
+        path: 'administracion/finanzas',
+        title: 'Finanzas — Administración',
+        // T286 (SPEC-panel.md D4): el ingreso, el padrón, las cuotas y los deudores, en pestañas.
+        loadComponent: () => import('./finanzas/finanzas').then((m) => m.Finanzas),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'ingreso' },
+          {
+            path: 'ingreso',
+            title: 'Finanzas · Ingreso — Administración',
+            loadComponent: () =>
+              import('./reportes/ingreso').then((m) => m.IngresoPanel),
+          },
+          {
+            path: 'padron',
+            title: 'Finanzas · Padrón y morosidad — Administración',
+            loadComponent: () =>
+              import('./reportes/padron').then((m) => m.PadronPanel),
+          },
+          {
+            path: 'cuotas',
+            title: 'Finanzas · Cuotas — Administración',
+            loadComponent: () =>
+              import('./cuotas/admin/panel-cuotas').then((m) => m.PanelDeCuotas),
+          },
+          {
+            path: 'morosos',
+            title: 'Finanzas · Socios con deuda — Administración',
+            loadComponent: () =>
+              import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
+          },
+        ],
+      },
+      {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/ingreso',
-        title: 'Ingreso del club — Administración',
-        loadComponent: () =>
-          import('./reportes/ingreso').then((m) => m.IngresoPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/ingreso',
       },
       {
         // La pantalla pasó a ser una pestaña de la agenda (T285); los marcadores siguen andando.
@@ -290,10 +323,10 @@ export const routes: Routes = [
           import('./reportes/no-uso').then((m) => m.NoUsoPanel),
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/padron',
-        title: 'Padrón y morosidad — Administración',
-        loadComponent: () =>
-          import('./reportes/padron').then((m) => m.PadronPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/padron',
       },
       {
         path: 'administracion/reportes',

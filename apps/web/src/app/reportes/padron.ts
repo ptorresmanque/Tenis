@@ -34,17 +34,12 @@ import { Reportes } from './reportes.service';
     MatTableModule,MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv, Esqueleto],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
-         es lo que se lleva. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Padrón y morosidad</h1>
-        <p class="mt-1 text-muted-foreground">
-          Cómo se mueve el padrón y cuánto se debe, mes a mes. La deuda de un mes son sus cuotas
-          emitidas que siguen sin cobrarse, así que baja sola cuando alguien se pone al día.
-        </p>
-      </div>
-    </header>
+    <!-- Es una pestaña de Finanzas (T286): el titular va en la pantalla madre. El CSV va
+         con la tabla, que es lo que se lleva. -->
+    <p class="max-w-prose text-muted-foreground">
+      Cómo se mueve el padrón y cuánto se debe, mes a mes. La deuda de un mes son sus cuotas
+      emitidas que siguen sin cobrarse, así que baja sola cuando alguien se pone al día.
+    </p>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-2">
       <mat-form-field>

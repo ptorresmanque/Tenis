@@ -43,17 +43,12 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
-         es lo que se lleva. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Ingreso del club</h1>
-        <p class="mt-1 text-muted-foreground">
-          Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
-          Las cuotas van a su mes, no al día en que el socio se puso al día.
-        </p>
-      </div>
-    </header>
+    <!-- Es una pestaña de Finanzas (T286): el titular va en la pantalla madre. El CSV va
+         con la tabla, que es lo que se lleva. -->
+    <p class="max-w-prose text-muted-foreground">
+      Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
+      Las cuotas van a su mes, no al día en que el socio se puso al día.
+    </p>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
       <mat-form-field>

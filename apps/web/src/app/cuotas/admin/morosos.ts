@@ -23,15 +23,10 @@ import { Cuotas } from '../cuotas.service';
   selector: 'app-morosos',
   imports: [MatTableModule, Esqueleto, RouterLink, EstadoVacio, MatChipsModule, MatIcon],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: es una pantalla para mirar. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Socios con deuda</h1>
-        <p class="mt-1 text-muted-foreground">
-          Ordenados por lo que deben. Se cuenta por cuotas impagas, no por fechas.
-        </p>
-      </div>
-    </header>
+    <!-- Es una pestaña de Finanzas (T286): el titular va en la pantalla madre. -->
+    <p class="max-w-prose text-muted-foreground">
+      Ordenados por lo que deben. Se cuenta por cuotas impagas, no por fechas.
+    </p>
 
     @if (morosos.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los socios con deuda…" />

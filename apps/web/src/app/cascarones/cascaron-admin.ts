@@ -57,9 +57,10 @@ export const SECCIONES_DEL_PANEL = [
     trasDivisoria: false,
   },
   {
-    ruta: '/administracion/ingreso',
-    etiqueta: 'Ingreso del club',
-    icono: 'payments',
+    // T286. Ingreso, padrón, cuotas y deudores: una pantalla con pestañas.
+    ruta: '/administracion/finanzas',
+    etiqueta: 'Finanzas',
+    icono: 'account_balance',
     trasDivisoria: false,
   },
   {
@@ -69,27 +70,9 @@ export const SECCIONES_DEL_PANEL = [
     trasDivisoria: false,
   },
   {
-    ruta: '/administracion/padron',
-    etiqueta: 'Padrón y morosidad',
-    icono: 'group',
-    trasDivisoria: false,
-  },
-  {
     ruta: '/administracion/reportes',
     etiqueta: 'Horas reportadas',
     icono: 'flag',
-    trasDivisoria: false,
-  },
-  {
-    ruta: '/administracion/cuotas',
-    etiqueta: 'Cuotas',
-    icono: 'payments',
-    trasDivisoria: false,
-  },
-  {
-    ruta: '/administracion/morosos',
-    etiqueta: 'Socios con deuda',
-    icono: 'money_off',
     trasDivisoria: false,
   },
   {
