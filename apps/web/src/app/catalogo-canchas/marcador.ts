@@ -78,7 +78,9 @@ const claveDe = (canchaId: number, inicio: string) =>
   imports: [MatIcon, RouterLink],
   host: { class: 'block' },
   template: `
-    <div class="overflow-x-auto">
+    <!-- En disponibilidad, desde sm el tablero cabe y deja de desplazarse de lado: con
+         overflow, los nombres de las canchas no se podrían pegar bajo la cabecera. -->
+    <div class="overflow-x-auto" [class]="modo() === 'elegir' ? 'sm:overflow-visible' : ''">
       <table
         class="w-full table-fixed border-separate border-spacing-1"
         [style.min-width.rem]="anchoMinimo()"
@@ -94,6 +96,7 @@ const claveDe = (canchaId: number, inicio: string) =>
           <tr>
             <th
               scope="col"
+              [class]="pegado()"
               class="sticky left-0 z-10 w-16 bg-campo pb-1 text-start font-display text-xs
                      font-semibold tracking-wider text-on-campo/75 uppercase sm:w-24"
             >
@@ -104,7 +107,8 @@ const claveDe = (canchaId: number, inicio: string) =>
                    las sin techo quedaban más abajo que las techadas. -->
               <th
                 scope="col"
-                class="pb-1 align-top font-display text-xs font-semibold tracking-wider
+                [class]="pegado()"
+                class="bg-campo pb-1 align-top font-display text-xs font-semibold tracking-wider
                        text-on-campo/75 uppercase sm:text-sm"
               >
                 <span class="flex flex-col items-center gap-0.5">
@@ -152,7 +156,7 @@ const claveDe = (canchaId: number, inicio: string) =>
                           [class]="
                             marcada
                               ? 'border-rotulo bg-rotulo text-on-rotulo'
-                              : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre'
+                              : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
                           "
                           [attr.data-fila]="i"
                           [attr.data-columna]="j"
@@ -270,7 +274,7 @@ const claveDe = (canchaId: number, inicio: string) =>
           >
             Prime
           </span>
-          Hora prime desde las {{ prime.hora }}: arriendo {{ prime.monto }}
+          Hora prime desde las {{ prime.hora }}{{ prime.monto ? ': arriendo ' + prime.monto : '' }}
         </li>
       }
     </ul>
@@ -305,8 +309,20 @@ export class Marcador {
     (cancha, bloque) => `Elegir la ${cancha.nombre} a las ${horaEnElClub(bloque.inicio)}`,
   );
 
+  /** Si la leyenda dice el arriendo de la hora prime: al socio, que no paga, no (T265). */
+  readonly arriendo = input(true);
+
   /** La celda libre que se tocó, en modo elegir. */
   readonly elegir = output<CeldaElegible>();
+
+  /**
+   * En disponibilidad, los encabezados quedan pegados bajo la cabecera del sitio, que mide
+   * 64 px: a la fila veinte nadie se acuerda de cuál columna era cuál. En la portada, no:
+   * el tablero de hoy es corto y se desplaza de lado.
+   */
+  protected readonly pegado = computed(() =>
+    this.modo() === 'elegir' ? 'sm:sticky sm:top-16 sm:z-20' : '',
+  );
 
   /** La última celda que tuvo el foco: es la parada del tablero al volver con Tab. */
   protected readonly foco = signal<string | null>(null);
@@ -442,11 +458,15 @@ export class Marcador {
     }
   }
 
-  /** Desde cuándo es hora prime y cuánto cuesta el arriendo, si queda alguna hoy. */
+  /**
+   * Desde cuándo es hora prime y cuánto cuesta el arriendo, si queda alguna hoy. Con
+   * `arriendo` apagado (el socio), basta la hora: el monto no es para él.
+   */
   protected readonly prime = computed(() => {
     const fila = this.filas().find(({ prime }) => prime);
-    return fila && fila.montoPico !== null
-      ? { hora: fila.hora, monto: enPesos(fila.montoPico) }
-      : null;
+    if (!fila) return null;
+    if (!this.arriendo()) return { hora: fila.hora, monto: null };
+
+    return fila.montoPico !== null ? { hora: fila.hora, monto: enPesos(fila.montoPico) } : null;
   });
 }

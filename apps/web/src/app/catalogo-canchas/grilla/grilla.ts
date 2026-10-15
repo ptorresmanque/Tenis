@@ -7,10 +7,9 @@ import {
   signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -24,27 +23,24 @@ import {
   Disponibilidad,
   DuracionMin,
 } from '../disponibilidad';
+import { CeldaElegible, Marcador } from '../marcador';
 import { enPesos, hoyEnElClub, horaEnElClub } from '../reloj-del-club';
-import { ICONOS_DE_MOTIVO, nombreDelMotivo } from '../motivos';
-import { nombreDeSuperficie } from '../superficies';
 import { TARIFA_DEL_SOCIO, yaEmpezo } from './bandas';
 import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
 import { MoverReserva } from './mover-reserva';
 import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
-import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
 
 @Component({
   selector: 'app-grilla',
   imports: [
     MatButton,
     MatIcon,
-    RouterLink,
+    Marcador,
     Reservar,
     BarraFija,
     ControlesDelDia,
     EstadoVacio,
-    MatButtonToggleModule,
     ResumenDeLaEleccion,
     ResumenDelCambio,
   ],
@@ -52,7 +48,7 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
   host: {
     class: 'block',
     // La barra fija tapa la última fila si no se le deja aire, y el checklist del master
-    // lo prohíbe. Con los chips de cancha (T104) mide 216px a 375 de ancho.
+    // lo prohíbe.
     '[class.pb-56]': 'elegido() !== null',
   },
   template: `
@@ -146,17 +142,8 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
       }
     </div>
 
-    <!--
-      EL DÍA, EN TABLA (T103).
-
-      La opción C que eligió el club el 2026-10-08: una fila por hora de inicio y una
-      columna por tipo de cancha, con el precio en cada celda. Antes fueron tarjetas por
-      cancha (10.223px en un teléfono) y después bandas por hora con chips por cancha;
-      la pregunta que trae quien llega es "a qué hora y cuánto", y la tabla la contesta
-      sin abrir nada. La cancha puntual se elige en la barra de abajo.
-    -->
-    @if (visibles().length > 0 && tabla().filas.length === 0) {
-      <!-- Sin filas, la pantalla quedaría en blanco: sin esto, "el club no abre este día"
+    @if (visibles().length > 0 && sinBloques()) {
+      <!-- Sin horas, la pantalla quedaría en blanco: sin esto, "el club no abre este día"
            se leería como una falla de carga. -->
       <p class="mt-6 text-muted-foreground">
         El club no abre este día.
@@ -233,176 +220,49 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
       </details>
     }
 
-    @if (!sinHoraYMediaEnElDia() && vigentes().length > 0) {
-      <!-- Lo que paga cada uno se dice una vez, arriba (A8): repetido en cada celda era
-           decir veintisiete veces lo mismo. Al socio la celda no le muestra plata, que no
-           paga, sino cuántas quedan; al visitante, el arriendo. -->
-      <p data-tarifas class="mt-6 text-sm text-muted-foreground">
-        @if (esSocio()) {
-          Socio <strong class="text-accent-strong">{{ tarifaDelSocio }}</strong> · cada
-          casilla dice cuántas canchas quedan libres.
-        } @else {
-          Arriendo de {{ duracion() === 90 ? '1 hora y media' : '1 hora' }} por cancha ·
-          socio {{ tarifaDelSocio }}
-        }
-      </p>
+    <!--
+      EL DÍA, EN EL TABLERO DE LA PORTADA (T265).
 
-      <!-- table-fixed y celdas que se envuelven: a 375px no hay scroll horizontal ni con
-           "desde $12.000" en las dos columnas. Con tope en escritorio: a todo el ancho,
-           cada celda era una barra verde de 470px. -->
-      <table
-        class="mt-2 w-full max-w-2xl table-fixed border-separate border-spacing-x-1
-               border-spacing-y-1.5"
+      El mismo de "Libre hoy", sobre la misma banda de campo: el usuario pidió el
+      2026-10-15 que disponibilidad se viera igual (SPEC-revision-qa.md, A1), y eso deja
+      atrás la tabla por tipo de cancha de T103. La celda libre elige su cancha, y lo que
+      cuesta se dice una vez arriba y en la barra al elegir: en cada celda serían ocho
+      montos por hora.
+    -->
+    @if (!sinHoraYMediaEnElDia() && hayHorasPorDelante()) {
+      <section
+        class="-mx-4 mt-6 bg-campo px-4 py-6 text-on-campo sm:mx-0 sm:rounded-region sm:px-6"
+        aria-label="Las canchas del día"
       >
-        <caption class="sr-only">Canchas libres por hora de inicio y tipo de cancha</caption>
-        <!-- Pegado bajo la cabecera del sitio, que mide 64px: a la fila veinte nadie se
-             acuerda de cuál columna era la techada. -->
-        <thead>
-          <tr>
-            <th
-              scope="col"
-              class="sticky top-16 z-10 w-16 bg-background py-2 text-start font-display
-                     text-xs font-bold tracking-wide text-muted-foreground uppercase"
-            >
-              Inicio
-            </th>
-            @for (tipo of tabla().columnas; track tipo) {
-              <th
-                scope="col"
-                class="sticky top-16 z-10 bg-background px-1 py-2 text-start font-display
-                       text-xs font-bold tracking-wide text-muted-foreground uppercase"
-              >
-                <span class="inline-flex items-center gap-1">
-                  @if (tipo === 'techada') {
-                    <mat-icon class="text-base" aria-hidden="true">roofing</mat-icon>
-                  }
-                  {{ nombreDelTipo[tipo] }}
-                </span>
-              </th>
-            }
-          </tr>
-        </thead>
-        <tbody>
-          @for (fila of vigentes(); track fila.inicio; let i = $index) {
-            <tr>
-              <!-- La hora prime marca la fila: ámbar y la palabra, no solo el color. -->
-              <th
-                scope="row"
-                class="py-2 text-start align-top font-display text-lg leading-none font-bold
-                       tabular-nums"
-                [class.text-warning-strong]="fila.prime === true"
-              >
-                {{ hora(fila.inicio) }}
-                @if (fila.prime === true) {
-                  <span
-                    class="mt-1 flex items-center gap-0.5 font-sans text-xs font-semibold"
-                  >
-                    <mat-icon class="text-sm" aria-hidden="true">trending_up</mat-icon>
-                    prime
-                  </span>
-                }
-              </th>
-              @for (celda of fila.celdas; track celda.tipo) {
-                <td class="align-top">
-                  @if (celda.libres.length > 0) {
-                    <!-- El precio en tamaño de marcador: es lo que el club pidió que se
-                         viera. La libre en el verde de "libre"; la elegida, en rótulo, como
-                         la opción marcada del selector (TV2.3 y TV5.1). -->
-                    <button
-                      type="button"
-                      class="bloque flex min-h-11 w-full cursor-pointer flex-col items-start
-                             justify-center gap-0.5 rounded-control border px-2 py-1.5
-                             text-start"
-                      [class.border-transparent]="!estaElegida(celda)"
-                      [class.bg-accent-soft]="!estaElegida(celda)"
-                      [class.text-accent-strong]="!estaElegida(celda)"
-                      [class.border-rotulo]="estaElegida(celda)"
-                      [class.bg-rotulo]="estaElegida(celda)"
-                      [class.text-on-rotulo]="estaElegida(celda)"
-                      [style.--i]="i"
-                      [attr.aria-label]="etiqueta(fila, celda)"
-                      [attr.aria-pressed]="estaElegida(celda)"
-                      (click)="elegirCelda(celda)"
-                    >
-                      @if (!esSocio() && celda.precio) {
-                        <span class="font-display text-2xl leading-none font-extrabold tabular-nums">
-                          {{ celda.precio }}
-                        </span>
-                      }
-                      <!-- Al socio, cuántas quedan es lo único que la celda le dice: va en
-                           grande, donde al visitante va el precio. -->
-                      <span
-                        class="inline-flex items-center gap-0.5 font-semibold"
-                        [class.text-xs]="!esSocio()"
-                        [class.font-display]="esSocio()"
-                        [class.text-lg]="esSocio()"
-                      >
-                        @if (estaElegida(celda)) {
-                          <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
-                        }
-                        {{ celda.libres.length }}
-                        {{ celda.libres.length === 1 ? 'libre' : 'libres' }}
-                        @if (fila.prime === null && celda.esPico) {
-                          · prime
-                        }
-                      </span>
-                    </button>
-                  } @else {
-                    <p
-                      class="flex min-h-11 items-center rounded-control bg-muted px-2 py-1.5
-                             text-xs font-medium text-muted-foreground"
-                    >
-                      {{ porQueNoHay(celda) }}
-                    </p>
-                  }
-
-                  <!-- T97. La clase se nombra y se enlaza: a quien llega nuevo le dice que a
-                       esta hora hay una clase que le puede servir. Fuera del botón: un
-                       enlace dentro de un botón no se puede apretar. -->
-                  @if (celda.enClase > 0) {
-                    <a
-                      routerLink="/clases"
-                      class="mt-1 inline-flex min-h-6 items-center gap-1 text-xs font-semibold
-                             text-primary underline"
-                    >
-                      <mat-icon class="text-sm" aria-hidden="true">{{ iconos['CLASE'] }}</mat-icon>
-                      {{ celda.enClase }} en clase<span class="sr-only">, ver las clases</span>
-                    </a>
-                  }
-                  @if (celda.enTorneo > 0) {
-                    <p class="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <mat-icon class="text-sm" aria-hidden="true">{{ iconos['TORNEO'] }}</mat-icon>
-                      {{ celda.enTorneo }} en torneo
-                    </p>
-                  }
-                </td>
-              }
-            </tr>
+        <!-- Lo que paga cada uno se dice una vez (A8). Al socio, que no paga; al visitante,
+             el arriendo de la duración elegida, "desde" si no todas cuestan lo mismo. La
+             hora prime la dice la leyenda del tablero. -->
+        <p data-tarifas class="mb-3 text-sm text-on-campo/85">
+          @if (esSocio()) {
+            Socio <strong>{{ tarifaDelSocio }}</strong>: elige una cancha libre.
+          } @else {
+            Arriendo de {{ duracion() === 90 ? '1 hora y media' : '1 hora' }} por
+            cancha{{ arriendo() ? ': ' + arriendo() : '' }} · socio {{ tarifaDelSocio }}
           }
-        </tbody>
-      </table>
+        </p>
+
+        <app-marcador
+          modo="elegir"
+          [grillas]="visibles()"
+          [elegida]="laElegida()"
+          [sinVenta]="sinVenta"
+          [etiqueta]="etiquetaDeCelda"
+          [arriendo]="!esSocio()"
+          (elegir)="elegirCelda($event)"
+        />
+      </section>
     }
 
     <!-- Elegir y reservar quedaron separados: la celda se marca y la barra dice qué cancha
-         quedó y con cuánto antes del botón. Si la celda tiene más de una libre, ahí se
-         cambia (T104). Al mover, la barra confirma el cambio: desde el enlace, con la
-         diferencia (T91); desde "mis reservas", sin plata. -->
+         quedó y con cuánto antes del botón. Al mover, la barra confirma el cambio: desde
+         el enlace, con la diferencia (T91); desde "mis reservas", sin plata. -->
     @if (elegido(); as eleccion) {
       <app-barra-fija>
-        @if (eleccion.libres.length > 1) {
-          <mat-button-toggle-group
-            aria-label="Cancha"
-            hideSingleSelectionIndicator
-            [value]="'' + eleccion.cancha.id"
-            (change)="cambiarDeCancha($event.value)"
-          >
-            @for (opcion of canchasDeLaCelda(); track opcion.valor) {
-              <mat-button-toggle [value]="opcion.valor">
-                {{ opcion.etiqueta }}
-              </mat-button-toggle>
-            }
-          </mat-button-toggle-group>
-        }
         @if (mover.activo()) {
           <!-- Desde el enlace, solo con lo pagado a la vista: sin eso, el resumen le diría
                al visitante lo que se le dice al socio. Por el modo y no por lo pagado: con
@@ -438,45 +298,6 @@ import { Celda, FilaDeLaTabla, tablaDelDia, TipoDeCancha } from './tabla';
         (cerrar)="reservando.set(null)"
         (reservado)="confirmar($event)"
       />
-    }
-  `,
-  styles: `
-    /* El stagger de MASTER.md § Motion, en CSS puro: sin dependencia y sin JS en
-       el hilo principal. Solo opacity y transform. */
-    .bloque {
-      transition:
-        opacity var(--duracion-entrada),
-        transform var(--duracion-entrada);
-      transition-timing-function: var(--ease-rebote);
-      /* Topeado en 12: con el escalonado por bloque, el número 40 entraría 2,4 s
-         después de que la grilla ya está lista. */
-      transition-delay: calc(min(var(--i), 12) * var(--escalonado));
-
-      @starting-style {
-        opacity: 0;
-        transform: translateY(16px) scale(0.92);
-      }
-    }
-
-    /* Que la celda responde al mouse hay que mostrarlo, no solo saberlo: el cursor
-       lo dice y esto lo confirma.
-
-       Va en CSS y no con las variantes hover de Tailwind porque la celda arrastra
-       hasta 720ms de retardo por el stagger, y un \`transition-colors\` lo heredaría:
-       el hover llegaría tarde. Solo color de borde y sombra, así que nada cambia de
-       tamaño y la tabla no salta al pasar el ratón. La elegida no se ilumina. */
-    @media (hover: hover) and (pointer: fine) {
-      .bloque:not([aria-pressed='true']):hover {
-        border-color: var(--color-primary);
-        box-shadow: var(--shadow-md);
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .bloque {
-        transition: none;
-        transition-delay: 0ms;
-      }
     }
   `,
 })
@@ -570,21 +391,14 @@ export class Grilla {
     }.`;
   });
 
-  /**
-   * La cancha marcada, la que muestra la barra de abajo, con las libres de su celda: entre
-   * esas se puede cambiar en la barra (T104).
-   */
-  protected readonly elegido = signal<
-    (Libre & { libres: Libre[] }) | null
-  >(null);
+  /** La cancha marcada en el tablero, la que muestra la barra de abajo. */
+  protected readonly elegido = signal<CeldaElegible | null>(null);
 
-  /** Las libres de la celda marcada, como chips de la barra. */
-  protected readonly canchasDeLaCelda = computed(() =>
-    (this.elegido()?.libres ?? []).map(({ cancha }) => ({
-      valor: String(cancha.id),
-      etiqueta: cancha.nombre,
-    })),
-  );
+  /** La marcada, como la lee el tablero. */
+  protected readonly laElegida = computed(() => {
+    const eleccion = this.elegido();
+    return eleccion && { canchaId: eleccion.cancha.id, inicio: eleccion.bloque.inicio };
+  });
 
   /** El que ya pasó por "Reservar" y tiene el formulario abierto encima. */
   protected readonly reservando = signal<{
@@ -602,23 +416,65 @@ export class Grilla {
     return grillas.filter(({ cancha }) => pasaElFiltro(cancha, filtro));
   });
 
-  /** El día como tabla de inicio por tipo de cancha: ver `tablaDelDia`. */
-  protected readonly tabla = computed(() =>
-    tablaDelDia(this.visibles(), {
-      reportable: (bloque) => this.reportable(bloque) !== undefined,
-      noSeLeVende: (bloque) => this.noSeLeVende(bloque),
-    }),
+  /** Si en las canchas a la vista queda alguna hora por empezar: si no, no hay tablero. */
+  protected readonly hayHorasPorDelante = computed(() =>
+    this.visibles().some(({ bloques }) => bloques.some((bloque) => !yaEmpezo(bloque))),
   );
 
-  /** Las filas que ya pasaron, que van plegadas fuera de la tabla (decisión 9, TV5.1). */
-  protected readonly pasadas = computed(() =>
-    this.tabla().filas.filter((fila) => fila.yaPaso),
+  /** Ninguna cancha a la vista abre este día. */
+  protected readonly sinBloques = computed(() =>
+    this.visibles().every(({ bloques }) => bloques.length === 0),
   );
 
-  /** Las que todavía se pueden tomar: son la tabla. */
-  protected readonly vigentes = computed(() =>
-    this.tabla().filas.filter((fila) => !fila.yaPaso),
-  );
+  /**
+   * Los inicios que ya pasaron, que van plegados fuera del tablero (decisión 9, TV5.1), con
+   * las horas de quien mira que todavía puede reportar (T35).
+   */
+  protected readonly pasadas = computed(() => {
+    const porInicio = new Map<
+      number,
+      { inicio: string; fin: string; reportables: CeldaElegible[] }
+    >();
+
+    for (const { cancha, bloques } of this.visibles()) {
+      for (const bloque of bloques) {
+        if (!yaEmpezo(bloque)) continue;
+
+        const instante = new Date(bloque.inicio).getTime();
+        const fila = porInicio.get(instante) ?? {
+          inicio: bloque.inicio,
+          fin: bloque.fin,
+          reportables: [],
+        };
+        if (this.reportable(bloque)) fila.reportables.push({ cancha, bloque });
+        porInicio.set(instante, fila);
+      }
+    }
+
+    return [...porInicio].sort(([una], [otra]) => una - otra).map(([, fila]) => fila);
+  });
+
+  /**
+   * Lo que cuesta el arriendo de la duración elegida, para la línea de arriba: un monto, o
+   * "desde" el menor si las canchas o las horas cuestan distinto. Sin la hora prime, que
+   * tiene su línea en la leyenda, salvo que solo quede prime. Nulo si no queda ninguna
+   * libre: no hay monto que decir.
+   */
+  protected readonly arriendo = computed(() => {
+    const libres = this.visibles()
+      .flatMap(({ bloques }) => bloques)
+      .filter((bloque) => !this.noSePuedeTomar(bloque));
+    const normales = libres.filter((bloque) => !bloque.esPico);
+    const montos = new Set(
+      (normales.length > 0 ? normales : libres).flatMap(({ montoClp }) =>
+        montoClp === null ? [] : [montoClp],
+      ),
+    );
+    if (montos.size === 0) return null;
+
+    const menor = Math.min(...montos);
+    return montos.size > 1 ? `desde ${enPesos(menor)}` : enPesos(menor);
+  });
 
   /**
    * Con una fila por inicio, contarlas engaña: a las 18:00 serían "20 horas que ya pasaron"
@@ -639,12 +495,11 @@ export class Grilla {
    * pasa, ni con 1 hora: a él no se le deja de vender nada.
    */
   protected readonly sinHoraYMediaEnElDia = computed(() => {
-    const celdas = this.vigentes().flatMap((fila) => fila.celdas);
+    const libres = this.visibles()
+      .flatMap(({ bloques }) => bloques)
+      .filter((bloque) => !bloque.bloqueado && !bloque.reservado && !yaEmpezo(bloque));
 
-    return (
-      celdas.some((celda) => celda.sinLibres === 'no-se-arrienda') &&
-      celdas.every((celda) => celda.libres.length === 0)
-    );
+    return libres.length > 0 && libres.every((bloque) => this.noSeLeVende(bloque));
   });
 
   /**
@@ -662,38 +517,23 @@ export class Grilla {
     ),
   );
 
-  /** Si lo marcado en la barra es una de las canchas libres de esa celda. */
-  protected estaElegida(celda: Celda): boolean {
-    const eleccion = this.elegido();
+  /**
+   * Por qué una libre no se le vende a quien mira, dicho en su celda y en la leyenda del
+   * tablero. Una propiedad y no un método: el tablero la recibe como input y la llama en su
+   * `computed`, que así sigue a la duración y a quien mira.
+   */
+  protected readonly sinVenta = (bloque: BloqueDisponible): string | null => {
+    if (!this.noSeLeVende(bloque)) return null;
 
-    return celda.libres.some(
-      ({ bloque }) =>
-        eleccion?.bloque.inicio === bloque.inicio &&
-        eleccion?.bloque.canchaId === bloque.canchaId,
-    );
-  }
-
-  /** Por qué una celda no tiene libres, dicho en la celda misma. */
-  protected porQueNoHay(celda: Celda): string {
-    switch (celda.sinLibres) {
-      case 'ya-paso':
-        return 'Ya pasó';
-      case 'no-se-arrienda':
-        // Hay canchas libres, pero esta duración no es para quien mira: "sin libres" sería
-        // falso. Al socio, porque el club no se la permite en prime (T213).
-        if (this.esSocio()) {
-          return this.duracion() === 90
-            ? 'En horario prime, solo 1 hora'
-            : 'En horario prime, solo 1 hora y media';
-        }
-        return 'No se arrienda por 1 hora y media';
-      case 'llena':
-        return 'Sin libres';
-      default:
-        // Todas en mantención, o el tipo no abre a esta hora.
-        return celda.enMantencion > 0 ? 'En mantención' : 'Cerrada';
+    // Hay canchas libres, pero esta duración no es para quien mira: "ocupada" sería falso.
+    // Al socio, porque el club no se la permite en prime (T213).
+    if (this.esSocio()) {
+      return this.duracion() === 90
+        ? 'En horario prime, solo 1 hora'
+        : 'En horario prime, solo 1 hora y media';
     }
-  }
+    return 'No se arrienda por 1 hora y media';
+  };
 
   protected reservar(): void {
     this.reservando.set(this.elegido());
@@ -749,28 +589,25 @@ export class Grilla {
    * Lo que oye quien navega por teclado antes de elegir la celda.
    *
    * **Reemplaza al contenido del botón**, así que lo que no esté acá no existe para
-   * quien usa lector de pantalla: el tipo de cancha —"$12.000" solo no dice de qué
-   * columna es—, cuántas quedan, lo que le cuesta a quien mira y la hora prime, que no es
-   * decoración porque le gasta al socio un cupo semanal del que solo tiene dos.
+   * quien usa lector de pantalla: la cancha, la hora, lo que le cuesta a quien mira y la
+   * hora prime, que no es decoración porque le gasta al socio un cupo semanal del que solo
+   * tiene dos. Empieza con "Libre", que es lo que la celda dice (WCAG 2.5.3).
    *
-   * Empieza igual que la etiqueta de los chips de antes, "Elegir … de 08:00 a 09:00": la
-   * e2e del eje de la demo lee la hora y el arriendo de ahí.
+   * Una propiedad y no un método, como `sinVenta`: el tablero la recibe como input.
    */
-  protected etiqueta(fila: FilaDeLaTabla, celda: Celda): string {
-    const que = this.mover.activo() ? 'Mover tu reserva a' : 'Elegir';
-    const cuantas = celda.libres.length;
+  protected readonly etiquetaDeCelda = (cancha: Cancha, bloque: BloqueDisponible): string => {
+    const que = this.mover.activo() ? 'mover tu reserva a' : 'elegir';
 
     return (
-      `${que} cancha ${NOMBRE_EN_LA_FRASE[celda.tipo]} de ${this.hora(fila.inicio)} a ` +
-      `${this.hora(fila.fin)}, ${cuantas} ${cuantas === 1 ? 'libre' : 'libres'}, ` +
-      this.costo(celda) +
-      (celda.esPico ? ', hora prime' : '')
+      `Libre: ${que} la ${cancha.nombre} de ${this.hora(bloque.inicio)} a ` +
+      `${this.hora(bloque.fin)}, ${this.costo(bloque)}` +
+      (bloque.esPico ? ', hora prime' : '')
     );
-  }
+  };
 
   /** Lo que le cuesta la celda a quien mira, para su etiqueta. */
-  private costo(celda: Celda): string {
-    const monto = celda.libres[0].bloque.montoClp;
+  private costo(bloque: BloqueDisponible): string {
+    const monto = bloque.montoClp;
     const pagado = this.mover.pagadoPorElEnlace();
 
     // Desde el enlace, quien ya pagó oye lo que le costaría el cambio a la cancha que se
@@ -780,35 +617,22 @@ export class Grilla {
     }
 
     // Sin precio de esa duración no hay arriendo que anunciar: solo lo ve el socio.
-    return this.esSocio() || celda.precio === null
+    return this.esSocio() || monto === null
       ? `socio ${TARIFA_DEL_SOCIO}`
-      : `arriendo ${celda.precio}`;
+      : `arriendo ${enPesos(monto)}`;
   }
 
-  /**
-   * Marca la celda: la cancha de la reserva que se mueve si está libre ahí, y si no, la
-   * primera libre en el orden del club (A8). La barra deja cambiarla.
-   */
-  protected elegirCelda(celda: Celda): void {
+  /** Marca la cancha que se tocó en el tablero; la barra dice cuál y con cuánto. */
+  protected elegirCelda(celda: CeldaElegible): void {
     // Desde el enlace, sin saber cuánto pagó no hay diferencia que decirle: el clic espera
     // a que llegue en vez de marcar una hora que no se puede confirmar.
     if (this.mover.porToken() !== null && this.mover.pagadoPorElEnlace() === null) return;
 
-    const suya = celda.libres.find(({ cancha }) => cancha.nombre === this.mover.cancha());
-
-    this.elegido.set({ ...(suya ?? celda.libres[0]), libres: celda.libres });
-  }
-
-  protected cambiarDeCancha(id: string): void {
-    this.elegido.update((eleccion) => {
-      const otra = eleccion?.libres.find(({ cancha }) => String(cancha.id) === id);
-
-      return eleccion && otra ? { ...eleccion, ...otra } : eleccion;
-    });
+    this.elegido.set(celda);
   }
 
   /** El socio mueve sin pagar; desde el enlace, con la diferencia de por medio (T91). */
-  protected confirmarCambio(eleccion: Libre): void {
+  protected confirmarCambio(eleccion: CeldaElegible): void {
     void (this.mover.porId() !== null
       ? this.mover.moverAlTiro(eleccion)
       : this.mover.cambiarPorEnlace(eleccion));
@@ -844,28 +668,7 @@ export class Grilla {
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
-  protected readonly iconos = ICONOS_DE_MOTIVO;
-  protected readonly nombreDelTipo = NOMBRE_DEL_TIPO;
-
-  protected readonly motivo = nombreDelMotivo;
-
-  protected readonly superficie = nombreDeSuperficie;
 }
-
-/** Una cancha libre de una celda, con su bloque. */
-type Libre = Celda['libres'][number];
-
-/** El encabezado de cada columna. */
-const NOMBRE_DEL_TIPO: Record<TipoDeCancha, string> = {
-  abierta: 'Al aire libre',
-  techada: 'Techada',
-};
-
-/** El tipo dicho después de "cancha", en la etiqueta de la celda. */
-const NOMBRE_EN_LA_FRASE: Record<TipoDeCancha, string> = {
-  abierta: 'al aire libre',
-  techada: 'techada',
-};
 
 /** "Vale $12.000: …" dicho a mitad de una frase. */
 function minuscula(texto: string): string {

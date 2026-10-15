@@ -337,6 +337,34 @@ describe('Marcador', () => {
       expect(el.querySelector('ul')?.textContent).toContain('No se arrienda por 1 hora y media');
     });
 
+    it('desde sm, los nombres de las canchas quedan pegados bajo la cabecera del sitio', () => {
+      // A la fila veinte nadie se acuerda de cuál columna era cuál. El contenedor deja de
+      // desplazarse de lado desde sm, donde el tablero cabe: con overflow, sticky no se pega
+      // a la ventana. jsdom no pinta, así que se fija la regla; se vio en el navegador.
+      const { el } = montarQueElige([{ cancha: cancha(1), bloques: [bloque(1, enHoras(2))] }]);
+
+      expect(el.querySelector('table')?.parentElement?.className).toContain('sm:overflow-visible');
+      for (const th of el.querySelectorAll('thead th')) {
+        expect(th.className).toContain('sm:sticky');
+        expect(th.className).toContain('sm:top-16');
+      }
+    });
+
+    it('la libre responde al mouse; la elegida no', () => {
+      const enDos = enHoras(2);
+      const { el } = montarQueElige(
+        [
+          { cancha: cancha(1), bloques: [bloque(1, enDos)] },
+          { cancha: cancha(2), bloques: [bloque(2, enDos)] },
+        ],
+        { canchaId: 2, inicio: enDos.toISOString() },
+      );
+
+      const [libre, elegida] = botones(el);
+      expect(libre.className).toMatch(/hover:/);
+      expect(elegida.className).not.toMatch(/hover:/);
+    });
+
     it('la clase lleva a las clases', () => {
       const { el } = montarQueElige([
         {

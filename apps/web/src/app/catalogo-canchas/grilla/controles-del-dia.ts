@@ -3,8 +3,6 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatIcon } from '@angular/material/icon';
 
 import { proveerCampos } from '../../ui/campos';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
@@ -40,7 +38,8 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
 }
 
 /**
- * Qué se mira en la grilla: el día, la duración y el filtro de canchas, con la leyenda.
+ * Qué se mira en la grilla: el día, la duración y el filtro de canchas. La leyenda la trae
+ * el tablero (T265).
  *
  * La duración no es un `model` porque vive en la URL (T83b): la grilla la cambia ahí, y
  * esto solo avisa la elegida.
@@ -52,8 +51,6 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
     MatFormFieldModule,
     MatInput,
     MatButtonToggleModule,
-    MatChipsModule,
-    MatIcon,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   host: { class: 'contents' },
@@ -137,36 +134,6 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
         </mat-button-toggle>
       }
     </mat-button-toggle-group>
-
-    <!-- La leyenda no es decoración: la celda libre, la que no tiene y la hora prime se
-         distinguen por color, y esto es lo que dice qué significa cada uno. Cada celda
-         sin libres dice además por qué (T103). -->
-    <ul class="mt-4 flex flex-wrap gap-2">
-      <li>
-        <mat-chip-set class="insignias">
-          <mat-chip class="insignia libre">
-            <mat-icon matChipAvatar aria-hidden="true">circle</mat-icon>
-            Libre
-          </mat-chip>
-        </mat-chip-set>
-      </li>
-      <li>
-        <mat-chip-set class="insignias">
-          <mat-chip class="insignia neutro">
-            <mat-icon matChipAvatar aria-hidden="true">lock</mat-icon>
-            Sin libres
-          </mat-chip>
-        </mat-chip-set>
-      </li>
-      <li>
-        <mat-chip-set class="insignias">
-          <mat-chip class="insignia aviso">
-            <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
-            Hora prime
-          </mat-chip>
-        </mat-chip-set>
-      </li>
-    </ul>
   `,
 })
 export class ControlesDelDia {
