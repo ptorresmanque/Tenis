@@ -24,6 +24,7 @@ describe('AgendaDeClases', () => {
     id: 7,
     tipo: 'TENIS',
     lugar: 'Cancha 1',
+    canchaId: 1,
     profesor: 'Ana Silva',
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',
@@ -136,7 +137,7 @@ describe('AgendaDeClases', () => {
 
   it('**la del gimnasio dice "Gimnasio", "Preparación física" y si es grupal** (T234)', async () => {
     await montar([
-      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', nivel: null, cupoMaximo: 8 },
+      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', canchaId: null, nivel: null, cupoMaximo: 8 },
     ]);
 
     const fila = texto().replace(/\s+/g, ' ');

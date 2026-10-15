@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { instanteEnElClub } from '../comun/tiempo';
-import { EstadoReserva } from '../generated/prisma/client';
+import { EstadoReserva, MotivoBloqueo } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   OBSERVACION,
@@ -14,6 +14,8 @@ export interface ReservaDelDia {
   id: number;
   folio: string;
   cancha: string;
+  /** Para ubicarla en el tablero de la agenda, que tiene una columna por cancha (T269). */
+  canchaId: number;
   inicio: Date;
   fin: Date;
   estado: EstadoReserva;
@@ -31,9 +33,43 @@ export interface ReservaDelDia {
   observacionesAnteriores: number;
 }
 
+/** Una cancha cerrada en el día, con su rango exacto (T270). */
+export interface BloqueoDelDia {
+  canchaId: number;
+  inicio: Date;
+  fin: Date;
+  motivo: MotivoBloqueo;
+  descripcion: string | null;
+}
+
 @Injectable()
 export class AgendaService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Las canchas cerradas en un día del club, con su rango exacto, para el tablero de la
+   * agenda (T270). Las de clase no vienen: la agenda ya trae las clases con su profesor.
+   * Un cierre de varios días cuenta en cada uno de ellos.
+   *
+   * @param fecha Fecha civil del club, "AAAA-MM-DD".
+   */
+  bloqueosDelDia(fecha: string): Promise<BloqueoDelDia[]> {
+    return this.prisma.bloqueo.findMany({
+      where: {
+        motivo: { not: MotivoBloqueo.CLASE },
+        inicio: { lt: instanteEnElClub(fecha, '24:00') },
+        fin: { gt: instanteEnElClub(fecha, '00:00') },
+      },
+      orderBy: [{ inicio: 'asc' }, { id: 'asc' }],
+      select: {
+        canchaId: true,
+        inicio: true,
+        fin: true,
+        motivo: true,
+        descripcion: true,
+      },
+    });
+  }
 
   /**
    * Las reservas activas de un día del club, de la más temprana a la más tardía.
@@ -63,6 +99,7 @@ export class AgendaService {
         nombre: true,
         telefono: true,
         socioId: true,
+        canchaId: true,
         cancha: { select: { nombre: true } },
         acompanantes: {
           select: {
@@ -88,6 +125,7 @@ export class AgendaService {
       id: reserva.id,
       folio: reserva.folio,
       cancha: reserva.cancha.nombre,
+      canchaId: reserva.canchaId,
       inicio: reserva.inicio,
       fin: reserva.fin,
       estado: reserva.estado,

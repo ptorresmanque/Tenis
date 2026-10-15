@@ -1,4 +1,5 @@
 import { aCsv, Celda } from './csv';
+import { FilaDelInforme } from './informe-del-dia.service';
 import { ReporteDeIngreso } from './ingreso.service';
 import { ReporteDeNoUso } from './no-uso.service';
 import { ReporteDeOcupacion } from './ocupacion.service';
@@ -103,4 +104,36 @@ function nombreDelCorte(corte: string): string {
   };
 
   return nombres[corte] ?? 'Corte';
+}
+
+/** El informe del día (T273), con las columnas de la agenda en el orden en que se leen. */
+export function informeDelDiaACsv(filas: FilaDelInforme[]): string {
+  return aCsv(
+    [
+      'Inicio',
+      'Fin',
+      'Lugar',
+      'Tipo',
+      'Quién',
+      'Teléfono',
+      'Socio o visitante',
+      'Folio',
+      'Estado',
+      'Acompañantes',
+      'Observaciones',
+    ],
+    filas.map((fila): Celda[] => [
+      fila.inicio,
+      fila.fin,
+      fila.lugar,
+      fila.tipo,
+      fila.quien,
+      fila.telefono,
+      fila.socioOVisitante,
+      fila.folio,
+      fila.estado,
+      fila.acompanantes,
+      fila.observaciones,
+    ]),
+  );
 }

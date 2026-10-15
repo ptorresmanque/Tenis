@@ -5,7 +5,7 @@ import { Disponibilidad, GrillaDeCancha } from '../../catalogo-canchas/disponibi
 import { Socios } from '../../identidad/admin/socios.service';
 import { NuevaReserva } from './nueva-reserva';
 import { ReservasDelAdmin } from './nueva-reserva.service';
-import { elegir, opcionesDe } from '../../testing/elegir';
+import { elegidoEn, elegir, opcionesDe } from '../../testing/elegir';
 import { alternar } from '../../testing/alternar';
 
 /**
@@ -90,6 +90,46 @@ describe('NuevaReserva', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('**con la cancha y la hora de la franja que se tocó, parte con ellas** (T272)', async () => {
+    // El de beforeEach se cierra: los dos diálogos están en el mismo overlay, y se leería el suyo.
+    fixture.destroy();
+    await new Promise((listo) => setTimeout(listo));
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    fixture.componentRef.setInput('cancha', 1);
+    fixture.componentRef.setInput('inicio', DIA[0].bloques[2].inicio);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elegidoEn(fixture, 'mat-select[name="cancha"]')).toBe('1');
+    expect(elegidoEn(fixture, 'mat-select[name="hora"]')).toBe(DIA[0].bloques[2].inicio);
+  });
+
+  it('una hora que no está entre las libres no se manda: se pide elegir otra', async () => {
+    // La última media hora del día no abre una hora entera, y la API la rechazaría.
+    fixture.destroy();
+    await new Promise((listo) => setTimeout(listo));
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    fixture.componentRef.setInput('cancha', 1);
+    fixture.componentRef.setInput('inicio', '2026-08-17T23:30:00.000Z');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    [...dialogo().querySelectorAll('button')]
+      .find((boton) => boton.textContent?.includes('Crear reserva'))!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(ReservasDelAdmin).crear).not.toHaveBeenCalled();
+    expect(dialogo().textContent).toContain('Elige la hora de la reserva.');
+  });
+
+  it('sin ellas, la hora se elige: no parte con ninguna', () => {
+    expect(elegidoEn(fixture, 'mat-select[name="hora"]')).toBe('');
   });
 
   it('no ofrece una hora que ya terminó', () => {

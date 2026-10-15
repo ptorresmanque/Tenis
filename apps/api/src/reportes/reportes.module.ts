@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 
+import { ClasesModule } from '../clases/clases.module';
 import { IdentidadModule } from '../identidad/identidad.module';
+import { ReservasModule } from '../reservas/reservas.module';
+import { InformeDelDiaController } from './informe-del-dia.controller';
+import { InformeDelDia } from './informe-del-dia.service';
 import { IngresoDelClub } from './ingreso.service';
 import { HorasNoUsadas } from './no-uso.service';
 import { OcupacionDeCancha } from './ocupacion.service';
@@ -23,8 +27,14 @@ import { ReportesController } from './reportes.controller';
  * controlador que lo usa.
  */
 @Module({
-  imports: [IdentidadModule],
-  controllers: [ReportesController],
-  providers: [IngresoDelClub, OcupacionDeCancha, HorasNoUsadas, PadronDelClub],
+  imports: [IdentidadModule, ReservasModule, ClasesModule],
+  controllers: [ReportesController, InformeDelDiaController],
+  providers: [
+    IngresoDelClub,
+    OcupacionDeCancha,
+    HorasNoUsadas,
+    PadronDelClub,
+    InformeDelDia,
+  ],
 })
 export class ReportesModule {}

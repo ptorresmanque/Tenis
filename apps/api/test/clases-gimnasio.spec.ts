@@ -776,10 +776,13 @@ describe('Clases de preparación física en el gimnasio', () => {
         tipo: TipoClase.PREPARACION_FISICA,
         lugar: 'Gimnasio',
         nivel: null,
+        // Sin cancha: el tablero de la agenda la pone en la columna del gimnasio (T269).
+        canchaId: null,
       });
       expect(a('12:00')).toMatchObject({
         tipo: TipoClase.TENIS,
         lugar: CANCHA,
+        canchaId: expect.any(Number) as number,
       });
     });
 

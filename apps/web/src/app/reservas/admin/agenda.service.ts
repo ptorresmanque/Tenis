@@ -7,6 +7,8 @@ export interface ReservaDelDia {
   id: number;
   folio: string;
   cancha: string;
+  /** Para ubicarla en el tablero de la agenda (T269). */
+  canchaId: number;
   inicio: string;
   fin: string;
   estado: 'PENDIENTE_PAGO' | 'CONFIRMADA';
@@ -37,6 +39,15 @@ export interface ObservacionDelHistorial extends ObservacionDeReserva {
   folio: string;
   cancha: string;
   inicio: string;
+}
+
+/** Espejo de `BloqueoDelDia` de la API: una cancha cerrada en el día, con su rango (T270). */
+export interface BloqueoDelDia {
+  canchaId: number;
+  inicio: string;
+  fin: string;
+  motivo: string;
+  descripcion: string | null;
 }
 
 @Service()
@@ -102,6 +113,15 @@ export class Agenda {
   delDia(fecha: string): Promise<ReservaDelDia[]> {
     return firstValueFrom(
       this.http.get<ReservaDelDia[]>('/api/admin/reservas', {
+        params: { fecha },
+      }),
+    );
+  }
+
+  /** Las canchas cerradas de un día, sin las de clase, para el tablero (T270). */
+  bloqueosDelDia(fecha: string): Promise<BloqueoDelDia[]> {
+    return firstValueFrom(
+      this.http.get<BloqueoDelDia[]>('/api/admin/reservas/bloqueos', {
         params: { fecha },
       }),
     );

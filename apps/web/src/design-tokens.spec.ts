@@ -1133,8 +1133,14 @@ describe('Tablas', () => {
     // 44px, uno por celda, separados entre sí. Una tabla de datos los juntaría, les
     // sumaría 2rem de relleno por celda —a 375px no caben dos columnas— y pintaría la
     // fila entera de gris al pasar el ratón por un botón.
+    //
+    // Y el tablero de la agenda (T270), que es el mismo tablero para el mesón.
     const infractores: string[] = [];
-    const excepciones = ['catalogo-canchas/marcador.ts', 'catalogo-canchas/grilla/grilla.ts'];
+    const excepciones = [
+      'catalogo-canchas/marcador.ts',
+      'catalogo-canchas/grilla/grilla.ts',
+      'reservas/admin/tablero-de-la-agenda.ts',
+    ];
 
     for (const { archivo, contenido } of plantillas()) {
       if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
@@ -1391,13 +1397,17 @@ describe('Botones', () => {
     //
     // Quedan afuera los que no son una acción sino una opción que se marca
     // (aria-pressed, como las horas libres de la grilla) o una pestaña (role="tab"):
-    // se dibujan como chip o como pestaña, no como botón.
+    // se dibujan como chip o como pestaña, no como botón. Y las celdas de un tablero
+    // (data-fila, T270), que se dibujan como su celda: la reserva de la agenda es una
+    // tarjeta en su franja.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<(?:button|a)\b[^>]*>/g)) {
         const clases = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
-        if (/\bmatButton\b/.test(etiqueta) || /aria-pressed|role="tab"/.test(etiqueta)) continue;
+        if (/\bmatButton\b/.test(etiqueta) || /aria-pressed|role="tab"|data-fila/.test(etiqueta)) {
+          continue;
+        }
 
         const relleno = /(?<![\w-])p[xy]?-\d/.test(clases);
         const fondoOBorde = /(?<![\w:-])(bg-(?!transparent)[a-z]|border(?:-\d)?(?=\s|$))/.test(clases);
@@ -1764,7 +1774,8 @@ describe('Los campos son de Material (T244)', () => {
 
   it('**ningún `app-selector`**: los grupos de opciones son `mat-button-toggle-group` (T251)', () => {
     const infractores = plantillas()
-      .filter(({ contenido }) => /<app-selector\b/.test(contenido))
+      // El nombre entero: con \b, el guion de <app-selector-de-dia (T271) también calzaba.
+      .filter(({ contenido }) => /<app-selector(?=[\s>/])/.test(contenido))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);

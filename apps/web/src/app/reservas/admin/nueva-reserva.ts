@@ -3,6 +3,7 @@ import {
   computed,
   inject,
   input,
+  linkedSignal,
   output,
   resource,
   signal,
@@ -123,8 +124,8 @@ import { TelefonoDirective } from '../../ui/telefono';
             <mat-label>Hora</mat-label>
             <mat-select
               name="hora"
-              [value]="inicio()"
-              (selectionChange)="inicio.set($event.value)"
+              [value]="inicioElegido()"
+              (selectionChange)="inicioElegido.set($event.value)"
             >
               <!-- Mientras llegan, la primera opción lo dice: un esqueleto no cabe dentro de
                    un select (T153). -->
@@ -282,6 +283,10 @@ export class NuevaReserva {
 
   /** El día que la agenda está mirando: la reserva se toma sobre ese día. */
   readonly fecha = input.required<string>();
+  /** La cancha de la franja libre que se tocó en el tablero (T272); sin ella, la del día. */
+  readonly cancha = input<number | null>(null);
+  /** El inicio de esa franja; sin él, la hora se elige. */
+  readonly inicio = input<string | null>(null);
   readonly cerrar = output<void>();
   readonly creada = output<string>();
 
@@ -305,8 +310,8 @@ export class NuevaReserva {
 
   protected readonly paraQuien = signal('socio');
   protected readonly duracion = signal<DuracionMin>(60);
-  protected readonly canchaId = signal(0);
-  protected readonly inicio = signal('');
+  protected readonly canchaId = linkedSignal(() => this.cancha() ?? 0);
+  protected readonly inicioElegido = linkedSignal(() => this.inicio() ?? '');
   protected readonly socioId = signal(0);
   protected acompanante = '';
   protected nombre = '';
@@ -385,13 +390,15 @@ export class NuevaReserva {
     this.duracion.set(valor === '90' ? 90 : 60);
     // La hora elegida era de la otra lista: con 1 hora y media puede chocar con la
     // reserva siguiente, o pasarse del cierre.
-    this.inicio.set('');
+    this.inicioElegido.set('');
   }
 
   protected async crear(): Promise<void> {
     this.error.set(null);
 
-    if (!this.inicio()) {
+    // La de una franja que no abre una hora entera (la última media hora del día) no está
+    // entre las libres: se elige otra, en vez de mandarle a la API una que va a rechazar.
+    if (!this.libres().some(({ inicio }) => inicio === this.inicioElegido())) {
       this.error.set('Elige la hora de la reserva.');
       return;
     }
@@ -401,7 +408,7 @@ export class NuevaReserva {
     try {
       const { folio } = await this.api.crear({
         canchaId: this.canchaElegida(),
-        inicio: this.inicio(),
+        inicio: this.inicioElegido(),
         duracionMin: this.duracion(),
         ...(this.paraQuien() === 'socio'
           ? {

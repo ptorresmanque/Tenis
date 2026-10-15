@@ -10,7 +10,7 @@ import { map, Observable } from 'rxjs';
 
 import { esFechaDelClub } from '../comun/tiempo';
 import { AdminO } from '../identidad/guards';
-import { AgendaService, ReservaDelDia } from './agenda.service';
+import { AgendaService, BloqueoDelDia, ReservaDelDia } from './agenda.service';
 import { EventosDeReserva } from './eventos';
 
 /**
@@ -44,14 +44,27 @@ export class AgendaController {
 
   @Get()
   delDia(@Query('fecha') fecha: string | undefined): Promise<ReservaDelDia[]> {
-    if (!fecha || !esFechaDelClub(fecha)) {
-      // Como en la disponibilidad de T12: una fecha ilegible es culpa de quien la
-      // pidió, y dejarla fallar adentro saldría con un 500 que parece la API rota.
-      throw new BadRequestException(
-        'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
-      );
-    }
-
-    return this.agenda.delDia(fecha);
+    return this.agenda.delDia(fechaLegible(fecha));
   }
+
+  /** Las canchas cerradas del día, para el tablero de la agenda (T270). */
+  @Get('bloqueos')
+  bloqueosDelDia(
+    @Query('fecha') fecha: string | undefined,
+  ): Promise<BloqueoDelDia[]> {
+    return this.agenda.bloqueosDelDia(fechaLegible(fecha));
+  }
+}
+
+/**
+ * La fecha pedida, o un 400. Como en la disponibilidad de T12: una fecha ilegible es culpa
+ * de quien la pidió, y dejarla fallar adentro saldría con un 500 que parece la API rota.
+ */
+function fechaLegible(fecha: string | undefined): string {
+  if (!fecha || !esFechaDelClub(fecha)) {
+    throw new BadRequestException(
+      'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
+    );
+  }
+  return fecha;
 }
