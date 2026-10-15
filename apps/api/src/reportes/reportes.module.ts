@@ -5,6 +5,7 @@ import { IdentidadModule } from '../identidad/identidad.module';
 import { ReservasModule } from '../reservas/reservas.module';
 import { InformeDelDiaController } from './informe-del-dia.controller';
 import { InformeDelDia } from './informe-del-dia.service';
+import { InformeDiario } from './informe-diario.service';
 import { IngresoDelClub } from './ingreso.service';
 import { HorasNoUsadas } from './no-uso.service';
 import { OcupacionDeCancha } from './ocupacion.service';
@@ -35,6 +36,7 @@ import { ReportesController } from './reportes.controller';
     HorasNoUsadas,
     PadronDelClub,
     InformeDelDia,
+    InformeDiario,
   ],
 })
 export class ReportesModule {}

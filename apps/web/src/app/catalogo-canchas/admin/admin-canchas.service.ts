@@ -219,6 +219,9 @@ export type ConfiguracionDelClub = ReglasDelClub &
     duracionesSocioPico: DuracionesSocioPico;
     /** Cuántos alumnos caben en una clase grupal del gimnasio (T235). */
     gimnasioCupoGrupal: number;
+    /** Si sale el informe de reservas por correo, y a qué hora entera del club (T274). */
+    informeDiarioActivo: boolean;
+    informeDiarioHora: number;
   };
 
 export interface CanchaNueva {

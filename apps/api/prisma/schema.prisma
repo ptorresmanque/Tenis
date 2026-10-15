@@ -590,6 +590,12 @@ model ConfiguracionClub {
   gimnasioHorario     String @default("") @map("gimnasio_horario") @db.VarChar(120)
   gimnasioWhatsapp    String @default("") @map("gimnasio_whatsapp") @db.VarChar(40)
 
+  /// El informe de reservas del día que llega por correo a admins y gestores (T274, T275):
+  /// si sale, y a qué hora entera del reloj del club. Lo dispara un cron de cada hora, que
+  /// lo manda una vez por día al llegar a esta hora.
+  informeDiarioActivo Boolean @default(true) @map("informe_diario_activo")
+  informeDiarioHora   Int     @default(7) @map("informe_diario_hora")
+
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).
@@ -1859,4 +1865,14 @@ model PartidoInterno {
   @@index([socioAId])
   @@index([socioBId])
   @@map("partido_interno")
+}
+
+/// Cada día en que salió el informe de reservas por correo (T275). La fecha es la llave: se
+/// registra antes de mandar, así dos corridas del cron el mismo día no lo repiten, y si el
+/// proceso muere a mitad, tampoco.
+model InformeDiarioEnviado {
+  fecha     DateTime @id @db.Date
+  enviadoEn DateTime @default(now()) @map("enviado_en")
+
+  @@map("informe_diario_enviado")
 }

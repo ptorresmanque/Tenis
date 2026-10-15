@@ -431,6 +431,60 @@ describe('Configuración del club', () => {
     });
   });
 
+  /**
+   * T274. El informe de reservas que llega por correo a admins y gestores
+   * (SPEC-revision-qa.md, A9): se apaga y se le fija la hora, en horas enteras.
+   */
+  describe('el informe diario de reservas (T274)', () => {
+    afterAll(async () => {
+      // Como venía: activo a las 07:00. La tanda del informe (T275) lo lee.
+      await patch({ informeDiarioActivo: true, informeDiarioHora: 7 }).expect(
+        200,
+      );
+    });
+
+    it('**por omisión va activo, a las 07:00**', async () => {
+      const respuesta = await request(servidor())
+        .get('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        informeDiarioActivo: true,
+        informeDiarioHora: 7,
+      });
+    });
+
+    it('guarda la hora y lo apaga, y lo devuelve', async () => {
+      const respuesta = await patch({
+        informeDiarioHora: 21,
+        informeDiarioActivo: false,
+      }).expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        informeDiarioHora: 21,
+        informeDiarioActivo: false,
+      });
+    });
+
+    it('una hora fuera de 0 a 23 se rechaza y dice por qué', async () => {
+      const mensaje = async (cuerpo: Record<string, unknown>) =>
+        ((await patch(cuerpo).expect(400)).body as { message: string }).message;
+
+      expect(await mensaje({ informeDiarioHora: 24 })).toBe(
+        'La hora del informe diario no puede pasar de 23.',
+      );
+      expect(await mensaje({ informeDiarioHora: -1 })).toBe(
+        'La hora del informe diario tiene que ser un número entero desde 0.',
+      );
+      await patch({ informeDiarioHora: 7.5 }).expect(400);
+    });
+
+    it('activo es sí o no, no un texto', async () => {
+      await patch({ informeDiarioActivo: 'sí' }).expect(400);
+    });
+  });
+
   describe('horario y tarifas generales (T31)', () => {
     /**
      * Lo general del club son las filas con `canchaId` nulo, y el endpoint que se
