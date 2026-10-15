@@ -1,4 +1,6 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatExpansionPanelHarness } from '@angular/material/expansion/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { elegidoEn, textosDe } from '../../testing/elegir';
@@ -311,6 +313,26 @@ describe('AdminCanchasPanel', () => {
 
       expect(texto()).toContain('transmitir');
     });
+  });
+
+  /**
+   * T281. «Horario, tarifas y bloqueos» de cada cancha es un panel de Material, cerrado. Sus
+   * editores se crean recién al abrirlo: con ocho canchas, eran 269 campos montados a la vez
+   * y un pedido de bloqueos por cancha que nadie había abierto.
+   */
+  it('**horario, tarifas y bloqueos van en un panel cerrado, y se cargan al abrirlo** (T281)', async () => {
+    const panel = await TestbedHarnessEnvironment.loader(fixture).getHarness(
+      MatExpansionPanelHarness.with({ title: /Horario, tarifas y bloqueos/ }),
+    );
+
+    expect(await panel.isExpanded()).toBe(false);
+    expect(api.bloqueos).not.toHaveBeenCalled();
+
+    await panel.expand();
+    await fixture.whenStable();
+
+    expect(api.bloqueos).toHaveBeenCalled();
+    expect(await panel.getTextContent()).toContain('Horario de apertura');
   });
 
   describe('la ficha de la cancha (T96)', () => {

@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
+import { MatExpansionPanelHarness } from '@angular/material/expansion/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -9,8 +11,9 @@ import { PreguntasFrecuentesPublicas } from './preguntas-frecuentes';
 
 /**
  * T146. La página `/preguntas-frecuentes`: lo que el club escribió en su panel (T145),
- * en su orden, cada pregunta en un `<details>` que se abre con el teclado sin ARIA
- * extra. Al final, el formulario de contacto para la pregunta que no está.
+ * en su orden, cada pregunta en un panel desplegable de Material (T281) que se abre con el
+ * teclado y anuncia si está abierto. Al final, el formulario de contacto para la pregunta
+ * que no está.
  */
 describe('PreguntasFrecuentesPublicas', () => {
   const montar = async () => {
@@ -45,38 +48,43 @@ describe('PreguntasFrecuentesPublicas', () => {
     expect(elemento.textContent).toContain('Cargando las preguntas frecuentes');
   });
 
-  it('cada pregunta es un details nativo, en el orden en que llegan', async () => {
-    const { elemento, responder } = await montar();
+  it('**cada pregunta es un panel desplegable, en el orden en que llegan** (T281)', async () => {
+    const { fixture, responder } = await montar();
     await responder([
       { id: 2, pregunta: '¿Necesito ser socio?', respuesta: 'No.' },
       { id: 1, pregunta: '¿Arriendan raquetas?', respuesta: 'Sí, en el mesón.' },
     ]);
 
-    const preguntas = Array.from(elemento.querySelectorAll('details'));
+    const preguntas = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+      MatExpansionPanelHarness,
+    );
 
-    // El primer span del summary: el segundo es la flecha, oculta al lector.
-    expect(preguntas.map((d) => d.querySelector('summary > span')?.textContent?.trim())).toEqual([
+    expect(await Promise.all(preguntas.map((p) => p.getTitle()))).toEqual([
       '¿Necesito ser socio?',
       '¿Arriendan raquetas?',
     ]);
-    expect(preguntas[1].textContent).toContain('Sí, en el mesón.');
     // Cerradas al llegar: la lista de preguntas se lee de un vistazo.
-    expect(preguntas.every((d) => !d.open)).toBe(true);
+    expect(await Promise.all(preguntas.map((p) => p.isExpanded()))).toEqual([false, false]);
+
+    await preguntas[1].expand();
+    expect(await preguntas[1].getTextContent()).toContain('Sí, en el mesón.');
   });
 
   it('la respuesta se muestra como texto, aunque traiga HTML', async () => {
     const { elemento, responder } = await montar();
     await responder([{ id: 1, pregunta: '¿Y esto?', respuesta: 'Con <b>negrita</b>' }]);
 
-    expect(elemento.querySelector('details b')).toBeNull();
-    expect(elemento.querySelector('details')?.textContent).toContain('Con <b>negrita</b>');
+    expect(elemento.querySelector('mat-expansion-panel b')).toBeNull();
+    expect(elemento.querySelector('mat-expansion-panel')?.textContent).toContain(
+      'Con <b>negrita</b>',
+    );
   });
 
   it('**sin preguntas, lo dice y deja el contacto a mano**', async () => {
     const { elemento, responder } = await montar();
     await responder([]);
 
-    expect(elemento.querySelector('details')).toBeNull();
+    expect(elemento.querySelector('mat-expansion-panel')).toBeNull();
     expect(elemento.textContent).toContain('Todavía no hay preguntas publicadas');
     expect(elemento.querySelector('app-formulario-contacto')).not.toBeNull();
   });

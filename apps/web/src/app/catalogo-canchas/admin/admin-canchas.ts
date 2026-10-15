@@ -16,6 +16,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIcon } from '@angular/material/icon';
 
 import { confirmar } from '../../ui/dialogo-de-confirmacion';
@@ -74,6 +75,7 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
     ReglasGeneralesPanel,
     Esqueleto,
     MatChipsModule,
+    MatExpansionModule,
     MatIcon,
   ],
   providers: [proveerCampos()],
@@ -367,29 +369,34 @@ const CANCHA_EN_BLANCO: CanchaNueva = {
                 cargados a la vez. Es una pantalla de configuración, y quien
                 entra viene a tocar **una** cancha.
 
-                details y no un acordeón propio: el navegador ya trae el estado,
-                el teclado y el anuncio al lector de pantalla. Cero JavaScript.
+                Un panel de Material (T281; antes, un details): trae el estado, el
+                teclado y el anuncio al lector de pantalla. Y con matExpansionPanelContent
+                los editores se crean recién al abrirlo: antes, cada cancha montaba los
+                suyos y pedía sus bloqueos aunque nadie la abriera.
               -->
-              <details class="mt-3 border-t border-border pt-3">
-                <summary class="cursor-pointer text-sm font-semibold">
-                  Horario, tarifas y bloqueos
-                  <span class="sr-only">de {{ cancha.nombre }}</span>
-                </summary>
+              <mat-expansion-panel class="mt-3 border-t border-border">
+                <mat-expansion-panel-header>
+                  <mat-panel-title class="text-sm font-semibold">
+                    Horario, tarifas y bloqueos
+                    <span class="sr-only">&nbsp;de {{ cancha.nombre }}</span>
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <ng-template matExpansionPanelContent>
+                  <h4 class="subtitulo">Horario de apertura</h4>
+                  @if (cancha.horarios.length === 0) {
+                    <p class="text-sm text-muted-foreground">
+                      Sin horario propio: vale el general del club.
+                    </p>
+                  }
+                  <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
 
-                <h4 class="mt-3 subtitulo">Horario de apertura</h4>
-                @if (cancha.horarios.length === 0) {
-                  <p class="text-sm text-muted-foreground">
-                    Sin horario propio: vale el general del club.
-                  </p>
-                }
-                <app-editor-horarios [ambito]="cancha" (guardado)="recargar()" />
+                  <h4 class="mt-3 subtitulo">Tarifas propias</h4>
+                  <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
 
-                <h4 class="mt-3 subtitulo">Tarifas propias</h4>
-                <app-editor-franjas [ambito]="cancha" (cambiado)="recargar()" />
-
-                <h4 class="mt-3 subtitulo">Bloqueos</h4>
-                <app-editor-bloqueos [cancha]="cancha" />
-              </details>
+                  <h4 class="mt-3 subtitulo">Bloqueos</h4>
+                  <app-editor-bloqueos [cancha]="cancha" />
+                </ng-template>
+              </mat-expansion-panel>
             </li>
           }
         </ul>

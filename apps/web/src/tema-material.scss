@@ -650,6 +650,40 @@ html {
 }
 
 /*
+  LOS PANELES DESPLEGABLES (T281).
+
+  `mat-expansion-panel` reemplaza a los `<details>` y conserva su cara: sin tarjeta ni sombra,
+  separados por la línea que pone cada uso, y alineados con el resto de la página. La cabecera
+  mide lo que su título —una pregunta larga baja de línea— con el mínimo táctil, y la flecha va
+  en el primario.
+*/
+html {
+  @include mat.expansion-overrides(
+    (
+      container-background-color: transparent,
+      container-elevation-shadow: none,
+      container-shape: 0,
+      container-text-color: var(--color-foreground),
+      container-text-font: var(--font-sans),
+      header-text-color: var(--color-foreground),
+      header-text-font: var(--font-sans),
+      header-indicator-color: var(--color-primary),
+      header-collapsed-state-height: auto,
+      header-expanded-state-height: auto,
+    )
+  );
+}
+
+html .mat-expansion-panel-header {
+  min-height: 2.75rem;
+  padding: 0.75rem 0;
+}
+
+html .mat-expansion-panel-body {
+  padding: 0 0 1rem;
+}
+
+/*
   LAS TABLAS (T256, T257).
 
   `mat-table` con la cara de la primitiva que reemplazó: el encabezado de columna en la

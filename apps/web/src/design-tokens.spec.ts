@@ -1824,6 +1824,16 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**ningún `<details>`**: lo que se despliega es un `mat-expansion-panel` (T281)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<details\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**`styles.css` ya no define `.campo` ni sus variantes** (T247)', () => {
     expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.(?:campo|prefijo)\b/);
   });
