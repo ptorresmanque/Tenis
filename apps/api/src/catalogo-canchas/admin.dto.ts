@@ -195,6 +195,9 @@ export interface CambiosDeConfiguracion
   duracionesSocioPico: DuracionesSocioPico;
   /** Cuántos alumnos caben en una clase grupal del gimnasio (T235). */
   gimnasioCupoGrupal: number;
+  /** Si sale el informe de reservas del día por correo, y a qué hora entera (T274). */
+  informeDiarioActivo: boolean;
+  informeDiarioHora: number;
 }
 
 /**
@@ -219,6 +222,7 @@ type ReglasNumericas = Omit<
   | 'topeCanchasConLuz'
   | 'topeCanchasConLuzDesde'
   | 'duracionesSocioPico'
+  | 'informeDiarioActivo'
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -236,6 +240,8 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   cuotaIncorporacionClp: [1, 10_000_000],
   // Desde 2: una grupal de uno es la individual. Hasta 40, el tope del cupo de una clase.
   gimnasioCupoGrupal: [2, 40],
+  // Una hora del reloj del club, en punto: el cron corre cada hora (T275).
+  informeDiarioHora: [0, 23],
 };
 
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
@@ -249,6 +255,7 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
   cuotaMensualClp: 'La mensualidad',
   cuotaIncorporacionClp: 'La cuota de incorporación',
   gimnasioCupoGrupal: 'El cupo de una clase grupal del gimnasio',
+  informeDiarioHora: 'La hora del informe diario',
 };
 
 /**
@@ -340,6 +347,14 @@ export function leerCambiosDeConfiguracion(
 
   if (datos.topeCanchasConLuzDesde !== undefined) {
     cambios.topeCanchasConLuzDesde = horaDelTope(datos.topeCanchasConLuzDesde);
+  }
+
+  // T274. Sí o no, como lo manda el interruptor: un "sí" escrito no es un booleano.
+  if (datos.informeDiarioActivo !== undefined) {
+    if (typeof datos.informeDiarioActivo !== 'boolean') {
+      throw new BadRequestException('El informe diario se activa con sí o no.');
+    }
+    cambios.informeDiarioActivo = datos.informeDiarioActivo;
   }
 
   // T213. Uno de los tres valores del enum, escrito igual: lo manda el panel.

@@ -33,7 +33,7 @@ import { Agenda } from './agenda.service';
         </ul>
       }
     } @else {
-      <app-esqueleto [filas]="2" etiqueta="Cargando las observaciones…" />
+      <app-esqueleto compacto etiqueta="Cargando las observaciones…" />
     }
   `,
 })

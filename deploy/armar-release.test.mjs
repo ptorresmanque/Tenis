@@ -30,6 +30,8 @@ function repoFalso() {
     'echo main > apps/api/dist/main.js',
     // El script del cron de recordatorios (T112): viaja con el resto de dist/.
     'echo recordatorios > apps/api/dist/recordatorios.js',
+    // El del informe diario de reservas (T275), con el mismo camino.
+    'echo informe > apps/api/dist/informe-diario.js',
     'echo index > apps/web/dist/web/browser/index.html',
     'echo ruta > apps/web/dist/web/browser/reservar/index.html',
   ].join(' && ');
@@ -92,6 +94,7 @@ test('el release trae lo que el servidor necesita y nada más', () => {
   const sha = git('rev-parse', '--short=12', 'HEAD');
   const tar = join(raiz, `dist/release/release-${sha}.tar.gz`);
   assert.deepEqual(archivosDelTar(tar), [
+    'apps/api/dist/informe-diario.js',
     'apps/api/dist/main.js',
     'apps/api/dist/recordatorios.js',
     'apps/api/package.json',

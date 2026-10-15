@@ -3,6 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { MatCard } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIcon } from '@angular/material/icon';
+import { Esqueleto } from '../ui/esqueleto';
 
 
 /** Espejo de EstadoSalud en apps/api/src/salud/salud.service.ts. */
@@ -16,7 +17,7 @@ export interface EstadoSalud {
 
 @Component({
   selector: 'app-estado',
-  imports: [MatCard, MatChipsModule, MatIcon],
+  imports: [MatCard, MatChipsModule, MatIcon, Esqueleto],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: es una pantalla para mirar. -->
     <header class="cabecera-panel">
@@ -57,7 +58,7 @@ export interface EstadoSalud {
             <span class="text-lg">La API no responde o la base está caída.</span>
           </p>
         } @else if (salud.isLoading()) {
-          <p class="mt-3 text-lg text-muted-foreground">Consultando…</p>
+          <app-esqueleto class="mt-3 block" compacto etiqueta="Consultando…" />
         }
       </mat-card>
     </section>

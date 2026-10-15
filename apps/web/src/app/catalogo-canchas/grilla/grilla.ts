@@ -21,6 +21,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { Reservar } from '../../reservas/reservar';
 import { BarraFija } from '../../ui/barra-fija';
+import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import {
   BloqueDisponible,
@@ -48,6 +49,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     EstadoVacio,
     ResumenDeLaEleccion,
     ResumenDelCambio,
+    Esqueleto,
   ],
   providers: [MoverReserva],
   host: {
@@ -104,7 +106,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
          que la grilla se repobló. -->
     <div role="status" aria-live="polite" class="mt-6">
       @if (grillas.isLoading()) {
-        <p class="text-muted-foreground">Buscando horas disponibles…</p>
+        <app-esqueleto [filas]="6" etiqueta="Buscando horas disponibles…" />
       } @else if (grillas.error()) {
         <p class="text-destructive">
           No se pudo cargar la disponibilidad. Reintenta en un momento.

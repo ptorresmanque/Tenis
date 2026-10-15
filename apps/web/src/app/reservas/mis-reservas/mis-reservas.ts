@@ -21,6 +21,7 @@ import {
   minutosDe,
 } from '../../catalogo-canchas/reloj-del-club';
 import { Aviso } from '../../ui/aviso';
+import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { LO_HECHO } from '../../ui/material';
 import { descargarIcs } from '../calendario';
@@ -36,13 +37,13 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
  */
 @Component({
   selector: 'app-mis-reservas',
-  imports: [MatButton, MatIcon, RouterLink, Aviso, EstadoVacio, MatChipsModule],
+  imports: [MatButton, MatIcon, RouterLink, Aviso, EstadoVacio, MatChipsModule, Esqueleto],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Mis reservas</h1>
 
     <div role="status" aria-live="polite" class="mt-4">
       @if (reservas.isLoading()) {
-        <p class="text-muted-foreground">Buscando tus horas…</p>
+        <app-esqueleto [filas]="3" etiqueta="Buscando tus horas…" />
       } @else if (reservas.error()) {
         <p class="text-destructive">
           No se pudieron cargar tus reservas. Reintenta en un momento.

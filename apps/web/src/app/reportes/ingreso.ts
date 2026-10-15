@@ -12,6 +12,7 @@ import {
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { proveerCampos } from '../ui/campos';
+import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { DescargarCsv } from './descargar-csv';
@@ -38,6 +39,7 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
     MatTableModule,
     EstadoVacio,
     DescargarCsv,
+    Esqueleto,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -160,7 +162,7 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
         <app-descargar-csv [url]="urlDelCsv()" />
       </div>
     } @else if (reporte.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Sumando el período…</p>
+      <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Sumando el período…" />
     }
   `,
 })

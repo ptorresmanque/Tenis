@@ -71,7 +71,7 @@ function enPesos(texto: string): number | null {
       <h2 id="titulo-cuadros-del-torneo" class="rotulo-seccion">Categorías del torneo</h2>
 
       @if (cuadros.isLoading()) {
-        <app-esqueleto class="mt-2 block" [filas]="3" etiqueta="Cargando los cuadros…" />
+        <app-esqueleto class="mt-2 block" compacto etiqueta="Cargando los cuadros…" />
       } @else if (cuadros.error()) {
         <p class="mt-2 text-sm text-destructive">
           No se pudieron cargar las categorías del torneo. Reintenta en un momento.

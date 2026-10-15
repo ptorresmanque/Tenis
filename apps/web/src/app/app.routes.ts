@@ -346,6 +346,12 @@ export const routes: Routes = [
                 (m) => m.PreguntasFrecuentesPanel,
               ),
           },
+          {
+            path: 'informe-diario',
+            title: 'Informe diario — Administración',
+            loadComponent: () =>
+              import('./configuracion/informe-diario').then((m) => m.InformeDiario),
+          },
         ],
       },
       {

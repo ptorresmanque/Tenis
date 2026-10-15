@@ -65,5 +65,7 @@ export class Configuracion {
     { ruta: 'gimnasio', etiqueta: 'Gimnasio', icono: 'fitness_center' },
     { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },
     { ruta: 'preguntas-frecuentes', etiqueta: 'Preguntas frecuentes', icono: 'quiz' },
+    // T274. El correo diario con la agenda, para admins y gestores.
+    { ruta: 'informe-diario', etiqueta: 'Informe diario', icono: 'forward_to_inbox' },
   ];
 }

@@ -121,7 +121,7 @@ import { LO_HECHO } from '../../ui/material';
 
       <h3 class="mt-6 text-base font-semibold">Horas tomadas que superan el tope</h3>
       @if (excesos.isLoading()) {
-        <app-esqueleto class="mt-2 block" [filas]="2" etiqueta="Buscando horas por encima del tope…" />
+        <app-esqueleto class="mt-2 block" compacto etiqueta="Buscando horas por encima del tope…" />
       } @else if (excesos.error()) {
         <p class="mt-2 text-destructive">
           No se pudo revisar si alguna hora supera el tope. Reintenta en un momento.

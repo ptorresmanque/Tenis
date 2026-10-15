@@ -1989,4 +1989,26 @@ describe('Lo que espera muestra un esqueleto (T152)', () => {
 
     expect(infractores).toEqual([]);
   });
+
+  /**
+   * T279 (SPEC-revision-qa.md A5). La regla de arriba miraba la palabra: «Buscando horas
+   * disponibles…» o «Sumando el período…» se le pasaban. Esta mira la rama de la carga, y
+   * exige que no sea solo un párrafo: lo que espera lleva `app-esqueleto`, con su barra o su
+   * círculo.
+   */
+  it('**ninguna rama de carga es solo un párrafo**', () => {
+    const RAMA_DE_CARGA =
+      /@(?:if|else if) \(([^{]*?(?:isLoading\(\)|status\(\) === 'loading')[^{]*)\)\s*\{\s*(?:<!--(?:(?!-->)[\s\S])*-->\s*)*<p\b/g;
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [rama, condicion] of contenido.matchAll(RAMA_DE_CARGA)) {
+        // `!x.isLoading()` es la rama de lo que ya llegó, no la de la espera.
+        if (condicion.includes('!')) continue;
+        infractores.push(`${archivo}: ${rama.replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
 });

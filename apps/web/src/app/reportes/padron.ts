@@ -11,6 +11,7 @@ import {
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { proveerCampos } from '../ui/campos';
+import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { DescargarCsv } from './descargar-csv';
@@ -30,7 +31,7 @@ import { Reportes } from './reportes.service';
 @Component({
   selector: 'app-padron-panel',
   imports: [
-    MatTableModule,MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv],
+    MatTableModule,MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv, Esqueleto],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
@@ -152,7 +153,7 @@ import { Reportes } from './reportes.service';
         <app-descargar-csv [url]="urlDelCsv()" />
       </div>
     } @else if (reporte.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Mirando el padrón…</p>
+      <app-esqueleto class="mt-6 block" [filas]="5" etiqueta="Mirando el padrón…" />
     }
   `,
 })
