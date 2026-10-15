@@ -1,14 +1,13 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { MatButton } from '@angular/material/button';
+import { firstValueFrom } from 'rxjs';
+import { MatButton, MatFabButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIcon } from '@angular/material/icon';
-import { errorDelCampo, proveerCampos } from '../../ui/campos';
+import { proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { mensajeDelServidor } from '../../core/errores';
@@ -17,8 +16,8 @@ import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Jugador, Torneos } from '../torneos.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
-import { TelefonoDirective } from '../../ui/telefono';
 import { LO_HECHO } from '../../ui/material';
+import { AnotarJugador, DatosParaAnotar } from './anotar-jugador';
 
 /**
  * Quiénes juegan torneos.
@@ -33,25 +32,25 @@ import { LO_HECHO } from '../../ui/material';
  */
 @Component({
   selector: 'app-jugadores',
+  // Espacio al final para que el FAB no tape el último jugador (A9).
+  host: { class: 'block pb-24' },
   imports: [
     MatSelectModule,
     MatFormFieldModule,
-    MatInput,
     MatButton,
+    MatFabButton,
     Esqueleto,
-    FormsModule,
     Aviso,
     EstadoVacio,
-    MatButtonToggleModule,
     EnlaceTelefonoPipe,
     TelefonoPipe,
-    TelefonoDirective,
     MatChipsModule,
     MatIcon,
   ],
   providers: [proveerCampos()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
+    <!-- La cabecera del panel (TV7.1), sin acción: anotar es el FAB, que abre su diálogo
+         (T292). Antes era un formulario fijo arriba de la lista. -->
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Jugadores</h1>
@@ -66,73 +65,10 @@ import { LO_HECHO } from '../../ui/material';
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
     }
 
-    <form
-      class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
-      (ngSubmit)="anotar()"
-    >
-      <h2 class="rotulo-seccion">Anotar un jugador</h2>
-
-      <mat-button-toggle-group
-        class="mt-3"
-        aria-label="A quién se anota"
-        hideSingleSelectionIndicator
-        [value]="tipo()"
-        (change)="tipo.set($event.value)"
-      >
-        @for (opcion of TIPOS; track opcion.valor) {
-          <mat-button-toggle [value]="opcion.valor">
-            {{ opcion.etiqueta }}
-          </mat-button-toggle>
-        }
-      </mat-button-toggle-group>
-
-      <div class="mt-3 flex flex-wrap items-end gap-3">
-        @if (tipo() === 'socio') {
-          <mat-form-field class="min-w-64 flex-1">
-            <mat-label>Socio</mat-label>
-            <mat-select name="socioId" [(ngModel)]="socioId">
-              <mat-option [value]="0" disabled>Elige un socio</mat-option>
-              @for (socio of sociosSinJugador(); track socio.id) {
-                <mat-option [value]="socio.id">
-                  {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                  {{ socio.usuario.apellido }}
-                </mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        } @else {
-          <mat-form-field class="flex-1">
-            <mat-label>Nombre</mat-label>
-            <input matInput name="nombre" [(ngModel)]="datos.nombre" />
-          </mat-form-field>
-          <mat-form-field class="flex-1">
-            <mat-label>Apellido</mat-label>
-            <input matInput name="apellido" [(ngModel)]="datos.apellido" />
-          </mat-form-field>
-          <mat-form-field class="flex-1">
-            <mat-label>Teléfono</mat-label>
-            <span matTextPrefix>+56&nbsp;</span>
-            <input
-              matInput
-              appTelefono
-              #telefono="ngModel"
-              name="telefono"
-              [(ngModel)]="datos.telefono"
-            />
-            <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
-          </mat-form-field>
-        }
-
-        <button
-          matButton="filled"
-          type="submit"
-          [attr.aria-busy]="enCurso() === 'anotar'"
-          [disabled]="trabajando()"
-        >
-          Anotar
-        </button>
-      </div>
-    </form>
+    <button matFab extended type="button" class="fab-de-la-pantalla" (click)="anotar()">
+      <mat-icon aria-hidden="true">person_add</mat-icon>
+      Anotar jugador
+    </button>
 
     @if (jugadores.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los jugadores…" />
@@ -145,7 +81,7 @@ import { LO_HECHO } from '../../ui/material';
         class="mt-4 block"
         icono="groups"
         titulo="Todavía no hay jugadores"
-        detalle="Anota al primero con el formulario de arriba."
+        detalle="Anota al primero con «Anotar jugador»."
       />
     } @else {
       <ul class="mt-4 grid gap-2">
@@ -219,20 +155,10 @@ import { LO_HECHO } from '../../ui/material';
   `,
 })
 export class JugadoresPanel {
-  protected readonly errorDelCampo = errorDelCampo;
-
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialogos = inject(MatDialog);
   private readonly api = inject(Torneos);
   private readonly sociosApi = inject(Socios);
-
-  protected readonly TIPOS = [
-    { valor: 'socio', etiqueta: 'Un socio' },
-    { valor: 'externo', etiqueta: 'Alguien de afuera' },
-  ];
-
-  protected readonly tipo = signal('socio');
-  protected socioId = 0;
-  protected datos = { nombre: '', apellido: '', telefono: '' };
 
   protected readonly trabajando = signal(false);
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
@@ -256,7 +182,7 @@ export class JugadoresPanel {
    * pero la lista sería una invitación a "anotar" a alguien que ya está anotado.
    */
   protected readonly sociosSinJugador = computed(() => {
-    // Se lee en el formulario, que se ve aunque alguna de las dos no haya cargado.
+    // Se lee aunque alguna de las dos no haya cargado: el diálogo de anotar se abre igual.
     const conJugador = new Set(
       (this.jugadores.hasValue() ? this.jugadores.value() : [])
         .map((jugador) => jugador.socioId)
@@ -268,28 +194,25 @@ export class JugadoresPanel {
     );
   });
 
+  /** Abre el diálogo de anotar (T292), con los socios que todavía no tienen jugador. */
   protected async anotar(): Promise<void> {
-    const esSocio = this.tipo() === 'socio';
+    const jugador = await firstValueFrom(
+      this.dialogos
+        .open<AnotarJugador, DatosParaAnotar, Jugador>(AnotarJugador, {
+          data: { socios: this.sociosSinJugador },
+          width: '32rem',
+          maxWidth: '92vw',
+        })
+        .afterClosed(),
+    );
+    if (!jugador) return;
 
-    await this.intentar('anotar', async () => {
-      const jugador = await this.api.crearJugador(
-        esSocio
-          ? { socioId: Number(this.socioId) }
-          : {
-              nombre: this.datos.nombre,
-              apellido: this.datos.apellido,
-              telefono: this.datos.telefono,
-            },
-      );
-
-      this.socioId = 0;
-      this.datos = { nombre: '', apellido: '', telefono: '' };
-      this.snackBar.open(
-        `${jugador.nombre} ${jugador.apellido} ya puede jugar torneos.`,
-        undefined,
-        LO_HECHO,
-      );
-    });
+    this.snackBar.open(
+      `${jugador.nombre} ${jugador.apellido} ya puede jugar torneos.`,
+      undefined,
+      LO_HECHO,
+    );
+    this.version.update((v) => v + 1);
   }
 
   protected async enlazar(jugador: Jugador, socioId: number): Promise<void> {
@@ -326,7 +249,7 @@ export class JugadoresPanel {
     } catch (falla) {
       // El del servidor: dice si ese socio ya juega con otro nombre, que es lo que el
       // club necesita saber para decidir con cuál se queda.
-      this.error.set(mensajeDelServidor(falla, 'No se pudo anotar al jugador.'));
+      this.error.set(mensajeDelServidor(falla, 'No se pudo guardar el cambio.'));
     } finally {
       this.trabajando.set(false);
       this.enCurso.set(null);
