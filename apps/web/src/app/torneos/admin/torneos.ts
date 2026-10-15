@@ -1,6 +1,7 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatCard } from '@angular/material/card';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -73,6 +74,7 @@ const enBlanco = () => ({
 @Component({
   selector: 'app-torneos',
   imports: [
+    MatCard,
     MatButtonToggleModule,
     MatSelectModule,
     MatDatepickerModule,
@@ -254,67 +256,69 @@ const enBlanco = () => ({
     } @else {
       <ul class="mt-4 grid gap-3">
         @for (torneo of visibles(); track torneo.id) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <a
-                class="titulo-tarjeta text-primary"
-                [routerLink]="['/administracion/torneos', torneo.id]"
-              >
-                {{ torneo.nombre }}
-              </a>
-              <mat-chip-set class="insignias">
-                <mat-chip
-                  class="insignia"
-                  [class]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
+          <li>
+            <mat-card appearance="outlined" class="p-4">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <a
+                  class="titulo-tarjeta text-primary"
+                  [routerLink]="['/administracion/torneos', torneo.id]"
                 >
-                  <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
-                  {{ nombreEstado(torneo.estado) }}
-                </mat-chip>
-              </mat-chip-set>
-              <span class="text-sm text-muted-foreground">
-                {{ enPalabras(torneo.fechaInicio) }} —
-                {{ enPalabras(torneo.fechaFin) }}
-                @if (torneo.estado === 'INSCRIPCION') {
-                  · inscripción hasta {{ enPalabras(torneo.cierreInscripcion) }}
-                }
-              </span>
-            </div>
-
-            <p class="mt-1 text-sm text-muted-foreground">
-              @if (torneo.cuadros.length === 0) {
-                Todavía no corre ninguna categoría.
-              } @else {
-                @for (cuadro of torneo.cuadros; track cuadro.id) {
-                  <span class="me-2">{{ cuadro.categoria }} ({{ cuadro.cupo }})</span>
-                }
-              }
-            </p>
-
-            <!-- El trabajo pendiente, en la tarjeta: es lo que evita entrar a los
-                 tres torneos abiertos para descubrir que dos estaban al día. -->
-            @if (torneo.pagosPorRevisar > 0 || torneo.enEspera > 0) {
-              <p class="mt-2 flex flex-wrap gap-2">
-                @if (torneo.pagosPorRevisar > 0) {
-                  <a [routerLink]="['/administracion/torneos', torneo.id]">
-                    <mat-chip-set class="insignias">
-                      <mat-chip class="insignia aviso">
-                        <mat-icon matChipAvatar aria-hidden="true">receipt_long</mat-icon>
-                        {{ torneo.pagosPorRevisar }}
-                        {{ torneo.pagosPorRevisar === 1 ? 'pago' : 'pagos' }} por revisar
-                      </mat-chip>
-                    </mat-chip-set>
-                  </a>
-                }
-                @if (torneo.enEspera > 0) {
-                  <mat-chip-set class="insignias">
-                    <mat-chip class="insignia neutro">
-                      <mat-icon matChipAvatar aria-hidden="true">hourglass_empty</mat-icon>
-                      {{ torneo.enEspera }} en lista de espera
-                    </mat-chip>
-                  </mat-chip-set>
+                  {{ torneo.nombre }}
+                </a>
+                <mat-chip-set class="insignias">
+                  <mat-chip
+                    class="insignia"
+                    [class]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
+                  >
+                    <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                    {{ nombreEstado(torneo.estado) }}
+                  </mat-chip>
+                </mat-chip-set>
+                <span class="text-sm text-muted-foreground">
+                  {{ enPalabras(torneo.fechaInicio) }} —
+                  {{ enPalabras(torneo.fechaFin) }}
+                  @if (torneo.estado === 'INSCRIPCION') {
+                    · inscripción hasta {{ enPalabras(torneo.cierreInscripcion) }}
+                  }
+                </span>
+              </div>
+  
+              <p class="mt-1 text-sm text-muted-foreground">
+                @if (torneo.cuadros.length === 0) {
+                  Todavía no corre ninguna categoría.
+                } @else {
+                  @for (cuadro of torneo.cuadros; track cuadro.id) {
+                    <span class="me-2">{{ cuadro.categoria }} ({{ cuadro.cupo }})</span>
+                  }
                 }
               </p>
-            }
+  
+              <!-- El trabajo pendiente, en la tarjeta: es lo que evita entrar a los
+                   tres torneos abiertos para descubrir que dos estaban al día. -->
+              @if (torneo.pagosPorRevisar > 0 || torneo.enEspera > 0) {
+                <p class="mt-2 flex flex-wrap gap-2">
+                  @if (torneo.pagosPorRevisar > 0) {
+                    <a [routerLink]="['/administracion/torneos', torneo.id]">
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia aviso">
+                          <mat-icon matChipAvatar aria-hidden="true">receipt_long</mat-icon>
+                          {{ torneo.pagosPorRevisar }}
+                          {{ torneo.pagosPorRevisar === 1 ? 'pago' : 'pagos' }} por revisar
+                        </mat-chip>
+                      </mat-chip-set>
+                    </a>
+                  }
+                  @if (torneo.enEspera > 0) {
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">hourglass_empty</mat-icon>
+                        {{ torneo.enEspera }} en lista de espera
+                      </mat-chip>
+                    </mat-chip-set>
+                  }
+                </p>
+              }
+            </mat-card>
           </li>
         }
       </ul>

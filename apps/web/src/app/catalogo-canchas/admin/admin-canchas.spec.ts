@@ -1,5 +1,6 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatCardHarness } from '@angular/material/card/testing';
 import { MatExpansionPanelHarness } from '@angular/material/expansion/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -313,6 +314,18 @@ describe('AdminCanchasPanel', () => {
 
       expect(texto()).toContain('transmitir');
     });
+  });
+
+  it('**cada cancha es una tarjeta de Material, con contorno** (T282)', async () => {
+    // Una cosa con sus acciones: el caso del skill para mat-card. La sección de alta, en
+    // cambio, sigue siendo una sección.
+    const tarjetas = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+      MatCardHarness,
+    );
+
+    expect(tarjetas).toHaveLength(1);
+    expect(await tarjetas[0].getText()).toContain('Cancha 1');
+    expect(await (await tarjetas[0].host()).hasClass('mat-mdc-card-outlined')).toBe(true);
   });
 
   /**

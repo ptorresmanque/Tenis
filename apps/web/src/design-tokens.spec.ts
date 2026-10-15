@@ -1834,6 +1834,26 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
+  it('**toda `mat-card` va con contorno, y ninguna dentro de otra** (T282)', () => {
+    // La tarjeta del sitio es la de borde (S1); una dentro de otra es lo que el skill prohíbe.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      let profundidad = 0;
+      for (const [etiqueta] of contenido.matchAll(/<\/?mat-card\b[^>]*>/g)) {
+        if (etiqueta.startsWith('</')) {
+          profundidad--;
+          continue;
+        }
+        profundidad++;
+        if (!/appearance="outlined"/.test(etiqueta)) infractores.push(`${archivo}: sin contorno`);
+        if (profundidad > 1) infractores.push(`${archivo}: una dentro de otra`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**`styles.css` ya no define `.campo` ni sus variantes** (T247)', () => {
     expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.(?:campo|prefijo)\b/);
   });

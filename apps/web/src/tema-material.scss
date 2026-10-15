@@ -684,6 +684,30 @@ html .mat-expansion-panel-body {
 }
 
 /*
+  LAS TARJETAS (T282).
+
+  `mat-card` con contorno, con la cara de la tarjeta que reemplaza: el fondo de tarjeta, el borde
+  del sitio, el radio grande y la sombra chica. Es para una cosa con sus acciones —una cancha,
+  una clase, un torneo—; las secciones enmarcadas siguen siendo secciones.
+*/
+html {
+  @include mat.card-overrides(
+    (
+      outlined-container-color: var(--color-card),
+      outlined-outline-color: var(--color-border),
+      outlined-container-shape: 0.75rem,
+      outlined-container-elevation: var(--shadow-sm),
+    )
+  );
+}
+
+/* La cancha desactivada se marca con el borde punteado (TV7.2): Material fija el sólido sin
+   capa, y la utilidad no le gana sola. */
+html .mat-mdc-card-outlined.border-dashed {
+  border-style: dashed;
+}
+
+/*
   LAS TABLAS (T256, T257).
 
   `mat-table` con la cara de la primitiva que reemplazó: el encabezado de columna en la

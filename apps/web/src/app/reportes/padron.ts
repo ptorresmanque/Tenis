@@ -82,7 +82,7 @@ import { Reportes } from './reportes.service';
     } @else if (reporte.value(); as datos) {
       <dl class="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         @for (dato of resumen(); track dato.etiqueta) {
-          <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div>
             <dt class="text-sm text-muted-foreground">{{ dato.etiqueta }}</dt>
             <dd class="font-display text-2xl font-bold">{{ dato.valor }}</dd>
           </div>

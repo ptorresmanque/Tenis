@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
@@ -28,7 +29,7 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-galeria-del-tour',
-  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  imports: [MatCard, MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
   providers: [proveerCampos()],
   template: `
     <form
@@ -87,76 +88,78 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
     } @else {
       <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         @for (foto of tour().fotos; track foto.id; let i = $index, total = $count) {
-          <li class="rounded-xl border border-border bg-card p-3">
-            <img
-              class="aspect-[4/3] w-full bg-muted object-cover"
-              [src]="foto.miniatura"
-              [alt]="foto.descripcion ?? 'Foto de ' + tour().nombre"
-              loading="lazy"
-            />
-            <!-- La posición, para el lector de pantalla: el mismo «Pie de foto» repetido
-                   en cada fila no dice de cuál es. -->
-            <mat-form-field>
-              <mat-label>
-                Pie de foto <span class="sr-only">(foto {{ i + 1 }} de {{ total }})</span>
-              </mat-label>
-              <input
-                matInput
-                maxlength="200"
-                [ngModel]="pies()[foto.id] ?? ''"
-                (ngModelChange)="escribirPie(foto.id, $event)"
+          <li>
+            <mat-card appearance="outlined" class="p-3">
+              <img
+                class="aspect-[4/3] w-full bg-muted object-cover"
+                [src]="foto.miniatura"
+                [alt]="foto.descripcion ?? 'Foto de ' + tour().nombre"
+                loading="lazy"
               />
-            </mat-form-field>
-
-            @if (porBorrar() === foto.id) {
-              <!-- La confirmación en la foto, como en las fotos de la tienda. -->
-              <div class="mt-2 flex flex-wrap gap-2">
-                <button
-                  matButton="filled"
-                  type="button"
-                  class="peligro chico"
-                  [disabled]="enCurso() !== null"
-                  [attr.aria-busy]="enCurso() === 'borrar-' + foto.id"
-                  (click)="borrar(foto)"
-                >
-                  Sí, borrar
-                </button>
-                <button
-                  matButton
-                  type="button"
-                  class="chico"
-                  (click)="porBorrar.set(null)"
-                >
-                  Mejor no
-                </button>
-              </div>
-            } @else {
-              <div class="mt-2 flex flex-wrap gap-2">
-                <button
-                  matButton="outlined"
-                  type="button"
-                  class="chico"
-                  [disabled]="enCurso() !== null"
-                  [attr.aria-busy]="enCurso() === 'pie-' + foto.id"
-                  (click)="guardarPie(foto)"
-                >
-                  Guardar el pie
-                </button>
-                <button
-                  matButton
-                  type="button"
-                  class="chico"
-                  (click)="porBorrar.set(foto.id)"
-                >
-                  Borrar
-                  <span class="sr-only">la foto {{ i + 1 }} de {{ total }}</span>
-                </button>
-              </div>
-            }
-
-            @if (origen() === foto.id && error(); as falla) {
-              <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
-            }
+              <!-- La posición, para el lector de pantalla: el mismo «Pie de foto» repetido
+                     en cada fila no dice de cuál es. -->
+              <mat-form-field>
+                <mat-label>
+                  Pie de foto <span class="sr-only">(foto {{ i + 1 }} de {{ total }})</span>
+                </mat-label>
+                <input
+                  matInput
+                  maxlength="200"
+                  [ngModel]="pies()[foto.id] ?? ''"
+                  (ngModelChange)="escribirPie(foto.id, $event)"
+                />
+              </mat-form-field>
+  
+              @if (porBorrar() === foto.id) {
+                <!-- La confirmación en la foto, como en las fotos de la tienda. -->
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button
+                    matButton="filled"
+                    type="button"
+                    class="peligro chico"
+                    [disabled]="enCurso() !== null"
+                    [attr.aria-busy]="enCurso() === 'borrar-' + foto.id"
+                    (click)="borrar(foto)"
+                  >
+                    Sí, borrar
+                  </button>
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    (click)="porBorrar.set(null)"
+                  >
+                    Mejor no
+                  </button>
+                </div>
+              } @else {
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico"
+                    [disabled]="enCurso() !== null"
+                    [attr.aria-busy]="enCurso() === 'pie-' + foto.id"
+                    (click)="guardarPie(foto)"
+                  >
+                    Guardar el pie
+                  </button>
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    (click)="porBorrar.set(foto.id)"
+                  >
+                    Borrar
+                    <span class="sr-only">la foto {{ i + 1 }} de {{ total }}</span>
+                  </button>
+                </div>
+              }
+  
+              @if (origen() === foto.id && error(); as falla) {
+                <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
+              }
+            </mat-card>
           </li>
         }
       </ul>

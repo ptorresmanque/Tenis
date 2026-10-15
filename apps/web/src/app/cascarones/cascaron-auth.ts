@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
 
 import { Logotipo } from './logotipo';
 import { ConmutadorDeTema } from './conmutador-de-tema';
@@ -15,7 +16,7 @@ import { usarTemaPublico } from './tema';
  */
 @Component({
   selector: 'app-cascaron-auth',
-  imports: [MatButton, RouterOutlet, RouterLink, Logotipo, ConmutadorDeTema],
+  imports: [MatCard, MatButton, RouterOutlet, RouterLink, Logotipo, ConmutadorDeTema],
   template: `
     <header class="sticky top-0 z-40 border-b border-border bg-card">
       <div class="mx-auto flex h-16 max-w-6xl items-center px-4">
@@ -38,9 +39,9 @@ import { usarTemaPublico } from './tema';
     </header>
 
     <main class="mx-auto w-full max-w-md px-4 py-12">
-      <div class="rounded-xl border border-border bg-card p-8 shadow-md">
+      <mat-card appearance="outlined" class="p-8">
         <router-outlet />
-      </div>
+      </mat-card>
     </main>
   `,
 })

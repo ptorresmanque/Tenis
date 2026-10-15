@@ -1,5 +1,6 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIcon } from '@angular/material/icon';
 
@@ -23,7 +24,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-reportes',
-  imports: [MatButton, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
+  imports: [MatCard, MatButton, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
     <header class="cabecera-panel">
@@ -61,71 +62,73 @@ import { Esqueleto } from '../../ui/esqueleto';
       } @else {
         <ul class="mt-6 space-y-3">
           @for (reportada of horas; track reportada.reservaId) {
-            <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 class="titulo-tarjeta">
-                  {{ dia(reportada.inicio) }}, {{ hora(reportada.inicio) }}–{{ hora(reportada.fin) }}
-                </h2>
-                <span class="text-sm text-muted-foreground">{{ reportada.cancha }}</span>
-                <mat-chip-set class="insignias">
-                  <mat-chip class="insignia error">
-                    <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
-                    {{ reportada.reportes === 1 ? '1 reporte' : reportada.reportes + ' reportes' }}
-                  </mat-chip>
-                </mat-chip-set>
-              </div>
-
-              @if (reportada.socio; as socio) {
-                <p class="mt-1 text-sm">
-                  Reservada por
-                  <span class="font-medium">{{ socio.nombre }}</span>
-                  <span class="text-muted-foreground">
-                    (socio {{ socio.numeroSocio }})
-                  </span>
-                  @if (socio.sancionadoHasta) {
-                    <span class="text-destructive">
-                      · ya sancionado hasta {{ enDiaMes(socio.sancionadoHasta) }}
+            <li>
+              <mat-card appearance="outlined" class="p-4">
+                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 class="titulo-tarjeta">
+                    {{ dia(reportada.inicio) }}, {{ hora(reportada.inicio) }}–{{ hora(reportada.fin) }}
+                  </h2>
+                  <span class="text-sm text-muted-foreground">{{ reportada.cancha }}</span>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia error">
+                      <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                      {{ reportada.reportes === 1 ? '1 reporte' : reportada.reportes + ' reportes' }}
+                    </mat-chip>
+                  </mat-chip-set>
+                </div>
+  
+                @if (reportada.socio; as socio) {
+                  <p class="mt-1 text-sm">
+                    Reservada por
+                    <span class="font-medium">{{ socio.nombre }}</span>
+                    <span class="text-muted-foreground">
+                      (socio {{ socio.numeroSocio }})
                     </span>
+                    @if (socio.sancionadoHasta) {
+                      <span class="text-destructive">
+                        · ya sancionado hasta {{ enDiaMes(socio.sancionadoHasta) }}
+                      </span>
+                    }
+                  </p>
+                } @else {
+                  <p class="mt-1 text-sm text-muted-foreground">
+                    La reservó un visitante sin cuenta: no hay socio a quien
+                    sancionar.
+                  </p>
+                }
+  
+                <div class="mt-3 flex flex-wrap gap-2">
+                  @if (reportada.socio) {
+                    <!-- La primitiva y no clases a mano (hallazgo de TV2.3): el contorno
+                         rojo es el de "Eliminar" en las canchas y "Revocar" en socios. -->
+                    <button
+                      matButton="outlined"
+                      type="button"
+                      [disabled]="resolviendo()"
+                      [attr.aria-busy]="enCurso() === reportada.reservaId + '-SANCIONAR'"
+                      class="peligro chico"
+                      (click)="resolver(reportada, 'SANCIONAR')"
+                    >
+                      Sancionar
+                      <span class="sr-only">a {{ reportada.socio!.nombre }}</span>
+                    </button>
                   }
-                </p>
-              } @else {
-                <p class="mt-1 text-sm text-muted-foreground">
-                  La reservó un visitante sin cuenta: no hay socio a quien
-                  sancionar.
-                </p>
-              }
-
-              <div class="mt-3 flex flex-wrap gap-2">
-                @if (reportada.socio) {
-                  <!-- La primitiva y no clases a mano (hallazgo de TV2.3): el contorno
-                       rojo es el de "Eliminar" en las canchas y "Revocar" en socios. -->
+  
                   <button
-                    matButton="outlined"
+                    matButton
                     type="button"
                     [disabled]="resolviendo()"
-                    [attr.aria-busy]="enCurso() === reportada.reservaId + '-SANCIONAR'"
-                    class="peligro chico"
-                    (click)="resolver(reportada, 'SANCIONAR')"
+                    [attr.aria-busy]="enCurso() === reportada.reservaId + '-DESCARTAR'"
+                    class="chico"
+                    (click)="resolver(reportada, 'DESCARTAR')"
                   >
-                    Sancionar
-                    <span class="sr-only">a {{ reportada.socio!.nombre }}</span>
+                    Descartar
+                    <span class="sr-only">
+                      los reportes de la hora {{ hora(reportada.inicio) }}
+                    </span>
                   </button>
-                }
-
-                <button
-                  matButton
-                  type="button"
-                  [disabled]="resolviendo()"
-                  [attr.aria-busy]="enCurso() === reportada.reservaId + '-DESCARTAR'"
-                  class="chico"
-                  (click)="resolver(reportada, 'DESCARTAR')"
-                >
-                  Descartar
-                  <span class="sr-only">
-                    los reportes de la hora {{ hora(reportada.inicio) }}
-                  </span>
-                </button>
-              </div>
+                </div>
+              </mat-card>
             </li>
           }
         </ul>

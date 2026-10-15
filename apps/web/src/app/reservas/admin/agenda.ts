@@ -99,7 +99,7 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
     @if (reservasSeguras().length > 0) {
       <ul class="mt-6 grid gap-3 sm:grid-cols-3">
         @for (dato of resumenDelDia(); track dato.titulo) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <li>
             <p class="flex items-center gap-2 text-sm text-muted-foreground">
               <mat-icon class="text-primary" aria-hidden="true">{{ dato.icono }}</mat-icon>
               {{ dato.titulo }}
