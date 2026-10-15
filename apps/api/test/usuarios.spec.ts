@@ -14,7 +14,12 @@ interface Fila {
   email: string;
   esAdmin: boolean;
   esGestor: boolean;
-  socio: { id: number; numeroSocio: string; estado: string } | null;
+  socio: {
+    id: number;
+    numeroSocio: string;
+    estado: string;
+    alDiaHasta: string | null;
+  } | null;
   profesor: { id: number; nombreVisible: string; activo: boolean } | null;
 }
 
@@ -22,6 +27,7 @@ interface Listado {
   usuarios: Fila[];
   total: number;
   pagina: number;
+  profesoresSinCuenta: number;
 }
 
 /**
@@ -60,7 +66,8 @@ describe('Usuarios del panel', () => {
       esAdmin?: boolean;
       esGestor?: boolean;
       socio?: boolean;
-      profesor?: boolean;
+      /** `'inactivo'`: una ficha de profesor desactivada (T295). */
+      profesor?: boolean | 'inactivo';
     } = {},
   ) => {
     const email = `${quien}${DOMINIO}`;
@@ -89,6 +96,7 @@ describe('Usuarios del panel', () => {
                 nombreVisible: `Profe ${quien}`,
                 telefono: '56933334444',
                 especialidad: 'Iniciación',
+                activo: datos.profesor !== 'inactivo',
               },
             }
           : undefined,
@@ -125,7 +133,11 @@ describe('Usuarios del panel', () => {
     prisma = app.get(PrismaService);
   });
 
+  /** Los profesores sin cuenta no cuelgan de un usuario: se borran por su nombre. */
+  const SIN_CUENTA = 'Profe sin cuenta T295';
+
   beforeEach(async () => {
+    await prisma.profesor.deleteMany({ where: { nombreVisible: SIN_CUENTA } });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });
@@ -138,6 +150,7 @@ describe('Usuarios del panel', () => {
   });
 
   afterAll(async () => {
+    await prisma.profesor.deleteMany({ where: { nombreVisible: SIN_CUENTA } });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });
@@ -251,6 +264,101 @@ describe('Usuarios del panel', () => {
         'Lote 50',
         'Lote 51',
       ]);
+    });
+
+    /** T295 (SPEC-panel.md A4 y A5): la lista de Personas, sobre las mismas cuentas. */
+    describe('para Personas (T295)', () => {
+      const correos = async (consulta: string) =>
+        (
+          (await listar(cookieJefe, consulta).expect(200)).body as Listado
+        ).usuarios.map((fila) => fila.email);
+      const delDominio = `?q=${encodeURIComponent(DOMINIO)}`;
+
+      it('**cada filtro trae lo suyo**, y «Profesores» solo las fichas activas', async () => {
+        await crear('socia', { socio: true });
+        await crear('profe', { profesor: true });
+        await crear('ex-profe', { profesor: 'inactivo' });
+        await crear('gestor', { esGestor: true });
+        await crear('nadie');
+
+        expect(await correos(`${delDominio}&tipo=socios`)).toEqual([
+          `socia${DOMINIO}`,
+        ]);
+        expect(await correos(`${delDominio}&tipo=profesores`)).toEqual([
+          `profe${DOMINIO}`,
+        ]);
+        expect(await correos(`${delDominio}&tipo=gestores`)).toEqual([
+          `gestor${DOMINIO}`,
+        ]);
+        expect(await correos(`${delDominio}&tipo=administradores`)).toEqual([
+          jefe.email,
+        ]);
+        // Sin tipo: ni socia, ni gestora, ni admin, ni profesora con la ficha activa.
+        expect((await correos(`${delDominio}&tipo=sin-tipo`)).sort()).toEqual([
+          `ex-profe${DOMINIO}`,
+          `nadie${DOMINIO}`,
+        ]);
+      });
+
+      it('**la búsqueda mira también el número de socio**', async () => {
+        await crear('socia', { socio: true });
+        await crear('otra', { socio: true });
+
+        // "T216-socia" no está en ningún nombre ni correo: solo en el número.
+        expect(await correos('?q=T216-socia')).toEqual([`socia${DOMINIO}`]);
+      });
+
+      it('**ordena por nombre o por número de socio**', async () => {
+        // Al revés a propósito: por nombre va Alba primero; por número, Zoe.
+        await crear('a-zoe', { nombre: 'Zoe', socio: true });
+        await crear('b-alba', { nombre: 'Alba', socio: true });
+
+        expect(await correos(`${delDominio}&tipo=socios`)).toEqual([
+          `b-alba${DOMINIO}`,
+          `a-zoe${DOMINIO}`,
+        ]);
+        expect(await correos(`${delDominio}&tipo=socios&orden=numero`)).toEqual(
+          [`a-zoe${DOMINIO}`, `b-alba${DOMINIO}`],
+        );
+      });
+
+      it('la ficha de socio trae hasta cuándo está al día', async () => {
+        await crear('socia', { socio: true });
+
+        const [fila] = (
+          (await listar(cookieJefe, `${delDominio}&tipo=socios`).expect(200))
+            .body as Listado
+        ).usuarios;
+
+        expect(fila.socio?.alDiaHasta).toBe('2099-12-31T00:00:00.000Z');
+      });
+
+      it('**dice cuántos profesores siguen sin cuenta** (D14), solo los activos', async () => {
+        const antes = ((await listar(cookieJefe).expect(200)).body as Listado)
+          .profesoresSinCuenta;
+        await prisma.profesor.createMany({
+          data: [true, false].map((activo) => ({
+            nombreVisible: SIN_CUENTA,
+            telefono: '56933334444',
+            especialidad: 'Iniciación',
+            activo,
+          })),
+        });
+
+        const despues = ((await listar(cookieJefe).expect(200)).body as Listado)
+          .profesoresSinCuenta;
+
+        expect(despues - antes).toBe(1);
+      });
+
+      it('un tipo o un orden que no existe responde 400', async () => {
+        await listar(cookieJefe, '?tipo=amigos').expect(400);
+        await listar(cookieJefe, '?orden=edad').expect(400);
+        // Los nombres que todo objeto hereda no son tipos ni órdenes: con `in`, pasaban y la
+        // base recibía una función como filtro (500).
+        await listar(cookieJefe, '?tipo=constructor').expect(400);
+        await listar(cookieJefe, '?orden=toString').expect(400);
+      });
     });
 
     it('una página que no es un número entero desde 1 responde 400', async () => {
