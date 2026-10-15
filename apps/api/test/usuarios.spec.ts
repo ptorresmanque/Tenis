@@ -3,7 +3,11 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
-import { EstadoSocio } from '../src/generated/prisma/client';
+import {
+  EstadoClase,
+  EstadoSocio,
+  TipoClase,
+} from '../src/generated/prisma/client';
 import { hashear } from '../src/identidad/contrasena';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -136,7 +140,13 @@ describe('Usuarios del panel', () => {
   /** Los profesores sin cuenta no cuelgan de un usuario: se borran por su nombre. */
   const SIN_CUENTA = 'Profe sin cuenta T295';
 
+  /** Las clases de sus profesores, que si no impiden borrarlos (T298). */
+  const susClases = {
+    profesor: { usuario: { email: { endsWith: DOMINIO } } },
+  };
+
   beforeEach(async () => {
+    await prisma.clase.deleteMany({ where: susClases });
     await prisma.profesor.deleteMany({ where: { nombreVisible: SIN_CUENTA } });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
@@ -150,6 +160,7 @@ describe('Usuarios del panel', () => {
   });
 
   afterAll(async () => {
+    await prisma.clase.deleteMany({ where: susClases });
     await prisma.profesor.deleteMany({ where: { nombreVisible: SIN_CUENTA } });
     await prisma.usuario.deleteMany({
       where: { email: { endsWith: DOMINIO } },
@@ -364,6 +375,97 @@ describe('Usuarios del panel', () => {
     it('una página que no es un número entero desde 1 responde 400', async () => {
       await listar(cookieJefe, '?pagina=0').expect(400);
       await listar(cookieJefe, '?pagina=dos').expect(400);
+    });
+  });
+
+  /** T298 (SPEC-panel.md D2): la ficha de una cuenta en Personas. */
+  describe('GET /admin/usuarios/:id', () => {
+    const ficha = (id: number, cookie = cookieJefe) =>
+      request(servidor())
+        .get(`/api/admin/usuarios/${id}`)
+        .set('Cookie', cookie);
+
+    it('**trae la cuenta con su ficha de socio y la de profesor, completas**', async () => {
+      const ana = await crear('ana', {
+        nombre: 'Ana',
+        socio: true,
+        profesor: true,
+      });
+
+      const body = (await ficha(ana.id).expect(200)).body as Record<
+        string,
+        unknown
+      >;
+
+      expect(body).toMatchObject({
+        id: ana.id,
+        nombre: 'Ana',
+        email: ana.email,
+        socio: {
+          numeroSocio: 'T216-ana',
+          estado: 'ACTIVO',
+          alDiaHasta: '2099-12-31T00:00:00.000Z',
+          sancionadoHasta: null,
+        },
+        profesor: {
+          nombreVisible: 'Profe ana',
+          telefono: '56933334444',
+          especialidad: 'Iniciación',
+          tarifaHoraClp: null,
+          activo: true,
+          clasesPorVenir: 0,
+        },
+      });
+      expect(JSON.stringify(body)).not.toContain('passwordHash');
+    });
+
+    it('**cuenta las clases por venir del profesor**: no las que ya pasaron ni las canceladas', async () => {
+      const ana = await crear('ana', { profesor: true });
+      const { id: profesorId } = await prisma.profesor.findUniqueOrThrow({
+        where: { usuarioId: ana.id },
+      });
+      const hora = 3_600_000;
+      const clase = (
+        desde: number,
+        estado: EstadoClase = EstadoClase.PROGRAMADA,
+      ) => ({
+        tipo: TipoClase.PREPARACION_FISICA,
+        profesorId,
+        inicio: new Date(Date.now() + desde),
+        fin: new Date(Date.now() + desde + hora),
+        cupoMaximo: 6,
+        estado,
+      });
+      await prisma.clase.createMany({
+        data: [
+          clase(24 * hora),
+          clase(48 * hora),
+          clase(-48 * hora, EstadoClase.REALIZADA),
+          clase(72 * hora, EstadoClase.CANCELADA),
+        ],
+      });
+
+      const body = (await ficha(ana.id).expect(200)).body as {
+        profesor: { clasesPorVenir: number };
+      };
+
+      expect(body.profesor.clasesPorVenir).toBe(2);
+    });
+
+    it('una cuenta sin fichas las trae vacías; una que no existe, 404', async () => {
+      const nadie = await crear('nadie');
+
+      expect((await ficha(nadie.id).expect(200)).body).toMatchObject({
+        socio: null,
+        profesor: null,
+      });
+      await ficha(999_999_999).expect(404);
+    });
+
+    it('solo el admin', async () => {
+      const gestor = await crear('gestor', { esGestor: true });
+
+      await ficha(jefe.id, await entrar(gestor.email)).expect(403);
     });
   });
 

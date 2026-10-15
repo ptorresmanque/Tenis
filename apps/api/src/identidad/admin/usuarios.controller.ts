@@ -11,7 +11,11 @@ import {
   Query,
 } from '@nestjs/common';
 
-import { EstadoSocio, Prisma } from '../../generated/prisma/client';
+import {
+  EstadoClase,
+  EstadoSocio,
+  Prisma,
+} from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SoloAdmin, Yo } from '../guards';
 import type { UsuarioActual } from '../usuario-actual';
@@ -44,6 +48,30 @@ export interface ListadoDeUsuarios {
 }
 
 const POR_PAGINA = 50;
+
+/** La ficha de una cuenta en Personas (T298): con sus fichas de socio y de profesor enteras. */
+export interface FichaDeCuenta extends Omit<
+  UsuarioDeLaLista,
+  'socio' | 'profesor'
+> {
+  socio: {
+    id: number;
+    numeroSocio: string;
+    estado: EstadoSocio;
+    alDiaHasta: Date;
+    sancionadoHasta: Date | null;
+  } | null;
+  profesor: {
+    id: number;
+    nombreVisible: string;
+    telefono: string;
+    especialidad: string;
+    tarifaHoraClp: number | null;
+    activo: boolean;
+    /** Para pedir confirmación antes de quitarle el Profesor (SPEC-panel.md A6). */
+    clasesPorVenir: number;
+  } | null;
+}
 
 /**
  * Los filtros de Personas (T295, SPEC-panel.md A4). «Profesores» son las fichas activas: la
@@ -170,6 +198,56 @@ export class UsuariosController {
       porPagina: POR_PAGINA,
       profesoresSinCuenta,
     };
+  }
+
+  /**
+   * Una cuenta, para su ficha en Personas (T298): los datos, sus tipos, la ficha de socio
+   * (lo que pide «Cuota») y la de profesor, con cuántas clases tiene por venir.
+   */
+  @Get(':id')
+  async ficha(@Param('id', ParseIntPipe) id: number): Promise<FichaDeCuenta> {
+    const cuenta = await this.prisma.usuario.findUnique({
+      where: { id },
+      select: {
+        ...FILA,
+        socio: {
+          select: {
+            id: true,
+            numeroSocio: true,
+            estado: true,
+            alDiaHasta: true,
+            sancionadoHasta: true,
+          },
+        },
+        profesor: {
+          select: {
+            id: true,
+            nombreVisible: true,
+            telefono: true,
+            especialidad: true,
+            tarifaHoraClp: true,
+            activo: true,
+            _count: {
+              select: {
+                clases: {
+                  where: {
+                    estado: EstadoClase.PROGRAMADA,
+                    inicio: { gt: new Date() },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!cuenta) throw new NotFoundException('No hay un usuario con ese id.');
+
+    const { profesor, ...resto } = cuenta;
+    if (!profesor) return { ...resto, profesor: null };
+
+    const { _count, ...ficha } = profesor;
+    return { ...resto, profesor: { ...ficha, clasesPorVenir: _count.clases } };
   }
 
   /** Enciende o apaga el admin y el gestor. Lo que no venga, no se toca. */
