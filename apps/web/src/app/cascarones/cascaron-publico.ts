@@ -1,8 +1,10 @@
 import { ViewportScroller } from '@angular/common';
-import { Component, computed, ElementRef, inject, viewChild } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
-import { MatButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatToolbar } from '@angular/material/toolbar';
 
 import { Club } from '../club/club.service';
 import { RedesSociales } from '../club/redes-sociales';
@@ -11,8 +13,8 @@ import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel } from '../core/auth/tipos-del-panel';
 import { Logotipo } from './logotipo';
+import { MenuDelTelefono } from './menu-del-telefono';
 import { ConmutadorDeTema } from './conmutador-de-tema';
-import { MenuDesplegable } from './menu-desplegable';
 import { usarTemaPublico } from './tema';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
@@ -36,13 +38,18 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
   selector: 'app-cascaron-publico',
   imports: [
     MatButton,
+    MatIconButton,
     MatIcon,
+    MatMenu,
+    MatMenuItem,
+    MatMenuTrigger,
+    MatToolbar,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
     Logotipo,
+    MenuDelTelefono,
     ConmutadorDeTema,
-    MenuDesplegable,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     RedesSociales,
@@ -50,7 +57,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     ProgresoDeNavegacion,
   ],
   template: `
-    <app-progreso-de-navegacion />
+    <!-- Al quedar libre el navegador (I6), como el conmutador: la barra solo hace falta cuando
+         una navegación tarda, y la de Material pesa 14 kB. -->
+    @defer (on idle) {
+      <app-progreso-de-navegacion />
+    }
 
     <a
       href="#contenido"
@@ -64,7 +75,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       #encabezado
       class="sticky top-0 z-40 border-b border-border bg-card shadow-sm print:hidden"
     >
-      <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
+      <mat-toolbar class="mx-auto max-w-6xl gap-6">
         <app-logotipo />
 
         <!-- Desde lg y no desde md: con sesión de socio el menú lleva ocho
@@ -100,35 +111,48 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           }
 
           @if (usuario(); as sesion) {
-            <app-menu-desplegable
-              [etiqueta]="'Menú de ' + sesion.nombre"
-              claseBoton="pulsable flex size-10 items-center justify-center rounded-full
-                          bg-primary text-sm font-bold text-on-primary hover:opacity-90"
-            >
-              <span disparador>{{ iniciales() }}</span>
-
-              <p class="border-b border-border px-3 py-2">
-                <span class="block font-semibold">{{ sesion.nombre }}</span>
-                <span class="block text-xs text-muted-foreground">
-                  {{ sesion.email }}
-                </span>
-              </p>
-
-              @if (sesion.socioId !== null) {
-                <a routerLink="/mis-reservas" [class]="ITEM_MENU">Mis reservas</a>
-                <a routerLink="/mi-cuenta" [class]="ITEM_MENU">Mi cuenta</a>
-              }
-              @if (inicioDelPanel(); as destino) {
-                <a [routerLink]="destino" [class]="ITEM_MENU">Administración</a>
-              }
+            <!-- El menú de la cuenta es un mat-menu (T261): se usa con las flechas como un
+                 menú, Esc lo cierra y le devuelve el foco al avatar. Llega al quedar libre el
+                 navegador y no en el arranque (I6), como el conmutador: el menú y su overlay
+                 pesan 82 kB. El placeholder es el mismo círculo con las iniciales. -->
+            @defer (on idle) {
               <button
+                matIconButton
                 type="button"
-                (click)="salir()"
-                [class]="ITEM_MENU + ' w-full cursor-pointer text-start'"
+                class="flex size-10 items-center justify-center rounded-full bg-primary text-sm
+                       font-bold text-on-primary hover:opacity-90"
+                [attr.aria-label]="'Menú de ' + sesion.nombre"
+                [matMenuTriggerFor]="menuDeLaCuenta"
               >
-                Salir
+                {{ iniciales() }}
               </button>
-            </app-menu-desplegable>
+
+              <mat-menu #menuDeLaCuenta="matMenu" xPosition="before">
+                <p class="border-b border-border px-3 py-2" role="none">
+                  <span class="block font-semibold">{{ sesion.nombre }}</span>
+                  <span class="block text-xs text-muted-foreground">
+                    {{ sesion.email }}
+                  </span>
+                </p>
+
+                @if (sesion.socioId !== null) {
+                  <a mat-menu-item routerLink="/mis-reservas">Mis reservas</a>
+                  <a mat-menu-item routerLink="/mi-cuenta">Mi cuenta</a>
+                }
+                @if (inicioDelPanel(); as destino) {
+                  <a mat-menu-item [routerLink]="destino">Administración</a>
+                }
+                <button mat-menu-item type="button" (click)="salir()">Salir</button>
+              </mat-menu>
+            } @placeholder {
+              <span
+                class="flex size-10 items-center justify-center rounded-full bg-primary text-sm
+                       font-bold text-on-primary"
+                aria-hidden="true"
+              >
+                {{ iniciales() }}
+              </span>
+            }
           } @else {
             <a matButton routerLink="/entrar" class="hidden sm:inline-flex">
               Entrar
@@ -141,95 +165,31 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           }
 
           <button
+            #botonDelMenu
+            matIconButton
             type="button"
-            class="pulsable cursor-pointer rounded-lg p-2 text-foreground hover:bg-muted
-                   lg:hidden"
+            class="rounded-lg p-2 text-foreground hover:bg-muted lg:hidden"
             aria-label="Abrir el menú"
-            (click)="panel.showModal()"
+            (click)="menuAbierto.set(true)"
           >
             <mat-icon class="text-2xl" aria-hidden="true">menu</mat-icon>
           </button>
         </div>
-      </div>
+      </mat-toolbar>
     </header>
-
-    <!-- El cajón es un diálogo nativo abierto con showModal(): el foco queda
-         atrapado adentro, Esc lo cierra, y closedby="any" agrega el cierre al
-         tocar afuera. Los tres sin una línea de JavaScript nuestra; donde el
-         navegador todavía no soporte closedby, quedan Esc y la cruz. -->
-    <dialog
-      #panel
-      closedby="any"
-      class="dialogo-cajon-fin m-0 ms-auto h-dvh w-4/5 max-w-xs bg-card p-6 shadow-xl
-             backdrop:bg-foreground/50"
-      aria-label="Menú"
-    >
-      <div class="flex items-center justify-between">
-        <app-logotipo />
-        <button
-          type="button"
-          class="pulsable cursor-pointer rounded-lg p-2 hover:bg-muted"
-          aria-label="Cerrar el menú"
-          (click)="panel.close()"
-        >
-          <mat-icon class="text-2xl" aria-hidden="true">close</mat-icon>
-        </button>
-      </div>
-
-      <nav aria-label="Principal" class="mt-6 grid gap-1">
-        @for (item of navegacion(); track item.ruta) {
-          <a
-            [routerLink]="item.ruta"
-            routerLinkActive="bg-selected text-primary"
-            ariaCurrentWhenActive="page"
-            class="flex min-h-12 items-center rounded-lg px-3 font-display text-lg
-                   font-bold uppercase tracking-wide transition-colors hover:bg-muted"
-            (click)="panel.close()"
-          >
-            {{ item.etiqueta }}
-          </a>
-        }
-      </nav>
-
-      @if (usuario(); as sesion) {
-        <div class="mt-6 grid gap-1 border-t border-border pt-6">
-          <p class="px-3 pb-2 font-semibold">{{ sesion.nombre }}</p>
-          @if (inicioDelPanel(); as destino) {
-            <a
-              [routerLink]="destino"
-              class="flex min-h-12 items-center rounded-lg px-3 font-medium
-                     transition-colors hover:bg-muted"
-              (click)="panel.close()"
-            >
-              Administración
-            </a>
-          }
-          <button
-            type="button"
-            class="flex min-h-12 cursor-pointer items-center rounded-lg px-3
-                   text-start font-medium transition-colors hover:bg-muted"
-            (click)="panel.close(); salir()"
-          >
-            Salir
-          </button>
-        </div>
-      } @else {
-        <div class="mt-6 grid gap-2 border-t border-border pt-6">
-          <a matButton="outlined" routerLink="/entrar" class="w-full" (click)="panel.close()">
-            Entrar
-          </a>
-          <a matButton="filled" routerLink="/registro" class="w-full" (click)="panel.close()">
-            Crear cuenta
-          </a>
-        </div>
-      }
-    </dialog>
 
     <!-- tabindex -1: "Saltar al contenido" y "Volver arriba" (T149) le pasan el foco.
          Sin anillo: el foco va al comienzo de la página, no a un control. -->
     <main id="contenido" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8 focus:outline-none">
       <router-outlet />
     </main>
+
+    <!-- El menú del teléfono (T263): llega al quedar libre el navegador o al tocar el botón, y
+         no en el arranque (I6), porque el sidenav con su trampa de foco pesa unos 50 kB. Si se
+         toca antes, el mismo toque lo carga y lo abre. -->
+    @defer (on idle; on interaction(botonDelMenu)) {
+      <app-menu-del-telefono [navegacion]="navegacion()" [(abierto)]="menuAbierto" />
+    }
 
     <app-volver-arriba />
 
@@ -328,6 +288,8 @@ export class CascaronPublico {
   private readonly auth = inject(Auth);
 
   protected readonly usuario = this.auth.usuario;
+  /** El cajón del teléfono, pedido desde el botón del menú. */
+  protected readonly menuAbierto = signal(false);
   protected readonly club = inject(Club).datos;
   /** Adónde lleva "Administración": la portada del panel de cada uno, o nada (T220). */
   protected readonly inicioDelPanel = computed(() =>
@@ -349,11 +311,6 @@ export class CascaronPublico {
       (this.encabezado()?.nativeElement.offsetHeight ?? 0) + 16,
     ]);
   }
-
-  /** Un ítem del menú desplegable. Es una constante y no una clase de CSS
-      porque la comparten un enlace y un botón, que no son el mismo elemento. */
-  protected readonly ITEM_MENU =
-    'block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted';
 
   protected readonly navegacion = computed(() => [
     { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },

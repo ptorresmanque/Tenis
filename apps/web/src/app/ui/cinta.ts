@@ -1,5 +1,6 @@
 import { Component, input, signal } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
+import { MatIconButton } from '@angular/material/button';
 
 /**
  * La cinta de la transmisión: un rótulo fijo y unos mensajes que pasan (TV3.2).
@@ -30,7 +31,7 @@ import { MatIcon } from '@angular/material/icon';
  */
 @Component({
   selector: 'app-cinta',
-  imports: [MatIcon],
+  imports: [MatIcon, MatIconButton],
   host: { class: 'block' },
   template: `
     <section [attr.aria-label]="etiqueta()" class="bg-campo text-on-campo sm:flex">
@@ -65,14 +66,15 @@ import { MatIcon } from '@angular/material/icon';
         </div>
 
         <button
+          matIconButton
           type="button"
-          class="pulsable inline-flex size-11 shrink-0 cursor-pointer items-center
-                 justify-center text-on-campo hover:bg-on-campo/10"
+          class="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center
+                 text-on-campo hover:bg-on-campo/10"
+          aria-label="Detener la cinta"
           [attr.aria-pressed]="pausada()"
           (click)="pausada.set(!pausada())"
         >
           <mat-icon aria-hidden="true">{{ pausada() ? 'play_arrow' : 'pause' }}</mat-icon>
-          <span class="sr-only">Detener la cinta</span>
         </button>
       </div>
     </section>

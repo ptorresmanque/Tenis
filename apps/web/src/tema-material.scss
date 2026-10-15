@@ -839,3 +839,242 @@ html {
     )
   );
 }
+
+/*
+  LOS BOTONES DE ÍCONO DEL SITIO (T260).
+
+  `matIconButton` con la cara que le pone cada plantilla —el menú y cerrar del panel, la pausa
+  de la cinta, volver arriba—, como `matButton` con la suya: lo que Material fija sin capa
+  (posición, tamaño, relleno, radio, color, fondo, borde y el `outline: none` que esconde el
+  anillo de `:focus-visible`) vuelve a las capas del sitio, donde mandan las utilidades. Sin
+  velo ni onda: el gesto es hundirse al apretar (`styles.css`). Los botones de ícono que Material
+  usa adentro de sus componentes —el calendario, el reloj, el paginador, los chips— conservan
+  los suyos.
+*/
+$botones-de-material: '.mat-datepicker-toggle, .mat-timepicker-toggle, .mat-calendar-header, .mat-mdc-paginator, .mat-mdc-chip';
+
+html .mat-mdc-icon-button:not(:where(#{$botones-de-material}) *) {
+  @include mat.icon-button-overrides(
+    (
+      state-layer-color: transparent,
+      ripple-color: transparent,
+    )
+  );
+  display: revert-layer;
+  position: revert-layer;
+  z-index: revert-layer;
+  width: revert-layer;
+  height: revert-layer;
+  padding: revert-layer;
+  font-size: revert-layer;
+  border: revert-layer;
+  border-radius: revert-layer;
+  outline: revert-layer;
+  color: revert-layer;
+  background-color: revert-layer;
+}
+
+/*
+  EL PANEL Y EL SITIO (T260, T261): `mat-sidenav` y `mat-toolbar` con los colores del sitio. La barra sobre la
+  tarjeta y con su borde al costado, 16 rem de ancho y sin radio; el velo del cajón, el texto a
+  la mitad, como el `backdrop:bg-foreground/50` del `<dialog>` de antes; la cabecera del teléfono,
+  de 64 px.
+*/
+html {
+  @include mat.sidenav-overrides(
+    (
+      container-background-color: var(--color-card),
+      container-text-color: var(--color-foreground),
+      container-shape: 0,
+      container-width: 16rem,
+      container-divider-color: var(--color-border),
+      content-background-color: transparent,
+      content-text-color: var(--color-foreground),
+      scrim-color: color-mix(in srgb, var(--color-foreground) 50%, transparent),
+    )
+  );
+  @include mat.toolbar-overrides(
+    (
+      container-background-color: var(--color-card),
+      container-text-color: var(--color-foreground),
+      standard-height: 4rem,
+      mobile-height: 4rem,
+      title-text-font: var(--font-sans),
+      title-text-size: 1rem,
+      title-text-line-height: 1.5,
+      title-text-weight: 400,
+      title-text-tracking: normal,
+    )
+  );
+}
+
+/* La barra del sitio se centra con `mx-auto`, como el contenedor de antes: Material le fija
+   `margin: 0` sin capa. Y sus botones conservan los colores del tema: Material les pone el del
+   texto de la barra a los que no llevan `color`, y «Entrar» salía negro. */
+html .mat-toolbar {
+  margin: revert-layer;
+}
+
+html .mat-toolbar .mat-mdc-button-base.mat-mdc-button-base.mat-unthemed {
+  --mat-button-text-label-text-color: inherit;
+  --mat-button-outlined-label-text-color: inherit;
+}
+
+/* Se desplaza el documento, como antes, y no el contenedor: con el `overflow` de Material, la
+   cabecera del teléfono y los encabezados de las tablas no quedarían fijos, y el router no
+   volvería arriba al cambiar de página. La barra no lo necesita: va fija en la ventana. */
+html .mat-drawer-container,
+html .mat-drawer-container > .mat-drawer-content {
+  overflow: visible;
+}
+
+html .mat-drawer-container > .mat-drawer-content {
+  height: auto;
+}
+
+/* El cajón del sitio público (T263): una capa fija sobre la ventana, que deja pasar los clics a la
+   página mientras está cerrado; abierto, toman los clics el cajón y su velo. */
+html .mat-drawer-container.cajon-flotante {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+
+  .mat-drawer,
+  .mat-drawer-backdrop.mat-drawer-shown {
+    pointer-events: auto;
+  }
+}
+
+/* Entra por la derecha y mide lo que medía el <dialog>, cuatro quintos de la pantalla hasta
+   20 rem (T261). */
+html .cajon-del-sitio {
+  @include mat.sidenav-overrides(
+    (
+      container-width: min(80vw, 20rem),
+    )
+  );
+}
+
+/* Con el movimiento reducido, Material no anima el cajón y lo da por abierto o cerrado de una
+   vez. La regla global de `styles.css` no quita las transiciones, las deja en 0,01 ms, y cada
+   una que terminaba en el cajón le volvía a avisar a Material que había terminado de abrir: a la
+   segunda, guardaba el cajón mismo como el lugar adonde devolver el foco, y al cerrarse el foco
+   se perdía en el <body>. Sin transiciones, Material recibe un solo aviso. */
+@media (prefers-reduced-motion: reduce) {
+  html .mat-drawer,
+  html .mat-drawer-backdrop,
+  html .mat-drawer-content {
+    transition: none !important;
+  }
+}
+
+/*
+  EL MENÚ DE LA CUENTA (T261): `mat-menu` con la cara del desplegable de antes, sobre la tarjeta y
+  con el radio grande; los ítems en la letra de leer, chicos y semigruesos, y el gris al pasar o
+  al llegar con las flechas.
+*/
+html {
+  @include mat.menu-overrides(
+    (
+      container-color: var(--color-card),
+      container-shape: 0.75rem,
+      divider-color: var(--color-border),
+      item-label-text-color: var(--color-foreground),
+      item-label-text-font: var(--font-sans),
+      item-label-text-size: 0.875rem,
+      item-label-text-weight: 500,
+      item-label-text-line-height: 1.25rem,
+      item-label-text-tracking: normal,
+      item-leading-spacing: 0.75rem,
+      item-trailing-spacing: 0.75rem,
+      item-hover-state-layer-color: var(--color-muted),
+      item-focus-state-layer-color: var(--color-muted),
+    )
+  );
+}
+
+/* LA BARRA DE NAVEGACIÓN (T262): `mat-progress-bar` en el azul del sitio, de 4 px y sin pista,
+   como la de antes. */
+html {
+  @include mat.progress-bar-overrides(
+    (
+      active-indicator-color: var(--color-primary),
+      track-color: transparent,
+      active-indicator-height: 0.25rem,
+      track-height: 0.25rem,
+    )
+  );
+}
+
+/*
+  LAS PESTAÑAS (T262): las de Material con la cara de las de antes. La etiqueta en la condensada,
+  en mayúscula y gruesa; la activa en el azul, con su raya de 2 px, y las otras en gris hasta que
+  se les pasa encima. Sin ondas: el sitio no las usa en ningún botón.
+*/
+html {
+  @include mat.tabs-overrides(
+    (
+      label-text-font: var(--font-display),
+      label-text-size: 0.875rem,
+      label-text-weight: 700,
+      label-text-tracking: 0.025em,
+      container-height: 3rem,
+      divider-color: var(--color-border),
+      divider-height: 1px,
+      active-indicator-color: var(--color-primary),
+      active-hover-indicator-color: var(--color-primary),
+      active-focus-indicator-color: var(--color-primary),
+      active-indicator-height: 2px,
+      active-indicator-shape: 0,
+      active-label-text-color: var(--color-primary),
+      active-hover-label-text-color: var(--color-primary),
+      active-focus-label-text-color: var(--color-primary),
+      inactive-label-text-color: var(--color-muted-foreground),
+      inactive-hover-label-text-color: var(--color-foreground),
+      inactive-focus-label-text-color: var(--color-foreground),
+      active-ripple-color: transparent,
+      inactive-ripple-color: transparent,
+      pagination-icon-color: var(--color-foreground),
+    )
+  );
+}
+
+html .mdc-tab__text-label {
+  text-transform: uppercase;
+}
+
+/* Las barras de pestañas del panel pasan a la línea siguiente en vez de desplazarse, como
+   antes: configuración tiene ocho secciones, y a 375 px una barra que se desplaza dejaba ver
+   una y media. Van con `disablePagination`, y la raya de la activa es de cada pestaña. */
+html .mat-mdc-tab-nav-bar.envuelve {
+  .mat-mdc-tab-link-container {
+    overflow: visible;
+  }
+
+  .mat-mdc-tab-links {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  /* El aire de antes: 12 px por lado, y 16 desde 640 px en las secciones de configuración. */
+  .mat-mdc-tab-link {
+    min-width: 0;
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (min-width: 40rem) {
+  html .mat-mdc-tab-nav-bar.envuelve.holgada .mat-mdc-tab-link {
+    padding-inline: 1rem;
+  }
+}
+
+/* Las de las fichas eran más bajas que las de configuración: 38 px. */
+html .mat-mdc-tab-nav-bar.compacta {
+  @include mat.tabs-overrides(
+    (
+      container-height: 2.375rem,
+    )
+  );
+}

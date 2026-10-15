@@ -767,13 +767,14 @@ describe('Uso de los tokens en las plantillas', () => {
     // no entran: con href o routerLink el navegador ya pone la manito.
     //
     // `matButton` no necesita la clase (T241): Material le pone la manito en
-    // `.mdc-button:hover`.
+    // `.mdc-button:hover`. `matIconButton`, `mat-menu-item` y `mat-tab-link` tampoco (T260-T262): la traen,
+    // y el tema no se la quita.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bmatButton\b/.test(etiqueta)) continue;
+        if (/\bmat(?:Icon)?Button\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
@@ -1259,6 +1260,58 @@ describe('Paginación (T259)', () => {
   });
 });
 
+describe('El panel y los botones de ícono (T260)', () => {
+  it('**el botón de ícono es el ancla de sus capas**: si el tema le devuelve la posición, la capa le da `relative`', () => {
+    // Material pone adentro del botón el indicador de foco, el área táctil y la onda, en absoluto.
+    // Sin un `position: relative` debajo del `revert-layer`, se ubicaban contra el cajón entero del
+    // panel y tapaban sus enlaces: ningún clic llegaba a una sección.
+    // El bloque entero hasta su cierre: el selector lleva una interpolación de Sass, con llaves.
+    const delSitio = tema.match(/html \.mat-mdc-icon-button:not\([\s\S]*?\n\}/)?.[0] ?? '';
+    expect(delSitio).toMatch(/position:\s*revert-layer/);
+    expect(css).toMatch(/\.mat-mdc-icon-button\s*\{\s*position:\s*relative;\s*\}/);
+  });
+
+  it('**con el movimiento reducido, el cajón no tiene transiciones**', () => {
+    // La regla global las deja en 0,01 ms, y cada una que terminaba en el cajón le avisaba a
+    // Material que había terminado de abrir: guardaba el cajón como el lugar adonde devolver el
+    // foco, y al cerrarse el foco se perdía en el <body>.
+    expect(tema).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.mat-drawer,[^}]*transition:\s*none !important/,
+    );
+  });
+});
+
+describe('Pestañas (T262)', () => {
+  it('**ningún `role="tab"` hecho a mano**: las pestañas son de Material', () => {
+    // `mat-tab-nav-bar` y `mat-tab-group` ponen los roles, el `aria-selected`, el
+    // `aria-controls` y las flechas. Hechas a mano, cada una llevaba su propio teclado, y dos
+    // de las tres no tenían ninguno.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /role="tab(?:list|panel)?"/.test(contenido.replace(/<!--[\s\S]*?-->/g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('El arranque (T263, I6)', () => {
+  it('**el trazado del logotipo no viaja en el JavaScript**: va en un SVG aparte, con los colores del tema', () => {
+    // Eran 22 kB de trazado en el arranque, en cada visita. Con <use> el archivo se guarda en
+    // caché, y la copia que dibuja hereda las variables: los dos tonos cambian con el tema
+    // oscuro y sobre la banda de campo, como cuando iba en la plantilla.
+    const componente = readFileSync(join(process.cwd(), 'src/app/cascarones/logotipo.ts'), 'utf8');
+    const archivo = readFileSync(join(process.cwd(), 'public/logotipo.svg'), 'utf8');
+
+    expect(componente).toMatch(/<use href="\/logotipo\.svg#logotipo"/);
+    expect(componente).not.toMatch(/<path\b/);
+    expect(archivo).toMatch(/<symbol id="logotipo"/);
+    expect(archivo).toMatch(/fill:\s*var\(--color-logo-marca\b/);
+    expect(archivo).toMatch(/fill:\s*var\(--color-logo-texto\b/);
+  });
+});
+
 describe('El panel en la A (Fase 7)', () => {
   // Las carpetas ya migradas. Cada tarea de la Fase 7 suma la suya, y en el
   // Checkpoint G la lista es el panel entero: la regla queda cuidando que una
@@ -1699,10 +1752,8 @@ describe('Los campos son de Material (T244)', () => {
     expect(infractores).toEqual([]);
   });
 
-  it('**ningún `<dialog>` nativo fuera de los cascarones**: los diálogos son MatDialog (T252)', () => {
-    // El menú del teléfono de los cascarones se va en la Fase 61, con la navegación.
+  it('**ningún `<dialog>` nativo**: los diálogos son MatDialog (T252) y los cajones, mat-sidenav (T260, T261)', () => {
     const infractores = plantillas()
-      .filter(({ archivo }) => !archivo.startsWith('cascarones/'))
       .filter(({ contenido }) =>
         /<dialog\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
       )
@@ -1834,7 +1885,9 @@ describe('Los botones dicen que están trabajando (T150)', () => {
   });
 
   it('los botones de ícono se hunden al presionar, como .boton', () => {
-    expect(css).toMatch(/\.pulsable:active:not\(:disabled\)\s*\{[^}]*scale:/);
+    // Desde T260, `matIconButton`; la clase `pulsable` que lo hacía se fue en T261.
+    expect(css).toMatch(/\.mat-mdc-icon-button:active:not\(:disabled\)\s*\{[^}]*scale:/);
+    expect(css).not.toMatch(/\.pulsable\b/);
   });
 
   it('**todo botón que se deshabilita por un envío lo anuncia con aria-busy**', () => {

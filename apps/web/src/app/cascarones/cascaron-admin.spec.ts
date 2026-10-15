@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../core/auth/auth';
 import { routes } from '../app.routes';
@@ -36,7 +36,8 @@ describe('Cascarón de administración', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([]),
+        // Un comodín vacío: elegir una sección navega, y sin rutas el router lo rechaza.
+        provideRouter([{ path: '**', children: [] }]),
         {
           provide: Auth,
           useValue: {
@@ -54,10 +55,10 @@ describe('Cascarón de administración', () => {
     return fixture;
   }
 
-  /** Las URL de la barra lateral de escritorio, en orden. */
+  /** Las URL de la barra lateral, en orden. */
   function itemsDeLaBarra(usuario: UsuarioActual = ADMIN): string[] {
     const barra = (montar(usuario).nativeElement as HTMLElement).querySelector(
-      'aside',
+      'mat-sidenav',
     );
 
     return [...barra!.querySelectorAll('nav a')].map(
@@ -141,7 +142,7 @@ describe('Cascarón de administración', () => {
   });
 
   it('cada ítem lleva su ícono oculto al lector de pantalla', () => {
-    const barra = (montar().nativeElement as HTMLElement).querySelector('aside');
+    const barra = (montar().nativeElement as HTMLElement).querySelector('mat-sidenav');
     const iconos = [...barra!.querySelectorAll('nav a mat-icon')];
 
     expect(iconos).toHaveLength(20);
@@ -151,7 +152,7 @@ describe('Cascarón de administración', () => {
   it('el pie identifica a quien tiene la sesión abierta', () => {
     const elemento = montar().nativeElement as HTMLElement;
     const pie = elemento.querySelector<HTMLButtonElement>(
-      'aside button[aria-label="Opciones de Rodrigo Torres"]',
+      'mat-sidenav button[aria-label="Opciones de Rodrigo Torres"]',
     );
 
     expect(pie).not.toBeNull();
@@ -164,16 +165,89 @@ describe('Cascarón de administración', () => {
 
     elemento
       .querySelector<HTMLButtonElement>(
-        'aside button[aria-label="Opciones de Rodrigo Torres"]',
+        'mat-sidenav button[aria-label="Opciones de Rodrigo Torres"]',
       )!
       .click();
     fixture.detectChanges();
 
-    const textos = [...elemento.querySelectorAll('aside a, aside button')].map((e) =>
-      e.textContent?.trim(),
-    );
+    // Es un mat-menu (T261): sus ítems se dibujan en el overlay, no en la barra.
+    const textos = [
+      ...document.querySelectorAll('.mat-mdc-menu-panel a, .mat-mdc-menu-panel button'),
+    ].map((e) => e.textContent?.trim());
 
     expect(textos).toContain('Volver al sitio');
     expect(textos).toContain('Salir');
+  });
+
+  describe('la barra es un mat-sidenav (T260)', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    /** El ancho del escritorio, como lo ve `BreakpointObserver`. */
+    const enEscritorio = () =>
+      vi.stubGlobal('matchMedia', (media: string) => ({
+        matches: media.includes('min-width: 768px'),
+        media,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+      }));
+
+    const abierta = (elemento: HTMLElement) =>
+      elemento.querySelector('mat-sidenav')!.classList.contains('mat-drawer-opened');
+
+    it('**en el teléfono se abre con su botón, y al cerrarse el foco vuelve a él**', async () => {
+      const fixture = montar();
+      const elemento = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(elemento);
+      const abrir = elemento.querySelector<HTMLButtonElement>(
+        'button[aria-label="Abrir el menú de administración"]',
+      )!;
+
+      expect(abierta(elemento)).toBe(false);
+
+      abrir.focus();
+      abrir.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(abierta(elemento)).toBe(true);
+
+      elemento.querySelector<HTMLButtonElement>('button[aria-label="Cerrar el menú"]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(abierta(elemento)).toBe(false);
+      expect(document.activeElement).toBe(abrir);
+      elemento.remove();
+    });
+
+    it('en el teléfono, elegir una sección cierra el menú', async () => {
+      const fixture = montar();
+      const elemento = fixture.nativeElement as HTMLElement;
+
+      elemento.querySelector<HTMLButtonElement>('button[aria-label="Abrir el menú de administración"]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      elemento.querySelector<HTMLAnchorElement>('mat-sidenav nav a')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(abierta(elemento)).toBe(false);
+    });
+
+    it('**en el escritorio queda fija**: abierta, al lado del contenido y sin botón de menú', async () => {
+      enEscritorio();
+      const fixture = montar();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const elemento = fixture.nativeElement as HTMLElement;
+
+      expect(abierta(elemento)).toBe(true);
+      expect(elemento.querySelector('mat-sidenav')!.classList).toContain('mat-drawer-side');
+      expect(elemento.querySelector('button[aria-label="Abrir el menú de administración"]')).toBeNull();
+      expect(elemento.querySelector('button[aria-label="Cerrar el menú"]')).toBeNull();
+    });
   });
 });
