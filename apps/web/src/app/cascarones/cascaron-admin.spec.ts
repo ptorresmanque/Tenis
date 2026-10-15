@@ -79,22 +79,55 @@ describe('Cascarón de administración', () => {
     expect(elemento.querySelector('app-progreso-de-navegacion')).not.toBeNull();
   });
 
-  it('lista las trece secciones que hoy tienen pantalla (pestañas: la ocupación en la agenda, T285; Finanzas, T286; las horas reportadas, T287; Personas, T296)', () => {
+  it('lista las trece secciones que hoy tienen pantalla, **en el orden de sus grupos** (T300, SPEC-panel.md D8)', () => {
     expect(itemsDeLaBarra()).toEqual([
+      // Día a día
       '/administracion/reservas',
+      '/administracion/clases',
+      '/administracion/no-uso',
+      // El club
       '/administracion/canchas',
       '/administracion/personas',
       '/administracion/finanzas',
-      '/administracion/no-uso',
-      '/administracion/clases',
+      '/administracion/solicitudes',
+      // Competencias
       '/administracion/torneos',
       '/administracion/tours',
       '/administracion/jugadores',
       '/administracion/partidos-internos',
-      '/administracion/solicitudes',
+      // Al pie
       '/administracion/configuracion',
       '/estado',
     ]);
+  });
+
+  describe('los grupos del menú (T300)', () => {
+    const barra = (usuario: UsuarioActual = ADMIN) =>
+      (montar(usuario).nativeElement as HTMLElement).querySelector('mat-sidenav nav')!;
+
+    it('**cada grupo tiene su subtítulo**, y lo de al pie va tras una divisoria', () => {
+      const nav = barra();
+
+      expect([...nav.querySelectorAll('h2')].map((h) => h.textContent?.trim())).toEqual([
+        'Día a día',
+        'El club',
+        'Competencias',
+      ]);
+      // La divisoria va justo antes de la lista del pie, la que empieza con Configuración.
+      const divisoria = nav.querySelector('mat-divider')!;
+      expect(divisoria.nextElementSibling?.querySelector('a')?.getAttribute('href')).toBe(
+        '/administracion/configuracion',
+      );
+    });
+
+    it('**con un solo grupo a la vista no hay subtítulos**: el gestor, el profesor, o los dos', () => {
+      const NO_ADMIN = { ...ADMIN, esAdmin: false };
+
+      expect(barra({ ...NO_ADMIN, esGestor: true }).querySelector('h2')).toBeNull();
+      expect(barra({ ...NO_ADMIN, profesorId: 7 }).querySelector('h2')).toBeNull();
+      expect(barra({ ...NO_ADMIN, esGestor: true, profesorId: 7 }).querySelector('h2')).toBeNull();
+      expect(barra({ ...NO_ADMIN, esGestor: true }).querySelector('mat-divider')).toBeNull();
+    });
   });
 
   describe('según el tipo (T220)', () => {
