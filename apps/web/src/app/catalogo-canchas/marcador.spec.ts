@@ -195,4 +195,159 @@ describe('Marcador', () => {
 
     expect(encabezado.textContent).toContain('techada');
   });
+
+  /**
+   * En disponibilidad (T264): el mismo tablero, pero la celda libre se elige en la página en
+   * vez de llevar a otra. Lo que cuidan estos tests es que elegir se pueda con teclado sin
+   * recorrer cien paradas, que la celda que no se le vende a quien mira diga por qué y que la
+   * clase lleve a las clases.
+   */
+  describe('en modo elegir', () => {
+    type Elegida = { canchaId: number; inicio: string } | null;
+
+    @Component({
+      imports: [Marcador],
+      template: `
+        <app-marcador
+          modo="elegir"
+          [grillas]="grillas()"
+          [elegida]="elegida()"
+          [sinVenta]="sinVenta"
+          [etiqueta]="etiqueta"
+          (elegir)="elegidas.push($event)"
+        />
+      `,
+    })
+    class HostQueElige {
+      readonly grillas = signal<GrillaDeCancha[]>([]);
+      readonly elegida = signal<Elegida>(null);
+      readonly elegidas: { cancha: Cancha; bloque: BloqueDisponible }[] = [];
+      sinVenta = (bloque: BloqueDisponible): string | null =>
+        bloque.montoClp === null ? 'No se arrienda por 1 hora y media' : null;
+      etiqueta = (cancha: Cancha, bloque: BloqueDisponible) =>
+        `Elegir la ${cancha.nombre} a las ${horaEnElClub(bloque.inicio)}`;
+    }
+
+    function montarQueElige(grillas: GrillaDeCancha[], elegida: Elegida = null) {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [provideRouter([])] });
+      const fixture = TestBed.createComponent(HostQueElige);
+      fixture.componentInstance.grillas.set(grillas);
+      fixture.componentInstance.elegida.set(elegida);
+      fixture.detectChanges();
+
+      return { fixture, el: fixture.nativeElement as HTMLElement };
+    }
+
+    const botones = (el: HTMLElement) =>
+      [...el.querySelectorAll<HTMLButtonElement>('tbody button')];
+
+    it('la celda libre es un botón con el nombre que le da la grilla, y elegirla avisa cuál', () => {
+      const enDos = enHoras(2);
+      const { fixture, el } = montarQueElige([
+        { cancha: cancha(1), bloques: [bloque(1, enDos)] },
+      ]);
+
+      const [boton] = botones(el);
+      expect(el.querySelector('tbody a')).toBeNull();
+      expect(boton.getAttribute('aria-label')).toBe(
+        `Elegir la Cancha 1 a las ${horaEnElClub(enDos.toISOString())}`,
+      );
+
+      boton.click();
+
+      const [elegida] = fixture.componentInstance.elegidas;
+      expect(elegida.cancha.id).toBe(1);
+      expect(elegida.bloque.inicio).toBe(enDos.toISOString());
+    });
+
+    it('la elegida queda marcada, también para el lector, y las otras no', () => {
+      const enDos = enHoras(2);
+      const { el } = montarQueElige(
+        [
+          { cancha: cancha(1), bloques: [bloque(1, enDos)] },
+          { cancha: cancha(2), bloques: [bloque(2, enDos)] },
+        ],
+        { canchaId: 2, inicio: enDos.toISOString() },
+      );
+
+      expect(botones(el).map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+      // Sigue diciendo «Libre», que es su nombre (WCAG 2.5.3); la marca es el ✓ y la placa.
+      expect(celda(el, 0, 2).textContent).toContain('check_circle');
+    });
+
+    it('el tablero es una sola parada de teclado: la elegida, o la primera libre', () => {
+      const enDos = enHoras(2);
+      const enTres = enHoras(3);
+      const grillas = [
+        { cancha: cancha(1), bloques: [bloque(1, enDos), bloque(1, enTres)] },
+        { cancha: cancha(2), bloques: [bloque(2, enDos), bloque(2, enTres)] },
+      ];
+
+      const sinElegir = montarQueElige(grillas).el;
+      expect(botones(sinElegir).map((b) => b.tabIndex)).toEqual([0, -1, -1, -1]);
+
+      const conElegida = montarQueElige(grillas, { canchaId: 2, inicio: enTres.toISOString() }).el;
+      expect(botones(conElegida).map((b) => b.tabIndex)).toEqual([-1, -1, -1, 0]);
+    });
+
+    it('las flechas recorren las libres y se saltan las que no se pueden tomar', () => {
+      const enDos = enHoras(2);
+      const enTres = enHoras(3);
+      const { fixture, el } = montarQueElige([
+        { cancha: cancha(1), bloques: [bloque(1, enDos), bloque(1, enTres)] },
+        { cancha: cancha(2), bloques: [bloque(2, enDos, { reservado: true }), bloque(2, enTres)] },
+        { cancha: cancha(3), bloques: [bloque(3, enDos), bloque(3, enTres)] },
+      ]);
+      const pulsar = (tecla: string) => {
+        (document.activeElement as HTMLElement).dispatchEvent(
+          new KeyboardEvent('keydown', { key: tecla, bubbles: true }),
+        );
+        fixture.detectChanges();
+      };
+      const enFoco = () => document.activeElement?.closest('td');
+
+      celda(el, 0, 1).querySelector('button')!.focus();
+
+      // La Cancha 2 está tomada a la primera hora: la flecha pasa a la 3.
+      pulsar('ArrowRight');
+      expect(enFoco()).toBe(celda(el, 0, 3));
+
+      pulsar('ArrowDown');
+      expect(enFoco()).toBe(celda(el, 1, 3));
+
+      pulsar('ArrowLeft');
+      expect(enFoco()).toBe(celda(el, 1, 2));
+
+      // Arriba de la Cancha 2 no hay libre: se queda donde está.
+      pulsar('ArrowUp');
+      expect(enFoco()).toBe(celda(el, 1, 2));
+
+      // La que tiene el foco es la parada del tablero al volver con Tab.
+      expect(celda(el, 1, 2).querySelector('button')!.tabIndex).toBe(0);
+    });
+
+    it('la libre que no se le vende a quien mira no se puede tocar y dice por qué', () => {
+      const { el } = montarQueElige([
+        { cancha: cancha(1), bloques: [bloque(1, enHoras(2), { montoClp: null })] },
+      ]);
+
+      expect(celda(el, 0, 1).querySelector('a, button')).toBeNull();
+      expect(celda(el, 0, 1).textContent).toContain('No se arrienda por 1 hora y media');
+      expect(el.querySelector('ul')?.textContent).toContain('No se arrienda por 1 hora y media');
+    });
+
+    it('la clase lleva a las clases', () => {
+      const { el } = montarQueElige([
+        {
+          cancha: cancha(1),
+          bloques: [bloque(1, enHoras(2), { bloqueado: true, motivoBloqueo: 'CLASE' })],
+        },
+      ]);
+
+      const enlace = celda(el, 0, 1).querySelector('a');
+      expect(enlace?.getAttribute('href')).toBe('/clases');
+      expect(enlace?.textContent).toContain('Clase');
+    });
+  });
 });
