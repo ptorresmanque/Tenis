@@ -325,6 +325,34 @@ describe('Grilla', () => {
     });
   });
 
+  /** T268. Si hoy ya no queda ninguna libre, la disponibilidad abre en mañana. */
+  describe('sin horas hoy, mañana (T268)', () => {
+    const LLENO: GrillaDeCancha[] = [
+      {
+        cancha: DIA[0].cancha,
+        bloques: DIA[0].bloques.map((b) => ({ ...b, reservado: true, montoClp: 0 })),
+      },
+    ];
+
+    it('**sin fecha en la URL y con hoy lleno, pasa a mañana y lo dice**', async () => {
+      await montar(LLENO);
+
+      expect(pedirDia).toHaveBeenCalledWith('2026-08-18', 60);
+      expect(texto()).toContain('Hoy ya no quedan horas libres: te mostramos mañana.');
+    });
+
+    it('con la fecha en la URL no se mueve, aunque ese día esté lleno', async () => {
+      await montar(LLENO, { fecha: '2026-08-17' });
+
+      expect(pedirDia).not.toHaveBeenCalledWith('2026-08-18', 60);
+    });
+
+    it('con horas hoy, no pide mañana', () => {
+      expect(pedirDia).toHaveBeenCalledTimes(1);
+      expect(texto()).not.toContain('te mostramos mañana');
+    });
+  });
+
   it('si todavía no pasó ninguna hora, no hay grupo plegado', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
   });

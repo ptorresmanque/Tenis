@@ -5,7 +5,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIcon } from '@angular/material/icon';
 
-import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
+import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
 import { Marcador } from '../catalogo-canchas/marcador';
 import {
   diaEnPalabras,
@@ -13,6 +13,7 @@ import {
   fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
+  mananaEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { TiendaYCafeteria } from '../club/tienda-y-cafeteria';
@@ -168,7 +169,7 @@ import { Foto } from '../ui/foto';
           aria-live="polite"
           class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
         >
-          @if (grillas.isLoading()) {
+          @if (grillas.isLoading() || grillasDeManana.isLoading()) {
             <app-esqueleto class="flex-1" [filas]="1" etiqueta="Buscando la próxima hora libre…" />
           } @else if (grillas.error()) {
             <p class="text-muted-foreground">
@@ -180,7 +181,13 @@ import { Foto } from '../ui/foto';
           } @else if (proximaLibre(); as libre) {
             <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
             <div class="min-w-0 flex-1">
-              <p class="font-display text-lg font-bold uppercase">{{ libre.cancha }}</p>
+              <!-- Si hoy ya no queda nada, la de mañana, y lo dice (T268). -->
+              <p class="font-display text-lg font-bold uppercase">
+                @if (esManana()) {
+                  Mañana ·
+                }
+                {{ libre.cancha }}
+              </p>
               <p class="text-sm text-muted-foreground">
                 @if (libre.montoClp !== null) {
                   Arriendo {{ pesos(libre.montoClp) }}.
@@ -200,7 +207,10 @@ import { Foto } from '../ui/foto';
               class="w-full sm:w-auto"
             >
               Reservar
-              <span class="sr-only">{{ libre.cancha }} a las {{ hora(libre.inicio) }}</span>
+              <span class="sr-only"
+                >{{ esManana() ? 'mañana, ' : '' }}{{ libre.cancha }} a las
+                {{ hora(libre.inicio) }}</span
+              >
             </a>
           } @else {
             <p class="font-semibold">
@@ -264,13 +274,19 @@ import { Foto } from '../ui/foto';
         aria-labelledby="libre-hoy"
       >
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="libre-hoy" class="titular text-4xl sm:text-5xl">Libre hoy</h2>
-          <a routerLink="/disponibilidad" class="text-sm font-semibold underline">
+          <h2 id="libre-hoy" class="titular text-4xl sm:text-5xl">
+            Libre {{ esManana() ? 'mañana' : 'hoy' }}
+          </h2>
+          <a
+            routerLink="/disponibilidad"
+            [queryParams]="{ fecha: esManana() ? manana : null }"
+            class="text-sm font-semibold underline"
+          >
             Ver todos los horarios
           </a>
         </div>
 
-        <app-marcador class="mt-5" [grillas]="grillasSeguras()" />
+        <app-marcador class="mt-5" [grillas]="grillasDelDia()" />
       </section>
     }
 
@@ -601,7 +617,7 @@ import { Foto } from '../ui/foto';
                text-on-campo texto-sobre-foto sm:px-14"
       >
         <h2 id="cierre" class="titular max-w-[12ch] text-5xl sm:text-7xl">
-          @if (proximaLibre()) {
+          @if (proximaLibre() && !esManana()) {
             Todavía quedan horas para hoy
           } @else {
             Elige tu hora de esta semana
@@ -768,29 +784,40 @@ export class Inicio {
   });
 
   /**
-   * La próxima hora libre de hoy, la del zócalo.
+   * Mañana, pedida solo si hoy ya no queda ninguna libre (T268, D4): con horas hoy, la
+   * portada hace una sola consulta, como antes. Sin canchas publicadas no hay mañana que
+   * pedir.
+   */
+  protected readonly grillasDeManana = resource({
+    params: () =>
+      this.grillas.status() === 'resolved' &&
+      this.grillasSeguras().length > 0 &&
+      primeraLibre(this.grillasSeguras()) === null
+        ? { fecha: mananaEnElClub() }
+        : undefined,
+    loader: ({ params }) => this.disponibilidad.delDia(params.fecha),
+    defaultValue: [],
+  });
+
+  /** Lo que se muestra es mañana: hoy no queda nada y mañana sí. */
+  protected readonly esManana = computed(
+    () => this.grillasDeManana.hasValue() && primeraLibre(this.grillasDeManana.value()) !== null,
+  );
+
+  protected readonly manana = mananaEnElClub();
+
+  /** Las grillas del día que muestran el zócalo y el tablero: hoy, o mañana (T268). */
+  protected readonly grillasDelDia = computed(() =>
+    this.esManana() ? this.grillasDeManana.value() : this.grillasSeguras(),
+  );
+
+  /**
+   * La próxima hora libre, la del zócalo: de hoy, o de mañana si hoy no queda nada.
    *
    * Hasta TV3.3 era la lista de "Libre hoy", una por hora y hasta seis. El
    * marcador muestra ahora el día entero, así que acá queda solo la primera.
    */
-  protected readonly proximaLibre = computed(() => {
-    const ahora = Date.now();
-
-    const libres = this.grillasSeguras()
-      .flatMap(({ cancha, bloques }) =>
-        bloques
-          .filter(
-            (bloque) =>
-              !bloque.bloqueado &&
-              !bloque.reservado &&
-              new Date(bloque.inicio).getTime() > ahora,
-          )
-          .map((bloque) => ({ ...bloque, cancha: cancha.nombre })),
-      )
-      .sort((una, otra) => una.inicio.localeCompare(otra.inicio));
-
-    return libres[0] ?? null;
-  });
+  protected readonly proximaLibre = computed(() => primeraLibre(this.grillasDelDia()));
 
   /**
    * Las dos formas de jugar acá.
@@ -834,4 +861,24 @@ export class Inicio {
   protected readonly hora = horaEnElClub;
   protected readonly fecha = fechaEnElClub;
   protected readonly pesos = enPesos;
+}
+
+/** La primera hora libre que todavía no empieza, con el nombre de su cancha. */
+function primeraLibre(grillas: readonly GrillaDeCancha[]) {
+  const ahora = Date.now();
+
+  const libres = grillas
+    .flatMap(({ cancha, bloques }) =>
+      bloques
+        .filter(
+          (bloque) =>
+            !bloque.bloqueado &&
+            !bloque.reservado &&
+            new Date(bloque.inicio).getTime() > ahora,
+        )
+        .map((bloque) => ({ ...bloque, cancha: cancha.nombre })),
+    )
+    .sort((una, otra) => una.inicio.localeCompare(otra.inicio));
+
+  return libres[0] ?? null;
 }

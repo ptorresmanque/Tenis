@@ -6,7 +6,12 @@ import { MatButtonHarness } from '@angular/material/button/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
-import { enPesos, fechaEnElClub, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
+import {
+  enPesos,
+  fechaEnElClub,
+  horaEnElClub,
+  mananaEnElClub,
+} from '../catalogo-canchas/reloj-del-club';
 import { Club, LugarDelClub } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
@@ -47,7 +52,7 @@ describe('Inicio', () => {
   const montar = async (
     // Un Error es el calendario que no cargó.
     torneos: TorneoPublico[] | Error,
-    delDia: () => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
+    delDia: (fecha: string) => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
     { esperar, tienda } = { esperar: true } as { esperar: boolean; tienda?: LugarDelClub },
   ) => {
     const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
@@ -386,6 +391,30 @@ describe('Inicio', () => {
       expect(zocalo().querySelector('a')?.getAttribute('href')).toBe(
         `/disponibilidad?fecha=${fechaEnElClub(enDosHoras)}&cancha=3&inicio=${hora}`,
       );
+    });
+
+    it('**si hoy ya no quedan horas, muestra las de mañana y lo dice** (T268)', async () => {
+      const manana = mananaEnElClub();
+      const enManana = new Date(`${manana}T14:00:00.000Z`);
+      const tomada = { ...libreA(enDosHoras), reservado: true, montoClp: 0 };
+      await montar([], (fecha) =>
+        Promise.resolve([
+          { cancha: CANCHA, bloques: fecha === manana ? [libreA(enManana)] : [tomada] },
+        ]),
+      );
+
+      expect(zocalo().textContent).toContain('Mañana');
+      expect(zocalo().textContent).toContain(horaEnElClub(enManana.toISOString()));
+      expect(zocalo().textContent).not.toContain('Hoy ya no quedan');
+      expect(zocalo().querySelector('a')?.getAttribute('href')).toContain(`fecha=${manana}`);
+      expect(elemento().querySelector('#libre-hoy')?.textContent).toContain('Libre mañana');
+    });
+
+    it('con horas hoy, no pide mañana', async () => {
+      const delDia = vi.fn(() => Promise.resolve([{ cancha: CANCHA, bloques: [libreA(enDosHoras)] }]));
+      await montar([], delDia);
+
+      expect(delDia).toHaveBeenCalledTimes(1);
     });
 
     it('mientras busca, lo dice en vez de quedar en blanco', async () => {

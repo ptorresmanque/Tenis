@@ -90,7 +90,9 @@ const claveDe = (canchaId: number, inicio: string) =>
           @if (modo() === 'elegir') {
             Las horas del día, cancha por cancha. Las flechas recorren las horas libres.
           } @else {
-            Las horas que quedan hoy, cancha por cancha
+            <!-- Sin "hoy": desde T268 la portada muestra mañana si hoy ya no queda nada, y su
+                 título lo dice. -->
+            Las horas que quedan, cancha por cancha
           }
         </caption>
         <thead>

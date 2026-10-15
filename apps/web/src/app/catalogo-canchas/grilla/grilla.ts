@@ -29,7 +29,7 @@ import {
   DuracionMin,
 } from '../disponibilidad';
 import { CeldaElegible, Marcador } from '../marcador';
-import { enPesos, hoyEnElClub, horaEnElClub } from '../reloj-del-club';
+import { enPesos, hoyEnElClub, horaEnElClub, mananaEnElClub } from '../reloj-del-club';
 import { TARIFA_DEL_SOCIO, yaEmpezo } from './bandas';
 import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
 import { MoverReserva } from './mover-reserva';
@@ -72,7 +72,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       </p>
     }
 
-    @if (avisoDeLaPortada(); as aviso) {
+    @if (avisoAlLlegar(); as aviso) {
       <p role="status" class="mt-3 rounded-lg bg-muted p-3 text-sm font-medium">
         {{ aviso }}
       </p>
@@ -359,8 +359,11 @@ export class Grilla {
       : null;
   });
 
-  /** Si la de la portada ya no estaba libre al llegar, lo que se le dice. */
-  protected readonly avisoDeLaPortada = signal<string | null>(null);
+  /**
+   * Lo que se le dice a quien llega: que la celda de la portada ya no está libre (T266), o
+   * que hoy no queda nada y se le muestra mañana (T268). Se va al elegir una celda.
+   */
+  protected readonly avisoAlLlegar = signal<string | null>(null);
 
   protected readonly grillas = resource({
     params: () => ({
@@ -441,7 +444,7 @@ export class Grilla {
       const bloque = grilla?.bloques.find(({ inicio }) => this.hora(inicio) === pedida.inicio);
 
       if (!grilla || !bloque || this.noSePuedeTomar(bloque)) {
-        this.avisoDeLaPortada.set('La hora que elegiste ya no está libre: elige otra en el tablero.');
+        this.avisoAlLlegar.set('La hora que elegiste ya no está libre: elige otra en el tablero.');
         return;
       }
 
@@ -454,6 +457,31 @@ export class Grilla {
             ?.scrollIntoView?.({ block: 'center' }),
         { injector: this.injector },
       );
+    });
+  });
+
+  private yaSeVioHoy = false;
+
+  /**
+   * Si hoy ya no queda ninguna libre, pasa a mañana y lo dice (T268, D4). Solo sin fecha en
+   * la URL —la de la portada o la de mover mandan— y una sola vez: quien vuelve a "Hoy" en
+   * la tira ve hoy. Con `resolved`, como `marcarLaDeLaPortada`.
+   */
+  private readonly pasarAMananaSiHoyNoQueda = effect(() => {
+    if (this.yaSeVioHoy || this.fechaDeLaUrl() !== null || this.grillas.status() !== 'resolved') {
+      return;
+    }
+    this.yaSeVioHoy = true;
+
+    untracked(() => {
+      const grillas = this.grillas.value();
+      const quedaAlguna = grillas.some(({ bloques }) =>
+        bloques.some((bloque) => !this.noSePuedeTomar(bloque)),
+      );
+      if (this.fecha() !== hoyEnElClub() || grillas.length === 0 || quedaAlguna) return;
+
+      this.fecha.set(mananaEnElClub());
+      this.avisoAlLlegar.set('Hoy ya no quedan horas libres: te mostramos mañana.');
     });
   });
 
@@ -692,7 +720,7 @@ export class Grilla {
     if (this.mover.porToken() !== null && this.mover.pagadoPorElEnlace() === null) return;
 
     this.elegido.set(celda);
-    this.avisoDeLaPortada.set(null);
+    this.avisoAlLlegar.set(null);
   }
 
   /** El socio mueve sin pagar; desde el enlace, con la diferencia de por medio (T91). */

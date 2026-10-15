@@ -6,6 +6,7 @@ import {
   fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
+  mananaEnElClub,
   mesCortoEnElClub,
   minutosDe,
   proximosDias,
@@ -81,6 +82,12 @@ describe('La tira de días', () => {
     expect(dias[0]).toMatchObject({ fecha: '2026-08-21', etiqueta: 'Hoy', numero: '21' });
     expect(dias[1]).toMatchObject({ fecha: '2026-08-22', etiqueta: 'Mañana' });
     expect(dias[2].etiqueta).toBe('dom');
+  });
+
+  it('mañana es el día siguiente del club, aunque en UTC ya sea otro (T268)', () => {
+    // 23:30 del 31 de agosto en Santiago son las 03:30 del 1 de septiembre en UTC.
+    expect(mananaEnElClub(new Date('2026-09-01T03:30:00.000Z'))).toBe('2026-09-01');
+    expect(mananaEnElClub(new Date('2026-08-31T15:00:00.000Z'))).toBe('2026-09-01');
   });
 
   it('cruza el fin de mes sin inventar un día 32', () => {
