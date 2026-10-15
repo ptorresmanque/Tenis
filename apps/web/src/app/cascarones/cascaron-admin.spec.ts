@@ -1,9 +1,10 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../core/auth/auth';
+import { ConteoDePendientes, Pendientes } from '../core/pendientes';
 import { routes } from '../app.routes';
 import { CascaronAdmin } from './cascaron-admin';
 
@@ -30,8 +31,15 @@ describe('Cascarón de administración', () => {
     profesorId: null,
   };
 
-  function montar(usuario: UsuarioActual = ADMIN) {
+  /** Lo que espera al admin, para los badges del menú (T301). */
+  let pendientes: { conteo: ReturnType<typeof signal<ConteoDePendientes | undefined>>; recargar: ReturnType<typeof vi.fn> };
+
+  function montar(
+    usuario: UsuarioActual = ADMIN,
+    conteo: ConteoDePendientes = { horasPorRevisar: 0, consultasSinAtender: 0 },
+  ) {
     const estado = signal<UsuarioActual | null>(usuario);
+    pendientes = { conteo: signal<ConteoDePendientes | undefined>(conteo), recargar: vi.fn() };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -46,6 +54,7 @@ describe('Cascarón de administración', () => {
             salir: () => Promise.resolve(),
           },
         },
+        { provide: Pendientes, useValue: pendientes },
       ],
     });
 
@@ -127,6 +136,53 @@ describe('Cascarón de administración', () => {
       expect(barra({ ...NO_ADMIN, profesorId: 7 }).querySelector('h2')).toBeNull();
       expect(barra({ ...NO_ADMIN, esGestor: true, profesorId: 7 }).querySelector('h2')).toBeNull();
       expect(barra({ ...NO_ADMIN, esGestor: true }).querySelector('mat-divider')).toBeNull();
+    });
+  });
+
+  describe('los badges de lo que espera (T301, SPEC-panel.md A10)', () => {
+    /** El enlace del menú a esa sección. */
+    const enlace = (elemento: HTMLElement, ruta: string) =>
+      elemento.querySelector<HTMLAnchorElement>(`mat-sidenav nav a[href="${ruta}"]`)!;
+
+    it('**Horas no usadas y Consultas al club dicen cuántas esperan**, y el lector oye qué son', () => {
+      const elemento = montar(ADMIN, { horasPorRevisar: 3, consultasSinAtender: 1 })
+        .nativeElement as HTMLElement;
+      const horas = enlace(elemento, '/administracion/no-uso');
+      const consultas = enlace(elemento, '/administracion/solicitudes');
+
+      expect(horas.querySelector('.mat-badge-content')?.textContent?.trim()).toBe('3');
+      expect(horas.querySelector('.sr-only')?.textContent).toBe(': 3 horas por revisar');
+      expect(consultas.querySelector('.mat-badge-content')?.textContent?.trim()).toBe('1');
+      expect(consultas.querySelector('.sr-only')?.textContent).toBe(': 1 consulta sin atender');
+    });
+
+    it('sin nada que esperar, no hay badge', () => {
+      const elemento = montar(ADMIN, { horasPorRevisar: 0, consultasSinAtender: 0 })
+        .nativeElement as HTMLElement;
+
+      expect(elemento.querySelector('mat-sidenav nav .mat-badge-content')).toBeNull();
+      expect(elemento.querySelector('mat-sidenav nav .sr-only')).toBeNull();
+    });
+
+    it('**en la sección que se está mirando, el badge se esconde**', async () => {
+      const fixture = montar(ADMIN, { horasPorRevisar: 3, consultasSinAtender: 0 });
+      await TestBed.inject(Router).navigateByUrl('/administracion/no-uso');
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const horas = enlace(fixture.nativeElement, '/administracion/no-uso');
+
+      expect(horas.querySelector('.mat-badge')?.classList).toContain('mat-badge-hidden');
+      expect(horas.querySelector('.sr-only')).toBeNull();
+    });
+
+    it('**después de cada navegación vuelve a contar**: lo resuelto baja al volver al menú', async () => {
+      const fixture = montar();
+      pendientes.recargar.mockClear();
+
+      await TestBed.inject(Router).navigateByUrl('/administracion/finanzas');
+      await fixture.whenStable();
+
+      expect(pendientes.recargar).toHaveBeenCalledTimes(1);
     });
   });
 

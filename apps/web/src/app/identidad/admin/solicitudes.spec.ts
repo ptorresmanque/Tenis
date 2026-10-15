@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Contacto, Solicitud } from '../../club/contacto.service';
+import { Pendientes } from '../../core/pendientes';
 import { SolicitudesPanel } from './solicitudes';
 
 /**
@@ -32,6 +33,8 @@ describe('SolicitudesPanel', () => {
     bandeja: ReturnType<typeof vi.fn>;
     resolver: ReturnType<typeof vi.fn>;
   };
+  /** El conteo del badge de «Consultas al club» en el menú (T301). */
+  let pendientes: { recargar: ReturnType<typeof vi.fn> };
 
   const montar = async (solicitudes: Solicitud[]) => {
     api = {
@@ -44,9 +47,15 @@ describe('SolicitudesPanel', () => {
       resolver: vi.fn().mockResolvedValue(UNA),
     };
 
+    pendientes = { recargar: vi.fn() };
+
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: Contacto, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: Contacto, useValue: api },
+        { provide: Pendientes, useValue: pendientes },
+      ],
     });
 
     fixture = TestBed.createComponent(SolicitudesPanel);
@@ -57,6 +66,16 @@ describe('SolicitudesPanel', () => {
   const elemento = () => fixture.nativeElement as HTMLElement;
   beforeEach(async () => {
     await montar([UNA]);
+  });
+
+  it('**atender una consulta baja al tiro el badge del menú** (T301)', async () => {
+    Array.from(elemento().querySelectorAll('button'))
+      .find((b) => b.textContent?.includes('Marcar atendida'))!
+      .click();
+    await fixture.whenStable();
+
+    expect(api.resolver).toHaveBeenCalledWith(12, 'ATENDIDA', '');
+    expect(pendientes.recargar).toHaveBeenCalled();
   });
 
   it('arranca en las que faltan por responder', () => {

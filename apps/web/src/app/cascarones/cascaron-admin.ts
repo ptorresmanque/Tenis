@@ -1,18 +1,20 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Component, computed, inject, viewChild } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatBadge } from '@angular/material/badge';
 import { MatIconButton } from '@angular/material/button';
 import { MatDivider } from '@angular/material/divider';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbar } from '@angular/material/toolbar';
-import { map } from 'rxjs';
+import { filter, map } from 'rxjs';
 
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel, puedeVer } from '../core/auth/tipos-del-panel';
 import { tiposDelUsuario } from '../core/auth/tipos-del-usuario';
+import { Pendientes } from '../core/pendientes';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
 
@@ -130,6 +132,7 @@ export const SECCIONES_DEL_PANEL: SeccionDelPanel[] = [
 @Component({
   selector: 'app-cascaron-admin',
   imports: [
+    MatBadge,
     MatDivider,
     MatIcon,
     MatIconButton,
@@ -227,7 +230,20 @@ export const SECCIONES_DEL_PANEL: SeccionDelPanel[] = [
                       (click)="alElegir()"
                     >
                       <mat-icon class="text-xl" aria-hidden="true">{{ item.icono }}</mat-icon>
-                      {{ item.etiqueta }}
+                      <!-- T301. El badge, como en las pestañas (T287): sobre la etiqueta, escondido
+                           en la sección que se mira, y su descripción también como texto oculto,
+                           porque Material la escribe dentro del número, que es aria-hidden. -->
+                      @let insignia = insignias()[item.ruta];
+                      <span
+                        [matBadge]="insignia?.numero || null"
+                        [matBadgeHidden]="!insignia?.numero || activo.isActive"
+                        [matBadgeDescription]="insignia?.descripcion ?? ''"
+                        matBadgeOverlap="false"
+                        >{{ item.etiqueta }}</span
+                      >
+                      @if (insignia?.numero && !activo.isActive) {
+                        <span class="sr-only">: {{ insignia?.descripcion }}</span>
+                      }
                     </a>
                   </li>
                 }
@@ -337,6 +353,38 @@ export class CascaronAdmin {
   protected readonly conSubtitulos = computed(
     () => this.grupos().filter((grupo) => grupo.titulo !== 'Al pie').length > 1,
   );
+
+  private readonly pendientes = inject(Pendientes);
+
+  /** Cuántas esperan en cada sección que lleva badge (SPEC-panel.md A10). */
+  protected readonly insignias = computed<Record<string, { numero: number; descripcion: string }>>(
+    () => {
+      const horas = this.pendientes.conteo()?.horasPorRevisar ?? 0;
+      const consultas = this.pendientes.conteo()?.consultasSinAtender ?? 0;
+      return {
+        '/administracion/no-uso': {
+          numero: horas,
+          descripcion: horas === 1 ? '1 hora por revisar' : `${horas} horas por revisar`,
+        },
+        '/administracion/solicitudes': {
+          numero: consultas,
+          descripcion:
+            consultas === 1 ? '1 consulta sin atender' : `${consultas} consultas sin atender`,
+        },
+      };
+    },
+  );
+
+  constructor() {
+    // Lo resuelto en otra pantalla baja el número al navegar (T301). La primera vez no repite
+    // la petición: un recurso que carga no recarga.
+    inject(Router)
+      .events.pipe(
+        filter((evento) => evento instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.pendientes.recargar());
+  }
 
   /** Adónde lleva el logotipo: la portada del panel de cada uno. */
   protected readonly inicio = computed(
