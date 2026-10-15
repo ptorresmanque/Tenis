@@ -10,6 +10,7 @@ import {
   horaEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
+import { Pendientes } from '../../core/pendientes';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Decision, HoraReportada, Reportes } from './reportes.service';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -26,16 +27,12 @@ import { Esqueleto } from '../../ui/esqueleto';
   selector: 'app-reportes',
   imports: [MatCard, MatButton, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Horas reportadas</h1>
-        <p class="mt-1 text-muted-foreground">
-          Un socio avisó que estas horas quedaron sin usar. Los reportes son anónimos:
-          el sistema no guarda ni muestra quién avisó.
-        </p>
-      </div>
-    </header>
+    <!-- Es la pestaña «Por revisar» de Horas no usadas (T287): el titular va en la pantalla
+         madre. -->
+    <p class="max-w-prose text-muted-foreground">
+      Un socio avisó que estas horas quedaron sin usar. Los reportes son anónimos:
+      el sistema no guarda ni muestra quién avisó.
+    </p>
 
     <p role="status" aria-live="polite" class="mt-3 text-sm">
       @if (error()) {
@@ -138,6 +135,8 @@ import { Esqueleto } from '../../ui/esqueleto';
 })
 export class ReportesPanel {
   private readonly api = inject(Reportes);
+  /** El conteo de los badges (T287), que no es la lista de esta pantalla. */
+  private readonly conteoDelPanel = inject(Pendientes);
 
   protected readonly resolviendo = signal(false);
   /** Qué decisión está viajando, para que gire su botón y no todos (T154). */
@@ -175,6 +174,8 @@ export class ReportesPanel {
           : 'Sin sanción: los reportes de esa hora quedaron descartados.',
       );
       this.version.update((v) => v + 1);
+      // La hora ya no espera: el badge de «Por revisar» (T287) baja con ella.
+      this.conteoDelPanel.recargar();
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla, 'No se pudo resolver el reporte.'));
     } finally {

@@ -650,6 +650,51 @@ html {
 }
 
 /*
+  EL BOTÓN FLOTANTE (SPEC-panel.md A9, desde T285).
+
+  `matFab extended` para la acción que crea en cada pantalla del panel, uno por pantalla. Lleva
+  la cara del botón lleno (el primario, la condensada en mayúscula y el radio del sitio) y la
+  sombra que lo despega del contenido. `.fab-de-la-pantalla` lo deja abajo a la derecha, sobre
+  lo que se desplaza. Material le fija `position: relative` sin capa, así que la posición va
+  acá y no en una utilidad.
+*/
+html {
+  @include mat.fab-overrides(
+    (
+      container-color: var(--color-primary),
+      foreground-color: var(--color-on-primary),
+      container-shape: var(--radius-control),
+      extended-container-shape: var(--radius-control),
+      extended-label-text-font: var(--font-display),
+      extended-label-text-weight: 700,
+      extended-label-text-size: 1rem,
+      extended-label-text-tracking: 0.04em,
+    )
+  );
+}
+
+html .mat-mdc-fab-base.fab-de-la-pantalla {
+  position: fixed;
+  inset-block-end: 1.5rem;
+  inset-inline-end: 1.5rem;
+  z-index: 20;
+  text-transform: uppercase;
+}
+
+/* Los badges de lo que espera (T287): el rojo de los errores del sitio, para que se lean como
+   «hay que hacer algo», con la letra de leer en negrita. */
+html {
+  @include mat.badge-overrides(
+    (
+      background-color: var(--color-destructive),
+      text-color: var(--color-on-primary),
+      text-font: var(--font-sans),
+      text-weight: 700,
+    )
+  );
+}
+
+/*
   LOS PANELES DESPLEGABLES (T281).
 
   `mat-expansion-panel` reemplaza a los `<details>` y conserva su cara: sin tarjeta ni sombra,

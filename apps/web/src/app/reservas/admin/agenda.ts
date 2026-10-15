@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
-import { MatButton } from '@angular/material/button';
+import { MatFabButton } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -35,8 +35,10 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
  */
 @Component({
   selector: 'app-agenda-del-dia',
+  // Espacio al final para que el FAB no tape la última fila del tablero (A9).
+  host: { class: 'block', '[class.pb-24]': 'puedeTomarHoras()' },
   imports: [
-    MatButton,
+    MatFabButton,
     MatChipsModule,
     MatIcon,
     DescargarCsv,
@@ -48,37 +50,38 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
     Esqueleto,
   ],
   template: `
-    <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
-         Los controles del día van debajo, los mismos de disponibilidad (T271). -->
-    <header class="cabecera-panel">
-      <div>
-        <div class="flex flex-wrap items-center gap-3">
-          <h1 class="titular text-4xl">Agenda del día</h1>
-          <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita
-               que alguien recargue por las dudas cada dos minutos. -->
-          <mat-chip-set class="insignias">
-            <mat-chip class="insignia exito">
-              <mat-icon matChipAvatar aria-hidden="true">sensors</mat-icon>
-              En vivo
-            </mat-chip>
-          </mat-chip-set>
-        </div>
-      </div>
+    <!-- El titular y las pestañas van en la pantalla madre (T285, panel-de-la-agenda). Acá
+         queda lo de la agenda: que está en vivo y su planilla. Los controles del día van
+         debajo, los mismos de disponibilidad (T271). -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <!-- La agenda se repuebla sola con los avisos del servidor. Decirlo evita que alguien
+           recargue por las dudas cada dos minutos. -->
+      <mat-chip-set class="insignias">
+        <mat-chip class="insignia exito">
+          <mat-icon matChipAvatar aria-hidden="true">sensors</mat-icon>
+          En vivo
+        </mat-chip>
+      </mat-chip-set>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <!-- El día que se está mirando, en una planilla (T273): lo bajan el admin y el
-             gestor, como los reportes. -->
-        <app-descargar-csv [url]="'/api/admin/agenda.csv?fecha=' + fechaActual()" />
+      <!-- El día que se está mirando, en una planilla (T273): lo bajan el admin y el
+           gestor, como los reportes. -->
+      <app-descargar-csv [url]="'/api/admin/agenda.csv?fecha=' + fechaActual()" />
+    </div>
 
-        <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. -->
-        @if (puedeTomarHoras()) {
-          <button matButton="filled" type="button" (click)="tomandoHora.set(SIN_FRANJA)">
-            <mat-icon class="text-base" aria-hidden="true">add</mat-icon>
-            Nueva reserva
-          </button>
-        }
-      </div>
-    </header>
+    <!-- Tomar una hora es del admin (T221): el gestor mira el día y anota. Es la acción que
+         crea, y va en el FAB como en el resto del panel (SPEC-panel.md D15). -->
+    @if (puedeTomarHoras()) {
+      <button
+        matFab
+        extended
+        type="button"
+        class="fab-de-la-pantalla"
+        (click)="tomandoHora.set(SIN_FRANJA)"
+      >
+        <mat-icon aria-hidden="true">add</mat-icon>
+        Nueva reserva
+      </button>
+    }
 
     <!-- Los controles del día de disponibilidad (D2): la semana a un toque, «Otro día» y
          el día en palabras. Duración y canchas no van: la agenda muestra todo el día. -->

@@ -42,6 +42,13 @@ describe('tipos del panel', () => {
       );
     });
 
+    it('**el gestor ve la agenda, pero no su pestaña de ocupación** (T285, A3)', () => {
+      // Comparten la ruta madre: sin la regla, el recorte a tres tramos se la abría.
+      expect(puedeVer('/administracion/reservas/ocupacion', GESTOR)).toBe(false);
+      expect(puedeVer('/administracion/reservas/ocupacion', ADMIN)).toBe(true);
+      expect(puedeVer('/administracion/reservas', GESTOR)).toBe(true);
+    });
+
     it('el gestor no ve nada más', () => {
       expect(puedeVer('/administracion/canchas', GESTOR)).toBe(false);
       expect(puedeVer('/administracion/clases', GESTOR)).toBe(false);

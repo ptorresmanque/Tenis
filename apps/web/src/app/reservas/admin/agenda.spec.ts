@@ -143,28 +143,26 @@ describe('AgendaDelDia', () => {
     await montar([UNA]);
   });
 
-  /** Los botones llenos de la cabecera, que es donde va la acción principal. */
-  const llenosDeLaCabecera = () =>
+  /** Los FAB de la pantalla: la acción que crea (SPEC-panel.md D15). */
+  const fabs = () =>
     TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
-      MatButtonHarness.with({ appearance: 'filled', ancestor: '.cabecera-panel' }),
+      MatButtonHarness.with({ variant: 'fab' }),
     );
 
-  it('la cabecera del panel lleva el título y una sola acción principal (TV7.1)', async () => {
-    // La regla del panel: una banda compacta con el titular y **una** acción
-    // principal. La navegación entre días va debajo, fuera de la cabecera.
-    const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
-    const llenos = await llenosDeLaCabecera();
+  it('**«Nueva reserva» es el FAB extendido de la pantalla, el único** (T285, D15)', async () => {
+    // El título vive en la pantalla madre (panel-de-la-agenda), con las pestañas.
+    const [nueva, ...otros] = await fabs();
 
-    expect(cabecera?.querySelector('h1')?.textContent).toContain('Agenda del día');
-    expect(llenos).toHaveLength(1);
-    expect(await llenos[0].getText()).toContain('Nueva reserva');
-    expect(cabecera?.querySelector('[aria-label="Día anterior"]')).toBeNull();
+    expect(otros).toHaveLength(0);
+    expect(await nueva.getText()).toContain('Nueva reserva');
+    expect(await (await nueva.host()).hasClass('mdc-fab--extended')).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector('h1')).toBeNull();
   });
 
   it('a la gestora le muestra el día, reservas y clases, sin "Nueva reserva" (T221)', async () => {
     await montar([UNA], [CLASE], GESTORA);
 
-    expect(await llenosDeLaCabecera()).toHaveLength(0);
+    expect(await fabs()).toHaveLength(0);
     expect(texto()).not.toContain('Nueva reserva');
     expect(texto()).toContain('Camila Visitante');
     expect(texto()).toContain('Ana Silva');
@@ -248,10 +246,8 @@ describe('AgendaDelDia', () => {
     expect(texto()).not.toContain('Hora tomada');
   });
 
-  it('el botón de la cabecera la abre sin cancha ni hora', async () => {
-    (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.cabecera-panel button')!
-      .click();
+  it('el FAB la abre sin cancha ni hora', async () => {
+    await (await fabs())[0].click();
     await fixture.whenStable();
     fixture.detectChanges();
 

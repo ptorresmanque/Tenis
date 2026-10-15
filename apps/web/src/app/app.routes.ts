@@ -162,8 +162,24 @@ export const routes: Routes = [
       {
         path: 'administracion/reservas',
         title: 'Agenda del día — Administración',
+        // T285 (SPEC-panel.md D5): la agenda y la ocupación, en pestañas con su ruta.
         loadComponent: () =>
-          import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
+          import('./reservas/admin/panel-de-la-agenda').then((m) => m.PanelDeLaAgenda),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            title: 'Agenda del día — Administración',
+            loadComponent: () =>
+              import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
+          },
+          {
+            path: 'ocupacion',
+            title: 'Agenda del día · Ocupación — Administración',
+            loadComponent: () =>
+              import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
+          },
+        ],
       },
       {
         path: 'administracion/canchas',
@@ -187,16 +203,16 @@ export const routes: Routes = [
           import('./identidad/admin/socios').then((m) => m.SociosPanel),
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/cuotas',
-        title: 'Cuotas — Administración',
-        loadComponent: () =>
-          import('./cuotas/admin/panel-cuotas').then((m) => m.PanelDeCuotas),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/cuotas',
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/morosos',
-        title: 'Socios con deuda — Administración',
-        loadComponent: () =>
-          import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/morosos',
       },
       {
         path: 'administracion/clases',
@@ -256,34 +272,83 @@ export const routes: Routes = [
           import('./identidad/admin/solicitudes').then((m) => m.SolicitudesPanel),
       },
       {
-        path: 'administracion/ingreso',
-        title: 'Ingreso del club — Administración',
-        loadComponent: () =>
-          import('./reportes/ingreso').then((m) => m.IngresoPanel),
+        path: 'administracion/finanzas',
+        title: 'Finanzas — Administración',
+        // T286 (SPEC-panel.md D4): el ingreso, el padrón, las cuotas y los deudores, en pestañas.
+        loadComponent: () => import('./finanzas/finanzas').then((m) => m.Finanzas),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'ingreso' },
+          {
+            path: 'ingreso',
+            title: 'Finanzas · Ingreso — Administración',
+            loadComponent: () =>
+              import('./reportes/ingreso').then((m) => m.IngresoPanel),
+          },
+          {
+            path: 'padron',
+            title: 'Finanzas · Padrón y morosidad — Administración',
+            loadComponent: () =>
+              import('./reportes/padron').then((m) => m.PadronPanel),
+          },
+          {
+            path: 'cuotas',
+            title: 'Finanzas · Cuotas — Administración',
+            loadComponent: () =>
+              import('./cuotas/admin/panel-cuotas').then((m) => m.PanelDeCuotas),
+          },
+          {
+            path: 'morosos',
+            title: 'Finanzas · Socios con deuda — Administración',
+            loadComponent: () =>
+              import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
+          },
+        ],
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
+        path: 'administracion/ingreso',
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/ingreso',
+      },
+      {
+        // La pantalla pasó a ser una pestaña de la agenda (T285); los marcadores siguen andando.
         path: 'administracion/ocupacion',
-        title: 'Ocupación de cancha — Administración',
-        loadComponent: () =>
-          import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/reservas/ocupacion',
       },
       {
         path: 'administracion/no-uso',
         title: 'Horas no usadas — Administración',
+        // T287 (SPEC-panel.md D6): lo que hay que revisar y la estadística, en pestañas.
         loadComponent: () =>
-          import('./reportes/no-uso').then((m) => m.NoUsoPanel),
+          import('./reportes/horas-no-usadas').then((m) => m.HorasNoUsadas),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'por-revisar' },
+          {
+            path: 'por-revisar',
+            title: 'Horas no usadas · Por revisar — Administración',
+            loadComponent: () =>
+              import('./reservas/admin/reportes').then((m) => m.ReportesPanel),
+          },
+          {
+            path: 'periodo',
+            title: 'Horas no usadas · Período — Administración',
+            loadComponent: () =>
+              import('./reportes/no-uso').then((m) => m.NoUsoPanel),
+          },
+        ],
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/padron',
-        title: 'Padrón y morosidad — Administración',
-        loadComponent: () =>
-          import('./reportes/padron').then((m) => m.PadronPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/padron',
       },
       {
+        // Pasó a ser la pestaña «Por revisar» de Horas no usadas (T287).
         path: 'administracion/reportes',
-        title: 'Horas reportadas — Administración',
-        loadComponent: () =>
-          import('./reservas/admin/reportes').then((m) => m.ReportesPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/no-uso/por-revisar',
       },
       {
         // Tres secciones bajo un mismo cascarón con sub-navegación, como decidió

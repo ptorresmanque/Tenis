@@ -75,6 +75,13 @@ describe('Rutas protegidas', () => {
   it.each([
     'administracion/canchas',
     'administracion/reservas',
+    'administracion/reservas/ocupacion',
+    'administracion/finanzas/ingreso',
+    'administracion/finanzas/padron',
+    'administracion/finanzas/cuotas',
+    'administracion/finanzas/morosos',
+    'administracion/no-uso/por-revisar',
+    'administracion/no-uso/periodo',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',
@@ -93,6 +100,44 @@ describe('Rutas protegidas', () => {
     'estado',
   ])('%s pasa por el guard del panel', (url) => {
     expect(buscar(url)?.guards).toContain(conPanel);
+  });
+
+  it('**la ocupación vive en la agenda: su ruta vieja redirige** (T285, A1)', () => {
+    expect(buscar('administracion/ocupacion')?.ruta.redirectTo).toBe(
+      '/administracion/reservas/ocupacion',
+    );
+    expect(buscar('administracion/reservas/ocupacion')?.ruta.title).toBe(
+      'Agenda del día · Ocupación — Administración',
+    );
+  });
+
+  it.each([
+    ['ingreso', 'ingreso', 'Ingreso'],
+    ['padron', 'padron', 'Padrón y morosidad'],
+    ['cuotas', 'cuotas', 'Cuotas'],
+    ['morosos', 'morosos', 'Socios con deuda'],
+  ])(
+    '**/administracion/%s es la pestaña «%s» de Finanzas** (T286, A1)',
+    (vieja, pestana, etiqueta) => {
+      expect(buscar(`administracion/${vieja}`)?.ruta.redirectTo).toBe(
+        `/administracion/finanzas/${pestana}`,
+      );
+      expect(buscar(`administracion/finanzas/${pestana}`)?.ruta.title).toBe(
+        `Finanzas · ${etiqueta} — Administración`,
+      );
+    },
+  );
+
+  it('**Horas reportadas es la pestaña «Por revisar» de Horas no usadas** (T287, A1)', () => {
+    expect(buscar('administracion/reportes')?.ruta.redirectTo).toBe(
+      '/administracion/no-uso/por-revisar',
+    );
+    expect(buscar('administracion/no-uso/por-revisar')?.ruta.title).toBe(
+      'Horas no usadas · Por revisar — Administración',
+    );
+    expect(buscar('administracion/no-uso/periodo')?.ruta.title).toBe(
+      'Horas no usadas · Período — Administración',
+    );
   });
 
   it('**la ruta vieja de la tienda y la cafetería lleva a la tienda** (T236, G6)', () => {
