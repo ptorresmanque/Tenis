@@ -78,7 +78,7 @@ export class InvitacionesService {
 
     if (usuario.socio) {
       throw new ConflictException(
-        'Ese correo ya es socio del club. Su ficha se edita desde la lista de socios.',
+        'Ese correo ya es socio del club: su ficha se edita en Personas, en «Cuota».',
       );
     }
 

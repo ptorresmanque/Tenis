@@ -121,7 +121,7 @@ describe('Personas', () => {
   });
 
   it('buscar y ordenar también van a la URL', async () => {
-    const { el, fixture, navegar } = await montar();
+    const { el, fixture, navegar } = await montar({ tipo: 'socios' });
     const campo = el.querySelector<HTMLInputElement>('input[name="busqueda"]')!;
 
     // NgForm conecta el campo un microtask después de crearlo: antes, escribir no llega.
@@ -136,6 +136,13 @@ describe('Personas', () => {
       .click();
     fixture.detectChanges();
     expect(cambioEnLaUrl(navegar)).toEqual({ orden: 'numero', pagina: null });
+  });
+
+  it('**ordenar por número de socio es solo con el filtro Socios**: con todos, los sin número irían primero', async () => {
+    const { el, listar } = await montar({ orden: 'numero' });
+
+    expect(el.querySelector('mat-button-toggle-group')).toBeNull();
+    expect(listar).toHaveBeenCalledWith('', 1, undefined, 'nombre');
   });
 
   it('**una fila por cuenta**: su nombre lleva a su ficha, con su correo, sus tipos y su cuota', async () => {

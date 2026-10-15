@@ -105,15 +105,17 @@ const FILTROS: { valor: TipoDePersona | 'todos'; etiqueta: string }[] = [
         <button matButton="outlined" type="submit">Buscar</button>
       </form>
 
-      <mat-button-toggle-group
-        aria-label="Ordenar por"
-        hideSingleSelectionIndicator
-        [value]="ordenElegido()"
-        (change)="ordenar($event.value)"
-      >
-        <mat-button-toggle value="nombre">Nombre</mat-button-toggle>
-        <mat-button-toggle value="numero">N° de socio</mat-button-toggle>
-      </mat-button-toggle-group>
+      @if (filtro() === 'socios') {
+        <mat-button-toggle-group
+          aria-label="Ordenar por"
+          hideSingleSelectionIndicator
+          [value]="ordenElegido()"
+          (change)="ordenar($event.value)"
+        >
+          <mat-button-toggle value="nombre">Nombre</mat-button-toggle>
+          <mat-button-toggle value="numero">N° de socio</mat-button-toggle>
+        </mat-button-toggle-group>
+      }
     </div>
 
     @if (filtro() === 'profesores' && profesoresSinCuenta() > 0) {
@@ -234,8 +236,9 @@ export class PersonasPanel {
       : undefined,
   );
   protected readonly filtro = computed(() => this.tipoElegido() ?? 'todos');
+  /** Por número, solo entre socios: con todos, MariaDB pone primero a los que no tienen. */
   protected readonly ordenElegido = computed<OrdenDePersonas>(() =>
-    this.orden() === 'numero' ? 'numero' : 'nombre',
+    this.filtro() === 'socios' && this.orden() === 'numero' ? 'numero' : 'nombre',
   );
   protected readonly paginaElegida = computed(() => {
     const numero = Number(this.pagina());
