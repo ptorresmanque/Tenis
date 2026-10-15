@@ -17,6 +17,7 @@ import { Esqueleto } from '../../../ui/esqueleto';
 import { EstadoVacio } from '../../../ui/estado-vacio';
 import { proveerPaginador } from '../../../ui/paginador';
 import { cuotaVencida, enDiaMes, ESTADOS_SOCIO } from '../socios.service';
+import { InvitacionesPendientes } from './invitaciones-pendientes';
 import {
   OrdenDePersonas,
   TipoDePersona,
@@ -62,6 +63,7 @@ const FILTROS: { valor: TipoDePersona | 'todos'; etiqueta: string }[] = [
     Aviso,
     Esqueleto,
     EstadoVacio,
+    InvitacionesPendientes,
   ],
   providers: [proveerCampos(), proveerPaginador()],
   template: `
@@ -123,6 +125,11 @@ const FILTROS: { valor: TipoDePersona | 'todos'; etiqueta: string }[] = [
         Siguen dando sus clases; cuando se registre en el sitio, asócialo desde la ficha de su
         cuenta.
       </app-aviso>
+    }
+
+    @if (filtro() === 'socios') {
+      <!-- D14: las invitaciones de antes, que estaban en el padrón (T299). -->
+      <app-invitaciones-pendientes class="mt-3 block" />
     }
 
     @if (listado.isLoading() && !listado.hasValue()) {

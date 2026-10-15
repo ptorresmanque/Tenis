@@ -2,18 +2,19 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Agenda } from '../../reservas/admin/agenda.service';
-import { FichaSocio } from './ficha-socio';
+import { CuotaDelSocio } from './cuota-del-socio';
 import { CambioDeFicha, SocioDelClub, Socios } from './socios.service';
 
 /**
- * T37. La ficha de un socio: editarla y ver quién la cambió antes.
+ * T37. La ficha de un socio: editarla y ver quién la cambió antes. Desde T298 es la pestaña
+ * «Cuota» de la ficha de una cuenta en Personas, dentro de la página y no en un diálogo.
  *
  * Lo que este archivo ataja: que el panel **mande de más**. Guardar sin haber tocado
  * nada, o mandar los tres campos cuando cambió uno, hace que un error del servidor
  * hable de algo que el admin no tocó —y en un formulario de derechos eso se lee como
  * "el sistema hizo algo que yo no pedí".
  */
-describe('FichaSocio', () => {
+describe('La cuota del socio', () => {
   const SOCIA: SocioDelClub = {
     id: 7,
     numeroSocio: '001',
@@ -32,7 +33,7 @@ describe('FichaSocio', () => {
     motivo: 'Cuota impaga desde junio',
   };
 
-  let fixture: ComponentFixture<FichaSocio>;
+  let fixture: ComponentFixture<CuotaDelSocio>;
   let api: {
     editar: ReturnType<typeof vi.fn>;
     historial: ReturnType<typeof vi.fn>;
@@ -73,14 +74,13 @@ describe('FichaSocio', () => {
       ],
     });
 
-    fixture = TestBed.createComponent(FichaSocio);
+    fixture = TestBed.createComponent(CuotaDelSocio);
     fixture.componentRef.setInput('socio', SOCIA);
     await fixture.whenStable();
     fixture.detectChanges();
   };
 
-  /** La ficha es un MatDialog (T252): su contenido está en el contenedor de overlays. */
-  const elemento = () => document.querySelector('mat-dialog-container') as HTMLElement;
+  const elemento = () => fixture.nativeElement as HTMLElement;
   const escribir = (nombre: string, valor: string) => {
     const campo = elemento().querySelector<HTMLInputElement>(`[name="${nombre}"]`)!;
     campo.value = valor;
@@ -105,11 +105,6 @@ describe('FichaSocio', () => {
     expect(texto).toContain('Cancha 1');
   });
 
-  it('es un diálogo de Material, con el nombre del socio de título', () => {
-    expect(elemento()).not.toBeNull();
-    expect(elemento().querySelector('[mat-dialog-title]')?.textContent).toContain('Carolina');
-  });
-
   it('el calendario de la cuota se abre desde la ficha', async () => {
     elemento()
       .querySelector<HTMLButtonElement>('mat-datepicker-toggle button')!
@@ -120,21 +115,23 @@ describe('FichaSocio', () => {
     expect(document.querySelector('mat-calendar')).not.toBeNull();
   });
 
-  it('cerrar la ficha avisa al panel', async () => {
-    let cerrada = false;
-    fixture.componentInstance.cerrado.subscribe(() => (cerrada = true));
-
-    [...elemento().querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cancelar')!.click();
+  it('el calendario confirma con «Cancelar / Aplicar» y dice su formato (D16 y D17)', async () => {
+    elemento().querySelector<HTMLButtonElement>('mat-datepicker-toggle button')!.click();
     await fixture.whenStable();
+    fixture.detectChanges();
 
-    expect(cerrada).toBe(true);
+    expect(
+      [...document.querySelectorAll('.mat-datepicker-actions button')].map((b) =>
+        b.textContent?.trim(),
+      ),
+    ).toEqual(['Cancelar', 'Aplicar']);
+    expect(elemento().textContent).toContain('dd-mm-aaaa');
   });
 
   it('llega con los datos del socio puestos', () => {
     const numero = elemento().querySelector<HTMLInputElement>('[name="numeroSocio"]');
 
     expect(numero?.value).toBe('001');
-    expect(elemento().textContent).toContain('Carolina Díaz');
   });
 
   it('**manda solo el campo que cambió**', async () => {

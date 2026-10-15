@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 
+import { Socios } from '../socios.service';
 import { ListadoDeUsuarios, UsuarioDeLaLista, Usuarios } from '../usuarios.service';
 import { PersonasPanel } from './personas';
 
@@ -58,7 +59,15 @@ describe('Personas', () => {
       ...listado,
     });
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: Usuarios, useValue: { listar } }],
+      providers: [
+        provideRouter([]),
+        { provide: Usuarios, useValue: { listar } },
+        // Las invitaciones pendientes, que se muestran con el filtro Socios (T299).
+        {
+          provide: Socios,
+          useValue: { listado: vi.fn().mockResolvedValue({ socios: [], invitaciones: [] }) },
+        },
+      ],
     });
     const navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = TestBed.createComponent(PersonasPanel);
@@ -176,6 +185,13 @@ describe('Personas', () => {
     TestBed.resetTestingModule();
     const sinNinguno = (await montar({ tipo: 'profesores' }, { profesoresSinCuenta: 0 })).el;
     expect(sinNinguno.textContent).not.toContain('sin cuenta');
+  });
+
+  it('**con el filtro Socios, muestra las invitaciones de antes que siguen pendientes** (T299)', async () => {
+    expect((await montar({ tipo: 'socios' })).el.querySelector('app-invitaciones-pendientes')).not.toBeNull();
+
+    TestBed.resetTestingModule();
+    expect((await montar()).el.querySelector('app-invitaciones-pendientes')).toBeNull();
   });
 
   it('si nadie coincide, lo dice', async () => {
