@@ -39,7 +39,9 @@ const LARGO_DE_LA_RESPUESTA = 2000;
   providers: [proveerCampos()],
   template: `
     <section aria-labelledby="titulo-preguntas">
-      <h2 id="titulo-preguntas" class="rotulo-seccion" tabindex="-1">Preguntas frecuentes</h2>
+      <!-- Para el lector y no a la vista (T290): va dentro del panel «Preguntas frecuentes» de
+           Configuración, que ya lo dice. Sigue siendo adonde vuelve el foco al borrar. -->
+      <h2 id="titulo-preguntas" class="sr-only" tabindex="-1">Preguntas frecuentes</h2>
       <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         Salen en la página «Preguntas frecuentes», enlazada desde el pie de cada página y
         desde «El club». Van en el orden de la lista: el número menor, más arriba.
@@ -169,7 +171,11 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                     </div>
 
                     <mat-form-field class="w-18 sm:w-24">
-                      <mat-label>Orden de «{{ pregunta.pregunta }}»</mat-label>
+                      <!-- «Orden» a la vista y la pregunta para el lector (T290): el campo es
+                           angosto, y la etiqueta entera se cortaba en «Orden de «¿Nec». -->
+                      <mat-label
+                        >Orden<span class="sr-only"> de «{{ pregunta.pregunta }}»</span></mat-label
+                      >
                       <input
                         matInput
                         [id]="'orden-pregunta-' + pregunta.id"

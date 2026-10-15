@@ -72,6 +72,26 @@ describe('PreguntasFrecuentesPanel', () => {
     expect(filas()[0].textContent).toContain('Cualquiera puede arrendar una hora.');
   });
 
+  it('su título es para el lector: el panel de Configuración ya lo dice a la vista (T290)', async () => {
+    const { elemento } = await montar();
+
+    expect(elemento.querySelector('h2')?.textContent).toBe('Preguntas frecuentes');
+    expect(elemento.querySelector('h2')?.classList).toContain('sr-only');
+  });
+
+  it('el orden dice «Orden» a la vista y nombra su pregunta para el lector (T290)', async () => {
+    // El campo es angosto: con la pregunta entera a la vista, la etiqueta se cortaba.
+    const { filas } = await montar();
+    const etiqueta = filas()[0].querySelector('mat-label')!;
+
+    expect(etiqueta.querySelector('.sr-only')?.textContent).toBe(
+      ' de «¿Necesito ser socio para reservar?»',
+    );
+    expect(etiqueta.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Orden de «¿Necesito ser socio para reservar?»',
+    );
+  });
+
   it('sin preguntas, dice qué pasa en el sitio y qué hacer', async () => {
     const { elemento } = await montar([]);
 
