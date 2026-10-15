@@ -55,19 +55,6 @@ export class MoverReserva {
     this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().pagadoClp : null,
   );
 
-  /**
-   * La cancha de la reserva que se mueve, por su nombre, que es único. La barra la
-   * preelige si sigue libre en la celda: alargar una hora no la cambia de cancha (T104).
-   * Desde "mis reservas" viaja en la URL; desde el enlace, la dice la reserva misma.
-   */
-  readonly cancha = computed(() => {
-    if (this.porToken() !== null) {
-      return this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().cancha : null;
-    }
-
-    return this.porId() !== null ? (this.parametros()?.get('cancha') ?? null) : null;
-  });
-
   readonly error = signal<string | null>(null);
 
   /**

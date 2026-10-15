@@ -146,6 +146,11 @@ export interface DiaDelClub {
  * tira saltaría un día o repetiría el mismo. A mediodía UTC en Santiago son las
  * 08:00 o las 09:00, así que siempre cae dentro del día que corresponde.
  */
+/** El día siguiente en el club (T268): a qué día pasar cuando hoy ya no queda nada. */
+export function mananaEnElClub(ahora = new Date()): string {
+  return proximosDias(2, ahora)[1].fecha;
+}
+
 export function proximosDias(cuantos: number, ahora = new Date()): DiaDelClub[] {
   const base = new Date(`${hoyEnElClub(ahora)}T12:00:00.000Z`);
 

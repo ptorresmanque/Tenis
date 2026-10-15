@@ -186,6 +186,11 @@ describe('Grilla', () => {
         return enTexto(copia);
       })
       .slice(1);
+  /** El nombre de cada cancha del tablero, sin el ", techada" que se le dice al lector. */
+  const nombres = () => columnas().map((columna) => columna.split(',')[0].trim());
+  /** La celda de una cancha (1, 2…, en el orden del tablero) a una hora. */
+  const celdaDe = (inicio: string, columna: number) =>
+    filaDe(inicio).querySelectorAll('td')[columna - 1] as HTMLElement;
 
   beforeEach(async () => {
     // Las 07:00 del club el día del fixture, antes de todos sus bloques: la grilla
@@ -198,14 +203,161 @@ describe('Grilla', () => {
     vi.useRealTimers();
   });
 
+  /**
+   * T265. Disponibilidad dibuja el tablero de la portada (SPEC-revision-qa.md, A1): una
+   * columna por cancha, y la celda libre elige esa cancha. Reemplaza a la tabla por tipo de
+   * cancha de T103, con el precio una vez arriba y en la barra.
+   */
+  describe('el tablero de la portada (T265)', () => {
+    const DOS: GrillaDeCancha[] = [
+      {
+        cancha: { ...DIA[0].cancha, id: 3, nombre: 'Cancha 3', techada: true },
+        bloques: DIA[0].bloques.map((b) => ({ ...b, canchaId: 3, montoClp: 14000 })),
+      },
+      DIA[0],
+    ];
+    const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
+
+    it('**una columna por cancha, en el orden del club**, sobre la banda de la portada', async () => {
+      await montar(DOS);
+
+      expect(el().querySelector('app-marcador')).not.toBeNull();
+      expect(nombres()).toEqual(['Cancha 3', 'Cancha 1']);
+    });
+
+    it('**la celda elige su cancha: la barra la nombra con su precio, sin chips**', async () => {
+      await montar(DOS);
+
+      filaDe('08:00').querySelectorAll('button')[1].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(enTexto(barra())).toContain('Cancha 1');
+      expect(enTexto(barra())).toContain('$12.000');
+      expect(barra().querySelector('mat-button-toggle')).toBeNull();
+      expect(filaDe('08:00').querySelectorAll('button')[1].getAttribute('aria-pressed')).toBe(
+        'true',
+      );
+    });
+
+    it('la etiqueta empieza con lo que se ve y dice cancha, hora y arriendo', () => {
+      expect(etiquetas()[0]).toBe('Libre: elegir la Cancha 1 de 08:00 a 09:00, arriendo $12.000');
+    });
+
+    it('al visitante, el arriendo una vez arriba del tablero, y "desde" si varía', async () => {
+      expect(enTexto(el().querySelector('[data-tarifas]')!)).toContain(
+        'Arriendo de 1 hora por cancha: $12.000 · socio sin costo',
+      );
+      expect(enTexto(el().querySelector('tbody')!)).not.toContain('$');
+
+      await montar(DOS);
+      expect(enTexto(el().querySelector('[data-tarifas]')!)).toContain('desde $12.000');
+    });
+
+    it('si no queda ninguna libre, la línea de arriba no inventa un monto', async () => {
+      // La API manda en 0 el monto de una hora tomada: con todas tomadas, "desde $0" o un
+      // "$∞" de un mínimo sin montos.
+      await montar([
+        {
+          cancha: DIA[0].cancha,
+          bloques: DIA[0].bloques.map((b) => ({ ...b, reservado: true, montoClp: 0 })),
+        },
+      ]);
+
+      const arriba = enTexto(el().querySelector('[data-tarifas]')!);
+      expect(arriba).toBe('Arriendo de 1 hora por cancha · socio sin costo');
+    });
+
+    it('al socio, ningún monto: ni arriba, ni en el tablero, ni en la leyenda', async () => {
+      await montar(DIA, {}, { socioId: 7 });
+
+      expect(enTexto(el().querySelector('[data-tarifas]')!)).toContain('Socio sin costo');
+      expect(enTexto(el().querySelector('app-marcador')!)).not.toContain('$');
+    });
+  });
+
+  /**
+   * T266. La celda que se tocó en la portada llega en la URL y la disponibilidad la marca:
+   * quien llega no tiene que volver a buscarla entre ocho canchas.
+   */
+  describe('la celda que viene de la portada (T266)', () => {
+    const barra = () => el().querySelector('app-barra-fija') as HTMLElement | null;
+
+    it('**marca esa cancha a esa hora y abre la barra para reservar**', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: '1', inicio: '18:00' });
+
+      const marcada = el().querySelector('app-marcador button[aria-pressed="true"]');
+      expect(marcada?.getAttribute('aria-label')).toContain('de 18:00 a 19:00');
+      expect(enTexto(barra()!)).toContain('Cancha 1');
+      expect(enTexto(barra()!)).toContain('Reservar');
+    });
+
+    it('si ya no está libre, no marca nada y lo dice', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: '1', inicio: '10:00' });
+
+      expect(barra()).toBeNull();
+      expect(texto()).toContain('La hora que elegiste ya no está libre');
+
+      // Elegir otra lo da por resuelto.
+      celdas()[0].click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(texto()).not.toContain('ya no está libre');
+    });
+
+    it('una cancha o una hora mal escrita no marca nada y no dice nada', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: 'uno', inicio: '18' });
+
+      expect(barra()).toBeNull();
+      expect(texto()).not.toContain('ya no está libre');
+    });
+
+    it('cambiar de día la suelta y no la vuelve a marcar', async () => {
+      await montar(DIA, { fecha: '2026-08-17', cancha: '1', inicio: '18:00' });
+
+      const dia = fixture.debugElement.query((nodo) => nodo.name === 'app-controles-del-dia');
+      // set() del model emite el cambio, como el selector de días.
+      dia.componentInstance.fecha.set('2026-08-18');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(barra()).toBeNull();
+    });
+  });
+
+  /** T268. Si hoy ya no queda ninguna libre, la disponibilidad abre en mañana. */
+  describe('sin horas hoy, mañana (T268)', () => {
+    const LLENO: GrillaDeCancha[] = [
+      {
+        cancha: DIA[0].cancha,
+        bloques: DIA[0].bloques.map((b) => ({ ...b, reservado: true, montoClp: 0 })),
+      },
+    ];
+
+    it('**sin fecha en la URL y con hoy lleno, pasa a mañana y lo dice**', async () => {
+      await montar(LLENO);
+
+      expect(pedirDia).toHaveBeenCalledWith('2026-08-18', 60);
+      expect(texto()).toContain('Hoy ya no quedan horas libres: te mostramos mañana.');
+    });
+
+    it('con la fecha en la URL no se mueve, aunque ese día esté lleno', async () => {
+      await montar(LLENO, { fecha: '2026-08-17' });
+
+      expect(pedirDia).not.toHaveBeenCalledWith('2026-08-18', 60);
+    });
+
+    it('con horas hoy, no pide mañana', () => {
+      expect(pedirDia).toHaveBeenCalledTimes(1);
+      expect(texto()).not.toContain('te mostramos mañana');
+    });
+  });
+
   it('si todavía no pasó ninguna hora, no hay grupo plegado', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('details')).toBeNull();
   });
 
-  /**
-   * T104. Elegir una celda elige un tipo y una hora; la cancha puntual se elige en la barra,
-   * entre las libres de esa celda (A8 del plan).
-   */
+  /** T104. La barra dice qué quedó elegido y con cuánto, antes de "Reservar". */
   describe('la barra de la celda elegida', () => {
     const TRES: GrillaDeCancha[] = [
       {
@@ -215,45 +367,15 @@ describe('Grilla', () => {
       DIA[0],
     ];
     const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
-    // Las canchas de la barra son un mat-button-toggle-group (T251): cada una es un botón.
-    const chips = () => [...barra().querySelectorAll<HTMLButtonElement>('mat-button-toggle button')];
-    const nombreDelChip = (chip: HTMLButtonElement) => enTexto(chip);
-    const elegirLaDeLas8 = async () => {
-      filaDe('08:00').querySelector('button')!.click();
+    const elegirLaDeLas8 = async (columna = 1) => {
+      celdaDe('08:00', columna).querySelector('button')!.click();
       await fixture.whenStable();
       fixture.detectChanges();
     };
 
-    it('**ofrece las canchas libres de la celda como chips, con la primera marcada**', async () => {
+    it('lo que se reserva es la cancha que se tocó en el tablero', async () => {
       await montar(TRES);
-      await elegirLaDeLas8();
-
-      expect(chips().map(nombreDelChip)).toEqual(['Cancha 3', 'Cancha 1']);
-      expect(chips()[0].getAttribute('aria-checked')).toBe('true');
-    });
-
-    it('**cambiar de cancha en la barra cambia la cancha y el precio que se paga**', async () => {
-      // "desde $12.000" en la celda: la 3 cuesta $14.000 y la 1, $12.000. Lo que se paga
-      // es lo de la cancha marcada, y la barra lo dice antes de "Reservar".
-      await montar(TRES);
-      await elegirLaDeLas8();
-      expect(enTexto(barra())).toContain('$14.000');
-
-      chips()[1].click();
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(enTexto(barra())).toContain('Cancha 1');
-      expect(enTexto(barra())).toContain('$12.000');
-      expect(enTexto(barra())).not.toContain('$14.000');
-    });
-
-    it('lo que se reserva es la cancha que quedó marcada', async () => {
-      await montar(TRES);
-      await elegirLaDeLas8();
-      chips()[1].click();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await elegirLaDeLas8(2);
 
       [...barra().querySelectorAll('button')]
         .find((boton) => boton.textContent?.trim() === 'Reservar')!
@@ -263,13 +385,6 @@ describe('Grilla', () => {
 
       const formulario = fixture.debugElement.query((nodo) => nodo.name === 'app-reservar');
       expect(formulario.componentInstance.cancha().nombre).toBe('Cancha 1');
-    });
-
-    it('con una sola cancha libre no hay chips: la barra la nombra y basta', async () => {
-      await elegirLaDeLas8();
-
-      expect(chips()).toHaveLength(0);
-      expect(enTexto(barra())).toContain('Cancha 1');
     });
 
     it('al visitante, el arriendo en grande; al socio, "sin costo" y ningún monto', async () => {
@@ -282,47 +397,10 @@ describe('Grilla', () => {
       expect(enTexto(barra())).not.toContain('$');
     });
   });
-
   it('cada fila es una hora de inicio, en la hora del club', () => {
     // 12:00Z en agosto son las 08:00 en Santiago. Con la hora del navegador o un
     // desfase fijo, el socio vería una hora que no es a la que juega.
     expect(inicios()).toEqual(['08:00', '10:00', '18:00']);
-  });
-
-  it('**muestra el precio en la celda, antes de hacer clic**', () => {
-    // Lo que el club pidió para la opción C (T103): el precio a la vista en cada celda,
-    // no en un encabezado que hay que ir a buscar.
-    expect(enTexto(celdas()[0])).toContain('$12.000');
-    expect(enTexto(celdas()[1])).toContain('$20.000');
-  });
-
-  it('al visitante, cada celda le dice el arriendo, y lo del socio una vez arriba', () => {
-    // Un monto suelto no dice a quién le toca: el visitante no sabía si ese precio era el
-    // suyo. "sin costo" y no "$0" desde el rediseño (plan § 5.1): un cero con signo de
-    // pesos se lee como un precio que alguien todavía no calculó.
-    const arriba = el().querySelector('[data-tarifas]');
-
-    expect(enTexto(arriba!)).toContain('Arriendo de 1 hora por cancha');
-    expect(enTexto(arriba!)).toContain('socio sin costo');
-    expect(enTexto(el().querySelector('table')!)).not.toContain('sin costo');
-  });
-
-  it('**al socio, "sin costo" una vez arriba y en cada celda cuántas libres** (A8)', async () => {
-    // El socio no paga la hora: un precio en cada celda le diría ocho veces algo que no es
-    // para él, y le escondería lo único que busca, que es dónde queda lugar.
-    await montar(DIA, {}, { socioId: 7 });
-
-    expect(enTexto(el().querySelector('[data-tarifas]')!)).toContain('Socio sin costo');
-    expect(enTexto(el().querySelector('table')!)).not.toContain('$');
-    expect(enTexto(celdas()[0])).toContain('1 libre');
-  });
-
-  it('la etiqueta de la celda dice el tipo, la hora, cuántas libres y el precio', () => {
-    // La etiqueta es lo único que oye quien no ve la tabla: si no dice el tipo, "08:00,
-    // $12.000" no le cuenta de qué columna es.
-    expect(etiquetas()[0]).toBe(
-      'Elegir cancha al aire libre de 08:00 a 09:00, 1 libre, arriendo $12.000',
-    );
   });
 
   it('al socio la etiqueta le dice "socio sin costo", sin un arriendo que no paga', async () => {
@@ -343,111 +421,24 @@ describe('Grilla', () => {
     expect(etiquetas()[0]).not.toContain('hora prime');
   });
 
-  it('solo es botón la celda que tiene canchas libres, y se ve clickeable', () => {
+  it('solo es botón la celda libre, y se ve clickeable', () => {
     // Lo que no se puede tomar dice por qué con palabras, y no es un botón que no hace
     // nada: la celda de las 10:00, en mantención, no se aprieta.
     expect(celdas()).toHaveLength(2);
     for (const celda of celdas()) {
       expect(celda.classList.contains('cursor-pointer')).toBe(true);
-      // 44px de alto: el mínimo táctil del master.
-      expect(celda.classList.contains('min-h-11')).toBe(true);
+      // 44px de alto: el mínimo táctil del master. La celda los da y el botón la llena.
+      expect(celda.closest('td')?.classList.contains('h-11')).toBe(true);
+      expect(celda.classList.contains('h-full')).toBe(true);
     }
     expect(filaDe('10:00').querySelector('button')).toBeNull();
   });
 
-  /**
-   * T103. La opción C: una columna por tipo de cancha que el club tenga (A8), para comparar
-   * techada con abierta de un vistazo.
-   */
-  describe('una columna por tipo de cancha', () => {
-    const TECHADA = {
-      id: 2,
-      nombre: 'Cancha techada',
-      superficie: 'CEMENTO' as const,
-      techada: true,
-      iluminacion: true,
-    };
-    const DOS_TIPOS: GrillaDeCancha[] = [
-      DIA[0],
-      {
-        cancha: TECHADA,
-        bloques: DIA[0].bloques.map((b) => ({
-          ...b,
-          canchaId: 2,
-          montoClp: b.montoClp === null ? null : b.montoClp + 3000,
-        })),
-      },
-    ];
-
-    it('si todas las canchas son al aire libre, la tabla tiene una sola columna', () => {
-      expect(columnas()).toEqual(['Al aire libre']);
-    });
-
-    it('**con techadas, una columna para cada tipo, las abiertas primero**', async () => {
-      await montar(DOS_TIPOS);
-
-      expect(columnas()).toEqual(['Al aire libre', 'Techada']);
-    });
-
-    it('cada celda dice el precio de su tipo: la techada puede costar distinto (T98)', async () => {
-      await montar(DOS_TIPOS);
-
-      const ocho = [...filaDe('08:00').querySelectorAll('td')].map(enTexto);
-      expect(ocho[0]).toContain('$12.000');
-      expect(ocho[1]).toContain('$15.000');
-    });
-
-    it('si las canchas de un tipo cuestan distinto, la celda dice "desde"', async () => {
-      await montar([
-        DIA[0],
-        {
-          cancha: { ...DIA[0].cancha, id: 3, nombre: 'Cancha 3' },
-          bloques: DIA[0].bloques.map((b) => ({ ...b, canchaId: 3, montoClp: 14000 })),
-        },
-      ]);
-
-      expect(enTexto(celdas()[0])).toContain('desde $12.000');
-      expect(enTexto(celdas()[0])).toContain('2 libres');
-    });
-
-    it('**elegir la celda marca la primera cancha libre de ese tipo, en el orden del club** (A8)', async () => {
-      // El orden del club es el de la lista que manda la API, no el del id ni el del nombre.
-      await montar([
-        {
-          cancha: { ...DIA[0].cancha, id: 3, nombre: 'Cancha 3' },
-          bloques: DIA[0].bloques.map((b) => ({ ...b, canchaId: 3 })),
-        },
-        DOS_TIPOS[1],
-        DIA[0],
-      ]);
-
-      filaDe('08:00').querySelectorAll('button')[0].click();
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(enTexto(el().querySelector('app-barra-fija')!)).toContain('Cancha 3');
-    });
-
-    it('la celda elegida se marca, también para el lector de pantalla', async () => {
-      await montar(DOS_TIPOS);
-      const [abierta, techada] = filaDe('08:00').querySelectorAll('button');
-
-      techada.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(techada.getAttribute('aria-pressed')).toBe('true');
-      expect(abierta.getAttribute('aria-pressed')).toBe('false');
-    });
-
-    it('la tabla dice qué es cada columna y cada fila', async () => {
-      // `th` con `scope`: el lector de pantalla anuncia "Techada, 08:00" al entrar a la
-      // celda, en vez de un monto suelto.
-      await montar(DOS_TIPOS);
-
-      expect(el().querySelectorAll('thead th[scope="col"]')).toHaveLength(3);
-      expect(filaDe('08:00').querySelector('th[scope="row"]')).not.toBeNull();
-    });
+  it('el tablero dice qué es cada columna y cada fila', async () => {
+    // `th` con `scope`: el lector de pantalla anuncia "Cancha 1, 08:00" al entrar a la
+    // celda, en vez de un "Libre" suelto.
+    expect(el().querySelectorAll('thead th[scope="col"]')).toHaveLength(2);
+    expect(filaDe('08:00').querySelector('th[scope="row"]')).not.toBeNull();
   });
 
   describe('a media mañana', () => {
@@ -546,21 +537,16 @@ describe('Grilla', () => {
       expect(inicios()).toEqual(['08:00', '08:30', '09:00', '17:00', '17:30']);
     });
 
-    it('**"socio sin costo" se dice una vez, arriba de la tabla** (reemplaza al precio común de la banda)', () => {
+    it('**"socio sin costo" se dice una vez, arriba del tablero** (reemplaza al precio común de la banda)', () => {
       expect(texto().match(/socio sin costo/gi)).toHaveLength(1);
     });
 
     it('**la fila de prime lo dice en su encabezado, y la de normal no** (reemplaza a la marca prime de la banda)', () => {
-      expect(enTexto(filaDe('17:00'))).toContain('$12.000');
-      expect(enTexto(filaDe('17:00').querySelector('th')!)).not.toContain('prime');
-      expect(enTexto(filaDe('17:30'))).toContain('$20.000');
-      expect(enTexto(filaDe('17:30').querySelector('th')!)).toContain('prime');
+      expect(enTexto(filaDe('17:00').querySelector('th')!)).not.toMatch(/prime/i);
+      expect(enTexto(filaDe('17:30').querySelector('th')!)).toMatch(/prime/i);
     });
 
-    it('con canchas libres, la mantención de otra no ocupa la celda (reemplaza a la mantención de la banda)', async () => {
-      // La decisión del club del 2026-10-03 era no repetir "2 en mantención" fila por fila.
-      // En la tabla va más lejos: si hay libres, lo que importa es cuántas, no por qué las
-      // otras no están.
+    it('la cancha en mantención lo dice en su celda, y la de al lado sigue libre', async () => {
       await montar([
         ...MEDIAS_HORAS,
         {
@@ -574,11 +560,11 @@ describe('Grilla', () => {
         },
       ]);
 
-      expect(enTexto(filaDe('08:00'))).toContain('1 libre');
-      expect(enTexto(filaDe('08:00'))).not.toContain('mantención');
+      expect(celdaDe('08:00', 1).querySelector('button')).not.toBeNull();
+      expect(enTexto(celdaDe('08:00', 2))).toContain('En mantención');
     });
 
-    it('si toda la columna está en mantención, la celda lo dice (reemplaza a la mantención por fila)', async () => {
+    it('la cancha en mantención no es un botón y lo dice', async () => {
       await montar([
         {
           cancha: CANCHA,
@@ -591,15 +577,16 @@ describe('Grilla', () => {
         },
       ]);
 
-      expect(enTexto(filaDe('08:00').querySelector('td')!)).toBe('En mantención');
+      expect(celdaDe('08:00', 1).querySelector('button')).toBeNull();
+      expect(enTexto(celdaDe('08:00', 1))).toContain('En mantención');
     });
 
-    it('una celda sin libres porque está todo tomado dice "Sin libres"', async () => {
+    it('una cancha tomada dice "Ocupada"', async () => {
       await montar([
         { cancha: CANCHA, bloques: [bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', { reservado: true })] },
       ]);
 
-      expect(enTexto(filaDe('08:00').querySelector('td')!)).toBe('Sin libres');
+      expect(enTexto(celdaDe('08:00', 1))).toContain('Ocupada');
     });
 
     /**
@@ -622,49 +609,28 @@ describe('Grilla', () => {
       it('**una clase se dice clase y enlaza a las clases**, no "en mantención"', async () => {
         await conCancha2({ bloqueado: true, motivoBloqueo: 'CLASE' });
 
-        const celda = filaDe('08:00').querySelector('td')!;
-        expect(enTexto(celda)).toContain('1 en clase');
+        const celda = celdaDe('08:00', 2);
+        expect(enTexto(celda)).toContain('Clase');
         expect(enTexto(celda)).not.toContain('mantención');
         // El destino declarado y no el href: el Router de este spec es un doble con solo
         // `navigate`, y con él RouterLink no arma la URL. El href se vio en el navegador.
-        // Fuera del botón de la celda: un enlace dentro de un botón no se puede apretar.
-        const enlace = celda.querySelector('a');
-        expect(enlace?.getAttribute('routerlink')).toBe('/clases');
-        expect(enlace?.closest('button')).toBeNull();
-      });
-
-      it('una celda llena por una clase dice "Sin libres" y enlaza igual', async () => {
-        await montar([
-          {
-            cancha: CANCHA,
-            bloques: [
-              bloque('2026-08-17T12:00:00.000Z', '2026-08-17T13:00:00.000Z', {
-                bloqueado: true,
-                motivoBloqueo: 'CLASE',
-              }),
-            ],
-          },
-        ]);
-
-        const celda = filaDe('08:00').querySelector('td')!;
-        expect(enTexto(celda)).toContain('Sin libres');
         expect(celda.querySelector('a')?.getAttribute('routerlink')).toBe('/clases');
       });
 
       it('un partido de torneo se dice torneo', async () => {
         await conCancha2({ bloqueado: true, motivoBloqueo: 'TORNEO' });
 
-        expect(enTexto(filaDe('08:00'))).toContain('1 en torneo');
-        expect(enTexto(filaDe('08:00'))).not.toContain('mantención');
+        expect(enTexto(celdaDe('08:00', 2))).toContain('Torneo');
+        expect(enTexto(celdaDe('08:00', 2))).not.toContain('mantención');
       });
 
       it('la clase va en su fila: el inicio de y media no la tiene', async () => {
         await conCancha2({ bloqueado: true, motivoBloqueo: 'CLASE' });
 
-        expect(enTexto(filaDe('08:30'))).not.toContain('en clase');
+        expect(enTexto(celdaDe('08:30', 2))).not.toContain('Clase');
       });
 
-      it('un cierre por otro motivo se dice mantención, ni clase ni torneo', async () => {
+      it('un cierre por otro motivo dice "No disponible", ni clase ni torneo', async () => {
         await montar([
           {
             cancha: CANCHA,
@@ -677,7 +643,7 @@ describe('Grilla', () => {
           },
         ]);
 
-        expect(enTexto(filaDe('08:00').querySelector('td')!)).toBe('En mantención');
+        expect(enTexto(celdaDe('08:00', 1))).toContain('No disponible');
       });
     });
 
@@ -764,11 +730,9 @@ describe('Grilla', () => {
       await montar(SIN_HORA_Y_MEDIA, { duracion: '90' });
 
       expect(etiquetas()).toEqual([expect.stringContaining('de 08:00 a 09:30')]);
-      // Y la celda no dice "sin libres", que sería falso: la cancha está libre.
-      expect(enTexto(filaDe('17:00').querySelector('td')!)).toBe(
-        'No se arrienda por 1 hora y media',
-      );
-      expect(enTexto(el().querySelector('table')!)).not.toContain('Sin libres');
+      // Y la celda no dice "ocupada", que sería falso: la cancha está libre.
+      expect(enTexto(celdaDe('17:00', 1))).toContain('No se arrienda por 1 hora y media');
+      expect(enTexto(el().querySelector('table')!)).not.toContain('Ocupada');
     });
 
     it('si en todo el día no hay hora y media para el visitante, lo dice una vez y ofrece la salida', async () => {
@@ -819,9 +783,7 @@ describe('Grilla', () => {
       await montar(PRIME, { duracion: '90' }, { socioId: 7 });
 
       expect(etiquetas()).toEqual([expect.stringContaining('de 08:00 a 09:30')]);
-      expect(enTexto(filaDe('17:00').querySelector('td')!)).toBe(
-        'En horario prime, solo 1 hora',
-      );
+      expect(enTexto(celdaDe('17:00', 1))).toContain('En horario prime, solo 1 hora');
     });
 
     it('al visitante, `socioPuede` no le cambia nada', async () => {
@@ -871,39 +833,29 @@ describe('Grilla', () => {
   });
 
   it('avisa cuál es hora prime, en la fila y en la leyenda', () => {
-    expect(enTexto(filaDe('18:00').querySelector('th')!)).toContain('prime');
-    expect(enTexto(el().querySelector('app-controles-del-dia')!)).toContain('Hora prime');
+    expect(enTexto(filaDe('18:00').querySelector('th')!)).toMatch(/prime/i);
+    expect(enTexto(el().querySelector('app-marcador ul')!)).toContain('Hora prime');
   });
 
   it('dice el estado con palabras, no solo con color', () => {
     // El par verde/rojo es justo el que no distingue quien tiene daltonismo
     // rojo-verde: si el estado solo estuviera en el color, la pantalla mentiría.
-    const leyenda = enTexto(el().querySelector('app-controles-del-dia ul')!);
+    const leyenda = enTexto(el().querySelector('app-marcador ul')!);
     expect(leyenda).toContain('Libre');
-    expect(leyenda).toContain('Sin libres');
+    expect(leyenda).toContain('Ocupada');
     // Y nunca el enum crudo de la base, que se lee como una falla del sistema.
     expect(texto()).not.toContain('MANTENCION');
   });
 
   it('una celda que no se puede tomar dice por qué con palabras, no con un color', () => {
-    // Antes eso se resolvía con un borde punteado sobre la tarjeta; en la tabla, la celda
-    // gris dice la razón.
-    expect(enTexto(filaDe('10:00').querySelector('td')!)).toBe('En mantención');
+    // Antes eso se resolvía con un borde punteado sobre la tarjeta; en el tablero, la celda
+    // rayada lleva el ícono de su motivo y lo dice al lector.
+    expect(enTexto(celdaDe('10:00', 1))).toContain('En mantención');
   });
 
   it('no ofrece precio de un bloque que no se puede tomar', () => {
     // Un precio junto a "En mantención" invita a intentar reservarlo.
     expect(enTexto(filaDe('10:00'))).not.toContain('$');
-  });
-
-  it('numera las celdas por fila para el stagger, sin pasar del tope', () => {
-    // El `--i` es lo que escalona la entrada. El tope vive en el CSS; acá se fija
-    // que el índice llegue, porque sin él todos entran a la vez. Va por fila: las celdas
-    // de una misma hora entran juntas.
-    expect(celdas().map((celda) => celda.getAttribute('style'))).toEqual([
-      expect.stringContaining('--i: 0'),
-      expect.stringContaining('--i: 2'),
-    ]);
   });
 
   describe('filtros de cancha', () => {
@@ -931,15 +883,14 @@ describe('Grilla', () => {
       await montar(DOS_CANCHAS);
       await elegirFiltro('techadas');
 
-      // La tabla no nombra canchas: lo que el filtro deja se ve en las columnas.
-      expect(columnas()).toEqual(['Techada']);
+      expect(nombres()).toEqual(['Cancha techada']);
     });
 
     it('"al aire libre" es lo contrario de techada, no un campo aparte', async () => {
       await montar(DOS_CANCHAS);
       await elegirFiltro('aire-libre');
 
-      expect(columnas()).toEqual(['Al aire libre']);
+      expect(nombres()).toEqual(['Cancha 1']);
     });
 
     it('el resumen cuenta lo que se ve, no lo que quedó filtrado', async () => {
@@ -965,7 +916,7 @@ describe('Grilla', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(columnas()).toEqual(['Al aire libre']);
+      expect(nombres()).toEqual(['Cancha 1']);
     });
   });
 
@@ -1157,8 +1108,8 @@ describe('Grilla', () => {
     });
 
     it('**el socio elige la celda, la barra confirma el cambio y vuelve a mis reservas** (T104)', async () => {
-      // Antes el clic movía al tiro. Con la tabla, el clic elige un tipo de cancha y no una
-      // cancha: la barra dice cuál quedó marcada y deja cambiarla antes de mover.
+      // Antes el clic movía al tiro. Con la barra, el clic marca la cancha y la barra dice
+      // cuál quedó antes de mover.
       await montar(DIA, { mover: '7' });
 
       await elegirPrimerBloque();
@@ -1206,33 +1157,15 @@ describe('Grilla', () => {
       DIA[0],
     ];
 
-    it('**al mover, la barra preelige la cancha de la reserva si está libre en la celda** (T104)', async () => {
-      // Alargar una hora a 1 hora y media tiene que dejarla donde estaba: con la primera
-      // libre, el socio terminaba en otra cancha sin haberlo pedido.
-      await montar(DOS_ABIERTAS, { mover: '7', cancha: 'Cancha 1' });
+    it('al mover, la cancha que se toca es a la que se mueve', async () => {
+      // Desde T265 cada cancha tiene su columna: alargar una hora sin cambiarla de cancha es
+      // tocar la celda de la suya, sin preelegir nada.
+      await montar(DOS_ABIERTAS, { mover: '7' });
 
-      await elegirPrimerBloque();
+      await apretar(celdaDe('08:00', 2).querySelector('button')!);
       await apretar(botonDeLaBarra('Cambiar a esta hora'));
 
       expect(mover).toHaveBeenCalledWith(7, expect.objectContaining({ canchaId: 1 }));
-    });
-
-    it('si su cancha no está libre en esa celda, preelige la primera del club', async () => {
-      await montar(DOS_ABIERTAS, { mover: '7', cancha: 'Cancha 9' });
-
-      await elegirPrimerBloque();
-
-      expect(barra().textContent).toContain('Cancha 3');
-    });
-
-    it('desde el enlace, la cancha de la reserva la dice la reserva misma', async () => {
-      await montar(DOS_ABIERTAS, { moverToken: 'tok-123' }, {
-        reservaDelEnlace: { pagadoClp: 16000, cancha: 'Cancha 1' },
-      });
-
-      await elegirPrimerBloque();
-
-      expect(barra().textContent).toContain('Cancha 1');
     });
 
     describe('desde el enlace de la reserva, sin sesión (T88)', () => {

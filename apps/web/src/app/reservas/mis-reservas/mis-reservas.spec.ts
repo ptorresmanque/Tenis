@@ -265,16 +265,14 @@ describe('MisReservas', () => {
         (a) => (a.textContent ?? '').includes('Cambiar hora o duración'),
       )!;
 
-    // Con el día de la reserva: la grilla abre ahí y no en hoy. Y con su cancha, que la
-    // barra preelige si sigue libre (T104): alargarla no la cambia de cancha.
-    expect(enlace().getAttribute('href')).toBe(
-      '/disponibilidad?mover=7&cancha=Cancha%201&fecha=2026-09-07',
-    );
+    // Con el día de la reserva: la grilla abre ahí y no en hoy. Sin la cancha desde T265:
+    // el tablero tiene una columna por cancha, y la suya se toca ahí mismo.
+    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7&fecha=2026-09-07');
 
     await montar([{ ...UNA, fin: '2026-09-07T13:30:00.000Z' }]);
 
     expect(enlace().getAttribute('href')).toBe(
-      '/disponibilidad?mover=7&cancha=Cancha%201&fecha=2026-09-07&duracion=90',
+      '/disponibilidad?mover=7&fecha=2026-09-07&duracion=90',
     );
   });
 
