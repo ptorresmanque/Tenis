@@ -2016,3 +2016,32 @@ describe('Lo que espera muestra un esqueleto (T152)', () => {
     expect(infractores).toEqual([]);
   });
 });
+
+/**
+ * T291 (SPEC-panel.md D9). Crear se abre con un FAB y un diálogo, y no con un botón que cambia
+ * entre «Crear…» y «Cerrar» y despliega el formulario en la página: era un mismo control con
+ * dos significados, y el formulario abierto empujaba la lista hacia abajo.
+ */
+describe('Crear no se alterna con Cerrar (T291)', () => {
+  /** Las que todavía lo tienen, hasta T292. Cuando quede vacía, la lista se va. */
+  const PENDIENTES = ['tours/admin/tours.ts'];
+  const alterna = /\?\s*'Cerrar'\s*:\s*'Crear|\?\s*'Crear[^']*'\s*:\s*'Cerrar'/;
+
+  it('**ningún botón cambia entre «Crear…» y «Cerrar»**', () => {
+    const infractores = plantillas()
+      .filter(({ archivo }) => !PENDIENTES.includes(archivo))
+      .filter(({ contenido }) => alterna.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('la lista de pendientes no guarda a nadie que ya no lo tenga', () => {
+    // Si una pendiente se arregla y sigue en la lista, la regla dejaría de mirarla sin avisar.
+    const conElBoton = plantillas()
+      .filter(({ contenido }) => alterna.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(PENDIENTES.filter((archivo) => !conElBoton.includes(archivo))).toEqual([]);
+  });
+});
