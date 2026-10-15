@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
+import { moverConFlechas } from './flechas-del-tablero';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from './motivos';
 import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
@@ -37,14 +38,6 @@ function celdaDe(bloque: BloqueDisponible | undefined, sinVenta: MotivoSinVenta)
   const motivo = sinVenta(bloque);
   return motivo ? { estado: 'sin-venta', motivo } : { estado: 'libre', bloque };
 }
-
-/** Cuánto se mueve cada flecha en el tablero: [filas, columnas]. */
-const PASOS: Record<string, readonly [number, number]> = {
-  ArrowUp: [-1, 0],
-  ArrowDown: [1, 0],
-  ArrowLeft: [0, -1],
-  ArrowRight: [0, 1],
-};
 
 /** La celda de una cancha a una hora, como texto: la parada del teclado se guarda así. */
 const claveDe = (canchaId: number, inicio: string) =>
@@ -432,35 +425,9 @@ export class Marcador {
     return elegida !== null && claveDe(elegida.canchaId, elegida.inicio) === this.clave(celda);
   }
 
-  /**
-   * Las flechas, de libre en libre: se salta lo que no se puede tomar en esa dirección, y en
-   * el borde se queda donde está. Solo en modo elegir, que es el que tiene botones.
-   */
+  /** Las flechas, de libre en libre (ver `moverConFlechas`). Solo en modo elegir. */
   protected mover(evento: KeyboardEvent): void {
-    const paso = PASOS[evento.key];
-    const desde = evento.currentTarget as HTMLElement;
-    const tabla = desde.closest('table');
-    if (!paso || !tabla) return;
-
-    evento.preventDefault();
-    const filas = this.filas().length;
-    const columnas = this.canchas().length;
-    let fila = Number(desde.dataset['fila']);
-    let columna = Number(desde.dataset['columna']);
-
-    for (;;) {
-      fila += paso[0];
-      columna += paso[1];
-      if (fila < 0 || fila >= filas || columna < 0 || columna >= columnas) return;
-
-      const destino = tabla.querySelector<HTMLElement>(
-        `button[data-fila="${fila}"][data-columna="${columna}"]`,
-      );
-      if (destino) {
-        destino.focus();
-        return;
-      }
-    }
+    moverConFlechas(evento, this.filas().length, this.canchas().length);
   }
 
   /**

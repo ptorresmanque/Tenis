@@ -8,33 +8,20 @@ import {
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
 import { MatChipsModule } from '@angular/material/chips';
 
-import { proveerCampos } from '../../ui/campos';
-import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
-import {
-  diaEnPalabras,
-  fechaEnElClub,
-  horaEnElClub,
-  hoyEnElClub,
-} from '../../catalogo-canchas/reloj-del-club';
+import { Disponibilidad } from '../../catalogo-canchas/disponibilidad';
+import { SelectorDeDia } from '../../catalogo-canchas/grilla/selector-de-dia';
+import { hoyEnElClub } from '../../catalogo-canchas/reloj-del-club';
+import { ClaseDelDia, Clases } from '../../clases/clases.service';
+import { Auth } from '../../core/auth/auth';
+import { DescargarCsv } from '../../reportes/descargar-csv';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import {
-  ClaseDelDia,
-  Clases,
-  cupoEnPalabras,
-  queClaseEs,
-} from '../../clases/clases.service';
-import { Auth } from '../../core/auth/auth';
-import { Agenda, ReservaDelDia } from './agenda.service';
+import { Agenda, BloqueoDelDia, ReservaDelDia } from './agenda.service';
+import { FichaDeLaReserva } from './ficha-de-la-reserva';
 import { NuevaReserva } from './nueva-reserva';
-import { ObservacionesDeReserva } from './observaciones-de-reserva';
-import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
-import { DescargarCsv } from '../../reportes/descargar-csv';
+import { TableroDeLaAgenda } from './tablero-de-la-agenda';
 
 /**
  * El día del club, para quien atiende el mesón.
@@ -47,24 +34,20 @@ import { DescargarCsv } from '../../reportes/descargar-csv';
 @Component({
   selector: 'app-agenda-del-dia',
   imports: [
-    MatDatepickerModule,
-    MatFormFieldModule,
-    MatInput,
     MatButton,
+    MatChipsModule,
     MatIcon,
     Aviso,
-    EstadoVacio,
-    NuevaReserva,
-    ObservacionesDeReserva,
-    EnlaceTelefonoPipe,
-    TelefonoPipe,
-    MatChipsModule,
     DescargarCsv,
+    EstadoVacio,
+    FichaDeLaReserva,
+    NuevaReserva,
+    SelectorDeDia,
+    TableroDeLaAgenda,
   ],
-  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
-         La navegación entre días va debajo. -->
+         Los controles del día van debajo, los mismos de disponibilidad (T271). -->
     <header class="cabecera-panel">
       <div>
         <div class="flex flex-wrap items-center gap-3">
@@ -78,7 +61,6 @@ import { DescargarCsv } from '../../reportes/descargar-csv';
             </mat-chip>
           </mat-chip-set>
         </div>
-        <p class="mt-1 text-muted-foreground">{{ enPalabras(fechaActual()) }}</p>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
@@ -96,52 +78,9 @@ import { DescargarCsv } from '../../reportes/descargar-csv';
       </div>
     </header>
 
-    <div class="mt-4 flex flex-wrap items-end gap-3">
-      <div class="flex items-center gap-1">
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico min-h-11"
-          aria-label="Día anterior"
-          (click)="moverDia(-1)"
-        >
-          <mat-icon class="text-base" aria-hidden="true">chevron_left</mat-icon>
-        </button>
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico min-h-11"
-          [disabled]="fechaActual() === hoy"
-          (click)="fechaActual.set(hoy)"
-        >
-          Hoy
-        </button>
-        <button
-          matButton="outlined"
-          type="button"
-          class="chico min-h-11"
-          aria-label="Día siguiente"
-          (click)="moverDia(1)"
-        >
-          <mat-icon class="text-base" aria-hidden="true">chevron_right</mat-icon>
-        </button>
-      </div>
-
-      <mat-form-field class="w-48 abre-al-tocar">
-        <mat-label>Ir a un día</mat-label>
-        <input
-          matInput
-          id="fecha"
-          placeholder="dd-mm-aaaa"
-          autocomplete="off"
-          [matDatepicker]="calendarioFecha"
-          [value]="diaElegido()"
-          (dateChange)="cambiarFecha($event.value)"
-        />
-        <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
-        <mat-datepicker #calendarioFecha />
-      </mat-form-field>
-    </div>
+    <!-- Los controles del día de disponibilidad (D2): la semana a un toque, «Otro día» y
+         el día en palabras. Duración y canchas no van: la agenda muestra todo el día. -->
+    <app-selector-de-dia [(fecha)]="fechaActual" />
 
     @if (tomandoHora() && puedeTomarHoras()) {
       <app-nueva-reserva
@@ -155,7 +94,7 @@ import { DescargarCsv } from '../../reportes/descargar-csv';
       <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
-    @if (reservas.hasValue() && reservas.value().length > 0) {
+    @if (reservasSeguras().length > 0) {
       <ul class="mt-6 grid gap-3 sm:grid-cols-3">
         @for (dato of resumenDelDia(); track dato.titulo) {
           <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -170,13 +109,13 @@ import { DescargarCsv } from '../../reportes/descargar-csv';
     }
 
     <div role="status" aria-live="polite" class="mt-6">
-      @if (reservas.isLoading()) {
+      @if (reservas.isLoading() || grillas.isLoading()) {
         <p class="text-muted-foreground">Buscando las reservas del día…</p>
-      } @else if (reservas.error() || clases.error()) {
+      } @else if (reservas.error() || clases.error() || grillas.error()) {
         <p class="text-destructive">
           No se pudo cargar la agenda. Reintenta en un momento.
         </p>
-      } @else if (elDia().length === 0) {
+      } @else if (reservasSeguras().length + clasesSeguras().length === 0) {
         <!-- Sobre el día entero y no solo sobre las reservas: con una clase
              agendada, "no hay reservas" se leía justo encima de la clase. -->
         <app-estado-vacio
@@ -185,97 +124,49 @@ import { DescargarCsv } from '../../reportes/descargar-csv';
           detalle="Las reservas que entren aparecen acá solas, sin recargar."
         />
       } @else {
-        <!-- Lo anuncia para quien no ve la tabla: es la misma región que cambia
+        <!-- Lo anuncia para quien no ve el tablero: es la misma región que cambia
              sola cuando entra una reserva nueva. -->
         <p class="sr-only">{{ resumen() }}</p>
       }
     </div>
 
-    @if (elDia().length > 0) {
-      <ul class="mt-4 space-y-3">
-        <!-- Clases y reservas en la misma lista y en orden de reloj, que es como
-             el mesón mira el día. La clase se distingue por la palabra "Clase" y su
-             ícono, no por el color: criterio 7 del spec de clases. -->
-        @for (fila of elDia(); track fila.clave) {
-          @if (fila.clase; as clase) {
-            <li class="rounded-xl border border-border bg-muted p-4 shadow-sm">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <p class="font-display text-lg font-semibold">
-                  {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
-                </p>
-                <p class="font-medium">{{ clase.lugar }}</p>
-                <mat-chip-set class="insignias">
-                  <mat-chip class="insignia info">
-                    <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
-                    Clase · {{ queClaseEs(clase) }}
-                  </mat-chip>
-                </mat-chip-set>
-              </div>
-              <p class="mt-1">
-                {{ clase.profesor }}
-                <span class="text-sm text-muted-foreground">
-                  · {{ cupoEnPalabras(clase.cupoMaximo) }}
-                </span>
-              </p>
-            </li>
-          } @else if (fila.reserva; as reserva) {
-          <li
-            class="rounded-xl border border-border bg-card p-4 shadow-sm"
-            [class.border-dashed]="reserva.estado === 'PENDIENTE_PAGO'"
-          >
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p class="font-display text-lg font-semibold">
-                {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
-              </p>
-              <p class="font-medium">{{ reserva.cancha }}</p>
-              <p class="text-sm text-muted-foreground">
-                {{ reserva.esSocio ? 'Socio' : 'Visitante' }} · Folio
-                {{ reserva.folio }}
-              </p>
-            </div>
+    <!--
+      EL DÍA, EN EL TABLERO (T271, D2).
 
-            <p class="mt-1">
-              {{ reserva.nombre }}
-              @if (reserva.telefono) {
-                <!-- Enlace y no texto suelto: en el teléfono del mesón se toca y
-                     llama, que es exactamente para lo que está. -->
-                <a class="underline" [href]="reserva.telefono | enlaceTelefono">
-                  {{ reserva.telefono | telefono }}
-                </a>
-              }
-            </p>
+      La cara de disponibilidad, para el mesón: una fila por media hora y una columna
+      por cancha, sobre la misma banda de campo. Antes era una lista de tarjetas; lo que
+      decía cada tarjeta está ahora en la ficha de la reserva, que se abre al tocarla.
+    -->
+    @if (grillasSeguras().length > 0) {
+      <section
+        class="-mx-4 mt-4 bg-campo px-4 py-6 text-on-campo sm:mx-0 sm:rounded-region sm:px-6"
+        aria-label="El día del club"
+      >
+        <app-tablero-de-la-agenda
+          [grillas]="grillasSeguras()"
+          [reservas]="reservasSeguras()"
+          [clases]="clasesSeguras()"
+          [bloqueos]="bloqueosSeguros()"
+          [puedeTomar]="puedeTomarHoras()"
+          (abrir)="idDeLaFicha.set($event.id)"
+          (tomar)="tomandoHora.set(true)"
+        />
+      </section>
+    }
 
-            @if (reserva.acompanantes.length > 0) {
-              <p class="mt-1 text-sm text-muted-foreground">
-                Con {{ reserva.acompanantes.join(', ') }}
-              </p>
-            }
-
-            @if (reserva.estado === 'PENDIENTE_PAGO') {
-              <!-- Insignia y borde punteado, no solo un color: ocupa la cancha
-                   pero puede caerse, y esa diferencia hay que poder leerla. -->
-              <p class="mt-2">
-                <mat-chip-set class="insignias">
-                  <mat-chip class="insignia aviso">
-                    <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
-                    Esperando el pago
-                  </mat-chip>
-                </mat-chip-set>
-              </p>
-            }
-
-            <!-- Las notas del mesón (T226): las ven el admin y el gestor, nunca el socio. -->
-            <app-observaciones-de-reserva [reserva]="reserva" (cambio)="reservas.reload()" />
-          </li>
-          }
-        }
-      </ul>
+    @if (laFicha(); as reserva) {
+      <app-ficha-de-la-reserva
+        [reserva]="reserva"
+        (cerrar)="idDeLaFicha.set(null)"
+        (cambio)="reservas.reload()"
+      />
     }
   `,
 })
 export class AgendaDelDia {
   private readonly agenda = inject(Agenda);
   private readonly clasesApi = inject(Clases);
+  private readonly disponibilidad = inject(Disponibilidad);
   private readonly usuario = inject(Auth).usuario;
 
   /** El mesón es del admin; el gestor ve el mismo día sin poder tomar horas (T221). */
@@ -305,30 +196,50 @@ export class AgendaDelDia {
   });
 
   /**
-   * El día completo, en orden de reloj: lo que ocupa la cancha, sea lo que sea.
-   *
-   * Con `hasValue()` porque se lee también fuera de la rama del error, y cualquiera
-   * de las dos consultas puede fallar sola.
+   * Las canchas del día con su horario, para el tablero (T271): la misma consulta que
+   * disponibilidad. No se repuebla con los avisos: el horario no cambia porque entre una
+   * reserva.
    */
-  protected readonly elDia = computed(() =>
-    [
-      ...(this.clases.hasValue() ? this.clases.value() : []).map((clase) => ({
-        clave: `clase-${clase.id}`,
-        inicio: clase.inicio,
-        clase,
-        reserva: null as ReservaDelDia | null,
-      })),
-      ...(this.reservas.hasValue() ? this.reservas.value() : []).map((reserva) => ({
-        clave: `reserva-${reserva.id}`,
-        inicio: reserva.inicio,
-        clase: null as ClaseDelDia | null,
-        reserva,
-      })),
-    ].sort((una, otra) => una.inicio.localeCompare(otra.inicio)),
+  protected readonly grillas = resource({
+    params: () => ({ fecha: this.fechaActual() }),
+    loader: ({ params }) => this.disponibilidad.delDia(params.fecha),
+    defaultValue: [],
+  });
+
+  /** Las canchas cerradas del día, con su rango exacto (T270). */
+  private readonly bloqueos = resource({
+    params: () => ({ fecha: this.fechaActual(), recarga: this.recargas() }),
+    loader: ({ params }) => this.agenda.bloqueosDelDia(params.fecha),
+    defaultValue: [] as BloqueoDelDia[],
+  });
+
+  /**
+   * Lo cargado, leído sin reventar: `value()` lanza si el `resource` falló. Cada sección
+   * pregunta aparte por `error()`.
+   */
+  protected readonly reservasSeguras = computed(() =>
+    this.reservas.hasValue() ? this.reservas.value() : [],
+  );
+  protected readonly clasesSeguras = computed(() =>
+    this.clases.hasValue() ? this.clases.value() : [],
+  );
+  protected readonly grillasSeguras = computed(() =>
+    this.grillas.hasValue() ? this.grillas.value() : [],
+  );
+  /** Sin los cierres, el tablero igual sirve: se dibuja sin rayas. */
+  protected readonly bloqueosSeguros = computed(() =>
+    this.bloqueos.hasValue() ? this.bloqueos.value() : [],
   );
 
-  protected readonly queClaseEs = queClaseEs;
-  protected readonly cupoEnPalabras = cupoEnPalabras;
+  /**
+   * La reserva cuya ficha está abierta. Por su id y no el objeto: al anotar una
+   * observación el día se vuelve a pedir, y la ficha tiene que mostrar la nueva.
+   */
+  protected readonly idDeLaFicha = signal<number | null>(null);
+  protected readonly laFicha = computed(() => {
+    const id = this.idDeLaFicha();
+    return id === null ? null : (this.reservasSeguras().find((reserva) => reserva.id === id) ?? null);
+  });
 
   /** Cambia con cada aviso del servidor y así vuelve a disparar el `resource`. */
   private readonly recargas = signal(0);
@@ -348,8 +259,8 @@ export class AgendaDelDia {
   }
 
   protected readonly resumen = () => {
-    const total = this.reservas.value().length;
-    const clases = this.clases.value().length;
+    const total = this.reservasSeguras().length;
+    const clases = this.clasesSeguras().length;
     const reservas = `${total} ${total === 1 ? 'reserva' : 'reservas'}`;
 
     // Las clases se nombran solo cuando las hay: "y 0 clases" es ruido en cada
@@ -358,8 +269,6 @@ export class AgendaDelDia {
       ? `${reservas} este día.`
       : `${reservas} y ${clases} ${clases === 1 ? 'clase' : 'clases'} este día.`;
   };
-
-  protected readonly hoy = hoyEnElClub();
 
   /** El formulario del mesón está abierto. */
   protected readonly tomandoHora = signal(false);
@@ -382,7 +291,7 @@ export class AgendaDelDia {
    * calcularlos a ojo sería inventarle plata al club.
    */
   protected readonly resumenDelDia = computed(() => {
-    const reservas = this.reservas.value();
+    const reservas = this.reservasSeguras();
 
     return [
       { titulo: 'Reservas', icono: 'book_online', valor: reservas.length },
@@ -399,29 +308,4 @@ export class AgendaDelDia {
       },
     ];
   });
-
-  /** El día del calendario: un `Date` estable mientras no cambie el día (T244). */
-  protected readonly diaElegido = computed(() => textoAFecha(this.fechaActual()));
-
-  /** El día que se eligió en el calendario; vacío o inválido no consulta nada. */
-  protected cambiarFecha(fecha: Date | null): void {
-    const valor = fechaATexto(fecha);
-    if (valor) this.fechaActual.set(valor);
-  }
-
-  /**
-   * Un día adelante o atrás.
-   *
-   * Se mueve desde el mediodía UTC por lo mismo que la tira de días de la
-   * disponibilidad: los domingos del cambio de hora no tienen 24 horas.
-   */
-  protected moverDia(pasos: number): void {
-    const dia = new Date(`${this.fechaActual()}T12:00:00.000Z`);
-    dia.setUTCDate(dia.getUTCDate() + pasos);
-
-    this.fechaActual.set(fechaEnElClub(dia));
-  }
-
-  protected readonly hora = horaEnElClub;
-  protected readonly enPalabras = diaEnPalabras;
 }

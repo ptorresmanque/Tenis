@@ -1774,7 +1774,8 @@ describe('Los campos son de Material (T244)', () => {
 
   it('**ningún `app-selector`**: los grupos de opciones son `mat-button-toggle-group` (T251)', () => {
     const infractores = plantillas()
-      .filter(({ contenido }) => /<app-selector\b/.test(contenido))
+      // El nombre entero: con \b, el guion de <app-selector-de-dia (T271) también calzaba.
+      .filter(({ contenido }) => /<app-selector(?=[\s>/])/.test(contenido))
       .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);

@@ -5,7 +5,7 @@ import { GrillaDeCancha } from '../../catalogo-canchas/disponibilidad';
 import { moverConFlechas } from '../../catalogo-canchas/flechas-del-tablero';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from '../../catalogo-canchas/motivos';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
-import { ClaseDelDia } from '../../clases/clases.service';
+import { ClaseDelDia, cupoEnPalabras, queClaseEs } from '../../clases/clases.service';
 import { BloqueoDelDia, ReservaDelDia } from './agenda.service';
 
 /** El paso de la grilla en la API (`PASO_DE_LA_GRILLA_MIN`): una fila por media hora. */
@@ -214,14 +214,17 @@ export function tableroDeLaAgenda(dia: {
         <tbody>
           @for (fila of tablero().filas; track fila.inicio; let i = $index) {
             <tr>
-              <th scope="row" class="sticky left-0 z-10 bg-campo text-start align-top">
+              <th scope="row" class="sticky left-0 z-10 h-11 bg-campo text-start align-top">
                 <span class="font-display text-lg font-bold tabular-nums">{{ fila.hora }}</span>
               </th>
               @for (celda of fila.celdas; track $index; let j = $index) {
                 @switch (celda.tipo) {
                   @case ('cubierta') {}
                   @case ('reserva') {
-                    <td class="p-0 align-top" [attr.rowspan]="celda.franjas">
+                    <!-- relative y el contenido en absolute: con rowspan, un h-full adentro
+                         no toma el alto de la celda y la reserva quedaba en su primera
+                         media hora. -->
+                    <td class="relative p-0" [attr.rowspan]="celda.franjas">
                       @let reserva = celda.reserva;
                       @let espera = reserva.estado === 'PENDIENTE_PAGO';
                       <!-- Una tarjeta clara sobre el campo: es lo que el mesón busca. La que
@@ -229,9 +232,9 @@ export function tableroDeLaAgenda(dia: {
                            pero se puede caer. -->
                       <button
                         type="button"
-                        class="flex h-full min-h-11 w-full cursor-pointer flex-col items-start
-                               gap-0.5 overflow-hidden border bg-card p-1.5 text-start
-                               text-foreground hover:border-primary"
+                        class="absolute inset-0 flex cursor-pointer flex-col items-start gap-0.5
+                               overflow-hidden border bg-card p-1.5 text-start text-foreground
+                               hover:border-primary"
                         [class.border-dashed]="espera"
                         [class.border-on-campo]="espera"
                         [class.border-transparent]="!espera"
@@ -259,23 +262,29 @@ export function tableroDeLaAgenda(dia: {
                     </td>
                   }
                   @case ('clase') {
-                    <td class="p-0 align-top" [attr.rowspan]="celda.franjas">
+                    <td class="relative p-0" [attr.rowspan]="celda.franjas">
                       <div
-                        class="flex h-full min-h-11 flex-col items-start gap-0.5 overflow-hidden
+                        class="absolute inset-0 flex flex-col items-start gap-0.5 overflow-hidden
                                bg-on-campo/15 p-1.5 text-on-campo"
                       >
-                        <span class="inline-flex items-center gap-1 text-sm font-semibold">
+                        <!-- La palabra y el ícono, no el color (criterio 7 de clases): qué
+                             clase es, quién la da y para cuántos, como la tarjeta de antes. -->
+                        <span class="inline-flex w-full items-center gap-1 text-sm font-semibold">
                           <mat-icon class="text-sm" aria-hidden="true">school</mat-icon>
-                          Clase
+                          <span class="truncate">Clase · {{ queClaseEs(celda.clase) }}</span>
                         </span>
-                        <span class="w-full truncate text-xs">{{ celda.clase.profesor }}</span>
+                        <span class="w-full truncate text-xs">
+                          {{ celda.clase.profesor }} · {{ cupoEnPalabras(celda.clase.cupoMaximo) }}
+                        </span>
                       </div>
                     </td>
                   }
                   @case ('bloqueada') {
-                    <td class="p-0" [attr.rowspan]="celda.franjas">
+                    <td class="relative p-0" [attr.rowspan]="celda.franjas">
+                      <!-- El rótulo arriba: un cierre de toda la tarde se lee al llegar a
+                           su primera hora, no a la mitad. -->
                       <span
-                        class="rayas flex h-full min-h-11 items-center justify-center gap-1
+                        class="rayas absolute inset-0 flex items-start justify-center gap-1 pt-3
                                text-xs text-on-campo/80"
                       >
                         <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
@@ -428,6 +437,9 @@ export class TableroDeLaAgenda {
   protected mover(evento: KeyboardEvent): void {
     moverConFlechas(evento, this.tablero().filas.length, this.tablero().columnas.length);
   }
+
+  protected readonly queClaseEs = queClaseEs;
+  protected readonly cupoEnPalabras = cupoEnPalabras;
 
   /** Lo que oye quien no ve el tablero: la hora, la cancha, de quién es y si se paga. */
   protected etiqueta(reserva: ReservaDelDia): string {
