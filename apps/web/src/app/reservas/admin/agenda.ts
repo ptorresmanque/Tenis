@@ -17,6 +17,7 @@ import { ClaseDelDia, Clases } from '../../clases/clases.service';
 import { Auth } from '../../core/auth/auth';
 import { DescargarCsv } from '../../reportes/descargar-csv';
 import { Aviso } from '../../ui/aviso';
+import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Agenda, BloqueoDelDia, ReservaDelDia } from './agenda.service';
 import { FichaDeLaReserva } from './ficha-de-la-reserva';
@@ -44,6 +45,7 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
     NuevaReserva,
     SelectorDeDia,
     TableroDeLaAgenda,
+    Esqueleto,
   ],
   template: `
     <!-- La cabecera del panel (TV7.1): el titular y una sola acción principal.
@@ -112,7 +114,7 @@ import { TableroDeLaAgenda } from './tablero-de-la-agenda';
 
     <div role="status" aria-live="polite" class="mt-6">
       @if (reservas.isLoading() || grillas.isLoading()) {
-        <p class="text-muted-foreground">Buscando las reservas del día…</p>
+        <app-esqueleto [filas]="6" etiqueta="Buscando las reservas del día…" />
       } @else if (reservas.error() || clases.error() || grillas.error()) {
         <p class="text-destructive">
           No se pudo cargar la agenda. Reintenta en un momento.

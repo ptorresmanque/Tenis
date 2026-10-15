@@ -11,6 +11,7 @@ import {
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { proveerCampos } from '../ui/campos';
+import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { DescargarCsv } from './descargar-csv';
@@ -37,6 +38,7 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
     MatInput,
     EstadoVacio,
     DescargarCsv,
+    Esqueleto,
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
@@ -181,7 +183,7 @@ import { CorteDeNoUso, CORTES_DE_NO_USO, FilaDeNoUso, Reportes } from './reporte
         <app-descargar-csv [url]="urlDelCsv()" />
       </div>
     } @else if (reporte.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Contando las horas del período…</p>
+      <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Contando las horas del período…" />
     }
   `,
 })
