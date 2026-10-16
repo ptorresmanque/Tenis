@@ -2018,14 +2018,16 @@ describe('Lo que espera muestra un esqueleto (T152)', () => {
 });
 
 /**
- * T291 (SPEC-panel.md D9). Crear se abre con un FAB y un diálogo, y no con un botón que cambia
- * entre «Crear…» y «Cerrar» y despliega el formulario en la página: era un mismo control con
- * dos significados, y el formulario abierto empujaba la lista hacia abajo.
+ * T291 (SPEC-panel.md D9) y T316 (SPEC-sitio.md D4). Un formulario no se despliega con un botón
+ * que cambia entre una acción y «Cerrar…»: era un mismo control con dos significados, y el
+ * formulario abierto empujaba la lista hacia abajo. En el panel, crear se abre con un FAB y un
+ * diálogo; en el sitio, la inscripción a un torneo es su página.
  */
-describe('Crear no se alterna con Cerrar (T291)', () => {
-  it('**ningún botón cambia entre «Crear…» y «Cerrar»**', () => {
-    // Desde T292 sin excepciones: Torneos, Tours y Jugadores crean con un FAB y un diálogo.
-    const alterna = /\?\s*'Cerrar'\s*:\s*'Crear|\?\s*'Crear[^']*'\s*:\s*'Cerrar'/;
+describe('Ningún botón se alterna con Cerrar (T291, T316)', () => {
+  it('**ningún botón cambia entre una acción y «Cerrar…»**', () => {
+    // Desde T292 sin excepciones en el panel, y desde T316 en el sitio: «Inscribirme» y
+    // «Cerrar la inscripción» eran el último.
+    const alterna = /\?\s*'Cerrar[^']*'\s*:\s*'|\?\s*'[^']*'\s*:\s*'Cerrar/;
     const infractores = plantillas()
       .filter(({ contenido }) => alterna.test(contenido))
       .map(({ archivo }) => archivo);

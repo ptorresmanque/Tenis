@@ -1,6 +1,5 @@
 import {
   Component,
-  DestroyRef,
   computed,
   inject,
   input,
@@ -24,36 +23,9 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 import { Foto as FotoDelSitio } from '../../ui/foto';
 import { CartelDelTorneo } from './cartel-del-torneo';
 import { CuadroPublicoModal } from './cuadro-publico';
-import { InscripcionATorneo } from './inscripcion';
-import { olvidarPagoPendiente } from './pago-pendiente';
+import { AVISOS_DEL_PAGO, soltarSiVolvioSinPagar } from './pago-pendiente';
 import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
 import { Esqueleto } from '../../ui/esqueleto';
-
-/**
- * Lo que se le dice a quien vuelve de la pasarela.
- *
- * **Los dos finales importan por igual**: que el pago entró hay que decirlo, y que no
- * entró, más — esa persona tiene que enterarse de que **no quedó inscrita**, porque su
- * lugar se soltó y el cuadro sigue abierto para otro.
- */
-const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
-  listo: {
-    variante: 'exito',
-    texto: 'Pago recibido: tu inscripción quedó confirmada. Nos vemos en la cancha.',
-  },
-  rechazado: {
-    variante: 'error',
-    texto:
-      'El pago fue rechazado, así que tu inscripción no quedó tomada. Puedes ' +
-      'inscribirte de nuevo con otro medio de pago.',
-  },
-  anulado: {
-    variante: 'error',
-    texto:
-      'No terminaste el pago, así que tu inscripción no quedó tomada y tu cupo ' +
-      'volvió a estar disponible. Puedes inscribirte de nuevo.',
-  },
-};
 
 /**
  * Los torneos del club, para quien mira desde afuera.
@@ -77,7 +49,6 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
     CuadroPublicoModal,
     EstadoVacio,
     Esqueleto,
-    InscripcionATorneo,
     RouterLink,
     MatChipsModule,
   ],
@@ -290,28 +261,17 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   </div>
                 }
 
+                <!-- La inscripción es su página (T316, D4), con sus pasos: un enlace y no un
+                     botón que desplegaba el formulario en la tarjeta. -->
                 @if (torneo.estado === 'INSCRIPCION' && torneo.categorias.length > 0) {
-                  <button
+                  <a
                     matButton="filled"
-                    type="button"
                     class="mt-4 self-start"
-                    [attr.aria-expanded]="inscribiendo() === torneo.id"
-                    (click)="alternarInscripcion(torneo.id)"
+                    [routerLink]="['/torneos', torneo.id, 'inscripcion']"
                   >
-                    {{
-                      inscribiendo() === torneo.id
-                        ? 'Cerrar la inscripción'
-                        : 'Inscribirme'
-                    }}
-                  </button>
-
-                  @if (inscribiendo() === torneo.id) {
-                    <app-inscripcion-a-torneo
-                      [torneoId]="torneo.id"
-                      [categorias]="torneo.categorias"
-                      [inscrito]="recargar"
-                    />
-                  }
+                    Inscribirme
+                    <span class="sr-only">en {{ torneo.nombre }}</span>
+                  </a>
                 }
               </app-cartel-del-torneo>
             </li>
@@ -335,25 +295,21 @@ export class TorneosPublicos {
   private readonly api = inject(Torneos);
   private readonly router = inject(Router);
 
-  constructor() {
-    void this.soltarSiVolvioSinPagar();
-
-    // `pageshow` y no solo el arranque: al volver atrás, el navegador puede restaurar
-    // esta página de su caché sin construir el componente otra vez.
-    const alVolver = () => void this.soltarSiVolvioSinPagar();
-    window.addEventListener('pageshow', alVolver);
-    inject(DestroyRef).onDestroy(() =>
-      window.removeEventListener('pageshow', alVolver),
-    );
-  }
-
   /**
    * Volvió de la pasarela sin pagar y le soltamos el cupo.
    *
    * Es el caso que **ningún aviso del servidor cubre**: apretar "atrás" en el navegador
    * no pasa por el retorno, así que no hay `?pago=` en la URL ni callback que avise.
+   * Desde T316 se va a pagar desde la página de la inscripción, que es a la que se
+   * vuelve; acá queda para borrar la marca cuando Webpay trae de vuelta con `?pago=`.
    */
   private readonly volvioSinPagar = signal(false);
+
+  constructor() {
+    // Poner esto en `true` hace dos cosas: escribe el aviso y vuelve a pedir el
+    // calendario, porque el recurso lo tiene de parámetro.
+    soltarSiVolvioSinPagar(() => this.volvioSinPagar.set(true));
+  }
 
   protected readonly torneos = resource({
     // **Soltar un cupo deja vieja la lista que se está mostrando**, y el suyo es uno de
@@ -416,18 +372,10 @@ export class TorneosPublicos {
   }
 
   /**
-   * El torneo que llega con el formulario ya abierto, desde `?inscripcion=5`.
-   *
-   * Lo pone el botón "Inscribirme" de la portada. Llega como input y no leyendo la
-   * ruta a mano porque el router está configurado con `withComponentInputBinding`.
-   */
-  readonly inscripcion = input<string>();
-
-  /**
    * Cómo terminó el pago, cuando Webpay acaba de traer de vuelta al navegador.
    *
    * `listo`, `rechazado` o `anulado`: lo pone el servidor en la redirección del
-   * retorno. Llega como input por la misma vía que `inscripcion`.
+   * retorno. Llega como input por `withComponentInputBinding`, como `cuadro`.
    */
   readonly pago = input<string>();
 
@@ -440,57 +388,9 @@ export class TorneosPublicos {
    */
   protected readonly resultadoDelPago = computed(() =>
     this.volvioSinPagar()
-      ? AVISOS['anulado']
-      : (AVISOS[this.pago() ?? ''] ?? null),
+      ? AVISOS_DEL_PAGO['anulado']
+      : (AVISOS_DEL_PAGO[this.pago() ?? ''] ?? null),
   );
-
-  /**
-   * Si esta pestaña viene de un pago sin terminar, suelta ese cupo.
-   *
-   * **Se llama al arrancar y en cada `pageshow`.** Volver atrás puede restaurar la
-   * página desde el caché del navegador sin construir el componente de nuevo, y ese es
-   * justo el caso que esto existe para atender.
-   *
-   * No se mira `pago()` para decidir si llamar: si la persona pagó, su inscripción ya
-   * no está pendiente y el servidor no suelta nada —`soltada: false`— así que la
-   * llamada es inofensiva. Mirarlo obligaría a esperar a que el input estuviera puesto,
-   * que es una carrera que no hace falta correr.
-   */
-  private async soltarSiVolvioSinPagar(): Promise<void> {
-    const token = olvidarPagoPendiente();
-
-    if (!token) return;
-
-    const { soltada } = await this.api.soltarInscripcion(token);
-
-    // Poner esto en `true` hace dos cosas: escribe el aviso y vuelve a pedir el
-    // calendario, porque el recurso lo tiene de parámetro.
-    if (soltada) this.volvioSinPagar.set(true);
-  }
-
-  /**
-   * Qué torneo tiene el formulario de inscripción abierto.
-   *
-   * `linkedSignal` y no `signal`: arranca en el que pidió la URL y desde ahí lo manda
-   * quien aprieta el botón, sin que el valor de la URL vuelva a imponerse.
-   */
-  protected readonly inscribiendo = linkedSignal<number | null>(
-    () => Number(this.inscripcion()) || null,
-  );
-
-  protected alternarInscripcion(id: number): void {
-    this.inscribiendo.update((actual) => (actual === id ? null : id));
-  }
-
-  /**
-   * Vuelve a pedir el calendario después de una inscripción.
-   *
-   * Sin esto, los cupos que quedan siguen diciendo lo de antes justo cuando la persona
-   * acaba de cambiarlos. Va como propiedad y no como método para poder pasarla al hijo.
-   */
-  protected readonly recargar = (): void => {
-    this.torneos.reload();
-  };
 
   /**
    * Lo que va después del nivel: "," entre tours, " y" antes del último, "." al final.

@@ -430,11 +430,7 @@ import { Foto } from '../ui/foto';
 
                 <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
                   <span class="text-muted-foreground">Socio o visitante</span>
-                  <a
-                    matButton="filled"
-                    routerLink="/torneos"
-                    [queryParams]="{ inscripcion: torneo.id }"
-                  >
+                  <a matButton="filled" [routerLink]="['/torneos', torneo.id, 'inscripcion']">
                     Inscribirme
                     <span class="sr-only">en {{ torneo.nombre }}</span>
                   </a>

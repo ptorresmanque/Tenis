@@ -117,14 +117,14 @@ describe('Inicio', () => {
     expect(elemento().querySelector('#torneos-abiertos')).not.toBeNull();
   });
 
-  it('**inscribirse abre el formulario de ese torneo, no la lista entera**', async () => {
+  it('**inscribirse lleva a la página de inscripción de ese torneo** (T316, D4)', async () => {
     await montar([ABIERTO]);
 
     const boton = Array.from(elemento().querySelectorAll('a')).find((a) =>
       a.textContent?.includes('Inscribirme'),
     );
 
-    expect(boton?.getAttribute('href')).toBe('/torneos?inscripcion=5');
+    expect(boton?.getAttribute('href')).toBe('/torneos/5/inscripcion');
   });
 
   it('un torneo que ya cerró su inscripción no se anuncia', async () => {

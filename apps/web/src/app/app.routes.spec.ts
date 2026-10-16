@@ -1,7 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { Route, Routes } from '@angular/router';
+import { TestBed } from '@angular/core/testing';
+import {
+  ActivatedRouteSnapshot,
+  CanActivateFn,
+  convertToParamMap,
+  provideRouter,
+  Route,
+  RouterStateSnapshot,
+  Routes,
+} from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { routes } from './app.routes';
@@ -223,6 +232,13 @@ describe('Rutas protegidas', () => {
     expect(buscar('disponibilidad')?.guards).toEqual([]);
   });
 
+  it('**inscribirse en un torneo es su página, y no pide sesión** (T316, D4)', () => {
+    expect(buscar('torneos/:id/inscripcion')?.guards).toEqual([]);
+    expect(buscar('torneos/:id/inscripcion')?.ruta.title).toBe(
+      'Inscripción — FEDAL Tennis Center',
+    );
+  });
+
   it('los tours se leen sin sesión (T195)', () => {
     expect(buscar('tours')?.guards).toEqual([]);
     expect(buscar('tours/:id')?.guards).toEqual([]);
@@ -234,6 +250,35 @@ describe('Rutas protegidas', () => {
 
   it('la política de privacidad se lee sin sesión: Google la abre para aprobar el login', () => {
     expect(buscar('privacidad')?.guards).toEqual([]);
+  });
+});
+
+/**
+ * T316 (SPEC-sitio.md A6). `/torneos?inscripcion=5` era el botón «Inscribirme» de la portada, y
+ * puede seguir en un marcador o en un enlace compartido: lleva a la página de la inscripción. La vuelta de
+ * Webpay, `/torneos?pago=…`, se queda en Torneos, donde está su aviso.
+ */
+describe('La dirección vieja de la inscripción (T316, A6)', () => {
+  const entrarATorneos = (consulta: Record<string, string>) => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const [guard] = (buscar('torneos')?.guards ?? []) as CanActivateFn[];
+
+    return TestBed.runInInjectionContext(() =>
+      guard?.(
+        { queryParamMap: convertToParamMap(consulta) } as ActivatedRouteSnapshot,
+        {} as RouterStateSnapshot,
+      ),
+    );
+  };
+
+  it('**/torneos?inscripcion=5 lleva a /torneos/5/inscripcion**', () => {
+    expect(String(entrarATorneos({ inscripcion: '5' }))).toBe('/torneos/5/inscripcion');
+  });
+
+  it('sin `?inscripcion=`, y al volver de Webpay, se queda en Torneos', () => {
+    expect(entrarATorneos({})).toBe(true);
+    expect(entrarATorneos({ pago: 'listo' })).toBe(true);
   });
 });
 
@@ -249,6 +294,7 @@ describe('Cada ruta en su cascarón', () => {
     ['preguntas-frecuentes', CascaronPublico],
     ['tours', CascaronPublico],
     ['tours/:id', CascaronPublico],
+    ['torneos/:id/inscripcion', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],

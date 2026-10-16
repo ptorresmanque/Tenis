@@ -337,14 +337,15 @@ describe('TorneosPublicos', () => {
     });
   });
 
-  it('**llegar con `?inscripcion=5` abre el formulario de ese torneo**', async () => {
-    // Es el botón "Inscribirme" de la portada: sin esto aterriza en la lista y hay
-    // que volver a buscar el torneo que ya se había elegido.
-    fixture.componentRef.setInput('inscripcion', '5');
-    await fixture.whenStable();
-    fixture.detectChanges();
+  it('**«Inscribirme» lleva a la página de la inscripción** (T316, D4)', () => {
+    // Un enlace y no un botón que despliega el formulario en la tarjeta: la inscripción
+    // tiene sus pasos, y abierta en la lista empujaba los demás torneos hacia abajo.
+    const enlace = Array.from(elemento().querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('Inscribirme'),
+    );
 
-    expect(elemento().querySelector('app-inscripcion-a-torneo')).not.toBeNull();
+    expect(enlace?.getAttribute('href')).toBe('/torneos/5/inscripcion');
+    expect(elemento().querySelector('app-inscripcion-a-torneo')).toBeNull();
   });
 
   it('sin cupos lo dice, y explica que se entra en lista de espera', async () => {

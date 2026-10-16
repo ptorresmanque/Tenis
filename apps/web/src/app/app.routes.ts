@@ -1,8 +1,20 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { CanActivateFn, Router, Routes } from '@angular/router';
 
 import { CascaronPublico } from './cascarones/cascaron-publico';
 import { conPanel } from './core/auth/con-panel.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
+
+/**
+ * `/torneos?inscripcion=5` era el botón «Inscribirme» de la portada, y puede seguir en un marcador
+ * o en un enlace compartido: lleva a la página de la inscripción (T316, SPEC-sitio.md A6). La vuelta de Webpay,
+ * `/torneos?pago=…`, se queda en Torneos, donde está su aviso.
+ */
+const aLaInscripcion: CanActivateFn = (ruta) => {
+  const torneo = ruta.queryParamMap.get('inscripcion');
+
+  return torneo ? inject(Router).createUrlTree(['/torneos', torneo, 'inscripcion']) : true;
+};
 
 /**
  * Tres cascarones, tres grupos de rutas.
@@ -56,8 +68,15 @@ export const routes: Routes = [
       {
         path: 'torneos',
         title: 'Torneos — FEDAL Tennis Center',
+        canActivate: [aLaInscripcion],
         loadComponent: () =>
           import('./torneos/publico/torneos').then((m) => m.TorneosPublicos),
+      },
+      {
+        path: 'torneos/:id/inscripcion',
+        title: 'Inscripción — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./torneos/publico/pagina-de-inscripcion').then((m) => m.PaginaDeInscripcion),
       },
       {
         path: 'tours',

@@ -359,7 +359,7 @@ export class InscripcionATorneo {
   readonly torneoId = input.required<number>();
   readonly categorias = input.required<CategoriaPublica[]>();
 
-  /** Para que la tarjeta del torneo vuelva a pedir sus cupos. */
+  /** Para que la página de la inscripción vuelva a pedir los cupos. */
   readonly inscrito = input<() => void>();
 
   protected datos = enBlanco();
