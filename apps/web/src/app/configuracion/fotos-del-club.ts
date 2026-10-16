@@ -4,6 +4,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
 import { proveerCampos } from '../ui/campos';
+import { GaleriaDeFotos } from '../ui/galeria-de-fotos';
 import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, FotoDelLugar } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
@@ -53,7 +54,7 @@ const LUGARES: {
  */
 @Component({
   selector: 'app-fotos-del-club',
-  imports: [MatFormFieldModule, MatInput, MatButton, Aviso, Esqueleto],
+  imports: [GaleriaDeFotos, MatFormFieldModule, MatInput, MatButton, Aviso, Esqueleto],
   providers: [proveerCampos()],
   template: `
     <h2 class="rotulo-seccion mt-10">Fotos</h2>
@@ -86,12 +87,20 @@ const LUGARES: {
             <ul class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
               @for (foto of suyas; track foto.id) {
                 <li>
-                  <img
-                    class="aspect-[4/3] w-full rounded-lg object-cover"
-                    [src]="foto.miniatura"
-                    [alt]="foto.descripcion ?? uno.porOmision"
-                    loading="lazy"
-                  />
+                  <!-- Tocar la miniatura abre la galería del sitio en esa foto (T312). -->
+                  <button
+                    type="button"
+                    class="block w-full cursor-pointer overflow-hidden rounded-lg"
+                    [attr.aria-label]="'Ver la foto: ' + (foto.descripcion ?? uno.porOmision)"
+                    (click)="visor.abrir($index)"
+                  >
+                    <img
+                      class="aspect-[4/3] w-full object-cover transition-opacity hover:opacity-80"
+                      [src]="foto.miniatura"
+                      [alt]="foto.descripcion ?? uno.porOmision"
+                      loading="lazy"
+                    />
+                  </button>
                   @if (porBorrar() === foto.id) {
                     <!-- La confirmación en la foto, como al borrar una pregunta frecuente:
                          es la consecuencia de este botón y no hay foco que atrapar. -->
@@ -130,6 +139,7 @@ const LUGARES: {
                 </li>
               }
             </ul>
+            <app-galeria-de-fotos #visor [fotos]="suyas" [etiqueta]="'Fotos de ' + uno.nombre" />
           }
 
           @if (suyas.length >= FOTOS_POR_LUGAR) {

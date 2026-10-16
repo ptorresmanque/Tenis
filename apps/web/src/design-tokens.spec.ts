@@ -2139,3 +2139,28 @@ describe('Las bandas del sitio llegan al borde (T307)', () => {
     expect(css).toMatch(/@utility px-sangre-\*\s*\{[^}]*var\(--sangria, 0px\)/);
   });
 });
+
+/**
+ * T312 (SPEC-sitio.md D8). Toda lista de fotos abre la galería del sitio, la de ng-gallery, y
+ * ninguna tiene un visor propio. Una lista es una plantilla que recorre fotos y muestra sus
+ * miniaturas; una imagen suelta, como la portada de un tour, no es una lista.
+ */
+describe('Toda lista de fotos abre la galería (T312)', () => {
+  it('**una plantilla que recorre fotos y muestra miniaturas usa `app-galeria-de-fotos` o `app-galeria`**', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /@for \(foto of[\s\S]*?foto\.miniatura/.test(sinComentarios(contenido)))
+      .filter(({ contenido }) => !/<app-galeria(?:-de-fotos)?\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún visor propio**: la foto grande de una lista solo la pide la galería', () => {
+    // El visor de antes de T310 dibujaba `foto.imagen` en la página, con «Cerrar la foto».
+    const infractores = plantillas()
+      .filter(({ contenido }) => /Cerrar la foto/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});

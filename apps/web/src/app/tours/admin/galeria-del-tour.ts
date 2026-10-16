@@ -15,6 +15,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 
 import { proveerCampos } from '../../ui/campos';
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
@@ -29,7 +30,7 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-galeria-del-tour',
-  imports: [MatCard, MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  imports: [GaleriaDeFotos, MatCard, MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
   providers: [proveerCampos()],
   template: `
     <form
@@ -90,12 +91,20 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
         @for (foto of tour().fotos; track foto.id; let i = $index, total = $count) {
           <li>
             <mat-card appearance="outlined" class="p-3">
-              <img
-                class="aspect-[4/3] w-full bg-muted object-cover"
-                [src]="foto.miniatura"
-                [alt]="foto.descripcion ?? 'Foto de ' + tour().nombre"
-                loading="lazy"
-              />
+              <!-- Tocar la miniatura abre la galería del sitio en esa foto (T312). -->
+              <button
+                type="button"
+                class="block w-full cursor-pointer"
+                [attr.aria-label]="'Ver la foto: ' + (foto.descripcion ?? 'Foto de ' + tour().nombre)"
+                (click)="visor.abrir(i)"
+              >
+                <img
+                  class="aspect-[4/3] w-full bg-muted object-cover transition-opacity hover:opacity-80"
+                  [src]="foto.miniatura"
+                  [alt]="foto.descripcion ?? 'Foto de ' + tour().nombre"
+                  loading="lazy"
+                />
+              </button>
               <!-- La posición, para el lector de pantalla: el mismo «Pie de foto» repetido
                      en cada fila no dice de cuál es. -->
               <mat-form-field>
@@ -163,6 +172,7 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
           </li>
         }
       </ul>
+      <app-galeria-de-fotos #visor [fotos]="tour().fotos" [etiqueta]="'Fotos de ' + tour().nombre" />
     }
   `,
 })
