@@ -45,6 +45,7 @@ describe('Inicio', () => {
       },
     ],
     tours: [],
+    afiches: [],
   };
 
   let fixture: ComponentFixture<Inicio>;
@@ -116,14 +117,14 @@ describe('Inicio', () => {
     expect(elemento().querySelector('#torneos-abiertos')).not.toBeNull();
   });
 
-  it('**inscribirse abre el formulario de ese torneo, no la lista entera**', async () => {
+  it('**inscribirse lleva a la página de inscripción de ese torneo** (T316, D4)', async () => {
     await montar([ABIERTO]);
 
     const boton = Array.from(elemento().querySelectorAll('a')).find((a) =>
       a.textContent?.includes('Inscribirme'),
     );
 
-    expect(boton?.getAttribute('href')).toBe('/torneos?inscripcion=5');
+    expect(boton?.getAttribute('href')).toBe('/torneos/5/inscripcion');
   });
 
   it('un torneo que ya cerró su inscripción no se anuncia', async () => {
@@ -281,6 +282,27 @@ describe('Inicio', () => {
   describe('el torneo con la inscripción abierta', () => {
     const seccion = () =>
       elemento().querySelector('[aria-labelledby="torneos-abiertos"]') as HTMLElement;
+
+    it('**se anuncia con su afiche**: la primera foto de antes, en el cartel del torneo (T314)', async () => {
+      await montar([
+        {
+          ...ABIERTO,
+          afiches: [
+            {
+              id: 7,
+              partidoId: null,
+              momento: 'ANTES',
+              descripcion: 'El afiche',
+              miniatura: '/api/torneos/fotos/7/miniatura',
+              imagen: '/api/torneos/fotos/7/imagen',
+            },
+          ],
+        },
+      ]);
+
+      const afiche = seccion().querySelector('app-cartel-del-torneo [data-afiche] img');
+      expect(afiche?.getAttribute('src')).toBe('/api/torneos/fotos/7/imagen');
+    });
 
     it('el cartel nombra el torneo y dice hasta cuándo inscribirse', async () => {
       await montar([ABIERTO]);
@@ -475,6 +497,25 @@ describe('Inicio', () => {
     });
   });
 
+  describe('la foto y el final de la portada (T305, SPEC-sitio.md D6 y D7)', () => {
+    it('**la foto de arriba es la vista aérea del club**', async () => {
+      await montar([]);
+      const foto = elemento().querySelector<HTMLImageElement>('[aria-labelledby="promesa"] img')!;
+
+      expect(foto.getAttribute('src')).toContain('/fotos/el-club.jpg');
+      expect(foto.alt).toContain('Vista aérea del club');
+    });
+
+    it('**no tiene la banda final**: ni «Todavía quedan horas para hoy» ni su foto', async () => {
+      await montar([], undefined, { esperar: true });
+
+      expect(elemento().querySelector('[aria-labelledby="cierre"]')).toBeNull();
+      expect(texto()).not.toContain('Todavía quedan horas para hoy');
+      expect(texto()).not.toContain('Elige tu hora de esta semana');
+      expect(elemento().querySelector('img[src*="instalaciones.jpg"]')).toBeNull();
+    });
+  });
+
   describe('la tienda y la cafetería (T186)', () => {
     it('con la tienda descrita, la portada la cuenta antes del cierre', async () => {
       await montar([], undefined, {
@@ -491,8 +532,6 @@ describe('Inicio', () => {
       );
 
       expect(titulos).toContain('También en el club');
-      // Antes del cierre: quien baja hasta acá ya decidió venir.
-      expect(titulos.indexOf('También en el club')).toBeLessThan(titulos.length - 1);
     });
 
     it('sin nada descrito, la banda no existe', async () => {

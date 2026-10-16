@@ -2018,14 +2018,16 @@ describe('Lo que espera muestra un esqueleto (T152)', () => {
 });
 
 /**
- * T291 (SPEC-panel.md D9). Crear se abre con un FAB y un diálogo, y no con un botón que cambia
- * entre «Crear…» y «Cerrar» y despliega el formulario en la página: era un mismo control con
- * dos significados, y el formulario abierto empujaba la lista hacia abajo.
+ * T291 (SPEC-panel.md D9) y T316 (SPEC-sitio.md D4). Un formulario no se despliega con un botón
+ * que cambia entre una acción y «Cerrar…»: era un mismo control con dos significados, y el
+ * formulario abierto empujaba la lista hacia abajo. En el panel, crear se abre con un FAB y un
+ * diálogo; en el sitio, la inscripción a un torneo es su página.
  */
-describe('Crear no se alterna con Cerrar (T291)', () => {
-  it('**ningún botón cambia entre «Crear…» y «Cerrar»**', () => {
-    // Desde T292 sin excepciones: Torneos, Tours y Jugadores crean con un FAB y un diálogo.
-    const alterna = /\?\s*'Cerrar'\s*:\s*'Crear|\?\s*'Crear[^']*'\s*:\s*'Cerrar'/;
+describe('Ningún botón se alterna con Cerrar (T291, T316)', () => {
+  it('**ningún botón cambia entre una acción y «Cerrar…»**', () => {
+    // Desde T292 sin excepciones en el panel, y desde T316 en el sitio: «Inscribirme» y
+    // «Cerrar la inscripción» eran el último.
+    const alterna = /\?\s*'Cerrar[^']*'\s*:\s*'|\?\s*'[^']*'\s*:\s*'Cerrar/;
     const infractores = plantillas()
       .filter(({ contenido }) => alterna.test(contenido))
       .map(({ archivo }) => archivo);
@@ -2091,6 +2093,75 @@ describe('Los calendarios confirman y dicen su formato (T303)', () => {
         }
       }
     }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T306 (SPEC-sitio.md D5 y A9). En una pantalla grande el sitio público usaba 1152 px de 1920, y
+ * el panel la usa entera. El contenido crece a 1440 px, y lo que es banda —fotos y franjas de
+ * color— llega al borde con `.a-sangre`.
+ */
+describe('El sitio público usa las pantallas grandes (T306)', () => {
+  const cascaron = () =>
+    plantillas().find(({ archivo }) => archivo.endsWith('cascarones/cascaron-publico.ts'))!
+      .contenido;
+
+  it('**la barra, el contenido y el pie miden 1440 px**, y ninguno se queda en 1152', () => {
+    expect(cascaron()).not.toContain('max-w-6xl');
+    expect(cascaron().match(/mx-auto [^"]*max-w-\[90rem\]/g)).toHaveLength(3);
+  });
+
+  it('**`.a-sangre` lleva una banda al borde de la ventana**, sin desbordar la página', () => {
+    expect(css).toMatch(/@utility a-sangre\s*\{[^}]*margin-inline:\s*calc\(50% - 50vw\)/);
+    // Con barra de desplazamiento visible, 100vw es más ancho que la página: sin esto, cada banda
+    // empujaría la página hacia el lado. `clip` y no `hidden`, que rompería la barra pegajosa.
+    expect(css).toMatch(/body\s*\{[^}]*overflow-x:\s*clip/);
+  });
+});
+
+/**
+ * T307 (SPEC-sitio.md D5 y A9). Las fotos y las franjas de color del sitio llegan al borde de la
+ * ventana con `.a-sangre`, y su texto se alinea con el contenido con `px-sangre-*`. El truco de
+ * antes, `-mx-4 sm:mx-0`, solo las llevaba al borde en el teléfono.
+ */
+describe('Las bandas del sitio llegan al borde (T307)', () => {
+  it('**ninguna pantalla pública usa `-mx-4` para una banda**', () => {
+    const infractores = plantillas()
+      .filter(({ archivo }) => !archivo.includes('/admin/') && !archivo.startsWith('admin'))
+      .filter(({ contenido }) => /-mx-4/.test(sinComentarios(contenido)))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**`px-sangre-*` alinea el texto de la banda con el contenido**, y en el teléfono no suma nada', () => {
+    expect(css).toMatch(/@utility a-sangre\s*\{[^}]*--sangria:\s*0px/);
+    expect(css).toMatch(/@utility px-sangre-\*\s*\{[^}]*var\(--sangria, 0px\)/);
+  });
+});
+
+/**
+ * T312 (SPEC-sitio.md D8). Toda lista de fotos abre la galería del sitio, la de ng-gallery, y
+ * ninguna tiene un visor propio. Una lista es una plantilla que recorre fotos y muestra sus
+ * miniaturas; una imagen suelta, como la portada de un tour, no es una lista.
+ */
+describe('Toda lista de fotos abre la galería (T312)', () => {
+  it('**una plantilla que recorre fotos y muestra miniaturas usa `app-galeria-de-fotos` o `app-galeria`**', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /@for \(foto of[\s\S]*?foto\.miniatura/.test(sinComentarios(contenido)))
+      .filter(({ contenido }) => !/<app-galeria(?:-de-fotos)?\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún visor propio**: la foto grande de una lista solo la pide la galería', () => {
+    // El visor de antes de T310 dibujaba `foto.imagen` en la página, con «Cerrar la foto».
+    const infractores = plantillas()
+      .filter(({ contenido }) => /Cerrar la foto/.test(contenido))
+      .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);
   });

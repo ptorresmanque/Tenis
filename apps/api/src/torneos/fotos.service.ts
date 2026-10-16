@@ -47,10 +47,10 @@ export class FotosDelTorneo {
     const filas = await this.prisma.fotoTorneo.findMany({
       where: { torneoId },
       orderBy: [{ creadaEn: 'desc' }, { id: 'desc' }],
-      select: SELECCION,
+      select: SELECCION_DE_FOTO,
     });
 
-    return filas.map(publicar);
+    return filas.map(publicarFoto);
   }
 
   /** Las de un partido: la previa de los dos jugadores, casi siempre. */
@@ -58,10 +58,10 @@ export class FotosDelTorneo {
     const filas = await this.prisma.fotoTorneo.findMany({
       where: { partidoId },
       orderBy: [{ creadaEn: 'asc' }, { id: 'asc' }],
-      select: SELECCION,
+      select: SELECCION_DE_FOTO,
     });
 
-    return filas.map(publicar);
+    return filas.map(publicarFoto);
   }
 
   /**
@@ -114,10 +114,10 @@ export class FotosDelTorneo {
         rutaWeb: web.ruta,
         rutaMiniatura: miniatura.ruta,
       },
-      select: SELECCION,
+      select: SELECCION_DE_FOTO,
     });
 
-    return publicar(creada);
+    return publicarFoto(creada);
   }
 
   /** Borra la foto **y sus dos archivos**: una fila menos no libera disco. */
@@ -158,7 +158,7 @@ export class FotosDelTorneo {
   }
 }
 
-const SELECCION = {
+export const SELECCION_DE_FOTO = {
   id: true,
   partidoId: true,
   momento: true,
@@ -172,7 +172,7 @@ const SELECCION = {
  * está el archivo y cómo se llama es del servidor, y publicarlo invitaría a pedir
  * cualquier otro nombre de esa carpeta.
  */
-function publicar(fila: {
+export function publicarFoto(fila: {
   id: number;
   partidoId: number | null;
   momento: Momento;

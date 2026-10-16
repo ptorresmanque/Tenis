@@ -29,7 +29,7 @@ import { TablaInterna } from './tabla-interna';
          de posiciones, y lo que se viene a hacer acá es buscar un nombre en una
          lista. Una foto grande arriba solo alejaría la primera fila. -->
     <section
-      class="-mx-4 bg-campo px-4 py-8 text-on-campo sm:mx-0 sm:rounded-region sm:px-8"
+      class="a-sangre bg-campo px-sangre-4 py-8 text-on-campo sm:px-sangre-8"
       aria-labelledby="ranking"
     >
       <h1 id="ranking" class="titular text-5xl sm:text-7xl">Ranking de torneos</h1>

@@ -1,6 +1,6 @@
-import { Component, computed, input, signal } from '@angular/core';
-import { MatButton } from '@angular/material/button';
+import { Component, computed, input } from '@angular/core';
 
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { Momento } from '../torneos.service';
 
 /**
@@ -23,50 +23,24 @@ const TRAMOS: { momento: Momento; titulo: string }[] = [
 ];
 
 /**
- * Las fotos del torneo.
+ * Las fotos del torneo, y las de la tienda, la cafetería y el gimnasio.
  *
  * **La grilla carga solo miniaturas.** La versión grande se pide recién al abrir una
  * foto, y es la diferencia entre 240 MB y unos pocos para quien abre esto con datos
  * móviles parado en la cancha, que es exactamente dónde y cuándo se va a abrir.
  *
- * Sin diálogo modal a medida: la foto abierta se muestra en el mismo flujo, debajo del
- * título. Un modal habría que hacerlo accesible con foco y tecla de escape, y acá no
- * agrega nada que la página no haga sola.
+ * **Tocar una miniatura abre la galería del sitio** (`app-galeria-de-fotos`, T310,
+ * SPEC-sitio.md D8): el lightbox de ng-gallery, en esa foto y con las de la grilla en el mismo
+ * orden. Hasta T310 era un visor propio en el flujo de la página.
  */
 @Component({
   selector: 'app-galeria',
-  imports: [MatButton],
+  imports: [GaleriaDeFotos],
   template: `
     @if (fotos().length > 0) {
       <div class="mt-3">
         @if (titulo()) {
           <h3 class="subtitulo">{{ titulo() }}</h3>
-        }
-
-        @if (abierta(); as foto) {
-          <figure class="mt-2">
-            <img
-              class="max-h-[70vh] w-full rounded-lg object-contain"
-              [src]="foto.imagen"
-              [alt]="textoAlternativo(foto)"
-            />
-            <figcaption
-              class="mt-1 flex flex-wrap items-center gap-3 text-sm
-                     text-muted-foreground"
-            >
-              @if (foto.descripcion) {
-                <span>{{ foto.descripcion }}</span>
-              }
-              <button
-                matButton="outlined"
-                type="button"
-                class="chico"
-                (click)="cerrar()"
-              >
-                Cerrar la foto
-              </button>
-            </figcaption>
-          </figure>
         }
 
         @for (tramo of tramos(); track tramo.momento) {
@@ -84,7 +58,8 @@ const TRAMOS: { momento: Momento; titulo: string }[] = [
                 <button
                   type="button"
                   class="block w-full cursor-pointer overflow-hidden rounded-lg"
-                  (click)="abrir(foto)"
+                  [attr.aria-label]="'Ver la foto: ' + textoAlternativo(foto)"
+                  (click)="visor.abrir(enLaGaleria().indexOf(foto))"
                 >
                   <!-- Carga diferida: sesenta miniaturas no se piden todas al abrir la página,
                        se piden a medida que se baja. -->
@@ -100,6 +75,7 @@ const TRAMOS: { momento: Momento; titulo: string }[] = [
             }
           </ul>
         }
+        <app-galeria-de-fotos #visor [fotos]="enLaGaleria()" [etiqueta]="titulo() || porOmision()" />
       </div>
     }
   `,
@@ -110,8 +86,6 @@ export class Galeria {
   readonly titulo = input('Fotos');
   /** El texto alternativo de una foto sin pie. */
   readonly porOmision = input('Foto del torneo');
-
-  protected readonly abierta = signal<FotoDeGaleria | null>(null);
 
   /**
    * Solo los tramos que tienen alguna foto: un título vacío no dice nada.
@@ -130,13 +104,8 @@ export class Galeria {
     })).filter((tramo) => tramo.fotos.length > 0);
   });
 
-  protected abrir(foto: FotoDeGaleria): void {
-    this.abierta.set(foto);
-  }
-
-  protected cerrar(): void {
-    this.abierta.set(null);
-  }
+  /** Las fotos en el orden de la grilla, que es el que se recorre en la galería. */
+  protected readonly enLaGaleria = computed(() => this.tramos().flatMap((tramo) => tramo.fotos));
 
   /**
    * Qué dice el lector de pantalla.

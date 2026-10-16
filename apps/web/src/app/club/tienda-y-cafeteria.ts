@@ -230,9 +230,11 @@ export class TiendaYCafeteria {
     LISTA.format(this.lugares().map(({ nombre }, i) => (i === 0 ? nombre : nombre.toLowerCase()))),
   );
 
-  protected readonly columnas = computed(() =>
-    this.forma() === 'resumen' && this.lugares().length === 3 ? 'lg:grid-cols-3' : '',
-  );
+  /** Tres lugares van en tres columnas: el resumen desde `lg`, y El club desde 1536 px (T308). */
+  protected readonly columnas = computed(() => {
+    if (this.lugares().length !== 3) return '';
+    return this.forma() === 'resumen' ? 'lg:grid-cols-3' : '2xl:grid-cols-3';
+  });
 }
 
 /**

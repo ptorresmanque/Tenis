@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, FotoDelLugar } from '../club/club.service';
+import { GaleriaDeFotos } from '../ui/galeria-de-fotos';
 import { FotosDelClubPanel } from './fotos-del-club';
 
 /**
@@ -83,6 +84,17 @@ describe('FotosDelClubPanel', () => {
     expect(imagenes[0].getAttribute('src')).toBe('/api/club/fotos/1/miniatura');
     expect(imagenes[0].alt).toBe('La vitrina de raquetas');
     expect(imagenes[1].alt).toBe('Foto de la tienda del club');
+  });
+
+  it('**tocar una miniatura abre la galería en esa foto** (T312, SPEC-sitio.md D8)', async () => {
+    const abrir = vi.spyOn(GaleriaDeFotos.prototype, 'abrir');
+    const { elemento } = await montar();
+    const miniaturas = [...elemento.querySelectorAll<HTMLButtonElement>('button[aria-label^="Ver la foto"]')];
+
+    expect(miniaturas.map((b) => b.getAttribute('aria-label'))[0]).toBe('Ver la foto: La vitrina de raquetas');
+    miniaturas[1].click();
+    expect(abrir).toHaveBeenCalledWith(1);
+    abrir.mockRestore();
   });
 
   it('**cada pestaña muestra solo su lugar** (T236)', async () => {

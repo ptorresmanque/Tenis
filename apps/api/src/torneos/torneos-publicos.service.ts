@@ -5,10 +5,16 @@ import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTorneo,
+  MomentoFoto,
   Prisma,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { nombreDeRonda } from './cuadro';
+import {
+  FotoPublicada,
+  publicarFoto,
+  SELECCION_DE_FOTO,
+} from './fotos.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 
 /** Un torneo del calendario, como lo ve quien todavía no es del club. */
@@ -24,6 +30,12 @@ export interface TorneoPublico {
   categorias: CategoriaPublica[];
   /** Para qué tours suma (T196). Vacío en los torneos de antes de los tours. */
   tours: TourDelTorneoPublico[];
+  /**
+   * Las fotos de antes del torneo, de la más vieja a la más nueva (T313, SPEC-sitio.md A1 y A2):
+   * el afiche, el reglamento. La primera es la que muestra el cartel. Las de la previa de un
+   * partido también son de antes, pero son del partido y no van.
+   */
+  afiches: FotoPublicada[];
 }
 
 /**
@@ -217,6 +229,12 @@ export class TorneosPublicos {
           },
         },
         tours: TOURS_DEL_TORNEO,
+        // Junto con la lista y no una consulta por torneo: Prisma las trae todas de una vez.
+        fotos: {
+          where: { momento: MomentoFoto.ANTES, partidoId: null },
+          orderBy: [{ creadaEn: 'asc' }, { id: 'asc' }],
+          select: SELECCION_DE_FOTO,
+        },
       },
     });
 
@@ -242,6 +260,7 @@ export class TorneosPublicos {
         armado: cuadro.semillaSorteo !== null,
       })),
       tours: aplanarTours(torneo.tours),
+      afiches: torneo.fotos.map(publicarFoto),
     }));
   }
 

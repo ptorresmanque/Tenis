@@ -10,6 +10,7 @@ import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Foto, Momento, Torneos } from '../torneos.service';
 import { Esqueleto } from '../../ui/esqueleto';
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -35,6 +36,7 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
 @Component({
   selector: 'app-fotos-del-torneo',
   imports: [
+    GaleriaDeFotos,
     MatSelectModule,
     MatFormFieldModule,
     MatInput,
@@ -67,12 +69,20 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
         <ul class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
           @for (foto of fotos.value(); track foto.id) {
             <li class="relative">
-              <img
-                class="aspect-square w-full rounded-lg object-cover"
-                [src]="foto.miniatura"
-                [alt]="foto.descripcion ?? 'Foto del torneo'"
-                loading="lazy"
-              />
+              <!-- Tocar la miniatura abre la galería del sitio en esa foto (T311). -->
+              <button
+                type="button"
+                class="block w-full cursor-pointer overflow-hidden rounded-lg"
+                [attr.aria-label]="'Ver la foto: ' + (foto.descripcion ?? 'Foto del torneo')"
+                (click)="visor.abrir($index)"
+              >
+                <img
+                  class="aspect-square w-full object-cover transition-opacity hover:opacity-80"
+                  [src]="foto.miniatura"
+                  [alt]="foto.descripcion ?? 'Foto del torneo'"
+                  loading="lazy"
+                />
+              </button>
               <button
                 matButton="outlined"
                 type="button"
@@ -89,6 +99,7 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
             </li>
           }
         </ul>
+        <app-galeria-de-fotos #visor [fotos]="fotos.value()" etiqueta="Fotos del torneo" />
       }
 
       <form class="mt-3 grid gap-3 sm:grid-cols-3" (ngSubmit)="subir()">

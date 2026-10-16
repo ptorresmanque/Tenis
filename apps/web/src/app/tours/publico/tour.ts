@@ -70,7 +70,7 @@ const RESULTADOS: Resultado[] = [
       @if (suyo.imagen; as imagen) {
         <!-- Como la cabecera de Torneos: la foto a sangre, el velo y el titular encima. -->
         <section
-          class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+          class="relative isolate a-sangre overflow-hidden"
           aria-labelledby="titulo-tour"
         >
           <img
@@ -82,13 +82,16 @@ const RESULTADOS: Resultado[] = [
             fetchpriority="high"
           />
           <div class="absolute inset-0 velo-foto" aria-hidden="true"></div>
-          <div class="absolute inset-0 flex items-end p-6 text-on-campo texto-sobre-foto sm:p-10">
+          <div
+            class="absolute inset-0 flex items-end py-6 px-sangre-6 text-on-campo texto-sobre-foto
+                   sm:py-10 sm:px-sangre-10"
+          >
             <h1 id="titulo-tour" class="titular text-5xl sm:text-7xl">{{ suyo.nombre }}</h1>
           </div>
         </section>
       } @else {
         <section
-          class="-mx-4 bg-campo px-6 py-10 text-on-campo sm:mx-0 sm:rounded-region sm:px-10"
+          class="a-sangre bg-campo px-sangre-6 py-10 text-on-campo sm:px-sangre-10"
           aria-labelledby="titulo-tour"
         >
           <h1 id="titulo-tour" class="titular text-5xl sm:text-7xl">{{ suyo.nombre }}</h1>

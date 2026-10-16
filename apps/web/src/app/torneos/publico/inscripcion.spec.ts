@@ -1,8 +1,11 @@
+import { BreakpointObserver } from '@angular/cdk/layout';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatStepperHarness, StepperOrientation } from '@angular/material/stepper/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
@@ -33,7 +36,8 @@ describe('InscripcionATorneo', () => {
     pagarInscripcion: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (usuario: UsuarioActual | null = null) => {
+  /** `enTelefono`: lo que responde la pantalla a `(max-width: 639px)`. jsdom no tiene matchMedia. */
+  const montar = async (usuario: UsuarioActual | null = null, enTelefono = false) => {
     sesion = signal(usuario);
     api = {
       inscribirseEnTorneo: vi.fn().mockResolvedValue({
@@ -67,6 +71,10 @@ describe('InscripcionATorneo', () => {
         provideRouter([]),
         { provide: Torneos, useValue: api },
         { provide: Auth, useValue: { usuario: sesion } },
+        {
+          provide: BreakpointObserver,
+          useValue: { observe: () => of({ matches: enTelefono, breakpoints: {} }) },
+        },
       ],
     });
 
@@ -125,10 +133,28 @@ describe('InscripcionATorneo', () => {
     return archivo;
   };
 
+  /** Como una persona (T317): «Siguiente» hasta el último paso, y ahí el envío. */
   const enviar = async () => {
+    for (const siguiente of Array.from(
+      elemento().querySelectorAll<HTMLButtonElement>('button[matStepperNext]'),
+    )) {
+      siguiente.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
     elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
     await fixture.whenStable();
     fixture.detectChanges();
+  };
+
+  const pasos = () => TestbedHarnessEnvironment.loader(fixture).getHarness(MatStepperHarness);
+
+  /** El nombre del paso en que está la inscripción. */
+  const pasoActual = async () => {
+    for (const paso of await (await pasos()).getSteps()) {
+      if (await paso.isSelected()) return paso.getLabel();
+    }
+    return null;
   };
 
   const completo = {
@@ -205,7 +231,7 @@ describe('InscripcionATorneo', () => {
   });
 
   it('sin categoría elegida no llama al servidor', async () => {
-    // Sin elegirla: «Elige la categoría» está deshabilitada y no se puede volver a ella (T248).
+    // El paso de la categoría no deja seguir sin ella (T317), y lo dice en el campo.
     const sinCategoria = Object.entries(completo).filter(([nombre]) => nombre !== 'categoria');
     await escribir(Object.fromEntries(sinCategoria));
     await enviar();
@@ -330,6 +356,77 @@ describe('InscripcionATorneo', () => {
     expect(texto()).toContain('Revisa tu correo');
   });
 
+  describe('los pasos (T317, SPEC-sitio.md D4 y A7)', () => {
+    /** Los datos completos, sin elegir todavía la categoría: el primer paso listo. */
+    const sinLaCategoria = () =>
+      Object.fromEntries(Object.entries(completo).filter(([nombre]) => nombre !== 'categoria'));
+
+    it('**son tres: Tus datos, Categoría y Pago**, y empieza en el primero', async () => {
+      const etiquetas = await Promise.all(
+        (await (await pasos()).getSteps()).map((paso) => paso.getLabel()),
+      );
+
+      expect(etiquetas).toEqual(['Tus datos', 'Categoría', 'Pago']);
+      expect(await pasoActual()).toBe('Tus datos');
+    });
+
+    it('**un paso incompleto no deja avanzar, y dice qué falta**', async () => {
+      await escribir({ nombre: 'Rodrigo' });
+      elemento().querySelector<HTMLButtonElement>('button[matStepperNext]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(await pasoActual()).toBe('Tus datos');
+      const errores = Array.from(elemento().querySelectorAll('mat-error')).map((e) =>
+        e.textContent?.trim(),
+      );
+      expect(errores).toContain('Falta este dato.');
+    });
+
+    it('con los datos completos, «Siguiente» lleva a la categoría', async () => {
+      await escribir(sinLaCategoria());
+      elemento().querySelector<HTMLButtonElement>('button[matStepperNext]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(await pasoActual()).toBe('Categoría');
+    });
+
+    it('**Enter en un campo sigue al paso siguiente**: no manda la inscripción a medias', async () => {
+      await escribir(sinLaCategoria());
+      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
+      expect(await pasoActual()).toBe('Categoría');
+    });
+
+    it('el pago resume a quién se inscribe y en qué', async () => {
+      await escribir(completo);
+      for (const siguiente of Array.from(
+        elemento().querySelectorAll<HTMLButtonElement>('button[matStepperNext]'),
+      )) {
+        siguiente.click();
+        await fixture.whenStable();
+        fixture.detectChanges();
+      }
+
+      expect(await pasoActual()).toBe('Pago');
+      expect(texto()).toContain('Inscribes a Rodrigo Soto en 4ª, gratis.');
+    });
+
+    it('**en el teléfono los pasos van uno bajo el otro**', async () => {
+      await montar(null, true);
+
+      expect(await (await pasos()).getOrientation()).toBe(StepperOrientation.VERTICAL);
+    });
+
+    it('en el computador, en fila', async () => {
+      expect(await (await pasos()).getOrientation()).toBe(StepperOrientation.HORIZONTAL);
+    });
+  });
+
   describe('con la sesión de quien no es socio (T128, punto 6)', () => {
     const CUENTA: UsuarioActual = {
       id: 9,
@@ -376,7 +473,8 @@ describe('InscripcionATorneo', () => {
 
     it('**se pueden cambiar**: un padre inscribe a su hijo con su propia sesión', async () => {
       await montar(CUENTA);
-      await escribir({ nombre: 'Tomás', categoria: '20' });
+      // De dónde viene no está en la cuenta, y la API lo exige: se escribe.
+      await escribir({ nombre: 'Tomás', procedencia: 'Club de Ñuñoa', categoria: '20' });
       await enviar();
 
       expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
@@ -415,9 +513,10 @@ describe('InscripcionATorneo', () => {
 
     it('inscribirse lo deja vacío y sin el aviso: el siguiente puede ser otra persona', async () => {
       await montar(CUENTA);
-      await escribir({ categoria: '20' });
+      await escribir({ procedencia: 'Club de Ñuñoa', categoria: '20' });
       await enviar();
 
+      expect(api.inscribirseEnTorneo).toHaveBeenCalled();
       expect(valor('nombre')).toBe('');
       expect(texto()).not.toContain('datos de tu cuenta');
     });
@@ -425,6 +524,12 @@ describe('InscripcionATorneo', () => {
     it('**al socio no se le precarga**: su camino es "Inscribirse como socio" (T129)', async () => {
       await montar({ ...CUENTA, socioId: 3, socioActivo: true, socioAlDia: true });
       await fixture.whenStable();
+      // Llega inscribiéndose como socio (T317): los datos de otra persona, si los pide, vacíos.
+      Array.from(elemento().querySelectorAll('button'))
+        .find((b) => b.textContent?.trim() === 'Inscribir a otra persona')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
 
       expect(valor('nombre')).toBe('');
     });
@@ -450,12 +555,25 @@ describe('InscripcionATorneo', () => {
         (b) => b.textContent?.trim() === etiqueta,
       );
 
+    /** El socio con sesión llega inscribiéndose como socio, en Categoría (T317, A7). */
     const comoSocio = async () => {
       await montar(SOCIA);
-      boton('Inscribirse como socio')!.click();
       await fixture.whenStable();
       fixture.detectChanges();
     };
+
+    const apretar = async (etiqueta: string) => {
+      boton(etiqueta)!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    it('**empieza en Categoría**: sus datos ya los tiene el club (T317, A7)', async () => {
+      await comoSocio();
+
+      expect(await pasoActual()).toBe('Categoría');
+    });
 
     it('sin sesión, o sin ficha de socio, no se ofrece', async () => {
       expect(boton('Inscribirse como socio')).toBeUndefined();
@@ -464,14 +582,20 @@ describe('InscripcionATorneo', () => {
       expect(boton('Inscribirse como socio')).toBeUndefined();
     });
 
-    it('**el lleno es el envío** (T241): el atajo del socio va de contorno', async () => {
-      // Los dos llenos juntos se disputaban la atención; cambiar de camino no es la acción final.
+    it('**el lleno es avanzar y el envío** (T241, T317): los atajos del socio no', async () => {
+      // Los dos llenos juntos se disputaban la atención; cambiar de camino no es la acción
+      // principal. Desde T317 cada paso lleva el suyo, y se ve un paso a la vez.
       await montar(SOCIA);
+      await apretar('Inscribir a otra persona');
       const botones = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
         MatButtonHarness.with({ appearance: 'filled' }),
       );
 
-      expect(await Promise.all(botones.map((b) => b.getText()))).toEqual(['Inscribirme']);
+      expect(await Promise.all(botones.map((b) => b.getText()))).toEqual([
+        'Siguiente',
+        'Siguiente',
+        'Inscribirme',
+      ]);
     });
 
     it('**se salta los datos**: quedan la categoría, los horarios y el pago', async () => {
@@ -511,27 +635,24 @@ describe('InscripcionATorneo', () => {
       );
     });
 
-    it('"Inscribir a otra persona" vuelve al formulario completo', async () => {
+    it('"Inscribir a otra persona" vuelve al formulario completo, en Tus datos', async () => {
       await comoSocio();
-      boton('Inscribir a otra persona')!.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await apretar('Inscribir a otra persona');
 
       expect(elemento().querySelector('[name="nombre"]')).not.toBeNull();
+      expect(await pasoActual()).toBe('Tus datos');
     });
 
     it('**el foco no se pierde**: el botón apretado desaparece, y el foco va a lo siguiente', async () => {
       // Sin esto cae al inicio de la página, y quien usa teclado o lector de pantalla
       // tiene que volver a buscar el formulario.
       await comoSocio();
-      await fixture.whenStable();
-      expect(document.activeElement?.getAttribute('name')).toBe('categoria');
-
-      boton('Inscribir a otra persona')!.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
-      await fixture.whenStable();
+      await apretar('Inscribir a otra persona');
       expect(document.activeElement?.getAttribute('name')).toBe('nombre');
+
+      await apretar('Inscribirse como socio');
+      expect(document.activeElement?.getAttribute('name')).toBe('categoria');
+      expect(await pasoActual()).toBe('Categoría');
     });
   });
 });

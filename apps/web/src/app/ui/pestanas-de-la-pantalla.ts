@@ -19,11 +19,12 @@ export interface PestanaDeLaPantalla {
 }
 
 /**
- * Las pestañas de una pantalla del panel y el lugar donde se dibuja la elegida (T286,
- * SPEC-panel.md A2): `mat-tab-nav-bar` con una ruta por pestaña, como Configuración (T262), así
- * el enlace a una pestaña se comparte y las rutas viejas redirigen a la suya.
+ * Las pestañas de una pantalla y el lugar donde se dibuja la elegida (T286, SPEC-panel.md A2):
+ * `mat-tab-nav-bar` con una ruta por pestaña, como Configuración (T262), así el enlace a una
+ * pestaña se comparte y las rutas viejas redirigen a la suya.
  *
- * La usan la agenda, Finanzas, Horas no usadas, Canchas y Configuración. El `<h1>` y la
+ * La usan, en el panel, la agenda, Finanzas, Horas no usadas, Canchas y Configuración, y en el
+ * sitio, Mi cuenta (T318). El `<h1>` y la
  * descripción quedan en cada pantalla: el título es de la pantalla, y la prueba de T277 lo busca
  * en su archivo.
  *

@@ -34,7 +34,7 @@ import { MatIconButton } from '@angular/material/button';
   imports: [MatIcon, MatIconButton],
   host: { class: 'block' },
   template: `
-    <section [attr.aria-label]="etiqueta()" class="bg-campo text-on-campo sm:flex">
+    <section [attr.aria-label]="etiqueta()" class="bg-campo px-sangre-0 text-on-campo sm:flex">
       <div
         class="rotulo flex items-center gap-2 bg-rotulo px-4 py-1.5 font-display text-sm
                font-bold tracking-wider text-on-rotulo uppercase sm:shrink-0 sm:ps-5
@@ -65,10 +65,12 @@ import { MatIconButton } from '@angular/material/button';
           </div>
         </div>
 
+        <!-- 48 px y no 44: el área táctil que Material le agrega mide 48, y con 44 sobresalía
+             2 px del borde y empujaba la página hacia el lado en el teléfono (T306). -->
         <button
           matIconButton
           type="button"
-          class="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center
+          class="inline-flex size-12 shrink-0 cursor-pointer items-center justify-center
                  text-on-campo hover:bg-on-campo/10"
           aria-label="Detener la cinta"
           [attr.aria-pressed]="pausada()"

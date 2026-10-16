@@ -39,9 +39,7 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
   selector: 'app-mis-reservas',
   imports: [MatButton, MatIcon, RouterLink, Aviso, EstadoVacio, MatChipsModule, Esqueleto],
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Mis reservas</h1>
-
-    <div role="status" aria-live="polite" class="mt-4">
+    <div role="status" aria-live="polite">
       @if (reservas.isLoading()) {
         <app-esqueleto [filas]="3" etiqueta="Buscando tus horas…" />
       } @else if (reservas.error()) {

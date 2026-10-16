@@ -95,7 +95,7 @@ export class MoverReserva {
 
     try {
       await this.reservas.mover(reservaId, destinoDe(eleccion));
-      await this.router.navigate(['/mis-reservas']);
+      await this.router.navigate(['/mi-cuenta/reservas']);
     } catch (falla) {
       // Se queda en la grilla a propósito: la hora que eligió no se pudo, pero las
       // otras siguen ahí y volver atrás para reintentar sería un paso de más.

@@ -17,6 +17,7 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { TiendaYCafeteria } from '../club/tienda-y-cafeteria';
+import { CartelDelTorneo } from '../torneos/publico/cartel-del-torneo';
 import { Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
@@ -50,6 +51,7 @@ import { Foto } from '../ui/foto';
   imports: [
     MatButton,
     RouterLink,
+    CartelDelTorneo,
     Cinta,
     Esqueleto,
     Foto,
@@ -69,14 +71,14 @@ import { Foto } from '../ui/foto';
       en una lista de cosas.
     -->
     <section
-      class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
+      class="relative isolate a-sangre overflow-hidden hero-animado"
       aria-labelledby="promesa"
     >
+      <!-- La vista aérea, que antes era la de El club (T305, SPEC-sitio.md D7). -->
       <app-foto
-        descripcion="Las canchas al aire libre del club en un día despejado, con el logo de
-                     FEDAL pintado en la cancha"
+        descripcion="Vista aérea del club: los galpones de las canchas techadas y dos canchas al aire libre"
         proporcion="16/9"
-        src="/fotos/portada.jpg"
+        src="/fotos/el-club.jpg"
         [prioritaria]="true"
         claseCaja="min-h-[32rem] sm:min-h-[34rem] sm:max-h-[calc(100dvh-11rem)]"
       />
@@ -95,8 +97,8 @@ import { Foto } from '../ui/foto';
       ></div>
 
       <div
-        class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo texto-sobre-foto
-               hero-texto sm:p-10"
+        class="absolute inset-0 flex flex-col justify-end gap-4 py-6 px-sangre-6 text-on-campo
+               texto-sobre-foto hero-texto sm:py-10 sm:px-sangre-10"
       >
         <!-- En dos líneas a todo ancho, como en la propuesta: en una sola, a
              1280px, el titular era una tira y dejaba de ser un titular. -->
@@ -153,10 +155,10 @@ import { Foto } from '../ui/foto';
       primera de "Libre hoy" sin una consulta nueva, y es el único que dice la
       carga, el vacío y el error.
     -->
-    <section class="-mx-4 aparece-al-pasar sm:mx-0" aria-labelledby="proxima-libre">
+    <section class="a-sangre aparece-al-pasar" aria-labelledby="proxima-libre">
       <!-- En el teléfono el rótulo va arriba, a todo el ancho y sin corte: al
            costado se comía media fila y la hora quedaba en la otra mitad. -->
-      <div class="bg-card shadow-md sm:flex sm:items-stretch">
+      <div class="bg-card px-sangre-0 shadow-md sm:flex sm:items-stretch">
         <h2
           id="proxima-libre"
           class="bg-rotulo px-4 py-1.5 font-display text-sm font-bold tracking-wider
@@ -244,7 +246,7 @@ import { Foto } from '../ui/foto';
         cabe fija en un teléfono.
       -->
       <app-cinta
-        class="-mx-4 mt-3 sm:mx-0"
+        class="a-sangre mt-3"
         [etiqueta]="avisoDeTorneos()"
         [mensajes]="mensajesDeTorneos()"
       >
@@ -269,8 +271,8 @@ import { Foto } from '../ui/foto';
     -->
     @if (proximaLibre()) {
       <section
-        class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo aparece-al-pasar sm:mx-0 sm:rounded-region
-               sm:px-8"
+        class="a-sangre mt-6 bg-campo px-sangre-4 py-8 text-on-campo aparece-al-pasar
+               sm:px-sangre-8"
         aria-labelledby="libre-hoy"
       >
         <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -372,45 +374,29 @@ import { Foto } from '../ui/foto';
 
         <ul class="mt-6 grid gap-6">
           @for (torneo of abiertos(); track torneo.id) {
-            <li class="grid overflow-hidden bg-card shadow-md lg:grid-cols-[1fr_1.25fr]">
-              <!-- EL CARTEL. La foto llena el fondo y el velo sube desde abajo,
-                   como el del hero, para que el texto claro se lea encima. -->
-              <div
-                class="relative isolate flex min-h-[21rem] flex-col justify-end gap-3 p-6
-                       text-on-campo texto-sobre-foto sm:p-9 lg:min-h-[28rem]"
-              >
-                <app-foto
-                  class="absolute inset-0 -z-20"
-                  descripcion="Un jugador golpea de derecha en una cancha al aire libre, con el cielo
-                               despejado detrás"
-                  src="/fotos/jugador_fondo.jpg"
-                  proporcion="4/3"
-                  claseCaja="h-full"
-                />
-                <div
-                  class="absolute inset-0 -z-10 velo-foto"
-                  aria-hidden="true"
-                ></div>
-
+            <li>
+              <!-- EL CARTEL (T314, SPEC-sitio.md D2): el afiche del torneo a la izquierda, entero, y
+                   al lado lo que se compara. Hasta T314 era una foto fija del club con el nombre
+                   encima; sobre un afiche, el nombre taparía lo que hay que leer. -->
+              <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
                 <mat-chip-set class="insignias self-start">
                   <mat-chip class="insignia libre">
                     <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
                     Inscripción abierta
                   </mat-chip>
                 </mat-chip-set>
-                <h3 class="titular text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
-                <p class="max-w-prose text-on-campo/90">
+                <h3 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
+                <p class="mt-2 max-w-prose text-muted-foreground">
                   Del {{ enPalabras(torneo.fechaInicio) }} al
                   {{ enPalabras(torneo.fechaFin) }}. Te puedes inscribir hasta el
                   {{ enPalabras(torneo.cierreInscripcion) }}.
                 </p>
-              </div>
-
-              <!-- LA TABLA. **Una fila por categoría**: el valor y el cupo son de
-                   cada cuadro, así que un precio del torneo mentiría —Honor puede
-                   costar el doble que la 5ª el mismo fin de semana—. -->
-              <div class="flex flex-col p-4 sm:p-7">
-                <table mat-table [attr.aria-label]="'Categorías de ' + torneo.nombre" [dataSource]="torneo.categorias">
+                <table
+                  mat-table
+                  class="mt-5"
+                  [attr.aria-label]="'Categorías de ' + torneo.nombre"
+                  [dataSource]="torneo.categorias"
+                >
                   <ng-container matColumnDef="categoria">
                     <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
                     <td
@@ -444,16 +430,12 @@ import { Foto } from '../ui/foto';
 
                 <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
                   <span class="text-muted-foreground">Socio o visitante</span>
-                  <a
-                    matButton="filled"
-                    routerLink="/torneos"
-                    [queryParams]="{ inscripcion: torneo.id }"
-                  >
+                  <a matButton="filled" [routerLink]="['/torneos', torneo.id, 'inscripcion']">
                     Inscribirme
                     <span class="sr-only">en {{ torneo.nombre }}</span>
                   </a>
                 </div>
-              </div>
+              </app-cartel-del-torneo>
             </li>
           }
         </ul>
@@ -579,52 +561,12 @@ import { Foto } from '../ui/foto';
       BANDA 5½ — La tienda y la cafetería (T186).
 
       Lo que hay en el club además de las canchas, contado y no vendido: una tarjeta
-      por lugar con su primera foto. Va antes del cierre y no arriba, porque nadie
-      entra a la portada por un café; quien baja hasta acá ya decidió venir. Sin
-      descripción cargada, la banda no existe.
+      por lugar con su primera foto. Va al final y no arriba, porque nadie entra a la
+      portada por un café; quien baja hasta acá ya decidió venir. Sin descripción
+      cargada, la banda no existe. Es la última desde que se fue el cierre (T305,
+      SPEC-sitio.md D6): su «Ver disponibilidad» ya estaba en el hero y en «Libre hoy».
     -->
     <app-tienda-y-cafeteria forma="resumen" />
-
-    <!--
-      BANDA 6 — El cierre.
-
-      Una foto del club a sangre y una sola cosa que hacer. La etiqueta del botón
-      es la misma que arriba a propósito: dos formas de decir lo mismo en una
-      página obligan a decidir dos veces qué son.
-    -->
-    <section
-      class="relative isolate -mx-4 mt-16 overflow-hidden aparece-al-pasar sm:mx-0 sm:rounded-region"
-      aria-labelledby="cierre"
-    >
-      <app-foto
-        descripcion="La terraza del club, con mesas y quitasoles frente a la casa club"
-        src="/fotos/instalaciones.jpg"
-        proporcion="3/2"
-        claseCaja="min-h-[18rem]"
-      />
-      <!-- El velo de izquierda a derecha, como el de la propuesta: el titular se
-           lee sobre el campo casi pleno y la foto respira del otro lado. -->
-      <div
-        class="absolute inset-0 velo-foto-lateral"
-        aria-hidden="true"
-      ></div>
-
-      <div
-        class="absolute inset-0 flex flex-col items-start justify-center gap-6 px-6
-               text-on-campo texto-sobre-foto sm:px-14"
-      >
-        <h2 id="cierre" class="titular max-w-[12ch] text-5xl sm:text-7xl">
-          @if (proximaLibre() && !esManana()) {
-            Todavía quedan horas para hoy
-          } @else {
-            Elige tu hora de esta semana
-          }
-        </h2>
-        <a matButton="filled" routerLink="/disponibilidad" class="sobre-campo">
-          Ver disponibilidad
-        </a>
-      </div>
-    </section>
   `,
 })
 export class Inicio {

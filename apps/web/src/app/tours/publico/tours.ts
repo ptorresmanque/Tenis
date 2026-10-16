@@ -18,7 +18,7 @@ import { Tours } from '../tours.service';
   imports: [RouterLink, Esqueleto, EstadoVacio],
   template: `
     <section
-      class="-mx-4 bg-campo px-6 py-10 text-on-campo sm:mx-0 sm:rounded-region sm:px-10"
+      class="a-sangre bg-campo px-sangre-6 py-10 text-on-campo sm:px-sangre-10"
       aria-labelledby="tours"
     >
       <h1 id="tours" class="titular text-6xl sm:text-7xl lg:text-8xl">Tours</h1>
@@ -40,7 +40,7 @@ import { Tours } from '../tours.service';
         detalle="Cuando el club arme el primero, aparece acá con su temporada y su ranking."
       />
     } @else {
-      <ul class="mt-8 grid gap-6 md:grid-cols-2">
+      <ul class="mt-8 grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
         @for (tour of tours.value(); track tour.id) {
           <!-- Enlace estirado: el enlace es solo el nombre, que es lo que el lector de
                pantalla anuncia, y su ::after cubre la tarjeta para tocarla en cualquier

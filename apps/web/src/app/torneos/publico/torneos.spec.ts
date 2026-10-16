@@ -38,6 +38,7 @@ describe('TorneosPublicos', () => {
       },
     ],
     tours: [],
+    afiches: [],
   };
 
   const SEMIFINAL: PartidoPublico = {
@@ -212,6 +213,39 @@ describe('TorneosPublicos', () => {
     });
   });
 
+  describe('el cartel del torneo (T315, D3)', () => {
+    const foto = (id: number, descripcion: string) => ({
+      id,
+      partidoId: null,
+      momento: 'ANTES' as const,
+      descripcion,
+      miniatura: `/api/torneos/fotos/${id}/miniatura`,
+      imagen: `/api/torneos/fotos/${id}/imagen`,
+    });
+
+    it('**cada torneo lleva su afiche al costado, y las otras fotos de antes en miniatura**', async () => {
+      await montar([
+        { ...EN_INSCRIPCION, afiches: [foto(7, 'El afiche'), foto(8, 'Las bases')] },
+      ]);
+
+      const cartel = elemento().querySelector('li app-cartel-del-torneo');
+      expect(cartel?.querySelector('[data-afiche] img')?.getAttribute('src')).toBe(
+        '/api/torneos/fotos/7/imagen',
+      );
+      expect(cartel?.querySelector('[data-otras] img')?.getAttribute('src')).toBe(
+        '/api/torneos/fotos/8/miniatura',
+      );
+      // Lo de cada torneo va al lado del afiche, dentro del cartel.
+      expect(cartel?.querySelector('h2')?.textContent).toContain('Copa de verano');
+      expect(cartel?.querySelector('table')).toBeTruthy();
+    });
+
+    it('un torneo sin fotos de antes se ve con la foto del club', () => {
+      const cartel = elemento().querySelector('li app-cartel-del-torneo');
+      expect(cartel?.querySelector('[data-afiche] app-foto')).toBeTruthy();
+    });
+  });
+
   it('una categoría gratis lo dice con la palabra, no con un cero', async () => {
     await montar([
       {
@@ -303,14 +337,15 @@ describe('TorneosPublicos', () => {
     });
   });
 
-  it('**llegar con `?inscripcion=5` abre el formulario de ese torneo**', async () => {
-    // Es el botón "Inscribirme" de la portada: sin esto aterriza en la lista y hay
-    // que volver a buscar el torneo que ya se había elegido.
-    fixture.componentRef.setInput('inscripcion', '5');
-    await fixture.whenStable();
-    fixture.detectChanges();
+  it('**«Inscribirme» lleva a la página de la inscripción** (T316, D4)', () => {
+    // Un enlace y no un botón que despliega el formulario en la tarjeta: la inscripción
+    // tiene sus pasos, y abierta en la lista empujaba los demás torneos hacia abajo.
+    const enlace = Array.from(elemento().querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('Inscribirme'),
+    );
 
-    expect(elemento().querySelector('app-inscripcion-a-torneo')).not.toBeNull();
+    expect(enlace?.getAttribute('href')).toBe('/torneos/5/inscripcion');
+    expect(elemento().querySelector('app-inscripcion-a-torneo')).toBeNull();
   });
 
   it('sin cupos lo dice, y explica que se entra en lista de espera', async () => {

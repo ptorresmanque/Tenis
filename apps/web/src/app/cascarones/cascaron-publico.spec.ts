@@ -195,11 +195,16 @@ describe('Cascarón público: la navegación', () => {
     expect(enlacesCon(SOCIA)).not.toContain('Crear cuenta');
   });
 
-  it('a la socia le muestra sus reservas y nada del panel', () => {
+  it('a la socia le muestra su cuenta y nada del panel', () => {
     // La segunda mitad importa tanto como la primera: la prueba no puede pasar
     // por haber vaciado la barra.
-    expect(enlacesCon(SOCIA)).toContain('Mis reservas');
+    expect(enlacesCon(SOCIA)).toContain('Mi cuenta');
     expect(enlacesCon(SOCIA)).not.toContain('Administración');
+  });
+
+  it('**la cuenta de la socia es un solo ítem**: sus reservas y sus partidos son pestañas (T318)', () => {
+    expect(enlacesCon(SOCIA)).not.toContain('Mis reservas');
+    expect(enlacesCon(SOCIA)).not.toContain('Mis partidos');
   });
 
   it('el enlace del club está para cualquiera, con sesión o sin ella', () => {
@@ -218,9 +223,9 @@ describe('Cascarón público: la navegación', () => {
     expect(enlacesCon(null)).toContain('Torneos');
   });
 
-  it('no le ofrece "Mis reservas" a quien no tiene ficha de socio', () => {
-    // Sin socioId esa pantalla es una lista siempre vacía.
-    expect(enlacesCon(null)).not.toContain('Mis reservas');
+  it('no le ofrece «Mi cuenta» a quien no tiene ficha de socio', () => {
+    // Sin socioId sus pestañas son listas siempre vacías.
+    expect(enlacesCon(null)).not.toContain('Mi cuenta');
   });
 
   /** Lo que ofrece el menú de la cuenta, que es un mat-menu y se dibuja en el overlay (T261). */
@@ -308,7 +313,9 @@ describe('Cascarón público: la navegación', () => {
     const enlaces = enElMenu().map((a) => a.textContent?.trim());
 
     expect(enlaces).not.toContain('Administración');
-    expect(enlaces).toContain('Mis reservas');
+    // Un ítem para la cuenta (T318): sus reservas son una pestaña.
+    expect(enlaces).toContain('Mi cuenta');
+    expect(enlaces).not.toContain('Mis reservas');
   });
 
   describe('el menú del teléfono es un mat-sidenav (T261), diferido (T263)', () => {

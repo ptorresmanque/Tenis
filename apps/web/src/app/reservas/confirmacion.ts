@@ -187,7 +187,7 @@ const MOTIVOS: Record<string, string> = {
           <!-- Solo con ficha de socio: a quien reservó sin cuenta, "Mis reservas" le
                muestra una lista vacía. -->
           @if (esSocio()) {
-            <a matButton="filled" routerLink="/mis-reservas">
+            <a matButton="filled" routerLink="/mi-cuenta/reservas">
               Ver mis reservas
             </a>
           }
@@ -213,7 +213,7 @@ const MOTIVOS: Record<string, string> = {
           <p class="mt-6 text-center">
             <a
               matButton
-              routerLink="/mis-reservas"
+              routerLink="/mi-cuenta/reservas"
               [queryParams]="{ cancelar: folio() }"
               class="peligro"
             >

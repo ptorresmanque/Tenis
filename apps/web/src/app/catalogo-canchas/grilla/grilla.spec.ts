@@ -1128,7 +1128,8 @@ describe('Grilla', () => {
         // La del bloque elegido: el que se movió a 1 hora y media la alarga (T87).
         duracionMin: 60,
       });
-      expect(navegar).toHaveBeenCalledWith(['/mis-reservas']);
+      // Vuelve a sus reservas, que son una pestaña de Mi cuenta desde T318.
+      expect(navegar).toHaveBeenCalledWith(['/mi-cuenta/reservas']);
     });
 
     it('**al mover con 1 hora y media, manda 90: la reserva se alarga** (T87)', async () => {

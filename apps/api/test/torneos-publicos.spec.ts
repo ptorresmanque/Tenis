@@ -232,6 +232,77 @@ describe('GET /api/torneos/publicos', () => {
     expect(suyo?.categorias[0].montoClp).toBe(12_000);
   });
 
+  describe('las fotos de antes del torneo (T313, SPEC-sitio.md A1 y A2)', () => {
+    /** Una foto en la base, sin archivo: la lista solo publica sus direcciones. */
+    const foto = (
+      momento: 'ANTES' | 'DURANTE' | 'DESPUES',
+      descripcion: string,
+      extra = {},
+    ) =>
+      prisma.fotoTorneo.create({
+        data: {
+          torneoId,
+          momento,
+          descripcion,
+          rutaWeb: 'x.webp',
+          rutaMiniatura: 'x-m.webp',
+          ...extra,
+        },
+        select: { id: true },
+      });
+
+    it('**cada torneo trae sus afiches**: las de antes, de la más vieja a la más nueva', async () => {
+      const afiche = await foto('ANTES', 'El afiche', {
+        creadaEn: new Date('2026-10-01T12:00:00Z'),
+      });
+      const bases = await foto('ANTES', 'Las bases', {
+        creadaEn: new Date('2026-10-02T12:00:00Z'),
+      });
+      await foto('DURANTE', 'La final');
+      await foto('DESPUES', 'La premiación');
+
+      const suyo = (await calendario('?anio=2026')).find(
+        (t) => t.id === torneoId,
+      )!;
+
+      expect(suyo.afiches).toEqual([
+        {
+          id: afiche.id,
+          partidoId: null,
+          momento: 'ANTES',
+          descripcion: 'El afiche',
+          miniatura: `/api/torneos/fotos/${afiche.id}/miniatura`,
+          imagen: `/api/torneos/fotos/${afiche.id}/imagen`,
+        },
+        expect.objectContaining({ id: bases.id, descripcion: 'Las bases' }),
+      ]);
+    });
+
+    it('**la previa de un partido no es un afiche**, aunque también sea de antes', async () => {
+      const partido = await prisma.partido.create({
+        data: { torneoId, torneoCategoriaId: cuadroId, ronda: 1, posicion: 1 },
+        select: { id: true },
+      });
+      await foto('ANTES', 'Ana y Beto antes de salir', {
+        partidoId: partido.id,
+      });
+
+      const suyo = (await calendario('?anio=2026')).find(
+        (t) => t.id === torneoId,
+      )!;
+
+      expect(suyo.afiches).toEqual([]);
+    });
+
+    it('un torneo sin fotos trae la lista vacía', async () => {
+      const suyo = (await calendario('?anio=2026')).find(
+        (t) => t.id === torneoId,
+      )!;
+
+      expect(suyo.afiches).toEqual([]);
+    });
+  });
+
   it('dice cuántos cupos quedan, que es lo que decide si alguien pregunta', async () => {
     const suyo = (await calendario('?anio=2026')).find(
       (t) => t.id === torneoId,

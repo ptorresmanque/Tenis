@@ -221,6 +221,11 @@ export interface TorneoPublico {
   categorias: CategoriaPublica[];
   /** Para qué tours suma, con el nivel (T196). */
   tours: TourDelTorneo[];
+  /**
+   * Sus fotos de antes, de la más vieja a la más nueva: el afiche y las bases (T313,
+   * SPEC-sitio.md A1 y A2). La primera es la que muestra el cartel del torneo.
+   */
+  afiches: Foto[];
 }
 
 /** Un cuadro visto desde la calle. */

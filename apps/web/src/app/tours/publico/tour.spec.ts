@@ -79,6 +79,7 @@ describe('TourPublicoPagina', () => {
         nivel: '500',
       },
     ],
+    afiches: [],
   };
 
   const RANKING: TablaDeTorneos = {

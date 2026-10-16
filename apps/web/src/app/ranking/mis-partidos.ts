@@ -44,8 +44,7 @@ import { Esqueleto } from '../ui/esqueleto';
   ],
   providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
-    <p class="mt-2 max-w-prose text-muted-foreground">
+    <p class="max-w-prose text-muted-foreground">
       Los amistosos que juegas con otros socios. Cárgalos acá y, cuando el rival los confirme,
       entran al ranking interno.
     </p>

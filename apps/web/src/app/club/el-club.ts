@@ -53,12 +53,13 @@ import { Esqueleto } from '../ui/esqueleto';
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
     <section
-      class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
+      class="relative isolate a-sangre overflow-hidden hero-animado"
       aria-labelledby="el-club"
     >
+      <!-- La cancha con el logo, que antes era la de la portada (T305, SPEC-sitio.md D7). -->
       <app-foto
-        descripcion="Vista aérea del club: los galpones de las canchas techadas y dos canchas al aire libre"
-        src="/fotos/el-club.jpg"
+        descripcion="Las canchas al aire libre del club en un día despejado, con el logo de FEDAL pintado en la cancha"
+        src="/fotos/portada.jpg"
         proporcion="16/9"
         [prioritaria]="true"
         claseCaja="min-h-[24rem]"
@@ -69,8 +70,8 @@ import { Esqueleto } from '../ui/esqueleto';
       ></div>
 
       <div
-        class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
-               hero-texto sm:p-10"
+        class="absolute inset-0 flex flex-col justify-end gap-3 py-6 px-sangre-6 text-on-campo
+               texto-sobre-foto hero-texto sm:py-10 sm:px-sangre-10"
       >
         <!-- Los textos los escribe el club en "Textos del sitio" (T142). Texto plano:
              la interpolación muestra un <b> como texto, y pre-line respeta los saltos
@@ -157,8 +158,8 @@ import { Esqueleto } from '../ui/esqueleto';
       cuelga de él. Sin cajas: tres columnas separadas por una línea alcanzan.
     -->
     <section
-      class="-mx-4 mt-16 bg-campo px-4 py-10 text-on-campo aparece-al-pasar sm:mx-0 sm:rounded-region
-             sm:px-8"
+      class="a-sangre mt-16 bg-campo px-sangre-4 py-10 text-on-campo aparece-al-pasar
+             sm:px-sangre-8"
       aria-labelledby="como-funciona"
     >
       <h2 id="como-funciona" class="titular text-5xl sm:text-6xl">Cómo se reserva</h2>
