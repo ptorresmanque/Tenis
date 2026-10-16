@@ -287,6 +287,29 @@ describe('El pago de la inscripción a un torneo', () => {
       expect(await cuantas()).toBe(0);
     });
 
+    it('**un nombre de campo con corchetes se rechaza antes de leerlo**', async () => {
+      // Por los corchetes entraba GHSA-535w-7cp7-47q4: `a[4294967294]` le hace armar a
+      // multer un arreglo del largo máximo, y el campo siguiente lo recorre entero. La
+      // web manda nombres planos, así que no hay corchete legítimo que perder.
+      await inscribirseTransfiriendo(await unaImagen(), {
+        'items[4294967294]': 'x',
+      }).expect(400);
+
+      expect(await cuantas()).toBe(0);
+    });
+
+    it('**un envío con más campos de los que tiene el formulario se rechaza**', async () => {
+      // Cada campo puede pesar 1 MB y quedarse en memoria: sin tope, uno solo de estos
+      // envíos llena la del servidor.
+      const sobrantes = Object.fromEntries(
+        Array.from({ length: 20 }, (_, i) => [`sobrante${i}`, 'x']),
+      );
+
+      await inscribirseTransfiriendo(await unaImagen(), sobrantes).expect(400);
+
+      expect(await cuantas()).toBe(0);
+    });
+
     it('**las franjas horarias sobreviven al multipart**', async () => {
       // En multipart todo campo es texto, así que las franjas viajan como JSON. Sin
       // leerlas de vuelta, quien transfiere pierde en silencio las horas en que no

@@ -18,7 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 
 import type { Response } from 'express';
 
-import { carpetaDeSubidas, MAXIMO_BYTES } from '../comun/imagenes';
+import { carpetaDeSubidas, LIMITES_DE_SUBIDA } from '../comun/imagenes';
 import { SoloAdmin } from '../identidad/guards';
 import { ComprobantesDeInscripcion } from './comprobantes.service';
 import { leerFoto } from './fotos.dto';
@@ -127,7 +127,7 @@ export class TorneosController {
    */
   @Post('inscripciones/:id/comprobante')
   @UseInterceptors(
-    FileInterceptor('comprobante', { limits: { fileSize: MAXIMO_BYTES } }),
+    FileInterceptor('comprobante', { limits: LIMITES_DE_SUBIDA }),
   )
   subirComprobanteDelClub(
     @Param('id', ParseIntPipe) id: number,
@@ -481,9 +481,7 @@ export class TorneosController {
    * coordenadas de dónde se tomó.
    */
   @Post('torneos/:id/fotos')
-  @UseInterceptors(
-    FileInterceptor('foto', { limits: { fileSize: MAXIMO_BYTES } }),
-  )
+  @UseInterceptors(FileInterceptor('foto', { limits: LIMITES_DE_SUBIDA }))
   subirFoto(
     @Param('id', ParseIntPipe) id: number,
     @Body() cuerpo: unknown,

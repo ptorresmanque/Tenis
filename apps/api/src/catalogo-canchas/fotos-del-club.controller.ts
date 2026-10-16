@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-import { MAXIMO_BYTES } from '../comun/imagenes';
+import { LIMITES_DE_SUBIDA } from '../comun/imagenes';
 import { SoloAdmin } from '../identidad/guards';
 import { leerFotoDelLugar } from './fotos-del-club.dto';
 import { FotosDelClub } from './fotos-del-club.service';
@@ -36,9 +36,7 @@ export class FotosDelClubAdminController {
   }
 
   @Post()
-  @UseInterceptors(
-    FileInterceptor('foto', { limits: { fileSize: MAXIMO_BYTES } }),
-  )
+  @UseInterceptors(FileInterceptor('foto', { limits: LIMITES_DE_SUBIDA }))
   subir(@Body() cuerpo: unknown, @UploadedFile() archivo?: { buffer: Buffer }) {
     // El lugar y el texto se leen antes de mirar el archivo: un lugar que no existe
     // es un 400 por sí solo, venga o no la foto.

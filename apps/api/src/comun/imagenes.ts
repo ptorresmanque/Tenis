@@ -30,6 +30,27 @@ sharp.block({ operation: ['VipsForeignLoadSvg'] });
 /** Lo que se acepta de entrada. Una foto de celular actual cabe de sobra. */
 export const MAXIMO_BYTES = 15 * 1024 * 1024;
 
+/**
+ * Los límites de multer para toda subida. **En las rutas públicas, multer lee el envío
+ * antes que el freno por IP**, que vive en el handler: en ese tramo no hay otra defensa.
+ * En las del panel y del socio el guard de sesión corre antes, pero valen igual.
+ *
+ * - `fieldNestingDepth: 0` rechaza con 400 todo nombre con corchetes. Por ahí entraban
+ *   GHSA-535w-7cp7-47q4 y GHSA-wc9g-mqfw-jrwm, y la web manda solo nombres planos.
+ *   Cubre también el índice de arreglo, que multer mira después; `fieldArrayIndexLimit`
+ *   sobraría y además Nest 11.2.7 lo traduce a 500, no a 400. El tipo de Nest todavía
+ *   no declara este límite, pero multer lo lee: lo prueba `torneos-pago-inscripcion`.
+ * - `fields: 20`: el formulario más largo, la inscripción pública, manda 8. Cada campo
+ *   puede pesar 1 MB y queda en memoria, así que sin tope no hay techo.
+ *
+ * Un segundo archivo ya lo rechaza `FileInterceptor`, que acepta uno solo.
+ */
+export const LIMITES_DE_SUBIDA = {
+  fileSize: MAXIMO_BYTES,
+  fields: 20,
+  fieldNestingDepth: 0,
+};
+
 /** El lado mayor de la versión que se muestra. */
 const LADO_WEB = 1600;
 
