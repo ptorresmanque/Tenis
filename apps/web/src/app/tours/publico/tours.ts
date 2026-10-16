@@ -40,7 +40,7 @@ import { Tours } from '../tours.service';
         detalle="Cuando el club arme el primero, aparece acá con su temporada y su ranking."
       />
     } @else {
-      <ul class="mt-8 grid gap-6 md:grid-cols-2">
+      <ul class="mt-8 grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
         @for (tour of tours.value(); track tour.id) {
           <!-- Enlace estirado: el enlace es solo el nombre, que es lo que el lector de
                pantalla anuncia, y su ::after cubre la tarjeta para tocarla en cualquier

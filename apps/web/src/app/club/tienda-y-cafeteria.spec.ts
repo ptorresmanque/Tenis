@@ -290,5 +290,13 @@ describe('TiendaYCafeteria', () => {
       const conDos = await montar('resumen', { gimnasio: SIN_GIMNASIO });
       expect(conDos.querySelector('section .grid')!.className).not.toContain('lg:grid-cols-3');
     });
+
+    it('**en El club, con los tres, van en tres columnas desde 1536 px** (T308)', async () => {
+      const conTres = await montar('completa');
+      expect(conTres.querySelector('section .grid')!.className).toContain('2xl:grid-cols-3');
+
+      const conDos = await montar('completa', { gimnasio: SIN_GIMNASIO });
+      expect(conDos.querySelector('section .grid')!.className).not.toContain('grid-cols-3');
+    });
   });
 });
