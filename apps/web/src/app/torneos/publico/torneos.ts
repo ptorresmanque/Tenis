@@ -24,7 +24,12 @@ import { Foto as FotoDelSitio } from '../../ui/foto';
 import { CartelDelTorneo } from './cartel-del-torneo';
 import { CuadroPublicoModal } from './cuadro-publico';
 import { AVISOS_DEL_PAGO, soltarSiVolvioSinPagar } from './pago-pendiente';
-import { ESTADOS_TORNEO, EstadoTorneo, Torneos } from '../torneos.service';
+import {
+  aceptaInscripciones,
+  ESTADOS_TORNEO,
+  Torneos,
+  TorneoPublico,
+} from '../torneos.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
 /**
@@ -114,10 +119,10 @@ import { Esqueleto } from '../../ui/esqueleto';
                   <mat-chip-set class="insignias">
                     <mat-chip
                       class="insignia"
-                      [class]="torneo.estado === 'INSCRIPCION' ? 'libre' : 'neutro'"
+                      [class]="aceptaInscripciones(torneo) ? 'libre' : 'neutro'"
                     >
                       <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
-                      {{ nombreEstado(torneo.estado) }}
+                      {{ nombreEstado(torneo) }}
                     </mat-chip>
                   </mat-chip-set>
                 </div>
@@ -143,9 +148,13 @@ import { Esqueleto } from '../../ui/esqueleto';
                     }
                   </p>
                 }
-                @if (torneo.estado === 'INSCRIPCION') {
+                @if (aceptaInscripciones(torneo)) {
                   <p class="mt-1 font-semibold">
                     Inscripción hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
+                  </p>
+                } @else if (torneo.estado === 'INSCRIPCION') {
+                  <p class="mt-1">
+                    La inscripción cerró el {{ enPalabras(torneo.cierreInscripcion) }}.
                   </p>
                 }
 
@@ -246,7 +255,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                       <tr
                         mat-header-row
                         *matHeaderRowDef="
-                          torneo.estado === 'INSCRIPCION' ? EN_INSCRIPCION : DESPUES;
+                          aceptaInscripciones(torneo) ? EN_INSCRIPCION : DESPUES;
                           sticky: true
                         "
                       ></tr>
@@ -254,7 +263,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                         mat-row
                         *matRowDef="
                           let categoria;
-                          columns: torneo.estado === 'INSCRIPCION' ? EN_INSCRIPCION : DESPUES
+                          columns: aceptaInscripciones(torneo) ? EN_INSCRIPCION : DESPUES
                         "
                       ></tr>
                     </table>
@@ -263,7 +272,7 @@ import { Esqueleto } from '../../ui/esqueleto';
 
                 <!-- La inscripción es su página (T316, D4), con sus pasos: un enlace y no un
                      botón que desplegaba el formulario en la tarjeta. -->
-                @if (torneo.estado === 'INSCRIPCION' && torneo.categorias.length > 0) {
+                @if (aceptaInscripciones(torneo) && torneo.categorias.length > 0) {
                   <a
                     matButton="filled"
                     class="mt-4 self-start"
@@ -402,8 +411,17 @@ export class TorneosPublicos {
     return indice === total - 2 ? ' y' : ',';
   }
 
-  protected nombreEstado(estado: EstadoTorneo): string {
-    return ESTADOS_TORNEO[estado] ?? estado;
+  /**
+   * Lo que dice la insignia. Con el cierre vencido, «Inscripción cerrada» aunque el estado siga en
+   * inscripción hasta que se arme el cuadro (T321): la API ya no acepta a nadie.
+   */
+  protected nombreEstado(torneo: TorneoPublico): string {
+    if (torneo.estado === 'INSCRIPCION' && !aceptaInscripciones(torneo)) {
+      return 'Inscripción cerrada';
+    }
+    return ESTADOS_TORNEO[torneo.estado] ?? torneo.estado;
   }
+
+  protected readonly aceptaInscripciones = aceptaInscripciones;
 
 }

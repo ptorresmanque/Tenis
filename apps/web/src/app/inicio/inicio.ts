@@ -18,7 +18,7 @@ import {
 import { Auth } from '../core/auth/auth';
 import { TiendaYCafeteria } from '../club/tienda-y-cafeteria';
 import { CartelDelTorneo } from '../torneos/publico/cartel-del-torneo';
-import { Torneos } from '../torneos/torneos.service';
+import { aceptaInscripciones, Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
@@ -599,15 +599,11 @@ export class Inicio {
    * El estado no alcanza: un torneo puede quedar en `INSCRIPCION` con la fecha de
    * cierre pasada hasta que el admin arma el cuadro, y anunciar eso en la portada es
    * mandar a alguien a un formulario que lo va a rechazar. La fecha de cierre cuenta
-   * entera, como en el servidor.
+   * entera, como en el servidor. Desde T321 la regla es una, `aceptaInscripciones`, y la usan
+   * también Torneos y la página de la inscripción.
    */
   protected readonly abiertos = computed(() =>
-    this.calendarioSeguro()
-      .filter(
-        (torneo) =>
-          torneo.estado === 'INSCRIPCION' &&
-          torneo.cierreInscripcion.slice(0, 10) >= hoyEnElClub(),
-      ),
+    this.calendarioSeguro().filter((torneo) => aceptaInscripciones(torneo)),
   );
 
   /** El aviso de la franja: un torneo se nombra, varios se cuentan. */
