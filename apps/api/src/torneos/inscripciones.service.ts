@@ -25,6 +25,7 @@ import { AvisosDeTorneo } from './correos';
 import { porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { Jugadores } from './jugadores.service';
+import { ListaDeEspera } from './lista-de-espera.service';
 
 /** Una inscripción, como se lee en la lista del torneo. */
 export interface InscripcionPublicada {
@@ -112,8 +113,9 @@ export interface ListaDelCuadro {
  * Quién juega cada torneo.
  *
  * **Pasado el cupo se entra en lista de espera, no se rechaza.** Rechazar obligaría al
- * club a llevar la lista en un papel, que es de donde venimos. Y **promover es manual**:
- * el club llama por teléfono antes de meter a alguien en un cuadro que ya anunció.
+ * club a llevar la lista en un papel, que es de donde venimos. El lugar que se abre se le
+ * ofrece al primero de la fila (`ListaDeEspera`), y **promover a mano** queda para los casos
+ * especiales, como quien paga en el mesón.
  *
  * **El socio moroso puede inscribirse.** Es deliberado y va en contra del instinto: la
  * regla de morosidad que existe hoy es sobre reservar canchas, y extenderla a los
@@ -127,6 +129,7 @@ export class InscripcionesATorneo {
     private readonly jugadores: Jugadores,
     private readonly abandonadas: InscripcionesAbandonadas,
     private readonly avisos: AvisosDeTorneo,
+    private readonly listaDeEspera: ListaDeEspera,
   ) {}
 
   /**
@@ -485,9 +488,10 @@ export class InscripcionesATorneo {
   /**
    * Baja a alguien del torneo.
    *
-   * **El primero de la lista de espera no entra solo.** Es la decisión de
-   * `SPEC-torneos.md`: el club llama antes de meter a alguien en un cuadro, porque
-   * quien quedó fuera hace dos semanas ya hizo otros planes.
+   * **El lugar que deja se le ofrece al primero de la lista de espera** (T330), con un plazo
+   * para tomarlo: no entra solo, porque quien quedó fuera hace dos semanas puede haber hecho
+   * otros planes. Revierte que el club llamara por teléfono para promover
+   * (`SPEC-torneos.md` § Lista de espera sin cobro).
    */
   async retirar(
     torneoCategoriaId: number,
@@ -507,6 +511,8 @@ export class InscripcionesATorneo {
         'No hay una inscripción viva con ese número en este cuadro.',
       );
     }
+
+    await this.listaDeEspera.ofrecerCupos(torneoCategoriaId);
 
     return { id };
   }

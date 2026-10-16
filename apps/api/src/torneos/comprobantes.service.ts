@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
+import { ListaDeEspera } from './lista-de-espera.service';
 
 /**
  * El comprobante de transferencia y su aprobación.
@@ -28,6 +29,7 @@ export class ComprobantesDeInscripcion {
     private readonly prisma: PrismaService,
     private readonly abandonadas: InscripcionesAbandonadas,
     private readonly avisos: AvisosDeTorneo,
+    private readonly lista: ListaDeEspera,
   ) {}
 
   /**
@@ -237,6 +239,14 @@ export class ComprobantesDeInscripcion {
 
     // Con el motivo y que su lugar quedó libre (T131).
     await this.avisos.pagoRechazado(id);
+
+    // Y ese lugar, al primero de la lista de espera (T330).
+    const { torneoCategoriaId } =
+      await this.prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+        select: { torneoCategoriaId: true },
+      });
+    await this.lista.ofrecerCupos(torneoCategoriaId);
 
     return hecho;
   }

@@ -4,12 +4,18 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { sembrarCategoriasDeJuego } from '../src/arranque';
 import {
+  ConceptoPago,
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTorneo,
+  MedioPagoInscripcion,
 } from '../src/generated/prisma/client';
 import { CorreoSaliente, EnviadorCorreo } from '../src/identidad/correo';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { CategoriasDelTorneo } from '../src/torneos/categorias-del-torneo.service';
+import { ComprobantesDeInscripcion } from '../src/torneos/comprobantes.service';
+import { InscripcionesAbandonadas } from '../src/torneos/inscripciones-abandonadas.service';
+import { InscripcionesATorneo } from '../src/torneos/inscripciones.service';
 import { ListaDeEspera } from '../src/torneos/lista-de-espera.service';
 import { vencimientoDeLaOferta } from '../src/torneos/plazo-de-oferta';
 
@@ -70,6 +76,7 @@ describe('ListaDeEspera.ofrecerCupos', () => {
     pago: {
       estadoPago?: EstadoPagoInscripcion;
       comprobanteRuta?: string;
+      medioPago?: MedioPagoInscripcion;
     } = {},
   ) => {
     correlativo += 1;
@@ -85,6 +92,7 @@ describe('ListaDeEspera.ofrecerCupos', () => {
         estado,
         estadoPago: pago.estadoPago ?? EstadoPagoInscripcion.PENDIENTE,
         comprobanteRuta: pago.comprobanteRuta ?? null,
+        medioPago: pago.medioPago ?? null,
         email: `jugador${correlativo}@lista.ejemplo.cl`,
         inscritaEn: new Date(
           Date.parse('2026-10-01T13:00:00.000Z') + minutos * 60_000,
@@ -104,7 +112,12 @@ describe('ListaDeEspera.ofrecerCupos', () => {
   const para = (email: string | null) =>
     enviados.filter((correo) => correo.para === email);
 
+  const REFERENCIA = 'lista-de-espera-';
+
   const limpiar = async () => {
+    await prisma.transaccion.deleteMany({
+      where: { referencia: { startsWith: REFERENCIA } },
+    });
     await prisma.torneo.deleteMany({
       where: { nombre: { startsWith: MARCA } },
     });
@@ -387,5 +400,158 @@ describe('ListaDeEspera.ofrecerCupos', () => {
       ),
     ).toHaveLength(1);
     expect(enviados).toHaveLength(1);
+  });
+
+  /**
+   * T330 (LE2). **Cada camino que libera un cupo se lo ofrece al primero de la fila**, al
+   * terminar: si uno se olvida, el cupo queda libre y nadie se entera.
+   */
+  describe('los caminos que liberan cupo (T330)', () => {
+    /** Un cuadro de un lugar, tomado por `inscrito`, con uno esperando. */
+    const lleno = async (
+      pago: Parameters<typeof anotar>[3] = {},
+      montoInscripcionClp = 15_000,
+    ) => {
+      const cuadro = await crearCuadro({ cupo: 1, montoInscripcionClp });
+      const inscrito = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.INSCRITA,
+        0,
+        pago,
+      );
+      const esperando = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        1,
+      );
+
+      return { cuadro, inscrito, esperando };
+    };
+
+    const recibioLaOferta = async (esperando: {
+      id: number;
+      email: string | null;
+    }) => {
+      const { cupoOfrecidoHasta } =
+        await prisma.inscripcionTorneo.findUniqueOrThrow({
+          where: { id: esperando.id },
+        });
+      expect(cupoOfrecidoHasta).toBeInstanceOf(Date);
+      expect(para(esperando.email).map((correo) => correo.asunto)).toEqual([
+        expect.stringContaining('Se abrió un cupo'),
+      ]);
+    };
+
+    /** Una transacción de Webpay que no se autorizó, de la inscripción. */
+    const transaccionDe = (inscripcionId: number) =>
+      prisma.transaccion.create({
+        data: {
+          referencia: `${REFERENCIA}${inscripcionId}`,
+          concepto: ConceptoPago.INSCRIPCION_TORNEO,
+          conceptoId: inscripcionId,
+          montoClp: 15_000,
+          pasarela: 'doble',
+          estado: 'RECHAZADA',
+        },
+      });
+
+    const conWebpay = {
+      medioPago: MedioPagoInscripcion.WEBPAY,
+      estadoPago: EstadoPagoInscripcion.PENDIENTE,
+    };
+
+    it('**retirar a un inscrito**', async () => {
+      const { cuadro, inscrito, esperando } = await lleno();
+
+      await app.get(InscripcionesATorneo).retirar(cuadro.cuadroId, inscrito.id);
+
+      await recibioLaOferta(esperando);
+    });
+
+    it('**rechazar un comprobante**', async () => {
+      const { inscrito, esperando } = await lleno({
+        medioPago: MedioPagoInscripcion.TRANSFERENCIA,
+        comprobanteRuta: 'comprobantes/no-cuadra.jpg',
+      });
+
+      await app
+        .get(ComprobantesDeInscripcion)
+        .rechazar(inscrito.id, 'El monto no cuadra.');
+
+      await recibioLaOferta(esperando);
+    });
+
+    it('**subir el cupo de la categoría**', async () => {
+      const { cuadro, esperando } = await lleno();
+
+      await app
+        .get(CategoriasDelTorneo)
+        .editar(cuadro.torneoId, cuadro.cuadroId, { cupo: 2 });
+
+      await recibioLaOferta(esperando);
+    });
+
+    it('**el barrido de 15 minutos**, que suelta al que eligió Webpay y no pagó', async () => {
+      // `anotar` lo inscribe el 1 de octubre: hace rato que pasó su ventana de pago.
+      const { cuadro, esperando } = await lleno(conWebpay);
+
+      await app
+        .get(InscripcionesAbandonadas)
+        .liberar({ torneoCategoriaId: cuadro.cuadroId });
+
+      await recibioLaOferta(esperando);
+    });
+
+    it('**«Anular compra» en Webpay**', async () => {
+      const { inscrito, esperando } = await lleno(conWebpay);
+      const transaccion = await transaccionDe(inscrito.id);
+
+      await app
+        .get(InscripcionesAbandonadas)
+        .anularDesdeRetorno(transaccion.referencia);
+
+      await recibioLaOferta(esperando);
+    });
+
+    it('**el pago rechazado**', async () => {
+      const { inscrito, esperando } = await lleno(conWebpay);
+      const transaccion = await transaccionDe(inscrito.id);
+
+      await app
+        .get(InscripcionesAbandonadas)
+        .soltarPorTransaccion(transaccion.id);
+
+      await recibioLaOferta(esperando);
+    });
+
+    it('**volver atrás desde Webpay sin pagar**', async () => {
+      const { inscrito, esperando } = await lleno(conWebpay);
+
+      await app.get(InscripcionesAbandonadas).soltarPorToken(inscrito.token);
+
+      await recibioLaOferta(esperando);
+    });
+
+    it('retirar al que esperaba sin oferta no le ofrece nada a nadie: no se abrió un lugar', async () => {
+      const { cuadro, esperando } = await lleno();
+      const ultimo = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        2,
+      );
+
+      await app
+        .get(InscripcionesATorneo)
+        .retirar(cuadro.cuadroId, esperando.id);
+
+      expect(enviados).toEqual([]);
+      expect(
+        (
+          await prisma.inscripcionTorneo.findUniqueOrThrow({
+            where: { id: ultimo.id },
+          })
+        ).cupoOfrecidoHasta,
+      ).toBeNull();
+    });
   });
 });
