@@ -103,7 +103,13 @@ import { Esqueleto } from '../ui/esqueleto';
             (dateChange)="jugadoEn.set($event.value)"
           />
           <mat-datepicker-toggle matIconSuffix [for]="calendarioJugadoEn" />
-          <mat-datepicker #calendarioJugadoEn />
+          <mat-datepicker #calendarioJugadoEn>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
         </mat-form-field>
 
         <mat-form-field>

@@ -89,7 +89,13 @@ const paraLaApi = (datos: DatosDeTemporada) => ({
             [(ngModel)]="nueva.fechaInicio"
           />
           <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
-          <mat-datepicker #calendarioFechaInicio />
+          <mat-datepicker #calendarioFechaInicio>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
         </mat-form-field>
         <mat-form-field>
           <mat-label>Termina</mat-label>
@@ -103,7 +109,13 @@ const paraLaApi = (datos: DatosDeTemporada) => ({
             [(ngModel)]="nueva.fechaFin"
           />
           <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
-          <mat-datepicker #calendarioFechaFin />
+          <mat-datepicker #calendarioFechaFin>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
         </mat-form-field>
       </div>
       <!-- Crear una temporada y editar o borrar otra son formularios distintos, uno por tarjeta.
@@ -204,7 +216,13 @@ const paraLaApi = (datos: DatosDeTemporada) => ({
                 [(ngModel)]="borrador.fechaInicio"
               />
               <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio2" />
-              <mat-datepicker #calendarioFechaInicio2 />
+              <mat-datepicker #calendarioFechaInicio2>
+                <mat-datepicker-actions>
+                  <button matButton type="button" matDatepickerCancel>Cancelar</button>
+                  <button matButton type="button" matDatepickerApply>Aplicar</button>
+                </mat-datepicker-actions>
+              </mat-datepicker>
+              <mat-hint>dd-mm-aaaa</mat-hint>
             </mat-form-field>
             <mat-form-field>
               <mat-label>Termina</mat-label>
@@ -218,7 +236,13 @@ const paraLaApi = (datos: DatosDeTemporada) => ({
                 [(ngModel)]="borrador.fechaFin"
               />
               <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin2" />
-              <mat-datepicker #calendarioFechaFin2 />
+              <mat-datepicker #calendarioFechaFin2>
+                <mat-datepicker-actions>
+                  <button matButton type="button" matDatepickerCancel>Cancelar</button>
+                  <button matButton type="button" matDatepickerApply>Aplicar</button>
+                </mat-datepicker-actions>
+              </mat-datepicker>
+              <mat-hint>dd-mm-aaaa</mat-hint>
             </mat-form-field>
             <div class="flex flex-wrap gap-2 sm:col-span-3">
               <button

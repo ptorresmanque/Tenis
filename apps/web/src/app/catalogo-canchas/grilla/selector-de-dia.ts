@@ -1,5 +1,6 @@
 import { Component, computed, model } from '@angular/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -15,7 +16,7 @@ import { diaEnPalabras, proximosDias } from '../reloj-del-club';
  */
 @Component({
   selector: 'app-selector-de-dia',
-  imports: [MatButtonToggleModule, MatDatepickerModule, MatFormFieldModule, MatInput],
+  imports: [MatButton, MatButtonToggleModule, MatDatepickerModule, MatFormFieldModule, MatInput],
   providers: [proveerCampos(), proveerFechaYHora()],
   host: { class: 'contents' },
   template: `
@@ -57,7 +58,13 @@ import { diaEnPalabras, proximosDias } from '../reloj-del-club';
           (dateChange)="cambiarFecha($event.value)"
         />
         <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
-        <mat-datepicker #calendarioFecha />
+        <mat-datepicker #calendarioFecha>
+          <mat-datepicker-actions>
+            <button matButton type="button" matDatepickerCancel>Cancelar</button>
+            <button matButton type="button" matDatepickerApply>Aplicar</button>
+          </mat-datepicker-actions>
+        </mat-datepicker>
+        <mat-hint>dd-mm-aaaa</mat-hint>
       </mat-form-field>
     </div>
 
