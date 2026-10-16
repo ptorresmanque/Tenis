@@ -62,6 +62,14 @@ describe('El cartel del torneo', () => {
     expect(el.textContent).toContain('3 fotos');
   });
 
+  it('**las miniaturas muestran la foto entera** (T322): el reglamento no pierde arriba ni abajo', async () => {
+    const el = await montar([foto(1, 'El afiche'), foto(2, 'Las bases')]);
+    const miniatura = el.querySelector<HTMLImageElement>('[data-otras] img')!;
+
+    expect(miniatura.classList).toContain('object-contain');
+    expect(miniatura.classList).not.toContain('object-cover');
+  });
+
   it('**tocar el afiche o una miniatura abre la galería en esa foto**', async () => {
     const abrir = vi.spyOn(GaleriaDeFotos.prototype, 'abrir');
     const el = await montar([foto(1, 'El afiche'), foto(2, 'Las bases')]);

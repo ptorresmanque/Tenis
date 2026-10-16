@@ -70,6 +70,17 @@ describe('La galería de fotos', () => {
     fixture.nativeElement.remove();
   });
 
+  it('**las miniaturas muestran la foto entera** (T322): un afiche no pierde arriba ni abajo', async () => {
+    // La foto grande ya va entera (contain); las miniaturas venían con cover, en cajas apaisadas.
+    const fixture = await montar();
+    const dialogo = await abrir(fixture, 1);
+
+    expect(dialogo!.querySelector<HTMLElement>('gallery')!.style.getPropertyValue('--g-thumb-image-size')).toBe(
+      'contain',
+    );
+    fixture.nativeElement.remove();
+  });
+
   it('**las flechas hablan en español**', async () => {
     const fixture = await montar();
     const dialogo = await abrir(fixture, 1);

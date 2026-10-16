@@ -79,7 +79,9 @@ export interface FotoParaGaleria {
   template: `
     @defer (on idle; when pedida() !== null) {
       <ng-template lightbox #lightbox="lightbox" [ariaLabel]="etiqueta()">
-        <gallery [items]="items()">
+        <!-- Las miniaturas, enteras como la foto grande (T322): con el cover de la librería, en su
+             caja apaisada, un afiche perdía arriba y abajo. -->
+        <gallery [items]="items()" style="--g-thumb-image-size: contain">
           <img *galleryItemDef="let item" galleryImage [src]="item.src" [alt]="item.alt" />
           <gallery-thumbs>
             <button *galleryItemDef="let item" type="button" class="cursor-pointer" galleryThumbClick>
