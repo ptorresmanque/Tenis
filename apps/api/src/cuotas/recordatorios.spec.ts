@@ -67,7 +67,7 @@ describe('recordatorios de cuota', () => {
       expect(cuerpo).toContain(
         'El 1 de noviembre se emite tu cuota de noviembre',
       );
-      expect(cuerpo).toContain('https://fedal.cl/mi-cuenta');
+      expect(cuerpo).toContain('https://fedal.cl/mi-cuenta/cuota');
       expect(cuerpo.endsWith(FIRMA)).toBe(true);
     });
 
@@ -82,7 +82,7 @@ describe('recordatorios de cuota', () => {
       expect(asunto).toBe('Tienes la cuota pendiente');
       expect(cuerpo).toContain('Tienes pendiente la cuota mensual.');
       expect(cuerpo).toContain('no puedes reservar canchas');
-      expect(cuerpo).toContain('https://fedal.cl/mi-cuenta');
+      expect(cuerpo).toContain('https://fedal.cl/mi-cuenta/cuota');
     });
 
     it('**la incorporación impaga se nombra**, también si la mensual está al día', () => {
