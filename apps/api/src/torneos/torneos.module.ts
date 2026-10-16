@@ -15,6 +15,7 @@ import { CategoriasDeJuego } from './categorias-juego.service';
 import { CuadroDelTorneo } from './cuadro.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { InscripcionesATorneo } from './inscripciones.service';
+import { ListaDeEspera } from './lista-de-espera.service';
 import { ResultadosDelCuadro } from './resultados.service';
 import { TorneosPublicosController } from './torneos-publicos.controller';
 import { TorneosPublicos } from './torneos-publicos.service';
@@ -49,6 +50,7 @@ import { Torneos } from './torneos.service';
     FotosDelTorneo,
     InscripcionesAbandonadas,
     InscripcionesATorneo,
+    ListaDeEspera,
     CuadroDelTorneo,
     ResultadosDelCuadro,
     TorneosPublicos,

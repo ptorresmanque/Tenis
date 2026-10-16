@@ -2,6 +2,7 @@ import { DatosDelClub, firmaDelClub } from '../comun/club';
 import {
   avisoDeComprobante,
   cuadroArmado,
+  cupoOfrecido,
   InscripcionParaAvisar,
   inscripcionRecibida,
   pagoAprobado,
@@ -10,6 +11,7 @@ import {
   partidoProgramado,
   PartidoParaAvisar,
   partidoSinHora,
+  quedasteDentro,
 } from './correos';
 
 /**
@@ -71,6 +73,8 @@ describe('correos del torneo', () => {
       estadoPago: 'EXENTA',
       medioPago: null,
       motivoRechazo: null,
+      token: 'llave-de-camila',
+      cupoOfrecidoHasta: null,
     };
 
     const recibida = (parche: Partial<InscripcionParaAvisar> = {}) =>
@@ -171,6 +175,100 @@ describe('correos del torneo', () => {
       expect(asunto).toBe('Pago rechazado: Torneo Aniversario, 4ª');
       expect(cuerpo).toContain('Motivo: La transferencia no llegó');
       expect(cuerpo).toContain('tu lugar en el cuadro quedó libre');
+    });
+  });
+
+  describe('la lista de espera (T329, SPEC-torneos.md § Lista de espera sin cobro)', () => {
+    const EN_ESPERA: InscripcionParaAvisar = {
+      nombre: 'Camila',
+      torneo: 'Torneo Aniversario',
+      categoria: '4ª',
+      montoClp: 15_000,
+      estado: 'LISTA_ESPERA',
+      estadoPago: 'PENDIENTE',
+      medioPago: null,
+      motivoRechazo: null,
+      token: 'llave-de-camila',
+      // Viernes 16 de octubre de 2026 a las 10:30 en Santiago (UTC-3).
+      cupoOfrecidoHasta: new Date('2026-10-16T13:30:00.000Z'),
+    };
+
+    const ofrecido = (parche: Partial<InscripcionParaAvisar> = {}) =>
+      cupoOfrecido({ ...EN_ESPERA, ...parche }, CLUB, 'https://fedal.cl');
+
+    it('**«Se abrió un cupo» dice el torneo y la categoría**, también en el asunto', () => {
+      const { asunto, cuerpo } = ofrecido();
+
+      expect(asunto).toBe('Se abrió un cupo: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain('Hola Camila:');
+      expect(cuerpo).toContain('4ª de Torneo Aniversario');
+      expect(cuerpo).toContain(firmaDelClub(CLUB));
+    });
+
+    it('**lleva el enlace para tomarlo y hasta cuándo se le guarda**, en el reloj del club', () => {
+      const { cuerpo } = ofrecido();
+
+      expect(cuerpo).toContain(
+        'https://fedal.cl/torneos/inscripcion/llave-de-camila',
+      );
+      expect(cuerpo).toContain('viernes, 16 de octubre, a las 10:30');
+    });
+
+    it('dice cuánto se paga, y que si no lo toma pasa al siguiente', () => {
+      const { cuerpo } = ofrecido();
+
+      expect(cuerpo).toContain('$15.000');
+      expect(cuerpo).toContain('pasa al siguiente');
+    });
+
+    it('**en una categoría gratis no habla de pagar** (E5)', () => {
+      const { cuerpo } = ofrecido({ montoClp: 0, estadoPago: 'EXENTA' });
+
+      expect(cuerpo).not.toContain('$');
+      expect(cuerpo).not.toContain('pag');
+      expect(cuerpo).toContain(
+        'https://fedal.cl/torneos/inscripcion/llave-de-camila',
+      );
+    });
+
+    it('sin oferta no inventa un plazo', () => {
+      expect(() => ofrecido({ cupoOfrecidoHasta: null })).toThrow(
+        'cupo ofrecido',
+      );
+    });
+
+    it('**«Quedaste dentro» al que ya había pagado** (E4)', () => {
+      const { asunto, cuerpo } = quedasteDentro(
+        {
+          ...EN_ESPERA,
+          estado: 'INSCRITA',
+          estadoPago: 'PAGADA',
+          cupoOfrecidoHasta: null,
+        },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+      expect(asunto).toBe('Quedaste dentro: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain(
+        'Quedaste inscrito en 4ª de Torneo Aniversario.',
+      );
+      expect(cuerpo).not.toContain('Falta pagar');
+    });
+
+    it('al que había subido su comprobante le dice que el club todavía lo revisa', () => {
+      const { cuerpo } = quedasteDentro(
+        {
+          ...EN_ESPERA,
+          estado: 'INSCRITA',
+          medioPago: 'TRANSFERENCIA',
+          cupoOfrecidoHasta: null,
+        },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+      expect(cuerpo).toContain('El club está revisando tu comprobante');
     });
   });
 

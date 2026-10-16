@@ -60,6 +60,10 @@ export interface InscripcionParaAvisar {
   estadoPago: EstadoPagoInscripcion;
   medioPago: MedioPagoInscripcion | null;
   motivoRechazo: string | null;
+  /** La llave de la inscripción: el enlace con que quien no tiene cuenta vuelve a ella. */
+  token: string;
+  /** Hasta cuándo se le guarda el cupo de la lista de espera, si se le ofreció uno (T329). */
+  cupoOfrecidoHasta: Date | null;
 }
 
 type Correo = { asunto: string; cuerpo: string };
@@ -332,6 +336,59 @@ export function cuadroArmado(
 }
 
 /**
+ * "Se abrió un cupo" (T329, `SPEC-torneos.md` § Lista de espera sin cobro): el primero de la
+ * fila tiene el cupo guardado hasta una hora, y el enlace para tomarlo. En una categoría gratis
+ * se toma con un botón, sin pagar (E5).
+ */
+export function cupoOfrecido(
+  inscripcion: InscripcionParaAvisar,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  // Sin oferta no hay plazo que decir: el error lo deja `alInscrito` en el log, en vez de un
+  // correo que diga "hasta ahora".
+  const hasta = inscripcion.cupoOfrecidoHasta;
+  if (!hasta) throw new Error('La inscripción no tiene un cupo ofrecido.');
+
+  const como =
+    inscripcion.montoClp > 0
+      ? `Para tomarlo, paga la inscripción (${pesos(inscripcion.montoClp)}) con Webpay ` +
+        'o sube el comprobante de tu transferencia aquí:'
+      : 'Para tomarlo, confírmalo aquí:';
+
+  return {
+    asunto: `Se abrió un cupo: ${inscripcion.torneo}, ${inscripcion.categoria}`,
+    cuerpo:
+      `Hola ${inscripcion.nombre}:\n\n` +
+      `Se abrió un cupo en ${inscripcion.categoria} de ${inscripcion.torneo}, y es para ` +
+      `ti: te lo guardamos hasta el ${DIA.format(hasta)}, a las ${HORA.format(hasta)}.\n\n` +
+      `${como}\n${origenWeb}/torneos/inscripcion/${inscripcion.token}\n\n` +
+      'Si no lo tomas a tiempo, el cupo pasa al siguiente de la lista de espera.\n\n' +
+      pie(club, origenWeb),
+  };
+}
+
+/**
+ * "Quedaste dentro" (T329, E4): se abrió un cupo para quien estaba en la lista de espera y ya
+ * había pagado, o subido su comprobante, antes de que la espera dejara de cobrarse.
+ */
+export function quedasteDentro(
+  inscripcion: InscripcionParaAvisar,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto: `Quedaste dentro: ${inscripcion.torneo}, ${inscripcion.categoria}`,
+    cuerpo:
+      `Hola ${inscripcion.nombre}:\n\n` +
+      'Se abrió un cupo en la lista de espera y, como ya habías pagado, es tuyo. ' +
+      `${dondeQuedo(inscripcion)}\n\n` +
+      queFaltaDelPago(inscripcion) +
+      pie(club, origenWeb),
+  };
+}
+
+/**
  * Dónde y cuándo está programado un partido, o nulo si no tiene hora. Lo usan los dos
  * lados del aviso: `programacion` para decir cómo estaba, y el aviso para ver cómo quedó.
  */
@@ -453,6 +510,24 @@ export class AvisosDeTorneo {
     await this.alInscrito(inscripcionId, 'el pago rechazado', pagoRechazado);
   }
 
+  /** "Se abrió un cupo" (T329), al primero de la lista de espera. */
+  async cupoOfrecido(inscripcionId: number): Promise<void> {
+    await this.alInscrito(
+      inscripcionId,
+      'el aviso del cupo ofrecido',
+      cupoOfrecido,
+    );
+  }
+
+  /** "Quedaste dentro" (T329, E4), al que esperaba con el pago hecho. */
+  async quedasteDentro(inscripcionId: number): Promise<void> {
+    await this.alInscrito(
+      inscripcionId,
+      'el aviso de que quedó dentro',
+      quedasteDentro,
+    );
+  }
+
   /**
    * Carga la inscripción y el club, arma el correo y se lo manda al inscrito.
    *
@@ -479,6 +554,8 @@ export class AvisosDeTorneo {
             estadoPago: true,
             medioPago: true,
             motivoRechazo: true,
+            token: true,
+            cupoOfrecidoHasta: true,
             torneo: { select: { nombre: true } },
             torneoCategoria: {
               select: {
@@ -510,6 +587,8 @@ export class AvisosDeTorneo {
           estadoPago: fila.estadoPago,
           medioPago: fila.medioPago,
           motivoRechazo: fila.motivoRechazo,
+          token: fila.token,
+          cupoOfrecidoHasta: fila.cupoOfrecidoHasta,
         },
         club,
         web(),

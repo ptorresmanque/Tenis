@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 
 import { borrarImagen, guardarImagen } from '../comun/imagenes';
-import { hoyEnElClub } from '../comun/tiempo';
 import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
@@ -23,6 +22,7 @@ import type {
 } from './inscripcion-publica.dto';
 import type { Franja } from './restricciones';
 import { AvisosDeTorneo } from './correos';
+import { porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { Jugadores } from './jugadores.service';
 
@@ -698,22 +698,21 @@ export class InscripcionesATorneo {
   /**
    * Toma la fila del **cuadro** como cerrojo y comprueba que se pueda inscribir.
    *
-   * `FOR UPDATE` sobre `torneo_categoria` y ya no sobre `torneo`: el cupo es del
-   * cuadro, así que serializar por torneo pondría en fila a los que se inscriben en
-   * Honor detrás de los de la 4ª sin ninguna razón. La fila existe siempre y se toma
-   * por clave primaria. Es el mismo mecanismo de `Inscripciones` en `clases` y de
+   * El candado es `tomarElCandado`, el mismo de la lista de espera. La fila existe siempre y
+   * se toma por clave primaria. Es el mismo mecanismo de `Inscripciones` en `clases` y de
    * `ReservasService.bloquearAlSocio`.
    *
    * **Se cierra por cuadro y no por torneo.** Un cuadro con la semilla puesta ya está
    * armado y no acepta a nadie más; el de al lado puede seguir inscribiendo. El cierre
-   * por fecha, en cambio, sí es del torneo: es lo que el club publica en un afiche.
+   * por fecha, en cambio, sí es del torneo: es lo que el club publica en un afiche. Las
+   * razones las dice `porQueNoAcepta`.
    */
   private async tomarElCuadro(
     tx: Prisma.TransactionClient,
     torneoCategoriaId: number,
     exigirAbierto = true,
   ): Promise<{ cupo: number; torneoId: number; montoClp: number }> {
-    await tx.$queryRaw`SELECT id FROM torneo_categoria WHERE id = ${torneoCategoriaId} FOR UPDATE`;
+    await tomarElCandado(tx, torneoCategoriaId);
 
     const cuadro = await tx.torneoCategoria.findUnique({
       where: { id: torneoCategoriaId },
@@ -730,25 +729,8 @@ export class InscripcionesATorneo {
     if (!cuadro)
       throw new NotFoundException('No hay un cuadro con ese número.');
 
-    if (exigirAbierto) {
-      if (cuadro.semillaSorteo !== null) {
-        throw new ConflictException(
-          `El cuadro de ${cuadro.categoriaJuego.nombre} ya está armado: no acepta más inscritos.`,
-        );
-      }
-
-      if (cuadro.torneo.estado === EstadoTorneo.CANCELADO) {
-        throw new ConflictException('Ese torneo está cancelado.');
-      }
-
-      // El último día de inscripción cuenta entero, como `alDiaHasta` en identidad:
-      // la fecha del papel es la última que vale.
-      if (cuadro.torneo.cierreInscripcion < hoyEnElClub()) {
-        throw new ConflictException(
-          'La inscripción de ese torneo ya se cerró.',
-        );
-      }
-    }
+    const cerrado = exigirAbierto ? porQueNoAcepta(cuadro) : null;
+    if (cerrado) throw new ConflictException(cerrado);
 
     return {
       cupo: cuadro.cupo,
