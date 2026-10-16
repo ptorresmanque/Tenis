@@ -102,6 +102,13 @@ export const routes: Routes = [
           import('./torneos/publico/pagina-de-inscripcion').then((m) => m.PaginaDeInscripcion),
       },
       {
+        // El enlace del correo «Se abrió un cupo» (T334): sin sesión, la llave es la credencial.
+        path: 'torneos/inscripcion/:token',
+        title: 'Tu cupo en la lista de espera — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./torneos/publico/oferta-de-cupo').then((m) => m.OfertaDeCupo),
+      },
+      {
         path: 'tours',
         title: 'Tours — FEDAL Tennis Center',
         loadComponent: () => import('./tours/publico/tours').then((m) => m.ToursPublicos),

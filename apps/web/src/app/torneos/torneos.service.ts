@@ -225,6 +225,24 @@ export interface Cuadro {
   partidos: PartidoDelCuadro[];
 }
 
+/**
+ * Una inscripción vista por su llave (T334): la oferta de un cupo de la lista de espera.
+ *
+ * - `OFRECIDO`: tiene un cupo guardado hasta `hasta`, y lo puede tomar.
+ * - `VENCIDO`: se le pasó el plazo, y el cupo pasó al siguiente.
+ * - `CERRADO`: la categoría se armó o cerró la inscripción con la oferta corriendo.
+ * - `ESPERANDO`: en la lista, sin oferta todavía.
+ * - `INSCRITO` y `RETIRADO`: ya entró, o salió por otra razón.
+ */
+export interface InscripcionPorLlave {
+  torneoId: number;
+  torneo: string;
+  categoria: string;
+  montoClp: number;
+  situacion: 'OFRECIDO' | 'VENCIDO' | 'CERRADO' | 'ESPERANDO' | 'INSCRITO' | 'RETIRADO';
+  hasta: string | null;
+}
+
 /** Un torneo del calendario, como lo ve quien todavía no es del club. */
 export interface TorneoPublico {
   id: number;
@@ -641,6 +659,20 @@ export class Torneos {
    * pagado** —apretando "atrás", que no avisa a nadie más—. Responde `soltada: false`
    * si no había nada que soltar: la persona pagó, o el servidor ya la soltó al volver.
    */
+  /** La inscripción de una llave: la página de la oferta de un cupo (T334). */
+  inscripcionPorLlave(token: string): Promise<InscripcionPorLlave> {
+    return firstValueFrom(
+      this.http.get<InscripcionPorLlave>(`/api/torneos/inscripciones/${token}`),
+    );
+  }
+
+  /** Toma el cupo ofrecido de una categoría gratis (T333). */
+  tomarCupo(token: string): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(`/api/torneos/inscripciones/${token}/tomar`, {}),
+    );
+  }
+
   soltarInscripcion(token: string): Promise<{ soltada: boolean }> {
     return firstValueFrom(
       this.http.post<{ soltada: boolean }>(
