@@ -751,4 +751,54 @@ describe('ListaDeEspera.ofrecerCupos', () => {
       expect((await como(esperando.id)).cupoOfrecidoHasta).toBeNull();
     });
   });
+
+  it('**la lista del panel dice quién tiene la oferta y hasta cuándo, y quién la dejó vencer** (T336)', async () => {
+    const cuadro = await crearCuadro({ cupo: 1 });
+    const vencida = await anotar(
+      cuadro,
+      EstadoInscripcionTorneo.LISTA_ESPERA,
+      0,
+    );
+    const siguiente = await anotar(
+      cuadro,
+      EstadoInscripcionTorneo.LISTA_ESPERA,
+      1,
+    );
+    await lista.ofrecerCupos(cuadro.cuadroId);
+    await prisma.inscripcionTorneo.update({
+      where: { id: vencida.id },
+      data: { cupoOfrecidoHasta: new Date(Date.now() - 60_000) },
+    });
+    await lista.vencerOfertas();
+
+    const { enEspera, retirados } = await app
+      .get(InscripcionesATorneo)
+      .lista(cuadro.cuadroId);
+
+    expect(
+      enEspera.find((una) => una.id === siguiente.id)?.cupoOfrecidoHasta,
+    ).toBeInstanceOf(Date);
+    expect(
+      retirados.find((una) => una.id === vencida.id)?.cupoOfrecidoHasta,
+    ).toBeInstanceOf(Date);
+  });
+
+  it('**retirar a quien tenía la oferta no lo deja como «venció su plazo»**: lo bajó el club (T336)', async () => {
+    const cuadro = await crearCuadro({ cupo: 1 });
+    const conOferta = await anotar(
+      cuadro,
+      EstadoInscripcionTorneo.LISTA_ESPERA,
+      0,
+    );
+    await lista.ofrecerCupos(cuadro.cuadroId);
+
+    await app.get(InscripcionesATorneo).retirar(cuadro.cuadroId, conOferta.id);
+
+    expect(
+      await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id: conOferta.id },
+        select: { estado: true, cupoOfrecidoHasta: true },
+      }),
+    ).toEqual({ estado: 'RETIRADA', cupoOfrecidoHasta: null });
+  });
 });

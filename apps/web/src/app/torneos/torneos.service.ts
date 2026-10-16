@@ -149,6 +149,11 @@ export interface InscripcionTorneo {
    * distintas —una es trabajo suyo y la otra se resuelve sola—.
    */
   tieneComprobante: boolean;
+  /**
+   * Hasta cuándo se le guarda el cupo de la lista de espera (T336). En una retirada, que no lo
+   * tomó a tiempo.
+   */
+  cupoOfrecidoHasta: string | null;
   /** A quién llamar si el comprobante no cuadra. Solo en el panel. */
   telefono: string | null;
   /** A dónde escribirle (T127). Solo en el panel; nulo si se anotó sin uno. */

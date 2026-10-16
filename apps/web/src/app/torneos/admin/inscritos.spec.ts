@@ -26,6 +26,7 @@ describe('InscritosDelTorneo', () => {
     estadoPago: 'PAGADA',
     medioPago: 'WEBPAY',
     tieneComprobante: false,
+    cupoOfrecidoHasta: null,
     telefono: '56911112222',
     email: 'carolina@ejemplo.cl',
   };
@@ -44,6 +45,7 @@ describe('InscritosDelTorneo', () => {
     estadoPago: 'PENDIENTE',
     medioPago: 'TRANSFERENCIA',
     tieneComprobante: true,
+    cupoOfrecidoHasta: null,
     telefono: '56987654321',
     email: 'camila@ejemplo.cl',
   };
@@ -72,6 +74,7 @@ describe('InscritosDelTorneo', () => {
     estadoPago: 'EXENTA',
     medioPago: null,
     tieneComprobante: false,
+    cupoOfrecidoHasta: null,
     telefono: null,
     email: null,
   };
@@ -172,15 +175,40 @@ describe('InscritosDelTorneo', () => {
     expect(texto()).toContain('Carolina Díaz');
   });
 
-  it('**la lista de espera se ve aparte y dice que no entran solos**', async () => {
+  it('**la lista de espera se ve aparte y dice cómo entran**: el cupo se le ofrece al primero (T336)', async () => {
     await montar({ ...LISTA, enEspera: [ESPERANDO] });
 
     expect(texto()).toContain('Lista de espera');
     expect(texto()).toContain('Tomás Invitado');
-    expect(texto()).toContain('No entran solos');
+    expect(texto()).toContain('se le ofrece al primero de la fila');
+    expect(texto()).not.toContain('No entran solos');
   });
 
-  it('meter al cuadro es un botón, no un automatismo', async () => {
+  it('**dice quién tiene el cupo ofrecido y hasta cuándo**, en el reloj del club (T336)', async () => {
+    await montar({
+      ...LISTA,
+      // Viernes 16 de octubre de 2026 a las 10:30 en Santiago (UTC-3).
+      enEspera: [{ ...ESPERANDO, cupoOfrecidoHasta: '2026-10-16T13:30:00.000Z' }],
+    });
+
+    expect(texto()).toContain('cupo ofrecido hasta el viernes, 16 de octubre, a las 10:30');
+  });
+
+  it('**entre los que se bajaron, dice quién dejó vencer su plazo** (T336, E2)', async () => {
+    await montar({
+      ...LISTA,
+      retirados: [
+        { ...ESPERANDO, estado: 'RETIRADA', cupoOfrecidoHasta: '2026-10-16T13:30:00.000Z' },
+        { ...EN_EL_CUADRO, estado: 'RETIRADA' },
+      ],
+    });
+
+    expect(texto()).toContain('Tomás Invitado (venció su plazo)');
+    expect(texto()).toContain('Carolina Díaz');
+    expect(texto()).not.toContain('Carolina Díaz (venció su plazo)');
+  });
+
+  it('meter al cuadro es un botón, para los casos especiales', async () => {
     await montar({ ...LISTA, enEspera: [ESPERANDO] });
 
     await apretar('Meter al cuadro');

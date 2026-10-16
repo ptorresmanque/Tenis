@@ -48,6 +48,11 @@ export interface InscripcionPublicada {
   /** Qué dijo que iba a hacer. Nulo si es gratis o lo anotó el admin. */
   medioPago: MedioPagoInscripcion | null;
   /**
+   * Hasta cuándo se le guarda el cupo de la lista de espera (T336). En una retirada, que no lo
+   * tomó a tiempo: es el motivo del retiro (E2).
+   */
+  cupoOfrecidoHasta: Date | null;
+  /**
    * Si hay un comprobante que mirar. **Un booleano y no la ruta**: la ruta es del
    * disco del servidor y la imagen se pide por su endpoint, detrás del guard.
    *
@@ -503,7 +508,13 @@ export class InscripcionesATorneo {
         torneoCategoriaId,
         estado: { not: EstadoInscripcionTorneo.RETIRADA },
       },
-      data: { estado: EstadoInscripcionTorneo.RETIRADA, siembra: null },
+      data: {
+        estado: EstadoInscripcionTorneo.RETIRADA,
+        siembra: null,
+        // Una retirada con oferta es la que no la tomó a tiempo (E2): a la que retira el club,
+        // aunque tuviera una, se le borra.
+        cupoOfrecidoHasta: null,
+      },
     });
 
     if (count === 0) {
@@ -664,6 +675,7 @@ export class InscripcionesATorneo {
         siembra: true,
         estado: true,
         inscritaEn: true,
+        cupoOfrecidoHasta: true,
         estadoPago: true,
         medioPago: true,
         email: true,
@@ -698,6 +710,7 @@ export class InscripcionesATorneo {
         inscritaEn: fila.inscritaEn,
         estadoPago: fila.estadoPago,
         medioPago: fila.medioPago,
+        cupoOfrecidoHasta: fila.cupoOfrecidoHasta,
         tieneComprobante: fila.comprobanteRuta !== null,
         telefono: fila.jugador.telefono,
         email: fila.email,

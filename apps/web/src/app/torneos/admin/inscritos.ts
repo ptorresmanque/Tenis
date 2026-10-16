@@ -20,7 +20,7 @@ import { MatChipsModule } from '@angular/material/chips';
 
 import { dialogoSegun } from '../../ui/dialogo';
 import { proveerCampos } from '../../ui/campos';
-import { enPesos } from '../../catalogo-canchas/reloj-del-club';
+import { diaYHoraEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { VarianteInsignia } from '../../ui/insignias';
@@ -31,10 +31,10 @@ import { Esqueleto } from '../../ui/esqueleto';
 /**
  * Quién juega un torneo.
  *
- * **Pasado el cupo, el jugador entra en lista de espera y no se lo rechaza.** El club
- * llama por teléfono antes de meter a alguien en un cuadro que ya anunció, así que
- * promover es un botón y no un automatismo: quien quedó fuera hace dos semanas ya hizo
- * otros planes.
+ * **Pasado el cupo, el jugador entra en lista de espera y no se lo rechaza.** El lugar que se
+ * abre se le ofrece al primero de la fila, con un plazo para tomarlo (SPEC-torneos.md § Lista de
+ * espera sin cobro), y la lista dice quién lo tiene y hasta cuándo. «Meter al cuadro» queda para
+ * los casos especiales, como quien paga en el mesón.
  */
 @Component({
   selector: 'app-inscritos-torneo',
@@ -358,6 +358,11 @@ import { Esqueleto } from '../../ui/esqueleto';
             @for (quien of datos.enEspera; track quien.id) {
               <li class="flex flex-wrap items-center gap-2 text-sm">
                 <span>{{ quien.jugador }}</span>
+                @if (quien.cupoOfrecidoHasta) {
+                  <span class="text-muted-foreground">
+                    · cupo ofrecido hasta el {{ diaYHora(quien.cupoOfrecidoHasta) }}
+                  </span>
+                }
                 <button
                   matButton="outlined"
                   type="button"
@@ -372,7 +377,8 @@ import { Esqueleto } from '../../ui/esqueleto';
             }
           </ul>
           <p class="mt-1 text-sm text-muted-foreground">
-            No entran solos: el club llama antes de meter a alguien en el cuadro.
+            El lugar que se abre se le ofrece al primero de la fila, con un plazo para tomarlo.
+            «Meter al cuadro» es para los casos especiales, como quien paga en el mesón.
           </p>
         }
 
@@ -760,9 +766,14 @@ export class InscritosDelTorneo {
     return this.jugadores.value().filter((jugador) => !yaEstan.has(jugador.id));
   });
 
+  protected readonly diaYHora = diaYHoraEnPalabras;
+
+  /** Los que se bajaron. Retirado con una oferta es que no la tomó a tiempo (T336, E2). */
   protected readonly nombresRetirados = computed(() =>
     (this.lista.value()?.retirados ?? [])
-      .map((quien) => quien.jugador)
+      .map((quien) =>
+        quien.cupoOfrecidoHasta ? `${quien.jugador} (venció su plazo)` : quien.jugador,
+      )
       .join(', '),
   );
 

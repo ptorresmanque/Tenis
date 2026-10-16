@@ -3,12 +3,7 @@ import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 
-import {
-  diaEnPalabras,
-  enPesos,
-  fechaEnElClub,
-  horaEnElClub,
-} from '../../catalogo-canchas/reloj-del-club';
+import { diaYHoraEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { irAPagar } from '../../core/pagos/ir-a-pagar';
 import { Aviso } from '../../ui/aviso';
@@ -205,7 +200,7 @@ export class OfertaDeCupo {
   protected readonly hasta = computed(() => {
     const hasta = this.oferta.value()?.hasta;
 
-    return hasta ? `${diaEnPalabras(fechaEnElClub(hasta))}, a las ${horaEnElClub(hasta)}` : '';
+    return hasta ? diaYHoraEnPalabras(hasta) : '';
   });
 
   /** Lo que se le dice a quien volvió de Webpay sin pagar: que el cupo le sigue guardado. */
