@@ -19,6 +19,7 @@ describe('EditorConfiguracion', () => {
     diasSancionNoUso: 15,
     cuotaMensualClp: 25000,
     cuotaIncorporacionClp: 150000,
+    plazoCupoListaEsperaMin: 30,
   };
 
   let fixture: ComponentFixture<EditorConfiguracion>;
@@ -152,6 +153,26 @@ describe('EditorConfiguracion', () => {
 
     it('**avisa que las cuotas ya emitidas no cambian**', () => {
       expect(texto()).toContain('las ya emitidas mantienen su monto');
+    });
+  });
+
+  describe('el plazo de la lista de espera (T326)', () => {
+    it('**trae el plazo vigente, en minutos**', () => {
+      expect(texto()).toContain('Torneos');
+      expect(campo('plazoCupoListaEsperaMin').value).toBe('30');
+    });
+
+    it('**cambiarlo lo manda**', async () => {
+      await escribir('plazoCupoListaEsperaMin', '45');
+      await guardar();
+
+      expect(api.fijarConfiguracion).toHaveBeenCalledWith(
+        expect.objectContaining({ plazoCupoListaEsperaMin: 45 }),
+      );
+    });
+
+    it('**dice que corre solo de día**, que es lo que el club no adivina (E7)', () => {
+      expect(texto()).toContain('de 8:00 a 22:00');
     });
   });
 

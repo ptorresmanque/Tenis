@@ -92,6 +92,21 @@ const DE_CUOTA: Regla[] = [
   },
 ];
 
+/**
+ * La lista de espera de los torneos (T326, SPEC-torneos.md § Lista de espera sin cobro): cuando se
+ * abre un cupo, se le guarda al primero de la fila este plazo para que pague.
+ */
+const DE_TORNEO: Regla[] = [
+  {
+    campo: 'plazoCupoListaEsperaMin',
+    etiqueta: 'Plazo para tomar un cupo de la lista de espera (minutos)',
+    ayuda:
+      'Cuánto se le guarda el cupo al primero de la fila. Corre solo de 8:00 a 22:00: ' +
+      'de noche el aviso sale, pero el plazo no avanza.',
+    minimo: 10,
+  },
+];
+
 const GRUPOS = [
   {
     titulo: 'Reservas',
@@ -103,9 +118,14 @@ const GRUPOS = [
     nota: 'Rigen desde la próxima cuota que se emita: las ya emitidas mantienen su monto.',
     reglas: DE_CUOTA,
   },
+  {
+    titulo: 'Torneos',
+    nota: 'Un cupo ya ofrecido mantiene su plazo aunque este cambie.',
+    reglas: DE_TORNEO,
+  },
 ];
 
-const REGLAS = [...DE_RESERVA, ...DE_CUOTA];
+const REGLAS = [...DE_RESERVA, ...DE_CUOTA, ...DE_TORNEO];
 
 /** Lo que hay en los campos: números, o vacío mientras alguien está escribiendo. */
 type ValoresEnPantalla = Record<keyof ReglasDelClub, number | ''>;
