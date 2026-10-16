@@ -4,11 +4,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
+import { hoyEnElClub } from '../comun/tiempo';
 import {
+  ConceptoPago,
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
+  EstadoTransaccion,
   type MedioPagoInscripcion,
 } from '../generated/prisma/client';
+import { ExpiracionService } from '../pagos/expiracion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeTorneo } from './correos';
 import { OCUPA_CUPO, porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
@@ -116,7 +120,88 @@ export class ListaDeEspera {
   constructor(
     private readonly prisma: PrismaService,
     private readonly avisos: AvisosDeTorneo,
+    private readonly expiracion: ExpiracionService,
   ) {}
+
+  /**
+   * Pasa el turno de las ofertas vencidas (T335, E2 y E6): lo corre el cron cada 5 minutos,
+   * `npm run lista-de-espera -w apps/api`. Responde cuántas retiró.
+   *
+   * La oferta vencida sale de la lista como `RETIRADA`, **con su `cupoOfrecidoHasta`**, que es el
+   * motivo del retiro, y le llega «Se venció tu plazo». **Con un pago de Webpay en curso, espera**:
+   * quitarle el cupo a quien está tecleando su tarjeta sería cobrarle por un lugar que ya no
+   * tiene. La pasarela le da 15 minutos; después la transacción expira y el turno pasa en la
+   * vuelta siguiente. Es la misma regla del barrido de `InscripcionesAbandonadas`.
+   *
+   * Al final ofrece los cupos de **toda** categoría abierta con gente esperando sin oferta, no
+   * solo de las que acaba de vencer: así también repara el lugar que un retiro dejó libre si su
+   * oferta no alcanzó a salir.
+   */
+  async vencerOfertas(ahora = new Date()): Promise<number> {
+    const vencidas = await this.prisma.inscripcionTorneo.findMany({
+      where: {
+        estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+        cupoOfrecidoHasta: { lte: ahora },
+      },
+      select: { id: true },
+    });
+
+    let retiradas = 0;
+
+    if (vencidas.length > 0) {
+      // Primero se expira lo de `pagos` y después se lee, como en el barrido: al revés, la
+      // transacción que acaba de vencer todavía figura pendiente y frena el turno una vuelta más.
+      await this.expiracion.barrer(ahora);
+
+      const pagando = await this.prisma.transaccion.findMany({
+        where: {
+          concepto: ConceptoPago.INSCRIPCION_TORNEO,
+          conceptoId: { in: vencidas.map((una) => una.id) },
+          estado: {
+            in: [EstadoTransaccion.PENDIENTE, EstadoTransaccion.AUTORIZADA],
+          },
+        },
+        select: { conceptoId: true },
+      });
+      const vivas = new Set(pagando.map((una) => una.conceptoId));
+
+      for (const { id } of vencidas.filter((una) => !vivas.has(una.id))) {
+        // El estado y el plazo en el `where`: si entre medio la tomó o el admin la promovió, no
+        // se la retira.
+        const { count } = await this.prisma.inscripcionTorneo.updateMany({
+          where: {
+            id,
+            estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+            cupoOfrecidoHasta: { lte: ahora },
+          },
+          data: { estado: EstadoInscripcionTorneo.RETIRADA, siembra: null },
+        });
+
+        if (count > 0) {
+          retiradas += 1;
+          await this.avisos.ofertaVencida(id);
+        }
+      }
+    }
+
+    // Toda categoría con gente esperando sin oferta, y con la inscripción abierta: el filtro por
+    // fecha deja fuera los torneos viejos, y `ofrecerCupos` revisa el resto bajo el candado.
+    const conFila = await this.prisma.inscripcionTorneo.findMany({
+      where: {
+        estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+        cupoOfrecidoHasta: null,
+        torneo: { cierreInscripcion: { gte: hoyEnElClub(ahora) } },
+      },
+      distinct: ['torneoCategoriaId'],
+      select: { torneoCategoriaId: true },
+    });
+
+    for (const { torneoCategoriaId } of conFila) {
+      await this.ofrecerCupos(torneoCategoriaId);
+    }
+
+    return retiradas;
+  }
 
   /**
    * La inscripción de una llave, para la página de la oferta (T332). La llave viaja en el

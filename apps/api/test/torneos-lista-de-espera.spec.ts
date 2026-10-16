@@ -632,4 +632,123 @@ describe('ListaDeEspera.ofrecerCupos', () => {
       ).toEqual({ estado: 'INSCRITA', cupoOfrecidoHasta: null });
     });
   });
+
+  /**
+   * T335 (E2, E6 y LE6). **El cron pasa el turno**: la oferta vencida sale de la lista, con su
+   * correo, y el cupo va al siguiente. Si la persona está pagando en Webpay, espera.
+   */
+  describe('el cron pasa el turno (T335)', () => {
+    const HACE_UN_MINUTO = () => new Date(Date.now() - 60_000);
+
+    /** Un cuadro de un lugar, ofrecido al primero, con otro esperando detrás. */
+    const ofrecido = async () => {
+      const cuadro = await crearCuadro({ cupo: 1 });
+      const primero = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        0,
+      );
+      const segundo = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        1,
+      );
+      await lista.ofrecerCupos(cuadro.cuadroId);
+      enviados.length = 0;
+
+      return { cuadro, primero, segundo };
+    };
+
+    const vencer = (id: number) =>
+      prisma.inscripcionTorneo.update({
+        where: { id },
+        data: { cupoOfrecidoHasta: HACE_UN_MINUTO() },
+      });
+
+    const como = (id: number) =>
+      prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+        select: { estado: true, cupoOfrecidoHasta: true },
+      });
+
+    it('**la oferta vencida sale de la lista, con su correo, y el siguiente recibe la suya**', async () => {
+      const { primero, segundo } = await ofrecido();
+      await vencer(primero.id);
+
+      await lista.vencerOfertas();
+
+      // Retirada y con la oferta guardada: es el motivo del retiro (E2).
+      expect(await como(primero.id)).toEqual({
+        estado: 'RETIRADA',
+        cupoOfrecidoHasta: expect.any(Date) as unknown,
+      });
+      expect(para(primero.email).map((correo) => correo.asunto)).toEqual([
+        expect.stringContaining('Se venció tu plazo'),
+      ]);
+      expect((await como(segundo.id)).cupoOfrecidoHasta).toBeInstanceOf(Date);
+      expect(para(segundo.email).map((correo) => correo.asunto)).toEqual([
+        expect.stringContaining('Se abrió un cupo'),
+      ]);
+    });
+
+    it('**con un pago de Webpay en curso, espera**: no le quita el cupo a quien está pagando', async () => {
+      const { primero, segundo } = await ofrecido();
+      await vencer(primero.id);
+      await prisma.transaccion.create({
+        data: {
+          referencia: `${REFERENCIA}${primero.id}`,
+          concepto: ConceptoPago.INSCRIPCION_TORNEO,
+          conceptoId: primero.id,
+          montoClp: 15_000,
+          pasarela: 'doble',
+        },
+      });
+
+      await lista.vencerOfertas();
+
+      expect((await como(primero.id)).estado).toBe('LISTA_ESPERA');
+      expect((await como(segundo.id)).cupoOfrecidoHasta).toBeNull();
+      expect(enviados).toEqual([]);
+    });
+
+    it('una oferta vigente no se toca', async () => {
+      const { primero } = await ofrecido();
+
+      await lista.vencerOfertas();
+
+      expect((await como(primero.id)).estado).toBe('LISTA_ESPERA');
+      expect(enviados).toEqual([]);
+    });
+
+    it('**también ofrece el cupo libre que nadie ofreció**, por si un camino falló a medias', async () => {
+      // Un retiro que quedó escrito sin que su oferta saliera: el cron lo repara en la vuelta
+      // siguiente, en vez de dejar el cupo libre con gente esperando.
+      const cuadro = await crearCuadro({ cupo: 1 });
+      const esperando = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        0,
+      );
+
+      await lista.vencerOfertas();
+
+      expect((await como(esperando.id)).cupoOfrecidoHasta).toBeInstanceOf(Date);
+    });
+
+    it('con la inscripción cerrada no ofrece nada', async () => {
+      const cuadro = await crearCuadro({
+        cupo: 1,
+        cierreInscripcion: new Date('2026-01-01T00:00:00.000Z'),
+      });
+      const esperando = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        0,
+      );
+
+      await lista.vencerOfertas();
+
+      expect((await como(esperando.id)).cupoOfrecidoHasta).toBeNull();
+    });
+  });
 });

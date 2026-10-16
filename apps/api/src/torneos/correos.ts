@@ -389,6 +389,26 @@ export function quedasteDentro(
 }
 
 /**
+ * "Se venció tu plazo" (T335, E2): no tomó el cupo a tiempo, salió de la lista de espera y el
+ * cupo pasó al siguiente. Si todavía quiere jugar, se inscribe de nuevo y queda al final.
+ */
+export function ofertaVencida(
+  inscripcion: InscripcionParaAvisar,
+  club: DatosDelClub,
+  origenWeb: string,
+): Correo {
+  return {
+    asunto: `Se venció tu plazo: ${inscripcion.torneo}, ${inscripcion.categoria}`,
+    cuerpo:
+      `Hola ${inscripcion.nombre}:\n\n` +
+      `Se venció el plazo para tomar el cupo que se abrió en ${inscripcion.categoria} de ` +
+      `${inscripcion.torneo}, y pasó al siguiente de la lista de espera.\n\n` +
+      'Si todavía quieres jugar, puedes inscribirte de nuevo: quedas al final de la fila.\n\n' +
+      pie(club, origenWeb),
+  };
+}
+
+/**
  * Dónde y cuándo está programado un partido, o nulo si no tiene hora. Lo usan los dos
  * lados del aviso: `programacion` para decir cómo estaba, y el aviso para ver cómo quedó.
  */
@@ -516,6 +536,15 @@ export class AvisosDeTorneo {
       inscripcionId,
       'el aviso del cupo ofrecido',
       cupoOfrecido,
+    );
+  }
+
+  /** "Se venció tu plazo" (T335, E2), al que no tomó el cupo a tiempo. */
+  async ofertaVencida(inscripcionId: number): Promise<void> {
+    await this.alInscrito(
+      inscripcionId,
+      'el aviso del plazo vencido',
+      ofertaVencida,
     );
   }
 

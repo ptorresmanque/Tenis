@@ -5,6 +5,7 @@ import {
   cupoOfrecido,
   InscripcionParaAvisar,
   inscripcionRecibida,
+  ofertaVencida,
   pagoAprobado,
   pagoRechazado,
   partidoCambiado,
@@ -235,6 +236,19 @@ describe('correos del torneo', () => {
       expect(() => ofrecido({ cupoOfrecidoHasta: null })).toThrow(
         'cupo ofrecido',
       );
+    });
+
+    it('**«Se venció tu plazo» dice que el cupo pasó al siguiente, y cómo volver a la fila** (T335, E2)', () => {
+      const { asunto, cuerpo } = ofertaVencida(
+        { ...EN_ESPERA, estado: 'RETIRADA' },
+        CLUB,
+        'https://fedal.cl',
+      );
+
+      expect(asunto).toBe('Se venció tu plazo: Torneo Aniversario, 4ª');
+      expect(cuerpo).toContain('pasó al siguiente de la lista de espera');
+      expect(cuerpo).toContain('inscribirte de nuevo');
+      expect(cuerpo).toContain(firmaDelClub(CLUB));
     });
 
     it('**«Quedaste dentro» al que ya había pagado** (E4)', () => {
