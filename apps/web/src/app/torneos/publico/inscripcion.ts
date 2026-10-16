@@ -729,8 +729,8 @@ export class InscripcionATorneo {
         return;
       }
 
-      // **Sin Webpay se termina igual que con Webpay** (T323): en Torneos, que lleva el aviso a
-      // la vista. Antes era un snackbar que se iba solo y el formulario vacío otra vez, y el aviso
+      // **Sin Webpay se termina igual que con Webpay** (T323): en Torneos, que confirma lo hecho
+      // con el snackbar y deja fijo y a la vista lo que hay que leer. Antes era un snackbar que se iba solo y el formulario vacío otra vez, y el aviso
       // de la lista de espera quedaba en el último paso, que ya no se veía. **Lo que se dice es
       // lo que respondió el servidor**: quien quedó en espera tiene que saberlo ahora.
       this.terminarEnTorneos(comoTermino(hecha));

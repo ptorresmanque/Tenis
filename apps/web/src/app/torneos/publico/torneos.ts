@@ -10,12 +10,14 @@ import {
   linkedSignal,
   resource,
   signal,
+  untracked,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import { diaEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { nombreDeSuperficie } from '../../catalogo-canchas/superficies';
@@ -25,6 +27,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 // galería del torneo. Este es el componente que reserva el hueco de una
 // foto del sitio mientras el club no la entrega.
 import { Foto as FotoDelSitio } from '../../ui/foto';
+import { LO_HECHO } from '../../ui/material';
 import { CartelDelTorneo } from './cartel-del-torneo';
 import { CuadroPublicoModal } from './cuadro-publico';
 import { AVISOS_DEL_PAGO, soltarSiVolvioSinPagar } from './pago-pendiente';
@@ -323,8 +326,19 @@ export class TorneosPublicos {
     // calendario, porque el recurso lo tiene de parámetro.
     soltarSiVolvioSinPagar(() => this.volvioSinPagar.set(true));
 
-    // **El aviso de cómo terminó la inscripción, a la vista** (T323), venga de la vuelta de
-    // Webpay o del formulario: en el escritorio, el hero lo dejaba bajo el borde de la pantalla.
+    // **Lo hecho se confirma con el snackbar** (T324, S2), como «Hora tomada» en la agenda: el
+    // pago de Webpay, el comprobante recibido o la inscripción gratis. `?pago=` se queda en la
+    // dirección: sacarlo con el router, recién llegada la página, cortaba su transición.
+    const snackBar = inject(MatSnackBar);
+    effect(() => {
+      const aviso = AVISOS_DEL_PAGO[this.pago() ?? ''];
+      if (aviso?.variante !== 'exito') return;
+
+      untracked(() => snackBar.open(aviso.texto, undefined, LO_HECHO));
+    });
+
+    // **El aviso que hay que leer, a la vista** (T323), venga de la vuelta de Webpay o del
+    // formulario: en el escritorio, el hero lo dejaba bajo el borde de la pantalla.
     // jsdom no implementa scrollIntoView: en las pruebas, la página queda donde está.
     const anfitrion = inject<ElementRef<HTMLElement>>(ElementRef);
     const injector = inject(Injector);
@@ -409,17 +423,20 @@ export class TorneosPublicos {
   readonly pago = input<string>();
 
   /**
-   * Qué decirle a quien vuelve de la pasarela.
+   * El aviso fijo de cómo terminó la inscripción: el que hay que leer antes de seguir.
    *
    * **Los dos finales importan por igual.** Que el pago salió bien hay que decirlo, y
    * que no salió, más: el que anula tiene que enterarse de que **no quedó inscrito**,
-   * porque su lugar se soltó y el cuadro sigue abierto para otro.
+   * porque su lugar se soltó y el cuadro sigue abierto para otro. Lo que confirma algo hecho
+   * (variante éxito) no va acá sino al snackbar, como en el resto del sitio (T324, S2).
    */
-  protected readonly resultadoDelPago = computed(() =>
-    this.volvioSinPagar()
+  protected readonly resultadoDelPago = computed(() => {
+    const aviso = this.volvioSinPagar()
       ? AVISOS_DEL_PAGO['anulado']
-      : (AVISOS_DEL_PAGO[this.pago() ?? ''] ?? null),
-  );
+      : AVISOS_DEL_PAGO[this.pago() ?? ''];
+
+    return aviso && aviso.variante !== 'exito' ? aviso : null;
+  });
 
   /**
    * Lo que va después del nivel: "," entre tours, " y" antes del último, "." al final.
