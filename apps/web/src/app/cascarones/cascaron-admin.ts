@@ -1,17 +1,20 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Component, computed, inject, viewChild } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
+import { MatBadge } from '@angular/material/badge';
 import { MatIconButton } from '@angular/material/button';
+import { MatDivider } from '@angular/material/divider';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbar } from '@angular/material/toolbar';
-import { map } from 'rxjs';
+import { filter, map } from 'rxjs';
 
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel, puedeVer } from '../core/auth/tipos-del-panel';
 import { tiposDelUsuario } from '../core/auth/tipos-del-usuario';
+import { Pendientes } from '../core/pendientes';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { Logotipo } from './logotipo';
 
@@ -26,97 +29,111 @@ import { Logotipo } from './logotipo';
  * módulos que todavía no existen: un ítem deshabilitado que nunca se habilita es
  * ruido permanente en la barra que el club mira todo el día.
  */
+/** Los grupos del menú, con su subtítulo (T300, SPEC-panel.md D8), en este orden. */
+const GRUPOS = ['Día a día', 'El club', 'Competencias'] as const;
+
+/** Una sección del menú. El grupo es obligatorio: ningún ítem queda suelto. */
+interface SeccionDelPanel {
+  ruta: string;
+  etiqueta: string;
+  icono: string;
+  /** «Al pie» va sin subtítulo, tras una divisoria. */
+  grupo: (typeof GRUPOS)[number] | 'Al pie';
+}
+
 /**
- * Los ítems de MASTER.md que ya tienen pantalla, en el orden de esa tabla. Exportados desde
- * T277: la etiqueta es también el título de la pantalla, y una prueba lo cuida.
+ * Los ítems de MASTER.md que ya tienen pantalla, agrupados como dice SPEC-panel.md D8.
+ * Exportados desde T277: la etiqueta es también el título de la pantalla, y una prueba lo cuida.
  */
-export const SECCIONES_DEL_PANEL = [
+export const SECCIONES_DEL_PANEL: SeccionDelPanel[] = [
   {
     ruta: '/administracion/reservas',
     etiqueta: 'Agenda del día',
     icono: 'calendar_today',
-    trasDivisoria: false,
+    grupo: 'Día a día',
+  },
+  {
+    ruta: '/administracion/clases',
+    etiqueta: 'Clases',
+    icono: 'event_note',
+    grupo: 'Día a día',
+  },
+  {
+    ruta: '/administracion/no-uso',
+    etiqueta: 'Horas no usadas',
+    icono: 'timer_off',
+    grupo: 'Día a día',
   },
   {
     ruta: '/administracion/canchas',
     etiqueta: 'Canchas',
     icono: 'sports_tennis',
-    trasDivisoria: false,
+    grupo: 'El club',
   },
   {
     // T296. Socios, Usuarios y Profesores en una sola tabla de cuentas (SPEC-panel.md D2).
     ruta: '/administracion/personas',
     etiqueta: 'Personas',
     icono: 'group',
-    trasDivisoria: false,
+    grupo: 'El club',
   },
   {
     // T286. Ingreso, padrón, cuotas y deudores: una pantalla con pestañas.
     ruta: '/administracion/finanzas',
     etiqueta: 'Finanzas',
     icono: 'account_balance',
-    trasDivisoria: false,
+    grupo: 'El club',
   },
   {
-    ruta: '/administracion/no-uso',
-    etiqueta: 'Horas no usadas',
-    icono: 'timer_off',
-    trasDivisoria: false,
-  },
-  {
-    ruta: '/administracion/clases',
-    etiqueta: 'Clases',
-    icono: 'event_note',
-    trasDivisoria: false,
+    ruta: '/administracion/solicitudes',
+    etiqueta: 'Consultas al club',
+    icono: 'drafts',
+    grupo: 'El club',
   },
   {
     ruta: '/administracion/torneos',
     etiqueta: 'Torneos',
     icono: 'emoji_events',
-    trasDivisoria: false,
+    grupo: 'Competencias',
   },
   {
     // T191. Junto a Torneos: son las ligas a las que suman.
     ruta: '/administracion/tours',
     etiqueta: 'Tours',
     icono: 'military_tech',
-    trasDivisoria: false,
+    grupo: 'Competencias',
   },
   {
     ruta: '/administracion/jugadores',
     etiqueta: 'Jugadores',
     icono: 'groups',
-    trasDivisoria: false,
+    grupo: 'Competencias',
   },
   {
     ruta: '/administracion/partidos-internos',
     etiqueta: 'Partidos entre socios',
     icono: 'handshake',
-    trasDivisoria: false,
-  },
-  {
-    ruta: '/administracion/solicitudes',
-    etiqueta: 'Consultas al club',
-    icono: 'drafts',
-    trasDivisoria: false,
+    grupo: 'Competencias',
   },
   {
     ruta: '/administracion/configuracion',
     etiqueta: 'Configuración',
     icono: 'settings',
-    trasDivisoria: true,
+    grupo: 'Al pie',
   },
   {
     ruta: '/estado',
     etiqueta: 'Estado del sistema',
     icono: 'monitor_heart',
-    trasDivisoria: false,
+    grupo: 'Al pie',
   },
 ];
 
 @Component({
   selector: 'app-cascaron-admin',
   imports: [
+    MatBadge,
+    MatDivider,
     MatIcon,
     MatIconButton,
     MatMenu,
@@ -184,32 +201,54 @@ export const SECCIONES_DEL_PANEL = [
                El hover va solo en los inactivos: sobre el rótulo pintaría un fondo
                claro bajo un texto blanco. -->
           <nav aria-label="Administración" class="flex-1 overflow-y-auto py-4">
-            <ul class="grid gap-1">
-              @for (item of items(); track item.ruta) {
-                @if (item.trasDivisoria) {
-                  <li class="my-2 border-t border-border" aria-hidden="true"></li>
-                }
-                <li>
-                  <a
-                    [routerLink]="item.ruta"
-                    routerLinkActive
-                    ariaCurrentWhenActive="page"
-                    #activo="routerLinkActive"
-                    class="flex min-h-12 items-center gap-3 px-4 font-display text-sm
-                           font-bold tracking-wide uppercase transition-colors"
-                    [class]="
-                      activo.isActive
-                        ? 'bg-rotulo text-on-rotulo'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    "
-                    (click)="alElegir()"
-                  >
-                    <mat-icon class="text-xl" aria-hidden="true">{{ item.icono }}</mat-icon>
-                    {{ item.etiqueta }}
-                  </a>
-                </li>
+            @for (grupo of grupos(); track grupo.titulo) {
+              @if (grupo.titulo === 'Al pie') {
+                <mat-divider class="my-2" />
+              } @else if (conSubtitulos()) {
+                <h2
+                  class="px-4 pt-4 pb-2 font-display text-xs font-bold tracking-widest
+                         text-muted-foreground uppercase"
+                >
+                  {{ grupo.titulo }}
+                </h2>
               }
-            </ul>
+              <ul class="grid gap-1">
+                @for (item of grupo.items; track item.ruta) {
+                  <li>
+                    <a
+                      [routerLink]="item.ruta"
+                      routerLinkActive
+                      ariaCurrentWhenActive="page"
+                      #activo="routerLinkActive"
+                      class="flex min-h-12 items-center gap-3 px-4 font-display text-sm
+                             font-bold tracking-wide uppercase transition-colors"
+                      [class]="
+                        activo.isActive
+                          ? 'bg-rotulo text-on-rotulo'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      "
+                      (click)="alElegir()"
+                    >
+                      <mat-icon class="text-xl" aria-hidden="true">{{ item.icono }}</mat-icon>
+                      <!-- T301. El badge, como en las pestañas (T287): sobre la etiqueta, escondido
+                           en la sección que se mira, y su descripción también como texto oculto,
+                           porque Material la escribe dentro del número, que es aria-hidden. -->
+                      @let insignia = insignias()[item.ruta];
+                      <span
+                        [matBadge]="insignia?.numero || null"
+                        [matBadgeHidden]="!insignia?.numero || activo.isActive"
+                        [matBadgeDescription]="insignia?.descripcion ?? ''"
+                        matBadgeOverlap="false"
+                        >{{ item.etiqueta }}</span
+                      >
+                      @if (insignia?.numero && !activo.isActive) {
+                        <span class="sr-only">: {{ insignia?.descripcion }}</span>
+                      }
+                    </a>
+                  </li>
+                }
+              </ul>
+            }
           </nav>
 
           <div class="border-t border-border p-3">
@@ -299,9 +338,53 @@ export class CascaronAdmin {
   protected readonly usuario = this.auth.usuario;
 
   /** Los que este usuario puede ver (T220): el gestor, la agenda; el profesor, Clases. */
-  protected readonly items = computed(() =>
+  private readonly items = computed(() =>
     SECCIONES_DEL_PANEL.filter((item) => puedeVer(item.ruta, this.usuario())),
   );
+
+  /** Los grupos con algo que este usuario puede ver, en su orden, y lo de al pie al final. */
+  protected readonly grupos = computed(() =>
+    [...GRUPOS, 'Al pie' as const]
+      .map((titulo) => ({ titulo, items: this.items().filter((item) => item.grupo === titulo) }))
+      .filter((grupo) => grupo.items.length > 0),
+  );
+
+  /** Un subtítulo separa grupos: con uno solo a la vista (el gestor, el profesor), sobra. */
+  protected readonly conSubtitulos = computed(
+    () => this.grupos().filter((grupo) => grupo.titulo !== 'Al pie').length > 1,
+  );
+
+  private readonly pendientes = inject(Pendientes);
+
+  /** Cuántas esperan en cada sección que lleva badge (SPEC-panel.md A10). */
+  protected readonly insignias = computed<Record<string, { numero: number; descripcion: string }>>(
+    () => {
+      const horas = this.pendientes.conteo()?.horasPorRevisar ?? 0;
+      const consultas = this.pendientes.conteo()?.consultasSinAtender ?? 0;
+      return {
+        '/administracion/no-uso': {
+          numero: horas,
+          descripcion: horas === 1 ? '1 hora por revisar' : `${horas} horas por revisar`,
+        },
+        '/administracion/solicitudes': {
+          numero: consultas,
+          descripcion:
+            consultas === 1 ? '1 consulta sin atender' : `${consultas} consultas sin atender`,
+        },
+      };
+    },
+  );
+
+  constructor() {
+    // Lo resuelto en otra pantalla baja el número al navegar (T301). La primera vez no repite
+    // la petición: un recurso que carga no recarga.
+    inject(Router)
+      .events.pipe(
+        filter((evento) => evento instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.pendientes.recargar());
+  }
 
   /** Adónde lleva el logotipo: la portada del panel de cada uno. */
   protected readonly inicio = computed(

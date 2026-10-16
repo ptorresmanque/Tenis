@@ -1,5 +1,7 @@
 import { httpResource } from '@angular/common/http';
-import { computed, Injectable } from '@angular/core';
+import { computed, inject, Injectable } from '@angular/core';
+
+import { Auth } from './auth/auth';
 
 /** Lo que espera al admin (`GET /api/admin/pendientes`, T287). */
 export interface ConteoDePendientes {
@@ -12,13 +14,16 @@ export interface ConteoDePendientes {
  * Horas no usadas y, desde T301, los del menú. Uno solo para todo el panel, así resolver una
  * hora en su pantalla baja el número en todas partes con un `recargar()`.
  *
- * Se pide al crearse el servicio, la primera vez que algo lo inyecta, y la API es solo del admin:
- * hoy lo inyectan pantallas del admin. El menú (T301), que también ven el gestor y el profesor,
- * tiene que pedirlo solo para el admin, o les respondería 403.
+ * Se pide al crearse el servicio, la primera vez que algo lo inyecta, y **solo con el admin**:
+ * el menú, que también ven el gestor y el profesor, lo inyecta para todos, y a ellos la API les
+ * respondería 403 (T301).
  */
 @Injectable({ providedIn: 'root' })
 export class Pendientes {
-  private readonly recurso = httpResource<ConteoDePendientes>(() => '/api/admin/pendientes');
+  private readonly auth = inject(Auth);
+  private readonly recurso = httpResource<ConteoDePendientes>(() =>
+    this.auth.usuario()?.esAdmin ? '/api/admin/pendientes' : undefined,
+  );
 
   /** El conteo, o `undefined` mientras llega o si no se pudo pedir. */
   readonly conteo = computed(() => (this.recurso.hasValue() ? this.recurso.value() : undefined));

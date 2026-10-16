@@ -17,6 +17,7 @@ import {
   TipoSolicitud,
 } from '../../club/contacto.service';
 import { mensajeDelServidor } from '../../core/errores';
+import { Pendientes } from '../../core/pendientes';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
@@ -227,6 +228,7 @@ const TIPOS: Record<TipoSolicitud, string> = {
 export class SolicitudesPanel {
   private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Contacto);
+  private readonly pendientes = inject(Pendientes);
 
   protected readonly FILTROS = [
     { valor: 'NUEVA', etiqueta: 'Por responder' },
@@ -269,6 +271,8 @@ export class SolicitudesPanel {
   ): Promise<void> {
     await this.intentar(`resolver-${solicitud.id}-${estado}`, async () => {
       await this.api.resolver(solicitud.id, estado, this.notas[solicitud.id] ?? '');
+      // Ya no espera: el badge de «Consultas al club» en el menú (T301) baja con ella.
+      this.pendientes.recargar();
       this.snackBar.open(
         estado === 'ATENDIDA'
           ? `La consulta de ${solicitud.nombre} queda como atendida.`
@@ -291,8 +295,7 @@ export class SolicitudesPanel {
       await accion();
       this.version.update((v) => v + 1);
     } catch (falla) {
-      // El del servidor: explica por qué una consulta de clases no se convierte en
-      // socio, o que ese correo ya es socio del club.
+      // El del servidor, tal como viene: dice por qué no se pudo.
       this.error.set(mensajeDelServidor(falla, 'No se pudo completar la acción.'));
     } finally {
       this.trabajando.set(false);
