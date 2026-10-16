@@ -7,6 +7,7 @@ import {
 
 import {
   ConceptoPago,
+  EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTransaccion,
   type Prisma,
@@ -56,6 +57,7 @@ export class PagoDeInscripcion {
       where: { token },
       select: {
         id: true,
+        estado: true,
         estadoPago: true,
         torneoCategoria: { select: { montoInscripcionClp: true } },
       },
@@ -63,6 +65,16 @@ export class PagoDeInscripcion {
 
     if (!inscripcion) {
       throw new NotFoundException('No hay una inscripción con esa llave.');
+    }
+
+    // **En espera no se cobra** (T327): si nunca se abre un cupo, el club tendría que
+    // devolver la plata a mano. Lo ataja acá y no solo en el formulario, que puede ser
+    // uno viejo abierto antes del cambio.
+    if (inscripcion.estado === EstadoInscripcionTorneo.LISTA_ESPERA) {
+      throw new ConflictException(
+        'Estás en la lista de espera: no se cobra nada hasta que se abra un cupo ' +
+          'para ti, y te avisamos por correo.',
+      );
     }
 
     if (inscripcion.estadoPago !== EstadoPagoInscripcion.PENDIENTE) {

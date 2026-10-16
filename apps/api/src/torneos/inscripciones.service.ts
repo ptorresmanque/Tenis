@@ -176,11 +176,14 @@ export class InscripcionesATorneo {
       restricciones = [],
       comprobanteRuta = null,
       medioPago = null,
+      exigirMedioSiEntra = false,
       email,
     }: {
       restricciones?: Franja[];
       comprobanteRuta?: string | null;
       medioPago?: MedioPago | null;
+      /** No eligió cómo pagar porque vio la categoría llena: sin lugar, va a la lista de espera. */
+      exigirMedioSiEntra?: boolean;
       email: string | null;
     },
   ): Promise<{
@@ -229,20 +232,31 @@ export class InscripcionesATorneo {
         }),
       ]);
 
+      // **Con gente esperando, el que llega va al final de la fila aunque haya lugar.**
+      // Un lugar que se libera es de quien lleva dos semanas esperando, no del que se
+      // inscribió después; si no, la lista de espera deja de ser una fila y el club queda
+      // explicándole a alguien por qué lo pasaron.
+      const entra = tomados < cuadro.cupo && esperando === 0;
+
+      // El formulario mostró la categoría llena y alguien se retiró antes del envío: sin
+      // esto entraría al cuadro sin haber elegido cómo pagar, y ocuparía el cupo sin que
+      // el barrido de Webpay se lo suelte nunca.
+      if (entra && exigirMedioSiEntra) {
+        throw new BadRequestException(
+          'Esta categoría tiene lugar: elige cómo vas a pagar la inscripción, ' +
+            'con Webpay o transfiriendo.',
+        );
+      }
+
       try {
         return await tx.inscripcionTorneo.create({
           data: {
             torneoId: cuadro.torneoId,
             torneoCategoriaId,
             jugadorId,
-            // **Con gente esperando, el que llega va al final de la fila aunque haya
-            // lugar.** Un lugar que se libera es de quien lleva dos semanas esperando,
-            // no del que se inscribió después; si no, la lista de espera deja de ser
-            // una fila y el club queda explicándole a alguien por qué lo pasaron.
-            estado:
-              tomados < cuadro.cupo && esperando === 0
-                ? EstadoInscripcionTorneo.INSCRITA
-                : EstadoInscripcionTorneo.LISTA_ESPERA,
+            estado: entra
+              ? EstadoInscripcionTorneo.INSCRITA
+              : EstadoInscripcionTorneo.LISTA_ESPERA,
             // **El estado de pago sale del monto del cuadro, no del cliente.** Cero es
             // gratis y no pasa por `pagos`; con monto, nace `PENDIENTE` y ocupa cupo
             // hasta que el admin lo rechace: al revés, el cupo se llenaría por orden de
@@ -254,11 +268,15 @@ export class InscripcionesATorneo {
             // **La transferencia entra en la misma escritura que la inscripción.** El
             // comprobante dejó de ser un segundo paso opcional: sin él no hay
             // inscripción, así que tampoco hay una fila esperándolo.
-            comprobanteRuta,
+            //
+            // **En espera no se cobra** (T327, `SPEC-torneos.md` § Lista de espera sin
+            // cobro): lo que trajo el envío no se guarda, y se paga recién cuando se le
+            // ofrece un cupo. Si nunca se abre, no hay plata que devolver.
+            comprobanteRuta: entra ? comprobanteRuta : null,
             // Qué dijo que iba a hacer. Es lo que después permite soltarle el cupo al
             // que eligió Webpay y cerró la ventana, sin tocar al que el admin anotó
             // para que pague en efectivo — ver `InscripcionesAbandonadas`.
-            medioPago,
+            medioPago: entra ? medioPago : null,
             email,
             // En la misma escritura que la inscripción: unas franjas sin inscripción no
             // significan nada, y una inscripción sin ellas mandaría a T67 a programar
@@ -372,9 +390,11 @@ export class InscripcionesATorneo {
 
     // **Lo que cobra el cuadro decide qué se exige, y el monto sale de la base.** Un
     // cuadro gratis no pregunta nada; uno con monto no acepta una inscripción que no
-    // venga con su forma de pago resuelta.
+    // venga con su forma de pago resuelta. Sin elegirla, solo entra a la lista de
+    // espera, donde no se cobra (T327): `anotar` lo decide con el cupo contado.
+    const cobra = cuadro.montoInscripcionClp > 0;
     const ruta =
-      cuadro.montoInscripcionClp > 0
+      cobra && datos.medioPago !== null
         ? await this.exigirElPago(datos.medioPago, comprobante)
         : null;
 
@@ -395,7 +415,8 @@ export class InscripcionesATorneo {
         comprobanteRuta: ruta,
         // Solo si el cuadro cobra: en uno gratis no eligió nada y la inscripción ya
         // está completa, así que no hay cupo que soltarle después.
-        medioPago: cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
+        medioPago: cobra ? datos.medioPago : null,
+        exigirMedioSiEntra: cobra && datos.medioPago === null,
         email: datos.email,
       },
     ).catch(async (falla: unknown) => {
@@ -407,14 +428,19 @@ export class InscripcionesATorneo {
       throw falla;
     });
 
+    const enEspera =
+      inscripcion.estado === EstadoInscripcionTorneo.LISTA_ESPERA;
+
     // **Con la inscripción ya escrita**: los correos no pueden deshacerla. A los admins,
-    // solo si trajo comprobante (T130); Webpay se confirma solo (A3).
-    if (ruta) await this.avisos.comprobanteRecibido(inscripcion.id);
+    // solo si trajo comprobante (T130); Webpay se confirma solo (A3). En espera la
+    // imagen no quedó con la inscripción (T327), y se borra.
+    if (ruta && enEspera) await borrarImagen(ruta);
+    else if (ruta) await this.avisos.comprobanteRecibido(inscripcion.id);
 
     // Al inscrito (T131), salvo con Webpay: ahí el cupo es una reserva que se suelta a
-    // los 15 minutos si no paga, y la confirmación es el "pago confirmado".
-    const conWebpay =
-      cuadro.montoInscripcionClp > 0 && datos.medioPago === 'WEBPAY';
+    // los 15 minutos si no paga, y la confirmación es el "pago confirmado". En espera no
+    // va a la pasarela, así que el correo sale.
+    const conWebpay = cobra && !enEspera && datos.medioPago === 'WEBPAY';
     if (!conWebpay) await this.avisos.inscripcionRecibida(inscripcion.id);
 
     return {
@@ -441,15 +467,9 @@ export class InscripcionesATorneo {
    * que se inscriben mientras tanto.
    */
   private async exigirElPago(
-    medioPago: MedioPago | null,
+    medioPago: MedioPago,
     comprobante?: Buffer,
   ): Promise<string | null> {
-    if (medioPago === null) {
-      throw new BadRequestException(
-        'Elige cómo vas a pagar la inscripción: con Webpay o transfiriendo.',
-      );
-    }
-
     if (medioPago === 'WEBPAY') return null;
 
     if (!comprobante) {

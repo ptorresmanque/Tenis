@@ -75,10 +75,7 @@ function dondeQuedo(inscripcion: InscripcionParaAvisar): string {
     case 'INSCRITA':
       return `Quedaste inscrito en ${inscripcion.categoria} de ${inscripcion.torneo}.`;
     case 'LISTA_ESPERA':
-      return (
-        `${inscripcion.categoria} ya llenó su cuadro: quedaste en la lista de espera, ` +
-        'y el club te llama si se libera un lugar.'
-      );
+      return `${inscripcion.categoria} ya llenó su cuadro: quedaste en la lista de espera.`;
     case 'RETIRADA':
       return '';
   }
@@ -89,6 +86,31 @@ function pie(club: DatosDelClub, origenWeb: string): string {
   return (
     `El torneo y su cuadro están en ${origenWeb}/torneos\n\n` +
     firmaDelClub(club)
+  );
+}
+
+/** Qué falta del pago, en el correo de la inscripción recibida. Nada si no falta nada. */
+function queFaltaDelPago(inscripcion: InscripcionParaAvisar): string {
+  // En espera no se cobra (T327): nace pendiente y sin medio, como la que anota el admin.
+  if (inscripcion.estado === 'LISTA_ESPERA') {
+    return (
+      'No se cobra nada mientras esperas: si se abre un cupo, te avisamos por ' +
+      'correo para que lo tomes.\n\n'
+    );
+  }
+
+  if (inscripcion.estadoPago !== 'PENDIENTE') return '';
+
+  if (inscripcion.medioPago === 'TRANSFERENCIA') {
+    return (
+      'El club está revisando tu comprobante de transferencia y te avisa por ' +
+      'correo cuando lo confirme.\n\n'
+    );
+  }
+
+  return (
+    `Falta pagar la inscripción (${pesos(inscripcion.montoClp)}): puedes ` +
+    'hacerlo en el club.\n\n'
   );
 }
 
@@ -103,21 +125,12 @@ export function inscripcionRecibida(
   club: DatosDelClub,
   origenWeb: string,
 ): Correo {
-  const pago =
-    inscripcion.estadoPago !== 'PENDIENTE'
-      ? ''
-      : inscripcion.medioPago === 'TRANSFERENCIA'
-        ? 'El club está revisando tu comprobante de transferencia y te avisa por ' +
-          'correo cuando lo confirme.\n\n'
-        : `Falta pagar la inscripción (${pesos(inscripcion.montoClp)}): puedes ` +
-          'hacerlo en el club.\n\n';
-
   return {
     asunto: `Inscripción recibida: ${inscripcion.torneo}, ${inscripcion.categoria}`,
     cuerpo:
       `Hola ${inscripcion.nombre}:\n\n` +
       `Recibimos tu inscripción. ${dondeQuedo(inscripcion)}\n\n` +
-      pago +
+      queFaltaDelPago(inscripcion) +
       pie(club, origenWeb),
   };
 }

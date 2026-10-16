@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import {
   ConceptoPago,
+  EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTransaccion,
   MedioPagoInscripcion,
@@ -50,8 +51,10 @@ export class InscripcionesAbandonadas {
    * `reservas` traía todas las expiradas del sistema en cada carga de la grilla, y esa
    * lista solo crece. Acá el error sería el mismo.
    *
-   * Tres condiciones, y las tres importan:
+   * Cuatro condiciones, y las cuatro importan:
    *
+   * - **En el cuadro (`INSCRITA`).** La lista de espera no se cobra (T327) y la gobierna el
+   *   plazo de su oferta, no esta ventana: borrarla sería sacar a alguien de la fila.
    * - **`medioPago = WEBPAY`.** La transferencia trae una imagen esperando que el admin
    *   la mire y puede tardar días; la que anotó el admin a mano es de alguien que va a
    *   pagar en efectivo en el mesón. Ninguna de las dos se toca.
@@ -65,6 +68,7 @@ export class InscripcionesAbandonadas {
     const candidatas = await this.prisma.inscripcionTorneo.findMany({
       where: {
         ...donde,
+        estado: EstadoInscripcionTorneo.INSCRITA,
         medioPago: MedioPagoInscripcion.WEBPAY,
         estadoPago: EstadoPagoInscripcion.PENDIENTE,
         inscritaEn: { lt: limiteDeExpiracion() },

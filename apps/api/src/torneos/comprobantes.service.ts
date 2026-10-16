@@ -49,13 +49,27 @@ export class ComprobantesDeInscripcion {
     // fuera del torneo—. Lo destapó la revisión de T66 con una sonda.
     const inscripcion = await this.prisma.inscripcionTorneo.findUnique({
       where: { token },
-      select: { id: true, estadoPago: true, comprobanteRuta: true },
+      select: {
+        id: true,
+        estado: true,
+        estadoPago: true,
+        comprobanteRuta: true,
+      },
     });
 
     // El mismo 404 que si no existiera: quien prueba tokens ajenos no tiene que
     // enterarse de si acertó el formato. Es el criterio de la cuota de otro socio.
     if (!inscripcion) {
       throw new NotFoundException('No hay una inscripción con esa llave.');
+    }
+
+    // En espera no se cobra (T327): no hay transferencia que revisar. El admin sí puede
+    // adjuntarla desde el panel, por ejemplo antes de promoverla.
+    if (inscripcion.estado === EstadoInscripcionTorneo.LISTA_ESPERA) {
+      throw new ConflictException(
+        'Estás en la lista de espera: no se cobra nada hasta que se abra un cupo ' +
+          'para ti, y te avisamos por correo.',
+      );
     }
 
     const hecho = await this.adjuntar(inscripcion, bytes);
@@ -136,7 +150,15 @@ export class ComprobantesDeInscripcion {
     const filas = await this.prisma.inscripcionTorneo.findMany({
       where: {
         estadoPago: EstadoPagoInscripcion.PENDIENTE,
-        estado: { not: EstadoInscripcionTorneo.RETIRADA },
+        // **En espera no se cobra** (T327): solo es trabajo si trae un comprobante, el
+        // de quien pagó antes de este cambio (E4).
+        OR: [
+          { estado: EstadoInscripcionTorneo.INSCRITA },
+          {
+            estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+            comprobanteRuta: { not: null },
+          },
+        ],
       },
       orderBy: { inscritaEn: 'asc' },
       select: {

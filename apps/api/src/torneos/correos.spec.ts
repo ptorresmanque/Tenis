@@ -99,6 +99,21 @@ describe('correos del torneo', () => {
       expect(cuerpo).not.toContain('Quedaste inscrito');
     });
 
+    it('**en lista de espera no se cobra, y se le avisa por correo si se abre un cupo** (T327)', () => {
+      // Nace pendiente y sin medio, igual que la que anota el admin: sin esto le diría que
+      // falta pagar en el club.
+      const { cuerpo } = recibida({
+        estado: 'LISTA_ESPERA',
+        estadoPago: 'PENDIENTE',
+        medioPago: null,
+      });
+
+      expect(cuerpo).toContain('No se cobra nada mientras esperas');
+      expect(cuerpo).toContain('te avisamos por correo');
+      expect(cuerpo).not.toContain('Falta pagar');
+      expect(cuerpo).not.toContain('el club te llama');
+    });
+
     it('con transferencia, dice que el club revisa el comprobante', () => {
       const { cuerpo } = recibida({
         estadoPago: 'PENDIENTE',
