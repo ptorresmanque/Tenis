@@ -88,6 +88,7 @@ import { AVISOS_DEL_PAGO, soltarSiVolvioSinPagar } from './pago-pendiente';
             class="block min-w-0 max-w-3xl flex-1"
             [torneoId]="torneo.id"
             [categorias]="torneo.categorias"
+            (rechazada)="calendario.reload()"
           />
         </div>
       } @else {

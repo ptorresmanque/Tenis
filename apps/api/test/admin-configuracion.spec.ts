@@ -485,6 +485,46 @@ describe('Configuración del club', () => {
     });
   });
 
+  /**
+   * T326. Cuántos minutos se le guarda el cupo al primero de la lista de espera cuando se abre
+   * uno (SPEC-torneos.md § Lista de espera sin cobro, E1 y LE10): 30 por omisión, de 10 minutos
+   * a 24 horas.
+   */
+  describe('el plazo de la lista de espera (T326)', () => {
+    afterAll(async () => {
+      await patch({ plazoCupoListaEsperaMin: 30 }).expect(200);
+    });
+
+    it('**por omisión son 30 minutos**', async () => {
+      const respuesta = await request(servidor())
+        .get('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .expect(200);
+
+      expect(respuesta.body).toMatchObject({ plazoCupoListaEsperaMin: 30 });
+    });
+
+    it('guarda el plazo y lo devuelve', async () => {
+      const respuesta = await patch({ plazoCupoListaEsperaMin: 90 }).expect(
+        200,
+      );
+
+      expect(respuesta.body).toMatchObject({ plazoCupoListaEsperaMin: 90 });
+    });
+
+    it('**fuera de 10 minutos a 24 horas se rechaza y dice por qué**', async () => {
+      const mensaje = async (cuerpo: Record<string, unknown>) =>
+        ((await patch(cuerpo).expect(400)).body as { message: string }).message;
+
+      expect(await mensaje({ plazoCupoListaEsperaMin: 9 })).toBe(
+        'El plazo para tomar un cupo de la lista de espera, en minutos, tiene que ser un número entero desde 10.',
+      );
+      expect(await mensaje({ plazoCupoListaEsperaMin: 1441 })).toBe(
+        'El plazo para tomar un cupo de la lista de espera, en minutos, no puede pasar de 1440.',
+      );
+    });
+  });
+
   describe('horario y tarifas generales (T31)', () => {
     /**
      * Lo general del club son las filas con `canchaId` nulo, y el endpoint que se

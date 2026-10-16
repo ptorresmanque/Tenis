@@ -95,6 +95,11 @@ export function diaEnPalabras(fecha: string): string {
   return DIA_LARGO.format(new Date(`${fecha.slice(0, 10)}T12:00:00.000Z`));
 }
 
+/** "viernes, 16 de octubre, a las 10:30": un instante dicho en el reloj del club. */
+export function diaYHoraEnPalabras(instante: string | Date): string {
+  return `${diaEnPalabras(fechaEnElClub(instante))}, a las ${horaEnElClub(instante)}`;
+}
+
 /**
  * "26 de agosto de 2025", para fechas que no son de esta semana.
  *

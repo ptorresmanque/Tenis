@@ -10,6 +10,7 @@ import {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { nombreDeRonda } from './cuadro';
+import { OCUPA_CUPO } from './cuadro-abierto';
 import {
   FotoPublicada,
   publicarFoto,
@@ -218,12 +219,11 @@ export class TorneosPublicos {
             categoriaJuegoId: true,
             montoInscripcionClp: true,
             categoriaJuego: { select: { nombre: true } },
-            // Solo el número: cuántos lugares quedan, no quiénes están.
+            // Solo el número: cuántos lugares quedan, no quiénes están. Un cupo ofrecido a la
+            // lista de espera está tomado (T331).
             _count: {
               select: {
-                inscripciones: {
-                  where: { estado: EstadoInscripcionTorneo.INSCRITA },
-                },
+                inscripciones: { where: OCUPA_CUPO },
               },
             },
           },

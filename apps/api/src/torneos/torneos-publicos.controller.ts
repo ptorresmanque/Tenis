@@ -34,6 +34,7 @@ import { PagoDeInscripcion } from './pago-de-inscripcion.service';
 import { Transmisiones } from './transmisiones.service';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { InscripcionesATorneo } from './inscripciones.service';
+import { ListaDeEspera } from './lista-de-espera.service';
 import { TorneosPublicos } from './torneos-publicos.service';
 
 /**
@@ -53,6 +54,7 @@ export class TorneosPublicosController {
     private readonly abandonadas: InscripcionesAbandonadas,
     private readonly comprobantes: ComprobantesDeInscripcion,
     private readonly pagoDeInscripcion: PagoDeInscripcion,
+    private readonly listaDeEspera: ListaDeEspera,
     private readonly transmisiones: Transmisiones,
     private readonly fotos: FotosDelTorneo,
     /**
@@ -292,16 +294,56 @@ export class TorneosPublicosController {
       // que no va a pagar.
       await this.abandonadas.anularDesdeRetorno(ordenAnulada ?? '');
 
-      return { url: `${web()}/torneos?pago=anulado` };
+      return {
+        url: await this.vuelta('anulado', { referencia: ordenAnulada ?? '' }),
+      };
     }
 
     const resultado = await this.pagoDeInscripcion.confirmar(tokenWs);
 
-    return {
-      url: `${web()}/torneos?pago=${
-        resultado.estado === 'AUTORIZADA' ? 'listo' : 'rechazado'
-      }`,
-    };
+    return resultado.estado === 'AUTORIZADA'
+      ? { url: `${web()}/torneos?pago=listo` }
+      : {
+          url: await this.vuelta('rechazado', {
+            id: resultado.transaccionId,
+          }),
+        };
+  }
+
+  /**
+   * Adónde vuelve quien no terminó de pagar: a Torneos, que le dice que su cupo se soltó, o, si
+   * pagaba la oferta de la lista de espera, a la página de esa oferta, que sigue en pie (T332).
+   */
+  private async vuelta(
+    pago: 'anulado' | 'rechazado',
+    transaccion: { referencia: string } | { id: number },
+  ): Promise<string> {
+    const oferta = await this.pagoDeInscripcion.ofertaEnPie(transaccion);
+
+    return oferta
+      ? `${web()}/torneos/inscripcion/${oferta}?pago=${pago}`
+      : `${web()}/torneos?pago=${pago}`;
+  }
+
+  /**
+   * La inscripción de una llave: la página de la oferta de un cupo de la lista de espera
+   * (T332). Sin sesión, como el resto de este camino.
+   *
+   * **Después de `inscripciones/retorno`**, que también es un `GET` de dos segmentos: declarada
+   * antes, «retorno» se leería como una llave.
+   */
+  @Get('inscripciones/:token')
+  porLlave(@Param('token') token: string) {
+    return this.listaDeEspera.porLlave(token);
+  }
+
+  /**
+   * Tomar la oferta de un cupo en una categoría gratis: no hay nada que pagar, así que es un
+   * botón (T333, E5). Las que cobran se toman pagando o subiendo el comprobante.
+   */
+  @Post('inscripciones/:token/tomar')
+  tomar(@Param('token') token: string) {
+    return this.listaDeEspera.tomarGratis(token);
   }
 
   /**

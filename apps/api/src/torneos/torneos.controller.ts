@@ -339,7 +339,7 @@ export class TorneosController {
     return this.inscripciones.inscribir(id, leerInscripcionATorneo(cuerpo));
   }
 
-  /** Bajar a alguien. El primero de la espera **no** entra solo: ver `promover`. */
+  /** Bajar a alguien. Su lugar se le ofrece al primero de la lista de espera (T330). */
   @Post('cuadros/:cuadroId/inscripciones/:id/retiro')
   @HttpCode(200)
   retirar(

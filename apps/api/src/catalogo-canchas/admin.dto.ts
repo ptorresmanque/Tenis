@@ -198,6 +198,8 @@ export interface CambiosDeConfiguracion
   /** Si sale el informe de reservas del día por correo, y a qué hora entera (T274). */
   informeDiarioActivo: boolean;
   informeDiarioHora: number;
+  /** Cuántos minutos se le guarda el cupo al primero de la lista de espera (T326). */
+  plazoCupoListaEsperaMin: number;
 }
 
 /**
@@ -242,6 +244,9 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   gimnasioCupoGrupal: [2, 40],
   // Una hora del reloj del club, en punto: el cron corre cada hora (T275).
   informeDiarioHora: [0, 23],
+  // De 10 minutos, lo menos para leer un correo y pagar, a 24 horas, que con el plazo que solo
+  // corre de 8:00 a 22:00 son casi dos días (SPEC-torneos.md § Lista de espera sin cobro, E1).
+  plazoCupoListaEsperaMin: [10, 1440],
 };
 
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
@@ -256,6 +261,8 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
   cuotaIncorporacionClp: 'La cuota de incorporación',
   gimnasioCupoGrupal: 'El cupo de una clase grupal del gimnasio',
   informeDiarioHora: 'La hora del informe diario',
+  plazoCupoListaEsperaMin:
+    'El plazo para tomar un cupo de la lista de espera, en minutos,',
 };
 
 /**

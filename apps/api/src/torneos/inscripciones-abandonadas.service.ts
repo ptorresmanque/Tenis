@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import {
   ConceptoPago,
+  EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTransaccion,
   MedioPagoInscripcion,
@@ -10,6 +11,7 @@ import {
 import { limiteDeExpiracion } from '../pagos/expiracion';
 import { ExpiracionService } from '../pagos/expiracion.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ListaDeEspera } from './lista-de-espera.service';
 
 /**
  * El cupo del que dijo que iba a pagar y no pagó.
@@ -40,6 +42,7 @@ export class InscripcionesAbandonadas {
   constructor(
     private readonly prisma: PrismaService,
     private readonly expiracion: ExpiracionService,
+    private readonly lista: ListaDeEspera,
   ) {}
 
   /**
@@ -50,8 +53,10 @@ export class InscripcionesAbandonadas {
    * `reservas` traía todas las expiradas del sistema en cada carga de la grilla, y esa
    * lista solo crece. Acá el error sería el mismo.
    *
-   * Tres condiciones, y las tres importan:
+   * Cuatro condiciones, y las cuatro importan:
    *
+   * - **En el cuadro (`INSCRITA`).** La lista de espera no se cobra (T327) y la gobierna el
+   *   plazo de su oferta, no esta ventana: borrarla sería sacar a alguien de la fila.
    * - **`medioPago = WEBPAY`.** La transferencia trae una imagen esperando que el admin
    *   la mire y puede tardar días; la que anotó el admin a mano es de alguien que va a
    *   pagar en efectivo en el mesón. Ninguna de las dos se toca.
@@ -65,11 +70,12 @@ export class InscripcionesAbandonadas {
     const candidatas = await this.prisma.inscripcionTorneo.findMany({
       where: {
         ...donde,
+        estado: EstadoInscripcionTorneo.INSCRITA,
         medioPago: MedioPagoInscripcion.WEBPAY,
         estadoPago: EstadoPagoInscripcion.PENDIENTE,
         inscritaEn: { lt: limiteDeExpiracion() },
       },
-      select: { id: true },
+      select: { id: true, torneoCategoriaId: true },
     });
 
     if (candidatas.length === 0) return 0;
@@ -91,21 +97,24 @@ export class InscripcionesAbandonadas {
     });
 
     const vivas = new Set(pagando.map((una) => una.conceptoId));
-    const sueltas = candidatas
-      .map((una) => una.id)
-      .filter((id) => !vivas.has(id));
+    const sueltas = candidatas.filter((una) => !vivas.has(una.id));
 
     if (sueltas.length === 0) return 0;
 
     // Las franjas horarias se van con ella por el `onDelete: Cascade` de la relación.
     const { count } = await this.prisma.inscripcionTorneo.deleteMany({
-      where: { id: { in: sueltas } },
+      where: { id: { in: sueltas.map((una) => una.id) } },
     });
 
     if (count > 0) {
       this.log.log(
         `Se soltaron ${count} inscripciones que eligieron Webpay y no pagaron.`,
       );
+    }
+
+    // Cada lugar suelto, al primero de su lista de espera (T330).
+    for (const cuadro of new Set(sueltas.map((una) => una.torneoCategoriaId))) {
+      await this.lista.ofrecerCupos(cuadro);
     }
 
     return count;
@@ -182,13 +191,25 @@ export class InscripcionesAbandonadas {
    * medio —o la persona pagó por otra vía—, una pestaña vieja no la borra.
    */
   private async soltar(inscripcionId: number): Promise<boolean> {
+    const suya = await this.prisma.inscripcionTorneo.findUnique({
+      where: { id: inscripcionId },
+      select: { torneoCategoriaId: true },
+    });
+    if (!suya) return false;
+
     const { count } = await this.prisma.inscripcionTorneo.deleteMany({
       where: {
         id: inscripcionId,
+        // Solo las de adentro: la oferta de la lista de espera no se borra por volver atrás o
+        // anular, la gobierna su plazo (T332, LE5).
+        estado: EstadoInscripcionTorneo.INSCRITA,
         medioPago: MedioPagoInscripcion.WEBPAY,
         estadoPago: EstadoPagoInscripcion.PENDIENTE,
       },
     });
+
+    // El lugar que soltó, al primero de la lista de espera (T330).
+    if (count > 0) await this.lista.ofrecerCupos(suya.torneoCategoriaId);
 
     return count > 0;
   }

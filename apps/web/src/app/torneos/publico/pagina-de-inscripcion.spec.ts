@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Torneos, TorneoPublico } from '../torneos.service';
+import { InscripcionATorneo } from './inscripcion';
 import { PaginaDeInscripcion } from './pagina-de-inscripcion';
 import { recordarPagoPendiente } from './pago-pendiente';
 
@@ -124,6 +126,21 @@ describe('PaginaDeInscripcion', () => {
     await montar(new Error('caído'));
 
     expect(texto()).toContain('No se pudo cargar el torneo');
+  });
+
+  it('**si el servidor rechaza la inscripción, vuelve a leer los cupos**, sin perder el formulario (T328)', async () => {
+    // El formulario vio la categoría llena y alguien se retiró antes del envío: la API pide
+    // elegir cómo pagar, y con los cupos viejos el formulario no lo preguntaría.
+    await montar([ABIERTO]);
+    const formulario = () => fixture.debugElement.query(By.directive(InscripcionATorneo));
+    const antes = formulario().componentInstance as InscripcionATorneo;
+
+    antes.rechazada.emit();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.calendario).toHaveBeenCalledTimes(2);
+    expect(formulario().componentInstance).toBe(antes);
   });
 
   it('**volver atrás desde Webpay sin pagar suelta el cupo y lo dice**', async () => {

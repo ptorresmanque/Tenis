@@ -164,9 +164,13 @@ export class Torneos {
                 // es falso sino desconocido, y `medio <> 'WEBPAY'` tampoco la trae por
                 // lo mismo. Las tres ramas dicen lo que se quiere decir: hay algo que
                 // mirar, o hay alguien de quien cobrar.
+                //
+                // La del medio nulo, solo en el cuadro: **en espera también nace sin
+                // medio, y no se le cobra** (T327). Contarla diría "por revisar" donde
+                // solo hay gente esperando.
                 OR: [
                   { comprobanteRuta: { not: null } },
-                  { medioPago: null },
+                  { medioPago: null, estado: EstadoInscripcionTorneo.INSCRITA },
                   { medioPago: { not: MedioPagoInscripcion.WEBPAY } },
                 ],
               },

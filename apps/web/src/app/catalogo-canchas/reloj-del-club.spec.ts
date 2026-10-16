@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   diaDeLaUrl,
   diaEnPalabras,
+  diaYHoraEnPalabras,
   enPesos,
   fechaEnElClub,
   horaEnElClub,
@@ -53,6 +54,13 @@ describe('reloj del club', () => {
     // encabezado diría un día distinto del que muestra la grilla.
     expect(diaEnPalabras('2026-08-17')).toContain('lunes');
     expect(diaEnPalabras('2026-08-17')).toContain('17');
+  });
+
+  it('dice un instante con el día y la hora del club (T336)', () => {
+    // 02:30 UTC del sábado es todavía el viernes a las 23:30 en Santiago (UTC-3).
+    expect(diaYHoraEnPalabras('2026-10-17T02:30:00.000Z')).toBe(
+      'viernes, 16 de octubre, a las 23:30',
+    );
   });
 
   it('abrevia el mes a tres letras y sin punto', () => {

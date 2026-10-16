@@ -80,8 +80,8 @@ export const AVISOS_DEL_PAGO: Record<string, { variante: VarianteAviso; texto: s
   espera: {
     variante: 'aviso',
     texto:
-      'Tu categoría ya llenó su cuadro: quedaste en la lista de espera, y el club te llama si ' +
-      'se libera un lugar.',
+      'Tu categoría ya llenó su cuadro: quedaste en la lista de espera, sin pagar nada. Si se ' +
+      'abre un cupo, te avisamos por correo para que lo tomes.',
   },
 };
 

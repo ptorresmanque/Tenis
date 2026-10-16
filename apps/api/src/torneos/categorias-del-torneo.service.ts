@@ -7,6 +7,7 @@ import {
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CuadroNuevo } from './categorias-del-torneo.dto';
+import { ListaDeEspera } from './lista-de-espera.service';
 
 /** Un cuadro tal como lo ve el panel: con el nombre de su categoría ya resuelto. */
 const COMO_SE_MUESTRA = {
@@ -29,7 +30,10 @@ const COMO_SE_MUESTRA = {
  */
 @Injectable()
 export class CategoriasDelTorneo {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lista: ListaDeEspera,
+  ) {}
 
   /**
    * Los cuadros del torneo, **de la categoría más baja a la más alta**.
@@ -86,6 +90,9 @@ export class CategoriasDelTorneo {
       data: cambio,
       select: COMO_SE_MUESTRA,
     });
+
+    // Un cupo más grande es un lugar que se abre: es del primero de la lista de espera (T330).
+    if (cambio.cupo !== undefined) await this.lista.ofrecerCupos(id);
 
     return aplanar(cuadro);
   }

@@ -274,6 +274,13 @@ describe('Rutas protegidas', () => {
     );
   });
 
+  it('**la oferta de un cupo de la lista de espera es su página, y no pide sesión** (T334)', () => {
+    expect(buscar('torneos/inscripcion/:token')?.guards).toEqual([]);
+    expect(buscar('torneos/inscripcion/:token')?.ruta.title).toBe(
+      'Tu cupo en la lista de espera — FEDAL Tennis Center',
+    );
+  });
+
   it('los tours se leen sin sesión (T195)', () => {
     expect(buscar('tours')?.guards).toEqual([]);
     expect(buscar('tours/:id')?.guards).toEqual([]);
@@ -333,6 +340,7 @@ describe('Cada ruta en su cascarón', () => {
     ['tours', CascaronPublico],
     ['tours/:id', CascaronPublico],
     ['torneos/:id/inscripcion', CascaronPublico],
+    ['torneos/inscripcion/:token', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],

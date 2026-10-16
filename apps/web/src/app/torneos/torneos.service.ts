@@ -149,6 +149,11 @@ export interface InscripcionTorneo {
    * distintas —una es trabajo suyo y la otra se resuelve sola—.
    */
   tieneComprobante: boolean;
+  /**
+   * Hasta cuándo se le guarda el cupo de la lista de espera (T336). En una retirada, que no lo
+   * tomó a tiempo.
+   */
+  cupoOfrecidoHasta: string | null;
   /** A quién llamar si el comprobante no cuadra. Solo en el panel. */
   telefono: string | null;
   /** A dónde escribirle (T127). Solo en el panel; nulo si se anotó sin uno. */
@@ -223,6 +228,24 @@ export interface Cuadro {
   /** Con qué se sorteó: guardada para poder rehacer el sorteo. */
   semillaSorteo: number | null;
   partidos: PartidoDelCuadro[];
+}
+
+/**
+ * Una inscripción vista por su llave (T334): la oferta de un cupo de la lista de espera.
+ *
+ * - `OFRECIDO`: tiene un cupo guardado hasta `hasta`, y lo puede tomar.
+ * - `VENCIDO`: se le pasó el plazo, y el cupo pasó al siguiente.
+ * - `CERRADO`: la categoría se armó o cerró la inscripción con la oferta corriendo.
+ * - `ESPERANDO`: en la lista, sin oferta todavía.
+ * - `INSCRITO` y `RETIRADO`: ya entró, o salió por otra razón.
+ */
+export interface InscripcionPorLlave {
+  torneoId: number;
+  torneo: string;
+  categoria: string;
+  montoClp: number;
+  situacion: 'OFRECIDO' | 'VENCIDO' | 'CERRADO' | 'ESPERANDO' | 'INSCRITO' | 'RETIRADO';
+  hasta: string | null;
 }
 
 /** Un torneo del calendario, como lo ve quien todavía no es del club. */
@@ -641,6 +664,20 @@ export class Torneos {
    * pagado** —apretando "atrás", que no avisa a nadie más—. Responde `soltada: false`
    * si no había nada que soltar: la persona pagó, o el servidor ya la soltó al volver.
    */
+  /** La inscripción de una llave: la página de la oferta de un cupo (T334). */
+  inscripcionPorLlave(token: string): Promise<InscripcionPorLlave> {
+    return firstValueFrom(
+      this.http.get<InscripcionPorLlave>(`/api/torneos/inscripciones/${token}`),
+    );
+  }
+
+  /** Toma el cupo ofrecido de una categoría gratis (T333). */
+  tomarCupo(token: string): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(`/api/torneos/inscripciones/${token}/tomar`, {}),
+    );
+  }
+
   soltarInscripcion(token: string): Promise<{ soltada: boolean }> {
     return firstValueFrom(
       this.http.post<{ soltada: boolean }>(
