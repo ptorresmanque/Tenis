@@ -81,6 +81,20 @@ describe('La galería de fotos', () => {
     fixture.nativeElement.remove();
   });
 
+  it('**al abrir, el foco va a las fotos**: las flechas del teclado las pasan sin buscarlas', async () => {
+    // ng-gallery no escucha las flechas: su carril se desplaza con ellas solo si tiene el foco,
+    // y el diálogo abría con el foco en sí mismo (T320).
+    const fixture = await montar();
+    const dialogo = await abrir(fixture, 1);
+    for (let i = 0; i < 10 && document.activeElement?.localName !== 'g-slider'; i++) {
+      fixture.detectChanges();
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    expect(document.activeElement).toBe(dialogo!.querySelector('g-slider'));
+    fixture.nativeElement.remove();
+  });
+
   it('**al cerrar, el foco vuelve a lo que la abrió**', async () => {
     const fixture = await montar();
     const disparador = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.disparador')!;

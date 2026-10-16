@@ -162,6 +162,13 @@ export class GaleriaDeFotos {
             dialogo?.addEventListener('keydown', (evento) => {
               if (evento.key === 'Escape') evento.stopPropagation();
             });
+            // ng-gallery no escucha las flechas: su carril se desplaza con ellas solo si tiene el
+            // foco, y el diálogo abría con el foco en sí mismo. Se le da al carril cuando ya está
+            // dibujado (T320).
+            afterNextRender(
+              () => dialogo?.querySelector<HTMLElement>('g-slider')?.focus({ preventScroll: true }),
+              { injector: this.injector },
+            );
           },
           { injector: this.injector },
         );
