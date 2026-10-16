@@ -76,7 +76,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       #encabezado
       class="sticky top-0 z-40 border-b border-border bg-card shadow-sm print:hidden"
     >
-      <mat-toolbar class="mx-auto max-w-6xl gap-6">
+      <mat-toolbar class="mx-auto max-w-[90rem] gap-6">
         <app-logotipo />
 
         <!-- Desde lg y no desde md: con sesión de socio el menú lleva ocho
@@ -196,7 +196,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
     <!-- tabindex -1: "Saltar al contenido" y "Volver arriba" (T149) le pasan el foco.
          Sin anillo: el foco va al comienzo de la página, no a un control. -->
-    <main id="contenido" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8 focus:outline-none">
+    <main id="contenido" tabindex="-1" class="mx-auto max-w-[90rem] px-4 py-8 focus:outline-none">
       <router-outlet />
     </main>
 
@@ -214,7 +214,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
          de la pantalla (revisión de TV1.4). El logotipo usa sus colores para
          fondo oscuro, porque en claro su azul es el mismo del campo. -->
     <footer class="logotipo-sobre-campo mt-16 bg-campo text-on-campo print:hidden">
-      <div class="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mx-auto grid max-w-[90rem] gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <app-logotipo />
           <p class="mt-3 max-w-xs text-sm text-on-campo/80">

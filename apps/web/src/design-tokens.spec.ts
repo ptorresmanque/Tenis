@@ -2095,3 +2095,26 @@ describe('Los calendarios confirman y dicen su formato (T303)', () => {
     expect(infractores).toEqual([]);
   });
 });
+
+/**
+ * T306 (SPEC-sitio.md D5 y A9). En una pantalla grande el sitio público usaba 1152 px de 1920, y
+ * el panel la usa entera. El contenido crece a 1440 px, y lo que es banda —fotos y franjas de
+ * color— llega al borde con `.a-sangre`.
+ */
+describe('El sitio público usa las pantallas grandes (T306)', () => {
+  const cascaron = () =>
+    plantillas().find(({ archivo }) => archivo.endsWith('cascarones/cascaron-publico.ts'))!
+      .contenido;
+
+  it('**la barra, el contenido y el pie miden 1440 px**, y ninguno se queda en 1152', () => {
+    expect(cascaron()).not.toContain('max-w-6xl');
+    expect(cascaron().match(/mx-auto [^"]*max-w-\[90rem\]/g)).toHaveLength(3);
+  });
+
+  it('**`.a-sangre` lleva una banda al borde de la ventana**, sin desbordar la página', () => {
+    expect(css).toMatch(/@utility a-sangre\s*\{[^}]*margin-inline:\s*calc\(50% - 50vw\)/);
+    // Con barra de desplazamiento visible, 100vw es más ancho que la página: sin esto, cada banda
+    // empujaría la página hacia el lado. `clip` y no `hidden`, que rompería la barra pegajosa.
+    expect(css).toMatch(/body\s*\{[^}]*overflow-x:\s*clip/);
+  });
+});

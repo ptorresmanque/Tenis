@@ -416,6 +416,14 @@ html[data-tema='publico'][data-modo='oscuro'] {
     font-family: var(--font-sans);
   }
 
+  /* Las bandas a sangre (.a-sangre, T306) miden 100vw, y con una barra de desplazamiento
+     visible 100vw es más ancho que la página: sin esto, cada banda la empujaría hacia el
+     lado. `clip` y no `hidden`, que haría del body un contenedor de scroll y despegaría la
+     barra de arriba. */
+  body {
+    overflow-x: clip;
+  }
+
   h1,
   h2,
   h3 {
@@ -556,6 +564,13 @@ html[data-tema='publico'][data-modo='oscuro'] {
       0 1px 2px color-mix(in oklab, var(--color-campo) 75%, transparent),
       0 0 16px color-mix(in oklab, var(--color-campo) 55%, transparent);
   }
+}
+
+/* Una banda del sitio público que llega al borde de la ventana (T306, SPEC-sitio.md D5):
+   el contenido mide 1440 px, y las fotos y las franjas de color, el ancho entero. El margen
+   negativo la saca del <main> centrado sin cambiar el layout de la página. */
+@utility a-sangre {
+  margin-inline: calc(50% - 50vw);
 }
 
 /* En el flujo de reserva, el rincón de abajo es de la barra fija con lo elegido:
