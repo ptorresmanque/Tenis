@@ -99,7 +99,7 @@ const DE_CUOTA: Regla[] = [
 const DE_TORNEO: Regla[] = [
   {
     campo: 'plazoCupoListaEsperaMin',
-    etiqueta: 'Plazo para tomar un cupo de la lista de espera (minutos)',
+    etiqueta: 'Plazo de la lista de espera (minutos)',
     ayuda:
       'Cuánto se le guarda el cupo al primero de la fila. Corre solo de 8:00 a 22:00: ' +
       'de noche el aviso sale, pero el plazo no avanza.',
