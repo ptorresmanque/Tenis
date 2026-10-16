@@ -18,7 +18,7 @@ import { Tours } from '../tours.service';
   imports: [RouterLink, Esqueleto, EstadoVacio],
   template: `
     <section
-      class="-mx-4 bg-campo px-6 py-10 text-on-campo sm:mx-0 sm:rounded-region sm:px-10"
+      class="a-sangre bg-campo px-sangre-6 py-10 text-on-campo sm:px-sangre-10"
       aria-labelledby="tours"
     >
       <h1 id="tours" class="titular text-6xl sm:text-7xl lg:text-8xl">Tours</h1>

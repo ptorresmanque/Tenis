@@ -241,7 +241,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     -->
     @if (!sinHoraYMediaEnElDia() && hayHorasPorDelante()) {
       <section
-        class="-mx-4 mt-6 bg-campo px-4 py-6 text-on-campo sm:mx-0 sm:rounded-region sm:px-6"
+        class="a-sangre mt-6 bg-campo px-sangre-4 py-6 text-on-campo sm:px-sangre-6"
         aria-label="Las canchas del día"
       >
         <!-- Lo que paga cada uno se dice una vez (A8). Al socio, que no paga; al visitante,

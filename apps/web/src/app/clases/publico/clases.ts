@@ -30,7 +30,7 @@ import { Esqueleto } from '../../ui/esqueleto';
   imports: [EstadoVacio, Esqueleto, Foto, FormularioContacto, MatChipsModule, MatIcon],
   template: `
     <section
-      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      class="relative isolate a-sangre overflow-hidden"
       aria-labelledby="clases"
     >
       <app-foto
@@ -46,8 +46,8 @@ import { Esqueleto } from '../../ui/esqueleto';
       ></div>
 
       <div
-        class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
-               sm:p-10"
+        class="absolute inset-0 flex flex-col justify-end gap-3 py-6 px-sangre-6 text-on-campo
+               texto-sobre-foto sm:py-10 sm:px-sangre-10"
       >
         <h1 id="clases" class="titular text-6xl sm:text-7xl lg:text-8xl">
           Clases con profesor

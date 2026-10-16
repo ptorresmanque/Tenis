@@ -69,7 +69,7 @@ import { Foto } from '../ui/foto';
       en una lista de cosas.
     -->
     <section
-      class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
+      class="relative isolate a-sangre overflow-hidden hero-animado"
       aria-labelledby="promesa"
     >
       <!-- La vista aérea, que antes era la de El club (T305, SPEC-sitio.md D7). -->
@@ -95,8 +95,8 @@ import { Foto } from '../ui/foto';
       ></div>
 
       <div
-        class="absolute inset-0 flex flex-col justify-end gap-4 p-6 text-on-campo texto-sobre-foto
-               hero-texto sm:p-10"
+        class="absolute inset-0 flex flex-col justify-end gap-4 py-6 px-sangre-6 text-on-campo
+               texto-sobre-foto hero-texto sm:py-10 sm:px-sangre-10"
       >
         <!-- En dos líneas a todo ancho, como en la propuesta: en una sola, a
              1280px, el titular era una tira y dejaba de ser un titular. -->
@@ -153,10 +153,10 @@ import { Foto } from '../ui/foto';
       primera de "Libre hoy" sin una consulta nueva, y es el único que dice la
       carga, el vacío y el error.
     -->
-    <section class="-mx-4 aparece-al-pasar sm:mx-0" aria-labelledby="proxima-libre">
+    <section class="a-sangre aparece-al-pasar" aria-labelledby="proxima-libre">
       <!-- En el teléfono el rótulo va arriba, a todo el ancho y sin corte: al
            costado se comía media fila y la hora quedaba en la otra mitad. -->
-      <div class="bg-card shadow-md sm:flex sm:items-stretch">
+      <div class="bg-card px-sangre-0 shadow-md sm:flex sm:items-stretch">
         <h2
           id="proxima-libre"
           class="bg-rotulo px-4 py-1.5 font-display text-sm font-bold tracking-wider
@@ -244,7 +244,7 @@ import { Foto } from '../ui/foto';
         cabe fija en un teléfono.
       -->
       <app-cinta
-        class="-mx-4 mt-3 sm:mx-0"
+        class="a-sangre mt-3"
         [etiqueta]="avisoDeTorneos()"
         [mensajes]="mensajesDeTorneos()"
       >
@@ -269,8 +269,8 @@ import { Foto } from '../ui/foto';
     -->
     @if (proximaLibre()) {
       <section
-        class="-mx-4 mt-6 bg-campo px-4 py-8 text-on-campo aparece-al-pasar sm:mx-0 sm:rounded-region
-               sm:px-8"
+        class="a-sangre mt-6 bg-campo px-sangre-4 py-8 text-on-campo aparece-al-pasar
+               sm:px-sangre-8"
         aria-labelledby="libre-hoy"
       >
         <div class="flex flex-wrap items-baseline justify-between gap-2">

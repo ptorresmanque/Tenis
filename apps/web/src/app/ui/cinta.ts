@@ -34,7 +34,7 @@ import { MatIconButton } from '@angular/material/button';
   imports: [MatIcon, MatIconButton],
   host: { class: 'block' },
   template: `
-    <section [attr.aria-label]="etiqueta()" class="bg-campo text-on-campo sm:flex">
+    <section [attr.aria-label]="etiqueta()" class="bg-campo px-sangre-0 text-on-campo sm:flex">
       <div
         class="rotulo flex items-center gap-2 bg-rotulo px-4 py-1.5 font-display text-sm
                font-bold tracking-wider text-on-rotulo uppercase sm:shrink-0 sm:ps-5

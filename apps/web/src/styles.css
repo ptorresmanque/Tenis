@@ -571,6 +571,21 @@ html[data-tema='publico'][data-modo='oscuro'] {
    negativo la saca del <main> centrado sin cambiar el layout de la página. */
 @utility a-sangre {
   margin-inline: calc(50% - 50vw);
+  /* Lo que hay del borde de la ventana al borde del contenido, para que `px-sangre-*` alinee
+     el texto de la banda con el del resto de la página. En el teléfono la banda ya llegaba al
+     borde y su texto no se corre: 0. Desde `sm`, el margen del <main> (1 rem) o, pasados
+     1440 px, lo que sobra a cada lado. */
+  --sangria: 0px;
+
+  @media (width >= 40rem) {
+    --sangria: max(1rem, calc(50vw - 44rem));
+  }
+}
+
+/* El relleno lateral de una banda a sangre: el de siempre (`px-sangre-6` es `px-6`) más la
+   sangría. Fuera de una banda, la sangría vale 0 y es un `px-*` cualquiera. */
+@utility px-sangre-* {
+  padding-inline: calc(var(--sangria, 0px) + var(--spacing) * --value(integer));
 }
 
 /* En el flujo de reserva, el rincón de abajo es de la barra fija con lo elegido:

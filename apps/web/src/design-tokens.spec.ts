@@ -2118,3 +2118,24 @@ describe('El sitio público usa las pantallas grandes (T306)', () => {
     expect(css).toMatch(/body\s*\{[^}]*overflow-x:\s*clip/);
   });
 });
+
+/**
+ * T307 (SPEC-sitio.md D5 y A9). Las fotos y las franjas de color del sitio llegan al borde de la
+ * ventana con `.a-sangre`, y su texto se alinea con el contenido con `px-sangre-*`. El truco de
+ * antes, `-mx-4 sm:mx-0`, solo las llevaba al borde en el teléfono.
+ */
+describe('Las bandas del sitio llegan al borde (T307)', () => {
+  it('**ninguna pantalla pública usa `-mx-4` para una banda**', () => {
+    const infractores = plantillas()
+      .filter(({ archivo }) => !archivo.includes('/admin/') && !archivo.startsWith('admin'))
+      .filter(({ contenido }) => /-mx-4/.test(sinComentarios(contenido)))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**`px-sangre-*` alinea el texto de la banda con el contenido**, y en el teléfono no suma nada', () => {
+    expect(css).toMatch(/@utility a-sangre\s*\{[^}]*--sangria:\s*0px/);
+    expect(css).toMatch(/@utility px-sangre-\*\s*\{[^}]*var\(--sangria, 0px\)/);
+  });
+});
