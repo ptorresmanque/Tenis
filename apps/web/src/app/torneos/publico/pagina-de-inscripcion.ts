@@ -88,7 +88,6 @@ import { AVISOS_DEL_PAGO, soltarSiVolvioSinPagar } from './pago-pendiente';
             class="block min-w-0 max-w-3xl flex-1"
             [torneoId]="torneo.id"
             [categorias]="torneo.categorias"
-            [inscrito]="recargar"
           />
         </div>
       } @else {
@@ -142,11 +141,6 @@ export class PaginaDeInscripcion {
             torneo.categorias.length > 0,
         ) ?? null,
   );
-
-  /** Después de inscribirse, los cupos de cada categoría vuelven a pedirse. */
-  protected readonly recargar = (): void => {
-    this.calendario.reload();
-  };
 
   constructor() {
     soltarSiVolvioSinPagar(() => this.volvioSinPagar.set(true));

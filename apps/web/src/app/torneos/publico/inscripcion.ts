@@ -14,13 +14,12 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 import { map } from 'rxjs';
 
@@ -29,11 +28,19 @@ import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
 import { irAPagar } from '../../core/pagos/ir-a-pagar';
 import { Aviso } from '../../ui/aviso';
-import { CategoriaPublica, Torneos } from '../torneos.service';
+import { CategoriaPublica, InscripcionHecha, Torneos } from '../torneos.service';
 import { recordarPagoPendiente } from './pago-pendiente';
 import { Franja, franjasParaLaApi, RestriccionHoraria } from './restriccion-horaria';
-import { LO_HECHO } from '../../ui/material';
 import { TelefonoDirective } from '../../ui/telefono';
+
+/**
+ * Cómo terminó una inscripción que no pasa por Webpay, como lo dice `?pago=` en Torneos
+ * (`AVISOS_DEL_PAGO`): en la lista de espera, con el comprobante por revisar, o inscrita.
+ */
+function comoTermino(hecha: InscripcionHecha): 'espera' | 'comprobante' | 'inscrito' {
+  if (hecha.estado === 'LISTA_ESPERA') return 'espera';
+  return hecha.estadoPago === 'PENDIENTE' ? 'comprobante' : 'inscrito';
+}
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -349,8 +356,6 @@ const enBlanco = () => ({
 
           @if (error(); as falla) {
             <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-          } @else if (enEspera(); as texto) {
-            <app-aviso variante="aviso" class="mt-3 block">{{ texto }}</app-aviso>
           }
         </mat-step>
       </mat-stepper>
@@ -405,8 +410,6 @@ const enBlanco = () => ({
 
         @if (errorPago(); as falla) {
           <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-        } @else if (avisoPago(); as texto) {
-          <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
         }
       </section>
     }
@@ -417,15 +420,12 @@ export class InscripcionATorneo {
 
   private readonly api = inject(Torneos);
   private readonly auth = inject(Auth);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
   readonly torneoId = input.required<number>();
   readonly categorias = input.required<CategoriaPublica[]>();
-
-  /** Para que la página de la inscripción vuelva a pedir los cupos. */
-  readonly inscrito = input<() => void>();
 
   protected datos = enBlanco();
 
@@ -463,12 +463,9 @@ export class InscripcionATorneo {
 
   protected readonly pagando = signal(false);
   protected readonly errorPago = signal<string | null>(null);
-  protected readonly avisoPago = signal<string | null>(null);
 
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
-  /** Quedó en lista de espera: se dice en la página, porque hay que leerlo antes de irse. */
-  protected readonly enEspera = signal<string | null>(null);
 
   /** Si el formulario llegó con los datos de la cuenta. Se dice, por quien inscribe a otro. */
   protected readonly precargado = signal(false);
@@ -623,20 +620,26 @@ export class InscripcionATorneo {
     }
   }
 
+  /**
+   * Termina en Torneos, con el aviso de cómo quedó la inscripción (`?pago=`, T323): como la vuelta
+   * de Webpay. Sin entrada en el historial: «atrás» no vuelve al formulario ya mandado.
+   */
+  private terminarEnTorneos(pago: 'espera' | 'comprobante' | 'inscrito'): void {
+    void this.router.navigate(['/torneos'], { queryParams: { pago }, replaceUrl: true });
+  }
+
   protected async adjuntar(token: string, evento: Event): Promise<void> {
     const archivo = (evento.target as HTMLInputElement).files?.[0];
 
     if (!archivo) return;
 
     this.errorPago.set(null);
-    this.avisoPago.set(null);
     this.pagando.set(true);
 
     try {
       await this.api.subirComprobante(token, archivo);
-      this.avisoPago.set(
-        'Listo: el club revisa tu comprobante y te avisa. Tu lugar queda tomado.',
-      );
+      // Termina como la transferencia del formulario (T323): en Torneos, con su aviso.
+      this.terminarEnTorneos('comprobante');
     } catch (falla) {
       // El del servidor tal cual: dice si la imagen no se pudo leer o si pesa de más.
       this.errorPago.set(
@@ -649,7 +652,6 @@ export class InscripcionATorneo {
 
   protected async inscribirse(): Promise<void> {
     this.error.set(null);
-    this.enEspera.set(null);
 
     // La categoría y el correo ya los revisaron sus pasos (T317): sin ellos no se llega acá.
     // El socio no escribe correo: el servidor usa el de su cuenta.
@@ -703,26 +705,6 @@ export class InscripcionATorneo {
             comprobante,
           );
 
-      // **Lo que se muestra es lo que respondió el servidor**, no lo que la pantalla
-      // esperaba: quien queda en lista de espera tiene que enterarse ahora y no el día
-      // del torneo.
-      // Inscrito es lo hecho, y va al snackbar (T283); la lista de espera se queda en la
-      // página.
-      if (hecha.estado === 'INSCRITA') {
-        this.snackBar.open(
-          `Listo, ${hecha.jugador}: quedaste inscrito en ${hecha.categoria}.`,
-          undefined,
-          LO_HECHO,
-        );
-      } else {
-        this.enEspera.set(
-          `${hecha.jugador}, ${hecha.categoria} ya llenó su cuadro: quedaste en ` +
-            'la lista de espera y el club te llama si se libera un lugar.',
-        );
-      }
-
-      const aWebpay = hecha.estadoPago === 'PENDIENTE' && medioPago === 'WEBPAY';
-
       this.datos = enBlanco();
       // Vacío y sin el aviso de la cuenta: el siguiente puede ser otra persona.
       this.precargado.set(false);
@@ -732,25 +714,26 @@ export class InscripcionATorneo {
       // De vuelta al primer paso, sin los errores de los campos vacíos.
       this.pasos().reset();
 
-      // Solo si hay algo que cobrar. Una inscripción exenta ya está completa, y la que
-      // llegó con su comprobante ya está esperando al club.
-      this.porPagar.set(
-        aWebpay
-          ? {
-              token: hecha.token,
-              montoClp: hecha.montoClp,
-              categoria: hecha.categoria,
-            }
-          : null,
-      );
-
       // **Con Webpay se sigue a la pasarela en el acto**, sin un botón intermedio que
       // se pueda cerrar: es la mitad de "el pago no es un segundo paso" que el servidor
       // no puede imponer, porque cobrar exige que la inscripción ya exista. El panel
-      // queda armado debajo, y es lo que se ve si la pasarela no responde.
-      if (aWebpay) await this.pagar(hecha.token);
+      // queda armado debajo, y es lo que se ve si la pasarela no responde. La vuelta de
+      // Webpay trae a Torneos, con su aviso.
+      if (hecha.estadoPago === 'PENDIENTE' && medioPago === 'WEBPAY') {
+        this.porPagar.set({
+          token: hecha.token,
+          montoClp: hecha.montoClp,
+          categoria: hecha.categoria,
+        });
+        await this.pagar(hecha.token);
+        return;
+      }
 
-      this.inscrito()?.();
+      // **Sin Webpay se termina igual que con Webpay** (T323): en Torneos, que lleva el aviso a
+      // la vista. Antes era un snackbar que se iba solo y el formulario vacío otra vez, y el aviso
+      // de la lista de espera quedaba en el último paso, que ya no se veía. **Lo que se dice es
+      // lo que respondió el servidor**: quien quedó en espera tiene que saberlo ahora.
+      this.terminarEnTorneos(comoTermino(hecha));
     } catch (falla) {
       // El del servidor tal cual: dice si la inscripción cerró, si el cuadro ya se
       // armó o si esa persona ya está anotada en otra categoría, y esas frases están

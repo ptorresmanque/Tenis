@@ -1,5 +1,6 @@
 import { DestroyRef, inject } from '@angular/core';
 
+import { VarianteAviso } from '../../ui/aviso';
 import { Torneos } from '../torneos.service';
 
 /**
@@ -38,13 +39,16 @@ export function olvidarPagoPendiente(): string | null {
 }
 
 /**
- * Lo que se le dice a quien vuelve de la pasarela.
+ * Lo que se le dice en Torneos a quien termina una inscripción (`?pago=…`).
  *
  * **Los dos finales importan por igual**: que el pago entró hay que decirlo, y que no
  * entró, más — esa persona tiene que enterarse de que **no quedó inscrita**, porque su
  * lugar se soltó y el cuadro sigue abierto para otro.
+ *
+ * `listo`, `rechazado` y `anulado` los pone el servidor en la vuelta de Webpay. Los otros tres los
+ * pone el formulario cuando no hay Webpay (T323), para terminar igual: en Torneos, con el aviso.
  */
-export const AVISOS_DEL_PAGO: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
+export const AVISOS_DEL_PAGO: Record<string, { variante: VarianteAviso; texto: string }> = {
   listo: {
     variante: 'exito',
     texto: 'Pago recibido: tu inscripción quedó confirmada. Nos vemos en la cancha.',
@@ -60,6 +64,24 @@ export const AVISOS_DEL_PAGO: Record<string, { variante: 'exito' | 'error'; text
     texto:
       'No terminaste el pago, así que tu inscripción no quedó tomada y tu cupo ' +
       'volvió a estar disponible. Puedes inscribirte de nuevo.',
+  },
+  // La transferencia: el lugar queda tomado, pero falta que el club confirme el comprobante.
+  comprobante: {
+    variante: 'exito',
+    texto:
+      'Recibimos tu comprobante: el club lo revisa y te avisa. Mientras tanto, tu lugar ' +
+      'queda tomado.',
+  },
+  // La categoría gratis.
+  inscrito: {
+    variante: 'exito',
+    texto: 'Listo: quedaste inscrito. Nos vemos en la cancha.',
+  },
+  espera: {
+    variante: 'aviso',
+    texto:
+      'Tu categoría ya llenó su cuadro: quedaste en la lista de espera, y el club te llama si ' +
+      'se libera un lugar.',
   },
 };
 
