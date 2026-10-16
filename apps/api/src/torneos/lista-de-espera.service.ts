@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   EstadoInscripcionTorneo,
@@ -8,6 +8,95 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeTorneo } from './correos';
 import { OCUPA_CUPO, porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
 import { vencimientoDeLaOferta } from './plazo-de-oferta';
+
+/**
+ * Lo que hay que leer de una inscripción y de su categoría para saber en qué está su oferta.
+ */
+export const PARA_LA_OFERTA = {
+  estado: true,
+  cupoOfrecidoHasta: true,
+  torneoCategoria: {
+    select: {
+      semillaSorteo: true,
+      categoriaJuego: { select: { nombre: true } },
+      torneo: { select: { estado: true, cierreInscripcion: true } },
+    },
+  },
+} as const;
+
+type FilaDeLaOferta = {
+  estado: EstadoInscripcionTorneo;
+  cupoOfrecidoHasta: Date | null;
+  torneoCategoria: Parameters<typeof porQueNoAcepta>[0];
+};
+
+/**
+ * En qué está la inscripción de quien abre su llave (T332):
+ *
+ * - `OFRECIDO`: tiene un cupo guardado, vigente, en una categoría que todavía acepta.
+ * - `VENCIDO`: se le pasó el plazo, o el cron ya la retiró por eso.
+ * - `CERRADO`: la categoría se armó o cerró la inscripción con la oferta corriendo (E3).
+ * - `ESPERANDO`: en la lista, sin oferta todavía.
+ * - `INSCRITO` y `RETIRADO`: ya entró, o salió por otra razón.
+ */
+export type SituacionDeLaOferta =
+  'OFRECIDO' | 'VENCIDO' | 'CERRADO' | 'ESPERANDO' | 'INSCRITO' | 'RETIRADO';
+
+export function situacionDeLaOferta(
+  fila: FilaDeLaOferta,
+  ahora = new Date(),
+): SituacionDeLaOferta {
+  if (fila.estado === EstadoInscripcionTorneo.INSCRITA) return 'INSCRITO';
+  // Retirada con oferta es la que no pagó a tiempo (E2): el motivo sale de ahí.
+  if (fila.estado === EstadoInscripcionTorneo.RETIRADA) {
+    return fila.cupoOfrecidoHasta ? 'VENCIDO' : 'RETIRADO';
+  }
+  if (!fila.cupoOfrecidoHasta) return 'ESPERANDO';
+  if (fila.cupoOfrecidoHasta <= ahora) return 'VENCIDO';
+
+  return porQueNoAcepta(fila.torneoCategoria) ? 'CERRADO' : 'OFRECIDO';
+}
+
+/**
+ * Por qué no se puede pagar ni tomar esta inscripción por su llave, o nulo si se puede (T332).
+ *
+ * **En espera no se cobra**, y una oferta solo se paga mientras está vigente y la categoría
+ * acepta: lo que se cobrara fuera de eso sería plata sin cupo, que el club tendría que devolver.
+ * Por lo mismo, tampoco la que el club retiró. La que ya está dentro sigue las reglas de siempre.
+ */
+export function porQueNoSePuedeTomar(
+  fila: FilaDeLaOferta,
+  ahora = new Date(),
+): string | null {
+  switch (situacionDeLaOferta(fila, ahora)) {
+    case 'ESPERANDO':
+      return (
+        'Estás en la lista de espera: no se cobra nada hasta que se abra un cupo para ti, ' +
+        'y te avisamos por correo.'
+      );
+    case 'VENCIDO':
+      return 'Se venció tu plazo para tomar el cupo, y pasó al siguiente de la lista de espera.';
+    case 'CERRADO':
+      return porQueNoAcepta(fila.torneoCategoria);
+    // Retirada por el club sin pagar: cobrarle sería plata sin cupo.
+    case 'RETIRADO':
+      return 'Esa inscripción ya no está en el torneo. Llámanos si hay un error.';
+    case 'OFRECIDO':
+    case 'INSCRITO':
+      return null;
+  }
+}
+
+/** Una inscripción vista por su llave, sin nada de quién es: la llave no es una cuenta. */
+export interface InscripcionPorLlave {
+  torneoId: number;
+  torneo: string;
+  categoria: string;
+  montoClp: number;
+  situacion: SituacionDeLaOferta;
+  /** Hasta cuándo se le guarda el cupo, si se le ofreció uno. */
+  hasta: string | null;
+}
 
 /**
  * La lista de espera de un torneo (`SPEC-torneos.md` § Lista de espera sin cobro).
@@ -23,6 +112,42 @@ export class ListaDeEspera {
     private readonly prisma: PrismaService,
     private readonly avisos: AvisosDeTorneo,
   ) {}
+
+  /**
+   * La inscripción de una llave, para la página de la oferta (T332). La llave viaja en el
+   * correo «Se abrió un cupo»: es lo único con que quien no tiene cuenta vuelve a ella.
+   */
+  async porLlave(token: string): Promise<InscripcionPorLlave> {
+    const fila = await this.prisma.inscripcionTorneo.findUnique({
+      where: { token },
+      select: {
+        ...PARA_LA_OFERTA,
+        torneoId: true,
+        torneo: { select: { nombre: true } },
+        torneoCategoria: {
+          select: {
+            ...PARA_LA_OFERTA.torneoCategoria.select,
+            montoInscripcionClp: true,
+          },
+        },
+      },
+    });
+
+    // El mismo 404 que el resto de los caminos por llave: quien prueba llaves ajenas no se
+    // entera de si acertó el formato.
+    if (!fila) {
+      throw new NotFoundException('No hay una inscripción con esa llave.');
+    }
+
+    return {
+      torneoId: fila.torneoId,
+      torneo: fila.torneo.nombre,
+      categoria: fila.torneoCategoria.categoriaJuego.nombre,
+      montoClp: fila.torneoCategoria.montoInscripcionClp,
+      situacion: situacionDeLaOferta(fila),
+      hasta: fila.cupoOfrecidoHasta?.toISOString() ?? null,
+    };
+  }
 
   /**
    * Les da los cupos libres de una categoría a los primeros de su fila, por orden de llegada

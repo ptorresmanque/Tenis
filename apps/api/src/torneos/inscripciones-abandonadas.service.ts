@@ -200,6 +200,9 @@ export class InscripcionesAbandonadas {
     const { count } = await this.prisma.inscripcionTorneo.deleteMany({
       where: {
         id: inscripcionId,
+        // Solo las de adentro: la oferta de la lista de espera no se borra por volver atrás o
+        // anular, la gobierna su plazo (T332, LE5).
+        estado: EstadoInscripcionTorneo.INSCRITA,
         medioPago: MedioPagoInscripcion.WEBPAY,
         estadoPago: EstadoPagoInscripcion.PENDIENTE,
       },

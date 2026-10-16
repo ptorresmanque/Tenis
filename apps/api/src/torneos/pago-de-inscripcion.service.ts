@@ -10,6 +10,7 @@ import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
   EstadoTransaccion,
+  MedioPagoInscripcion,
   type Prisma,
   type Transaccion,
 } from '../generated/prisma/client';
@@ -18,6 +19,10 @@ import { PagosService } from '../pagos/pagos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
+import {
+  PARA_LA_OFERTA,
+  porQueNoSePuedeTomar,
+} from './lista-de-espera.service';
 
 /**
  * Pagar la inscripción con Webpay.
@@ -56,10 +61,15 @@ export class PagoDeInscripcion {
     const inscripcion = await this.prisma.inscripcionTorneo.findUnique({
       where: { token },
       select: {
+        ...PARA_LA_OFERTA,
         id: true,
-        estado: true,
         estadoPago: true,
-        torneoCategoria: { select: { montoInscripcionClp: true } },
+        torneoCategoria: {
+          select: {
+            ...PARA_LA_OFERTA.torneoCategoria.select,
+            montoInscripcionClp: true,
+          },
+        },
       },
     });
 
@@ -67,15 +77,11 @@ export class PagoDeInscripcion {
       throw new NotFoundException('No hay una inscripción con esa llave.');
     }
 
-    // **En espera no se cobra** (T327): si nunca se abre un cupo, el club tendría que
-    // devolver la plata a mano. Lo ataja acá y no solo en el formulario, que puede ser
-    // uno viejo abierto antes del cambio.
-    if (inscripcion.estado === EstadoInscripcionTorneo.LISTA_ESPERA) {
-      throw new ConflictException(
-        'Estás en la lista de espera: no se cobra nada hasta que se abra un cupo ' +
-          'para ti, y te avisamos por correo.',
-      );
-    }
+    // **En espera no se cobra** (T327), salvo la oferta vigente de un cupo (T332): si no, el
+    // club tendría que devolver la plata a mano. Lo ataja acá y no solo en la pantalla, que
+    // puede ser una vieja abierta antes del cambio o una oferta que venció mientras se leía.
+    const motivo = porQueNoSePuedeTomar(inscripcion);
+    if (motivo) throw new ConflictException(motivo);
 
     if (inscripcion.estadoPago !== EstadoPagoInscripcion.PENDIENTE) {
       throw new ConflictException(
@@ -140,6 +146,31 @@ export class PagoDeInscripcion {
     return resultado;
   }
 
+  /**
+   * La llave de la oferta de la lista de espera que se estaba pagando, si sigue en pie (T332).
+   *
+   * Quien anula en Webpay o le rechazan la tarjeta vuelve a la página de su oferta, donde el
+   * cupo le sigue guardado hasta que venza, y no a «tu inscripción no quedó tomada».
+   */
+  async ofertaEnPie(
+    transaccion: { referencia: string } | { id: number },
+  ): Promise<string | null> {
+    const pago = await this.prisma.transaccion.findUnique({
+      where: transaccion,
+      select: { concepto: true, conceptoId: true },
+    });
+    if (pago?.concepto !== ConceptoPago.INSCRIPCION_TORNEO) return null;
+
+    const fila = await this.prisma.inscripcionTorneo.findUnique({
+      where: { id: pago.conceptoId },
+      select: { estado: true, token: true },
+    });
+
+    return fila?.estado === EstadoInscripcionTorneo.LISTA_ESPERA
+      ? fila.token
+      : null;
+  }
+
   /** Marca la inscripción pagada. Responde si la marcó: no, si ya no estaba pendiente. */
   private async aplicar(
     tx: Prisma.TransactionClient,
@@ -148,6 +179,22 @@ export class PagoDeInscripcion {
     // El estado en el `where`: si el admin ya le aprobó el comprobante mientras la
     // persona pagaba en línea, esto no la vuelve a marcar. El dinero de más lo resuelve
     // alguien; marcarla dos veces borraría el rastro de cuál fue el cobro bueno.
+    // **La oferta de la lista de espera se toma al pagarla** (T332): entra al cuadro, la oferta
+    // se va y queda dicho cómo pagó. Antes de marcarla pagada: con el `where` de abajo ya no
+    // quedaría pendiente.
+    await tx.inscripcionTorneo.updateMany({
+      where: {
+        id: transaccion.conceptoId,
+        estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+        estadoPago: EstadoPagoInscripcion.PENDIENTE,
+      },
+      data: {
+        estado: EstadoInscripcionTorneo.INSCRITA,
+        cupoOfrecidoHasta: null,
+        medioPago: MedioPagoInscripcion.WEBPAY,
+      },
+    });
+
     const { count } = await tx.inscripcionTorneo.updateMany({
       where: {
         id: transaccion.conceptoId,
