@@ -1,23 +1,16 @@
 import { Component, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { simularDialogoNativo } from '../testing/dialogo-nativo';
 import { FotoParaGaleria, GaleriaDeFotos } from './galeria-de-fotos';
+
+beforeAll(simularDialogoNativo);
 
 /**
  * T309 (SPEC-sitio.md D1, A5 y A11). La galería del sitio es la de ng-gallery: este componente
  * solo le pasa las fotos, la configura en español y la abre en la foto tocada.
  */
-// jsdom 28 no implementa los diálogos modales: el lightbox de ng-gallery abre un <dialog> con
-// showModal(). Lo mínimo para probar que se abre y se cierra es poner y sacar `open`.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
-    this.setAttribute('open', '');
-  };
-  HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
-    this.removeAttribute('open');
-  };
-});
 
 describe('La galería de fotos', () => {
   const FOTOS: FotoParaGaleria[] = [
@@ -28,7 +21,10 @@ describe('La galería de fotos', () => {
 
   @Component({
     imports: [GaleriaDeFotos],
-    template: `<app-galeria-de-fotos #galeria [fotos]="fotos" etiqueta="Fotos del torneo" />`,
+    template: `
+      <button type="button" class="disparador" (click)="galeria.abrir(1)">Ver la foto 2</button>
+      <app-galeria-de-fotos #galeria [fotos]="fotos" etiqueta="Fotos del torneo" />
+    `,
   })
   class Anfitrion {
     readonly fotos = FOTOS;
@@ -71,6 +67,42 @@ describe('La galería de fotos', () => {
     expect(dialogo!.getAttribute('aria-label')).toBe('Fotos del torneo');
     const textos = [...dialogo!.querySelectorAll('gallery img')].map((img) => img.getAttribute('alt'));
     expect(textos).toEqual(expect.arrayContaining(['Afiche del campeonato', 'Reglamento', 'Foto 3 de 3']));
+    fixture.nativeElement.remove();
+  });
+
+  it('**las flechas hablan en español**', async () => {
+    const fixture = await montar();
+    const dialogo = await abrir(fixture, 1);
+    const etiquetas = [...dialogo!.querySelectorAll('[galleryNavButton]')].map((b) =>
+      b.getAttribute('aria-label'),
+    );
+
+    expect(etiquetas).toEqual(['Ir a la primera foto', 'Ir a la última foto']);
+    fixture.nativeElement.remove();
+  });
+
+  it('**al cerrar, el foco vuelve a lo que la abrió**', async () => {
+    const fixture = await montar();
+    const disparador = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.disparador')!;
+    disparador.focus();
+    const dialogo = await abrir(fixture, 1);
+
+    dialogo!.querySelector<HTMLButtonElement>('[aria-label="Cerrar la galería"]')!.click();
+
+    expect(document.activeElement).toBe(disparador);
+    fixture.nativeElement.remove();
+  });
+
+  it('**su Esc no cierra el diálogo de abajo**, como el cuadro del torneo (Material escucha en el body)', async () => {
+    const fixture = await montar();
+    const escuchaElBody = vi.fn();
+    document.body.addEventListener('keydown', escuchaElBody);
+    const dialogo = await abrir(fixture, 0);
+
+    dialogo!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(escuchaElBody).not.toHaveBeenCalled();
+    document.body.removeEventListener('keydown', escuchaElBody);
     fixture.nativeElement.remove();
   });
 

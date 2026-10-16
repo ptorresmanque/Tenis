@@ -2,7 +2,11 @@ import {
   afterNextRender,
   Component,
   computed,
+  createEnvironmentInjector,
+  DestroyRef,
+  DOCUMENT,
   effect,
+  EnvironmentInjector,
   inject,
   Injector,
   input,
@@ -11,7 +15,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
-import { MatIconButton } from '@angular/material/button';
 import {
   Gallery,
   GalleryCounter,
@@ -20,9 +23,10 @@ import {
   GalleryNav,
   GalleryThumbClick,
   GalleryThumbs,
-  provideGalleryA11yOptions,
 } from 'ng-gallery';
 import { Lightbox, LightboxCloseButton } from 'ng-gallery/lightbox';
+
+import { proveerGaleriaEnEspanol } from './galeria-en-espanol';
 
 /** Lo que necesita la galería de una foto: las dos versiones y lo que se ve en ella. */
 export interface FotoParaGaleria {
@@ -34,8 +38,8 @@ export interface FotoParaGaleria {
 /**
  * La puerta a la galería de fotos del sitio (T309, SPEC-sitio.md D1, A5 y A11).
  *
- * **El visor es el de ng-gallery**, no uno propio: este componente le pasa las fotos, la deja
- * en español y la abre en la foto tocada. No dibuja nada hasta que se pide: quien lo usa pone
+ * **El visor es el de ng-gallery**, no uno propio: este componente le pasa las fotos y la abre
+ * en la foto tocada, con sus textos en español (`proveerGaleriaEnEspanol`). No dibuja nada hasta que se pide: quien lo usa pone
  * sus miniaturas, y cada una llama a `abrir(indice)`.
  *
  * **La librería llega diferida** (`@defer`): baja cuando el navegador queda libre, o al tocar
@@ -54,24 +58,23 @@ export interface FotoParaGaleria {
     Lightbox,
     LightboxCloseButton,
     MatIcon,
-    MatIconButton,
   ],
   providers: [
-    provideGalleryA11yOptions({
-      containerLabel: 'Galería de fotos',
-      containerRoleDescription: 'galería',
-      itemRoleDescription: 'foto',
-      itemLabel: (indice, total) => `Foto ${indice + 1} de ${total}`,
-      rangeLabel: (desde, hasta, total) => `Fotos ${desde} a ${hasta} de ${total}`,
-      thumbContainerLabel: 'Miniaturas',
-      thumbLabel: (indice, total) => `Ver la foto ${indice + 1} de ${total}`,
-      prevItemLabel: 'Foto anterior',
-      nextItemLabel: 'Foto siguiente',
-      firstItemLabel: 'Es la primera foto',
-      lastItemLabel: 'Es la última foto',
-      lightboxLabel: 'Galería de fotos',
-      lightboxCloseButtonLabel: 'Cerrar la galería',
-    }),
+    // El lightbox arma su diálogo con el EnvironmentInjector que encuentra desde acá, y no ve
+    // los proveedores de este componente: con el de la raíz, las flechas decían «Go to first
+    // slide». Se le da uno propio con los textos en español. En la raíz de la aplicación no
+    // sirve: arrastraba la librería entera al arranque (67 kB).
+    {
+      provide: EnvironmentInjector,
+      useFactory: () => {
+        const propio = createEnvironmentInjector(
+          [proveerGaleriaEnEspanol()],
+          inject(EnvironmentInjector, { skipSelf: true }),
+        );
+        inject(DestroyRef).onDestroy(() => propio.destroy());
+        return propio;
+      },
+    },
   ],
   template: `
     @defer (on idle; when pedida() !== null) {
@@ -87,12 +90,13 @@ export interface FotoParaGaleria {
           <gallery-counter />
         </gallery>
         <!-- El botón propio y no el de la librería: el suyo toma su texto de un inyector que no
-             ve el español de este componente, y decía «Close gallery». -->
+             ve el español de este componente, y decía «Close gallery». Sin matIconButton: con
+             él, el módulo entero de botones de Material entraba al arranque (12,7 kB), y
+             lightboxCloseButton ya le da la forma y el color del de la librería. -->
         <button
-          matIconButton
           type="button"
           lightboxCloseButton
-          class="cerrar-galeria"
+          class="cerrar-galeria cursor-pointer"
           aria-label="Cerrar la galería"
         >
           <mat-icon aria-hidden="true">close</mat-icon>
@@ -131,6 +135,7 @@ export class GaleriaDeFotos {
   );
 
   private readonly injector = inject(Injector);
+  private readonly documento = inject(DOCUMENT);
 
   constructor() {
     effect(() => {
@@ -141,7 +146,25 @@ export class GaleriaDeFotos {
         this.pedida.set(null);
         // Después del render y no en el acto: recién llegada la librería, la directiva todavía no
         // tiene sus entradas, y el diálogo salía sin su nombre.
-        afterNextRender(() => lightbox.showModal(indice), { injector: this.injector });
+        afterNextRender(
+          () => {
+            // El navegador devuelve el foco al cerrar un diálogo nativo, pero la librería lo saca del
+            // documento en el mismo cierre, y el foco quedaba en ninguna parte: vuelve a mano a
+            // la miniatura que se tocó.
+            const disparador = this.documento.activeElement;
+            lightbox.showModal(indice);
+            const dialogo = lightbox.lightboxRef?.instance.dialogElement;
+            dialogo?.addEventListener('close', () => (disparador as HTMLElement | null)?.focus(), {
+              once: true,
+            });
+            // El Esc lo atiende el propio diálogo. Si sigue hasta el body, Material lo toma y
+            // cierra también el diálogo de abajo: la galería del cuadro cerraba el cuadro.
+            dialogo?.addEventListener('keydown', (evento) => {
+              if (evento.key === 'Escape') evento.stopPropagation();
+            });
+          },
+          { injector: this.injector },
+        );
       });
     });
   }
