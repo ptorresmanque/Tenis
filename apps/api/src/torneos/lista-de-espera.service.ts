@@ -6,7 +6,7 @@ import {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeTorneo } from './correos';
-import { porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
+import { OCUPA_CUPO, porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
 import { vencimientoDeLaOferta } from './plazo-de-oferta';
 
 /**
@@ -28,9 +28,8 @@ export class ListaDeEspera {
    * Les da los cupos libres de una categoría a los primeros de su fila, por orden de llegada
    * (T329).
    *
-   * **Una oferta ocupa su lugar hasta que se toma o se retira**, haya vencido o no: el turno lo
-   * pasa el cron, que espera a que se resuelva un pago de Webpay en curso (E6). Si dejara de
-   * contar al vencer, el cupo se le ofrecería a otro mientras el primero está pagando.
+   * **Una oferta ocupa su lugar hasta que se toma o se retira**, haya vencido o no: ver
+   * `OCUPA_CUPO`.
    *
    * **Quien ya pagó entra directo** (E4): antes de este cambio la lista de espera pagaba al
    * inscribirse, y ofrecerle el cupo sería pedirle que pague dos veces.
@@ -57,16 +56,7 @@ export class ListaDeEspera {
       if (!cuadro || porQueNoAcepta(cuadro) !== null) return [];
 
       const ocupados = await tx.inscripcionTorneo.count({
-        where: {
-          torneoCategoriaId,
-          OR: [
-            { estado: EstadoInscripcionTorneo.INSCRITA },
-            {
-              estado: EstadoInscripcionTorneo.LISTA_ESPERA,
-              cupoOfrecidoHasta: { not: null },
-            },
-          ],
-        },
+        where: { torneoCategoriaId, ...OCUPA_CUPO },
       });
       if (ocupados >= cuadro.cupo) return [];
 

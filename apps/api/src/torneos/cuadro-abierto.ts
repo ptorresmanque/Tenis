@@ -1,5 +1,9 @@
 import { hoyEnElClub } from '../comun/tiempo';
-import { EstadoTorneo, type Prisma } from '../generated/prisma/client';
+import {
+  EstadoInscripcionTorneo,
+  EstadoTorneo,
+  type Prisma,
+} from '../generated/prisma/client';
 
 /**
  * El candado de una categoría: el mismo para toda escritura sobre su cupo (inscribirse,
@@ -15,6 +19,24 @@ export async function tomarElCandado(
 ): Promise<void> {
   await tx.$queryRaw`SELECT id FROM torneo_categoria WHERE id = ${torneoCategoriaId} FOR UPDATE`;
 }
+
+/**
+ * Las inscripciones que ocupan un lugar del cuadro: las de adentro y las de la lista de espera
+ * con un cupo ofrecido (T331, LE3).
+ *
+ * **La oferta cuenta aunque haya vencido**, hasta que el cron la retira: es el cron el que pasa
+ * el turno, y espera a que se resuelva un pago de Webpay en curso (E6). Si dejara de contar al
+ * vencer, el lugar se vería libre mientras la persona está pagando.
+ */
+export const OCUPA_CUPO = {
+  OR: [
+    { estado: EstadoInscripcionTorneo.INSCRITA },
+    {
+      estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+      cupoOfrecidoHasta: { not: null },
+    },
+  ],
+} satisfies Prisma.InscripcionTorneoWhereInput;
 
 /**
  * Por qué una categoría ya no acepta inscritos, o nulo si los acepta.

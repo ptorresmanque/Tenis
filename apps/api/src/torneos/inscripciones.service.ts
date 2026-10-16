@@ -22,7 +22,7 @@ import type {
 } from './inscripcion-publica.dto';
 import type { Franja } from './restricciones';
 import { AvisosDeTorneo } from './correos';
-import { porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
+import { OCUPA_CUPO, porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { Jugadores } from './jugadores.service';
 import { ListaDeEspera } from './lista-de-espera.service';
@@ -517,7 +517,13 @@ export class InscripcionesATorneo {
     return { id };
   }
 
-  /** Mete en el cuadro al que estaba esperando, si quedó lugar. */
+  /**
+   * Mete en el cuadro al que estaba esperando, si quedó lugar.
+   *
+   * **Un cupo ofrecido a otro de la fila no es un lugar libre** (T331): promover ahí se lo
+   * quitaría a quien está pagando. Al que tiene la oferta sí se le puede promover —pagó en el
+   * mesón—, y su oferta se va.
+   */
   async promover(
     torneoCategoriaId: number,
     id: number,
@@ -525,13 +531,27 @@ export class InscripcionesATorneo {
     return this.prisma.$transaction(async (tx) => {
       const cuadro = await this.tomarElCuadro(tx, torneoCategoriaId, false);
 
-      const tomados = await tx.inscripcionTorneo.count({
-        where: { torneoCategoriaId, estado: EstadoInscripcionTorneo.INSCRITA },
+      const ocupados = await tx.inscripcionTorneo.count({
+        where: { torneoCategoriaId, ...OCUPA_CUPO, id: { not: id } },
       });
 
-      if (tomados >= cuadro.cupo) {
+      if (ocupados >= cuadro.cupo) {
+        const oferta = await tx.inscripcionTorneo.findFirst({
+          where: {
+            torneoCategoriaId,
+            estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+            cupoOfrecidoHasta: { not: null },
+            id: { not: id },
+          },
+          select: { jugador: { select: { nombre: true, apellido: true } } },
+        });
+
         throw new ConflictException(
-          `El cuadro ya tiene sus ${cuadro.cupo} jugadores. Retira a alguien primero.`,
+          oferta
+            ? `El lugar que queda está ofrecido a ${oferta.jugador.nombre} ` +
+                `${oferta.jugador.apellido}, de la lista de espera. Espera a que lo tome o ` +
+                'a que venza su plazo.'
+            : `El cuadro ya tiene sus ${cuadro.cupo} jugadores. Retira a alguien primero.`,
         );
       }
 
@@ -541,7 +561,10 @@ export class InscripcionesATorneo {
           torneoCategoriaId,
           estado: EstadoInscripcionTorneo.LISTA_ESPERA,
         },
-        data: { estado: EstadoInscripcionTorneo.INSCRITA },
+        data: {
+          estado: EstadoInscripcionTorneo.INSCRITA,
+          cupoOfrecidoHasta: null,
+        },
       });
 
       if (count === 0) {

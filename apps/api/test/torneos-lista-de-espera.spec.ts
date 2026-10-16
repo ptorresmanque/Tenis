@@ -17,6 +17,7 @@ import { ComprobantesDeInscripcion } from '../src/torneos/comprobantes.service';
 import { InscripcionesAbandonadas } from '../src/torneos/inscripciones-abandonadas.service';
 import { InscripcionesATorneo } from '../src/torneos/inscripciones.service';
 import { ListaDeEspera } from '../src/torneos/lista-de-espera.service';
+import { TorneosPublicos } from '../src/torneos/torneos-publicos.service';
 import { vencimientoDeLaOferta } from '../src/torneos/plazo-de-oferta';
 
 /**
@@ -552,6 +553,83 @@ describe('ListaDeEspera.ofrecerCupos', () => {
           })
         ).cupoOfrecidoHasta,
       ).toBeNull();
+    });
+  });
+
+  /**
+   * T331 (LE3 y LE9). **Una oferta ocupa su lugar**, como un pago pendiente: quien llega queda en
+   * espera, el sitio no lo cuenta como libre y «Promover» no se lo da a otro.
+   */
+  describe('una oferta ocupa cupo (T331)', () => {
+    /** Un cuadro de un lugar, con ese lugar ofrecido al primero de la fila. */
+    const ofrecido = async () => {
+      const cuadro = await crearCuadro({ cupo: 1 });
+      const conOferta = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        0,
+      );
+      const segundo = await anotar(
+        cuadro,
+        EstadoInscripcionTorneo.LISTA_ESPERA,
+        1,
+      );
+      await lista.ofrecerCupos(cuadro.cuadroId);
+
+      return { cuadro, conOferta, segundo };
+    };
+
+    it('**quien llega mientras hay una oferta queda en espera**', async () => {
+      const { cuadro } = await ofrecido();
+      const nuevo = await prisma.jugador.create({
+        data: { nombre: 'Recién llegado', apellido: APELLIDO },
+      });
+
+      const hecha = await app
+        .get(InscripcionesATorneo)
+        .inscribir(cuadro.cuadroId, { jugadorId: nuevo.id, email: null });
+
+      expect(hecha.estado).toBe('LISTA_ESPERA');
+    });
+
+    it('**los cupos libres del sitio descuentan la oferta**', async () => {
+      const { cuadro } = await ofrecido();
+
+      const torneo = (await app.get(TorneosPublicos).calendario(2027)).find(
+        (uno) => uno.id === cuadro.torneoId,
+      );
+
+      expect(torneo?.categorias[0].cuposLibres).toBe(0);
+    });
+
+    it('**«Promover» a otro con el lugar ofrecido lo rechaza, y dice a quién se le ofreció**', async () => {
+      const { cuadro, conOferta, segundo } = await ofrecido();
+      const { jugador } = await prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id: conOferta.id },
+        select: { jugador: { select: { nombre: true } } },
+      });
+
+      const promover = app
+        .get(InscripcionesATorneo)
+        .promover(cuadro.cuadroId, segundo.id);
+
+      await expect(promover).rejects.toThrow(jugador.nombre);
+      await expect(promover).rejects.toThrow('ofrecido');
+    });
+
+    it('**«Promover» al que tiene la oferta sí, y la oferta se va**: por ejemplo, pagó en el mesón', async () => {
+      const { cuadro, conOferta } = await ofrecido();
+
+      await app
+        .get(InscripcionesATorneo)
+        .promover(cuadro.cuadroId, conOferta.id);
+
+      expect(
+        await prisma.inscripcionTorneo.findUniqueOrThrow({
+          where: { id: conOferta.id },
+          select: { estado: true, cupoOfrecidoHasta: true },
+        }),
+      ).toEqual({ estado: 'INSCRITA', cupoOfrecidoHasta: null });
     });
   });
 });
