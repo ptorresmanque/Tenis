@@ -115,13 +115,7 @@ import {
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table mat-table class="text-sm" [dataSource]="datos.filas">
-            <caption class="sr-only">
-              Ocupación del período, cortada por
-              {{
-                nombreDelCorte(datos.corte)
-              }}
-            </caption>
+          <table mat-table [attr.aria-label]="'Ocupación del período, cortada por ' + nombreDelCorte(datos.corte)" class="text-sm" [dataSource]="datos.filas">
             <ng-container matColumnDef="corte">
               <th mat-header-cell *matHeaderCellDef scope="col">Corte</th>
               <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">

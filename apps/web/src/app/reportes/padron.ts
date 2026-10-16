@@ -94,10 +94,7 @@ import { Reportes } from './reportes.service';
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table mat-table class="text-sm" [dataSource]="datos.meses">
-            <caption class="sr-only">
-              Altas, bajas y deuda por mes
-            </caption>
+          <table mat-table aria-label="Altas, bajas y deuda por mes" class="text-sm" [dataSource]="datos.meses">
             <ng-container matColumnDef="mes">
               <th mat-header-cell *matHeaderCellDef scope="col">Mes</th>
               <th *matCellDef="let mes" scope="row" class="mat-mdc-cell mdc-data-table__cell">

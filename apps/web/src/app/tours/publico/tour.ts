@@ -128,13 +128,7 @@ const RESULTADOS: Resultado[] = [
             <!-- Desplazable dentro de su caja: con cuatro niveles no cabe en 375 px, y la
                  página no puede desbordar de lado. -->
             <div class="mt-4 overflow-x-auto bg-card shadow-md">
-              <table mat-table [dataSource]="RESULTADOS">
-                <caption class="sr-only">
-                  Puntos por resultado en cada nivel de la temporada
-                  {{
-                    temporada.nombre
-                  }}
-                </caption>
+              <table mat-table [attr.aria-label]="'Puntos por resultado en cada nivel de la temporada ' + temporada.nombre" [dataSource]="RESULTADOS">
                 <ng-container matColumnDef="resultado">
                   <th mat-header-cell *matHeaderCellDef scope="col">Resultado</th>
                   <th

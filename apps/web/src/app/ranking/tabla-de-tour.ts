@@ -77,15 +77,10 @@ import { Ranking } from './ranking.service';
           <div class="mt-6 overflow-x-auto" data-tabla="torneos">
             <table
               mat-table
+              [attr.aria-label]="'Puntos por jugador en la temporada ' + datos.temporada.nombre"
               class="text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2"
               [dataSource]="datos.posiciones"
             >
-              <caption class="sr-only">
-                Puntos por jugador en la temporada
-                {{
-                  datos.temporada.nombre
-                }}
-              </caption>
               <ng-container matColumnDef="puesto">
                 <th mat-header-cell *matHeaderCellDef scope="col">Puesto</th>
                 <td mat-cell *matCellDef="let fila" class="font-display font-bold">

@@ -2033,3 +2033,24 @@ describe('Crear no se alterna con Cerrar (T291)', () => {
     expect(infractores).toEqual([]);
   });
 });
+
+/**
+ * T302 (SPEC-panel.md, módulo `reglas`). Una tabla sin nombre se anuncia como «tabla, 5
+ * columnas» y nada más: quien navega con lector de pantalla no sabe si son los pedidos, el
+ * padrón o el ranking. La auditoría del skill 1.2.0 lo cuenta como error (`tabla-sin-label`).
+ */
+describe('Las tablas tienen nombre (T302)', () => {
+  it('**toda `mat-table` lleva `aria-label` o `aria-labelledby`**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [tabla] of sinComentarios(contenido).matchAll(/<table\b[^>]*\bmat-table\b[^>]*>/g)) {
+        if (!/\b(?:\[attr\.)?aria-label(?:ledby)?\]?=/.test(tabla)) {
+          infractores.push(`${archivo}: ${tabla.replace(/\s+/g, ' ').slice(0, 80)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});

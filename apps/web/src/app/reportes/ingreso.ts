@@ -107,13 +107,7 @@ import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service'
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table mat-table class="text-sm" [dataSource]="datos.filas">
-            <caption class="sr-only">
-              Ingreso del período, cortado por
-              {{
-                nombreDelCorte(datos.corte)
-              }}
-            </caption>
+          <table mat-table [attr.aria-label]="'Ingreso del período, cortado por ' + nombreDelCorte(datos.corte)" class="text-sm" [dataSource]="datos.filas">
             <ng-container matColumnDef="corte">
               <th mat-header-cell *matHeaderCellDef scope="col">Corte</th>
               <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">

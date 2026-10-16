@@ -119,8 +119,7 @@ const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
                        un nombre largo no empuja la página, y el encabezado fijo se queda en
                        la tabla. -->
                   <div class="mt-4 overflow-x-auto">
-                    <table mat-table [dataSource]="lugar.tarifas">
-                      <caption class="sr-only">Tarifas {{ lugar.de }}</caption>
+                    <table mat-table [attr.aria-label]="'Tarifas ' + lugar.de" [dataSource]="lugar.tarifas">
                       <ng-container matColumnDef="plan">
                         <th mat-header-cell *matHeaderCellDef scope="col">Plan</th>
                         <th

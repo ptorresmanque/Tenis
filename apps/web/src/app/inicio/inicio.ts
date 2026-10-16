@@ -410,10 +410,7 @@ import { Foto } from '../ui/foto';
                    cada cuadro, así que un precio del torneo mentiría —Honor puede
                    costar el doble que la 5ª el mismo fin de semana—. -->
               <div class="flex flex-col p-4 sm:p-7">
-                <table mat-table [dataSource]="torneo.categorias">
-                  <caption class="sr-only">
-                    Categorías de {{ torneo.nombre }}
-                  </caption>
+                <table mat-table [attr.aria-label]="'Categorías de ' + torneo.nombre" [dataSource]="torneo.categorias">
                   <ng-container matColumnDef="categoria">
                     <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
                     <td

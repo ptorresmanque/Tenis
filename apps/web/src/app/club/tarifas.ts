@@ -134,10 +134,7 @@ const DIAS = [
                sin borde, con su sombra, y el precio en la cifra condensada. Los precios van
                justo después del horario: es lo que se viene a buscar. -->
           <div class="mt-4 hidden overflow-x-auto bg-card shadow-md sm:block">
-            <table mat-table [dataSource]="lista">
-              <caption class="sr-only">
-                Tarifas de arriendo por 1 hora y por 1 hora y media, vigentes hoy
-              </caption>
+            <table mat-table aria-label="Tarifas de arriendo por 1 hora y por 1 hora y media, vigentes hoy" [dataSource]="lista">
               <ng-container matColumnDef="horario">
                 <th mat-header-cell *matHeaderCellDef scope="col">Horario</th>
                 <td mat-cell *matCellDef="let tarifa" class="whitespace-nowrap">

@@ -51,12 +51,10 @@ import { Esqueleto } from '../ui/esqueleto';
         <div class="mt-4 overflow-x-auto" data-tabla="activos">
           <table
             mat-table
+            aria-label="Elo de los socios que jugaron en los últimos seis meses"
             class="text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2"
             [dataSource]="activos()"
           >
-            <caption class="sr-only">
-              Elo de los socios que jugaron en los últimos seis meses
-            </caption>
             <ng-container matColumnDef="puesto">
               <th mat-header-cell *matHeaderCellDef scope="col">Puesto</th>
               <td mat-cell *matCellDef="let fila" class="font-display font-bold">
@@ -110,12 +108,10 @@ import { Esqueleto } from '../ui/esqueleto';
           <div class="mt-3 overflow-x-auto" data-tabla="inactivos">
             <table
               mat-table
+              aria-label="Socios fuera de la tabla principal, con su Elo conservado"
               class="text-sm max-sm:[&_td]:px-2 max-sm:[&_th]:px-2"
               [dataSource]="inactivos()"
             >
-              <caption class="sr-only">
-                Socios fuera de la tabla principal, con su Elo conservado
-              </caption>
               <ng-container matColumnDef="socio">
                 <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
                 <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
