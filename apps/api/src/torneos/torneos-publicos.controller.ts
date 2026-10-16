@@ -338,6 +338,15 @@ export class TorneosPublicosController {
   }
 
   /**
+   * Tomar la oferta de un cupo en una categoría gratis: no hay nada que pagar, así que es un
+   * botón (T333, E5). Las que cobran se toman pagando o subiendo el comprobante.
+   */
+  @Post('inscripciones/:token/tomar')
+  tomar(@Param('token') token: string) {
+    return this.listaDeEspera.tomarGratis(token);
+  }
+
+  /**
    * Subir el comprobante de una transferencia.
    *
    * **Uno por inscripción**: el segundo reemplaza al primero. La imagen se reencodifica

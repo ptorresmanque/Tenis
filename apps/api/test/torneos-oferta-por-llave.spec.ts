@@ -1,5 +1,9 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import sharp from 'sharp';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
@@ -27,6 +31,8 @@ describe('La oferta de un cupo, por la llave', () => {
   let prisma: PrismaService;
   let pasarela: PasarelaFake;
   let cuartaId: number;
+  let carpeta: string;
+  let imagen: Buffer;
 
   const enviados: CorreoSaliente[] = [];
   const enviador = {
@@ -47,7 +53,10 @@ describe('La oferta de un cupo, por la llave', () => {
    * Una categoría de un lugar, libre, con una persona esperando a la que se le da la oferta.
    * `ofrecer: false` la deja esperando sin oferta.
    */
-  const conOferta = async ({ ofrecer = true } = {}) => {
+  const conOferta = async ({
+    ofrecer = true,
+    montoInscripcionClp = 15_000,
+  } = {}) => {
     const torneo = await prisma.torneo.create({
       data: {
         nombre: `${MARCA} ${Date.now()}${Math.random()}`,
@@ -58,7 +67,7 @@ describe('La oferta de un cupo, por la llave', () => {
           create: {
             categoriaJuegoId: cuartaId,
             cupo: 1,
-            montoInscripcionClp: 15_000,
+            montoInscripcionClp,
           },
         },
       },
@@ -76,10 +85,13 @@ describe('La oferta de un cupo, por la llave', () => {
         torneoCategoriaId: cuadroId,
         jugadorId: jugador.id,
         estado: EstadoInscripcionTorneo.LISTA_ESPERA,
-        estadoPago: EstadoPagoInscripcion.PENDIENTE,
+        estadoPago:
+          montoInscripcionClp > 0
+            ? EstadoPagoInscripcion.PENDIENTE
+            : EstadoPagoInscripcion.EXENTA,
         email: `esperando${correlativo}@oferta.ejemplo.cl`,
       },
-      select: { id: true, token: true },
+      select: { id: true, token: true, email: true },
     });
 
     if (ofrecer) await app.get(ListaDeEspera).ofrecerCupos(cuadroId);
@@ -95,6 +107,7 @@ describe('La oferta de un cupo, por la llave', () => {
         estadoPago: true,
         medioPago: true,
         cupoOfrecidoHasta: true,
+        comprobanteRuta: true,
       },
     });
 
@@ -109,6 +122,19 @@ describe('La oferta de un cupo, por la llave', () => {
   };
 
   beforeAll(async () => {
+    carpeta = await mkdtemp(join(tmpdir(), 'comprobantes-oferta-'));
+    process.env.SUBIDAS_DIR = carpeta;
+    imagen = await sharp({
+      create: {
+        width: 400,
+        height: 300,
+        channels: 3,
+        background: { r: 10, g: 90, b: 200 },
+      },
+    })
+      .jpeg()
+      .toBuffer();
+
     const modulo = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PasarelaPago)
       .useClass(PasarelaFake)
@@ -130,6 +156,8 @@ describe('La oferta de un cupo, por la llave', () => {
 
   afterAll(async () => {
     await limpiar();
+    delete process.env.SUBIDAS_DIR;
+    await rm(carpeta, { recursive: true, force: true });
     await app.close();
   });
 
@@ -138,6 +166,7 @@ describe('La oferta de un cupo, por la llave', () => {
     enviados.length = 0;
     pasarela.respuesta = 'AUTORIZADA';
     app.get(IntentosFallidos).perdonar('inscripcion|127.0.0.1');
+    app.get(IntentosFallidos).perdonar('comprobante|127.0.0.1');
   });
 
   describe('GET /api/torneos/inscripciones/:token', () => {
@@ -214,6 +243,7 @@ describe('La oferta de un cupo, por la llave', () => {
         estadoPago: 'PAGADA',
         medioPago: 'WEBPAY',
         cupoOfrecidoHasta: null,
+        comprobanteRuta: null,
       });
     });
 
@@ -330,6 +360,108 @@ describe('La oferta de un cupo, por la llave', () => {
         expect(body).toEqual({ soltada: false });
         await sigueEnPie(id, cupoOfrecidoHasta);
       });
+    });
+  });
+
+  /**
+   * T333 (LE4 y E5). La oferta también se toma subiendo el comprobante de una transferencia,
+   * como cualquier inscripción: entra al cuadro y el club lo revisa. En una categoría gratis se
+   * toma con un botón.
+   */
+  describe('tomar la oferta con el comprobante, o gratis (T333)', () => {
+    const subir = (token: string) =>
+      request(servidor())
+        .post(`/api/torneos/inscripciones/${token}/comprobante`)
+        .attach('comprobante', imagen, 'transferencia.jpg');
+
+    const tomar = (token: string) =>
+      request(servidor()).post(`/api/torneos/inscripciones/${token}/tomar`);
+
+    const vencer = (id: number) =>
+      prisma.inscripcionTorneo.update({
+        where: { id },
+        data: { cupoOfrecidoHasta: new Date(Date.now() - 60_000) },
+      });
+
+    const enLaCarpeta = () =>
+      readdir(join(carpeta, 'comprobantes')).catch(() => [] as string[]);
+
+    it('**con el comprobante entra al cuadro, pendiente de que el club lo revise**', async () => {
+      const { id, token, email } = await conOferta();
+
+      await subir(token).expect(201);
+
+      expect(await laInscripcion(id)).toMatchObject({
+        estado: 'INSCRITA',
+        estadoPago: 'PENDIENTE',
+        medioPago: 'TRANSFERENCIA',
+        cupoOfrecidoHasta: null,
+        comprobanteRuta: expect.stringMatching(/^comprobantes\//) as unknown,
+      });
+      const recibida = enviados.find(
+        (correo) =>
+          correo.para === email &&
+          correo.asunto.startsWith('Inscripción recibida'),
+      );
+      expect(recibida?.cuerpo).toContain(
+        'El club está revisando tu comprobante',
+      );
+    });
+
+    it('**con el plazo vencido, 409, y la imagen no se queda en el disco**', async () => {
+      const { id, token } = await conOferta();
+      await vencer(id);
+      const antes = await enLaCarpeta();
+
+      await subir(token).expect(409);
+
+      expect(await enLaCarpeta()).toEqual(antes);
+      expect(await laInscripcion(id)).toMatchObject({
+        estado: 'LISTA_ESPERA',
+        comprobanteRuta: null,
+      });
+    });
+
+    it('**gratis, se toma con un botón** y queda dentro (E5)', async () => {
+      const { id, token, email } = await conOferta({ montoInscripcionClp: 0 });
+
+      await tomar(token).expect(201);
+
+      expect(await laInscripcion(id)).toMatchObject({
+        estado: 'INSCRITA',
+        estadoPago: 'EXENTA',
+        cupoOfrecidoHasta: null,
+      });
+      expect(
+        enviados.find(
+          (correo) =>
+            correo.para === email &&
+            correo.asunto.startsWith('Inscripción recibida'),
+        )?.cuerpo,
+      ).toContain('Quedaste inscrito');
+    });
+
+    it('gratis y con el plazo vencido, 409', async () => {
+      const { id, token } = await conOferta({ montoInscripcionClp: 0 });
+      await vencer(id);
+
+      const respuesta = await tomar(token).expect(409);
+
+      expect((respuesta.body as { message: string }).message).toContain(
+        'venció',
+      );
+    });
+
+    it('**una categoría que cobra no se toma con el botón**: se paga', async () => {
+      const { id, token } = await conOferta();
+
+      await tomar(token).expect(409);
+
+      expect((await laInscripcion(id)).estado).toBe('LISTA_ESPERA');
+    });
+
+    it('una llave inventada da 404', async () => {
+      await tomar('no-es-una-llave').expect(404);
     });
   });
 });

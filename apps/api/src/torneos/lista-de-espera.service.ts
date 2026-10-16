@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
+  type MedioPagoInscripcion,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeTorneo } from './correos';
@@ -147,6 +152,72 @@ export class ListaDeEspera {
       situacion: situacionDeLaOferta(fila),
       hasta: fila.cupoOfrecidoHasta?.toISOString() ?? null,
     };
+  }
+
+  /**
+   * Toma la oferta: la deja dentro del cuadro, sin oferta y con lo que trajo (T333).
+   *
+   * **Con el candado y volviendo a mirar la oferta**: el cron puede haberla vencido, o el admin
+   * armado el cuadro, entre que la persona abrió la página y apretó el botón. Lo que se mira
+   * antes, afuera, es solo para no procesar una imagen en vano.
+   *
+   * Le llega «Inscripción recibida», como a cualquiera que se inscribe sin Webpay.
+   */
+  async tomar(
+    id: number,
+    datos: { medioPago?: MedioPagoInscripcion; comprobanteRuta?: string } = {},
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const { torneoCategoriaId } =
+        await tx.inscripcionTorneo.findUniqueOrThrow({
+          where: { id },
+          select: { torneoCategoriaId: true },
+        });
+      await tomarElCandado(tx, torneoCategoriaId);
+
+      const fila = await tx.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+        select: PARA_LA_OFERTA,
+      });
+      if (situacionDeLaOferta(fila) !== 'OFRECIDO') {
+        throw new ConflictException(
+          porQueNoSePuedeTomar(fila) ?? 'Ya estás dentro del cuadro.',
+        );
+      }
+
+      await tx.inscripcionTorneo.update({
+        where: { id },
+        data: {
+          estado: EstadoInscripcionTorneo.INSCRITA,
+          cupoOfrecidoHasta: null,
+          ...datos,
+        },
+      });
+    });
+
+    await this.avisos.inscripcionRecibida(id);
+  }
+
+  /** Toma la oferta de una categoría gratis, con el botón de su página (T333, E5). */
+  async tomarGratis(token: string): Promise<{ id: number }> {
+    const fila = await this.prisma.inscripcionTorneo.findUnique({
+      where: { token },
+      select: { id: true, estadoPago: true },
+    });
+
+    if (!fila) {
+      throw new NotFoundException('No hay una inscripción con esa llave.');
+    }
+
+    if (fila.estadoPago !== EstadoPagoInscripcion.EXENTA) {
+      throw new ConflictException(
+        'Esta categoría se paga: toma el cupo pagando con Webpay o subiendo el comprobante.',
+      );
+    }
+
+    await this.tomar(fila.id);
+
+    return { id: fila.id };
   }
 
   /**

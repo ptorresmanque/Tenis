@@ -13,7 +13,22 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AvisosDeTorneo } from './correos';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
-import { ListaDeEspera } from './lista-de-espera.service';
+import {
+  ListaDeEspera,
+  PARA_LA_OFERTA,
+  porQueNoSePuedeTomar,
+} from './lista-de-espera.service';
+
+/** Solo sobre una inscripción `PENDIENTE` se sube un comprobante: ver `subir`. */
+function exigirPendiente(estadoPago: EstadoPagoInscripcion): void {
+  if (estadoPago !== EstadoPagoInscripcion.PENDIENTE) {
+    throw new ConflictException(
+      estadoPago === EstadoPagoInscripcion.EXENTA
+        ? 'Esa inscripción es gratis: no hay nada que pagar.'
+        : 'Esa inscripción ya la revisó el club. Llámanos si hay un error.',
+    );
+  }
+}
 
 /**
  * El comprobante de transferencia y su aprobación.
@@ -52,8 +67,8 @@ export class ComprobantesDeInscripcion {
     const inscripcion = await this.prisma.inscripcionTorneo.findUnique({
       where: { token },
       select: {
+        ...PARA_LA_OFERTA,
         id: true,
-        estado: true,
         estadoPago: true,
         comprobanteRuta: true,
       },
@@ -65,16 +80,15 @@ export class ComprobantesDeInscripcion {
       throw new NotFoundException('No hay una inscripción con esa llave.');
     }
 
-    // En espera no se cobra (T327): no hay transferencia que revisar. El admin sí puede
-    // adjuntarla desde el panel, por ejemplo antes de promoverla.
-    if (inscripcion.estado === EstadoInscripcionTorneo.LISTA_ESPERA) {
-      throw new ConflictException(
-        'Estás en la lista de espera: no se cobra nada hasta que se abra un cupo ' +
-          'para ti, y te avisamos por correo.',
-      );
-    }
+    // En espera no se cobra (T327), salvo la oferta vigente de un cupo (T333): sin ella no hay
+    // transferencia que revisar. El admin sí puede adjuntarla desde el panel.
+    const motivo = porQueNoSePuedeTomar(inscripcion);
+    if (motivo) throw new ConflictException(motivo);
 
-    const hecho = await this.adjuntar(inscripcion, bytes);
+    const hecho =
+      inscripcion.estado === EstadoInscripcionTorneo.LISTA_ESPERA
+        ? await this.tomarLaOferta(inscripcion, bytes)
+        : await this.adjuntar(inscripcion, bytes);
 
     // Lo subió el jugador: el club tiene algo que revisar (T130). El que sube el admin
     // desde el panel, en `subirComoAdmin`, no avisa: ya lo tiene en la mano.
@@ -108,6 +122,35 @@ export class ComprobantesDeInscripcion {
     return this.adjuntar(inscripcion, bytes);
   }
 
+  /**
+   * Toma la oferta de la lista de espera con el comprobante (T333): entra al cuadro pendiente de
+   * que el club lo revise, como cualquier transferencia.
+   *
+   * La imagen se procesa antes y se escribe con la oferta, en un solo paso: si la oferta venció
+   * entre medio, la imagen se borra y la inscripción sigue esperando sin comprobante. Al revés,
+   * quedaría en la lista con un comprobante, y `ofrecerCupos` la metería directo (E4).
+   */
+  private async tomarLaOferta(
+    inscripcion: { id: number; estadoPago: EstadoPagoInscripcion },
+    bytes: Buffer,
+  ): Promise<{ id: number }> {
+    exigirPendiente(inscripcion.estadoPago);
+
+    const { ruta } = await guardarImagen(bytes, 'comprobantes');
+
+    try {
+      await this.lista.tomar(inscripcion.id, {
+        medioPago: MedioPagoInscripcion.TRANSFERENCIA,
+        comprobanteRuta: ruta,
+      });
+    } catch (falla) {
+      await borrarImagen(ruta);
+      throw falla;
+    }
+
+    return { id: inscripcion.id };
+  }
+
   /** Guarda la imagen y reemplaza la anterior, venga de donde venga. */
   private async adjuntar(
     inscripcion: {
@@ -117,13 +160,7 @@ export class ComprobantesDeInscripcion {
     },
     bytes: Buffer,
   ): Promise<{ id: number }> {
-    if (inscripcion.estadoPago !== EstadoPagoInscripcion.PENDIENTE) {
-      throw new ConflictException(
-        inscripcion.estadoPago === EstadoPagoInscripcion.EXENTA
-          ? 'Esa inscripción es gratis: no hay nada que pagar.'
-          : 'Esa inscripción ya la revisó el club. Llámanos si hay un error.',
-      );
-    }
+    exigirPendiente(inscripcion.estadoPago);
 
     const guardada = await guardarImagen(bytes, 'comprobantes');
 
