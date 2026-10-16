@@ -331,6 +331,35 @@ describe('TorneosPublicos', () => {
       expect(texto()).toContain('no quedó tomada');
     });
 
+    it.each([
+      ['comprobante', 'el club lo revisa'],
+      ['inscrito', 'quedaste inscrito'],
+      ['espera', 'lista de espera'],
+    ])(
+      '**sin Webpay termina igual: `?pago=%s` dice cómo quedó** (T323)',
+      async (pago, dice) => {
+        // La transferencia, la categoría gratis y la lista de espera terminan acá, como la
+        // vuelta de Webpay, y no en el formulario vacío.
+        await volviendo(pago);
+
+        expect(texto()).toContain(dice);
+      },
+    );
+
+    it('**la página lleva el aviso a la vista**, venga o no de Webpay (T323)', async () => {
+      // En el escritorio, el hero lo dejaba bajo el borde de la pantalla. jsdom no tiene
+      // scrollIntoView: se pone uno que anota sobre qué elemento se llamó.
+      const original = Element.prototype.scrollIntoView;
+      const llevar = vi.fn();
+      Element.prototype.scrollIntoView = llevar;
+
+      await volviendo('listo');
+      await fixture.whenStable();
+
+      expect(llevar.mock.contexts[0]).toBe(elemento().querySelector('#resultado-del-pago'));
+      Element.prototype.scrollIntoView = original;
+    });
+
     it('sin volver de la pasarela no hay ningún aviso', () => {
       expect(texto()).not.toContain('Pago recibido');
       expect(texto()).not.toContain('no quedó tomada');

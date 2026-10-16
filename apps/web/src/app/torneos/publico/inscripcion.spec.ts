@@ -4,13 +4,12 @@ import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
 import { MatStepperHarness, StepperOrientation } from '@angular/material/stepper/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { elegir, textosDe } from '../../testing/elegir';
-import { avisoDeLoHecho } from '../../testing/snackbar';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -28,12 +27,15 @@ describe('InscripcionATorneo', () => {
   ];
 
   let fixture: ComponentFixture<InscripcionATorneo>;
+  /** `Router.navigate`, espiado: adónde termina la inscripción (T323). */
+  let navegar: MockInstance<Router['navigate']>;
   /** La sesión, como la tiene `Auth`: nula hasta que el servidor responde quién mira. */
   let sesion: WritableSignal<UsuarioActual | null>;
   let api: {
     inscribirseEnTorneo: ReturnType<typeof vi.fn>;
     inscribirseComoSocio: ReturnType<typeof vi.fn>;
     pagarInscripcion: ReturnType<typeof vi.fn>;
+    subirComprobante: ReturnType<typeof vi.fn>;
   };
 
   /** `enTelefono`: lo que responde la pantalla a `(max-width: 639px)`. jsdom no tiene matchMedia. */
@@ -63,6 +65,7 @@ describe('InscripcionATorneo', () => {
         urlRedireccion: 'https://webpay/x',
         tokenPasarela: 'e1a2b3',
       }),
+      subirComprobante: vi.fn().mockResolvedValue(undefined),
     };
 
     TestBed.resetTestingModule();
@@ -78,6 +81,7 @@ describe('InscripcionATorneo', () => {
       ],
     });
 
+    navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(InscripcionATorneo);
     fixture.componentRef.setInput('torneoId', 5);
     fixture.componentRef.setInput('categorias', CATEGORIAS);
@@ -240,31 +244,37 @@ describe('InscripcionATorneo', () => {
     expect(texto()).toContain('Elige la categoría');
   });
 
-  it('**«quedaste inscrito» se confirma con el snackbar** (T283)', async () => {
+  /** Adónde termina la inscripción que no pasa por Webpay: Torneos, con su aviso a la vista. */
+  const alTerminar = (pago: string) =>
+    expect(navegar).toHaveBeenCalledWith(['/torneos'], { queryParams: { pago }, replaceUrl: true });
+
+  it('**una categoría gratis termina en Torneos con su aviso, como Webpay** (T323)', async () => {
+    // Antes era un snackbar que se iba solo y el formulario vacío otra vez: con Webpay se
+    // terminaba en Torneos, con el aviso arriba.
     await escribir(completo);
     await enviar();
 
-    expect(avisoDeLoHecho()).toContain('quedaste inscrito');
-    expect(texto()).not.toContain('quedaste inscrito');
+    alTerminar('inscrito');
   });
 
-  it('**la lista de espera se dice, no se esconde**', async () => {
-    // Es la respuesta que la pantalla no puede adivinar: el cupo lo decide el servidor
-    // en el momento, y quien quedó fuera tiene que saberlo antes de irse.
+  it('**la lista de espera se dice, no se esconde**: también en Torneos (T323)', async () => {
+    // Es la respuesta que la pantalla no puede adivinar: el cupo lo decide el servidor en el
+    // momento, y quien quedó fuera tiene que saberlo antes de irse. Su aviso estaba en el
+    // último paso, y el formulario volvía al primero: no se veía.
     api.inscribirseEnTorneo.mockResolvedValueOnce({
       id: 2,
       estado: 'LISTA_ESPERA',
-      categoria: 'Honor',
+      estadoPago: 'EXENTA',
+      token: 'llave-2',
+      montoClp: 0,
+      categoria: '4ª',
       jugador: 'Rodrigo Soto',
     });
 
-    await escribir({ ...completo, categoria: '60' });
-    await elegirMedio('WEBPAY');
+    await escribir(completo);
     await enviar();
 
-    // En la página y no en un snackbar que se va solo (T283): hay que leerlo antes de irse.
-    expect(texto()).toContain('lista de espera');
-    expect(avisoDeLoHecho()).toBe('');
+    alTerminar('espera');
   });
 
   describe('el pago va en el mismo envío', () => {
@@ -300,6 +310,26 @@ describe('InscripcionATorneo', () => {
       );
     });
 
+    it('**con transferencia termina en Torneos, como con Webpay**, y dice que el club revisa (T323)', async () => {
+      api.inscribirseEnTorneo.mockResolvedValueOnce({
+        id: 2,
+        estado: 'INSCRITA',
+        estadoPago: 'PENDIENTE',
+        token: 'llave-2',
+        montoClp: 15_000,
+        categoria: 'Honor',
+        jugador: 'Rodrigo Soto',
+      });
+
+      await escribir({ ...completo, categoria: '60' });
+      await elegirMedio('TRANSFERENCIA');
+      await adjuntar();
+      await enviar();
+
+      alTerminar('comprobante');
+      expect(api.pagarInscripcion).not.toHaveBeenCalled();
+    });
+
     it('**con Webpay se sale a la pasarela sin apretar otro botón**', async () => {
       api.inscribirseEnTorneo.mockResolvedValueOnce({
         id: 2,
@@ -320,6 +350,33 @@ describe('InscripcionATorneo', () => {
       // persona en una página en blanco con su cupo tomado.
       expect(document.body.querySelector('form[action="https://webpay/x"]')).not
         .toBeNull();
+      // A Torneos lo trae la vuelta de Webpay, con su propio aviso.
+      expect(navegar).not.toHaveBeenCalled();
+    });
+
+    it('**si Webpay no responde y se adjunta la transferencia, termina igual** (T323)', async () => {
+      // El panel «Falta pagar la inscripción» es lo que queda si la pasarela no contesta. Su
+      // comprobante terminaba con un aviso en la página, distinto de los demás finales.
+      api.inscribirseEnTorneo.mockResolvedValueOnce({
+        id: 2,
+        estado: 'INSCRITA',
+        estadoPago: 'PENDIENTE',
+        token: 'llave-2',
+        montoClp: 15_000,
+        categoria: 'Honor',
+        jugador: 'Rodrigo Soto',
+      });
+      api.pagarInscripcion.mockRejectedValueOnce(new Error('Webpay no respondió'));
+
+      await escribir({ ...completo, categoria: '60' });
+      await elegirMedio('WEBPAY');
+      await enviar();
+      expect(texto()).toContain('Falta pagar la inscripción');
+
+      await adjuntar();
+
+      expect(api.subirComprobante).toHaveBeenCalledWith('llave-2', expect.any(File));
+      alTerminar('comprobante');
     });
 
     it('el selector dice cuánto cuesta cada categoría', async () => {

@@ -1,7 +1,11 @@
 import {
+  afterNextRender,
   Component,
   computed,
+  effect,
+  ElementRef,
   inject,
+  Injector,
   input,
   linkedSignal,
   resource,
@@ -90,7 +94,7 @@ import { Esqueleto } from '../../ui/esqueleto';
          a la lista sin una palabra y no sabía si había quedado inscrito; y quien
          anulaba se iba creyendo que sí. -->
     @if (resultadoDelPago(); as aviso) {
-      <app-aviso [variante]="aviso.variante" class="mt-4 block">
+      <app-aviso id="resultado-del-pago" [variante]="aviso.variante" class="mt-4 block">
         {{ aviso.texto }}
       </app-aviso>
     }
@@ -318,6 +322,22 @@ export class TorneosPublicos {
     // Poner esto en `true` hace dos cosas: escribe el aviso y vuelve a pedir el
     // calendario, porque el recurso lo tiene de parámetro.
     soltarSiVolvioSinPagar(() => this.volvioSinPagar.set(true));
+
+    // **El aviso de cómo terminó la inscripción, a la vista** (T323), venga de la vuelta de
+    // Webpay o del formulario: en el escritorio, el hero lo dejaba bajo el borde de la pantalla.
+    // jsdom no implementa scrollIntoView: en las pruebas, la página queda donde está.
+    const anfitrion = inject<ElementRef<HTMLElement>>(ElementRef);
+    const injector = inject(Injector);
+    effect(() => {
+      if (!this.resultadoDelPago()) return;
+      afterNextRender(
+        () =>
+          anfitrion.nativeElement
+            .querySelector('#resultado-del-pago')
+            ?.scrollIntoView?.({ block: 'center' }),
+        { injector },
+      );
+    });
   }
 
   protected readonly torneos = resource({
