@@ -283,6 +283,27 @@ describe('Inicio', () => {
     const seccion = () =>
       elemento().querySelector('[aria-labelledby="torneos-abiertos"]') as HTMLElement;
 
+    it('**se anuncia con su afiche**: la primera foto de antes, en el cartel del torneo (T314)', async () => {
+      await montar([
+        {
+          ...ABIERTO,
+          afiches: [
+            {
+              id: 7,
+              partidoId: null,
+              momento: 'ANTES',
+              descripcion: 'El afiche',
+              miniatura: '/api/torneos/fotos/7/miniatura',
+              imagen: '/api/torneos/fotos/7/imagen',
+            },
+          ],
+        },
+      ]);
+
+      const afiche = seccion().querySelector('app-cartel-del-torneo [data-afiche] img');
+      expect(afiche?.getAttribute('src')).toBe('/api/torneos/fotos/7/imagen');
+    });
+
     it('el cartel nombra el torneo y dice hasta cuándo inscribirse', async () => {
       await montar([ABIERTO]);
 

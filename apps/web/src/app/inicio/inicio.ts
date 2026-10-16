@@ -17,6 +17,7 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { TiendaYCafeteria } from '../club/tienda-y-cafeteria';
+import { CartelDelTorneo } from '../torneos/publico/cartel-del-torneo';
 import { Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
@@ -50,6 +51,7 @@ import { Foto } from '../ui/foto';
   imports: [
     MatButton,
     RouterLink,
+    CartelDelTorneo,
     Cinta,
     Esqueleto,
     Foto,
@@ -372,45 +374,29 @@ import { Foto } from '../ui/foto';
 
         <ul class="mt-6 grid gap-6">
           @for (torneo of abiertos(); track torneo.id) {
-            <li class="grid overflow-hidden bg-card shadow-md lg:grid-cols-[1fr_1.25fr]">
-              <!-- EL CARTEL. La foto llena el fondo y el velo sube desde abajo,
-                   como el del hero, para que el texto claro se lea encima. -->
-              <div
-                class="relative isolate flex min-h-[21rem] flex-col justify-end gap-3 p-6
-                       text-on-campo texto-sobre-foto sm:p-9 lg:min-h-[28rem]"
-              >
-                <app-foto
-                  class="absolute inset-0 -z-20"
-                  descripcion="Un jugador golpea de derecha en una cancha al aire libre, con el cielo
-                               despejado detrás"
-                  src="/fotos/jugador_fondo.jpg"
-                  proporcion="4/3"
-                  claseCaja="h-full"
-                />
-                <div
-                  class="absolute inset-0 -z-10 velo-foto"
-                  aria-hidden="true"
-                ></div>
-
+            <li>
+              <!-- EL CARTEL (T314, SPEC-sitio.md D2): el afiche del torneo a la izquierda, entero, y
+                   al lado lo que se compara. Hasta T314 era una foto fija del club con el nombre
+                   encima; sobre un afiche, el nombre taparía lo que hay que leer. -->
+              <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
                 <mat-chip-set class="insignias self-start">
                   <mat-chip class="insignia libre">
                     <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
                     Inscripción abierta
                   </mat-chip>
                 </mat-chip-set>
-                <h3 class="titular text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
-                <p class="max-w-prose text-on-campo/90">
+                <h3 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
+                <p class="mt-2 max-w-prose text-muted-foreground">
                   Del {{ enPalabras(torneo.fechaInicio) }} al
                   {{ enPalabras(torneo.fechaFin) }}. Te puedes inscribir hasta el
                   {{ enPalabras(torneo.cierreInscripcion) }}.
                 </p>
-              </div>
-
-              <!-- LA TABLA. **Una fila por categoría**: el valor y el cupo son de
-                   cada cuadro, así que un precio del torneo mentiría —Honor puede
-                   costar el doble que la 5ª el mismo fin de semana—. -->
-              <div class="flex flex-col p-4 sm:p-7">
-                <table mat-table [attr.aria-label]="'Categorías de ' + torneo.nombre" [dataSource]="torneo.categorias">
+                <table
+                  mat-table
+                  class="mt-5"
+                  [attr.aria-label]="'Categorías de ' + torneo.nombre"
+                  [dataSource]="torneo.categorias"
+                >
                   <ng-container matColumnDef="categoria">
                     <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
                     <td
@@ -453,7 +439,7 @@ import { Foto } from '../ui/foto';
                     <span class="sr-only">en {{ torneo.nombre }}</span>
                   </a>
                 </div>
-              </div>
+              </app-cartel-del-torneo>
             </li>
           }
         </ul>
