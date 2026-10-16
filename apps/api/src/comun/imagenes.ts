@@ -18,6 +18,15 @@ import sharp from 'sharp';
  * serían dos formas de recibir un archivo, y la primera en escribirse sería la peor.
  */
 
+/**
+ * **Un SVG no se decodifica nunca.** Lo lee librsvg, donde estaba la falla de memoria de
+ * GHSA-wq5f-xc86-pv6w, que en Linux con glibc podía terminar en ejecución remota. Y le
+ * llega a cualquiera: la inscripción a un torneo recibe imágenes sin sesión. Ninguna
+ * subida lo necesita, porque la web solo ofrece JPG y PNG. El bloqueo vale para todo
+ * el proceso, y este archivo es el único que le pasa a `sharp` bytes de afuera.
+ */
+sharp.block({ operation: ['VipsForeignLoadSvg'] });
+
 /** Lo que se acepta de entrada. Una foto de celular actual cabe de sobra. */
 export const MAXIMO_BYTES = 15 * 1024 * 1024;
 
