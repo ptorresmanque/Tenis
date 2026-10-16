@@ -38,6 +38,7 @@ describe('TorneosPublicos', () => {
       },
     ],
     tours: [],
+    afiches: [],
   };
 
   const SEMIFINAL: PartidoPublico = {

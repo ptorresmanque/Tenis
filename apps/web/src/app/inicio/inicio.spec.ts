@@ -45,6 +45,7 @@ describe('Inicio', () => {
       },
     ],
     tours: [],
+    afiches: [],
   };
 
   let fixture: ComponentFixture<Inicio>;
