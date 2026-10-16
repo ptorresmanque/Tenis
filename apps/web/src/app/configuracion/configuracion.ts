@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+
+import { PestanasDeLaPantalla } from '../ui/pestanas-de-la-pantalla';
 
 /**
  * Configuración del club: el cascarón con la sub-navegación.
@@ -7,10 +8,15 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
  * Secciones y no pantallas sueltas, como decidió R.5 en el plan: comparten encabezado
  * y se saltan entre sí todo el tiempo. Agregar una es agregar una línea a esta lista y
  * su ruta, sin tocar nada más — así entró la de categorías de juego en T60.
+ *
+ * Desde T290 (SPEC-panel.md D11) son cinco y no nueve: «El club» junta los datos, los textos y
+ * las preguntas frecuentes, y «Servicios», la tienda, la cafetería y el gimnasio, cada parte en
+ * su panel: cinco se eligen de un vistazo. Las pestañas las dibuja el componente compartido, como
+ * en la agenda, Finanzas y Canchas.
  */
 @Component({
   selector: 'app-configuracion',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [PestanasDeLaPantalla],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada sección trae la suya, y
          la navegación entre secciones va debajo. -->
@@ -23,44 +29,16 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
       </div>
     </header>
 
-    <nav aria-label="Secciones de configuración" class="mt-4 border-b border-border">
-      <ul class="flex flex-wrap gap-1">
-        @for (seccion of SECCIONES; track seccion.ruta) {
-          <li>
-            <a
-              [routerLink]="seccion.ruta"
-              routerLinkActive
-              ariaCurrentWhenActive="page"
-              #activa="routerLinkActive"
-              class="flex min-h-12 items-center gap-2 border-b-2 px-3 font-display text-sm
-                     font-bold tracking-wide uppercase transition-colors sm:px-4"
-              [class]="
-                activa.isActive
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              "
-            >
-              <span class="icono text-lg" aria-hidden="true">{{ seccion.icono }}</span>
-              {{ seccion.etiqueta }}
-            </a>
-          </li>
-        }
-      </ul>
-    </nav>
-
-    <div class="mt-6">
-      <router-outlet />
-    </div>
+    <app-pestanas-de-la-pantalla etiqueta="Secciones de configuración" [pestanas]="SECCIONES" />
   `,
 })
 export class Configuracion {
   protected readonly SECCIONES = [
-    { ruta: 'reglas', etiqueta: 'Reglas y cuotas', icono: 'rule' },
-    { ruta: 'datos', etiqueta: 'Datos del club', icono: 'storefront' },
-    { ruta: 'textos', etiqueta: 'Textos del sitio', icono: 'edit_note' },
-    { ruta: 'tienda-y-cafeteria', etiqueta: 'Tienda y cafetería', icono: 'local_cafe' },
-    { ruta: 'administradores', etiqueta: 'Administradores', icono: 'shield_person' },
-    { ruta: 'categorias-juego', etiqueta: 'Categorías de juego', icono: 'stairs' },
-    { ruta: 'preguntas-frecuentes', etiqueta: 'Preguntas frecuentes', icono: 'quiz' },
+    { ruta: '/administracion/configuracion/reglas', etiqueta: 'Reglas y cuotas' },
+    { ruta: '/administracion/configuracion/el-club', etiqueta: 'El club' },
+    { ruta: '/administracion/configuracion/servicios', etiqueta: 'Servicios' },
+    { ruta: '/administracion/configuracion/categorias-juego', etiqueta: 'Categorías de juego' },
+    // T274. El correo diario con la agenda, para admins y gestores.
+    { ruta: '/administracion/configuracion/informe-diario', etiqueta: 'Informe diario' },
   ];
 }

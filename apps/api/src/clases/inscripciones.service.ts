@@ -8,10 +8,13 @@ import { ZONA_DEL_CLUB } from '../comun/tiempo';
 import {
   EstadoClase,
   EstadoInscripcion,
+  EstadoSocio,
   Prisma,
+  TipoClase,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { InscripcionNueva } from './clases.dto';
+import { GIMNASIO } from './gimnasio';
 
 /**
  * Los estados en que una inscripción ocupa un lugar en la clase.
@@ -49,11 +52,14 @@ export interface Inscrito {
 
 export interface FichaDeClase {
   id: number;
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T231, A7). */
+  lugar: string;
   profesor: string;
   inicio: Date;
   fin: Date;
-  nivel: string;
+  /** Nulo en preparación física. */
+  nivel: string | null;
   estado: EstadoClase;
   cupoMaximo: number;
   cupoTomado: number;
@@ -311,12 +317,41 @@ export class Inscripciones {
     });
   }
 
+  /**
+   * Los socios activos que se pueden inscribir, con lo justo para elegirlos (T218): ni
+   * correo, ni teléfono, ni deuda. El servidor igual acepta a cualquier socio que
+   * exista (`exigirSocio`); esto es la lista para elegir, no la regla.
+   */
+  async sociosParaInscribir(): Promise<
+    { id: number; nombre: string; numeroSocio: string }[]
+  > {
+    const socios = await this.prisma.socio.findMany({
+      where: { estado: EstadoSocio.ACTIVO },
+      orderBy: [
+        { usuario: { nombre: 'asc' } },
+        { usuario: { apellido: 'asc' } },
+      ],
+      select: {
+        id: true,
+        numeroSocio: true,
+        usuario: { select: { nombre: true, apellido: true } },
+      },
+    });
+
+    return socios.map((socio) => ({
+      id: socio.id,
+      nombre: `${socio.usuario.nombre} ${socio.usuario.apellido}`,
+      numeroSocio: socio.numeroSocio,
+    }));
+  }
+
   /** La ficha de la clase con su lista, que es lo que el profesor lleva a la cancha. */
   async ficha(id: number): Promise<FichaDeClase> {
     const clase = await this.prisma.clase.findUnique({
       where: { id },
       select: {
         id: true,
+        tipo: true,
         inicio: true,
         fin: true,
         nivel: true,
@@ -369,7 +404,8 @@ export class Inscripciones {
 
     return {
       id: clase.id,
-      cancha: clase.cancha.nombre,
+      tipo: clase.tipo,
+      lugar: clase.cancha?.nombre ?? GIMNASIO,
       profesor: clase.profesor.nombreVisible,
       inicio: clase.inicio,
       fin: clase.fin,

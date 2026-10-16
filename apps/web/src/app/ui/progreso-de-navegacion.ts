@@ -1,5 +1,6 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatProgressBar } from '@angular/material/progress-bar';
 import {
   NavigationCancel,
   NavigationEnd,
@@ -28,31 +29,19 @@ const RETARDO_EN_MILISEGUNDOS = 200;
  */
 @Component({
   selector: 'app-progreso-de-navegacion',
+  imports: [MatProgressBar],
   template: `
+    <!-- No se sabe cuánto falta, así que es indeterminada (T262): un tramo que cruza la
+         pantalla y vuelve a empezar. Con "reducir movimiento" se queda quieta. El «fixed!» es
+         porque Material le fija «position: relative» sin capa. -->
     @if (visible()) {
-      <div
-        class="fixed inset-x-0 top-0 z-50 h-1 overflow-hidden print:hidden"
+      <!-- mat-guidelines-ignore: progress-sin-label — aria-hidden a propósito: anunciar «cargando» en cada enlace sería ruido (T151, T302) -->
+      <mat-progress-bar
+        data-barra
+        mode="indeterminate"
+        class="fixed! inset-x-0 top-0 z-50 print:hidden"
         aria-hidden="true"
-      >
-        <div data-barra class="barra h-full w-1/4 bg-primary"></div>
-      </div>
-    }
-  `,
-  styles: `
-    /* No se sabe cuánto falta, así que no se dibuja un avance: un tramo que cruza la
-       pantalla y vuelve a empezar. Con "reducir movimiento" se queda quieto. */
-    .barra {
-      animation: cruzar var(--duracion-latido) var(--ease-vaiven) infinite;
-    }
-
-    @keyframes cruzar {
-      from {
-        translate: -100%;
-      }
-
-      to {
-        translate: 400%;
-      }
+      />
     }
   `,
 })

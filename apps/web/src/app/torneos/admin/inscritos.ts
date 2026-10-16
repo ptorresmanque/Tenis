@@ -1,20 +1,29 @@
 import {
   Component,
-  ElementRef,
   computed,
-  effect,
   inject,
   input,
   resource,
   signal,
+  TemplateRef,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
 
-import { enPesos } from '../../catalogo-canchas/reloj-del-club';
+import { dialogoSegun } from '../../ui/dialogo';
+import { proveerCampos } from '../../ui/campos';
+import { diaYHoraEnPalabras, enPesos } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Insignia, VarianteInsignia } from '../../ui/insignia';
+import { VarianteInsignia } from '../../ui/insignias';
 import { InscripcionTorneo, Torneos } from '../torneos.service';
 import { TelefonoPipe } from '../../core/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -22,14 +31,28 @@ import { Esqueleto } from '../../ui/esqueleto';
 /**
  * Quién juega un torneo.
  *
- * **Pasado el cupo, el jugador entra en lista de espera y no se lo rechaza.** El club
- * llama por teléfono antes de meter a alguien en un cuadro que ya anunció, así que
- * promover es un botón y no un automatismo: quien quedó fuera hace dos semanas ya hizo
- * otros planes.
+ * **Pasado el cupo, el jugador entra en lista de espera y no se lo rechaza.** El lugar que se
+ * abre se le ofrece al primero de la fila, con un plazo para tomarlo (SPEC-torneos.md § Lista de
+ * espera sin cobro), y la lista dice quién lo tiene y hasta cuándo. «Meter al cuadro» queda para
+ * los casos especiales, como quien paga en el mesón.
  */
 @Component({
   selector: 'app-inscritos-torneo',
-  imports: [FormsModule, Aviso, Insignia, TelefonoPipe, Esqueleto],
+  imports: [
+    MatDialogModule,
+    MatButtonToggleModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    MatIcon,
+    FormsModule,
+    Aviso,
+    TelefonoPipe,
+    Esqueleto,
+    MatChipsModule,
+  ],
+  providers: [proveerCampos()],
   template: `
     @if (lista.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -41,12 +64,15 @@ import { Esqueleto } from '../../ui/esqueleto';
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-center gap-2">
           <h2 class="rotulo-seccion">Inscritos</h2>
-          <app-insignia
-            [variante]="datos.inscritos.length >= datos.cupo ? 'aviso' : 'neutro'"
-            icono="group"
-          >
-            {{ datos.inscritos.length }} de {{ datos.cupo }}
-          </app-insignia>
+          <mat-chip-set class="insignias">
+            <mat-chip
+              class="insignia"
+              [class]="datos.inscritos.length >= datos.cupo ? 'aviso' : 'neutro'"
+            >
+              <mat-icon matChipAvatar aria-hidden="true">group</mat-icon>
+              {{ datos.inscritos.length }} de {{ datos.cupo }}
+            </mat-chip>
+          </mat-chip-set>
           @if (datos.montoClp > 0) {
             <span class="text-sm text-muted-foreground">
               inscripción {{ pesos(datos.montoClp) }}
@@ -58,26 +84,20 @@ import { Esqueleto } from '../../ui/esqueleto';
              estado de la base: es toda pendiente que no se resuelve sola, y la única
              que se resuelve sola es la que eligió Webpay y no pagó. -->
         @if (porRevisar(datos.inscritos).length > 0 || filtro() !== 'todos') {
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              class="boton boton-chico"
-              [class]="filtro() === 'todos' ? 'boton-primario' : 'boton-secundario'"
-              [attr.aria-pressed]="filtro() === 'todos'"
-              (click)="filtro.set('todos')"
-            >
-              Todos {{ datos.inscritos.length }}
-            </button>
-            <button
-              type="button"
-              class="boton boton-chico"
-              [class]="filtro() === 'revisar' ? 'boton-primario' : 'boton-secundario'"
-              [attr.aria-pressed]="filtro() === 'revisar'"
-              (click)="filtro.set('revisar')"
-            >
+          <!-- Un grupo de opciones y no dos botones pintados como acción principal (T251,
+               corrección de la auditoría). -->
+          <mat-button-toggle-group
+            class="mt-2"
+            aria-label="Filtrar inscritos"
+            hideSingleSelectionIndicator
+            [value]="filtro()"
+            (change)="filtro.set($event.value)"
+          >
+            <mat-button-toggle value="todos">Todos {{ datos.inscritos.length }}</mat-button-toggle>
+            <mat-button-toggle value="revisar">
               Por revisar {{ porRevisar(datos.inscritos).length }}
-            </button>
-          </div>
+            </mat-button-toggle>
+          </mat-button-toggle-group>
         }
 
         @if (error(); as falla) {
@@ -111,9 +131,12 @@ import { Esqueleto } from '../../ui/esqueleto';
                   <div class="min-w-0">
                     <span class="font-medium">{{ quien.jugador }}</span>
                     @if (quien.numeroSocio) {
-                      <app-insignia variante="info" icono="badge" class="ms-2">
-                        Socio {{ quien.numeroSocio }}
-                      </app-insignia>
+                      <mat-chip-set class="insignias ms-2">
+                        <mat-chip class="insignia info">
+                          <mat-icon matChipAvatar aria-hidden="true">badge</mat-icon>
+                          Socio {{ quien.numeroSocio }}
+                        </mat-chip>
+                      </mat-chip-set>
                     } @else if (quien.procedencia) {
                       <span class="ms-2 text-muted-foreground">
                         {{ quien.procedencia }}
@@ -121,18 +144,18 @@ import { Esqueleto } from '../../ui/esqueleto';
                     }
                   </div>
 
-                  <app-insignia
-                    class="justify-self-start"
-                    [variante]="pago(quien).variante"
-                    [icono]="pago(quien).icono"
-                  >
-                    {{ pago(quien).texto }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias justify-self-start">
+                    <mat-chip class="insignia" [class]="pago(quien).variante">
+                      <mat-icon matChipAvatar aria-hidden="true">{{ pago(quien).icono }}</mat-icon>
+                      {{ pago(quien).texto }}
+                    </mat-chip>
+                  </mat-chip-set>
 
-                  <label class="flex items-center gap-1">
-                    <span class="sr-only">Siembra de {{ quien.jugador }}</span>
+                  <mat-form-field class="chico w-16">
+                    <!-- Sin etiqueta a la vista, como antes: la fila ya dice de quién es. -->
                     <input
-                      class="campo campo-chico w-16"
+                      matInput
+                      [attr.aria-label]="'Siembra de ' + quien.jugador"
                       type="number"
                       min="1"
                       placeholder="—"
@@ -141,7 +164,7 @@ import { Esqueleto } from '../../ui/esqueleto';
                       [disabled]="trabajando() || datos.estado !== 'INSCRIPCION'"
                       (change)="sembrar(quien, $any($event.target).value)"
                     />
-                  </label>
+                  </mat-form-field>
 
                   <!-- Las acciones juntas y al final, siempre en el mismo sitio. -->
                   <div class="flex items-center gap-1 justify-self-end">
@@ -151,8 +174,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                          dejaba sin ninguna salida. -->
                     @if (quien.estadoPago === 'PENDIENTE') {
                       <button
+                        matButton="outlined"
                         type="button"
-                        class="boton boton-secundario boton-chico"
+                        class="chico"
                         [attr.aria-expanded]="revisando() === quien.id"
                         (click)="alternarRevision(quien.id)"
                       >
@@ -164,8 +188,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                       </button>
                     }
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico"
+                      class="chico"
                       [disabled]="trabajando()"
                       [attr.aria-busy]="enCurso() === 'retirar-' + quien.id"
                       (click)="retirar(quien)"
@@ -180,9 +205,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                      programar los partidos, así que se lee de un vistazo. -->
                 @if (quien.restricciones.length > 0) {
                   <p class="text-xs text-muted-foreground">
-                    <span class="icono align-middle text-sm" aria-hidden="true">
+                    <mat-icon class="align-middle text-sm" aria-hidden="true">
                       schedule
-                    </span>
+                    </mat-icon>
                     No puede
                     {{ enPalabras(quien.restricciones) }}
                   </p>
@@ -218,17 +243,25 @@ import { Esqueleto } from '../../ui/esqueleto';
                         <p class="text-xs text-muted-foreground">
                           No adjuntó comprobante.
                         </p>
-                        <label class="boton boton-secundario boton-chico cursor-pointer">
+                        <!-- matButton no va en una etiqueta: el botón abre el selector
+                             del campo escondido (T243). -->
+                        <button
+                          matButton="outlined"
+                          type="button"
+                          class="chico"
+                          [disabled]="trabajando()"
+                          (click)="comprobante.click()"
+                        >
                           Adjuntar uno
-                          <input
-                            class="sr-only"
-                            type="file"
-                            accept="image/jpeg,image/png"
-                            [attr.name]="'comprobante-' + quien.id"
-                            [disabled]="trabajando()"
-                            (change)="adjuntar(quien, $event)"
-                          />
-                        </label>
+                        </button>
+                        <input
+                          #comprobante
+                          hidden
+                          type="file"
+                          accept="image/jpeg,image/png"
+                          [attr.name]="'comprobante-' + quien.id"
+                          (change)="adjuntar(quien, $event)"
+                        />
                       </div>
                     }
 
@@ -253,36 +286,39 @@ import { Esqueleto } from '../../ui/esqueleto';
                            campo del motivo, heredado de la bandeja vieja: con un
                            campo elástico de por medio, rechazar quedaba en la otra
                            punta de la fila y no se leía como la pareja de confirmar. -->
-                      <label class="mt-2 block text-sm">
-                        <span class="text-muted-foreground">Cómo pagó</span>
-                        <select
-                          class="campo campo-chico mt-1"
+                      <mat-form-field class="chico">
+                        <mat-label>Cómo pagó</mat-label>
+                        <mat-select
+                          [name]="'medio-' + quien.id"
                           [attr.name]="'medio-' + quien.id"
                           [(ngModel)]="medios[quien.id]"
                         >
-                          <option value="">Sin especificar</option>
+                          <mat-option value="">Sin especificar</mat-option>
                           @for (medio of MEDIOS; track medio.valor) {
-                            <option [value]="medio.valor">{{ medio.opcion }}</option>
+                            <mat-option [value]="medio.valor">{{ medio.opcion }}</mat-option>
                           }
-                        </select>
-                      </label>
+                        </mat-select>
+                      </mat-form-field>
 
-                      <label class="mt-2 block text-sm">
-                        <span class="text-muted-foreground">Motivo del rechazo</span>
+                      <mat-form-field class="chico">
+                        <mat-label>Motivo del rechazo</mat-label>
                         <input
-                          class="campo campo-chico mt-1"
-                          [attr.name]="'motivo-' + quien.id"
+                          matInput
+                          [name]="'motivo-' + quien.id"
                           maxlength="200"
                           placeholder="El comprobante es de otro monto"
                           [(ngModel)]="motivos[quien.id]"
                         />
-                      </label>
+                      </mat-form-field>
 
                       <!-- Los dos abren el modal; la decisión se toma allá. -->
                       <div class="mt-2 flex flex-wrap gap-2">
+                          <!-- La confirmación va en su diálogo; en la lista, uno por inscrito.
+                               mat-guidelines-ignore: multiples-filled -->
                           <button
+                            matButton="filled"
                             type="button"
-                            class="boton boton-primario boton-chico"
+                            class="chico"
                             [disabled]="trabajando()"
                             (click)="preguntar(quien, 'aprobar')"
                           >
@@ -290,8 +326,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                           </button>
 
                           <button
+                            matButton="outlined"
                             type="button"
-                            class="boton boton-secundario boton-chico"
+                            class="chico"
                             [disabled]="trabajando()"
                             (click)="preguntar(quien, 'rechazar')"
                           >
@@ -321,9 +358,15 @@ import { Esqueleto } from '../../ui/esqueleto';
             @for (quien of datos.enEspera; track quien.id) {
               <li class="flex flex-wrap items-center gap-2 text-sm">
                 <span>{{ quien.jugador }}</span>
+                @if (quien.cupoOfrecidoHasta) {
+                  <span class="text-muted-foreground">
+                    · cupo ofrecido hasta el {{ diaYHora(quien.cupoOfrecidoHasta) }}
+                  </span>
+                }
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico ms-auto"
+                  class="chico ms-auto"
                   [disabled]="trabajando()"
                   [attr.aria-busy]="enCurso() === 'promover-' + quien.id"
                   (click)="promover(quien)"
@@ -334,7 +377,8 @@ import { Esqueleto } from '../../ui/esqueleto';
             }
           </ul>
           <p class="mt-1 text-sm text-muted-foreground">
-            No entran solos: el club llama antes de meter a alguien en el cuadro.
+            El lugar que se abre se le ofrece al primero de la fila, con un plazo para tomarlo.
+            «Meter al cuadro» es para los casos especiales, como quien paga en el mesón.
           </p>
         }
 
@@ -347,39 +391,39 @@ import { Esqueleto } from '../../ui/esqueleto';
         @if (datos.estado === 'INSCRIPCION') {
           <form class="mt-3 border-t border-border pt-3" (ngSubmit)="inscribir()">
             <div class="flex flex-wrap items-end gap-2">
-              <label class="min-w-64 flex-1">
-                <span class="text-sm font-medium">Inscribir a</span>
-                <select
-                  class="campo campo-chico mt-1"
+              <mat-form-field class="chico min-w-64 flex-1">
+                <mat-label>Inscribir a</mat-label>
+                <mat-select
                   name="jugadorId"
                   [(ngModel)]="jugadorId"
                 >
-                  <option [value]="0" disabled>Elige un jugador</option>
+                  <mat-option [value]="0" disabled>Elige un jugador</mat-option>
                   @for (jugador of porInscribir(); track jugador.id) {
-                    <option [value]="jugador.id">
+                    <mat-option [value]="jugador.id">
                       {{ jugador.apellido }}, {{ jugador.nombre }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
-              </label>
+                </mat-select>
+              </mat-form-field>
 
               <!-- **Se pide pero no se exige** (T127): el que se anota en el mesón puede
                    no tener correo, y sin él no le llegan los avisos del torneo. -->
-              <label class="min-w-56 flex-1">
-                <span class="text-sm font-medium">Correo (opcional)</span>
+              <mat-form-field class="chico min-w-56 flex-1">
+                <mat-label>Correo (opcional)</mat-label>
                 <input
-                  class="campo campo-chico mt-1"
+                  matInput
                   type="email"
                   name="email"
                   autocomplete="off"
                   maxlength="191"
                   [(ngModel)]="correo"
                 />
-              </label>
+              </mat-form-field>
 
               <button
+                matButton="outlined"
                 type="submit"
-                class="boton boton-secundario boton-chico"
+                class="chico"
                 [disabled]="trabajando()"
                 [attr.aria-busy]="enCurso() === 'inscribir'"
               >
@@ -401,48 +445,37 @@ import { Esqueleto } from '../../ui/esqueleto';
       </div>
     }
 
-    <!-- **La confirmación es un modal de verdad**, no una tira más dentro de la fila.
-         Se abre con showModal y no con el atributo open: es lo único que vuelve inerte
-         el resto de la página y atrapa el foco, que es lo que hace que una pregunta se
-         lea como una pregunta. Mismo patrón que la ficha del socio y la reserva. -->
-    <dialog
-      #confirmacion
-      closedby="any"
-      class="m-auto w-[min(28rem,92vw)] rounded-2xl bg-card p-6 shadow-xl
-             backdrop:bg-foreground/50"
-      aria-labelledby="titulo-confirmacion"
-      (close)="confirmando.set(null)"
-    >
+    <!-- **La confirmación es un modal de verdad**, no una tira más dentro de la fila: un
+         MatDialog vuelve inerte el resto de la página y atrapa el foco, que es lo que hace
+         que una pregunta se lea como una pregunta (T252). Mismo patrón que la ficha del
+         socio y la reserva. -->
+    <ng-template #confirmacion>
       @if (confirmando(); as decision) {
-        <h2 id="titulo-confirmacion" class="titular text-2xl">
-          {{ decision.accion === 'aprobar' ? 'Confirmar el pago' : 'Rechazar el pago' }}
+        <h2 mat-dialog-title>
+          {{ decision.accion === 'aprobar' ? '¿Confirmar el pago?' : '¿Rechazar el pago?' }}
         </h2>
 
-        <p class="mt-2 max-w-prose text-sm text-muted-foreground">
-          @if (decision.accion === 'aprobar') {
-            {{ decision.quien.jugador }} queda pagado
-            @if (medios[decision.quien.id]) {
-              {{ comoPago(medios[decision.quien.id]) }}
+        <mat-dialog-content>
+          <p class="max-w-prose text-sm text-muted-foreground">
+            @if (decision.accion === 'aprobar') {
+              {{ decision.quien.jugador }} queda pagado
+              @if (medios[decision.quien.id]) {
+                {{ comoPago(medios[decision.quien.id]) }}
+              }
+              . Esto no se deshace desde acá.
+            } @else {
+              Rechazar el pago de {{ decision.quien.jugador }}
+              <strong>libera el cupo</strong>: pasa al primero de la lista de espera, y
+              su inscripción queda retirada.
             }
-            . Esto no se deshace desde acá.
-          } @else {
-            Rechazar el pago de {{ decision.quien.jugador }}
-            <strong>libera el cupo</strong>: pasa al primero de la lista de espera, y
-            su inscripción queda retirada.
-          }
-        </p>
+          </p>
+        </mat-dialog-content>
 
-        <div class="mt-5 flex flex-wrap justify-end gap-2">
+        <mat-dialog-actions>
+          <button matButton type="button" mat-dialog-close>Mejor no</button>
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-texto"
-            (click)="confirmacion.close()"
-          >
-            Mejor no
-          </button>
-          <button
-            type="button"
-            class="boton boton-primario"
             [disabled]="trabajando()"
             [attr.aria-busy]="enCurso() === 'resolver-' + decision.quien.id"
             (click)="resolver(decision.quien)"
@@ -453,9 +486,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                 : 'Sí, rechazar'
             }}
           </button>
-        </div>
+        </mat-dialog-actions>
       }
-    </dialog>
+    </ng-template>
   `,
 })
 export class InscritosDelTorneo {
@@ -617,20 +650,17 @@ export class InscritosDelTorneo {
     accion: 'aprobar' | 'rechazar';
   } | null>(null);
 
-  private readonly confirmacion =
-    viewChild.required<ElementRef<HTMLDialogElement>>('confirmacion');
+  private readonly confirmacion = viewChild.required<TemplateRef<unknown>>('confirmacion');
 
   constructor() {
-    // Abrir y cerrar el `<dialog>` sigue a la señal, en vez de que cada botón lo haga
-    // a mano: así el `closedby="any"` —la tecla Esc y el clic en el fondo— y el botón
-    // de "mejor no" terminan todos en el mismo estado.
-    effect(() => {
-      const abierto = this.confirmando() !== null;
-      const elemento = this.confirmacion().nativeElement;
-
-      if (abierto && !elemento.open) elemento.showModal();
-      if (!abierto && elemento.open) elemento.close();
-    });
+    // El diálogo sigue a la señal, en vez de que cada botón lo abra y lo cierre a mano: así
+    // la tecla Esc, el clic en el fondo y "Mejor no" terminan todos en el mismo estado.
+    dialogoSegun(
+      () => this.confirmando() !== null,
+      this.confirmacion,
+      () => this.confirmando.set(null),
+      { width: '28rem', maxWidth: '92vw' },
+    );
   }
 
   /**
@@ -736,9 +766,14 @@ export class InscritosDelTorneo {
     return this.jugadores.value().filter((jugador) => !yaEstan.has(jugador.id));
   });
 
+  protected readonly diaYHora = diaYHoraEnPalabras;
+
+  /** Los que se bajaron. Retirado con una oferta es que no la tomó a tiempo (T336, E2). */
   protected readonly nombresRetirados = computed(() =>
     (this.lista.value()?.retirados ?? [])
-      .map((quien) => quien.jugador)
+      .map((quien) =>
+        quien.cupoOfrecidoHasta ? `${quien.jugador} (venció su plazo)` : quien.jugador,
+      )
       .join(', '),
   );
 

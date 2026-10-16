@@ -291,6 +291,22 @@ describe('Bloqueos por mantención', () => {
       await bloquear({ motivo: 'PORQUE_SI' }).expect(400);
     });
 
+    it.each(['CLASE', 'TORNEO'])(
+      'rechaza un bloqueo de %s: enciende la cancha y va por el cierre, que cuenta el tope de luz (T206)',
+      async (motivo) => {
+        const respuesta = await bloquear({ motivo }).expect(400);
+
+        expect((respuesta.body as { message: string }).message).toBe(
+          'Los bloqueos de clase y de torneo encienden la cancha: se crean cerrándola, que es donde se cuenta el tope de canchas con luz.',
+        );
+        expect(await prisma.bloqueo.count({ where: { canchaId } })).toBe(0);
+      },
+    );
+
+    it('un bloqueo de otro motivo sigue entrando directo', async () => {
+      await bloquear({ motivo: 'OTRO' }).expect(201);
+    });
+
     it('rechaza una fecha que no existe', async () => {
       await bloquear({ fechaDesde: '2026-02-30' }).expect(400);
     });

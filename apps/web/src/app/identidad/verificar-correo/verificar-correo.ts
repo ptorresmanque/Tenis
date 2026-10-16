@@ -2,12 +2,15 @@ import { HttpClient } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
 import { firstValueFrom } from 'rxjs';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 
 /**
  * Pedir otro enlace de verificación, para el que venció o el que nunca llegó. Acá
@@ -19,7 +22,8 @@ import { Campo, CampoControl } from '../../ui/campo';
  */
 @Component({
   selector: 'app-verificar-correo',
-  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
+  imports: [MatFormFieldModule, MatInput, MatButton, ReactiveFormsModule, RouterLink, Aviso],
+  providers: [proveerCampos()],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Verificar correo</h1>
 
@@ -41,25 +45,26 @@ import { Campo, CampoControl } from '../../ui/campo';
         }
 
         <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="pedir()">
-          <app-campo etiqueta="Correo">
+          <mat-form-field>
+            <mat-label>Correo</mat-label>
             <input
-              appCampoControl
+              matInput
               type="email"
               formControlName="email"
               autocomplete="email"
-              class="campo"
             />
-          </app-campo>
+            <mat-error>{{ errorDelCampo(formulario.controls.email) }}</mat-error>
+          </mat-form-field>
 
           @if (error(); as motivo) {
             <app-aviso variante="error">{{ motivo }}</app-aviso>
           }
 
           <button
+            matButton="filled"
             type="submit"
             [disabled]="enviando() || formulario.invalid"
             [attr.aria-busy]="enviando()"
-            class="boton boton-primario"
           >
             {{ enviando() ? 'Enviando…' : 'Mandar un enlace nuevo' }}
           </button>
@@ -73,6 +78,8 @@ import { Campo, CampoControl } from '../../ui/campo';
   `,
 })
 export class VerificarCorreo {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly http = inject(HttpClient);
 
   /** Lo deja el enlace del correo tras pasar por la API. */

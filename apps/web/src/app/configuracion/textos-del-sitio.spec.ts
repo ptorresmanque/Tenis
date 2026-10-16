@@ -41,8 +41,8 @@ describe('TextosDelSitio', () => {
 
   // Por su etiqueta, como lo encuentra una persona.
   const campo = (elemento: HTMLElement, etiqueta: string) =>
-    Array.from(elemento.querySelectorAll('label'))
-      .find((l) => l.textContent?.includes(etiqueta))
+    Array.from(elemento.querySelectorAll('mat-form-field'))
+      .find((l) => l.querySelector('mat-label')?.textContent?.includes(etiqueta))
       ?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
 
   const escribir = async (
@@ -74,7 +74,7 @@ describe('TextosDelSitio', () => {
     expect(titulo.maxLength).toBe(80);
     // "FEDAL Tennis Center" son 19: quedan 61. Va en la ayuda, que el lector lee al
     // entrar al campo, y no en una región viva que hablaría con cada letra.
-    expect(titulo.closest('label')?.textContent).toContain('Quedan 61 caracteres');
+    expect(titulo.closest('mat-form-field')?.textContent).toContain('Quedan 61 caracteres');
   });
 
   it('al guardar manda los tres textos', async () => {

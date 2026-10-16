@@ -1,6 +1,10 @@
 import { Component, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { NivelDelPanel, TablaDePuntos, Tours } from '../tours.service';
@@ -35,7 +39,8 @@ const VACIA: TablaDePuntos = {
  */
 @Component({
   selector: 'app-nivel-del-tour',
-  imports: [FormsModule, Aviso],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  providers: [proveerCampos()],
   template: `
     <!-- El de agregar, con borde punteado: sin eso se veía igual a los guardados y solo
          el botón decía que era otra cosa. -->
@@ -46,17 +51,17 @@ const VACIA: TablaDePuntos = {
       (ngSubmit)="guardar()"
     >
       <div class="flex flex-wrap items-end gap-3">
-        <label class="block w-36">
-          <span class="text-xs font-medium">Nivel</span>
+        <mat-form-field class="w-36">
+          <mat-label>Nivel</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="nombre"
             maxlength="40"
             placeholder="500"
             [ngModel]="nombre()"
             (ngModelChange)="nombre.set($event)"
           />
-        </label>
+        </mat-form-field>
         @if (nivel(); as suyo) {
           <p class="pb-2 text-sm text-muted-foreground">
             @switch (suyo.torneos) {
@@ -74,14 +79,16 @@ const VACIA: TablaDePuntos = {
         }
       </div>
 
-      <!-- Dos columnas en el teléfono, siete en escritorio: las siete en fila no caben
-           en 375 px y obligarían a desplazar el formulario de lado. -->
-      <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+      <!-- Dos columnas en el teléfono, cuatro en escritorio y siete en una pantalla ancha: la
+           etiqueta va dentro del borde, y con el menú al lado, a 1280 px, «Treintaidosavos»
+           no cabía en un séptimo y se cortaba. -->
+      <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-7">
         @for (fila of FILAS; track fila.clave) {
-          <label class="block">
-            <span class="text-xs font-medium">{{ fila.etiqueta }}</span>
+          <mat-form-field>
+            <mat-label>{{ fila.etiqueta }}</mat-label>
             <input
-              class="campo mt-1 tabular-nums"
+              matInput
+              class="tabular-nums"
               type="number"
               inputmode="numeric"
               min="0"
@@ -90,7 +97,7 @@ const VACIA: TablaDePuntos = {
               [ngModel]="tabla()[fila.clave]"
               (ngModelChange)="escribir(fila.clave, $event)"
             />
-          </label>
+          </mat-form-field>
         }
       </div>
 
@@ -99,16 +106,19 @@ const VACIA: TablaDePuntos = {
           {{ pregunta }}
         </app-aviso>
         <div class="mt-3 flex flex-wrap gap-2">
+          <!-- Cada lleno va en una rama distinta del mismo if: se ve uno a la vez.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-primario boton-chico"
+            class="chico"
             [disabled]="enCurso() !== null"
             [attr.aria-busy]="enCurso() === 'guardar'"
             (click)="enviar()"
           >
             Sí, guardar
           </button>
-          <button type="button" class="boton boton-texto boton-chico" (click)="preguntando.set(null)">
+          <button matButton type="button" class="chico" (click)="preguntando.set(null)">
             Mejor no
           </button>
         </div>
@@ -116,23 +126,25 @@ const VACIA: TablaDePuntos = {
         <!-- La confirmación en la fila, como al borrar una pregunta frecuente. -->
         <div class="mt-3 flex flex-wrap gap-2">
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-destructivo boton-chico"
+            class="peligro chico"
             [disabled]="enCurso() !== null"
             [attr.aria-busy]="enCurso() === 'borrar'"
             (click)="borrar()"
           >
             Sí, borrar
           </button>
-          <button type="button" class="boton boton-texto boton-chico" (click)="porBorrar.set(false)">
+          <button matButton type="button" class="chico" (click)="porBorrar.set(false)">
             Mejor no
           </button>
         </div>
       } @else {
         <div class="mt-3 flex flex-wrap gap-2">
           <button
+            matButton="outlined"
             type="submit"
-            class="boton boton-secundario boton-chico"
+            class="chico"
             [disabled]="enCurso() !== null"
             [attr.aria-busy]="enCurso() === 'guardar'"
           >
@@ -141,7 +153,7 @@ const VACIA: TablaDePuntos = {
           <!-- Con torneos no se ofrece: se quedarían sin nivel y sin puntos. -->
           @if (nivel(); as suyo) {
             @if (suyo.torneos === 0) {
-              <button type="button" class="boton boton-texto boton-chico" (click)="porBorrar.set(true)">
+              <button matButton type="button" class="chico" (click)="porBorrar.set(true)">
                 Borrar
                 <span class="sr-only">el nivel {{ suyo.nombre }}</span>
               </button>

@@ -6,7 +6,11 @@ import {
   minutosDeReloj,
 } from '../comun/tiempo';
 import { leerTelefono } from '../comun/telefono';
-import { MotivoBloqueo, Superficie } from '../generated/prisma/client';
+import {
+  DuracionesSocioPico,
+  MotivoBloqueo,
+  Superficie,
+} from '../generated/prisma/client';
 import { LARGO_MAXIMO, texto } from '../identidad/registro.dto';
 import { leerRed, leerWhatsapp, REDES, RedesDelClub } from './redes';
 import { leerUbicacion } from './ubicacion';
@@ -138,7 +142,7 @@ export interface TextosDeElClub {
   elClubCanchas: string;
 }
 
-/** La tienda o la cafetería del club (T184), como la publica `GET /api/club`. */
+/** La tienda, la cafetería o el gimnasio del club (T184, T235), como los publica `GET /api/club`. */
 export interface LugarDelClub {
   descripcion: string;
   horario: string;
@@ -146,14 +150,17 @@ export interface LugarDelClub {
   whatsapp: string;
 }
 
-/** Las mismas seis columnas, como las recibe el PATCH. */
-export interface TiendaYCafeteria {
+/** Las mismas columnas de cada lugar, como las recibe el PATCH. */
+export interface LugaresDelClub {
   tiendaDescripcion: string;
   tiendaHorario: string;
   tiendaWhatsapp: string;
   cafeteriaDescripcion: string;
   cafeteriaHorario: string;
   cafeteriaWhatsapp: string;
+  gimnasioDescripcion: string;
+  gimnasioHorario: string;
+  gimnasioWhatsapp: string;
 }
 
 /**
@@ -162,7 +169,7 @@ export interface TiendaYCafeteria {
  * `SPEC-catalogo-canchas.md` § Configuración general del club.
  */
 export interface CambiosDeConfiguracion
-  extends RedesDelClub, TextosDeElClub, TiendaYCafeteria {
+  extends RedesDelClub, TextosDeElClub, LugaresDelClub {
   /** Los datos del club: los edita el mismo formulario, en otra pestaña. */
   nombre: string;
   direccion: string;
@@ -180,6 +187,19 @@ export interface CambiosDeConfiguracion
   /** Lo que vale ser socio. Las cuotas ya emitidas congelaron el suyo y no cambian. */
   cuotaMensualClp: number;
   cuotaIncorporacionClp: number;
+  /** El tope de canchas con luz (T203, T208). Nulo = sin tope. */
+  topeCanchasConLuz: number | null;
+  /** Desde qué hora rige, en el reloj del club: en punto o y media. */
+  topeCanchasConLuzDesde: string;
+  /** Qué duraciones toma el socio en horario prime (T212, T213). */
+  duracionesSocioPico: DuracionesSocioPico;
+  /** Cuántos alumnos caben en una clase grupal del gimnasio (T235). */
+  gimnasioCupoGrupal: number;
+  /** Si sale el informe de reservas del día por correo, y a qué hora entera (T274). */
+  informeDiarioActivo: boolean;
+  informeDiarioHora: number;
+  /** Cuántos minutos se le guarda el cupo al primero de la lista de espera (T326). */
+  plazoCupoListaEsperaMin: number;
 }
 
 /**
@@ -200,7 +220,11 @@ type ReglasNumericas = Omit<
   | 'longitud'
   | keyof RedesDelClub
   | keyof TextosDeElClub
-  | keyof TiendaYCafeteria
+  | keyof LugaresDelClub
+  | 'topeCanchasConLuz'
+  | 'topeCanchasConLuzDesde'
+  | 'duracionesSocioPico'
+  | 'informeDiarioActivo'
 >;
 
 const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
@@ -216,18 +240,29 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   // pero no hay cobro que la pague. El tope es contra el dedazo, como el de los torneos.
   cuotaMensualClp: [1, 10_000_000],
   cuotaIncorporacionClp: [1, 10_000_000],
+  // Desde 2: una grupal de uno es la individual. Hasta 40, el tope del cupo de una clase.
+  gimnasioCupoGrupal: [2, 40],
+  // Una hora del reloj del club, en punto: el cron corre cada hora (T275).
+  informeDiarioHora: [0, 23],
+  // De 10 minutos, lo menos para leer un correo y pagar, a 24 horas, que con el plazo que solo
+  // corre de 8:00 a 22:00 son casi dos días (SPEC-torneos.md § Lista de espera sin cobro, E1).
+  plazoCupoListaEsperaMin: [10, 1440],
 };
 
 /** En singular: `entero` les pega "tiene que ser…" y "no puede pasar de…". */
 const NOMBRES: Record<keyof ReglasNumericas, string> = {
   cupoDiarioSocioReservas: 'El cupo diario del socio',
-  cupoPicoSemanalReservas: 'El cupo semanal en horario pico',
+  cupoPicoSemanalReservas: 'El cupo semanal en horario prime',
   invitadosPorMes: 'El número de invitados por mes',
   horasMinModificacion: 'El mínimo de horas para modificar',
   horasReembolsoTotal: 'El plazo del reembolso total, en horas,',
   diasSancionNoUso: 'La sanción por una hora no usada, en días,',
   cuotaMensualClp: 'La mensualidad',
   cuotaIncorporacionClp: 'La cuota de incorporación',
+  gimnasioCupoGrupal: 'El cupo de una clase grupal del gimnasio',
+  informeDiarioHora: 'La hora del informe diario',
+  plazoCupoListaEsperaMin:
+    'El plazo para tomar un cupo de la lista de espera, en minutos,',
 };
 
 /**
@@ -250,12 +285,15 @@ const TEXTOS: Record<string, number> = {
   tiendaHorario: 120,
   cafeteriaDescripcion: 600,
   cafeteriaHorario: 120,
+  gimnasioDescripcion: 600,
+  gimnasioHorario: 120,
 };
 
-/** Los WhatsApp de la tienda y la cafetería, con el nombre que lleva su error. */
+/** Los WhatsApp de cada lugar, con el nombre que lleva su error. */
 const WHATSAPP_DE_LUGAR = {
   tiendaWhatsapp: 'El WhatsApp de la tienda',
   cafeteriaWhatsapp: 'El WhatsApp de la cafetería',
+  gimnasioWhatsapp: 'El WhatsApp del gimnasio',
 } as const;
 
 export function leerCambiosDeConfiguracion(
@@ -303,6 +341,43 @@ export function leerCambiosDeConfiguracion(
         nombre,
       );
     }
+  }
+
+  // T208. El tope de canchas con luz: un entero desde 1, o nulo para apagarlo. Cero no:
+  // "ninguna cancha con luz" es cerrar las canchas de noche, y eso es el horario.
+  if (datos.topeCanchasConLuz !== undefined) {
+    cambios.topeCanchasConLuz =
+      datos.topeCanchasConLuz === null
+        ? null
+        : entero(datos.topeCanchasConLuz, 'El tope de canchas con luz', 1);
+  }
+
+  if (datos.topeCanchasConLuzDesde !== undefined) {
+    cambios.topeCanchasConLuzDesde = horaDelTope(datos.topeCanchasConLuzDesde);
+  }
+
+  // T274. Sí o no, como lo manda el interruptor: un "sí" escrito no es un booleano.
+  if (datos.informeDiarioActivo !== undefined) {
+    if (typeof datos.informeDiarioActivo !== 'boolean') {
+      throw new BadRequestException('El informe diario se activa con sí o no.');
+    }
+    cambios.informeDiarioActivo = datos.informeDiarioActivo;
+  }
+
+  // T213. Uno de los tres valores del enum, escrito igual: lo manda el panel.
+  if (datos.duracionesSocioPico !== undefined) {
+    if (
+      !Object.values(DuracionesSocioPico).includes(
+        datos.duracionesSocioPico as DuracionesSocioPico,
+      )
+    ) {
+      throw new BadRequestException(
+        'Las duraciones del socio en horario prime son UNA_HORA, HORA_Y_MEDIA o AMBAS.',
+      );
+    }
+
+    cambios.duracionesSocioPico =
+      datos.duracionesSocioPico as DuracionesSocioPico;
   }
 
   // T100. Llega como el texto que el admin pegó —enlace de Google Maps o
@@ -384,6 +459,20 @@ export function leerHorarios(cuerpo: unknown): DatosHorario[] {
 }
 
 /**
+ * La hora desde la que rige el tope de luz: en punto o y media, como los bordes de la
+ * grilla. Una a las 19:15 cortaría a la mitad un inicio de la grilla.
+ */
+function horaDelTope(valor: unknown): string {
+  if (typeof valor !== 'string' || !/^([01]\d|2[0-3]):(00|30)$/.test(valor)) {
+    throw new BadRequestException(
+      'La hora del tope de canchas con luz va en punto o y media, por ejemplo 19:00 o 19:30.',
+    );
+  }
+
+  return valor;
+}
+
+/**
  * La hora tal como vino, ya comprobada con `minutosDeReloj` — la misma función que
  * usa la grilla, para que lo que el panel acepta y lo que el cálculo entiende no
  * puedan separarse.
@@ -460,7 +549,8 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
         : diaValido(datos.diaSemana),
     horaDesde,
     horaHasta,
-    esPico: datos.esPico === undefined ? false : booleano(datos.esPico, 'Pico'),
+    esPico:
+      datos.esPico === undefined ? false : booleano(datos.esPico, 'Prime'),
     // Cero es legítimo: una cancha puede ser gratis para el club. Negativo no:
     // sería una tarifa que le paga al cliente.
     montoClp: entero(datos.montoClp, 'El monto', 0),
@@ -477,6 +567,16 @@ export function leerFranja(cuerpo: unknown): DatosFranja {
         : fechaDeCuerpo(datos.vigenteHasta, 'El fin de vigencia'),
   };
 }
+
+/**
+ * Los bloqueos que encienden la luz de la cancha (T206): una clase o un partido se juegan.
+ * Una mantención u otro cierre la dejan apagada. Los cuenta el tope de canchas con luz de
+ * `reservas`, y por eso estos dos motivos solo se crean por el cierre de cancha.
+ */
+export const ENCIENDEN_LA_LUZ: MotivoBloqueo[] = [
+  MotivoBloqueo.CLASE,
+  MotivoBloqueo.TORNEO,
+];
 
 export interface DatosBloqueo {
   canchaId: number;
@@ -592,4 +692,62 @@ export function fechaDeCuerpo(valor: unknown, campo: string): Date {
       `${campo} se espera con forma AAAA-MM-DD y tiene que existir.`,
     );
   }
+}
+
+/** Un plan del gimnasio con sus dos precios (T235), como se guarda y como se publica. */
+export interface TarifaDelGimnasio {
+  nombre: string;
+  precioSocioClp: number;
+  precioNoSocioClp: number;
+}
+
+/** Las que caben en la lista: es un bloque de la portada, no un tarifario. */
+const TARIFAS_DEL_GIMNASIO = 10;
+
+/**
+ * Lee la lista completa de tarifas del gimnasio, en el orden de la pantalla.
+ *
+ * **Una fila mala rechaza la lista entera**: guardar las buenas y descartar la mala dejaría
+ * en el sitio una lista que el club no escribió.
+ */
+export function leerTarifasDelGimnasio(cuerpo: unknown): TarifaDelGimnasio[] {
+  const { tarifas } = (cuerpo ?? {}) as Record<string, unknown>;
+
+  if (!Array.isArray(tarifas)) {
+    throw new BadRequestException('Las tarifas van como una lista.');
+  }
+
+  if (tarifas.length > TARIFAS_DEL_GIMNASIO) {
+    throw new BadRequestException(
+      'El gimnasio publica hasta diez tarifas: junta o borra alguna.',
+    );
+  }
+
+  return tarifas.map((cruda: unknown, posicion) => {
+    const fila = (cruda ?? {}) as Record<string, unknown>;
+    const nombre = typeof fila.nombre === 'string' ? fila.nombre.trim() : '';
+
+    if (nombre === '' || nombre.length > 80) {
+      throw new BadRequestException(
+        `La tarifa ${posicion + 1} necesita un nombre de 1 a 80 letras.`,
+      );
+    }
+
+    // El mismo tope que las cuotas: contra el dedazo, no una regla del club.
+    return {
+      nombre,
+      precioSocioClp: entero(
+        fila.precioSocioClp,
+        `El precio socio de "${nombre}"`,
+        0,
+        10_000_000,
+      ),
+      precioNoSocioClp: entero(
+        fila.precioNoSocioClp,
+        `El precio no socio de "${nombre}"`,
+        0,
+        10_000_000,
+      ),
+    };
+  });
 }

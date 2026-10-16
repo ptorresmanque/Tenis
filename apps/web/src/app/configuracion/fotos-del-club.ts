@@ -1,5 +1,10 @@
-import { Component, inject, resource, signal } from '@angular/core';
+import { Component, computed, inject, input, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
+import { GaleriaDeFotos } from '../ui/galeria-de-fotos';
 import { AdminCanchas, Lugar } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club, FotoDelLugar } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
@@ -31,10 +36,17 @@ const LUGARES: {
     porOmision: 'Foto de la cafetería del club',
     ejemplo: 'La barra del café',
   },
+  {
+    lugar: 'GIMNASIO',
+    nombre: 'Gimnasio',
+    conArticulo: 'el gimnasio',
+    porOmision: 'Foto del gimnasio del club',
+    ejemplo: 'Las máquinas del gimnasio',
+  },
 ];
 
 /**
- * Las fotos de la tienda y la cafetería (T185), debajo de sus textos.
+ * Las fotos de un lugar del club (T185), debajo de sus textos: cada pestaña, las suyas (T236).
  *
  * **Fuera del formulario de los textos**: cada lugar sube con su propio formulario, y un
  * formulario no puede ir dentro de otro. Lo que se sube o se borra se ve en el sitio sin
@@ -42,7 +54,8 @@ const LUGARES: {
  */
 @Component({
   selector: 'app-fotos-del-club',
-  imports: [Aviso, Esqueleto],
+  imports: [GaleriaDeFotos, MatFormFieldModule, MatInput, MatButton, Aviso, Esqueleto],
+  providers: [proveerCampos()],
   template: `
     <h2 class="rotulo-seccion mt-10">Fotos</h2>
     <p class="mt-2 max-w-prose text-sm text-muted-foreground">
@@ -58,7 +71,7 @@ const LUGARES: {
     } @else if (fotos.isLoading() && !fotos.hasValue()) {
       <app-esqueleto class="mt-3 block" [filas]="2" etiqueta="Cargando las fotos…" />
     } @else {
-      @for (uno of LUGARES; track uno.lugar) {
+      @for (uno of delLugar(); track uno.lugar) {
         <section class="mt-6 border-t border-border pt-4">
           <h3 class="font-display text-sm font-bold tracking-wide uppercase">
             {{ uno.nombre }}
@@ -74,19 +87,28 @@ const LUGARES: {
             <ul class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
               @for (foto of suyas; track foto.id) {
                 <li>
-                  <img
-                    class="aspect-[4/3] w-full rounded-lg object-cover"
-                    [src]="foto.miniatura"
-                    [alt]="foto.descripcion ?? uno.porOmision"
-                    loading="lazy"
-                  />
+                  <!-- Tocar la miniatura abre la galería del sitio en esa foto (T312). -->
+                  <button
+                    type="button"
+                    class="block w-full cursor-pointer overflow-hidden rounded-lg"
+                    [attr.aria-label]="'Ver la foto: ' + (foto.descripcion ?? uno.porOmision)"
+                    (click)="visor.abrir($index)"
+                  >
+                    <img
+                      class="aspect-[4/3] w-full object-cover transition-opacity hover:opacity-80"
+                      [src]="foto.miniatura"
+                      [alt]="foto.descripcion ?? uno.porOmision"
+                      loading="lazy"
+                    />
+                  </button>
                   @if (porBorrar() === foto.id) {
                     <!-- La confirmación en la foto, como al borrar una pregunta frecuente:
                          es la consecuencia de este botón y no hay foco que atrapar. -->
                     <div class="mt-2 flex flex-wrap gap-2">
                       <button
+                        matButton="filled"
                         type="button"
-                        class="boton boton-destructivo boton-chico"
+                        class="peligro chico"
                         [disabled]="enCurso() !== null"
                         [attr.aria-busy]="enCurso() === 'borrar-' + foto.id"
                         (click)="borrar(uno.lugar, foto)"
@@ -94,8 +116,9 @@ const LUGARES: {
                         Sí, borrar
                       </button>
                       <button
+                        matButton
                         type="button"
-                        class="boton boton-texto boton-chico"
+                        class="chico"
                         (click)="porBorrar.set(null)"
                       >
                         Mejor no
@@ -103,8 +126,9 @@ const LUGARES: {
                     </div>
                   } @else {
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico mt-2"
+                      class="chico mt-2"
                       [disabled]="enCurso() !== null"
                       (click)="porBorrar.set(foto.id)"
                     >
@@ -115,6 +139,7 @@ const LUGARES: {
                 </li>
               }
             </ul>
+            <app-galeria-de-fotos #visor [fotos]="suyas" [etiqueta]="'Fotos de ' + uno.nombre" />
           }
 
           @if (suyas.length >= FOTOS_POR_LUGAR) {
@@ -129,8 +154,10 @@ const LUGARES: {
                 <span class="text-sm font-medium">
                   Archivo <span class="sr-only">para {{ uno.conArticulo }}</span>
                 </span>
+                <!-- Material no tiene campo de archivo, y matInput no admite type="file"
+                     (T247). -->
                 <input
-                  class="campo mt-1"
+                  class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
                   type="file"
                   accept="image/jpeg,image/png"
                   [disabled]="enCurso() !== null"
@@ -138,24 +165,26 @@ const LUGARES: {
                 />
               </label>
 
-              <label class="block">
-                <span class="text-sm font-medium">
-                  Qué se ve en la foto <span class="sr-only">de {{ uno.conArticulo }}</span>
+              <mat-form-field>
+                <mat-label>
+                  Qué se ve en la foto
+                  <span class="sr-only">de {{ uno.conArticulo }}</span>
                   (opcional)
-                </span>
+                </mat-label>
                 <input
-                  class="campo mt-1"
+                  matInput
                   type="text"
                   maxlength="200"
                   [placeholder]="uno.ejemplo"
                   [value]="textos()[uno.lugar]"
                   (input)="escribir(uno.lugar, $event)"
                 />
-              </label>
+              </mat-form-field>
 
               <button
+                matButton="outlined"
                 type="submit"
-                class="boton boton-secundario sm:col-span-2 sm:justify-self-start"
+                class="sm:col-span-2 sm:justify-self-start"
                 [disabled]="enCurso() !== null || !archivos()[uno.lugar]"
                 [attr.aria-busy]="enCurso() === 'subir-' + uno.lugar"
               >
@@ -177,7 +206,9 @@ export class FotosDelClubPanel {
   /** Los datos que lee el sitio público, para que muestre lo recién subido. */
   private readonly sitio = inject(Club);
 
-  protected readonly LUGARES = LUGARES;
+  /** Cada pestaña muestra las de su lugar (T236). */
+  readonly lugar = input.required<Lugar>();
+  protected readonly delLugar = computed(() => LUGARES.filter((uno) => uno.lugar === this.lugar()));
   protected readonly FOTOS_POR_LUGAR = FOTOS_POR_LUGAR;
 
   protected readonly fotos = resource({ loader: () => this.api.fotosDelClub() });
@@ -185,12 +216,18 @@ export class FotosDelClubPanel {
   protected readonly archivos = signal<Record<Lugar, File | null>>({
     TIENDA: null,
     CAFETERIA: null,
+    GIMNASIO: null,
   });
-  protected readonly textos = signal<Record<Lugar, string>>({ TIENDA: '', CAFETERIA: '' });
+  protected readonly textos = signal<Record<Lugar, string>>({
+    TIENDA: '',
+    CAFETERIA: '',
+    GIMNASIO: '',
+  });
   /** El error va en el bloque del lugar que lo causó, no arriba de los dos. */
   protected readonly fallas = signal<Record<Lugar, string | null>>({
     TIENDA: null,
     CAFETERIA: null,
+    GIMNASIO: null,
   });
 
   protected readonly porBorrar = signal<number | null>(null);

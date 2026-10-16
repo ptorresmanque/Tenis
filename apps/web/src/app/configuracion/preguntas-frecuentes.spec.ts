@@ -47,8 +47,8 @@ describe('PreguntasFrecuentesPanel', () => {
       )!;
 
     const campo = (etiqueta: string, dentro: ParentNode = elemento) =>
-      Array.from(dentro.querySelectorAll('label'))
-        .find((l) => l.textContent?.includes(etiqueta))
+      Array.from(dentro.querySelectorAll('mat-form-field'))
+        .find((l) => l.querySelector('mat-label')?.textContent?.includes(etiqueta))
         ?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
 
     const escribir = async (control: HTMLInputElement | HTMLTextAreaElement, valor: string) => {
@@ -70,6 +70,26 @@ describe('PreguntasFrecuentesPanel', () => {
       '¿Hay estacionamiento?',
     ]);
     expect(filas()[0].textContent).toContain('Cualquiera puede arrendar una hora.');
+  });
+
+  it('su título es para el lector: el panel de Configuración ya lo dice a la vista (T290)', async () => {
+    const { elemento } = await montar();
+
+    expect(elemento.querySelector('h2')?.textContent).toBe('Preguntas frecuentes');
+    expect(elemento.querySelector('h2')?.classList).toContain('sr-only');
+  });
+
+  it('el orden dice «Orden» a la vista y nombra su pregunta para el lector (T290)', async () => {
+    // El campo es angosto: con la pregunta entera a la vista, la etiqueta se cortaba.
+    const { filas } = await montar();
+    const etiqueta = filas()[0].querySelector('mat-label')!;
+
+    expect(etiqueta.querySelector('.sr-only')?.textContent).toBe(
+      ' de «¿Necesito ser socio para reservar?»',
+    );
+    expect(etiqueta.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Orden de «¿Necesito ser socio para reservar?»',
+    );
   });
 
   it('sin preguntas, dice qué pasa en el sitio y qué hacer', async () => {
@@ -107,7 +127,7 @@ describe('PreguntasFrecuentesPanel', () => {
       const respuesta = campo('Respuesta')!;
 
       expect(respuesta.maxLength).toBe(2000);
-      expect(respuesta.closest('label')?.textContent).toContain('Quedan 2000 caracteres');
+      expect(respuesta.closest('mat-form-field')?.textContent).toContain('Quedan 2000 caracteres');
     });
   });
 

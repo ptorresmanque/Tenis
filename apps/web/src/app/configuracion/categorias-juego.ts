@@ -6,17 +6,24 @@ import {
   signal,
 } from '@angular/core';
 
+import { proveerCampos } from '../ui/campos';
 import { Esqueleto } from '../ui/esqueleto';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
-import { Insignia } from '../ui/insignia';
 import {
   CategoriaDeJuego,
   CategoriasDeJuego as ApiCategoriasDeJuego,
 } from './categorias-juego.service';
+import { LO_HECHO } from '../ui/material';
 
 /**
  * Las categorías con que juega el club.
@@ -30,7 +37,18 @@ import {
  */
 @Component({
   selector: 'app-categorias-juego',
-  imports: [Esqueleto, FormsModule, Aviso, Campo, CampoControl, Insignia],
+  imports: [
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    Esqueleto,
+    FormsModule,
+    Aviso,
+    MatTableModule,
+    MatChipsModule,
+    MatIcon,
+  ],
+  providers: [proveerCampos()],
   template: `
     <section aria-labelledby="agregar">
       <h2 id="agregar" class="rotulo-seccion">
@@ -43,39 +61,36 @@ import {
       </p>
 
       <form class="mt-4 flex flex-wrap items-end gap-3" (ngSubmit)="agregar()">
-        <app-campo etiqueta="Nombre" class="min-w-48 flex-1">
+        <mat-form-field class="min-w-48 flex-1">
+          <mat-label>Nombre</mat-label>
           <input
-            appCampoControl
+            matInput
             name="nombre"
             type="text"
             maxlength="40"
-            class="campo"
             [(ngModel)]="nombre"
           />
-        </app-campo>
+        </mat-form-field>
 
-        <app-campo
-          etiqueta="Orden"
-          ayuda="Mayor es más alta. Honor arriba, la 5ª abajo."
-          class="min-w-40"
-        >
+        <mat-form-field class="min-w-40">
+          <mat-label>Orden</mat-label>
           <!-- Enlace de ida y vuelta escrito a mano y no con la forma corta de dos
                vías: el destino es un linkedSignal, y hay que llamarle set(). -->
           <input
-            appCampoControl
+            matInput
             name="orden"
             type="number"
             min="1"
             max="1000"
-            class="campo"
             [ngModel]="orden()"
             (ngModelChange)="orden.set($event)"
           />
-        </app-campo>
+          <mat-hint>Mayor es más alta. Honor arriba, la 5ª abajo.</mat-hint>
+        </mat-form-field>
 
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="enviando()"
           [attr.aria-busy]="enCurso() === 'agregar'"
         >
@@ -85,8 +100,6 @@ import {
 
       @if (error(); as falla) {
         <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-      } @else if (aviso(); as texto) {
-        <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
       }
     </section>
 
@@ -105,63 +118,68 @@ import {
                (TV7.3): con el aire de la tabla normal no cabía ni a 375, se
                desplazaba 6px y partía "Volver a ofrecer" en dos líneas. Así
                mide justo los 326px que quedan a 360. -->
-          <table class="tabla tabla-densa">
-            <caption class="sr-only">
-              Categorías de juego, de la más baja a la más alta
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Categoría</th>
-                <th scope="col">Orden</th>
-                <th scope="col">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (categoria of categorias.value() ?? []; track categoria.id) {
-                <tr>
-                  <td class="font-medium">{{ categoria.nombre }}</td>
-                  <td class="text-sm text-muted-foreground">
-                    <label class="sr-only" [for]="'orden-' + categoria.id">
-                      Orden de {{ categoria.nombre }}
-                    </label>
-                    <input
-                      [id]="'orden-' + categoria.id"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      class="campo w-18 sm:w-24"
-                      [value]="categoria.orden"
-                      [disabled]="enviando()"
-                      (change)="mover(categoria, $event)"
-                    />
-                  </td>
-                  <td>
-                    <div class="flex flex-wrap items-center gap-2">
-                      @if (categoria.activa) {
-                        <app-insignia variante="exito" icono="check_circle">
-                          Se ofrece
-                        </app-insignia>
-                      } @else {
-                        <app-insignia variante="neutro" icono="visibility_off">
-                          Retirada
-                        </app-insignia>
-                      }
+          <table mat-table aria-label="Categorías de juego, de la más baja a la más alta" class="densa" [dataSource]="categorias.value() ?? []">
+            <ng-container matColumnDef="categoria">
+              <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
+              <td mat-cell *matCellDef="let categoria" class="font-medium">
+                {{ categoria.nombre }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="orden">
+              <th mat-header-cell *matHeaderCellDef scope="col">Orden</th>
+              <td mat-cell *matCellDef="let categoria" class="text-sm text-muted-foreground">
+                <mat-form-field class="w-18 sm:w-24">
+                  <mat-label>Orden de {{ categoria.nombre }}</mat-label>
+                  <input
+                    matInput
+                    [id]="'orden-' + categoria.id"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    [value]="categoria.orden"
+                    [disabled]="enviando()"
+                    (change)="mover(categoria, $event)"
+                  />
+                </mat-form-field>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="estado">
+              <th mat-header-cell *matHeaderCellDef scope="col">Estado</th>
+              <td mat-cell *matCellDef="let categoria">
+                <div class="flex flex-wrap items-center gap-2">
+                  @if (categoria.activa) {
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia exito">
+                        <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                        Se ofrece
+                      </mat-chip>
+                    </mat-chip-set>
+                  } @else {
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">visibility_off</mat-icon>
+                        Retirada
+                      </mat-chip>
+                    </mat-chip-set>
+                  }
 
-                      <button
-                        type="button"
-                        class="boton boton-secundario boton-chico whitespace-nowrap"
-                        [disabled]="enviando()"
-                        [attr.aria-busy]="enCurso() === 'alternar-' + categoria.id"
-                        (click)="alternar(categoria)"
-                      >
-                        {{ categoria.activa ? 'Retirar' : 'Volver a ofrecer' }}
-                        <span class="sr-only">{{ categoria.nombre }}</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico whitespace-nowrap"
+                    [disabled]="enviando()"
+                    [attr.aria-busy]="enCurso() === 'alternar-' + categoria.id"
+                    (click)="alternar(categoria)"
+                  >
+                    {{ categoria.activa ? 'Retirar' : 'Volver a ofrecer' }}
+                    <span class="sr-only">{{ categoria.nombre }}</span>
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let categoria; columns: COLUMNAS"></tr>
           </table>
         </div>
 
@@ -175,6 +193,7 @@ import {
   `,
 })
 export class CategoriasDeJuegoPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(ApiCategoriasDeJuego);
 
   protected nombre = '';
@@ -183,9 +202,10 @@ export class CategoriasDeJuegoPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T153). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
+
+  protected readonly COLUMNAS = ['categoria', 'orden', 'estado'];
 
   protected readonly categorias = resource({
     params: () => ({ version: this.version() }),
@@ -230,7 +250,7 @@ export class CategoriasDeJuegoPanel {
 
     await this.contra('agregar', async () => {
       await this.api.crear(nombre, orden);
-      this.aviso.set(`${nombre} ya se puede elegir al inscribirse.`);
+      this.snackBar.open(`${nombre} ya se puede elegir al inscribirse.`, undefined, LO_HECHO);
       this.nombre = '';
       // El lugar no se avanza a mano: la recarga de `contra` trae la categoría recién
       // creada y `orden` se recalcula sola desde la lista.
@@ -242,10 +262,12 @@ export class CategoriasDeJuegoPanel {
 
     await this.contra(`alternar-${categoria.id}`, async () => {
       await this.api.editar(categoria.id, { activa: !categoria.activa });
-      this.aviso.set(
+      this.snackBar.open(
         categoria.activa
           ? `${categoria.nombre} deja de ofrecerse.`
           : `${categoria.nombre} vuelve a ofrecerse.`,
+        undefined,
+        LO_HECHO,
       );
     }, 'No se pudo cambiar la categoría.');
   }
@@ -272,7 +294,7 @@ export class CategoriasDeJuegoPanel {
 
     await this.contra(`mover-${categoria.id}`, async () => {
       await this.api.editar(categoria.id, { orden });
-      this.aviso.set(`${categoria.nombre} quedó con el orden ${orden}.`);
+      this.snackBar.open(`${categoria.nombre} quedó con el orden ${orden}.`, undefined, LO_HECHO);
     }, 'No se pudo mover la categoría.');
   }
 
@@ -301,7 +323,6 @@ export class CategoriasDeJuegoPanel {
 
   private limpiarMensajes(): void {
     this.error.set(null);
-    this.aviso.set(null);
   }
 }
 

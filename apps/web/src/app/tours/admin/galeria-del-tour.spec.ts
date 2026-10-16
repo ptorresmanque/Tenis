@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
 import { GaleriaDelTour } from './galeria-del-tour';
 
@@ -71,6 +72,17 @@ describe('GaleriaDelTour', () => {
   /** La fila de una foto, por la dirección de su miniatura. */
   const fila = (elemento: HTMLElement, id: number) =>
     elemento.querySelector<HTMLElement>(`li:has(img[src="/api/tours/fotos/${id}/miniatura"])`)!;
+
+  it('**tocar una miniatura abre la galería en esa foto** (T312, SPEC-sitio.md D8)', async () => {
+    const abrir = vi.spyOn(GaleriaDeFotos.prototype, 'abrir');
+    const { elemento } = await montar();
+    const miniaturas = [...elemento.querySelectorAll<HTMLButtonElement>('button[aria-label^="Ver la foto"]')];
+
+    expect(miniaturas[0].getAttribute('aria-label')).toBe('Ver la foto: La premiación');
+    miniaturas[1].click();
+    expect(abrir).toHaveBeenCalledWith(1);
+    abrir.mockRestore();
+  });
 
   it('muestra las miniaturas, con su pie o uno que dice de quién es', async () => {
     const { elemento } = await montar();

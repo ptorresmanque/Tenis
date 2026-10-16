@@ -10,7 +10,7 @@ import { RecuperacionService } from './recuperacion.service';
 import { RegistroController } from './registro.controller';
 import { RegistroService } from './registro.service';
 import { SesionController } from './sesion/sesion.controller';
-import { AdministradoresController } from './admin/administradores.controller';
+import { UsuariosController } from './admin/usuarios.controller';
 import { IntentosFallidos } from './intentos';
 import { SesionService } from './sesion/sesion.service';
 import { InvitacionesController } from './socios/invitaciones.controller';
@@ -35,7 +35,7 @@ import { YoController } from './yo.controller';
     GoogleController,
     YoController,
     InvitacionesController,
-    AdministradoresController,
+    UsuariosController,
     DirectorioController,
   ],
   providers: [

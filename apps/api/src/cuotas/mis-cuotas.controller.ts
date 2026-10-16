@@ -56,13 +56,14 @@ export class MisCuotasController {
       // de la pantalla de error, que trae `token_ws` y `TBK_TOKEN` juntos y que
       // Transbank llama "pago inválido". No hay nada que confirmar y la cuota sigue
       // pendiente; la transacción la barre la expiración de T19.
-      return { url: `${web()}/mi-cuenta?pago=anulado` };
+      // A la pestaña de la cuota de Mi cuenta, donde está el aviso (T319, SPEC-sitio.md A8).
+      return { url: `${web()}/mi-cuenta/cuota?pago=anulado` };
     }
 
     const resultado = await this.pagos.confirmar(tokenWs);
 
     return {
-      url: `${web()}/mi-cuenta?pago=${resultado.estado === 'AUTORIZADA' ? 'listo' : 'rechazado'}`,
+      url: `${web()}/mi-cuenta/cuota?pago=${resultado.estado === 'AUTORIZADA' ? 'listo' : 'rechazado'}`,
     };
   }
 }

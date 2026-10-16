@@ -9,7 +9,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
@@ -24,7 +30,8 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-galeria-del-tour',
-  imports: [FormsModule, Aviso],
+  imports: [GaleriaDeFotos, MatCard, MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  providers: [proveerCampos()],
   template: `
     <form
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -37,31 +44,33 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
         que traen adentro, entre ellos el lugar donde se sacaron.
       </p>
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <!-- Material no tiene campo de archivo, y matInput no admite type="file" (T247). -->
         <label class="block">
           <span class="text-sm font-medium">Archivo</span>
           <input
+            class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
             #entradaArchivo
-            class="campo mt-1"
             type="file"
             accept="image/jpeg,image/png"
             [disabled]="enCurso() !== null"
             (change)="elegir($event)"
           />
         </label>
-        <label class="block">
-          <span class="text-sm font-medium">Pie de foto (opcional)</span>
+        <mat-form-field>
+          <mat-label>Pie de foto (opcional)</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="pie"
             maxlength="200"
             placeholder="La premiación de 2027"
             [(ngModel)]="pie"
           />
-        </label>
+        </mat-form-field>
       </div>
       <button
+        matButton="outlined"
         type="submit"
-        class="boton boton-secundario mt-3"
+        class="mt-3"
         [disabled]="enCurso() !== null || !archivo()"
         [attr.aria-busy]="enCurso() === 'subir'"
       >
@@ -80,75 +89,90 @@ import { FichaDeTour, FotoDeTour, Tours } from '../tours.service';
     } @else {
       <ul class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         @for (foto of tour().fotos; track foto.id; let i = $index, total = $count) {
-          <li class="rounded-xl border border-border bg-card p-3">
-            <img
-              class="aspect-[4/3] w-full bg-muted object-cover"
-              [src]="foto.miniatura"
-              [alt]="foto.descripcion ?? 'Foto de ' + tour().nombre"
-              loading="lazy"
-            />
-            <label class="mt-2 block">
+          <li>
+            <mat-card appearance="outlined" class="p-3">
+              <!-- Tocar la miniatura abre la galería del sitio en esa foto (T312). -->
+              <button
+                type="button"
+                class="block w-full cursor-pointer"
+                [attr.aria-label]="'Ver la foto: ' + (foto.descripcion ?? 'Foto de ' + tour().nombre)"
+                (click)="visor.abrir(i)"
+              >
+                <img
+                  class="aspect-[4/3] w-full bg-muted object-cover transition-opacity hover:opacity-80"
+                  [src]="foto.miniatura"
+                  [alt]="foto.descripcion ?? 'Foto de ' + tour().nombre"
+                  loading="lazy"
+                />
+              </button>
               <!-- La posición, para el lector de pantalla: el mismo «Pie de foto» repetido
-                   en cada fila no dice de cuál es. -->
-              <span class="text-xs font-medium">
-                Pie de foto <span class="sr-only">(foto {{ i + 1 }} de {{ total }})</span>
-              </span>
-              <input
-                class="campo mt-1"
-                maxlength="200"
-                [ngModel]="pies()[foto.id] ?? ''"
-                (ngModelChange)="escribirPie(foto.id, $event)"
-              />
-            </label>
+                     en cada fila no dice de cuál es. -->
+              <mat-form-field>
+                <mat-label>
+                  Pie de foto <span class="sr-only">(foto {{ i + 1 }} de {{ total }})</span>
+                </mat-label>
+                <input
+                  matInput
+                  maxlength="200"
+                  [ngModel]="pies()[foto.id] ?? ''"
+                  (ngModelChange)="escribirPie(foto.id, $event)"
+                />
+              </mat-form-field>
 
-            @if (porBorrar() === foto.id) {
-              <!-- La confirmación en la foto, como en las fotos de la tienda. -->
-              <div class="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  class="boton boton-destructivo boton-chico"
-                  [disabled]="enCurso() !== null"
-                  [attr.aria-busy]="enCurso() === 'borrar-' + foto.id"
-                  (click)="borrar(foto)"
-                >
-                  Sí, borrar
-                </button>
-                <button
-                  type="button"
-                  class="boton boton-texto boton-chico"
-                  (click)="porBorrar.set(null)"
-                >
-                  Mejor no
-                </button>
-              </div>
-            } @else {
-              <div class="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  class="boton boton-secundario boton-chico"
-                  [disabled]="enCurso() !== null"
-                  [attr.aria-busy]="enCurso() === 'pie-' + foto.id"
-                  (click)="guardarPie(foto)"
-                >
-                  Guardar el pie
-                </button>
-                <button
-                  type="button"
-                  class="boton boton-texto boton-chico"
-                  (click)="porBorrar.set(foto.id)"
-                >
-                  Borrar
-                  <span class="sr-only">la foto {{ i + 1 }} de {{ total }}</span>
-                </button>
-              </div>
-            }
+              @if (porBorrar() === foto.id) {
+                <!-- La confirmación en la foto, como en las fotos de la tienda. -->
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button
+                    matButton="filled"
+                    type="button"
+                    class="peligro chico"
+                    [disabled]="enCurso() !== null"
+                    [attr.aria-busy]="enCurso() === 'borrar-' + foto.id"
+                    (click)="borrar(foto)"
+                  >
+                    Sí, borrar
+                  </button>
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    (click)="porBorrar.set(null)"
+                  >
+                    Mejor no
+                  </button>
+                </div>
+              } @else {
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico"
+                    [disabled]="enCurso() !== null"
+                    [attr.aria-busy]="enCurso() === 'pie-' + foto.id"
+                    (click)="guardarPie(foto)"
+                  >
+                    Guardar el pie
+                  </button>
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    (click)="porBorrar.set(foto.id)"
+                  >
+                    Borrar
+                    <span class="sr-only">la foto {{ i + 1 }} de {{ total }}</span>
+                  </button>
+                </div>
+              }
 
-            @if (origen() === foto.id && error(); as falla) {
-              <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
-            }
+              @if (origen() === foto.id && error(); as falla) {
+                <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
+              }
+            </mat-card>
           </li>
         }
       </ul>
+      <app-galeria-de-fotos #visor [fotos]="tour().fotos" [etiqueta]="'Fotos de ' + tour().nombre" />
     }
   `,
 })

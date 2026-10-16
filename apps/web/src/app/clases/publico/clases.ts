@@ -1,4 +1,6 @@
 import { Component, computed, inject, resource } from '@angular/core';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -8,8 +10,7 @@ import {
 import { FormularioContacto } from '../../club/formulario-contacto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Foto } from '../../ui/foto';
-import { Insignia } from '../../ui/insignia';
-import { ClasePublica, Clases, NIVELES, NivelClase } from '../clases.service';
+import { ClasePublica, Clases, queClaseEs, SeriePublica } from '../clases.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
 /**
@@ -26,10 +27,10 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-clases-publicas',
-  imports: [EstadoVacio, Esqueleto, Foto, Insignia, FormularioContacto],
+  imports: [EstadoVacio, Esqueleto, Foto, FormularioContacto, MatChipsModule, MatIcon],
   template: `
     <section
-      class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+      class="relative isolate a-sangre overflow-hidden"
       aria-labelledby="clases"
     >
       <app-foto
@@ -45,8 +46,8 @@ import { Esqueleto } from '../../ui/esqueleto';
       ></div>
 
       <div
-        class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
-               sm:p-10"
+        class="absolute inset-0 flex flex-col justify-end gap-3 py-6 px-sangre-6 text-on-campo
+               texto-sobre-foto sm:py-10 sm:px-sangre-10"
       >
         <h1 id="clases" class="titular text-6xl sm:text-7xl lg:text-8xl">
           Clases con profesor
@@ -89,20 +90,44 @@ import { Esqueleto } from '../../ui/esqueleto';
         <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
           @for (serie of info.series; track serie.id) {
             <li class="flex flex-wrap items-center gap-3 py-4">
-              <span class="font-display text-2xl font-bold">
-                {{ diasDeLaSerie(serie.diasSemana) }}, {{ serie.horaDesde }}–{{ serie.horaHasta }}
-              </span>
-              <app-insignia variante="info" icono="school">{{ nivel(serie.nivel) }}</app-insignia>
-              <span class="text-sm text-muted-foreground">
-                {{ serie.profesor }} · {{ serie.cancha }} · hasta el {{ fechaCorta(serie.hasta) }}
-              </span>
+              <!-- T229. Si todos los días comparten horario y lugar, la serie se lee como
+                   antes; si no, cada día va en su renglón. -->
+              @if (enComun(serie); as comun) {
+                <span class="font-display text-2xl font-bold">
+                  {{ diasDeLaSerie(comun.diasSemana) }}, {{ comun.horaDesde }}–{{ comun.horaHasta }}
+                </span>
+              } @else {
+                <span class="grid font-display text-xl font-bold">
+                  @for (dia of enOrden(serie.dias); track dia.diaSemana) {
+                    <span>
+                      {{ diasDeLaSerie([dia.diaSemana]) }} {{ dia.horaDesde }}–{{ dia.horaHasta }} ·
+                      {{ dia.lugar }}
+                    </span>
+                  }
+                </span>
+              }
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia info">
+                  <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                  {{ queClaseEs(serie) }}
+                </mat-chip>
+              </mat-chip-set>
+              <span class="text-sm text-muted-foreground">{{ detalle(serie) }}</span>
 
               @if (serie.cuposLibres === 0) {
-                <app-insignia variante="neutro" icono="block" class="ms-auto">Sin cupos</app-insignia>
+                <mat-chip-set class="insignias ms-auto">
+                  <mat-chip class="insignia neutro">
+                    <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                    Sin cupos
+                  </mat-chip>
+                </mat-chip-set>
               } @else {
-                <app-insignia variante="libre" icono="event_available" class="ms-auto">
-                  {{ serie.cuposLibres }} {{ serie.cuposLibres === 1 ? 'cupo' : 'cupos' }}
-                </app-insignia>
+                <mat-chip-set class="insignias ms-auto">
+                  <mat-chip class="insignia libre">
+                    <mat-icon matChipAvatar aria-hidden="true">event_available</mat-icon>
+                    {{ serie.cuposLibres }} {{ serie.cuposLibres === 1 ? 'cupo' : 'cupos' }}
+                  </mat-chip>
+                </mat-chip-set>
               }
             </li>
           }
@@ -135,23 +160,32 @@ import { Esqueleto } from '../../ui/esqueleto';
                 <span class="font-display text-2xl font-bold tabular-nums">
                   {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
                 </span>
-                <app-insignia variante="info" icono="school">
-                  {{ nivel(clase.nivel) }}
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia info">
+                    <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                    {{ queClaseEs(clase) }}
+                  </mat-chip>
+                </mat-chip-set>
                 <span class="text-sm text-muted-foreground">
-                  {{ clase.profesor }} · {{ clase.cancha }}
+                  {{ clase.profesor }} · {{ clase.lugar }}
                 </span>
 
                 @if (clase.cuposLibres === 0) {
-                  <app-insignia variante="neutro" icono="block" class="ms-auto">
-                    Sin cupos
-                  </app-insignia>
+                  <mat-chip-set class="insignias ms-auto">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                      Sin cupos
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else {
                   <!-- Cupos libres: el verde de "libre", con fondo sólido. -->
-                  <app-insignia variante="libre" icono="event_available" class="ms-auto">
-                    {{ clase.cuposLibres }}
-                    {{ clase.cuposLibres === 1 ? 'cupo' : 'cupos' }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias ms-auto">
+                    <mat-chip class="insignia libre">
+                      <mat-icon matChipAvatar aria-hidden="true">event_available</mat-icon>
+                      {{ clase.cuposLibres }}
+                      {{ clase.cuposLibres === 1 ? 'cupo' : 'cupos' }}
+                    </mat-chip>
+                  </mat-chip-set>
                 }
               </li>
             }
@@ -196,11 +230,40 @@ export class ClasesPublicas {
   protected readonly hora = horaEnElClub;
   protected readonly enPalabras = diaEnPalabras;
 
-  protected nivel(clave: NivelClase): string {
-    return NIVELES[clave] ?? clave;
-  }
+  protected readonly queClaseEs = queClaseEs;
 
   protected readonly diasDeLaSerie = diasDeLaSerie;
+
+  /** Lo que comparten todos los días de la serie, o `null` si alguno cambia de horario o lugar. */
+  protected enComun(serie: SeriePublica) {
+    const [primero] = serie.dias;
+    if (!primero) return null;
+
+    const iguales = serie.dias.every(
+      (dia) =>
+        dia.horaDesde === primero.horaDesde &&
+        dia.horaHasta === primero.horaHasta &&
+        dia.lugar === primero.lugar,
+    );
+
+    return iguales
+      ? { ...primero, diasSemana: serie.dias.map((dia) => dia.diaSemana) }
+      : null;
+  }
+
+  /** "Ana Silva · Cancha 2 · hasta el 15 de diciembre"; sin el lugar si cambia por día. */
+  protected detalle(serie: SeriePublica): string {
+    const lugar = this.enComun(serie)?.lugar;
+
+    return [serie.profesor, lugar, `hasta el ${this.fechaCorta(serie.hasta)}`]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  /** Los días desde el lunes: el domingo, 0 en la API, va al final. */
+  protected enOrden(dias: SeriePublica['dias']) {
+    return [...dias].sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7));
+  }
 
   /** "15 de diciembre", de una fecha civil. */
   protected fechaCorta(fecha: string): string {

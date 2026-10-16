@@ -358,5 +358,38 @@ describe('POST /api/torneos/:id/inscripcion-socio', () => {
 
       await inscribirse(torneoId, { medioPago: 'TRANSFERENCIA' }).expect(400);
     });
+
+    it('**con la categoría llena queda en espera y no se le cobra** (T327)', async () => {
+      const torneoId = await crearTorneo(15_000);
+      const cuadro = await prisma.torneoCategoria.update({
+        where: {
+          torneoId_categoriaJuegoId: { torneoId, categoriaJuegoId: cuartaId },
+        },
+        data: { cupo: 1 },
+      });
+      const otro = await prisma.jugador.create({
+        data: { nombre: 'Ocupa', apellido: APELLIDO },
+      });
+      await prisma.inscripcionTorneo.create({
+        data: {
+          torneoId,
+          torneoCategoriaId: cuadro.id,
+          jugadorId: otro.id,
+          estado: 'INSCRITA',
+          estadoPago: 'PAGADA',
+        },
+      });
+
+      const respuesta = await inscribirse(torneoId, {
+        medioPago: 'WEBPAY',
+      }).expect(201);
+
+      expect(respuesta.body).toMatchObject({ estado: 'LISTA_ESPERA' });
+      const suya = await prisma.inscripcionTorneo.findFirstOrThrow({
+        where: { torneoId, jugador: { socioId: { not: null } } },
+        select: { estadoPago: true, medioPago: true },
+      });
+      expect(suya).toEqual({ estadoPago: 'PENDIENTE', medioPago: null });
+    });
   });
 });

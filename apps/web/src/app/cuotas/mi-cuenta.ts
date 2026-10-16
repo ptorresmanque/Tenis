@@ -1,13 +1,15 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
+import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../core/errores';
 import { irAPagar } from '../core/pagos/ir-a-pagar';
 import { Aviso } from '../ui/aviso';
 import { EstadoVacio } from '../ui/estado-vacio';
-import { Insignia } from '../ui/insignia';
 import { Cuotas, MiCuota } from './cuotas.service';
 import { Esqueleto } from '../ui/esqueleto';
 
@@ -28,7 +30,8 @@ const MESES = [
 ];
 
 /**
- * Lo que el socio debe, y el botón para pagarlo.
+ * Lo que el socio debe, y el botón para pagarlo. Es la pestaña «Cuota» de Mi cuenta (T318),
+ * que pone el título.
  *
  * **Es la pantalla que evita la conversación incómoda en el mesón**, y la razón por la
  * que este módulo se hizo completo. Quien está moroso se entera acá y lo resuelve sin
@@ -38,11 +41,9 @@ const MESES = [
  * mismo menú, y un 403 se lee como que el sistema está roto.
  */
 @Component({
-  selector: 'app-mi-cuenta',
-  imports: [Aviso, EstadoVacio, Esqueleto, Insignia],
+  selector: 'app-cuota-del-socio',
+  imports: [MatButton, Aviso, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Mi cuenta</h1>
-
     @if (vueltaDelPago(); as estado) {
       @if (estado === 'listo') {
         <app-aviso variante="exito" titulo="Pago recibido" class="mt-4 block">
@@ -107,16 +108,23 @@ const MESES = [
               </div>
 
               @if (cuota.estado === 'PAGADA') {
-                <app-insignia variante="exito" icono="check_circle">
-                  Pagada
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia exito">
+                    <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                    Pagada
+                  </mat-chip>
+                </mat-chip-set>
               } @else {
-                <app-insignia variante="aviso" icono="schedule">
-                  Por pagar
-                </app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia aviso">
+                    <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                    Por pagar
+                  </mat-chip>
+                </mat-chip-set>
                 <button
+                  matButton="filled"
                   type="button"
-                  class="boton boton-primario boton-chico"
+                  class="chico"
                   [disabled]="pagando()"
                   [attr.aria-busy]="pagando()"
                   (click)="pagar(cuota)"
@@ -131,7 +139,7 @@ const MESES = [
     }
   `,
 })
-export class MiCuenta {
+export class CuotaDelSocio {
   private readonly api = inject(Cuotas);
 
   /**

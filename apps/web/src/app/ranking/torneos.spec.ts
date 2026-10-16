@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
+import { elegidoEn, elegir as elegirOpcion } from '../testing/elegir';
 import { Auth, UsuarioActual } from '../core/auth/auth';
 import { TourPublico, TourPublicoEnLista, Tours } from '../tours/tours.service';
 import { Ranking, TablaDeTorneos } from './ranking.service';
@@ -90,6 +91,7 @@ describe('RankingDeTorneos', () => {
     telefono: null,
     email: 'ana@ejemplo.cl',
     esAdmin: false,
+    esGestor: false,
     socioId: 3,
     socioActivo: true,
     socioAlDia: true,
@@ -151,12 +153,13 @@ describe('RankingDeTorneos', () => {
 
   const elemento = () => fixture.nativeElement as HTMLElement;
   const texto = () => elemento().textContent ?? '';
-  const selector = (nombre: string) =>
-    elemento().querySelector<HTMLSelectElement>(`select[name="${nombre}"]`)!;
+  /** Lo elegido en la lista de ese nombre (T248: mat-select). */
+  const selector = (nombre: string) => ({
+    value: elegidoEn(fixture, `mat-select[name="${nombre}"]`),
+  });
 
   const elegir = async (nombre: string, valor: string) => {
-    selector(nombre).value = valor;
-    selector(nombre).dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="${nombre}"]`, valor);
     await fixture.whenStable();
   };
 
@@ -234,7 +237,7 @@ describe('RankingDeTorneos', () => {
     });
 
     expect(texto()).toContain('Este tour todavía no tiene temporadas.');
-    expect(elemento().querySelector('select[name="temporada"]')).toBeNull();
+    expect(elemento().querySelector('mat-select[name="temporada"]')).toBeNull();
     expect(torneos).not.toHaveBeenCalled();
   });
 

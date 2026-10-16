@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
@@ -287,6 +287,29 @@ describe('El pago de la inscripción a un torneo', () => {
       expect(await cuantas()).toBe(0);
     });
 
+    it('**un nombre de campo con corchetes se rechaza antes de leerlo**', async () => {
+      // Por los corchetes entraba GHSA-535w-7cp7-47q4: `a[4294967294]` le hace armar a
+      // multer un arreglo del largo máximo, y el campo siguiente lo recorre entero. La
+      // web manda nombres planos, así que no hay corchete legítimo que perder.
+      await inscribirseTransfiriendo(await unaImagen(), {
+        'items[4294967294]': 'x',
+      }).expect(400);
+
+      expect(await cuantas()).toBe(0);
+    });
+
+    it('**un envío con más campos de los que tiene el formulario se rechaza**', async () => {
+      // Cada campo puede pesar 1 MB y quedarse en memoria: sin tope, uno solo de estos
+      // envíos llena la del servidor.
+      const sobrantes = Object.fromEntries(
+        Array.from({ length: 20 }, (_, i) => [`sobrante${i}`, 'x']),
+      );
+
+      await inscribirseTransfiriendo(await unaImagen(), sobrantes).expect(400);
+
+      expect(await cuantas()).toBe(0);
+    });
+
     it('**las franjas horarias sobreviven al multipart**', async () => {
       // En multipart todo campo es texto, así que las franjas viajan como JSON. Sin
       // leerlas de vuelta, quien transfiere pierde en silencio las horas en que no
@@ -334,6 +357,149 @@ describe('El pago de la inscripción a un torneo', () => {
 
     expect((lista.body as { inscritos: unknown[] }).inscritos).toHaveLength(1);
     expect(primera.status).toBe(201);
+  });
+
+  /**
+   * T327 (`SPEC-torneos.md` § Lista de espera sin cobro, E4 y LE1). **A quien queda en espera
+   * no se le cobra**: si nunca se abre un cupo, el club tendría que devolverle la plata a mano.
+   * Manda el servidor, no el formulario: lo que traiga el envío no se guarda.
+   */
+  describe('con la categoría llena no se cobra (T327)', () => {
+    /** Las imágenes que hay en la carpeta de los comprobantes. */
+    const comprobantesEnElDisco = () =>
+      readdir(join(carpeta, 'comprobantes')).catch(() => [] as string[]);
+
+    const enEspera = async (id: number) =>
+      prisma.inscripcionTorneo.findUniqueOrThrow({
+        where: { id },
+        select: {
+          estado: true,
+          estadoPago: true,
+          medioPago: true,
+          comprobanteRuta: true,
+        },
+      });
+
+    beforeEach(async () => {
+      await prisma.torneoCategoria.update({
+        where: { id: cuadroPagado },
+        data: { cupo: 1 },
+      });
+      await inscribirse().expect(201);
+    });
+
+    it('**con Webpay queda en espera sin medio, y no se puede empezar a pagar**', async () => {
+      const { id, token, estado } = (await inscribirse().expect(201)).body as {
+        id: number;
+        token: string;
+        estado: string;
+      };
+
+      expect(estado).toBe('LISTA_ESPERA');
+      expect(await enEspera(id)).toEqual({
+        estado: 'LISTA_ESPERA',
+        estadoPago: EstadoPagoInscripcion.PENDIENTE,
+        medioPago: null,
+        comprobanteRuta: null,
+      });
+
+      // Un formulario viejo, abierto antes del cambio, seguiría a la pasarela con la llave.
+      await request(app.getHttpServer())
+        .post(`/api/torneos/inscripciones/${token}/pago`)
+        .send({})
+        .expect(409);
+      expect(
+        await prisma.transaccion.count({
+          where: { concepto: ConceptoPago.INSCRIPCION_TORNEO, conceptoId: id },
+        }),
+      ).toBe(0);
+    });
+
+    it('**con comprobante queda en espera y la imagen no se queda en el disco**', async () => {
+      const antes = await comprobantesEnElDisco();
+
+      const { id, token } = (
+        await inscribirseTransfiriendo(await unaImagen()).expect(201)
+      ).body as { id: number; token: string };
+
+      expect(await enEspera(id)).toMatchObject({
+        estado: 'LISTA_ESPERA',
+        medioPago: null,
+        comprobanteRuta: null,
+      });
+      expect(await comprobantesEnElDisco()).toEqual(antes);
+
+      // Ni subiéndolo después por la llave: en espera no hay nada que revisar.
+      await subirComprobante(token, await unaImagen()).expect(409);
+      expect(await comprobantesEnElDisco()).toEqual(antes);
+    });
+
+    it('**sin decir cómo paga también entra a la lista**: el formulario ya no lo pregunta', async () => {
+      const { id } = (await inscribirse({ medioPago: undefined }).expect(201))
+        .body as { id: number };
+
+      expect((await enEspera(id)).estado).toBe('LISTA_ESPERA');
+    });
+
+    it('**pero si queda lugar, sin medio de pago no hay inscripción**', async () => {
+      // El formulario vio la categoría llena y alguien se retiró antes del envío: entraría
+      // al cuadro sin haber elegido cómo pagar, y ocuparía el cupo sin que nadie la suelte.
+      await prisma.torneoCategoria.update({
+        where: { id: cuadroPagado },
+        data: { cupo: 8 },
+      });
+
+      const respuesta = await inscribirse({ medioPago: undefined }).expect(400);
+
+      expect((respuesta.body as { message: string }).message).toContain(
+        'cómo vas a pagar',
+      );
+    });
+
+    it('**en espera no es un pago por revisar**: ni en el índice del panel ni en la bandeja', async () => {
+      // Nace pendiente y sin medio, como la que anota el admin para el mesón; pero no hay
+      // nada que cobrarle, y contarla tapa los pagos que sí hay que mirar.
+      const { id } = (await inscribirse().expect(201)).body as { id: number };
+
+      const indice = (
+        await request(app.getHttpServer())
+          .get('/api/admin/torneos')
+          .set('Cookie', cookieAdmin)
+          .expect(200)
+      ).body as { id: number; pagosPorRevisar: number; enEspera: number }[];
+      expect(indice.find((t) => t.id === torneoId)).toMatchObject({
+        pagosPorRevisar: 0,
+        enEspera: 1,
+      });
+
+      const bandeja = (
+        await request(app.getHttpServer())
+          .get('/api/admin/inscripciones/pendientes')
+          .set('Cookie', cookieAdmin)
+          .expect(200)
+      ).body as { id: number }[];
+      expect(bandeja.map((fila) => fila.id)).not.toContain(id);
+    });
+
+    it('**el barrido de 15 minutos no borra a nadie en espera** (LE5)', async () => {
+      const { id } = (await inscribirse().expect(201)).body as { id: number };
+      // Como si hubiera elegido Webpay antes del cambio, y hace media hora.
+      await prisma.inscripcionTorneo.update({
+        where: { id },
+        data: {
+          medioPago: 'WEBPAY',
+          inscritaEn: new Date(Date.now() - 30 * 60_000),
+        },
+      });
+
+      await request(app.getHttpServer())
+        .get('/api/torneos/publicos?anio=2027')
+        .expect(200);
+
+      expect(
+        await prisma.inscripcionTorneo.findUnique({ where: { id } }),
+      ).not.toBeNull();
+    });
   });
 
   /**

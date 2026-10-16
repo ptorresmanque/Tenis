@@ -7,13 +7,19 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { PreguntaFrecuente, PreguntasFrecuentes } from './preguntas-frecuentes.service';
+import { LO_HECHO } from '../ui/material';
 
 /** Lo que cabe: el largo de la columna de la pregunta y el tope de la API (T144). */
 const LARGO_DE_LA_PREGUNTA = 191;
@@ -29,45 +35,49 @@ const LARGO_DE_LA_RESPUESTA = 2000;
  */
 @Component({
   selector: 'app-preguntas-frecuentes',
-  imports: [FormsModule, Aviso, Campo, CampoControl, Esqueleto, EstadoVacio],
+  imports: [MatCard, MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso, Esqueleto, EstadoVacio],
+  providers: [proveerCampos()],
   template: `
     <section aria-labelledby="titulo-preguntas">
-      <h2 id="titulo-preguntas" class="rotulo-seccion" tabindex="-1">Preguntas frecuentes</h2>
+      <!-- Para el lector y no a la vista (T290): va dentro del panel «Preguntas frecuentes» de
+           Configuración, que ya lo dice. Sigue siendo adonde vuelve el foco al borrar. -->
+      <h2 id="titulo-preguntas" class="sr-only" tabindex="-1">Preguntas frecuentes</h2>
       <p class="mt-2 max-w-prose text-sm text-muted-foreground">
         Salen en la página «Preguntas frecuentes», enlazada desde el pie de cada página y
         desde «El club». Van en el orden de la lista: el número menor, más arriba.
       </p>
 
       <form class="mt-4 grid max-w-xl gap-4" (ngSubmit)="agregar()">
-        <app-campo etiqueta="Pregunta" [obligatorio]="true">
+        <mat-form-field>
+          <mat-label>Pregunta <span aria-hidden="true">*</span></mat-label>
           <input
-            appCampoControl
+            matInput
             name="pregunta"
-            class="campo"
             [maxlength]="LARGO_DE_LA_PREGUNTA"
             [(ngModel)]="nueva.pregunta"
           />
-        </app-campo>
+        </mat-form-field>
 
-        <app-campo
-          etiqueta="Respuesta"
-          [obligatorio]="true"
-          [ayuda]="'Texto simple: los saltos de línea se respetan. ' + quedan(nueva.respuesta)"
-        >
+        <mat-form-field>
+          <mat-label>Respuesta <span aria-hidden="true">*</span></mat-label>
           <textarea
-            appCampoControl
+            matInput
             name="respuesta"
             rows="4"
-            class="campo"
             [maxlength]="LARGO_DE_LA_RESPUESTA"
             [(ngModel)]="nueva.respuesta"
           ></textarea>
-        </app-campo>
+          <mat-hint>
+            {{ 'Texto simple: los saltos de línea se respetan. ' + quedan(nueva.respuesta) }}
+          </mat-hint>
+        </mat-form-field>
 
         <div>
+          <!-- Crear, editar y confirmar el borrado son formularios distintos, uno por pregunta.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="submit"
-            class="boton boton-primario"
             [disabled]="enviando()"
             [attr.aria-busy]="enCurso() === 'agregar'"
           >
@@ -81,8 +91,6 @@ const LARGO_DE_LA_RESPUESTA = 2000;
       @if (origen() === null) {
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-        } @else if (aviso(); as texto) {
-          <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
         }
       }
     </section>
@@ -107,131 +115,138 @@ const LARGO_DE_LA_RESPUESTA = 2000;
       } @else {
         <ol class="grid gap-3">
           @for (pregunta of lista(); track pregunta.id) {
-            <li class="rounded-xl border border-border bg-card p-4">
-              @if (editando() === pregunta.id) {
-                <form class="grid gap-4" (ngSubmit)="guardar(pregunta)">
-                  <app-campo etiqueta="Pregunta" [obligatorio]="true">
-                    <input
-                      appCampoControl
-                      [id]="'editar-pregunta-' + pregunta.id"
-                      name="pregunta"
-                      class="campo"
-                      [maxlength]="LARGO_DE_LA_PREGUNTA"
-                      [(ngModel)]="borrador.pregunta"
-                    />
-                  </app-campo>
-                  <app-campo
-                    etiqueta="Respuesta"
-                    [obligatorio]="true"
-                    [ayuda]="quedan(borrador.respuesta)"
-                  >
-                    <textarea
-                      appCampoControl
-                      name="respuesta"
-                      rows="4"
-                      class="campo"
-                      [maxlength]="LARGO_DE_LA_RESPUESTA"
-                      [(ngModel)]="borrador.respuesta"
-                    ></textarea>
-                  </app-campo>
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      type="submit"
-                      class="boton boton-primario boton-chico"
-                      [disabled]="enviando()"
-                      [attr.aria-busy]="enCurso() === 'guardar-' + pregunta.id"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      type="button"
-                      class="boton boton-texto boton-chico"
-                      (click)="cerrarEdicion(pregunta.id)"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
-              } @else {
-                <div class="flex items-start gap-4">
-                  <div class="min-w-0 flex-1">
-                    <h3 class="font-semibold">{{ pregunta.pregunta }}</h3>
-                    <!-- Un adelanto: la respuesta entera se lee al editarla. -->
-                    <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
-                  </div>
-
-                  <div>
-                    <label class="sr-only" [for]="'orden-pregunta-' + pregunta.id">
-                      Orden de «{{ pregunta.pregunta }}»
-                    </label>
-                    <input
-                      [id]="'orden-pregunta-' + pregunta.id"
-                      type="number"
-                      min="0"
-                      max="1000"
-                      class="campo w-18 sm:w-24"
-                      [value]="pregunta.orden"
-                      [disabled]="enviando()"
-                      (change)="mover(pregunta, $event)"
-                    />
-                  </div>
-                </div>
-
-                @if (porBorrar() === pregunta.id) {
-                  <!-- La confirmación en la fila, como al cancelar una reserva: es la
-                       consecuencia de esta pregunta y no hay foco que atrapar. -->
-                  <app-aviso variante="aviso" [urgente]="true" class="mt-3 block">
-                    «{{ pregunta.pregunta }}» deja de aparecer en el sitio. Esto no se
-                    puede deshacer.
-                  </app-aviso>
-                  <div class="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      class="boton boton-destructivo boton-chico"
-                      [disabled]="enviando()"
-                      [attr.aria-busy]="enCurso() === 'borrar-' + pregunta.id"
-                      (click)="borrar(pregunta)"
-                    >
-                      Sí, borrar
-                    </button>
-                    <button
-                      type="button"
-                      class="boton boton-texto boton-chico"
-                      (click)="porBorrar.set(null)"
-                    >
-                      Mejor no
-                    </button>
-                  </div>
+            <li>
+              <mat-card appearance="outlined" class="p-4">
+                @if (editando() === pregunta.id) {
+                  <form class="grid gap-4" (ngSubmit)="guardar(pregunta)">
+                    <mat-form-field>
+                      <mat-label>Pregunta <span aria-hidden="true">*</span></mat-label>
+                      <input
+                        matInput
+                        [id]="'editar-pregunta-' + pregunta.id"
+                        name="pregunta"
+                        [maxlength]="LARGO_DE_LA_PREGUNTA"
+                        [(ngModel)]="borrador.pregunta"
+                      />
+                    </mat-form-field>
+                    <mat-form-field>
+                      <mat-label>Respuesta <span aria-hidden="true">*</span></mat-label>
+                      <textarea
+                        matInput
+                        name="respuesta"
+                        rows="4"
+                        [maxlength]="LARGO_DE_LA_RESPUESTA"
+                        [(ngModel)]="borrador.respuesta"
+                      ></textarea>
+                      <mat-hint>{{ quedan(borrador.respuesta) }}</mat-hint>
+                    </mat-form-field>
+                    <div class="flex flex-wrap gap-2">
+                      <!-- Guardar y confirmar el borrado son ramas distintas de la misma tarjeta:
+                           nunca están las dos a la vista. mat-guidelines-ignore: multiples-filled -->
+                      <button
+                        matButton="filled"
+                        type="submit"
+                        class="chico"
+                        [disabled]="enviando()"
+                        [attr.aria-busy]="enCurso() === 'guardar-' + pregunta.id"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        matButton
+                        type="button"
+                        class="chico"
+                        (click)="cerrarEdicion(pregunta.id)"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
                 } @else {
-                  <div class="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      [id]="'editar-' + pregunta.id"
-                      class="boton boton-secundario boton-chico"
-                      (click)="abrirEdicion(pregunta)"
-                    >
-                      Editar
-                      <span class="sr-only">«{{ pregunta.pregunta }}»</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="boton boton-texto boton-chico"
-                      (click)="porBorrar.set(pregunta.id)"
-                    >
-                      Borrar
-                      <span class="sr-only">«{{ pregunta.pregunta }}»</span>
-                    </button>
-                  </div>
-                }
-              }
+                  <div class="flex items-start gap-4">
+                    <div class="min-w-0 flex-1">
+                      <h3 class="font-semibold">{{ pregunta.pregunta }}</h3>
+                      <!-- Un adelanto: la respuesta entera se lee al editarla. -->
+                      <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
+                    </div>
 
-              @if (origen() === pregunta.id) {
-                @if (error(); as falla) {
-                  <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
-                } @else if (aviso(); as texto) {
-                  <app-aviso variante="exito" class="mt-3 block">{{ texto }}</app-aviso>
+                    <mat-form-field class="w-18 sm:w-24">
+                      <!-- «Orden» a la vista y la pregunta para el lector (T290): el campo es
+                           angosto, y la etiqueta entera se cortaba en «Orden de «¿Nec». -->
+                      <mat-label
+                        >Orden<span class="sr-only"> de «{{ pregunta.pregunta }}»</span></mat-label
+                      >
+                      <input
+                        matInput
+                        [id]="'orden-pregunta-' + pregunta.id"
+                        type="number"
+                        min="0"
+                        max="1000"
+                        [value]="pregunta.orden"
+                        [disabled]="enviando()"
+                        (change)="mover(pregunta, $event)"
+                      />
+                    </mat-form-field>
+                  </div>
+
+                  @if (porBorrar() === pregunta.id) {
+                    <!-- La confirmación en la fila, como al cancelar una reserva: es la
+                         consecuencia de esta pregunta y no hay foco que atrapar. -->
+                    <app-aviso variante="aviso" [urgente]="true" class="mt-3 block">
+                      «{{ pregunta.pregunta }}» deja de aparecer en el sitio. Esto no se
+                      puede deshacer.
+                    </app-aviso>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        matButton="filled"
+                        type="button"
+                        class="peligro chico"
+                        [disabled]="enviando()"
+                        [attr.aria-busy]="enCurso() === 'borrar-' + pregunta.id"
+                        (click)="borrar(pregunta)"
+                      >
+                        Sí, borrar
+                      </button>
+                      <button
+                        matButton
+                        type="button"
+                        class="chico"
+                        (click)="porBorrar.set(null)"
+                      >
+                        Mejor no
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      <button
+                        matButton="outlined"
+                        type="button"
+                        [id]="'editar-' + pregunta.id"
+                        class="chico"
+                        (click)="abrirEdicion(pregunta)"
+                      >
+                        Editar
+                        <span class="sr-only">«{{ pregunta.pregunta }}»</span>
+                      </button>
+                      <button
+                        matButton
+                        type="button"
+                        class="chico"
+                        (click)="porBorrar.set(pregunta.id)"
+                      >
+                        Borrar
+                        <span class="sr-only">«{{ pregunta.pregunta }}»</span>
+                      </button>
+                    </div>
+                  }
                 }
-              }
+
+                @if (origen() === pregunta.id) {
+                  @if (error(); as falla) {
+                    <app-aviso variante="error" class="mt-3 block">{{ falla }}</app-aviso>
+                  }
+                }
+              </mat-card>
             </li>
           }
         </ol>
@@ -240,6 +255,7 @@ const LARGO_DE_LA_RESPUESTA = 2000;
   `,
 })
 export class PreguntasFrecuentesPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(PreguntasFrecuentes);
   private readonly injector = inject(Injector);
 
@@ -255,7 +271,6 @@ export class PreguntasFrecuentesPanel {
 
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
   /** Qué acción está viajando, para que gire su botón y no todos (T153). */
   protected readonly enCurso = signal<string | null>(null);
   /** De qué fila es el mensaje; nulo si es del formulario de agregar. */
@@ -287,7 +302,7 @@ export class PreguntasFrecuentesPanel {
 
     await this.contra('agregar', async () => {
       await this.api.crear(this.nueva.pregunta.trim(), this.nueva.respuesta.trim());
-      this.aviso.set('Pregunta agregada al final de la lista.');
+      this.snackBar.open('Pregunta agregada al final de la lista.', undefined, LO_HECHO);
       this.nueva = { pregunta: '', respuesta: '' };
     }, 'No se pudo agregar la pregunta.');
   }
@@ -326,7 +341,7 @@ export class PreguntasFrecuentesPanel {
         pregunta: this.borrador.pregunta.trim(),
         respuesta: this.borrador.respuesta.trim(),
       });
-      this.aviso.set('Pregunta guardada.');
+      this.snackBar.open('Pregunta guardada.', undefined, LO_HECHO);
       this.cerrarEdicion(pregunta.id);
     }, 'No se pudo guardar la pregunta.');
   }
@@ -346,7 +361,11 @@ export class PreguntasFrecuentesPanel {
 
     await this.contra(`mover-${pregunta.id}`, async () => {
       await this.api.editar(pregunta.id, { orden });
-      this.aviso.set(`«${pregunta.pregunta}» quedó con el orden ${orden}.`);
+      this.snackBar.open(
+        `«${pregunta.pregunta}» quedó con el orden ${orden}.`,
+        undefined,
+        LO_HECHO,
+      );
     }, 'No se pudo mover la pregunta.');
   }
 
@@ -357,7 +376,7 @@ export class PreguntasFrecuentesPanel {
       await this.api.borrar(pregunta.id);
       // La fila se va: el aviso sale arriba, junto al título.
       this.origen.set(null);
-      this.aviso.set(`«${pregunta.pregunta}» ya no aparece en el sitio.`);
+      this.snackBar.open(`«${pregunta.pregunta}» ya no aparece en el sitio.`, undefined, LO_HECHO);
       // La fila se va con sus botones y el foco vuelve al título, salvo que mientras
       // tanto se haya abierto otra confirmación: esa sigue siendo de la persona.
       if (this.porBorrar() === pregunta.id) {
@@ -398,7 +417,6 @@ export class PreguntasFrecuentesPanel {
 
   private limpiarMensajes(origen: number | null): void {
     this.error.set(null);
-    this.aviso.set(null);
     this.origen.set(origen);
   }
 }

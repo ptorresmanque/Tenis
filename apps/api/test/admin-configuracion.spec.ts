@@ -344,10 +344,184 @@ describe('Configuración del club', () => {
       await patch({ cupoDiarioSocioReservas: '2' }).expect(400);
     });
 
+    describe('las duraciones del socio en horario prime (T213)', () => {
+      it('guarda cualquiera de las tres', async () => {
+        for (const duraciones of ['AMBAS', 'HORA_Y_MEDIA', 'UNA_HORA']) {
+          expect(
+            (await patch({ duracionesSocioPico: duraciones }).expect(200)).body,
+          ).toMatchObject({ duracionesSocioPico: duraciones });
+        }
+      });
+
+      it('otro valor se rechaza y dice cuáles valen', async () => {
+        expect(
+          (
+            (await patch({ duracionesSocioPico: 'TRES_HORAS' }).expect(400))
+              .body as { message: string }
+          ).message,
+        ).toBe(
+          'Las duraciones del socio en horario prime son UNA_HORA, HORA_Y_MEDIA o AMBAS.',
+        );
+        await patch({ duracionesSocioPico: 60 }).expect(400);
+      });
+    });
+
+    describe('el tope de canchas con luz (T208)', () => {
+      it('guarda el número y la hora, y lo apaga con nulo', async () => {
+        expect(
+          (
+            await patch({
+              topeCanchasConLuz: 3,
+              topeCanchasConLuzDesde: '20:30',
+            }).expect(200)
+          ).body,
+        ).toMatchObject({
+          topeCanchasConLuz: 3,
+          topeCanchasConLuzDesde: '20:30',
+        });
+        expect(
+          (await patch({ topeCanchasConLuz: null }).expect(200)).body,
+        ).toMatchObject({ topeCanchasConLuz: null });
+      });
+
+      it('un tope de 0, uno que no es entero o uno escrito como texto se rechazan', async () => {
+        const mensaje = async (cuerpo: Record<string, unknown>) =>
+          ((await patch(cuerpo).expect(400)).body as { message: string })
+            .message;
+
+        expect(await mensaje({ topeCanchasConLuz: 0 })).toBe(
+          'El tope de canchas con luz tiene que ser un número entero desde 1.',
+        );
+        await patch({ topeCanchasConLuz: 1.5 }).expect(400);
+        await patch({ topeCanchasConLuz: '2' }).expect(400);
+      });
+
+      it('la hora va en punto o y media', async () => {
+        expect(
+          (
+            (await patch({ topeCanchasConLuzDesde: '19:15' }).expect(400))
+              .body as { message: string }
+          ).message,
+        ).toBe(
+          'La hora del tope de canchas con luz va en punto o y media, por ejemplo 19:00 o 19:30.',
+        );
+        await patch({ topeCanchasConLuzDesde: '25:00' }).expect(400);
+        await patch({ topeCanchasConLuzDesde: 1900 }).expect(400);
+      });
+
+      it('las horas que superan el tope las ve solo el admin', async () => {
+        await request(servidor())
+          .get('/api/admin/tope-de-luz/excesos')
+          .expect(401);
+        await request(servidor())
+          .get('/api/admin/tope-de-luz/excesos')
+          .set('Cookie', socio)
+          .expect(403);
+        await request(servidor())
+          .get('/api/admin/tope-de-luz/excesos')
+          .set('Cookie', admin)
+          .expect(200);
+      });
+    });
+
     it('un cuerpo sin ningún campo conocido no pasa por válido', async () => {
       // Sin esto, un nombre de campo mal escrito responde 200 y el admin cree que
       // guardó algo que no cambió nada.
       await patch({ cupoDiario: 3 }).expect(400);
+    });
+  });
+
+  /**
+   * T274. El informe de reservas que llega por correo a admins y gestores
+   * (SPEC-revision-qa.md, A9): se apaga y se le fija la hora, en horas enteras.
+   */
+  describe('el informe diario de reservas (T274)', () => {
+    afterAll(async () => {
+      // Como venía: activo a las 07:00. La tanda del informe (T275) lo lee.
+      await patch({ informeDiarioActivo: true, informeDiarioHora: 7 }).expect(
+        200,
+      );
+    });
+
+    it('**por omisión va activo, a las 07:00**', async () => {
+      const respuesta = await request(servidor())
+        .get('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        informeDiarioActivo: true,
+        informeDiarioHora: 7,
+      });
+    });
+
+    it('guarda la hora y lo apaga, y lo devuelve', async () => {
+      const respuesta = await patch({
+        informeDiarioHora: 21,
+        informeDiarioActivo: false,
+      }).expect(200);
+
+      expect(respuesta.body).toMatchObject({
+        informeDiarioHora: 21,
+        informeDiarioActivo: false,
+      });
+    });
+
+    it('una hora fuera de 0 a 23 se rechaza y dice por qué', async () => {
+      const mensaje = async (cuerpo: Record<string, unknown>) =>
+        ((await patch(cuerpo).expect(400)).body as { message: string }).message;
+
+      expect(await mensaje({ informeDiarioHora: 24 })).toBe(
+        'La hora del informe diario no puede pasar de 23.',
+      );
+      expect(await mensaje({ informeDiarioHora: -1 })).toBe(
+        'La hora del informe diario tiene que ser un número entero desde 0.',
+      );
+      await patch({ informeDiarioHora: 7.5 }).expect(400);
+    });
+
+    it('activo es sí o no, no un texto', async () => {
+      await patch({ informeDiarioActivo: 'sí' }).expect(400);
+    });
+  });
+
+  /**
+   * T326. Cuántos minutos se le guarda el cupo al primero de la lista de espera cuando se abre
+   * uno (SPEC-torneos.md § Lista de espera sin cobro, E1 y LE10): 30 por omisión, de 10 minutos
+   * a 24 horas.
+   */
+  describe('el plazo de la lista de espera (T326)', () => {
+    afterAll(async () => {
+      await patch({ plazoCupoListaEsperaMin: 30 }).expect(200);
+    });
+
+    it('**por omisión son 30 minutos**', async () => {
+      const respuesta = await request(servidor())
+        .get('/api/admin/configuracion')
+        .set('Cookie', admin)
+        .expect(200);
+
+      expect(respuesta.body).toMatchObject({ plazoCupoListaEsperaMin: 30 });
+    });
+
+    it('guarda el plazo y lo devuelve', async () => {
+      const respuesta = await patch({ plazoCupoListaEsperaMin: 90 }).expect(
+        200,
+      );
+
+      expect(respuesta.body).toMatchObject({ plazoCupoListaEsperaMin: 90 });
+    });
+
+    it('**fuera de 10 minutos a 24 horas se rechaza y dice por qué**', async () => {
+      const mensaje = async (cuerpo: Record<string, unknown>) =>
+        ((await patch(cuerpo).expect(400)).body as { message: string }).message;
+
+      expect(await mensaje({ plazoCupoListaEsperaMin: 9 })).toBe(
+        'El plazo para tomar un cupo de la lista de espera, en minutos, tiene que ser un número entero desde 10.',
+      );
+      expect(await mensaje({ plazoCupoListaEsperaMin: 1441 })).toBe(
+        'El plazo para tomar un cupo de la lista de espera, en minutos, no puede pasar de 1440.',
+      );
     });
   });
 

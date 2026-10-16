@@ -1,9 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Socios } from '../../identidad/admin/socios.service';
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Clases, FichaDeClase } from '../clases.service';
 import { InscritosDeLaClase } from './inscritos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T47. Quién viene a la clase.
@@ -16,7 +17,8 @@ import { InscritosDeLaClase } from './inscritos';
 describe('InscritosDeLaClase', () => {
   const FICHA: FichaDeClase = {
     id: 7,
-    cancha: 'Cancha 1',
+    tipo: 'TENIS',
+    lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',
@@ -48,39 +50,24 @@ describe('InscritosDeLaClase', () => {
     realizar: ReturnType<typeof vi.fn>;
     inscribirEnLaSerie: ReturnType<typeof vi.fn>;
     salirDeLaSerie: ReturnType<typeof vi.fn>;
+    socios: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (ficha: FichaDeClase | Error) => {
     api = {
-      ficha: vi.fn(() =>
-        ficha instanceof Error ? Promise.reject(ficha) : Promise.resolve(ficha),
-      ),
+      ficha: vi.fn(() => (ficha instanceof Error ? Promise.reject(ficha) : Promise.resolve(ficha))),
       inscribir: vi.fn().mockResolvedValue({ id: 12 }),
       bajar: vi.fn().mockResolvedValue({ id: 11 }),
       realizar: vi.fn().mockResolvedValue({ id: 7 }),
       inscribirEnLaSerie: vi.fn().mockResolvedValue({ inscritas: 17, yaEstaba: 1 }),
       salirDeLaSerie: vi.fn().mockResolvedValue({ canceladas: 5 }),
+      // T222: la lista reducida de `admin/clases/socios`, no el padrón.
+      socios: vi.fn().mockResolvedValue([{ id: 3, numeroSocio: '002', nombre: 'Matías Rojas' }]),
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [
-        { provide: Clases, useValue: api },
-        {
-          provide: Socios,
-          useValue: {
-            listado: vi.fn().mockResolvedValue({
-              socios: [
-                {
-                  id: 3,
-                  numeroSocio: '002',
-                  usuario: { nombre: 'Matías', apellido: 'Rojas' },
-                },
-              ],
-            }),
-          },
-        },
-      ],
+      providers: [{ provide: Clases, useValue: api }],
     });
 
     fixture = TestBed.createComponent(InscritosDeLaClase);
@@ -115,11 +102,7 @@ describe('InscritosDeLaClase', () => {
   });
 
   it('inscribe a un socio del club', async () => {
-    const select = elemento().querySelector(
-      'select[name="socioId"]',
-    ) as HTMLSelectElement;
-    select.value = '3';
-    select.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="socioId"]`, '3');
     await fixture.whenStable();
 
     await apretar('Inscribir');
@@ -179,9 +162,7 @@ describe('InscritosDeLaClase', () => {
       inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="socioId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="socioId"]');
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(false);
   });
@@ -190,24 +171,17 @@ describe('InscritosDeLaClase', () => {
     await montar({
       ...FICHA,
       cupoTomado: 0,
-      inscritos: [
-        { ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' },
-      ],
+      inscritos: [{ ...FICHA.inscritos[0], numeroSocio: '002', estado: 'CANCELADA' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="socioId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="socioId"]');
 
     expect(opciones.some((o) => o?.startsWith('002'))).toBe(true);
   });
 
   it('pasar lista manda a los que vinieron', async () => {
-    const casilla = elemento().querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
-    casilla.checked = true;
-    casilla.dispatchEvent(new Event('change'));
+    // La casilla de Material cambia con el clic, como la usa una persona (T249).
+    elemento().querySelector<HTMLInputElement>('input[type="checkbox"]')!.click();
     await fixture.whenStable();
 
     await apretar('Cerrar la clase con esta lista');
@@ -243,7 +217,7 @@ describe('InscritosDeLaClase', () => {
       ),
     ).toBe(false);
     // Ni se inscribe a nadie más: la clase ya pasó.
-    expect(elemento().querySelector('select[name="socioId"]')).toBeNull();
+    expect(elemento().querySelector('mat-select[name="socioId"]')).toBeNull();
   });
 
   it('sin nadie inscrito lo dice, en vez de una lista vacía', async () => {
@@ -263,10 +237,12 @@ describe('InscritosDeLaClase', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        { provide: Clases, useValue: { ficha: () => Promise.resolve(FICHA) } },
         {
-          provide: Socios,
-          useValue: { listado: () => Promise.reject(new Error('la API no respondió')) },
+          provide: Clases,
+          useValue: {
+            ficha: () => Promise.resolve(FICHA),
+            socios: () => Promise.reject(new Error('la API no respondió')),
+          },
         },
       ],
     });
@@ -290,16 +266,14 @@ describe('InscritosDeLaClase', () => {
 
     it('**inscribe al socio elegido en toda la serie y dice en cuántas clases**', async () => {
       await montar(DE_UNA_SERIE);
-      const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
-      select.value = '3';
-      select.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="socioId"]`, '3');
       await fixture.whenStable();
 
       await apretar('Inscribir en toda la serie');
 
       expect(api.inscribirEnLaSerie).toHaveBeenCalledWith(9, { socioId: 3 });
       expect(api.inscribir).not.toHaveBeenCalled();
-      expect(texto()).toContain('Inscrito en 17 clases de la serie; en 1 ya estaba.');
+      expect(avisoDeLoHecho()).toContain('Inscrito en 17 clases de la serie; en 1 ya estaba.');
     });
 
     it('**sacar de la serie cancela las clases que vienen**', async () => {
@@ -308,7 +282,7 @@ describe('InscritosDeLaClase', () => {
       await apretar('Sacar de la serie');
 
       expect(api.salirDeLaSerie).toHaveBeenCalledWith(9, { socioId: 1 });
-      expect(texto()).toContain('Salió de la serie: se cancelaron 5 clases que venían.');
+      expect(avisoDeLoHecho()).toContain('Salió de la serie: se cancelaron 5 clases que venían.');
     });
 
     it('al alumno de afuera se lo reconoce por su nombre y su teléfono', async () => {
@@ -343,9 +317,7 @@ describe('InscritosDeLaClase', () => {
             'No hay cupo en la clase del jueves 22 de octubre: no se inscribió en ninguna clase de la serie.',
         },
       });
-      const select = elemento().querySelector('select[name="socioId"]') as HTMLSelectElement;
-      select.value = '3';
-      select.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="socioId"]`, '3');
       await fixture.whenStable();
 
       await apretar('Inscribir en toda la serie');
@@ -358,10 +330,7 @@ describe('InscritosDeLaClase', () => {
     const nunca = () => new Promise<never>(() => undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [
-        { provide: Clases, useValue: { ficha: nunca } },
-        { provide: Socios, useValue: { listado: nunca } },
-      ],
+      providers: [{ provide: Clases, useValue: { ficha: nunca, socios: nunca } }],
     });
 
     const pendiente = TestBed.createComponent(InscritosDeLaClase);

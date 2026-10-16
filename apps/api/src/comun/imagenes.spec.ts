@@ -107,6 +107,19 @@ describe('guardarImagen', () => {
     await expect(guardarImagen(php, 'pruebas')).rejects.toThrow();
   });
 
+  it('**un SVG se rechaza aunque sea una imagen válida**', async () => {
+    // El SVG lo decodifica librsvg, donde estaba la falla de GHSA-wq5f-xc86-pv6w. La
+    // web solo ofrece JPG y PNG, así que un SVG solo puede llegar armado a mano.
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">' +
+        '<rect width="10" height="10" fill="red"/></svg>',
+    );
+
+    await expect(guardarImagen(svg, 'pruebas')).rejects.toThrow(
+      /no es una imagen/,
+    );
+  });
+
   it('un archivo vacío se rechaza', async () => {
     await expect(guardarImagen(Buffer.alloc(0), 'pruebas')).rejects.toThrow();
   });

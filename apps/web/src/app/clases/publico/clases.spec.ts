@@ -3,6 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegidoEn } from '../../testing/elegir';
 import { ClasePublica, Clases, ProfesorPublico, SeriePublica } from '../clases.service';
 import { ClasesPublicas } from './clases';
 
@@ -22,12 +23,14 @@ describe('ClasesPublicas', () => {
 
   const CLASE: ClasePublica = {
     id: 3,
-    cancha: 'Cancha 1',
+    tipo: 'TENIS',
+    lugar: 'Cancha 1',
     profesor: 'Ana Silva',
     // 21:00Z de un lunes de agosto son las 17:00 en Santiago.
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',
     nivel: 'NINOS',
+    cupoMaximo: 6,
     cuposLibres: 3,
   };
 
@@ -85,11 +88,7 @@ describe('ClasesPublicas', () => {
   });
 
   it('**la consulta sale marcada como de clases**', () => {
-    const select = elemento().querySelector(
-      'select[name="tipo"]',
-    ) as HTMLSelectElement;
-
-    expect(select.value).toBe('CLASES');
+    expect(elegidoEn(fixture, 'mat-select[name="tipo"]')).toBe('CLASES');
   });
 
   it('**no se puede inscribir desde el sitio: el club es quien inscribe**', () => {
@@ -105,7 +104,7 @@ describe('ClasesPublicas', () => {
 
     expect(texto()).toContain('No hay clases programadas esta semana');
     // Y el formulario sigue ahí: es justo cuando más sirve preguntar.
-    expect(elemento().querySelector('select[name="tipo"]')).not.toBeNull();
+    expect(elemento().querySelector('mat-select[name="tipo"]')).not.toBeNull();
   });
 
   it('sin profesores cargados todavía, la página no se rompe', async () => {
@@ -137,15 +136,21 @@ describe('ClasesPublicas', () => {
 
   /** T117. Una serie es una tarjeta, no una clase por fecha. */
   describe('las series', () => {
+    const dia = (diaSemana: number, horaDesde = '19:00', horaHasta = '20:00', lugar = 'Cancha 2') => ({
+      diaSemana,
+      horaDesde,
+      horaHasta,
+      lugar,
+    });
+
     const SERIE: SeriePublica = {
       id: 9,
+      tipo: 'TENIS',
       profesor: 'Ana Silva',
-      cancha: 'Cancha 2',
       nivel: 'INICIACION',
-      diasSemana: [2, 4],
-      horaDesde: '19:00',
-      horaHasta: '20:00',
+      dias: [dia(2), dia(4)],
       hasta: '2026-12-15',
+      cupoMaximo: 6,
       cuposLibres: 4,
     };
 
@@ -159,9 +164,21 @@ describe('ClasesPublicas', () => {
     });
 
     it('con tres días los nombra en orden, desde el lunes', async () => {
-      await montar([ANA], [], [{ ...SERIE, diasSemana: [5, 1, 3] }]);
+      await montar([ANA], [], [{ ...SERIE, dias: [dia(1), dia(3), dia(5)] }]);
 
       expect(texto()).toContain('Lunes, miércoles y viernes');
+    });
+
+    it('**con un horario o una cancha distinta por día, nombra cada día en su renglón** (T229)', async () => {
+      await montar(
+        [ANA],
+        [],
+        [{ ...SERIE, dias: [dia(1, '19:00', '20:00', 'Cancha 2'), dia(2, '18:00', '19:00', 'Cancha 1')] }],
+      );
+
+      expect(texto()).toContain('Lunes 19:00–20:00 · Cancha 2');
+      expect(texto()).toContain('Martes 18:00–19:00 · Cancha 1');
+      expect(texto()).toContain('Ana Silva · hasta el 15 de diciembre');
     });
 
     it('una semana sin clases sueltas pero con series no dice que no hay clases', async () => {
@@ -176,6 +193,51 @@ describe('ClasesPublicas', () => {
 
       expect(texto()).toContain('Sin cupos');
     });
+
+    it('**la del gimnasio dice "Preparación física", "Gimnasio" y "Grupal", sin nivel** (T234)', async () => {
+      await montar(
+        [ANA],
+        [],
+        [
+          {
+            ...SERIE,
+            tipo: 'PREPARACION_FISICA',
+            nivel: null,
+            dias: [dia(2, '19:00', '20:00', 'Gimnasio'), dia(4, '19:00', '20:00', 'Gimnasio')],
+            cupoMaximo: 8,
+          },
+        ],
+      );
+
+      const tarjeta = Array.from(elemento().querySelectorAll('li'))
+        .map((li) => li.textContent!.replace(/\s+/g, ' '))
+        .find((li) => li.includes('hasta el'))!;
+      expect(tarjeta).toContain('Preparación física · Grupal');
+      expect(tarjeta).toContain('Ana Silva · Gimnasio · hasta el 15 de diciembre');
+      expect(tarjeta).not.toContain('Iniciación');
+    });
+  });
+
+  /** T234. La clase suelta del gimnasio, en la semana. */
+  it('**la clase del gimnasio dice "Preparación física", "Gimnasio" e "Individual", sin nivel**', async () => {
+    await montar(
+      [],
+      [
+        {
+          ...CLASE,
+          tipo: 'PREPARACION_FISICA',
+          lugar: 'Gimnasio',
+          nivel: null,
+          cupoMaximo: 1,
+          cuposLibres: 1,
+        },
+      ],
+    );
+
+    const semana = texto().replace(/\s+/g, ' ');
+    expect(semana).toContain('Preparación física · Individual');
+    expect(semana).toContain('Ana Silva · Gimnasio');
+    expect(semana).not.toContain('Niños');
   });
 });
 

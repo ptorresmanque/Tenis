@@ -1,11 +1,24 @@
-import { Route, Routes } from '@angular/router';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { TestBed } from '@angular/core/testing';
+import {
+  ActivatedRouteSnapshot,
+  CanActivateFn,
+  convertToParamMap,
+  Params,
+  provideRouter,
+  Route,
+  RouterStateSnapshot,
+  Routes,
+} from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { routes } from './app.routes';
-import { CascaronAdmin } from './cascarones/cascaron-admin';
+import { CascaronAdmin, SECCIONES_DEL_PANEL } from './cascarones/cascaron-admin';
 import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
-import { soloAdmin } from './core/auth/solo-admin.guard';
+import { conPanel } from './core/auth/con-panel.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 
 /**
@@ -23,7 +36,8 @@ import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 interface Encontrada {
   ruta: Route;
   guards: unknown[];
-  cascaron: unknown;
+  /** El cascarón, venga en la ruta (`component`) o se cargue con ella (`loadComponent`). */
+  cascaron: () => Promise<unknown>;
 }
 
 function buscar(url: string): Encontrada | null {
@@ -31,48 +45,171 @@ function buscar(url: string): Encontrada | null {
     rutas: Routes,
     prefijo: string,
     heredados: unknown[],
-    cascaron: unknown,
+    cascaron: () => Promise<unknown>,
   ): Encontrada | null => {
     for (const ruta of rutas) {
       const camino = [prefijo, ruta.path].filter(Boolean).join('/');
       const guards = [...heredados, ...(ruta.canActivate ?? [])];
-      const suCascaron = ruta.component ?? cascaron;
+      // Los cascarones son las rutas de primer nivel con hijos; más adentro, un
+      // `loadComponent` con hijos es una página con pestañas (Configuración).
+      const esCascaron = rutas === routes && ruta.children !== undefined;
+      const suCascaron = ruta.component
+        ? async () => ruta.component
+        : esCascaron && ruta.loadComponent
+          ? async () => ruta.loadComponent?.()
+          : cascaron;
 
       if (camino === url && (ruta.loadComponent ?? ruta.redirectTo)) {
         return { ruta, guards, cascaron: suCascaron };
       }
 
+      // `canActivateChild` del padre corre para cada hijo (T220: así va el del panel).
       const dentro =
-        ruta.children && recorrer(ruta.children, camino, guards, suCascaron);
+        ruta.children &&
+        recorrer(
+          ruta.children,
+          camino,
+          [...guards, ...(ruta.canActivateChild ?? [])],
+          suCascaron,
+        );
       if (dentro) return dentro;
     }
 
     return null;
   };
 
-  return recorrer(routes, '', [], null);
+  return recorrer(routes, '', [], async () => null);
 }
 
 describe('Rutas protegidas', () => {
   it.each([
     'administracion/canchas',
+    'administracion/canchas/horario',
+    'administracion/canchas/tarifas',
     'administracion/reservas',
+    'administracion/reservas/ocupacion',
+    'administracion/finanzas/ingreso',
+    'administracion/finanzas/padron',
+    'administracion/finanzas/cuotas',
+    'administracion/finanzas/morosos',
+    'administracion/no-uso/por-revisar',
+    'administracion/no-uso/periodo',
+    'administracion/clases/agendar',
+    'administracion/personas',
+    'administracion/personas/:id',
     'administracion/socios',
     'administracion/reportes',
     'administracion/cuotas',
     'administracion/morosos',
     'administracion/solicitudes',
     'administracion/configuracion/reglas',
-    'administracion/configuracion/datos',
-    'administracion/configuracion/textos',
-    'administracion/configuracion/tienda-y-cafeteria',
-    'administracion/configuracion/preguntas-frecuentes',
-    'administracion/configuracion/administradores',
+    'administracion/configuracion/el-club',
+    'administracion/configuracion/servicios',
+    'administracion/configuracion/categorias-juego',
+    'administracion/configuracion/informe-diario',
+    'administracion/usuarios',
     'administracion/tours',
     'administracion/tours/:id',
     'estado',
-  ])('%s es solo del admin', (url) => {
-    expect(buscar(url)?.guards).toContain(soloAdmin);
+  ])('%s pasa por el guard del panel', (url) => {
+    expect(buscar(url)?.guards).toContain(conPanel);
+  });
+
+  it('**la ocupación vive en la agenda: su ruta vieja redirige** (T285, A1)', () => {
+    expect(buscar('administracion/ocupacion')?.ruta.redirectTo).toBe(
+      '/administracion/reservas/ocupacion',
+    );
+    expect(buscar('administracion/reservas/ocupacion')?.ruta.title).toBe(
+      'Agenda del día · Ocupación — Administración',
+    );
+  });
+
+  it.each([
+    ['ingreso', 'ingreso', 'Ingreso'],
+    ['padron', 'padron', 'Padrón y morosidad'],
+    ['cuotas', 'cuotas', 'Cuotas'],
+    ['morosos', 'morosos', 'Socios con deuda'],
+  ])(
+    '**/administracion/%s es la pestaña «%s» de Finanzas** (T286, A1)',
+    (vieja, pestana, etiqueta) => {
+      expect(buscar(`administracion/${vieja}`)?.ruta.redirectTo).toBe(
+        `/administracion/finanzas/${pestana}`,
+      );
+      expect(buscar(`administracion/finanzas/${pestana}`)?.ruta.title).toBe(
+        `Finanzas · ${etiqueta} — Administración`,
+      );
+    },
+  );
+
+  it('**Horas reportadas es la pestaña «Por revisar» de Horas no usadas** (T287, A1)', () => {
+    expect(buscar('administracion/reportes')?.ruta.redirectTo).toBe(
+      '/administracion/no-uso/por-revisar',
+    );
+    expect(buscar('administracion/no-uso/por-revisar')?.ruta.title).toBe(
+      'Horas no usadas · Por revisar — Administración',
+    );
+    expect(buscar('administracion/no-uso/periodo')?.ruta.title).toBe(
+      'Horas no usadas · Período — Administración',
+    );
+  });
+
+  it.each([
+    ['socios', '/administracion/personas?tipo=socios'],
+    ['usuarios', '/administracion/personas'],
+    ['profesores', '/administracion/personas?tipo=profesores'],
+  ])('**/administracion/%s es Personas, con su filtro** (T296, A1)', (vieja, nueva) => {
+    expect(buscar(`administracion/${vieja}`)?.ruta.redirectTo).toBe(nueva);
+  });
+
+  it('**agendar una clase es su página, dentro de Clases** (T294)', () => {
+    expect(buscar('administracion/clases/agendar')?.ruta.title).toBe(
+      'Clases · Agendar — Administración',
+    );
+  });
+
+  it.each([
+    ['horario', 'Horario'],
+    ['tarifas', 'Tarifas'],
+  ])(
+    '**la pestaña %s de Canchas le dice a la pantalla qué parte del club es** (T288)',
+    (parte, etiqueta) => {
+      const { ruta } = buscar(`administracion/canchas/${parte}`)!;
+
+      expect(ruta.data).toEqual({ parte });
+      expect(ruta.title).toBe(`Canchas · ${etiqueta} — Administración`);
+    },
+  );
+
+  it.each([
+    ['datos', 'el-club'],
+    ['textos', 'el-club'],
+    ['preguntas-frecuentes', 'el-club'],
+    ['tienda', 'servicios'],
+    ['cafeteria', 'servicios'],
+    ['gimnasio', 'servicios'],
+    // La de antes de T236, que ya llevaba a la tienda.
+    ['tienda-y-cafeteria', 'servicios'],
+  ])(
+    '**la pestaña vieja «%s» de Configuración lleva a «%s»** (T290, A1)',
+    (vieja, nueva) => {
+      expect(buscar(`administracion/configuracion/${vieja}`)?.ruta.redirectTo).toBe(nueva);
+    },
+  );
+
+  it.each([
+    ['reglas', 'Reglas y cuotas'],
+    ['el-club', 'El club'],
+    ['servicios', 'Servicios'],
+    ['categorias-juego', 'Categorías de juego'],
+    ['informe-diario', 'Informe diario'],
+  ])('la pestaña %s de Configuración se titula «%s»', (ruta, etiqueta) => {
+    expect(buscar(`administracion/configuracion/${ruta}`)?.ruta.title).toBe(
+      `Configuración · ${etiqueta} — Administración`,
+    );
+  });
+
+  it('Configuración ya no tiene Administradores: los tipos se dan en Usuarios (T223)', () => {
+    expect(buscar('administracion/configuracion/administradores')).toBeNull();
   });
 
   it('recuperar-contrasena se abre con sesión: el enlace del correo puede abrirse en cualquier navegador', () => {
@@ -96,6 +233,54 @@ describe('Rutas protegidas', () => {
     expect(buscar('disponibilidad')?.guards).toEqual([]);
   });
 
+  it.each([
+    ['reservas', 'Reservas'],
+    ['partidos', 'Partidos'],
+    ['cuota', 'Cuota'],
+  ])('**/mi-cuenta/%s es la pestaña «%s» de Mi cuenta** (T318, A8)', (pestana, etiqueta) => {
+    expect(buscar(`mi-cuenta/${pestana}`)?.ruta.title).toBe(
+      `Mi cuenta · ${etiqueta} — FEDAL Tennis Center`,
+    );
+  });
+
+  it.each([
+    ['mis-reservas', '/mi-cuenta/reservas'],
+    ['mis-partidos', '/mi-cuenta/partidos'],
+  ])('**/%s redirige a su pestaña de Mi cuenta** (T318, A8)', (vieja, nueva) => {
+    expect(buscar(vieja)?.ruta.redirectTo).toBe(nueva);
+  });
+
+  describe('/mi-cuenta sin pestaña (T318, A8)', () => {
+    // La ruta vacía de adentro: la que elige la pestaña.
+    const pestanaPorOmision = (consulta: Record<string, string>) => {
+      const vacia = buscar('mi-cuenta')?.ruta.children?.find((hija) => hija.path === '');
+      const redirigir = vacia?.redirectTo as (destino: { queryParams: Params }) => string;
+      return redirigir({ queryParams: consulta });
+    };
+
+    it('abre en Reservas', () => {
+      expect(pestanaPorOmision({})).toBe('reservas');
+    });
+
+    it('**la vuelta de Webpay, `/mi-cuenta?pago=…`, va a Cuota**: ahí está su aviso', () => {
+      expect(pestanaPorOmision({ pago: 'listo' })).toBe('cuota');
+    });
+  });
+
+  it('**inscribirse en un torneo es su página, y no pide sesión** (T316, D4)', () => {
+    expect(buscar('torneos/:id/inscripcion')?.guards).toEqual([]);
+    expect(buscar('torneos/:id/inscripcion')?.ruta.title).toBe(
+      'Inscripción — FEDAL Tennis Center',
+    );
+  });
+
+  it('**la oferta de un cupo de la lista de espera es su página, y no pide sesión** (T334)', () => {
+    expect(buscar('torneos/inscripcion/:token')?.guards).toEqual([]);
+    expect(buscar('torneos/inscripcion/:token')?.ruta.title).toBe(
+      'Tu cupo en la lista de espera — FEDAL Tennis Center',
+    );
+  });
+
   it('los tours se leen sin sesión (T195)', () => {
     expect(buscar('tours')?.guards).toEqual([]);
     expect(buscar('tours/:id')?.guards).toEqual([]);
@@ -110,18 +295,52 @@ describe('Rutas protegidas', () => {
   });
 });
 
+/**
+ * T316 (SPEC-sitio.md A6). `/torneos?inscripcion=5` era el botón «Inscribirme» de la portada, y
+ * puede seguir en un marcador o en un enlace compartido: lleva a la página de la inscripción. La vuelta de
+ * Webpay, `/torneos?pago=…`, se queda en Torneos, donde está su aviso.
+ */
+describe('La dirección vieja de la inscripción (T316, A6)', () => {
+  const entrarATorneos = (consulta: Record<string, string>) => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const [guard] = (buscar('torneos')?.guards ?? []) as CanActivateFn[];
+
+    return TestBed.runInInjectionContext(() =>
+      guard?.(
+        { queryParamMap: convertToParamMap(consulta) } as ActivatedRouteSnapshot,
+        {} as RouterStateSnapshot,
+      ),
+    );
+  };
+
+  it('**/torneos?inscripcion=5 lleva a /torneos/5/inscripcion**', () => {
+    expect(String(entrarATorneos({ inscripcion: '5' }))).toBe('/torneos/5/inscripcion');
+  });
+
+  it('sin `?inscripcion=`, y al volver de Webpay, se queda en Torneos', () => {
+    expect(entrarATorneos({})).toBe(true);
+    expect(entrarATorneos({ pago: 'listo' })).toBe(true);
+  });
+});
+
 describe('Cada ruta en su cascarón', () => {
   it.each([
     ['', CascaronPublico],
     ['disponibilidad', CascaronPublico],
     ['mis-reservas', CascaronPublico],
     ['mi-cuenta', CascaronPublico],
+    ['mi-cuenta/reservas', CascaronPublico],
+    ['mi-cuenta/partidos', CascaronPublico],
+    ['mi-cuenta/cuota', CascaronPublico],
     ['reservas/confirmacion', CascaronPublico],
     ['el-club', CascaronPublico],
     ['privacidad', CascaronPublico],
     ['preguntas-frecuentes', CascaronPublico],
     ['tours', CascaronPublico],
     ['tours/:id', CascaronPublico],
+    ['torneos/:id/inscripcion', CascaronPublico],
+    ['torneos/inscripcion/:token', CascaronPublico],
     ['entrar', CascaronAuth],
     ['registro', CascaronAuth],
     ['verificar-correo', CascaronAuth],
@@ -137,13 +356,59 @@ describe('Cada ruta en su cascarón', () => {
     ['administracion/configuracion/reglas', CascaronAdmin],
     ['administracion/configuracion/datos', CascaronAdmin],
     ['administracion/configuracion/textos', CascaronAdmin],
-    ['administracion/configuracion/tienda-y-cafeteria', CascaronAdmin],
+    ['administracion/configuracion/gimnasio', CascaronAdmin],
     ['administracion/configuracion/preguntas-frecuentes', CascaronAdmin],
-    ['administracion/configuracion/administradores', CascaronAdmin],
+    ['administracion/usuarios', CascaronAdmin],
     ['administracion/tours', CascaronAdmin],
     ['administracion/tours/:id', CascaronAdmin],
     ['estado', CascaronAdmin],
-  ])('/%s se dibuja dentro del cascarón que le toca', (url, cascaron) => {
-    expect(buscar(url)?.cascaron).toBe(cascaron);
+  ])('/%s se dibuja dentro del cascarón que le toca', async (url, cascaron) => {
+    expect(await buscar(url)?.cascaron()).toBe(cascaron);
   });
+});
+
+describe('El arranque solo trae el sitio público (I6)', () => {
+  // Quien visita la portada no necesita el panel ni la pantalla de entrar: sus cascarones,
+  // con lo que importan, se bajan con su ruta. Con `MatButton` en el cascarón público
+  // (T241), el arranque pasó los 500 kB del aviso.
+  const padreDe = (hijo: string) => routes.find((r) => r.children?.some((h) => h.path === hijo));
+
+  it.each(['entrar', 'administracion/reservas'])('el cascarón de /%s baja con su ruta', (url) => {
+    expect(padreDe(url)?.component).toBeUndefined();
+    expect(padreDe(url)?.loadComponent).toBeDefined();
+  });
+
+  it('el público sí viene en el arranque: es lo primero que se ve', () => {
+    expect(padreDe('disponibilidad')?.component).toBe(CascaronPublico);
+  });
+});
+
+/**
+ * T277. El nombre del menú lateral es el de la pantalla, en su título y en la pestaña del
+ * navegador (SPEC-revision-qa.md, A7): «Agenda del día» en el menú y «Reservas del día» en
+ * la pantalla confundían. El título se lee del archivo de la pantalla, el que importa su
+ * ruta, como lee las plantillas design-tokens.spec.ts.
+ */
+describe('El panel se titula como su menú (T277)', () => {
+  const fuente = readFileSync(join(process.cwd(), 'src/app/app.routes.ts'), 'utf8');
+
+  /** El archivo de la pantalla de una ruta: el del `import` que la carga. */
+  const archivoDe = (url: string): string => {
+    const encontrado = fuente.match(new RegExp(`path: '${url}'[\\s\\S]*?import\\('\\./([^']+)'\\)`));
+    if (!encontrado) throw new Error(`No encontré la pantalla de ${url}`);
+    return join(process.cwd(), 'src/app', `${encontrado[1]}.ts`);
+  };
+
+  for (const { ruta, etiqueta } of SECCIONES_DEL_PANEL) {
+    it(`«${etiqueta}»: la pantalla y la pestaña se llaman como el ítem`, () => {
+      const url = ruta.replace(/^\//, '');
+      const titulo = readFileSync(archivoDe(url), 'utf8')
+        .match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      expect(titulo).toBe(etiqueta);
+      expect(buscar(url)?.ruta.title).toBe(`${etiqueta} — Administración`);
+    });
+  }
 });

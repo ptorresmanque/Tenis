@@ -9,6 +9,7 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReservaMia, Reservas } from '../reservas.service';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 import { MisReservas } from './mis-reservas';
 
 /**
@@ -178,6 +179,42 @@ describe('MisReservas', () => {
     expect(texto()).not.toContain('Sí, cancelar');
   });
 
+  it('**la cancelación se confirma con el snackbar** (T283)', async () => {
+    // Lo hecho no se queda pegado arriba de la lista: la reserva ya no está en ella.
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap({})) },
+        },
+        {
+          provide: Reservas,
+          useValue: {
+            mias: () => Promise.resolve([UNA]),
+            cancelar: vi.fn().mockResolvedValue({
+              folio: 'AB23CDE',
+              huboDevolucion: true,
+              motivo: null,
+            }),
+          },
+        },
+      ],
+    });
+    fixture = TestBed.createComponent(MisReservas);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    await apretar('Cancelar');
+    await apretar('Sí, cancelar');
+
+    expect(avisoDeLoHecho()).toBe(
+      'Cancelamos la reserva AB23CDE y la devolución ya está en camino.',
+    );
+    expect(texto()).not.toContain('Cancelamos la reserva');
+  });
+
   it('un folio que no está en la lista no abre nada, pero lo dice', async () => {
     // El fallo que arregla: el atajo se rendía en silencio. La confirmación se
     // reabre con su token mucho después —es una URL que la persona guarda—, así
@@ -265,16 +302,14 @@ describe('MisReservas', () => {
         (a) => (a.textContent ?? '').includes('Cambiar hora o duración'),
       )!;
 
-    // Con el día de la reserva: la grilla abre ahí y no en hoy. Y con su cancha, que la
-    // barra preelige si sigue libre (T104): alargarla no la cambia de cancha.
-    expect(enlace().getAttribute('href')).toBe(
-      '/disponibilidad?mover=7&cancha=Cancha%201&fecha=2026-09-07',
-    );
+    // Con el día de la reserva: la grilla abre ahí y no en hoy. Sin la cancha desde T265:
+    // el tablero tiene una columna por cancha, y la suya se toca ahí mismo.
+    expect(enlace().getAttribute('href')).toBe('/disponibilidad?mover=7&fecha=2026-09-07');
 
     await montar([{ ...UNA, fin: '2026-09-07T13:30:00.000Z' }]);
 
     expect(enlace().getAttribute('href')).toBe(
-      '/disponibilidad?mover=7&cancha=Cancha%201&fecha=2026-09-07&duracion=90',
+      '/disponibilidad?mover=7&fecha=2026-09-07&duracion=90',
     );
   });
 

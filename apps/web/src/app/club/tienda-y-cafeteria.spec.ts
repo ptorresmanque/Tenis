@@ -3,12 +3,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
-import { Club, FotoDelLugar, LugarDelClub } from './club.service';
+import { Club, FotoDelLugar, GimnasioDelClub, LugarDelClub } from './club.service';
 import { TiendaYCafeteria } from './tienda-y-cafeteria';
 
 /**
  * T186. La tienda y la cafetería en la portada (`resumen`) y en «El club» (`completa`).
- * El sitio no vende nada: cuenta qué son, cuándo atienden y cómo escribirles.
+ * El sitio no vende nada: cuenta qué son, cuándo atienden y cómo escribirles. Desde T237,
+ * también el gimnasio, con sus tarifas.
  */
 describe('TiendaYCafeteria', () => {
   const foto = (id: number, descripcion: string | null = null): FotoDelLugar => ({
@@ -34,9 +35,26 @@ describe('TiendaYCafeteria', () => {
     fotos: [foto(4)],
   };
 
+  const GIMNASIO: GimnasioDelClub = {
+    descripcion: 'Máquinas, pesas y clases de preparación física.',
+    horario: 'Lunes a viernes de 7:00 a 21:00',
+    whatsapp: '56911112222',
+    fotos: [foto(5)],
+    tarifas: [
+      { nombre: 'Clase grupal', precioSocioClp: 5000, precioNoSocioClp: 8000 },
+      { nombre: 'Pase diario', precioSocioClp: 3000, precioNoSocioClp: 4500 },
+    ],
+  };
+
+  const SIN_GIMNASIO: GimnasioDelClub = { ...VACIO, tarifas: [] };
+
   const montar = async (
     forma: 'resumen' | 'completa',
-    lugares: { tienda?: LugarDelClub; cafeteria?: LugarDelClub } = {},
+    lugares: {
+      tienda?: LugarDelClub;
+      cafeteria?: LugarDelClub;
+      gimnasio?: GimnasioDelClub;
+    } = {},
   ) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -48,6 +66,7 @@ describe('TiendaYCafeteria', () => {
             datos: signal({
               tienda: lugares.tienda ?? TIENDA,
               cafeteria: lugares.cafeteria ?? CAFETERIA,
+              gimnasio: lugares.gimnasio ?? GIMNASIO,
             }),
           },
         },
@@ -73,7 +92,7 @@ describe('TiendaYCafeteria', () => {
       expect(elemento.querySelector('h2')?.textContent).toContain('También en el club');
       expect(
         Array.from(elemento.querySelectorAll('h3')).map((h) => h.textContent?.trim()),
-      ).toEqual(['Tienda', 'Cafetería']);
+      ).toEqual(['Tienda', 'Cafetería', 'Gimnasio']);
     });
 
     it('**muestra la primera foto**, en su versión grande, con su texto', async () => {
@@ -154,7 +173,11 @@ describe('TiendaYCafeteria', () => {
 
     it('**sin ninguno, no dibuja nada**: ni el título ni la sección', async () => {
       for (const forma of ['resumen', 'completa'] as const) {
-        const elemento = await montar(forma, { tienda: VACIO, cafeteria: VACIO });
+        const elemento = await montar(forma, {
+          tienda: VACIO,
+          cafeteria: VACIO,
+          gimnasio: SIN_GIMNASIO,
+        });
 
         expect(elemento.querySelector('section')).toBeNull();
       }
@@ -173,7 +196,15 @@ describe('TiendaYCafeteria', () => {
       const elemento = await montar('completa');
 
       expect(elemento.querySelector('section')?.id).toBe('tienda-y-cafeteria');
-      expect(elemento.querySelector('h2')?.textContent).toContain('Tienda y cafetería');
+      expect(elemento.querySelector('h2')?.textContent).toContain(
+        'Tienda, cafetería y gimnasio',
+      );
+    });
+
+    it('el título nombra los lugares que aparecen', async () => {
+      const elemento = await montar('completa', { gimnasio: SIN_GIMNASIO });
+
+      expect(elemento.querySelector('h2')?.textContent?.trim()).toBe('Tienda y cafetería');
     });
 
     it('**todas las fotos, en miniatura**, en la galería de cada lugar', async () => {
@@ -193,6 +224,79 @@ describe('TiendaYCafeteria', () => {
       const elemento = await montar('completa');
 
       expect(elemento.textContent).not.toContain('Ver las');
+    });
+  });
+
+  /** T237. El gimnasio, un tercer lugar con sus tarifas en pesos. */
+  describe('el gimnasio', () => {
+    it('**sus tarifas en pesos, para socio y no socio, debajo del horario** (G1)', async () => {
+      const elemento = await montar('resumen');
+      const gimnasio = lugar(elemento, 'Gimnasio')!;
+      const tabla = gimnasio.querySelector('table')!;
+      const filas = Array.from(tabla.querySelectorAll('tr')).map((tr) =>
+        Array.from(tr.querySelectorAll('th, td')).map((c) => c.textContent?.trim()),
+      );
+
+      expect(filas).toEqual([
+        ['Plan', 'Socio', 'No socio'],
+        ['Clase grupal', '$5.000', '$8.000'],
+        ['Pase diario', '$3.000', '$4.500'],
+      ]);
+      expect(
+        gimnasio.querySelector('[data-horario]')!.compareDocumentPosition(tabla) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it('también en «El club»', async () => {
+      const elemento = await montar('completa');
+
+      expect(lugar(elemento, 'Gimnasio')!.querySelector('table')?.textContent).toContain(
+        'Clase grupal',
+      );
+    });
+
+    it('**sin descripción no aparece**, aunque tenga tarifas', async () => {
+      const elemento = await montar('resumen', {
+        gimnasio: { ...SIN_GIMNASIO, tarifas: GIMNASIO.tarifas },
+      });
+
+      expect(lugar(elemento, 'Gimnasio')).toBeUndefined();
+    });
+
+    it('sin tarifas no hay tabla vacía', async () => {
+      const elemento = await montar('resumen', { gimnasio: { ...GIMNASIO, tarifas: [] } });
+
+      expect(lugar(elemento, 'Gimnasio')!.querySelector('table')).toBeNull();
+    });
+
+    it('su foto y su WhatsApp dicen «del gimnasio» y «al gimnasio»', async () => {
+      const gimnasio = lugar(await montar('resumen'), 'Gimnasio')!;
+      const enlace = gimnasio.querySelector<HTMLAnchorElement>('a[href^="https://wa.me/"]')!;
+
+      expect(gimnasio.querySelector('img')!.alt).toBe('Foto del gimnasio del club');
+      expect(enlace.getAttribute('aria-label')).toBe(
+        'Escribir por WhatsApp al gimnasio (se abre en otra pestaña)',
+      );
+      expect(enlace.getAttribute('href')).toContain(
+        encodeURIComponent('Hola, quería consultar por el gimnasio del club.'),
+      );
+    });
+
+    it('**en la portada, con los tres, las tarjetas van en tres columnas desde lg**', async () => {
+      const conTres = await montar('resumen');
+      expect(conTres.querySelector('section .grid')!.className).toContain('lg:grid-cols-3');
+
+      const conDos = await montar('resumen', { gimnasio: SIN_GIMNASIO });
+      expect(conDos.querySelector('section .grid')!.className).not.toContain('lg:grid-cols-3');
+    });
+
+    it('**en El club, con los tres, van en tres columnas desde 1536 px** (T308)', async () => {
+      const conTres = await montar('completa');
+      expect(conTres.querySelector('section .grid')!.className).toContain('2xl:grid-cols-3');
+
+      const conDos = await montar('completa', { gimnasio: SIN_GIMNASIO });
+      expect(conDos.querySelector('section .grid')!.className).not.toContain('grid-cols-3');
     });
   });
 });

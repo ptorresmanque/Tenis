@@ -85,7 +85,7 @@ export function recordatorioPrevio(
       `Hola ${socio.nombre}:\n\n` +
       `El 1 de ${mes} se emite tu cuota de ${mes}. Desde ese día puedes pagarla en línea ` +
       'en "Mi cuenta", o en el mesón del club:\n' +
-      `${origenWeb}/mi-cuenta\n\n` +
+      `${origenWeb}/mi-cuenta/cuota\n\n` +
       firma,
   };
 }
@@ -113,7 +113,7 @@ export function recordatorioVencido(
       `Hola ${socio.nombre}:\n\n` +
       `Tienes pendiente ${que}. Mientras esté pendiente no puedes reservar canchas.\n\n` +
       'Págala en línea en "Mi cuenta", o en el mesón del club:\n' +
-      `${origenWeb}/mi-cuenta\n\n` +
+      `${origenWeb}/mi-cuenta/cuota\n\n` +
       firma,
   };
 }

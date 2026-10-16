@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -9,6 +10,7 @@ import { esViolacionDeUnicidad } from '../prisma/errores';
 import {
   CambiosDeConfiguracion,
   DatosBloqueo,
+  ENCIENDEN_LA_LUZ,
   DatosCancha,
   DatosFranja,
   DatosHorario,
@@ -259,6 +261,16 @@ export class AdminCanchasService {
   }
 
   async crearBloqueo(datos: DatosBloqueo) {
+    // Una clase o un torneo encienden la cancha y cuentan para el tope de canchas con luz
+    // (T206), y ese conteo lo hace el cierre de `reservas`, que es el único que ve las
+    // reservas. Creados desde acá se saltarían el tope sin que nadie lo note.
+    if (ENCIENDEN_LA_LUZ.includes(datos.motivo)) {
+      throw new BadRequestException(
+        'Los bloqueos de clase y de torneo encienden la cancha: se crean cerrándola, ' +
+          'que es donde se cuenta el tope de canchas con luz.',
+      );
+    }
+
     await this.laCancha(datos.canchaId);
 
     return this.prisma.bloqueo.create({ data: datos });

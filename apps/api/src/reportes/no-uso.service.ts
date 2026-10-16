@@ -181,7 +181,7 @@ function etiquetaDe(hora: HoraDeCancha, corte: CorteDeNoUso): string {
     case 'cancha':
       return hora.cancha.nombre;
     case 'franja':
-      return hora.esPico ? 'Pico' : 'Valle';
+      return hora.esPico ? 'Prime' : 'Normal';
   }
 }
 

@@ -1,22 +1,31 @@
 import { Component, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { CanchaAdmin } from '../../catalogo-canchas/admin/admin-canchas.service';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Transmision, Torneos } from '../torneos.service';
-import { CampoFecha } from '../../ui/campo-fecha';
-import { CampoHora } from '../../ui/campo-hora';
 
-/** El formulario vacío. Función y no constante, para no compartir el objeto. */
+/**
+ * El formulario vacío. Función y no constante, para no compartir el objeto. La fecha y las
+ * horas, como las entrega Material, y a texto recién al guardar (A5, T244).
+ */
 const enBlanco = () => ({
   canchaId: 0,
   enlace: '',
-  fecha: '',
-  horaDesde: '09:00',
-  horaHasta: '19:00',
+  fecha: null as Date | null,
+  horaDesde: textoAHora('09:00'),
+  horaHasta: textoAHora('19:00'),
   titulo: '',
 });
 
@@ -30,7 +39,17 @@ const enBlanco = () => ({
  */
 @Component({
   selector: 'app-transmisiones-del-torneo',
-  imports: [FormsModule, Aviso, CampoFecha, CampoHora],
+  imports: [
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+    Aviso,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -60,7 +79,8 @@ const enBlanco = () => ({
               }
 
               <a
-                class="boton boton-secundario boton-chico"
+                matButton="outlined"
+                class="chico"
                 [href]="transmision.url"
                 target="_blank"
                 rel="noopener"
@@ -69,9 +89,9 @@ const enBlanco = () => ({
               </a>
 
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico ms-auto
-                       border-destructive text-destructive"
+                class="peligro chico ms-auto"
                 [disabled]="trabajando()"
                 [attr.aria-busy]="enCurso() === 'quitar-' + transmision.id"
                 (click)="quitar(transmision)"
@@ -85,81 +105,108 @@ const enBlanco = () => ({
       }
 
       <form class="mt-3 grid gap-3 sm:grid-cols-2" (ngSubmit)="anunciar()">
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Enlace del video de YouTube</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Enlace del video de YouTube</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="enlace"
             placeholder="https://youtu.be/…"
             [(ngModel)]="datos.enlace"
           />
-          <span class="text-sm text-muted-foreground">
-            Sirve cualquiera de sus formas. Del enlace solo se guarda el identificador
-            del video.
-          </span>
-        </label>
+          <mat-hint>
+            Sirve cualquiera de sus formas. Del enlace solo se guarda el identificador del video.
+          </mat-hint>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Cancha</span>
-          <select class="campo mt-1" name="cancha" [(ngModel)]="datos.canchaId">
-            <option [value]="0" disabled>Elige una</option>
-            <!-- **Solo las que tienen cámara.** El servidor rechaza las otras; acá ni
-                 se ofrecen, para que el club no descubra el problema después de
-                 anunciar el partido. -->
-            @for (cancha of conCamara(); track cancha.id) {
-              <option [value]="cancha.id">{{ cancha.nombre }}</option>
-            }
-          </select>
+        <div>
+          <mat-form-field class="w-full">
+            <mat-label>Cancha</mat-label>
+            <mat-select name="cancha" [(ngModel)]="datos.canchaId">
+              <mat-option [value]="0" disabled>Elige una</mat-option>
+              <!-- **Solo las que tienen cámara.** El servidor rechaza las otras; acá ni
+                   se ofrecen, para que el club no descubra el problema después de
+                   anunciar el partido. -->
+              @for (cancha of conCamara(); track cancha.id) {
+                <mat-option [value]="cancha.id">{{ cancha.nombre }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <!-- Debajo del campo y no en su mat-hint: el color del error lo pisaría Material. -->
           @if (canchas.error()) {
-            <span class="text-sm text-destructive">No se pudieron cargar las canchas.</span>
+            <p class="text-sm text-destructive">No se pudieron cargar las canchas.</p>
           } @else if (conCamara().length === 0 && !canchas.isLoading()) {
-            <span class="text-sm text-muted-foreground">
+            <p class="text-sm text-muted-foreground">
               Ninguna cancha está marcada con cámara. Márcala en Canchas.
-            </span>
+            </p>
           }
-        </label>
+        </div>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="transmision-fecha">Día</label>
-          <app-campo-fecha
-            inputId="transmision-fecha"
+        <mat-form-field>
+          <mat-label>Día</mat-label>
+          <input
+            matInput
+            id="transmision-fecha"
             name="fecha"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFecha"
             [(ngModel)]="datos.fecha"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFecha" />
+          <mat-datepicker #calendarioFecha>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="transmision-desde">Desde</label>
-          <app-campo-hora
-            inputId="transmision-desde"
+        <mat-form-field>
+          <mat-label>Desde</mat-label>
+          <input
+            matInput
+            id="transmision-desde"
             name="desde"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojDesde"
             [(ngModel)]="datos.horaDesde"
           />
-        </div>
+          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojDesde" />
+          <mat-timepicker #relojDesde />
+        </mat-form-field>
 
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="transmision-hasta">Hasta</label>
-          <app-campo-hora
-            inputId="transmision-hasta"
+        <mat-form-field>
+          <mat-label>Hasta</mat-label>
+          <input
+            matInput
+            id="transmision-hasta"
             name="hasta"
+            placeholder="hh:mm"
+            autocomplete="off"
+            [matTimepicker]="relojHasta"
             [(ngModel)]="datos.horaHasta"
           />
-        </div>
+          <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojHasta" />
+          <mat-timepicker #relojHasta />
+        </mat-form-field>
 
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Título (opcional)</span>
+        <mat-form-field class="sm:col-span-2">
+          <mat-label>Título (opcional)</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="titulo"
             maxlength="120"
             placeholder="Cancha 1 — sábado"
             [(ngModel)]="datos.titulo"
           />
-        </label>
+        </mat-form-field>
 
         <button
+          matButton="outlined"
           type="submit"
-          class="boton boton-secundario sm:col-span-2 sm:justify-self-start"
+          class="sm:col-span-2 sm:justify-self-start"
           [disabled]="trabajando()"
           [attr.aria-busy]="enCurso() === 'anunciar'"
         >
@@ -233,9 +280,9 @@ export class TransmisionesDelTorneo {
       await this.api.anunciarTransmision(this.torneoId(), {
         canchaId: Number(this.datos.canchaId),
         enlace: this.datos.enlace.trim(),
-        fecha: this.datos.fecha,
-        horaDesde: this.datos.horaDesde,
-        horaHasta: this.datos.horaHasta,
+        fecha: fechaATexto(this.datos.fecha),
+        horaDesde: horaATexto(this.datos.horaDesde),
+        horaHasta: horaATexto(this.datos.horaHasta),
         titulo: this.datos.titulo.trim() || undefined,
       });
       this.datos = enBlanco();

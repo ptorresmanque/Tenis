@@ -1,12 +1,31 @@
 import { Component, model } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CampoHora } from '../../ui/campo-hora';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
 
-/** Una franja en que el jugador **no** puede jugar. */
+import { proveerCampos } from '../../ui/campos';
+import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
+
+/**
+ * Una franja en que el jugador **no** puede jugar. Las horas, como las entrega el selector de
+ * Material; a texto con `franjasParaLaApi`, al inscribirse (A5, T244).
+ */
 export interface Franja {
   diaSemana: number;
-  horaDesde: string;
-  horaHasta: string;
+  horaDesde: Date | null;
+  horaHasta: Date | null;
+}
+
+/** Las franjas como las espera la API: las horas en `HH:mm`. */
+export function franjasParaLaApi(franjas: Franja[]) {
+  return franjas.map(({ diaSemana, horaDesde, horaHasta }) => ({
+    diaSemana,
+    horaDesde: horaATexto(horaDesde),
+    horaHasta: horaATexto(horaHasta),
+  }));
 }
 
 /**
@@ -34,7 +53,15 @@ const DIAS = [
  */
 @Component({
   selector: 'app-restriccion-horaria',
-  imports: [FormsModule, CampoHora],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <fieldset class="mt-4">
       <legend class="font-display text-sm font-bold tracking-wide uppercase">
@@ -50,53 +77,61 @@ const DIAS = [
         <ul class="mt-3 grid gap-2">
           @for (franja of franjas(); track $index) {
             <li class="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-2">
-              <label class="text-sm">
-                <span class="sr-only">Día de la franja {{ $index + 1 }}</span>
-                <select
-                  class="campo"
+              <mat-form-field>
+                <!-- Sin etiqueta a la vista, como antes: el lector oye el número de la franja. -->
+                <mat-select
+                  [aria-label]="'Día de la franja ' + ($index + 1)"
+                  [name]="'dia' + $index"
                   [attr.name]="'dia' + $index"
                   [ngModel]="franja.diaSemana"
                   (ngModelChange)="cambiar($index, { diaSemana: +$event })"
                 >
                   @for (dia of DIAS; track dia.valor) {
-                    <option [value]="dia.valor">{{ dia.nombre }}</option>
+                    <mat-option [value]="dia.valor">{{ dia.nombre }}</mat-option>
                   }
-                </select>
-              </label>
+                </mat-select>
+              </mat-form-field>
 
               <!-- Desde, a y hasta bajan juntos de línea; sin el botón del reloj caben en
                    una fila a 375px (T123). -->
               <span class="flex items-end gap-2">
-                <label class="sr-only" [for]="'desde-' + $index">
-                  Desde, franja {{ $index + 1 }}
-                </label>
-                <app-campo-hora
-                  [inputId]="'desde-' + $index"
-                  [name]="'desde' + $index"
-                  claseCampo="w-24"
-                  [conBoton]="false"
-                  [ngModel]="franja.horaDesde"
-                  (ngModelChange)="cambiar($index, { horaDesde: $event })"
-                />
+                <mat-form-field class="w-24">
+                  <input
+                    matInput
+                    [id]="'desde-' + $index"
+                    [name]="'desde' + $index"
+                    placeholder="hh:mm"
+                    autocomplete="off"
+                    [matTimepicker]="relojDesde"
+                    [attr.aria-label]="'Desde, franja ' + ($index + 1)"
+                    [ngModel]="franja.horaDesde"
+                    (ngModelChange)="cambiar($index, { horaDesde: $event })"
+                  />
+                  <mat-timepicker #relojDesde />
+                </mat-form-field>
 
                 <span class="pb-2 text-sm text-muted-foreground">a</span>
 
-                <label class="sr-only" [for]="'hasta-' + $index">
-                  Hasta, franja {{ $index + 1 }}
-                </label>
-                <app-campo-hora
-                  [inputId]="'hasta-' + $index"
-                  [name]="'hasta' + $index"
-                  claseCampo="w-24"
-                  [conBoton]="false"
-                  [ngModel]="franja.horaHasta"
-                  (ngModelChange)="cambiar($index, { horaHasta: $event })"
-                />
+                <mat-form-field class="w-24">
+                  <input
+                    matInput
+                    [id]="'hasta-' + $index"
+                    [name]="'hasta' + $index"
+                    placeholder="hh:mm"
+                    autocomplete="off"
+                    [matTimepicker]="relojHasta"
+                    [attr.aria-label]="'Hasta, franja ' + ($index + 1)"
+                    [ngModel]="franja.horaHasta"
+                    (ngModelChange)="cambiar($index, { horaHasta: $event })"
+                  />
+                  <mat-timepicker #relojHasta />
+                </mat-form-field>
               </span>
 
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico ms-auto"
+                class="chico ms-auto"
                 (click)="quitar($index)"
               >
                 Quitar
@@ -108,8 +143,9 @@ const DIAS = [
       }
 
       <button
+        matButton="outlined"
         type="button"
-        class="boton boton-secundario boton-chico mt-2"
+        class="chico mt-2"
         (click)="agregar()"
       >
         Agregar un horario en que no puedo
@@ -132,7 +168,7 @@ export class RestriccionHoraria {
   protected agregar(): void {
     this.franjas.update((actuales) => [
       ...actuales,
-      { diaSemana: 2, horaDesde: '18:00', horaHasta: '21:00' },
+      { diaSemana: 2, horaDesde: textoAHora('18:00'), horaHasta: textoAHora('21:00') },
     ]);
   }
 

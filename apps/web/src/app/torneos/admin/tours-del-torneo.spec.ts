@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { FichaDeTour, Tours } from '../../tours/tours.service';
 import { Torneo, Torneos, TourDelTorneo } from '../torneos.service';
 import { ToursDelTorneo } from './tours-del-torneo';
@@ -121,9 +122,7 @@ describe('ToursDelTorneo', () => {
   const texto = () => (elemento().textContent ?? '').replace(/\s+/g, ' ');
 
   const elegir = async (campo: 'tourId' | 'nivelId', valor: string) => {
-    const lista = elemento().querySelector<HTMLSelectElement>(`select[name="${campo}"]`)!;
-    lista.value = valor;
-    lista.dispatchEvent(new Event('change'));
+    await elegirOpcion(fixture, `mat-select[name="${campo}"]`, valor);
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -165,9 +164,7 @@ describe('ToursDelTorneo', () => {
   it('los niveles se leen con su temporada: «2027 · 250»', async () => {
     await elegir('tourId', '1');
 
-    const opciones = Array.from(
-      elemento().querySelectorAll<HTMLOptionElement>('select[name="nivelId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="nivelId"]');
     expect(opciones).toContain('2027 · 500');
     expect(opciones).toContain('2027 · 250');
   });

@@ -185,8 +185,8 @@ export class PartidosInternos {
             `${DIA_JUGADO.format(partido.jugadoEn)}: ${quienGano}` +
             `${partido.marcador ? `, ${partido.marcador}` : ''}.\n\n` +
             'No suma al ranking hasta que lo confirmes. Si está bien, confírmalo; si no, ' +
-            'recházalo. Las dos cosas se hacen en "Mis partidos":\n' +
-            `${web()}/mis-partidos\n\n` +
+            'recházalo. Las dos cosas se hacen en "Mi cuenta", en la pestaña Partidos:\n' +
+            `${web()}/mi-cuenta/partidos\n\n` +
             firmaDelClub(club),
         },
         this.log,

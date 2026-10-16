@@ -1,15 +1,21 @@
 import { ViewportScroller } from '@angular/common';
-import { Component, computed, ElementRef, inject, viewChild } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
+import { MatToolbar } from '@angular/material/toolbar';
 
 import { Club } from '../club/club.service';
 import { RedesSociales } from '../club/redes-sociales';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
 import { Auth } from '../core/auth/auth';
+import { inicioDelPanel } from '../core/auth/tipos-del-panel';
+import { tiposDelUsuario } from '../core/auth/tipos-del-usuario';
 import { Logotipo } from './logotipo';
+import { MenuDelTelefono } from './menu-del-telefono';
 import { ConmutadorDeTema } from './conmutador-de-tema';
-import { MenuDesplegable } from './menu-desplegable';
 import { usarTemaPublico } from './tema';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 
@@ -32,12 +38,19 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 @Component({
   selector: 'app-cascaron-publico',
   imports: [
+    MatButton,
+    MatIconButton,
+    MatIcon,
+    MatMenu,
+    MatMenuItem,
+    MatMenuTrigger,
+    MatToolbar,
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
     Logotipo,
+    MenuDelTelefono,
     ConmutadorDeTema,
-    MenuDesplegable,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     RedesSociales,
@@ -45,7 +58,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     ProgresoDeNavegacion,
   ],
   template: `
-    <app-progreso-de-navegacion />
+    <!-- Al quedar libre el navegador (I6), como el conmutador: la barra solo hace falta cuando
+         una navegación tarda, y la de Material pesa 14 kB. -->
+    @defer (on idle) {
+      <app-progreso-de-navegacion />
+    }
 
     <a
       href="#contenido"
@@ -59,7 +76,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
       #encabezado
       class="sticky top-0 z-40 border-b border-border bg-card shadow-sm print:hidden"
     >
-      <div class="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
+      <mat-toolbar class="mx-auto max-w-[90rem] gap-6">
         <app-logotipo />
 
         <!-- Desde lg y no desde md: con sesión de socio el menú lleva ocho
@@ -68,7 +85,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
              ventana a media pantalla.
              En mayúscula (TV2.4) los ocho a 1024 partían "Mis reservas" y otros
              tres en dos líneas: necesitaban 997px y había 992. Por eso no se
-             parten (whitespace-nowrap) y llevan menos relleno hasta xl. -->
+             parten (whitespace-nowrap) y llevan poco relleno. Desde T276 también desde
+             xl: con el nombre y los tipos junto al avatar, a 1280 faltaban 30px. -->
         <nav aria-label="Principal" class="hidden gap-1 text-sm lg:flex">
           @for (item of navegacion(); track item.ruta) {
             <a
@@ -77,7 +95,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
               ariaCurrentWhenActive="page"
               class="rounded-md px-2 py-2 font-display font-bold whitespace-nowrap
                      uppercase tracking-wide text-muted-foreground transition-colors
-                     hover:bg-muted hover:text-foreground xl:px-3"
+                     hover:bg-muted hover:text-foreground"
             >
               {{ item.etiqueta }}
             </a>
@@ -85,139 +103,108 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         </nav>
 
         <div class="ms-auto flex items-center gap-2">
-          <app-conmutador-de-tema />
+          <!-- Al quedar libre el navegador y no en el arranque (I6): el grupo de opciones de
+               Material pesa 84 kB, y el conmutador no es lo primero que se mira. El
+               placeholder mide lo mismo, para que la barra no salte cuando llega. -->
+          @defer (on idle) {
+            <app-conmutador-de-tema />
+          } @placeholder {
+            <div class="h-9 w-26.5" aria-hidden="true"></div>
+          }
 
           @if (usuario(); as sesion) {
-            <app-menu-desplegable
-              [etiqueta]="'Menú de ' + sesion.nombre"
-              claseBoton="pulsable flex size-10 items-center justify-center rounded-full
-                          bg-primary text-sm font-bold text-on-primary hover:opacity-90"
+            <!-- Quién tiene la sesión y qué es en el club, a la vista (T276): todos sus tipos.
+                 Donde cabe: de md a lg, que no tiene los enlaces en la barra, y desde xl. En
+                 el teléfono y entre lg y xl, los enlaces la llenan, y va dentro del menú. Con
+                 tope de ancho: los tipos pasan a otra línea antes de empujar la barra. Texto
+                 plano y fuera del @defer: no suma al arranque. -->
+            <p
+              data-cuenta
+              class="hidden max-w-28 text-end leading-tight md:block lg:hidden xl:block"
             >
-              <span disparador>{{ iniciales() }}</span>
+              <span class="block text-sm font-semibold">{{ sesion.nombre }}</span>
+              <span class="block text-xs text-muted-foreground">{{ tipos() }}</span>
+            </p>
 
-              <p class="border-b border-border px-3 py-2">
-                <span class="block font-semibold">{{ sesion.nombre }}</span>
-                <span class="block text-xs text-muted-foreground">
-                  {{ sesion.email }}
-                </span>
-              </p>
-
-              @if (sesion.socioId !== null) {
-                <a routerLink="/mis-reservas" [class]="ITEM_MENU">Mis reservas</a>
-                <a routerLink="/mi-cuenta" [class]="ITEM_MENU">Mi cuenta</a>
-              }
-              @if (esAdmin()) {
-                <a routerLink="/administracion/reservas" [class]="ITEM_MENU">
-                  Administración
-                </a>
-              }
+            <!-- El menú de la cuenta es un mat-menu (T261): se usa con las flechas como un
+                 menú, Esc lo cierra y le devuelve el foco al avatar. Llega al quedar libre el
+                 navegador y no en el arranque (I6), como el conmutador: el menú y su overlay
+                 pesan 82 kB. El placeholder es el mismo círculo con las iniciales. -->
+            @defer (on idle) {
               <button
+                matIconButton
                 type="button"
-                (click)="salir()"
-                [class]="ITEM_MENU + ' w-full cursor-pointer text-start'"
+                class="flex size-10 items-center justify-center rounded-full bg-primary text-sm
+                       font-bold text-on-primary hover:opacity-90"
+                [attr.aria-label]="'Menú de ' + sesion.nombre"
+                [matMenuTriggerFor]="menuDeLaCuenta"
               >
-                Salir
+                {{ iniciales() }}
               </button>
-            </app-menu-desplegable>
+
+              <mat-menu #menuDeLaCuenta="matMenu" xPosition="before">
+                <p class="border-b border-border px-3 py-2" role="none">
+                  <span class="block font-semibold">{{ sesion.nombre }}</span>
+                  <span class="block text-xs">{{ tipos() }}</span>
+                  <span class="block text-xs text-muted-foreground">
+                    {{ sesion.email }}
+                  </span>
+                </p>
+
+                @if (sesion.socioId !== null) {
+                  <a mat-menu-item routerLink="/mi-cuenta">Mi cuenta</a>
+                }
+                @if (inicioDelPanel(); as destino) {
+                  <a mat-menu-item [routerLink]="destino">Administración</a>
+                }
+                <button mat-menu-item type="button" (click)="salir()">Salir</button>
+              </mat-menu>
+            } @placeholder {
+              <span
+                class="flex size-10 items-center justify-center rounded-full bg-primary text-sm
+                       font-bold text-on-primary"
+                aria-hidden="true"
+              >
+                {{ iniciales() }}
+              </span>
+            }
           } @else {
-            <a routerLink="/entrar" class="boton boton-texto hidden sm:inline-flex">
+            <a matButton routerLink="/entrar" class="hidden sm:inline-flex">
               Entrar
             </a>
-            <a routerLink="/registro" class="boton boton-primario hidden sm:inline-flex">
+            <!-- El del encabezado y el del menú móvil no se ven juntos: el menú es modal.
+                 mat-guidelines-ignore: multiples-filled -->
+            <a matButton="filled" routerLink="/registro" class="hidden sm:inline-flex">
               Crear cuenta
             </a>
           }
 
           <button
+            #botonDelMenu
+            matIconButton
             type="button"
-            class="pulsable cursor-pointer rounded-lg p-2 text-foreground hover:bg-muted
-                   lg:hidden"
+            class="rounded-lg p-2 text-foreground hover:bg-muted lg:hidden"
             aria-label="Abrir el menú"
-            (click)="panel.showModal()"
+            (click)="menuAbierto.set(true)"
           >
-            <span class="icono text-2xl" aria-hidden="true">menu</span>
+            <mat-icon class="text-2xl" aria-hidden="true">menu</mat-icon>
           </button>
         </div>
-      </div>
+      </mat-toolbar>
     </header>
-
-    <!-- El cajón es un diálogo nativo abierto con showModal(): el foco queda
-         atrapado adentro, Esc lo cierra, y closedby="any" agrega el cierre al
-         tocar afuera. Los tres sin una línea de JavaScript nuestra; donde el
-         navegador todavía no soporte closedby, quedan Esc y la cruz. -->
-    <dialog
-      #panel
-      closedby="any"
-      class="dialogo-cajon-fin m-0 ms-auto h-dvh w-4/5 max-w-xs bg-card p-6 shadow-xl
-             backdrop:bg-foreground/50"
-      aria-label="Menú"
-    >
-      <div class="flex items-center justify-between">
-        <app-logotipo />
-        <button
-          type="button"
-          class="pulsable cursor-pointer rounded-lg p-2 hover:bg-muted"
-          aria-label="Cerrar el menú"
-          (click)="panel.close()"
-        >
-          <span class="icono text-2xl" aria-hidden="true">close</span>
-        </button>
-      </div>
-
-      <nav aria-label="Principal" class="mt-6 grid gap-1">
-        @for (item of navegacion(); track item.ruta) {
-          <a
-            [routerLink]="item.ruta"
-            routerLinkActive="bg-selected text-primary"
-            ariaCurrentWhenActive="page"
-            class="flex min-h-12 items-center rounded-lg px-3 font-display text-lg
-                   font-bold uppercase tracking-wide transition-colors hover:bg-muted"
-            (click)="panel.close()"
-          >
-            {{ item.etiqueta }}
-          </a>
-        }
-      </nav>
-
-      @if (usuario(); as sesion) {
-        <div class="mt-6 grid gap-1 border-t border-border pt-6">
-          <p class="px-3 pb-2 font-semibold">{{ sesion.nombre }}</p>
-          @if (esAdmin()) {
-            <a
-              routerLink="/administracion/reservas"
-              class="flex min-h-12 items-center rounded-lg px-3 font-medium
-                     transition-colors hover:bg-muted"
-              (click)="panel.close()"
-            >
-              Administración
-            </a>
-          }
-          <button
-            type="button"
-            class="flex min-h-12 cursor-pointer items-center rounded-lg px-3
-                   text-start font-medium transition-colors hover:bg-muted"
-            (click)="panel.close(); salir()"
-          >
-            Salir
-          </button>
-        </div>
-      } @else {
-        <div class="mt-6 grid gap-2 border-t border-border pt-6">
-          <a routerLink="/entrar" class="boton boton-secundario w-full" (click)="panel.close()">
-            Entrar
-          </a>
-          <a routerLink="/registro" class="boton boton-primario w-full" (click)="panel.close()">
-            Crear cuenta
-          </a>
-        </div>
-      }
-    </dialog>
 
     <!-- tabindex -1: "Saltar al contenido" y "Volver arriba" (T149) le pasan el foco.
          Sin anillo: el foco va al comienzo de la página, no a un control. -->
-    <main id="contenido" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8 focus:outline-none">
+    <main id="contenido" tabindex="-1" class="mx-auto max-w-[90rem] px-4 py-8 focus:outline-none">
       <router-outlet />
     </main>
+
+    <!-- El menú del teléfono (T263): llega al quedar libre el navegador o al tocar el botón, y
+         no en el arranque (I6), porque el sidenav con su trampa de foco pesa unos 50 kB. Si se
+         toca antes, el mismo toque lo carga y lo abre. -->
+    @defer (on idle; on interaction(botonDelMenu)) {
+      <app-menu-del-telefono [navegacion]="navegacion()" [(abierto)]="menuAbierto" />
+    }
 
     <app-volver-arriba />
 
@@ -226,7 +213,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
          de la pantalla (revisión de TV1.4). El logotipo usa sus colores para
          fondo oscuro, porque en claro su azul es el mismo del campo. -->
     <footer class="logotipo-sobre-campo mt-16 bg-campo text-on-campo print:hidden">
-      <div class="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mx-auto grid max-w-[90rem] gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <app-logotipo />
           <p class="mt-3 max-w-xs text-sm text-on-campo/80">
@@ -316,8 +303,13 @@ export class CascaronPublico {
   private readonly auth = inject(Auth);
 
   protected readonly usuario = this.auth.usuario;
+  /** El cajón del teléfono, pedido desde el botón del menú. */
+  protected readonly menuAbierto = signal(false);
   protected readonly club = inject(Club).datos;
-  protected readonly esAdmin = this.auth.esAdmin;
+  /** Adónde lleva "Administración": la portada del panel de cada uno, o nada (T220). */
+  protected readonly inicioDelPanel = computed(() =>
+    inicioDelPanel(this.usuario()),
+  );
 
   /** El encabezado fijo, para que un ancla no deje su título debajo de él. */
   private readonly encabezado = viewChild<ElementRef<HTMLElement>>('encabezado');
@@ -335,11 +327,6 @@ export class CascaronPublico {
     ]);
   }
 
-  /** Un ítem del menú desplegable. Es una constante y no una clase de CSS
-      porque la comparten un enlace y un botón, que no son el mismo elemento. */
-  protected readonly ITEM_MENU =
-    'block rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted';
-
   protected readonly navegacion = computed(() => [
     { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },
     // Para todos y no solo para socios: es la puerta del apoderado que busca clases
@@ -354,19 +341,18 @@ export class CascaronPublico {
     // Al lado de los torneos porque es su consecuencia: quien mira el cuadro de un
     // torneo terminado quiere saber en qué lo dejó.
     { ruta: '/ranking', etiqueta: 'Ranking' },
-    // Solo para quien tiene ficha de socio: al resto la pantalla le mostraría
-    // una lista siempre vacía.
-    ...(this.usuario()?.socioId != null
-      ? [
-          { ruta: '/mis-reservas', etiqueta: 'Mis reservas' },
-          // Acá y no en el sitio público: cargar un amistoso y confirmarle uno al
-          // rival son cosas de socio, y al resto la pantalla le quedaría vacía.
-          { ruta: '/mis-partidos', etiqueta: 'Mis partidos' },
-          { ruta: '/mi-cuenta', etiqueta: 'Mi cuenta' },
-        ]
-      : []),
+    // Solo para quien tiene ficha de socio: al resto sus pestañas le mostrarían listas
+    // siempre vacías. Un ítem desde T318: sus reservas, sus partidos (los amistosos que
+    // carga y confirma) y su cuota son pestañas de Mi cuenta.
+    ...(this.usuario()?.socioId != null ? [{ ruta: '/mi-cuenta', etiqueta: 'Mi cuenta' }] : []),
     { ruta: '/el-club', etiqueta: 'El club' },
   ]);
+
+  /** «Administrador · Socio», o «Invitado» (T276). */
+  protected readonly tipos = computed(() => {
+    const usuario = this.usuario();
+    return usuario ? tiposDelUsuario(usuario).join(' · ') : '';
+  });
 
   protected readonly iniciales = computed(() =>
     (this.usuario()?.nombre ?? '')

@@ -29,7 +29,7 @@ export class CierreDeCanchaController {
   @Post('simulacion')
   @HttpCode(200)
   async simular(@Body() cuerpo: unknown) {
-    return { afectadas: await this.cierres.afectadas(leerBloqueo(cuerpo)) };
+    return { afectadas: await this.cierres.simular(leerBloqueo(cuerpo)) };
   }
 
   @Post()

@@ -39,6 +39,7 @@ describe('ElClub', () => {
     elClubCanchas: 'Todas de superficie dura.',
     tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
     cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+    gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
   };
 
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {
@@ -68,6 +69,14 @@ describe('ElClub', () => {
   const seccion = (id: string) =>
     fixture.nativeElement.querySelector(`[aria-labelledby="${id}"]`) as HTMLElement;
   const texto = (id: string) => seccion(id).textContent?.replace(/\s+/g, ' ') ?? '';
+
+  it('**la foto de arriba es la cancha con el logo** (T305, SPEC-sitio.md D7)', async () => {
+    await montar([]);
+    const foto = seccion('el-club').querySelector<HTMLImageElement>('img')!;
+
+    expect(foto.getAttribute('src')).toContain('/fotos/portada.jpg');
+    expect(foto.alt).toContain('logo de FEDAL');
+  });
 
   it('agrupa las canchas del catálogo en techadas y al aire libre, con cuántas hay', async () => {
     await montar([cancha(1, false), cancha(5, true), cancha(6, true)]);

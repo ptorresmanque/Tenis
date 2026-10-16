@@ -1,15 +1,40 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
+import { MatTableModule } from '@angular/material/table';
 
+import { enPesos } from '../catalogo-canchas/reloj-del-club';
 import { Galeria } from '../torneos/publico/galeria';
 import { Club, LugarDelClub } from './club.service';
 import { LOGOS } from './redes-sociales';
 
-/** Lo que cambia entre los dos lugares: cómo se nombran. */
+/** Lo que cambia entre los lugares: cómo se nombran. "De el" y "a el" no se dicen (T237). */
 const LUGARES = [
-  { clave: 'tienda', nombre: 'Tienda', conArticulo: 'la tienda' },
-  { clave: 'cafeteria', nombre: 'Cafetería', conArticulo: 'la cafetería' },
+  {
+    clave: 'tienda',
+    nombre: 'Tienda',
+    conArticulo: 'la tienda',
+    de: 'de la tienda',
+    a: 'a la tienda',
+  },
+  {
+    clave: 'cafeteria',
+    nombre: 'Cafetería',
+    conArticulo: 'la cafetería',
+    de: 'de la cafetería',
+    a: 'a la cafetería',
+  },
+  {
+    clave: 'gimnasio',
+    nombre: 'Gimnasio',
+    conArticulo: 'el gimnasio',
+    de: 'del gimnasio',
+    a: 'al gimnasio',
+  },
 ] as const;
+
+const LISTA = new Intl.ListFormat('es', { type: 'conjunction' });
 
 /**
  * La tienda y la cafetería del club (T186), como información: qué son, cuándo atienden,
@@ -26,7 +51,13 @@ const LUGARES = [
  */
 @Component({
   selector: 'app-tienda-y-cafeteria',
-  imports: [RouterLink, Galeria],
+  imports: [
+    MatButton,
+    MatIcon,
+    RouterLink,
+    Galeria,
+    MatTableModule,
+  ],
   // Sin caja propia: la sección es la que lleva el margen, y sin lugares no queda ni eso.
   host: { class: 'contents' },
   template: `
@@ -37,12 +68,13 @@ const LUGARES = [
         [attr.aria-labelledby]="idDelTitulo()"
       >
         <h2 [id]="idDelTitulo()" class="titular text-5xl sm:text-6xl">
-          {{ forma() === 'resumen' ? 'También en el club' : 'Tienda y cafetería' }}
+          {{ forma() === 'resumen' ? 'También en el club' : titulo() }}
         </h2>
 
         <!-- Dos columnas aunque haya un solo lugar: a todo el ancho, su foto 4/3 medía
-             más de 800 px de alto en escritorio. -->
-        <div class="mt-8 grid gap-8 md:grid-cols-2">
+             más de 800 px de alto en escritorio. En la portada, con los tres, tres desde lg
+             (T237); en «El club» siguen dos, porque cada uno lleva su galería. -->
+        <div class="mt-8 grid gap-8 md:grid-cols-2" [class]="columnas()">
           @for (lugar of lugares(); track lugar.clave) {
             <article class="flex flex-col">
               <!-- El rótulo de la transmisión, encima de la foto y no sobre ella: un
@@ -74,9 +106,47 @@ const LUGARES = [
 
                 @if (lugar.horario) {
                   <p data-horario class="mt-3 flex items-center gap-2 text-muted-foreground">
-                    <span class="icono text-primary" aria-hidden="true">schedule</span>
+                    <mat-icon class="text-primary" aria-hidden="true">schedule</mat-icon>
                     {{ lugar.horario }}
                   </p>
+                }
+
+                <!-- T237. Las tarifas del gimnasio, para mirar y no para pagar: se pagan en el
+                     mesón. Una tabla, porque son dos precios por plan. -->
+                @if (lugar.tarifas.length > 0) {
+                  <!-- La primitiva, como las tarifas de las canchas: cifras tabulares y una
+                       línea por fila. En su caja con scroll propio, también como allá: a 375 px
+                       un nombre largo no empuja la página, y el encabezado fijo se queda en
+                       la tabla. -->
+                  <div class="mt-4 overflow-x-auto">
+                    <table mat-table [attr.aria-label]="'Tarifas ' + lugar.de" [dataSource]="lugar.tarifas">
+                      <ng-container matColumnDef="plan">
+                        <th mat-header-cell *matHeaderCellDef scope="col">Plan</th>
+                        <th
+                          *matCellDef="let tarifa"
+                          scope="row"
+                          class="mat-mdc-cell mdc-data-table__cell"
+                        >
+                          {{ tarifa.nombre }}
+                        </th>
+                      </ng-container>
+                      <ng-container matColumnDef="socio">
+                        <th mat-header-cell *matHeaderCellDef scope="col">Socio</th>
+                        <td mat-cell *matCellDef="let tarifa" class="whitespace-nowrap">
+                          {{ pesos(tarifa.precioSocioClp) }}
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="noSocio">
+                        <th mat-header-cell *matHeaderCellDef scope="col">No socio</th>
+                        <td mat-cell *matCellDef="let tarifa" class="whitespace-nowrap">
+                          {{ pesos(tarifa.precioNoSocioClp) }}
+                        </td>
+                      </ng-container>
+
+                      <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+                      <tr mat-row *matRowDef="let tarifa; columns: COLUMNAS"></tr>
+                    </table>
+                  </div>
                 }
 
                 @if (forma() === 'completa') {
@@ -87,12 +157,12 @@ const LUGARES = [
                   <p class="mt-auto flex flex-wrap items-center gap-3 pt-5">
                     @if (lugar.whatsapp) {
                       <a
-                        class="boton boton-secundario"
+                        matButton="outlined"
                         [href]="lugar.enlaceWhatsapp"
                         target="_blank"
                         rel="noopener"
                         [attr.aria-label]="
-                          'Escribir por WhatsApp a ' + lugar.conArticulo + ' (se abre en otra pestaña)'
+                          'Escribir por WhatsApp ' + lugar.a + ' (se abre en otra pestaña)'
                         "
                       >
                         <svg
@@ -127,25 +197,44 @@ const LUGARES = [
   `,
 })
 export class TiendaYCafeteria {
+  protected readonly COLUMNAS = ['plan', 'socio', 'noSocio'];
+
   readonly forma = input<'resumen' | 'completa'>('resumen');
 
   private readonly club = inject(Club).datos;
 
   protected readonly LOGO_WHATSAPP = LOGOS.whatsapp;
+  protected readonly pesos = enPesos;
 
   /** Ids distintos en cada forma: las dos podrían estar en la misma página algún día. */
   protected readonly idDelTitulo = computed(() => `titulo-tienda-y-cafeteria-${this.forma()}`);
 
-  /** Los lugares que se muestran, ya con su enlace y su texto por omisión. */
+  /** Los lugares que se muestran, ya con su enlace, su texto por omisión y sus tarifas. */
   protected readonly lugares = computed(() =>
-    LUGARES.map((lugar) => ({ ...lugar, ...this.club()[lugar.clave] }))
+    LUGARES.map((lugar) => {
+      const datos = this.club()[lugar.clave];
+
+      // Solo el gimnasio tiene tarifas: los otros dos, una lista vacía y no una rama más.
+      return { ...lugar, ...datos, tarifas: 'tarifas' in datos ? datos.tarifas : [] };
+    })
       .filter((lugar) => lugar.descripcion.trim() !== '')
       .map((lugar) => ({
         ...lugar,
-        porOmision: `Foto de ${lugar.conArticulo} del club`,
+        porOmision: `Foto ${lugar.de} del club`,
         enlaceWhatsapp: enlaceDeWhatsapp(lugar, lugar.conArticulo),
       })),
   );
+
+  /** "Tienda, cafetería y gimnasio": los que aparecen, para el título de «El club». */
+  protected readonly titulo = computed(() =>
+    LISTA.format(this.lugares().map(({ nombre }, i) => (i === 0 ? nombre : nombre.toLowerCase()))),
+  );
+
+  /** Tres lugares van en tres columnas: el resumen desde `lg`, y El club desde 1536 px (T308). */
+  protected readonly columnas = computed(() => {
+    if (this.lugares().length !== 3) return '';
+    return this.forma() === 'resumen' ? 'lg:grid-cols-3' : '2xl:grid-cols-3';
+  });
 }
 
 /**

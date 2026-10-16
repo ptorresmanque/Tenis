@@ -1,8 +1,12 @@
 import { Component, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatCard } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno } from '../ranking.service';
 import { PartidoEnDisputa, RankingAdmin } from './partidos-internos.service';
 import { Esqueleto } from '../../ui/esqueleto';
@@ -19,7 +23,7 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-partidos-internos-panel',
-  imports: [EstadoVacio, Insignia, Esqueleto],
+  imports: [MatCard, MatButtonToggleModule, MatButton, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada partido trae las suyas. -->
     <header class="cabecera-panel">
@@ -32,20 +36,18 @@ import { Esqueleto } from '../../ui/esqueleto';
       </div>
     </header>
 
-    <div class="mt-4 flex flex-wrap gap-2">
+    <!-- Un filtro es un grupo de opciones, no botones de acción (T251). -->
+    <mat-button-toggle-group
+      class="mt-4"
+      aria-label="Filtrar partidos"
+      hideSingleSelectionIndicator
+      [value]="filtro()"
+      (change)="filtro.set($event.value)"
+    >
       @for (opcion of FILTROS; track opcion.valor) {
-        <button
-          type="button"
-          class="boton boton-chico"
-          [class.boton-primario]="filtro() === opcion.valor"
-          [class.boton-secundario]="filtro() !== opcion.valor"
-          [attr.aria-pressed]="filtro() === opcion.valor"
-          (click)="filtro.set(opcion.valor)"
-        >
-          {{ opcion.etiqueta }}
-        </button>
+        <mat-button-toggle [value]="opcion.valor">{{ opcion.etiqueta }}</mat-button-toggle>
       }
-    </div>
+    </mat-button-toggle-group>
 
     @if (partidos.error()) {
       <p class="mt-6 text-destructive">
@@ -65,53 +67,65 @@ import { Esqueleto } from '../../ui/esqueleto';
     } @else {
       <ul class="mt-4 grid gap-3">
         @for (partido of partidos.value(); track partido.id) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p class="titulo-tarjeta">{{ partido.socioA }} contra {{ partido.socioB }}</p>
-              <app-insignia variante="neutro" icono="flag">
-                {{ nombreEstado(partido.estado) }}
-              </app-insignia>
-              @if (partido.resueltoPorAdmin) {
-                <app-insignia variante="info" icono="gavel"> Resuelto por el club </app-insignia>
-              }
-            </div>
+          <li>
+            <mat-card appearance="outlined" class="p-4">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p class="titulo-tarjeta">{{ partido.socioA }} contra {{ partido.socioB }}</p>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia neutro">
+                    <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                    {{ nombreEstado(partido.estado) }}
+                  </mat-chip>
+                </mat-chip-set>
+                @if (partido.resueltoPorAdmin) {
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia info">
+                      <mat-icon matChipAvatar aria-hidden="true">gavel</mat-icon>
+                      Resuelto por el club
+                    </mat-chip>
+                  </mat-chip-set>
+                }
+              </div>
 
-            <!-- Dos redacciones y no una con el nombre metido dos veces: el caso
-                 normal es que quien lo carga diga que ganó él, y ahí "lo cargó
-                 Carolina diciendo que ganó Carolina" se lee como un error. -->
-            <p class="mt-1 text-sm text-muted-foreground">
-              {{ enPalabras(partido.jugadoEn) }} ·
-              @if (partido.ganador === partido.socioA) {
-                lo cargó {{ partido.socioA }}, que dice haber ganado
-              } @else {
-                lo cargó {{ partido.socioA }}, que dice que ganó
-                {{ partido.ganador }}
-              }
-              @if (partido.marcador) {
-                por {{ partido.marcador }}
-              }
-            </p>
+              <!-- Dos redacciones y no una con el nombre metido dos veces: el caso
+                   normal es que quien lo carga diga que ganó él, y ahí "lo cargó
+                   Carolina diciendo que ganó Carolina" se lee como un error. -->
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ enPalabras(partido.jugadoEn) }} ·
+                @if (partido.ganador === partido.socioA) {
+                  lo cargó {{ partido.socioA }}, que dice haber ganado
+                } @else {
+                  lo cargó {{ partido.socioA }}, que dice que ganó
+                  {{ partido.ganador }}
+                }
+                @if (partido.marcador) {
+                  por {{ partido.marcador }}
+                }
+              </p>
 
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="boton boton-primario boton-chico"
-                [disabled]="enviando()"
-                [attr.aria-busy]="enCurso() === partido.id + '-CONFIRMADO'"
-                (click)="resolver(partido.id, 'CONFIRMADO')"
-              >
-                Dar por jugado
-              </button>
-              <button
-                type="button"
-                class="boton boton-secundario boton-chico"
-                [disabled]="enviando()"
-                [attr.aria-busy]="enCurso() === partido.id + '-RECHAZADO'"
-                (click)="resolver(partido.id, 'RECHAZADO')"
-              >
-                Descartar
-              </button>
-            </div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button
+                  matButton="filled"
+                  type="button"
+                  class="chico"
+                  [disabled]="enviando()"
+                  [attr.aria-busy]="enCurso() === partido.id + '-CONFIRMADO'"
+                  (click)="resolver(partido.id, 'CONFIRMADO')"
+                >
+                  Dar por jugado
+                </button>
+                <button
+                  matButton="outlined"
+                  type="button"
+                  class="chico"
+                  [disabled]="enviando()"
+                  [attr.aria-busy]="enCurso() === partido.id + '-RECHAZADO'"
+                  (click)="resolver(partido.id, 'RECHAZADO')"
+                >
+                  Descartar
+                </button>
+              </div>
+            </mat-card>
           </li>
         }
       </ul>

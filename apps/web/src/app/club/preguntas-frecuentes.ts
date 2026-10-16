@@ -1,5 +1,6 @@
 import { httpResource } from '@angular/common/http';
 import { Component, computed } from '@angular/core';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 import { Aviso } from '../ui/aviso';
 import { Esqueleto } from '../ui/esqueleto';
@@ -15,10 +16,10 @@ interface PreguntaPublica {
 /**
  * Las preguntas frecuentes del club (T146), que escribe desde su panel (T145).
  *
- * **Cada pregunta es un `<details>` nativo.** Se abre con el teclado, el lector anuncia
- * "contraído" y "expandido" sin una línea de ARIA nuestra, y la búsqueda del navegador
- * encuentra el texto de una respuesta cerrada y la abre. Llegan cerradas: la lista de
- * preguntas se lee de un vistazo.
+ * **Cada pregunta es un panel desplegable de Material** (T281; antes, un `<details>`). Se
+ * abre con el teclado y el lector anuncia si está abierto. Lo que se pierde: la búsqueda del
+ * navegador ya no abre una respuesta cerrada. Llegan cerradas: la lista de preguntas se lee
+ * de un vistazo.
  *
  * **El formulario de contacto va al final**, siempre: es la respuesta a la pregunta que
  * no está. También cuando no hay ninguna o la API no responde, y entonces la página
@@ -26,7 +27,7 @@ interface PreguntaPublica {
  */
 @Component({
   selector: 'app-preguntas-frecuentes-publicas',
-  imports: [Aviso, Esqueleto, FormularioContacto],
+  imports: [MatExpansionModule, Aviso, Esqueleto, FormularioContacto],
   template: `
     <h1 class="titular text-6xl sm:text-7xl">Preguntas frecuentes</h1>
     <p class="mt-2 max-w-prose text-lg text-muted-foreground">
@@ -46,26 +47,22 @@ interface PreguntaPublica {
           respondemos.
         </p>
       } @else {
-        <div class="border-t border-border">
+        <!-- multi: abrir una no cierra la otra, como con los <details> de antes. -->
+        <mat-accordion multi class="block border-t border-border">
           @for (pregunta of lista(); track pregunta.id) {
-            <details class="group border-b border-border">
-              <summary
-                class="flex min-h-14 cursor-pointer list-none items-center justify-between
-                       gap-4 py-4 font-display text-xl font-bold tracking-wide"
-              >
-                <span>{{ pregunta.pregunta }}</span>
-                <span
-                  class="icono text-2xl text-primary transition-transform group-open:rotate-180"
-                  aria-hidden="true"
-                >
-                  expand_more
-                </span>
-              </summary>
+            <mat-expansion-panel class="border-b border-border">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="py-1 font-display text-xl font-bold tracking-wide">{{
+                    pregunta.pregunta
+                  }}</span>
+                </mat-panel-title>
+              </mat-expansion-panel-header>
               <!-- Texto plano: pre-line respeta los saltos de línea del panel. -->
-              <p class="max-w-prose pb-5 whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
-            </details>
+              <p class="max-w-prose whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
+            </mat-expansion-panel>
           }
-        </div>
+        </mat-accordion>
       }
     </div>
 

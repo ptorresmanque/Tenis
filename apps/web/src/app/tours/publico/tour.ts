@@ -1,6 +1,10 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
 
+import { proveerCampos } from '../../ui/campos';
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { TablaDeTour } from '../../ranking/tabla-de-tour';
 import { Galeria } from '../../torneos/publico/galeria';
@@ -9,7 +13,13 @@ import { Esqueleto } from '../../ui/esqueleto';
 import { TablaDePuntos, TourPublico, Tours } from '../tours.service';
 
 /** Las filas de la tabla, de la final hacia atrás. */
-const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
+/** Una fila de la tabla de puntos: el resultado y cómo se llama. */
+interface Resultado {
+  clave: keyof TablaDePuntos;
+  nombre: string;
+}
+
+const RESULTADOS: Resultado[] = [
   { clave: 'campeon', nombre: 'Campeón' },
   { clave: 'finalista', nombre: 'Finalista' },
   { clave: 'semifinal', nombre: 'Semifinal' },
@@ -31,7 +41,16 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
  */
 @Component({
   selector: 'app-tour-publico',
-  imports: [RouterLink, Galeria, Esqueleto, TablaDeTour],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    RouterLink,
+    Galeria,
+    Esqueleto,
+    TablaDeTour,
+    MatTableModule,
+  ],
+  providers: [proveerCampos()],
   template: `
     @if (tour.error()) {
       <section class="py-10">
@@ -51,7 +70,7 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
       @if (suyo.imagen; as imagen) {
         <!-- Como la cabecera de Torneos: la foto a sangre, el velo y el titular encima. -->
         <section
-          class="relative isolate -mx-4 overflow-hidden sm:mx-0 sm:rounded-region"
+          class="relative isolate a-sangre overflow-hidden"
           aria-labelledby="titulo-tour"
         >
           <img
@@ -63,13 +82,16 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
             fetchpriority="high"
           />
           <div class="absolute inset-0 velo-foto" aria-hidden="true"></div>
-          <div class="absolute inset-0 flex items-end p-6 text-on-campo texto-sobre-foto sm:p-10">
+          <div
+            class="absolute inset-0 flex items-end py-6 px-sangre-6 text-on-campo texto-sobre-foto
+                   sm:py-10 sm:px-sangre-10"
+          >
             <h1 id="titulo-tour" class="titular text-5xl sm:text-7xl">{{ suyo.nombre }}</h1>
           </div>
         </section>
       } @else {
         <section
-          class="-mx-4 bg-campo px-6 py-10 text-on-campo sm:mx-0 sm:rounded-region sm:px-10"
+          class="a-sangre bg-campo px-sangre-6 py-10 text-on-campo sm:px-sangre-10"
           aria-labelledby="titulo-tour"
         >
           <h1 id="titulo-tour" class="titular text-5xl sm:text-7xl">{{ suyo.nombre }}</h1>
@@ -88,16 +110,16 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
 
           <div class="mt-4 flex flex-wrap items-end gap-x-4 gap-y-2">
             @if (suyo.temporadas.length > 1) {
-              <label class="block">
-                <span class="text-sm font-medium">Temporada</span>
-                <select class="campo mt-1" [value]="temporada.id" (change)="elegir($event)">
+              <mat-form-field>
+                <mat-label>Temporada</mat-label>
+                <mat-select [value]="temporada.id" (selectionChange)="elegir($event.value)">
                   @for (otra of suyo.temporadas; track otra.id) {
-                    <option [value]="otra.id" [selected]="otra.id === temporada.id">
+                    <mat-option [value]="otra.id">
                       {{ otra.nombre }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
-              </label>
+                </mat-select>
+              </mat-form-field>
             }
             <p class="pb-2 text-muted-foreground">
               Temporada {{ temporada.nombre }}: del {{ enPalabras(temporada.fechaInicio) }} al
@@ -109,33 +131,35 @@ const RESULTADOS: { clave: keyof TablaDePuntos; nombre: string }[] = [
             <!-- Desplazable dentro de su caja: con cuatro niveles no cabe en 375 px, y la
                  página no puede desbordar de lado. -->
             <div class="mt-4 overflow-x-auto bg-card shadow-md">
-              <table class="tabla">
-                <caption class="sr-only">
-                  Puntos por resultado en cada nivel de la temporada
-                  {{
-                    temporada.nombre
-                  }}
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Resultado</th>
-                    @for (nivel of temporada.niveles; track nivel.id) {
-                      <th scope="col" class="text-end">{{ nivel.nombre }}</th>
-                    }
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (resultado of RESULTADOS; track resultado.clave) {
-                    <tr>
-                      <th scope="row">{{ resultado.nombre }}</th>
-                      @for (nivel of temporada.niveles; track nivel.id) {
-                        <td class="text-end font-display text-lg font-bold tabular-nums">
-                          {{ nivel.tabla[resultado.clave] }}
-                        </td>
-                      }
-                    </tr>
-                  }
-                </tbody>
+              <table mat-table [attr.aria-label]="'Puntos por resultado en cada nivel de la temporada ' + temporada.nombre" [dataSource]="RESULTADOS">
+                <ng-container matColumnDef="resultado">
+                  <th mat-header-cell *matHeaderCellDef scope="col">Resultado</th>
+                  <th
+                    *matCellDef="let resultado"
+                    scope="row"
+                    class="mat-mdc-cell mdc-data-table__cell"
+                  >
+                    {{ resultado.nombre }}
+                  </th>
+                </ng-container>
+                <!-- Una columna por nivel, en el orden de la temporada. -->
+                @for (nivel of temporada.niveles; track nivel.id) {
+                  <ng-container [matColumnDef]="'nivel-' + nivel.id">
+                    <th mat-header-cell *matHeaderCellDef scope="col" class="text-end">
+                      {{ nivel.nombre }}
+                    </th>
+                    <td
+                      mat-cell
+                      *matCellDef="let resultado"
+                      class="text-end font-display text-lg font-bold tabular-nums"
+                    >
+                      {{ puntos(nivel.tabla, resultado) }}
+                    </td>
+                  </ng-container>
+                }
+
+                <tr mat-header-row *matHeaderRowDef="columnas(); sticky: true"></tr>
+                <tr mat-row *matRowDef="let resultado; columns: columnas()"></tr>
               </table>
             </div>
             <p class="mt-3 max-w-prose text-sm text-muted-foreground">
@@ -236,6 +260,18 @@ export class TourPublicoPagina {
     );
   });
 
+  /** Lo que vale un resultado en un nivel. Método y no índice en la plantilla: la fila de
+   *  mat-table llega sin tipo. */
+  protected puntos(tabla: TablaDePuntos, resultado: Resultado): number {
+    return tabla[resultado.clave];
+  }
+
+  /** Las columnas de la tabla de puntos: el resultado, y un nivel por columna. */
+  protected readonly columnas = computed(() => [
+    'resultado',
+    ...(this.elegida()?.niveles ?? []).map((nivel) => `nivel-${nivel.id}`),
+  ]);
+
   /** Los torneos de la temporada elegida, de cualquier año (T201). */
   protected readonly torneos = resource({
     params: () => this.elegida()?.id,
@@ -267,9 +303,7 @@ export class TourPublicoPagina {
   }
 
   /** Cambia la dirección y no un estado suelto: el enlace copiado abre lo mismo. */
-  protected elegir(evento: Event): void {
-    const temporada = Number((evento.target as HTMLSelectElement).value);
-
+  protected elegir(temporada: number): void {
     void this.router.navigate([], {
       relativeTo: this.ruta,
       queryParams: { temporada },

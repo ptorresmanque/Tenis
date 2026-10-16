@@ -1,25 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  AdminCanchas,
-  HoraAfectada,
-} from '../../catalogo-canchas/admin/admin-canchas.service';
+import { SelectorDeDia } from '../../catalogo-canchas/grilla/selector-de-dia';
 import { ClaseDelDia, Clases } from '../clases.service';
-import { Profesores } from '../profesores.service';
 import { AgendaDeClases } from './agenda-clases';
+import { darMotivo, textoDelDialogo } from '../../testing/dialogos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
- * T46. Agendar una clase es cerrar la cancha, y esta pantalla lo trata como tal.
- *
- * Lo que este archivo cuida: que **con horas tomadas debajo no se agende de una**.
- * El admin ve a quién le va a quitar la hora y recién ahí decide. Sin ese paso,
- * cancelar reservas automáticamente es un descuido esperando ocurrir.
+ * T46. Las clases del club, día por día: cada una con lo que hace falta para ubicarla, sus
+ * inscritos y cómo cancelarla. Agendar es otra página desde T294 (`agendar-clase.spec.ts`).
  */
 describe('AgendaDeClases', () => {
   const CLASE: ClaseDelDia = {
     id: 7,
-    cancha: 'Cancha 1',
+    tipo: 'TENIS',
+    lugar: 'Cancha 1',
+    canchaId: 1,
     profesor: 'Ana Silva',
     inicio: '2026-08-17T21:00:00.000Z',
     fin: '2026-08-17T22:00:00.000Z',
@@ -30,68 +29,34 @@ describe('AgendaDeClases', () => {
     serieId: null,
   };
 
-  const TOMADA: HoraAfectada = {
-    id: 3,
-    folio: 'AB23CDE',
-    inicio: '2026-08-17T21:00:00.000Z',
-    fin: '2026-08-17T22:00:00.000Z',
-    nombre: 'Camila Socia',
-    email: 'camila@ejemplo.cl',
-    esSocio: true,
-    pagada: false,
-    pagoEnCurso: false,
-  };
-
   let fixture: ComponentFixture<AgendaDeClases>;
   let api: {
     delDia: ReturnType<typeof vi.fn>;
-    simular: ReturnType<typeof vi.fn>;
-    agendar: ReturnType<typeof vi.fn>;
     cancelar: ReturnType<typeof vi.fn>;
     cancelarSerieDesde: ReturnType<typeof vi.fn>;
+    ficha: ReturnType<typeof vi.fn>;
+    socios: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (clases: ClaseDelDia[], afectadas: HoraAfectada[] = []) => {
+  const montar = async (clases: ClaseDelDia[], fecha?: string) => {
     api = {
       delDia: vi.fn().mockResolvedValue(clases),
-      simular: vi.fn().mockResolvedValue({ afectadas }),
-      agendar: vi.fn().mockResolvedValue({ id: 1, bloqueoId: 2, canceladas: [] }),
       cancelar: vi.fn().mockResolvedValue({ id: 7 }),
       cancelarSerieDesde: vi.fn().mockResolvedValue({ canceladas: 5 }),
+      // Los piden los inscritos de una clase, al abrir su panel (T293). Sin responder: las
+      // pruebas que abren uno solo miran que se pidan.
+      ficha: vi.fn(() => new Promise(() => undefined)),
+      socios: vi.fn(() => new Promise(() => undefined)),
     };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [
-        { provide: Clases, useValue: api },
-        {
-          provide: Profesores,
-          useValue: {
-            listar: vi.fn().mockResolvedValue([
-              {
-                id: 4,
-                nombreVisible: 'Ana Silva',
-                especialidad: 'Iniciación',
-                telefono: '',
-                tarifaHoraClp: null,
-                activo: true,
-              },
-            ]),
-          },
-        },
-        {
-          provide: AdminCanchas,
-          useValue: {
-            canchas: vi.fn().mockResolvedValue([
-              { id: 2, nombre: 'Cancha 1', activa: true },
-              { id: 5, nombre: 'Cancha en obras', activa: false },
-            ]),
-          },
-        },
-      ],
+      providers: [provideRouter([]), { provide: Clases, useValue: api }],
     });
 
     fixture = TestBed.createComponent(AgendaDeClases);
+    // Lo que trae la URL en `?fecha=` (T294): el router se lo da como input.
+    if (fecha) fixture.componentRef.setInput('fecha', fecha);
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -117,97 +82,126 @@ describe('AgendaDeClases', () => {
     expect(texto()).toContain('Cancha 1');
   });
 
-  it('sin nadie debajo, agendar no pregunta nada', async () => {
-    // Preguntar por preguntar entrena a la gente a apretar sin leer, y entonces la
-    // advertencia que sí importa tampoco se lee.
-    await apretar('Agendar clase');
+  it('**el día se elige con el selector de la agenda**, y la lista es la de ese día (T293)', async () => {
+    // Las flechas y el calendario propios de Clases se fueron: el mismo selector que la agenda.
+    expect(elemento().querySelector('[aria-label="Día anterior"]')).toBeNull();
+    const selector = fixture.debugElement.query(By.directive(SelectorDeDia));
 
-    expect(api.agendar).toHaveBeenCalled();
-    expect(texto()).not.toContain('hora tomada');
+    (selector.componentInstance as SelectorDeDia).fecha.set('2026-08-20');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(api.delDia).toHaveBeenLastCalledWith('2026-08-20');
   });
 
-  it('**con una hora tomada debajo, no agenda hasta que el admin la ve**', async () => {
-    await montar([CLASE], [TOMADA]);
+  it('**el día que se elige queda en la URL**, sin sumar pasos al historial (T294)', async () => {
+    // Así «Atrás» desde la página de agendar vuelve a este día, y el enlace se puede compartir.
+    const navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const selector = fixture.debugElement.query(By.directive(SelectorDeDia));
 
-    await apretar('Agendar clase');
+    (selector.componentInstance as SelectorDeDia).fecha.set('2026-08-20');
+    await fixture.whenStable();
 
-    expect(api.agendar).not.toHaveBeenCalled();
-    expect(texto()).toContain('1 hora tomada');
-    expect(texto()).toContain('Camila Socia');
+    expect(navegar).toHaveBeenCalledWith(
+      [],
+      expect.objectContaining({ queryParams: { fecha: '2026-08-20' }, replaceUrl: true }),
+    );
   });
 
-  it('recién al confirmar se agenda y se avisa', async () => {
-    await montar([CLASE], [TOMADA]);
-    api.agendar.mockResolvedValue({ id: 1, bloqueoId: 2, canceladas: [TOMADA] });
-    await apretar('Agendar clase');
+  it('**el día puede venir en la URL** (T294): así se vuelve a él después de agendar', async () => {
+    await montar([CLASE], '2026-08-20');
 
-    await apretar('Agendar igual');
-
-    expect(api.agendar).toHaveBeenCalled();
-    // En singular de verdad: "1 persona que tenían esa hora" es lo que sale de
-    // pluralizar media frase y dejar el verbo en plural.
-    expect(texto()).toContain('Avisamos a la persona que tenía esa hora');
+    expect(api.delDia).toHaveBeenCalledWith('2026-08-20');
   });
 
-  it('"Mejor no" deja todo como estaba', async () => {
-    await montar([CLASE], [TOMADA]);
-    await apretar('Agendar clase');
+  it('**«Agendar» es el único FAB, y lleva a su página con el día que se mira** (T294)', async () => {
+    await montar([CLASE], '2026-08-20');
+    const fabs = elemento().querySelectorAll<HTMLAnchorElement>('.mat-mdc-fab-base');
 
-    await apretar('Mejor no');
-
-    expect(api.agendar).not.toHaveBeenCalled();
-    expect(texto()).not.toContain('hora tomada');
+    expect(fabs.length).toBe(1);
+    expect(fabs[0].textContent).toContain('Agendar');
+    expect(fabs[0].getAttribute('href')).toBe('/administracion/clases/agendar?fecha=2026-08-20');
+    // Agendar ya no está en esta página; el FAB deja espacio para no tapar la última clase.
+    expect(elemento().querySelector('form')).toBeNull();
+    expect(elemento().querySelector('app-nueva-serie')).toBeNull();
+    expect(elemento().classList).toContain('pb-24');
   });
 
-  it('**con un pago en curso no deja confirmar**', async () => {
-    // El servidor lo rechaza igual, pero el botón lo dice antes: cancelarla dejaría
-    // a esa persona sin cancha y sin su dinero.
-    await montar([CLASE], [{ ...TOMADA, pagoEnCurso: true }]);
-    await apretar('Agendar clase');
+  describe('cada clase es un panel (T293)', () => {
+    const cabeceras = () => [
+      ...elemento().querySelectorAll<HTMLElement>('mat-expansion-panel-header'),
+    ];
+    /** Abre con un clic y sin esperar: los inscritos dejan su pedido abierto. */
+    const abrir = async (indice: number) => {
+      cabeceras()[indice].click();
+      fixture.detectChanges();
+      await new Promise((listo) => setTimeout(listo));
+    };
 
-    const boton = Array.from(elemento().querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Agendar igual'),
-    ) as HTMLButtonElement;
-    expect(boton.disabled).toBe(true);
-    expect(texto()).toContain('pagándose ahora');
+    it('**cerrado, con la hora, el lugar, el tipo, el profesor y el cupo en su cabecera**', () => {
+      const [cabecera] = cabeceras();
+      const resumen = cabecera.textContent!.replace(/\s+/g, ' ');
+
+      expect(resumen).toMatch(/\d\d:\d\d–\d\d:\d\d/);
+      expect(resumen).toContain('Cancha 1');
+      expect(resumen).toContain('Iniciación');
+      expect(resumen).toContain('Ana Silva');
+      expect(resumen).toContain('hasta 6 alumnos');
+      expect(cabecera.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('**los inscritos se piden recién al abrirla**; ya no hay «Ver inscritos»', async () => {
+      expect(texto()).not.toContain('Ver inscritos');
+      expect(elemento().querySelector('app-inscritos')).toBeNull();
+
+      await abrir(0);
+
+      expect(cabeceras()[0].getAttribute('aria-expanded')).toBe('true');
+      expect(elemento().querySelector('app-inscritos')).not.toBeNull();
+      expect(api.ficha).toHaveBeenCalledWith(7);
+    });
+
+    it('abrir una clase no cierra otra', async () => {
+      await montar([CLASE, { ...CLASE, id: 8, lugar: 'Cancha 2' }]);
+
+      await abrir(0);
+      await abrir(1);
+
+      expect(cabeceras().map((c) => c.getAttribute('aria-expanded'))).toEqual(['true', 'true']);
+    });
+  });
+
+  it('**la del gimnasio dice "Gimnasio", "Preparación física" y si es grupal** (T234)', async () => {
+    await montar([
+      { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', canchaId: null, nivel: null, cupoMaximo: 8 },
+    ]);
+
+    const fila = texto().replace(/\s+/g, ' ');
+    expect(fila).toContain('Gimnasio');
+    expect(fila).toContain('Preparación física · Grupal');
+    expect(fila).toContain('Ana Silva · hasta 8 alumnos');
   });
 
   it('cancelar una clase exige un motivo, y sin él no llama al servidor', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('  ');
-
     await apretar('Cancelar clase');
+
+    // El motivo se pide en un diálogo (T253): en blanco no deja confirmar, y descartar no hace nada.
+    expect(textoDelDialogo()).toContain('¿Cancelar la clase de');
+    expect(
+      document.querySelector<HTMLButtonElement>('mat-dialog-container button[type="submit"]')!
+        .disabled,
+    ).toBe(true);
+    await darMotivo(fixture, null);
 
     expect(api.cancelar).not.toHaveBeenCalled();
   });
 
   it('con motivo, la cancela y lo dice', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('Se enfermó');
-
     await apretar('Cancelar clase');
+    await darMotivo(fixture, 'Se enfermó');
 
     expect(api.cancelar).toHaveBeenCalledWith(7, 'Se enfermó');
-    expect(texto()).toContain('vuelve a estar disponible');
-  });
-
-  it('si el servidor rechaza, lo dice con sus palabras', async () => {
-    api.simular.mockRejectedValue({
-      error: { message: 'Esa cancha ya está cerrada en ese rango.' },
-    });
-
-    await apretar('Agendar clase');
-
-    expect(texto()).toContain('ya está cerrada');
-  });
-
-  it('**una cancha desactivada no se ofrece: el servidor la rechaza siempre**', async () => {
-    // No tiene grilla, así que agendar sobre ella responde 404. Ofrecerla en el
-    // selector es ofrecer un callejón.
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="canchaId"] option'),
-    ).map((o) => o.textContent?.trim());
-
-    expect(opciones).toContain('Cancha 1');
-    expect(opciones).not.toContain('Cancha en obras');
+    expect(avisoDeLoHecho()).toContain('vuelve a estar disponible');
   });
 
   it('**a una clase que ya se dio no se le ofrece cancelarla**', async () => {
@@ -234,11 +228,7 @@ describe('AgendaDeClases', () => {
     const caida = () => Promise.reject(new Error('la API no respondió'));
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [
-        { provide: Clases, useValue: { delDia: caida } },
-        { provide: Profesores, useValue: { listar: caida } },
-        { provide: AdminCanchas, useValue: { canchas: caida } },
-      ],
+      providers: [provideRouter([]), { provide: Clases, useValue: { delDia: caida } }],
     });
 
     fixture = TestBed.createComponent(AgendaDeClases);
@@ -246,34 +236,8 @@ describe('AgendaDeClases', () => {
     fixture.detectChanges();
 
     expect(texto()).toContain('No se pudieron cargar las clases');
-    expect(texto()).toContain('No se pudieron cargar los profesores');
   });
 
-  /** T115. La agenda también agenda series: el formulario vive en `NuevaSerie`. */
-  describe('las series', () => {
-    it('**ofrece agendar una serie, con las canchas activas y los profesores**', () => {
-      const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
-
-      expect(serie).not.toBeNull();
-      expect(serie.componentInstance.canchas()).toEqual([
-        { id: 2, nombre: 'Cancha 1', activa: true },
-      ]);
-      expect(serie.componentInstance.profesores()).toHaveLength(1);
-    });
-
-    it('al agendarla, la agenda lo dice y vuelve a cargar el día', async () => {
-      const serie = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-serie');
-
-      serie.componentInstance.agendada.emit('Serie agendada: 18 clases.');
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(texto()).toContain('Serie agendada: 18 clases.');
-      expect(api.delDia).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  /** T117. Una clase de una serie se puede cancelar con las que le siguen. */
   describe('cancelar la serie desde una fecha', () => {
     it('en una clase suelta no se ofrece', () => {
       expect(texto()).not.toContain('Cancelar desde esta fecha');
@@ -281,23 +245,23 @@ describe('AgendaDeClases', () => {
 
     it('**en una clase de una serie, cancela esa y las siguientes, con el motivo**', async () => {
       await montar([{ ...CLASE, serieId: 9 }]);
-      vi.spyOn(window, 'prompt').mockReturnValue('Fin de temporada');
 
       await apretar('Cancelar desde esta fecha');
+      expect(textoDelDialogo()).toContain('¿Cancelar la serie de');
+      await darMotivo(fixture, 'Fin de temporada');
 
       // El día de la clase, en hora del club: 21:00Z del 17 de agosto son las 17:00 del 17.
       expect(api.cancelarSerieDesde).toHaveBeenCalledWith(9, '2026-08-17', 'Fin de temporada');
-      expect(texto()).toContain('Se cancelaron 5 clases de la serie');
+      expect(avisoDeLoHecho()).toContain('Se cancelaron 5 clases de la serie');
     });
 
     it('sin motivo no cancela nada', async () => {
       await montar([{ ...CLASE, serieId: 9 }]);
-      vi.spyOn(window, 'prompt').mockReturnValue('   ');
 
       await apretar('Cancelar desde esta fecha');
+      await darMotivo(fixture, null);
 
       expect(api.cancelarSerieDesde).not.toHaveBeenCalled();
     });
   });
 });
-

@@ -8,6 +8,10 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 import {
   diaEnPalabras,
@@ -17,8 +21,9 @@ import {
   minutosDe,
 } from '../../catalogo-canchas/reloj-del-club';
 import { Aviso } from '../../ui/aviso';
+import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
+import { LO_HECHO } from '../../ui/material';
 import { descargarIcs } from '../calendario';
 import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
 
@@ -32,13 +37,11 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
  */
 @Component({
   selector: 'app-mis-reservas',
-  imports: [RouterLink, Aviso, EstadoVacio, Insignia],
+  imports: [MatButton, MatIcon, RouterLink, Aviso, EstadoVacio, MatChipsModule, Esqueleto],
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Mis reservas</h1>
-
-    <div role="status" aria-live="polite" class="mt-4">
+    <div role="status" aria-live="polite">
       @if (reservas.isLoading()) {
-        <p class="text-muted-foreground">Buscando tus horas…</p>
+        <app-esqueleto [filas]="3" etiqueta="Buscando tus horas…" />
       } @else if (reservas.error()) {
         <p class="text-destructive">
           No se pudieron cargar tus reservas. Reintenta en un momento.
@@ -49,7 +52,9 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
           titulo="No tienes horas tomadas"
           detalle="Elige una cancha y una hora, y queda reservada al tiro."
         >
-          <a routerLink="/disponibilidad" class="boton boton-primario">
+          <!-- El del estado vacío excluye la lista; en la lista va uno por tarjeta.
+               mat-guidelines-ignore: multiples-filled -->
+          <a matButton="filled" routerLink="/disponibilidad">
             Ver la disponibilidad
           </a>
         </app-estado-vacio>
@@ -94,22 +99,37 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 {{ reserva.cancha }}
               </h2>
               @if (reserva.estado === 'PENDIENTE_PAGO') {
-                <app-insignia variante="aviso">Esperando el pago</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia aviso">
+                    <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                    Esperando el pago
+                  </mat-chip>
+                </mat-chip-set>
               } @else {
-                <app-insignia variante="exito">Confirmada</app-insignia>
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia exito">
+                    <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                    Confirmada
+                  </mat-chip>
+                </mat-chip-set>
               }
               @if (reserva.esPico) {
-                <!-- Ámbar, como el rótulo "Pico" del marcador y de las tarifas. -->
-                <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+                <!-- Ámbar, como el rótulo "Prime" del marcador y de las tarifas. -->
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia aviso">
+                    <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                    Hora prime
+                  </mat-chip>
+                </mat-chip-set>
               }
             </div>
 
             <!-- La hora en un rótulo, como en la grilla (TV5.3): campo, o ámbar
-                 suave si es hora pico. Es el dato con el que alguien busca su
+                 suave si es hora prime. Es el dato con el que alguien busca su
                  reserva. -->
             <p
               class="rotulo-hora mt-2 inline-flex px-2 py-1 text-2xl"
-              [class.rotulo-hora-pico]="reserva.esPico"
+              [class.rotulo-hora-prime]="reserva.esPico"
             >
               {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
             </p>
@@ -124,8 +144,9 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
             </app-aviso>
             <div class="mt-3 flex flex-wrap gap-2">
               <button
+                matButton="filled"
                 type="button"
-                class="boton boton-destructivo boton-chico"
+                class="peligro chico"
                 [disabled]="enviando()"
                 [attr.aria-busy]="enviando()"
                 (click)="confirmarCancelacion(reserva)"
@@ -133,8 +154,9 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
                 Sí, cancelar
               </button>
               <button
+                matButton
                 type="button"
-                class="boton boton-texto boton-chico"
+                class="chico"
                 (click)="porCancelar.set(null)"
               >
                 Mejor no
@@ -150,33 +172,35 @@ import { mensajeDeRechazo, ReservaMia, Reservas } from '../reservas.service';
             <div class="mt-3 flex flex-wrap gap-2">
               @if (reserva.sePuedeModificar) {
                 <a
+                  matButton="filled"
                   routerLink="/disponibilidad"
                   [queryParams]="{
                     mover: reserva.id,
-                    cancha: reserva.cancha,
                     fecha: fechaDelClub(reserva.inicio),
                     duracion: duracionDeLaGrilla(reserva),
                   }"
-                  class="boton boton-primario boton-chico"
+                  class="chico"
                 >
-                  <span class="icono text-base" aria-hidden="true">schedule</span>
+                  <mat-icon class="text-base" aria-hidden="true">schedule</mat-icon>
                   Cambiar hora o duración
                 </a>
               }
               <button
+                matButton
                 type="button"
-                class="boton boton-texto boton-chico"
+                class="chico"
                 (click)="agregarAlCalendario(reserva)"
               >
-                <span class="icono text-base" aria-hidden="true">event</span>
+                <mat-icon class="text-base" aria-hidden="true">event</mat-icon>
                 Agregar al calendario
               </button>
               <button
+                matButton="outlined"
                 type="button"
-                class="boton boton-secundario boton-chico"
+                class="chico"
                 (click)="porCancelar.set(reserva.id)"
               >
-                <span class="icono text-base" aria-hidden="true">cancel</span>
+                <mat-icon class="text-base" aria-hidden="true">cancel</mat-icon>
                 Cancelar
               </button>
             </div>
@@ -203,6 +227,7 @@ export class MisReservas {
 
   private readonly ruta = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly snackBar = inject(MatSnackBar);
 
   /** El folio que llega desde la confirmación con "Cancelar esta reserva". */
   private readonly folioPorCancelar = toSignal(this.ruta.queryParamMap);
@@ -299,10 +324,14 @@ export class MisReservas {
         lista.filter((otra) => otra.id !== reserva.id),
       );
       this.porCancelar.set(null);
-      this.aviso.set(
+      // Lo hecho, con el snackbar (T283): la reserva ya salió de la lista. En la página
+      // quedan los avisos que hay que leer, como el rechazo.
+      this.snackBar.open(
         resultado.huboDevolucion
           ? `Cancelamos la reserva ${resultado.folio} y la devolución ya está en camino.`
           : `Cancelamos la reserva ${resultado.folio}.`,
+        undefined,
+        LO_HECHO,
       );
     } catch (falla) {
       const rechazo = mensajeDeRechazo(falla);

@@ -1,10 +1,8 @@
-import { Component, computed, input, model, output } from '@angular/core';
+import { Component, input, model, output } from '@angular/core';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
-import { CampoFecha } from '../../ui/campo-fecha';
-import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { Cancha, DuracionMin } from '../disponibilidad';
-import { diaEnPalabras, proximosDias } from '../reloj-del-club';
+import { SelectorDeDia } from './selector-de-dia';
 
 const FILTROS = [
   { valor: 'todas', etiqueta: 'Todas' },
@@ -35,77 +33,71 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
 }
 
 /**
- * Qué se mira en la grilla: el día, la duración y el filtro de canchas, con la leyenda.
+ * Qué se mira en la grilla: el día, la duración y el filtro de canchas. La leyenda la trae
+ * el tablero (T265).
  *
  * La duración no es un `model` porque vive en la URL (T83b): la grilla la cambia ahí, y
  * esto solo avisa la elegida.
  */
 @Component({
   selector: 'app-controles-del-dia',
-  imports: [CampoFecha, Insignia, Selector],
+  imports: [MatButtonToggleModule, SelectorDeDia],
   host: { class: 'contents' },
   template: `
-    <div class="mt-4 flex flex-wrap items-end gap-4">
-      <!-- La semana a un toque. El calendario sigue estando al lado para ir más
-           lejos: siete chips cubren lo que la gente reserva de verdad, y el resto
-           no justifica un calendario propio pudiendo usar el del sistema.
+    <!-- Dos renglones al ancho del tablero (D1, T267): arriba el día, abajo qué se busca.
+         En pantallas anchas, una columna sola dejaba media pantalla en blanco al lado de
+         cada grupo; en el teléfono se apilan como antes. -->
+    <app-selector-de-dia [(fecha)]="fecha" />
 
-           A ancho completo: compartiendo fila con el campo de fecha, los siete
-           chips no llegaban a encogerse. -->
-      <app-selector
-        class="w-full"
-        etiqueta="Día"
-        estilo="chips"
-        [opciones]="chipsDeDia()"
-        [valor]="fecha()"
-        (valorChange)="fecha.set($event)"
-      />
+    <!-- El rótulo a la vista dice qué es cada grupo; el lector lo oye del aria-label. -->
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          class="font-display text-xs font-bold tracking-wide text-muted-foreground uppercase"
+          aria-hidden="true"
+        >
+          Duración
+        </span>
+        <!-- También al mover (T87): parte en la de la reserva, que trae el enlace de "mis
+             reservas", y cambiarla es alargarla o acortarla. -->
+        <mat-button-toggle-group
+          aria-label="Duración"
+          hideSingleSelectionIndicator
+          [value]="'' + duracion()"
+          (change)="cambiarDuracion.emit($event.value)"
+        >
+          @for (opcion of DURACIONES; track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              {{ opcion.etiqueta }}
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+      </div>
 
-      <div>
-        <label for="fecha" class="block text-sm font-medium">Otro día</label>
-        <!-- El cursor y el borde que responde: sin eso, el campo se lee como una
-             etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
-        <app-campo-fecha
-          class="mt-1"
-          inputId="fecha"
-          claseCampo="w-36 cursor-pointer py-2 transition-colors hover:border-primary"
-          [valor]="fecha()"
-          (valorChange)="cambiarFecha($event)"
-        />
+      <div class="flex flex-wrap items-center gap-3">
+        <span
+          class="font-display text-xs font-bold tracking-wide text-muted-foreground uppercase"
+          aria-hidden="true"
+        >
+          Canchas
+        </span>
+        <!-- Los filtros salen de lo que la cancha ya declara —techada e
+             iluminación—, así que filtran en el navegador sobre lo que ya llegó:
+             una consulta más al servidor no traería nada nuevo. -->
+        <mat-button-toggle-group
+          aria-label="Filtrar canchas"
+          hideSingleSelectionIndicator
+          [value]="filtro()"
+          (change)="filtro.set($event.value)"
+        >
+          @for (opcion of FILTROS; track opcion.valor) {
+            <mat-button-toggle [value]="opcion.valor">
+              {{ opcion.etiqueta }}
+            </mat-button-toggle>
+          }
+        </mat-button-toggle-group>
       </div>
     </div>
-
-    <p class="mt-3 text-muted-foreground">{{ diaEnPalabras(fecha()) }}</p>
-
-    <!-- También al mover (T87): parte en la de la reserva, que trae el enlace de "mis
-         reservas", y cambiarla es alargarla o acortarla. -->
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Duración"
-      [opciones]="DURACIONES"
-      [valor]="'' + duracion()"
-      (valorChange)="cambiarDuracion.emit($event)"
-    />
-
-    <!-- Los filtros salen de lo que la cancha ya declara —techada e
-         iluminación—, así que filtran en el navegador sobre lo que ya llegó:
-         una consulta más al servidor no traería nada nuevo. -->
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Filtrar canchas"
-      [opciones]="FILTROS"
-      [valor]="filtro()"
-      (valorChange)="filtro.set($event)"
-    />
-
-    <!-- La leyenda no es decoración: la celda libre, la que no tiene y la hora pico se
-         distinguen por color, y esto es lo que dice qué significa cada uno. Cada celda
-         sin libres dice además por qué (T103). -->
-    <ul class="mt-4 flex flex-wrap gap-2">
-      <li><app-insignia variante="libre">Libre</app-insignia></li>
-      <li><app-insignia variante="neutro" icono="lock">Sin libres</app-insignia></li>
-      <li><app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia></li>
-    </ul>
   `,
 })
 export class ControlesDelDia {
@@ -122,23 +114,4 @@ export class ControlesDelDia {
   ];
 
   protected readonly FILTROS = FILTROS;
-
-  /** Los siete chips de la tira de días, empezando por hoy. */
-  protected readonly chipsDeDia = computed(() =>
-    proximosDias(7).map((dia) => ({
-      valor: dia.fecha,
-      etiqueta: dia.etiqueta,
-      sub: dia.numero,
-    })),
-  );
-
-  protected cambiarFecha(valor: string): void {
-    // El input vacío —se puede borrar con el teclado— no dispara una consulta
-    // que la API va a rechazar.
-    if (valor) {
-      this.fecha.set(valor);
-    }
-  }
-
-  protected readonly diaEnPalabras = diaEnPalabras;
 }

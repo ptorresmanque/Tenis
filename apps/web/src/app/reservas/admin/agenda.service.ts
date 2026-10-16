@@ -7,13 +7,47 @@ export interface ReservaDelDia {
   id: number;
   folio: string;
   cancha: string;
+  /** Para ubicarla en el tablero de la agenda (T269). */
+  canchaId: number;
   inicio: string;
   fin: string;
   estado: 'PENDIENTE_PAGO' | 'CONFIRMADA';
   nombre: string;
   telefono: string;
   esSocio: boolean;
+  /** El socio, para abrir su historial de observaciones (T226). Nulo si es visitante. */
+  socioId: number | null;
   acompanantes: string[];
+  observaciones: ObservacionDeReserva[];
+  /** Cuántas tiene el socio en reservas de días anteriores. */
+  observacionesAnteriores: number;
+}
+
+/** Una nota del mesón sobre una reserva (T225). */
+export interface ObservacionDeReserva {
+  id: number;
+  texto: string;
+  autorId: number;
+  autorNombre: string;
+  creadaEn: string;
+  editadaEn: string | null;
+}
+
+/** Una observación del historial del socio, con la reserva a la que pertenece. */
+export interface ObservacionDelHistorial extends ObservacionDeReserva {
+  reservaId: number;
+  folio: string;
+  cancha: string;
+  inicio: string;
+}
+
+/** Espejo de `BloqueoDelDia` de la API: una cancha cerrada en el día, con su rango (T270). */
+export interface BloqueoDelDia {
+  canchaId: number;
+  inicio: string;
+  fin: string;
+  motivo: string;
+  descripcion: string | null;
 }
 
 @Service()
@@ -43,10 +77,51 @@ export class Agenda {
     return () => fuente.close();
   });
 
+  anotar(reservaId: number, texto: string): Promise<ObservacionDeReserva> {
+    return firstValueFrom(
+      this.http.post<ObservacionDeReserva>(
+        `/api/admin/reservas/${reservaId}/observaciones`,
+        { texto },
+      ),
+    );
+  }
+
+  corregir(id: number, texto: string): Promise<ObservacionDeReserva> {
+    return firstValueFrom(
+      this.http.patch<ObservacionDeReserva>(`/api/admin/reservas/observaciones/${id}`, {
+        texto,
+      }),
+    );
+  }
+
+  borrar(id: number): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.delete<{ id: number }>(`/api/admin/reservas/observaciones/${id}`),
+    );
+  }
+
+  /** Todas las observaciones del socio, de la reserva más nueva a la más vieja. */
+  historial(socioId: number): Promise<ObservacionDelHistorial[]> {
+    return firstValueFrom(
+      this.http.get<ObservacionDelHistorial[]>('/api/admin/reservas/observaciones', {
+        params: { socioId },
+      }),
+    );
+  }
+
   /** Las reservas activas de un día del club, "AAAA-MM-DD". */
   delDia(fecha: string): Promise<ReservaDelDia[]> {
     return firstValueFrom(
       this.http.get<ReservaDelDia[]>('/api/admin/reservas', {
+        params: { fecha },
+      }),
+    );
+  }
+
+  /** Las canchas cerradas de un día, sin las de clase, para el tablero (T270). */
+  bloqueosDelDia(fecha: string): Promise<BloqueoDelDia[]> {
+    return firstValueFrom(
+      this.http.get<BloqueoDelDia[]>('/api/admin/reservas/bloqueos', {
         params: { fecha },
       }),
     );

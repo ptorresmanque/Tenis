@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
@@ -17,7 +18,7 @@ const SIN_ELEGIR: NivelElegido = { tourId: null, nivelId: null };
  */
 @Component({
   selector: 'app-tours-del-torneo',
-  imports: [Aviso, ElegirNivel],
+  imports: [MatButton, Aviso, ElegirNivel],
   template: `
     <section
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -53,8 +54,9 @@ const SIN_ELEGIR: NivelElegido = { tourId: null, nivelId: null };
                    botón que siempre falla es peor que no tenerlo. -->
               @if (torneo().tours.length > 1) {
                 <button
+                  matButton
                   type="button"
-                  class="boton boton-texto boton-chico ms-auto"
+                  class="chico ms-auto"
                   [attr.aria-label]="'Quitar ' + tour.tour"
                   [attr.aria-busy]="enCurso() === 'quitar-' + tour.tourId"
                   [disabled]="trabajando()"
@@ -71,8 +73,9 @@ const SIN_ELEGIR: NivelElegido = { tourId: null, nivelId: null };
       <div class="mt-4 border-t border-border pt-4">
         <app-elegir-nivel [(eleccion)]="eleccion" />
         <button
+          matButton="outlined"
           type="button"
-          class="boton boton-secundario mt-3"
+          class="mt-3"
           [attr.aria-busy]="enCurso() === 'guardar'"
           [disabled]="eleccion().nivelId === null || trabajando()"
           (click)="guardar()"

@@ -1,11 +1,16 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../ui/campos';
 import { AdminCanchas, TextosDeElClub } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
+import { LO_HECHO } from '../ui/material';
 
 /**
  * Cada texto con su etiqueta, para qué sirve y cuánto cabe. El largo es el de la columna:
@@ -45,7 +50,8 @@ const TEXTOS = [
  */
 @Component({
   selector: 'app-textos-del-sitio',
-  imports: [FormsModule, Aviso, Campo, CampoControl],
+  imports: [MatFormFieldModule, MatInput, MatButton, FormsModule, Aviso],
+  providers: [proveerCampos()],
   template: `
     <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
       @if (configuracion.error()) {
@@ -62,15 +68,16 @@ const TEXTOS = [
         @for (texto of TEXTOS; track texto.campo) {
           <!-- La cuenta va en la ayuda, que el lector lee al entrar al campo, y no en
                una región viva: esa hablaría con cada letra. -->
-          <app-campo
-            [etiqueta]="texto.etiqueta"
-            [ayuda]="texto.ayuda + ' ' + quedan(texto.campo, texto.largo)"
-            [obligatorio]="texto.campo === 'elClubTitulo'"
-          >
+          <mat-form-field>
+            <mat-label>
+              {{ texto.etiqueta }}
+              @if (texto.campo === 'elClubTitulo') {
+                <span aria-hidden="true">*</span>
+              }
+            </mat-label>
             @if (texto.lineas === 1) {
               <input
-                appCampoControl
-                class="campo"
+                matInput
                 [name]="texto.campo"
                 [maxlength]="texto.largo"
                 [ngModel]="formulario()[texto.campo]"
@@ -78,8 +85,7 @@ const TEXTOS = [
               />
             } @else {
               <textarea
-                appCampoControl
-                class="campo"
+                matInput
                 [name]="texto.campo"
                 [rows]="texto.lineas"
                 [maxlength]="texto.largo"
@@ -87,22 +93,19 @@ const TEXTOS = [
                 (ngModelChange)="escribir(texto.campo, $event)"
               ></textarea>
             }
-          </app-campo>
+            <mat-hint>{{ texto.ayuda + ' ' + quedan(texto.campo, texto.largo) }}</mat-hint>
+          </mat-form-field>
         }
       </fieldset>
 
       @if (error(); as falla) {
         <app-aviso variante="error">{{ falla }}</app-aviso>
-      } @else if (guardado()) {
-        <app-aviso variante="exito">
-          Guardado. «El club» ya muestra estos textos.
-        </app-aviso>
       }
 
       <div>
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="guardando() || configuracion.isLoading() || !configuracion.hasValue()"
           [attr.aria-busy]="guardando()"
         >
@@ -113,6 +116,7 @@ const TEXTOS = [
   `,
 })
 export class TextosDelSitio {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);
@@ -130,7 +134,6 @@ export class TextosDelSitio {
   protected readonly editado = signal<Partial<TextosDeElClub>>({});
 
   protected readonly guardando = signal(false);
-  protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected formulario(): TextosDeElClub {
@@ -151,12 +154,10 @@ export class TextosDelSitio {
 
   protected escribir(campo: keyof TextosDeElClub, valor: string): void {
     this.editado.update((actual) => ({ ...actual, [campo]: valor }));
-    this.guardado.set(false);
   }
 
   protected async guardar(): Promise<void> {
     this.error.set(null);
-    this.guardado.set(false);
 
     if (!this.formulario().elClubTitulo.trim()) {
       // El servidor también lo rechaza; acá se dice sin gastar el viaje.
@@ -171,7 +172,7 @@ export class TextosDelSitio {
       this.configuracion.reload();
       this.sitio.recargar();
       this.editado.set({});
-      this.guardado.set(true);
+      this.snackBar.open('Guardado. «El club» ya muestra estos textos.', undefined, LO_HECHO);
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla, 'No se pudieron guardar los textos.'));
     } finally {

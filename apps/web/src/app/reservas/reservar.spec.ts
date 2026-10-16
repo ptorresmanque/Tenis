@@ -1,5 +1,11 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
+import { TestKey } from '@angular/cdk/testing';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
+import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatChipGridHarness } from '@angular/material/chips/testing';
+import { MatFormFieldHarness } from '@angular/material/form-field/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth } from '../core/auth/auth';
@@ -64,12 +70,17 @@ describe('Reservar', () => {
     return fixture;
   };
 
-  const texto = (fixture: ReturnType<typeof montar>) =>
-    (fixture.nativeElement as HTMLElement).textContent ?? '';
+  /**
+   * La reserva es un MatDialog (T252): su contenido está en el contenedor de overlays y no en
+   * el componente.
+   */
+  const contenido = () => document.querySelector('mat-dialog-container') as HTMLElement;
+
+  const texto = () => contenido()?.textContent ?? '';
 
   /** Escribe en el campo de con quién juega y aprieta "Agregar". */
   const agregar = async (fixture: ReturnType<typeof montar>, nombre: string) => {
-    const elemento = fixture.nativeElement as HTMLElement;
+    const elemento = contenido();
     const campo = elemento.querySelector<HTMLInputElement>('#acompanante')!;
     campo.value = nombre;
     campo.dispatchEvent(new Event('input'));
@@ -82,32 +93,31 @@ describe('Reservar', () => {
   };
 
   const enviar = async (fixture: ReturnType<typeof montar>) => {
-    (fixture.nativeElement as HTMLElement)
+    contenido()
       .querySelector('form')!
       .dispatchEvent(new Event('submit'));
     await fixture.whenStable();
     fixture.detectChanges();
   };
 
-  const sugerencias = (fixture: ReturnType<typeof montar>) =>
-    [...(fixture.nativeElement as HTMLElement).querySelectorAll('datalist option')].map(
-      (opcion) => `${(opcion as HTMLOptionElement).value} (${(opcion as HTMLOptionElement).label})`,
+  /** Lo que ofrece el autocompletar (T280): se abre con el foco, como lo abre la persona. */
+  const sugerencias = async (fixture: ReturnType<typeof montar>) => {
+    const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+      MatAutocompleteHarness,
     );
+    await auto.focus();
+    return Promise.all((await auto.getOptions()).map((opcion) => opcion.getText()));
+  };
+
+  /** Los chips de los que ya se agregaron, en orden. */
+  const chips = async (fixture: ReturnType<typeof montar>) => {
+    const grilla = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+      MatChipGridHarness,
+    );
+    return grilla.getRows();
+  };
 
   beforeEach(() => {
-    // jsdom no implementa el diálogo nativo: `showModal` y `close` no existen y el
-    // componente se cae al abrirse. Se apuntalan acá y no con un guardia en el
-    // componente, porque el que está roto es el entorno de prueba, no el código —
-    // en el navegador el diálogo abre, atrapa el foco y cierra con Escape, y eso se
-    // verificó a mano.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
-      this.open = false;
-      this.dispatchEvent(new Event('close'));
-    });
-
     usuario.set(null);
     reservas.reservarComoSocio.mockReset();
     reservas.reservarComoNoSocio.mockReset();
@@ -129,42 +139,43 @@ describe('Reservar', () => {
   });
 
   it('al visitante le pide sus datos y le muestra el precio', () => {
-    const fixture = montar();
+    montar();
 
-    expect(texto(fixture)).toContain('Reservar y pagar');
-    expect(texto(fixture)).toContain('$12.000');
-    expect(texto(fixture)).toContain('Correo');
+    expect(texto()).toContain('Reservar y pagar');
+    expect(texto()).toContain('$12.000');
+    expect(texto()).toContain('Correo');
   });
 
-  it('"Ir a pagar" es el botón primario del sitio, y "Cancelar" también usa la primitiva', () => {
+  it('"Ir a pagar" es la acción llena del diálogo, y "Cancelar" va en texto', async () => {
     // TV5.2: eran botones hechos a mano de 40px, bajo el mínimo táctil, e "Ir a
     // pagar" era el único verde del sitio. Pasa a primario (decisión 6 del plan):
-    // el verde quedó para "libre".
+    // el verde quedó para "libre". Desde T241 son `matButton`.
     const fixture = montar();
-    const botones = [...(fixture.nativeElement as HTMLElement).querySelectorAll('dialog button')];
-    const pagar = botones.find((b) => b.textContent?.includes('Ir a pagar'));
-    const cancelar = botones.find((b) => b.textContent?.trim() === 'Cancelar');
+    // Desde la raíz del documento: el diálogo de Material no cuelga del componente (T252).
+    const raiz = TestbedHarnessEnvironment.documentRootLoader(fixture);
+    const pagar = await raiz.getHarness(MatButtonHarness.with({ text: /Ir a pagar/ }));
+    const cancelar = await raiz.getHarness(MatButtonHarness.with({ text: 'Cancelar' }));
 
-    expect(pagar?.classList.contains('boton-primario')).toBe(true);
-    expect(pagar?.classList.contains('bg-accent-strong')).toBe(false);
-    expect(cancelar?.classList.contains('boton')).toBe(true);
+    expect(await pagar.getAppearance()).toBe('filled');
+    expect(await (await pagar.host()).hasClass('bg-accent-strong')).toBe(false);
+    expect(await cancelar.getAppearance()).toBe('text');
   });
 
   it('al socio le pide con quién juega, y no le muestra precio', () => {
     usuario.set({ socioId: 4 });
-    const fixture = montar();
+    montar();
 
     // El socio no paga: mostrarle un monto lo haría dudar de si le van a cobrar.
-    expect(texto(fixture)).toContain('¿Con quién vas a jugar?');
-    expect(texto(fixture)).not.toContain('$12.000');
+    expect(texto()).toContain('¿Con quién vas a jugar?');
+    expect(texto()).not.toContain('$12.000');
   });
 
   it('al socio le dice que una reserva con invitados gasta un cupo, traiga uno o tres (T105)', () => {
     usuario.set({ socioId: 4 });
-    const fixture = montar();
+    montar();
 
-    expect(texto(fixture)).toContain('una de tus reservas con invitados del mes');
-    expect(texto(fixture)).toContain('traiga uno o tres');
+    expect(texto()).toContain('una de tus reservas con invitados del mes');
+    expect(texto()).toContain('traiga uno o tres');
   });
 
   /**
@@ -187,11 +198,91 @@ describe('Reservar', () => {
       // el error aparecía recién al enviar.
       const fixture = await montarSocio();
 
-      expect(sugerencias(fixture)).toEqual([
-        'Ana Fuentes · N.º 008 (Socio del club)',
-        'Bruno Salas · N.º 012 (Socio del club)',
-        'Juan Pérez (Invitado anterior)',
+      expect(await sugerencias(fixture)).toEqual([
+        'Ana Fuentes · N.º 008 · Socio del club',
+        'Bruno Salas · N.º 012 · Socio del club',
+        'Juan Pérez · Invitado anterior',
       ]);
+    });
+
+    it('el campo dice para quién es: un socio o un invitado (T107, T280)', async () => {
+      const fixture = await montarSocio();
+      const etiquetas = await Promise.all(
+        (
+          await TestbedHarnessEnvironment.documentRootLoader(fixture).getAllHarnesses(
+            MatFormFieldHarness,
+          )
+        ).map((campo) => campo.getLabel()),
+      );
+
+      expect(etiquetas).toContain('Nombre de un socio o de un invitado');
+    });
+
+    it('**las sugerencias se filtran por lo escrito, sin mirar tildes ni mayúsculas** (T280)', async () => {
+      // El datalist filtraba solo; el autocompletar de Material filtra lo que se le da.
+      const fixture = await montarSocio();
+      const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+        MatAutocompleteHarness,
+      );
+
+      await auto.enterText('perez');
+
+      expect(
+        await Promise.all((await auto.getOptions()).map((opcion) => opcion.getText())),
+      ).toEqual(['Juan Pérez · Invitado anterior']);
+    });
+
+    it('**elegir una sugerencia la agrega como chip y deja el campo vacío** (T280)', async () => {
+      const fixture = await montarSocio();
+      const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+        MatAutocompleteHarness,
+      );
+
+      await auto.enterText('ana');
+      await auto.selectOption({ text: /Ana Fuentes/ });
+      fixture.detectChanges();
+
+      const [chip] = await chips(fixture);
+      expect(await chip.getText()).toContain('Ana Fuentes · socio N.º 008');
+      expect(await auto.getValue()).toBe('');
+    });
+
+    it('**Enter con una sugerencia marcada agrega esa, no lo que se alcanzó a escribir** (T280)', async () => {
+      // El campo de chips también agrega con Enter: sin cuidarlo, «ana» entraba como
+      // invitada además de la socia elegida.
+      const fixture = await montarSocio();
+      const auto = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+        MatAutocompleteHarness,
+      );
+      await auto.enterText('ana');
+      // El host del harness es el campo mismo.
+      const entrada = await auto.host();
+
+      await entrada.sendKeys(TestKey.DOWN_ARROW);
+      await entrada.sendKeys(TestKey.ENTER);
+      await enviar(fixture);
+
+      expect(reservas.reservarComoSocio).toHaveBeenCalledWith(
+        expect.objectContaining({ acompanantes: [{ numeroSocio: '008' }] }),
+      );
+    });
+
+    it('**el chip se quita con su botón y con la tecla Borrar** (T280)', async () => {
+      const fixture = await montarSocio();
+      await agregar(fixture, 'Carla Nueva');
+      await agregar(fixture, 'Juan Pérez');
+
+      const [carla] = await chips(fixture);
+      await (await carla.getRemoveButton()).click();
+      fixture.detectChanges();
+      expect(await Promise.all((await chips(fixture)).map((chip) => chip.getText()))).toEqual([
+        expect.stringContaining('Juan Pérez · invitado'),
+      ]);
+
+      const [juan] = await chips(fixture);
+      await juan.remove();
+      fixture.detectChanges();
+      expect(await chips(fixture)).toHaveLength(0);
     });
 
     it('**agrega un socio, un invitado anterior y uno nuevo, y no puede agregar un cuarto**', async () => {
@@ -201,10 +292,10 @@ describe('Reservar', () => {
       await agregar(fixture, 'Juan Pérez');
       await agregar(fixture, 'Carla Nueva');
 
-      // El tercero cierra la lista: el campo se va y dice por qué.
-      const elemento = fixture.nativeElement as HTMLElement;
-      expect(elemento.querySelector('#acompanante')).toBeNull();
-      expect(texto(fixture)).toContain('3 es el máximo por reserva');
+      // El tercero cierra la lista: el campo se apaga y dice por qué.
+      const elemento = contenido();
+      expect(elemento.querySelector<HTMLInputElement>('#acompanante')!.disabled).toBe(true);
+      expect(texto()).toContain('3 es el máximo por reserva');
 
       await enviar(fixture);
 
@@ -225,8 +316,8 @@ describe('Reservar', () => {
       await agregar(fixture, 'Ana Fuentes · N.º 008');
       await agregar(fixture, 'Carla Nueva');
 
-      expect(texto(fixture)).toContain('Ana Fuentes · socio N.º 008');
-      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+      expect(texto()).toContain('Ana Fuentes · socio N.º 008');
+      expect(texto()).toContain('Carla Nueva · invitado');
     });
 
     it('un socio escrito a mano, sin elegirlo de la lista, entra como socio y no gasta cupo', async () => {
@@ -248,29 +339,33 @@ describe('Reservar', () => {
       await agregar(fixture, 'Ana Fuentes · N.º 008');
       await agregar(fixture, 'Juan Pérez');
 
-      expect(sugerencias(fixture)).toEqual(['Bruno Salas · N.º 012 (Socio del club)']);
+      expect(await sugerencias(fixture)).toEqual(['Bruno Salas · N.º 012 · Socio del club']);
     });
 
     it('Enter en el campo agrega a la persona, no envía la reserva', async () => {
       const fixture = await montarSocio();
-      const campo = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      const campo = contenido().querySelector<HTMLInputElement>(
         '#acompanante',
       )!;
       campo.value = 'Carla Nueva';
       campo.dispatchEvent(new Event('input'));
-      campo.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+      // Con keyCode, como lo manda el navegador: el campo de chips lo mira para reconocer
+      // Enter (T280). El preventDefault es lo que evita que el formulario se envíe.
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, cancelable: true });
+      campo.dispatchEvent(enter);
       await fixture.whenStable();
       fixture.detectChanges();
 
+      expect(enter.defaultPrevented).toBe(true);
       expect(reservas.reservarComoSocio).not.toHaveBeenCalled();
-      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+      expect(texto()).toContain('Carla Nueva · invitado');
     });
 
     it('lo escrito sin apretar "Agregar" también cuenta al reservar', async () => {
       // "Agregar" es un paso que se salta fácil: sin esto, la reserva fallaba por no
       // declarar a nadie con el nombre escrito a la vista.
       const fixture = await montarSocio();
-      const campo = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      const campo = contenido().querySelector<HTMLInputElement>(
         '#acompanante',
       )!;
       campo.value = 'Carla Nueva';
@@ -289,7 +384,7 @@ describe('Reservar', () => {
       await enviar(fixture);
 
       expect(reservas.reservarComoSocio).not.toHaveBeenCalled();
-      expect(texto(fixture)).toContain('al menos una persona');
+      expect(texto()).toContain('al menos una persona');
     });
 
     it('si la lista de socios no carga, lo dice y deja reintentar', async () => {
@@ -298,27 +393,27 @@ describe('Reservar', () => {
       reservas.socios.mockRejectedValue(new Error('sin red'));
       const fixture = await montarSocio();
 
-      expect(texto(fixture)).toContain('No pudimos cargar la lista de socios');
-      expect(sugerencias(fixture)).toEqual(['Juan Pérez (Invitado anterior)']);
+      expect(texto()).toContain('No pudimos cargar la lista de socios');
+      expect(await sugerencias(fixture)).toEqual(['Juan Pérez · Invitado anterior']);
 
       // Y el reintento vuelve a preguntar: sin eso, el aviso es un callejón sin salida.
       reservas.socios.mockResolvedValue([{ numeroSocio: '008', nombre: 'Ana Fuentes' }]);
-      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      Array.from(contenido().querySelectorAll('button'))
         .find((boton) => boton.textContent?.includes('Reintentar'))!
         .click();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(sugerencias(fixture)).toContain('Ana Fuentes · N.º 008 (Socio del club)');
+      expect(await sugerencias(fixture)).toContain('Ana Fuentes · N.º 008 · Socio del club');
     });
 
     it('si sus invitados anteriores no cargan, el campo sigue sirviendo sin ellos', async () => {
       reservas.misInvitados.mockRejectedValue(new Error('sin red'));
       const fixture = await montarSocio();
 
-      expect(sugerencias(fixture)).toHaveLength(2);
+      expect(await sugerencias(fixture)).toHaveLength(2);
       await agregar(fixture, 'Carla Nueva');
-      expect(texto(fixture)).toContain('Carla Nueva · invitado');
+      expect(texto()).toContain('Carla Nueva · invitado');
     });
   });
 
@@ -333,15 +428,32 @@ describe('Reservar', () => {
         telefono: '+56 9 1111 2222',
       });
 
+    it('el campo dice que es para quien juega con él, no para su propio nombre (T280)', async () => {
+      // Su formulario ya tiene «Nombre»: «Nombre y apellido» a secas no decía de quién.
+      conDatos();
+      const fixture = montar();
+      await fixture.whenStable();
+
+      const etiquetas = await Promise.all(
+        (
+          await TestbedHarnessEnvironment.documentRootLoader(fixture).getAllHarnesses(
+            MatFormFieldHarness,
+          )
+        ).map((campo) => campo.getLabel()),
+      );
+      expect(etiquetas).toContain('Nombre de quien juega contigo');
+    });
+
     it('escribe los nombres sin sugerencias, y no se le piden socios ni invitados anteriores', async () => {
       conDatos();
       const fixture = montar();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      const campo = (fixture.nativeElement as HTMLElement).querySelector('#acompanante');
+      // Sin autocompletar: el campo no se anuncia como combobox ni abre lista alguna.
+      const campo = contenido().querySelector('#acompanante');
       expect(campo).not.toBeNull();
-      expect(campo?.getAttribute('list')).toBeNull();
+      expect(campo?.getAttribute('role')).toBeNull();
       expect(reservas.socios).not.toHaveBeenCalled();
       expect(reservas.misInvitados).not.toHaveBeenCalled();
     });
@@ -354,7 +466,7 @@ describe('Reservar', () => {
       await enviar(fixture);
 
       expect(reservas.reservarComoNoSocio).not.toHaveBeenCalled();
-      expect(texto(fixture)).toContain('al menos una persona');
+      expect(texto()).toContain('al menos una persona');
     });
 
     it('manda los nombres que escribió', async () => {
@@ -392,7 +504,7 @@ describe('Reservar', () => {
     fixture.detectChanges();
 
     const valor = (id: string) =>
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>(
+      contenido().querySelector<HTMLInputElement>(
         `#${id}`,
       )!.value;
 
@@ -405,13 +517,13 @@ describe('Reservar', () => {
   it('el visitante con datos incompletos no llega a la pasarela', async () => {
     const fixture = montar();
 
-    (fixture.nativeElement as HTMLElement)
+    contenido()
       .querySelector('form')!
       .dispatchEvent(new Event('submit'));
     await fixture.whenStable();
 
     expect(reservas.reservarComoNoSocio).not.toHaveBeenCalled();
-    expect(texto(fixture)).toContain('Revisa tu nombre');
+    expect(texto()).toContain('Revisa tu nombre');
   });
 
   it('cerrar el diálogo avisa a la grilla para que lo desmonte', async () => {
@@ -423,7 +535,9 @@ describe('Reservar', () => {
       cerrado = true;
     });
 
-    (fixture.nativeElement as HTMLElement).querySelector('dialog')!.close();
+    [...contenido().querySelectorAll('button')]
+      .find((boton) => boton.textContent?.trim() === 'Cancelar')!
+      .click();
     await fixture.whenStable();
 
     expect(cerrado).toBe(true);
@@ -497,7 +611,7 @@ describe('Reservar', () => {
     await agregar(fixture, 'Carla Nueva');
     await enviar(fixture);
 
-    expect(texto(fixture)).toContain('Ya tienes tu reserva de ese día');
+    expect(texto()).toContain('Ya tienes tu reserva de ese día');
   });
 });
 
@@ -506,11 +620,11 @@ describe('mensajeDeRechazo', () => {
     expect(
       mensajeDeRechazo({
         status: 409,
-        error: { motivo: 'CUPO_PICO', message: 'Ya tienes tus 2 reservas en horario pico esa semana.' },
+        error: { motivo: 'CUPO_PICO', message: 'Ya tienes tus 2 reservas en horario prime esa semana.' },
       }),
     ).toEqual({
       motivo: 'CUPO_PICO',
-      mensaje: 'Ya tienes tus 2 reservas en horario pico esa semana.',
+      mensaje: 'Ya tienes tus 2 reservas en horario prime esa semana.',
     });
   });
 

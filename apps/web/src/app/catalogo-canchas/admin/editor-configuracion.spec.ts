@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas, ReglasDelClub } from './admin-canchas.service';
 import { EditorConfiguracion } from './editor-configuracion';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T30. Las reglas del club. Hasta acá el panel las nombraba —"vale el general del
@@ -18,12 +19,14 @@ describe('EditorConfiguracion', () => {
     diasSancionNoUso: 15,
     cuotaMensualClp: 25000,
     cuotaIncorporacionClp: 150000,
+    plazoCupoListaEsperaMin: 30,
   };
 
   let fixture: ComponentFixture<EditorConfiguracion>;
   let api: {
     configuracion: ReturnType<typeof vi.fn>;
     fijarConfiguracion: ReturnType<typeof vi.fn>;
+    excesosDeLuz: ReturnType<typeof vi.fn>;
   };
 
   const montar = async (reglas: ReglasDelClub | Error = REGLAS) => {
@@ -32,6 +35,8 @@ describe('EditorConfiguracion', () => {
         reglas instanceof Error ? Promise.reject(reglas) : Promise.resolve(reglas),
       ),
       fijarConfiguracion: vi.fn().mockResolvedValue(reglas),
+      // El tope de luz va en la misma página (T208) y tiene su propia prueba.
+      excesosDeLuz: vi.fn().mockResolvedValue([]),
     };
 
     TestBed.resetTestingModule();
@@ -109,13 +114,14 @@ describe('EditorConfiguracion', () => {
     expect(api.fijarConfiguracion).toHaveBeenCalledWith(
       expect.objectContaining({ invitadosPorMes: 6 }),
     );
+    expect(avisoDeLoHecho()).toContain('Las reglas rigen desde ahora');
   });
 
   it('**los cupos dicen "reservas", no "horas"** (T84)', () => {
     // Cuentan reservas: una de 1 hora y media también es una. "(horas)" haría que el
     // club pusiera 2 creyendo que así el socio puede jugar 1 hora y media.
     expect(texto()).toContain('Cupo diario del socio (reservas)');
-    expect(texto()).toContain('Cupo semanal en horario pico (reservas)');
+    expect(texto()).toContain('Cupo semanal en horario prime (reservas)');
     expect(texto()).not.toMatch(/Cupo[^(]*\(horas\)/);
   });
 
@@ -147,6 +153,26 @@ describe('EditorConfiguracion', () => {
 
     it('**avisa que las cuotas ya emitidas no cambian**', () => {
       expect(texto()).toContain('las ya emitidas mantienen su monto');
+    });
+  });
+
+  describe('el plazo de la lista de espera (T326)', () => {
+    it('**trae el plazo vigente, en minutos**', () => {
+      expect(texto()).toContain('Torneos');
+      expect(campo('plazoCupoListaEsperaMin').value).toBe('30');
+    });
+
+    it('**cambiarlo lo manda**', async () => {
+      await escribir('plazoCupoListaEsperaMin', '45');
+      await guardar();
+
+      expect(api.fijarConfiguracion).toHaveBeenCalledWith(
+        expect.objectContaining({ plazoCupoListaEsperaMin: 45 }),
+      );
+    });
+
+    it('**dice que corre solo de día**, que es lo que el club no adivina (E7)', () => {
+      expect(texto()).toContain('de 8:00 a 22:00');
     });
   });
 

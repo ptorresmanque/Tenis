@@ -1,10 +1,16 @@
 import { Component, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
+import { proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
 import { Foto, Momento, Torneos } from '../torneos.service';
 import { Esqueleto } from '../../ui/esqueleto';
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 
 /** El formulario vacío. Función y no constante, para no compartir el objeto. */
 const enBlanco = () => ({
@@ -29,7 +35,17 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
  */
 @Component({
   selector: 'app-fotos-del-torneo',
-  imports: [FormsModule, Aviso, Esqueleto],
+  imports: [
+    GaleriaDeFotos,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    Aviso,
+    Esqueleto,
+  ],
+  providers: [proveerCampos()],
   template: `
     <section
       class="mt-4 rounded-xl border border-border bg-muted/30 p-4"
@@ -48,21 +64,29 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
           No se pudieron cargar las fotos. Reintenta en un momento.
         </p>
       } @else if (fotos.status() === 'loading') {
-        <app-esqueleto class="mt-3 block" [filas]="2" etiqueta="Cargando las fotos…" />
+        <app-esqueleto class="mt-3 block" compacto etiqueta="Cargando las fotos…" />
       } @else if (fotos.value().length > 0) {
         <ul class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
           @for (foto of fotos.value(); track foto.id) {
             <li class="relative">
-              <img
-                class="aspect-square w-full rounded-lg object-cover"
-                [src]="foto.miniatura"
-                [alt]="foto.descripcion ?? 'Foto del torneo'"
-                loading="lazy"
-              />
+              <!-- Tocar la miniatura abre la galería del sitio en esa foto (T311). -->
               <button
                 type="button"
-                class="boton boton-secundario boton-chico mt-1 w-full
-                       border-destructive text-destructive"
+                class="block w-full cursor-pointer overflow-hidden rounded-lg"
+                [attr.aria-label]="'Ver la foto: ' + (foto.descripcion ?? 'Foto del torneo')"
+                (click)="visor.abrir($index)"
+              >
+                <img
+                  class="aspect-square w-full object-cover transition-opacity hover:opacity-80"
+                  [src]="foto.miniatura"
+                  [alt]="foto.descripcion ?? 'Foto del torneo'"
+                  loading="lazy"
+                />
+              </button>
+              <button
+                matButton="outlined"
+                type="button"
+                class="peligro chico mt-1 w-full"
                 [disabled]="trabajando()"
                 [attr.aria-busy]="enCurso() === 'quitar-' + foto.id"
                 (click)="quitar(foto)"
@@ -75,33 +99,35 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
             </li>
           }
         </ul>
+        <app-galeria-de-fotos #visor [fotos]="fotos.value()" etiqueta="Fotos del torneo" />
       }
 
       <form class="mt-3 grid gap-3 sm:grid-cols-3" (ngSubmit)="subir()">
-        <label class="block">
-          <span class="text-sm font-medium">Momento</span>
-          <select class="campo mt-1" name="momento" [(ngModel)]="datos.momento">
+        <mat-form-field>
+          <mat-label>Momento</mat-label>
+          <mat-select name="momento" [(ngModel)]="datos.momento">
             @for (tramo of tramos; track tramo.valor) {
-              <option [value]="tramo.valor">{{ tramo.etiqueta }}</option>
+              <mat-option [value]="tramo.valor">{{ tramo.etiqueta }}</mat-option>
             }
-          </select>
-        </label>
+          </mat-select>
+        </mat-form-field>
 
-        <label class="block">
-          <span class="text-sm font-medium">Pie de foto (opcional)</span>
+        <mat-form-field>
+          <mat-label>Pie de foto (opcional)</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="descripcion"
             maxlength="200"
             placeholder="La entrega de premios"
             [(ngModel)]="datos.descripcion"
           />
-        </label>
+        </mat-form-field>
 
+        <!-- Material no tiene campo de archivo, y matInput no admite type="file" (T247). -->
         <label class="block">
           <span class="text-sm font-medium">Archivo</span>
           <input
-            class="campo mt-1"
+            class="mt-1 block w-full rounded-control border border-border bg-card p-3 text-sm"
             type="file"
             name="archivo"
             accept="image/jpeg,image/png"
@@ -111,8 +137,9 @@ const TRAMOS: { valor: Momento; etiqueta: string }[] = [
         </label>
 
         <button
+          matButton="outlined"
           type="submit"
-          class="boton boton-secundario sm:col-span-3 sm:justify-self-start"
+          class="sm:col-span-3 sm:justify-self-start"
           [disabled]="trabajando() || !archivo()"
           [attr.aria-busy]="enCurso() === 'subir'"
         >

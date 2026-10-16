@@ -303,7 +303,8 @@ describe('Partidos internos entre socios', () => {
       expect(enviados[0].cuerpo).toContain(
         'No suma al ranking hasta que lo confirmes',
       );
-      expect(enviados[0].cuerpo).toContain('/mis-partidos');
+      // La pestaña de los partidos de Mi cuenta (T318, SPEC-sitio.md A8).
+      expect(enviados[0].cuerpo).toContain('/mi-cuenta/partidos');
     });
 
     it('si ganó el rival, se lo dice a él', async () => {

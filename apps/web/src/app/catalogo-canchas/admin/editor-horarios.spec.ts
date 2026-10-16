@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AdminCanchas, CanchaAdmin } from './admin-canchas.service';
 import { EditorHorarios } from './editor-horarios';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T13. El horario de apertura es lo que decide qué bloques existen: un día que se
@@ -79,8 +80,8 @@ describe('EditorHorarios', () => {
 
   it('trae las horas guardadas del día que abre', () => {
     const horas = Array.from(
-      // Desde T124, los campos de Material: se buscan por el componente, no por el tipo.
-      elemento().querySelectorAll<HTMLInputElement>('app-campo-hora input'),
+      // Desde T244, los campos de Material: se buscan dentro de su mat-form-field.
+      elemento().querySelectorAll<HTMLInputElement>('mat-form-field input'),
     ).map((i) => i.value);
 
     // Las dos del lunes, en las posiciones 2 y 3 del recorrido.
@@ -105,6 +106,20 @@ describe('EditorHorarios', () => {
     await guardar();
 
     expect(api.fijarHorarios).toHaveBeenCalledWith(7, []);
+  });
+
+  it('**editar un día no rehace su fila**: el campo que se está escribiendo no pierde el foco (T256)', async () => {
+    // Cada cambio deja una lista nueva. Sin decirle a la tabla cómo reconocer una fila, la
+    // tira y la vuelve a dibujar, y el campo de la hora se va de abajo del cursor.
+    const desde = () => elemento().querySelector<HTMLInputElement>('input[name="desde-7-1"]');
+    const campo = desde()!;
+
+    campo.value = '09:30';
+    campo.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(desde()).toBe(campo);
   });
 
   it('marcar un día nuevo lo manda con el horario del club', async () => {
@@ -136,6 +151,6 @@ describe('EditorHorarios', () => {
   it('confirma cuando el horario quedó guardado', async () => {
     await guardar();
 
-    expect(elemento().textContent).toContain('Horario guardado');
+    expect(avisoDeLoHecho()).toContain('Horario guardado');
   });
 });

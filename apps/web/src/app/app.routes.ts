@@ -1,10 +1,20 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { CanActivateFn, Router, Routes } from '@angular/router';
 
-import { CascaronAdmin } from './cascarones/cascaron-admin';
-import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
-import { soloAdmin } from './core/auth/solo-admin.guard';
+import { conPanel } from './core/auth/con-panel.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
+
+/**
+ * `/torneos?inscripcion=5` era el botón «Inscribirme» de la portada, y puede seguir en un marcador
+ * o en un enlace compartido: lleva a la página de la inscripción (T316, SPEC-sitio.md A6). La vuelta de Webpay,
+ * `/torneos?pago=…`, se queda en Torneos, donde está su aviso.
+ */
+const aLaInscripcion: CanActivateFn = (ruta) => {
+  const torneo = ruta.queryParamMap.get('inscripcion');
+
+  return torneo ? inject(Router).createUrlTree(['/torneos', torneo, 'inscripcion']) : true;
+};
 
 /**
  * Tres cascarones, tres grupos de rutas.
@@ -13,8 +23,8 @@ import { soloVisitantes } from './core/auth/solo-visitantes.guard';
  * uno, y si ningún hijo calza con la URL sigue con el siguiente. Así `/entrar` y
  * `/estado` conservan la URL que ya tenían aunque cambien de cascarón.
  *
- * `soloAdmin` va una sola vez, en el padre del panel: las rutas de adentro lo
- * heredan y una pantalla nueva nace protegida en vez de nacer abierta.
+ * `conPanel` va una sola vez, en el padre del panel, y corre en cada pantalla de adentro:
+ * una pantalla nueva nace solo para el admin hasta que `tipos-del-panel.ts` la abra.
  */
 export const routes: Routes = [
   {
@@ -32,12 +42,9 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./catalogo-canchas/grilla/grilla').then((m) => m.Grilla),
       },
-      {
-        path: 'mis-reservas',
-        title: 'Mis reservas — FEDAL Tennis Center',
-        loadComponent: () =>
-          import('./reservas/mis-reservas/mis-reservas').then((m) => m.MisReservas),
-      },
+      // Mis reservas y Mis partidos son pestañas de Mi cuenta desde T318 (SPEC-sitio.md A8).
+      { path: 'mis-reservas', redirectTo: '/mi-cuenta/reservas' },
+      { path: 'mis-partidos', redirectTo: '/mi-cuenta/partidos' },
       {
         path: 'reservas/confirmacion',
         title: 'Tu reserva — FEDAL Tennis Center',
@@ -47,7 +54,33 @@ export const routes: Routes = [
       {
         path: 'mi-cuenta',
         title: 'Mi cuenta — FEDAL Tennis Center',
-        loadComponent: () => import('./cuotas/mi-cuenta').then((m) => m.MiCuenta),
+        // T318 (SPEC-sitio.md A8): las reservas, los partidos y la cuota del socio, en pestañas.
+        loadComponent: () => import('./cuenta/mi-cuenta').then((m) => m.MiCuenta),
+        children: [
+          // Abre en Reservas, salvo la vuelta de Webpay (`/mi-cuenta?pago=…`), que va a la
+          // cuota, donde está su aviso. Los parámetros siguen con la redirección.
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: ({ queryParams }) => (queryParams['pago'] ? 'cuota' : 'reservas'),
+          },
+          {
+            path: 'reservas',
+            title: 'Mi cuenta · Reservas — FEDAL Tennis Center',
+            loadComponent: () =>
+              import('./reservas/mis-reservas/mis-reservas').then((m) => m.MisReservas),
+          },
+          {
+            path: 'partidos',
+            title: 'Mi cuenta · Partidos — FEDAL Tennis Center',
+            loadComponent: () => import('./ranking/mis-partidos').then((m) => m.MisPartidos),
+          },
+          {
+            path: 'cuota',
+            title: 'Mi cuenta · Cuota — FEDAL Tennis Center',
+            loadComponent: () => import('./cuotas/mi-cuenta').then((m) => m.CuotaDelSocio),
+          },
+        ],
       },
       {
         path: 'clases',
@@ -58,8 +91,22 @@ export const routes: Routes = [
       {
         path: 'torneos',
         title: 'Torneos — FEDAL Tennis Center',
+        canActivate: [aLaInscripcion],
         loadComponent: () =>
           import('./torneos/publico/torneos').then((m) => m.TorneosPublicos),
+      },
+      {
+        path: 'torneos/:id/inscripcion',
+        title: 'Inscripción — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./torneos/publico/pagina-de-inscripcion').then((m) => m.PaginaDeInscripcion),
+      },
+      {
+        // El enlace del correo «Se abrió un cupo» (T334): sin sesión, la llave es la credencial.
+        path: 'torneos/inscripcion/:token',
+        title: 'Tu cupo en la lista de espera — FEDAL Tennis Center',
+        loadComponent: () =>
+          import('./torneos/publico/oferta-de-cupo').then((m) => m.OfertaDeCupo),
       },
       {
         path: 'tours',
@@ -70,12 +117,6 @@ export const routes: Routes = [
         path: 'tours/:id',
         title: 'Tour — FEDAL Tennis Center',
         loadComponent: () => import('./tours/publico/tour').then((m) => m.TourPublicoPagina),
-      },
-      {
-        path: 'mis-partidos',
-        title: 'Mis partidos — FEDAL Tennis Center',
-        loadComponent: () =>
-          import('./ranking/mis-partidos').then((m) => m.MisPartidos),
       },
       {
         path: 'ranking',
@@ -112,7 +153,8 @@ export const routes: Routes = [
   },
   {
     path: '',
-    component: CascaronAuth,
+    // El panel y entrar se bajan con su ruta: el arranque trae solo el sitio público (I6).
+    loadComponent: () => import('./cascarones/cascaron-auth').then((m) => m.CascaronAuth),
     children: [
       {
         path: 'entrar',
@@ -157,40 +199,103 @@ export const routes: Routes = [
   },
   {
     path: '',
-    component: CascaronAdmin,
-    canActivate: [soloAdmin],
+    loadComponent: () => import('./cascarones/cascaron-admin').then((m) => m.CascaronAdmin),
+    canActivateChild: [conPanel],
     children: [
       {
         path: 'administracion/reservas',
-        title: 'Reservas del día — Administración',
+        title: 'Agenda del día — Administración',
+        // T285 (SPEC-panel.md D5): la agenda y la ocupación, en pestañas con su ruta.
         loadComponent: () =>
-          import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
+          import('./reservas/admin/panel-de-la-agenda').then((m) => m.PanelDeLaAgenda),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            title: 'Agenda del día — Administración',
+            loadComponent: () =>
+              import('./reservas/admin/agenda').then((m) => m.AgendaDelDia),
+          },
+          {
+            path: 'ocupacion',
+            title: 'Agenda del día · Ocupación — Administración',
+            loadComponent: () =>
+              import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
+          },
+        ],
       },
       {
         path: 'administracion/canchas',
         title: 'Canchas — Administración',
+        // T288 (SPEC-panel.md D1): la lista, el horario y las tarifas del club, en pestañas.
         loadComponent: () =>
-          import('./catalogo-canchas/admin/admin-canchas').then(
-            (m) => m.AdminCanchasPanel,
-          ),
+          import('./catalogo-canchas/admin/canchas').then((m) => m.PantallaDeCanchas),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            title: 'Canchas — Administración',
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/admin-canchas').then(
+                (m) => m.AdminCanchasPanel,
+              ),
+          },
+          {
+            path: 'horario',
+            title: 'Canchas · Horario — Administración',
+            data: { parte: 'horario' },
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/reglas-generales').then(
+                (m) => m.ReglasGeneralesPanel,
+              ),
+          },
+          {
+            path: 'tarifas',
+            title: 'Canchas · Tarifas — Administración',
+            data: { parte: 'tarifas' },
+            loadComponent: () =>
+              import('./catalogo-canchas/admin/reglas-generales').then(
+                (m) => m.ReglasGeneralesPanel,
+              ),
+          },
+        ],
+      },
+      {
+        // T296 (SPEC-panel.md D2): las cuentas del club en una tabla, con su filtro en la URL.
+        // Reemplaza a Socios, Usuarios y Profesores, que redirigen acá con su filtro.
+        path: 'administracion/personas',
+        title: 'Personas — Administración',
+        loadComponent: () =>
+          import('./identidad/admin/personas/personas').then((m) => m.PersonasPanel),
+      },
+      {
+        // T298 (SPEC-panel.md D2): la ficha de una cuenta, con Datos · Tipos · Cuota.
+        path: 'administracion/personas/:id',
+        title: 'Personas · Ficha — Administración',
+        loadComponent: () =>
+          import('./identidad/admin/personas/ficha-persona').then((m) => m.FichaPersona),
+      },
+      {
+        path: 'administracion/usuarios',
+        pathMatch: 'full',
+        redirectTo: '/administracion/personas',
       },
       {
         path: 'administracion/socios',
-        title: 'Socios — Administración',
-        loadComponent: () =>
-          import('./identidad/admin/socios').then((m) => m.SociosPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/personas?tipo=socios',
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/cuotas',
-        title: 'Cuotas — Administración',
-        loadComponent: () =>
-          import('./cuotas/admin/panel-cuotas').then((m) => m.PanelDeCuotas),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/cuotas',
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/morosos',
-        title: 'Socios con deuda — Administración',
-        loadComponent: () =>
-          import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/morosos',
       },
       {
         path: 'administracion/clases',
@@ -199,10 +304,20 @@ export const routes: Routes = [
           import('./clases/admin/agenda-clases').then((m) => m.AgendaDeClases),
       },
       {
-        path: 'administracion/profesores',
-        title: 'Profesores — Administración',
+        // T294 (SPEC-panel.md D7): agendar una clase o una serie, en su página. La abre el FAB
+        // de Clases con el día en `?fecha=`. El profesor entra igual: su línea en el mapa de
+        // permisos vale para todo lo que cuelga de /administracion/clases.
+        path: 'administracion/clases/agendar',
+        title: 'Clases · Agendar — Administración',
         loadComponent: () =>
-          import('./clases/admin/profesores').then((m) => m.ProfesoresPanel),
+          import('./clases/admin/agendar-clase').then((m) => m.AgendarClase),
+      },
+      {
+        // Los profesores son un filtro de Personas desde T296: la ficha de cada uno es la de su
+        // cuenta (D12).
+        path: 'administracion/profesores',
+        pathMatch: 'full',
+        redirectTo: '/administracion/personas?tipo=profesores',
       },
       {
         path: 'administracion/torneos',
@@ -250,38 +365,87 @@ export const routes: Routes = [
           import('./identidad/admin/solicitudes').then((m) => m.SolicitudesPanel),
       },
       {
-        path: 'administracion/ingreso',
-        title: 'Ingreso del club — Administración',
-        loadComponent: () =>
-          import('./reportes/ingreso').then((m) => m.IngresoPanel),
+        path: 'administracion/finanzas',
+        title: 'Finanzas — Administración',
+        // T286 (SPEC-panel.md D4): el ingreso, el padrón, las cuotas y los deudores, en pestañas.
+        loadComponent: () => import('./finanzas/finanzas').then((m) => m.Finanzas),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'ingreso' },
+          {
+            path: 'ingreso',
+            title: 'Finanzas · Ingreso — Administración',
+            loadComponent: () =>
+              import('./reportes/ingreso').then((m) => m.IngresoPanel),
+          },
+          {
+            path: 'padron',
+            title: 'Finanzas · Padrón y morosidad — Administración',
+            loadComponent: () =>
+              import('./reportes/padron').then((m) => m.PadronPanel),
+          },
+          {
+            path: 'cuotas',
+            title: 'Finanzas · Cuotas — Administración',
+            loadComponent: () =>
+              import('./cuotas/admin/panel-cuotas').then((m) => m.PanelDeCuotas),
+          },
+          {
+            path: 'morosos',
+            title: 'Finanzas · Socios con deuda — Administración',
+            loadComponent: () =>
+              import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
+          },
+        ],
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
+        path: 'administracion/ingreso',
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/ingreso',
+      },
+      {
+        // La pantalla pasó a ser una pestaña de la agenda (T285); los marcadores siguen andando.
         path: 'administracion/ocupacion',
-        title: 'Ocupación de cancha — Administración',
-        loadComponent: () =>
-          import('./reportes/ocupacion').then((m) => m.OcupacionPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/reservas/ocupacion',
       },
       {
         path: 'administracion/no-uso',
         title: 'Horas no usadas — Administración',
+        // T287 (SPEC-panel.md D6): lo que hay que revisar y la estadística, en pestañas.
         loadComponent: () =>
-          import('./reportes/no-uso').then((m) => m.NoUsoPanel),
+          import('./reportes/horas-no-usadas').then((m) => m.HorasNoUsadas),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'por-revisar' },
+          {
+            path: 'por-revisar',
+            title: 'Horas no usadas · Por revisar — Administración',
+            loadComponent: () =>
+              import('./reservas/admin/reportes').then((m) => m.ReportesPanel),
+          },
+          {
+            path: 'periodo',
+            title: 'Horas no usadas · Período — Administración',
+            loadComponent: () =>
+              import('./reportes/no-uso').then((m) => m.NoUsoPanel),
+          },
+        ],
       },
       {
+        // Pasó a ser una pestaña de Finanzas (T286); los marcadores siguen andando.
         path: 'administracion/padron',
-        title: 'Padrón y morosidad — Administración',
-        loadComponent: () =>
-          import('./reportes/padron').then((m) => m.PadronPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/finanzas/padron',
       },
       {
+        // Pasó a ser la pestaña «Por revisar» de Horas no usadas (T287).
         path: 'administracion/reportes',
-        title: 'Horas reportadas — Administración',
-        loadComponent: () =>
-          import('./reservas/admin/reportes').then((m) => m.ReportesPanel),
+        pathMatch: 'full',
+        redirectTo: '/administracion/no-uso/por-revisar',
       },
       {
-        // Tres secciones bajo un mismo cascarón con sub-navegación, como decidió
-        // R.5. La cuarta —avisos y correos— entra acá cuando exista.
+        // Las secciones bajo un mismo cascarón con pestañas, como decidió R.5. Desde T290
+        // son cinco: lo del club y los servicios van en paneles dentro de su pestaña.
         path: 'administracion/configuracion',
         title: 'Configuración — Administración',
         loadComponent: () =>
@@ -290,56 +454,51 @@ export const routes: Routes = [
           { path: '', pathMatch: 'full', redirectTo: 'reglas' },
           {
             path: 'reglas',
-            title: 'Reglas y cuotas — Administración',
+            title: 'Configuración · Reglas y cuotas — Administración',
             loadComponent: () =>
               import('./catalogo-canchas/admin/editor-configuracion').then(
                 (m) => m.EditorConfiguracion,
               ),
           },
+          // T290 (SPEC-panel.md D11). Los datos, los textos y las preguntas frecuentes, en paneles.
           {
-            path: 'datos',
-            title: 'Datos del club — Administración',
-            loadComponent: () =>
-              import('./configuracion/datos-del-club').then((m) => m.DatosDelClub),
+            path: 'el-club',
+            title: 'Configuración · El club — Administración',
+            loadComponent: () => import('./configuracion/el-club').then((m) => m.ElClub),
           },
+          // T290. La tienda, la cafetería y el gimnasio (T236), en paneles.
           {
-            path: 'textos',
-            title: 'Textos del sitio — Administración',
-            loadComponent: () =>
-              import('./configuracion/textos-del-sitio').then((m) => m.TextosDelSitio),
-          },
-          {
-            path: 'tienda-y-cafeteria',
-            title: 'Tienda y cafetería — Administración',
-            loadComponent: () =>
-              import('./configuracion/tienda-y-cafeteria').then(
-                (m) => m.TiendaYCafeteriaPanel,
-              ),
-          },
-          {
-            path: 'administradores',
-            title: 'Administradores — Administración',
-            loadComponent: () =>
-              import('./configuracion/administradores').then(
-                (m) => m.AdministradoresPanel,
-              ),
+            path: 'servicios',
+            title: 'Configuración · Servicios — Administración',
+            loadComponent: () => import('./configuracion/servicios').then((m) => m.Servicios),
           },
           {
             path: 'categorias-juego',
-            title: 'Categorías de juego — Administración',
+            title: 'Configuración · Categorías de juego — Administración',
             loadComponent: () =>
               import('./configuracion/categorias-juego').then(
                 (m) => m.CategoriasDeJuegoPanel,
               ),
           },
           {
-            path: 'preguntas-frecuentes',
-            title: 'Preguntas frecuentes — Administración',
+            path: 'informe-diario',
+            title: 'Configuración · Informe diario — Administración',
             loadComponent: () =>
-              import('./configuracion/preguntas-frecuentes').then(
-                (m) => m.PreguntasFrecuentesPanel,
-              ),
+              import('./configuracion/informe-diario').then((m) => m.InformeDiario),
           },
+          // Las pestañas que pasaron a ser paneles (T290), y la de antes de T236: los
+          // marcadores siguen andando.
+          ...(
+            [
+              ['datos', 'el-club'],
+              ['textos', 'el-club'],
+              ['preguntas-frecuentes', 'el-club'],
+              ['tienda', 'servicios'],
+              ['cafeteria', 'servicios'],
+              ['gimnasio', 'servicios'],
+              ['tienda-y-cafeteria', 'servicios'],
+            ] as const
+          ).map(([path, redirectTo]) => ({ path, redirectTo })),
         ],
       },
       {

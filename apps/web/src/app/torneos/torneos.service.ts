@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
+
 export type EstadoTorneo =
   | 'INSCRIPCION'
   | 'CUADRO_ARMADO'
@@ -17,6 +19,21 @@ export const ESTADOS_TORNEO: Record<EstadoTorneo, string> = {
   FINALIZADO: 'Finalizado',
   CANCELADO: 'Cancelado',
 };
+
+/**
+ * Si el torneo acepta inscripciones (T321): en estado de inscripción y sin que haya pasado su
+ * último día en el club, que cuenta entero. Es la regla de la API (`inscripciones.service.ts`):
+ * el estado sigue en inscripción hasta que se arma el cuadro, también después del cierre, y la
+ * pantalla que mirara solo el estado ofrecería una inscripción que el servidor rechaza.
+ */
+export function aceptaInscripciones(
+  torneo: Pick<TorneoPublico, 'estado' | 'cierreInscripcion'>,
+  ahora = new Date(),
+): boolean {
+  return (
+    torneo.estado === 'INSCRIPCION' && torneo.cierreInscripcion.slice(0, 10) >= hoyEnElClub(ahora)
+  );
+}
 
 /** Quien juega torneos. No es el socio: vuelve el año siguiente con sus puntos. */
 export interface Jugador {
@@ -132,6 +149,11 @@ export interface InscripcionTorneo {
    * distintas —una es trabajo suyo y la otra se resuelve sola—.
    */
   tieneComprobante: boolean;
+  /**
+   * Hasta cuándo se le guarda el cupo de la lista de espera (T336). En una retirada, que no lo
+   * tomó a tiempo.
+   */
+  cupoOfrecidoHasta: string | null;
   /** A quién llamar si el comprobante no cuadra. Solo en el panel. */
   telefono: string | null;
   /** A dónde escribirle (T127). Solo en el panel; nulo si se anotó sin uno. */
@@ -208,6 +230,24 @@ export interface Cuadro {
   partidos: PartidoDelCuadro[];
 }
 
+/**
+ * Una inscripción vista por su llave (T334): la oferta de un cupo de la lista de espera.
+ *
+ * - `OFRECIDO`: tiene un cupo guardado hasta `hasta`, y lo puede tomar.
+ * - `VENCIDO`: se le pasó el plazo, y el cupo pasó al siguiente.
+ * - `CERRADO`: la categoría se armó o cerró la inscripción con la oferta corriendo.
+ * - `ESPERANDO`: en la lista, sin oferta todavía.
+ * - `INSCRITO` y `RETIRADO`: ya entró, o salió por otra razón.
+ */
+export interface InscripcionPorLlave {
+  torneoId: number;
+  torneo: string;
+  categoria: string;
+  montoClp: number;
+  situacion: 'OFRECIDO' | 'VENCIDO' | 'CERRADO' | 'ESPERANDO' | 'INSCRITO' | 'RETIRADO';
+  hasta: string | null;
+}
+
 /** Un torneo del calendario, como lo ve quien todavía no es del club. */
 export interface TorneoPublico {
   id: number;
@@ -221,6 +261,11 @@ export interface TorneoPublico {
   categorias: CategoriaPublica[];
   /** Para qué tours suma, con el nivel (T196). */
   tours: TourDelTorneo[];
+  /**
+   * Sus fotos de antes, de la más vieja a la más nueva: el afiche y las bases (T313,
+   * SPEC-sitio.md A1 y A2). La primera es la que muestra el cartel del torneo.
+   */
+  afiches: Foto[];
 }
 
 /** Un cuadro visto desde la calle. */
@@ -619,6 +664,20 @@ export class Torneos {
    * pagado** —apretando "atrás", que no avisa a nadie más—. Responde `soltada: false`
    * si no había nada que soltar: la persona pagó, o el servidor ya la soltó al volver.
    */
+  /** La inscripción de una llave: la página de la oferta de un cupo (T334). */
+  inscripcionPorLlave(token: string): Promise<InscripcionPorLlave> {
+    return firstValueFrom(
+      this.http.get<InscripcionPorLlave>(`/api/torneos/inscripciones/${token}`),
+    );
+  }
+
+  /** Toma el cupo ofrecido de una categoría gratis (T333). */
+  tomarCupo(token: string): Promise<{ id: number }> {
+    return firstValueFrom(
+      this.http.post<{ id: number }>(`/api/torneos/inscripciones/${token}/tomar`, {}),
+    );
+  }
+
   soltarInscripcion(token: string): Promise<{ soltada: boolean }> {
     return firstValueFrom(
       this.http.post<{ soltada: boolean }>(

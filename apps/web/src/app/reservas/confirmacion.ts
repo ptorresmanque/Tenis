@@ -1,6 +1,10 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { MatCard } from '@angular/material/card';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
 import {
   diaEnPalabras,
@@ -10,7 +14,7 @@ import {
 import { Club } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { Aviso } from '../ui/aviso';
-import { Insignia } from '../ui/insignia';
+import { ICONO_DE_INSIGNIA } from '../ui/insignias';
 import { enlaceDeReserva, qrDeReserva } from './qr';
 import { ReservasPublicas } from './reserva-publica.service';
 import { Esqueleto } from '../ui/esqueleto';
@@ -38,14 +42,14 @@ const MOTIVOS: Record<string, string> = {
  */
 @Component({
   selector: 'app-confirmacion-reserva',
-  imports: [RouterLink, Aviso, Esqueleto, Insignia],
+  imports: [MatCard, MatButton, MatIcon, RouterLink, Aviso, Esqueleto, MatChipsModule],
   template: `
     <section class="mx-auto max-w-lg py-10">
       @if (folio() && !error()) {
         <div class="text-center">
-          <p class="icono text-6xl text-accent-strong" aria-hidden="true">
+          <mat-icon class="block text-6xl text-accent-strong" aria-hidden="true">
             check_circle
-          </p>
+          </mat-icon>
           <h1 class="titular mt-3 text-5xl">Reserva confirmada</h1>
           <p class="mt-2 text-muted-foreground">
             Tu hora quedó tomada. Muestra este folio en el club.
@@ -54,9 +58,14 @@ const MOTIVOS: Record<string, string> = {
                no paga la hora y la del mesón se cobra en efectivo, así que la
                insignia afirmaba un pago que en dos de los tres casos no existió. -->
           <p class="mt-3">
-            <app-insignia [variante]="esperandoElPago() ? 'aviso' : 'exito'">
-              {{ esperandoElPago() ? 'Esperando el pago' : 'Confirmada' }}
-            </app-insignia>
+            <mat-chip-set class="insignias">
+              <mat-chip class="insignia" [class]="esperandoElPago() ? 'aviso' : 'exito'">
+                <mat-icon matChipAvatar aria-hidden="true">
+                  {{ ICONO_DE_INSIGNIA[esperandoElPago() ? 'aviso' : 'exito'] }}
+                </mat-icon>
+                {{ esperandoElPago() ? 'Esperando el pago' : 'Confirmada' }}
+              </mat-chip>
+            </mat-chip-set>
           </p>
         </div>
 
@@ -93,7 +102,7 @@ const MOTIVOS: Record<string, string> = {
                 <dd class="font-semibold">
                   {{ hora(reserva.inicio) }}–{{ hora(reserva.fin) }}
                   @if (reserva.esPico) {
-                    · hora pico
+                    · hora prime
                   }
                 </dd>
               </div>
@@ -105,9 +114,7 @@ const MOTIVOS: Record<string, string> = {
           </div>
 
           @if (qr(); as imagen) {
-            <div
-              class="mt-4 rounded-xl border border-border bg-card p-6 text-center shadow-sm"
-            >
+            <mat-card appearance="outlined" class="mt-4 p-6 text-center">
               <h2 class="font-display text-lg font-bold tracking-wide uppercase">
                 Tu entrada a la cancha
               </h2>
@@ -124,7 +131,7 @@ const MOTIVOS: Record<string, string> = {
               <p class="mt-2 text-xs break-all text-muted-foreground">
                 <a [href]="enlace()" class="underline">{{ enlace() }}</a>
               </p>
-            </div>
+            </mat-card>
           }
         }
 
@@ -138,12 +145,15 @@ const MOTIVOS: Record<string, string> = {
             {{ folio() }}
           </p>
 
+          <!-- Copiar va en la banda del folio, su propia región; los otros dos se excluyen.
+               mat-guidelines-ignore: multiples-filled -->
           <button
+            matButton="filled"
             type="button"
-            class="boton boton-chico boton-sobre-campo mt-4"
+            class="sobre-campo chico mt-4"
             (click)="copiar()"
           >
-            <span class="icono text-base" aria-hidden="true">content_copy</span>
+            <mat-icon class="text-base" aria-hidden="true">content_copy</mat-icon>
             Copiar el folio
           </button>
 
@@ -160,10 +170,10 @@ const MOTIVOS: Record<string, string> = {
           <h2 id="antes-de-venir" class="titular text-3xl">Antes de venir</h2>
           <ul class="mt-3 grid gap-3">
             @for (dato of ANTES_DE_VENIR(); track dato.titulo) {
-              <li class="flex gap-3 rounded-xl border border-border bg-card p-4">
-                <span class="icono text-2xl text-primary" aria-hidden="true">
+              <li class="flex gap-3">
+                <mat-icon class="text-2xl text-primary" aria-hidden="true">
                   {{ dato.icono }}
-                </span>
+                </mat-icon>
                 <div>
                   <p class="font-semibold">{{ dato.titulo }}</p>
                   <p class="text-sm text-muted-foreground">{{ dato.detalle }}</p>
@@ -177,7 +187,7 @@ const MOTIVOS: Record<string, string> = {
           <!-- Solo con ficha de socio: a quien reservó sin cuenta, "Mis reservas" le
                muestra una lista vacía. -->
           @if (esSocio()) {
-            <a routerLink="/mis-reservas" class="boton boton-primario">
+            <a matButton="filled" routerLink="/mi-cuenta/reservas">
               Ver mis reservas
             </a>
           }
@@ -185,11 +195,11 @@ const MOTIVOS: Record<string, string> = {
                El navegador ya sabe guardarla como PDF, y una plantilla paralela se
                desincroniza de lo que la persona tiene delante en cuanto cambie
                cualquiera de las dos. -->
-          <button type="button" class="boton boton-secundario" (click)="imprimir()">
-            <span class="icono text-base" aria-hidden="true">download</span>
+          <button matButton="outlined" type="button" (click)="imprimir()">
+            <mat-icon class="text-base" aria-hidden="true">download</mat-icon>
             Descargar comprobante
           </button>
-          <a routerLink="/disponibilidad" class="boton boton-secundario">
+          <a matButton="outlined" routerLink="/disponibilidad">
             Reservar otra hora
           </a>
         </div>
@@ -202,11 +212,12 @@ const MOTIVOS: Record<string, string> = {
         @if (esSocio()) {
           <p class="mt-6 text-center">
             <a
-              routerLink="/mis-reservas"
+              matButton
+              routerLink="/mi-cuenta/reservas"
               [queryParams]="{ cancelar: folio() }"
-              class="boton boton-texto text-destructive"
+              class="peligro"
             >
-              <span class="icono text-base" aria-hidden="true">cancel</span>
+              <mat-icon class="text-base" aria-hidden="true">cancel</mat-icon>
               Cancelar esta reserva
             </a>
           </p>
@@ -219,7 +230,7 @@ const MOTIVOS: Record<string, string> = {
         <app-aviso variante="error" class="mt-6 block">{{ explicacion() }}</app-aviso>
 
         <div class="mt-8 flex justify-center">
-          <a routerLink="/disponibilidad" class="boton boton-primario">
+          <a matButton="filled" routerLink="/disponibilidad">
             Volver a la disponibilidad
           </a>
         </div>
@@ -228,6 +239,8 @@ const MOTIVOS: Record<string, string> = {
   `,
 })
 export class ConfirmacionReserva {
+  protected readonly ICONO_DE_INSIGNIA = ICONO_DE_INSIGNIA;
+
   private readonly parametros = toSignal(inject(ActivatedRoute).queryParamMap);
 
   private readonly auth = inject(Auth);

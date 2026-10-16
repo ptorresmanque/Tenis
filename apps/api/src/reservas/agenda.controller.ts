@@ -9,19 +9,20 @@ import {
 import { map, Observable } from 'rxjs';
 
 import { esFechaDelClub } from '../comun/tiempo';
-import { SoloAdmin } from '../identidad/guards';
-import { AgendaService, ReservaDelDia } from './agenda.service';
+import { AdminO } from '../identidad/guards';
+import { AgendaService, BloqueoDelDia, ReservaDelDia } from './agenda.service';
 import { EventosDeReserva } from './eventos';
 
 /**
  * El día del club para quien atiende el mesón.
  *
- * `@SoloAdmin()` en el controlador entero, igual que `AdminCanchasController`: acá
- * viajan los teléfonos de quienes reservaron, que en la grilla pública ni siquiera
- * aparecen.
+ * Para el admin y el gestor (T221), en el controlador entero: acá viajan los teléfonos
+ * de quienes reservaron, que en la grilla pública ni siquiera aparecen, y el gestor es
+ * personal del club que llama al que no llegó. Tomar una hora sigue siendo del admin:
+ * el mesón (`ReservaDelAdminController`) es `@SoloAdmin()`.
  */
 @Controller('admin/reservas')
-@SoloAdmin()
+@AdminO('gestor')
 export class AgendaController {
   constructor(
     private readonly agenda: AgendaService,
@@ -43,14 +44,27 @@ export class AgendaController {
 
   @Get()
   delDia(@Query('fecha') fecha: string | undefined): Promise<ReservaDelDia[]> {
-    if (!fecha || !esFechaDelClub(fecha)) {
-      // Como en la disponibilidad de T12: una fecha ilegible es culpa de quien la
-      // pidió, y dejarla fallar adentro saldría con un 500 que parece la API rota.
-      throw new BadRequestException(
-        'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
-      );
-    }
-
-    return this.agenda.delDia(fecha);
+    return this.agenda.delDia(fechaLegible(fecha));
   }
+
+  /** Las canchas cerradas del día, para el tablero de la agenda (T270). */
+  @Get('bloqueos')
+  bloqueosDelDia(
+    @Query('fecha') fecha: string | undefined,
+  ): Promise<BloqueoDelDia[]> {
+    return this.agenda.bloqueosDelDia(fechaLegible(fecha));
+  }
+}
+
+/**
+ * La fecha pedida, o un 400. Como en la disponibilidad de T12: una fecha ilegible es culpa
+ * de quien la pidió, y dejarla fallar adentro saldría con un 500 que parece la API rota.
+ */
+function fechaLegible(fecha: string | undefined): string {
+  if (!fecha || !esFechaDelClub(fecha)) {
+    throw new BadRequestException(
+      'La fecha tiene que existir y tener la forma AAAA-MM-DD.',
+    );
+  }
+  return fecha;
 }

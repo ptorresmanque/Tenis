@@ -1,9 +1,13 @@
 import { Component, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
+import { errorDelCampo, proveerCampos } from '../ui/campos';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 import { Contacto, TipoSolicitud } from './contacto.service';
 import { TelefonoDirective } from '../ui/telefono';
 
@@ -37,7 +41,16 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
  */
 @Component({
   selector: 'app-formulario-contacto',
-  imports: [FormsModule, Aviso, Campo, CampoControl, TelefonoDirective],
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    Aviso,
+    TelefonoDirective,
+  ],
+  providers: [proveerCampos()],
   template: `
     <section aria-labelledby="titulo-contacto">
       <h2 id="titulo-contacto" class="titular text-5xl sm:text-6xl">Escríbenos</h2>
@@ -52,41 +65,43 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
         </app-aviso>
       } @else {
         <form class="mt-4 grid max-w-xl gap-4" (ngSubmit)="enviar()">
-          <app-campo etiqueta="¿De qué se trata?">
-            <select appCampoControl name="tipo" class="campo" [(ngModel)]="datos.tipo">
+          <mat-form-field>
+            <mat-label>¿De qué se trata?</mat-label>
+            <mat-select name="tipo" [(ngModel)]="datos.tipo">
               @for (opcion of TIPOS; track opcion.valor) {
-                <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+                <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
               }
-            </select>
-          </app-campo>
+            </mat-select>
+          </mat-form-field>
 
-          <app-campo etiqueta="Tu nombre">
-            <input appCampoControl name="nombre" class="campo" [(ngModel)]="datos.nombre" />
-          </app-campo>
+          <mat-form-field>
+            <mat-label>Tu nombre</mat-label>
+            <input matInput name="nombre" [(ngModel)]="datos.nombre" />
+          </mat-form-field>
 
           <div class="grid gap-4 sm:grid-cols-2">
-            <app-campo etiqueta="Correo">
+            <mat-form-field>
+              <mat-label>Correo</mat-label>
               <input
-                appCampoControl
+                matInput
                 name="email"
                 type="email"
-                class="campo"
                 [(ngModel)]="datos.email"
               />
-            </app-campo>
+            </mat-form-field>
 
-            <app-campo etiqueta="Teléfono">
-              <span class="campo-con-prefijo">
-                <span class="prefijo">+56</span>
-                <input
-                  appTelefono
-                  appCampoControl
-                  name="telefono"
-                  class="campo"
-                  [(ngModel)]="datos.telefono"
-                />
-              </span>
-            </app-campo>
+            <mat-form-field>
+              <mat-label>Teléfono</mat-label>
+              <span matTextPrefix>+56&nbsp;</span>
+              <input
+                matInput
+                appTelefono
+                #telefono="ngModel"
+                name="telefono"
+                [(ngModel)]="datos.telefono"
+              />
+              <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+            </mat-form-field>
           </div>
 
           <!-- Uno de los dos, no los dos: pedir ambos obligatorios pierde a quien no
@@ -95,15 +110,16 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
             Con uno de los dos alcanza.
           </p>
 
-          <app-campo etiqueta="Tu mensaje" ayuda="Opcional.">
+          <mat-form-field>
+            <mat-label>Tu mensaje</mat-label>
             <textarea
-              appCampoControl
+              matInput
               name="mensaje"
               rows="3"
-              class="campo"
               [(ngModel)]="datos.mensaje"
             ></textarea>
-          </app-campo>
+            <mat-hint>Opcional.</mat-hint>
+          </mat-form-field>
 
           @if (error(); as falla) {
             <app-aviso variante="error">{{ falla }}</app-aviso>
@@ -111,8 +127,8 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
 
           <div>
             <button
+              matButton="filled"
               type="submit"
-              class="boton boton-primario"
               [disabled]="enviando()"
               [attr.aria-busy]="enviando()"
             >
@@ -125,6 +141,8 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
   `,
 })
 export class FormularioContacto {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly api = inject(Contacto);
 
   protected readonly TIPOS = TIPOS;

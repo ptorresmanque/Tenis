@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { InscripcionTorneo, ListaDelCuadro, Torneos } from '../torneos.service';
 import { InscritosDelTorneo } from './inscritos';
 
@@ -25,6 +26,7 @@ describe('InscritosDelTorneo', () => {
     estadoPago: 'PAGADA',
     medioPago: 'WEBPAY',
     tieneComprobante: false,
+    cupoOfrecidoHasta: null,
     telefono: '56911112222',
     email: 'carolina@ejemplo.cl',
   };
@@ -43,6 +45,7 @@ describe('InscritosDelTorneo', () => {
     estadoPago: 'PENDIENTE',
     medioPago: 'TRANSFERENCIA',
     tieneComprobante: true,
+    cupoOfrecidoHasta: null,
     telefono: '56987654321',
     email: 'camila@ejemplo.cl',
   };
@@ -71,6 +74,7 @@ describe('InscritosDelTorneo', () => {
     estadoPago: 'EXENTA',
     medioPago: null,
     tieneComprobante: false,
+    cupoOfrecidoHasta: null,
     telefono: null,
     email: null,
   };
@@ -121,17 +125,6 @@ describe('InscritosDelTorneo', () => {
       providers: [{ provide: Torneos, useValue: api }],
     });
 
-    // El componente abre un `<dialog>` con showModal(), que jsdom no implementa.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (
-      this: HTMLDialogElement,
-    ) {
-      this.open = false;
-    });
 
     fixture = TestBed.createComponent(InscritosDelTorneo);
     fixture.componentRef.setInput('cuadroId', 5);
@@ -140,10 +133,15 @@ describe('InscritosDelTorneo', () => {
   };
 
   const elemento = () => fixture.nativeElement as HTMLElement;
-  const texto = () => elemento().textContent ?? '';
+  /**
+   * La confirmación es un MatDialog (T252): se dibuja en el contenedor de overlays, fuera del
+   * componente. El texto y los botones de la pantalla incluyen los suyos.
+   */
+  const dialogo = () => document.querySelector<HTMLElement>('mat-dialog-container');
+  const texto = () => (elemento().textContent ?? '') + (dialogo()?.textContent ?? '');
 
   const apretar = async (etiqueta: string) => {
-    Array.from(elemento().querySelectorAll('button'))
+    [...elemento().querySelectorAll('button'), ...(dialogo()?.querySelectorAll('button') ?? [])]
       .find((b) => b.textContent?.trim().startsWith(etiqueta))
       ?.click();
     await fixture.whenStable();
@@ -177,15 +175,40 @@ describe('InscritosDelTorneo', () => {
     expect(texto()).toContain('Carolina Díaz');
   });
 
-  it('**la lista de espera se ve aparte y dice que no entran solos**', async () => {
+  it('**la lista de espera se ve aparte y dice cómo entran**: el cupo se le ofrece al primero (T336)', async () => {
     await montar({ ...LISTA, enEspera: [ESPERANDO] });
 
     expect(texto()).toContain('Lista de espera');
     expect(texto()).toContain('Tomás Invitado');
-    expect(texto()).toContain('No entran solos');
+    expect(texto()).toContain('se le ofrece al primero de la fila');
+    expect(texto()).not.toContain('No entran solos');
   });
 
-  it('meter al cuadro es un botón, no un automatismo', async () => {
+  it('**dice quién tiene el cupo ofrecido y hasta cuándo**, en el reloj del club (T336)', async () => {
+    await montar({
+      ...LISTA,
+      // Viernes 16 de octubre de 2026 a las 10:30 en Santiago (UTC-3).
+      enEspera: [{ ...ESPERANDO, cupoOfrecidoHasta: '2026-10-16T13:30:00.000Z' }],
+    });
+
+    expect(texto()).toContain('cupo ofrecido hasta el viernes, 16 de octubre, a las 10:30');
+  });
+
+  it('**entre los que se bajaron, dice quién dejó vencer su plazo** (T336, E2)', async () => {
+    await montar({
+      ...LISTA,
+      retirados: [
+        { ...ESPERANDO, estado: 'RETIRADA', cupoOfrecidoHasta: '2026-10-16T13:30:00.000Z' },
+        { ...EN_EL_CUADRO, estado: 'RETIRADA' },
+      ],
+    });
+
+    expect(texto()).toContain('Tomás Invitado (venció su plazo)');
+    expect(texto()).toContain('Carolina Díaz');
+    expect(texto()).not.toContain('Carolina Díaz (venció su plazo)');
+  });
+
+  it('meter al cuadro es un botón, para los casos especiales', async () => {
     await montar({ ...LISTA, enEspera: [ESPERANDO] });
 
     await apretar('Meter al cuadro');
@@ -209,9 +232,7 @@ describe('InscritosDelTorneo', () => {
   });
 
   it('**a quien ya está en el torneo no se le ofrece de nuevo**', () => {
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="jugadorId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="jugadorId"]');
 
     expect(opciones.some((o) => o?.startsWith('Rojas'))).toBe(true);
     expect(opciones.some((o) => o?.startsWith('Díaz'))).toBe(false);
@@ -224,9 +245,7 @@ describe('InscritosDelTorneo', () => {
       retirados: [{ ...EN_EL_CUADRO, estado: 'RETIRADA' }],
     });
 
-    const opciones = Array.from(
-      elemento().querySelectorAll('select[name="jugadorId"] option'),
-    ).map((o) => o.textContent?.trim());
+    const opciones = textosDe(fixture, 'mat-select[name="jugadorId"]');
 
     expect(opciones.some((o) => o?.startsWith('Díaz'))).toBe(true);
     expect(texto()).toContain('Se bajaron: Carolina Díaz');
@@ -241,15 +260,19 @@ describe('InscritosDelTorneo', () => {
   it('**con la inscripción cerrada no se ofrece inscribir a nadie**', async () => {
     await montar({ ...LISTA, estado: 'CUADRO_ARMADO' });
 
-    expect(elemento().querySelector('select[name="jugadorId"]')).toBeNull();
+    expect(elemento().querySelector('mat-select[name="jugadorId"]')).toBeNull();
     expect(texto()).toContain('inscripción de este torneo está cerrada');
   });
 
   it('**el correo se pide pero no se exige** (T127): el del mesón puede no tener', async () => {
     const elegir = async (name: string, valor: string) => {
+      // El jugador es una lista de Material (T248): se abre y se elige.
+      if (elemento().querySelector(`mat-select[name="${name}"]`)) {
+        return elegirOpcion(fixture, `mat-select[name="${name}"]`, valor);
+      }
       const control = elemento().querySelector<HTMLInputElement>(`[name="${name}"]`)!;
       control.value = valor;
-      control.dispatchEvent(new Event(control instanceof HTMLSelectElement ? 'change' : 'input'));
+      control.dispatchEvent(new Event('input'));
       await fixture.whenStable();
     };
 
@@ -310,6 +333,16 @@ describe('InscritosDelTorneo', () => {
 
       expect(texto()).toContain('Por revisar');
       expect(texto()).toContain('sin pagar');
+    });
+
+    it('**el filtro es un grupo de opciones**, no dos botones de acción (T251, auditoría)', async () => {
+      // Pintados como acción principal, «Todos» y «Por revisar» parecían dos cosas que hacer.
+      await conPagos();
+      const grupo = elemento().querySelector('mat-button-toggle-group[aria-label="Filtrar inscritos"]');
+      const opciones = Array.from(grupo?.querySelectorAll('button[role="radio"]') ?? []);
+
+      expect(opciones.map((o) => o.textContent?.trim().split(' ')[0])).toEqual(['Todos', 'Por']);
+      expect(opciones.map((o) => o.getAttribute('aria-checked'))).toEqual(['true', 'false']);
     });
 
     it('el filtro por revisar deja solo a quien espera que lo miren', async () => {
@@ -388,15 +421,14 @@ describe('InscritosDelTorneo', () => {
     });
 
     it('**la pregunta va en un modal**, no en una tira más dentro de la fila', async () => {
-      // `showModal` y no el atributo `open`: es lo único que vuelve inerte el resto de
-      // la página y atrapa el foco, que es lo que hace que una confirmación se lea
-      // como tal. Mismo patrón que la ficha del socio.
+      // Un modal vuelve inerte el resto de la página y atrapa el foco, que es lo que hace
+      // que una confirmación se lea como tal. Mismo patrón que la ficha del socio.
       await conPagos();
       await apretar('Revisar');
 
       await apretar('Confirmar el pago');
 
-      expect(elemento().querySelector('dialog[open]')).not.toBeNull();
+      expect(dialogo()).not.toBeNull();
     });
 
     it('**y se cierra al resolver**, para no chocar contra el 409 del segundo clic', async () => {
@@ -421,7 +453,7 @@ describe('InscritosDelTorneo', () => {
       expect(texto()).toContain('Escribe el motivo');
       // Sin motivo no se abre el modal: sería pedir que confirmen algo que el propio
       // formulario va a rechazar dos pasos después.
-      expect(elemento().querySelector('dialog[open]')).toBeNull();
+      expect(dialogo()).toBeNull();
     });
 
     it('con motivo escrito, rechaza y avisa de que libera el cupo', async () => {
@@ -446,7 +478,7 @@ describe('InscritosDelTorneo', () => {
       await apretar('Rechazar');
 
       expect(api.rechazarPago).not.toHaveBeenCalled();
-      expect(elemento().querySelector('dialog[open]')?.textContent).toContain(
+      expect(dialogo()?.textContent).toContain(
         'libera el cupo',
       );
     });
@@ -514,13 +546,7 @@ describe('InscritosDelTorneo', () => {
       await soloElDelMeson();
       await apretar('Resolver');
 
-      const medio = elemento().querySelector<HTMLSelectElement>(
-        '[name^="medio-"]',
-      )!;
-      medio.value = 'EFECTIVO';
-      medio.dispatchEvent(new Event('change'));
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await elegirOpcion(fixture, 'mat-select[name^="medio-"]', 'EFECTIVO');
 
       await apretar('Confirmar el pago');
       await apretar('Sí, confirmar');

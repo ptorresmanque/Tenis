@@ -1,10 +1,17 @@
 import { provideRouter } from '@angular/router';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatButtonHarness } from '@angular/material/button/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
-import { enPesos, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
+import {
+  enPesos,
+  fechaEnElClub,
+  horaEnElClub,
+  mananaEnElClub,
+} from '../catalogo-canchas/reloj-del-club';
 import { Club, LugarDelClub } from '../club/club.service';
 import { Auth } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
@@ -38,6 +45,7 @@ describe('Inicio', () => {
       },
     ],
     tours: [],
+    afiches: [],
   };
 
   let fixture: ComponentFixture<Inicio>;
@@ -45,7 +53,7 @@ describe('Inicio', () => {
   const montar = async (
     // Un Error es el calendario que no cargó.
     torneos: TorneoPublico[] | Error,
-    delDia: () => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
+    delDia: (fecha: string) => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
     { esperar, tienda } = { esperar: true } as { esperar: boolean; tienda?: LugarDelClub },
   ) => {
     const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
@@ -58,7 +66,13 @@ describe('Inicio', () => {
         // La tienda y la cafetería (T186): vacías salvo que el test diga otra cosa.
         {
           provide: Club,
-          useValue: { datos: signal({ tienda: tienda ?? vacio, cafeteria: vacio }) },
+          useValue: {
+            datos: signal({
+              tienda: tienda ?? vacio,
+              cafeteria: vacio,
+              gimnasio: { ...vacio, tarifas: [] },
+            }),
+          },
         },
         {
           provide: Torneos,
@@ -103,14 +117,14 @@ describe('Inicio', () => {
     expect(elemento().querySelector('#torneos-abiertos')).not.toBeNull();
   });
 
-  it('**inscribirse abre el formulario de ese torneo, no la lista entera**', async () => {
+  it('**inscribirse lleva a la página de inscripción de ese torneo** (T316, D4)', async () => {
     await montar([ABIERTO]);
 
     const boton = Array.from(elemento().querySelectorAll('a')).find((a) =>
       a.textContent?.includes('Inscribirme'),
     );
 
-    expect(boton?.getAttribute('href')).toBe('/torneos?inscripcion=5');
+    expect(boton?.getAttribute('href')).toBe('/torneos/5/inscripcion');
   });
 
   it('un torneo que ya cerró su inscripción no se anuncia', async () => {
@@ -148,7 +162,7 @@ describe('Inicio', () => {
   describe('el cara a cara', () => {
     const OCHO = [
       'Sin pago al reservar: la hora ya está en tu cuota',
-      'Cupo diario de cancha y horas en franja pico',
+      'Cupo diario de cancha y horas en horario prime',
       'Puedes traer invitados cada mes',
       'Cambias y cancelas desde "Mis reservas"',
       'Arriendo por hora, con el precio a la vista',
@@ -157,6 +171,18 @@ describe('Inicio', () => {
       'Modificas hasta 6 horas antes',
     ];
     const tabla = () => elemento().querySelector('[role="table"]') as HTMLElement;
+
+    it('**una sola llena** (T241): «Reservar una hora»; la otra, de contorno', async () => {
+      // La auditoría de Material del 2026-10-14: dos botones llenos juntos se disputan la
+      // atención. Reservar no pide cuenta ni compromiso, así que es la que queda llena.
+      await montar([]);
+      const raiz = TestbedHarnessEnvironment.loader(fixture);
+      const enLaTabla = (text: string) =>
+        raiz.getHarness(MatButtonHarness.with({ text, ancestor: '[role="table"]' }));
+
+      expect(await (await enLaTabla('Reservar una hora')).getAppearance()).toBe('filled');
+      expect(await (await enLaTabla('Crear cuenta')).getAppearance()).toBe('outlined');
+    });
     /** Las tres celdas de la fila de un rótulo, en el orden del DOM: rótulo, socio, visitante. */
     const fila = (rotulo: string) =>
       [...tabla().querySelectorAll('[role="row"]')]
@@ -257,6 +283,27 @@ describe('Inicio', () => {
     const seccion = () =>
       elemento().querySelector('[aria-labelledby="torneos-abiertos"]') as HTMLElement;
 
+    it('**se anuncia con su afiche**: la primera foto de antes, en el cartel del torneo (T314)', async () => {
+      await montar([
+        {
+          ...ABIERTO,
+          afiches: [
+            {
+              id: 7,
+              partidoId: null,
+              momento: 'ANTES',
+              descripcion: 'El afiche',
+              miniatura: '/api/torneos/fotos/7/miniatura',
+              imagen: '/api/torneos/fotos/7/imagen',
+            },
+          ],
+        },
+      ]);
+
+      const afiche = seccion().querySelector('app-cartel-del-torneo [data-afiche] img');
+      expect(afiche?.getAttribute('src')).toBe('/api/torneos/fotos/7/imagen');
+    });
+
     it('el cartel nombra el torneo y dice hasta cuándo inscribirse', async () => {
       await montar([ABIERTO]);
 
@@ -266,7 +313,7 @@ describe('Inicio', () => {
 
     it('una tabla por torneo: categoría, inscripción y cupos libres', async () => {
       await montar([ABIERTO]);
-      const tabla = seccion().querySelector('table.tabla');
+      const tabla = seccion().querySelector('table');
       const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
         th.textContent?.trim(),
       );
@@ -361,7 +408,35 @@ describe('Inicio', () => {
       expect(zocalo().textContent).toContain(horaEnElClub(enDosHoras.toISOString()));
       expect(zocalo().textContent).toContain('Cancha 3');
       expect(zocalo().textContent).toContain(enPesos(12_000));
-      expect(zocalo().querySelector('a[href="/disponibilidad"]')).not.toBeNull();
+      // "Reservar" lleva a esa hora marcada en la disponibilidad (T266).
+      const hora = horaEnElClub(enDosHoras.toISOString());
+      expect(zocalo().querySelector('a')?.getAttribute('href')).toBe(
+        `/disponibilidad?fecha=${fechaEnElClub(enDosHoras)}&cancha=3&inicio=${hora}`,
+      );
+    });
+
+    it('**si hoy ya no quedan horas, muestra las de mañana y lo dice** (T268)', async () => {
+      const manana = mananaEnElClub();
+      const enManana = new Date(`${manana}T14:00:00.000Z`);
+      const tomada = { ...libreA(enDosHoras), reservado: true, montoClp: 0 };
+      await montar([], (fecha) =>
+        Promise.resolve([
+          { cancha: CANCHA, bloques: fecha === manana ? [libreA(enManana)] : [tomada] },
+        ]),
+      );
+
+      expect(zocalo().textContent).toContain('Mañana');
+      expect(zocalo().textContent).toContain(horaEnElClub(enManana.toISOString()));
+      expect(zocalo().textContent).not.toContain('Hoy ya no quedan');
+      expect(zocalo().querySelector('a')?.getAttribute('href')).toContain(`fecha=${manana}`);
+      expect(elemento().querySelector('#libre-hoy')?.textContent).toContain('Libre mañana');
+    });
+
+    it('con horas hoy, no pide mañana', async () => {
+      const delDia = vi.fn(() => Promise.resolve([{ cancha: CANCHA, bloques: [libreA(enDosHoras)] }]));
+      await montar([], delDia);
+
+      expect(delDia).toHaveBeenCalledTimes(1);
     });
 
     it('mientras busca, lo dice en vez de quedar en blanco', async () => {
@@ -422,6 +497,25 @@ describe('Inicio', () => {
     });
   });
 
+  describe('la foto y el final de la portada (T305, SPEC-sitio.md D6 y D7)', () => {
+    it('**la foto de arriba es la vista aérea del club**', async () => {
+      await montar([]);
+      const foto = elemento().querySelector<HTMLImageElement>('[aria-labelledby="promesa"] img')!;
+
+      expect(foto.getAttribute('src')).toContain('/fotos/el-club.jpg');
+      expect(foto.alt).toContain('Vista aérea del club');
+    });
+
+    it('**no tiene la banda final**: ni «Todavía quedan horas para hoy» ni su foto', async () => {
+      await montar([], undefined, { esperar: true });
+
+      expect(elemento().querySelector('[aria-labelledby="cierre"]')).toBeNull();
+      expect(texto()).not.toContain('Todavía quedan horas para hoy');
+      expect(texto()).not.toContain('Elige tu hora de esta semana');
+      expect(elemento().querySelector('img[src*="instalaciones.jpg"]')).toBeNull();
+    });
+  });
+
   describe('la tienda y la cafetería (T186)', () => {
     it('con la tienda descrita, la portada la cuenta antes del cierre', async () => {
       await montar([], undefined, {
@@ -438,8 +532,6 @@ describe('Inicio', () => {
       );
 
       expect(titulos).toContain('También en el club');
-      // Antes del cierre: quien baja hasta acá ya decidió venir.
-      expect(titulos.indexOf('También en el club')).toBeLessThan(titulos.length - 1);
     });
 
     it('sin nada descrito, la banda no existe', async () => {

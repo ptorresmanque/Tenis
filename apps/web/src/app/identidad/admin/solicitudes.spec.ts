@@ -1,7 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Contacto, Solicitud } from '../../club/contacto.service';
+import { Pendientes } from '../../core/pendientes';
 import { SolicitudesPanel } from './solicitudes';
 
 /**
@@ -30,8 +32,9 @@ describe('SolicitudesPanel', () => {
   let api: {
     bandeja: ReturnType<typeof vi.fn>;
     resolver: ReturnType<typeof vi.fn>;
-    invitar: ReturnType<typeof vi.fn>;
   };
+  /** El conteo del badge de «Consultas al club» en el menú (T301). */
+  let pendientes: { recargar: ReturnType<typeof vi.fn> };
 
   const montar = async (solicitudes: Solicitud[]) => {
     api = {
@@ -42,12 +45,17 @@ describe('SolicitudesPanel', () => {
         .mockResolvedValueOnce(solicitudes)
         .mockResolvedValue([]),
       resolver: vi.fn().mockResolvedValue(UNA),
-      invitar: vi.fn().mockResolvedValue({ id: 3, email: UNA.email }),
     };
+
+    pendientes = { recargar: vi.fn() };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Contacto, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: Contacto, useValue: api },
+        { provide: Pendientes, useValue: pendientes },
+      ],
     });
 
     fixture = TestBed.createComponent(SolicitudesPanel);
@@ -56,16 +64,18 @@ describe('SolicitudesPanel', () => {
   };
 
   const elemento = () => fixture.nativeElement as HTMLElement;
-  const apretar = async (etiqueta: string) => {
-    Array.from(elemento().querySelectorAll('button'))
-      .find((b) => b.textContent?.includes(etiqueta))
-      ?.click();
-    await fixture.whenStable();
-    fixture.detectChanges();
-  };
-
   beforeEach(async () => {
     await montar([UNA]);
+  });
+
+  it('**atender una consulta baja al tiro el badge del menú** (T301)', async () => {
+    Array.from(elemento().querySelectorAll('button'))
+      .find((b) => b.textContent?.includes('Marcar atendida'))!
+      .click();
+    await fixture.whenStable();
+
+    expect(api.resolver).toHaveBeenCalledWith(12, 'ATENDIDA', '');
+    expect(pendientes.recargar).toHaveBeenCalled();
   });
 
   it('arranca en las que faltan por responder', () => {
@@ -73,35 +83,26 @@ describe('SolicitudesPanel', () => {
     expect(elemento().textContent).toContain('Ana Interesada');
   });
 
-  it('**dar de alta confirma, aunque la bandeja quede vacía**', async () => {
-    await apretar('Dar de alta');
+  it('**ya no da de alta: dice cómo se hace socia, en Personas** (T297, D13)', async () => {
+    // El alta es en Personas, sobre la cuenta que la persona crea en el sitio, y esta
+    // consulta se enlaza sola al marcarla Socio (A14).
+    const texto = elemento().textContent!.replace(/\s+/g, ' ');
 
-    expect(api.invitar).toHaveBeenCalledWith(12);
-    expect(elemento().textContent).toContain('ya está invitada');
-    // Y el aviso convive con el estado vacío, en vez de ser reemplazado por él.
-    expect(elemento().textContent).toContain('Nada por responder');
+    expect(
+      Array.from(elemento().querySelectorAll('button')).some((b) =>
+        b.textContent?.includes('Dar de alta'),
+      ),
+    ).toBe(false);
+    expect(texto).toContain('que cree su cuenta en el sitio');
+    expect(
+      elemento().querySelector('a[href="/administracion/personas?tipo=sin-tipo"]'),
+    ).not.toBeNull();
   });
 
-  it('el error del servidor se ve, y explica por qué no se pudo', async () => {
-    api.invitar.mockRejectedValue({
-      error: { message: 'Ese correo ya es socio del club.' },
-    });
-
-    await apretar('Dar de alta');
-
-    expect(elemento().textContent).toContain('ya es socio del club');
-  });
-
-  it('solo las de quien quiere asociarse ofrecen el alta', async () => {
-    // Invitar como socio a quien preguntó por clases para su hijo lo mete en el padrón
-    // sin haberlo pedido. El servidor lo rechaza; el botón ni aparece.
+  it('la indicación es solo para quien quiere asociarse', async () => {
     await montar([{ ...UNA, tipo: 'CLASES' }]);
 
-    const alta = Array.from(elemento().querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Dar de alta'),
-    );
-
-    expect(alta).toBeUndefined();
+    expect(elemento().textContent).not.toContain('que cree su cuenta en el sitio');
   });
 
   it('sin nada por responder lo dice, en vez de quedar en blanco', async () => {

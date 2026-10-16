@@ -1,18 +1,33 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { proveerCampos } from '../../ui/campos';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../../ui/fecha-y-hora';
 import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Aviso } from '../../ui/aviso';
-import { CampoFecha } from '../../ui/campo-fecha';
 import { FichaDeTour, TemporadaDelPanel, Tours } from '../tours.service';
 import { NivelDelTour } from './nivel-del-tour';
 
+/** Una temporada mientras se escribe: las fechas como las entrega Material (A5, T244). */
 interface DatosDeTemporada {
   nombre: string;
-  fechaInicio: string;
-  fechaFin: string;
+  fechaInicio: Date | null;
+  fechaFin: Date | null;
 }
+
+const enBlanco = (): DatosDeTemporada => ({ nombre: '', fechaInicio: null, fechaFin: null });
+
+/** Lo que espera la API: el nombre sin espacios de más y las fechas como texto. */
+const paraLaApi = (datos: DatosDeTemporada) => ({
+  nombre: datos.nombre.trim(),
+  fechaInicio: fechaATexto(datos.fechaInicio),
+  fechaFin: fechaATexto(datos.fechaFin),
+});
 
 /**
  * La pestaña Temporadas de la ficha de un tour (T192): crear una, corregir su nombre y
@@ -24,7 +39,16 @@ interface DatosDeTemporada {
  */
 @Component({
   selector: 'app-temporadas-del-tour',
-  imports: [FormsModule, Aviso, CampoFecha, NivelDelTour],
+  imports: [
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    Aviso,
+    NivelDelTour,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     <form
       class="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm"
@@ -43,36 +67,63 @@ interface DatosDeTemporada {
         </p>
       }
       <div class="mt-3 grid gap-3 sm:grid-cols-3">
-        <label class="block">
-          <span class="text-sm font-medium">Nombre</span>
+        <mat-form-field>
+          <mat-label>Nombre</mat-label>
           <input
-            class="campo mt-1"
+            matInput
             name="nombre"
             maxlength="40"
             placeholder="2027"
             [(ngModel)]="nueva.nombre"
           />
-        </label>
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nueva-temporada-inicio">Empieza</label>
-          <app-campo-fecha
-            inputId="nueva-temporada-inicio"
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Empieza</mat-label>
+          <input
+            matInput
+            id="nueva-temporada-inicio"
             name="fechaInicio"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFechaInicio"
             [(ngModel)]="nueva.fechaInicio"
           />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nueva-temporada-fin">Termina</label>
-          <app-campo-fecha
-            inputId="nueva-temporada-fin"
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
+          <mat-datepicker #calendarioFechaInicio>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Termina</mat-label>
+          <input
+            matInput
+            id="nueva-temporada-fin"
             name="fechaFin"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioFechaFin"
             [(ngModel)]="nueva.fechaFin"
           />
-        </div>
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
+          <mat-datepicker #calendarioFechaFin>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
+        </mat-form-field>
       </div>
+      <!-- Crear una temporada y editar o borrar otra son formularios distintos, uno por tarjeta.
+           mat-guidelines-ignore: multiples-filled -->
       <button
+        matButton="filled"
         type="submit"
-        class="boton boton-primario mt-3"
+        class="mt-3"
         [disabled]="enCurso() !== null"
         [attr.aria-busy]="enCurso() === 'crear'"
       >
@@ -92,8 +143,9 @@ interface DatosDeTemporada {
           </p>
           <div class="ms-auto flex flex-wrap gap-2">
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico"
+              class="chico"
               (click)="editar(temporada)"
             >
               Editar
@@ -102,8 +154,9 @@ interface DatosDeTemporada {
             <!-- Con torneos no se ofrece borrar: se quedarían sin nivel y sin puntos. -->
             @if (torneosDe(temporada) === 0) {
               <button
+                matButton
                 type="button"
-                class="boton boton-texto boton-chico"
+                class="chico"
                 (click)="porBorrar.set(temporada.id)"
               >
                 Borrar la temporada
@@ -126,15 +179,16 @@ interface DatosDeTemporada {
           </app-aviso>
           <div class="mt-3 flex flex-wrap gap-2">
             <button
+              matButton="filled"
               type="button"
-              class="boton boton-destructivo boton-chico"
+              class="peligro chico"
               [disabled]="enCurso() !== null"
               [attr.aria-busy]="enCurso() === 'borrar-' + temporada.id"
               (click)="borrar(temporada)"
             >
               Sí, borrar
             </button>
-            <button type="button" class="boton boton-texto boton-chico" (click)="porBorrar.set(null)">
+            <button matButton type="button" class="chico" (click)="porBorrar.set(null)">
               Mejor no
             </button>
           </div>
@@ -146,36 +200,61 @@ interface DatosDeTemporada {
             [attr.aria-label]="'Editar la temporada ' + temporada.nombre"
             (ngSubmit)="guardar(temporada)"
           >
-            <label class="block">
-              <span class="text-sm font-medium">Nombre</span>
-              <input class="campo mt-1" name="nombre" maxlength="40" [(ngModel)]="borrador.nombre" />
-            </label>
-            <div class="grid gap-1">
-              <label class="text-sm font-medium" [for]="'inicio-' + temporada.id">Empieza</label>
-              <app-campo-fecha
-                [inputId]="'inicio-' + temporada.id"
+            <mat-form-field>
+              <mat-label>Nombre</mat-label>
+              <input matInput name="nombre" maxlength="40" [(ngModel)]="borrador.nombre" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Empieza</mat-label>
+              <input
+                matInput
+                [id]="'inicio-' + temporada.id"
                 name="fechaInicio"
+                placeholder="dd-mm-aaaa"
+                autocomplete="off"
+                [matDatepicker]="calendarioFechaInicio2"
                 [(ngModel)]="borrador.fechaInicio"
               />
-            </div>
-            <div class="grid gap-1">
-              <label class="text-sm font-medium" [for]="'fin-' + temporada.id">Termina</label>
-              <app-campo-fecha
-                [inputId]="'fin-' + temporada.id"
+              <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio2" />
+              <mat-datepicker #calendarioFechaInicio2>
+                <mat-datepicker-actions>
+                  <button matButton type="button" matDatepickerCancel>Cancelar</button>
+                  <button matButton type="button" matDatepickerApply>Aplicar</button>
+                </mat-datepicker-actions>
+              </mat-datepicker>
+              <mat-hint>dd-mm-aaaa</mat-hint>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Termina</mat-label>
+              <input
+                matInput
+                [id]="'fin-' + temporada.id"
                 name="fechaFin"
+                placeholder="dd-mm-aaaa"
+                autocomplete="off"
+                [matDatepicker]="calendarioFechaFin2"
                 [(ngModel)]="borrador.fechaFin"
               />
-            </div>
+              <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin2" />
+              <mat-datepicker #calendarioFechaFin2>
+                <mat-datepicker-actions>
+                  <button matButton type="button" matDatepickerCancel>Cancelar</button>
+                  <button matButton type="button" matDatepickerApply>Aplicar</button>
+                </mat-datepicker-actions>
+              </mat-datepicker>
+              <mat-hint>dd-mm-aaaa</mat-hint>
+            </mat-form-field>
             <div class="flex flex-wrap gap-2 sm:col-span-3">
               <button
+                matButton="filled"
                 type="submit"
-                class="boton boton-primario boton-chico"
+                class="chico"
                 [disabled]="enCurso() !== null"
                 [attr.aria-busy]="enCurso() === 'guardar-' + temporada.id"
               >
                 Guardar la temporada
               </button>
-              <button type="button" class="boton boton-texto boton-chico" (click)="editando.set(null)">
+              <button matButton type="button" class="chico" (click)="editando.set(null)">
                 Cancelar
               </button>
             </div>
@@ -226,9 +305,9 @@ export class TemporadasDelTour {
 
   protected readonly enPalabras = diaConAnioEnPalabras;
 
-  protected nueva: DatosDeTemporada = { nombre: '', fechaInicio: '', fechaFin: '' };
+  protected nueva = enBlanco();
   /** Lo que hay en los campos de la temporada que se está corrigiendo. */
-  protected borrador: DatosDeTemporada = { nombre: '', fechaInicio: '', fechaFin: '' };
+  protected borrador = enBlanco();
 
   protected readonly editando = signal<number | null>(null);
   protected readonly porBorrar = signal<number | null>(null);
@@ -246,26 +325,23 @@ export class TemporadasDelTour {
   protected editar(temporada: TemporadaDelPanel): void {
     this.borrador = {
       nombre: temporada.nombre,
-      fechaInicio: temporada.fechaInicio,
-      fechaFin: temporada.fechaFin,
+      fechaInicio: textoAFecha(temporada.fechaInicio),
+      fechaFin: textoAFecha(temporada.fechaFin),
     };
     this.editando.set(temporada.id);
   }
 
   protected async crear(): Promise<void> {
     const listo = await this.intentar('crear', 'crear', () =>
-      this.api.crearTemporada(this.tour().id, { ...this.nueva, nombre: this.nueva.nombre.trim() }),
+      this.api.crearTemporada(this.tour().id, paraLaApi(this.nueva)),
     );
 
-    if (listo) this.nueva = { nombre: '', fechaInicio: '', fechaFin: '' };
+    if (listo) this.nueva = enBlanco();
   }
 
   protected async guardar(temporada: TemporadaDelPanel): Promise<void> {
     const listo = await this.intentar(temporada.id, `guardar-${temporada.id}`, () =>
-      this.api.editarTemporada(temporada.id, {
-        ...this.borrador,
-        nombre: this.borrador.nombre.trim(),
-      }),
+      this.api.editarTemporada(temporada.id, paraLaApi(this.borrador)),
     );
 
     if (listo) this.editando.set(null);

@@ -1,15 +1,23 @@
 import { Component, computed, inject, input, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { mensajeDelServidor } from '../../core/errores';
-import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
-import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { Clases, Inscrito, QuienSeInscribe } from '../clases.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { TelefonoDirective } from '../../ui/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * Quién viene a una clase.
@@ -23,15 +31,22 @@ import { Esqueleto } from '../../ui/esqueleto';
 @Component({
   selector: 'app-inscritos',
   imports: [
+    MatCheckbox,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
     FormsModule,
     Aviso,
     Esqueleto,
-    Insignia,
-    Selector,
+    MatButtonToggleModule,
     EnlaceTelefonoPipe,
     TelefonoPipe,
     TelefonoDirective,
+    MatChipsModule,
+    MatIcon,
   ],
+  providers: [proveerCampos()],
   template: `
     @if (ficha.error()) {
       <p class="mt-3 text-sm text-destructive">
@@ -43,42 +58,45 @@ import { Esqueleto } from '../../ui/esqueleto';
       <div class="mt-3 rounded-xl border border-border bg-background p-4">
         <div class="flex flex-wrap items-baseline gap-2">
           <h3 class="subtitulo">Quién viene</h3>
-          <app-insignia
-            [variante]="clase.cupoTomado >= clase.cupoMaximo ? 'aviso' : 'neutro'"
-            icono="group"
-          >
-            {{ clase.cupoTomado }} de {{ clase.cupoMaximo }}
-          </app-insignia>
+          <mat-chip-set class="insignias">
+            <mat-chip
+              class="insignia"
+              [class]="clase.cupoTomado >= clase.cupoMaximo ? 'aviso' : 'neutro'"
+            >
+              <mat-icon matChipAvatar aria-hidden="true">group</mat-icon>
+              {{ clase.cupoTomado }} de {{ clase.cupoMaximo }}
+            </mat-chip>
+          </mat-chip-set>
         </div>
 
         @if (error(); as falla) {
           <app-aviso variante="error" class="mt-2 block">{{ falla }}</app-aviso>
         }
-        @if (aviso(); as texto) {
-          <app-aviso variante="exito" class="mt-2 block">{{ texto }}</app-aviso>
-        }
 
         @if (clase.inscritos.length === 0) {
-          <p class="mt-2 text-sm text-muted-foreground">
-            Todavía no hay nadie inscrito.
-          </p>
+          <p class="mt-2 text-sm text-muted-foreground">Todavía no hay nadie inscrito.</p>
         } @else {
           <ul class="mt-2 grid gap-2">
             @for (quien of clase.inscritos; track quien.id) {
               <li class="flex flex-wrap items-center gap-2 text-sm">
-                <span
-                  class="font-medium"
-                  [class.line-through]="quien.estado === 'CANCELADA'"
-                >
+                <span class="font-medium" [class.line-through]="quien.estado === 'CANCELADA'">
                   {{ quien.nombre }}
                 </span>
 
                 @if (quien.esSocio) {
-                  <app-insignia variante="info" icono="badge">
-                    Socio {{ quien.numeroSocio }}
-                  </app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia info">
+                      <mat-icon matChipAvatar aria-hidden="true">badge</mat-icon>
+                      Socio {{ quien.numeroSocio }}
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else {
-                  <app-insignia variante="neutro" icono="person">Alumno</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">person</mat-icon>
+                      Alumno
+                    </mat-chip>
+                  </mat-chip-set>
                 }
 
                 @if (quien.telefono) {
@@ -90,22 +108,31 @@ import { Esqueleto } from '../../ui/esqueleto';
                 @if (quien.estado === 'CANCELADA') {
                   <span class="text-muted-foreground">Se bajó</span>
                 } @else if (quien.estado === 'ASISTIO') {
-                  <app-insignia variante="exito" icono="check_circle">Vino</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia exito">
+                      <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                      Vino
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else if (quien.estado === 'FALTO') {
-                  <app-insignia variante="aviso" icono="cancel">No vino</app-insignia>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia aviso">
+                      <mat-icon matChipAvatar aria-hidden="true">cancel</mat-icon>
+                      No vino
+                    </mat-chip>
+                  </mat-chip-set>
                 } @else {
-                  <label class="ms-auto flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      class="size-4"
-                      [checked]="vinieron().has(quien.id)"
-                      (change)="marcar(quien.id, $any($event.target).checked)"
-                    />
-                    <span class="text-sm">Vino</span>
-                  </label>
+                  <mat-checkbox
+                    class="ms-auto text-sm"
+                    [checked]="vinieron().has(quien.id)"
+                    (change)="marcar(quien.id, $event.checked)"
+                  >
+                    Vino
+                  </mat-checkbox>
                   <button
+                    matButton
                     type="button"
-                    class="boton boton-texto boton-chico"
+                    class="chico"
                     [disabled]="trabajando()"
                     [attr.aria-busy]="enCurso() === 'bajar-' + quien.id"
                     (click)="bajar(quien)"
@@ -116,8 +143,9 @@ import { Esqueleto } from '../../ui/esqueleto';
                        con su asistencia. -->
                   @if (clase.serieId !== null) {
                     <button
+                      matButton
                       type="button"
-                      class="boton boton-texto boton-chico"
+                      class="chico"
                       [disabled]="trabajando()"
                       [attr.aria-busy]="enCurso() === 'sacarDeLaSerie-' + quien.id"
                       (click)="sacarDeLaSerie(clase.serieId, quien)"
@@ -134,111 +162,123 @@ import { Esqueleto } from '../../ui/esqueleto';
         <!-- A una clase que ya se dio no se inscribe a nadie: el servidor lo rechaza
              y el formulario solo serviría para descubrirlo apretando. -->
         @if (clase.estado === 'PROGRAMADA') {
-        <form class="mt-3 border-t border-border pt-3" (ngSubmit)="inscribir()">
-          <app-selector
-            etiqueta="A quién se inscribe"
-            [opciones]="TIPOS"
-            [(valor)]="tipo"
-          />
+          <form class="mt-3 border-t border-border pt-3" (ngSubmit)="inscribir()">
+            <mat-button-toggle-group
+              aria-label="A quién se inscribe"
+              hideSingleSelectionIndicator
+              [value]="tipo()"
+              (change)="tipo.set($event.value)"
+            >
+              @for (opcion of TIPOS; track opcion.valor) {
+                <mat-button-toggle [value]="opcion.valor">
+                  {{ opcion.etiqueta }}
+                </mat-button-toggle>
+              }
+            </mat-button-toggle-group>
 
-          <div class="mt-2 flex flex-wrap items-end gap-2">
-            @if (tipo() === 'socio') {
-              <label class="flex-1">
-                <span class="text-sm font-medium">Socio</span>
-                <select class="campo campo-chico mt-1" name="socioId" [(ngModel)]="socioId">
-                  <option [value]="0" disabled>Elige un socio</option>
-                  @for (socio of sociosPorInscribir(); track socio.id) {
-                    <option [value]="socio.id">
-                      {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                      {{ socio.usuario.apellido }}
-                    </option>
-                  }
-                </select>
-              </label>
-            } @else {
-              <label class="flex-1">
-                <span class="text-sm font-medium">Nombre del alumno</span>
-                <input class="campo campo-chico mt-1" name="nombre" [(ngModel)]="nombre" />
-              </label>
-              <label class="flex-1">
-                <span class="text-sm font-medium">Teléfono</span>
-                <span class="campo-con-prefijo mt-1">
-                  <span class="prefijo">+56</span>
+            <div class="mt-2 flex flex-wrap items-end gap-2">
+              @if (tipo() === 'socio') {
+                <mat-form-field class="chico flex-1">
+                  <mat-label>Socio</mat-label>
+                  <mat-select name="socioId" [(ngModel)]="socioId">
+                    <mat-option [value]="0" disabled>Elige un socio</mat-option>
+                    @for (socio of sociosPorInscribir(); track socio.id) {
+                      <mat-option [value]="socio.id">
+                        {{ socio.numeroSocio }} · {{ socio.nombre }}
+                      </mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+              } @else {
+                <mat-form-field class="chico flex-1">
+                  <mat-label>Nombre del alumno</mat-label>
+                  <input matInput name="nombre" [(ngModel)]="nombre" />
+                </mat-form-field>
+                <mat-form-field class="chico flex-1">
+                  <mat-label>Teléfono</mat-label>
+                  <span matTextPrefix>+56&nbsp;</span>
                   <input
+                    matInput
                     appTelefono
-                    class="campo campo-chico"
+                    #telefono="ngModel"
                     name="telefono"
                     [(ngModel)]="telefono"
                   />
-                </span>
-              </label>
-            }
+                  <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+                </mat-form-field>
+              }
 
-            <button
-              type="submit"
-              class="boton boton-secundario boton-chico"
-              [attr.aria-busy]="enCurso() === 'inscribir'"
-              [disabled]="trabajando()"
-            >
-              Inscribir
-            </button>
-            <!-- T116. En cada clase que viene de la serie, en una transacción: si alguna
-                 está llena, el servidor no inscribe en ninguna y dice cuál. -->
-            @if (clase.serieId !== null) {
               <button
-                type="button"
-                class="boton boton-secundario boton-chico"
+                matButton="outlined"
+                type="submit"
+                class="chico"
+                [attr.aria-busy]="enCurso() === 'inscribir'"
                 [disabled]="trabajando()"
-                [attr.aria-busy]="enCurso() === 'inscribirEnLaSerie-' + clase.serieId"
-                (click)="inscribirEnLaSerie(clase.serieId)"
               >
-                Inscribir en toda la serie
+                Inscribir
               </button>
-            }
-          </div>
+              <!-- T116. En cada clase que viene de la serie, en una transacción: si alguna
+                 está llena, el servidor no inscribe en ninguna y dice cuál. -->
+              @if (clase.serieId !== null) {
+                <button
+                  matButton="outlined"
+                  type="button"
+                  class="chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'inscribirEnLaSerie-' + clase.serieId"
+                  (click)="inscribirEnLaSerie(clase.serieId)"
+                >
+                  Inscribir en toda la serie
+                </button>
+              }
+            </div>
 
-          @if (clase.estado === 'PROGRAMADA' && clase.inscritos.length > 0) {
-            <!-- Dos botones y no uno con una casilla: cerrar sin pasar lista y cerrar
+            @if (clase.estado === 'PROGRAMADA' && clase.inscritos.length > 0) {
+              <!-- Dos botones y no uno con una casilla: cerrar sin pasar lista y cerrar
                  diciendo que no vino nadie son cosas distintas, y con un solo botón
                  la lista vacía significaría las dos. -->
-            <div class="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
-              <button
-                type="button"
-                class="boton boton-secundario boton-chico"
-                [disabled]="trabajando()"
-                [attr.aria-busy]="enCurso() === 'cerrar-true'"
-                (click)="cerrar(true)"
-              >
-                Cerrar la clase con esta lista
-              </button>
-              <button
-                type="button"
-                class="boton boton-texto boton-chico"
-                [disabled]="trabajando()"
-                [attr.aria-busy]="enCurso() === 'cerrar-false'"
-                (click)="cerrar(false)"
-              >
-                Cerrar sin pasar lista
-              </button>
-            </div>
-          }
+              <div class="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                <button
+                  matButton="outlined"
+                  type="button"
+                  class="chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cerrar-true'"
+                  (click)="cerrar(true)"
+                >
+                  Cerrar la clase con esta lista
+                </button>
+                <button
+                  matButton
+                  type="button"
+                  class="chico"
+                  [disabled]="trabajando()"
+                  [attr.aria-busy]="enCurso() === 'cerrar-false'"
+                  (click)="cerrar(false)"
+                >
+                  Cerrar sin pasar lista
+                </button>
+              </div>
+            }
 
-          @if (lleno()) {
-            <!-- No deshabilita el botón: quien decide es el servidor, y entre esta
+            @if (lleno()) {
+              <!-- No deshabilita el botón: quien decide es el servidor, y entre esta
                  pantalla y el clic alguien pudo bajarse. -->
-            <p class="mt-2 text-sm text-muted-foreground">
-              La clase está llena. Si alguien se baja, se libera el lugar.
-            </p>
-          }
-        </form>
+              <p class="mt-2 text-sm text-muted-foreground">
+                La clase está llena. Si alguien se baja, se libera el lugar.
+              </p>
+            }
+          </form>
         }
       </div>
     }
   `,
 })
 export class InscritosDeLaClase {
+  protected readonly errorDelCampo = errorDelCampo;
+
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Clases);
-  private readonly sociosApi = inject(Socios);
 
   readonly claseId = input.required<number>();
 
@@ -256,7 +296,6 @@ export class InscritosDeLaClase {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -265,7 +304,11 @@ export class InscritosDeLaClase {
     loader: ({ params }) => this.api.ficha(params.id),
   });
 
-  protected readonly socios = resource({ loader: () => this.sociosApi.listado() });
+  /**
+   * Los socios para elegir, sin el padrón: el profesor no ve correos, teléfonos ni
+   * deudas, y el admin tampoco los necesita para inscribir (T222).
+   */
+  protected readonly socios = resource({ loader: () => this.api.socios() });
 
   /**
    * Los que todavía no están en esta clase.
@@ -282,7 +325,7 @@ export class InscritosDeLaClase {
     );
 
     // Si la lista no cargó, el selector queda vacío y la clase se ve igual.
-    return (this.socios.hasValue() ? this.socios.value().socios : []).filter(
+    return (this.socios.hasValue() ? this.socios.value() : []).filter(
       (socio) => !yaEstan.has(socio.numeroSocio),
     );
   });
@@ -309,9 +352,11 @@ export class InscritosDeLaClase {
     await this.intentar(`inscribirEnLaSerie-${serieId}`, async () => {
       const { inscritas, yaEstaba } = await this.api.inscribirEnLaSerie(serieId, quien);
       this.limpiarFormulario();
-      this.aviso.set(
+      this.snackBar.open(
         `Inscrito en ${inscritas} ${inscritas === 1 ? 'clase' : 'clases'} de la serie` +
           (yaEstaba > 0 ? `; en ${yaEstaba} ya estaba.` : '.'),
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -329,8 +374,10 @@ export class InscritosDeLaClase {
     // Por inscrito y no por serie: la serie es la misma en todas las filas.
     await this.intentar(`sacarDeLaSerie-${quien.id}`, async () => {
       const { canceladas } = await this.api.salirDeLaSerie(serieId, persona);
-      this.aviso.set(
+      this.snackBar.open(
         `Salió de la serie: se ${canceladas === 1 ? 'canceló 1 clase que venía' : `cancelaron ${canceladas} clases que venían`}.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -368,10 +415,7 @@ export class InscritosDeLaClase {
    */
   protected async cerrar(conLista: boolean): Promise<void> {
     await this.intentar(`cerrar-${conLista}`, async () => {
-      await this.api.realizar(
-        this.claseId(),
-        conLista ? [...this.vinieron()] : null,
-      );
+      await this.api.realizar(this.claseId(), conLista ? [...this.vinieron()] : null);
       this.vinieron.set(new Set());
     });
   }
@@ -380,12 +424,8 @@ export class InscritosDeLaClase {
     await this.intentar(`bajar-${quien.id}`, () => this.api.bajar(this.claseId(), quien.id));
   }
 
-  private async intentar(
-    clave: string,
-    accion: () => Promise<unknown>,
-  ): Promise<void> {
+  private async intentar(clave: string, accion: () => Promise<unknown>): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 

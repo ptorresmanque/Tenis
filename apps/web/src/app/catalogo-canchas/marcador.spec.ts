@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
 import { Marcador } from './marcador';
-import { enPesos, horaEnElClub } from './reloj-del-club';
+import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
 /**
  * El marcador de la portada: las horas que quedan hoy contra las canchas (TV3.3).
@@ -97,14 +97,18 @@ describe('Marcador', () => {
     expect(horas[1]).toContain(horaEnElClub(enTres.toISOString()));
   });
 
-  it('la celda libre lleva a la disponibilidad y dice qué cancha y a qué hora', () => {
+  it('la celda libre lleva a esa cancha y esa hora en la disponibilidad (T266)', () => {
     const enDos = enHoras(2);
     const el = montar([{ cancha: cancha(1), bloques: [bloque(1, enDos)] }]);
     const enlace = celda(el, 0, 1).querySelector('a');
+    const hora = horaEnElClub(enDos.toISOString());
 
+    // La disponibilidad la marca al llegar: el día, la cancha y la hora de la celda.
+    expect(enlace?.getAttribute('href')).toBe(
+      `/disponibilidad?fecha=${fechaEnElClub(enDos)}&cancha=1&inicio=${hora}`,
+    );
     // El nombre entero va en aria-label y empieza con lo que se ve (WCAG 2.5.3).
     // Con un sr-only, Chrome ponía un espacio antes de los dos puntos.
-    expect(enlace?.getAttribute('href')).toBe('/disponibilidad');
     expect(enlace?.textContent?.trim()).toBe('Libre');
     expect(enlace?.getAttribute('aria-label')).toBe(
       `Libre: reservar la Cancha 1 a las ${horaEnElClub(enDos.toISOString())}`,
@@ -157,7 +161,7 @@ describe('Marcador', () => {
     expect(celda(el, 0, 2).textContent).toContain('Cerrada');
   });
 
-  it('la hora pico lleva su rótulo', () => {
+  it('la hora prime lleva su rótulo', () => {
     const el = montar([
       {
         cancha: cancha(1),
@@ -166,11 +170,11 @@ describe('Marcador', () => {
     ]);
     const filas = el.querySelectorAll('tbody th[scope="row"]');
 
-    expect(filas[0].textContent).not.toContain('Pico');
-    expect(filas[1].textContent).toContain('Pico');
+    expect(filas[0].textContent).not.toContain('Prime');
+    expect(filas[1].textContent).toContain('Prime');
   });
 
-  it('**el arriendo de la hora pico sale de una cancha que se puede tomar**', () => {
+  it('**el arriendo de la hora prime sale de una cancha que se puede tomar**', () => {
     // La API manda en 0 el monto de una hora reservada o bloqueada. Si la primera cancha
     // la tenía tomada, la leyenda decía "arriendo $0".
     const el = montar([
@@ -194,5 +198,188 @@ describe('Marcador', () => {
     const encabezado = el.querySelectorAll('thead th[scope="col"]')[1];
 
     expect(encabezado.textContent).toContain('techada');
+  });
+
+  /**
+   * En disponibilidad (T264): el mismo tablero, pero la celda libre se elige en la página en
+   * vez de llevar a otra. Lo que cuidan estos tests es que elegir se pueda con teclado sin
+   * recorrer cien paradas, que la celda que no se le vende a quien mira diga por qué y que la
+   * clase lleve a las clases.
+   */
+  describe('en modo elegir', () => {
+    type Elegida = { canchaId: number; inicio: string } | null;
+
+    @Component({
+      imports: [Marcador],
+      template: `
+        <app-marcador
+          modo="elegir"
+          [grillas]="grillas()"
+          [elegida]="elegida()"
+          [sinVenta]="sinVenta"
+          [etiqueta]="etiqueta"
+          (elegir)="elegidas.push($event)"
+        />
+      `,
+    })
+    class HostQueElige {
+      readonly grillas = signal<GrillaDeCancha[]>([]);
+      readonly elegida = signal<Elegida>(null);
+      readonly elegidas: { cancha: Cancha; bloque: BloqueDisponible }[] = [];
+      sinVenta = (bloque: BloqueDisponible): string | null =>
+        bloque.montoClp === null ? 'No se arrienda por 1 hora y media' : null;
+      etiqueta = (cancha: Cancha, bloque: BloqueDisponible) =>
+        `Elegir la ${cancha.nombre} a las ${horaEnElClub(bloque.inicio)}`;
+    }
+
+    function montarQueElige(grillas: GrillaDeCancha[], elegida: Elegida = null) {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [provideRouter([])] });
+      const fixture = TestBed.createComponent(HostQueElige);
+      fixture.componentInstance.grillas.set(grillas);
+      fixture.componentInstance.elegida.set(elegida);
+      fixture.detectChanges();
+
+      return { fixture, el: fixture.nativeElement as HTMLElement };
+    }
+
+    const botones = (el: HTMLElement) =>
+      [...el.querySelectorAll<HTMLButtonElement>('tbody button')];
+
+    it('la celda libre es un botón con el nombre que le da la grilla, y elegirla avisa cuál', () => {
+      const enDos = enHoras(2);
+      const { fixture, el } = montarQueElige([
+        { cancha: cancha(1), bloques: [bloque(1, enDos)] },
+      ]);
+
+      const [boton] = botones(el);
+      expect(el.querySelector('tbody a')).toBeNull();
+      expect(boton.getAttribute('aria-label')).toBe(
+        `Elegir la Cancha 1 a las ${horaEnElClub(enDos.toISOString())}`,
+      );
+
+      boton.click();
+
+      const [elegida] = fixture.componentInstance.elegidas;
+      expect(elegida.cancha.id).toBe(1);
+      expect(elegida.bloque.inicio).toBe(enDos.toISOString());
+    });
+
+    it('la elegida queda marcada, también para el lector, y las otras no', () => {
+      const enDos = enHoras(2);
+      const { el } = montarQueElige(
+        [
+          { cancha: cancha(1), bloques: [bloque(1, enDos)] },
+          { cancha: cancha(2), bloques: [bloque(2, enDos)] },
+        ],
+        { canchaId: 2, inicio: enDos.toISOString() },
+      );
+
+      expect(botones(el).map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+      // Sigue diciendo «Libre», que es su nombre (WCAG 2.5.3); la marca es el ✓ y la placa.
+      expect(celda(el, 0, 2).textContent).toContain('check_circle');
+    });
+
+    it('el tablero es una sola parada de teclado: la elegida, o la primera libre', () => {
+      const enDos = enHoras(2);
+      const enTres = enHoras(3);
+      const grillas = [
+        { cancha: cancha(1), bloques: [bloque(1, enDos), bloque(1, enTres)] },
+        { cancha: cancha(2), bloques: [bloque(2, enDos), bloque(2, enTres)] },
+      ];
+
+      const sinElegir = montarQueElige(grillas).el;
+      expect(botones(sinElegir).map((b) => b.tabIndex)).toEqual([0, -1, -1, -1]);
+
+      const conElegida = montarQueElige(grillas, { canchaId: 2, inicio: enTres.toISOString() }).el;
+      expect(botones(conElegida).map((b) => b.tabIndex)).toEqual([-1, -1, -1, 0]);
+    });
+
+    it('las flechas recorren las libres y se saltan las que no se pueden tomar', () => {
+      const enDos = enHoras(2);
+      const enTres = enHoras(3);
+      const { fixture, el } = montarQueElige([
+        { cancha: cancha(1), bloques: [bloque(1, enDos), bloque(1, enTres)] },
+        { cancha: cancha(2), bloques: [bloque(2, enDos, { reservado: true }), bloque(2, enTres)] },
+        { cancha: cancha(3), bloques: [bloque(3, enDos), bloque(3, enTres)] },
+      ]);
+      const pulsar = (tecla: string) => {
+        (document.activeElement as HTMLElement).dispatchEvent(
+          new KeyboardEvent('keydown', { key: tecla, bubbles: true }),
+        );
+        fixture.detectChanges();
+      };
+      const enFoco = () => document.activeElement?.closest('td');
+
+      celda(el, 0, 1).querySelector('button')!.focus();
+
+      // La Cancha 2 está tomada a la primera hora: la flecha pasa a la 3.
+      pulsar('ArrowRight');
+      expect(enFoco()).toBe(celda(el, 0, 3));
+
+      pulsar('ArrowDown');
+      expect(enFoco()).toBe(celda(el, 1, 3));
+
+      pulsar('ArrowLeft');
+      expect(enFoco()).toBe(celda(el, 1, 2));
+
+      // Arriba de la Cancha 2 no hay libre: se queda donde está.
+      pulsar('ArrowUp');
+      expect(enFoco()).toBe(celda(el, 1, 2));
+
+      // La que tiene el foco es la parada del tablero al volver con Tab.
+      expect(celda(el, 1, 2).querySelector('button')!.tabIndex).toBe(0);
+    });
+
+    it('la libre que no se le vende a quien mira no se puede tocar y dice por qué', () => {
+      const { el } = montarQueElige([
+        { cancha: cancha(1), bloques: [bloque(1, enHoras(2), { montoClp: null })] },
+      ]);
+
+      expect(celda(el, 0, 1).querySelector('a, button')).toBeNull();
+      expect(celda(el, 0, 1).textContent).toContain('No se arrienda por 1 hora y media');
+      expect(el.querySelector('ul')?.textContent).toContain('No se arrienda por 1 hora y media');
+    });
+
+    it('desde sm, los nombres de las canchas quedan pegados bajo la cabecera del sitio', () => {
+      // A la fila veinte nadie se acuerda de cuál columna era cuál. El contenedor deja de
+      // desplazarse de lado desde sm, donde el tablero cabe: con overflow, sticky no se pega
+      // a la ventana. jsdom no pinta, así que se fija la regla; se vio en el navegador.
+      const { el } = montarQueElige([{ cancha: cancha(1), bloques: [bloque(1, enHoras(2))] }]);
+
+      expect(el.querySelector('table')?.parentElement?.className).toContain('sm:overflow-visible');
+      for (const th of el.querySelectorAll('thead th')) {
+        expect(th.className).toContain('sm:sticky');
+        expect(th.className).toContain('sm:top-16');
+      }
+    });
+
+    it('la libre responde al mouse; la elegida no', () => {
+      const enDos = enHoras(2);
+      const { el } = montarQueElige(
+        [
+          { cancha: cancha(1), bloques: [bloque(1, enDos)] },
+          { cancha: cancha(2), bloques: [bloque(2, enDos)] },
+        ],
+        { canchaId: 2, inicio: enDos.toISOString() },
+      );
+
+      const [libre, elegida] = botones(el);
+      expect(libre.className).toMatch(/hover:/);
+      expect(elegida.className).not.toMatch(/hover:/);
+    });
+
+    it('la clase lleva a las clases', () => {
+      const { el } = montarQueElige([
+        {
+          cancha: cancha(1),
+          bloques: [bloque(1, enHoras(2), { bloqueado: true, motivoBloqueo: 'CLASE' })],
+        },
+      ]);
+
+      const enlace = celda(el, 0, 1).querySelector('a');
+      expect(enlace?.getAttribute('href')).toBe('/clases');
+      expect(enlace?.textContent).toContain('Clase');
+    });
   });
 });

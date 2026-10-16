@@ -8,6 +8,7 @@ import {
   Torneos,
   TorneoPublico,
 } from '../torneos.service';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 import { TorneosPublicos } from './torneos';
 
 /**
@@ -38,6 +39,7 @@ describe('TorneosPublicos', () => {
       },
     ],
     tours: [],
+    afiches: [],
   };
 
   const SEMIFINAL: PartidoPublico = {
@@ -135,14 +137,6 @@ describe('TorneosPublicos', () => {
   };
 
   beforeEach(async () => {
-    // jsdom no implementa `showModal` ni `close` (T135: el cuadro va en un modal).
-    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
-      this.open = true;
-    });
-    HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
-      this.open = false;
-      this.dispatchEvent(new Event('close'));
-    });
     // Sin marca de pago a medias: cada test que la quiere la pone. Sin limpiarla, la
     // de un test suelta el cupo en el siguiente.
     sessionStorage.clear();
@@ -220,6 +214,39 @@ describe('TorneosPublicos', () => {
     });
   });
 
+  describe('el cartel del torneo (T315, D3)', () => {
+    const foto = (id: number, descripcion: string) => ({
+      id,
+      partidoId: null,
+      momento: 'ANTES' as const,
+      descripcion,
+      miniatura: `/api/torneos/fotos/${id}/miniatura`,
+      imagen: `/api/torneos/fotos/${id}/imagen`,
+    });
+
+    it('**cada torneo lleva su afiche al costado, y las otras fotos de antes en miniatura**', async () => {
+      await montar([
+        { ...EN_INSCRIPCION, afiches: [foto(7, 'El afiche'), foto(8, 'Las bases')] },
+      ]);
+
+      const cartel = elemento().querySelector('li app-cartel-del-torneo');
+      expect(cartel?.querySelector('[data-afiche] img')?.getAttribute('src')).toBe(
+        '/api/torneos/fotos/7/imagen',
+      );
+      expect(cartel?.querySelector('[data-otras] img')?.getAttribute('src')).toBe(
+        '/api/torneos/fotos/8/miniatura',
+      );
+      // Lo de cada torneo va al lado del afiche, dentro del cartel.
+      expect(cartel?.querySelector('h2')?.textContent).toContain('Copa de verano');
+      expect(cartel?.querySelector('table')).toBeTruthy();
+    });
+
+    it('un torneo sin fotos de antes se ve con la foto del club', () => {
+      const cartel = elemento().querySelector('li app-cartel-del-torneo');
+      expect(cartel?.querySelector('[data-afiche] app-foto')).toBeTruthy();
+    });
+  });
+
   it('una categoría gratis lo dice con la palabra, no con un cero', async () => {
     await montar([
       {
@@ -285,11 +312,22 @@ describe('TorneosPublicos', () => {
       fixture.detectChanges();
     };
 
-    it('**pagar y volver lo dice: la inscripción quedó confirmada**', async () => {
-      await volviendo('listo');
+    it.each([
+      ['listo', 'Pago recibido: tu inscripción quedó confirmada'],
+      ['comprobante', 'Recibimos tu comprobante'],
+      ['inscrito', 'quedaste inscrito'],
+    ])(
+      '**`?pago=%s` confirma algo hecho: va al snackbar, no fijo en la página** (T324, S2)',
+      async (pago, dice) => {
+        // Como «Hora tomada» en la agenda (T283): lo hecho se confirma con el snackbar, y en la
+        // página se quedan los errores y lo que hay que leer antes de seguir.
+        await volviendo(pago);
 
-      expect(texto()).toContain('Pago recibido');
-    });
+        expect(avisoDeLoHecho()).toContain(dice);
+        expect(elemento().querySelector('#resultado-del-pago')).toBeNull();
+      },
+    );
+
 
     it('**anular el pago dice que no quedó inscrito**', async () => {
       // Es el arreglo del defecto que encontró el club: cerrar la ventana de pago
@@ -305,20 +343,54 @@ describe('TorneosPublicos', () => {
       expect(texto()).toContain('no quedó tomada');
     });
 
+    it('**la lista de espera se queda fija en la página**: hay que leerla antes de irse (T323)', async () => {
+      // No quedó dentro: no es una confirmación que se va sola.
+      await volviendo('espera');
+
+      expect(elemento().querySelector('#resultado-del-pago')?.textContent).toContain(
+        'lista de espera',
+      );
+      expect(avisoDeLoHecho()).toBe('');
+    });
+
+    it('**la lista de espera dice que no se cobra y que se avisa por correo** (T328)', async () => {
+      await volviendo('espera');
+
+      const aviso = elemento().querySelector('#resultado-del-pago')?.textContent ?? '';
+      expect(aviso).toContain('sin pagar nada');
+      expect(aviso).toContain('te avisamos por correo');
+      expect(aviso).not.toContain('el club te llama');
+    });
+
+    it('**la página lleva a la vista el aviso que hay que leer** (T323)', async () => {
+      // En el escritorio, el hero lo dejaba bajo el borde de la pantalla. jsdom no tiene
+      // scrollIntoView: se pone uno que anota sobre qué elemento se llamó.
+      const original = Element.prototype.scrollIntoView;
+      const llevar = vi.fn();
+      Element.prototype.scrollIntoView = llevar;
+
+      await volviendo('espera');
+      await fixture.whenStable();
+
+      expect(llevar.mock.contexts[0]).toBe(elemento().querySelector('#resultado-del-pago'));
+      Element.prototype.scrollIntoView = original;
+    });
+
     it('sin volver de la pasarela no hay ningún aviso', () => {
       expect(texto()).not.toContain('Pago recibido');
       expect(texto()).not.toContain('no quedó tomada');
     });
   });
 
-  it('**llegar con `?inscripcion=5` abre el formulario de ese torneo**', async () => {
-    // Es el botón "Inscribirme" de la portada: sin esto aterriza en la lista y hay
-    // que volver a buscar el torneo que ya se había elegido.
-    fixture.componentRef.setInput('inscripcion', '5');
-    await fixture.whenStable();
-    fixture.detectChanges();
+  it('**«Inscribirme» lleva a la página de la inscripción** (T316, D4)', () => {
+    // Un enlace y no un botón que despliega el formulario en la tarjeta: la inscripción
+    // tiene sus pasos, y abierta en la lista empujaba los demás torneos hacia abajo.
+    const enlace = Array.from(elemento().querySelectorAll('a')).find((a) =>
+      a.textContent?.includes('Inscribirme'),
+    );
 
-    expect(elemento().querySelector('app-inscripcion-a-torneo')).not.toBeNull();
+    expect(enlace?.getAttribute('href')).toBe('/torneos/5/inscripcion');
+    expect(elemento().querySelector('app-inscripcion-a-torneo')).toBeNull();
   });
 
   it('sin cupos lo dice, y explica que se entra en lista de espera', async () => {
@@ -330,6 +402,21 @@ describe('TorneosPublicos', () => {
     ]);
 
     expect(texto()).toContain('lista de espera');
+  });
+
+  it('**un torneo con la inscripción vencida lo dice, y no ofrece inscribirse** (T321)', async () => {
+    // Sigue en estado de inscripción hasta que se arma el cuadro, pero su último día ya pasó y
+    // la API rechaza la inscripción: ofrecerla era un botón que termina en error.
+    await montar([{ ...EN_INSCRIPCION, cierreInscripcion: '2020-01-01' }]);
+
+    const tarjeta = elemento().querySelector('li')?.textContent ?? '';
+    expect(tarjeta).toContain('Inscripción cerrada');
+    expect(tarjeta).not.toContain('Inscripción abierta');
+    expect(tarjeta).toContain('La inscripción cerró el');
+    // Ni el precio ni los cupos: ya no hay a qué entrar.
+    expect(tarjeta).not.toContain('quedan');
+    const enlaces = Array.from(elemento().querySelectorAll('li a')).map((a) => a.textContent);
+    expect(enlaces.some((texto) => texto?.includes('Inscribirme'))).toBe(false);
   });
 
   it('un torneo que ya empezó no habla de inscripción', async () => {
@@ -345,7 +432,7 @@ describe('TorneosPublicos', () => {
   it('las categorías van como tabla de posiciones: categoría, inscripción y cupos', () => {
     // TV4.2: mientras la inscripción está abierta, lo que se compara entre
     // categorías es cuánto cuesta y cuánto lugar queda.
-    const tabla = elemento().querySelector('li table.tabla');
+    const tabla = elemento().querySelector('li table');
     const encabezados = [...(tabla?.querySelectorAll('thead th') ?? [])].map((th) =>
       th.textContent?.trim(),
     );
@@ -390,7 +477,7 @@ describe('TorneosPublicos', () => {
     it('**abrir una categoría abre su modal y lo pone en la dirección**', async () => {
       await apretar('Ver quiénes juegan');
 
-      expect(elemento().querySelector('dialog')?.open).toBe(true);
+      expect(document.querySelector('mat-dialog-container')).not.toBeNull();
       expect(api.cuadroPublico).toHaveBeenCalledWith(7);
       expect(navegar).toHaveBeenLastCalledWith(
         [],
@@ -404,17 +491,20 @@ describe('TorneosPublicos', () => {
       fixture.detectChanges();
       await fixture.whenStable();
 
-      expect(elemento().querySelector('dialog')?.open).toBe(true);
+      expect(document.querySelector('mat-dialog-container')).not.toBeNull();
       expect(api.cuadroPublico).toHaveBeenCalledWith(7);
     });
 
     it('cerrarlo lo saca de la dirección', async () => {
       await apretar('Ver quiénes juegan');
 
-      elemento().querySelector('dialog')!.close();
+      // El cuadro es un MatDialog (T252): se cierra con su botón.
+      [...document.querySelectorAll<HTMLButtonElement>('mat-dialog-container button')]
+        .find((b) => b.textContent?.trim() === 'Cerrar')!
+        .click();
       await fixture.whenStable();
 
-      expect(elemento().querySelector('dialog')?.open).toBe(false);
+      expect(document.querySelector('mat-dialog-container')).toBeNull();
       expect(navegar).toHaveBeenLastCalledWith(
         [],
         expect.objectContaining({ queryParams: { cuadro: null } }),

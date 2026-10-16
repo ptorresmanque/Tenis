@@ -1,7 +1,12 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDatepickerInputHarness } from '@angular/material/datepicker/testing';
+import { MatFormFieldHarness } from '@angular/material/form-field/testing';
+import { MatTimepickerInputHarness } from '@angular/material/timepicker/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HoraAfectada } from '../../catalogo-canchas/admin/admin-canchas.service';
+import { elegidoEn, elegir, valoresDe } from '../../testing/elegir';
 import { Clases, FechaDeLaSerie } from '../clases.service';
 import { NuevaSerie } from './nueva-serie';
 
@@ -53,38 +58,56 @@ describe('NuevaSerie', () => {
   };
 
   const escribir = async (selector: string, valor: string) => {
-    const campo = el().querySelector<HTMLInputElement | HTMLSelectElement>(selector)!;
+    // Las listas son de Material (T248): se abren y se elige, como una persona.
+    if (selector.startsWith('mat-select')) return elegir(fixture, selector, valor);
+
+    const campo = el().querySelector<HTMLInputElement>(selector)!;
     campo.value = valor;
     // Un campo de texto avisa al escribir y al terminar (`change`): el de fecha de Material
     // toma el valor al terminar, como cuando se sale del campo (T125).
-    if (!(campo instanceof HTMLSelectElement)) campo.dispatchEvent(new Event('input'));
+    campo.dispatchEvent(new Event('input'));
     campo.dispatchEvent(new Event('change'));
     await esperar();
   };
 
-  /** Llena la serie de los tests: martes y jueves de 19 a 20, del 14 de octubre al 31. */
-  const llenar = async () => {
-    await escribir('select[name="serie-cancha"]', '2');
-    await escribir('select[name="serie-profesor"]', '4');
-    for (const dia of ['Martes', 'Jueves']) {
-      [...el().querySelectorAll('label')]
-        .find((label) => label.textContent?.trim() === dia)!
-        .querySelector('input')!
-        .click();
-    }
+  /** Marca o desmarca la casilla de un día. */
+  const marcar = async (dia: string) => {
+    [...el().querySelectorAll('label')]
+      .find((label) => label.textContent?.trim() === dia)!
+      .querySelector('input')!
+      .click();
+    await esperar();
+  };
+
+  /**
+   * Llena la serie de los tests: martes y jueves de 19 a 20 en la Cancha 1, del 14 de octubre
+   * al 31. La cancha se elige en el martes y el jueves nace con ella (T230).
+   */
+  const llenar = async (conProfesor = true) => {
+    if (conProfesor) await escribir('mat-select[name="serie-profesor"]', '4');
+    await marcar('Martes');
+    await escribir('mat-select[name="serie-cancha-2"]', '2');
+    await marcar('Jueves');
     await escribir('input[name="serie-desde"]', '2037-10-14');
     await escribir('input[name="serie-hasta"]', '2037-10-31');
   };
 
-  const revisar = async (fechas = FECHAS) => {
+  /** Lo que muestra el renglón de un día: su horario y su cancha. */
+  const renglon = (dia: number) => ({
+    desde: el().querySelector<HTMLInputElement>(`input[name="serie-hora-desde-${dia}"]`)?.value,
+    hasta: el().querySelector<HTMLInputElement>(`input[name="serie-hora-hasta-${dia}"]`)?.value,
+    cancha: elegidoEn(fixture, `mat-select[name="serie-cancha-${dia}"]`),
+  });
+
+  const revisar = async (fechas = FECHAS, conProfesor = true) => {
     api.simularSerie.mockResolvedValue({ fechas });
-    await llenar();
+    await llenar(conProfesor);
     boton('Revisar fechas').click();
     await esperar();
   };
 
   const decidir = async (dia: string, valor: string) => {
-    await escribir(`select[name="decision-${dia}"]`, valor);
+    await escribir(`mat-select[name="decision-${dia}"]`, valor);
   };
 
   beforeEach(async () => {
@@ -105,7 +128,10 @@ describe('NuevaSerie', () => {
     TestBed.configureTestingModule({ providers: [{ provide: Clases, useValue: api }] });
 
     fixture = TestBed.createComponent(NuevaSerie);
-    fixture.componentRef.setInput('canchas', [{ id: 2, nombre: 'Cancha 1' }]);
+    fixture.componentRef.setInput('canchas', [
+      { id: 2, nombre: 'Cancha 1' },
+      { id: 3, nombre: 'Cancha 2' },
+    ]);
     fixture.componentRef.setInput('profesores', [
       { id: 4, nombreVisible: 'Ana Silva', especialidad: 'Iniciación' },
     ]);
@@ -114,16 +140,32 @@ describe('NuevaSerie', () => {
     await esperar();
   });
 
+  it('**las horas y las fechas son campos de Material**, con su etiqueta (T244)', async () => {
+    await marcar('Martes');
+    const raiz = TestbedHarnessEnvironment.loader(fixture);
+    const etiquetas = await Promise.all(
+      (await raiz.getAllHarnesses(MatFormFieldHarness)).map((campo) => campo.getLabel()),
+    );
+
+    expect(etiquetas).toEqual(
+      expect.arrayContaining(['Desde', 'Hasta', 'Primera fecha', 'Última fecha']),
+    );
+    expect(await raiz.getAllHarnesses(MatTimepickerInputHarness)).toHaveLength(2);
+    expect(await raiz.getAllHarnesses(MatDatepickerInputHarness)).toHaveLength(2);
+  });
+
   it('**revisar manda la serie con los días marcados y muestra cada fecha**', async () => {
     await revisar();
 
     expect(api.simularSerie).toHaveBeenCalledWith(
       expect.objectContaining({
-        canchaId: 2,
+        tipo: 'TENIS',
         profesorId: 4,
-        diasSemana: [2, 4],
-        horaDesde: '19:00',
-        horaHasta: '20:00',
+        nivel: 'INICIACION',
+        dias: [
+          { diaSemana: 2, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
+          { diaSemana: 4, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
+        ],
         desde: '2037-10-14',
         hasta: '2037-10-31',
       }),
@@ -133,8 +175,87 @@ describe('NuevaSerie', () => {
     expect(texto()).toContain('Cambio de red');
   });
 
+  /** T230. El pedido del club: lunes de 19 a 20 en una cancha y martes de 18 a 19 en otra. */
+  describe('un renglón por día', () => {
+    it('**cada día marcado lleva su horario y su cancha, y la serie viaja con los dos**', async () => {
+      api.simularSerie.mockResolvedValue({ fechas: [] });
+      await escribir('mat-select[name="serie-profesor"]', '4');
+      await marcar('Lunes');
+      await escribir('mat-select[name="serie-cancha-1"]', '2');
+      await marcar('Martes');
+      await escribir('input[name="serie-hora-desde-2"]', '18:00');
+      await escribir('input[name="serie-hora-hasta-2"]', '19:00');
+      await escribir('mat-select[name="serie-cancha-2"]', '3');
+
+      // Cambiar el martes no toca el lunes.
+      expect(renglon(1)).toEqual({ desde: '19:00', hasta: '20:00', cancha: '2' });
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(api.simularSerie).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dias: [
+            { diaSemana: 1, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 },
+            { diaSemana: 2, horaDesde: '18:00', horaHasta: '19:00', canchaId: 3 },
+          ],
+        }),
+      );
+    });
+
+    it('un día nuevo nace con el horario y la cancha del último día tocado', async () => {
+      await marcar('Lunes');
+      await escribir('input[name="serie-hora-desde-1"]', '17:30');
+      await escribir('input[name="serie-hora-hasta-1"]', '18:30');
+      await escribir('mat-select[name="serie-cancha-1"]', '3');
+      await marcar('Jueves');
+
+      expect(renglon(4)).toEqual({ desde: '17:30', hasta: '18:30', cancha: '3' });
+    });
+
+    it('desmarcar un día saca su renglón, y la serie va sin él', async () => {
+      api.simularSerie.mockResolvedValue({ fechas: [] });
+      await llenar();
+      await marcar('Martes');
+
+      expect(el().querySelector('mat-select[name="serie-cancha-2"]')).toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(api.simularSerie).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dias: [{ diaSemana: 4, horaDesde: '19:00', horaHasta: '20:00', canchaId: 2 }],
+        }),
+      );
+    });
+
+    it('un día sin cancha no llama al servidor y dice cuál es', async () => {
+      // El miércoles se marca sin elegirle cancha: «Elige una cancha» está deshabilitada y no
+      // se puede volver a ella, como en cualquier lista (T248).
+      await escribir('mat-select[name="serie-profesor"]', '4');
+      await marcar('Miércoles');
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(api.simularSerie).not.toHaveBeenCalled();
+      expect(texto()).toContain('Elige la cancha del miércoles.');
+    });
+
+    it('los renglones van en el orden de la semana, no en el que se marcaron', async () => {
+      await marcar('Domingo');
+      await marcar('Miércoles');
+      await marcar('Lunes');
+
+      const orden = [...el().querySelectorAll('mat-select[name^="serie-cancha-"]')].map((campo) =>
+        campo.getAttribute('name'),
+      );
+      expect(orden).toEqual(['serie-cancha-1', 'serie-cancha-3', 'serie-cancha-0']);
+    });
+  });
+
   it('sin días de la semana, revisar no llama al servidor y lo dice', async () => {
-    await escribir('select[name="serie-cancha"]', '2');
+    await escribir('mat-select[name="serie-profesor"]', '4');
     boton('Revisar fechas').click();
     await esperar();
 
@@ -156,8 +277,8 @@ describe('NuevaSerie', () => {
     await revisar();
 
     const opciones = [
-      ...el().querySelectorAll<HTMLOptionElement>('select[name="decision-2037-10-22"] option'),
-    ].map((opcion) => opcion.value);
+      ...valoresDe(fixture, 'mat-select[name="decision-2037-10-22"]'),
+    ];
     expect(opciones).toEqual(['', 'saltar']);
   });
 
@@ -169,10 +290,12 @@ describe('NuevaSerie', () => {
     boton('Agendar serie').click();
     await esperar();
 
-    expect(api.agendarSerie).toHaveBeenCalledWith(expect.objectContaining({ diasSemana: [2, 4] }), {
-      '2037-10-20': 'cancelar',
-      '2037-10-22': 'saltar',
-    });
+    expect(api.agendarSerie).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dias: [expect.objectContaining({ diaSemana: 2 }), expect.objectContaining({ diaSemana: 4 })],
+      }),
+      { '2037-10-20': 'cancelar', '2037-10-22': 'saltar' },
+    );
     expect(agendadas).toEqual([
       'Serie agendada: 2 clases. Se saltó 1 fecha. Avisamos a 1 persona que tenía su hora.',
     ]);
@@ -190,7 +313,7 @@ describe('NuevaSerie', () => {
 
   it('si la serie cambia después de revisarla, pide revisarla de nuevo', async () => {
     await revisar([fecha('2037-10-27')]);
-    await escribir('input[name="serie-hora-desde"]', '18:00');
+    await escribir('input[name="serie-hora-desde-4"]', '18:00');
 
     const agendar = boton('Agendar serie');
     expect(agendar.disabled).toBe(true);
@@ -238,12 +361,89 @@ describe('NuevaSerie', () => {
 
     expect(api.simularSerie).toHaveBeenCalledTimes(2);
     expect(texto()).toContain('martes 27 de octubre (reservas ZZ9)');
-    expect(el().querySelector<HTMLSelectElement>('select[name="decision-2037-10-22"]')!.value).toBe(
-      'saltar',
-    );
-    expect(el().querySelector<HTMLSelectElement>('select[name="decision-2037-10-27"]')!.value).toBe(
-      '',
-    );
+    expect(elegidoEn(fixture, 'mat-select[name="decision-2037-10-22"]')).toBe('saltar');
+    expect(elegidoEn(fixture, 'mat-select[name="decision-2037-10-27"]')).toBe('');
     expect(boton('Agendar serie').disabled).toBe(true);
+  });
+
+  /** T233. La serie del gimnasio: sus días sin cancha, sin nivel, y grupal o individual. */
+  describe('preparación física', () => {
+    const enviada = () => api.simularSerie.mock.calls[0][0] as Record<string, unknown>;
+
+    beforeEach(async () => {
+      api.simularSerie.mockResolvedValue({ fechas: [] });
+      await marcar('Preparación física');
+      await escribir('mat-select[name="serie-profesor"]', '4');
+      await marcar('Lunes');
+    });
+
+    it('**los días no piden cancha, no hay nivel, y la serie viaja con su tipo y sin ellos**', async () => {
+      expect(el().querySelector('mat-select[name="serie-cancha-1"]')).toBeNull();
+      expect(el().querySelector('mat-select[name="serie-nivel"]')).toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(enviada()).toMatchObject({
+        tipo: 'PREPARACION_FISICA',
+        dias: [{ diaSemana: 1, horaDesde: '19:00', horaHasta: '20:00' }],
+        cupoMaximo: 6,
+      });
+      expect((enviada()['dias'] as object[])[0]).not.toHaveProperty('canchaId');
+      expect(enviada()).not.toHaveProperty('nivel');
+    });
+
+    it('"Individual" manda un alumno, y no pregunta el cupo', async () => {
+      await marcar('Individual');
+
+      expect(el().querySelector('input[name="serie-cupo"]')).toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      expect(enviada()).toMatchObject({ cupoMaximo: 1 });
+    });
+
+    it('**volviendo a "Tenis", el día vuelve a pedir su cancha**', async () => {
+      await marcar('Tenis');
+
+      expect(el().querySelector('mat-select[name="serie-cancha-1"]')).not.toBeNull();
+
+      boton('Revisar fechas').click();
+      await esperar();
+
+      // Sin cancha elegida, lo dice antes de llamar.
+      expect(api.simularSerie).not.toHaveBeenCalled();
+      expect(texto()).toContain('Elige la cancha del lunes.');
+    });
+  });
+
+  /** T222. El profesor arma su propia serie: no elige profesor ni cancela reservas. */
+  describe('con el profesor fijo', () => {
+    beforeEach(async () => {
+      fixture.componentRef.setInput('profesorFijo', 9);
+      await esperar();
+    });
+
+    it('no ofrece elegir profesor, y la serie va a su nombre', async () => {
+      expect(el().querySelector('mat-select[name="serie-profesor"]')).toBeNull();
+
+      await revisar(FECHAS, false);
+
+      expect(api.simularSerie).toHaveBeenCalledWith(expect.objectContaining({ profesorId: 9 }));
+    });
+
+    it('**en la fecha con reservas solo ofrece saltar, y dice a quién pedírselo**', async () => {
+      await revisar(FECHAS, false);
+
+      const opciones = [
+        ...valoresDe(fixture, 'mat-select[name="decision-2037-10-20"]'),
+      ];
+
+      expect(opciones).toEqual(['', 'saltar']);
+      expect(texto()).toContain('Para cancelarlas, habla con administración');
+      // De quién son no lo dice: el profesor no ve el padrón (T218).
+      expect(texto()).not.toContain('Camila Visitante');
+    });
   });
 });

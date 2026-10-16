@@ -1,4 +1,8 @@
 import { Component, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import {
   diaEnPalabras,
@@ -6,8 +10,8 @@ import {
   horaEnElClub,
 } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
+import { Pendientes } from '../../core/pendientes';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import { Decision, HoraReportada, Reportes } from './reportes.service';
 import { Esqueleto } from '../../ui/esqueleto';
 
@@ -21,18 +25,14 @@ import { Esqueleto } from '../../ui/esqueleto';
  */
 @Component({
   selector: 'app-reportes',
-  imports: [EstadoVacio, Insignia, Esqueleto],
+  imports: [MatCard, MatButton, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: cada hora trae las suyas. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Horas reportadas</h1>
-        <p class="mt-1 text-muted-foreground">
-          Un socio avisó que estas horas quedaron sin usar. Los reportes son anónimos:
-          el sistema no guarda ni muestra quién avisó.
-        </p>
-      </div>
-    </header>
+    <!-- Es la pestaña «Por revisar» de Horas no usadas (T287): el titular va en la pantalla
+         madre. -->
+    <p class="max-w-prose text-muted-foreground">
+      Un socio avisó que estas horas quedaron sin usar. Los reportes son anónimos:
+      el sistema no guarda ni muestra quién avisó.
+    </p>
 
     <p role="status" aria-live="polite" class="mt-3 text-sm">
       @if (error()) {
@@ -59,66 +59,73 @@ import { Esqueleto } from '../../ui/esqueleto';
       } @else {
         <ul class="mt-6 space-y-3">
           @for (reportada of horas; track reportada.reservaId) {
-            <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2 class="titulo-tarjeta">
-                  {{ dia(reportada.inicio) }}, {{ hora(reportada.inicio) }}–{{ hora(reportada.fin) }}
-                </h2>
-                <span class="text-sm text-muted-foreground">{{ reportada.cancha }}</span>
-                <app-insignia variante="error" icono="flag">
-                  {{ reportada.reportes === 1 ? '1 reporte' : reportada.reportes + ' reportes' }}
-                </app-insignia>
-              </div>
+            <li>
+              <mat-card appearance="outlined" class="p-4">
+                <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 class="titulo-tarjeta">
+                    {{ dia(reportada.inicio) }}, {{ hora(reportada.inicio) }}–{{ hora(reportada.fin) }}
+                  </h2>
+                  <span class="text-sm text-muted-foreground">{{ reportada.cancha }}</span>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia error">
+                      <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                      {{ reportada.reportes === 1 ? '1 reporte' : reportada.reportes + ' reportes' }}
+                    </mat-chip>
+                  </mat-chip-set>
+                </div>
 
-              @if (reportada.socio; as socio) {
-                <p class="mt-1 text-sm">
-                  Reservada por
-                  <span class="font-medium">{{ socio.nombre }}</span>
-                  <span class="text-muted-foreground">
-                    (socio {{ socio.numeroSocio }})
-                  </span>
-                  @if (socio.sancionadoHasta) {
-                    <span class="text-destructive">
-                      · ya sancionado hasta {{ enDiaMes(socio.sancionadoHasta) }}
+                @if (reportada.socio; as socio) {
+                  <p class="mt-1 text-sm">
+                    Reservada por
+                    <span class="font-medium">{{ socio.nombre }}</span>
+                    <span class="text-muted-foreground">
+                      (socio {{ socio.numeroSocio }})
                     </span>
-                  }
-                </p>
-              } @else {
-                <p class="mt-1 text-sm text-muted-foreground">
-                  La reservó un visitante sin cuenta: no hay socio a quien
-                  sancionar.
-                </p>
-              }
-
-              <div class="mt-3 flex flex-wrap gap-2">
-                @if (reportada.socio) {
-                  <!-- La primitiva y no clases a mano (hallazgo de TV2.3): el contorno
-                       rojo es el de "Eliminar" en las canchas y "Revocar" en socios. -->
-                  <button
-                    type="button"
-                    [disabled]="resolviendo()"
-                    [attr.aria-busy]="enCurso() === reportada.reservaId + '-SANCIONAR'"
-                    class="boton boton-secundario boton-chico border-destructive text-destructive"
-                    (click)="resolver(reportada, 'SANCIONAR')"
-                  >
-                    Sancionar
-                    <span class="sr-only">a {{ reportada.socio!.nombre }}</span>
-                  </button>
+                    @if (socio.sancionadoHasta) {
+                      <span class="text-destructive">
+                        · ya sancionado hasta {{ enDiaMes(socio.sancionadoHasta) }}
+                      </span>
+                    }
+                  </p>
+                } @else {
+                  <p class="mt-1 text-sm text-muted-foreground">
+                    La reservó un visitante sin cuenta: no hay socio a quien
+                    sancionar.
+                  </p>
                 }
 
-                <button
-                  type="button"
-                  [disabled]="resolviendo()"
-                  [attr.aria-busy]="enCurso() === reportada.reservaId + '-DESCARTAR'"
-                  class="boton boton-texto boton-chico"
-                  (click)="resolver(reportada, 'DESCARTAR')"
-                >
-                  Descartar
-                  <span class="sr-only">
-                    los reportes de la hora {{ hora(reportada.inicio) }}
-                  </span>
-                </button>
-              </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  @if (reportada.socio) {
+                    <!-- La primitiva y no clases a mano (hallazgo de TV2.3): el contorno
+                         rojo es el de "Eliminar" en las canchas y "Revocar" en socios. -->
+                    <button
+                      matButton="outlined"
+                      type="button"
+                      [disabled]="resolviendo()"
+                      [attr.aria-busy]="enCurso() === reportada.reservaId + '-SANCIONAR'"
+                      class="peligro chico"
+                      (click)="resolver(reportada, 'SANCIONAR')"
+                    >
+                      Sancionar
+                      <span class="sr-only">a {{ reportada.socio!.nombre }}</span>
+                    </button>
+                  }
+
+                  <button
+                    matButton
+                    type="button"
+                    [disabled]="resolviendo()"
+                    [attr.aria-busy]="enCurso() === reportada.reservaId + '-DESCARTAR'"
+                    class="chico"
+                    (click)="resolver(reportada, 'DESCARTAR')"
+                  >
+                    Descartar
+                    <span class="sr-only">
+                      los reportes de la hora {{ hora(reportada.inicio) }}
+                    </span>
+                  </button>
+                </div>
+              </mat-card>
             </li>
           }
         </ul>
@@ -128,6 +135,8 @@ import { Esqueleto } from '../../ui/esqueleto';
 })
 export class ReportesPanel {
   private readonly api = inject(Reportes);
+  /** El conteo de los badges (T287), que no es la lista de esta pantalla. */
+  private readonly conteoDelPanel = inject(Pendientes);
 
   protected readonly resolviendo = signal(false);
   /** Qué decisión está viajando, para que gire su botón y no todos (T154). */
@@ -165,6 +174,8 @@ export class ReportesPanel {
           : 'Sin sanción: los reportes de esa hora quedaron descartados.',
       );
       this.version.update((v) => v + 1);
+      // La hora ya no espera: el badge de «Por revisar» (T287) baja con ella.
+      this.conteoDelPanel.recargar();
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla, 'No se pudo resolver el reporte.'));
     } finally {

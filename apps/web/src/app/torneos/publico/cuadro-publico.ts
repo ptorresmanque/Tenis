@@ -1,17 +1,25 @@
+import { BreakpointObserver } from '@angular/cdk/layout';
 import {
   Component,
   computed,
-  effect,
-  ElementRef,
   inject,
   input,
   linkedSignal,
   output,
   resource,
+  TemplateRef,
   viewChild,
 } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatButton } from '@angular/material/button';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatChipsModule } from '@angular/material/chips';
 
-import { Insignia } from '../../ui/insignia';
+import { dialogoSegun } from '../../ui/dialogo';
+import { proveerCampos } from '../../ui/campos';
 import { CuadroPublico, Foto, Torneos, Transmision } from '../torneos.service';
 import { Arbol } from './arbol';
 import { esBye, esDe } from './busqueda';
@@ -35,24 +43,32 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
  * del pago, que es lo único que se publica de cada uno. **Después, el cuadro.** Debajo,
  * las fotos y los lives del torneo, que antes se abrían bajo la categoría.
  *
- * Es un `<dialog>` con `showModal()`: el navegador atrapa el foco, vuelve inerte el resto
- * y cierra con Escape. Lo abre la página, que es la que sabe de `?cuadro=<id>`; este
- * componente solo sigue a `cuadroId` y avisa cuando se cierra.
+ * Es un MatDialog (T252): atrapa el foco, vuelve inerte el resto, cierra con Escape y
+ * devuelve el foco a quien lo abrió. Lo abre la página, que es la que sabe de
+ * `?cuadro=<id>`; este componente solo sigue a `cuadroId` y avisa cuando se cierra.
  */
 @Component({
   selector: 'app-cuadro-publico',
-  imports: [Arbol, Esqueleto, Galeria, Insignia, OrdenDeJuego, Reproductor],
+  imports: [
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    MatIcon,
+    Arbol,
+    Esqueleto,
+    Galeria,
+    OrdenDeJuego,
+    Reproductor,
+    MatChipsModule,
+    MatTabsModule,
+  ],
+  providers: [proveerCampos()],
   template: `
-    <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. -->
-    <dialog
-      #dialogo
-      closedby="any"
-      aria-labelledby="titulo-cuadro-publico"
-      class="m-auto max-h-[90dvh] w-[min(56rem,94vw)] overflow-y-auto rounded-2xl bg-card
-             p-0 shadow-xl backdrop:bg-foreground/50 max-sm:m-0 max-sm:h-dvh
-             max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:rounded-none"
-      (close)="alCerrar()"
-    >
+    <!-- A pantalla completa en el teléfono, que es donde más se mira, en el club. La
+         cabecera queda fija y el resto se desplaza debajo, por eso no lleva
+         mat-dialog-content, que se desplaza por su cuenta. -->
+    <ng-template #dialogo>
       <header
         class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b
                border-border bg-card px-5 py-4"
@@ -63,12 +79,7 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
           }
           <h2 id="titulo-cuadro-publico" class="titular text-2xl">{{ titulo() }}</h2>
         </div>
-        <button
-          #botonCerrar
-          type="button"
-          class="boton boton-secundario boton-chico shrink-0"
-          (click)="dialogo.close()"
-        >
+        <button matButton="outlined" type="button" class="chico shrink-0" mat-dialog-close>
           Cerrar
         </button>
       </header>
@@ -94,9 +105,19 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
                       <span>{{ inscrito.nombre }}</span>
                     </span>
                     @if (inscrito.pago === 'PAGADO') {
-                      <app-insignia variante="exito">Pagado</app-insignia>
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia exito">
+                          <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+                          Pagado
+                        </mat-chip>
+                      </mat-chip-set>
                     } @else if (inscrito.pago === 'PENDIENTE') {
-                      <app-insignia variante="aviso">Pago pendiente</app-insignia>
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia aviso">
+                          <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                          Pago pendiente
+                        </mat-chip>
+                      </mat-chip-set>
                     }
                   </li>
                 }
@@ -105,25 +126,23 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
           } @else {
             <!-- Un buscador para las dos pestañas (T137): marca lo mismo en el orden de
                  juego y en el árbol. -->
-            <div class="relative">
-              <label for="buscar-jugador" class="sr-only">Buscar a un jugador</label>
-              <span
-                class="icono pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
-                       text-lg text-muted-foreground"
-                aria-hidden="true"
-              >
+            <!-- Sin etiqueta a la vista, como antes: la lupa y el texto de ayuda dicen qué es, y
+                 el lector oye el nombre del campo. -->
+            <mat-form-field class="w-full">
+              <mat-icon matIconPrefix class="text-lg text-muted-foreground" aria-hidden="true">
                 search
-              </span>
+              </mat-icon>
               <input
+                matInput
                 id="buscar-jugador"
                 type="search"
-                class="campo ps-9"
+                aria-label="Buscar a un jugador"
                 placeholder="Busca tu nombre o apellido"
                 autocomplete="off"
                 [value]="busqueda()"
                 (input)="busqueda.set(valorDe($event))"
               />
-            </div>
+            </mat-form-field>
             <!-- Cuántos encontró, para el lector de pantalla; el "nadie" también se ve. -->
             <p class="sr-only" aria-live="polite">{{ resumen() }}</p>
             @if (busqueda().trim() !== '' && encontrados() === 0) {
@@ -132,57 +151,29 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
               </p>
             }
 
-            <!-- El patrón de pestañas de ARIA: las flechas mueven la pestaña y el foco, y
-                 solo la elegida entra en el orden del tabulador. -->
-            <div
-              role="tablist"
+            <!-- Las pestañas de Material (T262): las flechas recorren las pestañas, Enter o
+                 Espacio eligen, y solo la elegida entra en el orden del tabulador. Cada
+                 categoría empieza en "Por día". -->
+            <mat-tab-group
+              class="mt-3"
               aria-label="Cómo ver el cuadro"
-              class="mt-3 flex gap-5 border-b border-border"
+              mat-stretch-tabs="false"
+              mat-align-tabs="start"
+              [selectedIndex]="indiceDeLaVista()"
+              (selectedIndexChange)="vista.set(PESTANAS[$event].id)"
             >
-              @for (pestana of PESTANAS; track pestana.id) {
-                <button
-                  type="button"
-                  role="tab"
-                  [id]="'pestana-' + pestana.id"
-                  [attr.aria-controls]="'panel-' + pestana.id"
-                  [attr.aria-selected]="vista() === pestana.id"
-                  [tabIndex]="vista() === pestana.id ? 0 : -1"
-                  class="-mb-px cursor-pointer border-b-2 py-2 font-display text-sm font-bold
-                         tracking-wide uppercase"
-                  [class]="
-                    vista() === pestana.id
-                      ? 'border-primary text-foreground'
-                      : 'border-transparent text-muted-foreground'
-                  "
-                  (click)="vista.set(pestana.id)"
-                  (keydown)="moverPestana($event)"
-                >
-                  {{ pestana.nombre }}
-                </button>
-              }
-            </div>
-
-            <!-- **Primero cuándo y dónde se juega** (T136, opción C); el árbol, al lado. -->
-            <div
-              role="tabpanel"
-              id="panel-dia"
-              aria-labelledby="pestana-dia"
-              tabindex="0"
-              class="mt-3"
-              [hidden]="vista() !== 'dia'"
-            >
-              <app-orden-de-juego [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
-            </div>
-            <div
-              role="tabpanel"
-              id="panel-arbol"
-              aria-labelledby="pestana-arbol"
-              tabindex="0"
-              class="mt-3"
-              [hidden]="vista() !== 'arbol'"
-            >
-              <app-arbol [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
-            </div>
+              <!-- **Primero cuándo y dónde se juega** (T136, opción C); el árbol, al lado. -->
+              <mat-tab [label]="PESTANAS[0].nombre">
+                <app-orden-de-juego
+                  class="mt-3 block"
+                  [partidos]="cuadro.partidos"
+                  [busqueda]="busqueda()"
+                />
+              </mat-tab>
+              <mat-tab [label]="PESTANAS[1].nombre">
+                <app-arbol class="mt-3 block" [partidos]="cuadro.partidos" [busqueda]="busqueda()" />
+              </mat-tab>
+            </mat-tab-group>
           }
 
           <!-- Del torneo y no de la categoría: la entrega de premios y el live de la
@@ -209,12 +200,11 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
           <app-esqueleto [filas]="4" etiqueta="Cargando el cuadro…" />
         }
       </div>
-    </dialog>
+    </ng-template>
   `,
 })
 export class CuadroPublicoModal {
   private readonly api = inject(Torneos);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** El cuadro que se mira, o nulo con el modal cerrado. */
   readonly cuadroId = input<number | null>(null);
@@ -222,13 +212,7 @@ export class CuadroPublicoModal {
   /** Se cerró: con Escape, con un clic en el fondo o con el botón. */
   readonly cerrar = output<void>();
 
-  private readonly dialogo =
-    viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
-  private readonly botonCerrar =
-    viewChild.required<ElementRef<HTMLButtonElement>>('botonCerrar');
-
-  /** Quién lo abrió: al cerrar, el foco vuelve ahí y no al principio de la página. */
-  private abridor: HTMLElement | null = null;
+  private readonly dialogo = viewChild.required<TemplateRef<unknown>>('dialogo');
 
   protected readonly consulta = resource({
     params: () => this.cuadroId() ?? undefined,
@@ -261,6 +245,11 @@ export class CuadroPublicoModal {
     this.cuadroId();
     return 'dia';
   });
+
+  /** La vista como índice de `mat-tab-group`, que cuenta las pestañas desde cero. */
+  protected readonly indiceDeLaVista = computed(() =>
+    PESTANAS.findIndex((pestana) => pestana.id === this.vista()),
+  );
 
   /** Los partidos del que se busca, sin los byes: lo que el resumen cuenta. */
   protected readonly encontrados = computed(
@@ -303,50 +292,22 @@ export class CuadroPublicoModal {
   });
 
   constructor() {
-    // Abrir y cerrar sigue a `cuadroId`: así Escape, el fondo y el botón —que terminan
-    // todos en el evento `close`— y un cambio de la dirección dejan el mismo estado.
-    effect(() => {
-      const abierto = this.cuadroId() !== null;
-      const dialogo = this.dialogo().nativeElement;
-
-      if (abierto && !dialogo.open) {
-        this.abridor = document.activeElement as HTMLElement | null;
-        dialogo.showModal();
-        // El primer control del modal; el navegador hace lo mismo, y así no depende de él.
-        this.botonCerrar().nativeElement.focus();
-      }
-
-      if (!abierto && dialogo.open) dialogo.close();
-    });
-  }
-
-  protected alCerrar(): void {
-    this.cerrar.emit();
-    this.abridor?.focus();
-    this.abridor = null;
-  }
-
-  /**
-   * Las flechas, Inicio y Fin mueven la pestaña y el foco (patrón de pestañas de ARIA).
-   * Al final da la vuelta.
-   */
-  protected moverPestana(evento: KeyboardEvent): void {
-    const ids = PESTANAS.map((pestana) => pestana.id);
-    const actual = ids.indexOf(this.vista());
-    const destino: Record<string, number> = {
-      ArrowRight: (actual + 1) % ids.length,
-      ArrowLeft: (actual - 1 + ids.length) % ids.length,
-      Home: 0,
-      End: ids.length - 1,
-    };
-    const siguiente = destino[evento.key];
-    if (siguiente === undefined) return;
-
-    evento.preventDefault();
-    this.vista.set(ids[siguiente]);
-    this.host.nativeElement
-      .querySelector<HTMLElement>(`#pestana-${ids[siguiente]}`)
-      ?.focus();
+    // Abrir y cerrar sigue a `cuadroId`: así Escape, el fondo, el botón y un cambio de la
+    // dirección dejan el mismo estado. El foco entra al botón de cerrar —el primero que se
+    // puede tocar— y al cerrarse vuelve a quien lo abrió: los dos los hace MatDialog.
+    const telefono = inject(BreakpointObserver).isMatched('(max-width: 639px)');
+    dialogoSegun(
+      () => this.cuadroId() !== null,
+      this.dialogo,
+      () => this.cerrar.emit(),
+      {
+        ariaLabelledBy: 'titulo-cuadro-publico',
+        autoFocus: 'button[mat-dialog-close]',
+        ...(telefono
+          ? { width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' }
+          : { width: '56rem', maxWidth: '94vw', maxHeight: '90dvh' }),
+      },
+    );
   }
 
   protected valorDe(evento: Event): string {

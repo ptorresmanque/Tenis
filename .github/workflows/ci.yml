@@ -20,29 +20,51 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # La misma versión que el hosting (ficha del servidor: 10.6). La base es efímera y no
-    # tiene datos, así que su clave va aquí y no como secreto: el repo es público, y un PR
-    # desde un fork no recibe secretos, así que con uno su CI fallaría siempre.
-    #
-    # La imagen oficial, bajada de su copia en AWS (ECR Public) y no de Docker Hub: Docker
-    # Hub limita las descargas sin cuenta por IP, y los runners de GitHub comparten IP. El
-    # 2026-10-09 el CI de #87 falló tres veces en "Initialize containers" con
-    # "toomanyrequests", sin llegar a correr un test.
-    services:
-      mariadb:
-        image: public.ecr.aws/docker/library/mariadb:10.6
-        env:
-          MARIADB_ROOT_PASSWORD: raiz
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -praiz"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-
     steps:
       - uses: actions/checkout@v4
+
+      # MariaDB, la misma versión que el hosting (ficha del servidor: 10.6). La base es efímera
+      # y no tiene datos, así que su clave va aquí y no como secreto: el repo es público, y un
+      # PR desde un fork no recibe secretos, así que con uno su CI fallaría siempre.
+      #
+      # **En un paso y no en `services:`**, para poder probar más de un registro. Los tres
+      # limitan las descargas sin cuenta por IP, y los runners de GitHub comparten IP: Docker
+      # Hub falló en #87 (2026-10-09), y ECR Public, al que se cambió entonces, falló nueve
+      # veces entre el 14 y el 15 de octubre con "toomanyrequests: Data limit exceeded", sin
+      # que el CI llegara a correr un test. `services:` prueba un solo registro, una vez. Acá
+      # se prueba el espejo de Google, después ECR y después Docker Hub, tres vueltas con
+      # espera: para fallar, los tres tendrían que estar limitados a la vez.
+      - name: Levantar MariaDB
+        run: |
+          for vuelta in 1 2 3; do
+            for imagen in \
+              mirror.gcr.io/library/mariadb:10.6 \
+              public.ecr.aws/docker/library/mariadb:10.6 \
+              docker.io/library/mariadb:10.6; do
+              if docker pull --quiet "$imagen"; then
+                docker run --detach --name mariadb --publish 3306:3306 \
+                  --env MARIADB_ROOT_PASSWORD=raiz \
+                  --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -praiz" \
+                  --health-interval=5s --health-timeout=5s --health-retries=20 \
+                  "$imagen"
+                break 2
+              fi
+              echo "::warning::No se pudo bajar $imagen (vuelta $vuelta)."
+            done
+            if [ "$vuelta" -lt 3 ]; then sleep $((vuelta * 20)); fi
+          done
+
+          docker inspect mariadb > /dev/null 2>&1 || {
+            echo '::error::No se pudo bajar MariaDB de ningún registro.'
+            exit 1
+          }
+          for _ in $(seq 1 60); do
+            [ "$(docker inspect --format '{{.State.Health.Status}}' mariadb)" = healthy ] && exit 0
+            sleep 2
+          done
+          echo '::error::MariaDB no quedó lista en dos minutos.'
+          docker logs mariadb
+          exit 1
 
       - uses: actions/setup-node@v4
         with:
@@ -53,7 +75,7 @@ jobs:
       # como en desarrollo: la shadow tiene que existir de antemano.
       - name: Crear las bases de la API
         run: |
-          docker exec ${{ job.services.mariadb.id }} mysql -uroot -praiz -e "
+          docker exec mariadb mysql -uroot -praiz -e "
             CREATE DATABASE tenis_dev    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
             CREATE DATABASE tenis_test   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
             CREATE DATABASE tenis_shadow CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

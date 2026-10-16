@@ -1,9 +1,15 @@
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatStepperHarness, StepperOrientation } from '@angular/material/stepper/testing';
+import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
+import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
+import { elegir, textosDe } from '../../testing/elegir';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -17,19 +23,25 @@ import { InscripcionATorneo } from './inscripcion';
 describe('InscripcionATorneo', () => {
   const CATEGORIAS: CategoriaPublica[] = [
     { id: 7, categoriaJuegoId: 20, categoria: '4ª', montoClp: 0, cupo: 4, cuposLibres: 2, armado: false },
-    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: 0, armado: false },
+    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: 1, armado: false },
+    // Cobra y está llena: quien la elige queda en la lista de espera, sin pagar (T328).
+    { id: 9, categoriaJuegoId: 30, categoria: '3ª', montoClp: 12_000, cupo: 2, cuposLibres: 0, armado: false },
   ];
 
   let fixture: ComponentFixture<InscripcionATorneo>;
+  /** `Router.navigate`, espiado: adónde termina la inscripción (T323). */
+  let navegar: MockInstance<Router['navigate']>;
   /** La sesión, como la tiene `Auth`: nula hasta que el servidor responde quién mira. */
   let sesion: WritableSignal<UsuarioActual | null>;
   let api: {
     inscribirseEnTorneo: ReturnType<typeof vi.fn>;
     inscribirseComoSocio: ReturnType<typeof vi.fn>;
     pagarInscripcion: ReturnType<typeof vi.fn>;
+    subirComprobante: ReturnType<typeof vi.fn>;
   };
 
-  const montar = async (usuario: UsuarioActual | null = null) => {
+  /** `enTelefono`: lo que responde la pantalla a `(max-width: 639px)`. jsdom no tiene matchMedia. */
+  const montar = async (usuario: UsuarioActual | null = null, enTelefono = false) => {
     sesion = signal(usuario);
     api = {
       inscribirseEnTorneo: vi.fn().mockResolvedValue({
@@ -55,6 +67,7 @@ describe('InscripcionATorneo', () => {
         urlRedireccion: 'https://webpay/x',
         tokenPasarela: 'e1a2b3',
       }),
+      subirComprobante: vi.fn().mockResolvedValue(undefined),
     };
 
     TestBed.resetTestingModule();
@@ -63,9 +76,14 @@ describe('InscripcionATorneo', () => {
         provideRouter([]),
         { provide: Torneos, useValue: api },
         { provide: Auth, useValue: { usuario: sesion } },
+        {
+          provide: BreakpointObserver,
+          useValue: { observe: () => of({ matches: enTelefono, breakpoints: {} }) },
+        },
       ],
     });
 
+    navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     fixture = TestBed.createComponent(InscripcionATorneo);
     fixture.componentRef.setInput('torneoId', 5);
     fixture.componentRef.setInput('categorias', CATEGORIAS);
@@ -78,6 +96,11 @@ describe('InscripcionATorneo', () => {
 
   const escribir = async (campos: Record<string, string>) => {
     for (const [name, valor] of Object.entries(campos)) {
+      // Las listas son de Material (T248): se abren y se elige, como una persona.
+      if (elemento().querySelector(`mat-select[name="${name}"]`)) {
+        await elegir(fixture, `mat-select[name="${name}"]`, valor);
+        continue;
+      }
       const control = elemento().querySelector<HTMLInputElement>(
         `[name="${name}"]`,
       )!;
@@ -116,10 +139,28 @@ describe('InscripcionATorneo', () => {
     return archivo;
   };
 
+  /** Como una persona (T317): «Siguiente» hasta el último paso, y ahí el envío. */
   const enviar = async () => {
+    for (const siguiente of Array.from(
+      elemento().querySelectorAll<HTMLButtonElement>('button[matStepperNext]'),
+    )) {
+      siguiente.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
     elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
     await fixture.whenStable();
     fixture.detectChanges();
+  };
+
+  const pasos = () => TestbedHarnessEnvironment.loader(fixture).getHarness(MatStepperHarness);
+
+  /** El nombre del paso en que está la inscripción. */
+  const pasoActual = async () => {
+    for (const paso of await (await pasos()).getSteps()) {
+      if (await paso.isSelected()) return paso.getLabel();
+    }
+    return null;
   };
 
   const completo = {
@@ -138,9 +179,7 @@ describe('InscripcionATorneo', () => {
   });
 
   it('**solo ofrece las categorías que ese torneo corre**', () => {
-    const opciones = Array.from(
-      elemento().querySelectorAll('select option'),
-    ).map((o) => o.textContent?.trim() ?? '');
+    const opciones = textosDe(fixture, 'mat-select[name="categoria"]');
 
     expect(opciones.some((o) => o.startsWith('4ª'))).toBe(true);
     expect(opciones.some((o) => o.startsWith('Honor'))).toBe(true);
@@ -148,7 +187,9 @@ describe('InscripcionATorneo', () => {
   });
 
   it('avisa cuáles ya no tienen cupo, antes de que la persona elija', () => {
-    expect(texto()).toContain('sin cupos, quedarías en lista de espera');
+    // En la opción misma: se ve al abrir la lista, antes de elegir (T248).
+    const opciones = textosDe(fixture, 'mat-select[name="categoria"]').join(' ');
+    expect(opciones).toContain('sin cupos, quedarías en lista de espera');
   });
 
   it('**pide el correo y dice para qué**: ahí le llegan la confirmación y sus partidos (T127)', () => {
@@ -196,28 +237,92 @@ describe('InscripcionATorneo', () => {
   });
 
   it('sin categoría elegida no llama al servidor', async () => {
-    await escribir({ ...completo, categoria: '0' });
+    // El paso de la categoría no deja seguir sin ella (T317), y lo dice en el campo.
+    const sinCategoria = Object.entries(completo).filter(([nombre]) => nombre !== 'categoria');
+    await escribir(Object.fromEntries(sinCategoria));
     await enviar();
 
     expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
     expect(texto()).toContain('Elige la categoría');
   });
 
-  it('**la lista de espera se dice, no se esconde**', async () => {
-    // Es la respuesta que la pantalla no puede adivinar: el cupo lo decide el servidor
-    // en el momento, y quien quedó fuera tiene que saberlo antes de irse.
+  /** Adónde termina la inscripción que no pasa por Webpay: Torneos, con su aviso a la vista. */
+  const alTerminar = (pago: string) =>
+    expect(navegar).toHaveBeenCalledWith(['/torneos'], { queryParams: { pago }, replaceUrl: true });
+
+  it('**una categoría gratis termina en Torneos con su aviso, como Webpay** (T323)', async () => {
+    // Antes era un snackbar que se iba solo y el formulario vacío otra vez: con Webpay se
+    // terminaba en Torneos, con el aviso arriba.
+    await escribir(completo);
+    await enviar();
+
+    alTerminar('inscrito');
+  });
+
+  it('**la lista de espera se dice, no se esconde**: también en Torneos (T323)', async () => {
+    // Es la respuesta que la pantalla no puede adivinar: el cupo lo decide el servidor en el
+    // momento, y quien quedó fuera tiene que saberlo antes de irse. Su aviso estaba en el
+    // último paso, y el formulario volvía al primero: no se veía.
     api.inscribirseEnTorneo.mockResolvedValueOnce({
       id: 2,
       estado: 'LISTA_ESPERA',
-      categoria: 'Honor',
+      estadoPago: 'EXENTA',
+      token: 'llave-2',
+      montoClp: 0,
+      categoria: '4ª',
       jugador: 'Rodrigo Soto',
     });
 
-    await escribir({ ...completo, categoria: '60' });
-    await elegirMedio('WEBPAY');
+    await escribir(completo);
     await enviar();
 
-    expect(texto()).toContain('lista de espera');
+    alTerminar('espera');
+  });
+
+  describe('con la categoría llena no se paga (T328, SPEC-torneos.md § Lista de espera sin cobro)', () => {
+    const enEspera = {
+      id: 4,
+      estado: 'LISTA_ESPERA',
+      estadoPago: 'PENDIENTE',
+      token: 'llave-4',
+      montoClp: 12_000,
+      categoria: '3ª',
+      jugador: 'Rodrigo Soto',
+    };
+
+    it('**el paso Pago no pregunta cómo se paga**: dice que queda en espera, sin pagar', async () => {
+      await escribir({ ...completo, categoria: '30' });
+
+      expect(elemento().querySelector('input[name="medioPago"]')).toBeNull();
+      expect(texto()).toContain('quedas en la lista de espera, sin pagar nada');
+      expect(texto()).toContain('te avisamos por correo');
+    });
+
+    it('**se manda sin medio de pago** y termina en Torneos con el aviso de la espera', async () => {
+      api.inscribirseEnTorneo.mockResolvedValueOnce(enEspera);
+
+      await escribir({ ...completo, categoria: '30' });
+      await enviar();
+
+      expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ categoriaJuegoId: 30, medioPago: '' }),
+        undefined,
+      );
+      alTerminar('espera');
+    });
+
+    it('**si el servidor la deja en espera, no sale a Webpay** aunque se haya elegido', async () => {
+      // El formulario vio lugar y alguien llegó antes: en espera no se cobra.
+      api.inscribirseEnTorneo.mockResolvedValueOnce({ ...enEspera, montoClp: 15_000, categoria: 'Honor' });
+
+      await escribir({ ...completo, categoria: '60' });
+      await elegirMedio('WEBPAY');
+      await enviar();
+
+      expect(api.pagarInscripcion).not.toHaveBeenCalled();
+      alTerminar('espera');
+    });
   });
 
   describe('el pago va en el mismo envío', () => {
@@ -253,6 +358,26 @@ describe('InscripcionATorneo', () => {
       );
     });
 
+    it('**con transferencia termina en Torneos, como con Webpay**, y dice que el club revisa (T323)', async () => {
+      api.inscribirseEnTorneo.mockResolvedValueOnce({
+        id: 2,
+        estado: 'INSCRITA',
+        estadoPago: 'PENDIENTE',
+        token: 'llave-2',
+        montoClp: 15_000,
+        categoria: 'Honor',
+        jugador: 'Rodrigo Soto',
+      });
+
+      await escribir({ ...completo, categoria: '60' });
+      await elegirMedio('TRANSFERENCIA');
+      await adjuntar();
+      await enviar();
+
+      alTerminar('comprobante');
+      expect(api.pagarInscripcion).not.toHaveBeenCalled();
+    });
+
     it('**con Webpay se sale a la pasarela sin apretar otro botón**', async () => {
       api.inscribirseEnTorneo.mockResolvedValueOnce({
         id: 2,
@@ -273,12 +398,53 @@ describe('InscripcionATorneo', () => {
       // persona en una página en blanco con su cupo tomado.
       expect(document.body.querySelector('form[action="https://webpay/x"]')).not
         .toBeNull();
+      // A Torneos lo trae la vuelta de Webpay, con su propio aviso.
+      expect(navegar).not.toHaveBeenCalled();
+    });
+
+    it('**si Webpay no responde y se adjunta la transferencia, termina igual** (T323)', async () => {
+      // El panel «Falta pagar la inscripción» es lo que queda si la pasarela no contesta. Su
+      // comprobante terminaba con un aviso en la página, distinto de los demás finales.
+      api.inscribirseEnTorneo.mockResolvedValueOnce({
+        id: 2,
+        estado: 'INSCRITA',
+        estadoPago: 'PENDIENTE',
+        token: 'llave-2',
+        montoClp: 15_000,
+        categoria: 'Honor',
+        jugador: 'Rodrigo Soto',
+      });
+      api.pagarInscripcion.mockRejectedValueOnce(new Error('Webpay no respondió'));
+
+      await escribir({ ...completo, categoria: '60' });
+      await elegirMedio('WEBPAY');
+      await enviar();
+      expect(texto()).toContain('Falta pagar la inscripción');
+
+      await adjuntar();
+
+      expect(api.subirComprobante).toHaveBeenCalledWith('llave-2', expect.any(File));
+      alTerminar('comprobante');
     });
 
     it('el selector dice cuánto cuesta cada categoría', async () => {
-      expect(texto()).toContain('$15.000');
-      expect(texto()).toContain('gratis');
+      const opciones = textosDe(fixture, 'mat-select[name="categoria"]').join(' ');
+      expect(opciones).toContain('$15.000');
+      expect(opciones).toContain('gratis');
     });
+  });
+
+  it('**un rechazo del servidor se avisa a la página**, para que vuelva a leer los cupos (T328)', async () => {
+    api.inscribirseEnTorneo.mockRejectedValueOnce({
+      error: { message: 'Esta categoría tiene lugar: elige cómo vas a pagar la inscripción.' },
+    });
+    const rechazada = vi.fn();
+    fixture.componentInstance.rechazada.subscribe(rechazada);
+
+    await escribir(completo);
+    await enviar();
+
+    expect(rechazada).toHaveBeenCalledOnce();
   });
 
   it('el mensaje del servidor se muestra tal cual cuando rechaza', async () => {
@@ -308,6 +474,77 @@ describe('InscripcionATorneo', () => {
     expect(texto()).toContain('Revisa tu correo');
   });
 
+  describe('los pasos (T317, SPEC-sitio.md D4 y A7)', () => {
+    /** Los datos completos, sin elegir todavía la categoría: el primer paso listo. */
+    const sinLaCategoria = () =>
+      Object.fromEntries(Object.entries(completo).filter(([nombre]) => nombre !== 'categoria'));
+
+    it('**son tres: Tus datos, Categoría y Pago**, y empieza en el primero', async () => {
+      const etiquetas = await Promise.all(
+        (await (await pasos()).getSteps()).map((paso) => paso.getLabel()),
+      );
+
+      expect(etiquetas).toEqual(['Tus datos', 'Categoría', 'Pago']);
+      expect(await pasoActual()).toBe('Tus datos');
+    });
+
+    it('**un paso incompleto no deja avanzar, y dice qué falta**', async () => {
+      await escribir({ nombre: 'Rodrigo' });
+      elemento().querySelector<HTMLButtonElement>('button[matStepperNext]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(await pasoActual()).toBe('Tus datos');
+      const errores = Array.from(elemento().querySelectorAll('mat-error')).map((e) =>
+        e.textContent?.trim(),
+      );
+      expect(errores).toContain('Falta este dato.');
+    });
+
+    it('con los datos completos, «Siguiente» lleva a la categoría', async () => {
+      await escribir(sinLaCategoria());
+      elemento().querySelector<HTMLButtonElement>('button[matStepperNext]')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(await pasoActual()).toBe('Categoría');
+    });
+
+    it('**Enter en un campo sigue al paso siguiente**: no manda la inscripción a medias', async () => {
+      await escribir(sinLaCategoria());
+      elemento().querySelector('form')!.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(api.inscribirseEnTorneo).not.toHaveBeenCalled();
+      expect(await pasoActual()).toBe('Categoría');
+    });
+
+    it('el pago resume a quién se inscribe y en qué', async () => {
+      await escribir(completo);
+      for (const siguiente of Array.from(
+        elemento().querySelectorAll<HTMLButtonElement>('button[matStepperNext]'),
+      )) {
+        siguiente.click();
+        await fixture.whenStable();
+        fixture.detectChanges();
+      }
+
+      expect(await pasoActual()).toBe('Pago');
+      expect(texto()).toContain('Inscribes a Rodrigo Soto en 4ª, gratis.');
+    });
+
+    it('**en el teléfono los pasos van uno bajo el otro**', async () => {
+      await montar(null, true);
+
+      expect(await (await pasos()).getOrientation()).toBe(StepperOrientation.VERTICAL);
+    });
+
+    it('en el computador, en fila', async () => {
+      expect(await (await pasos()).getOrientation()).toBe(StepperOrientation.HORIZONTAL);
+    });
+  });
+
   describe('con la sesión de quien no es socio (T128, punto 6)', () => {
     const CUENTA: UsuarioActual = {
       id: 9,
@@ -316,6 +553,7 @@ describe('InscripcionATorneo', () => {
       email: 'camila@ejemplo.cl',
       telefono: '56955556666',
       esAdmin: false,
+      esGestor: false,
       socioId: null,
       socioActivo: false,
       socioAlDia: false,
@@ -353,7 +591,8 @@ describe('InscripcionATorneo', () => {
 
     it('**se pueden cambiar**: un padre inscribe a su hijo con su propia sesión', async () => {
       await montar(CUENTA);
-      await escribir({ nombre: 'Tomás', categoria: '20' });
+      // De dónde viene no está en la cuenta, y la API lo exige: se escribe.
+      await escribir({ nombre: 'Tomás', procedencia: 'Club de Ñuñoa', categoria: '20' });
       await enviar();
 
       expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
@@ -392,9 +631,10 @@ describe('InscripcionATorneo', () => {
 
     it('inscribirse lo deja vacío y sin el aviso: el siguiente puede ser otra persona', async () => {
       await montar(CUENTA);
-      await escribir({ categoria: '20' });
+      await escribir({ procedencia: 'Club de Ñuñoa', categoria: '20' });
       await enviar();
 
+      expect(api.inscribirseEnTorneo).toHaveBeenCalled();
       expect(valor('nombre')).toBe('');
       expect(texto()).not.toContain('datos de tu cuenta');
     });
@@ -402,6 +642,12 @@ describe('InscripcionATorneo', () => {
     it('**al socio no se le precarga**: su camino es "Inscribirse como socio" (T129)', async () => {
       await montar({ ...CUENTA, socioId: 3, socioActivo: true, socioAlDia: true });
       await fixture.whenStable();
+      // Llega inscribiéndose como socio (T317): los datos de otra persona, si los pide, vacíos.
+      Array.from(elemento().querySelectorAll('button'))
+        .find((b) => b.textContent?.trim() === 'Inscribir a otra persona')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
 
       expect(valor('nombre')).toBe('');
     });
@@ -415,6 +661,7 @@ describe('InscripcionATorneo', () => {
       email: 'javiera@ejemplo.cl',
       telefono: '56944443333',
       esAdmin: false,
+      esGestor: false,
       socioId: 12,
       socioActivo: true,
       socioAlDia: true,
@@ -426,18 +673,47 @@ describe('InscripcionATorneo', () => {
         (b) => b.textContent?.trim() === etiqueta,
       );
 
+    /** El socio con sesión llega inscribiéndose como socio, en Categoría (T317, A7). */
     const comoSocio = async () => {
       await montar(SOCIA);
-      boton('Inscribirse como socio')!.click();
       await fixture.whenStable();
       fixture.detectChanges();
     };
+
+    const apretar = async (etiqueta: string) => {
+      boton(etiqueta)!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+
+    it('**empieza en Categoría**: sus datos ya los tiene el club (T317, A7)', async () => {
+      await comoSocio();
+
+      expect(await pasoActual()).toBe('Categoría');
+    });
 
     it('sin sesión, o sin ficha de socio, no se ofrece', async () => {
       expect(boton('Inscribirse como socio')).toBeUndefined();
 
       await montar({ ...SOCIA, socioId: null });
       expect(boton('Inscribirse como socio')).toBeUndefined();
+    });
+
+    it('**el lleno es avanzar y el envío** (T241, T317): los atajos del socio no', async () => {
+      // Los dos llenos juntos se disputaban la atención; cambiar de camino no es la acción
+      // principal. Desde T317 cada paso lleva el suyo, y se ve un paso a la vez.
+      await montar(SOCIA);
+      await apretar('Inscribir a otra persona');
+      const botones = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+        MatButtonHarness.with({ appearance: 'filled' }),
+      );
+
+      expect(await Promise.all(botones.map((b) => b.getText()))).toEqual([
+        'Siguiente',
+        'Siguiente',
+        'Inscribirme',
+      ]);
     });
 
     it('**se salta los datos**: quedan la categoría, los horarios y el pago', async () => {
@@ -477,27 +753,24 @@ describe('InscripcionATorneo', () => {
       );
     });
 
-    it('"Inscribir a otra persona" vuelve al formulario completo', async () => {
+    it('"Inscribir a otra persona" vuelve al formulario completo, en Tus datos', async () => {
       await comoSocio();
-      boton('Inscribir a otra persona')!.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await apretar('Inscribir a otra persona');
 
       expect(elemento().querySelector('[name="nombre"]')).not.toBeNull();
+      expect(await pasoActual()).toBe('Tus datos');
     });
 
     it('**el foco no se pierde**: el botón apretado desaparece, y el foco va a lo siguiente', async () => {
       // Sin esto cae al inicio de la página, y quien usa teclado o lector de pantalla
       // tiene que volver a buscar el formulario.
       await comoSocio();
-      await fixture.whenStable();
-      expect(document.activeElement?.getAttribute('name')).toBe('categoria');
-
-      boton('Inscribir a otra persona')!.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
-      await fixture.whenStable();
+      await apretar('Inscribir a otra persona');
       expect(document.activeElement?.getAttribute('name')).toBe('nombre');
+
+      await apretar('Inscribirse como socio');
+      expect(document.activeElement?.getAttribute('name')).toBe('categoria');
+      expect(await pasoActual()).toBe('Categoría');
     });
   });
 });

@@ -189,8 +189,10 @@ describe('El socio paga su cuota en línea', () => {
       (inicio.body as { urlRedireccion: string }).urlRedireccion,
     ).toBeTruthy();
 
-    await volverDeWebpay(await tokenDe(id)).expect(302);
+    const vuelta = await volverDeWebpay(await tokenDe(id)).expect(302);
 
+    // A la pestaña de la cuota de Mi cuenta, donde está su aviso (T319, SPEC-sitio.md A8).
+    expect(vuelta.headers.location).toMatch(/\/mi-cuenta\/cuota\?pago=listo$/);
     const cuota = await prisma.cuota.findUniqueOrThrow({ where: { id } });
     expect(cuota.estado).toBe(EstadoCuota.PAGADA);
     expect(cuota.medio).toBe('WEBPAY');
@@ -343,7 +345,9 @@ describe('El socio paga su cuota en línea', () => {
       .get(`/api/cuotas/retorno?token_ws=${token}&TBK_TOKEN=${token}`)
       .expect(302);
 
-    expect(vuelta.headers.location).toContain('pago=anulado');
+    expect(vuelta.headers.location).toMatch(
+      /\/mi-cuenta\/cuota\?pago=anulado$/,
+    );
     const cuota = await prisma.cuota.findUniqueOrThrow({ where: { id } });
     expect(cuota.estado).toBe(EstadoCuota.PENDIENTE);
   });

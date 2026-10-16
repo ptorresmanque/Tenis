@@ -1,5 +1,8 @@
 import { Component, computed, inject, input, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
 import {
   diaEnPalabras,
@@ -10,7 +13,8 @@ import {
 } from '../catalogo-canchas/reloj-del-club';
 import { Club } from '../club/club.service';
 import { Aviso } from '../ui/aviso';
-import { Insignia, VarianteInsignia } from '../ui/insignia';
+import { Esqueleto } from '../ui/esqueleto';
+import { VarianteInsignia } from '../ui/insignias';
 import { ReservasPublicas } from './reserva-publica.service';
 
 const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono: string }> =
@@ -38,11 +42,11 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
  */
 @Component({
   selector: 'app-reserva-publica',
-  imports: [Aviso, Insignia, RouterLink],
+  imports: [MatButton, MatIcon, Aviso, RouterLink, MatChipsModule, Esqueleto],
   template: `
     <section class="mx-auto max-w-md py-10">
       @if (reserva.isLoading()) {
-        <p class="text-center text-muted-foreground">Buscando la reserva…</p>
+        <app-esqueleto [filas]="3" etiqueta="Buscando la reserva…" />
       } @else if (reserva.error()) {
         <app-aviso variante="error" titulo="Este enlace no lleva a ninguna reserva">
           Puede estar mal copiado o pertenecer a una reserva que ya no existe.
@@ -62,9 +66,12 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
              nombre como titular y la hora en su rótulo. -->
         <div class="bg-card p-6 text-center shadow-md">
           <p>
-            <app-insignia [variante]="estado().variante" [icono]="estado().icono">
-              {{ estado().texto }}
-            </app-insignia>
+            <mat-chip-set class="insignias">
+              <mat-chip class="insignia" [class]="estado().variante">
+                <mat-icon matChipAvatar aria-hidden="true">{{ estado().icono }}</mat-icon>
+                {{ estado().texto }}
+              </mat-chip>
+            </mat-chip-set>
           </p>
 
           <h1 class="titular mt-4 text-4xl">{{ datos.nombre }}</h1>
@@ -74,7 +81,7 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
 
           <p
             class="rotulo-hora mt-4 inline-flex px-3 py-1 text-4xl"
-            [class.rotulo-hora-pico]="datos.esPico"
+            [class.rotulo-hora-prime]="datos.esPico"
           >
             {{ hora(datos.inicio) }}–{{ hora(datos.fin) }}
           </p>
@@ -93,7 +100,12 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
 
           @if (datos.esPico) {
             <p class="mt-3">
-              <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia aviso">
+                  <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                  Hora prime
+                </mat-chip>
+              </mat-chip-set>
             </p>
           }
         </div>
@@ -110,15 +122,15 @@ const ESTADOS: Record<string, { texto: string; variante: VarianteInsignia; icono
                "mis reservas". La regla de la plata se dice acá, antes del clic. -->
           <div class="mt-6 text-center">
             <a
+              matButton="filled"
               routerLink="/disponibilidad"
               [queryParams]="{
                 moverToken: token(),
                 fecha: fechaDelClub(datos.inicio),
                 duracion: duracionDeLaGrilla(),
               }"
-              class="boton boton-primario"
             >
-              <span class="icono text-base" aria-hidden="true">schedule</span>
+              <mat-icon class="text-base" aria-hidden="true">schedule</mat-icon>
               Cambiar hora o duración
             </a>
             <p class="mt-2 text-sm text-muted-foreground">

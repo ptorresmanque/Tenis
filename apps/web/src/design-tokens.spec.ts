@@ -3,8 +3,8 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { VARIANTES_AVISO } from './app/ui/aviso';
-import { VARIANTES_INSIGNIA } from './app/ui/insignia';
-import { VOSEO } from './voseo';
+import { ICONO_DE_INSIGNIA } from './app/ui/insignias';
+import { PICO_Y_VALLE, VOSEO } from './voseo';
 
 /**
  * Lint del sistema de diseño.
@@ -23,6 +23,7 @@ import { VOSEO } from './voseo';
 // El runner de tests de Angular corre desde apps/web. No se usa import.meta.url:
 // dentro del bundle de test no resuelve a una ruta de archivo.
 const css = readFileSync(join(process.cwd(), 'src/styles.css'), 'utf8');
+const tema = readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
 
 /**
  * El cuerpo del bloque CSS que empieza con `apertura`, con las llaves contadas.
@@ -321,14 +322,9 @@ describe('Contraste de los tokens de color', () => {
       return `#${[1, 3, 5].map((i) => canal(i).toString(16).padStart(2, '0')).join('')}`;
     }
 
-    const variantes = [
-      ...Object.entries(VARIANTES_INSIGNIA).map(
-        ([nombre, v]) => [`insignia ${nombre}`, v.clases] as const,
-      ),
-      ...Object.entries(VARIANTES_AVISO).map(
-        ([nombre, v]) => [`aviso ${nombre}`, v.clases] as const,
-      ),
-    ];
+    const variantes = Object.entries(VARIANTES_AVISO).map(
+      ([nombre, v]) => [`aviso ${nombre}`, v.clases] as const,
+    );
 
     it.each(variantes)('%s se lee sobre su propio fondo (4.5:1)', (_, clases) => {
       const fondo = sobre(color('card'), deClase(clases, 'bg'));
@@ -337,11 +333,29 @@ describe('Contraste de los tokens de color', () => {
       expect(contraste(texto, fondo)).toBeGreaterThanOrEqual(4.5);
     });
 
+    // Las de la insignia viven en el tema desde T258, en el mapa `$insignias`: el fondo y el
+    // borde como un token y su porcentaje sobre la tarjeta, y el texto como un token.
+    const insignias = [
+      ...tema.matchAll(/^\s+(\w+): \(fondo: ([a-z-]+) (\d+)%, borde: [a-z-]+ \d+%, texto: ([a-z-]+)\)/gm),
+    ].map(([, nombre, fondo, porcentaje, texto]) => [`insignia ${nombre}`, fondo, Number(porcentaje), texto] as const);
+
+    it('el mapa de las insignias trae las seis variantes', () => {
+      expect(insignias.map(([nombre]) => nombre.replace('insignia ', '')).sort()).toEqual(
+        Object.keys(ICONO_DE_INSIGNIA).sort(),
+      );
+    });
+
+    it.each(insignias)('%s se lee sobre su propio fondo (4.5:1)', (_, fondo, porcentaje, texto) => {
+      const visto = sobre(color('card'), [color(fondo), porcentaje / 100]);
+
+      expect(contraste(color(texto), visto)).toBeGreaterThanOrEqual(4.5);
+    });
+
     it('cada variante trae su ícono: el color no puede ser la única señal', () => {
       // El anti-patrón del master. Una insignia que solo cambia de color no
       // dice nada a quien no distingue el verde del rojo.
       const sinIcono = [
-        ...Object.entries(VARIANTES_INSIGNIA),
+        ...Object.entries(ICONO_DE_INSIGNIA).map(([nombre, icono]) => [nombre, { icono }] as const),
         ...Object.entries(VARIANTES_AVISO),
       ]
         .filter(([, variante]) => !variante.icono)
@@ -388,13 +402,91 @@ function plantillas(): { archivo: string; contenido: string }[] {
     }));
 }
 
-describe('Campos de fecha y hora (T125)', () => {
+/**
+ * T239. El tema de Angular Material sale de los tokens del sitio (`SPEC-interfaz.md`, S4): los
+ * componentes de Material se ven como «Transmisión» y no con el azul de fábrica, en claro y en
+ * oscuro, porque cada token del tema apunta a uno del sitio y no a un color.
+ */
+describe('El tema de Material (T239)', () => {
+  const angular = readFileSync(join(process.cwd(), 'angular.json'), 'utf8');
+  const temaMaterial = () => readFileSync(join(process.cwd(), 'src/tema-material.scss'), 'utf8');
+
+  it('**es el tema del sitio y no el precompilado**', () => {
+    expect(angular).not.toContain('prebuilt-themes');
+    expect(angular).toContain('src/tema-material.scss');
+    expect(temaMaterial()).toMatch(/@include mat\.theme\(/);
+  });
+
+  it('**sus colores apuntan a los tokens del sitio**, para que el modo oscuro llegue solo', () => {
+    for (const token of ['primary', 'on-primary', 'surface', 'on-surface', 'outline', 'error']) {
+      expect(temaMaterial()).toMatch(new RegExp(`(?<![\\w-])${token}: var\\(--color-`));
+    }
+  });
+
+  it('sus esquinas son las del sitio, también la «redonda»', () => {
+    expect(temaMaterial()).toMatch(/corner-full: var\(--radius\)/);
+  });
+
+  it('styles.css ya no define las variables de Material: las define el tema', () => {
+    expect(css).not.toMatch(/--mat-sys-[a-z-]+\s*:/);
+  });
+});
+
+describe('Campos de fecha y hora (T125, T244)', () => {
+  /** Los `mat-form-field` de una plantilla, enteros: no se anidan. */
+  const camposDe = (contenido: string) => [
+    ...contenido.matchAll(/<mat-form-field\b[\s\S]*?<\/mat-form-field>/g),
+  ].map(([campo]) => campo);
+  const conSelector = /\[mat(?:Datepicker|Timepicker)\]=/;
+
+  it('**ningún `<app-campo-fecha>` ni `<app-campo-hora>`** (T244, I1)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-campo-(?:fecha|hora)\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**todo selector de fecha u hora va en un `mat-form-field` con su nombre** (T244)', () => {
+    // El nombre es la `mat-label`; en la celda de una tabla, que ya nombra su columna, va
+    // el `aria-label` del campo (la apertura de cada día en los horarios).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const campos = camposDe(contenido);
+      const sueltos = campos.reduce((resto, campo) => resto.replace(campo, ''), contenido);
+      if (conSelector.test(sueltos)) infractores.push(`${archivo}: fuera de un mat-form-field`);
+
+      for (const campo of campos.filter((c) => conSelector.test(c))) {
+        if (!/<mat-label\b|aria-label/.test(campo)) infractores.push(`${archivo}: sin nombre`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el botón del reloj dice qué hace, en español** (Material dice «Open…»)', () => {
+    // El del calendario sale en español por `TextosDelCalendario`; el del reloj no tiene un
+    // texto que se pueda cambiar para todos, así que cada uno lleva el suyo.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [boton] of contenido.matchAll(/<mat-timepicker-toggle\b[^>]*>/g)) {
+        if (!/aria-label="Elegir la hora"/.test(boton)) infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
   it('**ningún label envuelve un campo de fecha u hora**: la lista quedaría en su nombre', () => {
     // Material inserta el calendario y la lista de horas junto al campo, y no al final
     // de la página. Si un <label> envuelve el campo, las 48 horas pasan a ser parte de su
-    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". La etiqueta va al lado,
-    // con `for`.
-    const envuelto = /<label\b[^>]*>(?:(?!<\/label>)[\s\S])*?<app-campo-(?:fecha|hora)\b/;
+    // nombre: un lector de pantalla diría "Desde 00:00 00:30…". El nombre va en la
+    // `mat-label` del campo.
+    const envuelto =
+      // `</label\s*>`: Prettier deja el cierre partido en dos líneas en las casillas.
+      /<label\b[^>]*>(?:(?!<\/label\s*>)[\s\S])*?(?:<app-campo-(?:fecha|hora)\b|\[mat(?:Datepicker|Timepicker)\]=)/;
     const infractores = plantillas()
       .filter(({ contenido }) => envuelto.test(contenido))
       .map(({ archivo }) => archivo);
@@ -508,20 +600,61 @@ describe('Tipografía', () => {
     expect(infractores).toEqual([]);
   });
 
-  it('todo ícono está oculto al lector de pantalla', () => {
+  it('todo ícono está oculto al lector de pantalla, o dice qué es', () => {
     // El nombre del ícono es texto de verdad dentro del elemento: sin
-    // aria-hidden, el lector lee "check circle" antes del titular.
+    // aria-hidden, el lector lee "check circle" antes del titular. `mat-icon` se oculta solo
+    // (T240); el que se muestra con `aria-hidden="false"` tiene que llevar su nombre.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
-      for (const [etiqueta] of contenido.matchAll(/<[a-z]+[^>]*\bclass="[^"]*\bicono\b[^"]*"[^>]*>/gs)) {
-        if (/aria-hidden="true"|aria-label=/.test(etiqueta)) continue;
+      for (const [etiqueta] of contenido.matchAll(/<mat-icon\b[^>]*>/gs)) {
+        if (!/aria-hidden="false"/.test(etiqueta) || /aria-label=/.test(etiqueta)) continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 80)}`);
       }
     }
 
     expect(infractores).toEqual([]);
+  });
+
+  it('**ningún ícono se arma a mano: todos son `mat-icon`** (T240)', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of sinComentarios(contenido).matchAll(
+        /<(?!mat-icon)[a-z]+[^>]*\bclass="[^"]*(?<![\w-])icono(?![\w-])[^"]*"[^>]*>/gs,
+      )) {
+        infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('`mat-icon` se comporta como el ícono de antes: mandan las clases del sitio', () => {
+    const regla = tema.match(/\.mat-icon\.icono\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    for (const propiedad of ['display', 'width', 'height', 'overflow', 'color']) {
+      expect(regla).toMatch(new RegExp(`${propiedad}:\\s*revert-layer`));
+    }
+  });
+
+  it('**el foco de `matButton` es el anillo del sitio** (T241): Material lo apaga sin capa', () => {
+    // `.mdc-button` trae `outline: none` y su propio indicador, que sin
+    // `strong-focus-indicators` no dibuja nada: con teclado, el botón quedaba sin foco visible.
+    const regla = tema.match(/\.mdc-button\.mat-mdc-button-base\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(regla).toMatch(/outline:\s*revert-layer/);
+  });
+
+  it('**el deshabilitado recibe el puntero** (T241): sin eso no se ve su cursor', () => {
+    // `.mdc-button:disabled` trae `pointer-events: none`: el `cursor: not-allowed` y el
+    // `cursor: progress` del ocupado (T150) no se veían nunca. Un <button> deshabilitado no
+    // dispara clics igual; el enlace deshabilitado de Material no entra (no es `:disabled`).
+    const regla = tema.match(/\.mdc-button\.mat-mdc-button-base:disabled\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(regla).toMatch(/pointer-events:\s*auto/);
+    expect(regla).toMatch(/cursor:\s*not-allowed/);
   });
 });
 
@@ -633,31 +766,23 @@ describe('Uso de los tokens en las plantillas', () => {
     // clase sale con la flecha del sistema y no se lee como pulsable. Los <a>
     // no entran: con href o routerLink el navegador ya pone la manito.
     //
-    // La clase `.boton` de styles.css también cuenta: lo trae puesto. Que lo
-    // siga trayendo lo comprueba el test de abajo, que es la mitad que hace
-    // que esta excepción no sea un agujero.
+    // `matButton` no necesita la clase (T241): Material le pone la manito en
+    // `.mdc-button:hover`. `matIconButton`, `mat-menu-item` y `mat-tab-link` tampoco (T260-T262): la traen,
+    // y el tema no se la quita. Ni `matChipRemove` (T280): es una `.mdc-evolution-chip__action`.
+    // Ni `matFab` (T285): Material le pone la manito en `.mat-mdc-fab-base:hover`.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of contenido.matchAll(/<button\b[^>]*>/gs)) {
         if (/\bcursor-/.test(etiqueta)) continue;
-        if (/\bboton\b/.test(etiqueta)) continue;
+        if (/\bmat(?:Icon)?Button\b|\bmatFab\b|\bmatChipRemove\b|\bmat-menu-item\b|\bmat-tab-link\b/.test(etiqueta))
+          continue;
 
         infractores.push(`${archivo}: ${etiqueta.replace(/\s+/g, ' ').slice(0, 90)}`);
       }
     }
 
     expect(infractores).toEqual([]);
-  });
-
-  it('la clase .boton trae el cursor puesto', () => {
-    // Si alguien la saca, el test de arriba seguiría dejando pasar todos los
-    // <button class="boton">, y quedarían con la flecha del sistema sin que
-    // nada avise. Este es el caso que hace fallar a esa excepción.
-    const boton = css.match(/\.boton\s*\{[^}]*\}/)?.[0];
-
-    expect(boton).toBeDefined();
-    expect(boton).toMatch(/cursor:\s*pointer/);
   });
 });
 
@@ -691,6 +816,22 @@ describe('Español de Chile', () => {
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [forma] of sinComentarios(contenido).matchAll(VOSEO)) {
+        infractores.push(`${archivo}: "${forma}"`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('ninguna plantilla dice "pico" ni "valle": desde el 2026-10-13 son "prime" y "normal" (T210)', () => {
+    // Lo pidió el club después de la puesta en producción. En el código sigue `esPico`,
+    // que no es palabra suelta; los comentarios de HTML tampoco cuentan, porque no se ven.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const visible = sinComentarios(contenido).replace(/<!--[\s\S]*?-->/g, ' ');
+
+      for (const [forma] of visible.matchAll(PICO_Y_VALLE)) {
         infractores.push(`${archivo}: "${forma}"`);
       }
     }
@@ -817,10 +958,10 @@ describe('Tacto', () => {
     return resultado;
   }
 
-  it('la clase .boton confirma la pulsación', () => {
+  it('el botón de Material confirma la pulsación', () => {
     // Entre que el dedo baja y que la pantalla responde puede pasar media
     // segundo de red. Sin :active, en todo ese rato el botón parece muerto.
-    expect(css).toMatch(/\.boton:active/);
+    expect(tema).toMatch(/\.mdc-button\.mat-mdc-button-base:active/);
   });
 
   it('ningún hover queda fuera de su consulta de medios', () => {
@@ -980,62 +1121,202 @@ describe('Fotos', () => {
 
 
 describe('Tablas', () => {
-  it('toda tabla usa la primitiva, no un juego de clases propio', () => {
-    // Las cuatro de reportes traían `w-full border-collapse text-sm` y sus
-    // propias líneas por fila: dos familias de tabla en el mismo panel, con
-    // encabezados distintos y sin cifras tabulares. La primitiva es lo que hace
-    // que el padrón y el reporte de ingresos se lean como el mismo sistema.
+  it('toda tabla de datos es un mat-table (T256, T257)', () => {
+    // Antes la regla pedía la primitiva `.tabla`: las cuatro de reportes traían
+    // `w-full border-collapse text-sm` y sus propias líneas por fila, dos familias de
+    // tabla en el mismo panel. Ahora la tabla es la de Material, con la cara de la
+    // primitiva en el tema, y la regla cuida lo mismo: un solo sistema.
     //
     // La excepción es el marcador de la portada (TV3.3): no es una tabla de
-    // datos sino el tablero de la transmisión, sobre campo. La primitiva le
-    // pondría encabezado gris, una línea por fila y un hover gris, y habría que
-    // deshacer cada cosa a mano. Va por archivo, no por clase, para que no sea
-    // una puerta que cualquier tabla pueda usar.
+    // datos sino el tablero de la transmisión, sobre campo. Va por archivo, no por
+    // clase, para que no sea una puerta que cualquier tabla pueda usar.
     //
     // La otra es la disponibilidad (T103), por lo mismo: es un tablero de botones de
-    // 44px, uno por celda, separados entre sí. La primitiva los juntaría con
-    // `border-collapse`, les sumaría 2rem de relleno por celda —a 375px no caben dos
-    // columnas—, pegaría el encabezado bajo la cabecera del sitio y pintaría la fila
-    // entera de gris al pasar el ratón por un botón.
+    // 44px, uno por celda, separados entre sí. Una tabla de datos los juntaría, les
+    // sumaría 2rem de relleno por celda —a 375px no caben dos columnas— y pintaría la
+    // fila entera de gris al pasar el ratón por un botón.
+    //
+    // Y el tablero de la agenda (T270), que es el mismo tablero para el mesón.
     const infractores: string[] = [];
-    const excepciones = ['catalogo-canchas/marcador.ts', 'catalogo-canchas/grilla/grilla.ts'];
+    const excepciones = [
+      'catalogo-canchas/marcador.ts',
+      'catalogo-canchas/grilla/grilla.ts',
+      'reservas/admin/tablero-de-la-agenda.ts',
+    ];
 
     for (const { archivo, contenido } of plantillas()) {
       if (excepciones.some((excepcion) => archivo.endsWith(excepcion))) continue;
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<table[^>]*>/g)) {
-        if (!/class="[^"]*\btabla\b/.test(etiqueta)) {
-          infractores.push(`${archivo}: ${etiqueta}`);
-        }
+        if (!/\bmat-table\b/.test(etiqueta)) infractores.push(`${archivo}: ${etiqueta}`);
       }
     }
 
     expect(infractores).toEqual([]);
   });
 
-  it('la primitiva alinea los números y les da ancho fijo', () => {
-    // Sin `tabular-nums` el 1 es más angosto que el 8, y una columna de montos
-    // queda con los dígitos desalineados fila a fila: comparar $12.000 con
-    // $120.000 de un vistazo deja de ser posible.
-    const tabla = css.match(/\.tabla\s*\{[^}]*\}/)?.[0];
+  it('**el encabezado de columna de un mat-table se queda a la vista** (T256)', () => {
+    // El padrón tiene decenas de filas y el reporte de ingresos una por día: sin esto, a
+    // la fila veinte nadie se acuerda de qué columna es cuál. Era el `sticky` de la
+    // primitiva; en Material es la fila de encabezado la que lo pide.
+    const infractores = plantillas()
+      .flatMap(({ archivo, contenido }) =>
+        [...contenido.matchAll(/\*matHeaderRowDef="([^"]*)"/g)].map(([, def]) => ({ archivo, def })),
+      )
+      .filter(({ def }) => !/sticky:\s*true/.test(def))
+      .map(({ archivo, def }) => `${archivo}: ${def}`);
 
-    expect(tabla).toMatch(/font-variant-numeric:\s*tabular-nums/);
-    expect(css).toMatch(/\.tabla\s+\.numero/);
+    expect(infractores).toEqual([]);
   });
 
-  it('el encabezado de columna se queda a la vista, y el de fila no', () => {
-    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
+  it('**el encabezado de fila sigue siendo un `<th scope="row">`**, con la cara de una celda (T256)', () => {
+    // `mat-cell` solo se pone en un `<td>`. El nombre del socio en el padrón, o el día en
+    // el reporte de ingresos, es el encabezado de su fila: el lector de pantalla lo dice
+    // al cruzar las columnas. Va como `<th scope="row">` con las clases de la celda.
+    const infractores = plantillas()
+      .flatMap(({ archivo, contenido }) =>
+        [...contenido.matchAll(/<th\b[^>]*\*mat(?:Cell|FooterCell)Def[^>]*>/g)].map(([etiqueta]) => ({
+          archivo,
+          etiqueta,
+        })),
+      )
+      .filter(
+        ({ etiqueta }) =>
+          !/scope="row"/.test(etiqueta) ||
+          !/class="[^"]*\bmdc-data-table__cell\b/.test(etiqueta) ||
+          !/class="[^"]*\bmat-mdc-(?:footer-)?cell\b/.test(etiqueta),
+      )
+      .map(({ archivo, etiqueta }) => `${archivo}: ${etiqueta}`);
 
-    expect(encabezado).toMatch(/position:\s*sticky/);
-    // El `<th scope="row">` es una celda de datos: se estiliza con los `td`.
-    expect(css).toMatch(/\.tabla td,\s*\n\s*\.tabla tbody th/);
+    expect(infractores).toEqual([]);
   });
 
-  it('el encabezado de columna va en la letra de los rótulos', () => {
-    // Como una tabla de posiciones en una transmisión: la etiqueta de la columna
-    // en la condensada, y los datos en la letra de leer (TV2.1).
-    const encabezado = css.match(/\.tabla thead th\s*\{[^}]*\}/)?.[0];
+  it('la tabla de Material lleva la cara de la primitiva (T256)', () => {
+    // Cifras de ancho fijo y los números a la derecha, en la capa de componentes, para que
+    // las utilidades de la plantilla le sigan ganando. El tema le devuelve a esa capa lo que
+    // Material fija sin capa —el relleno, la alineación, la letra y el alto de las filas—, y
+    // pone el encabezado en la condensada de los rótulos.
+    const base = css.match(/\.mat-mdc-table\s*\{[^}]*\}/)?.[0];
 
-    expect(encabezado).toMatch(/font-family:\s*var\(--font-display\)/);
+    expect(base).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    expect(css).toMatch(/\.mat-mdc-table\s+\.numero/);
+    expect(tema).toMatch(/mat\.table-overrides\([^;]*header-headline-font:\s*var\(--font-display\)/);
+    expect(tema).toMatch(/html \.mdc-data-table__cell[^{]*\{[^}]*padding:\s*revert-layer/);
+  });
+
+  it('**se fue la primitiva `.tabla`** (T257, I1): ni la clase ni sus reglas', () => {
+    // Una tabla es la de Material, con su cara en el tema. Si la clase volviera en una
+    // plantilla, no tendría reglas que la vistieran; si las reglas volvieran, serían una
+    // segunda tabla a la que nada obliga a parecerse a la primera.
+    const conClase = plantillas()
+      .filter(({ contenido }) => /class="[^"]*\btabla(?:-densa)?\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(conClase).toEqual([]);
+    expect(css).not.toMatch(/\.tabla\b/);
+  });
+});
+
+describe('Insignias (T258)', () => {
+  it('**ninguna `<app-insignia`**: la insignia es un `mat-chip` de Material', () => {
+    const conInsignia = plantillas()
+      .filter(({ contenido }) => contenido.includes('<app-insignia'))
+      .map(({ archivo }) => archivo);
+
+    expect(conInsignia).toEqual([]);
+    expect(existsSync(join(process.cwd(), 'src/app/ui/insignia.ts'))).toBe(false);
+  });
+
+  it('**toda insignia es un chip dentro de su `mat-chip-set`, y trae su ícono**', () => {
+    // El ícono no es decoración: el par verde/rojo es justo el que no distingue quien tiene
+    // daltonismo rojo-verde, así que un estado dicho solo con color no se dice. Ícono y texto
+    // lo dicen igual en blanco y negro (la regla del master).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      // Los atributos, con sus comillas: un `[class]="cupos > 2 ? …"` tiene un `>` adentro.
+      // `(?=[\s>])` y no `\b`: con `\b` también calza `<mat-chip-set`, y se come el chip de adentro.
+      const chips = /<mat-chip(?=[\s>])((?:[^>"]|"[^"]*")*)>([\s\S]*?)<\/mat-chip>/g;
+      for (const m of contenido.matchAll(chips)) {
+        if (!/class="[^"]*\binsignia\b/.test(m[1])) continue;
+        const antes = contenido.slice(0, m.index);
+        const enSuSet = antes.lastIndexOf('<mat-chip-set') > antes.lastIndexOf('</mat-chip-set>');
+        const conIcono = /<mat-icon\b[^>]*\bmatChipAvatar\b/.test(m[2]);
+        if (!enSuSet || !conIcono) infractores.push(`${archivo}: ${m[0].slice(0, 90)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('el tema le da a la insignia la cara de rótulo, y a cada variante su color', () => {
+    // Condensada, en mayúscula y con tracking (TV2.2), y el alto de antes, para no mover las
+    // filas de las tablas del panel. Los colores salen del mapa `$insignias`, que es el que mide
+    // el contraste.
+    expect(tema).toMatch(/\.insignia\s*\{[^}]*mat\.chips-overrides\([^;]*label-text-font:\s*var\(--font-display\)/);
+    expect(tema).toMatch(/@each \$nombre, \$variante in \$insignias[\s\S]*?\.insignia\.#\{\$nombre\}/);
+  });
+});
+
+describe('Paginación (T259)', () => {
+  it('**ninguna `<app-paginacion`**: la paginación es un `mat-paginator`', () => {
+    const conPaginacion = plantillas()
+      .filter(({ contenido }) => contenido.includes('<app-paginacion'))
+      .map(({ archivo }) => archivo);
+
+    expect(conPaginacion).toEqual([]);
+    expect(existsSync(join(process.cwd(), 'src/app/ui/paginacion.ts'))).toBe(false);
+  });
+});
+
+describe('El panel y los botones de ícono (T260)', () => {
+  it('**el botón de ícono es el ancla de sus capas**: si el tema le devuelve la posición, la capa le da `relative`', () => {
+    // Material pone adentro del botón el indicador de foco, el área táctil y la onda, en absoluto.
+    // Sin un `position: relative` debajo del `revert-layer`, se ubicaban contra el cajón entero del
+    // panel y tapaban sus enlaces: ningún clic llegaba a una sección.
+    // El bloque entero hasta su cierre: el selector lleva una interpolación de Sass, con llaves.
+    const delSitio = tema.match(/html \.mat-mdc-icon-button:not\([\s\S]*?\n\}/)?.[0] ?? '';
+    expect(delSitio).toMatch(/position:\s*revert-layer/);
+    expect(css).toMatch(/\.mat-mdc-icon-button\s*\{\s*position:\s*relative;\s*\}/);
+  });
+
+  it('**con el movimiento reducido, el cajón no tiene transiciones**', () => {
+    // La regla global las deja en 0,01 ms, y cada una que terminaba en el cajón le avisaba a
+    // Material que había terminado de abrir: guardaba el cajón como el lugar adonde devolver el
+    // foco, y al cerrarse el foco se perdía en el <body>.
+    expect(tema).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.mat-drawer,[^}]*transition:\s*none !important/,
+    );
+  });
+});
+
+describe('Pestañas (T262)', () => {
+  it('**ningún `role="tab"` hecho a mano**: las pestañas son de Material', () => {
+    // `mat-tab-nav-bar` y `mat-tab-group` ponen los roles, el `aria-selected`, el
+    // `aria-controls` y las flechas. Hechas a mano, cada una llevaba su propio teclado, y dos
+    // de las tres no tenían ninguno.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /role="tab(?:list|panel)?"/.test(contenido.replace(/<!--[\s\S]*?-->/g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+describe('El arranque (T263, I6)', () => {
+  it('**el trazado del logotipo no viaja en el JavaScript**: va en un SVG aparte, con los colores del tema', () => {
+    // Eran 22 kB de trazado en el arranque, en cada visita. Con <use> el archivo se guarda en
+    // caché, y la copia que dibuja hereda las variables: los dos tonos cambian con el tema
+    // oscuro y sobre la banda de campo, como cuando iba en la plantilla.
+    const componente = readFileSync(join(process.cwd(), 'src/app/cascarones/logotipo.ts'), 'utf8');
+    const archivo = readFileSync(join(process.cwd(), 'public/logotipo.svg'), 'utf8');
+
+    expect(componente).toMatch(/<use href="\/logotipo\.svg#logotipo"/);
+    expect(componente).not.toMatch(/<path\b/);
+    expect(archivo).toMatch(/<symbol id="logotipo"/);
+    expect(archivo).toMatch(/fill:\s*var\(--color-logo-marca\b/);
+    expect(archivo).toMatch(/fill:\s*var\(--color-logo-texto\b/);
   });
 });
 
@@ -1110,43 +1391,30 @@ describe('El panel en la A (Fase 7)', () => {
 });
 
 describe('Botones', () => {
-  it('ningún botón ni enlace se arma a mano con relleno y fondo o borde, sin .boton (TV8.2)', () => {
+  it('ningún botón ni enlace se arma a mano con relleno y fondo o borde (TV8.2)', () => {
     // TV2.3 encontró tres —"Ir a pagar" con su "Cancelar", "Crear cuenta" y
     // "Sancionar"— que no heredaban nada de .boton: ni el alto táctil, ni la letra,
     // ni el foco, ni la confirmación al apretar. TV2.4, TV5.2 y TV7.9 los migraron;
-    // esto cuida que no aparezca el cuarto.
+    // esto cuida que no aparezca el cuarto. Desde T243, el botón es `matButton`.
     //
     // Quedan afuera los que no son una acción sino una opción que se marca
     // (aria-pressed, como las horas libres de la grilla) o una pestaña (role="tab"):
-    // se dibujan como chip o como pestaña, no como botón.
+    // se dibujan como chip o como pestaña, no como botón. Y las celdas de un tablero
+    // (data-fila, T270), que se dibujan como su celda: la reserva de la agenda es una
+    // tarjeta en su franja.
     const infractores: string[] = [];
 
     for (const { archivo, contenido } of plantillas()) {
       for (const [etiqueta] of sinComentarios(contenido).matchAll(/<(?:button|a)\b[^>]*>/g)) {
         const clases = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
-        if (/\bboton\b/.test(clases) || /aria-pressed|role="tab"/.test(etiqueta)) continue;
+        if (/\bmatButton\b/.test(etiqueta) || /aria-pressed|role="tab"|data-fila/.test(etiqueta)) {
+          continue;
+        }
 
         const relleno = /(?<![\w-])p[xy]?-\d/.test(clases);
         const fondoOBorde = /(?<![\w:-])(bg-(?!transparent)[a-z]|border(?:-\d)?(?=\s|$))/.test(clases);
         if (relleno && fondoOBorde) {
           infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 70)}`);
-        }
-      }
-    }
-
-    expect(infractores).toEqual([]);
-  });
-
-  it('un botón sobre el campo usa su variante y no arma los colores a mano', () => {
-    // Seis botones se armaban con `bg-on-campo text-campo` a mano. La variante
-    // existe para que la fase 3, que llena la portada de bandas de campo, no
-    // repita la mezcla seis veces más (TV2.1).
-    const infractores: string[] = [];
-
-    for (const { archivo, contenido } of plantillas()) {
-      for (const [clases] of contenido.matchAll(/class="[^"]*\bboton\b[^"]*"/g)) {
-        if (/\b(bg|border|text)-on-campo\b|\btext-campo\b/.test(clases)) {
-          infractores.push(`${archivo}: ${clases.replace(/\s+/g, ' ').slice(0, 80)}`);
         }
       }
     }
@@ -1373,6 +1641,275 @@ describe('El hero se mueve (T148)', () => {
 });
 
 /**
+ * T244. Los campos de Material, con la cara del sitio y sin cargar el arranque.
+ */
+describe('Los campos son de Material (T244)', () => {
+  it('**todo componente con campos provee `proveerCampos()`**: contorno y etiqueta arriba', () => {
+    // Las opciones de los campos no van en la aplicación: con su token viajaría el campo de
+    // Material entero en el arranque (62 kB). Sin el proveedor, el campo saldría relleno y con
+    // la etiqueta adentro, distinto de todos los demás.
+    const infractores = plantillas()
+      .filter(({ contenido }) => contenido.includes('<mat-form-field'))
+      .filter(({ contenido }) => !/providers:\s*\[[^\]]*proveerCampos\(\)/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<app-campo>`** (T245, I1): la etiqueta, la ayuda y el error son de Material', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /<app-campo(?![\w-])/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**un campo que se valida dice por qué no pasa**: su `mat-error` (T245)', () => {
+    // Material pinta de rojo el campo inválido que se tocó; sin el texto, el rojo no le dice a
+    // nadie qué corregir. Vale para los formularios con `Validators` y para el teléfono, que
+    // se valida solo (appTelefono).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const valida = contenido.includes('Validators.');
+      for (const [campo] of contenido.matchAll(/<mat-form-field\b[\s\S]*?<\/mat-form-field>/g)) {
+        const debe = (valida && /formControlName/.test(campo)) || /\bappTelefono\b/.test(campo);
+        if (debe && !campo.includes('<mat-error')) infractores.push(archivo);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ninguna plantilla arma un campo con `.campo`** (T246, T247, I1)', () => {
+    const conCampo = /class="(?:[^"]* )?(?:campo(?:-chico|-con-prefijo)?|prefijo)(?: [^"]*)?"/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => conCampo.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**los `min-w-*` valen en los campos**: el tema devuelve su `min-width` a las capas', () => {
+    // Material le pone `min-width: 0` al campo, sin capa, y le ganaba a cualquier `min-w-*`: el
+    // buscador de socios, con `min-w-64`, quedaba de 21 px en el teléfono.
+    expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*min-width: revert-layer/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{[^}]*min-width: 0;/);
+  });
+
+  it('**un campo ocupa el ancho de su formulario**, como `.campo`: es de bloque y no en línea', () => {
+    // `.campo` llevaba width: 100%. Material deja el campo en inline-flex y mide lo que su
+    // contenido: en la reserva del sitio, el nombre medía 212 de 335 px. De bloque, llena el
+    // formulario, y en una fila flex o en una grilla no cambia nada.
+    expect(tema).toMatch(/\.mat-mdc-form-field \{[^}]*display: revert-layer/);
+    expect(css).toMatch(/@layer components \{[\s\S]*\.mat-mdc-form-field \{[^}]*display: flex;/);
+  });
+
+  it('**la manilla del interruptor se ve**: no usa el borde claro del sitio (T249)', () => {
+    // `outline` es el borde de los campos, casi blanco; Material pinta con él la manilla y la
+    // pista del interruptor apagado, y sobre la pista gris no se veían.
+    const interruptor = tema.match(/slide-toggle-overrides\(([\s\S]*?)\);/)?.[1] ?? '';
+
+    expect(interruptor).toContain('unselected-handle-color: var(--color-muted-foreground)');
+    expect(interruptor).toContain('track-outline-color: var(--color-muted-foreground)');
+  });
+
+  it('**ningún radio es nativo**: son `mat-radio-group` o `mat-button-toggle-group` (T250, T251)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /type="radio"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el snackbar es la placa del rótulo**, la del sitio y no el gris de Material (T254)', () => {
+    const snackbar = tema.match(/snack-bar-overrides\(([\s\S]*?)\);/)?.[1] ?? '';
+
+    expect(snackbar).toContain('container-color: var(--color-rotulo)');
+    expect(snackbar).toContain('supporting-text-color: var(--color-on-rotulo)');
+  });
+
+  it('**la confirmación de lo hecho es un snackbar**: un aviso de éxito en línea solo donde hay que leerlo (T255, S2)', () => {
+    // Lo que queda en línea es el resultado que reemplaza a un formulario o que trae algo que
+    // anotar: los pasos que siguen a una inscripción, el pago recibido al volver de Webpay. Uno
+    // nuevo se agrega acá a propósito, con su razón. Los de variante enlazada (torneos públicos,
+    // reserva pública) son de esa misma clase, la vuelta de Webpay o del enlace del correo, y la
+    // regla no los ve. El folio de la reserva del mesón salió de la lista en T283: el tablero
+    // muestra la reserva y su ficha el folio, y la confirmación es el snackbar.
+    const enLinea = [
+      'club/formulario-contacto.ts',
+      'cuotas/mi-cuenta.ts',
+      'identidad/recuperar-contrasena/recuperar-contrasena.ts',
+      'identidad/registro/registro.ts',
+      'identidad/verificar-correo/verificar-correo.ts',
+      'torneos/publico/inscripcion.ts',
+    ];
+    const infractores = plantillas()
+      .filter(({ archivo }) => !enLinea.includes(archivo))
+      .filter(({ contenido }) => /<app-aviso[^>]*variante="exito"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `prompt` ni `confirm` del navegador**: son diálogos de Material (T253)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /\b(?:window\.)?(?:prompt|confirm)\(/.test(
+          contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''),
+        ),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<dialog>` nativo**: los diálogos son MatDialog (T252) y los cajones, mat-sidenav (T260, T261)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<dialog\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `app-selector`**: los grupos de opciones son `mat-button-toggle-group` (T251)', () => {
+    const infractores = plantillas()
+      // El nombre entero: con \b, el guion de <app-selector-de-dia (T271) también calzaba.
+      .filter(({ contenido }) => /<app-selector(?=[\s>/])/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+    expect(existsSync(join(RAIZ, 'ui/selector.ts'))).toBe(false);
+  });
+
+  it('**un filtro no es un botón que cambia de apariencia**: es un toggle group (T251)', () => {
+    // `[matButton]="elegido ? 'filled' : 'outlined'"` con aria-pressed: la elegida parecía la
+    // acción principal de la pantalla.
+    const infractores = plantillas()
+      .filter(({ contenido }) => /\[matButton\]="[^"]*\?/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ninguna casilla es nativa**: son `mat-checkbox`, o `mat-slide-toggle` si guardan al tocarlas (T249)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /type="checkbox"/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ninguna lista es un `<select>` nativo**: todas son `mat-select` (T248, I1)', () => {
+    // Los comentarios se quitan antes de buscar: varios nombran el <select> que reemplazan.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<select\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<datalist>`**: las sugerencias son `mat-autocomplete` (T280)', () => {
+    // El datalist del navegador no se puede marcar como «Socio del club» de forma que se
+    // lea igual en todos, y no se ve como el resto de los campos.
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<datalist\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún `<details>`**: lo que se despliega es un `mat-expansion-panel` (T281)', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) =>
+        /<details\b/.test(contenido.replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g, '')),
+      )
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**toda `mat-card` va con contorno, y ninguna dentro de otra** (T282)', () => {
+    // La tarjeta del sitio es la de borde (S1); una dentro de otra es lo que el skill prohíbe.
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      let profundidad = 0;
+      for (const [etiqueta] of contenido.matchAll(/<\/?mat-card\b[^>]*>/g)) {
+        if (etiqueta.startsWith('</')) {
+          profundidad--;
+          continue;
+        }
+        profundidad++;
+        if (!/appearance="outlined"/.test(etiqueta)) infractores.push(`${archivo}: sin contorno`);
+        if (profundidad > 1) infractores.push(`${archivo}: una dentro de otra`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**`styles.css` ya no define `.campo` ni sus variantes** (T247)', () => {
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.(?:campo|prefijo)\b/);
+  });
+
+  it('**el arranque no importa el campo de Material** (I6)', () => {
+    for (const archivo of ['src/app/app.config.ts', 'src/app/ui/material.ts']) {
+      const fuente = readFileSync(join(process.cwd(), archivo), 'utf8');
+      expect(fuente, archivo).not.toContain('@angular/material/form-field');
+    }
+  });
+});
+
+/**
+ * T241–T243. Los botones son `matButton`: `.boton` se fue de `styles.css` en T243.
+ */
+describe('Los botones son de Material (T241–T243)', () => {
+  it('**`styles.css` ya no define `.boton` ni sus variantes** (I1)', () => {
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/\.boton\b/);
+  });
+
+  it('**ninguna plantilla pinta un botón con `.boton`**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [clase] of contenido.matchAll(/\[?class(?:\.boton[\w-]*)?\]?="[^"]*"/g)) {
+        if (/\bboton\b|\.boton/.test(clase)) infractores.push(`${archivo}: ${clase.slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**el color de un `matButton` sale de su clase de tema**, no de una utilidad', () => {
+    // Material pinta el texto, el fondo y el borde con sus tokens y sin capa: un
+    // `text-destructive` en el botón no hace nada, y «Quitar» salía azul (T242). El rojo es
+    // la clase `peligro`, que ajusta los tokens, y sobre una banda de campo, `sobre-campo`
+    // (TV2.1: seis botones armaban `bg-on-campo text-campo` a mano).
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [etiqueta] of contenido.matchAll(/<(?:button|a)\b[^>]*\bmatButton\b[^>]*>/g)) {
+        const clase = etiqueta.match(/\bclass="([^"]*)"/)?.[1] ?? '';
+        // `text-sm` y `text-start` no pintan: son tamaño y alineación.
+        const pinta = /(^|\s)(\S+:)?(text|bg|border)-(?!(xs|sm|base|lg|\d?xl|start|end|center)\b)[a-z]/;
+        if (pinta.test(clase)) {
+          infractores.push(`${archivo}: ${clase.replace(/\s+/g, ' ')}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
  * Las carpetas que las reglas de T150 (botón ocupado) y T152 (esqueletos) no revisan.
  * Vacía desde T154: las dos reglas valen para todo el sitio. Se deja la lista para la
  * próxima vez que una regla nueva entre de a poco.
@@ -1391,17 +1928,21 @@ describe('Los botones dicen que están trabajando (T150)', () => {
     /\[disabled\]="[^"]*\b(?:enviando|guardando|procesando|pagando|entrando|subiendo|borrando|creando|cancelando|confirmando|trabajando|cobrando|resolviendo|ocupad[oa])\(\)/;
 
 
+  const ocupado = /\.mdc-button\.mat-mdc-button-base\[aria-busy='true'\]/.source;
+
   it('el botón ocupado lleva un círculo que gira, y no se ve deshabilitado', () => {
-    expect(css).toMatch(/\.boton\[aria-busy='true'\]::before\s*\{[^}]*progress_activity/);
-    expect(css).toMatch(/\.boton\[aria-busy='true'\]:disabled\s*\{[^}]*opacity:\s*1/);
+    expect(tema).toMatch(new RegExp(`${ocupado}::before\\s*\\{[^}]*progress_activity`));
+    expect(tema).toMatch(new RegExp(`${ocupado}:disabled\\s*\\{[^}]*opacity:\\s*1`));
   });
 
   it('el círculo no se lee: es decoración de una espera que el texto ya dice', () => {
-    expect(css).toMatch(/content:\s*'progress_activity'\s*\/\s*''/);
+    expect(tema).toMatch(/content:\s*'progress_activity'\s*\/\s*''/);
   });
 
   it('los botones de ícono se hunden al presionar, como .boton', () => {
-    expect(css).toMatch(/\.pulsable:active:not\(:disabled\)\s*\{[^}]*scale:/);
+    // Desde T260, `matIconButton`; la clase `pulsable` que lo hacía se fue en T261.
+    expect(css).toMatch(/\.mat-mdc-icon-button:active:not\(:disabled\)\s*\{[^}]*scale:/);
+    expect(css).not.toMatch(/\.pulsable\b/);
   });
 
   it('**todo botón que se deshabilita por un envío lo anuncia con aria-busy**', () => {
@@ -1415,8 +1956,12 @@ describe('Los botones dicen que están trabajando (T150)', () => {
         // envían: se deshabilitan mientras otra acción trabaja, pero no giran. Por
         // convención sus métodos se llaman abrir…, preguntar… o editar…, y ninguno
         // cambia nada (revisado en T154; el abrir del cuadro consulta qué partidos se
-        // deshacen, pero solo lee).
-        if (/\(click\)="(?:abrir|preguntar|editar)\w*\(/.test(boton)) continue;
+        // deshacen, pero solo lee). Tampoco el que abre el selector de un campo de
+        // archivo escondido (T241): el envío lo dispara el campo al elegir. Ni el que cierra
+        // un diálogo (`mat-dialog-close`, T289), que se deshabilita mientras el diálogo guarda
+        // para que no quede a medias, pero no es el que guarda.
+        if (/\(click\)="(?:(?:abrir|preguntar|editar)\w*\(|\w+\.click\(\))/.test(boton)) continue;
+        if (/\bmat-dialog-close\b/.test(boton)) continue;
 
         if (OCUPADO.test(boton) && !/\[attr\.aria-busy\]=/.test(boton)) {
           infractores.push(`${archivo}: ${boton.replace(/\s+/g, ' ').slice(0, 90)}`);
@@ -1445,6 +1990,178 @@ describe('Lo que espera muestra un esqueleto (T152)', () => {
         infractores.push(`${archivo}: ${parrafo.replace(/\s+/g, ' ').slice(0, 80)}`);
       }
     }
+
+    expect(infractores).toEqual([]);
+  });
+
+  /**
+   * T279 (SPEC-revision-qa.md A5). La regla de arriba miraba la palabra: «Buscando horas
+   * disponibles…» o «Sumando el período…» se le pasaban. Esta mira la rama de la carga, y
+   * exige que no sea solo un párrafo: lo que espera lleva `app-esqueleto`, con su barra o su
+   * círculo.
+   */
+  it('**ninguna rama de carga es solo un párrafo**', () => {
+    const RAMA_DE_CARGA =
+      /@(?:if|else if) \(([^{]*?(?:isLoading\(\)|status\(\) === 'loading')[^{]*)\)\s*\{\s*(?:<!--(?:(?!-->)[\s\S])*-->\s*)*<p\b/g;
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [rama, condicion] of contenido.matchAll(RAMA_DE_CARGA)) {
+        // `!x.isLoading()` es la rama de lo que ya llegó, no la de la espera.
+        if (condicion.includes('!')) continue;
+        infractores.push(`${archivo}: ${rama.replace(/\s+/g, ' ').slice(0, 80)}`);
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T291 (SPEC-panel.md D9) y T316 (SPEC-sitio.md D4). Un formulario no se despliega con un botón
+ * que cambia entre una acción y «Cerrar…»: era un mismo control con dos significados, y el
+ * formulario abierto empujaba la lista hacia abajo. En el panel, crear se abre con un FAB y un
+ * diálogo; en el sitio, la inscripción a un torneo es su página.
+ */
+describe('Ningún botón se alterna con Cerrar (T291, T316)', () => {
+  it('**ningún botón cambia entre una acción y «Cerrar…»**', () => {
+    // Desde T292 sin excepciones en el panel, y desde T316 en el sitio: «Inscribirme» y
+    // «Cerrar la inscripción» eran el último.
+    const alterna = /\?\s*'Cerrar[^']*'\s*:\s*'|\?\s*'[^']*'\s*:\s*'Cerrar/;
+    const infractores = plantillas()
+      .filter(({ contenido }) => alterna.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T302 (SPEC-panel.md, módulo `reglas`). Una tabla sin nombre se anuncia como «tabla, 5
+ * columnas» y nada más: quien navega con lector de pantalla no sabe si son los pedidos, el
+ * padrón o el ranking. La auditoría del skill 1.2.0 lo cuenta como error (`tabla-sin-label`).
+ */
+describe('Las tablas tienen nombre (T302)', () => {
+  it('**toda `mat-table` lleva `aria-label` o `aria-labelledby`**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [tabla] of sinComentarios(contenido).matchAll(/<table\b[^>]*\bmat-table\b[^>]*>/g)) {
+        if (!/\b(?:\[attr\.)?aria-label(?:ledby)?\]?=/.test(tabla)) {
+          infractores.push(`${archivo}: ${tabla.replace(/\s+/g, ' ').slice(0, 80)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T303 (SPEC-panel.md D16 y D17). Elegir en un calendario no cambia la fecha hasta «Aplicar», y
+ * el campo dice cómo se escribe a mano. La documentación de Material pide la confirmación para
+ * quien usa tecnología asistiva: sin ella, recorrer los días con las flechas va cambiando el
+ * valor en cada tecla.
+ */
+describe('Los calendarios confirman y dicen su formato (T303)', () => {
+  it('**todo `mat-datepicker` lleva «Cancelar / Aplicar»**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const limpio = sinComentarios(contenido);
+      for (const [calendario] of limpio.matchAll(
+        /<mat-datepicker(?=[\s/>])[^>]*?(?:\/>|>[\s\S]*?<\/mat-datepicker>)/g,
+      )) {
+        if (!/<mat-datepicker-actions>[\s\S]*matDatepickerCancel[\s\S]*matDatepickerApply/.test(calendario)) {
+          infractores.push(`${archivo}: ${calendario.replace(/\s+/g, ' ').slice(0, 60)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**todo campo de fecha dice «dd-mm-aaaa» en su ayuda**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [campo] of sinComentarios(contenido).matchAll(
+        /<mat-form-field\b[\s\S]*?<\/mat-form-field>/g,
+      )) {
+        if (/\[matDatepicker\]/.test(campo) && !/<mat-hint\b[^>]*>[^<]*dd-mm-aaaa/.test(campo)) {
+          infractores.push(`${archivo}: ${/#(\w+)/.exec(campo.slice(campo.indexOf('<mat-datepicker ')))?.[1]}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T306 (SPEC-sitio.md D5 y A9). En una pantalla grande el sitio público usaba 1152 px de 1920, y
+ * el panel la usa entera. El contenido crece a 1440 px, y lo que es banda —fotos y franjas de
+ * color— llega al borde con `.a-sangre`.
+ */
+describe('El sitio público usa las pantallas grandes (T306)', () => {
+  const cascaron = () =>
+    plantillas().find(({ archivo }) => archivo.endsWith('cascarones/cascaron-publico.ts'))!
+      .contenido;
+
+  it('**la barra, el contenido y el pie miden 1440 px**, y ninguno se queda en 1152', () => {
+    expect(cascaron()).not.toContain('max-w-6xl');
+    expect(cascaron().match(/mx-auto [^"]*max-w-\[90rem\]/g)).toHaveLength(3);
+  });
+
+  it('**`.a-sangre` lleva una banda al borde de la ventana**, sin desbordar la página', () => {
+    expect(css).toMatch(/@utility a-sangre\s*\{[^}]*margin-inline:\s*calc\(50% - 50vw\)/);
+    // Con barra de desplazamiento visible, 100vw es más ancho que la página: sin esto, cada banda
+    // empujaría la página hacia el lado. `clip` y no `hidden`, que rompería la barra pegajosa.
+    expect(css).toMatch(/body\s*\{[^}]*overflow-x:\s*clip/);
+  });
+});
+
+/**
+ * T307 (SPEC-sitio.md D5 y A9). Las fotos y las franjas de color del sitio llegan al borde de la
+ * ventana con `.a-sangre`, y su texto se alinea con el contenido con `px-sangre-*`. El truco de
+ * antes, `-mx-4 sm:mx-0`, solo las llevaba al borde en el teléfono.
+ */
+describe('Las bandas del sitio llegan al borde (T307)', () => {
+  it('**ninguna pantalla pública usa `-mx-4` para una banda**', () => {
+    const infractores = plantillas()
+      .filter(({ archivo }) => !archivo.includes('/admin/') && !archivo.startsWith('admin'))
+      .filter(({ contenido }) => /-mx-4/.test(sinComentarios(contenido)))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**`px-sangre-*` alinea el texto de la banda con el contenido**, y en el teléfono no suma nada', () => {
+    expect(css).toMatch(/@utility a-sangre\s*\{[^}]*--sangria:\s*0px/);
+    expect(css).toMatch(/@utility px-sangre-\*\s*\{[^}]*var\(--sangria, 0px\)/);
+  });
+});
+
+/**
+ * T312 (SPEC-sitio.md D8). Toda lista de fotos abre la galería del sitio, la de ng-gallery, y
+ * ninguna tiene un visor propio. Una lista es una plantilla que recorre fotos y muestra sus
+ * miniaturas; una imagen suelta, como la portada de un tour, no es una lista.
+ */
+describe('Toda lista de fotos abre la galería (T312)', () => {
+  it('**una plantilla que recorre fotos y muestra miniaturas usa `app-galeria-de-fotos` o `app-galeria`**', () => {
+    const infractores = plantillas()
+      .filter(({ contenido }) => /@for \(foto of[\s\S]*?foto\.miniatura/.test(sinComentarios(contenido)))
+      .filter(({ contenido }) => !/<app-galeria(?:-de-fotos)?\b/.test(contenido))
+      .map(({ archivo }) => archivo);
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**ningún visor propio**: la foto grande de una lista solo la pide la galería', () => {
+    // El visor de antes de T310 dibujaba `foto.imagen` en la página, con «Cerrar la foto».
+    const infractores = plantillas()
+      .filter(({ contenido }) => /Cerrar la foto/.test(contenido))
+      .map(({ archivo }) => archivo);
 
     expect(infractores).toEqual([]);
   });

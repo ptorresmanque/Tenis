@@ -67,6 +67,11 @@ export function hoyEnElClub(ahora = new Date()): string {
   return fechaEnElClub(ahora);
 }
 
+/** El día que llega en la URL (`?fecha=2026-10-16`), u hoy en el club si no viene o no es un día. */
+export function diaDeLaUrl(fecha: string | undefined, ahora = new Date()): string {
+  return fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : hoyEnElClub(ahora);
+}
+
 /** La hora que marca el reloj del club en ese instante, "HH:MM". */
 export function horaEnElClub(instante: string | Date): string {
   return RELOJ.format(new Date(instante));
@@ -88,6 +93,11 @@ export function diaEnPalabras(fecha: string): string {
   // la hora a la segunda forma daba una fecha inválida que hacía desaparecer el
   // bloque entero sin un solo error a la vista.
   return DIA_LARGO.format(new Date(`${fecha.slice(0, 10)}T12:00:00.000Z`));
+}
+
+/** "viernes, 16 de octubre, a las 10:30": un instante dicho en el reloj del club. */
+export function diaYHoraEnPalabras(instante: string | Date): string {
+  return `${diaEnPalabras(fechaEnElClub(instante))}, a las ${horaEnElClub(instante)}`;
 }
 
 /**
@@ -146,6 +156,11 @@ export interface DiaDelClub {
  * tira saltaría un día o repetiría el mismo. A mediodía UTC en Santiago son las
  * 08:00 o las 09:00, así que siempre cae dentro del día que corresponde.
  */
+/** El día siguiente en el club (T268): a qué día pasar cuando hoy ya no queda nada. */
+export function mananaEnElClub(ahora = new Date()): string {
+  return proximosDias(2, ahora)[1].fecha;
+}
+
 export function proximosDias(cuantos: number, ahora = new Date()): DiaDelClub[] {
   const base = new Date(`${hoyEnElClub(ahora)}T12:00:00.000Z`);
 

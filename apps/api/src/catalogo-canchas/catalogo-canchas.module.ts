@@ -9,6 +9,7 @@ import { AdminCanchasService } from './admin.service';
 import { DisponibilidadController } from './disponibilidad.controller';
 import { DisponibilidadService } from './disponibilidad.service';
 import { FotosDelClubAdminController } from './fotos-del-club.controller';
+import { TarifasDelGimnasioController } from './tarifas-del-gimnasio.controller';
 import { FotosDelClub } from './fotos-del-club.service';
 import {
   PreguntasFrecuentesAdminController,
@@ -31,6 +32,8 @@ import { PreguntasFrecuentes } from './preguntas-frecuentes.service';
     PreguntasFrecuentesAdminController,
     // T185. Las fotos de la tienda y la cafetería; las públicas, en ClubPublicoController.
     FotosDelClubAdminController,
+    // T235. Las tarifas del gimnasio; las públicas, también en ClubPublicoController.
+    TarifasDelGimnasioController,
   ],
   providers: [
     TarifasPublicasService,

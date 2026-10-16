@@ -1,4 +1,9 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
 
 import {
   diaConAnioEnPalabras,
@@ -6,10 +11,12 @@ import {
   fechaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
+import { proveerCampos } from '../ui/campos';
+import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { DescargarCsv } from './descargar-csv';
 import { Reportes } from './reportes.service';
-import { CampoFecha } from '../ui/campo-fecha';
 
 /**
  * El padrón y la morosidad en el tiempo.
@@ -24,40 +31,60 @@ import { CampoFecha } from '../ui/campo-fecha';
  */
 @Component({
   selector: 'app-padron-panel',
-  imports: [EstadoVacio, DescargarCsv, CampoFecha],
+  imports: [
+    MatButton,
+    MatTableModule,MatDatepickerModule, MatFormFieldModule, MatInput, EstadoVacio, DescargarCsv, Esqueleto],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
-         es lo que se lleva. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Padrón y morosidad</h1>
-        <p class="mt-1 text-muted-foreground">
-          Cómo se mueve el padrón y cuánto se debe, mes a mes. La deuda de un mes son sus cuotas
-          emitidas que siguen sin cobrarse, así que baja sola cuando alguien se pone al día.
-        </p>
-      </div>
-    </header>
+    <!-- Es una pestaña de Finanzas (T286): el titular va en la pantalla madre. El CSV va
+         con la tabla, que es lo que se lleva. -->
+    <p class="max-w-prose text-muted-foreground">
+      Cómo se mueve el padrón y cuánto se debe, mes a mes. La deuda de un mes son sus cuotas
+      emitidas que siguen sin cobrarse, así que baja sola cuando alguien se pone al día.
+    </p>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-2">
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-desde">Desde</label>
-        <app-campo-fecha
-          inputId="reporte-desde"
+      <mat-form-field>
+        <mat-label>Desde</mat-label>
+        <input
+          matInput
           name="desde"
-          [valor]="desde()"
-          (valorChange)="desde.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioDesde"
+          [value]="desde()"
+          (dateChange)="desde.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+        <mat-datepicker #calendarioDesde>
+          <mat-datepicker-actions>
+            <button matButton type="button" matDatepickerCancel>Cancelar</button>
+            <button matButton type="button" matDatepickerApply>Aplicar</button>
+          </mat-datepicker-actions>
+        </mat-datepicker>
+        <mat-hint>dd-mm-aaaa</mat-hint>
+      </mat-form-field>
 
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-hasta">Hasta</label>
-        <app-campo-fecha
-          inputId="reporte-hasta"
+      <mat-form-field>
+        <mat-label>Hasta</mat-label>
+        <input
+          matInput
           name="hasta"
-          [valor]="hasta()"
-          (valorChange)="hasta.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioHasta"
+          [value]="hasta()"
+          (dateChange)="hasta.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+        <mat-datepicker #calendarioHasta>
+          <mat-datepicker-actions>
+            <button matButton type="button" matDatepickerCancel>Cancelar</button>
+            <button matButton type="button" matDatepickerApply>Aplicar</button>
+          </mat-datepicker-actions>
+        </mat-datepicker>
+        <mat-hint>dd-mm-aaaa</mat-hint>
+      </mat-form-field>
     </div>
 
     @if (reporte.error()) {
@@ -65,7 +92,7 @@ import { CampoFecha } from '../ui/campo-fecha';
     } @else if (reporte.value(); as datos) {
       <dl class="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         @for (dato of resumen(); track dato.etiqueta) {
-          <div class="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div>
             <dt class="text-sm text-muted-foreground">{{ dato.etiqueta }}</dt>
             <dd class="font-display text-2xl font-bold">{{ dato.valor }}</dd>
           </div>
@@ -81,36 +108,36 @@ import { CampoFecha } from '../ui/campo-fecha';
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="tabla text-sm">
-            <caption class="sr-only">
-              Altas, bajas y deuda por mes
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Mes</th>
-                <th scope="col" class="numero">Altas</th>
-                <th scope="col" class="numero">Bajas</th>
-                <th scope="col" class="numero">Deuda</th>
-                <th scope="col" class="numero">Socios con deuda</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (mes of datos.meses; track mes.periodo) {
-                <tr>
-                  <th scope="row">
-                    {{ mes.periodo }}
-                  </th>
-                  <td class="numero">{{ mes.altas }}</td>
-                  <td class="numero">{{ mes.bajas }}</td>
-                  <td class="numero font-semibold">
-                    {{ pesos(mes.deudaClp) }}
-                  </td>
-                  <td class="py-2 text-right text-muted-foreground">
-                    {{ mes.sociosConDeuda }}
-                  </td>
-                </tr>
-              }
-            </tbody>
+          <table mat-table aria-label="Altas, bajas y deuda por mes" class="text-sm" [dataSource]="datos.meses">
+            <ng-container matColumnDef="mes">
+              <th mat-header-cell *matHeaderCellDef scope="col">Mes</th>
+              <th *matCellDef="let mes" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                {{ mes.periodo }}
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="altas">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Altas</th>
+              <td mat-cell *matCellDef="let mes" class="numero">{{ mes.altas }}</td>
+            </ng-container>
+            <ng-container matColumnDef="bajas">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Bajas</th>
+              <td mat-cell *matCellDef="let mes" class="numero">{{ mes.bajas }}</td>
+            </ng-container>
+            <ng-container matColumnDef="deuda">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Deuda</th>
+              <td mat-cell *matCellDef="let mes" class="numero font-semibold">
+                {{ pesos(mes.deudaClp) }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="conDeuda">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Socios con deuda</th>
+              <td mat-cell *matCellDef="let mes" class="py-2 text-right text-muted-foreground">
+                {{ mes.sociosConDeuda }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let mes; columns: COLUMNAS"></tr>
           </table>
         </div>
       }
@@ -132,18 +159,18 @@ import { CampoFecha } from '../ui/campo-fecha';
         <app-descargar-csv [url]="urlDelCsv()" />
       </div>
     } @else if (reporte.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Mirando el padrón…</p>
+      <app-esqueleto class="mt-6 block" [filas]="5" etiqueta="Mirando el padrón…" />
     }
   `,
 })
 export class PadronPanel {
   private readonly api = inject(Reportes);
 
-  protected readonly desde = signal(`${hoyEnElClub().slice(0, 5)}01-01`);
-  protected readonly hasta = signal(hoyEnElClub());
+  protected readonly desde = signal(textoAFecha(`${hoyEnElClub().slice(0, 5)}01-01`));
+  protected readonly hasta = signal(textoAFecha(hoyEnElClub()));
 
   protected readonly reporte = resource({
-    params: () => ({ desde: this.desde(), hasta: this.hasta() }),
+    params: () => ({ desde: fechaATexto(this.desde()), hasta: fechaATexto(this.hasta()) }),
     loader: ({ params }) => this.api.padron(params.desde, params.hasta),
   });
 
@@ -160,7 +187,11 @@ export class PadronPanel {
     ];
   });
 
-  protected readonly urlDelCsv = computed(() => this.api.csv('padron', this.desde(), this.hasta()));
+  protected readonly urlDelCsv = computed(() =>
+    this.api.csv('padron', fechaATexto(this.desde()), fechaATexto(this.hasta())),
+  );
+
+  protected readonly COLUMNAS = ['mes', 'altas', 'bajas', 'deuda', 'conDeuda'];
 
   protected readonly pesos = enPesos;
 

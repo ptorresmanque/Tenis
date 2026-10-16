@@ -149,6 +149,10 @@ describe('Inscripciones a una clase', () => {
     await prisma.cancha.deleteMany({
       where: { nombre: { startsWith: NOMBRE_CANCHA } },
     });
+    // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
+    await prisma.serieDeClases.deleteMany({
+      where: { profesor: { nombreVisible: 'Profe de inscripciones' } },
+    });
     await prisma.profesor.deleteMany({
       where: { nombreVisible: 'Profe de inscripciones' },
     });
@@ -161,6 +165,10 @@ describe('Inscripciones a una clase', () => {
   beforeEach(async () => {
     await prisma.cancha.deleteMany({
       where: { nombre: { startsWith: NOMBRE_CANCHA } },
+    });
+    // Desde T228 la serie ya no cae con su cancha (caen sus días): se borra antes del profesor.
+    await prisma.serieDeClases.deleteMany({
+      where: { profesor: { nombreVisible: 'Profe de inscripciones' } },
     });
     await prisma.profesor.deleteMany({
       where: { nombreVisible: 'Profe de inscripciones' },

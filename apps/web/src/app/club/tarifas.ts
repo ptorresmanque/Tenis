@@ -1,8 +1,10 @@
 import { httpResource } from '@angular/common/http';
 import { Component, computed } from '@angular/core';
+import { MatTableModule } from '@angular/material/table';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
 import { enPesos } from '../catalogo-canchas/reloj-del-club';
-import { Insignia } from '../ui/insignia';
 import { Esqueleto } from '../ui/esqueleto';
 
 /** Espejo de `TarifaPublica` en la API. */
@@ -53,7 +55,7 @@ const DIAS = [
  */
 @Component({
   selector: 'app-tarifas',
-  imports: [Esqueleto, Insignia],
+  imports: [Esqueleto, MatTableModule, MatChipsModule, MatIcon],
   template: `
     <section aria-labelledby="titulo-tarifas">
       <h2 id="titulo-tarifas" class="titular text-5xl sm:text-6xl">Tarifas y horarios</h2>
@@ -84,11 +86,16 @@ const DIAS = [
                 <div class="flex flex-wrap items-center gap-2">
                   <span
                     class="rotulo-hora px-2 py-1 font-display text-2xl leading-none"
-                    [class.rotulo-hora-pico]="tarifa.esPico"
+                    [class.rotulo-hora-prime]="tarifa.esPico"
                     >{{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}</span
                   >
                   @if (tarifa.esPico) {
-                    <app-insignia variante="aviso" icono="trending_up">Hora pico</app-insignia>
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia aviso">
+                        <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                        Hora prime
+                      </mat-chip>
+                    </mat-chip-set>
                   }
                 </div>
 
@@ -127,50 +134,61 @@ const DIAS = [
                sin borde, con su sombra, y el precio en la cifra condensada. Los precios van
                justo después del horario: es lo que se viene a buscar. -->
           <div class="mt-4 hidden overflow-x-auto bg-card shadow-md sm:block">
-            <table class="tabla">
-              <caption class="sr-only">
-                Tarifas de arriendo por 1 hora y por 1 hora y media, vigentes hoy
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Horario</th>
-                  <th scope="col">1 hora</th>
-                  <th scope="col">1 hora y media</th>
-                  <th scope="col">Cancha</th>
-                  <th scope="col">Días</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (tarifa of lista; track clave(tarifa)) {
-                  <tr>
-                    <td class="whitespace-nowrap">
-                      {{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}
-                      @if (tarifa.esPico) {
-                        <!-- Ámbar, como el rótulo "Pico" del marcador de la portada: la
-                             misma idea no cambia de color de una página a otra. -->
-                        <app-insignia variante="aviso" icono="trending_up">
-                          Hora pico
-                        </app-insignia>
-                      }
-                    </td>
-                    <td class="font-display text-xl font-bold whitespace-nowrap text-primary">
-                      {{ pesos(tarifa.montoClp) }}
-                    </td>
-                    <td class="font-display text-xl font-bold whitespace-nowrap text-primary">
-                      @if (tarifa.montoClp90 !== null) {
-                        {{ pesos(tarifa.montoClp90) }}
-                      } @else {
-                        <!-- Vacía a la vista: un guion o un cero invitarían a pedir algo
-                             que no se vende (T81). El lector de pantalla sí lo dice: una
-                             celda "en blanco" no le explica nada a quien la escucha. -->
-                        <span class="sr-only">No se arrienda por hora y media</span>
-                      }
-                    </td>
-                    <td>{{ donde(tarifa, lista) }}</td>
-                    <td>{{ cuandoRige(tarifa.diaSemana) }}</td>
-                  </tr>
-                }
-              </tbody>
+            <table mat-table aria-label="Tarifas de arriendo por 1 hora y por 1 hora y media, vigentes hoy" [dataSource]="lista">
+              <ng-container matColumnDef="horario">
+                <th mat-header-cell *matHeaderCellDef scope="col">Horario</th>
+                <td mat-cell *matCellDef="let tarifa" class="whitespace-nowrap">
+                  {{ tarifa.horaDesde }}–{{ tarifa.horaHasta }}
+                  @if (tarifa.esPico) {
+                    <!-- Ámbar, como el rótulo "Prime" del marcador de la portada: la
+                         misma idea no cambia de color de una página a otra. -->
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia aviso">
+                        <mat-icon matChipAvatar aria-hidden="true">trending_up</mat-icon>
+                        Hora prime
+                      </mat-chip>
+                    </mat-chip-set>
+                  }
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="hora">
+                <th mat-header-cell *matHeaderCellDef scope="col">1 hora</th>
+                <td
+                  mat-cell
+                  *matCellDef="let tarifa"
+                  class="font-display text-xl font-bold whitespace-nowrap text-primary"
+                >
+                  {{ pesos(tarifa.montoClp) }}
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="horaYMedia">
+                <th mat-header-cell *matHeaderCellDef scope="col">1 hora y media</th>
+                <td
+                  mat-cell
+                  *matCellDef="let tarifa"
+                  class="font-display text-xl font-bold whitespace-nowrap text-primary"
+                >
+                  @if (tarifa.montoClp90 !== null) {
+                    {{ pesos(tarifa.montoClp90) }}
+                  } @else {
+                    <!-- Vacía a la vista: un guion o un cero invitarían a pedir algo
+                         que no se vende (T81). El lector de pantalla sí lo dice: una
+                         celda "en blanco" no le explica nada a quien la escucha. -->
+                    <span class="sr-only">No se arrienda por hora y media</span>
+                  }
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="cancha">
+                <th mat-header-cell *matHeaderCellDef scope="col">Cancha</th>
+                <td mat-cell *matCellDef="let tarifa">{{ donde(tarifa, lista) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="dias">
+                <th mat-header-cell *matHeaderCellDef scope="col">Días</th>
+                <td mat-cell *matCellDef="let tarifa">{{ cuandoRige(tarifa.diaSemana) }}</td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+              <tr mat-row *matRowDef="let tarifa; columns: COLUMNAS"></tr>
             </table>
           </div>
         }
@@ -202,6 +220,8 @@ const DIAS = [
   `,
 })
 export class Tarifas {
+  protected readonly COLUMNAS = ['horario', 'hora', 'horaYMedia', 'cancha', 'dias'];
+
   protected readonly tarifas = httpResource<Tarifa[]>(() => '/api/tarifas', {
     defaultValue: [],
   });

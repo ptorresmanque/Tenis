@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 export type VarianteAviso = 'info' | 'exito' | 'aviso' | 'error';
 
@@ -34,15 +35,16 @@ export const VARIANTES_AVISO: Record<VarianteAviso, { clases: string; icono: str
  */
 @Component({
   selector: 'app-aviso',
+  imports: [MatIcon],
   template: `
     <div
       [attr.role]="urgente() || variante() === 'error' ? 'alert' : 'status'"
       class="flex gap-3 rounded-xl border p-4"
       [class]="variante_().clases"
     >
-      <span class="icono shrink-0 text-xl" aria-hidden="true">
+      <mat-icon class="shrink-0 text-xl" aria-hidden="true">
         {{ icono() || variante_().icono }}
-      </span>
+      </mat-icon>
       <div class="min-w-0 flex-1 text-sm">
         @if (titulo()) {
           <p class="font-display font-bold uppercase tracking-wide">{{ titulo() }}</p>

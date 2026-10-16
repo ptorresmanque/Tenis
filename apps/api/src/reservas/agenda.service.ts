@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import { instanteEnElClub } from '../comun/tiempo';
-import { EstadoReserva } from '../generated/prisma/client';
+import { EstadoReserva, MotivoBloqueo } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  OBSERVACION,
+  type ObservacionDeReserva,
+} from './observaciones.service';
 import { ACTIVAS } from './reservas.service';
 
 /** Una hora del día, como la mira quien atiende el mesón. */
@@ -10,6 +14,8 @@ export interface ReservaDelDia {
   id: number;
   folio: string;
   cancha: string;
+  /** Para ubicarla en el tablero de la agenda, que tiene una columna por cancha (T269). */
+  canchaId: number;
   inicio: Date;
   fin: Date;
   estado: EstadoReserva;
@@ -17,13 +23,53 @@ export interface ReservaDelDia {
   nombre: string;
   telefono: string;
   esSocio: boolean;
+  /** El socio de la reserva, para abrir su historial de observaciones (T225). */
+  socioId: number | null;
   /** Con quién juega: nombres de invitados y de socios acompañantes. */
   acompanantes: string[];
+  /** Las notas del mesón sobre esta reserva, en el orden en que se escribieron. */
+  observaciones: ObservacionDeReserva[];
+  /** Cuántas tiene el socio en reservas de días anteriores. Cero para el visitante. */
+  observacionesAnteriores: number;
+}
+
+/** Una cancha cerrada en el día, con su rango exacto (T270). */
+export interface BloqueoDelDia {
+  canchaId: number;
+  inicio: Date;
+  fin: Date;
+  motivo: MotivoBloqueo;
+  descripcion: string | null;
 }
 
 @Injectable()
 export class AgendaService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Las canchas cerradas en un día del club, con su rango exacto, para el tablero de la
+   * agenda (T270). Las de clase no vienen: la agenda ya trae las clases con su profesor.
+   * Un cierre de varios días cuenta en cada uno de ellos.
+   *
+   * @param fecha Fecha civil del club, "AAAA-MM-DD".
+   */
+  bloqueosDelDia(fecha: string): Promise<BloqueoDelDia[]> {
+    return this.prisma.bloqueo.findMany({
+      where: {
+        motivo: { not: MotivoBloqueo.CLASE },
+        inicio: { lt: instanteEnElClub(fecha, '24:00') },
+        fin: { gt: instanteEnElClub(fecha, '00:00') },
+      },
+      orderBy: [{ inicio: 'asc' }, { id: 'asc' }],
+      select: {
+        canchaId: true,
+        inicio: true,
+        fin: true,
+        motivo: true,
+        descripcion: true,
+      },
+    });
+  }
 
   /**
    * Las reservas activas de un día del club, de la más temprana a la más tardía.
@@ -53,6 +99,7 @@ export class AgendaService {
         nombre: true,
         telefono: true,
         socioId: true,
+        canchaId: true,
         cancha: { select: { nombre: true } },
         acompanantes: {
           select: {
@@ -60,24 +107,73 @@ export class AgendaService {
             socio: { select: { usuario: { select: { nombre: true } } } },
           },
         },
+        observaciones: {
+          orderBy: [{ creadaEn: 'asc' }, { id: 'asc' }],
+          select: OBSERVACION,
+        },
       },
     });
+
+    const anteriores = await this.observacionesAnteriores(
+      reservas.flatMap((reserva) =>
+        reserva.socioId === null ? [] : [reserva.socioId],
+      ),
+      instanteEnElClub(fecha, '00:00'),
+    );
 
     return reservas.map((reserva) => ({
       id: reserva.id,
       folio: reserva.folio,
       cancha: reserva.cancha.nombre,
+      canchaId: reserva.canchaId,
       inicio: reserva.inicio,
       fin: reserva.fin,
       estado: reserva.estado,
       nombre: reserva.nombre,
       telefono: reserva.telefono,
       esSocio: reserva.socioId !== null,
+      socioId: reserva.socioId,
       acompanantes: reserva.acompanantes.map(
         // El invitado es un nombre suelto; del socio acompañante se guarda el id, así
         // que su nombre se lee de su ficha y sigue al día si lo cambió.
         (quien) => quien.nombre ?? quien.socio?.usuario.nombre ?? 'Sin nombre',
       ),
+      observaciones: reserva.observaciones,
+      observacionesAnteriores:
+        reserva.socioId === null ? 0 : (anteriores.get(reserva.socioId) ?? 0),
     }));
+  }
+
+  /**
+   * Cuántas observaciones tiene cada socio en reservas de días anteriores: **una consulta
+   * para todos los socios del día**, no una por reserva (la agenda de un sábado tiene
+   * cuarenta).
+   *
+   * ponytail: trae una fila por observación y cuenta acá, porque Prisma no agrupa por un
+   * campo de la relación. Si un socio llega a juntar cientos, un `groupBy` crudo.
+   */
+  private async observacionesAnteriores(
+    socios: number[],
+    antesDe: Date,
+  ): Promise<Map<number, number>> {
+    const cuantas = new Map<number, number>();
+    if (socios.length === 0) return cuantas;
+
+    const filas = await this.prisma.observacionReserva.findMany({
+      where: {
+        reserva: {
+          socioId: { in: [...new Set(socios)] },
+          inicio: { lt: antesDe },
+        },
+      },
+      select: { reserva: { select: { socioId: true } } },
+    });
+
+    for (const { reserva } of filas) {
+      if (reserva.socioId === null) continue;
+      cuantas.set(reserva.socioId, (cuantas.get(reserva.socioId) ?? 0) + 1);
+    }
+
+    return cuantas;
   }
 }

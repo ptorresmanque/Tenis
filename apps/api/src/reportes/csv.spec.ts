@@ -51,6 +51,24 @@ describe('CSV', () => {
       expect(lineas(csv)[1]).toBe('Díaz, Carolina');
     });
 
+    it('**un texto que empieza como fórmula se abre como texto, no se ejecuta**', () => {
+      // El nombre de un visitante lo escribe cualquiera desde la web (T273): un
+      // "=HYPERLINK(...)" se ejecutaría en el Excel de quien baja la agenda. El apóstrofo
+      // lo deja como texto, y Excel no lo muestra.
+      const [, fila] = lineas(
+        aCsv(
+          ['A', 'B', 'C', 'D'],
+          [['=1+1', '+56911112222', '-2', '@SUMA(A1)']],
+        ),
+      );
+
+      expect(fila).toBe("'=1+1;'+56911112222;'-2;'@SUMA(A1)");
+    });
+
+    it('un número negativo sigue siendo número: solo el texto se neutraliza', () => {
+      expect(lineas(aCsv(['A'], [[-3]]))[1]).toBe('-3');
+    });
+
     it('el encabezado se escapa con la misma regla', () => {
       expect(lineas(aCsv(['Un; raro'], []))[0]).toBe('"Un; raro"');
     });

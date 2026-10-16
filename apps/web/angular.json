@@ -30,7 +30,7 @@
             ],
             "styles": [
               "src/fuentes.css",
-              "@angular/material/prebuilt-themes/azure-blue.css",
+              "src/tema-material.scss",
               "src/styles.css"
             ]
           },
@@ -39,7 +39,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "600kB",
                   "maximumError": "1MB"
                 },
                 {
@@ -74,7 +74,10 @@
           "defaultConfiguration": "development"
         },
         "test": {
-          "builder": "@angular/build:unit-test"
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "providersFile": "src/test-providers.ts"
+          }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",

@@ -1,5 +1,6 @@
 import { NgOptimizedImage } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 
 /** Las proporciones que el sitio usa. No hay más, y eso es a propósito. */
 export type Proporcion = '16/9' | '4/3' | '3/2' | '3/4' | '1/1';
@@ -40,7 +41,7 @@ const ANCHO: Record<Proporcion, number> = {
  */
 @Component({
   selector: 'app-foto',
-  imports: [NgOptimizedImage],
+  imports: [MatIcon, NgOptimizedImage],
   template: `
     <div
       data-caja
@@ -64,7 +65,7 @@ const ANCHO: Record<Proporcion, number> = {
                  px-6 py-6 text-center text-on-primary"
           [class]="claseFondo()"
         >
-          <span class="icono text-3xl opacity-70" aria-hidden="true">photo_camera</span>
+          <mat-icon class="text-3xl opacity-70" aria-hidden="true">photo_camera</mat-icon>
           <p class="max-w-prose text-sm font-semibold text-balance">
             {{ descripcion() }}
           </p>

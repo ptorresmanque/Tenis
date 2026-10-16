@@ -1,10 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Auth } from '../../core/auth/auth';
 import { Aviso } from '../../ui/aviso';
-import { Campo, CampoControl } from '../../ui/campo';
 
 /** Motivos con los que la API devuelve a esta pantalla tras un intento con Google. */
 const RECHAZOS: Record<string, string> = {
@@ -20,7 +23,8 @@ const RECHAZOS: Record<string, string> = {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink, Aviso, Campo, CampoControl],
+  imports: [MatFormFieldModule, MatInput, MatButton, ReactiveFormsModule, RouterLink, Aviso],
+  providers: [proveerCampos()],
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Entrar</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
@@ -32,25 +36,27 @@ const RECHAZOS: Record<string, string> = {
     }
 
     <form class="mt-6 grid gap-4" [formGroup]="formulario" (ngSubmit)="entrar()">
-      <app-campo etiqueta="Correo">
+      <mat-form-field>
+        <mat-label>Correo</mat-label>
         <input
-          appCampoControl
+          matInput
           type="email"
           formControlName="email"
           autocomplete="email"
-          class="campo"
         />
-      </app-campo>
+        <mat-error>{{ errorDelCampo(formulario.controls.email) }}</mat-error>
+      </mat-form-field>
 
-      <app-campo etiqueta="Contraseña">
+      <mat-form-field>
+        <mat-label>Contraseña</mat-label>
         <input
-          appCampoControl
+          matInput
           type="password"
           formControlName="contrasena"
           autocomplete="current-password"
-          class="campo"
         />
-      </app-campo>
+        <mat-error>{{ errorDelCampo(formulario.controls.contrasena) }}</mat-error>
+      </mat-form-field>
 
       <!-- El rechazo es del intento, no de un campo: "correo o contraseña
            incorrectos" no sabe cuál de los dos está mal, y colgarlo del segundo
@@ -60,10 +66,10 @@ const RECHAZOS: Record<string, string> = {
       }
 
       <button
+        matButton="filled"
         type="submit"
         [disabled]="entrando() || formulario.invalid"
         [attr.aria-busy]="entrando()"
-        class="boton boton-primario"
       >
         {{ entrando() ? 'Entrando…' : 'Entrar' }}
       </button>
@@ -95,11 +101,13 @@ const RECHAZOS: Record<string, string> = {
 
       <!-- Enlace y no botón con fetch: el flujo de OAuth es una navegación de
            verdad, con redirecciones que el navegador tiene que seguir. -->
-      <a href="/api/auth/google" class="boton boton-secundario">Entrar con Google</a>
+      <a matButton="outlined" href="/api/auth/google">Entrar con Google</a>
     </div>
   `,
 })
 export class Login {
+  protected readonly errorDelCampo = errorDelCampo;
+
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
 

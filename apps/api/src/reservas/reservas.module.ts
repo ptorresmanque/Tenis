@@ -8,6 +8,7 @@ import { AgendaService } from './agenda.service';
 import { DisponibilidadPublicaController } from './disponibilidad-publica.controller';
 import { DisponibilidadPublicaService } from './disponibilidad-publica.service';
 import { CierreDeCanchaController } from './cierre-de-cancha.controller';
+import { TopeDeLuzController } from './tope-de-luz.controller';
 import { AvisosDeReserva } from './correos';
 import { CierreDeCanchaService } from './cierre-de-cancha.service';
 import { EventosDeReserva } from './eventos';
@@ -27,6 +28,8 @@ import { RetornoDeDiferencia } from './retorno-diferencia.service';
 import { ReservaRepository } from './reserva.repository';
 import { ReservasController } from './reservas.controller';
 import { ReservasService } from './reservas.service';
+import { ObservacionesController } from './observaciones.controller';
+import { Observaciones } from './observaciones.service';
 
 /**
  * `reservas` junta a los otros tres módulos: `catalogo-canchas` dice qué bloques
@@ -45,6 +48,8 @@ import { ReservasService } from './reservas.service';
     ReportesController,
     AdminReportesController,
     CierreDeCanchaController,
+    TopeDeLuzController,
+    ObservacionesController,
   ],
   providers: [
     ReservaRepository,
@@ -60,6 +65,7 @@ import { ReservasService } from './reservas.service';
     EventosDeReserva,
     CierreDeCanchaService,
     AvisosDeReserva,
+    Observaciones,
   ],
   exports: [
     ReservaRepository,
@@ -69,6 +75,8 @@ import { ReservasService } from './reservas.service';
     // Lo usa `clases` para agendar: la clase cierra la cancha con la misma cascada
     // que el cierre por mantención, no con una copia más blanda.
     CierreDeCanchaService,
+    // Lo usa el informe del día de `reportes` (T273).
+    AgendaService,
   ],
 })
 export class ReservasModule {}

@@ -1,18 +1,28 @@
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
+import { MatCard } from '@angular/material/card';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
+import { proveerCampos } from '../../ui/campos';
 import {
   Contacto,
   Solicitud,
   TipoSolicitud,
 } from '../../club/contacto.service';
 import { mensajeDelServidor } from '../../core/errores';
+import { Pendientes } from '../../core/pendientes';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
 import { Esqueleto } from '../../ui/esqueleto';
+import { LO_HECHO } from '../../ui/material';
 
 const TIPOS: Record<TipoSolicitud, string> = {
   SOCIO: 'Quiere asociarse',
@@ -25,13 +35,30 @@ const TIPOS: Record<TipoSolicitud, string> = {
  * La bandeja: quién le escribió al club y qué se hizo con cada consulta.
  *
  * **El número que el club necesita de acá no es cuántas llegaron, es cuántas
- * terminaron en un socio.** Por eso la de tipo "quiere asociarse" tiene su propio
- * botón, que crea la invitación con el correo ya puesto y deja las dos filas
- * enlazadas: es el circuito completo, y sin él nadie puede decir si tener sitio sirvió.
+ * terminaron en un socio.** Desde T297 (SPEC-panel.md D13) el alta no sale de acá: la
+ * persona crea su cuenta en el sitio y el admin la marca Socio en Personas, y ahí su
+ * consulta «Quiere asociarse» se enlaza y se atiende sola (A14). La bandeja atiende o
+ * descarta, y a quien quiere asociarse le dice cómo seguir.
  */
 @Component({
   selector: 'app-solicitudes',
-  imports: [FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, Esqueleto],
+  imports: [
+    MatCard,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    RouterLink,
+    Aviso,
+    EstadoVacio,
+    MatButtonToggleModule,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    Esqueleto,
+    MatChipsModule,
+    MatIcon,
+  ],
+  providers: [proveerCampos()],
   template: `
     <!-- La cabecera del panel (TV7.1), sin acción: cada consulta trae las suyas. -->
     <header class="cabecera-panel">
@@ -44,22 +71,25 @@ const TIPOS: Record<TipoSolicitud, string> = {
       </div>
     </header>
 
-    <app-selector
-      class="mt-4 block"
-      etiqueta="Filtrar consultas"
-      [opciones]="FILTROS"
-      [(valor)]="filtro"
-    />
+    <mat-button-toggle-group
+      class="mt-4"
+      aria-label="Filtrar consultas"
+      hideSingleSelectionIndicator
+      [value]="filtro()"
+      (change)="filtro.set($event.value)"
+    >
+      @for (opcion of FILTROS; track opcion.valor) {
+        <mat-button-toggle [value]="opcion.valor">
+          {{ opcion.etiqueta }}
+        </mat-button-toggle>
+      }
+    </mat-button-toggle-group>
 
-    <!-- Fuera del bloque de la lista: atender la última solicitud la saca de la
-         bandeja, y con el aviso adentro el admin veía desaparecer la fila sin ninguna
-         confirmación de lo que acababa de hacer. Justo en la acción que da de alta a
-         un socio. -->
+    <!-- Fuera del bloque de la lista: atender la última solicitud la saca de la bandeja. La
+         confirmación de lo hecho sale en un snackbar (T254), que tampoco se va con la fila;
+         acá queda el error, que hay que leer. -->
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
     }
 
     @if (solicitudes.isLoading()) {
@@ -78,99 +108,117 @@ const TIPOS: Record<TipoSolicitud, string> = {
     } @else {
       <ul class="mt-4 grid gap-3">
         @for (solicitud of solicitudes.value(); track solicitud.id) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div class="flex flex-wrap items-center gap-2">
-              <app-insignia
-                [variante]="solicitud.tipo === 'SOCIO' ? 'info' : 'neutro'"
-                icono="mail"
-              >
-                {{ nombreTipo(solicitud.tipo) }}
-              </app-insignia>
+          <li>
+            <mat-card appearance="outlined" class="p-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <mat-chip-set class="insignias">
+                  <mat-chip class="insignia" [class]="solicitud.tipo === 'SOCIO' ? 'info' : 'neutro'">
+                    <mat-icon matChipAvatar aria-hidden="true">mail</mat-icon>
+                    {{ nombreTipo(solicitud.tipo) }}
+                  </mat-chip>
+                </mat-chip-set>
 
-              @if (solicitud.estado === 'ATENDIDA') {
-                <app-insignia variante="exito" icono="check">Atendida</app-insignia>
-              } @else if (solicitud.estado === 'DESCARTADA') {
-                <app-insignia variante="neutro" icono="block">Descartada</app-insignia>
-              }
-
-              <span class="ms-auto text-sm text-muted-foreground">
-                {{ cuando(solicitud.creadaEn) }}
-              </span>
-            </div>
-
-            <h2 class="mt-2 titulo-tarjeta">
-              {{ solicitud.nombre }}
-            </h2>
-            <p class="text-sm text-muted-foreground">
-              @if (solicitud.email) {
-                <a [href]="'mailto:' + solicitud.email" class="underline">
-                  {{ solicitud.email }}
-                </a>
-              }
-              @if (solicitud.email && solicitud.telefono) {
-                ·
-              }
-              @if (solicitud.telefono) {
-                <a [href]="solicitud.telefono | enlaceTelefono" class="underline">
-                  {{ solicitud.telefono | telefono }}
-                </a>
-              }
-            </p>
-
-            @if (solicitud.mensaje) {
-              <p class="mt-2 text-sm">{{ solicitud.mensaje }}</p>
-            }
-
-            @if (solicitud.nota) {
-              <p class="mt-2 rounded-lg bg-muted p-2 text-sm">
-                <span class="font-medium">Nota:</span> {{ solicitud.nota }}
-              </p>
-            }
-
-            @if (solicitud.estado === 'NUEVA') {
-              <div class="mt-3 flex flex-wrap items-end gap-2">
-                <label class="flex-1">
-                  <span class="sr-only">Nota sobre {{ solicitud.nombre }}</span>
-                  <input
-                    class="campo campo-chico"
-                    placeholder="Qué se hizo (opcional)"
-                    [name]="'nota-' + solicitud.id"
-                    [(ngModel)]="notas[solicitud.id]"
-                  />
-                </label>
-
-                @if (solicitud.tipo === 'SOCIO' && !solicitud.invitacionId) {
-                  <button
-                    type="button"
-                    class="boton boton-primario boton-chico"
-                    [disabled]="trabajando()"
-                    [attr.aria-busy]="enCurso() === 'invitar-' + solicitud.id"
-                    (click)="invitar(solicitud)"
-                  >
-                    Dar de alta como socio
-                  </button>
+                @if (solicitud.estado === 'ATENDIDA') {
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia exito">
+                      <mat-icon matChipAvatar aria-hidden="true">check</mat-icon>
+                      Atendida
+                    </mat-chip>
+                  </mat-chip-set>
+                } @else if (solicitud.estado === 'DESCARTADA') {
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia neutro">
+                      <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                      Descartada
+                    </mat-chip>
+                  </mat-chip-set>
                 }
 
-                <button
-                  type="button"
-                  class="boton boton-secundario boton-chico"
-                  [disabled]="trabajando()"
-                  [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'ATENDIDA'"
-                  (click)="resolver(solicitud, 'ATENDIDA')"
-                >
-                  Marcar atendida
-                </button>
-                <button
-                  type="button"
-                  class="boton boton-texto boton-chico"
-                  [disabled]="trabajando()"
-                  [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'DESCARTADA'"
-                  (click)="resolver(solicitud, 'DESCARTADA')"
-                >
-                  Descartar
-                </button>
+                <span class="ms-auto text-sm text-muted-foreground">
+                  {{ cuando(solicitud.creadaEn) }}
+                </span>
               </div>
-            }
+
+              <h2 class="mt-2 titulo-tarjeta">
+                {{ solicitud.nombre }}
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                @if (solicitud.email) {
+                  <a [href]="'mailto:' + solicitud.email" class="underline">
+                    {{ solicitud.email }}
+                  </a>
+                }
+                @if (solicitud.email && solicitud.telefono) {
+                  ·
+                }
+                @if (solicitud.telefono) {
+                  <a [href]="solicitud.telefono | enlaceTelefono" class="underline">
+                    {{ solicitud.telefono | telefono }}
+                  </a>
+                }
+              </p>
+
+              @if (solicitud.mensaje) {
+                <p class="mt-2 text-sm">{{ solicitud.mensaje }}</p>
+              }
+
+              @if (solicitud.nota) {
+                <p class="mt-2 rounded-lg bg-muted p-2 text-sm">
+                  <span class="font-medium">Nota:</span> {{ solicitud.nota }}
+                </p>
+              }
+
+              @if (solicitud.tipo === 'SOCIO' && solicitud.estado === 'NUEVA') {
+                <!-- T297 (D13): el alta ya no sale de acá. Esta consulta se atiende sola
+                     cuando se marca Socio la cuenta de este correo. -->
+                <p class="mt-2 text-sm text-muted-foreground">
+                  Para hacerla socia: que cree su cuenta en el sitio con este correo, y márcala
+                  Socio en su ficha de
+                  <a
+                    class="font-semibold text-primary underline"
+                    routerLink="/administracion/personas"
+                    [queryParams]="{ tipo: 'sin-tipo' }"
+                    >Personas</a
+                  >. Esta consulta se marca atendida sola.
+                </p>
+              }
+
+              @if (solicitud.estado === 'NUEVA') {
+                <div class="mt-3 flex flex-wrap items-end gap-2">
+                  <mat-form-field class="chico flex-1">
+                    <!-- Sin etiqueta a la vista, como antes: la fila ya dice de quién es. -->
+                    <input
+                      matInput
+                      [attr.aria-label]="'Nota sobre ' + solicitud.nombre"
+                      placeholder="Qué se hizo (opcional)"
+                      [name]="'nota-' + solicitud.id"
+                      [(ngModel)]="notas[solicitud.id]"
+                    />
+                  </mat-form-field>
+
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    class="chico"
+                    [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'ATENDIDA'"
+                    (click)="resolver(solicitud, 'ATENDIDA')"
+                  >
+                    Marcar atendida
+                  </button>
+                  <button
+                    matButton
+                    type="button"
+                    class="chico"
+                    [disabled]="trabajando()"
+                    [attr.aria-busy]="enCurso() === 'resolver-' + solicitud.id + '-' + 'DESCARTADA'"
+                    (click)="resolver(solicitud, 'DESCARTADA')"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              }
+            </mat-card>
           </li>
         }
       </ul>
@@ -178,7 +226,9 @@ const TIPOS: Record<TipoSolicitud, string> = {
   `,
 })
 export class SolicitudesPanel {
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(Contacto);
+  private readonly pendientes = inject(Pendientes);
 
   protected readonly FILTROS = [
     { valor: 'NUEVA', etiqueta: 'Por responder' },
@@ -194,7 +244,6 @@ export class SolicitudesPanel {
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -222,19 +271,14 @@ export class SolicitudesPanel {
   ): Promise<void> {
     await this.intentar(`resolver-${solicitud.id}-${estado}`, async () => {
       await this.api.resolver(solicitud.id, estado, this.notas[solicitud.id] ?? '');
-      this.aviso.set(
+      // Ya no espera: el badge de «Consultas al club» en el menú (T301) baja con ella.
+      this.pendientes.recargar();
+      this.snackBar.open(
         estado === 'ATENDIDA'
           ? `La consulta de ${solicitud.nombre} queda como atendida.`
           : `Descartaste la consulta de ${solicitud.nombre}.`,
-      );
-    });
-  }
-
-  protected async invitar(solicitud: Solicitud): Promise<void> {
-    await this.intentar(`invitar-${solicitud.id}`, async () => {
-      await this.api.invitar(solicitud.id);
-      this.aviso.set(
-        `${solicitud.nombre} ya está invitada: le llega el alta a ${solicitud.email}.`,
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -244,7 +288,6 @@ export class SolicitudesPanel {
     accion: () => Promise<void>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 
@@ -252,8 +295,7 @@ export class SolicitudesPanel {
       await accion();
       this.version.update((v) => v + 1);
     } catch (falla) {
-      // El del servidor: explica por qué una consulta de clases no se convierte en
-      // socio, o que ese correo ya es socio del club.
+      // El del servidor, tal como viene: dice por qué no se pudo.
       this.error.set(mensajeDelServidor(falla, 'No se pudo completar la acción.'));
     } finally {
       this.trabajando.set(false);

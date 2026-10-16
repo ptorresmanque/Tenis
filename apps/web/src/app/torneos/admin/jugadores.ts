@@ -1,16 +1,23 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
+import { MatButton, MatFabButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
+import { proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
-import { Selector } from '../../ui/selector';
 import { Jugador, Torneos } from '../torneos.service';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../../core/telefono';
-import { TelefonoDirective } from '../../ui/telefono';
+import { LO_HECHO } from '../../ui/material';
+import { AnotarJugador, DatosParaAnotar } from './anotar-jugador';
 
 /**
  * Quiénes juegan torneos.
@@ -25,9 +32,25 @@ import { TelefonoDirective } from '../../ui/telefono';
  */
 @Component({
   selector: 'app-jugadores',
-  imports: [Esqueleto, FormsModule, Aviso, EstadoVacio, Insignia, Selector, EnlaceTelefonoPipe, TelefonoPipe, TelefonoDirective],
+  // Espacio al final para que el FAB no tape el último jugador (A9).
+  host: { class: 'block pb-24' },
+  imports: [
+    MatSelectModule,
+    MatFormFieldModule,
+    MatButton,
+    MatFabButton,
+    Esqueleto,
+    Aviso,
+    EstadoVacio,
+    EnlaceTelefonoPipe,
+    TelefonoPipe,
+    MatChipsModule,
+    MatIcon,
+  ],
+  providers: [proveerCampos()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: anotar es el formulario. -->
+    <!-- La cabecera del panel (TV7.1), sin acción: anotar es el FAB, que abre su diálogo
+         (T292). Antes era un formulario fijo arriba de la lista. -->
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Jugadores</h1>
@@ -41,70 +64,11 @@ import { TelefonoDirective } from '../../ui/telefono';
     @if (error(); as falla) {
       <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
     }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
-    }
 
-    <form
-      class="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm"
-      (ngSubmit)="anotar()"
-    >
-      <h2 class="rotulo-seccion">Anotar un jugador</h2>
-
-      <app-selector
-        class="mt-3 block"
-        etiqueta="A quién se anota"
-        [opciones]="TIPOS"
-        [(valor)]="tipo"
-      />
-
-      <div class="mt-3 flex flex-wrap items-end gap-3">
-        @if (tipo() === 'socio') {
-          <label class="min-w-64 flex-1">
-            <span class="text-sm font-medium">Socio</span>
-            <select class="campo mt-1" name="socioId" [(ngModel)]="socioId">
-              <option [value]="0" disabled>Elige un socio</option>
-              @for (socio of sociosSinJugador(); track socio.id) {
-                <option [value]="socio.id">
-                  {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                  {{ socio.usuario.apellido }}
-                </option>
-              }
-            </select>
-          </label>
-        } @else {
-          <label class="flex-1">
-            <span class="text-sm font-medium">Nombre</span>
-            <input class="campo mt-1" name="nombre" [(ngModel)]="datos.nombre" />
-          </label>
-          <label class="flex-1">
-            <span class="text-sm font-medium">Apellido</span>
-            <input class="campo mt-1" name="apellido" [(ngModel)]="datos.apellido" />
-          </label>
-          <label class="flex-1">
-            <span class="text-sm font-medium">Teléfono</span>
-            <span class="campo-con-prefijo mt-1">
-              <span class="prefijo">+56</span>
-              <input
-                appTelefono
-                class="campo"
-                name="telefono"
-                [(ngModel)]="datos.telefono"
-              />
-            </span>
-          </label>
-        }
-
-        <button
-          type="submit"
-          class="boton boton-primario"
-          [attr.aria-busy]="enCurso() === 'anotar'"
-          [disabled]="trabajando()"
-        >
-          Anotar
-        </button>
-      </div>
-    </form>
+    <button matFab extended type="button" class="fab-de-la-pantalla" (click)="anotar()">
+      <mat-icon aria-hidden="true">person_add</mat-icon>
+      Anotar jugador
+    </button>
 
     @if (jugadores.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="5" etiqueta="Cargando los jugadores…" />
@@ -117,7 +81,7 @@ import { TelefonoDirective } from '../../ui/telefono';
         class="mt-4 block"
         icono="groups"
         titulo="Todavía no hay jugadores"
-        detalle="Anota al primero con el formulario de arriba."
+        detalle="Anota al primero con «Anotar jugador»."
       />
     } @else {
       <ul class="mt-4 grid gap-2">
@@ -131,11 +95,19 @@ import { TelefonoDirective } from '../../ui/telefono';
             </span>
 
             @if (jugador.numeroSocio) {
-              <app-insignia variante="info" icono="badge">
-                Socio {{ jugador.numeroSocio }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia info">
+                  <mat-icon matChipAvatar aria-hidden="true">badge</mat-icon>
+                  Socio {{ jugador.numeroSocio }}
+                </mat-chip>
+              </mat-chip-set>
             } @else {
-              <app-insignia variante="neutro" icono="person">De afuera</app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia neutro">
+                  <mat-icon matChipAvatar aria-hidden="true">person</mat-icon>
+                  De afuera
+                </mat-chip>
+              </mat-chip-set>
             }
 
             @if (jugador.telefono) {
@@ -147,27 +119,28 @@ import { TelefonoDirective } from '../../ui/telefono';
             @if (!jugador.socioId) {
               <!-- Enlazar escribe un campo: el jugador es el mismo y sus puntos
                    siguen siendo suyos. -->
-              <label class="ms-auto flex items-center gap-2">
-                <span class="text-sm">Enlazar a socio</span>
-                <select
-                  class="campo campo-chico w-auto"
-                  [name]="'enlace-' + jugador.id"
+              <mat-form-field class="chico ms-auto w-auto">
+                <mat-label>Enlazar a socio</mat-label>
+                <mat-select
+                  [attr.name]="'enlace-' + jugador.id"
+                  [value]="0"
                   [disabled]="trabajando()"
-                  (change)="enlazar(jugador, $any($event.target).value)"
+                  (selectionChange)="enlazar(jugador, $event.value)"
                 >
-                  <option value="0">—</option>
+                  <mat-option [value]="0">—</mat-option>
                   @for (socio of sociosSinJugador(); track socio.id) {
-                    <option [value]="socio.id">
+                    <mat-option [value]="socio.id">
                       {{ socio.numeroSocio }} · {{ socio.usuario.apellido }}
-                    </option>
+                    </mat-option>
                   }
-                </select>
-              </label>
+                </mat-select>
+              </mat-form-field>
             }
 
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico"
+              class="chico"
               [class.ms-auto]="!!jugador.socioId"
               [disabled]="trabajando()"
               [attr.aria-busy]="enCurso() === 'cambiarActividad-' + jugador.id"
@@ -182,23 +155,15 @@ import { TelefonoDirective } from '../../ui/telefono';
   `,
 })
 export class JugadoresPanel {
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialogos = inject(MatDialog);
   private readonly api = inject(Torneos);
   private readonly sociosApi = inject(Socios);
-
-  protected readonly TIPOS = [
-    { valor: 'socio', etiqueta: 'Un socio' },
-    { valor: 'externo', etiqueta: 'Alguien de afuera' },
-  ];
-
-  protected readonly tipo = signal('socio');
-  protected socioId = 0;
-  protected datos = { nombre: '', apellido: '', telefono: '' };
 
   protected readonly trabajando = signal(false);
   /** Qué acción está viajando, para que gire su botón y no todos (T154). */
   protected readonly enCurso = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
 
   private readonly version = signal(0);
 
@@ -217,7 +182,7 @@ export class JugadoresPanel {
    * pero la lista sería una invitación a "anotar" a alguien que ya está anotado.
    */
   protected readonly sociosSinJugador = computed(() => {
-    // Se lee en el formulario, que se ve aunque alguna de las dos no haya cargado.
+    // Se lee aunque alguna de las dos no haya cargado: el diálogo de anotar se abre igual.
     const conJugador = new Set(
       (this.jugadores.hasValue() ? this.jugadores.value() : [])
         .map((jugador) => jugador.socioId)
@@ -229,34 +194,37 @@ export class JugadoresPanel {
     );
   });
 
+  /** Abre el diálogo de anotar (T292), con los socios que todavía no tienen jugador. */
   protected async anotar(): Promise<void> {
-    const esSocio = this.tipo() === 'socio';
+    const jugador = await firstValueFrom(
+      this.dialogos
+        .open<AnotarJugador, DatosParaAnotar, Jugador>(AnotarJugador, {
+          data: { socios: this.sociosSinJugador },
+          width: '32rem',
+          maxWidth: '92vw',
+        })
+        .afterClosed(),
+    );
+    if (!jugador) return;
 
-    await this.intentar('anotar', async () => {
-      const jugador = await this.api.crearJugador(
-        esSocio
-          ? { socioId: Number(this.socioId) }
-          : {
-              nombre: this.datos.nombre,
-              apellido: this.datos.apellido,
-              telefono: this.datos.telefono,
-            },
-      );
-
-      this.socioId = 0;
-      this.datos = { nombre: '', apellido: '', telefono: '' };
-      this.aviso.set(`${jugador.nombre} ${jugador.apellido} ya puede jugar torneos.`);
-    });
+    this.snackBar.open(
+      `${jugador.nombre} ${jugador.apellido} ya puede jugar torneos.`,
+      undefined,
+      LO_HECHO,
+    );
+    this.version.update((v) => v + 1);
   }
 
-  protected async enlazar(jugador: Jugador, socioId: string): Promise<void> {
-    if (socioId === '0') return;
+  protected async enlazar(jugador: Jugador, socioId: number): Promise<void> {
+    if (socioId === 0) return;
 
     await this.intentar(`enlazar-${jugador.id}`, async () => {
-      await this.api.editarJugador(jugador.id, { socioId: Number(socioId) });
-      this.aviso.set(
+      await this.api.editarJugador(jugador.id, { socioId });
+      this.snackBar.open(
         `${jugador.nombre} ${jugador.apellido} quedó enlazado a su ficha de socio, ` +
           'con los puntos que ya tenía.',
+        undefined,
+        LO_HECHO,
       );
     });
   }
@@ -272,7 +240,6 @@ export class JugadoresPanel {
     accion: () => Promise<unknown>,
   ): Promise<void> {
     this.error.set(null);
-    this.aviso.set(null);
     this.trabajando.set(true);
     this.enCurso.set(clave);
 
@@ -282,7 +249,7 @@ export class JugadoresPanel {
     } catch (falla) {
       // El del servidor: dice si ese socio ya juega con otro nombre, que es lo que el
       // club necesita saber para decidir con cuál se queda.
-      this.error.set(mensajeDelServidor(falla, 'No se pudo anotar al jugador.'));
+      this.error.set(mensajeDelServidor(falla, 'No se pudo guardar el cambio.'));
     } finally {
       this.trabajando.set(false);
       this.enCurso.set(null);

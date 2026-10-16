@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 
 import { fechaDelClub, hoyEnElClub, instanteEnElClub } from '../comun/tiempo';
-import { EstadoClase, EstadoInscripcion } from '../generated/prisma/client';
+import {
+  EstadoClase,
+  EstadoInscripcion,
+  TipoClase,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { GIMNASIO } from './gimnasio';
 
 /** Cuántos días de clases se anuncian de una vez. */
 const DIAS_DE_LA_SEMANA = 7;
@@ -35,20 +40,32 @@ export interface ProfesorPublico {
   especialidad: string;
 }
 
+/** Un día de la serie, como lo anuncia el club (T229). */
+export interface DiaPublico {
+  /** De 0 (domingo) a 6 (sábado). */
+  diaSemana: number;
+  horaDesde: string;
+  horaHasta: string;
+  /** El nombre de la cancha, o "Gimnasio" (T232). */
+  lugar: string;
+}
+
 /**
  * Una serie de clases, como la anuncia el club (T117): una tarjeta en vez de una por fecha.
- * Los días, el horario y hasta cuándo; el cupo es el más chico entre sus clases que vienen,
+ * Los días con su horario y hasta cuándo; el cupo es el más chico entre sus clases que vienen,
  * porque la inscripción es a la serie completa (T116).
  */
 export interface SeriePublica {
   id: number;
+  /** Tenis, o preparación física en el gimnasio (T232). */
+  tipo: TipoClase;
   profesor: string;
-  cancha: string;
-  nivel: string;
-  /** De 0 (domingo) a 6 (sábado). */
-  diasSemana: number[];
-  horaDesde: string;
-  horaHasta: string;
+  /** Nulo en preparación física. */
+  nivel: string | null;
+  /** El tamaño de la clase: en el gimnasio, el de uno es individual (T234). */
+  cupoMaximo: number;
+  /** Cada día con su horario y su lugar, de domingo a sábado. */
+  dias: DiaPublico[];
   /** La fecha civil de su última clase programada: si se canceló desde un día, se acorta. */
   hasta: string;
   cuposLibres: number;
@@ -57,11 +74,16 @@ export interface SeriePublica {
 /** Una clase de la semana, como la ve quien todavía no es del club. */
 export interface ClasePublica {
   id: number;
-  cancha: string;
+  tipo: TipoClase;
+  /** El nombre de la cancha, o "Gimnasio" (T232). */
+  lugar: string;
   profesor: string;
   inicio: Date;
   fin: Date;
-  nivel: string;
+  /** Nulo en preparación física. */
+  nivel: string | null;
+  /** El tamaño de la clase: en el gimnasio, el de uno es individual (T234). */
+  cupoMaximo: number;
   cuposLibres: number;
 }
 
@@ -113,6 +135,7 @@ export class ClasesPublicas {
       orderBy: [{ inicio: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
+        tipo: true,
         inicio: true,
         fin: true,
         nivel: true,
@@ -140,11 +163,13 @@ export class ClasesPublicas {
 
     return clases.map((clase) => ({
       id: clase.id,
-      cancha: clase.cancha.nombre,
+      tipo: clase.tipo,
+      lugar: clase.cancha?.nombre ?? GIMNASIO,
       profesor: clase.profesor.nombreVisible,
       inicio: clase.inicio,
       fin: clase.fin,
       nivel: clase.nivel,
+      cupoMaximo: clase.cupoMaximo,
       // Nunca negativo: si el club subió a alguien por encima del cupo, "quedan -1"
       // no es una respuesta que nadie pueda usar.
       cuposLibres: Math.max(clase.cupoMaximo - clase._count.inscripciones, 0),
@@ -170,11 +195,18 @@ export class ClasesPublicas {
       orderBy: { id: 'asc' },
       select: {
         id: true,
-        diasSemana: true,
-        horaDesde: true,
-        horaHasta: true,
+        tipo: true,
         nivel: true,
-        cancha: { select: { nombre: true } },
+        cupoMaximo: true,
+        dias: {
+          orderBy: { diaSemana: 'asc' },
+          select: {
+            diaSemana: true,
+            horaDesde: true,
+            horaHasta: true,
+            cancha: { select: { nombre: true } },
+          },
+        },
         profesor: { select: { nombreVisible: true } },
         clases: {
           where: queVienen,
@@ -204,12 +236,16 @@ export class ClasesPublicas {
 
     return series.map((serie) => ({
       id: serie.id,
+      tipo: serie.tipo,
       profesor: serie.profesor.nombreVisible,
-      cancha: serie.cancha.nombre,
       nivel: serie.nivel,
-      diasSemana: serie.diasSemana.split(',').map(Number),
-      horaDesde: serie.horaDesde,
-      horaHasta: serie.horaHasta,
+      cupoMaximo: serie.cupoMaximo,
+      dias: serie.dias.map((dia) => ({
+        diaSemana: dia.diaSemana,
+        horaDesde: dia.horaDesde,
+        horaHasta: dia.horaHasta,
+        lugar: dia.cancha?.nombre ?? GIMNASIO,
+      })),
       hasta: hoyEnElClub(serie.clases[serie.clases.length - 1].inicio)
         .toISOString()
         .slice(0, 10),

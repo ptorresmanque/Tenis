@@ -1,4 +1,10 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTableModule } from '@angular/material/table';
 
 import {
   diaConAnioEnPalabras,
@@ -6,10 +12,12 @@ import {
   fechaEnElClub,
   hoyEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
+import { proveerCampos } from '../ui/campos';
+import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { DescargarCsv } from './descargar-csv';
 import { CorteDeIngreso, CORTES_DE_INGRESO, Reportes } from './reportes.service';
-import { CampoFecha } from '../ui/campo-fecha';
 
 /**
  * El ingreso del club por período.
@@ -24,49 +32,81 @@ import { CampoFecha } from '../ui/campo-fecha';
  */
 @Component({
   selector: 'app-ingreso-panel',
-  imports: [EstadoVacio, DescargarCsv, CampoFecha],
+  imports: [
+    MatButton,
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTableModule,
+    EstadoVacio,
+    DescargarCsv,
+    Esqueleto,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <!-- La cabecera del panel (TV7.1), sin acción: el CSV va con la tabla, que
-         es lo que se lleva. -->
-    <header class="cabecera-panel">
-      <div>
-        <h1 class="titular text-4xl">Ingreso del club</h1>
-        <p class="mt-1 text-muted-foreground">
-          Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
-          Las cuotas van a su mes, no al día en que el socio se puso al día.
-        </p>
-      </div>
-    </header>
+    <!-- Es una pestaña de Finanzas (T286): el titular va en la pantalla madre. El CSV va
+         con la tabla, que es lo que se lleva. -->
+    <p class="max-w-prose text-muted-foreground">
+      Lo que entró en el período, puesto en la fecha en que se jugó la hora y no en la que se pagó.
+      Las cuotas van a su mes, no al día en que el socio se puso al día.
+    </p>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-3">
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-desde">Desde</label>
-        <app-campo-fecha
-          inputId="reporte-desde"
+      <mat-form-field>
+        <mat-label>Desde</mat-label>
+        <input
+          matInput
           name="desde"
-          [valor]="desde()"
-          (valorChange)="desde.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioDesde"
+          [value]="desde()"
+          (dateChange)="desde.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
+        <mat-datepicker #calendarioDesde>
+          <mat-datepicker-actions>
+            <button matButton type="button" matDatepickerCancel>Cancelar</button>
+            <button matButton type="button" matDatepickerApply>Aplicar</button>
+          </mat-datepicker-actions>
+        </mat-datepicker>
+        <mat-hint>dd-mm-aaaa</mat-hint>
+      </mat-form-field>
 
-      <div class="grid gap-1 text-sm">
-        <label class="font-medium" for="reporte-hasta">Hasta</label>
-        <app-campo-fecha
-          inputId="reporte-hasta"
+      <mat-form-field>
+        <mat-label>Hasta</mat-label>
+        <input
+          matInput
           name="hasta"
-          [valor]="hasta()"
-          (valorChange)="hasta.set($event)"
+          placeholder="dd-mm-aaaa"
+          autocomplete="off"
+          [matDatepicker]="calendarioHasta"
+          [value]="hasta()"
+          (dateChange)="hasta.set($event.value)"
         />
-      </div>
+        <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
+        <mat-datepicker #calendarioHasta>
+          <mat-datepicker-actions>
+            <button matButton type="button" matDatepickerCancel>Cancelar</button>
+            <button matButton type="button" matDatepickerApply>Aplicar</button>
+          </mat-datepicker-actions>
+        </mat-datepicker>
+        <mat-hint>dd-mm-aaaa</mat-hint>
+      </mat-form-field>
 
-      <label class="grid gap-1 text-sm">
-        <span class="font-medium">Cortado por</span>
-        <select name="corte" class="campo" [value]="corte()" (change)="corte.set(valorDe($event))">
+      <mat-form-field>
+        <mat-label>Cortado por</mat-label>
+        <mat-select
+          name="corte"
+          [value]="corte()"
+          (selectionChange)="corte.set($event.value)"
+        >
           @for (opcion of OPCIONES; track opcion.valor) {
-            <option [value]="opcion.valor">{{ opcion.etiqueta }}</option>
+            <mat-option [value]="opcion.valor">{{ opcion.etiqueta }}</mat-option>
           }
-        </select>
-      </label>
+        </mat-select>
+      </mat-form-field>
     </div>
 
     @if (reporte.error()) {
@@ -81,37 +121,31 @@ import { CampoFecha } from '../ui/campo-fecha';
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table class="tabla text-sm">
-            <caption class="sr-only">
-              Ingreso del período, cortado por
-              {{
-                nombreDelCorte(datos.corte)
-              }}
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Corte</th>
-                <th scope="col" class="numero">Ingreso</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (fila of datos.filas; track fila.etiqueta) {
-                <tr>
-                  <th scope="row">
-                    {{ fila.etiqueta }}
-                  </th>
-                  <td class="numero">{{ pesos(fila.montoClp) }}</td>
-                </tr>
-              }
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row" class="py-2 pr-3 text-left font-semibold">Total</th>
-                <td class="numero font-semibold">
-                  {{ pesos(datos.totalClp) }}
-                </td>
-              </tr>
-            </tfoot>
+          <table mat-table [attr.aria-label]="'Ingreso del período, cortado por ' + nombreDelCorte(datos.corte)" class="text-sm" [dataSource]="datos.filas">
+            <ng-container matColumnDef="corte">
+              <th mat-header-cell *matHeaderCellDef scope="col">Corte</th>
+              <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
+                {{ fila.etiqueta }}
+              </th>
+              <th
+                *matFooterCellDef
+                scope="row"
+                class="mat-mdc-footer-cell mdc-data-table__cell font-semibold"
+              >
+                Total
+              </th>
+            </ng-container>
+            <ng-container matColumnDef="ingreso">
+              <th mat-header-cell *matHeaderCellDef scope="col" class="numero">Ingreso</th>
+              <td mat-cell *matCellDef="let fila" class="numero">{{ pesos(fila.montoClp) }}</td>
+              <td mat-footer-cell *matFooterCellDef class="numero font-semibold">
+                {{ pesos(datos.totalClp) }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
+            <tr mat-row *matRowDef="let fila; columns: COLUMNAS"></tr>
+            <tr mat-footer-row *matFooterRowDef="COLUMNAS"></tr>
           </table>
         </div>
       }
@@ -131,7 +165,7 @@ import { CampoFecha } from '../ui/campo-fecha';
         <app-descargar-csv [url]="urlDelCsv()" />
       </div>
     } @else if (reporte.isLoading()) {
-      <p class="mt-6 text-muted-foreground">Sumando el período…</p>
+      <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Sumando el período…" />
     }
   `,
 })
@@ -143,16 +177,16 @@ export class IngresoPanel {
   );
 
   /** El mes corriente: es lo que el club mira al entrar. */
-  protected readonly desde = signal(`${hoyEnElClub().slice(0, 7)}-01`);
-  protected readonly hasta = signal(hoyEnElClub());
+  protected readonly desde = signal(textoAFecha(`${hoyEnElClub().slice(0, 7)}-01`));
+  protected readonly hasta = signal(textoAFecha(hoyEnElClub()));
 
   /** Por condición, que es la pregunta que motivó el módulo. */
   protected readonly corte = signal('condicion');
 
   protected readonly reporte = resource({
     params: () => ({
-      desde: this.desde(),
-      hasta: this.hasta(),
+      desde: fechaATexto(this.desde()),
+      hasta: fechaATexto(this.hasta()),
       corte: this.corte() as CorteDeIngreso,
     }),
     loader: ({ params }) => this.api.ingreso(params.desde, params.hasta, params.corte),
@@ -160,14 +194,12 @@ export class IngresoPanel {
 
   protected readonly pesos = enPesos;
 
+  protected readonly COLUMNAS = ['corte', 'ingreso'];
+
   /** El CSV lleva el mismo rango y corte: si no, el club descarga otra cosa. */
   protected readonly urlDelCsv = computed(() =>
-    this.api.csv('ingreso', this.desde(), this.hasta(), this.corte()),
+    this.api.csv('ingreso', fechaATexto(this.desde()), fechaATexto(this.hasta()), this.corte()),
   );
-
-  protected valorDe(evento: Event): string {
-    return (evento.target as HTMLInputElement | HTMLSelectElement).value;
-  }
 
   protected nombreDelCorte(corte: CorteDeIngreso): string {
     return CORTES_DE_INGRESO[corte] ?? corte;

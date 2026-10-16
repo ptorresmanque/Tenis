@@ -1,3 +1,8 @@
+import { DestroyRef, inject } from '@angular/core';
+
+import { VarianteAviso } from '../../ui/aviso';
+import { Torneos } from '../torneos.service';
+
 /**
  * La marca de "esta pestaña se fue a pagar y todavía no volvió con el pago hecho".
  *
@@ -31,4 +36,77 @@ export function olvidarPagoPendiente(): string | null {
   sessionStorage.removeItem(LLAVE);
 
   return token;
+}
+
+/**
+ * Lo que se le dice en Torneos a quien termina una inscripción (`?pago=…`). Los de variante
+ * éxito confirman algo hecho y van al snackbar; los demás hay que leerlos y quedan fijos en la
+ * página (T324, S2).
+ *
+ * **Los dos finales importan por igual**: que el pago entró hay que decirlo, y que no
+ * entró, más — esa persona tiene que enterarse de que **no quedó inscrita**, porque su
+ * lugar se soltó y el cuadro sigue abierto para otro.
+ *
+ * `listo`, `rechazado` y `anulado` los pone el servidor en la vuelta de Webpay. Los otros tres los
+ * pone el formulario cuando no hay Webpay (T323), para terminar igual: en Torneos, con el aviso.
+ */
+export const AVISOS_DEL_PAGO: Record<string, { variante: VarianteAviso; texto: string }> = {
+  listo: {
+    variante: 'exito',
+    texto: 'Pago recibido: tu inscripción quedó confirmada. Nos vemos en la cancha.',
+  },
+  rechazado: {
+    variante: 'error',
+    texto:
+      'El pago fue rechazado, así que tu inscripción no quedó tomada. Puedes ' +
+      'inscribirte de nuevo con otro medio de pago.',
+  },
+  anulado: {
+    variante: 'error',
+    texto:
+      'No terminaste el pago, así que tu inscripción no quedó tomada y tu cupo ' +
+      'volvió a estar disponible. Puedes inscribirte de nuevo.',
+  },
+  // La transferencia: el lugar queda tomado, pero falta que el club confirme el comprobante.
+  comprobante: {
+    variante: 'exito',
+    texto: 'Recibimos tu comprobante: tu lugar queda tomado y el club te avisa al revisarlo.',
+  },
+  // La categoría gratis.
+  inscrito: {
+    variante: 'exito',
+    texto: 'Listo: quedaste inscrito. Nos vemos en la cancha.',
+  },
+  espera: {
+    variante: 'aviso',
+    texto:
+      'Tu categoría ya llenó su cuadro: quedaste en la lista de espera, sin pagar nada. Si se ' +
+      'abre un cupo, te avisamos por correo para que lo tomes.',
+  },
+};
+
+/**
+ * Si esta pestaña vuelve de un pago sin terminar, le pide al servidor que suelte ese cupo, y
+ * llama a `alSoltar` si lo soltó. Va en el constructor de la página a la que se vuelve.
+ *
+ * **Al arrancar y en cada `pageshow`.** Volver atrás puede restaurar la página desde el caché del
+ * navegador sin construir el componente de nuevo, y ese es justo el caso que esto atiende.
+ *
+ * No mira `?pago=` para decidir: si la persona pagó, su inscripción ya no está pendiente y el
+ * servidor no suelta nada (`soltada: false`), así que la llamada es inofensiva.
+ */
+export function soltarSiVolvioSinPagar(alSoltar: () => void): void {
+  const api = inject(Torneos);
+  const soltar = async () => {
+    const token = olvidarPagoPendiente();
+    if (!token) return;
+
+    const { soltada } = await api.soltarInscripcion(token);
+    if (soltada) alSoltar();
+  };
+
+  void soltar();
+  const alVolver = () => void soltar();
+  window.addEventListener('pageshow', alVolver);
+  inject(DestroyRef).onDestroy(() => window.removeEventListener('pageshow', alVolver));
 }

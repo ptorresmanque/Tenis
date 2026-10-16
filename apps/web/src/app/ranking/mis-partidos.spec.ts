@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegir as elegirOpcion, textosDe } from '../testing/elegir';
 import { PartidoMio, Ranking, Rival } from './ranking.service';
 import { MisPartidos } from './mis-partidos';
 
@@ -154,24 +155,27 @@ describe('MisPartidos', () => {
     it('**el formulario no deja elegirme a mí como rival**', () => {
       // La lista viene del servidor ya sin uno mismo; esto comprueba que la pantalla
       // usa esa lista y no arma la suya.
-      const opciones = Array.from(elemento().querySelectorAll('select[name="rival"] option')).map(
-        (o) => o.textContent?.trim(),
-      );
+      const opciones = textosDe(fixture, 'mat-select[name="rival"]');
 
       // Con el número de socio: dos que se llamen igual tienen que distinguirse.
       expect(opciones).toContain('Ana Uno · S-10');
       expect(opciones).toContain('Beto Dos · S-20');
     });
 
-    it('manda el partido con quien ganó', async () => {
-      const seleccionar = (nombre: string, valor: string) => {
-        const campo = elemento().querySelector<HTMLSelectElement>(`select[name="${nombre}"]`)!;
-        campo.value = valor;
-        campo.dispatchEvent(new Event('change'));
-      };
+    it('**«Quién ganó» son dos botones de opción**, a la vista y sin abrir nada (T250)', () => {
+      // Dos opciones opuestas no van en una lista (corrección 5 de la auditoría).
+      const opciones = Array.from(
+        elemento().querySelectorAll('mat-radio-group[name="ganador"] mat-radio-button'),
+      ).map((opcion) => opcion.textContent?.trim());
 
-      seleccionar('rival', '10');
-      seleccionar('ganador', 'rival');
+      expect(opciones).toEqual(['Gané yo', 'Ganó el rival']);
+      expect(elemento().querySelector('mat-select[name="ganador"]')).toBeNull();
+    });
+
+    it('manda el partido con quien ganó', async () => {
+      await elegirOpcion(fixture, 'mat-select[name="rival"]', '10');
+      elemento().querySelector<HTMLInputElement>('input[name="ganador"][value="rival"]')!.click();
+      await fixture.whenStable();
       fixture.detectChanges();
 
       await apretar(botonEn(elemento(), 'Cargar el partido'));
@@ -195,9 +199,7 @@ describe('MisPartidos', () => {
     it('si el servidor rechaza la carga, lo dice en vez de callarse', async () => {
       api.cargarPartido.mockRejectedValue(new Error('no'));
 
-      const campo = elemento().querySelector<HTMLSelectElement>('select[name="rival"]')!;
-      campo.value = '10';
-      campo.dispatchEvent(new Event('change'));
+      await elegirOpcion(fixture, `mat-select[name="rival"]`, '10');
       fixture.detectChanges();
 
       await apretar(botonEn(elemento(), 'Cargar el partido'));

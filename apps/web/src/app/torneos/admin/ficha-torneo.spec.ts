@@ -6,6 +6,7 @@ import { AdminCanchas } from '../../catalogo-canchas/admin/admin-canchas.service
 import { Tours } from '../../tours/tours.service';
 import { Torneo, Torneos } from '../torneos.service';
 import { FichaDeTorneo } from './ficha-torneo';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * La ficha de un torneo del panel.
@@ -172,7 +173,7 @@ describe('FichaDeTorneo', () => {
     await pestana('Cuadro');
 
     const elegido = Array.from(elemento().querySelectorAll('button')).find(
-      (b) => b.getAttribute('aria-pressed') === 'true',
+      (b) => b.getAttribute('aria-checked') === 'true',
     );
     expect(elegido?.textContent?.trim()).toBe('4ª');
   });
@@ -186,7 +187,7 @@ describe('FichaDeTorneo', () => {
 
     const elegido = () =>
       Array.from(elemento().querySelectorAll('button'))
-        .find((b) => b.getAttribute('aria-pressed') === 'true')
+        .find((b) => b.getAttribute('aria-checked') === 'true')
         ?.textContent?.trim();
 
     it('**abre los inscritos de la categoría del comprobante**', async () => {
@@ -330,6 +331,7 @@ describe('FichaDeTorneo', () => {
         fechaFin: '2026-12-07',
         cierreInscripcion: '2026-12-01',
       });
+      expect(avisoDeLoHecho()).toContain('los datos del torneo quedaron guardados');
     });
 
     it('el error del servidor se muestra tal cual', async () => {

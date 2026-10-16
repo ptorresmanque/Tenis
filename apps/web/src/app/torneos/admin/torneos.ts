@@ -1,22 +1,29 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { MatCard } from '@angular/material/card';
+import { MatIcon } from '@angular/material/icon';
+import { MatFabButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatChipsModule } from '@angular/material/chips';
+import { proveerCampos } from '../../ui/campos';
 import { Esqueleto } from '../../ui/esqueleto';
 
 import { diaEnPalabras } from '../../catalogo-canchas/reloj-del-club';
-import { SUPERFICIES } from '../../catalogo-canchas/superficies';
-import { mensajeDelServidor } from '../../core/errores';
-import { Aviso } from '../../ui/aviso';
 import { EstadoVacio } from '../../ui/estado-vacio';
-import { Insignia } from '../../ui/insignia';
 import {
   ESTADOS_TORNEO,
   EstadoTorneo,
   Torneo,
   Torneos,
 } from '../torneos.service';
-import { CampoFecha } from '../../ui/campo-fecha';
-import { ElegirNivel, NivelElegido } from './elegir-nivel';
+import { NuevoTorneo } from './nuevo-torneo';
+import { LO_HECHO } from '../../ui/material';
 
 /**
  * Los tres grupos con que el club mira su temporada.
@@ -44,35 +51,32 @@ const GRUPOS = [
 
 type Grupo = (typeof GRUPOS)[number]['id'];
 
-/** El formulario vacío. Función y no constante, para no compartir el objeto. */
-const enBlanco = () => ({
-  nombre: '',
-  superficie: '' as string,
-  fechaInicio: '',
-  fechaFin: '',
-  cierreInscripcion: '',
-});
-
 /**
  * Los torneos del club. Cuánto vale ganar cada uno lo dice el nivel con que entra a
  * cada tour (T197); la categoría de torneo que se administraba acá se eliminó en T199.
  */
 @Component({
   selector: 'app-torneos',
+  // Espacio al final para que el FAB no tape la última tarjeta (A9).
+  host: { class: 'block pb-24' },
   imports: [
+    MatCard,
+    MatButtonToggleModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatFabButton,
+    MatIcon,
     Esqueleto,
     FormsModule,
     RouterLink,
-    Aviso,
     EstadoVacio,
-    Insignia,
-    CampoFecha,
-    ElegirNivel,
+    MatChipsModule,
   ],
+  providers: [proveerCampos()],
   template: `
-    <!-- La cabecera del panel (TV7.1). Su única acción abre el formulario de
-         crear; va como secundaria porque la principal es el "Crear torneo" del
-         formulario, y con las dos en azul lleno habría dos principales. -->
+    <!-- La cabecera del panel (TV7.1), sin acción: crear un torneo es el FAB, que abre su
+         diálogo (T291). Antes era un botón «Crear torneo / Cerrar» que desplegaba el
+         formulario en la página. -->
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Torneos</h1>
@@ -80,125 +84,39 @@ const enBlanco = () => ({
           Los torneos del club y los tours para los que suman.
         </p>
       </div>
-
-      <!-- **Arriba y junto al título, no al pie de la lista.** Que el formulario de
-           crear viviera debajo de todos los torneos era uno de los defectos que este
-           rediseño venía a arreglar; dejar ahí su botón lo conservaba entero. -->
-      <button
-        type="button"
-        class="boton boton-secundario"
-        [attr.aria-expanded]="creando()"
-        (click)="creando.set(!creando())"
-      >
-        {{ creando() ? 'Cerrar' : 'Crear torneo' }}
-      </button>
     </header>
 
-    @if (error(); as falla) {
-      <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
-    @if (aviso(); as texto) {
-      <app-aviso variante="exito" class="mt-4 block">{{ texto }}</app-aviso>
-    }
-
-    @if (creando()) {
-    <form
-      class="mt-3 rounded-xl border border-border bg-card p-4 shadow-sm"
-      (ngSubmit)="crearTorneo()"
-    >
-      <h2 class="rotulo-seccion">Crear un torneo</h2>
-
-      <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <label class="block sm:col-span-2">
-          <span class="text-sm font-medium">Nombre</span>
-          <input
-            class="campo mt-1"
-            name="nombre"
-            placeholder="Copa de verano"
-            [(ngModel)]="datos.nombre"
-          />
-        </label>
-
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-fechaInicio">Empieza</label>
-          <app-campo-fecha
-            inputId="nuevo-fechaInicio"
-            name="fechaInicio"
-            [(ngModel)]="datos.fechaInicio"
-          />
-        </div>
-
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-fechaFin">Termina</label>
-          <app-campo-fecha
-            inputId="nuevo-fechaFin"
-            name="fechaFin"
-            [(ngModel)]="datos.fechaFin"
-          />
-        </div>
-
-        <div class="grid gap-1">
-          <label class="text-sm font-medium" for="nuevo-cierreInscripcion">Cierra la inscripción</label>
-          <app-campo-fecha
-            inputId="nuevo-cierreInscripcion"
-            name="cierreInscripcion"
-            [(ngModel)]="datos.cierreInscripcion"
-          />
-        </div>
-
-        <label class="block">
-          <span class="text-sm font-medium">Superficie</span>
-          <select class="campo mt-1" name="superficie" [(ngModel)]="datos.superficie">
-            <option value="">Sin definir</option>
-            @for (superficie of superficies; track superficie[0]) {
-              <option [value]="superficie[0]">{{ superficie[1] }}</option>
-            }
-          </select>
-        </label>
-
-        <!-- **El primer tour va en el alta** (D10): un torneo que no suma para nada no
-             tiene ranking. Los demás se agregan en Ajustes. -->
-        <div class="sm:col-span-2">
-          <app-elegir-nivel [(eleccion)]="tour" />
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        class="boton boton-primario mt-3"
-        [attr.aria-busy]="enCurso() === 'crearTorneo'"
-        [disabled]="trabajando() || tour().nivelId === null"
-      >
-        Crear torneo
-      </button>
-    </form>
-    }
+    <button matFab extended type="button" class="fab-de-la-pantalla" (click)="crear()">
+      <mat-icon aria-hidden="true">add</mat-icon>
+      Nuevo torneo
+    </button>
 
     <!-- **El filtro dice lo que esconde antes de que lo toques.** Por defecto solo
          se ven los que dan trabajo hoy; sin el número al lado, el día que alguien
          busque un torneo viejo va a creer que se borró. -->
     <div class="mt-4 flex flex-wrap items-center gap-2">
-      @for (grupo of GRUPOS; track grupo.id) {
-        <button
-          type="button"
-          class="boton boton-chico"
-          [class]="grupo_() === grupo.id ? 'boton-primario' : 'boton-secundario'"
-          [attr.aria-pressed]="grupo_() === grupo.id"
-          (click)="grupo_.set(grupo.id)"
-        >
-          {{ grupo.nombre }} {{ cuantos(grupo.id) }}
-        </button>
-      }
+      <mat-button-toggle-group
+        aria-label="Filtrar torneos"
+        hideSingleSelectionIndicator
+        [value]="grupo_()"
+        (change)="grupo_.set($event.value)"
+      >
+        @for (grupo of GRUPOS; track grupo.id) {
+          <mat-button-toggle [value]="grupo.id">
+            {{ grupo.nombre }} {{ cuantos(grupo.id) }}
+          </mat-button-toggle>
+        }
+      </mat-button-toggle-group>
 
-      <label class="ms-auto flex items-center gap-2 text-sm">
-        <span class="text-muted-foreground">Año</span>
-        <select class="campo campo-chico" name="anio" [(ngModel)]="anio">
-          <option value="">Todos</option>
+      <mat-form-field class="chico ms-auto w-28">
+        <mat-label>Año</mat-label>
+        <mat-select name="anio" [(ngModel)]="anio">
+          <mat-option value="">Todos</mat-option>
           @for (uno of anios(); track uno) {
-            <option [value]="uno">{{ uno }}</option>
+            <mat-option [value]="uno">{{ uno }}</mat-option>
           }
-        </select>
-      </label>
+        </mat-select>
+      </mat-form-field>
     </div>
 
     @if (torneos.isLoading()) {
@@ -217,58 +135,69 @@ const enBlanco = () => ({
     } @else {
       <ul class="mt-4 grid gap-3">
         @for (torneo of visibles(); track torneo.id) {
-          <li class="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <a
-                class="titulo-tarjeta text-primary"
-                [routerLink]="['/administracion/torneos', torneo.id]"
-              >
-                {{ torneo.nombre }}
-              </a>
-              <app-insignia
-                [variante]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
-                icono="flag"
-              >
-                {{ nombreEstado(torneo.estado) }}
-              </app-insignia>
-              <span class="text-sm text-muted-foreground">
-                {{ enPalabras(torneo.fechaInicio) }} —
-                {{ enPalabras(torneo.fechaFin) }}
-                @if (torneo.estado === 'INSCRIPCION') {
-                  · inscripción hasta {{ enPalabras(torneo.cierreInscripcion) }}
-                }
-              </span>
-            </div>
+          <li>
+            <mat-card appearance="outlined" class="p-4">
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <a
+                  class="titulo-tarjeta text-primary"
+                  [routerLink]="['/administracion/torneos', torneo.id]"
+                >
+                  {{ torneo.nombre }}
+                </a>
+                <mat-chip-set class="insignias">
+                  <mat-chip
+                    class="insignia"
+                    [class]="torneo.estado === 'INSCRIPCION' ? 'exito' : 'neutro'"
+                  >
+                    <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                    {{ nombreEstado(torneo.estado) }}
+                  </mat-chip>
+                </mat-chip-set>
+                <span class="text-sm text-muted-foreground">
+                  {{ enPalabras(torneo.fechaInicio) }} —
+                  {{ enPalabras(torneo.fechaFin) }}
+                  @if (torneo.estado === 'INSCRIPCION') {
+                    · inscripción hasta {{ enPalabras(torneo.cierreInscripcion) }}
+                  }
+                </span>
+              </div>
 
-            <p class="mt-1 text-sm text-muted-foreground">
-              @if (torneo.cuadros.length === 0) {
-                Todavía no corre ninguna categoría.
-              } @else {
-                @for (cuadro of torneo.cuadros; track cuadro.id) {
-                  <span class="me-2">{{ cuadro.categoria }} ({{ cuadro.cupo }})</span>
-                }
-              }
-            </p>
-
-            <!-- El trabajo pendiente, en la tarjeta: es lo que evita entrar a los
-                 tres torneos abiertos para descubrir que dos estaban al día. -->
-            @if (torneo.pagosPorRevisar > 0 || torneo.enEspera > 0) {
-              <p class="mt-2 flex flex-wrap gap-2">
-                @if (torneo.pagosPorRevisar > 0) {
-                  <a [routerLink]="['/administracion/torneos', torneo.id]">
-                    <app-insignia variante="aviso" icono="receipt_long">
-                      {{ torneo.pagosPorRevisar }}
-                      {{ torneo.pagosPorRevisar === 1 ? 'pago' : 'pagos' }} por revisar
-                    </app-insignia>
-                  </a>
-                }
-                @if (torneo.enEspera > 0) {
-                  <app-insignia variante="neutro" icono="hourglass_empty">
-                    {{ torneo.enEspera }} en lista de espera
-                  </app-insignia>
+              <p class="mt-1 text-sm text-muted-foreground">
+                @if (torneo.cuadros.length === 0) {
+                  Todavía no corre ninguna categoría.
+                } @else {
+                  @for (cuadro of torneo.cuadros; track cuadro.id) {
+                    <span class="me-2">{{ cuadro.categoria }} ({{ cuadro.cupo }})</span>
+                  }
                 }
               </p>
-            }
+
+              <!-- El trabajo pendiente, en la tarjeta: es lo que evita entrar a los
+                   tres torneos abiertos para descubrir que dos estaban al día. -->
+              @if (torneo.pagosPorRevisar > 0 || torneo.enEspera > 0) {
+                <p class="mt-2 flex flex-wrap gap-2">
+                  @if (torneo.pagosPorRevisar > 0) {
+                    <a [routerLink]="['/administracion/torneos', torneo.id]">
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia aviso">
+                          <mat-icon matChipAvatar aria-hidden="true">receipt_long</mat-icon>
+                          {{ torneo.pagosPorRevisar }}
+                          {{ torneo.pagosPorRevisar === 1 ? 'pago' : 'pagos' }} por revisar
+                        </mat-chip>
+                      </mat-chip-set>
+                    </a>
+                  }
+                  @if (torneo.enEspera > 0) {
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">hourglass_empty</mat-icon>
+                        {{ torneo.enEspera }} en lista de espera
+                      </mat-chip>
+                    </mat-chip-set>
+                  }
+                </p>
+              }
+            </mat-card>
           </li>
         }
       </ul>
@@ -284,9 +213,9 @@ const enBlanco = () => ({
 
       @if (escondidos() > 0) {
         <p class="mt-3 text-sm text-muted-foreground">
-          <span class="icono align-middle text-base" aria-hidden="true">
+          <mat-icon class="align-middle text-base" aria-hidden="true">
             visibility_off
-          </span>
+          </mat-icon>
           {{ escondidos() }}
           {{ escondidos() === 1 ? 'torneo no se está mostrando' : 'torneos no se están mostrando' }}
           con este filtro.
@@ -296,31 +225,15 @@ const enBlanco = () => ({
   `,
 })
 export class TorneosPanel {
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly dialogos = inject(MatDialog);
+  private readonly router = inject(Router);
   private readonly api = inject(Torneos);
 
-  /** La lista compartida del catálogo: una copia acá sería la quinta. */
-  protected readonly superficies = Object.entries(SUPERFICIES);
-
-  protected datos = enBlanco();
-  /** El tour y el nivel del alta. Señal, porque el selector la escribe con `model`. */
-  protected readonly tour = signal<NivelElegido>({ tourId: null, nivelId: null });
-
-  protected readonly trabajando = signal(false);
-  /** Qué acción está viajando, para que gire su botón y no todos (T154). */
-  protected readonly enCurso = signal<string | null>(null);
-  protected readonly error = signal<string | null>(null);
-  protected readonly aviso = signal<string | null>(null);
-
-  private readonly version = signal(0);
-
   protected readonly torneos = resource({
-    params: () => this.version(),
     loader: () => this.api.torneos(),
     defaultValue: [] as Torneo[],
   });
-
-  /** Si el formulario de crear está abierto. Cerrado por omisión: es lo raro. */
-  protected readonly creando = signal(false);
 
   /**
    * Qué grupo de estados se está mirando. **Activos por omisión.**
@@ -331,7 +244,7 @@ export class TorneosPanel {
    */
   protected readonly grupo_ = signal<Grupo>('activos');
 
-  /** El año, o todos. Como cadena: sale de un `<select>`. */
+  /** El año, o todos. Como cadena: es el valor de las opciones de su lista. */
   protected anio = '';
 
   protected readonly GRUPOS = GRUPOS;
@@ -373,56 +286,31 @@ export class TorneosPanel {
     return GRUPOS.find((uno) => uno.id === grupo)!.estados.includes(torneo.estado);
   }
 
-
-  protected recargar(): void {
-    this.version.update((veces) => veces + 1);
-  }
-
   protected readonly enPalabras = diaEnPalabras;
 
   protected nombreEstado(estado: EstadoTorneo): string {
     return ESTADOS_TORNEO[estado] ?? estado;
   }
 
-  protected async crearTorneo(): Promise<void> {
-    const { tourId, nivelId } = this.tour();
-    if (tourId === null || nivelId === null) return;
+  /**
+   * Abre el alta (T291). El diálogo crea el torneo y muestra sus errores; acá, lo que sigue:
+   * **lleva a su ficha**, porque nace sin categorías y ahí se le agregan.
+   */
+  protected async crear(): Promise<void> {
+    const torneo = await firstValueFrom(
+      this.dialogos
+        .open<NuevoTorneo, void, Torneo>(NuevoTorneo, { width: '36rem', maxWidth: '92vw' })
+        .afterClosed(),
+    );
+    if (!torneo) return;
 
-    await this.intentar('crearTorneo', async () => {
-      const torneo = await this.api.crearTorneo({
-        ...this.datos,
-        superficie: this.datos.superficie || null,
-        tours: [{ tourId, nivelId }],
-      });
-
-      this.datos = enBlanco();
-      this.tour.set({ tourId: null, nivelId: null });
-      // **El torneo nace sin cuadros y hay que decirlo**: sin categorías no se puede
-      // inscribir a nadie, y un torneo vacío en la lista no explica por qué.
-      this.aviso.set(
-        `${torneo.nombre} creado. Ábrelo y agrégale las categorías que va a correr.`,
-      );
-    });
-  }
-
-  private async intentar(
-    clave: string,
-    accion: () => Promise<unknown>,
-  ): Promise<void> {
-    this.error.set(null);
-    this.aviso.set(null);
-    this.trabajando.set(true);
-    this.enCurso.set(clave);
-
-    try {
-      await accion();
-      this.version.update((v) => v + 1);
-    } catch (falla) {
-      // El del servidor: dice si las fechas no cierran o si el nivel no es de ese tour.
-      this.error.set(mensajeDelServidor(falla, 'No se pudo guardar.'));
-    } finally {
-      this.trabajando.set(false);
-      this.enCurso.set(null);
-    }
+    // **El torneo nace sin cuadros y hay que decirlo**: sin categorías no se puede inscribir a
+    // nadie, y un torneo vacío no explica por qué.
+    this.snackBar.open(
+      `${torneo.nombre} creado: agrégale las categorías que va a correr.`,
+      undefined,
+      LO_HECHO,
+    );
+    void this.router.navigate(['/administracion/torneos', torneo.id]);
   }
 }

@@ -1,4 +1,4 @@
-import { computed, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, UrlTree } from '@angular/router';
 import { describe, expect, it } from 'vitest';
@@ -18,6 +18,7 @@ describe('soloVisitantes', () => {
     telefono: null,
     email: 'camila@clubdetenis.cl',
     esAdmin: false,
+    esGestor: false,
     socioId: 7,
     socioActivo: true,
     socioAlDia: true,
@@ -35,7 +36,6 @@ describe('soloVisitantes', () => {
           provide: Auth,
           useValue: {
             usuario: estado.asReadonly(),
-            esAdmin: computed(() => estado()?.esAdmin === true),
             refrescar: () => Promise.resolve(),
           },
         },

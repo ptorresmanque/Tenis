@@ -1,8 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { simularDialogoNativo } from '../../testing/dialogo-nativo';
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { Foto } from '../torneos.service';
 import { Galeria } from './galeria';
+
+beforeAll(simularDialogoNativo);
 
 /**
  * T69. La galería del torneo.
@@ -50,14 +54,52 @@ describe('Galeria', () => {
     ]);
   });
 
-  it('**la versión grande se pide recién al abrir la foto**', async () => {
-    expect(fuentes()).not.toContain('/api/torneos/fotos/1/imagen');
+  afterEach(() => {
+    document.querySelectorAll('dialog').forEach((dialogo) => dialogo.remove());
+    vi.restoreAllMocks();
+  });
 
-    elemento().querySelector('button')!.click();
-    await fixture.whenStable();
+  /** Toca una miniatura y espera a que la galería, que llega diferida, se abra. */
+  const tocar = async (miniatura: HTMLButtonElement) => {
+    miniatura.click();
+    for (let i = 0; i < 25 && !document.querySelector('dialog[open]'); i++) {
+      fixture.detectChanges();
+      await new Promise((r) => setTimeout(r, 20));
+    }
     fixture.detectChanges();
+    return document.querySelector<HTMLDialogElement>('dialog[open]');
+  };
 
-    expect(fuentes()).toContain('/api/torneos/fotos/1/imagen');
+  it('**la versión grande se pide recién al abrir la foto**, en la galería de ng-gallery', async () => {
+    expect(document.querySelector('img[src="/api/torneos/fotos/1/imagen"]')).toBeNull();
+
+    const dialogo = await tocar(elemento().querySelector('button')!);
+
+    expect(dialogo).not.toBeNull();
+    expect(dialogo!.querySelector('gallery img[src="/api/torneos/fotos/1/imagen"]')).not.toBeNull();
+  });
+
+  it('**ya no tiene visor propio**: la página no dibuja la foto grande', async () => {
+    await tocar(elemento().querySelector('button')!);
+
+    expect(fuentes()).not.toContain('/api/torneos/fotos/1/imagen');
+    expect(texto()).not.toContain('Cerrar la foto');
+  });
+
+  it('**abre en la foto tocada**, con las de la lista en el orden de la grilla', async () => {
+    const abrir = vi.spyOn(GaleriaDeFotos.prototype, 'abrir');
+    await montar([foto(1, { momento: 'DESPUES' }), foto(2, { momento: 'ANTES' }), foto(3)]);
+    // En la grilla: antes (2), durante (3), después (1). Se toca la de después.
+    const miniaturas = [...elemento().querySelectorAll<HTMLButtonElement>('ul button')];
+    miniaturas[2].click();
+
+    expect(abrir).toHaveBeenCalledWith(2);
+  });
+
+  it('cada miniatura dice qué abre', () => {
+    const miniatura = elemento().querySelector('ul button')!;
+
+    expect(miniatura.getAttribute('aria-label')).toBe('Ver la foto: Foto del torneo');
   });
 
   it('las miniaturas se cargan a medida que se baja', () => {
@@ -66,20 +108,6 @@ describe('Galeria', () => {
     );
 
     expect(diferidas).toHaveLength(2);
-  });
-
-  it('la foto abierta se puede cerrar', async () => {
-    elemento().querySelector('button')!.click();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    Array.from(elemento().querySelectorAll('button'))
-      .find((b) => b.textContent?.trim().startsWith('Cerrar'))!
-      .click();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    expect(fuentes()).not.toContain('/api/torneos/fotos/1/imagen');
   });
 
   it('**los tramos vacíos no llevan título**', async () => {

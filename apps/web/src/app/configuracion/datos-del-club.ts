@@ -1,13 +1,18 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, inject, resource, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButton } from '@angular/material/button';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 
+import { errorDelCampo, proveerCampos } from '../ui/campos';
 import { AdminCanchas } from '../catalogo-canchas/admin/admin-canchas.service';
 import { Club } from '../club/club.service';
 import { mensajeDelServidor } from '../core/errores';
 import { Aviso } from '../ui/aviso';
-import { Campo, CampoControl } from '../ui/campo';
 import { TelefonoDirective } from '../ui/telefono';
+import { LO_HECHO } from '../ui/material';
 
 /** Cada dato con su etiqueta y por qué se pide. El orden es el de la pantalla. */
 const DATOS = [
@@ -98,9 +103,18 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
  */
 @Component({
   selector: 'app-datos-del-club',
-  imports: [FormsModule, NgTemplateOutlet, Aviso, Campo, CampoControl, TelefonoDirective],
+  imports: [
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    FormsModule,
+    NgTemplateOutlet,
+    Aviso,
+    TelefonoDirective,
+  ],
+  providers: [proveerCampos()],
   template: `
-    <form class="grid max-w-xl gap-4" (ngSubmit)="guardar()">
+    <form class="grid max-w-xl gap-4" #formulario="ngForm" (ngSubmit)="guardar()">
       @if (club.error()) {
         <app-aviso variante="error">
           No se pudieron cargar los datos del club. Reintenta en un momento.
@@ -109,35 +123,42 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 
       <!-- Un campo, igual para los datos y para las redes. -->
       <ng-template #control let-dato>
-        <app-campo
-          [etiqueta]="dato.etiqueta"
-          [ayuda]="dato.ayuda"
-          [obligatorio]="dato.campo === 'nombre'"
-        >
+        <mat-form-field>
+          <mat-label>
+            {{ dato.etiqueta }}
+            @if (dato.campo === 'nombre') {
+              <span aria-hidden="true">*</span>
+            }
+          </mat-label>
+          <!-- El +56 fijo y solo los 9 dígitos (T121). Cada @if con un solo elemento: así
+               Angular lo proyecta en el prefijo o en el control del campo de Material. -->
           @if (dato.tipo === 'tel') {
-            <!-- El +56 fijo y solo los 9 dígitos (T121). -->
-            <span class="campo-con-prefijo">
-              <span class="prefijo">+56</span>
-              <input
-                appCampoControl
-                appTelefono
-                class="campo"
-                [name]="dato.campo"
-                [ngModel]="valor(dato.campo)"
-                (ngModelChange)="escribir(dato.campo, $event)"
-              />
-            </span>
+            <span matTextPrefix>+56&nbsp;</span>
+          }
+          @if (dato.tipo === 'tel') {
+            <input
+              matInput
+              appTelefono
+              [name]="dato.campo"
+              [ngModel]="valor(dato.campo)"
+              (ngModelChange)="escribir(dato.campo, $event)"
+            />
           } @else {
             <input
-              appCampoControl
-              class="campo"
+              matInput
               [name]="dato.campo"
               [type]="dato.tipo"
               [ngModel]="valor(dato.campo)"
               (ngModelChange)="escribir(dato.campo, $event)"
             />
           }
-        </app-campo>
+          @if (dato.ayuda) {
+            <mat-hint>{{ dato.ayuda }}</mat-hint>
+          }
+          @if (dato.tipo === 'tel') {
+            <mat-error>{{ errorDelCampo(formulario.form.get(dato.campo)) }}</mat-error>
+          }
+        </mat-form-field>
       </ng-template>
 
       @for (dato of DATOS; track dato.campo) {
@@ -165,16 +186,12 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
 
       @if (error(); as falla) {
         <app-aviso variante="error">{{ falla }}</app-aviso>
-      } @else if (guardado()) {
-        <app-aviso variante="exito">
-          Guardado. El sitio ya muestra estos datos.
-        </app-aviso>
       }
 
       <div>
         <button
+          matButton="filled"
           type="submit"
-          class="boton boton-primario"
           [disabled]="guardando() || club.isLoading() || !club.hasValue()"
           [attr.aria-busy]="guardando()"
         >
@@ -185,6 +202,9 @@ type Formulario = Record<(typeof DATOS)[number]['campo'] | (typeof REDES)[number
   `,
 })
 export class DatosDelClub {
+  protected readonly errorDelCampo = errorDelCampo;
+
+  private readonly snackBar = inject(MatSnackBar);
   private readonly api = inject(AdminCanchas);
   /** Los datos que lee el sitio público, para que muestre lo recién guardado. */
   private readonly sitio = inject(Club);
@@ -205,7 +225,6 @@ export class DatosDelClub {
   protected readonly editado = signal<Partial<Formulario>>({});
 
   protected readonly guardando = signal(false);
-  protected readonly guardado = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected formulario(): Formulario {
@@ -238,12 +257,10 @@ export class DatosDelClub {
 
   protected escribir(campo: keyof Formulario, valor: string): void {
     this.editado.update((actual) => ({ ...actual, [campo]: valor }));
-    this.guardado.set(false);
   }
 
   protected async guardar(): Promise<void> {
     this.error.set(null);
-    this.guardado.set(false);
 
     if (!this.formulario().nombre.trim()) {
       // El servidor también lo rechaza; acá se dice sin gastar el viaje.
@@ -260,7 +277,7 @@ export class DatosDelClub {
       this.club.reload();
       this.sitio.recargar();
       this.editado.set({});
-      this.guardado.set(true);
+      this.snackBar.open('Guardado. El sitio ya muestra estos datos.', undefined, LO_HECHO);
     } catch (falla) {
       this.error.set(mensajeDelServidor(falla, 'No se pudieron guardar los datos.'));
     } finally {

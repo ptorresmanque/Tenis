@@ -4,6 +4,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import { mesEnElClub } from '../src/comun/tiempo';
+import { EstadoSolicitud, TipoSolicitud } from '../src/generated/prisma/client';
 import { hashear } from '../src/identidad/contrasena';
 import {
   PerfilGoogle,
@@ -12,12 +13,13 @@ import {
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
- * T32. El club acepta a alguien como socio antes de que esa persona tenga cuenta.
+ * T32. El alta de socio por correo.
  *
- * El admin da de alta con **solo el correo** y la ficha aparece sola cuando esa
- * persona se registra. Los dos caminos de alta —contraseña y Google— pasan por el
- * mismo punto: si fueran dos, el socio que entra por Google se quedaría sin ficha y
- * nadie lo probaría a mano.
+ * **Desde T297 se invita solo a quien ya tiene cuenta** (SPEC-panel.md D12): la ficha
+ * se crea en el acto. Las invitaciones de antes, a correos sin cuenta, se respetan
+ * (D14): la ficha aparece cuando esa persona se registra. Los dos caminos de registro
+ * —contraseña y Google— pasan por el mismo punto: si fueran dos, el socio que entra
+ * por Google se quedaría sin ficha y nadie lo probaría a mano.
  */
 describe('Alta de socio por correo', () => {
   let app: INestApplication;
@@ -61,6 +63,9 @@ describe('Alta de socio por correo', () => {
   });
 
   beforeEach(async () => {
+    await prisma.solicitudContacto.deleteMany({
+      where: { email: { endsWith: DOMINIO } },
+    });
     await prisma.invitacionSocio.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });
@@ -78,6 +83,9 @@ describe('Alta de socio por correo', () => {
   const servidor = () => app.getHttpServer() as Parameters<typeof request>[0];
 
   async function limpiar(): Promise<void> {
+    await prisma.solicitudContacto.deleteMany({
+      where: { email: { endsWith: DOMINIO } },
+    });
     await prisma.invitacionSocio.deleteMany({
       where: { email: { endsWith: DOMINIO } },
     });
@@ -114,6 +122,22 @@ describe('Alta de socio por correo', () => {
       .post('/api/admin/socios/invitaciones')
       .set('Cookie', cookie)
       .send(cuerpo);
+
+  /** La cuenta de la invitada: desde T297 se invita a quien ya la tiene (D12). */
+  const conCuenta = () =>
+    prisma.usuario.create({
+      data: { email: INVITADO, nombre: 'Camila', apellido: 'Invitada' },
+    });
+
+  /** Una invitación de antes de T297, a un correo sin cuenta, que nadie usó (D14). */
+  const invitacionVieja = (numeroSocio = 'T32-001') =>
+    prisma.invitacionSocio.create({
+      data: {
+        email: INVITADO,
+        numeroSocio,
+        alDiaHasta: new Date('2099-12-31T00:00:00.000Z'),
+      },
+    });
 
   const registrarse = (email = INVITADO) =>
     request(servidor()).post('/api/auth/registro').send({
@@ -173,7 +197,19 @@ describe('Alta de socio por correo', () => {
   });
 
   describe('invitar', () => {
+    it('**a un correo sin cuenta responde 409, y dice qué hacer** (D12)', async () => {
+      const respuesta = await invitar({ email: INVITADO }).expect(409);
+
+      expect((respuesta.body as { message: string }).message).toBe(
+        'Ese correo no tiene cuenta todavía: pídele que se registre en el sitio.',
+      );
+      expect(
+        await prisma.invitacionSocio.count({ where: { email: INVITADO } }),
+      ).toBe(0);
+    });
+
     it('alcanza con el correo: el número y la fecha los pone el club', async () => {
+      await conCuenta();
       const respuesta = await invitar({ email: INVITADO }).expect(201);
       const invitacion = respuesta.body as {
         numeroSocio: string;
@@ -194,6 +230,7 @@ describe('Alta de socio por correo', () => {
     });
 
     it('guarda el correo en minúsculas', async () => {
+      await conCuenta();
       await invitar({ email: INVITADO.toUpperCase() }).expect(201);
 
       // `Ana@club.cl` y `ana@club.cl` son la misma persona. Con dos filas, la
@@ -204,6 +241,7 @@ describe('Alta de socio por correo', () => {
     });
 
     it('el admin puede fijar el número y hasta cuándo está al día', async () => {
+      await conCuenta();
       const respuesta = await invitar({
         email: INVITADO,
         numeroSocio: 'T32-007',
@@ -214,6 +252,7 @@ describe('Alta de socio por correo', () => {
     });
 
     it('el mismo correo dos veces responde 409', async () => {
+      await conCuenta();
       await invitar({ email: INVITADO }).expect(201);
       await invitar({ email: INVITADO }).expect(409);
     });
@@ -223,17 +262,17 @@ describe('Alta de socio por correo', () => {
     });
   });
 
-  describe('la cuenta se asocia sola', () => {
+  describe('una invitación de antes se cumple al registrarse (D14)', () => {
     it('quien se registra con un correo invitado queda con ficha de socio', async () => {
       // **Test obligatorio de T32.**
-      await invitar({ email: INVITADO }).expect(201);
+      await invitacionVieja();
       await registrarse().expect(201);
 
       expect((await quienEs(INVITADO)).socioId).not.toBeNull();
     });
 
     it('el socio nuevo estrena el número que le asignó el club', async () => {
-      await invitar({ email: INVITADO, numeroSocio: 'T32-042' }).expect(201);
+      await invitacionVieja('T32-042');
       await registrarse().expect(201);
 
       const usuario = await prisma.usuario.findUniqueOrThrow({
@@ -246,7 +285,7 @@ describe('Alta de socio por correo', () => {
     it('entrando por Google pasa exactamente lo mismo', async () => {
       // **Test obligatorio de T32**: es el camino que se olvida. Dos copias de la
       // regla dejarían sin ficha justo a quien entra con Google.
-      await invitar({ email: INVITADO }).expect(201);
+      await invitacionVieja();
       await entrarConGoogle();
 
       const usuario = await prisma.usuario.findUniqueOrThrow({
@@ -257,7 +296,7 @@ describe('Alta de socio por correo', () => {
     });
 
     it('la invitación queda marcada como usada, no borrada', async () => {
-      await invitar({ email: INVITADO }).expect(201);
+      await invitacionVieja();
       await registrarse().expect(201);
 
       const invitacion = await prisma.invitacionSocio.findUniqueOrThrow({
@@ -279,7 +318,7 @@ describe('Alta de socio por correo', () => {
       const sinInvitacion = await registrarse().expect(201);
       await prisma.usuario.deleteMany({ where: { email: INVITADO } });
 
-      await invitar({ email: INVITADO }).expect(201);
+      await invitacionVieja();
       const conInvitacion = await registrarse().expect(201);
 
       expect(conInvitacion.body).toEqual(sinInvitacion.body);
@@ -319,8 +358,7 @@ describe('Alta de socio por correo', () => {
 
   describe('revocar', () => {
     it('una invitación sin usar se borra', async () => {
-      const creada = await invitar({ email: INVITADO }).expect(201);
-      const { id } = creada.body as { id: number };
+      const { id } = await invitacionVieja();
 
       await request(servidor())
         .delete(`/api/admin/socios/invitaciones/${id}`)
@@ -339,13 +377,11 @@ describe('Alta de socio por correo', () => {
     });
 
     it('una ya usada no: para eso está cambiar el estado del socio', async () => {
-      const creada = await invitar({ email: INVITADO }).expect(201);
+      const { id } = await invitacionVieja();
       await registrarse().expect(201);
 
       await request(servidor())
-        .delete(
-          `/api/admin/socios/invitaciones/${(creada.body as { id: number }).id}`,
-        )
+        .delete(`/api/admin/socios/invitaciones/${id}`)
         .set('Cookie', admin)
         .expect(409);
     });
@@ -353,7 +389,7 @@ describe('Alta de socio por correo', () => {
 
   describe('lo que ve el admin', () => {
     it('lista los socios del club y las invitaciones pendientes', async () => {
-      await invitar({ email: INVITADO }).expect(201);
+      await invitacionVieja();
 
       const respuesta = await request(servidor())
         .get('/api/admin/socios')
@@ -370,6 +406,92 @@ describe('Alta de socio por correo', () => {
       // mostrarla dos veces hace creer que falta algo por hacer.
       expect(cuerpo.invitaciones.every((i) => i.usadaEn === null)).toBe(true);
       expect(Array.isArray(cuerpo.socios)).toBe(true);
+    });
+  });
+
+  /**
+   * T297 (SPEC-panel.md D13 y A14). La consulta «Quiero asociarme» de quien se hace socio
+   * se enlaza sola, donde se crea la ficha: así se sigue contando cuántos interesados se
+   * vuelven socios, ahora que el alta ya no sale de la bandeja de consultas.
+   */
+  describe('la consulta de quien se asocia', () => {
+    const consulta = (
+      datos: {
+        tipo?: TipoSolicitud;
+        estado?: EstadoSolicitud;
+        invitacionId?: number;
+      } = {},
+    ) =>
+      prisma.solicitudContacto.create({
+        data: {
+          tipo: TipoSolicitud.SOCIO,
+          nombre: 'Camila',
+          email: INVITADO,
+          telefono: '+56911112222',
+          ...datos,
+        },
+      });
+
+    const despuesDe = (id: number) =>
+      prisma.solicitudContacto.findUniqueOrThrow({ where: { id } });
+
+    it('**al hacerla socia, su consulta Nueva queda enlazada y atendida**', async () => {
+      const nueva = await consulta();
+      await conCuenta();
+
+      const { id: invitacionId } = (
+        await invitar({ email: INVITADO }).expect(201)
+      ).body as { id: number };
+
+      const enlazada = await despuesDe(nueva.id);
+      expect(enlazada).toMatchObject({
+        invitacionId,
+        estado: EstadoSolicitud.ATENDIDA,
+      });
+      expect(enlazada.atendidaEn).not.toBeNull();
+    });
+
+    it('una descartada se enlaza sin cambiar de estado; una de otro tipo no se toca', async () => {
+      const descartada = await consulta({ estado: EstadoSolicitud.DESCARTADA });
+      const deClases = await consulta({ tipo: TipoSolicitud.CLASES });
+      await conCuenta();
+
+      const { id: invitacionId } = (
+        await invitar({ email: INVITADO }).expect(201)
+      ).body as { id: number };
+
+      expect(await despuesDe(descartada.id)).toMatchObject({
+        invitacionId,
+        estado: EstadoSolicitud.DESCARTADA,
+      });
+      expect(await despuesDe(deClases.id)).toMatchObject({
+        invitacionId: null,
+        estado: EstadoSolicitud.NUEVA,
+      });
+    });
+
+    it('una que ya tenía su enlace no se toca', async () => {
+      const yaEnlazada = await consulta({
+        estado: EstadoSolicitud.ATENDIDA,
+        invitacionId: 999_999,
+      });
+      await conCuenta();
+
+      await invitar({ email: INVITADO }).expect(201);
+
+      expect((await despuesDe(yaEnlazada.id)).invitacionId).toBe(999_999);
+    });
+
+    it('**también se enlaza al cumplirse una invitación de antes** (D14)', async () => {
+      const nueva = await consulta();
+      const { id: invitacionId } = await invitacionVieja();
+
+      await registrarse().expect(201);
+
+      expect(await despuesDe(nueva.id)).toMatchObject({
+        invitacionId,
+        estado: EstadoSolicitud.ATENDIDA,
+      });
     });
   });
 });

@@ -1,4 +1,6 @@
 import { Component, inject } from '@angular/core';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatIcon } from '@angular/material/icon';
 
 import { Modo, Tema } from './tema';
 
@@ -12,48 +14,40 @@ const OPCIONES: { modo: Modo; icono: string; etiqueta: string }[] = [
 /**
  * El control para elegir tema.
  *
- * **Un grupo de radios y no un interruptor**, porque son tres estados y no dos:
+ * **Un grupo de opciones y no un interruptor**, porque son tres estados y no dos:
  * claro, oscuro, y seguir al sistema. Un interruptor de dos posiciones obligaría
  * a elegir para siempre y le quitaría al visitante el comportamiento que ya
  * tenía.
  *
- * Los radios son de verdad, escondidos con `sr-only`, igual que en el selector
- * de días: eso trae gratis las flechas del teclado, un solo Tab para entrar y
- * salir del grupo, y el anuncio de "opción 2 de 3". El aspecto sale de
- * `has-[:checked]:`, así que tampoco hay clases calculadas en TypeScript.
+ * Es un `mat-button-toggle-group` (T251): las flechas del teclado recorren el
+ * grupo, Tab entra y sale una sola vez, y el lector anuncia "opción 2 de 3". El
+ * aspecto es la clase `iconos` del tema.
  *
- * En la barra solo se ve el ícono; el nombre de cada opción viaja en su
- * `title` y en el `sr-only` de adentro, que es lo que oye quien no lo ve.
+ * En la barra solo se ve el ícono; el nombre de cada opción viaja en su `title`
+ * y en su `aria-label`, que es lo que oye quien no lo ve.
  */
 @Component({
   selector: 'app-conmutador-de-tema',
+  imports: [MatButtonToggleModule, MatIcon],
   host: { class: 'block' },
   template: `
-    <fieldset class="flex items-center gap-0.5 rounded-control bg-muted p-0.5">
-      <legend class="sr-only">Tema del sitio</legend>
-
+    <mat-button-toggle-group
+      class="iconos"
+      aria-label="Tema del sitio"
+      hideSingleSelectionIndicator
+      [value]="tema.modo()"
+      (change)="tema.modo.set($event.value)"
+    >
       @for (opcion of OPCIONES; track opcion.modo) {
-        <label
+        <mat-button-toggle
+          [value]="opcion.modo"
           [title]="opcion.etiqueta"
-          class="pulsable relative flex size-8 cursor-pointer items-center justify-center
-                 rounded-control text-muted-foreground
-                 has-[:checked]:bg-card has-[:checked]:text-primary
-                 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2
-                 has-[:focus-visible]:outline-ring"
+          [aria-label]="opcion.etiqueta"
         >
-          <input
-            type="radio"
-            class="sr-only"
-            name="tema"
-            [value]="opcion.modo"
-            [checked]="tema.modo() === opcion.modo"
-            (change)="tema.modo.set(opcion.modo)"
-          />
-          <span class="icono icono-tema text-lg" aria-hidden="true">{{ opcion.icono }}</span>
-          <span class="sr-only">{{ opcion.etiqueta }}</span>
-        </label>
+          <mat-icon class="icono-tema text-lg" aria-hidden="true">{{ opcion.icono }}</mat-icon>
+        </mat-button-toggle>
       }
-    </fieldset>
+    </mat-button-toggle-group>
   `,
   styles: `
     /* El elegido crece, con un leve rebote (T150). Es una transición y no una
@@ -64,7 +58,7 @@ const OPCIONES: { modo: Modo; icono: string; etiqueta: string }[] = [
       transition: scale var(--duracion-menu) var(--ease-rebote);
     }
 
-    label:has(:checked) .icono-tema {
+    .mat-button-toggle-checked .icono-tema {
       scale: 1;
     }
   `,

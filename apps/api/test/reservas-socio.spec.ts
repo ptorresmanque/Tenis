@@ -4,6 +4,7 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import {
+  DuracionesSocioPico,
   EstadoReserva,
   EstadoSocio,
   Superficie,
@@ -310,6 +311,12 @@ describe('POST /api/reservas — reserva de socio', () => {
   });
 
   it('**dos pico de 1 hora y media caben en un cupo pico de 2: cuenta reservas, no horas** (T85)', async () => {
+    // Con el club permitiendo la hora y media en prime (T212): lo que se mide acá es el
+    // cupo, y con la regla de partida la reserva se rechazaría por su duración.
+    await prisma.configuracionClub.update({
+      where: { id: 1 },
+      data: { duracionesSocioPico: DuracionesSocioPico.AMBAS },
+    });
     // Contando horas serían 3 de 2 y la segunda se rechazaría. La primera la pone la
     // base el martes: el club de este spec abre solo los lunes.
     await prisma.reserva.create({
@@ -329,6 +336,11 @@ describe('POST /api/reservas — reserva de socio', () => {
 
     const respuesta = await reservar(
       unaReserva({ inicio: A_LAS_19, duracionMin: 90 }),
+    ).finally(() =>
+      prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { duracionesSocioPico: DuracionesSocioPico.UNA_HORA },
+      }),
     );
 
     expect(respuesta.status).toBe(201);
@@ -715,6 +727,7 @@ describe('POST /api/reservas — reserva de socio', () => {
       email: usuario.email,
       telefono: usuario.telefono,
       esAdmin: false,
+      esGestor: false,
       socioId,
       socioActivo: true,
       socioAlDia: true,

@@ -1,12 +1,14 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { MatIcon } from '@angular/material/icon';
+import { MatButton } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { nombreDeSuperficie } from '../catalogo-canchas/superficies';
 import { Club } from './club.service';
 import { Foto } from '../ui/foto';
-import { Insignia } from '../ui/insignia';
 import { FormularioContacto } from './formulario-contacto';
 import { enlacesDelMapa } from './mapa';
 import { RedesSociales } from './redes-sociales';
@@ -35,9 +37,10 @@ import { Esqueleto } from '../ui/esqueleto';
 @Component({
   selector: 'app-el-club',
   imports: [
+    MatButton,
+    MatIcon,
     RouterLink,
     Foto,
-    Insignia,
     FormularioContacto,
     Tarifas,
     EnlaceTelefonoPipe,
@@ -45,16 +48,18 @@ import { Esqueleto } from '../ui/esqueleto';
     RedesSociales,
     Esqueleto,
     TiendaYCafeteria,
+    MatChipsModule,
   ],
   template: `
     <!-- BANDA 1 — El club, con su cara. -->
     <section
-      class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
+      class="relative isolate a-sangre overflow-hidden hero-animado"
       aria-labelledby="el-club"
     >
+      <!-- La cancha con el logo, que antes era la de la portada (T305, SPEC-sitio.md D7). -->
       <app-foto
-        descripcion="Vista aérea del club: los galpones de las canchas techadas y dos canchas al aire libre"
-        src="/fotos/el-club.jpg"
+        descripcion="Las canchas al aire libre del club en un día despejado, con el logo de FEDAL pintado en la cancha"
+        src="/fotos/portada.jpg"
         proporcion="16/9"
         [prioritaria]="true"
         claseCaja="min-h-[24rem]"
@@ -65,8 +70,8 @@ import { Esqueleto } from '../ui/esqueleto';
       ></div>
 
       <div
-        class="absolute inset-0 flex flex-col justify-end gap-3 p-6 text-on-campo texto-sobre-foto
-               hero-texto sm:p-10"
+        class="absolute inset-0 flex flex-col justify-end gap-3 py-6 px-sangre-6 text-on-campo
+               texto-sobre-foto hero-texto sm:py-10 sm:px-sangre-10"
       >
         <!-- Los textos los escribe el club en "Textos del sitio" (T142). Texto plano:
              la interpolación muestra un <b> como texto, y pre-line respeta los saltos
@@ -122,13 +127,19 @@ import { Esqueleto } from '../ui/esqueleto';
                       {{ cancha.nombre }}
                     </span>
                     <span class="flex flex-wrap gap-2">
-                      <app-insignia variante="info" icono="sports_tennis">
-                        {{ superficie(cancha.superficie) }}
-                      </app-insignia>
+                      <mat-chip-set class="insignias">
+                        <mat-chip class="insignia info">
+                          <mat-icon matChipAvatar aria-hidden="true">sports_tennis</mat-icon>
+                          {{ superficie(cancha.superficie) }}
+                        </mat-chip>
+                      </mat-chip-set>
                       @if (cancha.iluminacion) {
-                        <app-insignia variante="neutro" icono="lightbulb">
-                          Con iluminación
-                        </app-insignia>
+                        <mat-chip-set class="insignias">
+                          <mat-chip class="insignia neutro">
+                            <mat-icon matChipAvatar aria-hidden="true">lightbulb</mat-icon>
+                            Con iluminación
+                          </mat-chip>
+                        </mat-chip-set>
                       }
                     </span>
                   </li>
@@ -147,8 +158,8 @@ import { Esqueleto } from '../ui/esqueleto';
       cuelga de él. Sin cajas: tres columnas separadas por una línea alcanzan.
     -->
     <section
-      class="-mx-4 mt-16 bg-campo px-4 py-10 text-on-campo aparece-al-pasar sm:mx-0 sm:rounded-region
-             sm:px-8"
+      class="a-sangre mt-16 bg-campo px-sangre-4 py-10 text-on-campo aparece-al-pasar
+             sm:px-sangre-8"
       aria-labelledby="como-funciona"
     >
       <h2 id="como-funciona" class="titular text-5xl sm:text-6xl">Cómo se reserva</h2>
@@ -195,7 +206,7 @@ import { Esqueleto } from '../ui/esqueleto';
             <dt
               class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
             >
-              <span class="icono text-primary" aria-hidden="true">place</span>
+              <mat-icon class="text-primary" aria-hidden="true">place</mat-icon>
               Dónde y cómo ubicarnos
             </dt>
             <dd class="mt-2 grid gap-1 text-muted-foreground">
@@ -236,15 +247,15 @@ import { Esqueleto } from '../ui/esqueleto';
             ></iframe>
             <p class="mt-3 flex flex-wrap gap-3">
               <a
+                matButton="outlined"
                 [href]="mapa.googleMaps"
                 target="_blank"
                 rel="noopener"
-                class="boton boton-secundario"
               >
                 Cómo llegar con Google Maps
                 <span class="sr-only">(se abre en otra pestaña)</span>
               </a>
-              <a [href]="mapa.waze" target="_blank" rel="noopener" class="boton boton-secundario">
+              <a matButton="outlined" [href]="mapa.waze" target="_blank" rel="noopener">
                 Cómo llegar con Waze
                 <span class="sr-only">(se abre en otra pestaña)</span>
               </a>
@@ -268,10 +279,10 @@ import { Esqueleto } from '../ui/esqueleto';
     </section>
 
     <section class="mt-16 flex flex-wrap justify-center gap-3 aparece-al-pasar">
-      <a routerLink="/disponibilidad" class="boton boton-primario">
+      <a matButton="filled" routerLink="/disponibilidad">
         Ver disponibilidad
       </a>
-      <a routerLink="/registro" class="boton boton-secundario">Crear cuenta</a>
+      <a matButton="outlined" routerLink="/registro">Crear cuenta</a>
     </section>
   `,
 })

@@ -1,12 +1,20 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatButton } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
+import { proveerCampos } from '../ui/campos';
+import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { diaConAnioEnPalabras, hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { Auth } from '../core/auth/auth';
 import { Aviso } from '../ui/aviso';
 import { EstadoVacio } from '../ui/estado-vacio';
-import { Insignia } from '../ui/insignia';
 import { ESTADOS_PARTIDO, EstadoPartidoInterno, PartidoMio, Ranking } from './ranking.service';
-import { CampoFecha } from '../ui/campo-fecha';
 import { Esqueleto } from '../ui/esqueleto';
 
 /**
@@ -21,10 +29,22 @@ import { Esqueleto } from '../ui/esqueleto';
  */
 @Component({
   selector: 'app-mis-partidos',
-  imports: [Aviso, EstadoVacio, Esqueleto, Insignia, CampoFecha],
+  imports: [
+    MatRadioModule,
+    MatSelectModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInput,
+    MatButton,
+    Aviso,
+    EstadoVacio,
+    Esqueleto,
+    MatChipsModule,
+    MatIcon,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Mis partidos</h1>
-    <p class="mt-2 max-w-prose text-muted-foreground">
+    <p class="max-w-prose text-muted-foreground">
       Los amistosos que juegas con otros socios. Cárgalos acá y, cuando el rival los confirme,
       entran al ranking interno.
     </p>
@@ -33,62 +53,75 @@ import { Esqueleto } from '../ui/esqueleto';
       <h2 class="font-display text-lg font-bold tracking-wide uppercase">Cargar un partido</h2>
 
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
-        <label class="grid gap-1 text-sm">
-          <span class="font-medium">Contra quién jugaste</span>
-          <select
+        <mat-form-field>
+          <mat-label>Contra quién jugaste</mat-label>
+          <mat-select
             name="rival"
-            class="campo"
             [value]="rival()"
-            (change)="rival.set(valorDe($event))"
+            (selectionChange)="rival.set($event.value)"
           >
-            <option value="">Elige un socio…</option>
+            <mat-option value="">Elige un socio…</mat-option>
             <!-- Con el número al lado: dos socios que se llaman igual no es un caso
                  raro en un club, y elegir al equivocado le crea un partido a un
                  tercero que después tiene que rechazarlo. -->
             @if (rivales.hasValue()) {
               @for (quien of rivales.value(); track quien.socioId) {
-                <option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</option>
+                <mat-option [value]="quien.socioId">{{ quien.nombre }} · {{ quien.numeroSocio }}</mat-option>
               }
             }
-          </select>
-        </label>
+          </mat-select>
+        </mat-form-field>
 
-        <label class="grid gap-1 text-sm">
-          <span class="font-medium">Quién ganó</span>
-          <select
+        <!-- Dos opciones opuestas, a la vista: botones de opción y no una lista (T250,
+             corrección 5 de la auditoría). -->
+        <div>
+          <span id="quien-gano" class="text-sm font-medium">Quién ganó</span>
+          <mat-radio-group
+            class="mt-1 flex flex-wrap gap-x-4"
             name="ganador"
-            class="campo"
+            aria-labelledby="quien-gano"
             [value]="ganador()"
-            (change)="ganador.set(valorDe($event) === 'rival' ? 'rival' : 'yo')"
+            (change)="ganador.set($event.value === 'rival' ? 'rival' : 'yo')"
           >
-            <option value="yo">Gané yo</option>
-            <option value="rival">Ganó el rival</option>
-          </select>
-        </label>
-
-        <div class="grid gap-1 text-sm">
-          <label class="font-medium" for="jugado-en">Cuándo</label>
-          <app-campo-fecha
-            inputId="jugado-en"
-            name="jugadoEn"
-            claseCampo="w-36"
-            [max]="hoy"
-            [valor]="jugadoEn()"
-            (valorChange)="jugadoEn.set($event)"
-          />
+            <mat-radio-button value="yo">Gané yo</mat-radio-button>
+            <mat-radio-button value="rival">Ganó el rival</mat-radio-button>
+          </mat-radio-group>
         </div>
 
-        <label class="grid gap-1 text-sm">
-          <span class="font-medium">Marcador (opcional)</span>
+        <mat-form-field class="w-48">
+          <mat-label>Cuándo</mat-label>
           <input
+            matInput
+            id="jugado-en"
+            name="jugadoEn"
+            placeholder="dd-mm-aaaa"
+            autocomplete="off"
+            [matDatepicker]="calendarioJugadoEn"
+            [max]="hoy"
+            [value]="jugadoEn()"
+            (dateChange)="jugadoEn.set($event.value)"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="calendarioJugadoEn" />
+          <mat-datepicker #calendarioJugadoEn>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Marcador (opcional)</mat-label>
+          <input
+            matInput
             type="text"
             name="marcador"
-            class="campo"
             placeholder="6-4 6-2"
             [value]="marcador()"
             (change)="marcador.set(valorDe($event))"
           />
-        </label>
+        </mat-form-field>
       </div>
 
       <!-- Dicho antes de que apriete, no después: quien carga un partido y no ve
@@ -101,9 +134,12 @@ import { Esqueleto } from '../ui/esqueleto';
         <app-aviso variante="error" class="mt-3 block">{{ texto }}</app-aviso>
       }
 
+      <!-- El del formulario va en su section; el de cada partido, en la tarjeta de ese partido.
+           mat-guidelines-ignore: multiples-filled -->
       <button
+        matButton="filled"
         type="button"
-        class="boton boton-primario mt-3"
+        class="mt-3"
         [disabled]="rival() === '' || enviando()"
         [attr.aria-busy]="enviando()"
         (click)="cargar()"
@@ -145,9 +181,12 @@ import { Esqueleto } from '../ui/esqueleto';
                   Perdiste con {{ partido.rival }}
                 }
               </p>
-              <app-insignia [variante]="color(partido.estado)" icono="flag">
-                {{ nombreEstado(partido.estado) }}
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia" [class]="color(partido.estado)">
+                  <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                  {{ nombreEstado(partido.estado) }}
+                </mat-chip>
+              </mat-chip-set>
               @if (partido.marcador) {
                 <p
                   class="ms-auto font-display text-3xl font-bold tabular-nums"
@@ -176,8 +215,9 @@ import { Esqueleto } from '../ui/esqueleto';
               <div class="mt-3 flex flex-wrap gap-2">
                 <!-- Gira solo el que se tocó: los dos comparten enviando(). -->
                 <button
+                  matButton="filled"
                   type="button"
-                  class="boton boton-primario boton-chico"
+                  class="chico"
                   [disabled]="enviando()"
                   [attr.aria-busy]="esLaRespuesta(partido.id, true)"
                   (click)="responder(partido.id, true)"
@@ -185,8 +225,9 @@ import { Esqueleto } from '../ui/esqueleto';
                   Confirmar
                 </button>
                 <button
+                  matButton="outlined"
                   type="button"
-                  class="boton boton-secundario boton-chico"
+                  class="chico"
                   [disabled]="enviando()"
                   [attr.aria-busy]="esLaRespuesta(partido.id, false)"
                   (click)="responder(partido.id, false)"
@@ -230,18 +271,20 @@ export class MisPartidos {
 
   protected readonly rival = signal('');
   protected readonly ganador = signal<'yo' | 'rival'>('yo');
-  protected readonly jugadoEn = signal(hoyEnElClub());
+  /** Como lo entrega el calendario de Material, y a texto al cargar el partido (A5, T244). */
+  protected readonly jugadoEn = signal(textoAFecha(hoyEnElClub()));
   protected readonly marcador = signal('');
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
 
   /** Hoy, para que el calendario no ofrezca el futuro. */
-  protected readonly hoy = hoyEnElClub();
+  /** El último día que se puede elegir: un partido no se carga antes de jugarse. */
+  protected readonly hoy = textoAFecha(hoyEnElClub());
 
   protected readonly enPalabras = diaConAnioEnPalabras;
 
   protected valorDe(evento: Event): string {
-    return (evento.target as HTMLSelectElement | HTMLInputElement).value;
+    return (evento.target as HTMLInputElement).value;
   }
 
   protected nombreEstado(estado: EstadoPartidoInterno): string {
@@ -270,7 +313,7 @@ export class MisPartidos {
         // opciones, pero el cuerpo lo puede escribir cualquiera.
         ganadorSocioId: this.ganador() === 'rival' ? rivalSocioId : (this.miSocioId() ?? 0),
         marcador: this.marcador().trim() || null,
-        jugadoEn: this.jugadoEn(),
+        jugadoEn: fechaATexto(this.jugadoEn()),
       });
 
       this.rival.set('');

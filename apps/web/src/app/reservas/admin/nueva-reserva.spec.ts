@@ -5,6 +5,8 @@ import { Disponibilidad, GrillaDeCancha } from '../../catalogo-canchas/disponibi
 import { Socios } from '../../identidad/admin/socios.service';
 import { NuevaReserva } from './nueva-reserva';
 import { ReservasDelAdmin } from './nueva-reserva.service';
+import { elegidoEn, elegir, opcionesDe } from '../../testing/elegir';
+import { alternar } from '../../testing/alternar';
 
 /**
  * La hora que el club toma en el mesón. Lo que se prueba acá es qué horas ofrece:
@@ -58,22 +60,15 @@ describe('NuevaReserva', () => {
 
   let fixture: ComponentFixture<NuevaReserva>;
 
+  /** Es un MatDialog (T252): su contenido está en el contenedor de overlays. */
+  const dialogo = () => document.querySelector('mat-dialog-container') as HTMLElement;
+
   const horasOfrecidas = () =>
-    Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLOptionElement>(
-        'select[name="hora"] option',
-      ),
-    )
-      .filter((opcion) => opcion.value)
-      .map((opcion) => opcion.textContent?.trim());
+    opcionesDe(fixture, 'mat-select[name="hora"]')
+      .filter((opcion) => opcion.valor)
+      .map((opcion) => opcion.texto);
 
   beforeEach(async () => {
-    // jsdom no implementa el diálogo nativo, y el constructor lo abre en un
-    // microtask: sin esto, el error salta después del test y no dentro de él.
-    HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
-      this.open = true;
-    });
-
     // Las 10:40 del club: la de las 08:00 ya terminó, la de las 10:00 está
     // corriendo y la de las 12:00 no empieza.
     vi.setSystemTime('2026-08-17T14:40:00.000Z');
@@ -97,9 +92,107 @@ describe('NuevaReserva', () => {
     vi.useRealTimers();
   });
 
+  it('**con la cancha y la hora de la franja que se tocó, parte con ellas** (T272)', async () => {
+    // El de beforeEach se cierra: los dos diálogos están en el mismo overlay, y se leería el suyo.
+    fixture.destroy();
+    await new Promise((listo) => setTimeout(listo));
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    fixture.componentRef.setInput('cancha', 1);
+    fixture.componentRef.setInput('inicio', DIA[0].bloques[2].inicio);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elegidoEn(fixture, 'mat-select[name="cancha"]')).toBe('1');
+    expect(elegidoEn(fixture, 'mat-select[name="hora"]')).toBe(DIA[0].bloques[2].inicio);
+  });
+
+  it('una hora que no está entre las libres no se manda: se pide elegir otra', async () => {
+    // La última media hora del día no abre una hora entera, y la API la rechazaría.
+    fixture.destroy();
+    await new Promise((listo) => setTimeout(listo));
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    fixture.componentRef.setInput('cancha', 1);
+    fixture.componentRef.setInput('inicio', '2026-08-17T23:30:00.000Z');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    [...dialogo().querySelectorAll('button')]
+      .find((boton) => boton.textContent?.includes('Crear reserva'))!
+      .click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(ReservasDelAdmin).crear).not.toHaveBeenCalled();
+    expect(dialogo().textContent).toContain('Elige la hora de la reserva.');
+  });
+
+  it('sin ellas, la hora se elige: no parte con ninguna', () => {
+    expect(elegidoEn(fixture, 'mat-select[name="hora"]')).toBe('');
+  });
+
   it('no ofrece una hora que ya terminó', () => {
     // La ofrecía, y la API la rechazaba con "Esa hora ya terminó." recién al crear.
     expect(horasOfrecidas()).not.toContain('08:00–09:00');
+  });
+
+  it('**una hora sin cupo de luz se ve deshabilitada y dice por qué** (T207)', async () => {
+    // La API la marca tomada para la grilla pública, que no explica nada; el mesón tiene
+    // que entender por qué una cancha vacía no se puede vender.
+    const conTope: GrillaDeCancha[] = [
+      {
+        ...DIA[0],
+        bloques: DIA[0].bloques.map((bloque, i) =>
+          i === 2 ? { ...bloque, reservado: true, topeDeLuz: true, montoClp: 0 } : bloque,
+        ),
+      },
+    ];
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(conTope) } },
+        { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+      ],
+    });
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const opcion = opcionesDe(fixture, 'mat-select[name="hora"]').find((una) =>
+      una.texto.includes('12:00–13:00'),
+    );
+
+    expect(opcion?.deshabilitada).toBe(true);
+    expect(opcion?.texto).toContain('Tope de luz');
+  });
+
+  it('al socio no le ofrece la duración que el club no le permite en prime (T213)', async () => {
+    const conPrime: GrillaDeCancha[] = [
+      {
+        ...DIA[0],
+        bloques: DIA[0].bloques.map((bloque, i) =>
+          i === 2 ? { ...bloque, socioPuede: false } : bloque,
+        ),
+      },
+    ];
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(conPrime) } },
+        { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+      ],
+    });
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-08-17');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // El mesón parte reservando para un socio.
+    expect(horasOfrecidas()).toEqual(['10:00–11:00']);
   });
 
   it('sí ofrece la hora que está corriendo', () => {
@@ -124,19 +217,17 @@ describe('NuevaReserva', () => {
     let pedirDia: ReturnType<typeof vi.fn>;
     let crear: ReturnType<typeof vi.fn>;
 
-    const raiz = () => fixture.nativeElement as HTMLElement;
+    const raiz = dialogo;
     const actualizar = async () => {
       await fixture.whenStable();
       fixture.detectChanges();
     };
     const elegirDuracion = async (valor: '60' | '90') => {
-      raiz().querySelector<HTMLInputElement>(`input[type="radio"][value="${valor}"]`)!.click();
+      await alternar(fixture, valor, 'mat-button-toggle-group[aria-label="Duración"]');
       await actualizar();
     };
     const elegirHora = async (inicio: string) => {
-      const hora = raiz().querySelector<HTMLSelectElement>('select[name="hora"]')!;
-      hora.value = inicio;
-      hora.dispatchEvent(new Event('change'));
+      await elegir(fixture, 'mat-select[name="hora"]', inicio);
       await actualizar();
     };
     const enviar = async () => {
@@ -184,6 +275,18 @@ describe('NuevaReserva', () => {
       expect(crear).toHaveBeenCalledWith(expect.objectContaining({ duracionMin: 90 }));
     });
 
+    it('**creada la reserva, avisa con el folio y el diálogo se cierra** (T252)', async () => {
+      const avisos: string[] = [];
+      fixture.componentInstance.creada.subscribe((folio) => avisos.push(folio));
+      fixture.componentInstance.cerrar.subscribe(() => avisos.push('cerrar'));
+
+      await elegirHora(DIA[0].bloques[2].inicio);
+      await enviar();
+
+      expect(avisos).toEqual(['MESON1', 'cerrar']);
+      expect(document.querySelector('mat-dialog-container')).toBeNull();
+    });
+
     it('cambiar la duración suelta la hora elegida: era de la otra lista', async () => {
       await elegirHora(DIA[0].bloques[2].inicio);
       await elegirDuracion('90');
@@ -211,7 +314,7 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+    expect(dialogo().textContent).toContain(
       'No se pudo cargar la disponibilidad',
     );
   });
@@ -242,15 +345,9 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const socio = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
-      'select[name="socio"]',
-    )!;
-    socio.value = '3';
-    socio.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await elegir(fixture, 'mat-select[name="socio"]', 3);
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+    expect(dialogo().textContent).toContain(
       'No se pudo cargar el cupo',
     );
   });
@@ -299,23 +396,17 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const socio = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
-      'select[name="socio"]',
-    )!;
-    socio.value = '3';
-    socio.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await elegir(fixture, 'mat-select[name="socio"]', 3);
 
-    const texto = ((fixture.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
+    const texto = (dialogo().textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('Reservas de ese día: 1 de 1');
-    expect(texto).toContain('Reservas pico de la semana: 0 de 2');
+    expect(texto).toContain('Reservas prime de la semana: 0 de 2');
     // El cupo cuenta reservas con invitados, no personas (A5, T105).
     expect(texto).toContain('Reservas con invitados del mes: 0 de 4');
-    expect(texto).not.toMatch(/Horas (de ese día|pico)/);
+    expect(texto).not.toMatch(/Horas (de ese día|prime)/);
   });
 
-  it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', () => {
+  it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', async () => {
     const nunca = () => new Promise<never>(() => undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -329,8 +420,12 @@ describe('NuevaReserva', () => {
     const pendiente = TestBed.createComponent(NuevaReserva);
     pendiente.componentRef.setInput('fecha', '2026-08-17');
     pendiente.detectChanges();
+    // El mat-select muestra la opción elegida un momento después (T248). Sin `whenStable`: lo
+    // que se carga no llega nunca, y esperarlo no terminaría.
+    await new Promise((listo) => setTimeout(listo));
+    pendiente.detectChanges();
 
-    expect((pendiente.nativeElement as HTMLElement).textContent).toContain(
+    expect(dialogo().textContent).toContain(
       'Cargando las horas libres…',
     );
   });

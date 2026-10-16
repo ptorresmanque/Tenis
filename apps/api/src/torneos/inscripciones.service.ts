@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 
 import { borrarImagen, guardarImagen } from '../comun/imagenes';
-import { hoyEnElClub } from '../comun/tiempo';
 import {
   EstadoInscripcionTorneo,
   EstadoPagoInscripcion,
@@ -23,8 +22,10 @@ import type {
 } from './inscripcion-publica.dto';
 import type { Franja } from './restricciones';
 import { AvisosDeTorneo } from './correos';
+import { OCUPA_CUPO, porQueNoAcepta, tomarElCandado } from './cuadro-abierto';
 import { InscripcionesAbandonadas } from './inscripciones-abandonadas.service';
 import { Jugadores } from './jugadores.service';
+import { ListaDeEspera } from './lista-de-espera.service';
 
 /** Una inscripción, como se lee en la lista del torneo. */
 export interface InscripcionPublicada {
@@ -46,6 +47,11 @@ export interface InscripcionPublicada {
   estadoPago: EstadoPagoInscripcion;
   /** Qué dijo que iba a hacer. Nulo si es gratis o lo anotó el admin. */
   medioPago: MedioPagoInscripcion | null;
+  /**
+   * Hasta cuándo se le guarda el cupo de la lista de espera (T336). En una retirada, que no lo
+   * tomó a tiempo: es el motivo del retiro (E2).
+   */
+  cupoOfrecidoHasta: Date | null;
   /**
    * Si hay un comprobante que mirar. **Un booleano y no la ruta**: la ruta es del
    * disco del servidor y la imagen se pide por su endpoint, detrás del guard.
@@ -112,8 +118,9 @@ export interface ListaDelCuadro {
  * Quién juega cada torneo.
  *
  * **Pasado el cupo se entra en lista de espera, no se rechaza.** Rechazar obligaría al
- * club a llevar la lista en un papel, que es de donde venimos. Y **promover es manual**:
- * el club llama por teléfono antes de meter a alguien en un cuadro que ya anunció.
+ * club a llevar la lista en un papel, que es de donde venimos. El lugar que se abre se le
+ * ofrece al primero de la fila (`ListaDeEspera`), y **promover a mano** queda para los casos
+ * especiales, como quien paga en el mesón.
  *
  * **El socio moroso puede inscribirse.** Es deliberado y va en contra del instinto: la
  * regla de morosidad que existe hoy es sobre reservar canchas, y extenderla a los
@@ -127,6 +134,7 @@ export class InscripcionesATorneo {
     private readonly jugadores: Jugadores,
     private readonly abandonadas: InscripcionesAbandonadas,
     private readonly avisos: AvisosDeTorneo,
+    private readonly listaDeEspera: ListaDeEspera,
   ) {}
 
   /**
@@ -176,11 +184,14 @@ export class InscripcionesATorneo {
       restricciones = [],
       comprobanteRuta = null,
       medioPago = null,
+      exigirMedioSiEntra = false,
       email,
     }: {
       restricciones?: Franja[];
       comprobanteRuta?: string | null;
       medioPago?: MedioPago | null;
+      /** No eligió cómo pagar porque vio la categoría llena: sin lugar, va a la lista de espera. */
+      exigirMedioSiEntra?: boolean;
       email: string | null;
     },
   ): Promise<{
@@ -229,20 +240,31 @@ export class InscripcionesATorneo {
         }),
       ]);
 
+      // **Con gente esperando, el que llega va al final de la fila aunque haya lugar.**
+      // Un lugar que se libera es de quien lleva dos semanas esperando, no del que se
+      // inscribió después; si no, la lista de espera deja de ser una fila y el club queda
+      // explicándole a alguien por qué lo pasaron.
+      const entra = tomados < cuadro.cupo && esperando === 0;
+
+      // El formulario mostró la categoría llena y alguien se retiró antes del envío: sin
+      // esto entraría al cuadro sin haber elegido cómo pagar, y ocuparía el cupo sin que
+      // el barrido de Webpay se lo suelte nunca.
+      if (entra && exigirMedioSiEntra) {
+        throw new BadRequestException(
+          'Esta categoría tiene lugar: elige cómo vas a pagar la inscripción, ' +
+            'con Webpay o transfiriendo.',
+        );
+      }
+
       try {
         return await tx.inscripcionTorneo.create({
           data: {
             torneoId: cuadro.torneoId,
             torneoCategoriaId,
             jugadorId,
-            // **Con gente esperando, el que llega va al final de la fila aunque haya
-            // lugar.** Un lugar que se libera es de quien lleva dos semanas esperando,
-            // no del que se inscribió después; si no, la lista de espera deja de ser
-            // una fila y el club queda explicándole a alguien por qué lo pasaron.
-            estado:
-              tomados < cuadro.cupo && esperando === 0
-                ? EstadoInscripcionTorneo.INSCRITA
-                : EstadoInscripcionTorneo.LISTA_ESPERA,
+            estado: entra
+              ? EstadoInscripcionTorneo.INSCRITA
+              : EstadoInscripcionTorneo.LISTA_ESPERA,
             // **El estado de pago sale del monto del cuadro, no del cliente.** Cero es
             // gratis y no pasa por `pagos`; con monto, nace `PENDIENTE` y ocupa cupo
             // hasta que el admin lo rechace: al revés, el cupo se llenaría por orden de
@@ -254,11 +276,15 @@ export class InscripcionesATorneo {
             // **La transferencia entra en la misma escritura que la inscripción.** El
             // comprobante dejó de ser un segundo paso opcional: sin él no hay
             // inscripción, así que tampoco hay una fila esperándolo.
-            comprobanteRuta,
+            //
+            // **En espera no se cobra** (T327, `SPEC-torneos.md` § Lista de espera sin
+            // cobro): lo que trajo el envío no se guarda, y se paga recién cuando se le
+            // ofrece un cupo. Si nunca se abre, no hay plata que devolver.
+            comprobanteRuta: entra ? comprobanteRuta : null,
             // Qué dijo que iba a hacer. Es lo que después permite soltarle el cupo al
             // que eligió Webpay y cerró la ventana, sin tocar al que el admin anotó
             // para que pague en efectivo — ver `InscripcionesAbandonadas`.
-            medioPago,
+            medioPago: entra ? medioPago : null,
             email,
             // En la misma escritura que la inscripción: unas franjas sin inscripción no
             // significan nada, y una inscripción sin ellas mandaría a T67 a programar
@@ -372,9 +398,11 @@ export class InscripcionesATorneo {
 
     // **Lo que cobra el cuadro decide qué se exige, y el monto sale de la base.** Un
     // cuadro gratis no pregunta nada; uno con monto no acepta una inscripción que no
-    // venga con su forma de pago resuelta.
+    // venga con su forma de pago resuelta. Sin elegirla, solo entra a la lista de
+    // espera, donde no se cobra (T327): `anotar` lo decide con el cupo contado.
+    const cobra = cuadro.montoInscripcionClp > 0;
     const ruta =
-      cuadro.montoInscripcionClp > 0
+      cobra && datos.medioPago !== null
         ? await this.exigirElPago(datos.medioPago, comprobante)
         : null;
 
@@ -395,7 +423,8 @@ export class InscripcionesATorneo {
         comprobanteRuta: ruta,
         // Solo si el cuadro cobra: en uno gratis no eligió nada y la inscripción ya
         // está completa, así que no hay cupo que soltarle después.
-        medioPago: cuadro.montoInscripcionClp > 0 ? datos.medioPago : null,
+        medioPago: cobra ? datos.medioPago : null,
+        exigirMedioSiEntra: cobra && datos.medioPago === null,
         email: datos.email,
       },
     ).catch(async (falla: unknown) => {
@@ -407,14 +436,19 @@ export class InscripcionesATorneo {
       throw falla;
     });
 
+    const enEspera =
+      inscripcion.estado === EstadoInscripcionTorneo.LISTA_ESPERA;
+
     // **Con la inscripción ya escrita**: los correos no pueden deshacerla. A los admins,
-    // solo si trajo comprobante (T130); Webpay se confirma solo (A3).
-    if (ruta) await this.avisos.comprobanteRecibido(inscripcion.id);
+    // solo si trajo comprobante (T130); Webpay se confirma solo (A3). En espera la
+    // imagen no quedó con la inscripción (T327), y se borra.
+    if (ruta && enEspera) await borrarImagen(ruta);
+    else if (ruta) await this.avisos.comprobanteRecibido(inscripcion.id);
 
     // Al inscrito (T131), salvo con Webpay: ahí el cupo es una reserva que se suelta a
-    // los 15 minutos si no paga, y la confirmación es el "pago confirmado".
-    const conWebpay =
-      cuadro.montoInscripcionClp > 0 && datos.medioPago === 'WEBPAY';
+    // los 15 minutos si no paga, y la confirmación es el "pago confirmado". En espera no
+    // va a la pasarela, así que el correo sale.
+    const conWebpay = cobra && !enEspera && datos.medioPago === 'WEBPAY';
     if (!conWebpay) await this.avisos.inscripcionRecibida(inscripcion.id);
 
     return {
@@ -441,15 +475,9 @@ export class InscripcionesATorneo {
    * que se inscriben mientras tanto.
    */
   private async exigirElPago(
-    medioPago: MedioPago | null,
+    medioPago: MedioPago,
     comprobante?: Buffer,
   ): Promise<string | null> {
-    if (medioPago === null) {
-      throw new BadRequestException(
-        'Elige cómo vas a pagar la inscripción: con Webpay o transfiriendo.',
-      );
-    }
-
     if (medioPago === 'WEBPAY') return null;
 
     if (!comprobante) {
@@ -465,9 +493,10 @@ export class InscripcionesATorneo {
   /**
    * Baja a alguien del torneo.
    *
-   * **El primero de la lista de espera no entra solo.** Es la decisión de
-   * `SPEC-torneos.md`: el club llama antes de meter a alguien en un cuadro, porque
-   * quien quedó fuera hace dos semanas ya hizo otros planes.
+   * **El lugar que deja se le ofrece al primero de la lista de espera** (T330), con un plazo
+   * para tomarlo: no entra solo, porque quien quedó fuera hace dos semanas puede haber hecho
+   * otros planes. Revierte que el club llamara por teléfono para promover
+   * (`SPEC-torneos.md` § Lista de espera sin cobro).
    */
   async retirar(
     torneoCategoriaId: number,
@@ -479,7 +508,13 @@ export class InscripcionesATorneo {
         torneoCategoriaId,
         estado: { not: EstadoInscripcionTorneo.RETIRADA },
       },
-      data: { estado: EstadoInscripcionTorneo.RETIRADA, siembra: null },
+      data: {
+        estado: EstadoInscripcionTorneo.RETIRADA,
+        siembra: null,
+        // Una retirada con oferta es la que no la tomó a tiempo (E2): a la que retira el club,
+        // aunque tuviera una, se le borra.
+        cupoOfrecidoHasta: null,
+      },
     });
 
     if (count === 0) {
@@ -488,10 +523,18 @@ export class InscripcionesATorneo {
       );
     }
 
+    await this.listaDeEspera.ofrecerCupos(torneoCategoriaId);
+
     return { id };
   }
 
-  /** Mete en el cuadro al que estaba esperando, si quedó lugar. */
+  /**
+   * Mete en el cuadro al que estaba esperando, si quedó lugar.
+   *
+   * **Un cupo ofrecido a otro de la fila no es un lugar libre** (T331): promover ahí se lo
+   * quitaría a quien está pagando. Al que tiene la oferta sí se le puede promover —pagó en el
+   * mesón—, y su oferta se va.
+   */
   async promover(
     torneoCategoriaId: number,
     id: number,
@@ -499,13 +542,27 @@ export class InscripcionesATorneo {
     return this.prisma.$transaction(async (tx) => {
       const cuadro = await this.tomarElCuadro(tx, torneoCategoriaId, false);
 
-      const tomados = await tx.inscripcionTorneo.count({
-        where: { torneoCategoriaId, estado: EstadoInscripcionTorneo.INSCRITA },
+      const ocupados = await tx.inscripcionTorneo.count({
+        where: { torneoCategoriaId, ...OCUPA_CUPO, id: { not: id } },
       });
 
-      if (tomados >= cuadro.cupo) {
+      if (ocupados >= cuadro.cupo) {
+        const oferta = await tx.inscripcionTorneo.findFirst({
+          where: {
+            torneoCategoriaId,
+            estado: EstadoInscripcionTorneo.LISTA_ESPERA,
+            cupoOfrecidoHasta: { not: null },
+            id: { not: id },
+          },
+          select: { jugador: { select: { nombre: true, apellido: true } } },
+        });
+
         throw new ConflictException(
-          `El cuadro ya tiene sus ${cuadro.cupo} jugadores. Retira a alguien primero.`,
+          oferta
+            ? `El lugar que queda está ofrecido a ${oferta.jugador.nombre} ` +
+                `${oferta.jugador.apellido}, de la lista de espera. Espera a que lo tome o ` +
+                'a que venza su plazo.'
+            : `El cuadro ya tiene sus ${cuadro.cupo} jugadores. Retira a alguien primero.`,
         );
       }
 
@@ -515,7 +572,10 @@ export class InscripcionesATorneo {
           torneoCategoriaId,
           estado: EstadoInscripcionTorneo.LISTA_ESPERA,
         },
-        data: { estado: EstadoInscripcionTorneo.INSCRITA },
+        data: {
+          estado: EstadoInscripcionTorneo.INSCRITA,
+          cupoOfrecidoHasta: null,
+        },
       });
 
       if (count === 0) {
@@ -615,6 +675,7 @@ export class InscripcionesATorneo {
         siembra: true,
         estado: true,
         inscritaEn: true,
+        cupoOfrecidoHasta: true,
         estadoPago: true,
         medioPago: true,
         email: true,
@@ -649,6 +710,7 @@ export class InscripcionesATorneo {
         inscritaEn: fila.inscritaEn,
         estadoPago: fila.estadoPago,
         medioPago: fila.medioPago,
+        cupoOfrecidoHasta: fila.cupoOfrecidoHasta,
         tieneComprobante: fila.comprobanteRuta !== null,
         telefono: fila.jugador.telefono,
         email: fila.email,
@@ -678,22 +740,21 @@ export class InscripcionesATorneo {
   /**
    * Toma la fila del **cuadro** como cerrojo y comprueba que se pueda inscribir.
    *
-   * `FOR UPDATE` sobre `torneo_categoria` y ya no sobre `torneo`: el cupo es del
-   * cuadro, así que serializar por torneo pondría en fila a los que se inscriben en
-   * Honor detrás de los de la 4ª sin ninguna razón. La fila existe siempre y se toma
-   * por clave primaria. Es el mismo mecanismo de `Inscripciones` en `clases` y de
+   * El candado es `tomarElCandado`, el mismo de la lista de espera. La fila existe siempre y
+   * se toma por clave primaria. Es el mismo mecanismo de `Inscripciones` en `clases` y de
    * `ReservasService.bloquearAlSocio`.
    *
    * **Se cierra por cuadro y no por torneo.** Un cuadro con la semilla puesta ya está
    * armado y no acepta a nadie más; el de al lado puede seguir inscribiendo. El cierre
-   * por fecha, en cambio, sí es del torneo: es lo que el club publica en un afiche.
+   * por fecha, en cambio, sí es del torneo: es lo que el club publica en un afiche. Las
+   * razones las dice `porQueNoAcepta`.
    */
   private async tomarElCuadro(
     tx: Prisma.TransactionClient,
     torneoCategoriaId: number,
     exigirAbierto = true,
   ): Promise<{ cupo: number; torneoId: number; montoClp: number }> {
-    await tx.$queryRaw`SELECT id FROM torneo_categoria WHERE id = ${torneoCategoriaId} FOR UPDATE`;
+    await tomarElCandado(tx, torneoCategoriaId);
 
     const cuadro = await tx.torneoCategoria.findUnique({
       where: { id: torneoCategoriaId },
@@ -710,25 +771,8 @@ export class InscripcionesATorneo {
     if (!cuadro)
       throw new NotFoundException('No hay un cuadro con ese número.');
 
-    if (exigirAbierto) {
-      if (cuadro.semillaSorteo !== null) {
-        throw new ConflictException(
-          `El cuadro de ${cuadro.categoriaJuego.nombre} ya está armado: no acepta más inscritos.`,
-        );
-      }
-
-      if (cuadro.torneo.estado === EstadoTorneo.CANCELADO) {
-        throw new ConflictException('Ese torneo está cancelado.');
-      }
-
-      // El último día de inscripción cuenta entero, como `alDiaHasta` en identidad:
-      // la fecha del papel es la última que vale.
-      if (cuadro.torneo.cierreInscripcion < hoyEnElClub()) {
-        throw new ConflictException(
-          'La inscripción de ese torneo ya se cerró.',
-        );
-      }
-    }
+    const cerrado = exigirAbierto ? porQueNoAcepta(cuadro) : null;
+    if (cerrado) throw new ConflictException(cerrado);
 
     return {
       cupo: cuadro.cupo,

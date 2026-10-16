@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Service } from '@angular/core';
+import { inject, Injectable, resource, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { FotoDelLugar } from '../../club/club.service';
+import { FotoDelLugar, TarifaDelGimnasio } from '../../club/club.service';
 import { Cancha } from '../disponibilidad';
+import { hoyEnElClub } from '../reloj-del-club';
 
 export interface Horario {
   id: number;
@@ -129,6 +130,8 @@ export interface ReglasDelClub {
   /** Lo que vale ser socio, en pesos. Las cuotas ya emitidas congelaron el suyo. */
   cuotaMensualClp: number;
   cuotaIncorporacionClp: number;
+  /** Cuántos minutos se le guarda el cupo al primero de la lista de espera de un torneo (T326). */
+  plazoCupoListaEsperaMin: number;
 }
 
 /**
@@ -173,24 +176,56 @@ export interface TextosDeElClub {
   elClubCanchas: string;
 }
 
-/** Los dos lugares del club que tienen fotos (T185). */
-export type Lugar = 'TIENDA' | 'CAFETERIA';
+/** Los lugares del club, con sus textos y sus fotos (T185, T235). */
+export type Lugar = 'TIENDA' | 'CAFETERIA' | 'GIMNASIO';
 
-/** La tienda y la cafetería (T184), como las guarda la fila: seis columnas. */
-export interface TiendaYCafeteria {
+/** Los textos de cada lugar (T184, T235), como los guarda la fila: tres columnas cada uno. */
+export interface LugaresDelClub {
   tiendaDescripcion: string;
   tiendaHorario: string;
   tiendaWhatsapp: string;
   cafeteriaDescripcion: string;
   cafeteriaHorario: string;
   cafeteriaWhatsapp: string;
+  gimnasioDescripcion: string;
+  gimnasioHorario: string;
+  gimnasioWhatsapp: string;
 }
+
+
+/**
+ * El tope de canchas con luz (T208): cuántas pueden estar ocupadas a la vez desde una hora,
+ * porque la instalación eléctrica del club no aguanta más. Nulo es sin tope.
+ */
+export interface TopeDeLuz {
+  topeCanchasConLuz: number | null;
+  /** Reloj del club, "HH:MM", en punto o y media. */
+  topeCanchasConLuzDesde: string;
+}
+
+/** Un intervalo ya tomado con más canchas con luz que el tope, y qué las ocupa. */
+export interface ExcesoDeLuz {
+  desde: string;
+  hasta: string;
+  ocupaciones: { cancha: string; detalle: string }[];
+}
+
+/** Qué duraciones toma el socio en horario prime (T213). En el código, pico. */
+export type DuracionesSocioPico = 'UNA_HORA' | 'HORA_Y_MEDIA' | 'AMBAS';
 
 /** Lo que el servidor devuelve de `GET /api/admin/configuracion`: todo lo de la fila. */
 export type ConfiguracionDelClub = ReglasDelClub &
   DatosDelClub &
   TextosDeElClub &
-  TiendaYCafeteria;
+  LugaresDelClub &
+  TopeDeLuz & {
+    duracionesSocioPico: DuracionesSocioPico;
+    /** Cuántos alumnos caben en una clase grupal del gimnasio (T235). */
+    gimnasioCupoGrupal: number;
+    /** Si sale el informe de reservas por correo, y a qué hora entera del club (T274). */
+    informeDiarioActivo: boolean;
+    informeDiarioHora: number;
+  };
 
 export interface CanchaNueva {
   nombre: string;
@@ -212,6 +247,13 @@ export class AdminCanchas {
   configuracion(): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
       this.http.get<ConfiguracionDelClub>('/api/admin/configuracion'),
+    );
+  }
+
+  /** Las horas ya tomadas que superan el tope de canchas con luz (T208). */
+  excesosDeLuz(): Promise<ExcesoDeLuz[]> {
+    return firstValueFrom(
+      this.http.get<ExcesoDeLuz[]>('/api/admin/tope-de-luz/excesos'),
     );
   }
 
@@ -264,10 +306,35 @@ export class AdminCanchas {
     return firstValueFrom(this.http.delete<void>(`/api/admin/club/fotos/${id}`));
   }
 
-  /** La tienda y la cafetería (T184), con el mismo PATCH que los datos del club. */
-  fijarTiendaYCafeteria(datos: TiendaYCafeteria): Promise<ConfiguracionDelClub> {
+  /** Los textos de un lugar (T184, T236), con el mismo PATCH que los datos del club. */
+  fijarLugar(
+    datos: Partial<LugaresDelClub> & { gimnasioCupoGrupal?: number | null },
+  ): Promise<ConfiguracionDelClub> {
     return firstValueFrom(
       this.http.patch<ConfiguracionDelClub>('/api/admin/configuracion', datos),
+    );
+  }
+
+  /** Las tarifas del gimnasio, en su orden (T236). */
+  tarifasDelGimnasio(): Promise<TarifaDelGimnasio[]> {
+    return firstValueFrom(
+      this.http.get<TarifaDelGimnasio[]>('/api/admin/club/gimnasio/tarifas'),
+    );
+  }
+
+  /**
+   * Guarda la lista completa: la que estaba se reemplaza entera (T235). Un monto en blanco
+   * va nulo, y el servidor responde cuál falta.
+   */
+  guardarTarifasDelGimnasio(
+    tarifas: {
+      nombre: string;
+      precioSocioClp: number | null;
+      precioNoSocioClp: number | null;
+    }[],
+  ): Promise<TarifaDelGimnasio[]> {
+    return firstValueFrom(
+      this.http.put<TarifaDelGimnasio[]>('/api/admin/club/gimnasio/tarifas', { tarifas }),
     );
   }
 
@@ -364,8 +431,8 @@ export class AdminCanchas {
   /**
    * Cierra la cancha con lo que haya debajo: cancela, devuelve y avisa.
    *
-   * Ruta distinta de `crearBloqueo` porque son dos operaciones distintas, y la
-   * diferencia importa: aquella crea un bloqueo y nada más.
+   * El panel crea todo bloqueo por acá, también sobre una hora libre: el cierre es el que
+   * cuenta el tope de canchas con luz para los de clase y torneo (T206).
    */
   cerrar(bloqueo: BloqueoNuevo): Promise<ResultadoCierre> {
     return firstValueFrom(
@@ -373,13 +440,28 @@ export class AdminCanchas {
     );
   }
 
-  crearBloqueo(bloqueo: BloqueoNuevo): Promise<Bloqueo> {
-    return firstValueFrom(
-      this.http.post<Bloqueo>('/api/admin/bloqueos', bloqueo),
-    );
-  }
-
   borrarBloqueo(id: number): Promise<void> {
     return firstValueFrom(this.http.delete<void>(`/api/admin/bloqueos/${id}`));
+  }
+}
+
+/**
+ * Las horas abiertas de hoy que salen en $0, para la alarma de la pantalla de Canchas (T288).
+ *
+ * La alarma va arriba de las tres pestañas, y lo que la cambia se guarda dentro de ellas: una
+ * cancha nueva, su horario, una tarifa del club. Por eso la provee la pantalla madre
+ * (`providers`), y cada pestaña la relee con `recargar()` al guardar.
+ */
+@Injectable()
+export class HorasSinTarifa {
+  private readonly api = inject(AdminCanchas);
+
+  readonly advertencias = resource({
+    loader: () => this.api.advertencias(hoyEnElClub()),
+    defaultValue: [],
+  });
+
+  recargar(): void {
+    this.advertencias.reload();
   }
 }

@@ -27,6 +27,7 @@ describe('RedesSociales', () => {
     elClubCanchas: '',
     tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
     cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+    gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
   };
 
   const montar = (datos: Partial<DatosDelClub>) => {

@@ -1,0 +1,1183 @@
+@use 'sass:list';
+@use 'sass:map';
+@use '@angular/material' as mat;
+
+/*
+  EL TEMA DE ANGULAR MATERIAL, CON LA CARA DEL SITIO (T239, SPEC-interfaz.md S4).
+
+  Material lee su tema de variables `--mat-sys-*`. `mat.theme` las define todas con la paleta de
+  base —la misma del tema precompilado `azure-blue` que se usaba hasta T239—, y `$overrides`
+  apunta a los tokens del sitio las que usan los componentes. Como apuntan a tokens y no a
+  colores, el modo oscuro del sitio público llega solo: cuando cambia `--color-card`, cambia el
+  calendario. El mapa lo valida Sass, así que un token mal escrito no compila.
+
+  Los radios van a 2 px, también el `corner-full` del día elegido y de los botones: un círculo
+  sería la única forma redonda del sitio (forma consistente, TV2).
+
+  Sin capa a propósito, como el tema precompilado: una regla en `@layer` pierde contra
+  cualquiera que no esté en una.
+*/
+html {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+        theme-type: light,
+      ),
+      typography: Roboto,
+      density: 0,
+    ),
+    $overrides: (
+      primary: var(--color-primary),
+      on-primary: var(--color-on-primary),
+      primary-container: var(--color-selected),
+      on-primary-container: var(--color-primary),
+      secondary: var(--color-primary),
+      on-secondary: var(--color-on-primary),
+      secondary-container: var(--color-selected),
+      on-secondary-container: var(--color-foreground),
+      tertiary-container: var(--color-accent-soft),
+      on-tertiary-container: var(--color-accent-strong),
+      surface: var(--color-card),
+      surface-container-lowest: var(--color-card),
+      surface-container-low: var(--color-card),
+      surface-container: var(--color-card),
+      surface-container-high: var(--color-card),
+      surface-container-highest: var(--color-muted),
+      on-surface: var(--color-foreground),
+      on-surface-variant: var(--color-muted-foreground),
+      outline: var(--color-border),
+      outline-variant: var(--color-border),
+      error: var(--color-destructive),
+      corner-extra-small: var(--radius),
+      corner-small: var(--radius),
+      corner-medium: var(--radius),
+      corner-large: var(--radius),
+      corner-extra-large: var(--radius),
+      corner-full: var(--radius),
+      body-large-font: var(--font-sans),
+      body-medium-font: var(--font-sans),
+      body-small-font: var(--font-sans),
+      label-large-font: var(--font-sans),
+      label-medium-font: var(--font-sans),
+      label-small-font: var(--font-sans),
+      title-small-font: var(--font-sans),
+      title-medium-font: var(--font-sans),
+    )
+  );
+}
+
+/* El día del calendario y el botón que lo abre van redondos en Material, con el radio escrito
+   en su CSS y sin token que lo cambie. Se pisa acá, acotado a esas piezas, con una clase más:
+   sus estilos llegan después de los globales y ganarían el empate. */
+.mat-calendar .mat-calendar-body-cell-content,
+.mat-calendar .mat-calendar-body-cell-preview,
+.mat-datepicker-toggle .mat-mdc-icon-button,
+.mat-datepicker-toggle .mat-mdc-button-persistent-ripple,
+.mat-timepicker-toggle .mat-mdc-icon-button,
+.mat-timepicker-toggle .mat-mdc-button-persistent-ripple {
+  border-radius: var(--radius);
+}
+
+/* Los íconos se comportan como el <span class="icono"> que reemplazan (T240). `mat-icon` trae sin
+   capa su color heredado, 24 × 24 px, bloque en línea y recorte: le ganaba a cualquier `text-*`,
+   `block` o `size-*` de Tailwind, cortaba el glifo de Material Symbols —más alto que su caja— y
+   pintaba con el color del padre los íconos que la plantilla pinta de otro. `revert-layer`, en
+   una regla sin capa, devuelve esas propiedades a lo que digan las capas del sitio: la clase de
+   la plantilla, o lo que hacía el span si no dice nada. */
+.mat-icon.icono {
+  display: revert-layer;
+  width: revert-layer;
+  height: revert-layer;
+  overflow: revert-layer;
+  color: revert-layer;
+}
+
+/*
+  LOS BOTONES, CON LA CARA DE `.boton` (T241).
+
+  `matButton` lee sus medidas y colores de tokens `--mat-button-*`. Los de abajo los apuntan a lo
+  que dibujaba `.boton`: el relleno al costado, la condensada en mayúscula, el radio del sitio y
+  el borde de 2 px en el contorno. El alto no es un token: como en `.boton`, sale del relleno y
+  de la línea (`styles.css`). Las capas de estado de Material (el velo al pasar, al enfocar y al
+  apretar, y la onda) quedan en cero: el sitio confirma el gesto con el botón mismo —se aclara,
+  sube un píxel y se hunde al apretar—, y el foco lo dibuja el anillo global de `:focus-visible`.
+*/
+$etiqueta: (
+  label-text-font: var(--font-display),
+  label-text-weight: 700,
+  label-text-size: 1rem,
+  label-text-tracking: 0.04em,
+  label-text-transform: uppercase,
+);
+
+html {
+  @include mat.button-overrides(
+    (
+      filled-horizontal-padding: 1.5rem,
+      filled-container-shape: var(--radius-control),
+      filled-container-color: var(--color-primary),
+      filled-label-text-color: var(--color-on-primary),
+      filled-disabled-container-color: var(--color-primary),
+      filled-disabled-label-text-color: var(--color-on-primary),
+      filled-label-text-font: map.get($etiqueta, label-text-font),
+      filled-label-text-weight: map.get($etiqueta, label-text-weight),
+      filled-label-text-size: map.get($etiqueta, label-text-size),
+      filled-label-text-tracking: map.get($etiqueta, label-text-tracking),
+      filled-label-text-transform: map.get($etiqueta, label-text-transform),
+      filled-hover-state-layer-opacity: 0,
+      filled-focus-state-layer-opacity: 0,
+      filled-pressed-state-layer-opacity: 0,
+      filled-ripple-color: transparent,
+      outlined-horizontal-padding: 1.5rem,
+      outlined-container-shape: var(--radius-control),
+      outlined-outline-width: 2px,
+      outlined-outline-color: var(--color-primary),
+      outlined-disabled-outline-color: var(--color-primary),
+      outlined-label-text-color: var(--color-primary),
+      outlined-disabled-label-text-color: var(--color-primary),
+      outlined-label-text-font: map.get($etiqueta, label-text-font),
+      outlined-label-text-weight: map.get($etiqueta, label-text-weight),
+      outlined-label-text-size: map.get($etiqueta, label-text-size),
+      outlined-label-text-tracking: map.get($etiqueta, label-text-tracking),
+      outlined-label-text-transform: map.get($etiqueta, label-text-transform),
+      outlined-hover-state-layer-opacity: 0,
+      outlined-focus-state-layer-opacity: 0,
+      outlined-pressed-state-layer-opacity: 0,
+      outlined-ripple-color: transparent,
+      text-horizontal-padding: 0.75rem,
+      text-container-shape: var(--radius-control),
+      text-label-text-color: var(--color-primary),
+      text-disabled-label-text-color: var(--color-primary),
+      text-label-text-font: map.get($etiqueta, label-text-font),
+      text-label-text-weight: map.get($etiqueta, label-text-weight),
+      text-label-text-size: map.get($etiqueta, label-text-size),
+      text-label-text-tracking: map.get($etiqueta, label-text-tracking),
+      text-label-text-transform: map.get($etiqueta, label-text-transform),
+      text-hover-state-layer-opacity: 0,
+      text-focus-state-layer-opacity: 0,
+      text-pressed-state-layer-opacity: 0,
+      text-ripple-color: transparent,
+    )
+  );
+}
+
+/* Los botones de adentro del calendario (el del mes y las flechas) siguen siendo de Material: el
+   del mes se lee como un dato, no como un rótulo del sitio. */
+.mat-calendar {
+  @include mat.button-overrides(
+    (
+      text-label-text-font: var(--mat-sys-label-large-font),
+      text-label-text-weight: var(--mat-sys-label-large-weight),
+      text-label-text-size: var(--mat-sys-label-large-size),
+      text-label-text-tracking: var(--mat-sys-label-large-tracking),
+      text-label-text-transform: none,
+    )
+  );
+}
+
+/* Las clases de tema (A3 del plan): ajustes de tokens, no botones propios. `peligro` pinta de
+   rojo cualquier apariencia: el fondo del lleno, y el borde y la letra del contorno y del texto. */
+.mat-mdc-button-base.peligro {
+  @include mat.button-overrides(
+    (
+      filled-container-color: var(--color-destructive),
+      filled-disabled-container-color: var(--color-destructive),
+      outlined-outline-color: var(--color-destructive),
+      outlined-disabled-outline-color: var(--color-destructive),
+      outlined-label-text-color: var(--color-destructive),
+      outlined-disabled-label-text-color: var(--color-destructive),
+      text-label-text-color: var(--color-destructive),
+      text-disabled-label-text-color: var(--color-destructive),
+    )
+  );
+}
+
+/* Sobre una banda de campo el botón invierte la banda (TV2.1): el lleno toma el color del texto
+   de la banda, y el contorno, su borde y su letra. */
+.mat-mdc-button-base.sobre-campo {
+  @include mat.button-overrides(
+    (
+      filled-container-color: var(--color-on-campo),
+      filled-label-text-color: var(--color-campo),
+      filled-disabled-container-color: var(--color-on-campo),
+      filled-disabled-label-text-color: var(--color-campo),
+      outlined-outline-color: var(--color-on-campo),
+      outlined-label-text-color: var(--color-on-campo),
+      outlined-disabled-outline-color: var(--color-on-campo),
+      outlined-disabled-label-text-color: var(--color-on-campo),
+    )
+  );
+}
+
+/* Para tablas y tarjetas, donde 48 px se comen la fila: 12 px de relleno al costado (6 arriba y
+   abajo, en `styles.css`) y la letra de 14. */
+.mat-mdc-button-base.chico {
+  @include mat.button-overrides(
+    (
+      filled-horizontal-padding: 0.75rem,
+      filled-label-text-size: 0.875rem,
+      outlined-horizontal-padding: 0.75rem,
+      outlined-label-text-size: 0.875rem,
+      text-label-text-size: 0.875rem,
+    )
+  );
+}
+
+/* El ícono de adentro de un botón, como en `.boton`: del tamaño que diga su clase y separado por
+   el `gap` del botón. Material le fija 1,125 rem y márgenes propios, sin capa.
+
+   De acá abajo las reglas van sobre `.mdc-button`, que es `matButton` y no `matIconButton`: los
+   botones de ícono (las flechas del calendario, el que abre el selector de fecha) siguen como
+   Material hasta T260, donde pasan los botones de ícono del sitio. La segunda clase le gana al
+   empate con el CSS de Material, que se inyecta después; en el ícono, el `html` le gana además a
+   los márgenes que Material le da al que va después de la etiqueta. */
+html .mdc-button > .mat-icon.icono {
+  display: revert-layer;
+  width: revert-layer;
+  height: revert-layer;
+  font-size: revert-layer;
+  margin-left: revert-layer;
+  margin-right: revert-layer;
+  vertical-align: revert-layer;
+}
+
+/* Lo que Material fija sin capa y las utilidades de Tailwind tienen que poder cambiar
+   (`hidden sm:inline-flex`, `size-11 p-0` en un botón de solo ícono): vuelve a las capas del
+   sitio, donde `styles.css` le da el `inline-flex` y el relleno de cada apariencia. El
+   `outline: none` también: sin esto, el anillo global de `:focus-visible` no se ve en ningún
+   botón. */
+.mdc-button.mat-mdc-button-base {
+  display: revert-layer;
+  min-width: revert-layer;
+  outline: revert-layer;
+}
+
+/* El alto y el relleno, salvo en el botón del mes del calendario, que conserva los de Material.
+   El `html` le gana al relleno que Material le pone al botón de texto que lleva ícono. */
+html .mdc-button.mat-mdc-button-base:not(.mat-calendar-period-button) {
+  height: revert-layer;
+  padding: revert-layer;
+}
+
+/* El gesto de `.boton`: se aclara y sube al pasar, y se hunde al apretar. */
+.mdc-button.mat-mdc-button-base {
+  transition:
+    opacity var(--duracion-menu) var(--ease-salida),
+    background-color var(--duracion-menu) var(--ease-salida),
+    transform var(--duracion-pulsacion) var(--ease-salida);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mdc-button.mat-mdc-button-base:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  .mdc-button.mat-mdc-outlined-button:hover:not(:disabled),
+  .mdc-button.mat-mdc-button:hover:not(:disabled) {
+    background-color: var(--color-muted);
+    opacity: 1;
+  }
+
+  .mdc-button.mat-mdc-outlined-button.sobre-campo:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--color-on-campo) 12%, transparent);
+  }
+}
+
+.mdc-button.mat-mdc-button-base:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+/* Material le quita el puntero al deshabilitado, y con él el cursor. Un <button> deshabilitado no
+   recibe clics igual; el enlace deshabilitado (`.mat-mdc-button-disabled`) no es `:disabled` y
+   sigue sin puntero, que es lo que impide navegar. */
+.mdc-button.mat-mdc-button-base:disabled {
+  pointer-events: auto;
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+/* El botón ocupado (T150), como `.boton`: un círculo que gira junto al texto, que ya dice
+   «Guardando…». **No se ve deshabilitado**: trabaja por pedido de la persona, y un botón
+   apagado dice "no puedes" justo cuando pasa "ya va". El círculo es el ícono
+   `progress_activity`, con `/ ''` para que el lector no lea el nombre del glifo; con "reducir
+   movimiento" se queda quieto. No es `showProgress` de Material a propósito: ese esconde la
+   etiqueta, y con ella el nombre del botón para el lector mientras trabaja. */
+.mdc-button.mat-mdc-button-base[aria-busy='true']:disabled {
+  cursor: progress;
+  opacity: 1;
+}
+
+.mdc-button.mat-mdc-button-base[aria-busy='true']::before {
+  content: 'progress_activity' / '';
+  font-family: 'Material Symbols Sharp';
+  font-size: 1.25em;
+  font-weight: normal;
+  line-height: 1;
+  /* La ligadura se arma con el nombre tal cual: en mayúscula, o separado por el espaciado del
+     botón, no hay ícono. */
+  letter-spacing: normal;
+  text-transform: none;
+  animation: girar var(--duracion-giro) linear infinite;
+}
+
+/*
+  LOS CAMPOS, CON LA CARA DE `.campo` (T244).
+
+  50 px de alto (12 de relleno arriba y abajo, la línea de 24 y el borde), la letra de 16 —con
+  menos, Safari en iPhone hace zoom al enfocar—, el borde de 1 px del color de los bordes del
+  sitio y el radio del control. Al enfocar, el borde toma el primario y no engorda: como
+  `.campo:focus`. Las capas de estado quedan en cero, como en los botones.
+*/
+html {
+  @include mat.form-field-overrides(
+    (
+      container-height: 50px,
+      container-vertical-padding: 12px,
+      container-text-font: var(--font-sans),
+      container-text-size: 1rem,
+      container-text-line-height: 1.5rem,
+      outlined-container-shape: var(--radius-control),
+      outlined-outline-width: 1px,
+      outlined-focus-outline-width: 1px,
+      outlined-outline-color: var(--color-border),
+      outlined-hover-outline-color: var(--color-border),
+      outlined-focus-outline-color: var(--color-primary),
+      outlined-label-text-font: var(--font-sans),
+      // La etiqueta, siempre arriba, se ve en 14 y en 500, como la de arriba del `.campo`.
+      // Material la achica a 0,75 al subirla al borde: el token va dividido por eso.
+      outlined-label-text-populated-size: calc(0.875rem / 0.75),
+      outlined-label-text-weight: 500,
+      outlined-label-text-color: var(--color-foreground),
+      outlined-focus-label-text-color: var(--color-primary),
+      outlined-input-text-color: var(--color-foreground),
+      outlined-input-text-placeholder-color: var(--color-muted-foreground),
+      subscript-text-font: var(--font-sans),
+      hover-state-layer-opacity: 0,
+      focus-state-layer-opacity: 0,
+    )
+  );
+}
+
+/* El fondo de tarjeta de `.campo`: el contorno de Material es transparente, y sobre el fondo
+   gris del panel el campo se perdía. */
+.mat-form-field-appearance-outline .mat-mdc-text-field-wrapper {
+  border-radius: var(--radius-control);
+  background-color: var(--color-card);
+}
+
+/* El campo chico, que reemplaza a la clase `.campo-chico` de antes (T247): para las filas de
+   edición del panel, donde 50 px por campo convierten una fila de cuatro en una pantalla de
+   scroll. 6 px de relleno arriba y abajo, 8 al costado y la letra de 14. */
+.mat-mdc-form-field.chico {
+  @include mat.form-field-overrides(
+    (
+      container-height: 35px,
+      container-vertical-padding: 6px,
+      container-text-size: 0.875rem,
+      container-text-line-height: 1.3125rem,
+    )
+  );
+}
+
+.mat-mdc-form-field.chico .mat-mdc-text-field-wrapper {
+  padding-inline: 0.5rem;
+}
+
+/* El botón del calendario o del reloj, a la medida del campo chico: con sus 40 px lo estiraba. */
+.mat-mdc-form-field.chico .mat-mdc-form-field-icon-suffix {
+  @include mat.icon-button-overrides(
+    (
+      state-layer-size: 32px,
+      icon-size: 20px,
+    )
+  );
+}
+
+/* Un campo que se abre al tocarlo, como el día de la disponibilidad o de una agenda: la manito y
+   el borde que responde. Sin eso, se lee como una etiqueta con una fecha escrita y nadie prueba a
+   abrirlo. */
+.mat-mdc-form-field.abre-al-tocar {
+  @include mat.form-field-overrides(
+    (
+      outlined-hover-outline-color: var(--color-primary),
+    )
+  );
+}
+
+.mat-mdc-form-field.abre-al-tocar .mat-mdc-input-element {
+  cursor: pointer;
+}
+
+/* La caja del campo conserva su alto aunque la fila se estire: en una grilla, si la ayuda del
+   vecino ocupa dos líneas, Material le pasaba ese alto a la caja (T246). */
+.mat-mdc-form-field .mat-mdc-text-field-wrapper {
+  flex-grow: 0;
+}
+
+/* Material le pone al campo `min-width: 0` sin capa, y le ganaba a los `min-w-*` de Tailwind: el
+   buscador de socios, con `min-w-64`, quedaba de 21 px al lado del selector en el teléfono.
+   `revert-layer` le devuelve el valor a las capas del sitio: la clase de la plantilla, o el 0 de
+   Material, que `styles.css` repite en `@layer components`. Con `html` delante, porque los
+   estilos del campo llegan después y ganarían el empate. */
+html .mat-mdc-form-field {
+  display: revert-layer;
+  min-width: revert-layer;
+}
+
+/* La etiqueta se ve al 75 %, pero su caja sin escalar cuenta para el ancho de la página: una
+   etiqueta larga en un teléfono la empujaba hacia el lado (T248, e2e/sin-desborde). Solo lo
+   horizontal: la etiqueta va montada sobre el borde de arriba. */
+.mat-mdc-form-field {
+  overflow-x: clip;
+}
+
+/*
+  LAS CASILLAS Y LOS INTERRUPTORES (T249).
+
+  El interruptor apagado pinta su manilla y el borde de su pista con `outline`, que acá es el borde
+  claro de los campos: sobre la pista gris, la manilla no se veía. Van con el gris del texto
+  secundario, que contrasta con la pista. Las esquinas quedan de 2 px, como todo el sitio (TV2).
+*/
+html {
+  @include mat.slide-toggle-overrides(
+    (
+      unselected-handle-color: var(--color-muted-foreground),
+      track-outline-color: var(--color-muted-foreground),
+    )
+  );
+}
+
+/* La casilla trae aire a la izquierda: su capa de estado de 40 px rodea un cuadro de 18, y el
+   cuadro quedaba 11 px corrido de los campos y del texto de su columna. La que abre su
+   contenedor se corre para calzar con el borde, y su capa de estado sobresale hacia afuera. Las
+   de en medio de una fila conservan ese aire: sin él, en los días de una serie, cada cuadro
+   quedaba tan cerca de la etiqueta anterior como de la suya (T250). */
+.mat-mdc-checkbox:first-child {
+  margin-inline-start: calc((var(--mat-checkbox-state-layer-size, 40px) - 18px) / -2);
+}
+
+/* El radio, igual que la casilla: su capa de estado de 40 px rodea un círculo de 20. Se corre el
+   grupo y no cada radio: en fila, el primero calza con su columna y los demás conservan su aire;
+   en columna, calzan todos (T250). Las tarjetas no se corren: su borde es la caja. */
+.mat-mdc-radio-group:not(:has(.opcion-tarjeta)) {
+  margin-inline-start: calc((var(--mat-radio-state-layer-size, 40px) - 20px) / -2);
+}
+
+/* Una opción que se toca entera, como el medio de pago de una inscripción: el borde es la caja,
+   la etiqueta la llena para que todo su ancho sea blanco, y la elegida se marca con el borde del
+   color primario y la letra más gruesa. */
+.mat-mdc-radio-button.opcion-tarjeta {
+  display: block;
+  border: 1px solid var(--color-border);
+  padding-inline-start: 0.25rem;
+
+  .mdc-form-field {
+    display: flex;
+    width: 100%;
+  }
+
+  .mdc-label {
+    display: flex;
+    flex: 1;
+    align-self: stretch;
+    align-items: center;
+    padding-inline-end: 0.75rem;
+    cursor: pointer;
+  }
+
+  &.mat-mdc-radio-checked {
+    border-color: var(--color-primary);
+
+    .mdc-label {
+      font-weight: 600;
+    }
+  }
+}
+
+/*
+  LOS GRUPOS DE OPCIONES, CON LA CARA DE `app-selector` (T251).
+
+  `mat-button-toggle-group` reemplaza al selector propio y a los filtros que eran botones que
+  cambiaban de apariencia. Por omisión es el control segmentado de los filtros: una placa gris
+  con las opciones adentro, y la elegida con el rótulo, la placa de la transmisión (TV2.3).
+  Cada grupo lleva `hideSingleSelectionIndicator`: el rótulo ya marca la elegida. Con la clase
+  `chips` es la tira de días de la disponibilidad, y con `iconos`, el conmutador de tema.
+
+  Con `html` delante: los estilos del grupo llegan después y ganarían el empate.
+*/
+html {
+  @include mat.button-toggle-overrides(
+    (
+      shape: var(--radius-lg),
+      height: 2rem,
+      background-color: transparent,
+      text-color: var(--color-muted-foreground),
+      selected-state-background-color: var(--color-rotulo),
+      selected-state-text-color: var(--color-on-rotulo),
+      divider-color: transparent,
+      label-text-font: var(--font-display),
+      label-text-size: 0.875rem,
+      label-text-weight: 700,
+      label-text-tracking: normal,
+      hover-state-layer-opacity: 0,
+      focus-state-layer-opacity: 0,
+    )
+  );
+}
+
+/* La placa: las opciones van adentro, separadas, y el anillo de foco cabe en el relleno. Si no
+   caben, la placa se desplaza de lado, como el selector de antes: Material recorta lo que se
+   sale, y en un teléfono la séptima cancha de la barra quedaba oculta y sin poder tocarse. */
+html .mat-button-toggle-group-appearance-standard {
+  max-width: 100%;
+  overflow-x: auto;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 0;
+  background-color: var(--color-muted);
+}
+
+html .mat-button-toggle-group-appearance-standard .mat-button-toggle {
+  border-radius: var(--radius-md);
+  transition: color 150ms, background-color 150ms;
+}
+
+/* La tira de días: cada día es una ficha con el nombre arriba y el número abajo, y la tira se
+   desplaza de lado dentro de su contenedor (`overflow-x-auto` en la plantilla). */
+html .mat-button-toggle-group.chips {
+  --mat-button-toggle-label-text-size: 0.75rem;
+  --mat-button-toggle-label-text-tracking: var(--tracking-wider);
+
+  display: flex;
+  width: max-content;
+  gap: 0.5rem;
+  padding: 0 0 0.25rem;
+  overflow: visible;
+  background-color: transparent;
+
+  .mat-button-toggle {
+    min-width: 4rem;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    background-color: var(--color-card);
+  }
+
+  .mat-button-toggle-checked {
+    border-color: var(--color-rotulo);
+    background-color: var(--color-rotulo);
+  }
+
+  .mat-button-toggle-label-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.5rem 0.75rem;
+    line-height: normal;
+    text-transform: uppercase;
+  }
+}
+
+/* El conmutador de tema: tres íconos en una placa más chica, y el elegido sobre la tarjeta y
+   con el color primario, como antes de T251. */
+html .mat-button-toggle-group.iconos {
+  --mat-button-toggle-selected-state-background-color: var(--color-card);
+  --mat-button-toggle-selected-state-text-color: var(--color-primary);
+
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: var(--radius-control);
+
+  .mat-button-toggle {
+    border-radius: var(--radius-control);
+  }
+
+  .mat-button-toggle-label-content {
+    display: flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+/*
+  LOS DIÁLOGOS (T252).
+
+  MatDialog con la cara del `<dialog>` que reemplaza: el título es un titular —la condensada,
+  gruesa, en cursiva y mayúscula—, y el fondo oscurece con el color del texto a la mitad, como
+  el `backdrop:bg-foreground/50` de antes. El título lleva `html` delante: los estilos del
+  diálogo llegan después y ganarían el empate.
+*/
+html {
+  @include mat.dialog-overrides(
+    (
+      subhead-font: var(--font-display),
+      subhead-weight: 800,
+      subhead-size: 1.5rem,
+      subhead-line-height: 2rem,
+      subhead-tracking: -0.005em,
+      subhead-color: var(--color-foreground),
+    )
+  );
+}
+
+html .mat-mdc-dialog-title {
+  font-style: italic;
+  text-transform: uppercase;
+}
+
+html .cdk-overlay-dark-backdrop {
+  background: color-mix(in srgb, var(--color-foreground) 50%, transparent);
+}
+
+/* La confirmación de lo hecho (T254): un snackbar sobre la placa del rótulo, la del sitio (TV2.3),
+   y no sobre el gris de Material. En modo oscuro el rótulo se aclara, como hace el snackbar. */
+html {
+  @include mat.snack-bar-overrides(
+    (
+      container-color: var(--color-rotulo),
+      supporting-text-color: var(--color-on-rotulo),
+      supporting-text-font: var(--font-sans),
+    )
+  );
+}
+
+/*
+  EL BOTÓN FLOTANTE (SPEC-panel.md A9, desde T285).
+
+  `matFab extended` para la acción que crea en cada pantalla del panel, uno por pantalla. Lleva
+  la cara del botón lleno (el primario, la condensada en mayúscula y el radio del sitio) y la
+  sombra que lo despega del contenido. `.fab-de-la-pantalla` lo deja abajo a la derecha, sobre
+  lo que se desplaza. Material le fija `position: relative` sin capa, así que la posición va
+  acá y no en una utilidad.
+*/
+html {
+  @include mat.fab-overrides(
+    (
+      container-color: var(--color-primary),
+      foreground-color: var(--color-on-primary),
+      container-shape: var(--radius-control),
+      extended-container-shape: var(--radius-control),
+      extended-label-text-font: var(--font-display),
+      extended-label-text-weight: 700,
+      extended-label-text-size: 1rem,
+      extended-label-text-tracking: 0.04em,
+    )
+  );
+}
+
+html .mat-mdc-fab-base.fab-de-la-pantalla {
+  position: fixed;
+  inset-block-end: 1.5rem;
+  inset-inline-end: 1.5rem;
+  z-index: 20;
+  text-transform: uppercase;
+}
+
+/* Los badges de lo que espera (T287): el rojo de los errores del sitio, para que se lean como
+   «hay que hacer algo», con la letra de leer en negrita. */
+html {
+  @include mat.badge-overrides(
+    (
+      background-color: var(--color-destructive),
+      text-color: var(--color-on-primary),
+      text-font: var(--font-sans),
+      text-weight: 700,
+    )
+  );
+}
+
+/*
+  LOS PANELES DESPLEGABLES (T281).
+
+  `mat-expansion-panel` reemplaza a los `<details>` y conserva su cara: sin tarjeta ni sombra,
+  separados por la línea que pone cada uso, y alineados con el resto de la página. La cabecera
+  mide lo que su título —una pregunta larga baja de línea— con el mínimo táctil, y la flecha va
+  en el primario.
+*/
+html {
+  @include mat.expansion-overrides(
+    (
+      container-background-color: transparent,
+      container-elevation-shadow: none,
+      container-shape: 0,
+      container-text-color: var(--color-foreground),
+      container-text-font: var(--font-sans),
+      header-text-color: var(--color-foreground),
+      header-text-font: var(--font-sans),
+      header-indicator-color: var(--color-primary),
+      header-collapsed-state-height: auto,
+      header-expanded-state-height: auto,
+    )
+  );
+}
+
+html .mat-expansion-panel-header {
+  min-height: 2.75rem;
+  padding: 0.75rem 0;
+}
+
+html .mat-expansion-panel-body {
+  padding: 0 0 1rem;
+}
+
+/*
+  LAS TARJETAS (T282).
+
+  `mat-card` con contorno, con la cara de la tarjeta que reemplaza: el fondo de tarjeta, el borde
+  del sitio, el radio grande y la sombra chica. Es para una cosa con sus acciones —una cancha,
+  una clase, un torneo—; las secciones enmarcadas siguen siendo secciones.
+*/
+html {
+  @include mat.card-overrides(
+    (
+      outlined-container-color: var(--color-card),
+      outlined-outline-color: var(--color-border),
+      outlined-container-shape: 0.75rem,
+      outlined-container-elevation: var(--shadow-sm),
+    )
+  );
+}
+
+/* La cancha desactivada se marca con el borde punteado (TV7.2): Material fija el sólido sin
+   capa, y la utilidad no le gana sola. */
+html .mat-mdc-card-outlined.border-dashed {
+  border-style: dashed;
+}
+
+/*
+  LAS TABLAS (T256, T257).
+
+  `mat-table` con la cara de la primitiva que reemplazó: el encabezado de columna en la
+  condensada de los rótulos, en mayúscula y sobre el gris, y los datos en la letra de leer
+  (TV2.1). Las filas no tienen alto fijo: miden lo que su contenido más el relleno, como antes.
+*/
+html {
+  @include mat.table-overrides(
+    (
+      background-color: transparent,
+      header-container-height: auto,
+      row-item-container-height: auto,
+      footer-container-height: auto,
+      header-headline-font: var(--font-display),
+      header-headline-size: 0.8125rem,
+      header-headline-weight: 700,
+      header-headline-tracking: 0.06em,
+      header-headline-color: var(--color-muted-foreground),
+      row-item-outline-color: var(--color-border),
+    )
+  );
+}
+
+html .mat-mdc-table .mat-mdc-header-cell {
+  background-color: var(--color-muted);
+  text-transform: uppercase;
+}
+
+/* Lo que Material fija sin capa vuelve a `styles.css`, donde las utilidades le ganan: el
+   relleno, la alineación, el `overflow: hidden` —que cortaría el anillo de foco de un campo
+   o un botón en la celda— y el peso del encabezado, para que el `font-medium` de una rejilla
+   de edición le gane al de los rótulos. */
+html .mdc-data-table__cell,
+html .mdc-data-table__header-cell,
+html .mat-mdc-header-cell {
+  padding: revert-layer;
+  text-align: revert-layer;
+  overflow: revert-layer;
+  font-weight: revert-layer;
+}
+
+/* El espaciado y la interlínea de cada celda, también: un `text-sm` en la celda trae la suya. */
+html .mat-mdc-cell,
+html .mat-mdc-footer-cell {
+  letter-spacing: revert-layer;
+  line-height: revert-layer;
+}
+
+/* La letra de las filas es la de la tabla: también la del `<tbody>`, que Material marca como
+   `mdc-data-table__content` y le fija la suya. */
+html .mdc-data-table__content,
+html .mat-mdc-row,
+html .mat-mdc-footer-row {
+  font-family: revert-layer;
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  line-height: revert-layer;
+  color: revert-layer;
+  -webkit-font-smoothing: revert-layer;
+  -moz-osx-font-smoothing: revert-layer;
+}
+
+/* El encabezado conserva su letra, pero la interlínea es la de la tabla, como antes, y no
+   tiene suavizado propio: se dibuja como el resto. */
+html .mat-mdc-header-row {
+  line-height: revert-layer;
+  -webkit-font-smoothing: revert-layer;
+  -moz-osx-font-smoothing: revert-layer;
+}
+
+/* El fondo de la fila, también: el `bg-selected` del podio del ranking va en la fila, y el
+   `background: inherit` de Material se lo quitaba. El resaltado al pasar está en `styles.css`. */
+html .mat-mdc-row {
+  background: revert-layer;
+}
+
+/*
+  LAS INSIGNIAS (T258).
+
+  Un `mat-chip` sin interacción dentro de su `mat-chip-set`, con la cara de un rótulo de
+  transmisión (TV2.2): condensada, en mayúscula y con tracking, y el alto de antes —30 px en
+  una línea—, para no mover las filas de las tablas del panel, donde vive la mayoría. La
+  mayúscula es de CSS: el lector de pantalla oye el texto como está escrito. El set es de línea:
+  va al lado de un nombre o de una hora, no en una fila propia.
+*/
+html .insignias {
+  display: inline-flex;
+
+  .mdc-evolution-chip-set__chips,
+  .mdc-evolution-chip {
+    margin: 0;
+  }
+}
+
+html .insignia {
+  @include mat.chips-overrides(
+    (
+      container-height: auto,
+      container-shape-radius: var(--radius-control),
+      outline-width: 1px,
+      label-text-font: var(--font-display),
+      label-text-size: 0.75rem,
+      label-text-line-height: 1rem,
+      label-text-weight: 700,
+      label-text-tracking: 0.05em,
+      with-avatar-avatar-size: 0.875rem,
+      with-icon-icon-size: 0.875rem,
+      hover-state-layer-opacity: 0,
+      focus-state-layer-opacity: 0,
+    )
+  );
+  text-transform: uppercase;
+
+  /* El aire de antes: 11 px del borde al ícono, 6 hasta el texto y 11 al otro borde, y 5 arriba
+     y abajo. Sin alto fijo y con el texto que se parte: en una celda angosta, «Por cobrar» va en
+     dos líneas, como antes, en vez de empujar la tabla. Con una línea mide 30 px, por el ícono. */
+  &.mat-mdc-chip .mdc-evolution-chip__graphic {
+    height: 1.25rem;
+    padding: 0 0.375rem 0 0.6875rem;
+  }
+
+  &.mat-mdc-chip .mdc-evolution-chip__action--primary {
+    height: auto;
+    padding: 0.3125rem 0.6875rem 0.3125rem 0;
+  }
+
+  &.mat-mdc-chip .mdc-evolution-chip__text-label {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .mat-icon {
+    height: 1.25rem;
+    line-height: 1.25rem;
+  }
+}
+
+/*
+  Cada variante: el fondo y el borde, como un token y cuánto de él se ve sobre la tarjeta, y el
+  texto, que también pinta el ícono. design-tokens lee este mapa y mide el contraste: el texto
+  queda por encima de 4.5:1 en las seis. `libre` usa `accent-soft`, el fondo sólido del bloque
+  disponible de la grilla.
+*/
+$insignias: (
+  exito: (fondo: accent-strong 10%, borde: accent-strong 20%, texto: accent-strong),
+  aviso: (fondo: warning-soft 100%, borde: warning 30%, texto: warning-strong),
+  error: (fondo: destructive 10%, borde: destructive 20%, texto: destructive-strong),
+  info: (fondo: primary 10%, borde: primary 20%, texto: primary),
+  neutro: (fondo: muted 100%, borde: border 100%, texto: muted-foreground),
+  libre: (fondo: accent-soft 100%, borde: accent-strong 20%, texto: accent-strong),
+);
+
+@function mezcla($token) {
+  @return color-mix(
+    in oklab,
+    var(--color-#{list.nth($token, 1)}) list.nth($token, 2),
+    transparent
+  );
+}
+
+@each $nombre, $variante in $insignias {
+  html .insignia.#{$nombre} {
+    @include mat.chips-overrides(
+      (
+        elevated-container-color: mezcla(map.get($variante, fondo)),
+        outline-color: mezcla(map.get($variante, borde)),
+        label-text-color: var(--color-#{map.get($variante, texto)}),
+        with-icon-icon-color: var(--color-#{map.get($variante, texto)}),
+      )
+    );
+  }
+}
+
+/*
+  LA PAGINACIÓN (T259): `mat-paginator` sobre el fondo de la página, con la cuenta en la letra
+  de leer, chica y en gris, como la de antes.
+*/
+html {
+  @include mat.paginator-overrides(
+    (
+      container-background-color: transparent,
+      container-text-font: var(--font-sans),
+      container-text-size: 0.875rem,
+      container-text-color: var(--color-muted-foreground),
+      enabled-icon-color: var(--color-foreground),
+      disabled-icon-color: color-mix(in oklab, var(--color-muted-foreground) 50%, transparent),
+    )
+  );
+}
+
+/*
+  LOS BOTONES DE ÍCONO DEL SITIO (T260).
+
+  `matIconButton` con la cara que le pone cada plantilla —el menú y cerrar del panel, la pausa
+  de la cinta, volver arriba—, como `matButton` con la suya: lo que Material fija sin capa
+  (posición, tamaño, relleno, radio, color, fondo, borde y el `outline: none` que esconde el
+  anillo de `:focus-visible`) vuelve a las capas del sitio, donde mandan las utilidades. Sin
+  velo ni onda: el gesto es hundirse al apretar (`styles.css`). Los botones de ícono que Material
+  usa adentro de sus componentes —el calendario, el reloj, el paginador, los chips— conservan
+  los suyos.
+*/
+$botones-de-material: '.mat-datepicker-toggle, .mat-timepicker-toggle, .mat-calendar-header, .mat-mdc-paginator, .mat-mdc-chip';
+
+html .mat-mdc-icon-button:not(:where(#{$botones-de-material}) *) {
+  @include mat.icon-button-overrides(
+    (
+      state-layer-color: transparent,
+      ripple-color: transparent,
+    )
+  );
+  display: revert-layer;
+  position: revert-layer;
+  z-index: revert-layer;
+  width: revert-layer;
+  height: revert-layer;
+  padding: revert-layer;
+  font-size: revert-layer;
+  border: revert-layer;
+  border-radius: revert-layer;
+  outline: revert-layer;
+  color: revert-layer;
+  background-color: revert-layer;
+}
+
+/*
+  EL PANEL Y EL SITIO (T260, T261): `mat-sidenav` y `mat-toolbar` con los colores del sitio. La barra sobre la
+  tarjeta y con su borde al costado, 16 rem de ancho y sin radio; el velo del cajón, el texto a
+  la mitad, como el `backdrop:bg-foreground/50` del `<dialog>` de antes; la cabecera del teléfono,
+  de 64 px.
+*/
+html {
+  @include mat.sidenav-overrides(
+    (
+      container-background-color: var(--color-card),
+      container-text-color: var(--color-foreground),
+      container-shape: 0,
+      container-width: 16rem,
+      container-divider-color: var(--color-border),
+      content-background-color: transparent,
+      content-text-color: var(--color-foreground),
+      scrim-color: color-mix(in srgb, var(--color-foreground) 50%, transparent),
+    )
+  );
+  @include mat.toolbar-overrides(
+    (
+      container-background-color: var(--color-card),
+      container-text-color: var(--color-foreground),
+      standard-height: 4rem,
+      mobile-height: 4rem,
+      title-text-font: var(--font-sans),
+      title-text-size: 1rem,
+      title-text-line-height: 1.5,
+      title-text-weight: 400,
+      title-text-tracking: normal,
+    )
+  );
+}
+
+/* La barra del sitio se centra con `mx-auto`, como el contenedor de antes: Material le fija
+   `margin: 0` sin capa. Y sus botones conservan los colores del tema: Material les pone el del
+   texto de la barra a los que no llevan `color`, y «Entrar» salía negro. */
+html .mat-toolbar {
+  margin: revert-layer;
+}
+
+html .mat-toolbar .mat-mdc-button-base.mat-mdc-button-base.mat-unthemed {
+  --mat-button-text-label-text-color: inherit;
+  --mat-button-outlined-label-text-color: inherit;
+}
+
+/* Se desplaza el documento, como antes, y no el contenedor: con el `overflow` de Material, la
+   cabecera del teléfono y los encabezados de las tablas no quedarían fijos, y el router no
+   volvería arriba al cambiar de página. La barra no lo necesita: va fija en la ventana. */
+html .mat-drawer-container,
+html .mat-drawer-container > .mat-drawer-content {
+  overflow: visible;
+}
+
+html .mat-drawer-container > .mat-drawer-content {
+  height: auto;
+}
+
+/* El cajón del sitio público (T263): una capa fija sobre la ventana, que deja pasar los clics a la
+   página mientras está cerrado; abierto, toman los clics el cajón y su velo. */
+html .mat-drawer-container.cajon-flotante {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+
+  .mat-drawer,
+  .mat-drawer-backdrop.mat-drawer-shown {
+    pointer-events: auto;
+  }
+}
+
+/* Entra por la derecha y mide lo que medía el <dialog>, cuatro quintos de la pantalla hasta
+   20 rem (T261). */
+html .cajon-del-sitio {
+  @include mat.sidenav-overrides(
+    (
+      container-width: min(80vw, 20rem),
+    )
+  );
+}
+
+/* Con el movimiento reducido, Material no anima el cajón y lo da por abierto o cerrado de una
+   vez. La regla global de `styles.css` no quita las transiciones, las deja en 0,01 ms, y cada
+   una que terminaba en el cajón le volvía a avisar a Material que había terminado de abrir: a la
+   segunda, guardaba el cajón mismo como el lugar adonde devolver el foco, y al cerrarse el foco
+   se perdía en el <body>. Sin transiciones, Material recibe un solo aviso. */
+@media (prefers-reduced-motion: reduce) {
+  html .mat-drawer,
+  html .mat-drawer-backdrop,
+  html .mat-drawer-content {
+    transition: none !important;
+  }
+}
+
+/*
+  EL MENÚ DE LA CUENTA (T261): `mat-menu` con la cara del desplegable de antes, sobre la tarjeta y
+  con el radio grande; los ítems en la letra de leer, chicos y semigruesos, y el gris al pasar o
+  al llegar con las flechas.
+*/
+html {
+  @include mat.menu-overrides(
+    (
+      container-color: var(--color-card),
+      container-shape: 0.75rem,
+      divider-color: var(--color-border),
+      item-label-text-color: var(--color-foreground),
+      item-label-text-font: var(--font-sans),
+      item-label-text-size: 0.875rem,
+      item-label-text-weight: 500,
+      item-label-text-line-height: 1.25rem,
+      item-label-text-tracking: normal,
+      item-leading-spacing: 0.75rem,
+      item-trailing-spacing: 0.75rem,
+      item-hover-state-layer-color: var(--color-muted),
+      item-focus-state-layer-color: var(--color-muted),
+    )
+  );
+}
+
+/* LA BARRA DE NAVEGACIÓN (T262): `mat-progress-bar` en el azul del sitio, de 4 px y sin pista,
+   como la de antes. */
+html {
+  @include mat.progress-bar-overrides(
+    (
+      active-indicator-color: var(--color-primary),
+      track-color: transparent,
+      active-indicator-height: 0.25rem,
+      track-height: 0.25rem,
+    )
+  );
+}
+
+/*
+  LAS PESTAÑAS (T262): las de Material con la cara de las de antes. La etiqueta en la condensada,
+  en mayúscula y gruesa; la activa en el azul, con su raya de 2 px, y las otras en gris hasta que
+  se les pasa encima. Sin ondas: el sitio no las usa en ningún botón.
+*/
+html {
+  @include mat.tabs-overrides(
+    (
+      label-text-font: var(--font-display),
+      label-text-size: 0.875rem,
+      label-text-weight: 700,
+      label-text-tracking: 0.025em,
+      container-height: 3rem,
+      divider-color: var(--color-border),
+      divider-height: 1px,
+      active-indicator-color: var(--color-primary),
+      active-hover-indicator-color: var(--color-primary),
+      active-focus-indicator-color: var(--color-primary),
+      active-indicator-height: 2px,
+      active-indicator-shape: 0,
+      active-label-text-color: var(--color-primary),
+      active-hover-label-text-color: var(--color-primary),
+      active-focus-label-text-color: var(--color-primary),
+      inactive-label-text-color: var(--color-muted-foreground),
+      inactive-hover-label-text-color: var(--color-foreground),
+      inactive-focus-label-text-color: var(--color-foreground),
+      active-ripple-color: transparent,
+      inactive-ripple-color: transparent,
+      pagination-icon-color: var(--color-foreground),
+    )
+  );
+}
+
+html .mdc-tab__text-label {
+  text-transform: uppercase;
+}
+
+/* Las barras de pestañas del panel pasan a la línea siguiente en vez de desplazarse, como
+   antes: configuración tiene ocho secciones, y a 375 px una barra que se desplaza dejaba ver
+   una y media. Van con `disablePagination`, y la raya de la activa es de cada pestaña. */
+html .mat-mdc-tab-nav-bar.envuelve {
+  .mat-mdc-tab-link-container {
+    overflow: visible;
+  }
+
+  .mat-mdc-tab-links {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  /* El aire de antes: 12 px por lado, y 16 desde 640 px en las secciones de configuración. */
+  .mat-mdc-tab-link {
+    min-width: 0;
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (min-width: 40rem) {
+  html .mat-mdc-tab-nav-bar.envuelve.holgada .mat-mdc-tab-link {
+    padding-inline: 1rem;
+  }
+}
+
+/* Las de las fichas eran más bajas que las de configuración: 38 px. */
+html .mat-mdc-tab-nav-bar.compacta {
+  @include mat.tabs-overrides(
+    (
+      container-height: 2.375rem,
+    )
+  );
+}

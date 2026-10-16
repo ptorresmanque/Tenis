@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  diaDeLaUrl,
   diaEnPalabras,
+  diaYHoraEnPalabras,
   enPesos,
   fechaEnElClub,
   horaEnElClub,
   hoyEnElClub,
+  mananaEnElClub,
   mesCortoEnElClub,
   minutosDe,
   proximosDias,
@@ -53,6 +56,13 @@ describe('reloj del club', () => {
     expect(diaEnPalabras('2026-08-17')).toContain('17');
   });
 
+  it('dice un instante con el día y la hora del club (T336)', () => {
+    // 02:30 UTC del sábado es todavía el viernes a las 23:30 en Santiago (UTC-3).
+    expect(diaYHoraEnPalabras('2026-10-17T02:30:00.000Z')).toBe(
+      'viernes, 16 de octubre, a las 23:30',
+    );
+  });
+
   it('abrevia el mes a tres letras y sin punto', () => {
     expect(mesCortoEnElClub('2026-08-17T15:00:00.000Z')).toBe('ago');
     // Septiembre es el que Intl abrevia con cuatro letras, "sept": el bloque de
@@ -81,6 +91,12 @@ describe('La tira de días', () => {
     expect(dias[0]).toMatchObject({ fecha: '2026-08-21', etiqueta: 'Hoy', numero: '21' });
     expect(dias[1]).toMatchObject({ fecha: '2026-08-22', etiqueta: 'Mañana' });
     expect(dias[2].etiqueta).toBe('dom');
+  });
+
+  it('mañana es el día siguiente del club, aunque en UTC ya sea otro (T268)', () => {
+    // 23:30 del 31 de agosto en Santiago son las 03:30 del 1 de septiembre en UTC.
+    expect(mananaEnElClub(new Date('2026-09-01T03:30:00.000Z'))).toBe('2026-09-01');
+    expect(mananaEnElClub(new Date('2026-08-31T15:00:00.000Z'))).toBe('2026-09-01');
   });
 
   it('cruza el fin de mes sin inventar un día 32', () => {
@@ -128,5 +144,20 @@ describe('minutosDe', () => {
     expect(minutosDe({ inicio: '2026-10-05T22:00:00.000Z', fin: '2026-10-05T23:00:00.000Z' })).toBe(
       60,
     );
+  });
+});
+
+/** T294. El día que llega en `?fecha=`: Clases y su página de agendar vuelven al mismo día. */
+describe('diaDeLaUrl', () => {
+  const MEDIODIA = new Date('2026-10-15T15:00:00.000Z');
+
+  it('usa el día que viene en la URL', () => {
+    expect(diaDeLaUrl('2026-10-20', MEDIODIA)).toBe('2026-10-20');
+  });
+
+  it('sin día, o con algo que no es un día, es hoy en el club', () => {
+    expect(diaDeLaUrl(undefined, MEDIODIA)).toBe('2026-10-15');
+    expect(diaDeLaUrl('mañana', MEDIODIA)).toBe('2026-10-15');
+    expect(diaDeLaUrl('2026-10-20T00:00', MEDIODIA)).toBe('2026-10-15');
   });
 });

@@ -1,12 +1,21 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatCardHarness } from '@angular/material/card/testing';
+import { MatExpansionPanelHarness } from '@angular/material/expansion/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { elegidoEn, textosDe } from '../../testing/elegir';
 import { AdminCanchasPanel } from './admin-canchas';
-import { AdminCanchas, Advertencia, CanchaAdmin } from './admin-canchas.service';
+import { AdminCanchas, CanchaAdmin, HorasSinTarifa } from './admin-canchas.service';
+import { responder, textoDelDialogo } from '../../testing/dialogos';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 
 /**
  * T13. El panel del club. Lo que se prueba acá es lo que el admin decide mirando:
- * cuáles canchas están fuera de la grilla y qué horas se están regalando.
+ * cuáles canchas están fuera de la grilla.
+ *
+ * Desde T288 es la pestaña «Canchas»: el título y la alarma de horas sin tarifa van en la
+ * pantalla madre (`canchas.spec.ts`), y el horario y las tarifas del club, en sus pestañas.
  */
 describe('AdminCanchasPanel', () => {
   const CANCHA: CanchaAdmin = {
@@ -39,45 +48,31 @@ describe('AdminCanchasPanel', () => {
   let fixture: ComponentFixture<AdminCanchasPanel>;
   let api: {
     canchas: ReturnType<typeof vi.fn>;
-    advertencias: ReturnType<typeof vi.fn>;
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     eliminar: ReturnType<typeof vi.fn>;
     bloqueos: ReturnType<typeof vi.fn>;
-    configuracion: ReturnType<typeof vi.fn>;
-    general: ReturnType<typeof vi.fn>;
   };
+  /** La alarma de la pantalla madre, que la lista relee al cambiar una cancha. */
+  let alarma: { recargar: ReturnType<typeof vi.fn> };
 
-  const montar = async (
-    canchas: CanchaAdmin[],
-    advertencias: Advertencia[] = [],
-  ) => {
+  const montar = async (canchas: CanchaAdmin[]) => {
     api = {
       canchas: vi.fn().mockResolvedValue(canchas),
-      advertencias: vi.fn().mockResolvedValue(advertencias),
       crear: vi.fn().mockResolvedValue(canchas[0]),
       editar: vi.fn().mockResolvedValue(canchas[0]),
       eliminar: vi.fn().mockResolvedValue(undefined),
       // Lo pide el editor de bloqueos, que el panel monta dentro de cada cancha.
       bloqueos: vi.fn().mockResolvedValue([]),
-      // Y esto el panel de lo general del club, que monta los mismos editores con
-      // un ámbito sin id. Su propio spec es `reglas-generales.spec.ts`.
-      general: vi.fn().mockResolvedValue({ horarios: [], franjas: [] }),
-      // Y esto el editor de reglas, que va arriba de todo. Su propio spec es
-      // `editor-configuracion.spec.ts`; acá solo tiene que poder montarse.
-      configuracion: vi.fn().mockResolvedValue({
-        cupoDiarioSocioReservas: 1,
-        cupoPicoSemanalReservas: 2,
-        invitadosPorMes: 4,
-        horasMinModificacion: 6,
-        horasReembolsoTotal: 24,
-        diasSancionNoUso: 15,
-      }),
     };
+    alarma = { recargar: vi.fn() };
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: AdminCanchas, useValue: api }],
+      providers: [
+        { provide: AdminCanchas, useValue: api },
+        { provide: HorasSinTarifa, useValue: alarma },
+      ],
     });
 
     fixture = TestBed.createComponent(AdminCanchasPanel);
@@ -88,9 +83,9 @@ describe('AdminCanchasPanel', () => {
   const texto = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
 
   /**
-   * Por texto exacto y no por subcadena: la pantalla monta los editores del club
-   * antes de la lista, y "Agregar" por subcadena encontraba "Agregar tarifa" —el
-   * test pasaba a apretar otro botón sin que nadie se enterara.
+   * Por texto exacto y no por subcadena: cada cancha monta sus editores al abrirla, y
+   * "Agregar" por subcadena encontraba "Agregar tarifa" —el test pasaba a apretar otro
+   * botón sin que nadie se enterara.
    */
   const boton = (etiqueta: string) =>
     Array.from(
@@ -106,40 +101,16 @@ describe('AdminCanchasPanel', () => {
     expect(texto()).toContain('Arcilla');
   });
 
-  it('la cancha nueva ofrece Cemento primero y ya elegido: las ocho del club son de cemento (T94)', async () => {
-    await fixture.whenStable();
-    const select = (fixture.nativeElement as HTMLElement).querySelector<HTMLSelectElement>(
-      'select#superficie',
-    )!;
-
-    expect(Array.from(select.options).map((o) => o.textContent?.trim())).toEqual([
-      'Cemento',
-      'Arcilla',
-      'Pasto sintético',
-    ]);
-    expect(select.value).toBe('CEMENTO');
-  });
-
-  it('la cabecera del panel lleva el título y ninguna acción: agregar es una sección (TV7.2)', () => {
-    // La cabecera admite una sola acción principal, y esta pantalla no tiene
-    // una: cada sección trae la suya, y "Agregar" vive con su formulario.
-    const cabecera = (fixture.nativeElement as HTMLElement).querySelector('.cabecera-panel');
-
-    expect(cabecera?.querySelector('h1')?.textContent).toContain('Canchas del club');
-    expect(cabecera?.querySelectorAll('button, a').length).toBe(0);
-  });
-
-  it('cada sección se encabeza con un rótulo, también la alarma de tarifas (TV7.2)', async () => {
-    await montar([CANCHA], [
-      { canchaId: 1, nombre: 'Cancha 1', sinTarifa: ['2026-08-17T11:00:00.000Z'] },
-    ]);
+  it('la lista lleva su título para el lector, sin repetir a la vista el de la pestaña (T289)', () => {
+    // La alarma y lo general del club se fueron a la pantalla madre y a sus pestañas (T288), y
+    // el alta, al diálogo (T289). Queda la lista, bajo la pestaña «Canchas»: un rótulo visible
+    // diría lo mismo una tercera vez, pero sin título las tarjetas (h3) quedarían sin su h2.
     const titulos = [
       ...(fixture.nativeElement as HTMLElement).querySelectorAll('section > h2'),
     ];
 
-    // Las cuatro: la alarma, lo general del club, agregar y la lista.
-    expect(titulos.length).toBe(4);
-    expect(titulos.every((h2) => h2.classList.contains('rotulo-seccion'))).toBe(true);
+    expect(titulos.map((h2) => h2.textContent?.trim())).toEqual(['Canchas del club']);
+    expect(titulos[0].classList).toContain('sr-only');
   });
 
   it('a una cancha desactivada la nombra, no solo la apaga', async () => {
@@ -175,30 +146,27 @@ describe('AdminCanchasPanel', () => {
     fixture.detectChanges();
 
     expect(api.editar).toHaveBeenCalledWith(1, { activa: false });
-    expect(texto()).toContain('Sus reservas siguen ahí');
+    expect(avisoDeLoHecho()).toContain('Sus reservas siguen ahí');
   });
 
   describe('eliminación (T29)', () => {
     it('pregunta antes de borrar, y nombra la cancha en la pregunta', async () => {
-      const preguntado = vi
-        .spyOn(window, 'confirm')
-        .mockReturnValue(false);
-
       boton('Eliminar')?.click();
       await fixture.whenStable();
 
-      // Cancelar deja todo como estaba: borrar una cancha no se deshace.
-      expect(preguntado.mock.calls[0][0]).toContain('Cancha 1');
+      // La pregunta es un diálogo (T253). Descartar deja todo como estaba: borrar una cancha
+      // no se deshace.
+      expect(textoDelDialogo()).toContain('¿Eliminar Cancha 1?');
+      await responder(fixture, false);
       expect(api.eliminar).not.toHaveBeenCalled();
     });
 
     it('confirmado, la borra y la saca de la lista', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       api.canchas.mockResolvedValue([]);
 
       boton('Eliminar')?.click();
       await fixture.whenStable();
-      fixture.detectChanges();
+      await responder(fixture, true);
 
       expect(api.eliminar).toHaveBeenCalledWith(1);
       // Por el encabezado y no por el texto de la página: el aviso de que se borró
@@ -212,7 +180,6 @@ describe('AdminCanchasPanel', () => {
     it('si el servidor dice que tiene historial, lo repite tal cual', async () => {
       // El mensaje del servidor explica qué hacer —desactivarla— y cuántas
       // reservas hay en juego. Uno genérico manda al admin a adivinar.
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       api.eliminar.mockRejectedValue({
         error: {
           message: 'Esta cancha tiene 3 reservas en su historial. Desactívala.',
@@ -221,63 +188,141 @@ describe('AdminCanchasPanel', () => {
 
       boton('Eliminar')?.click();
       await fixture.whenStable();
-      fixture.detectChanges();
+      await responder(fixture, true);
 
       expect(texto()).toContain('Desactívala');
       expect(texto()).toContain('Cancha 1');
     });
   });
 
-  describe('advertencias de tarifa', () => {
-    it('avisa qué horas quedaron sin cobrar y en qué cancha', async () => {
-      await montar([CANCHA], [
-        {
-          canchaId: 1,
-          nombre: 'Cancha 1',
-          // 11:00Z son las 07:00 en el club: la advertencia se lee en la hora
-          // del club, que es la que el admin va a buscar en el horario.
-          sinTarifa: ['2026-08-17T11:00:00.000Z'],
-        },
-      ]);
+  it('**cambiar una cancha relee la alarma de horas sin tarifa**, que va arriba (T288)', async () => {
+    // Desactivarla o cambiar sus tarifas cambia qué horas quedan sin cobrar.
+    boton('Desactivar')?.click();
+    await fixture.whenStable();
 
-      expect(texto()).toContain('Horas sin tarifa hoy');
-      expect(texto()).toContain('07:00');
-    });
-
-    it('sin horas sueltas no muestra la alarma', () => {
-      expect(texto()).not.toContain('Horas sin tarifa hoy');
-    });
+    expect(alarma.recargar).toHaveBeenCalledTimes(1);
   });
 
-  describe('alta', () => {
-    it('no manda una cancha sin nombre', async () => {
-      boton('Agregar')?.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
+  describe('alta con el FAB y el diálogo (T289)', () => {
+    const fab = () =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '.mat-mdc-fab-base',
+      );
+    const dialogo = () => document.querySelector<HTMLElement>('mat-dialog-container');
+    const enElDialogo = (etiqueta: string) =>
+      [...(dialogo()?.querySelectorAll('button') ?? [])].find(
+        (b) => b.textContent?.trim() === etiqueta,
+      );
+    const esperar = async () => {
+      // Dos vueltas: el diálogo responde, y después la lista sigue con lo que esperaba.
+      for (let i = 0; i < 2; i++) {
+        await fixture.whenStable();
+        fixture.detectChanges();
+      }
+    };
+    const abrir = async () => {
+      fab()[0].click();
+      await esperar();
+    };
+    const escribirNombre = async (nombre: string) => {
+      // NgForm conecta el campo un microtask después de crearlo: antes, escribir no llega.
+      await Promise.resolve();
+      const campo = dialogo()!.querySelector<HTMLInputElement>('#nombre')!;
+      campo.value = nombre;
+      campo.dispatchEvent(new Event('input'));
+      await esperar();
+    };
 
-      expect(api.crear).not.toHaveBeenCalled();
-      expect(texto()).toContain('Ponle un nombre');
+    it('**un solo FAB, «Nueva cancha»**, y la página deja espacio para que no tape la última tarjeta', () => {
+      expect(fab().length).toBe(1);
+      expect(fab()[0].textContent).toContain('Nueva cancha');
+      expect(fab()[0].classList).toContain('mdc-fab--extended');
+      expect((fixture.nativeElement as HTMLElement).classList).toContain('pb-24');
     });
 
-    it('muestra el motivo que dio el servidor, no uno genérico', async () => {
+    it('el formulario de alta ya no está en la página: lo abre el FAB', async () => {
+      expect((fixture.nativeElement as HTMLElement).querySelector('#nombre')).toBeNull();
+
+      await abrir();
+
+      expect(dialogo()?.querySelector('[mat-dialog-title]')?.textContent).toContain(
+        'Nueva cancha',
+      );
+    });
+
+    it('ofrece Cemento primero y ya elegido: las ocho del club son de cemento (T94)', async () => {
+      await abrir();
+
+      expect(textosDe(fixture, 'mat-select#superficie')).toEqual([
+        'Cemento',
+        'Arcilla',
+        'Pasto sintético',
+      ]);
+      expect(elegidoEn(fixture, 'mat-select#superficie')).toBe('CEMENTO');
+    });
+
+    it('no manda una cancha sin nombre, y lo dice en el diálogo', async () => {
+      await abrir();
+      await escribirNombre('   ');
+      enElDialogo('Agregar')!.click();
+      await esperar();
+
+      expect(api.crear).not.toHaveBeenCalled();
+      expect(textoDelDialogo()).toContain('Ponle un nombre');
+    });
+
+    it('muestra en el diálogo el motivo que dio el servidor, y no lo cierra', async () => {
       // "Ya hay una cancha con ese nombre" dice qué arreglar; "algo salió mal"
-      // obliga a adivinar.
+      // obliga a adivinar. Y cerrado, habría que volver a escribir todo.
       api.crear.mockRejectedValue({
         error: { message: 'Ya hay una cancha con ese nombre.' },
       });
+      await abrir();
+      await escribirNombre('Cancha 1');
+      enElDialogo('Agregar')!.click();
+      await esperar();
 
-      const input = (fixture.nativeElement as HTMLElement).querySelector(
-        '#nombre',
-      ) as HTMLInputElement;
-      input.value = 'Cancha 1';
-      input.dispatchEvent(new Event('input'));
+      expect(textoDelDialogo()).toContain('Ya hay una cancha con ese nombre.');
+      expect(api.canchas).toHaveBeenCalledTimes(1);
+    });
+
+    it('mientras guarda no se puede cerrar: la cancha quedaría creada sin aparecer en la lista', async () => {
+      let responderAlta!: (cancha: CanchaAdmin) => void;
+      api.crear.mockReturnValue(new Promise((listo) => (responderAlta = listo)));
+      await abrir();
+      await escribirNombre('Cancha 9');
+      enElDialogo('Agregar')!.click();
       await fixture.whenStable();
 
-      boton('Agregar')?.click();
-      await fixture.whenStable();
-      fixture.detectChanges();
+      expect(enElDialogo('Cancelar')!.disabled).toBe(true);
+      // Con un clic en el fondo, que es como se descarta el diálogo sin botón.
+      document.querySelector<HTMLElement>('.cdk-overlay-backdrop')!.click();
+      await esperar();
+      expect(dialogo()).not.toBeNull();
 
-      expect(texto()).toContain('Ya hay una cancha con ese nombre.');
+      responderAlta({ ...CANCHA, id: 9, nombre: 'Cancha 9' });
+      await esperar();
+      expect(avisoDeLoHecho()).toContain('Cancha 9 ya está en la grilla.');
+    });
+
+    it('**al crearla, el diálogo se cierra, la lista y la alarma se releen y el aviso lo confirma**', async () => {
+      api.crear.mockResolvedValue({ ...CANCHA, id: 9, nombre: 'Cancha 9' });
+      await abrir();
+      await escribirNombre('Cancha 9');
+      enElDialogo('Agregar')!.click();
+      await esperar();
+
+      expect(api.crear).toHaveBeenCalledWith({
+        nombre: 'Cancha 9',
+        superficie: 'CEMENTO',
+        techada: false,
+        tieneCamara: false,
+        iluminacion: false,
+      });
+      expect(textoDelDialogo()).toBe('');
+      expect(avisoDeLoHecho()).toContain('Cancha 9 ya está en la grilla.');
+      expect(api.canchas).toHaveBeenCalledTimes(2);
+      expect(alarma.recargar).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -294,8 +339,8 @@ describe('AdminCanchasPanel', () => {
     });
 
     it('**una cancha que ya existe se puede marcar con cámara**', async () => {
-      // La casilla del formulario de arriba solo vale para la que se está creando, y
-      // la cámara se instala meses después de cargar la cancha.
+      // La casilla del alta solo vale para la que se está creando, y la cámara se
+      // instala meses después de cargar la cancha.
       camara('Marcar con cámara')?.click();
       await fixture.whenStable();
 
@@ -314,8 +359,42 @@ describe('AdminCanchasPanel', () => {
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(texto()).toContain('transmitir');
+      // En el aviso de lo hecho. Hasta T289 la prueba miraba la página, y pasaba por la
+      // casilla del alta, que también dice «transmitir».
+      expect(avisoDeLoHecho()).toContain('queda disponible para transmitir');
     });
+  });
+
+  it('**cada cancha es una tarjeta de Material, con contorno** (T282)', async () => {
+    // Una cosa con sus acciones: el caso del skill para mat-card. La sección de alta, en
+    // cambio, sigue siendo una sección.
+    const tarjetas = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+      MatCardHarness,
+    );
+
+    expect(tarjetas).toHaveLength(1);
+    expect(await tarjetas[0].getText()).toContain('Cancha 1');
+    expect(await (await tarjetas[0].host()).hasClass('mat-mdc-card-outlined')).toBe(true);
+  });
+
+  /**
+   * T281. «Horario, tarifas y bloqueos» de cada cancha es un panel de Material, cerrado. Sus
+   * editores se crean recién al abrirlo: con ocho canchas, eran 269 campos montados a la vez
+   * y un pedido de bloqueos por cancha que nadie había abierto.
+   */
+  it('**horario, tarifas y bloqueos van en un panel cerrado, y se cargan al abrirlo** (T281)', async () => {
+    const panel = await TestbedHarnessEnvironment.loader(fixture).getHarness(
+      MatExpansionPanelHarness.with({ title: /Horario, tarifas y bloqueos/ }),
+    );
+
+    expect(await panel.isExpanded()).toBe(false);
+    expect(api.bloqueos).not.toHaveBeenCalled();
+
+    await panel.expand();
+    await fixture.whenStable();
+
+    expect(api.bloqueos).toHaveBeenCalled();
+    expect(await panel.getTextContent()).toContain('Horario de apertura');
   });
 
   describe('la ficha de la cancha (T96)', () => {
@@ -352,7 +431,8 @@ describe('AdminCanchasPanel', () => {
       expect(campo<HTMLInputElement>('#ficha-nombre-1').value).toBe('Cancha 1');
 
       await escribirNombre('Cancha Central');
-      const techada = campo<HTMLInputElement>('#ficha-techada-1');
+      // El id va en la casilla de Material; su input lleva el mismo id con «-input» (T249).
+      const techada = campo<HTMLInputElement>('#ficha-techada-1-input');
       techada.click();
       await fixture.whenStable();
       await guardar();
@@ -430,13 +510,9 @@ describe('AdminCanchasPanel', () => {
       providers: [
         {
           provide: AdminCanchas,
-          useValue: {
-            canchas: caida,
-            advertencias: caida,
-            general: caida,
-            configuracion: caida,
-          },
+          useValue: { canchas: caida },
         },
+        { provide: HorasSinTarifa, useValue: { recargar: vi.fn() } },
       ],
     });
 

@@ -1,16 +1,25 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckbox } from '@angular/material/checkbox';
+import { MatButton } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatSelectModule } from '@angular/material/select';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatIcon } from '@angular/material/icon';
 
-import { Insignia } from '../../ui/insignia';
+import { proveerCampos } from '../../ui/campos';
+import { horaATexto, proveerFechaYHora, textoAHora } from '../../ui/fecha-y-hora';
 import { enPesos, hoyEnElClub } from '../reloj-del-club';
 import { AdminCanchas, AmbitoDeReglas } from './admin-canchas.service';
-import { CampoHora } from '../../ui/campo-hora';
 
 interface FranjaNueva {
   /** Solo en las generales del club (T99): nulo = todas las canchas. */
   techada: boolean | null;
-  horaDesde: string;
-  horaHasta: string;
+  /** Como las entrega el selector de Material, y a texto al crear la franja (A5, T244). */
+  horaDesde: Date | null;
+  horaHasta: Date | null;
   esPico: boolean;
   montoClp: number;
   /** Vacío es nulo: la hora y media no se vende en esta franja (T79). */
@@ -19,8 +28,8 @@ interface FranjaNueva {
 
 const EN_BLANCO: FranjaNueva = {
   techada: null,
-  horaDesde: '08:00',
-  horaHasta: '18:00',
+  horaDesde: textoAHora('08:00'),
+  horaHasta: textoAHora('18:00'),
   esPico: false,
   montoClp: 12000,
   // Vacío a propósito: un precio sugerido se aceptaría sin mirarlo, y es plata.
@@ -32,12 +41,23 @@ const EN_BLANCO: FranjaNueva = {
  *
  * `esPico` va junto al monto porque son la misma ventana de tiempo: el precio del
  * no-socio y el cupo del socio. Separarlos en dos formularios obligaría a definir
- * el mismo rango dos veces y el primer desajuste cobra valle una hora que descuenta
- * cupo pico.
+ * el mismo rango dos veces y el primer desajuste cobra como normal una hora que descuenta
+ * cupo prime.
  */
 @Component({
   selector: 'app-editor-franjas',
-  imports: [FormsModule, Insignia, CampoHora],
+  imports: [
+    MatCheckbox,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatInput,
+    MatTimepickerModule,
+    MatButton,
+    FormsModule,
+    MatChipsModule,
+    MatIcon,
+  ],
+  providers: [proveerCampos(), proveerFechaYHora()],
   template: `
     @if (ambito().franjas.length > 0) {
       <ul class="text-sm text-muted-foreground">
@@ -50,7 +70,7 @@ const EN_BLANCO: FranjaNueva = {
                 · 1 hora y media {{ pesos(franja.montoClp90) }}
               }
               @if (franja.esPico) {
-                · hora pico
+                · hora prime
               }
               @if (franja.techada === true) {
                 · solo techadas
@@ -61,13 +81,17 @@ const EN_BLANCO: FranjaNueva = {
             @if (franja.montoClp90 === null) {
               <!-- Sin ese precio, quien no es socio no puede reservar 1 hora y media en
                    esta franja (T79). Es una omisión casi siempre, no una decisión. -->
-              <app-insignia variante="aviso" icono="warning">
-                Falta el precio de 1 hora y media
-              </app-insignia>
+              <mat-chip-set class="insignias">
+                <mat-chip class="insignia aviso">
+                  <mat-icon matChipAvatar aria-hidden="true">warning</mat-icon>
+                  Falta el precio de 1 hora y media
+                </mat-chip>
+              </mat-chip-set>
             }
             <button
+              matButton
               type="button"
-              class="boton boton-texto boton-chico text-destructive"
+              class="peligro chico"
               (click)="borrar(franja.id)"
             >
               Quitar
@@ -94,86 +118,93 @@ const EN_BLANCO: FranjaNueva = {
     <form class="mt-2 flex flex-wrap items-end gap-2 text-sm" (ngSubmit)="agregar()">
       @if (ambito().id === null) {
         <!-- T99. Solo en las generales: una cancha ya sabe si es techada (T98). -->
-        <div>
-          <label [for]="'aplica-' + clave()" class="block font-medium">Aplica a</label>
-          <select
+        <mat-form-field class="chico">
+          <mat-label>Aplica a</mat-label>
+          <!-- Tres opciones en una fila apretada: queda como lista (SPEC-interfaz, corrección 5).
+               «Todas» es null: sin canSelectNullableOptions, mat-select la toma por vacía.
+               mat-guidelines-ignore: select-pocas-opciones -->
+          <mat-select
             [id]="'aplica-' + clave()"
             [name]="'franja-aplica-' + clave()"
-            class="campo campo-chico mt-1"
+            [attr.name]="'franja-aplica-' + clave()"
+            canSelectNullableOptions
             [(ngModel)]="nueva.techada"
           >
-            <option [ngValue]="null">Todas las canchas</option>
-            <option [ngValue]="true">Solo techadas</option>
-            <option [ngValue]="false">Solo al aire libre</option>
-          </select>
-        </div>
+            <mat-option [value]="null">Todas las canchas</mat-option>
+            <mat-option [value]="true">Solo techadas</mat-option>
+            <mat-option [value]="false">Solo al aire libre</mat-option>
+          </mat-select>
+        </mat-form-field>
       }
 
-      <div>
-        <label [for]="'desde-' + clave()" class="block font-medium">Desde</label>
-        <app-campo-hora
-          class="mt-1"
-          [inputId]="'desde-' + clave()"
+      <mat-form-field class="chico w-32">
+        <mat-label>Desde</mat-label>
+        <input
+          matInput
+          [id]="'desde-' + clave()"
           [name]="'franja-desde-' + clave()"
-          claseCampo="campo-chico w-24"
+          placeholder="hh:mm"
+          autocomplete="off"
+          [matTimepicker]="relojFranjaDesde"
           [(ngModel)]="nueva.horaDesde"
         />
-      </div>
+        <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojFranjaDesde" />
+        <mat-timepicker #relojFranjaDesde />
+      </mat-form-field>
 
-      <div>
-        <label [for]="'hasta-' + clave()" class="block font-medium">Hasta</label>
-        <app-campo-hora
-          class="mt-1"
-          [inputId]="'hasta-' + clave()"
+      <mat-form-field class="chico w-32">
+        <mat-label>Hasta</mat-label>
+        <input
+          matInput
+          [id]="'hasta-' + clave()"
           [name]="'franja-hasta-' + clave()"
-          claseCampo="campo-chico w-24"
+          placeholder="hh:mm"
+          autocomplete="off"
+          [matTimepicker]="relojFranjaHasta"
           [(ngModel)]="nueva.horaHasta"
         />
-      </div>
+        <mat-timepicker-toggle matIconSuffix aria-label="Elegir la hora" [for]="relojFranjaHasta" />
+        <mat-timepicker #relojFranjaHasta />
+      </mat-form-field>
 
-      <div>
-        <label [for]="'monto-' + clave()" class="block font-medium">Precio 1 hora</label>
+      <!-- El ancho lo pide la etiqueta, que va dentro del borde y no puede pasarse de él. -->
+      <mat-form-field class="chico w-36">
+        <mat-label>Precio 1 hora</mat-label>
         <input
+          matInput
           type="number"
           min="0"
           step="500"
           [id]="'monto-' + clave()"
           [name]="'franja-monto-' + clave()"
-          class="campo campo-chico mt-1 w-28"
           [(ngModel)]="nueva.montoClp"
         />
-      </div>
+      </mat-form-field>
 
-      <div>
-        <label [for]="'monto90-' + clave()" class="block font-medium">
-          Precio 1 hora y media
-        </label>
+      <mat-form-field class="chico w-48">
+        <mat-label>Precio 1 hora y media</mat-label>
         <input
+          matInput
           type="number"
           min="1"
           step="500"
           placeholder="No se vende"
           [id]="'monto90-' + clave()"
           [name]="'franja-monto90-' + clave()"
-          class="campo campo-chico mt-1 w-28"
           [(ngModel)]="nueva.montoClp90"
         />
-      </div>
+      </mat-form-field>
 
-      <label class="flex items-center gap-2 py-1">
-        <input
-          type="checkbox"
-          [name]="'franja-pico-' + clave()"
-          [(ngModel)]="nueva.esPico"
-        />
-        Hora pico
-      </label>
+      <mat-checkbox class="block" [name]="'franja-prime-' + clave()" [(ngModel)]="nueva.esPico">
+        Hora prime
+      </mat-checkbox>
 
       <button
+        matButton="outlined"
         type="submit"
         [disabled]="guardando()"
         [attr.aria-busy]="guardando()"
-        class="boton boton-secundario boton-chico"
+        class="chico"
       >
         Agregar tarifa
       </button>
@@ -223,6 +254,8 @@ export class EditorFranjas {
         // formulario para el caso que casi nunca se usa.
         diaSemana: null,
         ...this.nueva,
+        horaDesde: horaATexto(this.nueva.horaDesde),
+        horaHasta: horaATexto(this.nueva.horaHasta),
         // Rige desde hoy: cambiar el precio de una franja no puede alterar lo que
         // ya se cobró, así que se crea una nueva en vez de editar la anterior.
         vigenteDesde: hoyEnElClub(),

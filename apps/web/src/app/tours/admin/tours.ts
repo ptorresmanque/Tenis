@@ -1,12 +1,14 @@
-import { Component, inject, resource, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, inject, resource } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { MatFabButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatIcon } from '@angular/material/icon';
 
-import { mensajeDelServidor } from '../../core/errores';
-import { Aviso } from '../../ui/aviso';
 import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { Tours } from '../tours.service';
+import { NuevoTour } from './nuevo-tour';
 
 /**
  * Los tours del club, en el panel (T191): las ligas a las que suman los torneos, cada una
@@ -18,10 +20,12 @@ import { Tours } from '../tours.service';
  */
 @Component({
   selector: 'app-tours',
-  imports: [FormsModule, RouterLink, Aviso, Esqueleto, EstadoVacio],
+  // Espacio al final para que el FAB no tape el último tour (A9).
+  host: { class: 'block pb-24' },
+  imports: [MatFabButton, MatIcon, RouterLink, Esqueleto, EstadoVacio],
   template: `
-    <!-- La cabecera del panel (TV7.1). Su acción abre el formulario de crear, como en
-         Torneos: secundaria, porque la principal es la del formulario. -->
+    <!-- La cabecera del panel (TV7.1), sin acción: crear un tour es el FAB, que abre su
+         diálogo (T292), como en Torneos. -->
     <header class="cabecera-panel">
       <div>
         <h1 class="titular text-4xl">Tours</h1>
@@ -29,47 +33,12 @@ import { Tours } from '../tours.service';
           Las ligas a las que suman los torneos, con sus temporadas y su puntaje.
         </p>
       </div>
-
-      <button
-        type="button"
-        class="boton boton-secundario"
-        [attr.aria-expanded]="creando()"
-        (click)="creando.set(!creando())"
-      >
-        {{ creando() ? 'Cerrar' : 'Crear tour' }}
-      </button>
     </header>
 
-    @if (creando()) {
-      <form
-        class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4
-               shadow-sm"
-        (ngSubmit)="crear()"
-      >
-        <label class="block min-w-0 flex-1">
-          <span class="text-sm font-medium">Nombre</span>
-          <input
-            class="campo mt-1"
-            name="nombre"
-            maxlength="80"
-            placeholder="Tour FEDAL"
-            [(ngModel)]="nombre"
-          />
-        </label>
-        <button
-          type="submit"
-          class="boton boton-primario"
-          [disabled]="creandoTour() || !nombre.trim()"
-          [attr.aria-busy]="creandoTour()"
-        >
-          {{ creandoTour() ? 'Creando…' : 'Crear el tour' }}
-        </button>
-      </form>
-    }
-
-    @if (error(); as falla) {
-      <app-aviso variante="error" class="mt-4 block">{{ falla }}</app-aviso>
-    }
+    <button matFab extended type="button" class="fab-de-la-pantalla" (click)="crear()">
+      <mat-icon aria-hidden="true">add</mat-icon>
+      Nuevo tour
+    </button>
 
     @if (tours.isLoading()) {
       <app-esqueleto class="mt-4 block" [filas]="3" etiqueta="Cargando los tours…" />
@@ -122,23 +91,15 @@ export class ToursPanel {
     defaultValue: [],
   });
 
-  protected readonly creando = signal(false);
-  protected readonly creandoTour = signal(false);
-  protected readonly error = signal<string | null>(null);
-  protected nombre = '';
+  private readonly dialogos = inject(MatDialog);
 
-  /** Crea el tour y abre su ficha: lo que sigue es completarlo. */
+  /** Abre el alta (T292) y, con el tour creado, su ficha: lo que sigue es completarlo. */
   protected async crear(): Promise<void> {
-    this.error.set(null);
-    this.creandoTour.set(true);
-
-    try {
-      const tour = await this.api.crear(this.nombre.trim());
-      await this.router.navigate(['/administracion/tours', tour.id]);
-    } catch (falla) {
-      this.error.set(mensajeDelServidor(falla, 'No se pudo crear el tour.'));
-    } finally {
-      this.creandoTour.set(false);
-    }
+    const id = await firstValueFrom(
+      this.dialogos
+        .open<NuevoTour, void, number>(NuevoTour, { width: '28rem', maxWidth: '92vw' })
+        .afterClosed(),
+    );
+    if (id !== undefined) await this.router.navigate(['/administracion/tours', id]);
   }
 }
