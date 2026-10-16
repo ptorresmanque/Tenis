@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-import { MAXIMO_BYTES } from '../comun/imagenes';
+import { LIMITES_DE_SUBIDA } from '../comun/imagenes';
 import { SoloAdmin } from '../identidad/guards';
 import { ImagenesDelTour } from './imagenes-del-tour.service';
 import {
@@ -114,9 +114,7 @@ export class ToursAdminController {
   // `ToursPublicosController`.
 
   @Post('tours/:id/imagen')
-  @UseInterceptors(
-    FileInterceptor('imagen', { limits: { fileSize: MAXIMO_BYTES } }),
-  )
+  @UseInterceptors(FileInterceptor('imagen', { limits: LIMITES_DE_SUBIDA }))
   subirImagen(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() archivo?: { buffer: Buffer },
@@ -127,9 +125,7 @@ export class ToursAdminController {
   }
 
   @Post('tours/:id/fotos')
-  @UseInterceptors(
-    FileInterceptor('foto', { limits: { fileSize: MAXIMO_BYTES } }),
-  )
+  @UseInterceptors(FileInterceptor('foto', { limits: LIMITES_DE_SUBIDA }))
   subirFoto(
     @Param('id', ParseIntPipe) id: number,
     @Body() cuerpo: unknown,

@@ -18,7 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 
-import { carpetaDeSubidas, MAXIMO_BYTES } from '../comun/imagenes';
+import { carpetaDeSubidas, LIMITES_DE_SUBIDA } from '../comun/imagenes';
 import { hoyEnElClub } from '../comun/tiempo';
 import { api, web } from '../comun/urls';
 import { SoloSocio, Yo } from '../identidad/guards';
@@ -147,7 +147,7 @@ export class TorneosPublicosController {
   // interceptor deja pasar intacto el cuerpo JSON del que paga con Webpay o del que se
   // inscribe a un torneo gratis — `multer` no toca lo que no es multipart.
   @UseInterceptors(
-    FileInterceptor('comprobante', { limits: { fileSize: MAXIMO_BYTES } }),
+    FileInterceptor('comprobante', { limits: LIMITES_DE_SUBIDA }),
   )
   async inscribirse(
     @Param('torneoId', ParseIntPipe) torneoId: number,
@@ -202,7 +202,7 @@ export class TorneosPublicosController {
   @Post(':torneoId/inscripcion-socio')
   @SoloSocio()
   @UseInterceptors(
-    FileInterceptor('comprobante', { limits: { fileSize: MAXIMO_BYTES } }),
+    FileInterceptor('comprobante', { limits: LIMITES_DE_SUBIDA }),
   )
   inscribirseComoSocio(
     @Param('torneoId', ParseIntPipe) torneoId: number,
@@ -312,7 +312,7 @@ export class TorneosPublicosController {
    */
   @Post('inscripciones/:token/comprobante')
   @UseInterceptors(
-    FileInterceptor('comprobante', { limits: { fileSize: MAXIMO_BYTES } }),
+    FileInterceptor('comprobante', { limits: LIMITES_DE_SUBIDA }),
   )
   subirComprobante(
     @Param('token') token: string,
