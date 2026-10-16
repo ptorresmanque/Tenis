@@ -56,9 +56,10 @@ import { Esqueleto } from '../ui/esqueleto';
       class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
       aria-labelledby="el-club"
     >
+      <!-- La cancha con el logo, que antes era la de la portada (T305, SPEC-sitio.md D7). -->
       <app-foto
-        descripcion="Vista aérea del club: los galpones de las canchas techadas y dos canchas al aire libre"
-        src="/fotos/el-club.jpg"
+        descripcion="Las canchas al aire libre del club en un día despejado, con el logo de FEDAL pintado en la cancha"
+        src="/fotos/portada.jpg"
         proporcion="16/9"
         [prioritaria]="true"
         claseCaja="min-h-[24rem]"

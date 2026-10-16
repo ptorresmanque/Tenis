@@ -72,11 +72,11 @@ import { Foto } from '../ui/foto';
       class="relative isolate -mx-4 overflow-hidden hero-animado sm:mx-0 sm:rounded-region"
       aria-labelledby="promesa"
     >
+      <!-- La vista aérea, que antes era la de El club (T305, SPEC-sitio.md D7). -->
       <app-foto
-        descripcion="Las canchas al aire libre del club en un día despejado, con el logo de
-                     FEDAL pintado en la cancha"
+        descripcion="Vista aérea del club: los galpones de las canchas techadas y dos canchas al aire libre"
         proporcion="16/9"
-        src="/fotos/portada.jpg"
+        src="/fotos/el-club.jpg"
         [prioritaria]="true"
         claseCaja="min-h-[32rem] sm:min-h-[34rem] sm:max-h-[calc(100dvh-11rem)]"
       />
@@ -579,52 +579,12 @@ import { Foto } from '../ui/foto';
       BANDA 5½ — La tienda y la cafetería (T186).
 
       Lo que hay en el club además de las canchas, contado y no vendido: una tarjeta
-      por lugar con su primera foto. Va antes del cierre y no arriba, porque nadie
-      entra a la portada por un café; quien baja hasta acá ya decidió venir. Sin
-      descripción cargada, la banda no existe.
+      por lugar con su primera foto. Va al final y no arriba, porque nadie entra a la
+      portada por un café; quien baja hasta acá ya decidió venir. Sin descripción
+      cargada, la banda no existe. Es la última desde que se fue el cierre (T305,
+      SPEC-sitio.md D6): su «Ver disponibilidad» ya estaba en el hero y en «Libre hoy».
     -->
     <app-tienda-y-cafeteria forma="resumen" />
-
-    <!--
-      BANDA 6 — El cierre.
-
-      Una foto del club a sangre y una sola cosa que hacer. La etiqueta del botón
-      es la misma que arriba a propósito: dos formas de decir lo mismo en una
-      página obligan a decidir dos veces qué son.
-    -->
-    <section
-      class="relative isolate -mx-4 mt-16 overflow-hidden aparece-al-pasar sm:mx-0 sm:rounded-region"
-      aria-labelledby="cierre"
-    >
-      <app-foto
-        descripcion="La terraza del club, con mesas y quitasoles frente a la casa club"
-        src="/fotos/instalaciones.jpg"
-        proporcion="3/2"
-        claseCaja="min-h-[18rem]"
-      />
-      <!-- El velo de izquierda a derecha, como el de la propuesta: el titular se
-           lee sobre el campo casi pleno y la foto respira del otro lado. -->
-      <div
-        class="absolute inset-0 velo-foto-lateral"
-        aria-hidden="true"
-      ></div>
-
-      <div
-        class="absolute inset-0 flex flex-col items-start justify-center gap-6 px-6
-               text-on-campo texto-sobre-foto sm:px-14"
-      >
-        <h2 id="cierre" class="titular max-w-[12ch] text-5xl sm:text-7xl">
-          @if (proximaLibre() && !esManana()) {
-            Todavía quedan horas para hoy
-          } @else {
-            Elige tu hora de esta semana
-          }
-        </h2>
-        <a matButton="filled" routerLink="/disponibilidad" class="sobre-campo">
-          Ver disponibilidad
-        </a>
-      </div>
-    </section>
   `,
 })
 export class Inicio {
