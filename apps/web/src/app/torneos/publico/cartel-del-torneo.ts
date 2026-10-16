@@ -59,8 +59,9 @@ import { Foto } from '../torneos.service';
                       [attr.aria-label]="'Ver la foto: ' + (otra.descripcion ?? 'Foto de ' + nombre())"
                       (click)="visor.abrir($index + 1)"
                     >
+                      <!-- Entera y no recortada (T322): suelen ser el reglamento o las bases. -->
                       <img
-                        class="size-16 object-cover transition-opacity hover:opacity-80"
+                        class="size-16 object-contain transition-opacity hover:opacity-80"
                         [src]="otra.miniatura"
                         [alt]="otra.descripcion ?? 'Foto de ' + nombre()"
                         loading="lazy"

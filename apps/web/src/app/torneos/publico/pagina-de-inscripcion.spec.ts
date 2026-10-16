@@ -106,6 +106,13 @@ describe('PaginaDeInscripcion', () => {
     expect(volver?.getAttribute('href')).toBe('/torneos');
   });
 
+  it('**uno con la inscripción vencida, igual**: la API la rechazaría (T321)', async () => {
+    await montar([{ ...ABIERTO, cierreInscripcion: '2020-01-01' }]);
+
+    expect(texto()).toContain('ya no acepta inscripciones');
+    expect(elemento().querySelector('app-inscripcion-a-torneo')).toBeNull();
+  });
+
   it('un torneo que no está en el calendario, igual', async () => {
     await montar([ABIERTO], '99');
 

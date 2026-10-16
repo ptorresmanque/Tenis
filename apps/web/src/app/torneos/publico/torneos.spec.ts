@@ -359,6 +359,21 @@ describe('TorneosPublicos', () => {
     expect(texto()).toContain('lista de espera');
   });
 
+  it('**un torneo con la inscripción vencida lo dice, y no ofrece inscribirse** (T321)', async () => {
+    // Sigue en estado de inscripción hasta que se arma el cuadro, pero su último día ya pasó y
+    // la API rechaza la inscripción: ofrecerla era un botón que termina en error.
+    await montar([{ ...EN_INSCRIPCION, cierreInscripcion: '2020-01-01' }]);
+
+    const tarjeta = elemento().querySelector('li')?.textContent ?? '';
+    expect(tarjeta).toContain('Inscripción cerrada');
+    expect(tarjeta).not.toContain('Inscripción abierta');
+    expect(tarjeta).toContain('La inscripción cerró el');
+    // Ni el precio ni los cupos: ya no hay a qué entrar.
+    expect(tarjeta).not.toContain('quedan');
+    const enlaces = Array.from(elemento().querySelectorAll('li a')).map((a) => a.textContent);
+    expect(enlaces.some((texto) => texto?.includes('Inscribirme'))).toBe(false);
+  });
+
   it('un torneo que ya empezó no habla de inscripción', async () => {
     await montar([{ ...EN_INSCRIPCION, estado: 'EN_CURSO' }]);
 

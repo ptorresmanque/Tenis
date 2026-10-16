@@ -8,7 +8,7 @@ import { Aviso } from '../../ui/aviso';
 import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
 import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
-import { Torneos } from '../torneos.service';
+import { aceptaInscripciones, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 import { AVISOS_DEL_PAGO, soltarSiVolvioSinPagar } from './pago-pendiente';
 
@@ -127,7 +127,10 @@ export class PaginaDeInscripcion {
     loader: () => this.api.calendario(),
   });
 
-  /** El torneo, si todavía acepta inscripciones: como en Torneos, abierto y con categorías. */
+  /**
+   * El torneo, si todavía acepta inscripciones y tiene categorías: como en Torneos, con la regla
+   * de la API (`aceptaInscripciones`, T321).
+   */
   protected readonly abierto = computed(
     () =>
       this.calendario
@@ -135,7 +138,7 @@ export class PaginaDeInscripcion {
         ?.find(
           (torneo) =>
             torneo.id === Number(this.id()) &&
-            torneo.estado === 'INSCRIPCION' &&
+            aceptaInscripciones(torneo) &&
             torneo.categorias.length > 0,
         ) ?? null,
   );

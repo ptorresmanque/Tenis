@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
+
 export type EstadoTorneo =
   | 'INSCRIPCION'
   | 'CUADRO_ARMADO'
@@ -17,6 +19,21 @@ export const ESTADOS_TORNEO: Record<EstadoTorneo, string> = {
   FINALIZADO: 'Finalizado',
   CANCELADO: 'Cancelado',
 };
+
+/**
+ * Si el torneo acepta inscripciones (T321): en estado de inscripción y sin que haya pasado su
+ * último día en el club, que cuenta entero. Es la regla de la API (`inscripciones.service.ts`):
+ * el estado sigue en inscripción hasta que se arma el cuadro, también después del cierre, y la
+ * pantalla que mirara solo el estado ofrecería una inscripción que el servidor rechaza.
+ */
+export function aceptaInscripciones(
+  torneo: Pick<TorneoPublico, 'estado' | 'cierreInscripcion'>,
+  ahora = new Date(),
+): boolean {
+  return (
+    torneo.estado === 'INSCRIPCION' && torneo.cierreInscripcion.slice(0, 10) >= hoyEnElClub(ahora)
+  );
+}
 
 /** Quien juega torneos. No es el socio: vuelve el año siguiente con sus puntos. */
 export interface Jugador {
