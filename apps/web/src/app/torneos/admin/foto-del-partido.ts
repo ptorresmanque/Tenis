@@ -2,6 +2,7 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 
 import { mensajeDelServidor } from '../../core/errores';
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { Foto, Torneos } from '../torneos.service';
 
 /**
@@ -17,16 +18,28 @@ import { Foto, Torneos } from '../torneos.service';
  */
 @Component({
   selector: 'app-foto-del-partido',
-  imports: [MatButton],
+  imports: [GaleriaDeFotos, MatButton],
   template: `
     <div class="mt-1 flex flex-wrap items-center gap-2">
-      @for (foto of fotos(); track foto.id) {
-        <img
-          class="size-10 rounded object-cover"
-          [src]="foto.miniatura"
-          [alt]="foto.descripcion ?? 'Foto del partido'"
-          loading="lazy"
-        />
+      <!-- Tocar la miniatura abre la galería del sitio en esa foto (T311). Solo con fotos: el
+           cuadro dibuja este componente en cada partido, y sin fotos no hace falta la galería. -->
+      @if (fotos().length > 0) {
+        @for (foto of fotos(); track foto.id) {
+          <button
+            type="button"
+            class="cursor-pointer overflow-hidden rounded"
+            [attr.aria-label]="'Ver la foto: ' + (foto.descripcion ?? 'Foto del partido')"
+            (click)="visor.abrir($index)"
+          >
+            <img
+              class="size-10 object-cover"
+              [src]="foto.miniatura"
+              [alt]="foto.descripcion ?? 'Foto del partido'"
+              loading="lazy"
+            />
+          </button>
+        }
+        <app-galeria-de-fotos #visor [fotos]="fotos()" etiqueta="Fotos del partido" />
       }
 
       <!-- matButton no va en una etiqueta: el botón abre el selector del campo escondido

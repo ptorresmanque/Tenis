@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { Foto, Torneos } from '../torneos.service';
 import { FotosDelTorneo } from './fotos';
 
@@ -72,6 +73,20 @@ describe('FotosDelTorneo', () => {
 
   beforeEach(async () => {
     await montar([]);
+  });
+
+  it('**tocar una miniatura abre la galería en esa foto** (T311, SPEC-sitio.md D8)', async () => {
+    const abrir = vi.spyOn(GaleriaDeFotos.prototype, 'abrir');
+    await montar([FOTO, { ...FOTO, id: 4, descripcion: null }]);
+    const miniaturas = [...elemento().querySelectorAll<HTMLButtonElement>('ul li button[aria-label^="Ver la foto"]')];
+
+    expect(miniaturas.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Ver la foto: La entrega de premios',
+      'Ver la foto: Foto del torneo',
+    ]);
+    miniaturas[1].click();
+    expect(abrir).toHaveBeenCalledWith(1);
+    abrir.mockRestore();
   });
 
   it('se titula con un h2, como las otras pestañas de la ficha', () => {

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { GaleriaDeFotos } from '../../ui/galeria-de-fotos';
 import { Foto, Torneos } from '../torneos.service';
 import { FotoDelPartido } from './foto-del-partido';
 
@@ -74,6 +75,17 @@ describe('FotoDelPartido', () => {
     await elegir();
 
     expect(api.subirFoto.mock.calls[0][2].momento).toBe('ANTES');
+  });
+
+  it('**tocar una miniatura abre la galería en esa foto** (T311, SPEC-sitio.md D8)', async () => {
+    const abrir = vi.spyOn(GaleriaDeFotos.prototype, 'abrir');
+    await montar([FOTO, { ...FOTO, id: 8 }]);
+    const miniaturas = [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('button[aria-label^="Ver la foto"]')];
+
+    expect(miniaturas).toHaveLength(2);
+    miniaturas[1].click();
+    expect(abrir).toHaveBeenCalledWith(1);
+    abrir.mockRestore();
   });
 
   it('las que ya tiene el partido se ven en miniatura', async () => {
