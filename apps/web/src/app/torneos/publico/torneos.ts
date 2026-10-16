@@ -22,6 +22,7 @@ import { EstadoVacio } from '../../ui/estado-vacio';
 // galería del torneo. Este es el componente que reserva el hueco de una
 // foto del sitio mientras el club no la entrega.
 import { Foto as FotoDelSitio } from '../../ui/foto';
+import { CartelDelTorneo } from './cartel-del-torneo';
 import { CuadroPublicoModal } from './cuadro-publico';
 import { InscripcionATorneo } from './inscripcion';
 import { olvidarPagoPendiente } from './pago-pendiente';
@@ -72,6 +73,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
     MatTableModule,
     FotoDelSitio,
     Aviso,
+    CartelDelTorneo,
     CuadroPublicoModal,
     EstadoVacio,
     Esqueleto,
@@ -132,18 +134,11 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
       } @else {
         <ul class="mt-8 grid gap-6">
           @for (torneo of lista; track torneo.id) {
-            <li class="overflow-hidden bg-card shadow-md aparece-al-pasar">
-              <!-- EL CARTEL (TV4.2). El torneo abierto va sobre el campo, que es lo
-                   que se mira primero; los demás, sobre gris. El estado no depende
-                   solo del color: lo dice la insignia. -->
-              <div
-                class="p-5 sm:p-7"
-                [class.bg-campo]="torneo.estado === 'INSCRIPCION'"
-                [class.text-on-campo]="torneo.estado === 'INSCRIPCION'"
-                [class.bg-muted]="torneo.estado !== 'INSCRIPCION'"
-              >
-                <!-- Insignias de fondo sólido: las translúcidas no se leen sobre el
-                     campo (lo midió TV3.4). -->
+            <li class="aparece-al-pasar">
+              <!-- EL CARTEL (T315, D3): el afiche a la izquierda, que es lo que invita a
+                   inscribirse, y lo del torneo a la derecha, como en la portada. El estado
+                   lo dice la insignia. -->
+              <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
                 <div class="flex flex-wrap items-center gap-2">
                   <mat-chip-set class="insignias">
                     <mat-chip
@@ -158,14 +153,13 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
 
                 <h2 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h2>
 
-                <p class="mt-2 opacity-85">
+                <p class="mt-2 text-muted-foreground">
                   {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
                   @if (torneo.superficie) {
                     · {{ superficie(torneo.superficie) }}
                   }
                 </p>
-                <!-- Para qué tours suma (U6), con el enlace a cada uno. Sobre el campo
-                     el enlace hereda el color del cartel: lo distingue el subrayado. -->
+                <!-- Para qué tours suma (U6), con el enlace a cada uno. -->
                 @if (torneo.tours.length > 0) {
                   <p class="mt-1">
                     Suma para
@@ -183,22 +177,20 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                     Inscripción hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
                   </p>
                 }
-              </div>
 
-              <div class="p-4 sm:p-7">
                 <!-- **Una fila por categoría y no una del torneo.** Honor cierra con
                      8 y la 4ª con 32: "quedan 3 cupos" sin decir de qué categoría no
                      le sirve a nadie para saber si se puede inscribir. Y el precio es
                      de cada categoría: Honor puede costar el doble que la 5ª el mismo
                      fin de semana. -->
                 @if (torneo.categorias.length === 0) {
-                  <p class="text-sm text-muted-foreground">
+                  <p class="mt-5 text-sm text-muted-foreground">
                     Todavía no se anunciaron las categorías.
                   </p>
                 } @else {
                   <!-- Una tabla de posiciones (TV4.2). Con cuatro columnas puede no
                        caber en un teléfono, y se desplaza adentro, no la página. -->
-                  <div class="overflow-x-auto">
+                  <div class="mt-5 overflow-x-auto">
                     <!-- En el teléfono, menos relleno por celda: con el de siempre
                          (1rem por lado), cuatro columnas no caben en 296px. -->
                     <table
@@ -302,7 +294,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                   <button
                     matButton="filled"
                     type="button"
-                    class="mt-4"
+                    class="mt-4 self-start"
                     [attr.aria-expanded]="inscribiendo() === torneo.id"
                     (click)="alternarInscripcion(torneo.id)"
                   >
@@ -321,7 +313,7 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                     />
                   }
                 }
-              </div>
+              </app-cartel-del-torneo>
             </li>
           }
         </ul>

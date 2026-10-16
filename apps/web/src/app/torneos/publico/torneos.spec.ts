@@ -213,6 +213,39 @@ describe('TorneosPublicos', () => {
     });
   });
 
+  describe('el cartel del torneo (T315, D3)', () => {
+    const foto = (id: number, descripcion: string) => ({
+      id,
+      partidoId: null,
+      momento: 'ANTES' as const,
+      descripcion,
+      miniatura: `/api/torneos/fotos/${id}/miniatura`,
+      imagen: `/api/torneos/fotos/${id}/imagen`,
+    });
+
+    it('**cada torneo lleva su afiche al costado, y las otras fotos de antes en miniatura**', async () => {
+      await montar([
+        { ...EN_INSCRIPCION, afiches: [foto(7, 'El afiche'), foto(8, 'Las bases')] },
+      ]);
+
+      const cartel = elemento().querySelector('li app-cartel-del-torneo');
+      expect(cartel?.querySelector('[data-afiche] img')?.getAttribute('src')).toBe(
+        '/api/torneos/fotos/7/imagen',
+      );
+      expect(cartel?.querySelector('[data-otras] img')?.getAttribute('src')).toBe(
+        '/api/torneos/fotos/8/miniatura',
+      );
+      // Lo de cada torneo va al lado del afiche, dentro del cartel.
+      expect(cartel?.querySelector('h2')?.textContent).toContain('Copa de verano');
+      expect(cartel?.querySelector('table')).toBeTruthy();
+    });
+
+    it('un torneo sin fotos de antes se ve con la foto del club', () => {
+      const cartel = elemento().querySelector('li app-cartel-del-torneo');
+      expect(cartel?.querySelector('[data-afiche] app-foto')).toBeTruthy();
+    });
+  });
+
   it('una categoría gratis lo dice con la palabra, no con un cero', async () => {
     await montar([
       {
