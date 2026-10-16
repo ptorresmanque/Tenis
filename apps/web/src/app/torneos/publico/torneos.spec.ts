@@ -8,6 +8,7 @@ import {
   Torneos,
   TorneoPublico,
 } from '../torneos.service';
+import { avisoDeLoHecho } from '../../testing/snackbar';
 import { TorneosPublicos } from './torneos';
 
 /**
@@ -311,11 +312,22 @@ describe('TorneosPublicos', () => {
       fixture.detectChanges();
     };
 
-    it('**pagar y volver lo dice: la inscripción quedó confirmada**', async () => {
-      await volviendo('listo');
+    it.each([
+      ['listo', 'Pago recibido: tu inscripción quedó confirmada'],
+      ['comprobante', 'Recibimos tu comprobante'],
+      ['inscrito', 'quedaste inscrito'],
+    ])(
+      '**`?pago=%s` confirma algo hecho: va al snackbar, no fijo en la página** (T324, S2)',
+      async (pago, dice) => {
+        // Como «Hora tomada» en la agenda (T283): lo hecho se confirma con el snackbar, y en la
+        // página se quedan los errores y lo que hay que leer antes de seguir.
+        await volviendo(pago);
 
-      expect(texto()).toContain('Pago recibido');
-    });
+        expect(avisoDeLoHecho()).toContain(dice);
+        expect(elemento().querySelector('#resultado-del-pago')).toBeNull();
+      },
+    );
+
 
     it('**anular el pago dice que no quedó inscrito**', async () => {
       // Es el arreglo del defecto que encontró el club: cerrar la ventana de pago
@@ -331,29 +343,24 @@ describe('TorneosPublicos', () => {
       expect(texto()).toContain('no quedó tomada');
     });
 
-    it.each([
-      ['comprobante', 'el club lo revisa'],
-      ['inscrito', 'quedaste inscrito'],
-      ['espera', 'lista de espera'],
-    ])(
-      '**sin Webpay termina igual: `?pago=%s` dice cómo quedó** (T323)',
-      async (pago, dice) => {
-        // La transferencia, la categoría gratis y la lista de espera terminan acá, como la
-        // vuelta de Webpay, y no en el formulario vacío.
-        await volviendo(pago);
+    it('**la lista de espera se queda fija en la página**: hay que leerla antes de irse (T323)', async () => {
+      // No quedó dentro: no es una confirmación que se va sola.
+      await volviendo('espera');
 
-        expect(texto()).toContain(dice);
-      },
-    );
+      expect(elemento().querySelector('#resultado-del-pago')?.textContent).toContain(
+        'lista de espera',
+      );
+      expect(avisoDeLoHecho()).toBe('');
+    });
 
-    it('**la página lleva el aviso a la vista**, venga o no de Webpay (T323)', async () => {
+    it('**la página lleva a la vista el aviso que hay que leer** (T323)', async () => {
       // En el escritorio, el hero lo dejaba bajo el borde de la pantalla. jsdom no tiene
       // scrollIntoView: se pone uno que anota sobre qué elemento se llamó.
       const original = Element.prototype.scrollIntoView;
       const llevar = vi.fn();
       Element.prototype.scrollIntoView = llevar;
 
-      await volviendo('listo');
+      await volviendo('espera');
       await fixture.whenStable();
 
       expect(llevar.mock.contexts[0]).toBe(elemento().querySelector('#resultado-del-pago'));

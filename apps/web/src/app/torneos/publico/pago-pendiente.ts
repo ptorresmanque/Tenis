@@ -39,7 +39,9 @@ export function olvidarPagoPendiente(): string | null {
 }
 
 /**
- * Lo que se le dice en Torneos a quien termina una inscripción (`?pago=…`).
+ * Lo que se le dice en Torneos a quien termina una inscripción (`?pago=…`). Los de variante
+ * éxito confirman algo hecho y van al snackbar; los demás hay que leerlos y quedan fijos en la
+ * página (T324, S2).
  *
  * **Los dos finales importan por igual**: que el pago entró hay que decirlo, y que no
  * entró, más — esa persona tiene que enterarse de que **no quedó inscrita**, porque su
@@ -68,9 +70,7 @@ export const AVISOS_DEL_PAGO: Record<string, { variante: VarianteAviso; texto: s
   // La transferencia: el lugar queda tomado, pero falta que el club confirme el comprobante.
   comprobante: {
     variante: 'exito',
-    texto:
-      'Recibimos tu comprobante: el club lo revisa y te avisa. Mientras tanto, tu lugar ' +
-      'queda tomado.',
+    texto: 'Recibimos tu comprobante: tu lugar queda tomado y el club te avisa al revisarlo.',
   },
   // La categoría gratis.
   inscrito: {
