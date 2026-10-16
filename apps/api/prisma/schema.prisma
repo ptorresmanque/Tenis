@@ -1415,9 +1415,10 @@ enum MedioPagoInscripcion {
 
 /// Quién juega un torneo.
 ///
-/// **Pasado el cupo se entra en lista de espera, no se rechaza.** El club llama por
-/// teléfono antes de meter a alguien en un cuadro, así que promover es una decisión
-/// suya y no un automatismo: ver `SPEC-torneos.md` § Inscripción.
+/// **Pasado el cupo se entra en lista de espera, no se rechaza, y no se cobra.** El lugar
+/// que se abre se le ofrece al primero de la fila con un plazo (`cupoOfrecidoHasta`), y
+/// promover a mano queda para los casos especiales: ver `SPEC-torneos.md` § Lista de espera
+/// sin cobro.
 model InscripcionTorneo {
   id        Int @id @default(autoincrement())
   torneoId  Int @map("torneo_id")
