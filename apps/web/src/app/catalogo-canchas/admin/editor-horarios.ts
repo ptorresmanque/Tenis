@@ -66,10 +66,7 @@ interface FilaDeDia {
       <!-- La tabla lleva siete filas de dos horas cada una y no se encoge más:
            el scroll va acá para que no empuje el ancho del documento entero. -->
       <div class="overflow-x-auto">
-      <table mat-table class="densa text-sm" [dataSource]="filas()" [trackBy]="porDia">
-        <caption class="sr-only">
-          Horario de apertura de {{ ambito().nombre }}
-        </caption>
+      <table mat-table [attr.aria-label]="'Horario de apertura de ' + ambito().nombre" class="densa text-sm" [dataSource]="filas()" [trackBy]="porDia">
         <ng-container matColumnDef="dia">
           <th mat-header-cell *matHeaderCellDef scope="col" class="pe-3 text-start font-medium">
             Día

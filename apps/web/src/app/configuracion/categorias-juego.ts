@@ -118,10 +118,7 @@ import { LO_HECHO } from '../ui/material';
                (TV7.3): con el aire de la tabla normal no cabía ni a 375, se
                desplazaba 6px y partía "Volver a ofrecer" en dos líneas. Así
                mide justo los 326px que quedan a 360. -->
-          <table mat-table class="densa" [dataSource]="categorias.value() ?? []">
-            <caption class="sr-only">
-              Categorías de juego, de la más baja a la más alta
-            </caption>
+          <table mat-table aria-label="Categorías de juego, de la más baja a la más alta" class="densa" [dataSource]="categorias.value() ?? []">
             <ng-container matColumnDef="categoria">
               <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
               <td mat-cell *matCellDef="let categoria" class="font-medium">

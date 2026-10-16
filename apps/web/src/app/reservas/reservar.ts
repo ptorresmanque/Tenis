@@ -155,7 +155,7 @@ const MAXIMO_ACOMPANANTES = 3;
                   <mat-label>{{
                     esSocio() ? 'Nombre de un socio o de un invitado' : 'Nombre de quien juega contigo'
                   }}</mat-label>
-                  <mat-chip-grid #listaDeChips>
+                  <mat-chip-grid #listaDeChips aria-label="Quienes juegan contigo">
                     @for (acompanante of acompanantes(); track $index) {
                       <mat-chip-row (removed)="quitar($index)">
                         {{ etiqueta(acompanante) }}

@@ -23,6 +23,7 @@ import { MatProgressSpinner } from '@angular/material/progress-spinner';
   template: `
     @if (compacto()) {
       <div class="flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
+        <!-- mat-guidelines-ignore: progress-sin-label — aria-hidden a propósito: se anuncia el texto de al lado, que en la agenda o la grilla vive en una región viva (T302) -->
         <mat-progress-spinner
           [mode]="quieto ? 'determinate' : 'indeterminate'"
           [value]="75"
@@ -32,6 +33,7 @@ import { MatProgressSpinner } from '@angular/material/progress-spinner';
         <span data-etiqueta>{{ etiqueta() }}</span>
       </div>
     } @else {
+      <!-- mat-guidelines-ignore: progress-sin-label — aria-hidden a propósito: se anuncia el texto de abajo, que en la agenda o la grilla vive en una región viva (T302) -->
       <mat-progress-bar mode="indeterminate" aria-hidden="true" />
       <p data-etiqueta class="mt-2 text-sm text-muted-foreground">{{ etiqueta() }}</p>
 

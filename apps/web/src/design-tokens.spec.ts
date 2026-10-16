@@ -2033,3 +2033,65 @@ describe('Crear no se alterna con Cerrar (T291)', () => {
     expect(infractores).toEqual([]);
   });
 });
+
+/**
+ * T302 (SPEC-panel.md, módulo `reglas`). Una tabla sin nombre se anuncia como «tabla, 5
+ * columnas» y nada más: quien navega con lector de pantalla no sabe si son los pedidos, el
+ * padrón o el ranking. La auditoría del skill 1.2.0 lo cuenta como error (`tabla-sin-label`).
+ */
+describe('Las tablas tienen nombre (T302)', () => {
+  it('**toda `mat-table` lleva `aria-label` o `aria-labelledby`**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [tabla] of sinComentarios(contenido).matchAll(/<table\b[^>]*\bmat-table\b[^>]*>/g)) {
+        if (!/\b(?:\[attr\.)?aria-label(?:ledby)?\]?=/.test(tabla)) {
+          infractores.push(`${archivo}: ${tabla.replace(/\s+/g, ' ').slice(0, 80)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});
+
+/**
+ * T303 (SPEC-panel.md D16 y D17). Elegir en un calendario no cambia la fecha hasta «Aplicar», y
+ * el campo dice cómo se escribe a mano. La documentación de Material pide la confirmación para
+ * quien usa tecnología asistiva: sin ella, recorrer los días con las flechas va cambiando el
+ * valor en cada tecla.
+ */
+describe('Los calendarios confirman y dicen su formato (T303)', () => {
+  it('**todo `mat-datepicker` lleva «Cancelar / Aplicar»**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      const limpio = sinComentarios(contenido);
+      for (const [calendario] of limpio.matchAll(
+        /<mat-datepicker(?=[\s/>])[^>]*?(?:\/>|>[\s\S]*?<\/mat-datepicker>)/g,
+      )) {
+        if (!/<mat-datepicker-actions>[\s\S]*matDatepickerCancel[\s\S]*matDatepickerApply/.test(calendario)) {
+          infractores.push(`${archivo}: ${calendario.replace(/\s+/g, ' ').slice(0, 60)}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+
+  it('**todo campo de fecha dice «dd-mm-aaaa» en su ayuda**', () => {
+    const infractores: string[] = [];
+
+    for (const { archivo, contenido } of plantillas()) {
+      for (const [campo] of sinComentarios(contenido).matchAll(
+        /<mat-form-field\b[\s\S]*?<\/mat-form-field>/g,
+      )) {
+        if (/\[matDatepicker\]/.test(campo) && !/<mat-hint\b[^>]*>[^<]*dd-mm-aaaa/.test(campo)) {
+          infractores.push(`${archivo}: ${/#(\w+)/.exec(campo.slice(campo.indexOf('<mat-datepicker ')))?.[1]}`);
+        }
+      }
+    }
+
+    expect(infractores).toEqual([]);
+  });
+});

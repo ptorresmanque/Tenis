@@ -142,7 +142,13 @@ function enBlanco(): Formulario {
             [(ngModel)]="nueva.fechaDesde"
           />
           <mat-datepicker-toggle matIconSuffix [for]="calendarioBloqueoFechaDesde" />
-          <mat-datepicker #calendarioBloqueoFechaDesde />
+          <mat-datepicker #calendarioBloqueoFechaDesde>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
         </mat-form-field>
         <mat-form-field class="chico w-32">
           <input
@@ -177,7 +183,13 @@ function enBlanco(): Formulario {
             [(ngModel)]="nueva.fechaHasta"
           />
           <mat-datepicker-toggle matIconSuffix [for]="calendarioBloqueoFechaHasta" />
-          <mat-datepicker #calendarioBloqueoFechaHasta />
+          <mat-datepicker #calendarioBloqueoFechaHasta>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
         </mat-form-field>
         <mat-form-field class="chico w-32">
           <input

@@ -115,10 +115,7 @@ function mesActual(): string {
       />
     } @else {
       <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
-        <table mat-table [dataSource]="cuotas()">
-          <caption class="sr-only">
-            Cuotas de {{ mes() }}, {{ cuotas().length }} en total
-          </caption>
+        <table mat-table [attr.aria-label]="'Cuotas de ' + mes() + ', ' + cuotas().length + ' en total'" [dataSource]="cuotas()">
           <ng-container matColumnDef="numero">
             <th mat-header-cell *matHeaderCellDef scope="col">Nº</th>
             <td mat-cell *matCellDef="let cuota" class="font-mono text-sm">

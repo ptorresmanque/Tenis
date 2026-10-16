@@ -51,10 +51,7 @@ import { Cuotas } from '../cuotas.service';
       </p>
 
       <div class="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
-        <table mat-table [dataSource]="morosos.value()">
-          <caption class="sr-only">
-            Socios con cuotas impagas
-          </caption>
+        <table mat-table aria-label="Socios con cuotas impagas" [dataSource]="morosos.value()">
           <ng-container matColumnDef="numero">
             <th mat-header-cell *matHeaderCellDef scope="col">Nº</th>
             <td mat-cell *matCellDef="let moroso" class="font-mono text-sm">

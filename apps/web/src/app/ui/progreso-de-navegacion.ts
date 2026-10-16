@@ -35,6 +35,7 @@ const RETARDO_EN_MILISEGUNDOS = 200;
          pantalla y vuelve a empezar. Con "reducir movimiento" se queda quieta. El «fixed!» es
          porque Material le fija «position: relative» sin capa. -->
     @if (visible()) {
+      <!-- mat-guidelines-ignore: progress-sin-label — aria-hidden a propósito: anunciar «cargando» en cada enlace sería ruido (T151, T302) -->
       <mat-progress-bar
         data-barra
         mode="indeterminate"

@@ -203,12 +203,10 @@ const AVISOS: Record<string, { variante: 'exito' | 'error'; texto: string }> = {
                          (1rem por lado), cuatro columnas no caben en 296px. -->
                     <table
                       mat-table
+                      [attr.aria-label]="'Categorías de ' + torneo.nombre"
                       class="max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5"
                       [dataSource]="torneo.categorias"
                     >
-                      <caption class="sr-only">
-                        Categorías de {{ torneo.nombre }}
-                      </caption>
                       <ng-container matColumnDef="categoria">
                         <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
                         <td

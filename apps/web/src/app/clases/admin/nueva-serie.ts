@@ -216,7 +216,13 @@ const enBlanco = () => ({
             [(ngModel)]="datos.desde"
           />
           <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
-          <mat-datepicker #calendarioDesde />
+          <mat-datepicker #calendarioDesde>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
         </mat-form-field>
 
         <mat-form-field class="w-48">
@@ -230,7 +236,13 @@ const enBlanco = () => ({
             [(ngModel)]="datos.hasta"
           />
           <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
-          <mat-datepicker #calendarioHasta />
+          <mat-datepicker #calendarioHasta>
+            <mat-datepicker-actions>
+              <button matButton type="button" matDatepickerCancel>Cancelar</button>
+              <button matButton type="button" matDatepickerApply>Aplicar</button>
+            </mat-datepicker-actions>
+          </mat-datepicker>
+          <mat-hint>dd-mm-aaaa</mat-hint>
         </mat-form-field>
 
         @if (datos.tipo === 'TENIS') {

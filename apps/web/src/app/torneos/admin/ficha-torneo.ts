@@ -215,7 +215,13 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
                   [(ngModel)]="datos().fechaInicio"
                 />
                 <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaInicio" />
-                <mat-datepicker #calendarioFechaInicio />
+                <mat-datepicker #calendarioFechaInicio>
+                  <mat-datepicker-actions>
+                    <button matButton type="button" matDatepickerCancel>Cancelar</button>
+                    <button matButton type="button" matDatepickerApply>Aplicar</button>
+                  </mat-datepicker-actions>
+                </mat-datepicker>
+                <mat-hint>dd-mm-aaaa</mat-hint>
               </mat-form-field>
 
               <mat-form-field>
@@ -230,7 +236,13 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
                   [(ngModel)]="datos().fechaFin"
                 />
                 <mat-datepicker-toggle matIconSuffix [for]="calendarioFechaFin" />
-                <mat-datepicker #calendarioFechaFin />
+                <mat-datepicker #calendarioFechaFin>
+                  <mat-datepicker-actions>
+                    <button matButton type="button" matDatepickerCancel>Cancelar</button>
+                    <button matButton type="button" matDatepickerApply>Aplicar</button>
+                  </mat-datepicker-actions>
+                </mat-datepicker>
+                <mat-hint>dd-mm-aaaa</mat-hint>
               </mat-form-field>
 
               <mat-form-field>
@@ -245,7 +257,13 @@ const PESTANAS: { id: Pestana; nombre: string; icono: string }[] = [
                   [(ngModel)]="datos().cierreInscripcion"
                 />
                 <mat-datepicker-toggle matIconSuffix [for]="calendarioCierreInscripcion" />
-                <mat-datepicker #calendarioCierreInscripcion />
+                <mat-datepicker #calendarioCierreInscripcion>
+                  <mat-datepicker-actions>
+                    <button matButton type="button" matDatepickerCancel>Cancelar</button>
+                    <button matButton type="button" matDatepickerApply>Aplicar</button>
+                  </mat-datepicker-actions>
+                </mat-datepicker>
+                <mat-hint>dd-mm-aaaa</mat-hint>
               </mat-form-field>
 
               <mat-form-field>

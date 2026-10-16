@@ -1,4 +1,5 @@
 import { Component, computed, inject, resource, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
@@ -37,6 +38,7 @@ import {
 @Component({
   selector: 'app-ocupacion-panel',
   imports: [
+    MatButton,
     MatTableModule,
     MatSelectModule,
     MatDatepickerModule,
@@ -68,7 +70,13 @@ import {
           (dateChange)="desde.set($event.value)"
         />
         <mat-datepicker-toggle matIconSuffix [for]="calendarioDesde" />
-        <mat-datepicker #calendarioDesde />
+        <mat-datepicker #calendarioDesde>
+          <mat-datepicker-actions>
+            <button matButton type="button" matDatepickerCancel>Cancelar</button>
+            <button matButton type="button" matDatepickerApply>Aplicar</button>
+          </mat-datepicker-actions>
+        </mat-datepicker>
+        <mat-hint>dd-mm-aaaa</mat-hint>
       </mat-form-field>
 
       <mat-form-field>
@@ -83,7 +91,13 @@ import {
           (dateChange)="hasta.set($event.value)"
         />
         <mat-datepicker-toggle matIconSuffix [for]="calendarioHasta" />
-        <mat-datepicker #calendarioHasta />
+        <mat-datepicker #calendarioHasta>
+          <mat-datepicker-actions>
+            <button matButton type="button" matDatepickerCancel>Cancelar</button>
+            <button matButton type="button" matDatepickerApply>Aplicar</button>
+          </mat-datepicker-actions>
+        </mat-datepicker>
+        <mat-hint>dd-mm-aaaa</mat-hint>
       </mat-form-field>
 
       <mat-form-field>
@@ -115,13 +129,7 @@ import {
         />
       } @else {
         <div class="mt-6 overflow-x-auto">
-          <table mat-table class="text-sm" [dataSource]="datos.filas">
-            <caption class="sr-only">
-              Ocupación del período, cortada por
-              {{
-                nombreDelCorte(datos.corte)
-              }}
-            </caption>
+          <table mat-table [attr.aria-label]="'Ocupación del período, cortada por ' + nombreDelCorte(datos.corte)" class="text-sm" [dataSource]="datos.filas">
             <ng-container matColumnDef="corte">
               <th mat-header-cell *matHeaderCellDef scope="col">Corte</th>
               <th *matCellDef="let fila" scope="row" class="mat-mdc-cell mdc-data-table__cell">
