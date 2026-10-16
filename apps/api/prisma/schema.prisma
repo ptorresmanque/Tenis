@@ -596,6 +596,10 @@ model ConfiguracionClub {
   informeDiarioActivo Boolean @default(true) @map("informe_diario_activo")
   informeDiarioHora   Int     @default(7) @map("informe_diario_hora")
 
+  /// Cuántos minutos se le guarda el cupo al primero de la lista de espera cuando se abre uno
+  /// (T325, SPEC-torneos.md § Lista de espera sin cobro, E1). Corre solo de 8:00 a 22:00 (E7).
+  plazoCupoListaEsperaMin Int @default(30) @map("plazo_cupo_lista_espera_min")
+
   /// Reservas por día de juego, sin importar su duración (T84). Antes contaba "horas".
   cupoDiarioSocioReservas Int @default(1) @map("cupo_diario_socio_reservas")
   /// Reservas pico por semana, de lunes a domingo (T84).
@@ -1478,6 +1482,11 @@ model InscripcionTorneo {
   /// a su hijo deja su propio correo, y otro torneo puede traer otro. **Nulo** en las de
   /// antes de T127 y en las que el admin anota sin uno; la pública lo exige.
   email String? @db.VarChar(191)
+
+  /// Hasta cuándo se le guarda el cupo a quien estaba en lista de espera y recibió la oferta
+  /// (T325, SPEC-torneos.md § Lista de espera sin cobro). **Nulo** sin oferta. Vencida y con la
+  /// inscripción `RETIRADA`, es el motivo del retiro: no pagó a tiempo (E2).
+  cupoOfrecidoHasta DateTime? @map("cupo_ofrecido_hasta")
 
   inscritaEn DateTime                @default(now()) @map("inscrita_en")
 
