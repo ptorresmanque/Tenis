@@ -30,7 +30,8 @@ const MESES = [
 ];
 
 /**
- * Lo que el socio debe, y el botón para pagarlo.
+ * Lo que el socio debe, y el botón para pagarlo. Es la pestaña «Cuota» de Mi cuenta (T318),
+ * que pone el título.
  *
  * **Es la pantalla que evita la conversación incómoda en el mesón**, y la razón por la
  * que este módulo se hizo completo. Quien está moroso se entera acá y lo resuelve sin
@@ -40,11 +41,9 @@ const MESES = [
  * mismo menú, y un 403 se lee como que el sistema está roto.
  */
 @Component({
-  selector: 'app-mi-cuenta',
+  selector: 'app-cuota-del-socio',
   imports: [MatButton, Aviso, EstadoVacio, Esqueleto, MatChipsModule, MatIcon],
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Mi cuenta</h1>
-
     @if (vueltaDelPago(); as estado) {
       @if (estado === 'listo') {
         <app-aviso variante="exito" titulo="Pago recibido" class="mt-4 block">
@@ -140,7 +139,7 @@ const MESES = [
     }
   `,
 })
-export class MiCuenta {
+export class CuotaDelSocio {
   private readonly api = inject(Cuotas);
 
   /**

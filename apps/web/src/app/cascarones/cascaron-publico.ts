@@ -152,7 +152,6 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
                 </p>
 
                 @if (sesion.socioId !== null) {
-                  <a mat-menu-item routerLink="/mis-reservas">Mis reservas</a>
                   <a mat-menu-item routerLink="/mi-cuenta">Mi cuenta</a>
                 }
                 @if (inicioDelPanel(); as destino) {
@@ -342,17 +341,10 @@ export class CascaronPublico {
     // Al lado de los torneos porque es su consecuencia: quien mira el cuadro de un
     // torneo terminado quiere saber en qué lo dejó.
     { ruta: '/ranking', etiqueta: 'Ranking' },
-    // Solo para quien tiene ficha de socio: al resto la pantalla le mostraría
-    // una lista siempre vacía.
-    ...(this.usuario()?.socioId != null
-      ? [
-          { ruta: '/mis-reservas', etiqueta: 'Mis reservas' },
-          // Acá y no en el sitio público: cargar un amistoso y confirmarle uno al
-          // rival son cosas de socio, y al resto la pantalla le quedaría vacía.
-          { ruta: '/mis-partidos', etiqueta: 'Mis partidos' },
-          { ruta: '/mi-cuenta', etiqueta: 'Mi cuenta' },
-        ]
-      : []),
+    // Solo para quien tiene ficha de socio: al resto sus pestañas le mostrarían listas
+    // siempre vacías. Un ítem desde T318: sus reservas, sus partidos (los amistosos que
+    // carga y confirma) y su cuota son pestañas de Mi cuenta.
+    ...(this.usuario()?.socioId != null ? [{ ruta: '/mi-cuenta', etiqueta: 'Mi cuenta' }] : []),
     { ruta: '/el-club', etiqueta: 'El club' },
   ]);
 

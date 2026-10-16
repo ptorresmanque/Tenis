@@ -4,7 +4,7 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Cuotas, MiCuota } from './cuotas.service';
-import { MiCuenta } from './mi-cuenta';
+import { CuotaDelSocio } from './mi-cuenta';
 
 /**
  * T43. Lo que el socio debe, y el botón para pagarlo.
@@ -14,7 +14,7 @@ import { MiCuenta } from './mi-cuenta';
  * **la vuelta de la pasarela diga cómo fue**: sin esa señal, quien acaba de pagar no
  * ve nada distinto y aprieta otra vez.
  */
-describe('MiCuenta', () => {
+describe('CuotaDelSocio', () => {
   const MENSUAL: MiCuota = {
     id: 1,
     tipo: 'MENSUAL',
@@ -26,7 +26,7 @@ describe('MiCuenta', () => {
     medio: null,
   };
 
-  let fixture: ComponentFixture<MiCuenta>;
+  let fixture: ComponentFixture<CuotaDelSocio>;
   let api: {
     mias: ReturnType<typeof vi.fn>;
     pagar: ReturnType<typeof vi.fn>;
@@ -66,7 +66,7 @@ describe('MiCuenta', () => {
       ],
     });
 
-    fixture = TestBed.createComponent(MiCuenta);
+    fixture = TestBed.createComponent(CuotaDelSocio);
     await fixture.whenStable();
     fixture.detectChanges();
   };
@@ -179,7 +179,7 @@ describe('MiCuenta', () => {
       ],
     });
 
-    const pendiente = TestBed.createComponent(MiCuenta);
+    const pendiente = TestBed.createComponent(CuotaDelSocio);
     pendiente.detectChanges();
 
     expect((pendiente.nativeElement as HTMLElement).querySelector('app-esqueleto')).not.toBeNull();

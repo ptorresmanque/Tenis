@@ -42,12 +42,9 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./catalogo-canchas/grilla/grilla').then((m) => m.Grilla),
       },
-      {
-        path: 'mis-reservas',
-        title: 'Mis reservas — FEDAL Tennis Center',
-        loadComponent: () =>
-          import('./reservas/mis-reservas/mis-reservas').then((m) => m.MisReservas),
-      },
+      // Mis reservas y Mis partidos son pestañas de Mi cuenta desde T318 (SPEC-sitio.md A8).
+      { path: 'mis-reservas', redirectTo: '/mi-cuenta/reservas' },
+      { path: 'mis-partidos', redirectTo: '/mi-cuenta/partidos' },
       {
         path: 'reservas/confirmacion',
         title: 'Tu reserva — FEDAL Tennis Center',
@@ -57,7 +54,33 @@ export const routes: Routes = [
       {
         path: 'mi-cuenta',
         title: 'Mi cuenta — FEDAL Tennis Center',
-        loadComponent: () => import('./cuotas/mi-cuenta').then((m) => m.MiCuenta),
+        // T318 (SPEC-sitio.md A8): las reservas, los partidos y la cuota del socio, en pestañas.
+        loadComponent: () => import('./cuenta/mi-cuenta').then((m) => m.MiCuenta),
+        children: [
+          // Abre en Reservas, salvo la vuelta de Webpay (`/mi-cuenta?pago=…`), que va a la
+          // cuota, donde está su aviso. Los parámetros siguen con la redirección.
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: ({ queryParams }) => (queryParams['pago'] ? 'cuota' : 'reservas'),
+          },
+          {
+            path: 'reservas',
+            title: 'Mi cuenta · Reservas — FEDAL Tennis Center',
+            loadComponent: () =>
+              import('./reservas/mis-reservas/mis-reservas').then((m) => m.MisReservas),
+          },
+          {
+            path: 'partidos',
+            title: 'Mi cuenta · Partidos — FEDAL Tennis Center',
+            loadComponent: () => import('./ranking/mis-partidos').then((m) => m.MisPartidos),
+          },
+          {
+            path: 'cuota',
+            title: 'Mi cuenta · Cuota — FEDAL Tennis Center',
+            loadComponent: () => import('./cuotas/mi-cuenta').then((m) => m.CuotaDelSocio),
+          },
+        ],
       },
       {
         path: 'clases',
@@ -87,12 +110,6 @@ export const routes: Routes = [
         path: 'tours/:id',
         title: 'Tour — FEDAL Tennis Center',
         loadComponent: () => import('./tours/publico/tour').then((m) => m.TourPublicoPagina),
-      },
-      {
-        path: 'mis-partidos',
-        title: 'Mis partidos — FEDAL Tennis Center',
-        loadComponent: () =>
-          import('./ranking/mis-partidos').then((m) => m.MisPartidos),
       },
       {
         path: 'ranking',
