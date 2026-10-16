@@ -353,6 +353,15 @@ describe('TorneosPublicos', () => {
       expect(avisoDeLoHecho()).toBe('');
     });
 
+    it('**la lista de espera dice que no se cobra y que se avisa por correo** (T328)', async () => {
+      await volviendo('espera');
+
+      const aviso = elemento().querySelector('#resultado-del-pago')?.textContent ?? '';
+      expect(aviso).toContain('sin pagar nada');
+      expect(aviso).toContain('te avisamos por correo');
+      expect(aviso).not.toContain('el club te llama');
+    });
+
     it('**la página lleva a la vista el aviso que hay que leer** (T323)', async () => {
       // En el escritorio, el hero lo dejaba bajo el borde de la pantalla. jsdom no tiene
       // scrollIntoView: se pone uno que anota sobre qué elemento se llamó.

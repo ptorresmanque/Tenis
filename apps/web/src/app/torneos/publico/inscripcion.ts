@@ -8,6 +8,7 @@ import {
   inject,
   Injector,
   input,
+  output,
   signal,
   untracked,
   viewChild,
@@ -278,7 +279,15 @@ const enBlanco = () => ({
                pago quedaba en un panel que se podía cerrar: el cupo se llenaba con gente
                que nunca pagó. Ahora el comprobante viaja en el mismo envío y el servidor
                rechaza la inscripción que llega sin él. -->
-          @if (montoElegido() > 0) {
+          @if (quedaEnEspera()) {
+            <!-- **En espera no se cobra** (T328, SPEC-torneos.md § Lista de espera sin cobro): si
+                 nunca se abre un cupo, no hay plata que devolver. Lo decide el servidor; esto
+                 solo no pregunta lo que no se va a usar. -->
+            <app-aviso variante="aviso" class="mt-4 block">
+              Esta categoría está llena: quedas en la lista de espera, sin pagar nada. Si se abre
+              un cupo, te avisamos por correo para que lo tomes.
+            </app-aviso>
+          } @else if (montoElegido() > 0) {
             <fieldset class="mt-4 border border-border p-4">
               <legend
                 id="como-vas-a-pagar"
@@ -427,6 +436,12 @@ export class InscripcionATorneo {
   readonly torneoId = input.required<number>();
   readonly categorias = input.required<CategoriaPublica[]>();
 
+  /**
+   * El servidor rechazó el envío, y los cupos que se mostraron pueden estar viejos (T328): con una
+   * categoría que se veía llena y ya tiene lugar, el formulario no preguntaría cómo pagar.
+   */
+  readonly rechazada = output<void>();
+
   protected datos = enBlanco();
 
   /** La forma de correo que exige el servidor (`leerCorreo`), con los espacios de los bordes. */
@@ -503,11 +518,21 @@ export class InscripcionATorneo {
     );
   }
 
+  /** La categoría elegida en el segundo paso, o ninguna todavía. */
+  private elegida(): CategoriaPublica | undefined {
+    const id = Number(this.datos.categoriaJuegoId);
+
+    return this.categorias().find((c) => c.categoriaJuegoId === id);
+  }
+
+  /** Si la elegida ya no tiene cupos: quien se inscribe queda en la lista de espera. */
+  protected quedaEnEspera(): boolean {
+    return this.elegida()?.cuposLibres === 0;
+  }
+
   /** Lo que se va a mandar, al final, antes de mandarlo. */
   protected resumen(): string {
-    const elegida = this.categorias().find(
-      (c) => c.categoriaJuegoId === Number(this.datos.categoriaJuegoId),
-    );
+    const elegida = this.elegida();
     if (!elegida) return '';
 
     const en = `${elegida.categoria}, ${this.precio(elegida.montoClp)}.`;
@@ -579,12 +604,7 @@ export class InscripcionATorneo {
    * preguntar cómo se paga.
    */
   protected montoElegido(): number {
-    const elegida = Number(this.datos.categoriaJuegoId);
-
-    return (
-      this.categorias().find((c) => c.categoriaJuegoId === elegida)?.montoClp ??
-      0
-    );
+    return this.elegida()?.montoClp ?? 0;
   }
 
   protected elegirComprobante(evento: Event): void {
@@ -661,8 +681,9 @@ export class InscripcionATorneo {
 
     // Las dos comprobaciones del pago son **cortesía**: el servidor las repite y es el
     // único que sabe cuánto cobra ese cuadro. Están acá para no hacer viajar la imagen
-    // —ni el formulario entero— por algo que se ve sin salir de la pantalla.
-    const cobra = this.montoElegido() > 0;
+    // —ni el formulario entero— por algo que se ve sin salir de la pantalla. En la lista de
+    // espera no se cobra (T328).
+    const cobra = this.montoElegido() > 0 && !this.quedaEnEspera();
     const medioPago = cobra ? this.datos.medioPago : '';
 
     if (cobra && this.datos.medioPago === '') {
@@ -718,8 +739,10 @@ export class InscripcionATorneo {
       // se pueda cerrar: es la mitad de "el pago no es un segundo paso" que el servidor
       // no puede imponer, porque cobrar exige que la inscripción ya exista. El panel
       // queda armado debajo, y es lo que se ve si la pasarela no responde. La vuelta de
-      // Webpay trae a Torneos, con su aviso.
-      if (hecha.estadoPago === 'PENDIENTE' && medioPago === 'WEBPAY') {
+      // Webpay trae a Torneos, con su aviso. **Solo si entró al cuadro**: si alguien llegó antes y
+      // quedó en espera, no se le cobra (T328).
+      const aPagar = hecha.estado === 'INSCRITA' && hecha.estadoPago === 'PENDIENTE';
+      if (aPagar && medioPago === 'WEBPAY') {
         this.porPagar.set({
           token: hecha.token,
           montoClp: hecha.montoClp,
@@ -741,6 +764,7 @@ export class InscripcionATorneo {
       this.error.set(
         mensajeDelServidor(falla, 'No se pudo completar la inscripción.'),
       );
+      this.rechazada.emit();
     } finally {
       this.enviando.set(false);
     }

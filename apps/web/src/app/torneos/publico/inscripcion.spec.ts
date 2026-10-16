@@ -23,7 +23,9 @@ import { InscripcionATorneo } from './inscripcion';
 describe('InscripcionATorneo', () => {
   const CATEGORIAS: CategoriaPublica[] = [
     { id: 7, categoriaJuegoId: 20, categoria: '4ª', montoClp: 0, cupo: 4, cuposLibres: 2, armado: false },
-    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: 0, armado: false },
+    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: 1, armado: false },
+    // Cobra y está llena: quien la elige queda en la lista de espera, sin pagar (T328).
+    { id: 9, categoriaJuegoId: 30, categoria: '3ª', montoClp: 12_000, cupo: 2, cuposLibres: 0, armado: false },
   ];
 
   let fixture: ComponentFixture<InscripcionATorneo>;
@@ -277,6 +279,52 @@ describe('InscripcionATorneo', () => {
     alTerminar('espera');
   });
 
+  describe('con la categoría llena no se paga (T328, SPEC-torneos.md § Lista de espera sin cobro)', () => {
+    const enEspera = {
+      id: 4,
+      estado: 'LISTA_ESPERA',
+      estadoPago: 'PENDIENTE',
+      token: 'llave-4',
+      montoClp: 12_000,
+      categoria: '3ª',
+      jugador: 'Rodrigo Soto',
+    };
+
+    it('**el paso Pago no pregunta cómo se paga**: dice que queda en espera, sin pagar', async () => {
+      await escribir({ ...completo, categoria: '30' });
+
+      expect(elemento().querySelector('input[name="medioPago"]')).toBeNull();
+      expect(texto()).toContain('quedas en la lista de espera, sin pagar nada');
+      expect(texto()).toContain('te avisamos por correo');
+    });
+
+    it('**se manda sin medio de pago** y termina en Torneos con el aviso de la espera', async () => {
+      api.inscribirseEnTorneo.mockResolvedValueOnce(enEspera);
+
+      await escribir({ ...completo, categoria: '30' });
+      await enviar();
+
+      expect(api.inscribirseEnTorneo).toHaveBeenCalledWith(
+        5,
+        expect.objectContaining({ categoriaJuegoId: 30, medioPago: '' }),
+        undefined,
+      );
+      alTerminar('espera');
+    });
+
+    it('**si el servidor la deja en espera, no sale a Webpay** aunque se haya elegido', async () => {
+      // El formulario vio lugar y alguien llegó antes: en espera no se cobra.
+      api.inscribirseEnTorneo.mockResolvedValueOnce({ ...enEspera, montoClp: 15_000, categoria: 'Honor' });
+
+      await escribir({ ...completo, categoria: '60' });
+      await elegirMedio('WEBPAY');
+      await enviar();
+
+      expect(api.pagarInscripcion).not.toHaveBeenCalled();
+      alTerminar('espera');
+    });
+  });
+
   describe('el pago va en el mismo envío', () => {
     it('**una categoría con costo no se manda sin elegir cómo se paga**', async () => {
       // Era el agujero que encontró el club: la inscripción se creaba igual y el pago
@@ -384,6 +432,19 @@ describe('InscripcionATorneo', () => {
       expect(opciones).toContain('$15.000');
       expect(opciones).toContain('gratis');
     });
+  });
+
+  it('**un rechazo del servidor se avisa a la página**, para que vuelva a leer los cupos (T328)', async () => {
+    api.inscribirseEnTorneo.mockRejectedValueOnce({
+      error: { message: 'Esta categoría tiene lugar: elige cómo vas a pagar la inscripción.' },
+    });
+    const rechazada = vi.fn();
+    fixture.componentInstance.rechazada.subscribe(rechazada);
+
+    await escribir(completo);
+    await enviar();
+
+    expect(rechazada).toHaveBeenCalledOnce();
   });
 
   it('el mensaje del servidor se muestra tal cual cuando rechaza', async () => {
