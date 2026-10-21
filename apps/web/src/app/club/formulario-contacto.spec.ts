@@ -106,6 +106,18 @@ describe('FormularioContacto', () => {
     expect(elemento().textContent).toContain('15 minutos');
   });
 
+  it('abre con «Quiero ser socio» elegido, y el botón dice «Enviar mensaje» (P12)', async () => {
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elemento().querySelector('.mat-mdc-select-value-text')?.textContent?.trim()).toBe(
+      'Quiero ser socio',
+    );
+    expect(elemento().querySelector('button[type="submit"]')?.textContent?.trim()).toBe(
+      'Enviar mensaje',
+    );
+  });
+
   it('los cuatro públicos del club están en el selector', () => {
     const opciones = valoresDe(fixture, 'mat-select');
 

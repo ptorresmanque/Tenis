@@ -59,6 +59,14 @@ describe('ToursPublicos', () => {
     );
   });
 
+  it('la bajada invita a jugar la temporada (P17)', async () => {
+    const elemento = await montar();
+
+    expect(elemento.textContent.replace(/\s+/g, ' ')).toContain(
+      'Juega la temporada completa: cada torneo suma puntos en las ligas del club y te sube en el ranking.',
+    );
+  });
+
   it('**el enlace se llama como el tour**, no como toda la tarjeta', async () => {
     const elemento = await montar();
     const enlace = tarjeta(elemento, 'Tour FEDAL').querySelector('a')!;

@@ -137,6 +137,22 @@ describe('Cascarón público: la navegación', () => {
     );
   });
 
+  it('**el primer enlace es «Reservar»**, y lleva a la grilla (P3)', () => {
+    const elemento = montarCon(null).nativeElement as HTMLElement;
+    const primero = elemento.querySelector<HTMLAnchorElement>('header nav a');
+
+    expect(primero?.textContent?.trim()).toBe('Reservar');
+    expect(primero?.getAttribute('href')).toBe('/disponibilidad');
+  });
+
+  it('el pie cuenta cómo son las canchas (P5)', () => {
+    const pie = (montarCon(null).nativeElement as HTMLElement).querySelector('footer');
+
+    expect(pie?.textContent.replace(/\s+/g, ' ')).toContain(
+      'Canchas de cemento techadas y al aire libre, con luz para jugar de noche. Reserva en línea.',
+    );
+  });
+
   it('el pie enlaza las preguntas frecuentes (T146)', () => {
     const pie = (montarCon(null).nativeElement as HTMLElement).querySelector('footer');
 

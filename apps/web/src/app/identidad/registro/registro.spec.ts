@@ -29,6 +29,13 @@ describe('Registro', () => {
     expect(enlace?.getAttribute('target')).toBe('_blank');
   });
 
+  it('dice para qué sirve la cuenta, y cómo la vincula el socio (P13)', () => {
+    expect(montar().textContent.replace(/\s+/g, ' ')).toContain(
+      'Con tu cuenta reservas más rápido, ves tus reservas y te inscribes en torneos. Si ya ' +
+        'eres socio, usa el correo que diste en el club.',
+    );
+  });
+
   it('dice que las cuentas son para mayores de 18 años', () => {
     // Los menores juegan con un adulto responsable, que es quien tiene la cuenta.
     expect(montar().textContent).toContain('mayores de 18 años');

@@ -59,7 +59,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     '[class.pb-56]': 'elegido() !== null',
   },
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Disponibilidad</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Reserva tu cancha</h1>
 
     @if (mover.activo()) {
       <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" o desde

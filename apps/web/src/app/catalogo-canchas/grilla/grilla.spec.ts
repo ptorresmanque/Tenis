@@ -208,6 +208,12 @@ describe('Grilla', () => {
    * columna por cancha, y la celda libre elige esa cancha. Reemplaza a la tabla por tipo de
    * cancha de T103, con el precio una vez arriba y en la barra.
    */
+  it('se titula «Reserva tu cancha» (P3)', async () => {
+    await montar([]);
+
+    expect(el().querySelector('h1')?.textContent?.trim()).toBe('Reserva tu cancha');
+  });
+
   describe('el tablero de la portada (T265)', () => {
     const DOS: GrillaDeCancha[] = [
       {

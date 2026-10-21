@@ -217,7 +217,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         <div>
           <app-logotipo />
           <p class="mt-3 max-w-xs text-sm text-on-campo/80">
-            Canchas duras, todas de la misma superficie. Reserva en línea.
+            Canchas de cemento techadas y al aire libre, con luz para jugar de noche. Reserva en
+            línea.
           </p>
           <!-- Las redes que el club cargó (T141). El margen negativo alinea el primer
                logo con el texto: la caja táctil mide el doble que el dibujo. -->
@@ -328,7 +329,9 @@ export class CascaronPublico {
   }
 
   protected readonly navegacion = computed(() => [
-    { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },
+    // «Reservar» y no «Disponibilidad» (P3, SPEC-sitio.md, Decimoséptima parte): el enlace
+    // nombra lo que se hace al llegar, no la pantalla.
+    { ruta: '/disponibilidad', etiqueta: 'Reservar' },
     // Para todos y no solo para socios: es la puerta del apoderado que busca clases
     // para su hijo, y ese todavía no tiene cuenta.
     { ruta: '/clases', etiqueta: 'Clases' },
