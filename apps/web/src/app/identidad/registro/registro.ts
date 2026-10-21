@@ -41,7 +41,8 @@ interface CampoDelFormulario {
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Crear cuenta</h1>
     <p class="mt-1 max-w-prose text-muted-foreground">
-      Para reservar como visitante o vincular tu cuenta de socio.
+      Con tu cuenta reservas más rápido, ves tus reservas y te inscribes en torneos. Si ya eres
+      socio, usa el correo que diste en el club.
     </p>
 
     @if (enviado()) {

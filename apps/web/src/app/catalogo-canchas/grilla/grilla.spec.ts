@@ -208,6 +208,73 @@ describe('Grilla', () => {
    * columna por cancha, y la celda libre elige esa cancha. Reemplaza a la tabla por tipo de
    * cancha de T103, con el precio una vez arriba y en la barra.
    */
+  it('se titula «Reserva tu cancha» (P3)', async () => {
+    await montar([]);
+
+    expect(el().querySelector('h1')?.textContent?.trim()).toBe('Reserva tu cancha');
+  });
+
+  /**
+   * T345 (SPEC-sitio.md, Decimoséptima parte, M2 y B3): en el teléfono los controles quedan
+   * arriba y se pierden al bajar por el tablero, y había quien no sabía que podía cambiar el
+   * día o la duración. Una línea pegada dice lo elegido, y «Cambiar» trae los controles.
+   */
+  describe('los controles a mano en el teléfono (T345)', () => {
+    const resumen = () =>
+      enTexto(el().querySelector('[data-resumen-de-controles]') as HTMLElement);
+    const hoja = () => document.querySelector('mat-bottom-sheet-container') as HTMLElement | null;
+    const abrir = async () => {
+      [...el().querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cambiar')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**la línea dice el día, la duración y las canchas que se miran**', async () => {
+      expect(resumen()).toContain('Lun 17 ago · 1 hora · Todas');
+
+      await montar(DIA, { duracion: '90' });
+      expect(resumen()).toContain('Lun 17 ago · 1 hora y media · Todas');
+    });
+
+    it('va pegada bajo el encabezado y solo en el teléfono', () => {
+      const linea = el().querySelector('[data-resumen-de-controles]') as HTMLElement;
+
+      expect(linea.className).toContain('sticky');
+      expect(linea.className).toContain('sm:hidden');
+    });
+
+    it('**«Cambiar» abre los controles en una hoja inferior, y cambiar ahí cambia la grilla**', async () => {
+      await abrir();
+
+      expect(hoja()?.querySelector('app-controles-del-dia')).not.toBeNull();
+      [...hoja()!.querySelectorAll<HTMLButtonElement>('mat-button-toggle button')]
+        .find((b) => b.textContent?.trim() === 'Con iluminación')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // La del fixture tiene luz: el tablero sigue, y la línea dice el filtro nuevo.
+      expect(resumen()).toContain('Lun 17 ago · 1 hora · Con iluminación');
+    });
+
+    it('**con la hoja abierta no se repite ningún id**: cada etiqueta nombra su campo', async () => {
+      await abrir();
+      const ids = [...document.querySelectorAll('[id]')].map((nodo) => nodo.id);
+
+      expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    });
+
+    it('«Listo» cierra la hoja', async () => {
+      await abrir();
+      [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
+      await fixture.whenStable();
+      await new Promise((listo) => setTimeout(listo, 400));
+      fixture.detectChanges();
+
+      expect(hoja()).toBeNull();
+    });
+  });
+
   describe('el tablero de la portada (T265)', () => {
     const DOS: GrillaDeCancha[] = [
       {
@@ -367,6 +434,32 @@ describe('Grilla', () => {
       DIA[0],
     ];
     const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
+
+    it('**la hora elegida se marca entera**: con 1 hora, dos celdas (T344)', async () => {
+      // Inicios cada media hora, como los manda la API: una hora ocupa dos filas.
+      const SEGUIDAS: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: ['12:00', '12:30', '13:00'].map((hora) => {
+            const inicio = `2026-08-17T${hora}:00.000Z`;
+            return {
+              ...DIA[0].bloques[0],
+              inicio,
+              fin: new Date(Date.parse(inicio) + 60 * 60 * 1000).toISOString(),
+            };
+          }),
+        },
+      ];
+      await montar(SEGUIDAS);
+
+      celdaDe('08:00', 1).querySelector('button')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(el().querySelectorAll('app-marcador [data-en-la-eleccion]')).toHaveLength(2);
+      expect(celdaDe('08:30', 1).textContent).toContain('Parte de tu elección');
+    });
+
     const elegirLaDeLas8 = async (columna = 1) => {
       celdaDe('08:00', columna).querySelector('button')!.click();
       await fixture.whenStable();
@@ -829,7 +922,9 @@ describe('Grilla', () => {
   it('el selector de día también se anuncia como clickeable', () => {
     // Desde T244, la manito y el borde que responde los pone `abre-al-tocar` en su
     // mat-form-field (tema-material.scss).
-    const fecha = (fixture.nativeElement as HTMLElement).querySelector('#fecha');
+    const fecha = (fixture.nativeElement as HTMLElement).querySelector(
+      'input[placeholder="dd-mm-aaaa"]',
+    );
 
     expect(fecha?.closest('mat-form-field')?.classList.contains('abre-al-tocar')).toBe(true);
   });

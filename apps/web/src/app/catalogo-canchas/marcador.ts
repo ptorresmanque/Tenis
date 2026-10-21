@@ -138,11 +138,23 @@ const claveDe = (canchaId: number, inicio: string) =>
               </th>
               @for (celda of fila.celdas; track celda.cancha.id; let j = $index) {
                 <td class="h-11 p-0">
+                  <!-- Las filas que siguen a la de inicio, dentro de la hora elegida (T344, B2):
+                       la misma placa, sin botón. Tocar otra libre cambia la elección. -->
+                  @if (celda.sigue) {
+                    <span
+                      data-en-la-eleccion
+                      class="flex h-full items-center justify-center border border-rotulo bg-rotulo
+                             text-on-rotulo"
+                    >
+                      <span class="sr-only">Parte de tu elección</span>
+                    </span>
+                  } @else {
                   @switch (celda.estado) {
                     @case ('libre') {
                       @if (modo() === 'elegir') {
                         <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
-                             que cambia es la placa, la marca y aria-pressed. -->
+                             que cambia es la placa, la marca y aria-pressed. La marca va arriba
+                             del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
                         @let marcada = esLaElegida(celda);
                         <button
                           type="button"
@@ -151,7 +163,7 @@ const claveDe = (canchaId: number, inicio: string) =>
                                  uppercase transition-transform active:scale-95"
                           [class]="
                             marcada
-                              ? 'border-rotulo bg-rotulo text-on-rotulo'
+                              ? 'flex-col leading-none border-rotulo bg-rotulo text-on-rotulo'
                               : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
                           "
                           [attr.data-fila]="i"
@@ -159,6 +171,7 @@ const claveDe = (canchaId: number, inicio: string) =>
                           [attr.tabindex]="esLaParada(celda) ? 0 : -1"
                           [attr.aria-label]="etiqueta()(celda.cancha, celda.bloque)"
                           [attr.aria-pressed]="marcada"
+                          [attr.data-en-la-eleccion]="marcada ? '' : null"
                           (focus)="foco.set(clave(celda))"
                           (keydown)="mover($event)"
                           (click)="elegir.emit({ cancha: celda.cancha, bloque: celda.bloque })"
@@ -233,6 +246,7 @@ const claveDe = (canchaId: number, inicio: string) =>
                       </span>
                     }
                   }
+                  }
                 </td>
               }
             </tr>
@@ -295,8 +309,11 @@ export class Marcador {
   /** En la portada la celda libre lleva a disponibilidad; en disponibilidad, se elige. */
   readonly modo = input<'enlace' | 'elegir'>('enlace');
 
-  /** La cancha y el inicio de la celda elegida, en modo elegir. */
-  readonly elegida = input<{ canchaId: number; inicio: string } | null>(null);
+  /**
+   * La cancha, el inicio y el fin de la celda elegida, en modo elegir. El fin marca las filas
+   * que siguen (T344): con 1 hora son dos, con hora y media, tres.
+   */
+  readonly elegida = input<{ canchaId: number; inicio: string; fin: string } | null>(null);
 
   /** Por qué no se le vende a quien mira una libre (lo sabe la grilla). Por omisión, se vende. */
   readonly sinVenta = input<MotivoSinVenta>(() => null);
@@ -338,6 +355,9 @@ export class Marcador {
   protected readonly filas = computed(() => {
     const ahora = Date.now();
     const grillas = this.grillas();
+    const elegida = this.elegida();
+    const desde = elegida ? new Date(elegida.inicio).getTime() : 0;
+    const hasta = elegida ? new Date(elegida.fin).getTime() : 0;
     const instantes = new Set<number>();
 
     for (const { bloques } of grillas) {
@@ -368,6 +388,9 @@ export class Marcador {
             )?.bloque?.montoClp ?? null,
           celdas: deLaHora.map(({ cancha, bloque }) => ({
             cancha,
+            // Dentro de la hora elegida y después de su inicio (T344, B2), sea cual sea el
+            // estado de su propio inicio.
+            sigue: elegida?.canchaId === cancha.id && instante > desde && instante < hasta,
             ...celdaDe(bloque, this.sinVenta()),
           })),
         };
@@ -403,7 +426,9 @@ export class Marcador {
   private readonly parada = computed(() => {
     const libres = new Set(
       this.filas().flatMap(({ celdas }) =>
-        celdas.flatMap((celda) => (celda.estado === 'libre' ? [this.clave(celda)] : [])),
+        celdas.flatMap((celda) =>
+          celda.estado === 'libre' && !celda.sigue ? [this.clave(celda)] : [],
+        ),
       ),
     );
     const elegida = this.elegida();

@@ -239,5 +239,14 @@ describe('ClasesPublicas', () => {
     expect(semana).toContain('Ana Silva · Gimnasio');
     expect(semana).not.toContain('Niños');
   });
+
+  it('la bajada invita a tomar clases (P18)', async () => {
+    await montar([], []);
+
+    expect(texto().replace(/\s+/g, ' ')).toContain(
+      'Aprende o mejora tu juego con los profesores del club: iniciación, competitivo y clases ' +
+        'para niños. Elige un horario y escríbenos para tomar tu cupo.',
+    );
+  });
 });
 

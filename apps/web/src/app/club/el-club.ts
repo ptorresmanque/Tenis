@@ -280,7 +280,7 @@ import { Esqueleto } from '../ui/esqueleto';
 
     <section class="mt-16 flex flex-wrap justify-center gap-3 aparece-al-pasar">
       <a matButton="filled" routerLink="/disponibilidad">
-        Ver disponibilidad
+        Reservar cancha
       </a>
       <a matButton="outlined" routerLink="/registro">Crear cuenta</a>
     </section>
@@ -352,7 +352,8 @@ export class ElClub {
     {
       titulo: 'Reserva',
       detalle:
-        'El socio usa su cupo. Quien no lo es deja su nombre y paga en línea al momento.',
+        'Si eres socio, confirmas y listo. Si no, pagas en línea con Webpay y la hora ' +
+        'queda tuya al tiro.',
     },
     {
       titulo: 'Ven a jugar',

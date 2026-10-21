@@ -87,8 +87,8 @@ import { Esqueleto } from '../../ui/esqueleto';
       >
         <h1 id="torneos" class="titular text-6xl sm:text-7xl lg:text-8xl">Torneos</h1>
         <p class="max-w-prose text-lg text-on-campo/90">
-          Lo que se juega este año en el club: cuándo es cada torneo, cuántos cupos
-          quedan y cómo va el cuadro.
+          Compite en el club, seas socio o no: inscríbete en línea, mira cuántos cupos
+          quedan y sigue el cuadro de cada torneo.
         </p>
       </div>
     </section>

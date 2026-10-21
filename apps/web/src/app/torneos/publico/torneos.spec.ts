@@ -143,6 +143,13 @@ describe('TorneosPublicos', () => {
     await montar([EN_INSCRIPCION]);
   });
 
+  it('la bajada invita a competir, sea socio o no (P14)', () => {
+    expect(texto().replace(/\s+/g, ' ')).toContain(
+      'Compite en el club, seas socio o no: inscríbete en línea, mira cuántos cupos quedan y ' +
+        'sigue el cuadro de cada torneo.',
+    );
+  });
+
   it('muestra el torneo con sus categorías y sus fechas en palabras', () => {
     expect(texto()).toContain('Copa de verano');
     expect(texto()).toContain('4ª');

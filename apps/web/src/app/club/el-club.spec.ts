@@ -70,6 +70,19 @@ describe('ElClub', () => {
     fixture.nativeElement.querySelector(`[aria-labelledby="${id}"]`) as HTMLElement;
   const texto = (id: string) => seccion(id).textContent?.replace(/\s+/g, ' ') ?? '';
 
+  // P2 y P4 (SPEC-sitio.md, Decimoséptima parte).
+  it('el paso 2 dice cómo reserva cada uno, y el botón del final es «Reservar cancha»', async () => {
+    await montar([]);
+    const reservar = [...fixture.nativeElement.querySelectorAll('a')].find(
+      (a: HTMLAnchorElement) => a.textContent?.trim() === 'Reservar cancha',
+    ) as HTMLAnchorElement | undefined;
+
+    expect(texto('como-funciona')).toContain(
+      'Si eres socio, confirmas y listo. Si no, pagas en línea con Webpay y la hora queda tuya al tiro.',
+    );
+    expect(reservar?.getAttribute('href')).toBe('/disponibilidad');
+  });
+
   it('**la foto de arriba es la cancha con el logo** (T305, SPEC-sitio.md D7)', async () => {
     await montar([]);
     const foto = seccion('el-club').querySelector<HTMLImageElement>('img')!;

@@ -204,6 +204,19 @@ const MOTIVOS: Record<string, string> = {
           </a>
         </div>
 
+        <!-- P11 (SPEC-sitio.md, Decimoséptima parte, B7): a quien acaba de pagar la cancha, que
+             como socio no la pagaría. Al formulario de El club, que abre con «Quiero ser socio». -->
+        @if (invitarASerSocio()) {
+          <p class="mt-6 text-center print:hidden">
+            ¿Juegas seguido? Como socio, la cancha no se paga.
+            <a
+              routerLink="/el-club"
+              fragment="titulo-contacto"
+              class="font-semibold text-primary underline"
+            >Quiero ser socio</a>
+          </p>
+        }
+
         <!-- Cancelar vive en "Mis reservas", que es donde el servidor ya dice
              hasta cuándo se puede y cuánto se devuelve. Esto lleva derecho a la
              confirmación de **esta** reserva en vez de repetir esas reglas acá,
@@ -250,6 +263,11 @@ export class ConfirmacionReserva {
   /** Quien no tiene ficha de socio no tiene lista donde cancelar. */
   protected readonly esSocio = computed(
     () => this.auth.usuario()?.socioId != null,
+  );
+
+  /** A quien pagó la hora y no es socio (P11, B7). Sin el detalle no se sabe qué pagó. */
+  protected readonly invitarASerSocio = computed(
+    () => !this.esSocio() && this.detalle.hasValue() && (this.detalle.value()?.pagadoClp ?? 0) > 0,
   );
 
   protected readonly folio = computed(
@@ -327,7 +345,7 @@ export class ConfirmacionReserva {
           icono: 'edit_calendar',
           titulo: 'Para cambiarla o cancelarla',
           detalle:
-            'Entra a "Mis reservas": ahí dice hasta cuándo se puede y cuánto se devuelve.',
+            'Entra a Mi cuenta: ahí dice hasta cuándo se puede y cuánto se devuelve.',
         }
       : {
           icono: 'call',

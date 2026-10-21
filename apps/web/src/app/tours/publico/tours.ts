@@ -23,8 +23,8 @@ import { Tours } from '../tours.service';
     >
       <h1 id="tours" class="titular text-6xl sm:text-7xl lg:text-8xl">Tours</h1>
       <p class="mt-3 max-w-prose text-lg text-on-campo/90">
-        Las ligas del club: cada torneo suma puntos a una o más, y cada una tiene su temporada, su
-        tabla y su ranking.
+        Juega la temporada completa: cada torneo suma puntos en las ligas del club y te sube en el
+        ranking.
       </p>
     </section>
 

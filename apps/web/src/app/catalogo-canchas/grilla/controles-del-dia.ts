@@ -11,6 +11,11 @@ const FILTROS = [
   { valor: 'aire-libre', etiqueta: 'Al aire libre' },
 ];
 
+/** "Techadas", para la línea que resume lo elegido en el teléfono (T345). */
+export function etiquetaDelFiltro(filtro: string): string {
+  return FILTROS.find(({ valor }) => valor === filtro)?.etiqueta ?? FILTROS[0].etiqueta;
+}
+
 /**
  * Si la cancha pasa el filtro elegido. Junto a `FILTROS`: las opciones y lo que significa
  * cada una se leen en el mismo lugar.
@@ -84,8 +89,11 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
         <!-- Los filtros salen de lo que la cancha ya declara —techada e
              iluminación—, así que filtran en el navegador sobre lo que ya llegó:
              una consulta más al servidor no traería nada nuevo. -->
+        <!-- flex-wrap: con la letra de T342, a 375 px los cuatro filtros se salían 10 px de la
+             pantalla. Envuelven en dos renglones antes que esconder «Al aire libre». -->
         <mat-button-toggle-group
           aria-label="Filtrar canchas"
+          class="max-w-full flex-wrap"
           hideSingleSelectionIndicator
           [value]="filtro()"
           (change)="filtro.set($event.value)"

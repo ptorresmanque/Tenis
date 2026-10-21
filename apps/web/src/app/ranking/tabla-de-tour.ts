@@ -1,4 +1,6 @@
 import { Component, inject, input, output, resource } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
@@ -28,6 +30,8 @@ import { Ranking } from './ranking.service';
     EstadoVacio,
     Esqueleto,
     MatTableModule,
+    MatButton,
+    RouterLink,
   ],
   providers: [proveerCampos()],
   template: `
@@ -45,8 +49,11 @@ import { Ranking } from './ranking.service';
           class="mt-6 block"
           icono="leaderboard"
           titulo="Esta temporada todavía no tiene torneos terminados."
-          detalle="Cuando termine uno, sus puntos aparecen acá sin que nadie los cargue."
-        />
+          detalle="Cuando termine el primer torneo, aquí vas a ver la tabla. Inscríbete y suma tus primeros puntos."
+        >
+          <!-- P16 (SPEC-sitio.md, Decimoséptima parte): el vacío lleva adonde se suman puntos. -->
+          <a matButton="filled" routerLink="/torneos">Ver torneos</a>
+        </app-estado-vacio>
       } @else {
         <!-- Solo las que tienen resultados: una lista con categorías vacías obliga a
              probar una por una. -->

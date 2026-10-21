@@ -267,6 +267,25 @@ describe('Rutas protegidas', () => {
     });
   });
 
+  // P3 y P20 (SPEC-sitio.md, Decimoséptima parte): la pestaña dice lo que se hace ahí, y la
+  // portada dice qué es el club y dónde, que es lo que se lee en el buscador.
+  it('la grilla se titula «Reserva tu cancha», y la portada dice que es un club de Temuco', () => {
+    expect(buscar('disponibilidad')?.ruta.title).toBe('Reserva tu cancha — FEDAL Tennis Center');
+    expect(routes[0].children?.find((ruta) => ruta.path === '')?.title).toBe(
+      'FEDAL Tennis Center · Club de tenis en Temuco',
+    );
+  });
+
+  it('el index.html trae el mismo título y una descripción para el buscador (P20)', () => {
+    const index = readFileSync(join(process.cwd(), 'src/index.html'), 'utf8');
+
+    expect(index).toContain('<title>FEDAL Tennis Center · Club de tenis en Temuco</title>');
+    expect(index).toContain(
+      '<meta name="description" content="Reserva tu cancha de tenis en Temuco en línea: canchas ' +
+        'techadas y con luz, clases, torneos y ranking. Para socios y visitantes.">',
+    );
+  });
+
   it('**inscribirse en un torneo es su página, y no pide sesión** (T316, D4)', () => {
     expect(buscar('torneos/:id/inscripcion')?.guards).toEqual([]);
     expect(buscar('torneos/:id/inscripcion')?.ruta.title).toBe(

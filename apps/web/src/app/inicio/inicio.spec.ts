@@ -159,12 +159,49 @@ describe('Inicio', () => {
    * más**, y que donde una no tiene par la celda quede vacía en vez de
    * inventarle uno.
    */
+  /** Los textos de la Decimoséptima parte (SPEC-sitio.md, P1–P19), con el skill copywriting. */
+  describe('los textos que invitan (P1, P2, P6–P8, P19)', () => {
+    const enlace = (texto: string) =>
+      [...elemento().querySelectorAll('a')].find((a) => a.textContent?.trim() === texto);
+
+    it('**sin sesión, el hero ofrece reservar y hacerse socio**', async () => {
+      await montar([]);
+      const hero = elemento().querySelector('[aria-labelledby="promesa"]') as HTMLElement;
+
+      expect(hero.textContent).toContain(
+        'Elige día, hora y cancha con el precio a la vista, y reserva en un par de minutos.',
+      );
+      expect(enlace('Reservar cancha')?.getAttribute('href')).toBe('/disponibilidad');
+      expect(enlace('Hazte socio')?.getAttribute('href')).toBe('/el-club#titulo-contacto');
+    });
+
+    it('la comparación se titula «Dos formas de jugar en FEDAL» y vende la cuota', async () => {
+      await montar([]);
+
+      expect(elemento().querySelector('#dos-caminos')?.textContent?.trim()).toBe(
+        'Dos formas de jugar en FEDAL',
+      );
+      expect(texto()).toContain(
+        'Pagas una cuota al mes y reservas sin pagar la cancha, con cupos también en horario prime.',
+      );
+    });
+
+    it('las canchas se cuentan por lo que se juega en ellas', async () => {
+      await montar([]);
+
+      expect(texto()).toContain(
+        'Cemento de velocidad media, como en el Australian Open: la pelota pica igual en enero ' +
+          'que en julio. Y si llueve, juegas en las techadas.',
+      );
+    });
+  });
+
   describe('el cara a cara', () => {
     const OCHO = [
       'Sin pago al reservar: la hora ya está en tu cuota',
       'Cupo diario de cancha y horas en horario prime',
       'Puedes traer invitados cada mes',
-      'Cambias y cancelas desde "Mis reservas"',
+      'Cambias y cancelas desde Mi cuenta',
       'Arriendo por hora, con el precio a la vista',
       'Pagas en línea al reservar',
       'Cancelas con 24 horas y se devuelve todo',
@@ -172,7 +209,7 @@ describe('Inicio', () => {
     ];
     const tabla = () => elemento().querySelector('[role="table"]') as HTMLElement;
 
-    it('**una sola llena** (T241): «Reservar una hora»; la otra, de contorno', async () => {
+    it('**una sola llena** (T241): «Reservar cancha»; la otra, de contorno', async () => {
       // La auditoría de Material del 2026-10-14: dos botones llenos juntos se disputan la
       // atención. Reservar no pide cuenta ni compromiso, así que es la que queda llena.
       await montar([]);
@@ -180,8 +217,8 @@ describe('Inicio', () => {
       const enLaTabla = (text: string) =>
         raiz.getHarness(MatButtonHarness.with({ text, ancestor: '[role="table"]' }));
 
-      expect(await (await enLaTabla('Reservar una hora')).getAppearance()).toBe('filled');
-      expect(await (await enLaTabla('Crear cuenta')).getAppearance()).toBe('outlined');
+      expect(await (await enLaTabla('Reservar cancha')).getAppearance()).toBe('filled');
+      expect(await (await enLaTabla('Quiero ser socio')).getAppearance()).toBe('outlined');
     });
     /** Las tres celdas de la fila de un rótulo, en el orden del DOM: rótulo, socio, visitante. */
     const fila = (rotulo: string) =>
@@ -214,7 +251,7 @@ describe('Inicio', () => {
       ]);
       expect([...(fila('Cancelar') ?? [])].map(legible)).toEqual([
         'Cancelar',
-        'Cambias y cancelas desde "Mis reservas"',
+        'Cambias y cancelas desde Mi cuenta',
         'Cancelas con 24 horas y se devuelve todo',
       ]);
     });
@@ -226,7 +263,9 @@ describe('Inicio', () => {
       expect(legible(fila('Cambiar')?.[1])).toBe('');
     });
 
-    it('los dos caminos siguen llevando adonde llevaban', async () => {
+    // P9 (SPEC-sitio.md, Decimoséptima parte): el del socio lleva al formulario que lo hace
+    // socio, y no a crear una cuenta, que no hace socio a nadie (B1).
+    it('**el camino del socio lleva al formulario «Quiero ser socio»**', async () => {
       await montar([]);
       const enlaces = [...tabla().querySelectorAll('a')].map((a) => [
         a.textContent?.trim(),
@@ -234,8 +273,8 @@ describe('Inicio', () => {
       ]);
 
       expect(enlaces).toEqual([
-        ['Crear cuenta', '/registro'],
-        ['Reservar una hora', '/disponibilidad'],
+        ['Quiero ser socio', '/el-club#titulo-contacto'],
+        ['Reservar cancha', '/disponibilidad'],
       ]);
     });
   });
@@ -308,7 +347,8 @@ describe('Inicio', () => {
       await montar([ABIERTO]);
 
       expect(seccion().querySelector('h3')?.textContent).toContain('Copa Aniversario');
-      expect(seccion().textContent).toContain('Te puedes inscribir hasta el');
+      expect(seccion().textContent).toContain('Inscríbete hasta el');
+      expect(seccion().textContent).toContain('Abierto a socios y visitantes');
     });
 
     it('una tabla por torneo: categoría, inscripción y cupos libres', async () => {

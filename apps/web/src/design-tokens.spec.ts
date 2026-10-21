@@ -707,6 +707,56 @@ describe('Uso de los tokens en las plantillas', () => {
     expect(infractores).toEqual([]);
   });
 
+  /**
+   * M3 (SPEC-sitio.md, Decimoséptima parte): había quejas de que la letra se leía chica. La
+   * escala sube un paso sin tocar la raíz (B4): un rem sigue midiendo 16 px, y los márgenes,
+   * los anchos y el tablero no crecen.
+   */
+  describe('la escala de letra (T342, M3)', () => {
+    it('el texto chico mide 16 px, el mínimo 14 y el cuerpo 18', () => {
+      const escala = Object.fromEntries(
+        [...css.matchAll(/^\s*--text-(xs|sm|base|lg|xl):\s*([^;]+);/gm)].map(([, paso, valor]) => [
+          paso,
+          valor.trim(),
+        ]),
+      );
+
+      expect(escala).toEqual({
+        xs: '0.875rem',
+        sm: '1rem',
+        base: '1.125rem',
+        lg: '1.25rem',
+        xl: '1.375rem',
+      });
+      expect(css).toMatch(/body\s*\{[^}]*font-size:\s*var\(--text-base\)/);
+    });
+
+    it('Material lee la misma escala: su cuerpo y sus etiquetas suben igual', () => {
+      for (const [token, valor] of [
+        ['body-large-size', '1.125rem'],
+        ['body-medium-size', '1rem'],
+        ['body-small-size', '0.875rem'],
+        ['label-large-size', '1rem'],
+        ['label-medium-size', '0.875rem'],
+        ['label-small-size', '0.875rem'],
+        ['title-small-size', '1rem'],
+        ['title-medium-size', '1.125rem'],
+      ]) {
+        expect(tema, token).toContain(`${token}: ${valor},`);
+      }
+    });
+
+    it('ningún tamaño de letra escrito a mano en los estilos: salen de la escala', () => {
+      // Un 0.75rem suelto en un componente se queda en 12 px aunque la escala suba. La escala
+      // de Material (`body-small-size`…) es la excepción: es la que se fija arriba.
+      const LITERAL =
+        /(font-size|(?<!(?:body|label|title)-(?:large|medium|small))-size):\s*(calc\()?0\.(75|8125|875)rem/g;
+      const infractores = [...`${css}\n${tema}`.matchAll(LITERAL)].map(([uso]) => uso);
+
+      expect(infractores).toEqual([]);
+    });
+  });
+
   it('ninguna clase de Tailwind usa un valor arbitrario de color o tipografía', () => {
     // bg-[#0b4f9e] o font-['Inter'] esquivan @theme igual que un hex suelto,
     // y además esquivan al test de arriba.
