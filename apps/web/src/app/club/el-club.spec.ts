@@ -320,7 +320,10 @@ describe('ElClub', () => {
           { provide: Contacto, useValue: { enviar: vi.fn() } },
         ],
       });
-      const anclar = vi.spyOn(TestBed.inject(ViewportScroller), 'scrollToAnchor');
+      // Sin llamar al de verdad: jsdom no implementa scrollTo y lo avisa en cada corrida.
+      const anclar = vi
+        .spyOn(TestBed.inject(ViewportScroller), 'scrollToAnchor')
+        .mockImplementation(() => undefined);
       const harness = await RouterTestingHarness.create();
       await harness.navigateByUrl(url, ElClub);
       harness.detectChanges();

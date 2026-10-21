@@ -396,13 +396,11 @@ export class Marcador {
     // no manda inicios que terminen después del cierre, y la última hora se marcaba a medias.
     // Solo si su cancha está a la vista: el filtro no suelta lo elegido, y sin la cancha serían
     // filas en blanco sin ninguna elección.
-    const laElegidaSeVe = grillas.some(({ cancha }) => cancha.id === elegida?.canchaId);
-    for (
-      let instante = desde + PASO_DE_LA_GRILLA_MS;
-      laElegidaSeVe && instante < hasta;
-      instante += PASO_DE_LA_GRILLA_MS
-    ) {
-      if (instante > ahora) instantes.add(instante);
+    if (grillas.some(({ cancha }) => cancha.id === elegida?.canchaId)) {
+      const paso = PASO_DE_LA_GRILLA_MS;
+      for (let instante = desde + paso; instante < hasta; instante += paso) {
+        if (instante > ahora) instantes.add(instante);
+      }
     }
 
     return [...instantes]
