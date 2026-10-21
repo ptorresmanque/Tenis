@@ -84,8 +84,11 @@ export function pasaElFiltro(cancha: Cancha, filtro: string): boolean {
         <!-- Los filtros salen de lo que la cancha ya declara —techada e
              iluminación—, así que filtran en el navegador sobre lo que ya llegó:
              una consulta más al servidor no traería nada nuevo. -->
+        <!-- flex-wrap: con la letra de T342, a 375 px los cuatro filtros se salían 10 px de la
+             pantalla. Envuelven en dos renglones antes que esconder «Al aire libre». -->
         <mat-button-toggle-group
           aria-label="Filtrar canchas"
+          class="max-w-full flex-wrap"
           hideSingleSelectionIndicator
           [value]="filtro()"
           (change)="filtro.set($event.value)"
