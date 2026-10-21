@@ -248,7 +248,7 @@ describe('Cascarón público: la navegación', () => {
 
   /** T347 (SPEC-sitio.md, Decimoctava parte, C1). La barra trae `nowrap`: con más de un tipo,
       el texto se salía de la caja y quedaba debajo del avatar. */
-  it('**los tipos parten en dos líneas como máximo**, y el title y el menú los dicen todos', async () => {
+  it('**los tipos parten en dos líneas como máximo**, y el menú los dice todos', async () => {
     const TODOS = 'Administrador · Socio · Gestor · Profesor';
     const fixture = await montarConElMenu({ ...SOCIA, esAdmin: true, esGestor: true, profesorId: 4 });
     const elemento = fixture.nativeElement as HTMLElement;
@@ -258,7 +258,8 @@ describe('Cascarón público: la navegación', () => {
     expect([...(tipos?.classList ?? [])]).toEqual(
       expect.arrayContaining(['whitespace-normal', 'line-clamp-2']),
     );
-    expect(cuenta.getAttribute('title')).toBe(TODOS);
+    // Sin title: el lector los leería dos veces (revisión de T351).
+    expect(cuenta.hasAttribute('title')).toBe(false);
 
     elemento
       .querySelector<HTMLButtonElement>('header button[aria-label="Menú de Camila Rojas"]')!

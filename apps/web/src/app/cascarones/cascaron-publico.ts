@@ -123,12 +123,11 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
                  dos líneas como máximo, cortados con «…»; el nombre, en una. Con leading-tight
                  miden 20 + 2 × 17,5 = 55 px y caben en los 64 de la barra. 160 px de ancho:
                  los cuatro tipos caben en dos líneas, y a 1280 con los enlaces del socio
-                 todavía sobran 285 px. Lo cortado lo dicen el title, para el mouse, y el menú
-                 de la cuenta, para el lector y el teléfono. -->
+                 todavía sobran 285 px. Si algo se cortara, lo dice el menú de la cuenta. Sin
+                 title: el lector leía los tipos dos veces, y con cuatro nunca se cortan. -->
             <p
               data-cuenta
               class="hidden max-w-40 text-end md:block lg:hidden xl:block"
-              [title]="tipos()"
             >
               <span class="block truncate text-sm leading-tight font-semibold">
                 {{ sesion.nombre }}
