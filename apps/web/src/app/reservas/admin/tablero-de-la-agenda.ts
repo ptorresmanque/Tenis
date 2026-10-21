@@ -1,15 +1,15 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 
-import { GrillaDeCancha } from '../../catalogo-canchas/disponibilidad';
+import { GrillaDeCancha, PASO_DE_LA_GRILLA_MS } from '../../catalogo-canchas/disponibilidad';
 import { moverConFlechas } from '../../catalogo-canchas/flechas-del-tablero';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from '../../catalogo-canchas/motivos';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { ClaseDelDia, cupoEnPalabras, queClaseEs } from '../../clases/clases.service';
 import { BloqueoDelDia, ReservaDelDia } from './agenda.service';
 
-/** El paso de la grilla en la API (`PASO_DE_LA_GRILLA_MIN`): una fila por media hora. */
-const FRANJA_MS = 30 * 60 * 1000;
+/** Una fila por media hora, el paso de la grilla. */
+const FRANJA_MS = PASO_DE_LA_GRILLA_MS;
 
 export interface ColumnaDeLaAgenda {
   /** Nulo en el gimnasio, que no es una cancha. */
