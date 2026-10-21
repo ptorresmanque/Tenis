@@ -4,26 +4,36 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { Cancha, DuracionMin } from '../disponibilidad';
 import { SelectorDeDia } from './selector-de-dia';
 
+/**
+ * Cada opción con su nombre y, para la línea de lo elegido, uno corto (`corta`): a 375 px, con
+ * «Con iluminación» y «1 hora y media», la línea no cabía en un renglón. Ahí el rótulo de arriba
+ * ya dice qué es cada valor (T348, decisión del usuario en la parada BK).
+ */
 const FILTROS = [
-  { valor: 'todas', etiqueta: 'Todas' },
-  { valor: 'techadas', etiqueta: 'Techadas' },
-  { valor: 'iluminacion', etiqueta: 'Con iluminación' },
-  { valor: 'aire-libre', etiqueta: 'Al aire libre' },
+  { valor: 'todas', etiqueta: 'Todas', corta: 'Todas' },
+  { valor: 'techadas', etiqueta: 'Techadas', corta: 'Techadas' },
+  { valor: 'iluminacion', etiqueta: 'Con iluminación', corta: 'Con luz' },
+  { valor: 'aire-libre', etiqueta: 'Al aire libre', corta: 'Aire libre' },
 ];
 
 const DURACIONES = [
-  { valor: '60', etiqueta: '1 hora' },
-  { valor: '90', etiqueta: '1 hora y media' },
+  { valor: '60', etiqueta: '1 hora', corta: '1 hora' },
+  { valor: '90', etiqueta: '1 hora y media', corta: '1 h y media' },
 ];
 
-/** "1 hora y media", dicho igual que en el selector: lo leen la grilla y su línea (T345). */
+/** "1 hora y media", dicho igual que en el selector, para la línea del arriendo. */
 export function etiquetaDeLaDuracion(duracion: DuracionMin): string {
   return DURACIONES.find(({ valor }) => valor === `${duracion}`)?.etiqueta ?? DURACIONES[0].etiqueta;
 }
 
-/** "Techadas", para la línea que resume lo elegido en el teléfono (T345). */
-export function etiquetaDelFiltro(filtro: string): string {
-  return FILTROS.find(({ valor }) => valor === filtro)?.etiqueta ?? FILTROS[0].etiqueta;
+/** "1 h y media", el nombre corto, para la línea de lo elegido (T348). */
+export function duracionCorta(duracion: DuracionMin): string {
+  return DURACIONES.find(({ valor }) => valor === `${duracion}`)?.corta ?? DURACIONES[0].corta;
+}
+
+/** "Con luz", el nombre corto del filtro, para la línea de lo elegido (T348). */
+export function filtroCorto(filtro: string): string {
+  return FILTROS.find(({ valor }) => valor === filtro)?.corta ?? FILTROS[0].corta;
 }
 
 /**

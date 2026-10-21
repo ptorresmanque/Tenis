@@ -46,8 +46,9 @@ import {
 import { TARIFA_DEL_SOCIO, yaEmpezo } from './bandas';
 import {
   ControlesDelDia,
+  duracionCorta,
   etiquetaDeLaDuracion,
-  etiquetaDelFiltro,
+  filtroCorto,
   pasaElFiltro,
 } from './controles-del-dia';
 import { MoverReserva } from './mover-reserva';
@@ -844,8 +845,8 @@ export class Grilla {
 
     return [
       { rotulo: 'Día', valor: dia },
-      { rotulo: 'Duración', valor: etiquetaDeLaDuracion(this.duracion()) },
-      { rotulo: 'Canchas', valor: etiquetaDelFiltro(this.filtro()) },
+      { rotulo: 'Duración', valor: duracionCorta(this.duracion()) },
+      { rotulo: 'Canchas', valor: filtroCorto(this.filtro()) },
     ];
   });
 

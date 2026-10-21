@@ -246,8 +246,10 @@ describe('Grilla', () => {
         ['Canchas', 'Todas'],
       ]);
 
+      // Los valores van cortos, para que la línea quepa en un renglón a 375 px (decisión del
+      // usuario en la parada BK): el rótulo de arriba ya dice qué son.
       await montar(DIA, { duracion: '90' });
-      expect(loElegido()[1]).toEqual(['Duración', '1 hora y media']);
+      expect(loElegido()[1]).toEqual(['Duración', '1 h y media']);
     });
 
     it('**la línea va arriba desde el principio**: antes del aviso de carga y de las horas pasadas', () => {
@@ -287,7 +289,7 @@ describe('Grilla', () => {
       fixture.detectChanges();
 
       // La del fixture tiene luz: el tablero sigue, y la línea dice el filtro nuevo.
-      expect(loElegido()[2]).toEqual(['Canchas', 'Con iluminación']);
+      expect(loElegido()[2]).toEqual(['Canchas', 'Con luz']);
     });
 
     it('**con la hoja abierta no se repite ningún id**: cada etiqueta nombra su campo', async () => {
