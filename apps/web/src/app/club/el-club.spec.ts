@@ -3,6 +3,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { ViewportScroller } from '@angular/common';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Cancha, Disponibilidad } from '../catalogo-canchas/disponibilidad';
@@ -254,5 +256,85 @@ describe('ElClub', () => {
     fixture.detectChanges();
 
     expect(seccion('las-canchas').querySelector('app-esqueleto')).not.toBeNull();
+  });
+
+  /**
+   * «Hazte socio» y «Quiero ser socio» llevan a `/el-club#titulo-contacto`. El router salta al
+   * ancla al llegar, pero arriba del formulario todavía cargan las canchas y las tarifas: Chrome
+   * y Firefox corrigen el salto solos (scroll anchoring) y Safari no, así que en un iPhone se
+   * quedaba en las tarifas. Medido sin anchoring, el formulario quedaba en y = 993 de 812.
+   */
+  describe('llegar con un ancla', () => {
+    interface Observador {
+      alCambiar: () => void;
+      mirados: Element[];
+      desconectado: boolean;
+    }
+    let observadores: Observador[];
+
+    const llegar = async (url: string) => {
+      observadores = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          readonly mirados: Element[] = [];
+          desconectado = false;
+          constructor(readonly alCambiar: () => void) {
+            observadores.push(this);
+          }
+          observe(elemento: Element) {
+            this.mirados.push(elemento);
+          }
+          disconnect() {
+            this.desconectado = true;
+          }
+          // Material también lo usa, en sus campos: ahí no hay nada que soltar.
+          unobserve() {
+            return undefined;
+          }
+        },
+      );
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([{ path: 'el-club', component: ElClub }]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          { provide: Disponibilidad, useValue: { canchas: vi.fn().mockResolvedValue([]) } },
+          { provide: Club, useValue: { datos: signal(VACIO), email: signal('') } },
+          { provide: Contacto, useValue: { enviar: vi.fn() } },
+        ],
+      });
+      const anclar = vi.spyOn(TestBed.inject(ViewportScroller), 'scrollToAnchor');
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl(url, ElClub);
+      harness.detectChanges();
+      return { anclar, delCuerpo: () => observadores.find((o) => o.mirados.includes(document.body)) };
+    };
+
+    it('**mientras la página crece, vuelve a buscar el ancla**', async () => {
+      const { anclar, delCuerpo } = await llegar('/el-club#titulo-contacto');
+
+      delCuerpo()!.alCambiar();
+
+      expect(anclar).toHaveBeenCalledWith('titulo-contacto');
+      vi.unstubAllGlobals();
+    });
+
+    it('**apenas la persona mueve la página, la deja tranquila**', async () => {
+      const { delCuerpo } = await llegar('/el-club#titulo-contacto');
+
+      window.dispatchEvent(new Event('wheel'));
+
+      expect(delCuerpo()!.desconectado).toBe(true);
+      vi.unstubAllGlobals();
+    });
+
+    it('sin ancla no mira nada', async () => {
+      const { delCuerpo } = await llegar('/el-club');
+
+      expect(delCuerpo()).toBeUndefined();
+      vi.unstubAllGlobals();
+    });
   });
 });

@@ -1,6 +1,14 @@
-import { Component, computed, inject, resource } from '@angular/core';
+import { ViewportScroller } from '@angular/common';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  resource,
+} from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -363,4 +371,39 @@ export class ElClub {
   ];
 
   protected readonly superficie = nombreDeSuperficie;
+
+  constructor() {
+    this.sostenerElAncla();
+  }
+
+  /**
+   * Llegar con un ancla, como «Hazte socio» a `#titulo-contacto` (SPEC-sitio.md, Decimoséptima
+   * parte): el router salta al llegar, pero arriba todavía cargan las canchas y las tarifas, y
+   * la página crece. Chrome y Firefox corrigen el salto solos (scroll anchoring); Safari no, y
+   * en un iPhone se quedaba en las tarifas. Mientras crece, se vuelve a buscar el ancla.
+   *
+   * Solo hasta que la persona mueva la página, o 3 segundos: después, moverla sería quitársela
+   * de las manos.
+   */
+  private sostenerElAncla(): void {
+    const ancla = inject(ActivatedRoute).snapshot.fragment;
+    if (!ancla) return;
+    const desplazador = inject(ViewportScroller);
+    const destruir = inject(DestroyRef);
+
+    afterNextRender(() => {
+      const observador = new ResizeObserver(() => desplazador.scrollToAnchor(ancla));
+      const gestos = ['wheel', 'touchstart', 'keydown'] as const;
+      const soltar = () => {
+        observador.disconnect();
+        clearTimeout(plazo);
+        for (const gesto of gestos) removeEventListener(gesto, soltar);
+      };
+      const plazo = setTimeout(soltar, 3000);
+
+      observador.observe(document.body);
+      for (const gesto of gestos) addEventListener(gesto, soltar, { passive: true });
+      destruir.onDestroy(soltar);
+    });
+  }
 }
