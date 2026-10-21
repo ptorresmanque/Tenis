@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { of } from 'rxjs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { ReservasPublicas } from '../../reservas/reserva-publica.service';
@@ -230,7 +230,7 @@ describe('Grilla', () => {
     const loElegido = () =>
       [...el().querySelectorAll('[data-resumen-de-controles] dl > div')].map((par) => [
         enTexto(par.querySelector('dt')!),
-        enTexto(par.querySelector('dd [aria-hidden="true"]') ?? par.querySelector('dd')!),
+        enTexto(par.querySelector('dd [aria-hidden="true"]')!),
       ]);
     const hoja = () => document.querySelector('mat-bottom-sheet-container') as HTMLElement | null;
     const abrir = async () => {
@@ -257,6 +257,13 @@ describe('Grilla', () => {
       const duracion = el().querySelectorAll('[data-resumen-de-controles] dd')[1];
 
       expect(enTexto(duracion.querySelector('.sr-only')!)).toBe('1 hora y media');
+    });
+
+    it('el lector oye el día en palabras', () => {
+      const leido = (i: number) =>
+        enTexto(el().querySelectorAll('[data-resumen-de-controles] dd')[i].querySelector('.sr-only')!);
+
+      expect(leido(0)).toBe('lunes, 17 de agosto');
     });
 
     it('**la línea va arriba desde el principio**: antes del aviso de carga y de las horas pasadas', () => {
@@ -299,6 +306,9 @@ describe('Grilla', () => {
 
       // La del fixture tiene luz: el tablero sigue, y la línea dice el filtro nuevo.
       expect(loElegido()[2]).toEqual(['Canchas', 'Con luz']);
+      expect(
+        enTexto(el().querySelectorAll('[data-resumen-de-controles] dd')[2].querySelector('.sr-only')!),
+      ).toBe('Con iluminación');
     });
 
     it('**con la hoja abierta no se repite ningún id**: cada etiqueta nombra su campo', async () => {
@@ -320,6 +330,25 @@ describe('Grilla', () => {
 
     const cambiar = () =>
       el().querySelector<HTMLButtonElement>('[data-resumen-de-controles] button')!;
+
+    it('**si se reabre la hoja mientras se cierra, «Listo» la sigue cerrando**', async () => {
+      // Al empezar a cerrarse, la hoja suelta el fondo y «Cambiar» se puede tocar de nuevo: el
+      // cierre de la vieja, que llega después, no puede olvidar a la nueva.
+      const listo = () =>
+        [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!;
+      await abrir();
+      listo().click();
+      cambiar().click();
+      await fixture.whenStable();
+      await new Promise((terminar) => setTimeout(terminar));
+      fixture.detectChanges();
+
+      listo().click();
+      await fixture.whenStable();
+      await new Promise((terminar) => setTimeout(terminar));
+
+      expect(hoja()).toBeNull();
+    });
     /** Un día que no es el que se mira, en la tira de días de la hoja. */
     const otroDiaEnLaHoja = () =>
       hoja()!.querySelector<HTMLButtonElement>(
@@ -509,6 +538,22 @@ describe('Grilla', () => {
 
       expect(document.activeElement).toBe(cambiar);
       expect(linea().classList).not.toContain('sm:hidden');
+
+      // Con la hoja cerrada y el foco fuera, vuelve a esconderse: si no, quedaría repetida sobre
+      // los controles y taparía el título.
+      cambiar.blur();
+      fixture.detectChanges();
+      expect(linea().classList).toContain('sm:hidden');
+    });
+
+    it('si el observador trae dos entradas juntas, manda la última', async () => {
+      await controles(true);
+
+      deLosControles()!.alCambiar([{ isIntersecting: true }, { isIntersecting: false }]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(linea().classList).not.toContain('sm:hidden');
     });
 
     it('en el teléfono se ve siempre: lo que la esconde vale solo desde sm', async () => {
@@ -531,12 +576,12 @@ describe('Grilla', () => {
     // El error del observador lo atrapa el ErrorHandler como console.error: la grilla se dibuja
     // igual, y solo el espía lo ve.
     const errores = vi.spyOn(console, 'error');
+    onTestFinished(() => errores.mockRestore());
     await montar(DIA);
 
     expect(typeof globalThis.IntersectionObserver).toBe('undefined');
     expect(el().querySelector('[data-resumen-de-controles]')).not.toBeNull();
     expect(errores).not.toHaveBeenCalled();
-    errores.mockRestore();
   });
 
   /**

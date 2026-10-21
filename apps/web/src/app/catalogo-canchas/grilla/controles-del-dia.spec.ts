@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { duracionCorta, etiquetaDeLaDuracion, filtroCorto, etiquetaDelFiltro } from './controles-del-dia';
+import {
+  duracionCorta,
+  etiquetaDeLaDuracion,
+  etiquetaDelFiltro,
+  filtroCorto,
+} from './controles-del-dia';
 
 /** Los nombres de la línea de lo elegido (T348, N4): cortos a la vista y completos para el lector. */
 describe('los nombres cortos de lo elegido', () => {

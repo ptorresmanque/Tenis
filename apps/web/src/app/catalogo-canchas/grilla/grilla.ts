@@ -37,6 +37,7 @@ import {
 import { CeldaElegible, Marcador } from '../marcador';
 import {
   diaCortoEnElClub,
+  diaEnPalabras,
   enPesos,
   hoyEnElClub,
   horaEnElClub,
@@ -142,19 +143,21 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
          aparecer. En el teléfono va pegada siempre. Escondida (display: none) sigue en el DOM,
          sin parada de teclado ni lector (C4). -->
     <!-- No se esconde mientras tiene el foco ni con la hoja abierta: el foco se iría al body, o
-         la hoja se lo devolvería a un botón escondido (revisión de T351). Espacios justos: a
-         360 px, con «Techadas» o «Aire libre» y hora y media, partía en dos renglones. -->
+         la hoja se lo devolvería a un botón escondido (revisión de T351). Espacios justos en el
+         teléfono: a 360 px, con «Techadas» o «Aire libre», hora y media y algunos días («Dom 24
+         may»), partía en dos renglones. En grande sobra el ancho y quedan los de siempre. -->
     <div
+      #lineaElegida
       data-resumen-de-controles
       class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-2
              border-b border-border bg-card px-sangre-3 py-2 shadow-sm print:hidden sm:fixed
-             sm:inset-x-0 sm:top-16 sm:mt-0"
-      [class.sm:hidden]="controlesALaVista() && !lineaConFoco() && !hojaAbierta()"
+             sm:inset-x-0 sm:top-16 sm:mt-0 sm:gap-3 sm:px-sangre-4"
+      [class.sm:hidden]="lineaEscondida()"
       (focusin)="lineaConFoco.set(true)"
-      (focusout)="lineaConFoco.set(false)"
+      (focusout)="lineaConFoco.set(lineaElegida.contains($any($event).relatedTarget))"
     >
       <!-- Cada valor con su rótulo encima (N1): «Todas» solo no decía que eran las canchas. -->
-      <dl class="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
+      <dl class="flex min-w-0 flex-wrap gap-x-2 gap-y-1 sm:gap-x-4">
         @for (dato of loElegido(); track dato.rotulo) {
           <div>
             <dt
@@ -861,7 +864,8 @@ export class Grilla {
     const dia = `${diaCortoEnElClub(mediodia)} ${Number(this.fecha().slice(8, 10))} ${mesCortoEnElClub(mediodia)}`;
 
     return [
-      { rotulo: 'Día', valor: dia, leido: dia },
+      // El lector, en palabras: «Mié 21 oct» se leería abreviado.
+      { rotulo: 'Día', valor: dia, leido: diaEnPalabras(this.fecha()) },
       {
         rotulo: 'Duración',
         valor: duracionCorta(this.duracion()),
@@ -884,6 +888,14 @@ export class Grilla {
   protected readonly controlesALaVista = signal(true);
   /** Si el foco está en la línea: ahí no se esconde, o el foco se iría al body. */
   protected readonly lineaConFoco = signal(false);
+
+  /**
+   * En grande, la línea se esconde mientras los controles de arriba se ven (T349), salvo que
+   * tenga el foco o la hoja esté abierta (revisión de T351). En el teléfono la clase no aplica.
+   */
+  protected readonly lineaEscondida = computed(
+    () => this.controlesALaVista() && !this.lineaConFoco() && !this.hojaAbierta(),
+  );
   private readonly controlesArriba = viewChild.required<ElementRef<HTMLElement>>('controlesArriba');
   private readonly destruir = inject(DestroyRef);
 
@@ -923,7 +935,11 @@ export class Grilla {
       restoreFocus: boton,
     });
     this.hojaAbierta.set(hoja);
-    hoja.afterDismissed().subscribe(() => this.hojaAbierta.set(null));
+    // Solo si sigue siendo esta: al reabrir mientras se cierra, el cierre de la vieja llega
+    // después de abrir la nueva, y «Listo» quedaba sin hoja que cerrar.
+    hoja.afterDismissed().subscribe(() =>
+      this.hojaAbierta.update((abierta) => (abierta === hoja ? null : abierta)),
+    );
   }
 
   protected readonly hora = horaEnElClub;
