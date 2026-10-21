@@ -568,5 +568,19 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: '' },
+  {
+    // T355 (SPEC-seo.md A9): una dirección que no existe dice que no está, sin redirigir a la
+    // portada. **Va última y con su propio cascarón:** dentro del primer grupo, el comodín se
+    // tragaría /entrar y el panel antes de que el router probara los otros dos.
+    path: '',
+    component: CascaronPublico,
+    children: [
+      {
+        path: '**',
+        title: 'Página no encontrada — FEDAL Tennis Center',
+        data: { indexar: false },
+        loadComponent: () => import('./club/no-encontrada').then((m) => m.NoEncontrada),
+      },
+    ],
+  },
 ];

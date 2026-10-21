@@ -361,6 +361,33 @@ describe('Los títulos y las descripciones de las rutas públicas (T354)', () =>
 });
 
 /**
+ * T355 (SPEC-seo.md A9). Una dirección que no existe dibuja «No encontrada» en vez de redirigir a la
+ * portada: para Google, cientos de URL con la portada adentro eran páginas duplicadas.
+ */
+describe('Una dirección que no existe (T355, A9)', () => {
+  it('**dibuja «No encontrada» dentro del cascarón público, sin redirigir**', async () => {
+    const comodin = buscar('**');
+
+    expect(comodin?.ruta.redirectTo).toBeUndefined();
+    expect(comodin?.ruta.title).toBe('Página no encontrada — FEDAL Tennis Center');
+    expect(await comodin?.cascaron()).toBe(CascaronPublico);
+  });
+
+  it('no se indexa', () => {
+    expect(buscar('**')?.datos.some((datos) => datos?.['indexar'] === false)).toBe(true);
+  });
+
+  // El router prueba los grupos en orden: dentro del primero, el comodín se tragaría /entrar y el
+  // panel antes de llegar a sus cascarones.
+  it('**es la última ruta de primer nivel**', () => {
+    expect(routes.at(-1)?.children?.map((hija) => hija.path)).toEqual(['**']);
+    expect(routes.slice(0, -1).flatMap((ruta) => ruta.children ?? [])).not.toContainEqual(
+      expect.objectContaining({ path: '**' }),
+    );
+  });
+});
+
+/**
  * T353 (SPEC-seo.md A4). Lo que no es para buscadores lleva `indexar: false` en algún punto de su
  * cadena: el servicio `Seo` le pone `noindex`. Va en el padre cuando todo lo de adentro es privado
  * (el panel, entrar, Mi cuenta), así una pantalla nueva nace fuera del índice.
