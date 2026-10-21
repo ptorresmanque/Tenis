@@ -385,6 +385,95 @@ describe('Grilla', () => {
   });
 
   /**
+   * T349 (SPEC-sitio.md, Decimoctava parte, N2): en pantallas grandes, arriba están los controles
+   * completos, y al bajar no se veía lo elegido. La misma línea aparece fija bajo el encabezado
+   * cuando los controles salen de la vista. jsdom no tiene IntersectionObserver: uno falso.
+   */
+  describe('en pantallas grandes, lo elegido aparece al bajar (T349)', () => {
+    interface Observador {
+      alCambiar: (entradas: { isIntersecting: boolean }[]) => void;
+      mirados: Element[];
+      desconectado: boolean;
+    }
+    let observadores: Observador[];
+
+    beforeEach(async () => {
+      observadores = [];
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          readonly mirados: Element[] = [];
+          desconectado = false;
+          constructor(readonly alCambiar: Observador['alCambiar']) {
+            observadores.push(this);
+          }
+          observe(elemento: Element) {
+            this.mirados.push(elemento);
+          }
+          disconnect() {
+            this.desconectado = true;
+          }
+        },
+      );
+      await montar(DIA);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const linea = () => el().querySelector('[data-resumen-de-controles]') as HTMLElement;
+    const deLosControles = () =>
+      observadores.find((o) => o.mirados.some((m) => m.hasAttribute('data-controles-arriba')));
+    const controles = async (aLaVista: boolean) => {
+      deLosControles()!.alCambiar([{ isIntersecting: aLaVista }]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('mira si los controles de arriba están a la vista', () => {
+      expect(deLosControles()).toBeDefined();
+    });
+
+    it('con los controles a la vista, la línea no se ve en grande: estaría repetida', async () => {
+      await controles(true);
+
+      expect(linea().classList).toContain('sm:hidden');
+    });
+
+    it('**cuando los controles salen de la vista, la línea aparece fija bajo el encabezado**', async () => {
+      await controles(true);
+      await controles(false);
+
+      expect(linea().classList).not.toContain('sm:hidden');
+      // Fija y no pegada: en el flujo, al aparecer empujaría el tablero 58 px hacia abajo.
+      expect([...linea().classList]).toEqual(
+        expect.arrayContaining(['sm:fixed', 'sm:inset-x-0', 'sm:top-16']),
+      );
+    });
+
+    it('en el teléfono se ve siempre: lo que la esconde vale solo desde sm', async () => {
+      await controles(true);
+
+      expect(linea().classList).not.toContain('hidden');
+      expect(linea().classList).toContain('sticky');
+    });
+
+    it('al irse la grilla deja de mirar', () => {
+      const observador = deLosControles()!;
+
+      fixture.destroy();
+
+      expect(observador.desconectado).toBe(true);
+    });
+  });
+
+  it('sin IntersectionObserver (jsdom), la grilla se dibuja igual', () => {
+    expect(typeof globalThis.IntersectionObserver).toBe('undefined');
+    expect(el().querySelector('[data-resumen-de-controles]')).not.toBeNull();
+  });
+
+  /**
    * T265. Disponibilidad dibuja el tablero de la portada (SPEC-revision-qa.md, A1): una
    * columna por cancha, y la celda libre elige esa cancha. Reemplaza a la tabla por tipo de
    * cancha de T103, con el precio una vez arriba y en la barra.

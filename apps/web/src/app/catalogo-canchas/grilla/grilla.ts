@@ -125,7 +125,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     </ng-template>
     <!-- En el teléfono no están (N3, SPEC-sitio.md, Decimoctava parte): la línea de abajo es la
          única entrada, y su «Cambiar» abre estos mismos controles en la hoja. -->
-    <div data-controles-arriba class="hidden sm:block">
+    <div #controlesArriba data-controles-arriba class="hidden sm:block">
       <ng-container [ngTemplateOutlet]="controles" />
     </div>
 
@@ -136,10 +136,16 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
          N3), y por eso va acá, arriba desde el principio. Fuera del @if del tablero: mientras
          la grilla nueva carga, el tablero se va, y con él se iba el botón al que la hoja le
          devuelve el foco al cerrarse. -->
+    <!-- En grande (T349, N2), arriba están los controles: la línea se esconde mientras se ven
+         y aparece al bajar, fija y no pegada, porque en el flujo empujaría el tablero 58 px al
+         aparecer. En el teléfono va pegada siempre. Escondida (display: none) sigue en el DOM,
+         sin parada de teclado ni lector (C4). -->
     <div
       data-resumen-de-controles
       class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-3
-             border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:hidden"
+             border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:fixed sm:inset-x-0
+             sm:top-16 sm:mt-0"
+      [class.sm:hidden]="controlesALaVista()"
     >
       <!-- Cada valor con su rótulo encima (N1): «Todas» solo no decía que eran las canchas. -->
       <dl class="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
@@ -850,6 +856,27 @@ export class Grilla {
     ];
   });
 
+  /**
+   * Si los controles de arriba se ven bajo el encabezado (T349). Empieza en sí: sin el
+   * observador (jsdom) o antes de su primera respuesta, en grande la línea no aparece repetida.
+   * En el teléfono los controles no se dibujan, el observador responde que no, y da lo mismo:
+   * ahí la línea se ve siempre.
+   */
+  protected readonly controlesALaVista = signal(true);
+  private readonly controlesArriba = viewChild.required<ElementRef<HTMLElement>>('controlesArriba');
+  private readonly destruir = inject(DestroyRef);
+
+  private readonly mirarLosControles = afterNextRender(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    // Lo que queda bajo el encabezado (65 px con su borde) ya no se ve.
+    const observador = new IntersectionObserver(
+      ([entrada]) => this.controlesALaVista.set(entrada.isIntersecting),
+      { rootMargin: '-65px 0px 0px 0px' },
+    );
+    observador.observe(this.controlesArriba().nativeElement);
+    this.destruir.onDestroy(() => observador.disconnect());
+  });
+
   private readonly hojas = inject(MatBottomSheet);
   private readonly hojaDeControles = viewChild.required<TemplateRef<unknown>>('hojaDeControles');
   /** La hoja abierta, para que «Listo» la cierre. Esc y tocar afuera también la cierran. */
@@ -859,7 +886,7 @@ export class Grilla {
    * Si la grilla se va con la hoja abierta, la hoja se cierra: sus controles son de la grilla.
    * Atrás y adelante ya la cerraban (closeOnNavigation); esto cubre una navegación de la app.
    */
-  private readonly cerrarLaHoja = inject(DestroyRef).onDestroy(() => this.hoja?.dismiss());
+  private readonly cerrarLaHoja = this.destruir.onDestroy(() => this.hoja?.dismiss());
 
   protected abrirControles(evento: Event): void {
     const boton = evento.currentTarget as HTMLElement;
