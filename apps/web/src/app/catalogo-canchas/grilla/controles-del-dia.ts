@@ -31,6 +31,11 @@ export function duracionCorta(duracion: DuracionMin): string {
   return DURACIONES.find(({ valor }) => valor === `${duracion}`)?.corta ?? DURACIONES[0].corta;
 }
 
+/** "Con iluminación", el nombre completo: lo que oye el lector en la línea de lo elegido. */
+export function etiquetaDelFiltro(filtro: string): string {
+  return FILTROS.find(({ valor }) => valor === filtro)?.etiqueta ?? FILTROS[0].etiqueta;
+}
+
 /** "Con luz", el nombre corto del filtro, para la línea de lo elegido (T348). */
 export function filtroCorto(filtro: string): string {
   return FILTROS.find(({ valor }) => valor === filtro)?.corta ?? FILTROS[0].corta;

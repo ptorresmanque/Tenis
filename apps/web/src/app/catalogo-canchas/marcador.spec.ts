@@ -389,11 +389,6 @@ describe('Marcador', () => {
     });
 
     /**
-     * T344 (SPEC-sitio.md, Decimoséptima parte, B2): la grilla va en pasos de 30 minutos y
-     * cada fila es un inicio, así que una hora ocupa dos filas y la hora y media tres. Marcar
-     * solo la de inicio no decía hasta cuándo quedaba tomada la cancha.
-     */
-    /**
      * T350 (SPEC-sitio.md, Decimoctava parte, C3): en grande, al bajar aparece la línea de lo
      * elegido fija bajo el encabezado, y los nombres de las canchas quedaban detrás de ella.
      */
@@ -411,6 +406,11 @@ describe('Marcador', () => {
       expect(nombres().some((clases) => clases.includes('sm:top-16'))).toBe(false);
     });
 
+    /**
+     * T344 (SPEC-sitio.md, Decimoséptima parte, B2): la grilla va en pasos de 30 minutos y
+     * cada fila es un inicio, así que una hora ocupa dos filas y la hora y media tres. Marcar
+     * solo la de inicio no decía hasta cuándo quedaba tomada la cancha.
+     */
     describe('la elección marca toda la hora', () => {
       const MEDIA = 30 * 60 * 1000;
       const inicio = enHoras(2);

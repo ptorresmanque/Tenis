@@ -164,7 +164,8 @@ const claveDe = (canchaId: number, inicio: string) =>
                         @if (modo() === 'elegir') {
                           <!-- Los scroll-m*: al moverse con las flechas, la celda con foco no queda
                                bajo lo pegado (WCAG 2.4.11): arriba, el encabezado y la línea del
-                               teléfono (unos 122 px) y, desde sm, también los nombres de las canchas
+                               teléfono (122 px, y 160 a 320 px, donde parte en dos renglones) y,
+                               desde sm, también los nombres de las canchas
                                (hasta 200 px con la línea, T350); abajo, la barra de la elección
                                (167); a la izquierda, la columna de la hora (64), cuando el tablero
                                se desplaza. -->
@@ -174,7 +175,7 @@ const claveDe = (canchaId: number, inicio: string) =>
                           @let marcada = esLaElegida(celda);
                           <button
                             type="button"
-                            class="flex h-full w-full scroll-mt-32 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
+                            class="flex h-full w-full scroll-mt-40 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
                                    items-center justify-center gap-0.5 border font-display text-sm
                                    font-bold tracking-wider uppercase transition-transform
                                    active:scale-95"

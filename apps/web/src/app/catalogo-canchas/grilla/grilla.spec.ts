@@ -230,7 +230,7 @@ describe('Grilla', () => {
     const loElegido = () =>
       [...el().querySelectorAll('[data-resumen-de-controles] dl > div')].map((par) => [
         enTexto(par.querySelector('dt')!),
-        enTexto(par.querySelector('dd')!),
+        enTexto(par.querySelector('dd [aria-hidden="true"]') ?? par.querySelector('dd')!),
       ]);
     const hoja = () => document.querySelector('mat-bottom-sheet-container') as HTMLElement | null;
     const abrir = async () => {
@@ -252,6 +252,13 @@ describe('Grilla', () => {
       expect(loElegido()[1]).toEqual(['Duración', '1 h y media']);
     });
 
+    it('**el lector oye el nombre completo**: «1 h» se leería «uno hache»', async () => {
+      await montar(DIA, { duracion: '90' });
+      const duracion = el().querySelectorAll('[data-resumen-de-controles] dd')[1];
+
+      expect(enTexto(duracion.querySelector('.sr-only')!)).toBe('1 hora y media');
+    });
+
     it('**la línea va arriba desde el principio**: antes del aviso de carga y de las horas pasadas', () => {
       const linea = el().querySelector('[data-resumen-de-controles]')!;
       const antes = (otro: Element | null) =>
@@ -271,11 +278,13 @@ describe('Grilla', () => {
       expect(arriba.contains(el().querySelector('[data-resumen-de-controles]'))).toBe(false);
     });
 
-    it('va pegada bajo el encabezado y solo en el teléfono', () => {
+    it('en el teléfono va pegada bajo el encabezado, y no se imprime', () => {
       const linea = el().querySelector('[data-resumen-de-controles]') as HTMLElement;
 
-      expect(linea.className).toContain('sticky');
-      expect(linea.className).toContain('sm:hidden');
+      expect(linea.classList).toContain('sticky');
+      expect(linea.classList).toContain('top-16');
+      // Fija desde sm, se imprimiría arriba de cada hoja, como el encabezado sin su print:hidden.
+      expect(linea.classList).toContain('print:hidden');
     });
 
     it('**«Cambiar» abre los controles en una hoja inferior, y cambiar ahí cambia la grilla**', async () => {
@@ -418,7 +427,9 @@ describe('Grilla', () => {
       await montar(DIA);
     });
 
-    afterEach(() => {
+    afterEach(async () => {
+      TestBed.inject(MatBottomSheet).dismiss();
+      await new Promise((listo) => setTimeout(listo));
       vi.unstubAllGlobals();
     });
 
@@ -462,6 +473,44 @@ describe('Grilla', () => {
       expect(nombres()).toContain('sm:top-30.5');
     });
 
+    it('**mientras la línea tiene el foco no se esconde**: el foco se iría al body', async () => {
+      // Con el foco en «Cambiar» se aprieta Inicio: la página sube y los controles vuelven.
+      await controles(false);
+      const cambiar = linea().querySelector('button')!;
+      cambiar.focus();
+      fixture.detectChanges();
+
+      await controles(true);
+      expect(linea().classList).not.toContain('sm:hidden');
+
+      cambiar.blur();
+      fixture.detectChanges();
+      expect(linea().classList).toContain('sm:hidden');
+    });
+
+    it('**con la hoja abierta no se esconde**, y al cerrarla el foco vuelve a «Cambiar»', async () => {
+      // Al cambiar de día, mientras carga, la página se acorta y los controles vuelven a la vista:
+      // si la línea se escondía, la hoja le devolvía el foco a un botón escondido.
+      await controles(false);
+      const cambiar = linea().querySelector('button')!;
+      cambiar.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      cambiar.blur();
+
+      await controles(true);
+      expect(linea().classList).not.toContain('sm:hidden');
+
+      const hoja = document.querySelector('mat-bottom-sheet-container')!;
+      [...hoja.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
+      await fixture.whenStable();
+      await new Promise((listo) => setTimeout(listo));
+      fixture.detectChanges();
+
+      expect(document.activeElement).toBe(cambiar);
+      expect(linea().classList).not.toContain('sm:hidden');
+    });
+
     it('en el teléfono se ve siempre: lo que la esconde vale solo desde sm', async () => {
       await controles(true);
 
@@ -478,9 +527,16 @@ describe('Grilla', () => {
     });
   });
 
-  it('sin IntersectionObserver (jsdom), la grilla se dibuja igual', () => {
+  it('sin IntersectionObserver (jsdom), la grilla se dibuja igual y sin errores', async () => {
+    // El error del observador lo atrapa el ErrorHandler como console.error: la grilla se dibuja
+    // igual, y solo el espía lo ve.
+    const errores = vi.spyOn(console, 'error');
+    await montar(DIA);
+
     expect(typeof globalThis.IntersectionObserver).toBe('undefined');
     expect(el().querySelector('[data-resumen-de-controles]')).not.toBeNull();
+    expect(errores).not.toHaveBeenCalled();
+    errores.mockRestore();
   });
 
   /**

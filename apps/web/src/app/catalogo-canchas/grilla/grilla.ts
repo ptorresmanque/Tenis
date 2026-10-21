@@ -48,6 +48,7 @@ import {
   ControlesDelDia,
   duracionCorta,
   etiquetaDeLaDuracion,
+  etiquetaDelFiltro,
   filtroCorto,
   pasaElFiltro,
 } from './controles-del-dia';
@@ -140,15 +141,20 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
          y aparece al bajar, fija y no pegada, porque en el flujo empujaría el tablero 58 px al
          aparecer. En el teléfono va pegada siempre. Escondida (display: none) sigue en el DOM,
          sin parada de teclado ni lector (C4). -->
+    <!-- No se esconde mientras tiene el foco ni con la hoja abierta: el foco se iría al body, o
+         la hoja se lo devolvería a un botón escondido (revisión de T351). Espacios justos: a
+         360 px, con «Techadas» o «Aire libre» y hora y media, partía en dos renglones. -->
     <div
       data-resumen-de-controles
-      class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-3
-             border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:fixed sm:inset-x-0
-             sm:top-16 sm:mt-0"
-      [class.sm:hidden]="controlesALaVista()"
+      class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-2
+             border-b border-border bg-card px-sangre-3 py-2 shadow-sm print:hidden sm:fixed
+             sm:inset-x-0 sm:top-16 sm:mt-0"
+      [class.sm:hidden]="controlesALaVista() && !lineaConFoco() && !hojaAbierta()"
+      (focusin)="lineaConFoco.set(true)"
+      (focusout)="lineaConFoco.set(false)"
     >
       <!-- Cada valor con su rótulo encima (N1): «Todas» solo no decía que eran las canchas. -->
-      <dl class="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
+      <dl class="flex min-w-0 flex-wrap gap-x-3 gap-y-1">
         @for (dato of loElegido(); track dato.rotulo) {
           <div>
             <dt
@@ -157,7 +163,11 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
             >
               {{ dato.rotulo }}
             </dt>
-            <dd class="text-sm leading-tight font-semibold">{{ dato.valor }}</dd>
+            <!-- Corto a la vista (N4) y completo para el lector: «1 h» se leería «uno hache». -->
+            <dd class="text-sm leading-tight font-semibold">
+              <span aria-hidden="true">{{ dato.valor }}</span>
+              <span class="sr-only">{{ dato.leido }}</span>
+            </dd>
           </div>
         }
       </dl>
@@ -379,7 +389,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       <div class="p-4">
         <ng-container [ngTemplateOutlet]="controles" />
         <div class="mt-4 flex justify-end">
-          <button matButton="filled" type="button" (click)="hoja?.dismiss()">Listo</button>
+          <button matButton="filled" type="button" (click)="hojaAbierta()?.dismiss()">Listo</button>
         </div>
       </div>
     </ng-template>
@@ -851,9 +861,17 @@ export class Grilla {
     const dia = `${diaCortoEnElClub(mediodia)} ${Number(this.fecha().slice(8, 10))} ${mesCortoEnElClub(mediodia)}`;
 
     return [
-      { rotulo: 'Día', valor: dia },
-      { rotulo: 'Duración', valor: duracionCorta(this.duracion()) },
-      { rotulo: 'Canchas', valor: filtroCorto(this.filtro()) },
+      { rotulo: 'Día', valor: dia, leido: dia },
+      {
+        rotulo: 'Duración',
+        valor: duracionCorta(this.duracion()),
+        leido: etiquetaDeLaDuracion(this.duracion()),
+      },
+      {
+        rotulo: 'Canchas',
+        valor: filtroCorto(this.filtro()),
+        leido: etiquetaDelFiltro(this.filtro()),
+      },
     ];
   });
 
@@ -864,6 +882,8 @@ export class Grilla {
    * ahí la línea se ve siempre.
    */
   protected readonly controlesALaVista = signal(true);
+  /** Si el foco está en la línea: ahí no se esconde, o el foco se iría al body. */
+  protected readonly lineaConFoco = signal(false);
   private readonly controlesArriba = viewChild.required<ElementRef<HTMLElement>>('controlesArriba');
   private readonly destruir = inject(DestroyRef);
 
@@ -871,7 +891,8 @@ export class Grilla {
     if (typeof IntersectionObserver === 'undefined') return;
     // Lo que queda bajo el encabezado (65 px con su borde) ya no se ve.
     const observador = new IntersectionObserver(
-      ([entrada]) => this.controlesALaVista.set(entrada.isIntersecting),
+      // La última: si llegan dos del mismo elemento juntas, la primera es la vieja.
+      (entradas) => this.controlesALaVista.set(entradas[entradas.length - 1].isIntersecting),
       { rootMargin: '-65px 0px 0px 0px' },
     );
     observador.observe(this.controlesArriba().nativeElement);
@@ -880,24 +901,29 @@ export class Grilla {
 
   private readonly hojas = inject(MatBottomSheet);
   private readonly hojaDeControles = viewChild.required<TemplateRef<unknown>>('hojaDeControles');
-  /** La hoja abierta, para que «Listo» la cierre. Esc y tocar afuera también la cierran. */
-  protected hoja: MatBottomSheetRef | null = null;
+  /**
+   * La hoja abierta, para que «Listo» la cierre (Esc y tocar afuera también la cierran). Mientras
+   * está abierta, la línea no se esconde: al cerrar, la hoja le devuelve el foco a su «Cambiar».
+   * Una señal, porque la plantilla la lee para eso.
+   */
+  protected readonly hojaAbierta = signal<MatBottomSheetRef | null>(null);
 
   /**
    * Si la grilla se va con la hoja abierta, la hoja se cierra: sus controles son de la grilla.
    * Atrás y adelante ya la cerraban (closeOnNavigation); esto cubre una navegación de la app.
    */
-  private readonly cerrarLaHoja = this.destruir.onDestroy(() => this.hoja?.dismiss());
+  private readonly cerrarLaHoja = this.destruir.onDestroy(() => this.hojaAbierta()?.dismiss());
 
   protected abrirControles(evento: Event): void {
     const boton = evento.currentTarget as HTMLElement;
-    this.hoja = this.hojas.open(this.hojaDeControles(), {
+    const hoja = this.hojas.open(this.hojaDeControles(), {
       ariaLabel: 'El día, la duración y las canchas',
       // Al botón y no a lo que tenía el foco al abrir: en Safari, tocar un botón no le da el
       // foco, y la hoja lo devolvía al body.
       restoreFocus: boton,
     });
-    this.hoja.afterDismissed().subscribe(() => (this.hoja = null));
+    this.hojaAbierta.set(hoja);
+    hoja.afterDismissed().subscribe(() => this.hojaAbierta.set(null));
   }
 
   protected readonly hora = horaEnElClub;
