@@ -250,6 +250,15 @@ describe('Grilla', () => {
       expect(loElegido()[1]).toEqual(['Duración', '1 hora y media']);
     });
 
+    it('**la línea va arriba desde el principio**: antes del aviso de carga y de las horas pasadas', () => {
+      const linea = el().querySelector('[data-resumen-de-controles]')!;
+      const antes = (otro: Element | null) =>
+        !!otro && !!(linea.compareDocumentPosition(otro) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+      expect(antes(el().querySelector('[role="status"][aria-live="polite"]'))).toBe(true);
+      expect(antes(el().querySelector('app-marcador'))).toBe(true);
+    });
+
     it('**en el teléfono no están los controles de arriba**: la línea es la única entrada (N3)', () => {
       // «Teléfono» es CSS (bajo sm): los de arriba van en una caja que se esconde ahí. La línea
       // no va dentro, y la hoja sigue abriendo los mismos controles.

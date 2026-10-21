@@ -128,6 +128,45 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       <ng-container [ngTemplateOutlet]="controles" />
     </div>
 
+    <!-- LO ELEGIDO (T345, SPEC-sitio.md M2 y B3). Los controles de arriba ocupan media pantalla
+         y se pierden al bajar por el tablero: había quien no sabía que podía cambiar el día o
+         la duración. La línea queda pegada bajo el encabezado (64 px) y «Cambiar» trae los
+         mismos controles en una hoja desde abajo. En el teléfono es la única entrada (T348,
+         N3), y por eso va acá, arriba desde el principio. Fuera del @if del tablero: mientras
+         la grilla nueva carga, el tablero se va, y con él se iba el botón al que la hoja le
+         devuelve el foco al cerrarse. -->
+    <div
+      data-resumen-de-controles
+      class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-3
+             border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:hidden"
+    >
+      <!-- Cada valor con su rótulo encima (N1): «Todas» solo no decía que eran las canchas. -->
+      <dl class="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
+        @for (dato of loElegido(); track dato.rotulo) {
+          <div>
+            <dt
+              class="font-display text-xs leading-tight font-bold tracking-wide
+                     text-muted-foreground uppercase"
+            >
+              {{ dato.rotulo }}
+            </dt>
+            <dd class="text-sm leading-tight font-semibold">{{ dato.valor }}</dd>
+          </div>
+        }
+      </dl>
+      <!-- El nombre empieza con lo que se ve (WCAG 2.5.3) y dice qué cambia. El botón va a
+           abrirControles: la hoja le devuelve el foco a él, porque Safari no se lo da al tocarlo. -->
+      <button
+        matButton="outlined"
+        type="button"
+        class="chico"
+        aria-label="Cambiar el día, la duración o las canchas"
+        (click)="abrirControles($event)"
+      >
+        Cambiar
+      </button>
+    </div>
+
     <!-- Los cambios de estado se anuncian: quien usa lector de pantalla no ve
          que la grilla se repobló. -->
     <div role="status" aria-live="polite" class="mt-6">
@@ -255,45 +294,6 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
         </ul>
       </mat-expansion-panel>
     }
-
-    <!-- LO ELEGIDO, A MANO EN EL TELÉFONO (T345, SPEC-sitio.md M2 y B3). Arriba, los controles
-         ocupan media pantalla y se pierden al bajar por el tablero: había quien no sabía que
-         podía cambiar el día o la duración. La línea queda pegada bajo el encabezado (64 px) y
-         «Cambiar» trae los mismos controles en una hoja desde abajo. Desde sm no hace falta:
-         los controles y los nombres de las canchas quedan a la vista. Fuera del @if del
-         tablero: mientras la grilla nueva carga, el tablero se va, y con él se iba el botón al
-         que la hoja le devuelve el foco al cerrarse. -->
-    <div
-      data-resumen-de-controles
-      class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-3
-             border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:hidden"
-    >
-      <!-- Cada valor con su rótulo encima (N1): «Todas» solo no decía que eran las canchas. -->
-      <dl class="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
-        @for (dato of loElegido(); track dato.rotulo) {
-          <div>
-            <dt
-              class="font-display text-xs leading-tight font-bold tracking-wide
-                     text-muted-foreground uppercase"
-            >
-              {{ dato.rotulo }}
-            </dt>
-            <dd class="text-sm leading-tight font-semibold">{{ dato.valor }}</dd>
-          </div>
-        }
-      </dl>
-      <!-- El nombre empieza con lo que se ve (WCAG 2.5.3) y dice qué cambia. El botón va a
-           abrirControles: la hoja le devuelve el foco a él, porque Safari no se lo da al tocarlo. -->
-      <button
-        matButton="outlined"
-        type="button"
-        class="chico"
-        aria-label="Cambiar el día, la duración o las canchas"
-        (click)="abrirControles($event)"
-      >
-        Cambiar
-      </button>
-    </div>
 
     <!--
       EL DÍA, EN EL TABLERO DE LA PORTADA (T265).
