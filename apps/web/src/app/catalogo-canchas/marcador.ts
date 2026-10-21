@@ -165,108 +165,108 @@ const claveDe = (canchaId: number, inicio: string) =>
                       <span class="sr-only">Parte de tu elección</span>
                     </span>
                   } @else {
-                  @switch (celda.estado) {
-                    @case ('libre') {
-                      @if (modo() === 'elegir') {
-                        <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
-                             que cambia es la placa, la marca y aria-pressed. La marca va arriba
-                             del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
-                        @let marcada = esLaElegida(celda);
-                        <button
-                          type="button"
-                          class="flex h-full w-full cursor-pointer items-center justify-center
-                                 gap-0.5 border font-display text-sm font-bold tracking-wider
-                                 uppercase transition-transform active:scale-95"
-                          [class]="
-                            marcada
-                              ? 'flex-col leading-none border-rotulo bg-rotulo text-on-rotulo'
-                              : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
-                          "
-                          [attr.data-fila]="i"
-                          [attr.data-columna]="j"
-                          [attr.tabindex]="esLaParada(celda) ? 0 : -1"
-                          [attr.aria-label]="etiqueta()(celda.cancha, celda.bloque)"
-                          [attr.aria-pressed]="marcada"
-                          [attr.data-en-la-eleccion]="marcada ? '' : null"
-                          (focus)="foco.set(clave(celda))"
-                          (keydown)="mover($event)"
-                          (click)="elegir.emit({ cancha: celda.cancha, bloque: celda.bloque })"
-                        >
-                          @if (marcada) {
-                            <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
-                          }
-                          Libre
-                        </button>
-                      } @else {
-                        <!-- aria-label y no un sr-only: Chrome separa el sr-only con un
-                             espacio y el nombre quedaba "Libre : reservar". Empieza con
-                             lo que se ve, como pide WCAG 2.5.3. -->
-                        <a
-                          routerLink="/disponibilidad"
-                          [queryParams]="{ fecha: fila.fecha, cancha: celda.cancha.id, inicio: fila.hora }"
-                          tabindex="-1"
-                          [attr.aria-label]="
-                            'Libre: reservar la ' + celda.cancha.nombre + ' a las ' + fila.hora
-                          "
-                          class="flex h-full items-center justify-center border
-                                 border-borde-celda-libre bg-celda-libre font-display text-sm
-                                 font-bold tracking-wider text-on-celda-libre uppercase
-                                 transition-transform active:scale-95"
-                        >
-                          Libre
-                        </a>
+                    @switch (celda.estado) {
+                      @case ('libre') {
+                        @if (modo() === 'elegir') {
+                          <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
+                               que cambia es la placa, la marca y aria-pressed. La marca va arriba
+                               del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
+                          @let marcada = esLaElegida(celda);
+                          <button
+                            type="button"
+                            class="flex h-full w-full cursor-pointer items-center justify-center
+                                   gap-0.5 border font-display text-sm font-bold tracking-wider
+                                   uppercase transition-transform active:scale-95"
+                            [class]="
+                              marcada
+                                ? 'flex-col leading-none border-rotulo bg-rotulo text-on-rotulo'
+                                : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
+                            "
+                            [attr.data-fila]="i"
+                            [attr.data-columna]="j"
+                            [attr.tabindex]="esLaParada(celda) ? 0 : -1"
+                            [attr.aria-label]="etiqueta()(celda.cancha, celda.bloque)"
+                            [attr.aria-pressed]="marcada"
+                            [attr.data-en-la-eleccion]="marcada ? '' : null"
+                            (focus)="foco.set(clave(celda))"
+                            (keydown)="mover($event)"
+                            (click)="elegir.emit({ cancha: celda.cancha, bloque: celda.bloque })"
+                          >
+                            @if (marcada) {
+                              <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
+                            }
+                            Libre
+                          </button>
+                        } @else {
+                          <!-- aria-label y no un sr-only: Chrome separa el sr-only con un
+                               espacio y el nombre quedaba "Libre : reservar". Empieza con
+                               lo que se ve, como pide WCAG 2.5.3. -->
+                          <a
+                            routerLink="/disponibilidad"
+                            [queryParams]="{ fecha: fila.fecha, cancha: celda.cancha.id, inicio: fila.hora }"
+                            tabindex="-1"
+                            [attr.aria-label]="
+                              'Libre: reservar la ' + celda.cancha.nombre + ' a las ' + fila.hora
+                            "
+                            class="flex h-full items-center justify-center border
+                                   border-borde-celda-libre bg-celda-libre font-display text-sm
+                                   font-bold tracking-wider text-on-celda-libre uppercase
+                                   transition-transform active:scale-95"
+                          >
+                            Libre
+                          </a>
+                        }
                       }
-                    }
-                    @case ('sin-venta') {
-                      <!-- Libre, pero no para quien mira (T83b, T213): punteada y con su
-                           ícono, para no leerse como cerrada ni como ocupada. -->
-                      <span
-                        class="flex h-full items-center justify-center border border-dotted
-                               border-on-campo/40 text-on-campo/70"
-                      >
-                        <mat-icon class="text-base" aria-hidden="true">hourglass_disabled</mat-icon>
-                        <span class="sr-only">{{ celda.motivo }}</span>
-                      </span>
-                    }
-                    @case ('ocupada') {
-                      <span class="flex h-full bg-on-campo/10">
-                        <span class="sr-only">Ocupada</span>
-                      </span>
-                    }
-                    @case ('bloqueada') {
-                      <!-- En disponibilidad, la clase lleva a las clases (T97): a quien
-                           llega nuevo le dice que a esa hora hay una que le puede servir. -->
-                      @if (modo() === 'elegir' && celda.clase) {
-                        <a
-                          routerLink="/clases"
-                          class="rayas flex h-full items-center justify-center text-on-campo/70
-                                 hover:text-on-campo"
+                      @case ('sin-venta') {
+                        <!-- Libre, pero no para quien mira (T83b, T213): punteada y con su
+                             ícono, para no leerse como cerrada ni como ocupada. -->
+                        <span
+                          class="flex h-full items-center justify-center border border-dotted
+                                 border-on-campo/40 text-on-campo/70"
                         >
-                          <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
-                          <span class="sr-only">{{ celda.motivo }}: ver las clases</span>
-                        </a>
-                      } @else {
-                        <span class="rayas flex h-full items-center justify-center text-on-campo/70">
-                          <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
+                          <mat-icon class="text-base" aria-hidden="true">hourglass_disabled</mat-icon>
                           <span class="sr-only">{{ celda.motivo }}</span>
                         </span>
                       }
+                      @case ('ocupada') {
+                        <span class="flex h-full bg-on-campo/10">
+                          <span class="sr-only">Ocupada</span>
+                        </span>
+                      }
+                      @case ('bloqueada') {
+                        <!-- En disponibilidad, la clase lleva a las clases (T97): a quien
+                             llega nuevo le dice que a esa hora hay una que le puede servir. -->
+                        @if (modo() === 'elegir' && celda.clase) {
+                          <a
+                            routerLink="/clases"
+                            class="rayas flex h-full items-center justify-center text-on-campo/70
+                                   hover:text-on-campo"
+                          >
+                            <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
+                            <span class="sr-only">{{ celda.motivo }}: ver las clases</span>
+                          </a>
+                        } @else {
+                          <span class="rayas flex h-full items-center justify-center text-on-campo/70">
+                            <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
+                            <span class="sr-only">{{ celda.motivo }}</span>
+                          </span>
+                        }
+                      }
+                      @case ('sin-inicio') {
+                        <span class="flex h-full">
+                          <span class="sr-only">Sin inicio a esta hora</span>
+                        </span>
+                      }
+                      @case ('cerrada') {
+                        <span
+                          class="flex h-full items-center justify-center border border-dashed
+                                 border-on-campo/25 text-on-campo/50"
+                        >
+                          <span aria-hidden="true">—</span>
+                          <span class="sr-only">Cerrada</span>
+                        </span>
+                      }
                     }
-                    @case ('sin-inicio') {
-                      <span class="flex h-full">
-                        <span class="sr-only">Sin inicio a esta hora</span>
-                      </span>
-                    }
-                    @case ('cerrada') {
-                      <span
-                        class="flex h-full items-center justify-center border border-dashed
-                               border-on-campo/25 text-on-campo/50"
-                      >
-                        <span aria-hidden="true">—</span>
-                        <span class="sr-only">Cerrada</span>
-                      </span>
-                    }
-                  }
                   }
                 </td>
               }
