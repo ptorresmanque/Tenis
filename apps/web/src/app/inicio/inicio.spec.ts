@@ -13,7 +13,7 @@ import {
   mananaEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
 import { Club, LugarDelClub } from '../club/club.service';
-import { Auth } from '../core/auth/auth';
+import { Auth, UsuarioActual } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
 import { Inicio } from './inicio';
 
@@ -54,7 +54,12 @@ describe('Inicio', () => {
     // Un Error es el calendario que no cargó.
     torneos: TorneoPublico[] | Error,
     delDia: (fecha: string) => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
-    { esperar, tienda } = { esperar: true } as { esperar: boolean; tienda?: LugarDelClub },
+    // Sin usuario, nadie entró. Con él, basta lo que la portada mira: la ficha de socio.
+    { esperar, tienda, usuario = null } = { esperar: true } as {
+      esperar: boolean;
+      tienda?: LugarDelClub;
+      usuario?: Pick<UsuarioActual, 'id' | 'socioId'> | null;
+    },
   ) => {
     const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
     TestBed.resetTestingModule();
@@ -62,7 +67,7 @@ describe('Inicio', () => {
       providers: [
         provideRouter([]),
         { provide: Disponibilidad, useValue: { delDia: vi.fn(delDia) } },
-        { provide: Auth, useValue: { usuario: signal(null) } },
+        { provide: Auth, useValue: { usuario: signal(usuario) } },
         // La tienda y la cafetería (T186): vacías salvo que el test diga otra cosa.
         {
           provide: Club,
@@ -153,12 +158,6 @@ describe('Inicio', () => {
     expect(elemento().querySelector('#torneos-abiertos')).toBeNull();
   });
 
-  /**
-   * El cara a cara (TV3.5): socio contra visitante, fila por fila. Lo que se
-   * cuida es que diga **lo mismo que decían las dos listas, ni una afirmación
-   * más**, y que donde una no tiene par la celda quede vacía en vez de
-   * inventarle uno.
-   */
   /** Los textos de la Decimoséptima parte (SPEC-sitio.md, P1–P19), con el skill copywriting. */
   describe('los textos que invitan (P1, P2, P6–P8, P19)', () => {
     const enlace = (texto: string) =>
@@ -194,8 +193,33 @@ describe('Inicio', () => {
           'que en julio. Y si llueve, juegas en las techadas.',
       );
     });
+
+    // Decisión del usuario del 2026-10-21, que reemplaza el «sin sesión» de P6: la invitación
+    // es para quien no es socio, tenga cuenta o no.
+    it('**a la socia no le ofrece lo que ya es**: ni «Hazte socio» ni la comparación', async () => {
+      await montar([], undefined, { esperar: true, usuario: { id: 1, socioId: 7 } });
+
+      expect(enlace('Reservar cancha')?.getAttribute('href')).toBe('/disponibilidad');
+      expect(enlace('Hazte socio')).toBeUndefined();
+      expect(enlace('Quiero ser socio')).toBeUndefined();
+      expect(elemento().querySelector('#dos-caminos')).toBeNull();
+    });
+
+    it('**con cuenta y sin ficha de socio, las dos invitaciones siguen**', async () => {
+      await montar([], undefined, { esperar: true, usuario: { id: 2, socioId: null } });
+
+      expect(enlace('Hazte socio')?.getAttribute('href')).toBe('/el-club#titulo-contacto');
+      expect(enlace('Quiero ser socio')?.getAttribute('href')).toBe('/el-club#titulo-contacto');
+      expect(elemento().querySelector('#dos-caminos')).not.toBeNull();
+    });
   });
 
+  /**
+   * El cara a cara (TV3.5): socio contra visitante, fila por fila. Lo que se
+   * cuida es que diga **lo mismo que decían las dos listas, ni una afirmación
+   * más**, y que donde una no tiene par la celda quede vacía en vez de
+   * inventarle uno.
+   */
   describe('el cara a cara', () => {
     const OCHO = [
       'Sin pago al reservar: la hora ya está en tu cuota',
