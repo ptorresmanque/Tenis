@@ -1,15 +1,15 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 
-import { GrillaDeCancha } from '../../catalogo-canchas/disponibilidad';
+import { GrillaDeCancha, PASO_DE_LA_GRILLA_MS } from '../../catalogo-canchas/disponibilidad';
 import { moverConFlechas } from '../../catalogo-canchas/flechas-del-tablero';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from '../../catalogo-canchas/motivos';
 import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { ClaseDelDia, cupoEnPalabras, queClaseEs } from '../../clases/clases.service';
 import { BloqueoDelDia, ReservaDelDia } from './agenda.service';
 
-/** El paso de la grilla en la API (`PASO_DE_LA_GRILLA_MIN`): una fila por media hora. */
-const FRANJA_MS = 30 * 60 * 1000;
+/** Una fila por media hora, el paso de la grilla. */
+const FRANJA_MS = PASO_DE_LA_GRILLA_MS;
 
 export interface ColumnaDeLaAgenda {
   /** Nulo en el gimnasio, que no es una cancha. */
@@ -230,11 +230,14 @@ export function tableroDeLaAgenda(dia: {
                       <!-- Una tarjeta clara sobre el campo: es lo que el mesón busca. La que
                            espera el pago, punteada y dicho con palabras: ocupa la cancha
                            pero se puede caer. -->
+                      <!-- scroll-mt-20 y scroll-ms-18: la celda con foco no queda bajo la barra del
+                           panel en el teléfono (64 px y su borde) ni bajo la columna de la hora
+                           (w-16 y el espacio entre celdas). Si cambian, cambian estos márgenes. -->
                       <button
                         type="button"
-                        class="absolute inset-0 flex cursor-pointer flex-col items-start gap-0.5
-                               overflow-hidden border bg-card p-1.5 text-start text-foreground
-                               hover:border-primary"
+                        class="absolute inset-0 flex scroll-mt-20 scroll-ms-18 cursor-pointer
+                               flex-col items-start gap-0.5 overflow-hidden border bg-card p-1.5
+                               text-start text-foreground hover:border-primary"
                         [class.border-dashed]="espera"
                         [class.border-on-campo]="espera"
                         [class.border-transparent]="!espera"
@@ -297,10 +300,11 @@ export function tableroDeLaAgenda(dia: {
                       @if (puedeTomar()) {
                         <button
                           type="button"
-                          class="flex h-full w-full cursor-pointer items-center justify-center
-                                 border border-borde-celda-libre bg-celda-libre font-display
-                                 text-xs font-bold tracking-wider text-on-celda-libre uppercase
-                                 hover:border-on-celda-libre active:scale-95"
+                          class="flex h-full w-full scroll-mt-20 scroll-ms-18 cursor-pointer
+                                 items-center justify-center border border-borde-celda-libre
+                                 bg-celda-libre font-display text-xs font-bold tracking-wider
+                                 text-on-celda-libre uppercase hover:border-on-celda-libre
+                                 active:scale-95"
                           [attr.data-fila]="i"
                           [attr.data-columna]="j"
                           [attr.tabindex]="esLaParada(i, j) ? 0 : -1"

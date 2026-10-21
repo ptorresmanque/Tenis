@@ -2,6 +2,7 @@ import {
   afterNextRender,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -9,12 +10,16 @@ import {
   linkedSignal,
   resource,
   signal,
+  TemplateRef,
   untracked,
+  viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatButton } from '@angular/material/button';
+import { MatBottomSheet, MatBottomSheetRef } from '@angular/material/bottom-sheet';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -30,9 +35,24 @@ import {
   DuracionMin,
 } from '../disponibilidad';
 import { CeldaElegible, Marcador } from '../marcador';
-import { enPesos, hoyEnElClub, horaEnElClub, mananaEnElClub } from '../reloj-del-club';
+import {
+  diaCortoEnElClub,
+  diaEnPalabras,
+  enPesos,
+  hoyEnElClub,
+  horaEnElClub,
+  mananaEnElClub,
+  mesCortoEnElClub,
+} from '../reloj-del-club';
 import { TARIFA_DEL_SOCIO, yaEmpezo } from './bandas';
-import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
+import {
+  ControlesDelDia,
+  duracionCorta,
+  etiquetaDeLaDuracion,
+  etiquetaDelFiltro,
+  filtroCorto,
+  pasaElFiltro,
+} from './controles-del-dia';
 import { MoverReserva } from './mover-reserva';
 import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
@@ -46,6 +66,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     Reservar,
     BarraFija,
     ControlesDelDia,
+    NgTemplateOutlet,
     EstadoVacio,
     ResumenDeLaEleccion,
     ResumenDelCambio,
@@ -59,7 +80,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     '[class.pb-56]': 'elegido() !== null',
   },
   template: `
-    <h1 class="titular text-5xl sm:text-6xl">Disponibilidad</h1>
+    <h1 class="titular text-5xl sm:text-6xl">Reserva tu cancha</h1>
 
     @if (mover.activo()) {
       <!-- Se dice arriba y no en cada bloque: quien llega desde "mis reservas" o desde
@@ -93,14 +114,78 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     }
 
     <!-- Cambiar de día suelta lo marcado: la barra no dice la fecha, y "Reservar" tomaría
-         la hora del día anterior con la tabla de otro a la vista. -->
-    <app-controles-del-dia
-      [(fecha)]="fecha"
-      (fechaChange)="elegido.set(null)"
-      [duracion]="duracion()"
-      [(filtro)]="filtro"
-      (cambiarDuracion)="elegirDuracion($event)"
-    />
+         la hora del día anterior con la tabla de otro a la vista. Escritos una vez: los usan
+         la página y la hoja de «Cambiar» (T345), y dos copias terminarían por diferir. -->
+    <ng-template #controles>
+      <app-controles-del-dia
+        [(fecha)]="fecha"
+        (fechaChange)="elegido.set(null)"
+        [duracion]="duracion()"
+        [(filtro)]="filtro"
+        (cambiarDuracion)="elegirDuracion($event)"
+      />
+    </ng-template>
+    <!-- En el teléfono no están (N3, SPEC-sitio.md, Decimoctava parte): la línea de abajo es la
+         única entrada, y su «Cambiar» abre estos mismos controles en la hoja. -->
+    <div #controlesArriba data-controles-arriba class="hidden sm:block">
+      <ng-container [ngTemplateOutlet]="controles" />
+    </div>
+
+    <!-- LO ELEGIDO (T345, SPEC-sitio.md M2 y B3). Los controles de arriba ocupan media pantalla
+         y se pierden al bajar por el tablero: había quien no sabía que podía cambiar el día o
+         la duración. La línea queda pegada bajo el encabezado (64 px) y «Cambiar» trae los
+         mismos controles en una hoja desde abajo. En el teléfono es la única entrada (T348,
+         N3), y por eso va acá, arriba desde el principio. Fuera del @if del tablero: mientras
+         la grilla nueva carga, el tablero se va, y con él se iba el botón al que la hoja le
+         devuelve el foco al cerrarse. -->
+    <!-- En grande (T349, N2), arriba están los controles: la línea se esconde mientras se ven
+         y aparece al bajar, fija y no pegada, porque en el flujo empujaría el tablero 58 px al
+         aparecer. En el teléfono va pegada siempre. Escondida (display: none) sigue en el DOM,
+         sin parada de teclado ni lector (C4). -->
+    <!-- No se esconde mientras tiene el foco ni con la hoja abierta: el foco se iría al body, o
+         la hoja se lo devolvería a un botón escondido (revisión de T351). Espacios justos en el
+         teléfono: a 360 px, con «Techadas» o «Aire libre», hora y media y algunos días («Dom 24
+         may»), partía en dos renglones. En grande sobra el ancho y quedan los de siempre. -->
+    <div
+      #lineaElegida
+      data-resumen-de-controles
+      class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-2
+             border-b border-border bg-card px-sangre-3 py-2 shadow-sm print:hidden sm:fixed
+             sm:inset-x-0 sm:top-16 sm:mt-0 sm:gap-3 sm:px-sangre-4"
+      [class.sm:hidden]="lineaEscondida()"
+      (focusin)="lineaConFoco.set(true)"
+      (focusout)="lineaConFoco.set(lineaElegida.contains($any($event).relatedTarget))"
+    >
+      <!-- Cada valor con su rótulo encima (N1): «Todas» solo no decía que eran las canchas. -->
+      <dl class="flex min-w-0 flex-wrap gap-x-2 gap-y-1 sm:gap-x-4">
+        @for (dato of loElegido(); track dato.rotulo) {
+          <div>
+            <dt
+              class="font-display text-xs leading-tight font-bold tracking-wide
+                     text-muted-foreground uppercase"
+            >
+              {{ dato.rotulo }}
+            </dt>
+            <!-- Corto a la vista (N4) y completo para el lector: «1 h» se leería «uno hache». -->
+            <dd class="text-sm leading-tight font-semibold">
+              <span aria-hidden="true">{{ dato.valor }}</span>
+              <span class="sr-only">{{ dato.leido }}</span>
+            </dd>
+          </div>
+        }
+      </dl>
+      <!-- El nombre empieza con lo que se ve (WCAG 2.5.3) y dice qué cambia. El botón va a
+           abrirControles: la hoja le devuelve el foco a él, porque Safari no se lo da al tocarlo. -->
+      <button
+        matButton="outlined"
+        type="button"
+        class="chico"
+        aria-label="Cambiar el día, la duración o las canchas"
+        (click)="abrirControles($event)"
+      >
+        Cambiar
+      </button>
+    </div>
 
     <!-- Los cambios de estado se anuncian: quien usa lector de pantalla no ve
          que la grilla se repobló. -->
@@ -251,7 +336,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
           @if (esSocio()) {
             Socio <strong>{{ tarifaDelSocio }}</strong>: elige una cancha libre.
           } @else {
-            Arriendo de {{ duracion() === 90 ? '1 hora y media' : '1 hora' }} por
+            Arriendo de {{ etiquetaDeLaDuracion(duracion()) }} por
             cancha{{ arriendo() ? ': ' + arriendo() : '' }} · socio {{ tarifaDelSocio }}
           }
         </p>
@@ -263,6 +348,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
           [sinVenta]="sinVenta"
           [etiqueta]="etiquetaDeCelda"
           [arriendo]="!esSocio()"
+          [bajoLaLinea]="!controlesALaVista()"
           (elegir)="elegirCelda($event)"
         />
       </section>
@@ -300,6 +386,16 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
         }
       </app-barra-fija>
     }
+
+    <!-- La hoja de «Cambiar» (T345): los mismos controles de arriba. -->
+    <ng-template #hojaDeControles>
+      <div class="p-4">
+        <ng-container [ngTemplateOutlet]="controles" />
+        <div class="mt-4 flex justify-end">
+          <button matButton="filled" type="button" (click)="hojaAbierta()?.dismiss()">Listo</button>
+        </div>
+      </div>
+    </ng-template>
 
     @if (reservando(); as eleccion) {
       <app-reservar
@@ -487,7 +583,13 @@ export class Grilla {
   /** La marcada, como la lee el tablero. */
   protected readonly laElegida = computed(() => {
     const eleccion = this.elegido();
-    return eleccion && { canchaId: eleccion.cancha.id, inicio: eleccion.bloque.inicio };
+    return (
+      eleccion && {
+        canchaId: eleccion.cancha.id,
+        inicio: eleccion.bloque.inicio,
+        fin: eleccion.bloque.fin,
+      }
+    );
   });
 
   /** El que ya pasó por "Reservar" y tiene el formulario abierto encima. */
@@ -756,9 +858,94 @@ export class Grilla {
     });
   }
 
+  /** Lo que dice la línea (T345), cada valor con su rótulo (T348, N1): Día «Lun 17 ago»… */
+  protected readonly loElegido = computed(() => {
+    const mediodia = `${this.fecha()}T12:00:00.000Z`;
+    const dia = `${diaCortoEnElClub(mediodia)} ${Number(this.fecha().slice(8, 10))} ${mesCortoEnElClub(mediodia)}`;
+
+    return [
+      // El lector, en palabras: «Mié 21 oct» se leería abreviado.
+      { rotulo: 'Día', valor: dia, leido: diaEnPalabras(this.fecha()) },
+      {
+        rotulo: 'Duración',
+        valor: duracionCorta(this.duracion()),
+        leido: etiquetaDeLaDuracion(this.duracion()),
+      },
+      {
+        rotulo: 'Canchas',
+        valor: filtroCorto(this.filtro()),
+        leido: etiquetaDelFiltro(this.filtro()),
+      },
+    ];
+  });
+
+  /**
+   * Si los controles de arriba se ven bajo el encabezado (T349). Empieza en sí: sin el
+   * observador (jsdom) o antes de su primera respuesta, en grande la línea no aparece repetida.
+   * En el teléfono los controles no se dibujan, el observador responde que no, y da lo mismo:
+   * ahí la línea se ve siempre.
+   */
+  protected readonly controlesALaVista = signal(true);
+  /** Si el foco está en la línea: ahí no se esconde, o el foco se iría al body. */
+  protected readonly lineaConFoco = signal(false);
+
+  /**
+   * En grande, la línea se esconde mientras los controles de arriba se ven (T349), salvo que
+   * tenga el foco o la hoja esté abierta (revisión de T351). En el teléfono la clase no aplica.
+   */
+  protected readonly lineaEscondida = computed(
+    () => this.controlesALaVista() && !this.lineaConFoco() && !this.hojaAbierta(),
+  );
+  private readonly controlesArriba = viewChild.required<ElementRef<HTMLElement>>('controlesArriba');
+  private readonly destruir = inject(DestroyRef);
+
+  private readonly mirarLosControles = afterNextRender(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    // Lo que queda bajo el encabezado (65 px con su borde) ya no se ve.
+    const observador = new IntersectionObserver(
+      // La última: si llegan dos del mismo elemento juntas, la primera es la vieja.
+      (entradas) => this.controlesALaVista.set(entradas[entradas.length - 1].isIntersecting),
+      { rootMargin: '-65px 0px 0px 0px' },
+    );
+    observador.observe(this.controlesArriba().nativeElement);
+    this.destruir.onDestroy(() => observador.disconnect());
+  });
+
+  private readonly hojas = inject(MatBottomSheet);
+  private readonly hojaDeControles = viewChild.required<TemplateRef<unknown>>('hojaDeControles');
+  /**
+   * La hoja abierta, para que «Listo» la cierre (Esc y tocar afuera también la cierran). Mientras
+   * está abierta, la línea no se esconde: al cerrar, la hoja le devuelve el foco a su «Cambiar».
+   * Una señal, porque la plantilla la lee para eso.
+   */
+  protected readonly hojaAbierta = signal<MatBottomSheetRef | null>(null);
+
+  /**
+   * Si la grilla se va con la hoja abierta, la hoja se cierra: sus controles son de la grilla.
+   * Atrás y adelante ya la cerraban (closeOnNavigation); esto cubre una navegación de la app.
+   */
+  private readonly cerrarLaHoja = this.destruir.onDestroy(() => this.hojaAbierta()?.dismiss());
+
+  protected abrirControles(evento: Event): void {
+    const boton = evento.currentTarget as HTMLElement;
+    const hoja = this.hojas.open(this.hojaDeControles(), {
+      ariaLabel: 'El día, la duración y las canchas',
+      // Al botón y no a lo que tenía el foco al abrir: en Safari, tocar un botón no le da el
+      // foco, y la hoja lo devolvía al body.
+      restoreFocus: boton,
+    });
+    this.hojaAbierta.set(hoja);
+    // Solo si sigue siendo esta: al reabrir mientras se cierra, el cierre de la vieja llega
+    // después de abrir la nueva, y «Listo» quedaba sin hoja que cerrar.
+    hoja.afterDismissed().subscribe(() =>
+      this.hojaAbierta.update((abierta) => (abierta === hoja ? null : abierta)),
+    );
+  }
+
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
+  protected readonly etiquetaDeLaDuracion = etiquetaDeLaDuracion;
 }
 
 /** "Vale $12.000: …" dicho a mitad de una frase. */

@@ -12,7 +12,7 @@ import { Contacto, TipoSolicitud } from './contacto.service';
 import { TelefonoDirective } from '../ui/telefono';
 
 const TIPOS: { valor: TipoSolicitud; etiqueta: string }[] = [
-  { valor: 'SOCIO', etiqueta: 'Quiero asociarme' },
+  { valor: 'SOCIO', etiqueta: 'Quiero ser socio' },
   { valor: 'CLASES', etiqueta: 'Pregunto por clases' },
   { valor: 'EMPRESA', etiqueta: 'Arrendar para una empresa o evento' },
   { valor: 'OTRO', etiqueta: 'Otra cosa' },
@@ -132,7 +132,7 @@ function enBlanco(tipo: TipoSolicitud = 'SOCIO') {
               [disabled]="enviando()"
               [attr.aria-busy]="enviando()"
             >
-              Enviar
+              Enviar mensaje
             </button>
           </div>
         </form>

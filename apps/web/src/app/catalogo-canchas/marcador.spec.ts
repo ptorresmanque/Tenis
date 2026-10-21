@@ -207,7 +207,7 @@ describe('Marcador', () => {
    * clase lleve a las clases.
    */
   describe('en modo elegir', () => {
-    type Elegida = { canchaId: number; inicio: string } | null;
+    type Elegida = { canchaId: number; inicio: string; fin: string } | null;
 
     @Component({
       imports: [Marcador],
@@ -218,6 +218,7 @@ describe('Marcador', () => {
           [elegida]="elegida()"
           [sinVenta]="sinVenta"
           [etiqueta]="etiqueta"
+          [bajoLaLinea]="bajoLaLinea()"
           (elegir)="elegidas.push($event)"
         />
       `,
@@ -225,6 +226,7 @@ describe('Marcador', () => {
     class HostQueElige {
       readonly grillas = signal<GrillaDeCancha[]>([]);
       readonly elegida = signal<Elegida>(null);
+      readonly bajoLaLinea = signal(false);
       readonly elegidas: { cancha: Cancha; bloque: BloqueDisponible }[] = [];
       sinVenta = (bloque: BloqueDisponible): string | null =>
         bloque.montoClp === null ? 'No se arrienda por 1 hora y media' : null;
@@ -272,7 +274,7 @@ describe('Marcador', () => {
           { cancha: cancha(1), bloques: [bloque(1, enDos)] },
           { cancha: cancha(2), bloques: [bloque(2, enDos)] },
         ],
-        { canchaId: 2, inicio: enDos.toISOString() },
+        { canchaId: 2, inicio: enDos.toISOString(), fin: enHoras(3).toISOString() },
       );
 
       expect(botones(el).map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
@@ -291,7 +293,11 @@ describe('Marcador', () => {
       const sinElegir = montarQueElige(grillas).el;
       expect(botones(sinElegir).map((b) => b.tabIndex)).toEqual([0, -1, -1, -1]);
 
-      const conElegida = montarQueElige(grillas, { canchaId: 2, inicio: enTres.toISOString() }).el;
+      const conElegida = montarQueElige(grillas, {
+        canchaId: 2,
+        inicio: enTres.toISOString(),
+        fin: new Date(enTres.getTime() + UNA_HORA).toISOString(),
+      }).el;
       expect(botones(conElegida).map((b) => b.tabIndex)).toEqual([-1, -1, -1, 0]);
     });
 
@@ -361,7 +367,7 @@ describe('Marcador', () => {
           { cancha: cancha(1), bloques: [bloque(1, enDos)] },
           { cancha: cancha(2), bloques: [bloque(2, enDos)] },
         ],
-        { canchaId: 2, inicio: enDos.toISOString() },
+        { canchaId: 2, inicio: enDos.toISOString(), fin: enHoras(3).toISOString() },
       );
 
       const [libre, elegida] = botones(el);
@@ -380,6 +386,183 @@ describe('Marcador', () => {
       const enlace = celda(el, 0, 1).querySelector('a');
       expect(enlace?.getAttribute('href')).toBe('/clases');
       expect(enlace?.textContent).toContain('Clase');
+    });
+
+    /**
+     * T350 (SPEC-sitio.md, Decimoctava parte, C3): en grande, al bajar aparece la línea de lo
+     * elegido fija bajo el encabezado, y los nombres de las canchas quedaban detrás de ella.
+     */
+    it('**los nombres de las canchas se pegan bajo la línea cuando está a la vista**', () => {
+      const { fixture, el } = montarQueElige([{ cancha: cancha(1), bloques: [bloque(1, enHoras(2))] }]);
+      const nombres = () => [...el.querySelectorAll('thead th')].map((th) => th.className);
+
+      expect(nombres().every((clases) => clases.includes('sm:top-16'))).toBe(true);
+
+      fixture.componentInstance.bajoLaLinea.set(true);
+      fixture.detectChanges();
+
+      // 64 px del encabezado y 58 de la línea: 122 px, sm:top-30.5.
+      expect(nombres().every((clases) => clases.includes('sm:top-30.5'))).toBe(true);
+      expect(nombres().some((clases) => clases.includes('sm:top-16'))).toBe(false);
+    });
+
+    /**
+     * T344 (SPEC-sitio.md, Decimoséptima parte, B2): la grilla va en pasos de 30 minutos y
+     * cada fila es un inicio, así que una hora ocupa dos filas y la hora y media tres. Marcar
+     * solo la de inicio no decía hasta cuándo quedaba tomada la cancha.
+     */
+    describe('la elección marca toda la hora', () => {
+      const MEDIA = 30 * 60 * 1000;
+      const inicio = enHoras(2);
+      const a = (medias: number) => new Date(inicio.getTime() + medias * MEDIA);
+      /** Cuatro inicios seguidos, cada media hora, en dos canchas. */
+      const grillas = (cambios: Partial<BloqueDisponible>[] = []) =>
+        [1, 2].map((id) => ({
+          cancha: cancha(id),
+          bloques: [0, 1, 2, 3].map((m) => bloque(id, a(m), id === 1 ? cambios[m] : {})),
+        }));
+      const marcadas = (el: HTMLElement) =>
+        [0, 1, 2, 3].map((fila) => celda(el, fila, 1).querySelector('[data-en-la-eleccion]') !== null);
+
+      it('**con 1 hora se marcan 2 celdas**, en la columna de la cancha', () => {
+        const { el } = montarQueElige(grillas(), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(2).toISOString(),
+        });
+
+        expect(marcadas(el)).toEqual([true, true, false, false]);
+        // La otra cancha no se toca.
+        expect(celda(el, 1, 2).querySelector('[data-en-la-eleccion]')).toBeNull();
+      });
+
+      it('**con hora y media se marcan 3**', () => {
+        const { el } = montarQueElige(grillas(), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(3).toISOString(),
+        });
+
+        expect(marcadas(el)).toEqual([true, true, true, false]);
+      });
+
+      it('la que sigue a la primera dice al lector que es parte de la elección, y no es botón', () => {
+        const { el } = montarQueElige(grillas(), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(2).toISOString(),
+        });
+        const sigue = celda(el, 1, 1);
+
+        expect(sigue.querySelector('button')).toBeNull();
+        expect(sigue.textContent).toContain('Parte de tu elección');
+        // La primera sigue siendo el botón marcado, y es la parada del teclado.
+        expect(celda(el, 0, 1).querySelector('button')?.getAttribute('aria-pressed')).toBe('true');
+        expect(celda(el, 0, 1).querySelector('button')?.tabIndex).toBe(0);
+      });
+
+      it('**si el foco quedó en una que pasa a ser parte de la elección, el tablero sigue teniendo su parada**', () => {
+        // Con teclado hasta la de media hora después, y la de arriba elegida con el mouse:
+        // Safari no le da el foco al botón que se toca, así que el foco guardado sigue abajo.
+        const { fixture, el } = montarQueElige(grillas());
+        celda(el, 1, 1).querySelector('button')!.focus();
+
+        fixture.componentInstance.elegida.set({
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(2).toISOString(),
+        });
+        fixture.detectChanges();
+
+        expect(botones(el).filter((b) => b.tabIndex === 0)).toHaveLength(1);
+        expect(celda(el, 0, 1).querySelector('button')?.tabIndex).toBe(0);
+      });
+
+      it('**la última hora del día también se marca entera**, aunque después no empiece ninguna', () => {
+        // La API no manda inicios que terminen después del cierre (`calcularBloques`): con el
+        // cierre en a(3), el último inicio de 1 hora es a(1) y no hay fila a(2).
+        const ultimas = [1, 2].map((id) => ({
+          cancha: cancha(id),
+          bloques: [0, 1].map((m) => bloque(id, a(m))),
+        }));
+        const { el } = montarQueElige(ultimas, {
+          canchaId: 1,
+          inicio: a(1).toISOString(),
+          fin: a(3).toISOString(),
+        });
+
+        expect(el.querySelectorAll('[data-en-la-eleccion]')).toHaveLength(2);
+        expect(el.querySelectorAll('tbody tr')[2].querySelector('th')?.textContent).toContain(
+          horaEnElClub(a(2).toISOString()),
+        );
+        // La otra cancha, en esa fila que no tiene inicios: en blanco, y no «Cerrada», que
+        // sería falso (el club sigue abierto hasta a(3)).
+        expect(celda(el, 2, 2).textContent).not.toContain('Cerrada');
+        expect(celda(el, 2, 2).textContent).toContain('Sin inicio a esta hora');
+      });
+
+      it('**si el filtro esconde la cancha elegida, no suma filas**: no hay elección a la vista', () => {
+        // Cambiar el filtro no suelta lo elegido: la elegida es de la cancha 1 y solo se ve la 2.
+        const soloLaDos = [{ cancha: cancha(2), bloques: [0, 1].map((m) => bloque(2, a(m))) }];
+        const { el } = montarQueElige(soloLaDos, {
+          canchaId: 1,
+          inicio: a(1).toISOString(),
+          fin: a(3).toISOString(),
+        });
+
+        expect(el.querySelectorAll('tbody tr')).toHaveLength(2);
+      });
+
+      it('la leyenda tampoco explica por qué no se vende lo que la elección tapa', () => {
+        // La de media hora después es libre pero no se vende (sin precio), y queda bajo la elección.
+        const { el } = montarQueElige(grillas([{}, { montoClp: null }]), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(2).toISOString(),
+        });
+
+        expect(el.querySelector('ul')?.textContent).not.toContain('No se arrienda');
+      });
+
+      it('sin elección, el tablero no suma filas: termina en el último inicio', () => {
+        const ultimas = [{ cancha: cancha(1), bloques: [0, 1].map((m) => bloque(1, a(m))) }];
+        const { el } = montarQueElige(ultimas);
+
+        expect(el.querySelectorAll('tbody tr')).toHaveLength(2);
+      });
+
+      it('**las que siguen no dependen del color**: la del medio lleva una marca y la última dice hasta cuándo', () => {
+        const { el } = montarQueElige(grillas(), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(3).toISOString(),
+        });
+
+        expect(celda(el, 1, 1).querySelector('[data-en-la-eleccion] [aria-hidden="true"]')).not.toBeNull();
+        expect(celda(el, 2, 1).textContent).toContain(`–${horaEnElClub(a(3).toISOString())}`);
+      });
+
+      it('la leyenda no explica lo que la elección tapa', () => {
+        // La de media hora después figura en mantención como inicio, y queda bajo la elección.
+        const { el } = montarQueElige(
+          grillas([{}, { bloqueado: true, motivoBloqueo: 'MANTENCION' }]),
+          { canchaId: 1, inicio: a(0).toISOString(), fin: a(2).toISOString() },
+        );
+
+        expect(el.querySelector('ul')?.textContent).not.toContain('mantención');
+      });
+
+      it('**se marca aunque su inicio figure ocupado**: la hora elegida es de quien la eligió', () => {
+        // 19:30 figura ocupada como inicio porque la de 20:00 está tomada; 19:00–20:00 sigue
+        // libre, y la fila de 19:30 es parte de ella.
+        const { el } = montarQueElige(grillas([{}, { reservado: true }]), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(2).toISOString(),
+        });
+
+        expect(marcadas(el)).toEqual([true, true, false, false]);
+      });
     });
   });
 });

@@ -7,6 +7,7 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatToolbar } from '@angular/material/toolbar';
 
 import { Club } from '../club/club.service';
+import { enlacesDelMapa } from '../club/mapa';
 import { RedesSociales } from '../club/redes-sociales';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
@@ -115,15 +116,25 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
           @if (usuario(); as sesion) {
             <!-- Quién tiene la sesión y qué es en el club, a la vista (T276): todos sus tipos.
                  Donde cabe: de md a lg, que no tiene los enlaces en la barra, y desde xl. En
-                 el teléfono y entre lg y xl, los enlaces la llenan, y va dentro del menú. Con
-                 tope de ancho: los tipos pasan a otra línea antes de empujar la barra. Texto
-                 plano y fuera del @defer: no suma al arranque. -->
+                 el teléfono y entre lg y xl, los enlaces la llenan, y va dentro del menú. Texto
+                 plano y fuera del @defer: no suma al arranque.
+                 T347 (C1): mat-toolbar trae nowrap, y con más de un tipo el texto se salía de
+                 la caja y quedaba debajo del avatar. Los tipos parten (whitespace-normal) en
+                 dos líneas como máximo, cortados con «…»; el nombre, en una. Con leading-tight
+                 miden 20 + 2 × 17,5 = 55 px y caben en los 64 de la barra. 160 px de ancho:
+                 los cuatro tipos caben en dos líneas, y a 1280 con los enlaces del socio
+                 todavía sobran 285 px. Si algo se cortara, lo dice el menú de la cuenta. Sin
+                 title: el lector leía los tipos dos veces, y con cuatro nunca se cortan. -->
             <p
               data-cuenta
-              class="hidden max-w-28 text-end leading-tight md:block lg:hidden xl:block"
+              class="hidden max-w-40 text-end md:block lg:hidden xl:block"
             >
-              <span class="block text-sm font-semibold">{{ sesion.nombre }}</span>
-              <span class="block text-xs text-muted-foreground">{{ tipos() }}</span>
+              <span class="block truncate text-sm leading-tight font-semibold">
+                {{ sesion.nombre }}
+              </span>
+              <span class="line-clamp-2 text-xs leading-tight whitespace-normal text-muted-foreground">
+                {{ tipos() }}
+              </span>
             </p>
 
             <!-- El menú de la cuenta es un mat-menu (T261): se usa con las flechas como un
@@ -217,7 +228,8 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
         <div>
           <app-logotipo />
           <p class="mt-3 max-w-xs text-sm text-on-campo/80">
-            Canchas duras, todas de la misma superficie. Reserva en línea.
+            Canchas de cemento techadas y al aire libre, con luz para jugar de noche. Reserva en
+            línea.
           </p>
           <!-- Las redes que el club cargó (T141). El margen negativo alinea el primer
                logo con el texto: la caja táctil mide el doble que el dibujo. -->
@@ -266,8 +278,24 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
                 Preguntas frecuentes
               </a>
             </li>
+            <!-- T341 (SPEC-sitio.md, Decimoséptima parte, M4): la dirección abre en Google Maps
+                 el mismo punto que marca el mapa de El club. Sin coordenadas, texto (B6). -->
             @if (club().direccion) {
-              <li>{{ club().direccion }}</li>
+              <li>
+                @if (puntoEnElMapa(); as punto) {
+                  <a
+                    [href]="punto"
+                    target="_blank"
+                    rel="noopener"
+                    class="hover:text-on-campo hover:underline"
+                  >
+                    {{ club().direccion }}
+                    <span class="sr-only">(se abre en otra pestaña)</span>
+                  </a>
+                } @else {
+                  {{ club().direccion }}
+                }
+              </li>
             }
             @if (club().telefono) {
               <li>
@@ -306,6 +334,10 @@ export class CascaronPublico {
   /** El cajón del teléfono, pedido desde el botón del menú. */
   protected readonly menuAbierto = signal(false);
   protected readonly club = inject(Club).datos;
+  /** Google Maps en las coordenadas del club, o nulo si no las cargó (T341). */
+  protected readonly puntoEnElMapa = computed(
+    () => enlacesDelMapa(this.club())?.ubicacion ?? null,
+  );
   /** Adónde lleva "Administración": la portada del panel de cada uno, o nada (T220). */
   protected readonly inicioDelPanel = computed(() =>
     inicioDelPanel(this.usuario()),
@@ -328,7 +360,9 @@ export class CascaronPublico {
   }
 
   protected readonly navegacion = computed(() => [
-    { ruta: '/disponibilidad', etiqueta: 'Disponibilidad' },
+    // «Reservar» y no «Disponibilidad» (P3, SPEC-sitio.md, Decimoséptima parte): el enlace
+    // nombra lo que se hace al llegar, no la pantalla.
+    { ruta: '/disponibilidad', etiqueta: 'Reservar' },
     // Para todos y no solo para socios: es la puerta del apoderado que busca clases
     // para su hijo, y ese todavía no tiene cuenta.
     { ruta: '/clases', etiqueta: 'Clases' },

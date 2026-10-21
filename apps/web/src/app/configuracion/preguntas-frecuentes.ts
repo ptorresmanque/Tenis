@@ -170,9 +170,10 @@ const LARGO_DE_LA_RESPUESTA = 2000;
                       <p class="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
                     </div>
 
-                    <mat-form-field class="w-18 sm:w-24">
+                    <mat-form-field class="w-22 sm:w-24">
                       <!-- «Orden» a la vista y la pregunta para el lector (T290): el campo es
-                           angosto, y la etiqueta entera se cortaba en «Orden de «¿Nec». -->
+                           angosto, y la etiqueta entera se cortaba en «Orden de «¿Nec». Desde la
+                           letra de T342 es w-22 en el teléfono: en w-18, «Orden» ya no cabía. -->
                       <mat-label
                         >Orden<span class="sr-only"> de «{{ pregunta.pregunta }}»</span></mat-label
                       >

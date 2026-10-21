@@ -64,6 +64,26 @@ html {
       label-small-font: var(--font-sans),
       title-small-font: var(--font-sans),
       title-medium-font: var(--font-sans),
+      // La escala de leer del sitio (T342, M3), un paso sobre la de Material: el cuerpo de 14
+      // a 16 y el mínimo de 11 a 14. Sale de `--text-*` (`styles.css`) y no de su valor: si la
+      // escala cambia, Material la sigue. El interlineado es la proporción de Tailwind, sin
+      // unidad, y da la misma línea con el tamaño de su paso.
+      body-large-size: var(--text-base),
+      body-large-line-height: var(--text-base--line-height),
+      body-medium-size: var(--text-sm),
+      body-medium-line-height: var(--text-sm--line-height),
+      body-small-size: var(--text-xs),
+      body-small-line-height: var(--text-xs--line-height),
+      label-large-size: var(--text-sm),
+      label-large-line-height: var(--text-sm--line-height),
+      label-medium-size: var(--text-xs),
+      label-medium-line-height: var(--text-xs--line-height),
+      label-small-size: var(--text-xs),
+      label-small-line-height: var(--text-xs--line-height),
+      title-small-size: var(--text-sm),
+      title-small-line-height: var(--text-sm--line-height),
+      title-medium-size: var(--text-base),
+      title-medium-line-height: var(--text-base--line-height),
     )
   );
 }
@@ -107,7 +127,8 @@ html {
 $etiqueta: (
   label-text-font: var(--font-display),
   label-text-weight: 700,
-  label-text-size: 1rem,
+  // El texto chico (16 px) y no el cuerpo: la condensada en mayúscula ya se lee grande.
+  label-text-size: var(--text-sm),
   label-text-tracking: 0.04em,
   label-text-transform: uppercase,
 );
@@ -212,15 +233,15 @@ html {
 }
 
 /* Para tablas y tarjetas, donde 48 px se comen la fila: 12 px de relleno al costado (6 arriba y
-   abajo, en `styles.css`) y la letra de 14. */
+   abajo, en `styles.css`) y el texto chico de la escala (T342). */
 .mat-mdc-button-base.chico {
   @include mat.button-overrides(
     (
       filled-horizontal-padding: 0.75rem,
-      filled-label-text-size: 0.875rem,
+      filled-label-text-size: var(--text-sm),
       outlined-horizontal-padding: 0.75rem,
-      outlined-label-text-size: 0.875rem,
-      text-label-text-size: 0.875rem,
+      outlined-label-text-size: var(--text-sm),
+      text-label-text-size: var(--text-sm),
     )
   );
 }
@@ -338,8 +359,9 @@ html {
       container-height: 50px,
       container-vertical-padding: 12px,
       container-text-font: var(--font-sans),
-      container-text-size: 1rem,
-      container-text-line-height: 1.5rem,
+      // El texto chico y no el cuerpo: con la línea de 28 del cuerpo, el campo pasaría a 52 px.
+      container-text-size: var(--text-sm),
+      container-text-line-height: var(--text-sm--line-height),
       outlined-container-shape: var(--radius-control),
       outlined-outline-width: 1px,
       outlined-focus-outline-width: 1px,
@@ -347,9 +369,9 @@ html {
       outlined-hover-outline-color: var(--color-border),
       outlined-focus-outline-color: var(--color-primary),
       outlined-label-text-font: var(--font-sans),
-      // La etiqueta, siempre arriba, se ve en 14 y en 500, como la de arriba del `.campo`.
-      // Material la achica a 0,75 al subirla al borde: el token va dividido por eso.
-      outlined-label-text-populated-size: calc(0.875rem / 0.75),
+      // La etiqueta, siempre arriba, se ve en el texto chico y en 500, como la de arriba del
+      // `.campo`. Material la achica a 0,75 al subirla al borde: el token va dividido por eso.
+      outlined-label-text-populated-size: calc(var(--text-sm) / 0.75),
       outlined-label-text-weight: 500,
       outlined-label-text-color: var(--color-foreground),
       outlined-focus-label-text-color: var(--color-primary),
@@ -371,14 +393,17 @@ html {
 
 /* El campo chico, que reemplaza a la clase `.campo-chico` de antes (T247): para las filas de
    edición del panel, donde 50 px por campo convierten una fila de cuatro en una pantalla de
-   scroll. 6 px de relleno arriba y abajo, 8 al costado y la letra de 14. */
+   scroll. 6 px de relleno arriba y abajo, 8 al costado y el texto chico (16 px).
+   36 px de alto, que es 6 + 24 + 6: con la línea de 24 de la escala (T342) el campo ya medía
+   eso, y Material centra la etiqueta con este token, que con 35 la dejaba medio píxel corrida.
+   Se sube el alto y no se aprieta la línea, que es la de la escala. */
 .mat-mdc-form-field.chico {
   @include mat.form-field-overrides(
     (
-      container-height: 35px,
+      container-height: 36px,
       container-vertical-padding: 6px,
-      container-text-size: 0.875rem,
-      container-text-line-height: 1.3125rem,
+      container-text-size: var(--text-sm),
+      container-text-line-height: var(--text-sm--line-height),
     )
   );
 }
@@ -520,7 +545,7 @@ html {
       selected-state-text-color: var(--color-on-rotulo),
       divider-color: transparent,
       label-text-font: var(--font-display),
-      label-text-size: 0.875rem,
+      label-text-size: var(--text-sm),
       label-text-weight: 700,
       label-text-tracking: normal,
       hover-state-layer-opacity: 0,
@@ -549,7 +574,7 @@ html .mat-button-toggle-group-appearance-standard .mat-button-toggle {
 /* La tira de días: cada día es una ficha con el nombre arriba y el número abajo, y la tira se
    desplaza de lado dentro de su contenedor (`overflow-x-auto` en la plantilla). */
 html .mat-button-toggle-group.chips {
-  --mat-button-toggle-label-text-size: 0.75rem;
+  --mat-button-toggle-label-text-size: var(--text-xs);
   --mat-button-toggle-label-text-tracking: var(--tracking-wider);
 
   display: flex;
@@ -667,7 +692,8 @@ html {
       extended-container-shape: var(--radius-control),
       extended-label-text-font: var(--font-display),
       extended-label-text-weight: 700,
-      extended-label-text-size: 1rem,
+      // Como la etiqueta de los botones: el texto chico, en la condensada y en mayúscula.
+      extended-label-text-size: var(--text-sm),
       extended-label-text-tracking: 0.04em,
     )
   );
@@ -767,7 +793,7 @@ html {
       row-item-container-height: auto,
       footer-container-height: auto,
       header-headline-font: var(--font-display),
-      header-headline-size: 0.8125rem,
+      header-headline-size: var(--text-xs),
       header-headline-weight: 700,
       header-headline-tracking: 0.06em,
       header-headline-color: var(--color-muted-foreground),
@@ -854,12 +880,12 @@ html .insignia {
       container-shape-radius: var(--radius-control),
       outline-width: 1px,
       label-text-font: var(--font-display),
-      label-text-size: 0.75rem,
-      label-text-line-height: 1rem,
+      label-text-size: var(--text-xs),
+      label-text-line-height: var(--text-xs--line-height),
       label-text-weight: 700,
       label-text-tracking: 0.05em,
-      with-avatar-avatar-size: 0.875rem,
-      with-icon-icon-size: 0.875rem,
+      with-avatar-avatar-size: var(--text-xs),
+      with-icon-icon-size: var(--text-xs),
       hover-state-layer-opacity: 0,
       focus-state-layer-opacity: 0,
     )
@@ -935,7 +961,7 @@ html {
     (
       container-background-color: transparent,
       container-text-font: var(--font-sans),
-      container-text-size: 0.875rem,
+      container-text-size: var(--text-sm),
       container-text-color: var(--color-muted-foreground),
       enabled-icon-color: var(--color-foreground),
       disabled-icon-color: color-mix(in oklab, var(--color-muted-foreground) 50%, transparent),
@@ -1003,8 +1029,9 @@ html {
       standard-height: 4rem,
       mobile-height: 4rem,
       title-text-font: var(--font-sans),
-      title-text-size: 1rem,
-      title-text-line-height: 1.5,
+      // La letra de base de la barra, la del cuerpo como en `body`: lo de adentro trae su tamaño.
+      title-text-size: var(--text-base),
+      title-text-line-height: var(--text-base--line-height),
       title-text-weight: 400,
       title-text-tracking: normal,
     )
@@ -1085,9 +1112,9 @@ html {
       divider-color: var(--color-border),
       item-label-text-color: var(--color-foreground),
       item-label-text-font: var(--font-sans),
-      item-label-text-size: 0.875rem,
+      item-label-text-size: var(--text-sm),
       item-label-text-weight: 500,
-      item-label-text-line-height: 1.25rem,
+      item-label-text-line-height: var(--text-sm--line-height),
       item-label-text-tracking: normal,
       item-leading-spacing: 0.75rem,
       item-trailing-spacing: 0.75rem,
@@ -1119,7 +1146,7 @@ html {
   @include mat.tabs-overrides(
     (
       label-text-font: var(--font-display),
-      label-text-size: 0.875rem,
+      label-text-size: var(--text-sm),
       label-text-weight: 700,
       label-text-tracking: 0.025em,
       container-height: 3rem,

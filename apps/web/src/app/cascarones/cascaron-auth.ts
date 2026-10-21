@@ -33,7 +33,7 @@ import { usarTemaPublico } from './tema';
           routerLink="/disponibilidad"
           class="whitespace-nowrap"
         >
-          Ver disponibilidad
+          Reservar cancha
         </a>
       </div>
     </header>

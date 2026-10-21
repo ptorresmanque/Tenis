@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 
 import { elegidoEn, elegir as elegirOpcion, textosDe } from '../testing/elegir';
@@ -54,7 +55,7 @@ describe('TablaDeTour', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [{ provide: Ranking, useValue: { torneos } }],
+      providers: [provideRouter([]), { provide: Ranking, useValue: { torneos } }],
     });
 
     fixture = TestBed.createComponent(TablaDeTour);
@@ -148,6 +149,11 @@ describe('TablaDeTour', () => {
     });
 
     expect(texto()).toContain('Esta temporada todavía no tiene torneos terminados.');
+    // P16: el vacío invita a jugar el primero.
+    expect(texto()).toContain(
+      'Cuando termine el primer torneo, aquí vas a ver la tabla. Inscríbete y suma tus primeros puntos.',
+    );
+    expect(elemento().querySelector('a[href="/torneos"]')?.textContent?.trim()).toBe('Ver torneos');
     expect(elemento().querySelector('table')).toBeNull();
     expect(selector()).toBeNull();
   });

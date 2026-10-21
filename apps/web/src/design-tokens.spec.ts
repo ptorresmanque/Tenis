@@ -683,7 +683,7 @@ describe('Uso de los tokens en las plantillas', () => {
       }
     }
 
-    // bg-accent sobre blanco da 3.77:1. Para texto usá bg-accent-strong.
+    // bg-accent sobre blanco da 3.77:1. Para texto usa bg-accent-strong.
     expect(infractores).toEqual([]);
   });
 
@@ -705,6 +705,109 @@ describe('Uso de los tokens en las plantillas', () => {
     }
 
     expect(infractores).toEqual([]);
+  });
+
+  /**
+   * M3 (SPEC-sitio.md, Decimoséptima parte): había quejas de que la letra se leía chica. La
+   * escala sube un paso sin tocar la raíz (B4): un rem sigue midiendo 16 px, y los márgenes,
+   * los anchos y el tablero no crecen.
+   */
+  describe('la escala de letra (T342, M3)', () => {
+    it('el texto chico mide 16 px, el mínimo 14 y el cuerpo 18', () => {
+      const escala = Object.fromEntries(
+        [...css.matchAll(/^\s*--text-(xs|sm|base|lg|xl):\s*([^;]+);/gm)].map(([, paso, valor]) => [
+          paso,
+          valor.trim(),
+        ]),
+      );
+
+      expect(escala).toEqual({
+        xs: '0.875rem',
+        sm: '1rem',
+        base: '1.125rem',
+        lg: '1.25rem',
+        xl: '1.375rem',
+      });
+      expect(css).toMatch(/body\s*\{[^}]*font-size:\s*var\(--text-base\)/);
+    });
+
+    it('el rótulo de sección encabeza en el cuerpo, un paso sobre el subtítulo', () => {
+      expect(css).toMatch(/\.rotulo-seccion\s*\{[^}]*font-size:\s*var\(--text-base\)/);
+      expect(css).toMatch(/\.subtitulo\s*\{[^}]*font-size:\s*var\(--text-sm\)/);
+    });
+
+    it('Material lee la misma escala: su cuerpo y sus etiquetas salen de `--text-*`', () => {
+      // Con la variable y no con su valor: si la escala vuelve a cambiar, Material la sigue sola.
+      for (const [nivel, paso] of [
+        ['body-large', 'base'],
+        ['body-medium', 'sm'],
+        ['body-small', 'xs'],
+        ['label-large', 'sm'],
+        ['label-medium', 'xs'],
+        ['label-small', 'xs'],
+        ['title-small', 'sm'],
+        ['title-medium', 'base'],
+      ]) {
+        expect(tema, nivel).toContain(`${nivel}-size: var(--text-${paso}),`);
+        expect(tema, nivel).toContain(`${nivel}-line-height: var(--text-${paso}--line-height),`);
+      }
+    });
+
+    /**
+     * Los tamaños de letra escritos a mano: un `0.75rem` suelto en un componente se queda en 12 px
+     * aunque la escala suba. Atrapa `font-size`, el atajo `font:` y cualquier token `*-size` de
+     * Material, con el valor en `rem` o en `px`, también dentro de un `calc()`.
+     *
+     * No ve las definiciones de la escala (`--text-xs: 0.875rem`, y las cifras de marcador,
+     * `--text-marcador*`), que son la fuente, ni `.titular`, que no fija tamaño: lo pone la
+     * utilidad `text-2xl` o más de cada plantilla. Tampoco `em`, que es relativo a la letra.
+     */
+    function literalesDeLetra(fuente: string): string[] {
+      // Lo que no es letra de texto, con su valor exacto: si cambia, hay que volver a decidirlo.
+      const EXCEPCIONES = new Set([
+        // El botón de ícono del campo chico: el área que se toca y el glifo, no texto.
+        'state-layer-size: 32px',
+        'icon-size: 20px',
+        // El título del diálogo es un titular (2xl), y la escala no cambia de 2xl en adelante (B4).
+        'subhead-size: 1.5rem',
+      ]);
+      const LITERAL = /(?<![\w-])([\w-]*size|font)\s*:[^;,\n]*?\d*\.?\d+(rem|px)\b/g;
+
+      return [...fuente.matchAll(LITERAL)]
+        .map(([uso]) => uso)
+        .filter((uso) => !EXCEPCIONES.has(uso));
+    }
+
+    it('la regla de literales reconoce un tamaño escrito a mano, y deja pasar la escala', () => {
+      // El control: una regla que no reconoce nada también deja la prueba de abajo en verde.
+      for (const literal of [
+        'font-size: 0.75rem;',
+        'font-size: 12px;',
+        'font: 700 0.875rem/1.25rem var(--font-sans);',
+        'label-text-size: 0.875rem,',
+        'body-large-size: 1.125rem,',
+        'outlined-label-text-populated-size: calc(0.875rem / 0.75),',
+        '--mat-button-toggle-label-text-size: 14px;',
+      ]) {
+        expect(literalesDeLetra(literal), literal).toHaveLength(1);
+      }
+
+      for (const escala of [
+        'label-text-size: var(--text-sm),',
+        'outlined-label-text-populated-size: calc(var(--text-sm) / 0.75),',
+        'body-large-font: var(--font-sans),',
+        '--text-xs: 0.875rem;',
+        'font-size: revert-layer;',
+        'font-size: 1.25em;',
+        'container-height: 50px,',
+      ]) {
+        expect(literalesDeLetra(escala), escala).toEqual([]);
+      }
+    });
+
+    it('ningún tamaño de letra escrito a mano en los estilos: salen de la escala', () => {
+      expect(literalesDeLetra(`${css}\n${tema}`)).toEqual([]);
+    });
   });
 
   it('ninguna clase de Tailwind usa un valor arbitrario de color o tipografía', () => {

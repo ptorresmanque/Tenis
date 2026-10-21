@@ -33,12 +33,14 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        title: 'FEDAL Tennis Center',
+        // P20 (SPEC-sitio.md, Decimoséptima parte): qué es y dónde, que es lo que se busca.
+        title: 'FEDAL Tennis Center · Club de tenis en Temuco',
         loadComponent: () => import('./inicio/inicio').then((m) => m.Inicio),
       },
       {
         path: 'disponibilidad',
-        title: 'Disponibilidad — FEDAL Tennis Center',
+        // P3: la pestaña dice lo que se hace ahí. La ruta no cambia: hay enlaces guardados.
+        title: 'Reserva tu cancha — FEDAL Tennis Center',
         loadComponent: () =>
           import('./catalogo-canchas/grilla/grilla').then((m) => m.Grilla),
       },

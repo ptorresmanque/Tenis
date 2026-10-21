@@ -53,8 +53,8 @@ import { Esqueleto } from '../../ui/esqueleto';
           Clases con profesor
         </h1>
         <p class="max-w-prose text-lg text-on-campo/90">
-          Iniciación, competitivo y clases para niños. Mira los horarios de esta semana y
-          escríbenos.
+          Aprende o mejora tu juego con los profesores del club: iniciación, competitivo y
+          clases para niños. Elige un horario y escríbenos para tomar tu cupo.
         </p>
       </div>
     </section>

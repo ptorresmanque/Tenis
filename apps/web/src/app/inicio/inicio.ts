@@ -105,8 +105,10 @@ import { Foto } from '../ui/foto';
         <h1 id="promesa" class="titular text-6xl sm:text-7xl lg:text-8xl">
           Tu cancha, <span class="block">a un clic</span>
         </h1>
+        <!-- Los textos de la portada salen de la revisión con el skill copywriting
+             (SPEC-sitio.md, Decimoséptima parte, P1–P19), aprobados por el usuario. -->
         <p class="max-w-prose text-lg text-on-campo/90">
-          Mira las horas libres de hoy y reserva sin llamar a nadie.
+          Elige día, hora y cancha con el precio a la vista, y reserva en un par de minutos.
         </p>
 
         <div class="mt-2 grid gap-3 sm:max-w-lg sm:grid-cols-2">
@@ -117,28 +119,22 @@ import { Foto } from '../ui/foto';
             routerLink="/disponibilidad"
             class="sobre-campo"
           >
-            Ver disponibilidad
+            Reservar cancha
           </a>
-          @if (!hayCuenta()) {
+          @if (!esSocio()) {
             <!--
-              Dice "Crear cuenta" y no "Hacerme socio", que es lo que decía antes.
-
-              Los dos botones llevan a /registro, que **crea una cuenta**;
-              asociarse con pago de cuota es otra cosa y todavía no existe (es la
-              tarea 6.4 del plan anterior, que quedó fuera de este). Un botón que
-              promete una membresía y entrega un formulario de cuenta miente en
-              el primer clic. Lo que vende la membresía es la sección de más
-              abajo, que sí puede explicarla.
-
-              Y es la misma etiqueta que usa la barra de arriba: cuatro nombres
-              para la misma acción obligan a decidir cuatro veces si son la misma.
+              «Hazte socio» lleva al formulario de El club, que abre con «Quiero ser
+              socio» elegido (P6, B1). Antes decía «Crear cuenta», y una cuenta no hace
+              socio a nadie: asociarse no se hace en línea, se pide al club, y ese
+              formulario es por donde se pide. «Crear cuenta» sigue en la barra de arriba.
             -->
             <a
               matButton="outlined"
-              routerLink="/registro"
+              routerLink="/el-club"
+              fragment="titulo-contacto"
               class="sobre-campo"
             >
-              Crear cuenta
+              Hazte socio
             </a>
           }
         </div>
@@ -314,8 +310,8 @@ import { Foto } from '../ui/foto';
       <div>
         <h2 id="canchas" class="titular text-5xl sm:text-6xl">Nuestras canchas</h2>
         <p class="mt-3 max-w-prose text-lg text-muted-foreground">
-          Todas de la misma superficie dura, todo el año. Sin arcilla y sin pasto: la
-          pelota pica igual en enero que en julio.
+          Cemento de velocidad media, como en el Australian Open: la pelota pica igual en
+          enero que en julio. Y si llueve, juegas en las techadas.
         </p>
 
         <!-- Cifras de marcador con raya encima, como los números de un
@@ -388,7 +384,7 @@ import { Foto } from '../ui/foto';
                 <h3 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
                 <p class="mt-2 max-w-prose text-muted-foreground">
                   Del {{ enPalabras(torneo.fechaInicio) }} al
-                  {{ enPalabras(torneo.fechaFin) }}. Te puedes inscribir hasta el
+                  {{ enPalabras(torneo.fechaFin) }}. Inscríbete hasta el
                   {{ enPalabras(torneo.cierreInscripcion) }}.
                 </p>
                 <table
@@ -429,7 +425,7 @@ import { Foto } from '../ui/foto';
                 </table>
 
                 <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
-                  <span class="text-muted-foreground">Socio o visitante</span>
+                  <span class="text-muted-foreground">Abierto a socios y visitantes</span>
                   <a matButton="filled" [routerLink]="['/torneos', torneo.id, 'inscripcion']">
                     Inscribirme
                     <span class="sr-only">en {{ torneo.nombre }}</span>
@@ -442,7 +438,7 @@ import { Foto } from '../ui/foto';
       </section>
     }
 
-    @if (!hayCuenta()) {
+    @if (!esSocio()) {
       <!--
         BANDA 5 — Los dos caminos, cara a cara.
 
@@ -462,7 +458,7 @@ import { Foto } from '../ui/foto';
       -->
       <section class="mt-16 aparece-al-pasar" aria-labelledby="dos-caminos">
         <h2 id="dos-caminos" class="titular text-center text-5xl sm:text-6xl">
-          Socio o visitante
+          Dos formas de jugar en FEDAL
         </h2>
 
         <div role="table" aria-labelledby="dos-caminos" class="mt-8 bg-card shadow-md">
@@ -496,7 +492,8 @@ import { Foto } from '../ui/foto';
                    de su media columna a 360. -->
               <h3 class="titular text-3xl sm:text-5xl">Socio</h3>
               <p class="mt-2 text-on-campo/85">
-                Cuota mensual al día y la cancha sale sin costo.
+                Pagas una cuota al mes y reservas sin pagar la cancha, con cupos también en
+                horario prime.
               </p>
             </div>
             <div role="columnheader" class="bg-campo-hondo p-4 text-on-campo sm:order-3 sm:p-8">
@@ -533,9 +530,10 @@ import { Foto } from '../ui/foto';
             </div>
           }
 
-          <!-- En el teléfono, apilados: lado a lado, "Reservar una hora" se partía
-               en dos líneas a 375 y los dos a 360. Y entre sm y md con menos
-               relleno: a 640 la columna mide 216px. Las etiquetas no se tocan. -->
+          <!-- En el teléfono, apilados: lado a lado, con las etiquetas de antes de P9
+               el de reservar se partía en dos líneas a 375 y los dos a 360. Y entre sm
+               y md con menos relleno: a 640 la columna mide 216px. Si cambias una
+               etiqueta, mírala a 360 y a 640. -->
           <div
             role="row"
             class="grid gap-3 border-t border-border p-5 sm:grid-cols-[1fr_11rem_1fr] sm:gap-0
@@ -543,13 +541,19 @@ import { Foto } from '../ui/foto';
           >
             <div role="cell" class="bg-muted max-sm:sr-only sm:order-2"></div>
             <div role="cell" class="sm:order-1 sm:flex sm:justify-end sm:px-4 sm:py-6 md:px-8">
-              <a matButton="outlined" routerLink="/registro" class="w-full sm:w-auto">
-                Crear cuenta
+              <!-- Al formulario que hace socio, no a crear una cuenta (P9, B1). -->
+              <a
+                matButton="outlined"
+                routerLink="/el-club"
+                fragment="titulo-contacto"
+                class="w-full sm:w-auto"
+              >
+                Quiero ser socio
               </a>
             </div>
             <div role="cell" class="sm:order-3 sm:px-4 sm:py-6 md:px-8">
               <a matButton="filled" routerLink="/disponibilidad" class="w-full sm:w-auto">
-                Reservar una hora
+                Reservar cancha
               </a>
             </div>
           </div>
@@ -643,13 +647,14 @@ export class Inicio {
   }
 
   /**
-   * Si hay sesión abierta, la portada deja de vender la cuenta.
+   * Al socio, la portada deja de invitarlo a ser socio.
    *
-   * "Hacerme socio" y la sección de los dos caminos le proponen a quien ya entró
-   * algo que ya hizo. Se mira la sesión y no la ficha de socio porque el visitante
-   * con cuenta está en el mismo caso.
+   * «Hazte socio» y la sección de los dos caminos son para quien todavía no lo es: el que no
+   * entró y también el que tiene cuenta sin ficha de socio, que paga cada hora como cualquier
+   * visitante y es justo a quien el club quiere sumar (decisión del usuario del 2026-10-21).
+   * Por eso se mira la ficha de socio y no la sesión: tener cuenta no hace socio a nadie.
    */
-  protected readonly hayCuenta = computed(() => this.auth.usuario() !== null);
+  protected readonly esSocio = computed(() => this.auth.usuario()?.socioId != null);
 
   /**
    * La grilla del día.
@@ -786,7 +791,8 @@ export class Inicio {
     },
     {
       rotulo: 'Cancelar',
-      socio: 'Cambias y cancelas desde "Mis reservas"',
+      // «Mis reservas» es una pestaña de Mi cuenta desde T318.
+      socio: 'Cambias y cancelas desde Mi cuenta',
       visitante: 'Cancelas con 24 horas y se devuelve todo',
     },
     { rotulo: 'Cambiar', socio: null, visitante: 'Modificas hasta 6 horas antes' },

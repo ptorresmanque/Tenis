@@ -137,6 +137,65 @@ describe('Cascarón público: la navegación', () => {
     );
   });
 
+  it('**el primer enlace es «Reservar»**, y lleva a la grilla (P3)', () => {
+    const elemento = montarCon(null).nativeElement as HTMLElement;
+    const primero = elemento.querySelector<HTMLAnchorElement>('header nav a');
+
+    expect(primero?.textContent?.trim()).toBe('Reservar');
+    expect(primero?.getAttribute('href')).toBe('/disponibilidad');
+  });
+
+  it('el pie cuenta cómo son las canchas (P5)', () => {
+    const pie = (montarCon(null).nativeElement as HTMLElement).querySelector('footer');
+
+    expect(pie?.textContent.replace(/\s+/g, ' ')).toContain(
+      'Canchas de cemento techadas y al aire libre, con luz para jugar de noche. Reserva en línea.',
+    );
+  });
+
+  describe('la dirección del pie (T341, M4)', () => {
+    const CLUB: DatosDelClub = {
+      nombre: 'FEDAL Tennis Center',
+      direccion: 'Lircay lt 42, Temuco, Chile',
+      telefono: '',
+      email: '',
+      latitud: -38.7,
+      longitud: -72.6,
+      instagram: '',
+      facebook: '',
+      tiktok: '',
+      youtube: '',
+      whatsapp: '',
+      elClubTitulo: 'FEDAL Tennis Center',
+      elClubBajada: '',
+      elClubCanchas: '',
+      tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+      cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+      gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
+    };
+    const direccion = (club: DatosDelClub) =>
+      [...(montarCon(null, club).nativeElement as HTMLElement).querySelectorAll('footer li')].find(
+        (li) => li.textContent?.includes('Lircay'),
+      );
+
+    it('**abre Google Maps en el punto del mapa del club**, en otra pestaña', () => {
+      const enlace = direccion(CLUB)?.querySelector('a');
+
+      expect(enlace?.getAttribute('href')).toBe(
+        'https://www.google.com/maps/search/?api=1&query=-38.700000,-72.600000',
+      );
+      expect(enlace?.getAttribute('target')).toBe('_blank');
+      expect(enlace?.textContent).toContain('(se abre en otra pestaña)');
+    });
+
+    it('sin coordenadas cargadas es texto: no hay punto al que llevar (B6)', () => {
+      const li = direccion({ ...CLUB, latitud: null, longitud: null });
+
+      expect(li?.textContent?.trim()).toBe('Lircay lt 42, Temuco, Chile');
+      expect(li?.querySelector('a')).toBeNull();
+    });
+  });
+
   it('el pie enlaza las preguntas frecuentes (T146)', () => {
     const pie = (montarCon(null).nativeElement as HTMLElement).querySelector('footer');
 
@@ -185,6 +244,30 @@ describe('Cascarón público: la navegación', () => {
     await fixture.whenStable();
 
     expect(document.querySelector('.mat-mdc-menu-panel')?.textContent).toContain('Socio');
+  });
+
+  /** T347 (SPEC-sitio.md, Decimoctava parte, C1). La barra trae `nowrap`: con más de un tipo,
+      el texto se salía de la caja y quedaba debajo del avatar. */
+  it('**los tipos parten en dos líneas como máximo**, y el menú los dice todos', async () => {
+    const TODOS = 'Administrador · Socio · Gestor · Profesor';
+    const fixture = await montarConElMenu({ ...SOCIA, esAdmin: true, esGestor: true, profesorId: 4 });
+    const elemento = fixture.nativeElement as HTMLElement;
+    const cuenta = elemento.querySelector<HTMLElement>('[data-cuenta]')!;
+    const tipos = [...cuenta.querySelectorAll('span')].find((s) => s.textContent?.trim() === TODOS);
+
+    expect([...(tipos?.classList ?? [])]).toEqual(
+      expect.arrayContaining(['whitespace-normal', 'line-clamp-2']),
+    );
+    // Sin title: el lector los leería dos veces (revisión de T351).
+    expect(cuenta.hasAttribute('title')).toBe(false);
+
+    elemento
+      .querySelector<HTMLButtonElement>('header button[aria-label="Menú de Camila Rojas"]')!
+      .click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.querySelector('.mat-mdc-menu-panel')?.textContent).toContain(TODOS);
   });
 
   it('le ofrece crear cuenta a quien no ha entrado', () => {

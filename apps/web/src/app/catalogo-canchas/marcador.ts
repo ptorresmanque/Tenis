@@ -2,13 +2,16 @@ import { Component, computed, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 
-import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
+import { BloqueDisponible, Cancha, GrillaDeCancha, PASO_DE_LA_GRILLA_MS } from './disponibilidad';
 import { moverConFlechas } from './flechas-del-tablero';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from './motivos';
 import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
 type Celda =
   | { estado: 'libre'; bloque: BloqueDisponible }
+  // La fila que el tablero suma para la elección al final del día (T344): ahí no empieza
+  // ninguna hora, pero el club sigue abierto, así que no es «Cerrada».
+  | { estado: 'sin-inicio' }
   | { estado: 'sin-venta'; motivo: string }
   | { estado: 'ocupada' }
   | { estado: 'bloqueada'; motivo: string; icono: string; clase: boolean }
@@ -138,99 +141,134 @@ const claveDe = (canchaId: number, inicio: string) =>
               </th>
               @for (celda of fila.celdas; track celda.cancha.id; let j = $index) {
                 <td class="h-11 p-0">
-                  @switch (celda.estado) {
-                    @case ('libre') {
-                      @if (modo() === 'elegir') {
-                        <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
-                             que cambia es la placa, la marca y aria-pressed. -->
-                        @let marcada = esLaElegida(celda);
-                        <button
-                          type="button"
-                          class="flex h-full w-full cursor-pointer items-center justify-center
-                                 gap-0.5 border font-display text-sm font-bold tracking-wider
-                                 uppercase transition-transform active:scale-95"
-                          [class]="
-                            marcada
-                              ? 'border-rotulo bg-rotulo text-on-rotulo'
-                              : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
-                          "
-                          [attr.data-fila]="i"
-                          [attr.data-columna]="j"
-                          [attr.tabindex]="esLaParada(celda) ? 0 : -1"
-                          [attr.aria-label]="etiqueta()(celda.cancha, celda.bloque)"
-                          [attr.aria-pressed]="marcada"
-                          (focus)="foco.set(clave(celda))"
-                          (keydown)="mover($event)"
-                          (click)="elegir.emit({ cancha: celda.cancha, bloque: celda.bloque })"
-                        >
-                          @if (marcada) {
-                            <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
-                          }
-                          Libre
-                        </button>
+                  <!-- Las filas que siguen a la de inicio, dentro de la hora elegida (T344, B2):
+                       la misma placa, sin botón. Tocar otra libre cambia la elección. -->
+                  @if (celda.sigue) {
+                    <!-- Con su marca, no solo con el color (la placa sobre el campo da 2,2:1): la
+                         del medio lleva la línea que sigue, y la última dice hasta cuándo. -->
+                    <span
+                      data-en-la-eleccion
+                      class="flex h-full items-center justify-center border border-rotulo bg-rotulo
+                             font-display text-xs font-bold text-on-rotulo tabular-nums"
+                    >
+                      @if (celda.ultima) {
+                        <span aria-hidden="true">–{{ finDeLaElegida() }}</span>
                       } @else {
-                        <!-- aria-label y no un sr-only: Chrome separa el sr-only con un
-                             espacio y el nombre quedaba "Libre : reservar". Empieza con
-                             lo que se ve, como pide WCAG 2.5.3. -->
-                        <a
-                          routerLink="/disponibilidad"
-                          [queryParams]="{ fecha: fila.fecha, cancha: celda.cancha.id, inicio: fila.hora }"
-                          tabindex="-1"
-                          [attr.aria-label]="
-                            'Libre: reservar la ' + celda.cancha.nombre + ' a las ' + fila.hora
-                          "
-                          class="flex h-full items-center justify-center border
-                                 border-borde-celda-libre bg-celda-libre font-display text-sm
-                                 font-bold tracking-wider text-on-celda-libre uppercase
-                                 transition-transform active:scale-95"
-                        >
-                          Libre
-                        </a>
+                        <mat-icon class="text-base" aria-hidden="true">more_vert</mat-icon>
                       }
-                    }
-                    @case ('sin-venta') {
-                      <!-- Libre, pero no para quien mira (T83b, T213): punteada y con su
-                           ícono, para no leerse como cerrada ni como ocupada. -->
-                      <span
-                        class="flex h-full items-center justify-center border border-dotted
-                               border-on-campo/40 text-on-campo/70"
-                      >
-                        <mat-icon class="text-base" aria-hidden="true">hourglass_disabled</mat-icon>
-                        <span class="sr-only">{{ celda.motivo }}</span>
-                      </span>
-                    }
-                    @case ('ocupada') {
-                      <span class="flex h-full bg-on-campo/10">
-                        <span class="sr-only">Ocupada</span>
-                      </span>
-                    }
-                    @case ('bloqueada') {
-                      <!-- En disponibilidad, la clase lleva a las clases (T97): a quien
-                           llega nuevo le dice que a esa hora hay una que le puede servir. -->
-                      @if (modo() === 'elegir' && celda.clase) {
-                        <a
-                          routerLink="/clases"
-                          class="rayas flex h-full items-center justify-center text-on-campo/70
-                                 hover:text-on-campo"
+                      <span class="sr-only">Parte de tu elección</span>
+                    </span>
+                  } @else {
+                    @switch (celda.estado) {
+                      @case ('libre') {
+                        @if (modo() === 'elegir') {
+                          <!-- Los scroll-m*: al moverse con las flechas, la celda con foco no queda
+                               bajo lo pegado (WCAG 2.4.11): arriba, el encabezado y la línea del
+                               teléfono (122 px; 160 cuando parte en dos renglones, como a 320 px,
+                               y 4 más para el anillo del foco) y,
+                               desde sm, también los nombres de las canchas
+                               (hasta 200 px con la línea, T350); abajo, la barra de la elección
+                               (167); a la izquierda, la columna de la hora (64), cuando el tablero
+                               se desplaza. -->
+                          <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
+                               que cambia es la placa, la marca y aria-pressed. La marca va arriba
+                               del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
+                          @let marcada = esLaElegida(celda);
+                          <button
+                            type="button"
+                            class="flex h-full w-full scroll-mt-41 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
+                                   items-center justify-center gap-0.5 border font-display text-sm
+                                   font-bold tracking-wider uppercase transition-transform
+                                   active:scale-95"
+                            [class]="
+                              marcada
+                                ? 'flex-col leading-none border-rotulo bg-rotulo text-on-rotulo'
+                                : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
+                            "
+                            [attr.data-fila]="i"
+                            [attr.data-columna]="j"
+                            [attr.tabindex]="esLaParada(celda) ? 0 : -1"
+                            [attr.aria-label]="etiqueta()(celda.cancha, celda.bloque)"
+                            [attr.aria-pressed]="marcada"
+                            [attr.data-en-la-eleccion]="marcada ? '' : null"
+                            (focus)="foco.set(clave(celda))"
+                            (keydown)="mover($event)"
+                            (click)="elegir.emit({ cancha: celda.cancha, bloque: celda.bloque })"
+                          >
+                            @if (marcada) {
+                              <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
+                            }
+                            Libre
+                          </button>
+                        } @else {
+                          <!-- aria-label y no un sr-only: Chrome separa el sr-only con un
+                               espacio y el nombre quedaba "Libre : reservar". Empieza con
+                               lo que se ve, como pide WCAG 2.5.3. -->
+                          <a
+                            routerLink="/disponibilidad"
+                            [queryParams]="{ fecha: fila.fecha, cancha: celda.cancha.id, inicio: fila.hora }"
+                            tabindex="-1"
+                            [attr.aria-label]="
+                              'Libre: reservar la ' + celda.cancha.nombre + ' a las ' + fila.hora
+                            "
+                            class="flex h-full items-center justify-center border
+                                   border-borde-celda-libre bg-celda-libre font-display text-sm
+                                   font-bold tracking-wider text-on-celda-libre uppercase
+                                   transition-transform active:scale-95"
+                          >
+                            Libre
+                          </a>
+                        }
+                      }
+                      @case ('sin-venta') {
+                        <!-- Libre, pero no para quien mira (T83b, T213): punteada y con su
+                             ícono, para no leerse como cerrada ni como ocupada. -->
+                        <span
+                          class="flex h-full items-center justify-center border border-dotted
+                                 border-on-campo/40 text-on-campo/70"
                         >
-                          <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
-                          <span class="sr-only">{{ celda.motivo }}: ver las clases</span>
-                        </a>
-                      } @else {
-                        <span class="rayas flex h-full items-center justify-center text-on-campo/70">
-                          <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
+                          <mat-icon class="text-base" aria-hidden="true">hourglass_disabled</mat-icon>
                           <span class="sr-only">{{ celda.motivo }}</span>
                         </span>
                       }
-                    }
-                    @case ('cerrada') {
-                      <span
-                        class="flex h-full items-center justify-center border border-dashed
-                               border-on-campo/25 text-on-campo/50"
-                      >
-                        <span aria-hidden="true">—</span>
-                        <span class="sr-only">Cerrada</span>
-                      </span>
+                      @case ('ocupada') {
+                        <span class="flex h-full bg-on-campo/10">
+                          <span class="sr-only">Ocupada</span>
+                        </span>
+                      }
+                      @case ('bloqueada') {
+                        <!-- En disponibilidad, la clase lleva a las clases (T97): a quien
+                             llega nuevo le dice que a esa hora hay una que le puede servir. -->
+                        @if (modo() === 'elegir' && celda.clase) {
+                          <a
+                            routerLink="/clases"
+                            class="rayas flex h-full items-center justify-center text-on-campo/70
+                                   hover:text-on-campo"
+                          >
+                            <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
+                            <span class="sr-only">{{ celda.motivo }}: ver las clases</span>
+                          </a>
+                        } @else {
+                          <span class="rayas flex h-full items-center justify-center text-on-campo/70">
+                            <mat-icon class="text-base" aria-hidden="true">{{ celda.icono }}</mat-icon>
+                            <span class="sr-only">{{ celda.motivo }}</span>
+                          </span>
+                        }
+                      }
+                      @case ('sin-inicio') {
+                        <span class="flex h-full">
+                          <span class="sr-only">Sin inicio a esta hora</span>
+                        </span>
+                      }
+                      @case ('cerrada') {
+                        <span
+                          class="flex h-full items-center justify-center border border-dashed
+                                 border-on-campo/25 text-on-campo/50"
+                        >
+                          <span aria-hidden="true">—</span>
+                          <span class="sr-only">Cerrada</span>
+                        </span>
+                      }
                     }
                   }
                 </td>
@@ -295,8 +333,11 @@ export class Marcador {
   /** En la portada la celda libre lleva a disponibilidad; en disponibilidad, se elige. */
   readonly modo = input<'enlace' | 'elegir'>('enlace');
 
-  /** La cancha y el inicio de la celda elegida, en modo elegir. */
-  readonly elegida = input<{ canchaId: number; inicio: string } | null>(null);
+  /**
+   * La cancha, el inicio y el fin de la celda elegida, en modo elegir. El fin marca las filas
+   * que siguen (T344): con 1 hora son dos, con hora y media, tres.
+   */
+  readonly elegida = input<{ canchaId: number; inicio: string; fin: string } | null>(null);
 
   /** Por qué no se le vende a quien mira una libre (lo sabe la grilla). Por omisión, se vende. */
   readonly sinVenta = input<MotivoSinVenta>(() => null);
@@ -305,6 +346,12 @@ export class Marcador {
   readonly etiqueta = input<(cancha: Cancha, bloque: BloqueDisponible) => string>(
     (cancha, bloque) => `Elegir la ${cancha.nombre} a las ${horaEnElClub(bloque.inicio)}`,
   );
+
+  /**
+   * Si la línea de lo elegido está a la vista sobre el tablero (T350): en grande aparece fija bajo
+   * el encabezado al bajar (T349), y los nombres de las canchas se pegan debajo de ella.
+   */
+  readonly bajoLaLinea = input(false);
 
   /** Si la leyenda dice el arriendo de la hora prime: al socio, que no paga, no (T265). */
   readonly arriendo = input(true);
@@ -318,8 +365,17 @@ export class Marcador {
    * el tablero de hoy es corto y se desplaza de lado.
    */
   protected readonly pegado = computed(() =>
-    this.modo() === 'elegir' ? 'sm:sticky sm:top-16 sm:z-20' : '',
+    this.modo() !== 'elegir'
+      ? ''
+      : // Bajo el encabezado (64 px) o, con la línea de lo elegido, bajo los dos (64 + 58).
+        `sm:sticky sm:z-20 ${this.bajoLaLinea() ? 'sm:top-30.5' : 'sm:top-16'}`,
   );
+
+  /** "20:00", el fin de la elegida, para la última celda que la sigue (T344). */
+  protected readonly finDeLaElegida = computed(() => {
+    const elegida = this.elegida();
+    return elegida ? horaEnElClub(elegida.fin) : '';
+  });
 
   /** La última celda que tuvo el foco: es la parada del tablero al volver con Tab. */
   protected readonly foco = signal<string | null>(null);
@@ -338,11 +394,24 @@ export class Marcador {
   protected readonly filas = computed(() => {
     const ahora = Date.now();
     const grillas = this.grillas();
+    const elegida = this.elegida();
+    const desde = elegida ? new Date(elegida.inicio).getTime() : 0;
+    const hasta = elegida ? new Date(elegida.fin).getTime() : 0;
     const instantes = new Set<number>();
 
     for (const { bloques } of grillas) {
       for (const { inicio } of bloques) {
         const instante = new Date(inicio).getTime();
+        if (instante > ahora) instantes.add(instante);
+      }
+    }
+    // Las medias horas de la elegida, aunque en ellas no empiece nada: al final del día la API
+    // no manda inicios que terminen después del cierre, y la última hora se marcaba a medias.
+    // Solo si su cancha está a la vista: el filtro no suelta lo elegido, y sin la cancha serían
+    // filas en blanco sin ninguna elección.
+    if (grillas.some(({ cancha }) => cancha.id === elegida?.canchaId)) {
+      const paso = PASO_DE_LA_GRILLA_MS;
+      for (let instante = desde + paso; instante < hasta; instante += paso) {
         if (instante > ahora) instantes.add(instante);
       }
     }
@@ -354,6 +423,7 @@ export class Marcador {
           cancha,
           bloque: bloques.find(({ inicio }) => new Date(inicio).getTime() === instante),
         }));
+        const sinInicios = deLaHora.every(({ bloque }) => !bloque);
 
         return {
           instante,
@@ -368,7 +438,11 @@ export class Marcador {
             )?.bloque?.montoClp ?? null,
           celdas: deLaHora.map(({ cancha, bloque }) => ({
             cancha,
-            ...celdaDe(bloque, this.sinVenta()),
+            // Dentro de la hora elegida y después de su inicio (T344, B2), sea cual sea el
+            // estado de su propio inicio.
+            sigue: elegida?.canchaId === cancha.id && instante > desde && instante < hasta,
+            ultima: instante + PASO_DE_LA_GRILLA_MS >= hasta,
+            ...(sinInicios ? { estado: 'sin-inicio' as const } : celdaDe(bloque, this.sinVenta())),
           })),
         };
       });
@@ -379,7 +453,8 @@ export class Marcador {
     const vistos = new Map<string, string>();
     for (const { celdas } of this.filas()) {
       for (const celda of celdas) {
-        if (celda.estado === 'bloqueada') vistos.set(celda.motivo, celda.icono);
+        // La que sigue a la elegida no muestra su estado: su motivo no va en la leyenda.
+        if (celda.estado === 'bloqueada' && !celda.sigue) vistos.set(celda.motivo, celda.icono);
       }
     }
     return [...vistos].map(([motivo, icono]) => ({ motivo, icono }));
@@ -390,7 +465,7 @@ export class Marcador {
     const motivos = new Set<string>();
     for (const { celdas } of this.filas()) {
       for (const celda of celdas) {
-        if (celda.estado === 'sin-venta') motivos.add(celda.motivo);
+        if (celda.estado === 'sin-venta' && !celda.sigue) motivos.add(celda.motivo);
       }
     }
     return [...motivos];
@@ -403,7 +478,9 @@ export class Marcador {
   private readonly parada = computed(() => {
     const libres = new Set(
       this.filas().flatMap(({ celdas }) =>
-        celdas.flatMap((celda) => (celda.estado === 'libre' ? [this.clave(celda)] : [])),
+        celdas.flatMap((celda) =>
+          celda.estado === 'libre' && !celda.sigue ? [this.clave(celda)] : [],
+        ),
       ),
     );
     const elegida = this.elegida();

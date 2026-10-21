@@ -1,8 +1,9 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { of } from 'rxjs';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { ReportesDelSocio } from '../../reservas/reportes.service';
 import { ReservasPublicas } from '../../reservas/reserva-publica.service';
@@ -203,6 +204,386 @@ describe('Grilla', () => {
     vi.useRealTimers();
   });
 
+  it('se titula «Reserva tu cancha» (P3)', async () => {
+    await montar([]);
+
+    expect(el().querySelector('h1')?.textContent?.trim()).toBe('Reserva tu cancha');
+  });
+
+  /**
+   * T345 (SPEC-sitio.md, Decimoséptima parte, M2 y B3): en el teléfono los controles quedan
+   * arriba y se pierden al bajar por el tablero, y había quien no sabía que podía cambiar el
+   * día o la duración. Una línea pegada dice lo elegido, y «Cambiar» trae los controles.
+   */
+  describe('los controles a mano en el teléfono (T345)', () => {
+    // La hoja que una prueba deja abierta se cierra al desmontar, con el injector ya destruido,
+    // y le devuelve el foco a «Cambiar»: su ripple no se puede crear y queda un error no manejado
+    // que deja `ng test` con salida 1. Sin whenStable: una prueba deja una carga sin terminar.
+    // Solo cubre el final: una prueba que abra la hoja y vuelva a montar a la mitad tiene que
+    // cerrarla antes.
+    afterEach(async () => {
+      TestBed.inject(MatBottomSheet).dismiss();
+      await new Promise((listo) => setTimeout(listo));
+    });
+
+    /** Lo que dice la línea, rótulo por rótulo (T348, N1): [['Día', 'Lun 17 ago'], …]. */
+    const loElegido = () =>
+      [...el().querySelectorAll('[data-resumen-de-controles] dl > div')].map((par) => [
+        enTexto(par.querySelector('dt')!),
+        enTexto(par.querySelector('dd [aria-hidden="true"]')!),
+      ]);
+    const hoja = () => document.querySelector('mat-bottom-sheet-container') as HTMLElement | null;
+    const abrir = async () => {
+      [...el().querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cambiar')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**la línea dice qué es cada valor**: el día, la duración y las canchas, con su rótulo (N1)', async () => {
+      expect(loElegido()).toEqual([
+        ['Día', 'Lun 17 ago'],
+        ['Duración', '1 hora'],
+        ['Canchas', 'Todas'],
+      ]);
+
+      // Los valores van cortos, para que la línea quepa en un renglón a 375 px (decisión del
+      // usuario en la parada BK): el rótulo de arriba ya dice qué son.
+      await montar(DIA, { duracion: '90' });
+      expect(loElegido()[1]).toEqual(['Duración', '1 h y media']);
+    });
+
+    it('**el lector oye el nombre completo**: «1 h» se leería «uno hache»', async () => {
+      await montar(DIA, { duracion: '90' });
+      const duracion = el().querySelectorAll('[data-resumen-de-controles] dd')[1];
+
+      expect(enTexto(duracion.querySelector('.sr-only')!)).toBe('1 hora y media');
+    });
+
+    it('el lector oye el día en palabras', () => {
+      const leido = (i: number) =>
+        enTexto(el().querySelectorAll('[data-resumen-de-controles] dd')[i].querySelector('.sr-only')!);
+
+      expect(leido(0)).toBe('lunes, 17 de agosto');
+    });
+
+    it('**la línea va arriba desde el principio**: antes del aviso de carga y de las horas pasadas', () => {
+      const linea = el().querySelector('[data-resumen-de-controles]')!;
+      const antes = (otro: Element | null) =>
+        !!otro && !!(linea.compareDocumentPosition(otro) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+      expect(antes(el().querySelector('[role="status"][aria-live="polite"]'))).toBe(true);
+      expect(antes(el().querySelector('app-marcador'))).toBe(true);
+    });
+
+    it('**en el teléfono no están los controles de arriba**: la línea es la única entrada (N3)', () => {
+      // «Teléfono» es CSS (bajo sm): los de arriba van en una caja que se esconde ahí. La línea
+      // no va dentro, y la hoja sigue abriendo los mismos controles.
+      const arriba = el().querySelector('[data-controles-arriba]') as HTMLElement;
+
+      expect(arriba.querySelector('app-controles-del-dia')).not.toBeNull();
+      expect(arriba.className.split(' ')).toEqual(expect.arrayContaining(['hidden', 'sm:block']));
+      expect(arriba.contains(el().querySelector('[data-resumen-de-controles]'))).toBe(false);
+    });
+
+    it('en el teléfono va pegada bajo el encabezado, y no se imprime', () => {
+      const linea = el().querySelector('[data-resumen-de-controles]') as HTMLElement;
+
+      expect(linea.classList).toContain('sticky');
+      expect(linea.classList).toContain('top-16');
+      // Fija desde sm, se imprimiría arriba de cada hoja, como el encabezado sin su print:hidden.
+      expect(linea.classList).toContain('print:hidden');
+    });
+
+    it('**«Cambiar» abre los controles en una hoja inferior, y cambiar ahí cambia la grilla**', async () => {
+      await abrir();
+
+      expect(hoja()?.querySelector('app-controles-del-dia')).not.toBeNull();
+      [...hoja()!.querySelectorAll<HTMLButtonElement>('mat-button-toggle button')]
+        .find((b) => b.textContent?.trim() === 'Con iluminación')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // La del fixture tiene luz: el tablero sigue, y la línea dice el filtro nuevo.
+      expect(loElegido()[2]).toEqual(['Canchas', 'Con luz']);
+      expect(
+        enTexto(el().querySelectorAll('[data-resumen-de-controles] dd')[2].querySelector('.sr-only')!),
+      ).toBe('Con iluminación');
+    });
+
+    it('**con la hoja abierta no se repite ningún id**: cada etiqueta nombra su campo', async () => {
+      await abrir();
+      const ids = [...document.querySelectorAll('[id]')].map((nodo) => nodo.id);
+
+      expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    });
+
+    it('«Listo» cierra la hoja', async () => {
+      await abrir();
+      [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
+      await fixture.whenStable();
+      await new Promise((listo) => setTimeout(listo));
+      fixture.detectChanges();
+
+      expect(hoja()).toBeNull();
+    });
+
+    const cambiar = () =>
+      el().querySelector<HTMLButtonElement>('[data-resumen-de-controles] button')!;
+
+    it('**si se reabre la hoja mientras se cierra, «Listo» la sigue cerrando**', async () => {
+      // Al empezar a cerrarse, la hoja suelta el fondo y «Cambiar» se puede tocar de nuevo: el
+      // cierre de la vieja, que llega después, no puede olvidar a la nueva.
+      const listo = () =>
+        [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!;
+      await abrir();
+      listo().click();
+      cambiar().click();
+      await fixture.whenStable();
+      await new Promise((terminar) => setTimeout(terminar));
+      fixture.detectChanges();
+
+      listo().click();
+      await fixture.whenStable();
+      await new Promise((terminar) => setTimeout(terminar));
+
+      expect(hoja()).toBeNull();
+    });
+    /** Un día que no es el que se mira, en la tira de días de la hoja. */
+    const otroDiaEnLaHoja = () =>
+      hoja()!.querySelector<HTMLButtonElement>(
+        'app-selector-de-dia button[role="radio"][aria-checked="false"]',
+      )!;
+
+    it('**cambiar de día en la hoja suelta lo elegido**, como arriba: la barra no dice la fecha', async () => {
+      celdaDe('08:00', 1).querySelector('button')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(el().querySelector('app-barra-fija')).not.toBeNull();
+
+      await abrir();
+      otroDiaEnLaHoja().click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(el().querySelector('app-barra-fija')).toBeNull();
+    });
+
+    it('**cambiar la duración en la hoja la deja en la URL**, como arriba', async () => {
+      await abrir();
+      [...hoja()!.querySelectorAll<HTMLButtonElement>(`${DURACION} button`)]
+        .find((b) => b.textContent?.trim() === '1 hora y media')!
+        .click();
+      await fixture.whenStable();
+
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { duracion: 90 } }),
+      );
+    });
+
+    it('**mientras carga el día nuevo, la línea y «Cambiar» se quedan**: ahí vuelve el foco al cerrar la hoja (B3)', async () => {
+      pedirDia.mockImplementation(() => new Promise(() => undefined));
+      await abrir();
+      otroDiaEnLaHoja().click();
+      fixture.detectChanges();
+
+      expect(el().querySelector('app-esqueleto')).not.toBeNull();
+      expect(cambiar().textContent?.trim()).toBe('Cambiar');
+    });
+
+    it('**al cerrar la hoja el foco vuelve a «Cambiar»**, aunque tocarlo no le haya dado el foco', async () => {
+      // Safari no le da el foco al botón que se toca: la hoja no puede devolverlo a lo que tenía
+      // el foco al abrir, porque era el body. Se le dice a cuál volver.
+      expect(document.activeElement).not.toBe(cambiar());
+      await abrir();
+      [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
+      await fixture.whenStable();
+      await new Promise((listo) => setTimeout(listo));
+
+      expect(document.activeElement).toBe(cambiar());
+    });
+
+    it('**si la grilla se va con la hoja abierta, la hoja se cierra**: sus controles eran de la grilla', async () => {
+      await abrir();
+
+      fixture.destroy();
+      await new Promise((listo) => setTimeout(listo));
+
+      expect(hoja()).toBeNull();
+    });
+
+    it('la hoja y «Cambiar» dicen al lector qué cambian', async () => {
+      // El nombre empieza con lo que se ve (WCAG 2.5.3).
+      expect(cambiar().getAttribute('aria-label')).toBe('Cambiar el día, la duración o las canchas');
+
+      await abrir();
+      expect(hoja()?.getAttribute('aria-label')).toBe('El día, la duración y las canchas');
+    });
+  });
+
+  /**
+   * T349 (SPEC-sitio.md, Decimoctava parte, N2): en pantallas grandes, arriba están los controles
+   * completos, y al bajar no se veía lo elegido. La misma línea aparece fija bajo el encabezado
+   * cuando los controles salen de la vista. jsdom no tiene IntersectionObserver: uno falso.
+   */
+  describe('en pantallas grandes, lo elegido aparece al bajar (T349)', () => {
+    interface Observador {
+      alCambiar: (entradas: { isIntersecting: boolean }[]) => void;
+      mirados: Element[];
+      desconectado: boolean;
+    }
+    let observadores: Observador[];
+
+    beforeEach(async () => {
+      observadores = [];
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          readonly mirados: Element[] = [];
+          desconectado = false;
+          constructor(readonly alCambiar: Observador['alCambiar']) {
+            observadores.push(this);
+          }
+          observe(elemento: Element) {
+            this.mirados.push(elemento);
+          }
+          disconnect() {
+            this.desconectado = true;
+          }
+        },
+      );
+      await montar(DIA);
+    });
+
+    afterEach(async () => {
+      TestBed.inject(MatBottomSheet).dismiss();
+      await new Promise((listo) => setTimeout(listo));
+      vi.unstubAllGlobals();
+    });
+
+    const linea = () => el().querySelector('[data-resumen-de-controles]') as HTMLElement;
+    const deLosControles = () =>
+      observadores.find((o) => o.mirados.some((m) => m.hasAttribute('data-controles-arriba')));
+    const controles = async (aLaVista: boolean) => {
+      deLosControles()!.alCambiar([{ isIntersecting: aLaVista }]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('mira si los controles de arriba están a la vista', () => {
+      expect(deLosControles()).toBeDefined();
+    });
+
+    it('con los controles a la vista, la línea no se ve en grande: estaría repetida', async () => {
+      await controles(true);
+
+      expect(linea().classList).toContain('sm:hidden');
+    });
+
+    it('**cuando los controles salen de la vista, la línea aparece fija bajo el encabezado**', async () => {
+      await controles(true);
+      await controles(false);
+
+      expect(linea().classList).not.toContain('sm:hidden');
+      // Fija y no pegada: en el flujo, al aparecer empujaría el tablero 58 px hacia abajo.
+      expect([...linea().classList]).toEqual(
+        expect.arrayContaining(['sm:fixed', 'sm:inset-x-0', 'sm:top-16']),
+      );
+    });
+
+    it('**con la línea a la vista, el tablero pega los nombres de las canchas debajo** (T350)', async () => {
+      const nombres = () => el().querySelector('app-marcador thead th')!.className;
+      await controles(true);
+      expect(nombres()).toContain('sm:top-16');
+
+      await controles(false);
+
+      expect(nombres()).toContain('sm:top-30.5');
+    });
+
+    it('**mientras la línea tiene el foco no se esconde**: el foco se iría al body', async () => {
+      // Con el foco en «Cambiar» se aprieta Inicio: la página sube y los controles vuelven.
+      await controles(false);
+      const cambiar = linea().querySelector('button')!;
+      cambiar.focus();
+      fixture.detectChanges();
+
+      await controles(true);
+      expect(linea().classList).not.toContain('sm:hidden');
+
+      cambiar.blur();
+      fixture.detectChanges();
+      expect(linea().classList).toContain('sm:hidden');
+    });
+
+    it('**con la hoja abierta no se esconde**, y al cerrarla el foco vuelve a «Cambiar»', async () => {
+      // Al cambiar de día, mientras carga, la página se acorta y los controles vuelven a la vista:
+      // si la línea se escondía, la hoja le devolvía el foco a un botón escondido.
+      await controles(false);
+      const cambiar = linea().querySelector('button')!;
+      cambiar.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      cambiar.blur();
+
+      await controles(true);
+      expect(linea().classList).not.toContain('sm:hidden');
+
+      const hoja = document.querySelector('mat-bottom-sheet-container')!;
+      [...hoja.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
+      await fixture.whenStable();
+      await new Promise((listo) => setTimeout(listo));
+      fixture.detectChanges();
+
+      expect(document.activeElement).toBe(cambiar);
+      expect(linea().classList).not.toContain('sm:hidden');
+
+      // Con la hoja cerrada y el foco fuera, vuelve a esconderse: si no, quedaría repetida sobre
+      // los controles y taparía el título.
+      cambiar.blur();
+      fixture.detectChanges();
+      expect(linea().classList).toContain('sm:hidden');
+    });
+
+    it('si el observador trae dos entradas juntas, manda la última', async () => {
+      await controles(true);
+
+      deLosControles()!.alCambiar([{ isIntersecting: true }, { isIntersecting: false }]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(linea().classList).not.toContain('sm:hidden');
+    });
+
+    it('en el teléfono se ve siempre: lo que la esconde vale solo desde sm', async () => {
+      await controles(true);
+
+      expect(linea().classList).not.toContain('hidden');
+      expect(linea().classList).toContain('sticky');
+    });
+
+    it('al irse la grilla deja de mirar', () => {
+      const observador = deLosControles()!;
+
+      fixture.destroy();
+
+      expect(observador.desconectado).toBe(true);
+    });
+  });
+
+  it('sin IntersectionObserver (jsdom), la grilla se dibuja igual y sin errores', async () => {
+    // El error del observador lo atrapa el ErrorHandler como console.error: la grilla se dibuja
+    // igual, y solo el espía lo ve.
+    const errores = vi.spyOn(console, 'error');
+    onTestFinished(() => errores.mockRestore());
+    await montar(DIA);
+
+    expect(typeof globalThis.IntersectionObserver).toBe('undefined');
+    expect(el().querySelector('[data-resumen-de-controles]')).not.toBeNull();
+    expect(errores).not.toHaveBeenCalled();
+  });
+
   /**
    * T265. Disponibilidad dibuja el tablero de la portada (SPEC-revision-qa.md, A1): una
    * columna por cancha, y la celda libre elige esa cancha. Reemplaza a la tabla por tipo de
@@ -367,6 +748,32 @@ describe('Grilla', () => {
       DIA[0],
     ];
     const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
+
+    it('**la hora elegida se marca entera**: con 1 hora, dos celdas (T344)', async () => {
+      // Inicios cada media hora, como los manda la API: una hora ocupa dos filas.
+      const SEGUIDAS: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: ['12:00', '12:30', '13:00'].map((hora) => {
+            const inicio = `2026-08-17T${hora}:00.000Z`;
+            return {
+              ...DIA[0].bloques[0],
+              inicio,
+              fin: new Date(Date.parse(inicio) + 60 * 60 * 1000).toISOString(),
+            };
+          }),
+        },
+      ];
+      await montar(SEGUIDAS);
+
+      celdaDe('08:00', 1).querySelector('button')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(el().querySelectorAll('app-marcador [data-en-la-eleccion]')).toHaveLength(2);
+      expect(celdaDe('08:30', 1).textContent).toContain('Parte de tu elección');
+    });
+
     const elegirLaDeLas8 = async (columna = 1) => {
       celdaDe('08:00', columna).querySelector('button')!.click();
       await fixture.whenStable();
@@ -829,7 +1236,9 @@ describe('Grilla', () => {
   it('el selector de día también se anuncia como clickeable', () => {
     // Desde T244, la manito y el borde que responde los pone `abre-al-tocar` en su
     // mat-form-field (tema-material.scss).
-    const fecha = (fixture.nativeElement as HTMLElement).querySelector('#fecha');
+    const fecha = (fixture.nativeElement as HTMLElement).querySelector(
+      'input[placeholder="dd-mm-aaaa"]',
+    );
 
     expect(fecha?.closest('mat-form-field')?.classList.contains('abre-al-tocar')).toBe(true);
   });

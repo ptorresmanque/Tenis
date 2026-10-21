@@ -48,9 +48,11 @@ import { diaEnPalabras, proximosDias } from '../reloj-del-club';
            una etiqueta con una fecha escrita y nadie prueba a abrirlo. -->
       <mat-form-field class="w-48 shrink-0 abre-al-tocar">
         <mat-label>Otro día</mat-label>
+        <!-- Sin id fijo: Material le da uno único. En disponibilidad el selector está dos veces
+             con la hoja de «Cambiar» abierta (T345), y un id repetido dejaba la etiqueta de la
+             hoja apuntando al campo de la página. -->
         <input
           matInput
-          id="fecha"
           placeholder="dd-mm-aaaa"
           autocomplete="off"
           [matDatepicker]="calendarioFecha"
