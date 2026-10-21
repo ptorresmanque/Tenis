@@ -11,6 +11,16 @@ const FILTROS = [
   { valor: 'aire-libre', etiqueta: 'Al aire libre' },
 ];
 
+const DURACIONES = [
+  { valor: '60', etiqueta: '1 hora' },
+  { valor: '90', etiqueta: '1 hora y media' },
+];
+
+/** "1 hora y media", dicho igual que en el selector: lo leen la grilla y su línea (T345). */
+export function etiquetaDeLaDuracion(duracion: DuracionMin): string {
+  return DURACIONES.find(({ valor }) => valor === `${duracion}`)?.etiqueta ?? DURACIONES[0].etiqueta;
+}
+
 /** "Techadas", para la línea que resume lo elegido en el teléfono (T345). */
 export function etiquetaDelFiltro(filtro: string): string {
   return FILTROS.find(({ valor }) => valor === filtro)?.etiqueta ?? FILTROS[0].etiqueta;
@@ -116,10 +126,7 @@ export class ControlesDelDia {
   /** "60" o "90", como los valores del selector. */
   readonly cambiarDuracion = output<string>();
 
-  protected readonly DURACIONES = [
-    { valor: '60', etiqueta: '1 hora' },
-    { valor: '90', etiqueta: '1 hora y media' },
-  ];
+  protected readonly DURACIONES = DURACIONES;
 
   protected readonly FILTROS = FILTROS;
 }
