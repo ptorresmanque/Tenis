@@ -153,6 +153,49 @@ describe('Cascarón público: la navegación', () => {
     );
   });
 
+  describe('la dirección del pie (T341, M4)', () => {
+    const CLUB: DatosDelClub = {
+      nombre: 'FEDAL Tennis Center',
+      direccion: 'Lircay lt 42, Temuco, Chile',
+      telefono: '',
+      email: '',
+      latitud: -38.7,
+      longitud: -72.6,
+      instagram: '',
+      facebook: '',
+      tiktok: '',
+      youtube: '',
+      whatsapp: '',
+      elClubTitulo: 'FEDAL Tennis Center',
+      elClubBajada: '',
+      elClubCanchas: '',
+      tienda: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+      cafeteria: { descripcion: '', horario: '', whatsapp: '', fotos: [] },
+      gimnasio: { descripcion: '', horario: '', whatsapp: '', fotos: [], tarifas: [] },
+    };
+    const direccion = (club: DatosDelClub) =>
+      [...(montarCon(null, club).nativeElement as HTMLElement).querySelectorAll('footer li')].find(
+        (li) => li.textContent?.includes('Lircay'),
+      );
+
+    it('**abre Google Maps en el punto del mapa del club**, en otra pestaña', () => {
+      const enlace = direccion(CLUB)?.querySelector('a');
+
+      expect(enlace?.getAttribute('href')).toBe(
+        'https://www.google.com/maps/search/?api=1&query=-38.700000,-72.600000',
+      );
+      expect(enlace?.getAttribute('target')).toBe('_blank');
+      expect(enlace?.textContent).toContain('(se abre en otra pestaña)');
+    });
+
+    it('sin coordenadas cargadas es texto: no hay punto al que llevar (B6)', () => {
+      const li = direccion({ ...CLUB, latitud: null, longitud: null });
+
+      expect(li?.textContent?.trim()).toBe('Lircay lt 42, Temuco, Chile');
+      expect(li?.querySelector('a')).toBeNull();
+    });
+  });
+
   it('el pie enlaza las preguntas frecuentes (T146)', () => {
     const pie = (montarCon(null).nativeElement as HTMLElement).querySelector('footer');
 

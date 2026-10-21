@@ -4,6 +4,8 @@ export interface EnlacesDelMapa {
   incrustado: string;
   googleMaps: string;
   waze: string;
+  /** El punto del club en Google Maps, sin ruta: lo abre la dirección del pie (T341). */
+  ubicacion: string;
 }
 
 /** Unos 400 metros a cada lado del club: se ve la cuadra y las calles para llegar. */
@@ -37,5 +39,6 @@ export function enlacesDelMapa(ubicacion: {
       `?bbox=${bbox}&layer=mapnik&marker=${punto}`,
     googleMaps: `https://www.google.com/maps/dir/?api=1&destination=${punto}`,
     waze: `https://waze.com/ul?ll=${punto}&navigate=yes`,
+    ubicacion: `https://www.google.com/maps/search/?api=1&query=${punto}`,
   };
 }

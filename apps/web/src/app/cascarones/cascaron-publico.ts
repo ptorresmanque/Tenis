@@ -7,6 +7,7 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatToolbar } from '@angular/material/toolbar';
 
 import { Club } from '../club/club.service';
+import { enlacesDelMapa } from '../club/mapa';
 import { RedesSociales } from '../club/redes-sociales';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
@@ -267,8 +268,24 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
                 Preguntas frecuentes
               </a>
             </li>
+            <!-- T341 (SPEC-sitio.md, Decimoséptima parte, M4): la dirección abre en Google Maps
+                 el mismo punto que marca el mapa de El club. Sin coordenadas, texto (B6). -->
             @if (club().direccion) {
-              <li>{{ club().direccion }}</li>
+              <li>
+                @if (puntoEnElMapa(); as punto) {
+                  <a
+                    [href]="punto"
+                    target="_blank"
+                    rel="noopener"
+                    class="hover:text-on-campo hover:underline"
+                  >
+                    {{ club().direccion }}
+                    <span class="sr-only">(se abre en otra pestaña)</span>
+                  </a>
+                } @else {
+                  {{ club().direccion }}
+                }
+              </li>
             }
             @if (club().telefono) {
               <li>
@@ -307,6 +324,10 @@ export class CascaronPublico {
   /** El cajón del teléfono, pedido desde el botón del menú. */
   protected readonly menuAbierto = signal(false);
   protected readonly club = inject(Club).datos;
+  /** Google Maps en las coordenadas del club, o nulo si no las cargó (T341). */
+  protected readonly puntoEnElMapa = computed(
+    () => enlacesDelMapa(this.club())?.ubicacion ?? null,
+  );
   /** Adónde lleva "Administración": la portada del panel de cada uno, o nada (T220). */
   protected readonly inicioDelPanel = computed(() =>
     inicioDelPanel(this.usuario()),

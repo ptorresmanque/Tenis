@@ -36,4 +36,12 @@ describe('enlacesDelMapa', () => {
     );
     expect(mapa.waze).toBe('https://waze.com/ul?ll=-33.437200,-70.650600&navigate=yes');
   });
+
+  // T341 (SPEC-sitio.md, Decimoséptima parte, M4): la dirección del pie lleva al punto, no a
+  // una ruta: quien la toca quiere ver dónde queda.
+  it('el punto del club en Google Maps, el mismo del marcador', () => {
+    expect(enlacesDelMapa(FEDAL)!.ubicacion).toBe(
+      'https://www.google.com/maps/search/?api=1&query=-33.437200,-70.650600',
+    );
+  });
 });
