@@ -80,11 +80,14 @@ export class VolverArriba {
     const medir = () =>
       this.visible.set(window.scrollY > window.innerHeight * UMBRAL_EN_PANTALLAS);
 
+    // El listener y su limpieza, juntos y solo en el navegador: en el servidor (el prerender y
+    // `ng serve`) no hay window, y quitarlo al destruir tumbaba el servidor de desarrollo (T360).
+    const destruir = inject(DestroyRef);
     afterNextRender(() => {
       medir();
       window.addEventListener('scroll', medir, { passive: true });
+      destruir.onDestroy(() => window.removeEventListener('scroll', medir));
     });
-    inject(DestroyRef).onDestroy(() => window.removeEventListener('scroll', medir));
   }
 
   protected subir(): void {

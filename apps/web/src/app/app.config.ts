@@ -1,4 +1,5 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { provideClientHydration } from '@angular/platform-browser';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import {
   provideRouter,
@@ -15,6 +16,9 @@ import { proveerMaterial } from './ui/material';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // El navegador reutiliza el HTML prerenderizado en vez de volver a dibujarlo (T360, D3). Trae
+    // la hidratación incremental y la repetición de eventos: un clic antes de hidratar no se pierde.
+    provideClientHydration(),
     provideHttpClient(withFetch()),
     // Las opciones de Angular Material para toda la web (T240).
     proveerMaterial(),

@@ -103,4 +103,20 @@ describe('VolverArriba', () => {
 
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
   });
+
+  // T360. En el servidor (el prerender y `ng serve`) no hay window: tocarlo al destruir el
+  // componente tumbaba el servidor de desarrollo con «window is not defined».
+  it('**en el servidor no toca window, ni al crearse ni al destruirse**', () => {
+    // Lo que mira Angular para saber que está en el servidor: el prerender lo fija al arrancar.
+    vi.stubGlobal('ngServerMode', true);
+    const agregar = vi.spyOn(window, 'addEventListener');
+    const quitar = vi.spyOn(window, 'removeEventListener');
+
+    const fixture = TestBed.createComponent(VolverArriba);
+    fixture.detectChanges();
+    fixture.destroy();
+
+    expect(agregar).not.toHaveBeenCalledWith('scroll', expect.anything(), expect.anything());
+    expect(quitar).not.toHaveBeenCalledWith('scroll', expect.anything());
+  });
 });
