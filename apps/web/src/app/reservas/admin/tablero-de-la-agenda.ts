@@ -232,9 +232,9 @@ export function tableroDeLaAgenda(dia: {
                            pero se puede caer. -->
                       <button
                         type="button"
-                        class="absolute inset-0 flex cursor-pointer flex-col items-start gap-0.5
-                               overflow-hidden border bg-card p-1.5 text-start text-foreground
-                               hover:border-primary"
+                        class="absolute inset-0 flex scroll-mt-20 scroll-ms-18 cursor-pointer
+                               flex-col items-start gap-0.5 overflow-hidden border bg-card p-1.5
+                               text-start text-foreground hover:border-primary"
                         [class.border-dashed]="espera"
                         [class.border-on-campo]="espera"
                         [class.border-transparent]="!espera"
@@ -297,10 +297,11 @@ export function tableroDeLaAgenda(dia: {
                       @if (puedeTomar()) {
                         <button
                           type="button"
-                          class="flex h-full w-full cursor-pointer items-center justify-center
-                                 border border-borde-celda-libre bg-celda-libre font-display
-                                 text-xs font-bold tracking-wider text-on-celda-libre uppercase
-                                 hover:border-on-celda-libre active:scale-95"
+                          class="flex h-full w-full scroll-mt-20 scroll-ms-18 cursor-pointer
+                                 items-center justify-center border border-borde-celda-libre
+                                 bg-celda-libre font-display text-xs font-bold tracking-wider
+                                 text-on-celda-libre uppercase hover:border-on-celda-libre
+                                 active:scale-95"
                           [attr.data-fila]="i"
                           [attr.data-columna]="j"
                           [attr.tabindex]="esLaParada(i, j) ? 0 : -1"
