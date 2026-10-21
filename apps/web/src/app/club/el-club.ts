@@ -382,8 +382,12 @@ export class ElClub {
    * la página crece. Chrome y Firefox corrigen el salto solos (scroll anchoring); Safari no, y
    * en un iPhone se quedaba en las tarifas. Mientras crece, se vuelve a buscar el ancla.
    *
-   * Solo hasta que la persona mueva la página, o 3 segundos: después, moverla sería quitársela
-   * de las manos.
+   * Solo hasta que la persona tome el control, o 10 segundos: después, moverla sería quitársela
+   * de las manos. Tomar el control es la rueda, el teclado o `pointerdown`, que a diferencia de
+   * `touchstart` cubre también el mouse y el lápiz. El tope es de 10 y no de 3 segundos porque
+   * con una conexión lenta las canchas y las tarifas llegan después de los 3, y Safari volvía a
+   * dejar a la persona en las tarifas; un tope largo no estorba, porque el primer gesto suelta
+   * el ancla al tiro.
    */
   private sostenerElAncla(): void {
     const ancla = inject(ActivatedRoute).snapshot.fragment;
@@ -393,13 +397,13 @@ export class ElClub {
 
     afterNextRender(() => {
       const observador = new ResizeObserver(() => desplazador.scrollToAnchor(ancla));
-      const gestos = ['wheel', 'touchstart', 'keydown'] as const;
+      const gestos = ['wheel', 'pointerdown', 'keydown'] as const;
       const soltar = () => {
         observador.disconnect();
         clearTimeout(plazo);
         for (const gesto of gestos) removeEventListener(gesto, soltar);
       };
-      const plazo = setTimeout(soltar, 3000);
+      const plazo = setTimeout(soltar, 10_000);
 
       observador.observe(document.body);
       for (const gesto of gestos) addEventListener(gesto, soltar, { passive: true });
