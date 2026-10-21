@@ -276,7 +276,9 @@ describe('Rutas protegidas', () => {
   // P3 y P20 (SPEC-sitio.md, Decimoséptima parte): la pestaña dice lo que se hace ahí, y la
   // portada dice qué es el club y dónde, que es lo que se lee en el buscador.
   it('la grilla se titula «Reserva tu cancha», y la portada dice que es un club de Temuco', () => {
-    expect(buscar('disponibilidad')?.ruta.title).toBe('Reserva tu cancha — FEDAL Tennis Center');
+    expect(buscar('disponibilidad')?.ruta.title).toBe(
+      'Reserva tu cancha de tenis en Temuco — FEDAL Tennis Center',
+    );
     expect(routes[0].children?.find((ruta) => ruta.path === '')?.title).toBe(
       'FEDAL Tennis Center · Club de tenis en Temuco',
     );
@@ -317,6 +319,44 @@ describe('Rutas protegidas', () => {
 
   it('la política de privacidad se lee sin sesión: Google la abre para aprobar el login', () => {
     expect(buscar('privacidad')?.guards).toEqual([]);
+  });
+});
+
+/**
+ * T354 (SPEC-seo.md A2 y A3). Lo que se lee en el resultado de Google: el título nombra el deporte
+ * y la ciudad, y cada página pública trae su descripción, distinta de las demás.
+ */
+describe('Los títulos y las descripciones de las rutas públicas (T354)', () => {
+  const PUBLICAS: [string, string][] = [
+    ['', 'FEDAL Tennis Center · Club de tenis en Temuco'],
+    ['disponibilidad', 'Reserva tu cancha de tenis en Temuco — FEDAL Tennis Center'],
+    ['clases', 'Clases de tenis en Temuco — FEDAL Tennis Center'],
+    ['torneos', 'Torneos de tenis en Temuco — FEDAL Tennis Center'],
+    ['tours', 'Tours de tenis en Temuco — FEDAL Tennis Center'],
+    ['ranking', 'Ranking de torneos de tenis — FEDAL Tennis Center'],
+    ['el-club', 'El club: canchas, tarifas y horario — FEDAL Tennis Center'],
+    ['preguntas-frecuentes', 'Preguntas frecuentes — FEDAL Tennis Center'],
+    ['privacidad', 'Política de privacidad — FEDAL Tennis Center'],
+  ];
+  const descripcion = (url: string): string => buscar(url)?.ruta.data?.['descripcion'] ?? '';
+
+  it.each(PUBLICAS)('/%s se titula «%s»', (url, titulo) => {
+    expect(buscar(url)?.ruta.title).toBe(titulo);
+    // Lo que Google muestra antes de cortar con «…».
+    expect(titulo.length).toBeLessThanOrEqual(60);
+  });
+
+  it.each(PUBLICAS.map(([url]) => url))(
+    '/%s tiene su descripción, de 120 a 160 caracteres',
+    (url) => {
+      expect(descripcion(url).length).toBeGreaterThanOrEqual(120);
+      expect(descripcion(url).length).toBeLessThanOrEqual(160);
+    },
+  );
+
+  it('ninguna descripción se repite', () => {
+    const todas = PUBLICAS.map(([url]) => descripcion(url));
+    expect(new Set(todas).size).toBe(todas.length);
   });
 });
 
