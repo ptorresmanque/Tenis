@@ -246,6 +246,30 @@ describe('Cascarón público: la navegación', () => {
     expect(document.querySelector('.mat-mdc-menu-panel')?.textContent).toContain('Socio');
   });
 
+  /** T347 (SPEC-sitio.md, Decimoctava parte, C1). La barra trae `nowrap`: con más de un tipo,
+      el texto se salía de la caja y quedaba debajo del avatar. */
+  it('**los tipos parten en dos líneas como máximo**, y el menú los dice todos', async () => {
+    const TODOS = 'Administrador · Socio · Gestor · Profesor';
+    const fixture = await montarConElMenu({ ...SOCIA, esAdmin: true, esGestor: true, profesorId: 4 });
+    const elemento = fixture.nativeElement as HTMLElement;
+    const cuenta = elemento.querySelector<HTMLElement>('[data-cuenta]')!;
+    const tipos = [...cuenta.querySelectorAll('span')].find((s) => s.textContent?.trim() === TODOS);
+
+    expect([...(tipos?.classList ?? [])]).toEqual(
+      expect.arrayContaining(['whitespace-normal', 'line-clamp-2']),
+    );
+    // Sin title: el lector los leería dos veces (revisión de T351).
+    expect(cuenta.hasAttribute('title')).toBe(false);
+
+    elemento
+      .querySelector<HTMLButtonElement>('header button[aria-label="Menú de Camila Rojas"]')!
+      .click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.querySelector('.mat-mdc-menu-panel')?.textContent).toContain(TODOS);
+  });
+
   it('le ofrece crear cuenta a quien no ha entrado', () => {
     expect(enlacesCon(null)).toContain('Crear cuenta');
   });
