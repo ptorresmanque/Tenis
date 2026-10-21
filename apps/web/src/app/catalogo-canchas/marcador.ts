@@ -9,6 +9,9 @@ import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
 type Celda =
   | { estado: 'libre'; bloque: BloqueDisponible }
+  // La fila que el tablero suma para la elección al final del día (T344): ahí no empieza
+  // ninguna hora, pero el club sigue abierto, así que no es «Cerrada».
+  | { estado: 'sin-inicio' }
   | { estado: 'sin-venta'; motivo: string }
   | { estado: 'ocupada' }
   | { estado: 'bloqueada'; motivo: string; icono: string; clase: boolean }
@@ -38,6 +41,12 @@ function celdaDe(bloque: BloqueDisponible | undefined, sinVenta: MotivoSinVenta)
   const motivo = sinVenta(bloque);
   return motivo ? { estado: 'sin-venta', motivo } : { estado: 'libre', bloque };
 }
+
+/**
+ * Cada cuánto empieza una hora en la grilla: el `PASO_DE_LA_GRILLA_MIN` de la API. Una hora
+ * elegida ocupa dos filas y la hora y media, tres (T344).
+ */
+const PASO_DE_LA_GRILLA_MS = 30 * 60 * 1000;
 
 /** La celda de una cancha a una hora, como texto: la parada del teclado se guarda así. */
 const claveDe = (canchaId: number, inicio: string) =>
@@ -141,11 +150,18 @@ const claveDe = (canchaId: number, inicio: string) =>
                   <!-- Las filas que siguen a la de inicio, dentro de la hora elegida (T344, B2):
                        la misma placa, sin botón. Tocar otra libre cambia la elección. -->
                   @if (celda.sigue) {
+                    <!-- Con su marca, no solo con el color (la placa sobre el campo da 2,2:1): la
+                         del medio lleva la línea que sigue, y la última dice hasta cuándo. -->
                     <span
                       data-en-la-eleccion
                       class="flex h-full items-center justify-center border border-rotulo bg-rotulo
-                             text-on-rotulo"
+                             font-display text-xs font-bold text-on-rotulo tabular-nums"
                     >
+                      @if (celda.ultima) {
+                        <span aria-hidden="true">–{{ finDeLaElegida() }}</span>
+                      } @else {
+                        <mat-icon class="text-base" aria-hidden="true">more_vert</mat-icon>
+                      }
                       <span class="sr-only">Parte de tu elección</span>
                     </span>
                   } @else {
@@ -235,6 +251,11 @@ const claveDe = (canchaId: number, inicio: string) =>
                           <span class="sr-only">{{ celda.motivo }}</span>
                         </span>
                       }
+                    }
+                    @case ('sin-inicio') {
+                      <span class="flex h-full">
+                        <span class="sr-only">Sin inicio a esta hora</span>
+                      </span>
                     }
                     @case ('cerrada') {
                       <span
@@ -338,6 +359,12 @@ export class Marcador {
     this.modo() === 'elegir' ? 'sm:sticky sm:top-16 sm:z-20' : '',
   );
 
+  /** "20:00", el fin de la elegida, para la última celda que la sigue (T344). */
+  protected readonly finDeLaElegida = computed(() => {
+    const elegida = this.elegida();
+    return elegida ? horaEnElClub(elegida.fin) : '';
+  });
+
   /** La última celda que tuvo el foco: es la parada del tablero al volver con Tab. */
   protected readonly foco = signal<string | null>(null);
 
@@ -366,6 +393,11 @@ export class Marcador {
         if (instante > ahora) instantes.add(instante);
       }
     }
+    // Las medias horas de la elegida, aunque en ellas no empiece nada: al final del día la API
+    // no manda inicios que terminen después del cierre, y la última hora se marcaba a medias.
+    for (let instante = desde + PASO_DE_LA_GRILLA_MS; instante < hasta; instante += PASO_DE_LA_GRILLA_MS) {
+      if (instante > ahora) instantes.add(instante);
+    }
 
     return [...instantes]
       .sort((una, otra) => una - otra)
@@ -374,6 +406,7 @@ export class Marcador {
           cancha,
           bloque: bloques.find(({ inicio }) => new Date(inicio).getTime() === instante),
         }));
+        const sinInicios = deLaHora.every(({ bloque }) => !bloque);
 
         return {
           instante,
@@ -391,7 +424,8 @@ export class Marcador {
             // Dentro de la hora elegida y después de su inicio (T344, B2), sea cual sea el
             // estado de su propio inicio.
             sigue: elegida?.canchaId === cancha.id && instante > desde && instante < hasta,
-            ...celdaDe(bloque, this.sinVenta()),
+            ultima: instante + PASO_DE_LA_GRILLA_MS >= hasta,
+            ...(sinInicios ? { estado: 'sin-inicio' as const } : celdaDe(bloque, this.sinVenta())),
           })),
         };
       });
@@ -402,7 +436,8 @@ export class Marcador {
     const vistos = new Map<string, string>();
     for (const { celdas } of this.filas()) {
       for (const celda of celdas) {
-        if (celda.estado === 'bloqueada') vistos.set(celda.motivo, celda.icono);
+        // La que sigue a la elegida no muestra su estado: su motivo no va en la leyenda.
+        if (celda.estado === 'bloqueada' && !celda.sigue) vistos.set(celda.motivo, celda.icono);
       }
     }
     return [...vistos].map(([motivo, icono]) => ({ motivo, icono }));
@@ -413,7 +448,7 @@ export class Marcador {
     const motivos = new Set<string>();
     for (const { celdas } of this.filas()) {
       for (const celda of celdas) {
-        if (celda.estado === 'sin-venta') motivos.add(celda.motivo);
+        if (celda.estado === 'sin-venta' && !celda.sigue) motivos.add(celda.motivo);
       }
     }
     return [...motivos];
