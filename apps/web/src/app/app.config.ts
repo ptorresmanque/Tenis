@@ -2,12 +2,14 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import {
   provideRouter,
+  TitleStrategy,
   withComponentInputBinding,
   withInMemoryScrolling,
   withViewTransitions,
 } from '@angular/router';
 
 import { routes } from './app.routes';
+import { Seo } from './seo/seo';
 import { proveerMaterial } from './ui/material';
 
 export const appConfig: ApplicationConfig = {
@@ -39,5 +41,7 @@ export const appConfig: ApplicationConfig = {
       withComponentInputBinding(),
       withInMemoryScrolling({ anchorScrolling: 'enabled' }),
     ),
+    // Con el título, la descripción, el canonical, el noindex y el Open Graph (T353).
+    { provide: TitleStrategy, useExisting: Seo },
   ],
 };

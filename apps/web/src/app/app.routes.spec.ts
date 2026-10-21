@@ -9,6 +9,7 @@ import {
   Params,
   provideRouter,
   Route,
+  Data,
   RouterStateSnapshot,
   Routes,
 } from '@angular/router';
@@ -36,6 +37,8 @@ import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 interface Encontrada {
   ruta: Route;
   guards: unknown[];
+  /** El `data` de cada ruta de la cadena, del cascarón a la página (T353). */
+  datos: (Data | undefined)[];
   /** El cascarón, venga en la ruta (`component`) o se cargue con ella (`loadComponent`). */
   cascaron: () => Promise<unknown>;
 }
@@ -45,11 +48,13 @@ function buscar(url: string): Encontrada | null {
     rutas: Routes,
     prefijo: string,
     heredados: unknown[],
+    datosHeredados: (Data | undefined)[],
     cascaron: () => Promise<unknown>,
   ): Encontrada | null => {
     for (const ruta of rutas) {
       const camino = [prefijo, ruta.path].filter(Boolean).join('/');
       const guards = [...heredados, ...(ruta.canActivate ?? [])];
+      const datos = [...datosHeredados, ruta.data];
       // Los cascarones son las rutas de primer nivel con hijos; más adentro, un
       // `loadComponent` con hijos es una página con pestañas (Configuración).
       const esCascaron = rutas === routes && ruta.children !== undefined;
@@ -60,7 +65,7 @@ function buscar(url: string): Encontrada | null {
           : cascaron;
 
       if (camino === url && (ruta.loadComponent ?? ruta.redirectTo)) {
-        return { ruta, guards, cascaron: suCascaron };
+        return { ruta, guards, datos, cascaron: suCascaron };
       }
 
       // `canActivateChild` del padre corre para cada hijo (T220: así va el del panel).
@@ -70,6 +75,7 @@ function buscar(url: string): Encontrada | null {
           ruta.children,
           camino,
           [...guards, ...(ruta.canActivateChild ?? [])],
+          datos,
           suCascaron,
         );
       if (dentro) return dentro;
@@ -78,7 +84,7 @@ function buscar(url: string): Encontrada | null {
     return null;
   };
 
-  return recorrer(routes, '', [], async () => null);
+  return recorrer(routes, '', [], [], async () => null);
 }
 
 describe('Rutas protegidas', () => {
@@ -311,6 +317,53 @@ describe('Rutas protegidas', () => {
 
   it('la política de privacidad se lee sin sesión: Google la abre para aprobar el login', () => {
     expect(buscar('privacidad')?.guards).toEqual([]);
+  });
+});
+
+/**
+ * T353 (SPEC-seo.md A4). Lo que no es para buscadores lleva `indexar: false` en algún punto de su
+ * cadena: el servicio `Seo` le pone `noindex`. Va en el padre cuando todo lo de adentro es privado
+ * (el panel, entrar, Mi cuenta), así una pantalla nueva nace fuera del índice.
+ */
+describe('Lo que no es para buscadores lleva noindex (T353, A4)', () => {
+  const seIndexa = (url: string) =>
+    !buscar(url)?.datos.some((datos) => datos?.['indexar'] === false);
+
+  it.each([
+    'entrar',
+    'registro',
+    'recuperar-contrasena',
+    'nueva-contrasena',
+    'verificar-correo',
+    'mi-cuenta/reservas',
+    'mi-cuenta/partidos',
+    'mi-cuenta/cuota',
+    'reservas/confirmacion',
+    'r/:token',
+    'torneos/:id/inscripcion',
+    'torneos/inscripcion/:token',
+    'administracion/reservas',
+    'administracion/personas/:id',
+    'administracion/configuracion/reglas',
+    'estado',
+  ])('/%s no se indexa', (url) => {
+    expect(seIndexa(url)).toBe(false);
+  });
+
+  it.each([
+    '',
+    'disponibilidad',
+    'clases',
+    'torneos',
+    'tours',
+    'tours/:id',
+    'ranking',
+    'el-club',
+    'preguntas-frecuentes',
+    'privacidad',
+  ])('/%s se indexa', (url) => {
+    expect(buscar(url)).not.toBeNull();
+    expect(seIndexa(url)).toBe(true);
   });
 });
 

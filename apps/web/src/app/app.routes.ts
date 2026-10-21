@@ -50,12 +50,16 @@ export const routes: Routes = [
       {
         path: 'reservas/confirmacion',
         title: 'Tu reserva — FEDAL Tennis Center',
+        // Fuera de los buscadores (T353, SPEC-seo.md A4): es la reserva de cada uno.
+        data: { indexar: false },
         loadComponent: () =>
           import('./reservas/confirmacion').then((m) => m.ConfirmacionReserva),
       },
       {
         path: 'mi-cuenta',
         title: 'Mi cuenta — FEDAL Tennis Center',
+        // T353 (A4): en el padre, vale para las tres pestañas.
+        data: { indexar: false },
         // T318 (SPEC-sitio.md A8): las reservas, los partidos y la cuota del socio, en pestañas.
         loadComponent: () => import('./cuenta/mi-cuenta').then((m) => m.MiCuenta),
         children: [
@@ -100,6 +104,7 @@ export const routes: Routes = [
       {
         path: 'torneos/:id/inscripcion',
         title: 'Inscripción — FEDAL Tennis Center',
+        data: { indexar: false },
         loadComponent: () =>
           import('./torneos/publico/pagina-de-inscripcion').then((m) => m.PaginaDeInscripcion),
       },
@@ -107,6 +112,7 @@ export const routes: Routes = [
         // El enlace del correo «Se abrió un cupo» (T334): sin sesión, la llave es la credencial.
         path: 'torneos/inscripcion/:token',
         title: 'Tu cupo en la lista de espera — FEDAL Tennis Center',
+        data: { indexar: false },
         loadComponent: () =>
           import('./torneos/publico/oferta-de-cupo').then((m) => m.OfertaDeCupo),
       },
@@ -148,6 +154,7 @@ export const routes: Routes = [
         // más es un módulo más de dibujo para leer en el mesón.
         path: 'r/:token',
         title: 'Reserva — FEDAL Tennis Center',
+        data: { indexar: false },
         loadComponent: () =>
           import('./reservas/reserva-publica').then((m) => m.ReservaPublicaPagina),
       },
@@ -157,6 +164,8 @@ export const routes: Routes = [
     path: '',
     // El panel y entrar se bajan con su ruta: el arranque trae solo el sitio público (I6).
     loadComponent: () => import('./cascarones/cascaron-auth').then((m) => m.CascaronAuth),
+    // T353 (A4): entrar, crear cuenta y los enlaces de los correos, fuera de los buscadores.
+    data: { indexar: false },
     children: [
       {
         path: 'entrar',
@@ -203,6 +212,8 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./cascarones/cascaron-admin').then((m) => m.CascaronAdmin),
     canActivateChild: [conPanel],
+    // T353 (A4): el panel entero, y una pantalla nueva también, fuera de los buscadores.
+    data: { indexar: false },
     children: [
       {
         path: 'administracion/reservas',
