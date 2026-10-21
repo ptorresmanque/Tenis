@@ -2,6 +2,7 @@ import {
   afterNextRender,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -835,6 +836,12 @@ export class Grilla {
   private readonly hojaDeControles = viewChild.required<TemplateRef<unknown>>('hojaDeControles');
   /** La hoja abierta, para que «Listo» la cierre. Esc y tocar afuera también la cierran. */
   protected hoja: MatBottomSheetRef | null = null;
+
+  /**
+   * Si la grilla se va con la hoja abierta, la hoja se cierra: sus controles son de la grilla.
+   * Atrás y adelante ya la cerraban (closeOnNavigation); esto cubre una navegación de la app.
+   */
+  private readonly cerrarLaHoja = inject(DestroyRef).onDestroy(() => this.hoja?.dismiss());
 
   protected abrirControles(evento: Event): void {
     const boton = evento.currentTarget as HTMLElement;

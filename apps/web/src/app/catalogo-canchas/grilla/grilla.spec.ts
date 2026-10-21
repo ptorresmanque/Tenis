@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,8 +10,6 @@ import { ReservasPublicas } from '../../reservas/reserva-publica.service';
 import { Reservas } from '../../reservas/reservas.service';
 import { Auth } from '../../core/auth/auth';
 import { Disponibilidad, GrillaDeCancha } from '../disponibilidad';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
-
 import { Grilla } from './grilla';
 import { alternar, opcionesDelGrupo } from '../../testing/alternar';
 
@@ -220,6 +219,8 @@ describe('Grilla', () => {
     // La hoja que una prueba deja abierta se cierra al desmontar, con el injector ya destruido,
     // y le devuelve el foco a «Cambiar»: su ripple no se puede crear y queda un error no manejado
     // que deja `ng test` con salida 1. Sin whenStable: una prueba deja una carga sin terminar.
+    // Solo cubre el final: una prueba que abra la hoja y vuelva a montar a la mitad tiene que
+    // cerrarla antes.
     afterEach(async () => {
       TestBed.inject(MatBottomSheet).dismiss();
       await new Promise((listo) => setTimeout(listo));
@@ -334,6 +335,15 @@ describe('Grilla', () => {
       await new Promise((listo) => setTimeout(listo));
 
       expect(document.activeElement).toBe(cambiar());
+    });
+
+    it('**si la grilla se va con la hoja abierta, la hoja se cierra**: sus controles eran de la grilla', async () => {
+      await abrir();
+
+      fixture.destroy();
+      await new Promise((listo) => setTimeout(listo));
+
+      expect(hoja()).toBeNull();
     });
 
     it('la hoja y «Cambiar» dicen al lector qué cambian', async () => {
