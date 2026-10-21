@@ -34,7 +34,12 @@ export function moverConFlechas(evento: KeyboardEvent, filas: number, columnas: 
       `button[data-fila="${fila}"][data-columna="${columna}"]`,
     );
     if (destino) {
-      destino.focus();
+      // El foco solo no desplaza si la celda sigue en la ventana, aunque quede bajo lo pegado
+      // (el encabezado y, en el teléfono, la línea de lo elegido): «nearest» respeta el
+      // scroll-margin de la celda (WCAG 2.4.11), y no se mueve si ya se ve entera. jsdom no
+      // implementa scrollIntoView.
+      destino.focus({ preventScroll: true });
+      destino.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
       return;
     }
   }

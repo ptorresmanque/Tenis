@@ -168,15 +168,19 @@ const claveDe = (canchaId: number, inicio: string) =>
                     @switch (celda.estado) {
                       @case ('libre') {
                         @if (modo() === 'elegir') {
+                          <!-- scroll-mt y scroll-mb: al moverse con las flechas, la celda con foco no
+                               queda bajo lo pegado (WCAG 2.4.11): arriba, el encabezado y la línea
+                               del teléfono (unos 122 px); abajo, la barra de la elección (167). -->
                           <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
                                que cambia es la placa, la marca y aria-pressed. La marca va arriba
                                del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
                           @let marcada = esLaElegida(celda);
                           <button
                             type="button"
-                            class="flex h-full w-full cursor-pointer items-center justify-center
-                                   gap-0.5 border font-display text-sm font-bold tracking-wider
-                                   uppercase transition-transform active:scale-95"
+                            class="flex h-full w-full scroll-mt-32 scroll-mb-44 cursor-pointer
+                                   items-center justify-center gap-0.5 border font-display text-sm
+                                   font-bold tracking-wider uppercase transition-transform
+                                   active:scale-95"
                             [class]="
                               marcada
                                 ? 'flex-col leading-none border-rotulo bg-rotulo text-on-rotulo'
