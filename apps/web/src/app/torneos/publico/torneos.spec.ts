@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
@@ -8,6 +9,7 @@ import {
   Torneos,
   TorneoPublico,
 } from '../torneos.service';
+import { Club } from '../../club/club.service';
 import { avisoDeLoHecho } from '../../testing/snackbar';
 import { TorneosPublicos } from './torneos';
 
@@ -116,7 +118,17 @@ describe('TorneosPublicos', () => {
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: Torneos, useValue: api }],
+      providers: [
+        provideRouter([]),
+        { provide: Torneos, useValue: api },
+        // El lugar de los eventos para Google (T358): el club y su dirección.
+        {
+          provide: Club,
+          useValue: {
+            datos: signal({ nombre: 'FEDAL Tennis Center', direccion: 'Lircay lt 42, Temuco' }),
+          },
+        },
+      ],
     });
     navegar = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
 
@@ -141,6 +153,18 @@ describe('TorneosPublicos', () => {
     // de un test suelta el cupo en el siguiente.
     sessionStorage.clear();
     await montar([EN_INSCRIPCION]);
+  });
+
+  // T358 (SPEC-seo.md A8): los torneos abiertos, como eventos para Google.
+  it('**publica los torneos abiertos en el <head> y los quita al salir**', () => {
+    const bloque = () => document.getElementById('datos-estructurados-torneos');
+
+    expect(JSON.parse(bloque()?.textContent ?? '{}')['@graph']).toEqual([
+      expect.objectContaining({ '@type': 'SportsEvent', name: EN_INSCRIPCION.nombre }),
+    ]);
+
+    fixture.destroy();
+    expect(bloque()).toBeNull();
   });
 
   it('la bajada invita a competir, sea socio o no (P14)', () => {

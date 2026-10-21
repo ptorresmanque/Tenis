@@ -4,6 +4,7 @@ import { DestroyRef, effect, inject, Service } from '@angular/core';
 
 import { Club, DatosDelClub } from '../club/club.service';
 import { HorarioDelDia } from '../club/tarifas';
+import { TorneoPublico } from '../torneos/torneos.service';
 
 const ORIGEN = 'https://fedal.cl';
 
@@ -35,13 +36,7 @@ export function lugarDelClub(club: DatosDelClub, horario: HorarioDelDia[]): obje
     // La API guarda `56` y los 9 dígitos; schema.org lo pide con el `+`.
     ...(club.telefono && { telephone: `+${club.telefono}` }),
     ...(club.email && { email: club.email }),
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: club.direccion,
-      addressLocality: 'Temuco',
-      addressRegion: 'La Araucanía',
-      addressCountry: 'CL',
-    },
+    address: direccionPostal(club.direccion),
     ...(club.latitud !== null &&
       club.longitud !== null && {
         geo: { '@type': 'GeoCoordinates', latitude: club.latitud, longitude: club.longitud },
@@ -55,6 +50,57 @@ export function lugarDelClub(club: DatosDelClub, horario: HorarioDelDia[]): obje
       })),
     }),
     ...(redes.length > 0 && { sameAs: redes }),
+  };
+}
+
+/**
+ * Los torneos con inscripción abierta como `SportsEvent` (T358, SPEC-seo.md A8): Google puede
+ * mostrarlos como eventos en Temuco, con su fecha y lo que cuesta inscribirse en cada categoría.
+ * Sin torneos abiertos no hay bloque.
+ */
+export function eventosDeTorneos(torneos: TorneoPublico[], club: DatosDelClub): object | null {
+  const abiertos = torneos.filter((torneo) => torneo.estado === 'INSCRIPCION');
+  if (abiertos.length === 0) return null;
+
+  return {
+    '@context': 'https://schema.org',
+    '@graph': abiertos.map((torneo) => ({
+      '@type': 'SportsEvent',
+      name: torneo.nombre,
+      sport: 'Tenis',
+      startDate: torneo.fechaInicio,
+      endDate: torneo.fechaFin,
+      eventStatus: 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      url: `${ORIGEN}/torneos`,
+      // El afiche, que es la primera foto de antes y la que muestra el cartel del torneo.
+      ...(torneo.afiches[0] && { image: `${ORIGEN}${torneo.afiches[0].imagen}` }),
+      location: { '@type': 'Place', name: club.nombre, address: direccionPostal(club.direccion) },
+      organizer: { '@type': 'Organization', name: club.nombre, url: `${ORIGEN}/` },
+      offers: torneo.categorias.map((categoria) => ({
+        '@type': 'Offer',
+        name: categoria.categoria,
+        price: categoria.montoClp,
+        priceCurrency: 'CLP',
+        availability: `https://schema.org/${categoria.cuposLibres > 0 ? 'InStock' : 'SoldOut'}`,
+        validThrough: torneo.cierreInscripcion,
+        url: `${ORIGEN}/torneos/${torneo.id}/inscripcion`,
+      })),
+    })),
+  };
+}
+
+/**
+ * La dirección del club. Sin la calle, al menos la ciudad: es lo que Google pide del lugar de un
+ * evento. La localidad va fija porque el club está en Temuco y el panel guarda una línea sola.
+ */
+function direccionPostal(direccion: string): object {
+  return {
+    '@type': 'PostalAddress',
+    ...(direccion && { streetAddress: direccion }),
+    addressLocality: 'Temuco',
+    addressRegion: 'La Araucanía',
+    addressCountry: 'CL',
   };
 }
 
@@ -78,22 +124,22 @@ export class DatosEstructurados {
 }
 
 /**
- * Publica el club en el `<head>` mientras la página esté abierta, y lo quita al salir. La llaman
- * la portada y «El club», desde su constructor.
+ * Escribe el bloque mientras la página esté abierta, al día con lo que lea `armar`, y lo quita al
+ * salir. Se llama desde el constructor de la página.
  */
+export function publicar(nombre: string, armar: () => object | null): void {
+  const datos = inject(DatosEstructurados);
+  effect(() => datos.escribir(nombre, armar()));
+  inject(DestroyRef).onDestroy(() => datos.escribir(nombre, null));
+}
+
+/** El club, en la portada y en «El club». */
 export function publicarElClub(): void {
   const club = inject(Club).datos;
-  const datos = inject(DatosEstructurados);
   // Solo con dirección: sin ella no hay nada que publicar, y no hace falta el horario.
   const horarios = httpResource<{ general: HorarioDelDia[] }>(() =>
     club().direccion ? '/api/horarios' : undefined,
   );
 
-  effect(() =>
-    datos.escribir(
-      'club',
-      lugarDelClub(club(), horarios.hasValue() ? horarios.value().general : []),
-    ),
-  );
-  inject(DestroyRef).onDestroy(() => datos.escribir('club', null));
+  publicar('club', () => lugarDelClub(club(), horarios.hasValue() ? horarios.value().general : []));
 }
