@@ -481,6 +481,29 @@ describe('Marcador', () => {
         expect(celda(el, 2, 2).textContent).toContain('Sin inicio a esta hora');
       });
 
+      it('**si el filtro esconde la cancha elegida, no suma filas**: no hay elección a la vista', () => {
+        // Cambiar el filtro no suelta lo elegido: la elegida es de la cancha 1 y solo se ve la 2.
+        const soloLaDos = [{ cancha: cancha(2), bloques: [0, 1].map((m) => bloque(2, a(m))) }];
+        const { el } = montarQueElige(soloLaDos, {
+          canchaId: 1,
+          inicio: a(1).toISOString(),
+          fin: a(3).toISOString(),
+        });
+
+        expect(el.querySelectorAll('tbody tr')).toHaveLength(2);
+      });
+
+      it('la leyenda tampoco explica por qué no se vende lo que la elección tapa', () => {
+        // La de media hora después es libre pero no se vende (sin precio), y queda bajo la elección.
+        const { el } = montarQueElige(grillas([{}, { montoClp: null }]), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(2).toISOString(),
+        });
+
+        expect(el.querySelector('ul')?.textContent).not.toContain('No se arrienda');
+      });
+
       it('sin elección, el tablero no suma filas: termina en el último inicio', () => {
         const ultimas = [{ cancha: cancha(1), bloques: [0, 1].map((m) => bloque(1, a(m))) }];
         const { el } = montarQueElige(ultimas);

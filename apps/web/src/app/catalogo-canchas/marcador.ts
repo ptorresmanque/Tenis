@@ -2,7 +2,7 @@ import { Component, computed, input, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 
-import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
+import { BloqueDisponible, Cancha, GrillaDeCancha, PASO_DE_LA_GRILLA_MS } from './disponibilidad';
 import { moverConFlechas } from './flechas-del-tablero';
 import { ICONOS_DE_MOTIVO, nombreDelMotivo } from './motivos';
 import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
@@ -41,12 +41,6 @@ function celdaDe(bloque: BloqueDisponible | undefined, sinVenta: MotivoSinVenta)
   const motivo = sinVenta(bloque);
   return motivo ? { estado: 'sin-venta', motivo } : { estado: 'libre', bloque };
 }
-
-/**
- * Cada cuánto empieza una hora en la grilla: el `PASO_DE_LA_GRILLA_MIN` de la API. Una hora
- * elegida ocupa dos filas y la hora y media, tres (T344).
- */
-const PASO_DE_LA_GRILLA_MS = 30 * 60 * 1000;
 
 /** La celda de una cancha a una hora, como texto: la parada del teclado se guarda así. */
 const claveDe = (canchaId: number, inicio: string) =>
@@ -399,7 +393,14 @@ export class Marcador {
     }
     // Las medias horas de la elegida, aunque en ellas no empiece nada: al final del día la API
     // no manda inicios que terminen después del cierre, y la última hora se marcaba a medias.
-    for (let instante = desde + PASO_DE_LA_GRILLA_MS; instante < hasta; instante += PASO_DE_LA_GRILLA_MS) {
+    // Solo si su cancha está a la vista: el filtro no suelta lo elegido, y sin la cancha serían
+    // filas en blanco sin ninguna elección.
+    const laElegidaSeVe = grillas.some(({ cancha }) => cancha.id === elegida?.canchaId);
+    for (
+      let instante = desde + PASO_DE_LA_GRILLA_MS;
+      laElegidaSeVe && instante < hasta;
+      instante += PASO_DE_LA_GRILLA_MS
+    ) {
       if (instante > ahora) instantes.add(instante);
     }
 
