@@ -230,6 +230,9 @@ export function tableroDeLaAgenda(dia: {
                       <!-- Una tarjeta clara sobre el campo: es lo que el mesón busca. La que
                            espera el pago, punteada y dicho con palabras: ocupa la cancha
                            pero se puede caer. -->
+                      <!-- scroll-mt-20 y scroll-ms-18: la celda con foco no queda bajo la barra del
+                           panel en el teléfono (64 px y su borde) ni bajo la columna de la hora
+                           (w-16 y el espacio entre celdas). Si cambian, cambian estos márgenes. -->
                       <button
                         type="button"
                         class="absolute inset-0 flex scroll-mt-20 scroll-ms-18 cursor-pointer
