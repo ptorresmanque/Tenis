@@ -226,8 +226,12 @@ describe('Grilla', () => {
       await new Promise((listo) => setTimeout(listo));
     });
 
-    const resumen = () =>
-      enTexto(el().querySelector('[data-resumen-de-controles]') as HTMLElement);
+    /** Lo que dice la línea, rótulo por rótulo (T348, N1): [['Día', 'Lun 17 ago'], …]. */
+    const loElegido = () =>
+      [...el().querySelectorAll('[data-resumen-de-controles] dl > div')].map((par) => [
+        enTexto(par.querySelector('dt')!),
+        enTexto(par.querySelector('dd')!),
+      ]);
     const hoja = () => document.querySelector('mat-bottom-sheet-container') as HTMLElement | null;
     const abrir = async () => {
       [...el().querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Cambiar')!.click();
@@ -235,11 +239,25 @@ describe('Grilla', () => {
       fixture.detectChanges();
     };
 
-    it('**la línea dice el día, la duración y las canchas que se miran**', async () => {
-      expect(resumen()).toContain('Lun 17 ago · 1 hora · Todas');
+    it('**la línea dice qué es cada valor**: el día, la duración y las canchas, con su rótulo (N1)', async () => {
+      expect(loElegido()).toEqual([
+        ['Día', 'Lun 17 ago'],
+        ['Duración', '1 hora'],
+        ['Canchas', 'Todas'],
+      ]);
 
       await montar(DIA, { duracion: '90' });
-      expect(resumen()).toContain('Lun 17 ago · 1 hora y media · Todas');
+      expect(loElegido()[1]).toEqual(['Duración', '1 hora y media']);
+    });
+
+    it('**en el teléfono no están los controles de arriba**: la línea es la única entrada (N3)', () => {
+      // «Teléfono» es CSS (bajo sm): los de arriba van en una caja que se esconde ahí. La línea
+      // no va dentro, y la hoja sigue abriendo los mismos controles.
+      const arriba = el().querySelector('[data-controles-arriba]') as HTMLElement;
+
+      expect(arriba.querySelector('app-controles-del-dia')).not.toBeNull();
+      expect(arriba.className.split(' ')).toEqual(expect.arrayContaining(['hidden', 'sm:block']));
+      expect(arriba.contains(el().querySelector('[data-resumen-de-controles]'))).toBe(false);
     });
 
     it('va pegada bajo el encabezado y solo en el teléfono', () => {
@@ -260,7 +278,7 @@ describe('Grilla', () => {
       fixture.detectChanges();
 
       // La del fixture tiene luz: el tablero sigue, y la línea dice el filtro nuevo.
-      expect(resumen()).toContain('Lun 17 ago · 1 hora · Con iluminación');
+      expect(loElegido()[2]).toEqual(['Canchas', 'Con iluminación']);
     });
 
     it('**con la hoja abierta no se repite ningún id**: cada etiqueta nombra su campo', async () => {

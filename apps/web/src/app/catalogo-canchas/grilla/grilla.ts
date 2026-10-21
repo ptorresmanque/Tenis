@@ -122,7 +122,11 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
         (cambiarDuracion)="elegirDuracion($event)"
       />
     </ng-template>
-    <ng-container [ngTemplateOutlet]="controles" />
+    <!-- En el teléfono no están (N3, SPEC-sitio.md, Decimoctava parte): la línea de abajo es la
+         única entrada, y su «Cambiar» abre estos mismos controles en la hoja. -->
+    <div data-controles-arriba class="hidden sm:block">
+      <ng-container [ngTemplateOutlet]="controles" />
+    </div>
 
     <!-- Los cambios de estado se anuncian: quien usa lector de pantalla no ve
          que la grilla se repobló. -->
@@ -264,7 +268,20 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-3
              border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:hidden"
     >
-      <p class="min-w-0 text-sm font-semibold">{{ resumenDeControles() }}</p>
+      <!-- Cada valor con su rótulo encima (N1): «Todas» solo no decía que eran las canchas. -->
+      <dl class="flex min-w-0 flex-wrap gap-x-4 gap-y-1">
+        @for (dato of loElegido(); track dato.rotulo) {
+          <div>
+            <dt
+              class="font-display text-xs leading-tight font-bold tracking-wide
+                     text-muted-foreground uppercase"
+            >
+              {{ dato.rotulo }}
+            </dt>
+            <dd class="text-sm leading-tight font-semibold">{{ dato.valor }}</dd>
+          </div>
+        }
+      </dl>
       <!-- El nombre empieza con lo que se ve (WCAG 2.5.3) y dice qué cambia. El botón va a
            abrirControles: la hoja le devuelve el foco a él, porque Safari no se lo da al tocarlo. -->
       <button
@@ -820,16 +837,16 @@ export class Grilla {
     });
   }
 
-  /** "Lun 17 ago · 1 hora · Todas": lo que dice la línea del teléfono (T345). */
-  protected readonly resumenDeControles = computed(() => {
+  /** Lo que dice la línea (T345), cada valor con su rótulo (T348, N1): Día «Lun 17 ago»… */
+  protected readonly loElegido = computed(() => {
     const mediodia = `${this.fecha()}T12:00:00.000Z`;
     const dia = `${diaCortoEnElClub(mediodia)} ${Number(this.fecha().slice(8, 10))} ${mesCortoEnElClub(mediodia)}`;
 
     return [
-      dia,
-      etiquetaDeLaDuracion(this.duracion()),
-      etiquetaDelFiltro(this.filtro()),
-    ].join(' · ');
+      { rotulo: 'Día', valor: dia },
+      { rotulo: 'Duración', valor: etiquetaDeLaDuracion(this.duracion()) },
+      { rotulo: 'Canchas', valor: etiquetaDelFiltro(this.filtro()) },
+    ];
   });
 
   private readonly hojas = inject(MatBottomSheet);
