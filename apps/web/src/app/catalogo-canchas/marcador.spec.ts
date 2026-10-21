@@ -441,6 +441,74 @@ describe('Marcador', () => {
         expect(celda(el, 0, 1).querySelector('button')?.tabIndex).toBe(0);
       });
 
+      it('**si el foco quedó en una que pasa a ser parte de la elección, el tablero sigue teniendo su parada**', () => {
+        // Con teclado hasta la de media hora después, y la de arriba elegida con el mouse:
+        // Safari no le da el foco al botón que se toca, así que el foco guardado sigue abajo.
+        const { fixture, el } = montarQueElige(grillas());
+        celda(el, 1, 1).querySelector('button')!.focus();
+
+        fixture.componentInstance.elegida.set({
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(2).toISOString(),
+        });
+        fixture.detectChanges();
+
+        expect(botones(el).filter((b) => b.tabIndex === 0)).toHaveLength(1);
+        expect(celda(el, 0, 1).querySelector('button')?.tabIndex).toBe(0);
+      });
+
+      it('**la última hora del día también se marca entera**, aunque después no empiece ninguna', () => {
+        // La API no manda inicios que terminen después del cierre (`calcularBloques`): con el
+        // cierre en a(3), el último inicio de 1 hora es a(1) y no hay fila a(2).
+        const ultimas = [1, 2].map((id) => ({
+          cancha: cancha(id),
+          bloques: [0, 1].map((m) => bloque(id, a(m))),
+        }));
+        const { el } = montarQueElige(ultimas, {
+          canchaId: 1,
+          inicio: a(1).toISOString(),
+          fin: a(3).toISOString(),
+        });
+
+        expect(el.querySelectorAll('[data-en-la-eleccion]')).toHaveLength(2);
+        expect(el.querySelectorAll('tbody tr')[2].querySelector('th')?.textContent).toContain(
+          horaEnElClub(a(2).toISOString()),
+        );
+        // La otra cancha, en esa fila que no tiene inicios: en blanco, y no «Cerrada», que
+        // sería falso (el club sigue abierto hasta a(3)).
+        expect(celda(el, 2, 2).textContent).not.toContain('Cerrada');
+        expect(celda(el, 2, 2).textContent).toContain('Sin inicio a esta hora');
+      });
+
+      it('sin elección, el tablero no suma filas: termina en el último inicio', () => {
+        const ultimas = [{ cancha: cancha(1), bloques: [0, 1].map((m) => bloque(1, a(m))) }];
+        const { el } = montarQueElige(ultimas);
+
+        expect(el.querySelectorAll('tbody tr')).toHaveLength(2);
+      });
+
+      it('**las que siguen no dependen del color**: la del medio lleva una marca y la última dice hasta cuándo', () => {
+        const { el } = montarQueElige(grillas(), {
+          canchaId: 1,
+          inicio: a(0).toISOString(),
+          fin: a(3).toISOString(),
+        });
+
+        expect(celda(el, 1, 1).querySelector('[data-en-la-eleccion] [aria-hidden="true"]')).not.toBeNull();
+        expect(celda(el, 2, 1).textContent).toContain(`–${horaEnElClub(a(3).toISOString())}`);
+      });
+
+      it('la leyenda no explica lo que la elección tapa', () => {
+        // La de media hora después figura en mantención como inicio, y queda bajo la elección.
+        const { el } = montarQueElige(
+          grillas([{}, { bloqueado: true, motivoBloqueo: 'MANTENCION' }]),
+          { canchaId: 1, inicio: a(0).toISOString(), fin: a(2).toISOString() },
+        );
+
+        expect(el.querySelector('ul')?.textContent).not.toContain('mantención');
+      });
+
       it('**se marca aunque su inicio figure ocupado**: la hora elegida es de quien la eligió', () => {
         // 19:30 figura ocupada como inicio porque la de 20:00 está tomada; 19:00–20:00 sigue
         // libre, y la fila de 19:30 es parte de ella.
