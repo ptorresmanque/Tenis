@@ -18,9 +18,11 @@ describe('PaginaDeInscripcion', () => {
     id: 5,
     nombre: 'Copa de verano',
     superficie: 'ARCILLA',
-    fechaInicio: '2026-12-01',
-    fechaFin: '2026-12-07',
-    cierreInscripcion: '2026-11-25',
+    // Lejos en el futuro: `aceptaInscripciones` compara el cierre con hoy, y con una fecha
+    // cercana estas pruebas fallarían solas al pasar el cierre.
+    fechaInicio: '2126-12-01',
+    fechaFin: '2126-12-07',
+    cierreInscripcion: '2126-11-25',
     estado: 'INSCRIPCION',
     categorias: [
       {
