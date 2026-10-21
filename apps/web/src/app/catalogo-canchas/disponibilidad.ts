@@ -14,6 +14,12 @@ export interface Cancha {
 /** Lo que dura una reserva: 1 hora o 1 hora y media (T83b). */
 export type DuracionMin = 60 | 90;
 
+/**
+ * Cada cuánto empieza una hora en la grilla: el `PASO_DE_LA_GRILLA_MIN` de la API. Una fila
+ * del tablero y de la agenda por cada uno: una hora ocupa dos filas y la hora y media, tres.
+ */
+export const PASO_DE_LA_GRILLA_MS = 30 * 60 * 1000;
+
 /** Espejo de `BloqueDisponible` en la API. Las fechas llegan como ISO en UTC. */
 export interface BloqueDisponible {
   inicio: string;

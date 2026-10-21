@@ -1,6 +1,14 @@
-import { Component, computed, inject, resource } from '@angular/core';
+import { ViewportScroller } from '@angular/common';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  resource,
+} from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 import { MatButton } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -363,4 +371,43 @@ export class ElClub {
   ];
 
   protected readonly superficie = nombreDeSuperficie;
+
+  constructor() {
+    this.sostenerElAncla();
+  }
+
+  /**
+   * Llegar con un ancla, como «Hazte socio» a `#titulo-contacto` (SPEC-sitio.md, Decimoséptima
+   * parte): el router salta al llegar, pero arriba todavía cargan las canchas y las tarifas, y
+   * la página crece. Chrome y Firefox corrigen el salto solos (scroll anchoring); Safari no, y
+   * en un iPhone se quedaba en las tarifas. Mientras crece, se vuelve a buscar el ancla.
+   *
+   * Solo hasta que la persona tome el control, o 10 segundos: después, moverla sería quitársela
+   * de las manos. Tomar el control es la rueda, el teclado o `pointerdown`, que a diferencia de
+   * `touchstart` cubre también el mouse y el lápiz. El tope es de 10 y no de 3 segundos porque
+   * con una conexión lenta las canchas y las tarifas llegan después de los 3, y Safari volvía a
+   * dejar a la persona en las tarifas; un tope largo no estorba, porque el primer gesto suelta
+   * el ancla al tiro.
+   */
+  private sostenerElAncla(): void {
+    const ancla = inject(ActivatedRoute).snapshot.fragment;
+    if (!ancla) return;
+    const desplazador = inject(ViewportScroller);
+    const destruir = inject(DestroyRef);
+
+    afterNextRender(() => {
+      const observador = new ResizeObserver(() => desplazador.scrollToAnchor(ancla));
+      const gestos = ['wheel', 'pointerdown', 'keydown'] as const;
+      const soltar = () => {
+        observador.disconnect();
+        clearTimeout(plazo);
+        for (const gesto of gestos) removeEventListener(gesto, soltar);
+      };
+      const plazo = setTimeout(soltar, 10_000);
+
+      observador.observe(document.body);
+      for (const gesto of gestos) addEventListener(gesto, soltar, { passive: true });
+      destruir.onDestroy(soltar);
+    });
+  }
 }

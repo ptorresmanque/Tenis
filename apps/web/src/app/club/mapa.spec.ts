@@ -12,6 +12,8 @@ describe('enlacesDelMapa', () => {
 
   it('sin ubicación no hay mapa', () => {
     expect(enlacesDelMapa({ latitud: null, longitud: null })).toBeNull();
+    // Con una sola coordenada, el pie llevaría a `query=…,NaN`.
+    expect(enlacesDelMapa({ latitud: -33.4372, longitud: null })).toBeNull();
   });
 
   it('el mapa es el de OpenStreetMap, con el marcador en el club', () => {

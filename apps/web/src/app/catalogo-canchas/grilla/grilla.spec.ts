@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -203,11 +204,6 @@ describe('Grilla', () => {
     vi.useRealTimers();
   });
 
-  /**
-   * T265. Disponibilidad dibuja el tablero de la portada (SPEC-revision-qa.md, A1): una
-   * columna por cancha, y la celda libre elige esa cancha. Reemplaza a la tabla por tipo de
-   * cancha de T103, con el precio una vez arriba y en la barra.
-   */
   it('se titula «Reserva tu cancha» (P3)', async () => {
     await montar([]);
 
@@ -220,6 +216,16 @@ describe('Grilla', () => {
    * día o la duración. Una línea pegada dice lo elegido, y «Cambiar» trae los controles.
    */
   describe('los controles a mano en el teléfono (T345)', () => {
+    // La hoja que una prueba deja abierta se cierra al desmontar, con el injector ya destruido,
+    // y le devuelve el foco a «Cambiar»: su ripple no se puede crear y queda un error no manejado
+    // que deja `ng test` con salida 1. Sin whenStable: una prueba deja una carga sin terminar.
+    // Solo cubre el final: una prueba que abra la hoja y vuelva a montar a la mitad tiene que
+    // cerrarla antes.
+    afterEach(async () => {
+      TestBed.inject(MatBottomSheet).dismiss();
+      await new Promise((listo) => setTimeout(listo));
+    });
+
     const resumen = () =>
       enTexto(el().querySelector('[data-resumen-de-controles]') as HTMLElement);
     const hoja = () => document.querySelector('mat-bottom-sheet-container') as HTMLElement | null;
@@ -268,13 +274,92 @@ describe('Grilla', () => {
       await abrir();
       [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
       await fixture.whenStable();
-      await new Promise((listo) => setTimeout(listo, 400));
+      await new Promise((listo) => setTimeout(listo));
       fixture.detectChanges();
 
       expect(hoja()).toBeNull();
     });
+
+    const cambiar = () =>
+      el().querySelector<HTMLButtonElement>('[data-resumen-de-controles] button')!;
+    /** Un día que no es el que se mira, en la tira de días de la hoja. */
+    const otroDiaEnLaHoja = () =>
+      hoja()!.querySelector<HTMLButtonElement>(
+        'app-selector-de-dia button[role="radio"][aria-checked="false"]',
+      )!;
+
+    it('**cambiar de día en la hoja suelta lo elegido**, como arriba: la barra no dice la fecha', async () => {
+      celdaDe('08:00', 1).querySelector('button')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(el().querySelector('app-barra-fija')).not.toBeNull();
+
+      await abrir();
+      otroDiaEnLaHoja().click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(el().querySelector('app-barra-fija')).toBeNull();
+    });
+
+    it('**cambiar la duración en la hoja la deja en la URL**, como arriba', async () => {
+      await abrir();
+      [...hoja()!.querySelectorAll<HTMLButtonElement>(`${DURACION} button`)]
+        .find((b) => b.textContent?.trim() === '1 hora y media')!
+        .click();
+      await fixture.whenStable();
+
+      expect(navegar).toHaveBeenLastCalledWith(
+        [],
+        expect.objectContaining({ queryParams: { duracion: 90 } }),
+      );
+    });
+
+    it('**mientras carga el día nuevo, la línea y «Cambiar» se quedan**: ahí vuelve el foco al cerrar la hoja (B3)', async () => {
+      pedirDia.mockImplementation(() => new Promise(() => undefined));
+      await abrir();
+      otroDiaEnLaHoja().click();
+      fixture.detectChanges();
+
+      expect(el().querySelector('app-esqueleto')).not.toBeNull();
+      expect(cambiar().textContent?.trim()).toBe('Cambiar');
+    });
+
+    it('**al cerrar la hoja el foco vuelve a «Cambiar»**, aunque tocarlo no le haya dado el foco', async () => {
+      // Safari no le da el foco al botón que se toca: la hoja no puede devolverlo a lo que tenía
+      // el foco al abrir, porque era el body. Se le dice a cuál volver.
+      expect(document.activeElement).not.toBe(cambiar());
+      await abrir();
+      [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
+      await fixture.whenStable();
+      await new Promise((listo) => setTimeout(listo));
+
+      expect(document.activeElement).toBe(cambiar());
+    });
+
+    it('**si la grilla se va con la hoja abierta, la hoja se cierra**: sus controles eran de la grilla', async () => {
+      await abrir();
+
+      fixture.destroy();
+      await new Promise((listo) => setTimeout(listo));
+
+      expect(hoja()).toBeNull();
+    });
+
+    it('la hoja y «Cambiar» dicen al lector qué cambian', async () => {
+      // El nombre empieza con lo que se ve (WCAG 2.5.3).
+      expect(cambiar().getAttribute('aria-label')).toBe('Cambiar el día, la duración o las canchas');
+
+      await abrir();
+      expect(hoja()?.getAttribute('aria-label')).toBe('El día, la duración y las canchas');
+    });
   });
 
+  /**
+   * T265. Disponibilidad dibuja el tablero de la portada (SPEC-revision-qa.md, A1): una
+   * columna por cancha, y la celda libre elige esa cancha. Reemplaza a la tabla por tipo de
+   * cancha de T103, con el precio una vez arriba y en la barra.
+   */
   describe('el tablero de la portada (T265)', () => {
     const DOS: GrillaDeCancha[] = [
       {

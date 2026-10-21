@@ -2,6 +2,7 @@ import {
   afterNextRender,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -13,6 +14,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatExpansionModule } from '@angular/material/expansion';
@@ -42,7 +44,12 @@ import {
   mesCortoEnElClub,
 } from '../reloj-del-club';
 import { TARIFA_DEL_SOCIO, yaEmpezo } from './bandas';
-import { ControlesDelDia, etiquetaDelFiltro, pasaElFiltro } from './controles-del-dia';
+import {
+  ControlesDelDia,
+  etiquetaDeLaDuracion,
+  etiquetaDelFiltro,
+  pasaElFiltro,
+} from './controles-del-dia';
 import { MoverReserva } from './mover-reserva';
 import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
@@ -56,6 +63,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     Reservar,
     BarraFija,
     ControlesDelDia,
+    NgTemplateOutlet,
     EstadoVacio,
     ResumenDeLaEleccion,
     ResumenDelCambio,
@@ -103,14 +111,18 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     }
 
     <!-- Cambiar de día suelta lo marcado: la barra no dice la fecha, y "Reservar" tomaría
-         la hora del día anterior con la tabla de otro a la vista. -->
-    <app-controles-del-dia
-      [(fecha)]="fecha"
-      (fechaChange)="elegido.set(null)"
-      [duracion]="duracion()"
-      [(filtro)]="filtro"
-      (cambiarDuracion)="elegirDuracion($event)"
-    />
+         la hora del día anterior con la tabla de otro a la vista. Escritos una vez: los usan
+         la página y la hoja de «Cambiar» (T345), y dos copias terminarían por diferir. -->
+    <ng-template #controles>
+      <app-controles-del-dia
+        [(fecha)]="fecha"
+        (fechaChange)="elegido.set(null)"
+        [duracion]="duracion()"
+        [(filtro)]="filtro"
+        (cambiarDuracion)="elegirDuracion($event)"
+      />
+    </ng-template>
+    <ng-container [ngTemplateOutlet]="controles" />
 
     <!-- Los cambios de estado se anuncian: quien usa lector de pantalla no ve
          que la grilla se repobló. -->
@@ -253,7 +265,15 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
              border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:hidden"
     >
       <p class="min-w-0 text-sm font-semibold">{{ resumenDeControles() }}</p>
-      <button matButton="outlined" type="button" class="chico" (click)="abrirControles()">
+      <!-- El nombre empieza con lo que se ve (WCAG 2.5.3) y dice qué cambia. El botón va a
+           abrirControles: la hoja le devuelve el foco a él, porque Safari no se lo da al tocarlo. -->
+      <button
+        matButton="outlined"
+        type="button"
+        class="chico"
+        aria-label="Cambiar el día, la duración o las canchas"
+        (click)="abrirControles($event)"
+      >
         Cambiar
       </button>
     </div>
@@ -279,7 +299,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
           @if (esSocio()) {
             Socio <strong>{{ tarifaDelSocio }}</strong>: elige una cancha libre.
           } @else {
-            Arriendo de {{ duracion() === 90 ? '1 hora y media' : '1 hora' }} por
+            Arriendo de {{ etiquetaDeLaDuracion(duracion()) }} por
             cancha{{ arriendo() ? ': ' + arriendo() : '' }} · socio {{ tarifaDelSocio }}
           }
         </p>
@@ -329,16 +349,10 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       </app-barra-fija>
     }
 
-    <!-- La hoja de «Cambiar» (T345): los mismos controles de arriba, con los mismos enlaces. -->
+    <!-- La hoja de «Cambiar» (T345): los mismos controles de arriba. -->
     <ng-template #hojaDeControles>
       <div class="p-4">
-        <app-controles-del-dia
-          [(fecha)]="fecha"
-          (fechaChange)="elegido.set(null)"
-          [duracion]="duracion()"
-          [(filtro)]="filtro"
-          (cambiarDuracion)="elegirDuracion($event)"
-        />
+        <ng-container [ngTemplateOutlet]="controles" />
         <div class="mt-4 flex justify-end">
           <button matButton="filled" type="button" (click)="hoja?.dismiss()">Listo</button>
         </div>
@@ -813,7 +827,7 @@ export class Grilla {
 
     return [
       dia,
-      this.duracion() === 90 ? '1 hora y media' : '1 hora',
+      etiquetaDeLaDuracion(this.duracion()),
       etiquetaDelFiltro(this.filtro()),
     ].join(' · ');
   });
@@ -823,9 +837,19 @@ export class Grilla {
   /** La hoja abierta, para que «Listo» la cierre. Esc y tocar afuera también la cierran. */
   protected hoja: MatBottomSheetRef | null = null;
 
-  protected abrirControles(): void {
+  /**
+   * Si la grilla se va con la hoja abierta, la hoja se cierra: sus controles son de la grilla.
+   * Atrás y adelante ya la cerraban (closeOnNavigation); esto cubre una navegación de la app.
+   */
+  private readonly cerrarLaHoja = inject(DestroyRef).onDestroy(() => this.hoja?.dismiss());
+
+  protected abrirControles(evento: Event): void {
+    const boton = evento.currentTarget as HTMLElement;
     this.hoja = this.hojas.open(this.hojaDeControles(), {
       ariaLabel: 'El día, la duración y las canchas',
+      // Al botón y no a lo que tenía el foco al abrir: en Safari, tocar un botón no le da el
+      // foco, y la hoja lo devolvía al body.
+      restoreFocus: boton,
     });
     this.hoja.afterDismissed().subscribe(() => (this.hoja = null));
   }
@@ -833,6 +857,7 @@ export class Grilla {
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
   protected readonly tarifaDelSocio = TARIFA_DEL_SOCIO;
+  protected readonly etiquetaDeLaDuracion = etiquetaDeLaDuracion;
 }
 
 /** "Vale $12.000: …" dicho a mitad de una frase. */

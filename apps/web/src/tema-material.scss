@@ -65,23 +65,25 @@ html {
       title-small-font: var(--font-sans),
       title-medium-font: var(--font-sans),
       // La escala de leer del sitio (T342, M3), un paso sobre la de Material: el cuerpo de 14
-      // a 16 y el mínimo de 11 a 14. Los valores son los de `--text-*` en `styles.css`.
-      body-large-size: 1.125rem,
-      body-large-line-height: 1.75rem,
-      body-medium-size: 1rem,
-      body-medium-line-height: 1.5rem,
-      body-small-size: 0.875rem,
-      body-small-line-height: 1.25rem,
-      label-large-size: 1rem,
-      label-large-line-height: 1.5rem,
-      label-medium-size: 0.875rem,
-      label-medium-line-height: 1.25rem,
-      label-small-size: 0.875rem,
-      label-small-line-height: 1.25rem,
-      title-small-size: 1rem,
-      title-small-line-height: 1.5rem,
-      title-medium-size: 1.125rem,
-      title-medium-line-height: 1.75rem,
+      // a 16 y el mínimo de 11 a 14. Sale de `--text-*` (`styles.css`) y no de su valor: si la
+      // escala cambia, Material la sigue. El interlineado es la proporción de Tailwind, sin
+      // unidad, y da la misma línea con el tamaño de su paso.
+      body-large-size: var(--text-base),
+      body-large-line-height: var(--text-base--line-height),
+      body-medium-size: var(--text-sm),
+      body-medium-line-height: var(--text-sm--line-height),
+      body-small-size: var(--text-xs),
+      body-small-line-height: var(--text-xs--line-height),
+      label-large-size: var(--text-sm),
+      label-large-line-height: var(--text-sm--line-height),
+      label-medium-size: var(--text-xs),
+      label-medium-line-height: var(--text-xs--line-height),
+      label-small-size: var(--text-xs),
+      label-small-line-height: var(--text-xs--line-height),
+      title-small-size: var(--text-sm),
+      title-small-line-height: var(--text-sm--line-height),
+      title-medium-size: var(--text-base),
+      title-medium-line-height: var(--text-base--line-height),
     )
   );
 }
@@ -125,7 +127,8 @@ html {
 $etiqueta: (
   label-text-font: var(--font-display),
   label-text-weight: 700,
-  label-text-size: 1rem,
+  // El texto chico (16 px) y no el cuerpo: la condensada en mayúscula ya se lee grande.
+  label-text-size: var(--text-sm),
   label-text-tracking: 0.04em,
   label-text-transform: uppercase,
 );
@@ -356,8 +359,9 @@ html {
       container-height: 50px,
       container-vertical-padding: 12px,
       container-text-font: var(--font-sans),
-      container-text-size: 1rem,
-      container-text-line-height: 1.5rem,
+      // El texto chico y no el cuerpo: con la línea de 28 del cuerpo, el campo pasaría a 52 px.
+      container-text-size: var(--text-sm),
+      container-text-line-height: var(--text-sm--line-height),
       outlined-container-shape: var(--radius-control),
       outlined-outline-width: 1px,
       outlined-focus-outline-width: 1px,
@@ -389,11 +393,14 @@ html {
 
 /* El campo chico, que reemplaza a la clase `.campo-chico` de antes (T247): para las filas de
    edición del panel, donde 50 px por campo convierten una fila de cuatro en una pantalla de
-   scroll. 6 px de relleno arriba y abajo, 8 al costado y la letra de 14. */
+   scroll. 6 px de relleno arriba y abajo, 8 al costado y el texto chico (16 px).
+   36 px de alto, que es 6 + 24 + 6: con la línea de 24 de la escala (T342) el campo ya medía
+   eso, y Material centra la etiqueta con este token, que con 35 la dejaba medio píxel corrida.
+   Se sube el alto y no se aprieta la línea, que es la de la escala. */
 .mat-mdc-form-field.chico {
   @include mat.form-field-overrides(
     (
-      container-height: 35px,
+      container-height: 36px,
       container-vertical-padding: 6px,
       container-text-size: var(--text-sm),
       container-text-line-height: var(--text-sm--line-height),
@@ -685,7 +692,8 @@ html {
       extended-container-shape: var(--radius-control),
       extended-label-text-font: var(--font-display),
       extended-label-text-weight: 700,
-      extended-label-text-size: 1rem,
+      // Como la etiqueta de los botones: el texto chico, en la condensada y en mayúscula.
+      extended-label-text-size: var(--text-sm),
       extended-label-text-tracking: 0.04em,
     )
   );
@@ -1021,8 +1029,9 @@ html {
       standard-height: 4rem,
       mobile-height: 4rem,
       title-text-font: var(--font-sans),
-      title-text-size: 1rem,
-      title-text-line-height: 1.5,
+      // La letra de base de la barra, la del cuerpo como en `body`: lo de adentro trae su tamaño.
+      title-text-size: var(--text-base),
+      title-text-line-height: var(--text-base--line-height),
       title-text-weight: 400,
       title-text-tracking: normal,
     )

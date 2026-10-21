@@ -1,9 +1,11 @@
-import { signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { describe, expect, it, vi } from 'vitest';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { ViewportScroller } from '@angular/common';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Cancha, Disponibilidad } from '../catalogo-canchas/disponibilidad';
 import { Club, DatosDelClub } from './club.service';
@@ -254,5 +256,134 @@ describe('ElClub', () => {
     fixture.detectChanges();
 
     expect(seccion('las-canchas').querySelector('app-esqueleto')).not.toBeNull();
+  });
+
+  /**
+   * «Hazte socio» y «Quiero ser socio» llevan a `/el-club#titulo-contacto`. El router salta al
+   * ancla al llegar, pero arriba del formulario todavía cargan las canchas y las tarifas: Chrome
+   * y Firefox corrigen el salto solos (scroll anchoring) y Safari no, así que en un iPhone se
+   * quedaba en las tarifas. Medido sin anchoring, el formulario quedaba en y = 993 de 812.
+   */
+  describe('llegar con un ancla', () => {
+    interface Observador {
+      alCambiar: () => void;
+      mirados: Element[];
+      desconectado: boolean;
+    }
+    let observadores: Observador[];
+
+    /** Adonde se va después: salir de la página destruye el componente. */
+    @Component({ template: '' })
+    class OtraPagina {}
+
+    // Aquí y no al final de cada prueba: si una falla, el stub y el reloj falso no se quedan
+    // puestos para las que siguen.
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    const llegar = async (url: string) => {
+      observadores = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          readonly mirados: Element[] = [];
+          desconectado = false;
+          constructor(readonly alCambiar: () => void) {
+            observadores.push(this);
+          }
+          observe(elemento: Element) {
+            this.mirados.push(elemento);
+          }
+          disconnect() {
+            this.desconectado = true;
+          }
+          // Material también lo usa, en sus campos: ahí no hay nada que soltar.
+          unobserve() {
+            return undefined;
+          }
+        },
+      );
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([
+            { path: 'el-club', component: ElClub },
+            { path: 'otra', component: OtraPagina },
+          ]),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          { provide: Disponibilidad, useValue: { canchas: vi.fn().mockResolvedValue([]) } },
+          { provide: Club, useValue: { datos: signal(VACIO), email: signal('') } },
+          { provide: Contacto, useValue: { enviar: vi.fn() } },
+        ],
+      });
+      // Sin llamar al de verdad: jsdom no implementa scrollTo y lo avisa en cada corrida.
+      const anclar = vi
+        .spyOn(TestBed.inject(ViewportScroller), 'scrollToAnchor')
+        .mockImplementation(() => undefined);
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl(url, ElClub);
+      harness.detectChanges();
+      return {
+        harness,
+        anclar,
+        delCuerpo: () => observadores.find((o) => o.mirados.includes(document.body)),
+      };
+    };
+
+    it('**mientras la página crece, vuelve a buscar el ancla**', async () => {
+      const { anclar, delCuerpo } = await llegar('/el-club#titulo-contacto');
+
+      delCuerpo()!.alCambiar();
+
+      expect(anclar).toHaveBeenCalledWith('titulo-contacto');
+    });
+
+    // La rueda, el dedo, el mouse o el lápiz, y el teclado: cualquiera es la persona tomando
+    // el control.
+    it.each(['wheel', 'pointerdown', 'keydown'])(
+      '**apenas la persona mueve la página (%s), la deja tranquila**',
+      async (gesto) => {
+        const { delCuerpo } = await llegar('/el-club#titulo-contacto');
+
+        window.dispatchEvent(new Event(gesto));
+
+        expect(delCuerpo()!.desconectado).toBe(true);
+      },
+    );
+
+    it('**a los 10 segundos la suelta sola**, aunque nadie toque nada', async () => {
+      // El reloj falso antes de navegar, porque el plazo se arma al pintar. `shouldAdvanceTime`
+      // deja que el reloj siga andando solo, y así el router termina de navegar.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const { delCuerpo } = await llegar('/el-club#titulo-contacto');
+
+      vi.advanceTimersByTime(9_000);
+      expect(delCuerpo()!.desconectado).toBe(false);
+
+      vi.advanceTimersByTime(1_000);
+      expect(delCuerpo()!.desconectado).toBe(true);
+    });
+
+    it('**al irse a otra página la suelta**, y sus gestos dejan de escucharse', async () => {
+      const { harness, delCuerpo } = await llegar('/el-club#titulo-contacto');
+      const quitar = vi.spyOn(window, 'removeEventListener');
+
+      await harness.navigateByUrl('/otra', OtraPagina);
+
+      expect(delCuerpo()!.desconectado).toBe(true);
+      for (const gesto of ['wheel', 'pointerdown', 'keydown']) {
+        expect(quitar).toHaveBeenCalledWith(gesto, expect.any(Function));
+      }
+    });
+
+    it('sin ancla no mira nada', async () => {
+      const { delCuerpo } = await llegar('/el-club');
+
+      expect(delCuerpo()).toBeUndefined();
+    });
   });
 });
