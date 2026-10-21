@@ -337,6 +337,14 @@ describe('TourPublicoPagina', () => {
       expect(larga.charAt(descripcion.length - 1)).toBe(' ');
     });
 
+    // Sin un espacio en los primeros 160, el corte no tiene dónde caer: corta en 159 y «…».
+    it('una descripción larga sin espacios se corta igual, en 160', async () => {
+      const sinEspacios = 'a'.repeat(271);
+      await montar(() => Promise.resolve({ ...TOUR, descripcion: sinEspacios }));
+
+      expect(meta('name="description"')).toBe(`${'a'.repeat(159)}…`);
+    });
+
     it('sin descripción del club, la arma con el nombre y la temporada', async () => {
       await montar(() => Promise.resolve({ ...TOUR, descripcion: '' }));
 

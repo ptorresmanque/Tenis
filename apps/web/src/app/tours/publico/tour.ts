@@ -47,7 +47,9 @@ function descripcionDelTour(nombre: string, descripcion: string, temporada?: str
         : '');
 
   if (texto.length <= LARGO_DE_LA_DESCRIPCION) return texto;
-  const corte = texto.lastIndexOf(' ', LARGO_DE_LA_DESCRIPCION - 1);
+  // En el último espacio que deja lugar para «…»; sin uno en la segunda mitad, a la medida.
+  const espacio = texto.lastIndexOf(' ', LARGO_DE_LA_DESCRIPCION - 1);
+  const corte = espacio > LARGO_DE_LA_DESCRIPCION / 2 ? espacio : LARGO_DE_LA_DESCRIPCION - 1;
   return `${texto.slice(0, corte)}…`;
 }
 

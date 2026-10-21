@@ -156,8 +156,10 @@ describe('TorneosPublicos', () => {
   });
 
   // T358 (SPEC-seo.md A8): los torneos abiertos, como eventos para Google.
-  it('**publica los torneos abiertos en el <head> y los quita al salir**', () => {
+  it('**publica los torneos abiertos en el <head> y los quita al salir**', async () => {
     const bloque = () => document.getElementById('datos-estructurados-torneos');
+    // Con un cierre que no vence: el bloque sigue la regla de la página, que mira la fecha de hoy.
+    await montar([{ ...EN_INSCRIPCION, cierreInscripcion: '2099-12-31' }]);
 
     expect(JSON.parse(bloque()?.textContent ?? '{}')['@graph']).toEqual([
       expect.objectContaining({ '@type': 'SportsEvent', name: EN_INSCRIPCION.nombre }),

@@ -24,6 +24,7 @@ const rutas: Routes = [
     component: Pagina,
   },
   { path: 'sin-descripcion', title: 'Sin descripción — FEDAL', component: Pagina },
+  { path: 'tours/:id', title: 'Tour — FEDAL', component: Pagina },
   // Como Mi cuenta: el `noindex` va en el padre y vale para sus pestañas.
   {
     path: 'privada',
@@ -89,6 +90,14 @@ describe('Seo: lo que cada ruta le dice al buscador (T353, SPEC-seo.md)', () => 
 
     expect(canonical()).toBe('https://fedal.cl/clases');
     expect(meta('property="og:url"')).toBe('https://fedal.cl/clases');
+  });
+
+  // El router entrega los segmentos decodificados: sin volver a codificarlos, el canonical de
+  // `/tours/a%20b` sería una URL con un espacio.
+  it('el canonical vuelve a codificar los segmentos', async () => {
+    await llegar('/tours/a%20b%3Cc');
+
+    expect(canonical()).toBe('https://fedal.cl/tours/a%20b%3Cc');
   });
 
   it('el canonical de la portada es el dominio con su barra', async () => {

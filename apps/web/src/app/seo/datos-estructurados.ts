@@ -4,9 +4,8 @@ import { DestroyRef, effect, inject, Service } from '@angular/core';
 
 import { Club, DatosDelClub } from '../club/club.service';
 import { HorarioDelDia } from '../club/tarifas';
-import { TorneoPublico } from '../torneos/torneos.service';
-
-const ORIGEN = 'https://fedal.cl';
+import { aceptaInscripciones, TorneoPublico } from '../torneos/torneos.service';
+import { ORIGEN } from './seo';
 
 /** `diaSemana` como lo guarda la API: 0 es domingo. */
 const DIAS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -57,9 +56,17 @@ export function lugarDelClub(club: DatosDelClub, horario: HorarioDelDia[]): obje
  * Los torneos con inscripción abierta como `SportsEvent` (T358, SPEC-seo.md A8): Google puede
  * mostrarlos como eventos en Temuco, con su fecha y lo que cuesta inscribirse en cada categoría.
  * Sin torneos abiertos no hay bloque.
+ *
+ * **Abierta es `aceptaInscripciones`, la regla de la página** (T321): con el cierre vencido el
+ * torneo sigue en INSCRIPCION hasta que el admin arma el cuadro, y la página ya dice «Inscripción
+ * cerrada». Publicarlo como abierto mandaría a Google a un formulario que no acepta a nadie.
  */
-export function eventosDeTorneos(torneos: TorneoPublico[], club: DatosDelClub): object | null {
-  const abiertos = torneos.filter((torneo) => torneo.estado === 'INSCRIPCION');
+export function eventosDeTorneos(
+  torneos: TorneoPublico[],
+  club: DatosDelClub,
+  ahora = new Date(),
+): object | null {
+  const abiertos = torneos.filter((torneo) => aceptaInscripciones(torneo, ahora));
   if (abiertos.length === 0) return null;
 
   return {
@@ -118,7 +125,9 @@ export class DatosEstructurados {
     const bloque = this.documento.createElement('script');
     bloque.id = id;
     bloque.type = 'application/ld+json';
-    bloque.textContent = JSON.stringify(datos);
+    // Con `<` escapado, un dato del panel con `</script>` no cierra el bloque cuando el <head> se
+    // escriba como HTML (el prerender de la Fase 2). JSON.parse lo devuelve igual.
+    bloque.textContent = JSON.stringify(datos).replace(/</g, '\\u003c');
     this.documento.head.appendChild(bloque);
   }
 }

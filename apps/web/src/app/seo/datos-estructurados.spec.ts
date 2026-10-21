@@ -147,8 +147,13 @@ describe('eventosDeTorneos', () => {
     ],
   });
 
-  const eventos = (torneos: TorneoPublico[], club = CLUB) =>
-    (eventosDeTorneos(torneos, club) as { '@graph': Record<string, unknown>[] } | null)?.['@graph'];
+  /** Un día antes del cierre de las fixtures (2026-10-26), a mediodía en Temuco. */
+  const AHORA = new Date('2026-10-21T12:00:00-03:00');
+
+  const eventos = (torneos: TorneoPublico[], club = CLUB, ahora = AHORA) =>
+    (eventosDeTorneos(torneos, club, ahora) as { '@graph': Record<string, unknown>[] } | null)?.[
+      '@graph'
+    ];
 
   it('**con dos torneos abiertos y uno cerrado salen dos eventos**', () => {
     const lista = eventos([
@@ -228,7 +233,21 @@ describe('eventosDeTorneos', () => {
   });
 
   it('sin torneos abiertos no publica nada', () => {
-    expect(eventosDeTorneos([torneo(1, 'EN_CURSO')], CLUB)).toBeNull();
+    expect(eventosDeTorneos([torneo(1, 'EN_CURSO')], CLUB, AHORA)).toBeNull();
+  });
+
+  // La misma regla de la página (T321): con el cierre vencido, «Inscripción cerrada», aunque el
+  // admin todavía no arme el cuadro y el torneo siga en INSCRIPCION.
+  it('**con el cierre vencido no publica el torneo, aunque siga en INSCRIPCION**', () => {
+    const despuesDelCierre = new Date('2026-10-27T09:00:00-03:00');
+
+    expect(eventosDeTorneos([torneo(1, 'INSCRIPCION')], CLUB, despuesDelCierre)).toBeNull();
+  });
+
+  it('el día del cierre todavía lo publica', () => {
+    const elDiaDelCierre = new Date('2026-10-26T21:00:00-03:00');
+
+    expect(eventos([torneo(1, 'INSCRIPCION')], CLUB, elDiaDelCierre)).toHaveLength(1);
   });
 });
 
@@ -245,6 +264,19 @@ describe('DatosEstructurados', () => {
 
     expect(bloques()).toHaveLength(1);
     expect(JSON.parse(bloques()[0].textContent ?? '')).toEqual({ name: 'Dos' });
+  });
+
+  // Hoy el bloque es DOM y un `</script>` no cierra nada; con el prerender (Fase 2) el <head> se
+  // escribe como HTML, y un nombre de torneo con `</script>` cerraría la etiqueta.
+  it('**escapa «<»: un dato con «</script>» no cierra el bloque**', () => {
+    const datos = TestBed.inject(DatosEstructurados);
+
+    datos.escribir('club', { name: 'Copa </script><img src=x>' });
+
+    expect(bloques()[0].textContent).not.toContain('<');
+    expect(JSON.parse(bloques()[0].textContent ?? '')).toEqual({
+      name: 'Copa </script><img src=x>',
+    });
   });
 
   it('con null lo quita', () => {

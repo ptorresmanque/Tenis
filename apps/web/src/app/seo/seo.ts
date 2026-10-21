@@ -12,7 +12,7 @@ import {
  * El dominio del sitio. El canonical y el Open Graph apuntan acá también desde QA, que ya está
  * fuera del índice por su `X-Robots-Tag` (SPEC-seo.md A6).
  */
-const ORIGEN = 'https://fedal.cl';
+export const ORIGEN = 'https://fedal.cl';
 
 /** La de `index.html`, para las rutas que no traen la suya. */
 export const DESCRIPCION_DEL_SITIO =
@@ -45,8 +45,10 @@ export class Seo extends TitleStrategy {
   override updateTitle(estado: RouterStateSnapshot): void {
     const cadena = cadenaDe(estado.root);
     // Los segmentos y nada más: sin la consulta ni el ancla. Los ~45 enlaces que la portada arma
-    // a `/disponibilidad?fecha=…` cada día son, para el buscador, una sola página (A6).
-    const url = `${ORIGEN}/${cadena.flatMap((ruta) => ruta.url.map((s) => s.path)).join('/')}`;
+    // a `/disponibilidad?fecha=…` cada día son, para el buscador, una sola página (A6). El router
+    // los entrega decodificados: se vuelven a codificar para que la URL sea válida.
+    const segmentos = cadena.flatMap((ruta) => ruta.url.map((s) => encodeURIComponent(s.path)));
+    const url = `${ORIGEN}/${segmentos.join('/')}`;
 
     // Lo que puso la página sigue mientras no se cambie de página: elegir otra temporada del tour
     // cambia solo la consulta, y el router vuelve a pasar por acá con el título de la ruta.
