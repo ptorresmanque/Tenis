@@ -9,6 +9,8 @@ import { ReservasPublicas } from '../../reservas/reserva-publica.service';
 import { Reservas } from '../../reservas/reservas.service';
 import { Auth } from '../../core/auth/auth';
 import { Disponibilidad, GrillaDeCancha } from '../disponibilidad';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
+
 import { Grilla } from './grilla';
 import { alternar, opcionesDelGrupo } from '../../testing/alternar';
 
@@ -215,6 +217,14 @@ describe('Grilla', () => {
    * día o la duración. Una línea pegada dice lo elegido, y «Cambiar» trae los controles.
    */
   describe('los controles a mano en el teléfono (T345)', () => {
+    // La hoja que una prueba deja abierta se cierra al desmontar, con el injector ya destruido,
+    // y le devuelve el foco a «Cambiar»: su ripple no se puede crear y queda un error no manejado
+    // que deja `ng test` con salida 1. Sin whenStable: una prueba deja una carga sin terminar.
+    afterEach(async () => {
+      TestBed.inject(MatBottomSheet).dismiss();
+      await new Promise((listo) => setTimeout(listo));
+    });
+
     const resumen = () =>
       enTexto(el().querySelector('[data-resumen-de-controles]') as HTMLElement);
     const hoja = () => document.querySelector('mat-bottom-sheet-container') as HTMLElement | null;
