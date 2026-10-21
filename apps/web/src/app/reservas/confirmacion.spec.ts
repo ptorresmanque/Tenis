@@ -201,5 +201,18 @@ describe('ConfirmacionReserva', () => {
         expect(invitacion(el)).toBeUndefined();
       }
     });
+
+    it('al visitante que no pagó la hora (la reserva del mesón) no le dice que no se paga', async () => {
+      const el = await montar(null, 0);
+
+      expect(el.textContent).not.toContain('¿Juegas seguido?');
+      expect(invitacion(el)).toBeUndefined();
+    });
+
+    it('al socio le dice que la cambia o la cancela desde Mi cuenta (como P10)', async () => {
+      const el = await montar(7, 0);
+
+      expect(el.textContent).toContain('Entra a Mi cuenta: ahí dice hasta cuándo se puede');
+    });
   });
 });
