@@ -64,6 +64,24 @@ html {
       label-small-font: var(--font-sans),
       title-small-font: var(--font-sans),
       title-medium-font: var(--font-sans),
+      // La escala de leer del sitio (T342, M3), un paso sobre la de Material: el cuerpo de 14
+      // a 16 y el mínimo de 11 a 14. Los valores son los de `--text-*` en `styles.css`.
+      body-large-size: 1.125rem,
+      body-large-line-height: 1.75rem,
+      body-medium-size: 1rem,
+      body-medium-line-height: 1.5rem,
+      body-small-size: 0.875rem,
+      body-small-line-height: 1.25rem,
+      label-large-size: 1rem,
+      label-large-line-height: 1.5rem,
+      label-medium-size: 0.875rem,
+      label-medium-line-height: 1.25rem,
+      label-small-size: 0.875rem,
+      label-small-line-height: 1.25rem,
+      title-small-size: 1rem,
+      title-small-line-height: 1.5rem,
+      title-medium-size: 1.125rem,
+      title-medium-line-height: 1.75rem,
     )
   );
 }
@@ -212,15 +230,15 @@ html {
 }
 
 /* Para tablas y tarjetas, donde 48 px se comen la fila: 12 px de relleno al costado (6 arriba y
-   abajo, en `styles.css`) y la letra de 14. */
+   abajo, en `styles.css`) y el texto chico de la escala (T342). */
 .mat-mdc-button-base.chico {
   @include mat.button-overrides(
     (
       filled-horizontal-padding: 0.75rem,
-      filled-label-text-size: 0.875rem,
+      filled-label-text-size: var(--text-sm),
       outlined-horizontal-padding: 0.75rem,
-      outlined-label-text-size: 0.875rem,
-      text-label-text-size: 0.875rem,
+      outlined-label-text-size: var(--text-sm),
+      text-label-text-size: var(--text-sm),
     )
   );
 }
@@ -347,9 +365,9 @@ html {
       outlined-hover-outline-color: var(--color-border),
       outlined-focus-outline-color: var(--color-primary),
       outlined-label-text-font: var(--font-sans),
-      // La etiqueta, siempre arriba, se ve en 14 y en 500, como la de arriba del `.campo`.
-      // Material la achica a 0,75 al subirla al borde: el token va dividido por eso.
-      outlined-label-text-populated-size: calc(0.875rem / 0.75),
+      // La etiqueta, siempre arriba, se ve en el texto chico y en 500, como la de arriba del
+      // `.campo`. Material la achica a 0,75 al subirla al borde: el token va dividido por eso.
+      outlined-label-text-populated-size: calc(var(--text-sm) / 0.75),
       outlined-label-text-weight: 500,
       outlined-label-text-color: var(--color-foreground),
       outlined-focus-label-text-color: var(--color-primary),
@@ -377,8 +395,8 @@ html {
     (
       container-height: 35px,
       container-vertical-padding: 6px,
-      container-text-size: 0.875rem,
-      container-text-line-height: 1.3125rem,
+      container-text-size: var(--text-sm),
+      container-text-line-height: var(--text-sm--line-height),
     )
   );
 }
@@ -520,7 +538,7 @@ html {
       selected-state-text-color: var(--color-on-rotulo),
       divider-color: transparent,
       label-text-font: var(--font-display),
-      label-text-size: 0.875rem,
+      label-text-size: var(--text-sm),
       label-text-weight: 700,
       label-text-tracking: normal,
       hover-state-layer-opacity: 0,
@@ -549,7 +567,7 @@ html .mat-button-toggle-group-appearance-standard .mat-button-toggle {
 /* La tira de días: cada día es una ficha con el nombre arriba y el número abajo, y la tira se
    desplaza de lado dentro de su contenedor (`overflow-x-auto` en la plantilla). */
 html .mat-button-toggle-group.chips {
-  --mat-button-toggle-label-text-size: 0.75rem;
+  --mat-button-toggle-label-text-size: var(--text-xs);
   --mat-button-toggle-label-text-tracking: var(--tracking-wider);
 
   display: flex;
@@ -767,7 +785,7 @@ html {
       row-item-container-height: auto,
       footer-container-height: auto,
       header-headline-font: var(--font-display),
-      header-headline-size: 0.8125rem,
+      header-headline-size: var(--text-xs),
       header-headline-weight: 700,
       header-headline-tracking: 0.06em,
       header-headline-color: var(--color-muted-foreground),
@@ -854,12 +872,12 @@ html .insignia {
       container-shape-radius: var(--radius-control),
       outline-width: 1px,
       label-text-font: var(--font-display),
-      label-text-size: 0.75rem,
-      label-text-line-height: 1rem,
+      label-text-size: var(--text-xs),
+      label-text-line-height: var(--text-xs--line-height),
       label-text-weight: 700,
       label-text-tracking: 0.05em,
-      with-avatar-avatar-size: 0.875rem,
-      with-icon-icon-size: 0.875rem,
+      with-avatar-avatar-size: var(--text-xs),
+      with-icon-icon-size: var(--text-xs),
       hover-state-layer-opacity: 0,
       focus-state-layer-opacity: 0,
     )
@@ -935,7 +953,7 @@ html {
     (
       container-background-color: transparent,
       container-text-font: var(--font-sans),
-      container-text-size: 0.875rem,
+      container-text-size: var(--text-sm),
       container-text-color: var(--color-muted-foreground),
       enabled-icon-color: var(--color-foreground),
       disabled-icon-color: color-mix(in oklab, var(--color-muted-foreground) 50%, transparent),
@@ -1085,9 +1103,9 @@ html {
       divider-color: var(--color-border),
       item-label-text-color: var(--color-foreground),
       item-label-text-font: var(--font-sans),
-      item-label-text-size: 0.875rem,
+      item-label-text-size: var(--text-sm),
       item-label-text-weight: 500,
-      item-label-text-line-height: 1.25rem,
+      item-label-text-line-height: var(--text-sm--line-height),
       item-label-text-tracking: normal,
       item-leading-spacing: 0.75rem,
       item-trailing-spacing: 0.75rem,
@@ -1119,7 +1137,7 @@ html {
   @include mat.tabs-overrides(
     (
       label-text-font: var(--font-display),
-      label-text-size: 0.875rem,
+      label-text-size: var(--text-sm),
       label-text-weight: 700,
       label-text-tracking: 0.025em,
       container-height: 3rem,
