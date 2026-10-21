@@ -9,12 +9,15 @@ import {
   linkedSignal,
   resource,
   signal,
+  TemplateRef,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatButton } from '@angular/material/button';
+import { MatBottomSheet, MatBottomSheetRef } from '@angular/material/bottom-sheet';
 
 import { Auth } from '../../core/auth/auth';
 import { mensajeDelServidor } from '../../core/errores';
@@ -30,9 +33,16 @@ import {
   DuracionMin,
 } from '../disponibilidad';
 import { CeldaElegible, Marcador } from '../marcador';
-import { enPesos, hoyEnElClub, horaEnElClub, mananaEnElClub } from '../reloj-del-club';
+import {
+  diaCortoEnElClub,
+  enPesos,
+  hoyEnElClub,
+  horaEnElClub,
+  mananaEnElClub,
+  mesCortoEnElClub,
+} from '../reloj-del-club';
 import { TARIFA_DEL_SOCIO, yaEmpezo } from './bandas';
-import { ControlesDelDia, pasaElFiltro } from './controles-del-dia';
+import { ControlesDelDia, etiquetaDelFiltro, pasaElFiltro } from './controles-del-dia';
 import { MoverReserva } from './mover-reserva';
 import { ResumenDeLaEleccion } from './resumen-de-la-eleccion';
 import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
@@ -239,6 +249,24 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       cuesta se dice una vez arriba y en la barra al elegir: en cada celda serían ocho
       montos por hora.
     -->
+    <!-- LO ELEGIDO, A MANO EN EL TELÉFONO (T345, SPEC-sitio.md M2 y B3). Arriba, los controles
+         ocupan media pantalla y se pierden al bajar por el tablero: había quien no sabía que
+         podía cambiar el día o la duración. La línea queda pegada bajo el encabezado (64 px) y
+         «Cambiar» trae los mismos controles en una hoja desde abajo. Desde sm no hace falta:
+         los controles y los nombres de las canchas quedan a la vista. Fuera del @if del
+         tablero: mientras la grilla nueva carga, el tablero se va, y con él se iba el botón al
+         que la hoja le devuelve el foco al cerrarse. -->
+    <div
+      data-resumen-de-controles
+      class="a-sangre sticky top-16 z-30 mt-6 flex items-center justify-between gap-3
+             border-b border-border bg-card px-sangre-4 py-2 shadow-sm sm:hidden"
+    >
+      <p class="min-w-0 text-sm font-semibold">{{ resumenDeControles() }}</p>
+      <button matButton="outlined" type="button" class="chico" (click)="abrirControles()">
+        Cambiar
+      </button>
+    </div>
+
     @if (!sinHoraYMediaEnElDia() && hayHorasPorDelante()) {
       <section
         class="a-sangre mt-6 bg-campo px-sangre-4 py-6 text-on-campo sm:px-sangre-6"
@@ -300,6 +328,22 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
         }
       </app-barra-fija>
     }
+
+    <!-- La hoja de «Cambiar» (T345): los mismos controles de arriba, con los mismos enlaces. -->
+    <ng-template #hojaDeControles>
+      <div class="p-4">
+        <app-controles-del-dia
+          [(fecha)]="fecha"
+          (fechaChange)="elegido.set(null)"
+          [duracion]="duracion()"
+          [(filtro)]="filtro"
+          (cambiarDuracion)="elegirDuracion($event)"
+        />
+        <div class="mt-4 flex justify-end">
+          <button matButton="filled" type="button" (click)="hoja?.dismiss()">Listo</button>
+        </div>
+      </div>
+    </ng-template>
 
     @if (reservando(); as eleccion) {
       <app-reservar
@@ -760,6 +804,30 @@ export class Grilla {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  /** "Lun 17 ago · 1 hora · Todas": lo que dice la línea del teléfono (T345). */
+  protected readonly resumenDeControles = computed(() => {
+    const mediodia = `${this.fecha()}T12:00:00.000Z`;
+    const dia = `${diaCortoEnElClub(mediodia)} ${Number(this.fecha().slice(8, 10))} ${mesCortoEnElClub(mediodia)}`;
+
+    return [
+      dia,
+      this.duracion() === 90 ? '1 hora y media' : '1 hora',
+      etiquetaDelFiltro(this.filtro()),
+    ].join(' · ');
+  });
+
+  private readonly hojas = inject(MatBottomSheet);
+  private readonly hojaDeControles = viewChild.required<TemplateRef<unknown>>('hojaDeControles');
+  /** La hoja abierta, para que «Listo» la cierre. Esc y tocar afuera también la cierran. */
+  protected hoja: MatBottomSheetRef | null = null;
+
+  protected abrirControles(): void {
+    this.hoja = this.hojas.open(this.hojaDeControles(), {
+      ariaLabel: 'El día, la duración y las canchas',
+    });
+    this.hoja.afterDismissed().subscribe(() => (this.hoja = null));
   }
 
   protected readonly hora = horaEnElClub;

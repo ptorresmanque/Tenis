@@ -11,6 +11,11 @@ const FILTROS = [
   { valor: 'aire-libre', etiqueta: 'Al aire libre' },
 ];
 
+/** "Techadas", para la línea que resume lo elegido en el teléfono (T345). */
+export function etiquetaDelFiltro(filtro: string): string {
+  return FILTROS.find(({ valor }) => valor === filtro)?.etiqueta ?? FILTROS[0].etiqueta;
+}
+
 /**
  * Si la cancha pasa el filtro elegido. Junto a `FILTROS`: las opciones y lo que significa
  * cada una se leen en el mismo lugar.
