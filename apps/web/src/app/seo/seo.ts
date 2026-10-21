@@ -37,18 +37,30 @@ export class Seo extends TitleStrategy {
   private readonly meta = inject(Meta);
   private readonly documento = inject(DOCUMENT);
 
+  /** La URL de la última navegación, sin la consulta. */
+  private url = '';
+  /** Lo que la página puso encima de su ruta con `aplicar()`, y en qué URL. */
+  private propio: { url: string; titulo: string; descripcion: string } | null = null;
+
   override updateTitle(estado: RouterStateSnapshot): void {
     const cadena = cadenaDe(estado.root);
-    const titulo = this.buildTitle(estado);
-    if (titulo !== undefined) this.title.setTitle(titulo);
-
-    const descripcion: string =
-      [...cadena].reverse().find((ruta) => ruta.data['descripcion'])?.data['descripcion'] ??
-      DESCRIPCION_DEL_SITIO;
-    const indexar = cadena.every((ruta) => ruta.data['indexar'] !== false);
     // Los segmentos y nada más: sin la consulta ni el ancla. Los ~45 enlaces que la portada arma
     // a `/disponibilidad?fecha=…` cada día son, para el buscador, una sola página (A6).
     const url = `${ORIGEN}/${cadena.flatMap((ruta) => ruta.url.map((s) => s.path)).join('/')}`;
+
+    // Lo que puso la página sigue mientras no se cambie de página: elegir otra temporada del tour
+    // cambia solo la consulta, y el router vuelve a pasar por acá con el título de la ruta.
+    if (this.propio?.url !== url) this.propio = null;
+    this.url = url;
+
+    const titulo = this.propio?.titulo ?? this.buildTitle(estado);
+    if (titulo !== undefined) this.title.setTitle(titulo);
+
+    const descripcion: string =
+      this.propio?.descripcion ??
+      [...cadena].reverse().find((ruta) => ruta.data['descripcion'])?.data['descripcion'] ??
+      DESCRIPCION_DEL_SITIO;
+    const indexar = cadena.every((ruta) => ruta.data['indexar'] !== false);
 
     this.meta.updateTag({ name: 'description', content: descripcion });
     // Sin canonical en lo que no se indexa: las dos señales juntas se contradicen.
@@ -66,6 +78,18 @@ export class Seo extends TitleStrategy {
     this.meta.updateTag({ property: 'og:locale', content: 'es_CL' });
     this.meta.updateTag({ property: 'og:site_name', content: 'FEDAL Tennis Center' });
     this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
+  }
+
+  /**
+   * Para la página que sabe su título recién al cargar, como la de un tour (T356): la ruta solo
+   * dice «Tour». El canonical y el `noindex` siguen siendo los de la ruta.
+   */
+  aplicar({ titulo, descripcion }: { titulo: string; descripcion: string }): void {
+    this.propio = { url: this.url, titulo, descripcion };
+    this.title.setTitle(titulo);
+    this.meta.updateTag({ property: 'og:title', content: titulo });
+    this.meta.updateTag({ name: 'description', content: descripcion });
+    this.meta.updateTag({ property: 'og:description', content: descripcion });
   }
 
   private canonical(url: string | null): void {

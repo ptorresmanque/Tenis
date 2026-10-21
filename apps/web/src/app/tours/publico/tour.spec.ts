@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { elegidoEn, elegir as elegirOpcion } from '../../testing/elegir';
 import { Ranking, TablaDeTorneos } from '../../ranking/ranking.service';
@@ -294,5 +294,63 @@ describe('TourPublicoPagina', () => {
 
     expect(elemento.textContent).toContain('No encontramos ese tour');
     expect(elemento.querySelector('a[href="/tours"]')).not.toBeNull();
+  });
+
+  /**
+   * T356 (SPEC-seo.md A1). La ruta solo sabe que es «un tour»: la página, al cargarlo, le pone su
+   * nombre a la pestaña y al Open Graph, y su descripción al buscador.
+   */
+  describe('el título y la descripción del tour (T356)', () => {
+    const meta = (selector: string) =>
+      document.head.querySelector<HTMLMetaElement>(`meta[${selector}]`)?.content;
+
+    beforeEach(() => {
+      document.title = 'Tour — FEDAL Tennis Center';
+    });
+    afterEach(() => {
+      document.head.querySelectorAll('meta[name], meta[property]').forEach((m) => m.remove());
+    });
+
+    it('**la pestaña y el Open Graph dicen el nombre del tour**', async () => {
+      await montar();
+
+      expect(document.title).toBe('Tour FEDAL — FEDAL Tennis Center');
+      expect(meta('property="og:title"')).toBe('Tour FEDAL — FEDAL Tennis Center');
+    });
+
+    it('la descripción es la que escribió el club, en un renglón', async () => {
+      await montar();
+
+      expect(meta('name="description"')).toBe(
+        'La liga del club. Cuatro torneos por temporada, <b>sin excusas</b>.',
+      );
+    });
+
+    it('una descripción larga se corta en una palabra, con «…», en 160 o menos', async () => {
+      const larga = 'Una liga de todo el año para socios y visitantes. '.repeat(5).trim();
+      await montar(() => Promise.resolve({ ...TOUR, descripcion: larga }));
+
+      const descripcion = meta('name="description"') ?? '';
+      expect(descripcion.length).toBeLessThanOrEqual(160);
+      expect(descripcion.endsWith('…')).toBe(true);
+      expect(larga.startsWith(descripcion.slice(0, -1))).toBe(true);
+      expect(larga.charAt(descripcion.length - 1)).toBe(' ');
+    });
+
+    it('sin descripción del club, la arma con el nombre y la temporada', async () => {
+      await montar(() => Promise.resolve({ ...TOUR, descripcion: '' }));
+
+      expect(meta('name="description"')).toBe(
+        'Tour FEDAL, el tour de FEDAL Tennis Center en Temuco. Temporada 2027: los torneos que ' +
+          'suman, la tabla de puntos y el ranking.',
+      );
+    });
+
+    it('un tour que no existe deja el título de la ruta', async () => {
+      await montar(() => Promise.reject(new Error('404')));
+
+      expect(document.title).toBe('Tour — FEDAL Tennis Center');
+      expect(meta('name="description"')).toBeUndefined();
+    });
   });
 });

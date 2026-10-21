@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Routes, TitleStrategy } from '@angular/router';
+import { provideRouter, Router, Routes, TitleStrategy } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -116,5 +116,36 @@ describe('Seo: lo que cada ruta le dice al buscador (T353, SPEC-seo.md)', () => 
 
     expect(meta('name="robots"')).toBeUndefined();
     expect(canonical()).toBe('https://fedal.cl/clases');
+  });
+
+  // T356: para la página que sabe su título recién al cargar, como la de un tour.
+  it('**aplicar() cambia el título y la descripción, y deja el canonical de la ruta**', async () => {
+    await llegar('/clases');
+
+    TestBed.inject(Seo).aplicar({
+      titulo: 'Tour FEDAL — FEDAL Tennis Center',
+      descripcion: 'La liga del club.',
+    });
+
+    expect(document.title).toBe('Tour FEDAL — FEDAL Tennis Center');
+    expect(meta('property="og:title"')).toBe('Tour FEDAL — FEDAL Tennis Center');
+    expect(meta('name="description"')).toBe('La liga del club.');
+    expect(meta('property="og:description"')).toBe('La liga del club.');
+    expect(canonical()).toBe('https://fedal.cl/clases');
+  });
+
+  // Elegir otra temporada del tour cambia `?temporada=` y el router vuelve a poner el título.
+  it('**lo aplicado sigue si solo cambia la consulta, y se va al cambiar de página**', async () => {
+    await llegar('/clases');
+    const router = TestBed.inject(Router);
+    TestBed.inject(Seo).aplicar({ titulo: 'Tour FEDAL — FEDAL', descripcion: 'La liga.' });
+
+    await router.navigateByUrl('/clases?temporada=2');
+    expect(document.title).toBe('Tour FEDAL — FEDAL');
+    expect(meta('name="description"')).toBe('La liga.');
+
+    await router.navigateByUrl('/el-club');
+    expect(document.title).toBe('El club — FEDAL');
+    expect(meta('name="description"')).toBe('Canchas, tarifas y horario.');
   });
 });
