@@ -24,6 +24,7 @@ import { Tarifas } from './tarifas';
 import { TiendaYCafeteria } from './tienda-y-cafeteria';
 import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
 import { Esqueleto } from '../ui/esqueleto';
+import { publicarElClub } from '../seo/datos-estructurados';
 
 /**
  * La página que explica el club a quien todavía no reservó.
@@ -374,6 +375,8 @@ export class ElClub {
 
   constructor() {
     this.sostenerElAncla();
+    // El club para Google, con su dirección y su horario (T357).
+    publicarElClub();
   }
 
   /**
