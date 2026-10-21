@@ -130,4 +130,72 @@ describe('ConfirmacionReserva', () => {
     expect(el.textContent).toContain('AB23CDE');
     expect(el.querySelector('app-esqueleto')).not.toBeNull();
   });
+
+  /** P11 (SPEC-sitio.md, Decimoséptima parte, B7): a quien pagó la cancha, la cuota. */
+  describe('la invitación a ser socio', () => {
+    const montar = async (socioId: number | null, pagadoClp: number) => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([]),
+          {
+            provide: ActivatedRoute,
+            useValue: {
+              queryParamMap: of(convertToParamMap({ folio: 'AB23CDE', t: 'un-token' })),
+            },
+          },
+          {
+            provide: Auth,
+            useValue: { usuario: signal(socioId === null ? null : { socioId }).asReadonly() },
+          },
+          {
+            provide: Club,
+            useValue: {
+              datos: () => ({ nombre: 'FEDAL Tennis Center', direccion: '', telefono: '', email: '' }),
+            },
+          },
+          {
+            provide: ReservasPublicas,
+            useValue: {
+              porToken: () =>
+                Promise.resolve({
+                  folio: 'AB23CDE',
+                  cancha: 'Cancha 1',
+                  inicio: '2026-08-17T12:00:00.000Z',
+                  fin: '2026-08-17T13:00:00.000Z',
+                  nombre: 'Rafael Nadal',
+                  esPico: false,
+                  estado: 'CONFIRMADA',
+                  acompanantes: 0,
+                  pagadoClp,
+                  sePuedeCambiar: true,
+                }),
+            },
+          },
+        ],
+      });
+      const fixture = TestBed.createComponent(ConfirmacionReserva);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    };
+    const invitacion = (el: HTMLElement) =>
+      [...el.querySelectorAll('a')].find((a) => a.textContent?.trim() === 'Quiero ser socio');
+
+    it('**a quien pagó la hora le dice que como socio no se paga**, con el enlace al formulario', async () => {
+      const el = await montar(null, 12_000);
+
+      expect(el.textContent?.replace(/\s+/g, ' ')).toContain(
+        '¿Juegas seguido? Como socio, la cancha no se paga.',
+      );
+      expect(invitacion(el)?.getAttribute('href')).toBe('/el-club#titulo-contacto');
+    });
+
+    it('al socio no le ofrece lo que ya es', async () => {
+      const el = await montar(7, 0);
+
+      expect(el.textContent).not.toContain('¿Juegas seguido?');
+      expect(invitacion(el)).toBeUndefined();
+    });
+  });
 });
