@@ -22,7 +22,7 @@ interface Tarifa {
   montoClp90: number | null;
 }
 
-interface HorarioDelDia {
+export interface HorarioDelDia {
   diaSemana: number;
   horaApertura: string;
   horaCierre: string;

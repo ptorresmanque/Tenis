@@ -38,6 +38,8 @@ import {
   TorneoPublico,
 } from '../torneos.service';
 import { Esqueleto } from '../../ui/esqueleto';
+import { Club } from '../../club/club.service';
+import { eventosDeTorneos, publicar } from '../../seo/datos-estructurados';
 
 /**
  * Los torneos del club, para quien mira desde afuera.
@@ -325,6 +327,12 @@ export class TorneosPublicos {
     // Poner esto en `true` hace dos cosas: escribe el aviso y vuelve a pedir el
     // calendario, porque el recurso lo tiene de parámetro.
     soltarSiVolvioSinPagar(() => this.volvioSinPagar.set(true));
+
+    // Los torneos abiertos, como eventos para Google (T358).
+    const club = inject(Club).datos;
+    publicar('torneos', () =>
+      this.torneos.hasValue() ? eventosDeTorneos(this.torneos.value(), club()) : null,
+    );
 
     // **Lo hecho se confirma con el snackbar** (T324, S2), como «Hora tomada» en la agenda: el
     // pago de Webpay, el comprobante recibido o la inscripción gratis. `?pago=` se queda en la

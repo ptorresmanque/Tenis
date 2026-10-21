@@ -9,6 +9,7 @@ import {
   Params,
   provideRouter,
   Route,
+  Data,
   RouterStateSnapshot,
   Routes,
 } from '@angular/router';
@@ -36,6 +37,8 @@ import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 interface Encontrada {
   ruta: Route;
   guards: unknown[];
+  /** El `data` de cada ruta de la cadena, del cascarón a la página (T353). */
+  datos: (Data | undefined)[];
   /** El cascarón, venga en la ruta (`component`) o se cargue con ella (`loadComponent`). */
   cascaron: () => Promise<unknown>;
 }
@@ -45,11 +48,13 @@ function buscar(url: string): Encontrada | null {
     rutas: Routes,
     prefijo: string,
     heredados: unknown[],
+    datosHeredados: (Data | undefined)[],
     cascaron: () => Promise<unknown>,
   ): Encontrada | null => {
     for (const ruta of rutas) {
       const camino = [prefijo, ruta.path].filter(Boolean).join('/');
       const guards = [...heredados, ...(ruta.canActivate ?? [])];
+      const datos = [...datosHeredados, ruta.data];
       // Los cascarones son las rutas de primer nivel con hijos; más adentro, un
       // `loadComponent` con hijos es una página con pestañas (Configuración).
       const esCascaron = rutas === routes && ruta.children !== undefined;
@@ -60,7 +65,7 @@ function buscar(url: string): Encontrada | null {
           : cascaron;
 
       if (camino === url && (ruta.loadComponent ?? ruta.redirectTo)) {
-        return { ruta, guards, cascaron: suCascaron };
+        return { ruta, guards, datos, cascaron: suCascaron };
       }
 
       // `canActivateChild` del padre corre para cada hijo (T220: así va el del panel).
@@ -70,6 +75,7 @@ function buscar(url: string): Encontrada | null {
           ruta.children,
           camino,
           [...guards, ...(ruta.canActivateChild ?? [])],
+          datos,
           suCascaron,
         );
       if (dentro) return dentro;
@@ -78,7 +84,7 @@ function buscar(url: string): Encontrada | null {
     return null;
   };
 
-  return recorrer(routes, '', [], async () => null);
+  return recorrer(routes, '', [], [], async () => null);
 }
 
 describe('Rutas protegidas', () => {
@@ -270,7 +276,9 @@ describe('Rutas protegidas', () => {
   // P3 y P20 (SPEC-sitio.md, Decimoséptima parte): la pestaña dice lo que se hace ahí, y la
   // portada dice qué es el club y dónde, que es lo que se lee en el buscador.
   it('la grilla se titula «Reserva tu cancha», y la portada dice que es un club de Temuco', () => {
-    expect(buscar('disponibilidad')?.ruta.title).toBe('Reserva tu cancha — FEDAL Tennis Center');
+    expect(buscar('disponibilidad')?.ruta.title).toBe(
+      'Reserva tu cancha de tenis en Temuco — FEDAL Tennis Center',
+    );
     expect(routes[0].children?.find((ruta) => ruta.path === '')?.title).toBe(
       'FEDAL Tennis Center · Club de tenis en Temuco',
     );
@@ -311,6 +319,118 @@ describe('Rutas protegidas', () => {
 
   it('la política de privacidad se lee sin sesión: Google la abre para aprobar el login', () => {
     expect(buscar('privacidad')?.guards).toEqual([]);
+  });
+});
+
+/**
+ * T354 (SPEC-seo.md A2 y A3). Lo que se lee en el resultado de Google: el título nombra el deporte
+ * y la ciudad, y cada página pública trae su descripción, distinta de las demás.
+ */
+describe('Los títulos y las descripciones de las rutas públicas (T354)', () => {
+  const PUBLICAS: [string, string][] = [
+    ['', 'FEDAL Tennis Center · Club de tenis en Temuco'],
+    ['disponibilidad', 'Reserva tu cancha de tenis en Temuco — FEDAL Tennis Center'],
+    ['clases', 'Clases de tenis en Temuco — FEDAL Tennis Center'],
+    ['torneos', 'Torneos de tenis en Temuco — FEDAL Tennis Center'],
+    ['tours', 'Tours de tenis en Temuco — FEDAL Tennis Center'],
+    ['ranking', 'Ranking de torneos de tenis — FEDAL Tennis Center'],
+    ['el-club', 'El club: canchas, tarifas y horario — FEDAL Tennis Center'],
+    ['preguntas-frecuentes', 'Preguntas frecuentes — FEDAL Tennis Center'],
+    ['privacidad', 'Política de privacidad — FEDAL Tennis Center'],
+  ];
+  const descripcion = (url: string): string => buscar(url)?.ruta.data?.['descripcion'] ?? '';
+
+  it.each(PUBLICAS)('/%s se titula «%s»', (url, titulo) => {
+    expect(buscar(url)?.ruta.title).toBe(titulo);
+    // Lo que Google muestra antes de cortar con «…».
+    expect(titulo.length).toBeLessThanOrEqual(60);
+  });
+
+  it.each(PUBLICAS.map(([url]) => url))(
+    '/%s tiene su descripción, de 120 a 160 caracteres',
+    (url) => {
+      expect(descripcion(url).length).toBeGreaterThanOrEqual(120);
+      expect(descripcion(url).length).toBeLessThanOrEqual(160);
+    },
+  );
+
+  it('ninguna descripción se repite', () => {
+    const todas = PUBLICAS.map(([url]) => descripcion(url));
+    expect(new Set(todas).size).toBe(todas.length);
+  });
+});
+
+/**
+ * T355 (SPEC-seo.md A9). Una dirección que no existe dibuja «No encontrada» en vez de redirigir a la
+ * portada: para Google, cientos de URL con la portada adentro eran páginas duplicadas.
+ */
+describe('Una dirección que no existe (T355, A9)', () => {
+  it('**dibuja «No encontrada» dentro del cascarón público, sin redirigir**', async () => {
+    const comodin = buscar('**');
+
+    expect(comodin?.ruta.redirectTo).toBeUndefined();
+    expect(comodin?.ruta.title).toBe('Página no encontrada — FEDAL Tennis Center');
+    expect(await comodin?.cascaron()).toBe(CascaronPublico);
+  });
+
+  it('no se indexa', () => {
+    expect(buscar('**')?.datos.some((datos) => datos?.['indexar'] === false)).toBe(true);
+  });
+
+  // El router prueba los grupos en orden: dentro del primero, el comodín se tragaría /entrar y el
+  // panel antes de llegar a sus cascarones.
+  it('**es la última ruta de primer nivel**', () => {
+    expect(routes.at(-1)?.children?.map((hija) => hija.path)).toEqual(['**']);
+    expect(routes.slice(0, -1).flatMap((ruta) => ruta.children ?? [])).not.toContainEqual(
+      expect.objectContaining({ path: '**' }),
+    );
+  });
+});
+
+/**
+ * T353 (SPEC-seo.md A4). Lo que no es para buscadores lleva `indexar: false` en algún punto de su
+ * cadena: el servicio `Seo` le pone `noindex`. Va en el padre cuando todo lo de adentro es privado
+ * (el panel, entrar, Mi cuenta), así una pantalla nueva nace fuera del índice.
+ */
+describe('Lo que no es para buscadores lleva noindex (T353, A4)', () => {
+  const seIndexa = (url: string) =>
+    !buscar(url)?.datos.some((datos) => datos?.['indexar'] === false);
+
+  it.each([
+    'entrar',
+    'registro',
+    'recuperar-contrasena',
+    'nueva-contrasena',
+    'verificar-correo',
+    'mi-cuenta/reservas',
+    'mi-cuenta/partidos',
+    'mi-cuenta/cuota',
+    'reservas/confirmacion',
+    'r/:token',
+    'torneos/:id/inscripcion',
+    'torneos/inscripcion/:token',
+    'administracion/reservas',
+    'administracion/personas/:id',
+    'administracion/configuracion/reglas',
+    'estado',
+  ])('/%s no se indexa', (url) => {
+    expect(seIndexa(url)).toBe(false);
+  });
+
+  it.each([
+    '',
+    'disponibilidad',
+    'clases',
+    'torneos',
+    'tours',
+    'tours/:id',
+    'ranking',
+    'el-club',
+    'preguntas-frecuentes',
+    'privacidad',
+  ])('/%s se indexa', (url) => {
+    expect(buscar(url)).not.toBeNull();
+    expect(seIndexa(url)).toBe(true);
   });
 });
 

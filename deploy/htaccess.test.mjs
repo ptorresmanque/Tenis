@@ -42,6 +42,8 @@ async function apache(ambiente) {
   escribir(join(docroot, 'chunk-A.js'), 'js');
   escribir(join(docroot, 'reservar/index.html'), 'prerender');
   escribir(join(docroot, 'media/logo.svg'), 'svg');
+  escribir(join(docroot, 'robots.txt'), 'robots');
+  escribir(join(docroot, 'sitemap.xml'), 'sitemap');
   escribir(join(docroot, '.well-known/acme-challenge/token'), 'token');
   // En el servidor, /api lo atiende Passenger. Acá basta un archivo para ver que la SPA
   // no se lo queda.
@@ -246,6 +248,12 @@ describe('htaccess.prod', { skip: saltar }, () => {
 
   test('una ruta de la SPA sin archivo carga index.html', () => {
     assert.equal(prod('/socio/reservas').cuerpo, 'SPA');
+  });
+
+  // Antes de T352 no existían, y los buscadores recibían la SPA con un 200 (SPEC-seo.md).
+  test('robots.txt y sitemap.xml se sirven como archivo, no como la SPA', () => {
+    assert.equal(prod('/robots.txt').cuerpo, 'robots');
+    assert.equal(prod('/sitemap.xml').cuerpo, 'sitemap');
   });
 
   test('/api no pasa por la SPA', () => {

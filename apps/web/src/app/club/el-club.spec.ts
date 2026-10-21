@@ -73,6 +73,21 @@ describe('ElClub', () => {
   const texto = (id: string) => seccion(id).textContent?.replace(/\s+/g, ' ') ?? '';
 
   // P2 y P4 (SPEC-sitio.md, Decimoséptima parte).
+  // T357 (SPEC-seo.md A8): el club para Google, con los mismos datos que la página.
+  it('**publica el club en el <head> y lo quita al salir**', async () => {
+    const bloque = () => document.head.querySelector('script[type="application/ld+json"]');
+    await montar([], { ...VACIO, direccion: 'Lircay lt 42, Temuco' });
+
+    expect(JSON.parse(bloque()?.textContent ?? '{}')).toMatchObject({
+      '@type': 'SportsActivityLocation',
+      name: 'FEDAL Tennis Center',
+      address: { streetAddress: 'Lircay lt 42, Temuco' },
+    });
+
+    fixture.destroy();
+    expect(bloque()).toBeNull();
+  });
+
   it('el paso 2 dice cómo reserva cada uno, y el botón del final es «Reservar cancha»', async () => {
     await montar([]);
     const reservar = [...fixture.nativeElement.querySelectorAll('a')].find(

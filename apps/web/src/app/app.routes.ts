@@ -35,12 +35,24 @@ export const routes: Routes = [
         path: '',
         // P20 (SPEC-sitio.md, Decimoséptima parte): qué es y dónde, que es lo que se busca.
         title: 'FEDAL Tennis Center · Club de tenis en Temuco',
+        // T354 (SPEC-seo.md A3): la descripción de cada página pública, lo que Google muestra bajo
+        // el título. Sin precios ni número de canchas: el club los cambia desde el panel.
+        data: {
+          descripcion:
+            'Club de tenis en Temuco con canchas techadas y al aire libre, todas con luz. ' +
+            'Reserva en línea con el precio a la vista, toma clases o juega un torneo.',
+        },
         loadComponent: () => import('./inicio/inicio').then((m) => m.Inicio),
       },
       {
         path: 'disponibilidad',
         // P3: la pestaña dice lo que se hace ahí. La ruta no cambia: hay enlaces guardados.
-        title: 'Reserva tu cancha — FEDAL Tennis Center',
+        title: 'Reserva tu cancha de tenis en Temuco — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'Elige día, hora y cancha en FEDAL Tennis Center, Temuco: techada o al aire libre, ' +
+            'por 1 hora o 1 hora y media. Pagas en línea con Webpay; el socio no paga.',
+        },
         loadComponent: () =>
           import('./catalogo-canchas/grilla/grilla').then((m) => m.Grilla),
       },
@@ -50,12 +62,16 @@ export const routes: Routes = [
       {
         path: 'reservas/confirmacion',
         title: 'Tu reserva — FEDAL Tennis Center',
+        // Fuera de los buscadores (T353, SPEC-seo.md A4): es la reserva de cada uno.
+        data: { indexar: false },
         loadComponent: () =>
           import('./reservas/confirmacion').then((m) => m.ConfirmacionReserva),
       },
       {
         path: 'mi-cuenta',
         title: 'Mi cuenta — FEDAL Tennis Center',
+        // T353 (A4): en el padre, vale para las tres pestañas.
+        data: { indexar: false },
         // T318 (SPEC-sitio.md A8): las reservas, los partidos y la cuota del socio, en pestañas.
         loadComponent: () => import('./cuenta/mi-cuenta').then((m) => m.MiCuenta),
         children: [
@@ -86,13 +102,23 @@ export const routes: Routes = [
       },
       {
         path: 'clases',
-        title: 'Clases con profesor — FEDAL Tennis Center',
+        title: 'Clases de tenis en Temuco — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'Clases de tenis en Temuco con los profesores de FEDAL Tennis Center: iniciación, ' +
+            'competitivo y para niños. Elige un horario y escríbenos para tomar tu cupo.',
+        },
         loadComponent: () =>
           import('./clases/publico/clases').then((m) => m.ClasesPublicas),
       },
       {
         path: 'torneos',
-        title: 'Torneos — FEDAL Tennis Center',
+        title: 'Torneos de tenis en Temuco — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'Torneos de tenis en Temuco para socios y no socios: inscríbete en línea en FEDAL ' +
+            'Tennis Center, mira cuántos cupos quedan y sigue el cuadro de tu categoría.',
+        },
         canActivate: [aLaInscripcion],
         loadComponent: () =>
           import('./torneos/publico/torneos').then((m) => m.TorneosPublicos),
@@ -100,6 +126,7 @@ export const routes: Routes = [
       {
         path: 'torneos/:id/inscripcion',
         title: 'Inscripción — FEDAL Tennis Center',
+        data: { indexar: false },
         loadComponent: () =>
           import('./torneos/publico/pagina-de-inscripcion').then((m) => m.PaginaDeInscripcion),
       },
@@ -107,12 +134,18 @@ export const routes: Routes = [
         // El enlace del correo «Se abrió un cupo» (T334): sin sesión, la llave es la credencial.
         path: 'torneos/inscripcion/:token',
         title: 'Tu cupo en la lista de espera — FEDAL Tennis Center',
+        data: { indexar: false },
         loadComponent: () =>
           import('./torneos/publico/oferta-de-cupo').then((m) => m.OfertaDeCupo),
       },
       {
         path: 'tours',
-        title: 'Tours — FEDAL Tennis Center',
+        title: 'Tours de tenis en Temuco — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'Los tours de FEDAL Tennis Center, en Temuco: juega la temporada completa y suma ' +
+            'puntos en cada torneo para subir en el ranking de las ligas del club.',
+        },
         loadComponent: () => import('./tours/publico/tours').then((m) => m.ToursPublicos),
       },
       {
@@ -122,24 +155,44 @@ export const routes: Routes = [
       },
       {
         path: 'ranking',
-        title: 'Ranking — FEDAL Tennis Center',
+        title: 'Ranking de torneos de tenis — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'El ranking de los torneos de FEDAL Tennis Center, en Temuco: una tabla por tour, ' +
+            'temporada y categoría, con los puntos de cada jugador según hasta dónde llegó.',
+        },
         loadComponent: () =>
           import('./ranking/torneos').then((m) => m.RankingDeTorneos),
       },
       {
         path: 'el-club',
-        title: 'El club — FEDAL Tennis Center',
+        title: 'El club: canchas, tarifas y horario — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'FEDAL Tennis Center en Temuco: canchas de superficie dura, techadas y al aire ' +
+            'libre, todas con luz. Tarifas por hora, horario, dirección y cómo hacerte socio.',
+        },
         loadComponent: () => import('./club/el-club').then((m) => m.ElClub),
       },
       {
         // Sin guard: Google la abre sin sesión para aprobar el login con Google.
         path: 'privacidad',
         title: 'Política de privacidad — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'Cómo FEDAL Tennis Center trata tus datos personales: cuáles usa y para qué, con ' +
+            'quién los comparte, cuánto tiempo los guarda y cómo ejercer tus derechos.',
+        },
         loadComponent: () => import('./club/privacidad').then((m) => m.Privacidad),
       },
       {
         path: 'preguntas-frecuentes',
         title: 'Preguntas frecuentes — FEDAL Tennis Center',
+        data: {
+          descripcion:
+            'Las dudas sobre reservas, socios, clases y torneos en FEDAL Tennis Center, Temuco. ' +
+            'Si la tuya no está, escríbenos desde la misma página y te respondemos.',
+        },
         loadComponent: () =>
           import('./club/preguntas-frecuentes').then((m) => m.PreguntasFrecuentesPublicas),
       },
@@ -148,6 +201,7 @@ export const routes: Routes = [
         // más es un módulo más de dibujo para leer en el mesón.
         path: 'r/:token',
         title: 'Reserva — FEDAL Tennis Center',
+        data: { indexar: false },
         loadComponent: () =>
           import('./reservas/reserva-publica').then((m) => m.ReservaPublicaPagina),
       },
@@ -157,6 +211,8 @@ export const routes: Routes = [
     path: '',
     // El panel y entrar se bajan con su ruta: el arranque trae solo el sitio público (I6).
     loadComponent: () => import('./cascarones/cascaron-auth').then((m) => m.CascaronAuth),
+    // T353 (A4): entrar, crear cuenta y los enlaces de los correos, fuera de los buscadores.
+    data: { indexar: false },
     children: [
       {
         path: 'entrar',
@@ -203,6 +259,8 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./cascarones/cascaron-admin').then((m) => m.CascaronAdmin),
     canActivateChild: [conPanel],
+    // T353 (A4): el panel entero, y una pantalla nueva también, fuera de los buscadores.
+    data: { indexar: false },
     children: [
       {
         path: 'administracion/reservas',
@@ -510,5 +568,19 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: '' },
+  {
+    // T355 (SPEC-seo.md A9): una dirección que no existe dice que no está, sin redirigir a la
+    // portada. **Va última y con su propio cascarón:** dentro del primer grupo, el comodín se
+    // tragaría /entrar y el panel antes de que el router probara los otros dos.
+    path: '',
+    component: CascaronPublico,
+    children: [
+      {
+        path: '**',
+        title: 'Página no encontrada — FEDAL Tennis Center',
+        data: { indexar: false },
+        loadComponent: () => import('./club/no-encontrada').then((m) => m.NoEncontrada),
+      },
+    ],
+  },
 ];

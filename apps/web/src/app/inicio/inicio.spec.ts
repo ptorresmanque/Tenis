@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
@@ -12,7 +14,7 @@ import {
   horaEnElClub,
   mananaEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
-import { Club, LugarDelClub } from '../club/club.service';
+import { Club, DatosDelClub, LugarDelClub } from '../club/club.service';
 import { Auth, UsuarioActual } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
 import { Inicio } from './inicio';
@@ -55,10 +57,12 @@ describe('Inicio', () => {
     torneos: TorneoPublico[] | Error,
     delDia: (fecha: string) => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
     // Sin usuario, nadie entró. Con él, basta lo que la portada mira: la ficha de socio.
-    { esperar, tienda, usuario = null } = { esperar: true } as {
+    { esperar, tienda, usuario = null, club = {} } = { esperar: true } as {
       esperar: boolean;
       tienda?: LugarDelClub;
       usuario?: Pick<UsuarioActual, 'id' | 'socioId'> | null;
+      /** Lo demás del club: la dirección, para los datos estructurados (T357). */
+      club?: Partial<DatosDelClub>;
     },
   ) => {
     const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
@@ -66,6 +70,9 @@ describe('Inicio', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        // Los datos estructurados piden el horario (T357), solo si el club tiene dirección.
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: Disponibilidad, useValue: { delDia: vi.fn(delDia) } },
         { provide: Auth, useValue: { usuario: signal(usuario) } },
         // La tienda y la cafetería (T186): vacías salvo que el test diga otra cosa.
@@ -73,6 +80,7 @@ describe('Inicio', () => {
           provide: Club,
           useValue: {
             datos: signal({
+              ...club,
               tienda: tienda ?? vacio,
               cafeteria: vacio,
               gimnasio: { ...vacio, tarifas: [] },
@@ -98,6 +106,24 @@ describe('Inicio', () => {
 
   const elemento = () => fixture.nativeElement as HTMLElement;
   const texto = () => elemento().textContent ?? '';
+
+  // T357 (SPEC-seo.md A8).
+  it('**publica el club en el <head> y lo quita al salir**', async () => {
+    const bloque = () => document.head.querySelector('script[type="application/ld+json"]');
+    await montar([], undefined, {
+      esperar: false,
+      club: { nombre: 'FEDAL Tennis Center', direccion: 'Lircay lt 42, Temuco' },
+    });
+    fixture.detectChanges();
+
+    expect(JSON.parse(bloque()?.textContent ?? '{}')).toMatchObject({
+      '@type': 'SportsActivityLocation',
+      address: { streetAddress: 'Lircay lt 42, Temuco' },
+    });
+
+    fixture.destroy();
+    expect(bloque()).toBeNull();
+  });
 
   it('**anuncia los torneos con inscripción abierta**', async () => {
     await montar([ABIERTO]);

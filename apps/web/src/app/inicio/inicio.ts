@@ -22,6 +22,7 @@ import { aceptaInscripciones, Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
+import { publicarElClub } from '../seo/datos-estructurados';
 
 /**
  * La portada.
@@ -579,6 +580,11 @@ export class Inicio {
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly auth = inject(Auth);
   private readonly torneos = inject(Torneos);
+
+  constructor() {
+    // El club para Google, con su dirección y su horario (T357).
+    publicarElClub();
+  }
 
   /**
    * El calendario del año, para quedarse solo con lo que se puede inscribir hoy.

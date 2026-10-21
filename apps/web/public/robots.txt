@@ -1,0 +1,9 @@
+# fedal.cl (SPEC-seo.md A5). Lo que no es para buscadores lleva además noindex (A4).
+# /api/ no se bloquea: Googlebot la pide al renderizar, y las fotos de torneo salen de ahí.
+User-agent: *
+Disallow: /administracion
+Disallow: /estado
+Disallow: /mi-cuenta
+Disallow: /api/auth/
+
+Sitemap: https://fedal.cl/sitemap.xml
