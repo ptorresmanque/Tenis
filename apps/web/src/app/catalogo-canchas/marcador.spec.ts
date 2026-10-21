@@ -218,6 +218,7 @@ describe('Marcador', () => {
           [elegida]="elegida()"
           [sinVenta]="sinVenta"
           [etiqueta]="etiqueta"
+          [bajoLaLinea]="bajoLaLinea()"
           (elegir)="elegidas.push($event)"
         />
       `,
@@ -225,6 +226,7 @@ describe('Marcador', () => {
     class HostQueElige {
       readonly grillas = signal<GrillaDeCancha[]>([]);
       readonly elegida = signal<Elegida>(null);
+      readonly bajoLaLinea = signal(false);
       readonly elegidas: { cancha: Cancha; bloque: BloqueDisponible }[] = [];
       sinVenta = (bloque: BloqueDisponible): string | null =>
         bloque.montoClp === null ? 'No se arrienda por 1 hora y media' : null;
@@ -391,6 +393,24 @@ describe('Marcador', () => {
      * cada fila es un inicio, así que una hora ocupa dos filas y la hora y media tres. Marcar
      * solo la de inicio no decía hasta cuándo quedaba tomada la cancha.
      */
+    /**
+     * T350 (SPEC-sitio.md, Decimoctava parte, C3): en grande, al bajar aparece la línea de lo
+     * elegido fija bajo el encabezado, y los nombres de las canchas quedaban detrás de ella.
+     */
+    it('**los nombres de las canchas se pegan bajo la línea cuando está a la vista**', () => {
+      const { fixture, el } = montarQueElige([{ cancha: cancha(1), bloques: [bloque(1, enHoras(2))] }]);
+      const nombres = () => [...el.querySelectorAll('thead th')].map((th) => th.className);
+
+      expect(nombres().every((clases) => clases.includes('sm:top-16'))).toBe(true);
+
+      fixture.componentInstance.bajoLaLinea.set(true);
+      fixture.detectChanges();
+
+      // 64 px del encabezado y 58 de la línea: 122 px, sm:top-30.5.
+      expect(nombres().every((clases) => clases.includes('sm:top-30.5'))).toBe(true);
+      expect(nombres().some((clases) => clases.includes('sm:top-16'))).toBe(false);
+    });
+
     describe('la elección marca toda la hora', () => {
       const MEDIA = 30 * 60 * 1000;
       const inicio = enHoras(2);

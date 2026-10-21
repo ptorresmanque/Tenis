@@ -164,15 +164,17 @@ const claveDe = (canchaId: number, inicio: string) =>
                         @if (modo() === 'elegir') {
                           <!-- Los scroll-m*: al moverse con las flechas, la celda con foco no queda
                                bajo lo pegado (WCAG 2.4.11): arriba, el encabezado y la línea del
-                               teléfono (unos 122 px); abajo, la barra de la elección (167); a la
-                               izquierda, la columna de la hora (64), cuando el tablero se desplaza. -->
+                               teléfono (unos 122 px) y, desde sm, también los nombres de las canchas
+                               (hasta 200 px con la línea, T350); abajo, la barra de la elección
+                               (167); a la izquierda, la columna de la hora (64), cuando el tablero
+                               se desplaza. -->
                           <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
                                que cambia es la placa, la marca y aria-pressed. La marca va arriba
                                del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
                           @let marcada = esLaElegida(celda);
                           <button
                             type="button"
-                            class="flex h-full w-full scroll-mt-32 scroll-mb-44 scroll-ms-18 cursor-pointer
+                            class="flex h-full w-full scroll-mt-32 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
                                    items-center justify-center gap-0.5 border font-display text-sm
                                    font-bold tracking-wider uppercase transition-transform
                                    active:scale-95"
@@ -343,6 +345,12 @@ export class Marcador {
     (cancha, bloque) => `Elegir la ${cancha.nombre} a las ${horaEnElClub(bloque.inicio)}`,
   );
 
+  /**
+   * Si la línea de lo elegido está a la vista sobre el tablero (T350): en grande aparece fija bajo
+   * el encabezado al bajar (T349), y los nombres de las canchas se pegan debajo de ella.
+   */
+  readonly bajoLaLinea = input(false);
+
   /** Si la leyenda dice el arriendo de la hora prime: al socio, que no paga, no (T265). */
   readonly arriendo = input(true);
 
@@ -355,7 +363,10 @@ export class Marcador {
    * el tablero de hoy es corto y se desplaza de lado.
    */
   protected readonly pegado = computed(() =>
-    this.modo() === 'elegir' ? 'sm:sticky sm:top-16 sm:z-20' : '',
+    this.modo() !== 'elegir'
+      ? ''
+      : // Bajo el encabezado (64 px) o, con la línea de lo elegido, bajo los dos (64 + 58).
+        `sm:sticky sm:z-20 ${this.bajoLaLinea() ? 'sm:top-30.5' : 'sm:top-16'}`,
   );
 
   /** "20:00", el fin de la elegida, para la última celda que la sigue (T344). */

@@ -452,6 +452,16 @@ describe('Grilla', () => {
       );
     });
 
+    it('**con la línea a la vista, el tablero pega los nombres de las canchas debajo** (T350)', async () => {
+      const nombres = () => el().querySelector('app-marcador thead th')!.className;
+      await controles(true);
+      expect(nombres()).toContain('sm:top-16');
+
+      await controles(false);
+
+      expect(nombres()).toContain('sm:top-30.5');
+    });
+
     it('en el teléfono se ve siempre: lo que la esconde vale solo desde sm', async () => {
       await controles(true);
 

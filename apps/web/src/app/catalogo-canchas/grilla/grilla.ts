@@ -335,6 +335,7 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
           [sinVenta]="sinVenta"
           [etiqueta]="etiquetaDeCelda"
           [arriendo]="!esSocio()"
+          [bajoLaLinea]="!controlesALaVista()"
           (elegir)="elegirCelda($event)"
         />
       </section>
