@@ -373,6 +373,32 @@ describe('Grilla', () => {
       DIA[0],
     ];
     const barra = () => el().querySelector('app-barra-fija') as HTMLElement;
+
+    it('**la hora elegida se marca entera**: con 1 hora, dos celdas (T344)', async () => {
+      // Inicios cada media hora, como los manda la API: una hora ocupa dos filas.
+      const SEGUIDAS: GrillaDeCancha[] = [
+        {
+          cancha: DIA[0].cancha,
+          bloques: ['12:00', '12:30', '13:00'].map((hora) => {
+            const inicio = `2026-08-17T${hora}:00.000Z`;
+            return {
+              ...DIA[0].bloques[0],
+              inicio,
+              fin: new Date(Date.parse(inicio) + 60 * 60 * 1000).toISOString(),
+            };
+          }),
+        },
+      ];
+      await montar(SEGUIDAS);
+
+      celdaDe('08:00', 1).querySelector('button')!.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(el().querySelectorAll('app-marcador [data-en-la-eleccion]')).toHaveLength(2);
+      expect(celdaDe('08:30', 1).textContent).toContain('Parte de tu elección');
+    });
+
     const elegirLaDeLas8 = async (columna = 1) => {
       celdaDe('08:00', columna).querySelector('button')!.click();
       await fixture.whenStable();

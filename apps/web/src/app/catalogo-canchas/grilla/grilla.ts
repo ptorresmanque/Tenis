@@ -487,7 +487,13 @@ export class Grilla {
   /** La marcada, como la lee el tablero. */
   protected readonly laElegida = computed(() => {
     const eleccion = this.elegido();
-    return eleccion && { canchaId: eleccion.cancha.id, inicio: eleccion.bloque.inicio };
+    return (
+      eleccion && {
+        canchaId: eleccion.cancha.id,
+        inicio: eleccion.bloque.inicio,
+        fin: eleccion.bloque.fin,
+      }
+    );
   });
 
   /** El que ya pasó por "Reservar" y tiene el formulario abierto encima. */
