@@ -191,11 +191,15 @@ describe('ConfirmacionReserva', () => {
       expect(invitacion(el)?.getAttribute('href')).toBe('/el-club#titulo-contacto');
     });
 
-    it('al socio no le ofrece lo que ya es', async () => {
-      const el = await montar(7, 0);
+    it('al socio no le ofrece lo que ya es, aunque esa hora la haya pagado', async () => {
+      // Con 0 lo callaría el monto; con un cobro (la hora prime, si algún día se le cobra)
+      // lo calla que ya es socio.
+      for (const pagado of [0, 5_000]) {
+        const el = await montar(7, pagado);
 
-      expect(el.textContent).not.toContain('¿Juegas seguido?');
-      expect(invitacion(el)).toBeUndefined();
+        expect(el.textContent, `pagó ${pagado}`).not.toContain('¿Juegas seguido?');
+        expect(invitacion(el)).toBeUndefined();
+      }
     });
   });
 });

@@ -75,7 +75,7 @@ describe('El selector de día', () => {
 
   it('escribir el día a mano sigue andando', async () => {
     const { fixture, el } = await montar();
-    const campo = el.querySelector<HTMLInputElement>('input#fecha')!;
+    const campo = el.querySelector<HTMLInputElement>('input[placeholder="dd-mm-aaaa"]')!;
 
     campo.value = '22-10-2026';
     campo.dispatchEvent(new Event('input'));

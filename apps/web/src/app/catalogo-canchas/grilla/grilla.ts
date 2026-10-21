@@ -240,15 +240,6 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       </mat-expansion-panel>
     }
 
-    <!--
-      EL DÍA, EN EL TABLERO DE LA PORTADA (T265).
-
-      El mismo de "Libre hoy", sobre la misma banda de campo: el usuario pidió el
-      2026-10-15 que disponibilidad se viera igual (SPEC-revision-qa.md, A1), y eso deja
-      atrás la tabla por tipo de cancha de T103. La celda libre elige su cancha, y lo que
-      cuesta se dice una vez arriba y en la barra al elegir: en cada celda serían ocho
-      montos por hora.
-    -->
     <!-- LO ELEGIDO, A MANO EN EL TELÉFONO (T345, SPEC-sitio.md M2 y B3). Arriba, los controles
          ocupan media pantalla y se pierden al bajar por el tablero: había quien no sabía que
          podía cambiar el día o la duración. La línea queda pegada bajo el encabezado (64 px) y
@@ -267,6 +258,15 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
       </button>
     </div>
 
+    <!--
+      EL DÍA, EN EL TABLERO DE LA PORTADA (T265).
+
+      El mismo de "Libre hoy", sobre la misma banda de campo: el usuario pidió el
+      2026-10-15 que disponibilidad se viera igual (SPEC-revision-qa.md, A1), y eso deja
+      atrás la tabla por tipo de cancha de T103. La celda libre elige su cancha, y lo que
+      cuesta se dice una vez arriba y en la barra al elegir: en cada celda serían ocho
+      montos por hora.
+    -->
     @if (!sinHoraYMediaEnElDia() && hayHorasPorDelante()) {
       <section
         class="a-sangre mt-6 bg-campo px-sangre-4 py-6 text-on-campo sm:px-sangre-6"

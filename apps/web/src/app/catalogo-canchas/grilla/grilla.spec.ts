@@ -257,6 +257,13 @@ describe('Grilla', () => {
       expect(resumen()).toContain('Lun 17 ago · 1 hora · Con iluminación');
     });
 
+    it('**con la hoja abierta no se repite ningún id**: cada etiqueta nombra su campo', async () => {
+      await abrir();
+      const ids = [...document.querySelectorAll('[id]')].map((nodo) => nodo.id);
+
+      expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    });
+
     it('«Listo» cierra la hoja', async () => {
       await abrir();
       [...hoja()!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Listo')!.click();
@@ -915,7 +922,9 @@ describe('Grilla', () => {
   it('el selector de día también se anuncia como clickeable', () => {
     // Desde T244, la manito y el borde que responde los pone `abre-al-tocar` en su
     // mat-form-field (tema-material.scss).
-    const fecha = (fixture.nativeElement as HTMLElement).querySelector('#fecha');
+    const fecha = (fixture.nativeElement as HTMLElement).querySelector(
+      'input[placeholder="dd-mm-aaaa"]',
+    );
 
     expect(fecha?.closest('mat-form-field')?.classList.contains('abre-al-tocar')).toBe(true);
   });
