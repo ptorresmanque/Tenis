@@ -13,7 +13,7 @@ import sharp from 'sharp';
 
 const web = fileURLToPath(new URL('..', import.meta.url));
 const fotos = join(web, 'public/fotos');
-const ANCHOS = [640, 1080, 1600];
+const ANCHOS = [640, 960, 1080, 1600];
 // La vista aérea de la portada es la que mide el LCP de su página y la más pesada de las de
 // cabecera: en 75 pesaba 112 KB en 1080 px y el LCP no bajaba de 2,5 s (T370). En 60, bajo el
 // velo azul de la portada, no se nota.

@@ -22,9 +22,10 @@ const ANCHO: Record<Proporcion, number> = {
 
 /**
  * Los anchos de las variantes WebP de cada foto de `public/fotos/` (T366, SPEC-seo.md A10). Las
- * genera `scripts/variantes-de-fotos.mjs`, y se versionan junto a la foto.
+ * genera `scripts/variantes-de-fotos.mjs`, y se versionan junto a la foto. La de 960 es de T370: un
+ * teléfono de 390 px pide 683 a 780 px, y con la de 1080 la portada no bajaba de 2,5 s de LCP.
  */
-export const ANCHOS_DE_FOTO = [640, 1080, 1600] as const;
+export const ANCHOS_DE_FOTO = [640, 960, 1080, 1600] as const;
 
 /**
  * La URL de la variante que el navegador pide para un ancho: la de arriba, porque una más chica se

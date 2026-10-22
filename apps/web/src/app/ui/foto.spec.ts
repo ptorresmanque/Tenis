@@ -118,8 +118,9 @@ describe('Foto', () => {
     expect(caja()).not.toBe(uno);
   });
 
-  // T366 (SPEC-seo.md A10). Las fotos del sitio en WebP de tres anchos, y el navegador elige.
-  it('**con una foto del sitio, el navegador elige entre tres WebP**', () => {
+  // T366 (SPEC-seo.md A10). Las fotos del sitio en WebP de varios anchos, y el navegador elige. El
+  // de 960 es de T370: un teléfono de 390 px pide 683 a 780 px, y recibía la de 1080.
+  it('**con una foto del sitio, el navegador elige entre cuatro WebP**', () => {
     const { fixture, host, el } = montar();
     host.src.set('/fotos/el-club.jpg');
     fixture.detectChanges();
@@ -127,7 +128,8 @@ describe('Foto', () => {
     const img = el.querySelector('img');
     expect(img?.getAttribute('src')).toBe('/fotos/el-club-1080.webp');
     expect(img?.getAttribute('srcset')).toBe(
-      '/fotos/el-club-640.webp 640w, /fotos/el-club-1080.webp 1080w, /fotos/el-club-1600.webp 1600w',
+      '/fotos/el-club-640.webp 640w, /fotos/el-club-960.webp 960w, /fotos/el-club-1080.webp 1080w, ' +
+        '/fotos/el-club-1600.webp 1600w',
     );
   });
 });
@@ -135,9 +137,11 @@ describe('Foto', () => {
 describe('cargadorDeFotos (T366)', () => {
   it.each([
     [640, '/fotos/malla-640.webp'],
+    [960, '/fotos/malla-960.webp'],
     [1080, '/fotos/malla-1080.webp'],
     // Un ancho entre dos, a la variante de arriba: más chica se vería borrosa.
-    [900, '/fotos/malla-1080.webp'],
+    [700, '/fotos/malla-960.webp'],
+    [1000, '/fotos/malla-1080.webp'],
     [2400, '/fotos/malla-1600.webp'],
     [undefined, '/fotos/malla-1080.webp'],
   ])('ancho %s → %s', (width, url) => {
@@ -157,7 +161,7 @@ describe('las variantes de public/fotos', () => {
   const carpeta = join(process.cwd(), 'public/fotos');
   const fotos = readdirSync(carpeta).filter((archivo) => archivo.endsWith('.jpg'));
 
-  it.each(fotos)('%s tiene sus tres WebP', (foto) => {
+  it.each(fotos)('%s tiene un WebP por cada ancho', (foto) => {
     for (const ancho of ANCHOS_DE_FOTO) {
       expect(existsSync(join(carpeta, foto.replace(/\.jpg$/, `-${ancho}.webp`)))).toBe(true);
     }
