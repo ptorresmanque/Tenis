@@ -38,9 +38,12 @@ function puertoLibre() {
 async function apache(ambiente) {
   const dir = mkdtempSync(join(tmpdir(), `htaccess-${ambiente}-`));
   const docroot = join(dir, 'docroot');
-  escribir(join(docroot, 'index.html'), 'SPA');
+  // Como lo deja el build con prerender (T360): la portada y El club salen como HTML, y lo que
+  // se dibuja en el navegador carga index.csr.html.
+  escribir(join(docroot, 'index.html'), 'portada');
+  escribir(join(docroot, 'index.csr.html'), 'SPA');
   escribir(join(docroot, 'chunk-A.js'), 'js');
-  escribir(join(docroot, 'reservar/index.html'), 'prerender');
+  escribir(join(docroot, 'el-club/index.html'), 'prerender');
   escribir(join(docroot, 'media/logo.svg'), 'svg');
   escribir(join(docroot, 'robots.txt'), 'robots');
   escribir(join(docroot, 'sitemap.xml'), 'sitemap');
@@ -155,21 +158,36 @@ describe('htaccess.qa', { skip: saltar }, () => {
     assert.doesNotMatch(respuesta.cabecera, /www-authenticate/);
   });
 
-  test('sirve la SPA, sin caché para index.html y con noindex', () => {
+  test('sirve la portada prerenderizada, sin caché y con noindex', () => {
     // Abierto, pero fuera de los buscadores: no es el sitio del club.
     const respuesta = qa('/');
-    assert.equal(respuesta.cuerpo, 'SPA');
+    assert.equal(respuesta.cuerpo, 'portada');
     assert.match(respuesta.cabecera, /cache-control: no-cache/);
     assert.match(respuesta.cabecera, /x-robots-tag: noindex, nofollow/);
   });
 
-  test('una ruta de la SPA sin archivo carga index.html', () => {
-    assert.equal(qa('/socio/reservas').cuerpo, 'SPA');
+  // T361: con el prerender, index.html es la portada; lo del navegador carga index.csr.html.
+  test('**una ruta de la SPA sin archivo carga index.csr.html, sin caché**', () => {
+    const respuesta = qa('/socio/reservas');
+    assert.equal(respuesta.cuerpo, 'SPA');
+    assert.match(respuesta.cabecera, /cache-control: no-cache/);
   });
 
-  test('los archivos y las rutas prerenderizadas se sirven tal cual', () => {
+  test('**una ruta prerenderizada se sirve sin barra final y sin redirigir**', () => {
+    const respuesta = qa('/el-club');
+    assert.equal(respuesta.estado, 200);
+    assert.equal(respuesta.cuerpo, 'prerender');
+    assert.match(respuesta.cabecera, /cache-control: no-cache/);
+  });
+
+  test('con barra final redirige a la URL sin barra: una sola URL por página', () => {
+    const respuesta = qa('/el-club/');
+    assert.equal(respuesta.estado, 301);
+    assert.match(respuesta.cabecera, /location: https:\/\/qa\.fedal\.cl\/el-club\r?\n/);
+  });
+
+  test('los archivos se sirven tal cual', () => {
     assert.equal(qa('/chunk-A.js').cuerpo, 'js');
-    assert.equal(qa('/reservar/').cuerpo, 'prerender');
   });
 
   test('/api no pasa por la SPA', () => {
@@ -207,7 +225,7 @@ describe('htaccess.qa', { skip: saltar }, () => {
   });
 
   test('una carpeta sin index.html no se lista', () => {
-    assert.equal(qa('/media/').estado, 403);
+    assert.doesNotMatch(qa('/media').cuerpo, /Index of|logo\.svg/);
   });
 
   test('por HTTP redirige a HTTPS', () => {
@@ -238,16 +256,35 @@ describe('htaccess.prod', { skip: saltar }, () => {
   });
   after(() => servidor?.cerrar());
 
-  test('sirve la SPA sin clave y sin noindex', () => {
+  test('sirve la portada prerenderizada sin clave y sin noindex', () => {
     const respuesta = prod('/');
     assert.equal(respuesta.estado, 200);
-    assert.equal(respuesta.cuerpo, 'SPA');
+    assert.equal(respuesta.cuerpo, 'portada');
     assert.match(respuesta.cabecera, /cache-control: no-cache/);
     assert.doesNotMatch(respuesta.cabecera, /x-robots-tag/);
   });
 
-  test('una ruta de la SPA sin archivo carga index.html', () => {
-    assert.equal(prod('/socio/reservas').cuerpo, 'SPA');
+  test('**una ruta de la SPA sin archivo carga index.csr.html, sin caché**', () => {
+    const respuesta = prod('/socio/reservas');
+    assert.equal(respuesta.cuerpo, 'SPA');
+    assert.match(respuesta.cabecera, /cache-control: no-cache/);
+  });
+
+  test('una URL que no existe también carga index.csr.html: la SPA dice «No encontrada»', () => {
+    assert.equal(prod('/no-existe').cuerpo, 'SPA');
+  });
+
+  test('**una ruta prerenderizada se sirve sin barra final y sin redirigir**', () => {
+    const respuesta = prod('/el-club');
+    assert.equal(respuesta.estado, 200);
+    assert.equal(respuesta.cuerpo, 'prerender');
+    assert.match(respuesta.cabecera, /cache-control: no-cache/);
+  });
+
+  test('con barra final redirige a la URL sin barra, con la consulta', () => {
+    const respuesta = prod('/el-club/?a=1');
+    assert.equal(respuesta.estado, 301);
+    assert.match(respuesta.cabecera, /location: https:\/\/fedal\.cl\/el-club\?a=1\r?\n/);
   });
 
   // Antes de T352 no existían, y los buscadores recibían la SPA con un 200 (SPEC-seo.md).
@@ -268,7 +305,7 @@ describe('htaccess.prod', { skip: saltar }, () => {
   });
 
   test('una carpeta sin index.html no se lista', () => {
-    assert.equal(prod('/media/').estado, 403);
+    assert.doesNotMatch(prod('/media').cuerpo, /Index of|logo\.svg/);
   });
 
   test('por HTTP redirige a HTTPS', () => {
