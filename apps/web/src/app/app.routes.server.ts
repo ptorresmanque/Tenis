@@ -4,7 +4,15 @@ import { RenderMode, ServerRoute } from '@angular/ssr';
  * Las rutas que salen del build como HTML (T360, SPEC-seo.md A1). Las usa también la verificación
  * del build (`scripts/verificar-prerender.mjs`), que las lee de acá.
  */
-export const RUTAS_PRERENDERIZADAS = ['', 'disponibilidad', 'el-club'];
+export const RUTAS_PRERENDERIZADAS = [
+  '',
+  'disponibilidad',
+  'clases',
+  'torneos',
+  'tours',
+  'ranking',
+  'el-club',
+];
 
 /**
  * Cómo se dibuja cada ruta: las de la lista, al compilar; el resto (la cuenta, el panel, entrar,

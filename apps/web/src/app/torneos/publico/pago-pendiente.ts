@@ -1,4 +1,4 @@
-import { DestroyRef, inject } from '@angular/core';
+import { afterNextRender, DestroyRef, inject } from '@angular/core';
 
 import { VarianteAviso } from '../../ui/aviso';
 import { Torneos } from '../torneos.service';
@@ -94,6 +94,9 @@ export const AVISOS_DEL_PAGO: Record<string, { variante: VarianteAviso; texto: s
  *
  * No mira `?pago=` para decidir: si la persona pagó, su inscripción ya no está pendiente y el
  * servidor no suelta nada (`soltada: false`), así que la llamada es inofensiva.
+ *
+ * **Solo en el navegador** (T363): la marca vive en `sessionStorage` y `pageshow` es de `window`,
+ * y en el prerender no existe ninguno de los dos. Por eso todo va en `afterNextRender`.
  */
 export function soltarSiVolvioSinPagar(alSoltar: () => void): void {
   const api = inject(Torneos);
@@ -105,8 +108,11 @@ export function soltarSiVolvioSinPagar(alSoltar: () => void): void {
     if (soltada) alSoltar();
   };
 
-  void soltar();
-  const alVolver = () => void soltar();
-  window.addEventListener('pageshow', alVolver);
-  inject(DestroyRef).onDestroy(() => window.removeEventListener('pageshow', alVolver));
+  const destruir = inject(DestroyRef);
+  afterNextRender(() => {
+    void soltar();
+    const alVolver = () => void soltar();
+    window.addEventListener('pageshow', alVolver);
+    destruir.onDestroy(() => window.removeEventListener('pageshow', alVolver));
+  });
 }

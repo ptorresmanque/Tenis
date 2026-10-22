@@ -39,65 +39,71 @@ import { TablaInterna } from './tabla-interna';
       </p>
     </section>
 
-    @if (tours.error()) {
-      <p class="mt-6 text-destructive">No se pudo cargar el ranking. Reintenta en un momento.</p>
-    } @else if (tours.isLoading()) {
-      <app-esqueleto class="mt-6 block" [filas]="6" etiqueta="Cargando el ranking…" />
-    } @else if (tours.value().length === 0) {
-      <app-estado-vacio
-        class="mt-6 block"
-        icono="military_tech"
-        titulo="Todavía no hay tours"
-        detalle="Cuando el club arme el primero, su ranking aparece acá."
-      />
-    } @else {
-      <!-- Tour y temporada; la categoría la pone la tabla, que es la que sabe cuáles
-           tienen resultados. Los tres van en la dirección. -->
-      <div class="mt-6 flex flex-wrap items-end gap-4">
-        <mat-form-field>
-          <mat-label>Tour</mat-label>
-          <mat-select
-            [value]="tourElegido()?.id"
-            name="tour"
-            (selectionChange)="elegirTour($event.value)"
-          >
-            @for (uno of tours.value(); track uno.id) {
-              <mat-option [value]="uno.id">
-                {{ uno.nombre }}
-              </mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        @if (temporadas().length > 0) {
+    <!-- Lo que viene de la API va en @defer (T363, SPEC-seo.md D1): el HTML del build
+         trae el esqueleto, no un error de carga. -->
+    @defer (on immediate) {
+      @if (tours.error()) {
+        <p class="mt-6 text-destructive">No se pudo cargar el ranking. Reintenta en un momento.</p>
+      } @else if (tours.isLoading()) {
+        <app-esqueleto class="mt-6 block" [filas]="6" etiqueta="Cargando el ranking…" />
+      } @else if (tours.value().length === 0) {
+        <app-estado-vacio
+          class="mt-6 block"
+          icono="military_tech"
+          titulo="Todavía no hay tours"
+          detalle="Cuando el club arme el primero, su ranking aparece acá."
+        />
+      } @else {
+        <!-- Tour y temporada; la categoría la pone la tabla, que es la que sabe cuáles
+             tienen resultados. Los tres van en la dirección. -->
+        <div class="mt-6 flex flex-wrap items-end gap-4">
           <mat-form-field>
-            <mat-label>Temporada</mat-label>
+            <mat-label>Tour</mat-label>
             <mat-select
-              [value]="temporadaElegida()"
-              name="temporada"
-              (selectionChange)="elegirTemporada($event.value)"
+              [value]="tourElegido()?.id"
+              name="tour"
+              (selectionChange)="elegirTour($event.value)"
             >
-              @for (una of temporadas(); track una.id) {
-                <mat-option [value]="una.id">
-                  {{ una.nombre }}
+              @for (uno of tours.value(); track uno.id) {
+                <mat-option [value]="uno.id">
+                  {{ uno.nombre }}
                 </mat-option>
               }
             </mat-select>
           </mat-form-field>
-        }
-      </div>
 
-      @if (temporadaElegida(); as temporadaId) {
-        <app-tabla-de-tour
-          [temporadaId]="temporadaId"
-          [categoriaId]="categoriaElegida()"
-          (categoria)="elegirCategoria($event)"
-        />
-      } @else if (tourDetalle.error()) {
-        <p class="mt-6 text-destructive">No se pudo cargar el tour. Reintenta en un momento.</p>
-      } @else if (tourDetalle.hasValue()) {
-        <p class="mt-6 text-muted-foreground">Este tour todavía no tiene temporadas.</p>
+          @if (temporadas().length > 0) {
+            <mat-form-field>
+              <mat-label>Temporada</mat-label>
+              <mat-select
+                [value]="temporadaElegida()"
+                name="temporada"
+                (selectionChange)="elegirTemporada($event.value)"
+              >
+                @for (una of temporadas(); track una.id) {
+                  <mat-option [value]="una.id">
+                    {{ una.nombre }}
+                  </mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+        </div>
+
+        @if (temporadaElegida(); as temporadaId) {
+          <app-tabla-de-tour
+            [temporadaId]="temporadaId"
+            [categoriaId]="categoriaElegida()"
+            (categoria)="elegirCategoria($event)"
+          />
+        } @else if (tourDetalle.error()) {
+          <p class="mt-6 text-destructive">No se pudo cargar el tour. Reintenta en un momento.</p>
+        } @else if (tourDetalle.hasValue()) {
+          <p class="mt-6 text-muted-foreground">Este tour todavía no tiene temporadas.</p>
+        }
       }
+    } @placeholder {
+      <app-esqueleto class="mt-6 block" [filas]="6" etiqueta="Cargando el ranking…" />
     }
 
     <!-- La tabla del club solo para socios: el endpoint la niega a los demás, y una

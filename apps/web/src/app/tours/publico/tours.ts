@@ -28,66 +28,74 @@ import { Tours } from '../tours.service';
       </p>
     </section>
 
-    @if (tours.isLoading()) {
-      <app-esqueleto class="mt-8 block" [filas]="4" etiqueta="Cargando los tours…" />
-    } @else if (tours.error()) {
-      <p class="mt-8 text-destructive">No se pudieron cargar los tours. Reintenta en un momento.</p>
-    } @else if (tours.value().length === 0) {
-      <app-estado-vacio
-        class="mt-8 block"
-        icono="military_tech"
-        titulo="Todavía no hay tours"
-        detalle="Cuando el club arme el primero, aparece acá con su temporada y su ranking."
-      />
-    } @else {
-      <ul class="mt-8 grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
-        @for (tour of tours.value(); track tour.id) {
-          <!-- Enlace estirado: el enlace es solo el nombre, que es lo que el lector de
-               pantalla anuncia, y su ::after cubre la tarjeta para tocarla en cualquier
-               parte. Con la tarjeta entera dentro del enlace, el lector leía como su nombre
-               la imagen, la temporada y el extracto completo. -->
-          <li class="relative overflow-hidden bg-card shadow-md aparece-al-pasar">
-            @if (tour.imagen; as imagen) {
-              <img
-                class="aspect-[16/9] w-full bg-muted object-cover"
-                [src]="imagen.web"
-                [alt]="'Imagen de ' + tour.nombre"
-                width="1600"
-                height="900"
-                loading="lazy"
-                decoding="async"
-              />
-            } @else {
-              <!-- Sin imagen, el nombre sobre el campo: un hueco gris diría que falta algo. -->
-              <div
-                class="flex aspect-[16/9] items-end bg-campo p-5 text-on-campo"
-                aria-hidden="true"
-              >
-                <span class="titular text-4xl">{{ tour.nombre }}</span>
-              </div>
-            }
-            <div class="p-5">
-              <h2 class="titulo-tarjeta">
-                <a
-                  [routerLink]="['/tours', tour.id]"
-                  class="text-primary after:absolute after:inset-0 hover:underline"
+    <!-- Lo que viene de la API va en @defer (T363, SPEC-seo.md D1): el HTML del build
+         trae el esqueleto, no un error de carga. -->
+    @defer (on immediate) {
+      @if (tours.isLoading()) {
+        <app-esqueleto class="mt-8 block" [filas]="4" etiqueta="Cargando los tours…" />
+      } @else if (tours.error()) {
+        <p class="mt-8 text-destructive">
+          No se pudieron cargar los tours. Reintenta en un momento.
+        </p>
+      } @else if (tours.value().length === 0) {
+        <app-estado-vacio
+          class="mt-8 block"
+          icono="military_tech"
+          titulo="Todavía no hay tours"
+          detalle="Cuando el club arme el primero, aparece acá con su temporada y su ranking."
+        />
+      } @else {
+        <ul class="mt-8 grid gap-6 md:grid-cols-2 2xl:grid-cols-3">
+          @for (tour of tours.value(); track tour.id) {
+            <!-- Enlace estirado: el enlace es solo el nombre, que es lo que el lector de
+                 pantalla anuncia, y su ::after cubre la tarjeta para tocarla en cualquier
+                 parte. Con la tarjeta entera dentro del enlace, el lector leía como su nombre
+                 la imagen, la temporada y el extracto completo. -->
+            <li class="relative overflow-hidden bg-card shadow-md aparece-al-pasar">
+              @if (tour.imagen; as imagen) {
+                <img
+                  class="aspect-[16/9] w-full bg-muted object-cover"
+                  [src]="imagen.web"
+                  [alt]="'Imagen de ' + tour.nombre"
+                  width="1600"
+                  height="900"
+                  loading="lazy"
+                  decoding="async"
+                />
+              } @else {
+                <!-- Sin imagen, el nombre sobre el campo: un hueco gris diría que falta algo. -->
+                <div
+                  class="flex aspect-[16/9] items-end bg-campo p-5 text-on-campo"
+                  aria-hidden="true"
                 >
-                  {{ tour.nombre }}
-                </a>
-              </h2>
-              @if (tour.temporadaVigente; as temporada) {
-                <p class="mt-1 text-sm font-medium text-muted-foreground">
-                  Temporada {{ temporada.nombre }}: del {{ enPalabras(temporada.fechaInicio) }} al
-                  {{ enPalabras(temporada.fechaFin) }}
-                </p>
+                  <span class="titular text-4xl">{{ tour.nombre }}</span>
+                </div>
               }
-              @if (tour.extracto) {
-                <p class="mt-3">{{ tour.extracto }}</p>
-              }
-            </div>
-          </li>
-        }
-      </ul>
+              <div class="p-5">
+                <h2 class="titulo-tarjeta">
+                  <a
+                    [routerLink]="['/tours', tour.id]"
+                    class="text-primary after:absolute after:inset-0 hover:underline"
+                  >
+                    {{ tour.nombre }}
+                  </a>
+                </h2>
+                @if (tour.temporadaVigente; as temporada) {
+                  <p class="mt-1 text-sm font-medium text-muted-foreground">
+                    Temporada {{ temporada.nombre }}: del {{ enPalabras(temporada.fechaInicio) }} al
+                    {{ enPalabras(temporada.fechaFin) }}
+                  </p>
+                }
+                @if (tour.extracto) {
+                  <p class="mt-3">{{ tour.extracto }}</p>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    } @placeholder {
+      <app-esqueleto class="mt-8 block" [filas]="4" etiqueta="Cargando los tours…" />
     }
   `,
 })
