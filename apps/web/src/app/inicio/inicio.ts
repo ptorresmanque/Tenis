@@ -307,9 +307,12 @@ import { publicarElClub } from '../seo/datos-estructurados';
       aria-labelledby="canchas"
     >
       <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4).
-           En @defer hasta que se acerca a la vista (T370): está tres bandas más abajo, y con
-           conexión lenta Chrome pedía esta foto diferida al cargar, junto con la principal, y le
-           quitaba ancho de banda a la que mide el LCP. El hueco ocupa lo mismo que la foto. -->
+           En @defer (T370): con conexión lenta, Chrome pedía esta foto diferida al leer el HTML,
+           junto con la principal, y le quitaba ancho de banda a la que mide el LCP. En el HTML
+           prerenderizado las bandas de la API todavía no están y esta queda en el primer
+           pantallazo, así que el disparador se cumple al hidratar: lo que se gana es que la foto
+           ya no sale en el HTML. El margen sirve si un día la banda queda más abajo. El hueco
+           ocupa lo mismo que la foto. -->
       @defer (on viewport({ rootMargin: '600px' })) {
         <app-foto
           descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las

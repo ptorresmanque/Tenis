@@ -359,10 +359,10 @@ describe('Inicio', () => {
     expect(banda.textContent).toContain(enPesos(9_000));
   });
 
-  // T370 (SPEC-seo.md, criterio 8). La foto de «Nuestras canchas» está tres bandas más abajo y es
-  // diferida, pero con conexión lenta Chrome la pedía al cargar, junto con la foto principal, y le
-  // quitaba ancho de banda a la que mide el LCP.
-  it('**la foto de «Nuestras canchas» no está en la página hasta que se acerca a la vista**', async () => {
+  // T370 (SPEC-seo.md, criterio 8). La foto de «Nuestras canchas» es diferida, pero con conexión
+  // lenta Chrome la pedía al leer el HTML, junto con la foto principal, y le quitaba ancho de banda a
+  // la que mide el LCP. Ahora no viene en el HTML: llega con su @defer, que se abre al hidratar.
+  it('**la foto de «Nuestras canchas» no viene en el HTML: llega con su @defer**', async () => {
     await montar([], undefined, { esperar: true, diferidos: DeferBlockBehavior.Manual });
     const banda = () => elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
 
