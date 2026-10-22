@@ -100,6 +100,13 @@ import { Tours } from '../tours.service';
   `,
 })
 export class ToursPublicos {
+  /**
+   * RouterLink se usa solo dentro del @defer: sin nombrarlo acá, Angular lo difiere con un import()
+   * de @angular/router entero, y como esa librería ya está en el arranque, ahí queda completa, sin
+   * poda (unos 15 kB, T363). Nombrado en la clase, se carga como siempre.
+   */
+  protected readonly sinDiferir = [RouterLink];
+
   private readonly api = inject(Tours);
 
   protected readonly tours = resource({

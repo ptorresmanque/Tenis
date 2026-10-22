@@ -312,6 +312,13 @@ import { eventosDeTorneos, publicar } from '../../seo/datos-estructurados';
   `,
 })
 export class TorneosPublicos {
+  /**
+   * MatButton se usa solo dentro del @defer: sin nombrarlo acá, Angular lo difiere con un import()
+   * de @angular/material/button entero, y como esa librería ya está en el arranque, ahí queda completa, sin
+   * poda (unos 15 kB, T363). Nombrado en la clase, se carga como siempre.
+   */
+  protected readonly sinDiferir = [MatButton];
+
   /** Las columnas de las categorías: con la inscripción abierta, y después. */
   protected readonly EN_INSCRIPCION = ['categoria', 'inscripcion', 'cupos', 'ver'];
   protected readonly DESPUES = ['categoria', 'cuadro', 'ver'];
