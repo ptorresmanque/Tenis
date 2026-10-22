@@ -3,6 +3,7 @@ import { CanActivateFn, Router, Routes } from '@angular/router';
 
 import { CascaronPublico } from './cascarones/cascaron-publico';
 import { conPanel } from './core/auth/con-panel.guard';
+import { conSesion } from './core/auth/con-sesion.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 
 /**
@@ -75,6 +76,8 @@ export const routes: Routes = [
         title: 'Mi cuenta — FEDAL Tennis Center',
         // T353 (A4): en el padre, vale para las tres pestañas.
         data: { indexar: false },
+        // Sin sesión, a Entrar. También en el padre, para las tres pestañas.
+        canActivate: [conSesion],
         // T318 (SPEC-sitio.md A8): las reservas, los partidos y la cuota del socio, en pestañas.
         loadComponent: () => import('./cuenta/mi-cuenta').then((m) => m.MiCuenta),
         children: [

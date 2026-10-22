@@ -20,6 +20,7 @@ import { CascaronAdmin, SECCIONES_DEL_PANEL } from './cascarones/cascaron-admin'
 import { CascaronAuth } from './cascarones/cascaron-auth';
 import { CascaronPublico } from './cascarones/cascaron-publico';
 import { conPanel } from './core/auth/con-panel.guard';
+import { conSesion } from './core/auth/con-sesion.guard';
 import { soloVisitantes } from './core/auth/solo-visitantes.guard';
 
 /**
@@ -226,6 +227,13 @@ describe('Rutas protegidas', () => {
   it('registro es solo para quien no tiene sesión', () => {
     expect(buscar('registro')?.guards).toContain(soloVisitantes);
   });
+
+  it.each(['reservas', 'partidos', 'cuota'])(
+    '/mi-cuenta/%s es solo para quien entró: sin sesión, la pestaña mostraba su error de carga',
+    (pestana) => {
+      expect(buscar(`mi-cuenta/${pestana}`)?.guards).toContain(conSesion);
+    },
+  );
 
   it('verificar-correo se abre con sesión: ahí llega el enlace del correo', () => {
     // Entrar no exige el correo verificado, así que quien abre el enlace puede
