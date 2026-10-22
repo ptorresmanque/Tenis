@@ -7,6 +7,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 
 const web = fileURLToPath(new URL('..', import.meta.url));
 const salida = process.argv[2] ?? join(web, 'dist/web/browser');
@@ -43,6 +44,10 @@ const hoy = [
     month: 'long',
   }).format(new Date()),
 ];
+
+// T372: con el arreglo baja 179,5 KB, y su LCP queda en ~2,35 s de los 2,5 de la meta (SPEC-seo.md,
+// criterio 8). En gzip de nivel 6, el de zlib por omisión: el de Apache en qa da un 0,3 % más.
+const TOPE_DEL_JS_DE_LA_PORTADA_KB = 185;
 
 const fallas = [];
 const exigir = (condicion, mensaje) => condicion || fallas.push(mensaje);
@@ -116,6 +121,36 @@ for (const ruta of rutas) {
     incrustado.some((css) => /data-modo=["']?oscuro["']?\]\)?\{[^}]*--color-background:/.test(css)),
     `${donde}: el CSS incrustado no trae el modo oscuro elegido (destello claro al cargar)`,
   );
+  // T372. El JS que la portada baja antes de arrancar le quita ancho de banda a la foto que mide el
+  // LCP. Es main, los modulepreload (los de la ruta, al final del body) y lo que esos importan: el
+  // HTML precarga hasta 10 chunks iniciales y 10 de la ruta, y el resto llega en cascada. Un import
+  // de más en Inicio lo hace crecer sin aviso: MatChipsModule y MatTableModule traían los
+  // formularios de Angular.
+  if (ruta === '') {
+    const js = new Set(
+      [
+        ...html.matchAll(/<link rel="modulepreload" href="([^"]+)"/g),
+        ...html.matchAll(/<script src="([^"]+)" type="module"/g),
+      ].map(([, archivo]) => archivo),
+    );
+    // Si Angular cambia cómo escribe las etiquetas, que falle y no que deje de contar.
+    exigir(
+      [...js].some((archivo) => /(^|\/)main-[\w-]+\.js$/.test(archivo)),
+      '/: no encontré el script de main entre el JS que pide',
+    );
+    // Los import estáticos (`import{a as b}from"./chunk-X.js"`), no los import() de los @defer.
+    for (const archivo of js)
+      for (const [, otro] of readFileSync(join(salida, archivo), 'utf8').matchAll(
+        /\bimport\s*(?:[^"'()]*?from\s*)?"\.\/([\w.-]+\.js)"/g,
+      ))
+        js.add(otro);
+    const bytes = [...js].map((archivo) => gzipSync(readFileSync(join(salida, archivo))).length);
+    const kb = bytes.reduce((total, b) => total + b, 0) / 1024;
+    exigir(
+      kb <= TOPE_DEL_JS_DE_LA_PORTADA_KB,
+      `/: baja ${kb.toFixed(1)} KB de JS en gzip antes de arrancar (el tope es ${TOPE_DEL_JS_DE_LA_PORTADA_KB})`,
+    );
+  }
 }
 
 if (fallas.length > 0) {

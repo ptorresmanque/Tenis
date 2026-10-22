@@ -1,8 +1,21 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
-import { MatTableModule } from '@angular/material/table';
-import { MatChipsModule } from '@angular/material/chips';
+// Las piezas y no los módulos: un NgModule no se puede diferir, y la tabla y los chips van
+// en el @defer de los torneos.
+import {
+  MatCell,
+  MatCellDef,
+  MatColumnDef,
+  MatHeaderCell,
+  MatHeaderCellDef,
+  MatHeaderRow,
+  MatHeaderRowDef,
+  MatRow,
+  MatRowDef,
+  MatTable,
+} from '@angular/material/table';
+import { MatChip, MatChipAvatar, MatChipSet } from '@angular/material/chips';
 import { MatIcon } from '@angular/material/icon';
 
 import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
@@ -58,8 +71,19 @@ import { publicarElClub } from '../seo/datos-estructurados';
     Foto,
     Marcador,
     TiendaYCafeteria,
-    MatTableModule,
-    MatChipsModule,
+    MatTable,
+    MatColumnDef,
+    MatHeaderCellDef,
+    MatHeaderCell,
+    MatCellDef,
+    MatCell,
+    MatHeaderRowDef,
+    MatHeaderRow,
+    MatRowDef,
+    MatRow,
+    MatChipSet,
+    MatChip,
+    MatChipAvatar,
     MatIcon,
   ],
   template: `
@@ -376,6 +400,11 @@ import { publicarElClub } from '../seo/datos-estructurados';
         cuándo, sobre su foto; la tabla, cuánto cuesta y cuánto lugar queda en
         cada categoría, que es lo que se compara.
       -->
+      <!-- La lista va en @defer: sin datos de la API la banda no se dibuja, así que nunca está en
+           el HTML prerenderizado, pero la portada bajaba al arrancar la tabla y los chips de
+           Material, que traen los formularios de Angular, junto con la foto que mide el LCP.
+           Adentro del @if, se piden solo si hay un torneo abierto. El título queda afuera: así
+           el enlace de la cinta ya tiene adónde ir mientras llega la lista, que crece hacia abajo. -->
       <section class="mt-16 aparece-al-pasar" aria-labelledby="torneos-abiertos">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="torneos-abiertos" class="titular text-5xl sm:text-6xl">
@@ -386,73 +415,75 @@ import { publicarElClub } from '../seo/datos-estructurados';
           </a>
         </div>
 
-        <ul class="mt-6 grid gap-6">
-          @for (torneo of abiertos(); track torneo.id) {
-            <li>
-              <!-- EL CARTEL (T314, SPEC-sitio.md D2): el afiche del torneo a la izquierda, entero, y
-                   al lado lo que se compara. Hasta T314 era una foto fija del club con el nombre
-                   encima; sobre un afiche, el nombre taparía lo que hay que leer. -->
-              <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
-                <mat-chip-set class="insignias self-start">
-                  <mat-chip class="insignia libre">
-                    <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
-                    Inscripción abierta
-                  </mat-chip>
-                </mat-chip-set>
-                <h3 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
-                <p class="mt-2 max-w-prose text-muted-foreground">
-                  Del {{ enPalabras(torneo.fechaInicio) }} al
-                  {{ enPalabras(torneo.fechaFin) }}. Inscríbete hasta el
-                  {{ enPalabras(torneo.cierreInscripcion) }}.
-                </p>
-                <table
-                  mat-table
-                  class="mt-5"
-                  [attr.aria-label]="'Categorías de ' + torneo.nombre"
-                  [dataSource]="torneo.categorias"
-                >
-                  <ng-container matColumnDef="categoria">
-                    <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
-                    <td
-                      mat-cell
-                      *matCellDef="let categoria"
-                      class="font-display text-2xl font-extrabold text-primary"
-                    >
-                      {{ categoria.categoria }}
-                    </td>
-                  </ng-container>
-                  <ng-container matColumnDef="inscripcion">
-                    <th mat-header-cell *matHeaderCellDef scope="col">Inscripción</th>
-                    <td mat-cell *matCellDef="let categoria">{{ precio(categoria.montoClp) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="cupos">
-                    <th mat-header-cell *matHeaderCellDef scope="col" class="numero">
-                      Cupos libres
-                    </th>
-                    <td mat-cell *matCellDef="let categoria" class="numero">
-                      @if (categoria.cuposLibres > 0) {
-                        {{ categoria.cuposLibres }} de {{ categoria.cupo }}
-                      } @else {
-                        <span class="font-semibold text-warning-strong">Lista de espera</span>
-                      }
-                    </td>
-                  </ng-container>
+        @defer (on immediate) {
+          <ul class="mt-6 grid gap-6">
+            @for (torneo of abiertos(); track torneo.id) {
+              <li>
+                <!-- EL CARTEL (T314, SPEC-sitio.md D2): el afiche del torneo a la izquierda, entero, y
+                     al lado lo que se compara. Hasta T314 era una foto fija del club con el nombre
+                     encima; sobre un afiche, el nombre taparía lo que hay que leer. -->
+                <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
+                  <mat-chip-set class="insignias self-start">
+                    <mat-chip class="insignia libre">
+                      <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
+                      Inscripción abierta
+                    </mat-chip>
+                  </mat-chip-set>
+                  <h3 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
+                  <p class="mt-2 max-w-prose text-muted-foreground">
+                    Del {{ enPalabras(torneo.fechaInicio) }} al
+                    {{ enPalabras(torneo.fechaFin) }}. Inscríbete hasta el
+                    {{ enPalabras(torneo.cierreInscripcion) }}.
+                  </p>
+                  <table
+                    mat-table
+                    class="mt-5"
+                    [attr.aria-label]="'Categorías de ' + torneo.nombre"
+                    [dataSource]="torneo.categorias"
+                  >
+                    <ng-container matColumnDef="categoria">
+                      <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
+                      <td
+                        mat-cell
+                        *matCellDef="let categoria"
+                        class="font-display text-2xl font-extrabold text-primary"
+                      >
+                        {{ categoria.categoria }}
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="inscripcion">
+                      <th mat-header-cell *matHeaderCellDef scope="col">Inscripción</th>
+                      <td mat-cell *matCellDef="let categoria">{{ precio(categoria.montoClp) }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="cupos">
+                      <th mat-header-cell *matHeaderCellDef scope="col" class="numero">
+                        Cupos libres
+                      </th>
+                      <td mat-cell *matCellDef="let categoria" class="numero">
+                        @if (categoria.cuposLibres > 0) {
+                          {{ categoria.cuposLibres }} de {{ categoria.cupo }}
+                        } @else {
+                          <span class="font-semibold text-warning-strong">Lista de espera</span>
+                        }
+                      </td>
+                    </ng-container>
 
-                  <tr mat-header-row *matHeaderRowDef="COLUMNAS_DE_CATEGORIAS; sticky: true"></tr>
-                  <tr mat-row *matRowDef="let categoria; columns: COLUMNAS_DE_CATEGORIAS"></tr>
-                </table>
+                    <tr mat-header-row *matHeaderRowDef="COLUMNAS_DE_CATEGORIAS; sticky: true"></tr>
+                    <tr mat-row *matRowDef="let categoria; columns: COLUMNAS_DE_CATEGORIAS"></tr>
+                  </table>
 
-                <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
-                  <span class="text-muted-foreground">Abierto a socios y visitantes</span>
-                  <a matButton="filled" [routerLink]="['/torneos', torneo.id, 'inscripcion']">
-                    Inscribirme
-                    <span class="sr-only">en {{ torneo.nombre }}</span>
-                  </a>
-                </div>
-              </app-cartel-del-torneo>
-            </li>
-          }
-        </ul>
+                  <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
+                    <span class="text-muted-foreground">Abierto a socios y visitantes</span>
+                    <a matButton="filled" [routerLink]="['/torneos', torneo.id, 'inscripcion']">
+                      Inscribirme
+                      <span class="sr-only">en {{ torneo.nombre }}</span>
+                    </a>
+                  </div>
+                </app-cartel-del-torneo>
+              </li>
+            }
+          </ul>
+        }
       </section>
     }
 
@@ -587,8 +618,13 @@ import { publicarElClub } from '../seo/datos-estructurados';
       portada por un café; quien baja hasta acá ya decidió venir. Sin descripción
       cargada, la banda no existe. Es la última desde que se fue el cierre (T305,
       SPEC-sitio.md D6): su «Ver disponibilidad» ya estaba en el hero y en «Libre hoy».
+
+      En @defer como los torneos: sus lugares salen de la API (el @if está adentro del
+      componente) y su tabla de tarifas es de Material.
     -->
-    <app-tienda-y-cafeteria forma="resumen" />
+    @defer (on immediate) {
+      <app-tienda-y-cafeteria forma="resumen" />
+    }
   `,
 })
 export class Inicio {

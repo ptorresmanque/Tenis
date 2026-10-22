@@ -1,7 +1,10 @@
 /* Las fuentes se sirven desde el propio sitio y no desde Google Fonts: así quien
-   entra no le pasa su IP a Google (ver la política de privacidad). Son los mismos
-   archivos que entregaba Google, solo el subconjunto latin, que cubre el español
-   entero. Angular les pone hash al nombre, así que el caché largo no estorba.
+   entra no le pasa su IP a Google (ver la política de privacidad). Las Barlow salen
+   de las que entregaba Google, el subconjunto latin, que cubre el español entero y
+   se guarda en fuentes/google/; scripts/fuentes-barlow.mjs les quita los nombres de
+   los glifos y las tablas que ubican los diacríticos combinables, que el sitio no usa:
+   un 10 % de cada una (T372).
+   Angular les pone hash al nombre, así que el caché largo no estorba.
    Licencias en fuentes/: OFL para Barlow, Apache 2.0 para Material Symbols. */
 
 @font-face {
