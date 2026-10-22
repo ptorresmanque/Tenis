@@ -57,12 +57,18 @@ describe('conSesion', () => {
     return TestBed.inject(Router).url;
   }
 
-  it.each(['/mi-cuenta', '/mi-cuenta/reservas', '/mi-cuenta/cuota', '/mis-reservas'])(
-    'sin sesión, %s lleva a Entrar',
-    async (url) => {
-      expect(await navegarCon(null, url)).toBe('/entrar');
-    },
-  );
+  // Con la pantalla a la que iba, para volver a ella después de entrar: los correos de cuota y
+  // de partidos enlazan directo a su pestaña. Las redirecciones corren antes que el guard, así
+  // que `/mi-cuenta` y `/mis-reservas` ya llegan como `/mi-cuenta/reservas`.
+  it.each([
+    ['/mi-cuenta', '/entrar?volver=%2Fmi-cuenta%2Freservas'],
+    ['/mi-cuenta/reservas', '/entrar?volver=%2Fmi-cuenta%2Freservas'],
+    ['/mi-cuenta/cuota', '/entrar?volver=%2Fmi-cuenta%2Fcuota'],
+    ['/mi-cuenta/partidos', '/entrar?volver=%2Fmi-cuenta%2Fpartidos'],
+    ['/mis-reservas', '/entrar?volver=%2Fmi-cuenta%2Freservas'],
+  ])('sin sesión, %s lleva a Entrar con la vuelta', async (url, entrar) => {
+    expect(await navegarCon(null, url)).toBe(entrar);
+  });
 
   it('con sesión, Mi cuenta abre en Reservas, aunque se entre directo por URL', async () => {
     expect(await navegarCon(SOCIA, '/mi-cuenta')).toBe('/mi-cuenta/reservas');
