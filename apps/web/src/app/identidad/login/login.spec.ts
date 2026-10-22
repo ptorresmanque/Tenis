@@ -56,20 +56,30 @@ describe('Login', () => {
     @Component({ template: '' })
     class Vacia {}
 
-    /** Entra con una sesión que el servidor acepta, desde `url`, y dice dónde terminó. */
-    async function entrarDesde(url: string): Promise<string> {
+    /**
+     * Pasa por `urls` en orden, entra con una sesión que el servidor acepta desde la
+     * última y dice dónde terminó.
+     */
+    async function entrarDesde(...urls: string[]): Promise<string> {
       TestBed.configureTestingModule({
         providers: [
           provideRouter([
             { path: '', pathMatch: 'full', component: Vacia },
             { path: 'entrar', component: Login },
             { path: 'mi-cuenta/cuota', component: Vacia },
+            // Una pantalla que se baja aparte y no llega: sin red, o un despliegue que
+            // reemplazó sus archivos.
+            {
+              path: 'administracion/canchas',
+              loadComponent: () => Promise.reject(new Error('No se pudo bajar la pantalla')),
+            },
             { path: '**', component: Vacia },
           ]),
           { provide: Auth, useValue: { entrar: () => Promise.resolve() } },
         ],
       });
-      const harness = await RouterTestingHarness.create(url);
+      const harness = await RouterTestingHarness.create();
+      for (const url of urls) await harness.navigateByUrl(url);
       const raiz = TestbedHarnessEnvironment.loader(harness.fixture);
 
       const campo = (nombre: string) =>
@@ -87,15 +97,32 @@ describe('Login', () => {
     });
 
     it('vuelve a la pantalla que se pidió sin sesión, con su consulta', async () => {
-      // El enlace del correo de la cuota, abierto en el teléfono sin sesión.
-      expect(
-        await entrarDesde('/entrar?volver=%2Fmi-cuenta%2Fcuota%3Fpago%3Dlisto'),
-      ).toBe('/mi-cuenta/cuota?pago=listo');
+      // Como la vuelta de Webpay a la cuota, que trae su aviso en `?pago=`.
+      expect(await entrarDesde('/entrar?volver=%2Fmi-cuenta%2Fcuota%3Fpago%3Dlisto')).toBe(
+        '/mi-cuenta/cuota?pago=listo',
+      );
     });
 
-    // El `volver` lo puede escribir cualquiera en un enlace: si no es una ruta de este
-    // sitio, entrar no puede terminar en otro. El navegador lee `//otro.cl` y `/\otro.cl`
-    // como el dominio otro.cl.
+    it('usa el volver de ahora si Entrar se reutiliza con otro', async () => {
+      // De /entrar a una pantalla con guard, que devuelve a /entrar?volver=…: es la
+      // misma ruta, así que Angular no crea otro Login.
+      expect(await entrarDesde('/entrar', '/entrar?volver=%2Fmi-cuenta%2Fcuota')).toBe(
+        '/mi-cuenta/cuota',
+      );
+    });
+
+    it('si la pantalla no carga, no culpa a la contraseña', async () => {
+      const volver = '/entrar?volver=%2Fadministracion%2Fcanchas';
+
+      expect(await entrarDesde(volver)).toBe(volver);
+      const texto = document.body.textContent ?? '';
+      expect(texto).not.toContain('Correo o contraseña incorrectos.');
+      expect(texto).toContain('Ya entraste, pero la página no cargó.');
+    });
+
+    // El `volver` lo puede escribir cualquiera en un enlace: entrar no puede terminar en
+    // otro sitio ni en una ruta rara. El navegador lee `//otro.cl` y `/\otro.cl` como el
+    // dominio otro.cl, si alguna vez la vuelta sale del router.
     it.each([
       ['//otro.cl', '%2F%2Fotro.cl'],
       ['/\\otro.cl', '%2F%5Cotro.cl'],

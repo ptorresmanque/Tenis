@@ -23,8 +23,10 @@ const RECHAZOS: Record<string, string> = {
 
 /**
  * A dónde ir después de entrar: la pantalla que se pidió sin sesión, que el guard deja
- * en `?volver=`. Solo si es una ruta de este sitio: el parámetro lo puede escribir
- * cualquiera en un enlace, y el navegador lee `//otro.cl` y `/\otro.cl` como otro dominio.
+ * en `?volver=`. El parámetro lo puede escribir cualquiera en un enlace. `navigateByUrl`
+ * ya no sale del sitio (con `//otro.cl` termina en `/otro.cl`), así que esto es la
+ * segunda barrera: solo rutas que empiezan con una `/`, sin `//` ni `/\`, que el
+ * navegador leería como otro dominio si la vuelta algún día sale del router.
  */
 function rutaDeVuelta(volver: string | null): string {
   return volver && /^\/(?![/\\])/.test(volver) ? volver : '/';
@@ -120,10 +122,11 @@ export class Login {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
 
-  private readonly consulta = inject(ActivatedRoute).snapshot.queryParamMap;
+  private readonly ruta = inject(ActivatedRoute);
 
-  protected readonly motivoDeRechazo = signal(RECHAZOS[this.consulta.get('error') ?? '']);
-  private readonly volver = rutaDeVuelta(this.consulta.get('volver'));
+  protected readonly motivoDeRechazo = signal(
+    RECHAZOS[this.ruta.snapshot.queryParamMap.get('error') ?? ''],
+  );
 
   protected readonly formulario = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -141,13 +144,25 @@ export class Login {
 
     try {
       await this.auth.entrar(email, contrasena);
-      await this.router.navigateByUrl(this.volver);
     } catch {
       // Un solo mensaje, igual que en el servidor: decir "ese correo no existe"
       // convertiría esta pantalla en un buscador de socios del club.
       this.error.set('Correo o contraseña incorrectos.');
-    } finally {
       this.entrando.set(false);
+      return;
     }
+
+    // Se lee recién acá: si se vuelve a `/entrar` con otro `volver`, el componente se
+    // reutiliza. Y con la sesión ya abierta, lo que puede fallar es bajar la pantalla
+    // (sin red, o un despliegue que reemplazó sus archivos): no es la contraseña.
+    const volver = rutaDeVuelta(this.ruta.snapshot.queryParamMap.get('volver'));
+    await this.router
+      .navigateByUrl(volver)
+      .catch(() =>
+        this.error.set(
+          'Ya entraste, pero la página no cargó. Revisa tu conexión e inténtalo de nuevo.',
+        ),
+      );
+    this.entrando.set(false);
   }
 }
