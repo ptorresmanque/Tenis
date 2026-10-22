@@ -1,8 +1,11 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
-import { Foto } from './foto';
+import { ANCHOS_DE_FOTO, cargadorDeFotos, Foto } from './foto';
 
 /**
  * El componente que sostiene el sitio hasta que lleguen las fotos del club.
@@ -113,5 +116,50 @@ describe('Foto', () => {
     fixture.detectChanges();
 
     expect(caja()).not.toBe(uno);
+  });
+
+  // T366 (SPEC-seo.md A10). Las fotos del sitio en WebP de tres anchos, y el navegador elige.
+  it('**con una foto del sitio, el navegador elige entre tres WebP**', () => {
+    const { fixture, host, el } = montar();
+    host.src.set('/fotos/el-club.jpg');
+    fixture.detectChanges();
+
+    const img = el.querySelector('img');
+    expect(img?.getAttribute('src')).toBe('/fotos/el-club-1080.webp');
+    expect(img?.getAttribute('srcset')).toBe(
+      '/fotos/el-club-640.webp 640w, /fotos/el-club-1080.webp 1080w, /fotos/el-club-1600.webp 1600w',
+    );
+  });
+});
+
+describe('cargadorDeFotos (T366)', () => {
+  it.each([
+    [640, '/fotos/malla-640.webp'],
+    [1080, '/fotos/malla-1080.webp'],
+    // Un ancho entre dos, a la variante de arriba: más chica se vería borrosa.
+    [900, '/fotos/malla-1080.webp'],
+    [2400, '/fotos/malla-1600.webp'],
+    [undefined, '/fotos/malla-1080.webp'],
+  ])('ancho %s → %s', (width, url) => {
+    expect(cargadorDeFotos({ src: '/fotos/malla.jpg', width })).toBe(url);
+  });
+
+  it('lo que no es una foto del sitio pasa tal cual', () => {
+    expect(cargadorDeFotos({ src: '/api/torneos/fotos/1/imagen', width: 640 })).toBe(
+      '/api/torneos/fotos/1/imagen',
+    );
+  });
+});
+
+// Una foto nueva sin correr `node scripts/variantes-de-fotos.mjs` se vería rota: el loader pide
+// variantes que no existen.
+describe('las variantes de public/fotos', () => {
+  const carpeta = join(process.cwd(), 'public/fotos');
+  const fotos = readdirSync(carpeta).filter((archivo) => archivo.endsWith('.jpg'));
+
+  it.each(fotos)('%s tiene sus tres WebP', (foto) => {
+    for (const ancho of ANCHOS_DE_FOTO) {
+      expect(existsSync(join(carpeta, foto.replace(/\.jpg$/, `-${ancho}.webp`)))).toBe(true);
+    }
   });
 });

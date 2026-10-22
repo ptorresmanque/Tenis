@@ -115,7 +115,8 @@ describe('ElClub', () => {
     await montar([]);
     const foto = seccion('el-club').querySelector<HTMLImageElement>('img')!;
 
-    expect(foto.getAttribute('src')).toContain('/fotos/portada.jpg');
+    // La foto, en cualquiera de sus variantes WebP (T366).
+    expect(foto.getAttribute('src')).toMatch(/^\/fotos\/portada-\d+\.webp$/);
     expect(foto.alt).toContain('logo de FEDAL');
   });
 

@@ -592,7 +592,8 @@ describe('Inicio', () => {
       await montar([]);
       const foto = elemento().querySelector<HTMLImageElement>('[aria-labelledby="promesa"] img')!;
 
-      expect(foto.getAttribute('src')).toContain('/fotos/el-club.jpg');
+      // La foto, en cualquiera de sus variantes WebP (T366).
+      expect(foto.getAttribute('src')).toMatch(/^\/fotos\/el-club-\d+\.webp$/);
       expect(foto.alt).toContain('Vista aérea del club');
     });
 
