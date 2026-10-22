@@ -31,9 +31,13 @@ export const conPanel: CanActivateChildFn = async (_ruta, estado) => {
     return true;
   }
 
-  // Quien ya entró no tiene nada que hacer en la pantalla de ingreso: vuelve a su
-  // portada del panel, o al inicio si no tiene. A quien no entró se le pide la sesión.
-  if (!usuario) return router.createUrlTree(['/entrar']);
+  // A quien no entró se le pide la sesión, y después de entrar vuelve a la pantalla que
+  // pidió.
+  if (!usuario) {
+    return router.createUrlTree(['/entrar'], { queryParams: { volver: estado.url } });
+  }
 
+  // Quien ya entró no tiene nada que hacer en la pantalla de ingreso: vuelve a su
+  // portada del panel, o al inicio si no tiene.
   return router.createUrlTree([inicioDelPanel(usuario) ?? '/']);
 };

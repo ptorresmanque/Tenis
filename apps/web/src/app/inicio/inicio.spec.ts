@@ -1,5 +1,12 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  DeferBlockBehavior,
+  DeferBlockState,
+  TestBed,
+} from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
@@ -12,7 +19,7 @@ import {
   horaEnElClub,
   mananaEnElClub,
 } from '../catalogo-canchas/reloj-del-club';
-import { Club, LugarDelClub } from '../club/club.service';
+import { Club, DatosDelClub, LugarDelClub } from '../club/club.service';
 import { Auth, UsuarioActual } from '../core/auth/auth';
 import { Torneos, TorneoPublico } from '../torneos/torneos.service';
 import { Inicio } from './inicio';
@@ -55,17 +62,25 @@ describe('Inicio', () => {
     torneos: TorneoPublico[] | Error,
     delDia: (fecha: string) => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
     // Sin usuario, nadie entró. Con él, basta lo que la portada mira: la ficha de socio.
-    { esperar, tienda, usuario = null } = { esperar: true } as {
+    { esperar, tienda, usuario = null, club = {}, diferidos } = { esperar: true } as {
       esperar: boolean;
+      /** Manual: los `@defer` se abren a mano, como en el prerender antes de su disparador. */
+      diferidos?: DeferBlockBehavior;
       tienda?: LugarDelClub;
       usuario?: Pick<UsuarioActual, 'id' | 'socioId'> | null;
+      /** Lo demás del club: la dirección, para los datos estructurados (T357). */
+      club?: Partial<DatosDelClub>;
     },
   ) => {
     const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
+      deferBlockBehavior: diferidos,
       providers: [
         provideRouter([]),
+        // Los datos estructurados piden el horario (T357), solo si el club tiene dirección.
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: Disponibilidad, useValue: { delDia: vi.fn(delDia) } },
         { provide: Auth, useValue: { usuario: signal(usuario) } },
         // La tienda y la cafetería (T186): vacías salvo que el test diga otra cosa.
@@ -73,6 +88,7 @@ describe('Inicio', () => {
           provide: Club,
           useValue: {
             datos: signal({
+              ...club,
               tienda: tienda ?? vacio,
               cafeteria: vacio,
               gimnasio: { ...vacio, tarifas: [] },
@@ -98,6 +114,24 @@ describe('Inicio', () => {
 
   const elemento = () => fixture.nativeElement as HTMLElement;
   const texto = () => elemento().textContent ?? '';
+
+  // T357 (SPEC-seo.md A8).
+  it('**publica el club en el <head> y lo quita al salir**', async () => {
+    const bloque = () => document.head.querySelector('script[type="application/ld+json"]');
+    await montar([], undefined, {
+      esperar: false,
+      club: { nombre: 'FEDAL Tennis Center', direccion: 'Lircay lt 42, Temuco' },
+    });
+    fixture.detectChanges();
+
+    expect(JSON.parse(bloque()?.textContent ?? '{}')).toMatchObject({
+      '@type': 'SportsActivityLocation',
+      address: { streetAddress: 'Lircay lt 42, Temuco' },
+    });
+
+    fixture.destroy();
+    expect(bloque()).toBeNull();
+  });
 
   it('**anuncia los torneos con inscripción abierta**', async () => {
     await montar([ABIERTO]);
@@ -323,6 +357,68 @@ describe('Inicio', () => {
 
     expect(cifras).toEqual(['2', '1', '1']);
     expect(banda.textContent).toContain(enPesos(9_000));
+  });
+
+  // T370 (SPEC-seo.md, criterio 8). La foto de «Nuestras canchas» es diferida, pero con conexión
+  // lenta Chrome la pedía al leer el HTML, junto con la foto principal, y le quitaba ancho de banda a
+  // la que mide el LCP. Ahora no viene en el HTML: llega con su @defer, que se abre al hidratar.
+  it('**la foto de «Nuestras canchas» no viene en el HTML: llega con su @defer**', async () => {
+    await montar([], undefined, { esperar: true, diferidos: DeferBlockBehavior.Manual });
+    const banda = () => elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+
+    expect(banda().querySelector('img')).toBeNull();
+    // El hueco ocupa lo mismo que la foto: al llegar, no mueve nada.
+    const hueco = banda().querySelector('[data-hueco-de-foto]') as HTMLElement;
+    expect(hueco.style.aspectRatio.replace(/\s/g, '')).toBe('4/3');
+    expect(hueco.classList).toContain('corte-foto');
+
+    for (const bloque of await fixture.getDeferBlocks())
+      await bloque.render(DeferBlockState.Complete);
+
+    expect(banda().querySelector('img')?.getAttribute('src')).toContain('/fotos/malla');
+    expect(banda().querySelector('[data-hueco-de-foto]')).toBeNull();
+  });
+
+  // T372 (SPEC-seo.md, criterio 8). La tabla y los chips de los torneos traían los formularios de
+  // Angular, y la portada los bajaba al arrancar, junto con la foto que mide el LCP. Las dos bandas
+  // dependen de la API y nunca están en el HTML prerenderizado: su código llega con su @defer.
+  it('**los torneos y la tienda llegan con su @defer**, no con la portada', async () => {
+    await montar([ABIERTO], undefined, {
+      esperar: true,
+      diferidos: DeferBlockBehavior.Manual,
+      tienda: { descripcion: 'Raquetas y cuerdas.', horario: '', whatsapp: '', fotos: [] },
+    });
+
+    // El título de los torneos no espera: el enlace de la cinta ya tiene adónde llevar.
+    expect(elemento().querySelector('app-cinta a[href="#torneos-abiertos"]')).not.toBeNull();
+    expect(elemento().querySelector('#torneos-abiertos')).not.toBeNull();
+    expect(elemento().querySelector('mat-chip-set')).toBeNull();
+    expect(elemento().querySelector('table[mat-table]')).toBeNull();
+    expect(texto()).not.toContain('También en el club');
+
+    for (const bloque of await fixture.getDeferBlocks())
+      await bloque.render(DeferBlockState.Complete);
+
+    expect(elemento().querySelector('#torneos-abiertos')).not.toBeNull();
+    expect(elemento().querySelector('mat-chip-set')).not.toBeNull();
+    expect(elemento().querySelector('table[mat-table]')).not.toBeNull();
+    expect(texto()).toContain('También en el club');
+  });
+
+  // La revisión de la Fase 2 del SEO: la portada prerenderizada no llama a la API (SPEC-seo.md
+  // D1), y su HTML decía «Canchas 0 · Techadas 0 · Con iluminación 0». Lo mismo se veía en el
+  // navegador mientras la API no contestaba.
+  it.each([
+    ['mientras carga', () => new Promise<GrillaDeCancha[]>(() => undefined)],
+    ['si no carga', () => Promise.reject(new Error('sin API'))],
+  ])('**%s, las tres cifras no dicen 0 canchas**', async (_, delDia) => {
+    await montar([], delDia, { esperar: false });
+    await new Promise((listo) => setTimeout(listo));
+    fixture.detectChanges();
+    const banda = elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+    const cifras = [...banda.querySelectorAll('dd')].map((dd) => dd.textContent?.trim());
+
+    expect(cifras).toEqual(['—', '—', '—']);
   });
 
   it('**"Desde" no cuenta las horas reservadas**, que la API manda con monto 0', async () => {
@@ -566,7 +662,8 @@ describe('Inicio', () => {
       await montar([]);
       const foto = elemento().querySelector<HTMLImageElement>('[aria-labelledby="promesa"] img')!;
 
-      expect(foto.getAttribute('src')).toContain('/fotos/el-club.jpg');
+      // La foto, en cualquiera de sus variantes WebP (T366).
+      expect(foto.getAttribute('src')).toMatch(/^\/fotos\/el-club-\d+\.webp$/);
       expect(foto.alt).toContain('Vista aérea del club');
     });
 

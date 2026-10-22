@@ -4,7 +4,8 @@ import { DestroyRef, Service, effect, inject, signal } from '@angular/core';
 /** Los tres estados del conmutador. `auto` es seguir al sistema. */
 export type Modo = 'auto' | 'claro' | 'oscuro';
 
-const CLAVE = 'fedal:tema';
+/** Dónde se guarda el modo. La lee también el script del <head> de index.html (T365). */
+export const CLAVE_DEL_TEMA = 'fedal:tema';
 
 /**
  * Qué tema se ve, y quién lo decide.
@@ -41,7 +42,7 @@ export class Tema {
 
   private leerGuardado(): Modo {
     try {
-      const guardado = localStorage.getItem(CLAVE);
+      const guardado = localStorage.getItem(CLAVE_DEL_TEMA);
       return guardado === 'claro' || guardado === 'oscuro' ? guardado : 'auto';
     } catch {
       return 'auto';
@@ -50,8 +51,8 @@ export class Tema {
 
   private guardar(modo: Modo): void {
     try {
-      if (modo === 'auto') localStorage.removeItem(CLAVE);
-      else localStorage.setItem(CLAVE, modo);
+      if (modo === 'auto') localStorage.removeItem(CLAVE_DEL_TEMA);
+      else localStorage.setItem(CLAVE_DEL_TEMA, modo);
     } catch {
       // Que no se pueda guardar la preferencia no es motivo para romper la
       // página: el tema de esta sesión ya quedó aplicado arriba.

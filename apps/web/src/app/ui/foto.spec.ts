@@ -1,8 +1,11 @@
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
-import { Foto } from './foto';
+import { ANCHOS_DE_FOTO, cargadorDeFotos, Foto } from './foto';
 
 /**
  * El componente que sostiene el sitio hasta que lleguen las fotos del club.
@@ -114,4 +117,64 @@ describe('Foto', () => {
 
     expect(caja()).not.toBe(uno);
   });
+
+  // T366 (SPEC-seo.md A10). Las fotos del sitio en WebP de varios anchos, y el navegador elige. El
+  // de 960 es de T370: un teléfono de 390 px pide 683 a 780 px, y recibía la de 1080.
+  it('**con una foto del sitio, el navegador elige entre cuatro WebP**', () => {
+    const { fixture, host, el } = montar();
+    host.src.set('/fotos/el-club.jpg');
+    fixture.detectChanges();
+
+    const img = el.querySelector('img');
+    expect(img?.getAttribute('src')).toBe('/fotos/el-club-1080.webp');
+    expect(img?.getAttribute('srcset')).toBe(
+      '/fotos/el-club-640.webp 640w, /fotos/el-club-960.webp 960w, /fotos/el-club-1080.webp 1080w, ' +
+        '/fotos/el-club-1600.webp 1600w',
+    );
+  });
+});
+
+describe('cargadorDeFotos (T366)', () => {
+  it.each([
+    [640, '/fotos/malla-640.webp'],
+    [960, '/fotos/malla-960.webp'],
+    [1080, '/fotos/malla-1080.webp'],
+    // Un ancho entre dos, a la variante de arriba: más chica se vería borrosa.
+    [700, '/fotos/malla-960.webp'],
+    [1000, '/fotos/malla-1080.webp'],
+    [2400, '/fotos/malla-1600.webp'],
+    [undefined, '/fotos/malla-1080.webp'],
+  ])('ancho %s → %s', (width, url) => {
+    expect(cargadorDeFotos({ src: '/fotos/malla.jpg', width })).toBe(url);
+  });
+
+  it('lo que no es una foto del sitio pasa tal cual', () => {
+    expect(cargadorDeFotos({ src: '/api/torneos/fotos/1/imagen', width: 640 })).toBe(
+      '/api/torneos/fotos/1/imagen',
+    );
+  });
+});
+
+// Una foto nueva sin correr `node scripts/variantes-de-fotos.mjs` se vería rota: el loader pide
+// variantes que no existen.
+describe('las variantes de public/fotos', () => {
+  const carpeta = join(process.cwd(), 'public/fotos');
+  const fotos = readdirSync(carpeta).filter((archivo) => archivo.endsWith('.jpg'));
+
+  it.each(fotos)('%s tiene un WebP por cada ancho', (foto) => {
+    for (const ancho of ANCHOS_DE_FOTO) {
+      expect(existsSync(join(carpeta, foto.replace(/\.jpg$/, `-${ancho}.webp`)))).toBe(true);
+    }
+  });
+
+  // T370 (SPEC-seo.md, criterio 8). La foto de cabecera es la que mide el LCP de su página, y en un
+  // teléfono con 4G lenta baja junto con el JavaScript: con la vista aérea de la portada en 112 KB
+  // (1080 px), el LCP no bajaba de 2,5 s. Las tres páginas que se miden: la portada, El club y Clases.
+  it.each(['el-club', 'portada', 'ninos'])(
+    '**la foto de cabecera %s, en 1080 px, pesa 95 KB o menos**',
+    (foto) => {
+      const kb = statSync(join(carpeta, `${foto}-1080.webp`)).size / 1024;
+      expect(Math.round(kb)).toBeLessThanOrEqual(95);
+    },
+  );
 });

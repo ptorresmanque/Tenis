@@ -35,34 +35,40 @@ interface PreguntaPublica {
     </p>
 
     <div class="mt-8 max-w-3xl aparece-al-pasar">
-      @if (preguntas.isLoading()) {
+      <!-- Lo que viene de la API va en @defer (T364, SPEC-seo.md D1): el HTML del build
+           trae el esqueleto, no un error de carga. -->
+      @defer (on immediate) {
+        @if (preguntas.isLoading()) {
+          <app-esqueleto [filas]="5" etiqueta="Cargando las preguntas frecuentes…" />
+        } @else if (preguntas.error()) {
+          <app-aviso variante="error">
+            No pudimos cargar las preguntas. Si tienes una duda, escríbenos más abajo.
+          </app-aviso>
+        } @else if (lista().length === 0) {
+          <p class="text-muted-foreground">
+            Todavía no hay preguntas publicadas. Si tienes una, escríbenos más abajo y te
+            respondemos.
+          </p>
+        } @else {
+          <!-- multi: abrir una no cierra la otra, como con los <details> de antes. -->
+          <mat-accordion multi class="block border-t border-border">
+            @for (pregunta of lista(); track pregunta.id) {
+              <mat-expansion-panel class="border-b border-border">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    <span class="py-1 font-display text-xl font-bold tracking-wide">{{
+                      pregunta.pregunta
+                    }}</span>
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <!-- Texto plano: pre-line respeta los saltos de línea del panel. -->
+                <p class="max-w-prose whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
+              </mat-expansion-panel>
+            }
+          </mat-accordion>
+        }
+      } @placeholder {
         <app-esqueleto [filas]="5" etiqueta="Cargando las preguntas frecuentes…" />
-      } @else if (preguntas.error()) {
-        <app-aviso variante="error">
-          No pudimos cargar las preguntas. Si tienes una duda, escríbenos más abajo.
-        </app-aviso>
-      } @else if (lista().length === 0) {
-        <p class="text-muted-foreground">
-          Todavía no hay preguntas publicadas. Si tienes una, escríbenos más abajo y te
-          respondemos.
-        </p>
-      } @else {
-        <!-- multi: abrir una no cierra la otra, como con los <details> de antes. -->
-        <mat-accordion multi class="block border-t border-border">
-          @for (pregunta of lista(); track pregunta.id) {
-            <mat-expansion-panel class="border-b border-border">
-              <mat-expansion-panel-header>
-                <mat-panel-title>
-                  <span class="py-1 font-display text-xl font-bold tracking-wide">{{
-                    pregunta.pregunta
-                  }}</span>
-                </mat-panel-title>
-              </mat-expansion-panel-header>
-              <!-- Texto plano: pre-line respeta los saltos de línea del panel. -->
-              <p class="max-w-prose whitespace-pre-line text-muted-foreground">{{ pregunta.respuesta }}</p>
-            </mat-expansion-panel>
-          }
-        </mat-accordion>
       }
     </div>
 

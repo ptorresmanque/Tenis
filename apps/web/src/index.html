@@ -6,6 +6,17 @@
   <meta name="description" content="Reserva tu cancha de tenis en Temuco en línea: canchas techadas y con luz, clases, torneos y ranking. Para socios y visitantes.">
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- El modo que eligió el visitante, antes de pintar (T365, SPEC-seo.md A12): la página
+       prerenderizada se pinta antes de que arranque Angular, y sin esto quien eligió oscuro
+       veía un destello claro. Solo «claro» u «oscuro»; sin preferencia manda el sistema.
+       La clave es CLAVE_DEL_TEMA de cascarones/tema.ts, que después sigue mandando. -->
+  <script>
+    try {
+      const modo = localStorage.getItem('fedal:tema');
+      if (modo === 'claro' || modo === 'oscuro')
+        document.documentElement.setAttribute('data-modo', modo);
+    } catch (e) {}
+  </script>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">

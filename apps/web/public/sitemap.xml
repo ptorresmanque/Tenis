@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Las rutas públicas que se prerenderizan (SPEC-seo.md A1). Sin lastmod: un sitemap fijo
+     con fechas que no se mueven le dice a Google que nada cambió. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://fedal.cl/</loc></url>
+  <url><loc>https://fedal.cl/disponibilidad</loc></url>
+  <url><loc>https://fedal.cl/clases</loc></url>
+  <url><loc>https://fedal.cl/torneos</loc></url>
+  <url><loc>https://fedal.cl/tours</loc></url>
+  <url><loc>https://fedal.cl/ranking</loc></url>
+  <url><loc>https://fedal.cl/el-club</loc></url>
+  <url><loc>https://fedal.cl/preguntas-frecuentes</loc></url>
+  <url><loc>https://fedal.cl/privacidad</loc></url>
+</urlset>

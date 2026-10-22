@@ -134,7 +134,7 @@ it('los dos bloques del tema oscuro son idénticos', () => {
   // tocar un bloque y no el otro deja al conmutador pintando un tema distinto
   // del que pinta el sistema, y nadie lo notaría hasta usarlo.
   const porElSistema = bloque("html[data-tema='publico']:not([data-modo='claro']) {");
-  const aMano = bloque("html[data-tema='publico'][data-modo='oscuro'] {");
+  const aMano = bloque("html[data-tema='publico']:is([data-modo='oscuro']) {");
 
   const soloLosTokens = (b: string) => b.slice(b.indexOf('{') + 1).trim();
 

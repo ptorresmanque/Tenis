@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, resource } from '@angular/core';
+import { Component, computed, effect, inject, input, resource } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
@@ -9,6 +9,7 @@ import { diaConAnioEnPalabras } from '../../catalogo-canchas/reloj-del-club';
 import { TablaDeTour } from '../../ranking/tabla-de-tour';
 import { Galeria } from '../../torneos/publico/galeria';
 import { ESTADOS_TORNEO, EstadoTorneo, TorneoPublico } from '../../torneos/torneos.service';
+import { Seo } from '../../seo/seo';
 import { Esqueleto } from '../../ui/esqueleto';
 import { TablaDePuntos, TourPublico, Tours } from '../tours.service';
 
@@ -28,6 +29,29 @@ const RESULTADOS: Resultado[] = [
   { clave: 'dieciseisavos', nombre: 'Dieciseisavos' },
   { clave: 'treintaidosavos', nombre: 'Treintaidosavos' },
 ];
+
+/** Lo que Google muestra antes de cortar con «…». */
+const LARGO_DE_LA_DESCRIPCION = 160;
+
+/**
+ * La descripción del tour para el buscador (T356): la que escribió el club, en un renglón y
+ * cortada en una palabra; sin ella, una armada con el nombre y la temporada.
+ */
+function descripcionDelTour(nombre: string, descripcion: string, temporada?: string): string {
+  const delClub = descripcion.replace(/\s+/g, ' ').trim();
+  const texto =
+    delClub ||
+    `${nombre}, el tour de FEDAL Tennis Center en Temuco.` +
+      (temporada
+        ? ` Temporada ${temporada}: los torneos que suman, la tabla de puntos y el ranking.`
+        : '');
+
+  if (texto.length <= LARGO_DE_LA_DESCRIPCION) return texto;
+  // En el último espacio que deja lugar para «…»; sin uno en la segunda mitad, a la medida.
+  const espacio = texto.lastIndexOf(' ', LARGO_DE_LA_DESCRIPCION - 1);
+  const corte = espacio > LARGO_DE_LA_DESCRIPCION / 2 ? espacio : LARGO_DE_LA_DESCRIPCION - 1;
+  return `${texto.slice(0, corte)}…`;
+}
 
 /**
  * La página pública de un tour (T195 y T201, `SPEC-tours.md` § Pantallas): su imagen, su
@@ -239,6 +263,20 @@ export class TourPublicoPagina {
 
   protected readonly RESULTADOS = RESULTADOS;
   protected readonly enPalabras = diaConAnioEnPalabras;
+
+  constructor() {
+    // La ruta solo sabe que es «un tour»: al cargarlo, la pestaña, el Open Graph y el buscador
+    // dicen cuál (T356). Si no existe, queda el título de la ruta.
+    const seo = inject(Seo);
+    effect(() => {
+      if (!this.tour.hasValue()) return;
+      const { nombre, descripcion } = this.tour.value();
+      seo.aplicar({
+        titulo: `${nombre} — FEDAL Tennis Center`,
+        descripcion: descripcionDelTour(nombre, descripcion, this.elegida()?.nombre),
+      });
+    });
+  }
 
   protected readonly tour = resource({
     params: () => Number(this.id()),

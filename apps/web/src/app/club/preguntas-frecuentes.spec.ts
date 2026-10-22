@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
-import { TestBed } from '@angular/core/testing';
+import { DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { MatExpansionPanelHarness } from '@angular/material/expansion/testing';
 import { provideRouter } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,8 @@ describe('PreguntasFrecuentesPublicas', () => {
   const montar = async () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
+      // La lista va en @defer (T364): la prueba lo abre a mano, como el navegador al tiro.
+      deferBlockBehavior: DeferBlockBehavior.Manual,
       providers: [
         provideRouter([]),
         provideHttpClient(),
@@ -28,6 +30,9 @@ describe('PreguntasFrecuentesPublicas', () => {
     });
     const fixture = TestBed.createComponent(PreguntasFrecuentesPublicas);
     fixture.detectChanges();
+    for (const bloque of await fixture.getDeferBlocks()) {
+      await bloque.render(DeferBlockState.Complete);
+    }
     const http = TestBed.inject(HttpTestingController);
     const elemento = fixture.nativeElement as HTMLElement;
 

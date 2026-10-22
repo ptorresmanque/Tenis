@@ -1,8 +1,21 @@
 import { Component, computed, inject, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButton } from '@angular/material/button';
-import { MatTableModule } from '@angular/material/table';
-import { MatChipsModule } from '@angular/material/chips';
+// Las piezas y no los módulos: un NgModule no se puede diferir, y la tabla y los chips van
+// en el @defer de los torneos.
+import {
+  MatCell,
+  MatCellDef,
+  MatColumnDef,
+  MatHeaderCell,
+  MatHeaderCellDef,
+  MatHeaderRow,
+  MatHeaderRowDef,
+  MatRow,
+  MatRowDef,
+  MatTable,
+} from '@angular/material/table';
+import { MatChip, MatChipAvatar, MatChipSet } from '@angular/material/chips';
 import { MatIcon } from '@angular/material/icon';
 
 import { Disponibilidad, GrillaDeCancha } from '../catalogo-canchas/disponibilidad';
@@ -22,6 +35,7 @@ import { aceptaInscripciones, Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
+import { publicarElClub } from '../seo/datos-estructurados';
 
 /**
  * La portada.
@@ -57,8 +71,19 @@ import { Foto } from '../ui/foto';
     Foto,
     Marcador,
     TiendaYCafeteria,
-    MatTableModule,
-    MatChipsModule,
+    MatTable,
+    MatColumnDef,
+    MatHeaderCellDef,
+    MatHeaderCell,
+    MatCellDef,
+    MatCell,
+    MatHeaderRowDef,
+    MatHeaderRow,
+    MatRowDef,
+    MatRow,
+    MatChipSet,
+    MatChip,
+    MatChipAvatar,
     MatIcon,
   ],
   template: `
@@ -167,56 +192,63 @@ import { Foto } from '../ui/foto';
           aria-live="polite"
           class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
         >
-          @if (grillas.isLoading() || grillasDeManana.isLoading()) {
-            <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
-          } @else if (grillas.error()) {
-            <p class="text-muted-foreground">
-              No pudimos cargar las horas de hoy.
-              <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
-                Mira la disponibilidad
-              </a>
-            </p>
-          } @else if (proximaLibre(); as libre) {
-            <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
-            <div class="min-w-0 flex-1">
-              <!-- Si hoy ya no queda nada, la de mañana, y lo dice (T268). -->
-              <p class="font-display text-lg font-bold uppercase">
-                @if (esManana()) {
-                  Mañana ·
-                }
-                {{ libre.cancha }}
+          <!-- Lo que dice depende de hoy y de la API: en @defer (T362, SPEC-seo.md D1), el HTML
+               del build trae el esqueleto y no un error de carga ni la hora del día en que se
+               compiló. La región viva queda afuera, desde el principio. -->
+          @defer (on immediate) {
+            @if (grillas.isLoading() || grillasDeManana.isLoading()) {
+              <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
+            } @else if (grillas.error()) {
+              <p class="text-muted-foreground">
+                No pudimos cargar las horas de hoy.
+                <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
+                  Mira la disponibilidad
+                </a>
               </p>
-              <p class="text-sm text-muted-foreground">
-                @if (libre.montoClp !== null) {
-                  Arriendo {{ pesos(libre.montoClp) }}.
-                }
-                Socio sin costo.
-              </p>
-            </div>
-            <!-- A esa hora y en esa cancha, marcada al llegar (T266). -->
-            <a
-              matButton="filled"
-              routerLink="/disponibilidad"
-              [queryParams]="{
-                fecha: fecha(libre.inicio),
-                cancha: libre.canchaId,
-                inicio: hora(libre.inicio),
-              }"
-              class="w-full sm:w-auto"
-            >
-              Reservar
-              <span class="sr-only"
-                >{{ esManana() ? 'mañana, ' : '' }}{{ libre.cancha }} a las
-                {{ hora(libre.inicio) }}</span
+            } @else if (proximaLibre(); as libre) {
+              <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
+              <div class="min-w-0 flex-1">
+                <!-- Si hoy ya no queda nada, la de mañana, y lo dice (T268). -->
+                <p class="font-display text-lg font-bold uppercase">
+                  @if (esManana()) {
+                    Mañana ·
+                  }
+                  {{ libre.cancha }}
+                </p>
+                <p class="text-sm text-muted-foreground">
+                  @if (libre.montoClp !== null) {
+                    Arriendo {{ pesos(libre.montoClp) }}.
+                  }
+                  Socio sin costo.
+                </p>
+              </div>
+              <!-- A esa hora y en esa cancha, marcada al llegar (T266). -->
+              <a
+                matButton="filled"
+                routerLink="/disponibilidad"
+                [queryParams]="{
+                  fecha: fecha(libre.inicio),
+                  cancha: libre.canchaId,
+                  inicio: hora(libre.inicio),
+                }"
+                class="w-full sm:w-auto"
               >
-            </a>
-          } @else {
-            <p class="font-semibold">
-              Hoy ya no quedan horas libres.
-              <a routerLink="/disponibilidad" class="text-primary underline">
-                Mira los próximos días.
+                Reservar
+                <span class="sr-only"
+                  >{{ esManana() ? 'mañana, ' : '' }}{{ libre.cancha }} a las
+                  {{ hora(libre.inicio) }}</span
+                >
               </a>
-            </p>
+            } @else {
+              <p class="font-semibold">
+                Hoy ya no quedan horas libres.
+                <a routerLink="/disponibilidad" class="text-primary underline">
+                  Mira los próximos días.
+                </a>
+              </p>
+            }
+          } @placeholder {
+            <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
           }
         </div>
       </div>
@@ -298,14 +330,24 @@ import { Foto } from '../ui/foto';
       class="mt-16 grid gap-8 aparece-al-pasar lg:grid-cols-[1.1fr_1fr] lg:items-center"
       aria-labelledby="canchas"
     >
-      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
-      <app-foto
-        descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
-                     canchas techadas al fondo"
-        src="/fotos/malla.jpg"
-        proporcion="4/3"
-        claseCaja="corte-foto"
-      />
+      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4).
+           En @defer (T370): con conexión lenta, Chrome pedía esta foto diferida al leer el HTML,
+           junto con la principal, y le quitaba ancho de banda a la que mide el LCP. En el HTML
+           prerenderizado las bandas de la API todavía no están y esta queda en el primer
+           pantallazo, así que el disparador se cumple al hidratar: lo que se gana es que la foto
+           ya no sale en el HTML. El margen sirve si un día la banda queda más abajo. El hueco
+           ocupa lo mismo que la foto. -->
+      @defer (on viewport({ rootMargin: '600px' })) {
+        <app-foto
+          descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
+                       canchas techadas al fondo"
+          src="/fotos/malla.jpg"
+          proporcion="4/3"
+          claseCaja="corte-foto"
+        />
+      } @placeholder {
+        <div data-hueco-de-foto class="corte-foto w-full bg-muted" style="aspect-ratio: 4/3"></div>
+      }
 
       <div>
         <h2 id="canchas" class="titular text-5xl sm:text-6xl">Nuestras canchas</h2>
@@ -358,6 +400,11 @@ import { Foto } from '../ui/foto';
         cuándo, sobre su foto; la tabla, cuánto cuesta y cuánto lugar queda en
         cada categoría, que es lo que se compara.
       -->
+      <!-- La lista va en @defer: sin datos de la API la banda no se dibuja, así que nunca está en
+           el HTML prerenderizado, pero la portada bajaba al arrancar la tabla y los chips de
+           Material, que traen los formularios de Angular, junto con la foto que mide el LCP.
+           Adentro del @if, se piden solo si hay un torneo abierto. El título queda afuera: así
+           el enlace de la cinta ya tiene adónde ir mientras llega la lista, que crece hacia abajo. -->
       <section class="mt-16 aparece-al-pasar" aria-labelledby="torneos-abiertos">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="torneos-abiertos" class="titular text-5xl sm:text-6xl">
@@ -368,73 +415,75 @@ import { Foto } from '../ui/foto';
           </a>
         </div>
 
-        <ul class="mt-6 grid gap-6">
-          @for (torneo of abiertos(); track torneo.id) {
-            <li>
-              <!-- EL CARTEL (T314, SPEC-sitio.md D2): el afiche del torneo a la izquierda, entero, y
-                   al lado lo que se compara. Hasta T314 era una foto fija del club con el nombre
-                   encima; sobre un afiche, el nombre taparía lo que hay que leer. -->
-              <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
-                <mat-chip-set class="insignias self-start">
-                  <mat-chip class="insignia libre">
-                    <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
-                    Inscripción abierta
-                  </mat-chip>
-                </mat-chip-set>
-                <h3 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
-                <p class="mt-2 max-w-prose text-muted-foreground">
-                  Del {{ enPalabras(torneo.fechaInicio) }} al
-                  {{ enPalabras(torneo.fechaFin) }}. Inscríbete hasta el
-                  {{ enPalabras(torneo.cierreInscripcion) }}.
-                </p>
-                <table
-                  mat-table
-                  class="mt-5"
-                  [attr.aria-label]="'Categorías de ' + torneo.nombre"
-                  [dataSource]="torneo.categorias"
-                >
-                  <ng-container matColumnDef="categoria">
-                    <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
-                    <td
-                      mat-cell
-                      *matCellDef="let categoria"
-                      class="font-display text-2xl font-extrabold text-primary"
-                    >
-                      {{ categoria.categoria }}
-                    </td>
-                  </ng-container>
-                  <ng-container matColumnDef="inscripcion">
-                    <th mat-header-cell *matHeaderCellDef scope="col">Inscripción</th>
-                    <td mat-cell *matCellDef="let categoria">{{ precio(categoria.montoClp) }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="cupos">
-                    <th mat-header-cell *matHeaderCellDef scope="col" class="numero">
-                      Cupos libres
-                    </th>
-                    <td mat-cell *matCellDef="let categoria" class="numero">
-                      @if (categoria.cuposLibres > 0) {
-                        {{ categoria.cuposLibres }} de {{ categoria.cupo }}
-                      } @else {
-                        <span class="font-semibold text-warning-strong">Lista de espera</span>
-                      }
-                    </td>
-                  </ng-container>
+        @defer (on immediate) {
+          <ul class="mt-6 grid gap-6">
+            @for (torneo of abiertos(); track torneo.id) {
+              <li>
+                <!-- EL CARTEL (T314, SPEC-sitio.md D2): el afiche del torneo a la izquierda, entero, y
+                     al lado lo que se compara. Hasta T314 era una foto fija del club con el nombre
+                     encima; sobre un afiche, el nombre taparía lo que hay que leer. -->
+                <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
+                  <mat-chip-set class="insignias self-start">
+                    <mat-chip class="insignia libre">
+                      <mat-icon matChipAvatar aria-hidden="true">how_to_reg</mat-icon>
+                      Inscripción abierta
+                    </mat-chip>
+                  </mat-chip-set>
+                  <h3 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h3>
+                  <p class="mt-2 max-w-prose text-muted-foreground">
+                    Del {{ enPalabras(torneo.fechaInicio) }} al
+                    {{ enPalabras(torneo.fechaFin) }}. Inscríbete hasta el
+                    {{ enPalabras(torneo.cierreInscripcion) }}.
+                  </p>
+                  <table
+                    mat-table
+                    class="mt-5"
+                    [attr.aria-label]="'Categorías de ' + torneo.nombre"
+                    [dataSource]="torneo.categorias"
+                  >
+                    <ng-container matColumnDef="categoria">
+                      <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
+                      <td
+                        mat-cell
+                        *matCellDef="let categoria"
+                        class="font-display text-2xl font-extrabold text-primary"
+                      >
+                        {{ categoria.categoria }}
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="inscripcion">
+                      <th mat-header-cell *matHeaderCellDef scope="col">Inscripción</th>
+                      <td mat-cell *matCellDef="let categoria">{{ precio(categoria.montoClp) }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="cupos">
+                      <th mat-header-cell *matHeaderCellDef scope="col" class="numero">
+                        Cupos libres
+                      </th>
+                      <td mat-cell *matCellDef="let categoria" class="numero">
+                        @if (categoria.cuposLibres > 0) {
+                          {{ categoria.cuposLibres }} de {{ categoria.cupo }}
+                        } @else {
+                          <span class="font-semibold text-warning-strong">Lista de espera</span>
+                        }
+                      </td>
+                    </ng-container>
 
-                  <tr mat-header-row *matHeaderRowDef="COLUMNAS_DE_CATEGORIAS; sticky: true"></tr>
-                  <tr mat-row *matRowDef="let categoria; columns: COLUMNAS_DE_CATEGORIAS"></tr>
-                </table>
+                    <tr mat-header-row *matHeaderRowDef="COLUMNAS_DE_CATEGORIAS; sticky: true"></tr>
+                    <tr mat-row *matRowDef="let categoria; columns: COLUMNAS_DE_CATEGORIAS"></tr>
+                  </table>
 
-                <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
-                  <span class="text-muted-foreground">Abierto a socios y visitantes</span>
-                  <a matButton="filled" [routerLink]="['/torneos', torneo.id, 'inscripcion']">
-                    Inscribirme
-                    <span class="sr-only">en {{ torneo.nombre }}</span>
-                  </a>
-                </div>
-              </app-cartel-del-torneo>
-            </li>
-          }
-        </ul>
+                  <div class="mt-auto flex flex-wrap items-center justify-between gap-4 pt-6">
+                    <span class="text-muted-foreground">Abierto a socios y visitantes</span>
+                    <a matButton="filled" [routerLink]="['/torneos', torneo.id, 'inscripcion']">
+                      Inscribirme
+                      <span class="sr-only">en {{ torneo.nombre }}</span>
+                    </a>
+                  </div>
+                </app-cartel-del-torneo>
+              </li>
+            }
+          </ul>
+        }
       </section>
     }
 
@@ -569,8 +618,13 @@ import { Foto } from '../ui/foto';
       portada por un café; quien baja hasta acá ya decidió venir. Sin descripción
       cargada, la banda no existe. Es la última desde que se fue el cierre (T305,
       SPEC-sitio.md D6): su «Ver disponibilidad» ya estaba en el hero y en «Libre hoy».
+
+      En @defer como los torneos: sus lugares salen de la API (el @if está adentro del
+      componente) y su tabla de tarifas es de Material.
     -->
-    <app-tienda-y-cafeteria forma="resumen" />
+    @defer (on immediate) {
+      <app-tienda-y-cafeteria forma="resumen" />
+    }
   `,
 })
 export class Inicio {
@@ -579,6 +633,11 @@ export class Inicio {
   private readonly disponibilidad = inject(Disponibilidad);
   private readonly auth = inject(Auth);
   private readonly torneos = inject(Torneos);
+
+  constructor() {
+    // El club para Google, con su dirección y su horario (T357).
+    publicarElClub();
+  }
 
   /**
    * El calendario del año, para quedarse solo con lo que se puede inscribir hoy.
@@ -694,13 +753,14 @@ export class Inicio {
    */
   protected readonly resumenDeCanchas = computed(() => {
     const canchas = this.canchas();
-    const techadas = canchas.filter((cancha) => cancha.techada).length;
-    const conLuz = canchas.filter((cancha) => cancha.iluminacion).length;
+    // Sin catálogo (cargando, sin API o en el prerender, que no la llama: SPEC-seo.md D1), una
+    // raya y no «0 canchas», que en el HTML se leería como dato del club.
+    const cifra = (cuantas: number) => (canchas.length > 0 ? `${cuantas}` : '—');
 
     return [
-      { etiqueta: canchas.length === 1 ? 'Cancha' : 'Canchas', valor: `${canchas.length}` },
-      { etiqueta: 'Techadas', valor: `${techadas}` },
-      { etiqueta: 'Con iluminación', valor: `${conLuz}` },
+      { etiqueta: canchas.length === 1 ? 'Cancha' : 'Canchas', valor: cifra(canchas.length) },
+      { etiqueta: 'Techadas', valor: cifra(canchas.filter((c) => c.techada).length) },
+      { etiqueta: 'Con iluminación', valor: cifra(canchas.filter((c) => c.iluminacion).length) },
     ];
   });
 
