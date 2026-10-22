@@ -66,6 +66,9 @@ describe('conSesion', () => {
     ['/mi-cuenta/cuota', '/entrar?volver=%2Fmi-cuenta%2Fcuota'],
     ['/mi-cuenta/partidos', '/entrar?volver=%2Fmi-cuenta%2Fpartidos'],
     ['/mis-reservas', '/entrar?volver=%2Fmi-cuenta%2Freservas'],
+    // La vuelta de Webpay con la sesión vencida: sin la consulta, volvería a la cuota sin el
+    // aviso del pago.
+    ['/mi-cuenta/cuota?pago=listo', '/entrar?volver=%2Fmi-cuenta%2Fcuota%3Fpago%3Dlisto'],
   ])('sin sesión, %s lleva a Entrar con la vuelta', async (url, entrar) => {
     expect(await navegarCon(null, url)).toBe(entrar);
   });
