@@ -83,8 +83,12 @@ describe('conPanel', () => {
     ).toBe('/');
   });
 
-  it('manda al ingreso a quien no tiene sesión', async () => {
-    expect(await correrCon(null, '/administracion/reservas')).toBe('/entrar');
+  it('manda al ingreso a quien no tiene sesión, con la pantalla a la que iba', async () => {
+    // Para volver a ella después de entrar, con su consulta: va escapada entera, o el
+    // `&` cortaría el `volver` y el resto quedaría como otro parámetro de /entrar.
+    expect(await correrCon(null, '/administracion/reservas?fecha=2026-10-22&cancha=2')).toBe(
+      '/entrar?volver=%2Fadministracion%2Freservas%3Ffecha%3D2026-10-22%26cancha%3D2',
+    );
   });
 
   it('el router lo corre al entrar directo a una pantalla de adentro, y al pasar a otra', async () => {

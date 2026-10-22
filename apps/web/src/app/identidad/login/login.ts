@@ -21,6 +21,15 @@ const RECHAZOS: Record<string, string> = {
     'Entra con tu correo y contraseña.',
 };
 
+/**
+ * A dónde ir después de entrar: la pantalla que se pidió sin sesión, que el guard deja
+ * en `?volver=`. Solo si es una ruta de este sitio: el parámetro lo puede escribir
+ * cualquiera en un enlace, y el navegador lee `//otro.cl` y `/\otro.cl` como otro dominio.
+ */
+function rutaDeVuelta(volver: string | null): string {
+  return volver && /^\/(?![/\\])/.test(volver) ? volver : '/';
+}
+
 @Component({
   selector: 'app-login',
   imports: [MatFormFieldModule, MatInput, MatButton, ReactiveFormsModule, RouterLink, Aviso],
@@ -111,9 +120,10 @@ export class Login {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
 
-  protected readonly motivoDeRechazo = signal(
-    RECHAZOS[inject(ActivatedRoute).snapshot.queryParamMap.get('error') ?? ''],
-  );
+  private readonly consulta = inject(ActivatedRoute).snapshot.queryParamMap;
+
+  protected readonly motivoDeRechazo = signal(RECHAZOS[this.consulta.get('error') ?? '']);
+  private readonly volver = rutaDeVuelta(this.consulta.get('volver'));
 
   protected readonly formulario = inject(FormBuilder).nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -131,7 +141,7 @@ export class Login {
 
     try {
       await this.auth.entrar(email, contrasena);
-      await this.router.navigate(['/']);
+      await this.router.navigateByUrl(this.volver);
     } catch {
       // Un solo mensaje, igual que en el servidor: decir "ese correo no existe"
       // convertiría esta pantalla en un buscador de socios del club.
