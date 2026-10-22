@@ -178,10 +178,17 @@ function redirigenASuEquivalente(pedirA, dominio) {
       );
     }
   }
-  // Las de ahora no se tocan.
+  // La consulta llega al destino, como en la regla de la barra final.
+  assert.match(
+    pedirA('/plans/?a=1').cabecera,
+    new RegExp(`location: https://${dominio.replaceAll('.', '\\.')}/el-club\\?a=1\\r?\\n`),
+  );
+  // Las de ahora no se tocan, tampoco la pestaña del panel que se llama como una de las viejas: sin
+  // el ^ de la regla, recargarla mandaría al admin a /el-club.
   for (const ruta of ['/el-club', '/clases', '/privacidad', '/']) {
     assert.equal(pedirA(ruta).estado, 200, ruta);
   }
+  assert.equal(pedirA('/administracion/configuracion/servicios').cuerpo, 'SPA');
 }
 
 describe('htaccess.qa', { skip: saltar }, () => {
