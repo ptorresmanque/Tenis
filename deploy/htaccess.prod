@@ -19,6 +19,16 @@ DirectorySlash Off
   Header set Cache-Control "no-cache"
 </FilesMatch>
 
+# Lo que lleva hash en el nombre no cambia nunca: el release siguiente trae otro nombre. Un año y
+# sin volver a preguntar (T367, SPEC-seo.md T8): el JavaScript, el CSS y las fuentes de media/. Las
+# fotos y og.jpg no llevan hash, se reemplazan con el mismo nombre, y quedan como estaban.
+<FilesMatch "^(main|chunk|polyfills|styles)-[A-Za-z0-9_-]{8}\.(js|css)$">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+<If "%{REQUEST_URI} =~ m#^/media/#">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</If>
+
 # La configuración global del servidor les pone caché a las respuestas con mod_expires, y
 # ningún .htaccess de la cuenta lo pide (D4): a /api/yo, medido con curl, un mes. /api/yo es
 # lo que le dice a la web quién tiene sesión: el navegador guardaba el "nadie" de antes del

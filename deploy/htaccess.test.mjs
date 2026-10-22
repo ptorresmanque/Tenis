@@ -42,7 +42,14 @@ async function apache(ambiente) {
   // se dibuja en el navegador carga index.csr.html.
   escribir(join(docroot, 'index.html'), 'portada');
   escribir(join(docroot, 'index.csr.html'), 'SPA');
-  escribir(join(docroot, 'chunk-A.js'), 'js');
+  // Con hash en el nombre, como los deja el build: 8 caracteres que pueden traer _ y -.
+  escribir(join(docroot, 'chunk-Ab1_x-9Z.js'), 'js');
+  escribir(join(docroot, 'main-F3MQA22C.js'), 'main');
+  escribir(join(docroot, 'styles-6AQ7DO47.css'), 'css');
+  escribir(join(docroot, 'media/barlow-400-MHMWYSEE.woff2'), 'fuente');
+  // Sin hash: se reemplazan con el mismo nombre.
+  escribir(join(docroot, 'fotos/portada-1080.webp'), 'foto');
+  escribir(join(docroot, 'og.jpg'), 'og');
   escribir(join(docroot, 'el-club/index.html'), 'prerender');
   escribir(join(docroot, 'media/logo.svg'), 'svg');
   escribir(join(docroot, 'robots.txt'), 'robots');
@@ -187,7 +194,7 @@ describe('htaccess.qa', { skip: saltar }, () => {
   });
 
   test('los archivos se sirven tal cual', () => {
-    assert.equal(qa('/chunk-A.js').cuerpo, 'js');
+    assert.equal(qa('/chunk-Ab1_x-9Z.js').cuerpo, 'js');
   });
 
   test('/api no pasa por la SPA', () => {
@@ -209,9 +216,23 @@ describe('htaccess.qa', { skip: saltar }, () => {
     }
   });
 
-  test('las fotos de los torneos y los chunks sí quedan en caché', () => {
+  test('las fotos de los torneos sí quedan en caché', () => {
     assert.match(qa('/api/torneos/fotos/1/imagen').cabecera, /max-age=604800/);
-    assert.match(qa('/chunk-A.js').cabecera, /max-age=604800/);
+  });
+
+  // T367 (SPEC-seo.md T8): un archivo con hash no cambia nunca; el release nuevo trae otro nombre.
+  test('**lo que lleva hash queda un año, sin volver a preguntar**', () => {
+    for (const ruta of ['/chunk-Ab1_x-9Z.js', '/main-F3MQA22C.js', '/styles-6AQ7DO47.css', '/media/barlow-400-MHMWYSEE.woff2']) {
+      const cabecera = qa(ruta).cabecera;
+      assert.match(cabecera, /cache-control: public, max-age=31536000, immutable\r?\n/, ruta);
+      assert.doesNotMatch(cabecera, /max-age=604800/, ruta);
+    }
+  });
+
+  test('lo que no lleva hash no queda un año: una foto se reemplaza con el mismo nombre', () => {
+    for (const ruta of ['/fotos/portada-1080.webp', '/og.jpg', '/robots.txt', '/', '/socio/reservas']) {
+      assert.doesNotMatch(qa(ruta).cabecera, /immutable|max-age=31536000/, ruta);
+    }
   });
 
   test('/.well-known/ responde, para que AutoSSL renueve', () => {
@@ -291,6 +312,20 @@ describe('htaccess.prod', { skip: saltar }, () => {
   test('robots.txt y sitemap.xml se sirven como archivo, no como la SPA', () => {
     assert.equal(prod('/robots.txt').cuerpo, 'robots');
     assert.equal(prod('/sitemap.xml').cuerpo, 'sitemap');
+  });
+
+  test('**lo que lleva hash queda un año, sin volver a preguntar**', () => {
+    for (const ruta of ['/chunk-Ab1_x-9Z.js', '/main-F3MQA22C.js', '/styles-6AQ7DO47.css', '/media/barlow-400-MHMWYSEE.woff2']) {
+      const cabecera = prod(ruta).cabecera;
+      assert.match(cabecera, /cache-control: public, max-age=31536000, immutable\r?\n/, ruta);
+      assert.doesNotMatch(cabecera, /max-age=604800/, ruta);
+    }
+  });
+
+  test('lo que no lleva hash no queda un año', () => {
+    for (const ruta of ['/fotos/portada-1080.webp', '/og.jpg', '/robots.txt', '/', '/el-club', '/socio/reservas']) {
+      assert.doesNotMatch(prod(ruta).cabecera, /immutable|max-age=31536000/, ruta);
+    }
   });
 
   test('/api no pasa por la SPA', () => {
