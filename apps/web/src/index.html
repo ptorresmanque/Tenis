@@ -12,7 +12,7 @@
        La clave es CLAVE_DEL_TEMA de cascarones/tema.ts, que después sigue mandando. -->
   <script>
     try {
-      var modo = localStorage.getItem('fedal:tema');
+      const modo = localStorage.getItem('fedal:tema');
       if (modo === 'claro' || modo === 'oscuro')
         document.documentElement.setAttribute('data-modo', modo);
     } catch (e) {}

@@ -6,8 +6,9 @@
 // HTML se leería como dato del club. Uso: node scripts/verificar-prerender.mjs [carpeta]
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const web = new URL('..', import.meta.url).pathname;
+const web = fileURLToPath(new URL('..', import.meta.url));
 const salida = process.argv[2] ?? join(web, 'dist/web/browser');
 
 // La lista es la de app.routes.server.ts: una sola fuente para el build y para esta revisión.
@@ -25,6 +26,8 @@ const PROHIBIDOS = [
   // Los textos por omisión del servicio Club (club.service.ts), mientras /api/club no contesta.
   'Desde 2008',
   'Basilea y Manacor',
+  // Las cifras de la portada sin el catálogo: «Canchas 0» se leería como dato del club.
+  /(Canchas?|Techadas|Con iluminación) 0\b/,
 ];
 
 // El día del build, en cualquier forma que tome en el HTML (un enlace con ?fecha=, un día del
@@ -97,7 +100,8 @@ for (const ruta of rutas) {
     .trim();
   exigir(Boolean(h1), `${donde}: sin H1 con texto`);
   for (const prohibido of PROHIBIDOS) {
-    exigir(!texto.includes(prohibido), `${donde}: el HTML dice «${prohibido}»`);
+    const dice = typeof prohibido === 'string' ? texto.includes(prohibido) : prohibido.test(texto);
+    exigir(!dice, `${donde}: el HTML dice «${texto.match(prohibido)?.[0]}»`);
   }
   for (const fecha of hoy) {
     exigir(!cuerpo.includes(fecha), `${donde}: el HTML trae la fecha del build («${fecha}»)`);

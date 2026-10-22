@@ -230,7 +230,7 @@ describe('htaccess.qa', { skip: saltar }, () => {
   });
 
   test('lo que no lleva hash no queda un año: una foto se reemplaza con el mismo nombre', () => {
-    for (const ruta of ['/fotos/portada-1080.webp', '/og.jpg', '/robots.txt', '/', '/socio/reservas']) {
+    for (const ruta of ['/fotos/portada-1080.webp', '/og.jpg', '/robots.txt', '/', '/socio/reservas', '/media/logo.svg']) {
       assert.doesNotMatch(qa(ruta).cabecera, /immutable|max-age=31536000/, ruta);
     }
   });
@@ -323,7 +323,7 @@ describe('htaccess.prod', { skip: saltar }, () => {
   });
 
   test('lo que no lleva hash no queda un año', () => {
-    for (const ruta of ['/fotos/portada-1080.webp', '/og.jpg', '/robots.txt', '/', '/el-club', '/socio/reservas']) {
+    for (const ruta of ['/fotos/portada-1080.webp', '/og.jpg', '/robots.txt', '/', '/el-club', '/socio/reservas', '/media/logo.svg']) {
       assert.doesNotMatch(prod(ruta).cabecera, /immutable|max-age=31536000/, ruta);
     }
   });

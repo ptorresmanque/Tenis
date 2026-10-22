@@ -85,6 +85,15 @@ describe('La fuente de íconos (T369)', () => {
     expect(faltan).toEqual([]);
   });
 
+  // El recorte pide fontTools y no corre en el CI: sumar un ícono a la lista sin correr el script
+  // dejaría la fuente sin él. El script deja junto a la fuente la lista con que la armó.
+  it('**la fuente versionada se armó con esta lista**', () => {
+    expect(
+      lista('fuentes/iconos-en-la-fuente.txt'),
+      'corre `node scripts/fuente-de-iconos.mjs`',
+    ).toEqual(enUso);
+  });
+
   it('la lista solo trae nombres de Material Symbols', () => {
     expect([...enUso].filter((icono) => !todos.has(icono))).toEqual([]);
   });

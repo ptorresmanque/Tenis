@@ -3,7 +3,11 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Torneos } from '../torneos.service';
-import { recordarPagoPendiente, soltarSiVolvioSinPagar } from './pago-pendiente';
+import {
+  olvidarPagoPendiente,
+  recordarPagoPendiente,
+  soltarSiVolvioSinPagar,
+} from './pago-pendiente';
 
 /** Una página que se vuelve de pagar, como Torneos o la de la inscripción. */
 @Component({ template: '' })
@@ -46,14 +50,16 @@ describe('soltarSiVolvioSinPagar', () => {
     vi.stubGlobal('ngServerMode', true);
     const agregar = vi.spyOn(window, 'addEventListener');
     const quitar = vi.spyOn(window, 'removeEventListener');
-    const leer = vi.spyOn(Storage.prototype, 'getItem');
+    // Por lo que queda guardado y no con un espía: con Node 26, `sessionStorage` es el de Node, y
+    // un espía en `Storage.prototype` no veía sus lecturas.
+    recordarPagoPendiente('llave-1');
 
     const { fixture, soltarInscripcion } = montar();
     fixture.destroy();
 
     expect(agregar).not.toHaveBeenCalledWith('pageshow', expect.anything());
     expect(quitar).not.toHaveBeenCalledWith('pageshow', expect.anything());
-    expect(leer).not.toHaveBeenCalled();
+    expect(olvidarPagoPendiente()).toBe('llave-1');
     expect(soltarInscripcion).not.toHaveBeenCalled();
   });
 });

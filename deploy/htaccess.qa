@@ -24,12 +24,13 @@ Header always set X-Robots-Tag "noindex, nofollow"
 </FilesMatch>
 
 # Lo que lleva hash en el nombre no cambia nunca: el release siguiente trae otro nombre. Un año y
-# sin volver a preguntar (T367, SPEC-seo.md T8): el JavaScript, el CSS y las fuentes de media/. Las
-# fotos y og.jpg no llevan hash, se reemplazan con el mismo nombre, y quedan como estaban.
+# sin volver a preguntar (T367, SPEC-seo.md T8): el JavaScript, el CSS y las fuentes de media/, con
+# el hash de 8 caracteres que les pone el build. Las fotos, og.jpg y un archivo de media/ sin hash
+# se reemplazan con el mismo nombre, y quedan como estaban.
 <FilesMatch "^(main|chunk|polyfills|styles)-[A-Za-z0-9_-]{8}\.(js|css)$">
   Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
-<If "%{REQUEST_URI} =~ m#^/media/#">
+<If "%{REQUEST_URI} =~ m#^/media/[^/]+-[A-Z0-9]{8}\.[a-z0-9]+$#">
   Header set Cache-Control "public, max-age=31536000, immutable"
 </If>
 

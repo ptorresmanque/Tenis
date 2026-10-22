@@ -707,13 +707,14 @@ export class Inicio {
    */
   protected readonly resumenDeCanchas = computed(() => {
     const canchas = this.canchas();
-    const techadas = canchas.filter((cancha) => cancha.techada).length;
-    const conLuz = canchas.filter((cancha) => cancha.iluminacion).length;
+    // Sin catálogo (cargando, sin API o en el prerender, que no la llama: SPEC-seo.md D1), una
+    // raya y no «0 canchas», que en el HTML se leería como dato del club.
+    const cifra = (cuantas: number) => (canchas.length > 0 ? `${cuantas}` : '—');
 
     return [
-      { etiqueta: canchas.length === 1 ? 'Cancha' : 'Canchas', valor: `${canchas.length}` },
-      { etiqueta: 'Techadas', valor: `${techadas}` },
-      { etiqueta: 'Con iluminación', valor: `${conLuz}` },
+      { etiqueta: canchas.length === 1 ? 'Cancha' : 'Canchas', valor: cifra(canchas.length) },
+      { etiqueta: 'Techadas', valor: cifra(canchas.filter((c) => c.techada).length) },
+      { etiqueta: 'Con iluminación', valor: cifra(canchas.filter((c) => c.iluminacion).length) },
     ];
   });
 

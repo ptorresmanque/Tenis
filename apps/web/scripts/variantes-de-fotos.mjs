@@ -7,10 +7,11 @@
 // foto más angosta que un ancho no se agranda: la variante queda con su ancho real.
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import sharp from 'sharp';
 
-const web = new URL('..', import.meta.url).pathname;
+const web = fileURLToPath(new URL('..', import.meta.url));
 const fotos = join(web, 'public/fotos');
 const ANCHOS = [640, 1080, 1600];
 

@@ -5,12 +5,15 @@
 //
 // Lee src/fuentes/iconos-en-uso.txt (la lista que cuida src/app/ui/iconos.spec.ts) y recorta
 // material-symbols-sharp.completa.woff2, que se versiona como fuente de todo esto y no se publica.
+// Deja junto a la fuente la lista con que la armó, iconos-en-la-fuente.txt: la prueba exige que
+// sea igual a la de uso, y así nota si alguien sumó un ícono sin correr esto.
 // Pide fontTools (`pip install fonttools brotli`): pyftsubset y ttx.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const fuentes = join(new URL('..', import.meta.url).pathname, 'src/fuentes');
+const fuentes = join(fileURLToPath(new URL('..', import.meta.url)), 'src/fuentes');
 const completa = join(fuentes, 'material-symbols-sharp.completa.woff2');
 const salida = join(fuentes, 'material-symbols-sharp.woff2');
 const iconos = readFileSync(join(fuentes, 'iconos-en-uso.txt'), 'utf8').split('\n').filter(Boolean);
@@ -89,6 +92,8 @@ if (distintos.length > 0)
 // Y cada letra, minúscula o mayúscula, tiene que llevar al mismo glifo que en la completa.
 const otraLetra = [...letras].filter((l) => deLaNueva.cmap.get(l) !== deLaCompleta.cmap.get(l));
 if (otraLetra.length > 0) throw new Error(`Letras que cambiaron de glifo: ${otraLetra.join(' ')}`);
+
+writeFileSync(join(fuentes, 'iconos-en-la-fuente.txt'), `${iconos.join('\n')}\n`);
 
 const kb = (archivo) => Math.round(statSync(archivo).size / 1024);
 console.log(`${iconos.length} íconos: ${kb(completa)} KB → ${kb(salida)} KB`);

@@ -351,6 +351,22 @@ describe('Inicio', () => {
     expect(banda.textContent).toContain(enPesos(9_000));
   });
 
+  // La revisión de la Fase 2 del SEO: la portada prerenderizada no llama a la API (SPEC-seo.md
+  // D1), y su HTML decía «Canchas 0 · Techadas 0 · Con iluminación 0». Lo mismo se veía en el
+  // navegador mientras la API no contestaba.
+  it.each([
+    ['mientras carga', () => new Promise<GrillaDeCancha[]>(() => undefined)],
+    ['si no carga', () => Promise.reject(new Error('sin API'))],
+  ])('**%s, las tres cifras no dicen 0 canchas**', async (_, delDia) => {
+    await montar([], delDia, { esperar: false });
+    await new Promise((listo) => setTimeout(listo));
+    fixture.detectChanges();
+    const banda = elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+    const cifras = [...banda.querySelectorAll('dd')].map((dd) => dd.textContent?.trim());
+
+    expect(cifras).toEqual(['—', '—', '—']);
+  });
+
   it('**"Desde" no cuenta las horas reservadas**, que la API manda con monto 0', async () => {
     // La API pone en 0 el monto de una hora que no se puede tomar, para no ofrecer pagarla.
     // El día del lanzamiento (2026-10-11) una reserva de prueba dejó la portada en "Desde $0".
