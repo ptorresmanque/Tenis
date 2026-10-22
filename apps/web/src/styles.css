@@ -370,11 +370,14 @@
   compara los dos bloques carácter por carácter y falla si alguien toca uno solo.
 
   El `:is()` es para el CSS crítico del prerender (T371), no para el navegador, que
-  lo lee igual que `[data-modo='oscuro']` y con la misma especificidad. El build
-  incrusta solo las reglas que calzan con el HTML al compilar, comparadas sin
-  seudoclases, y `data-modo` lo pone el script de index.html en el navegador: sin
-  el `:is()` esta regla quedaba fuera, y quien eligió oscuro veía la página clara
-  hasta que llegaba la hoja completa.
+  lo lee igual que `html[data-tema='publico'][data-modo='oscuro']` y con la misma
+  especificidad. El build incrusta solo las reglas que calzan con el HTML al
+  compilar, y beasties las compara sin seudoclases: este selector se compara como
+  `html[data-tema='publico']`, que sí está en el HTML. Sin el `:is()` la regla
+  quedaba fuera (`data-modo` lo pone el script de index.html en el navegador), y
+  quien eligió oscuro veía la página clara hasta que llegaba la hoja completa.
+  No lo quites: `verificar-prerender.mjs` hace fallar el build. Tampoco corras el
+  build con NODE_ENV=production: el optimizador de Tailwind desenvuelve el `:is()`.
 */
 html[data-tema='publico']:is([data-modo='oscuro']) {
     --color-background: #0a1b33;
