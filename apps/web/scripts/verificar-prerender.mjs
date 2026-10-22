@@ -106,6 +106,16 @@ for (const ruta of rutas) {
   for (const fecha of hoy) {
     exigir(!cuerpo.includes(fecha), `${donde}: el HTML trae la fecha del build («${fecha}»)`);
   }
+  // T371. El build incrusta el CSS crítico y carga la hoja completa en diferido. Sin la regla del
+  // oscuro elegido (`data-modo` lo pone el script de index.html en el navegador), quien eligió
+  // oscuro con el sistema en claro veía la página clara hasta que llegaba la hoja.
+  const incrustado = [...cabecera.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(
+    ([, css]) => css,
+  );
+  exigir(
+    incrustado.some((css) => /data-modo=["']?oscuro["']?\]\)?\{[^}]*--color-background:/.test(css)),
+    `${donde}: el CSS incrustado no trae el modo oscuro elegido (destello claro al cargar)`,
+  );
 }
 
 if (fallas.length > 0) {

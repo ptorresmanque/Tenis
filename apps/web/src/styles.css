@@ -368,8 +368,15 @@
   selectores no puede mezclar uno normal con otro que vive dentro de un `@media`.
   Lo que sí se puede es que la duplicación no se pudra: `design-tokens.spec.ts`
   compara los dos bloques carácter por carácter y falla si alguien toca uno solo.
+
+  El `:is()` es para el CSS crítico del prerender (T371), no para el navegador, que
+  lo lee igual que `[data-modo='oscuro']` y con la misma especificidad. El build
+  incrusta solo las reglas que calzan con el HTML al compilar, comparadas sin
+  seudoclases, y `data-modo` lo pone el script de index.html en el navegador: sin
+  el `:is()` esta regla quedaba fuera, y quien eligió oscuro veía la página clara
+  hasta que llegaba la hoja completa.
 */
-html[data-tema='publico'][data-modo='oscuro'] {
+html[data-tema='publico']:is([data-modo='oscuro']) {
     --color-background: #0a1b33;
     --color-foreground: #eaf2fb;
     --color-card: #11294a;
