@@ -1,7 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  DeferBlockBehavior,
+  DeferBlockState,
+  TestBed,
+} from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { ViewportScroller } from '@angular/common';
@@ -47,6 +52,9 @@ describe('ElClub', () => {
   const montar = async (canchas: Cancha[], datos: DatosDelClub = VACIO) => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
+      // Las secciones con datos van en @defer (T360): la prueba las abre a mano, antes de
+      // responder las peticiones que hacen al abrirse.
+      deferBlockBehavior: DeferBlockBehavior.Manual,
       providers: [
         provideRouter([]),
         provideHttpClient(),
@@ -59,6 +67,9 @@ describe('ElClub', () => {
 
     fixture = TestBed.createComponent(ElClub);
     fixture.detectChanges();
+    for (const bloque of await fixture.getDeferBlocks()) {
+      await bloque.render(DeferBlockState.Complete);
+    }
     // Las tarifas, que son otro componente con su propio test, responden vacías:
     // sin respuesta la página nunca queda estable.
     const http = TestBed.inject(HttpTestingController);
@@ -104,7 +115,8 @@ describe('ElClub', () => {
     await montar([]);
     const foto = seccion('el-club').querySelector<HTMLImageElement>('img')!;
 
-    expect(foto.getAttribute('src')).toContain('/fotos/portada.jpg');
+    // La foto, en cualquiera de sus variantes WebP (T366).
+    expect(foto.getAttribute('src')).toMatch(/^\/fotos\/portada-\d+\.webp$/);
     expect(foto.alt).toContain('logo de FEDAL');
   });
 

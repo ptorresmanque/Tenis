@@ -1,4 +1,4 @@
-import { NgOptimizedImage } from '@angular/common';
+import { IMAGE_CONFIG, IMAGE_LOADER, ImageLoaderConfig, NgOptimizedImage } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
 import { MatIcon } from '@angular/material/icon';
 
@@ -19,6 +19,27 @@ const ANCHO: Record<Proporcion, number> = {
   '3/4': 1200,
   '1/1': 1200,
 };
+
+/**
+ * Los anchos de las variantes WebP de cada foto de `public/fotos/` (T366, SPEC-seo.md A10). Las
+ * genera `scripts/variantes-de-fotos.mjs`, y se versionan junto a la foto. La de 960 es de T370: un
+ * teléfono de 390 px pide 683 a 780 px, y con la de 1080 la portada no bajaba de 2,5 s de LCP.
+ */
+export const ANCHOS_DE_FOTO = [640, 960, 1080, 1600] as const;
+
+/**
+ * La URL de la variante que el navegador pide para un ancho: la de arriba, porque una más chica se
+ * vería borrosa; sin ancho, la de 1080. Lo que no es una foto del sitio pasa tal cual.
+ *
+ * Antes era un JPG de 200 a 600 KB en un solo tamaño, y en un teléfono con 4G el LCP de la portada
+ * pasaba los 10 s.
+ */
+export function cargadorDeFotos({ src, width }: ImageLoaderConfig): string {
+  if (!/^\/fotos\/[^/]+\.jpg$/.test(src)) return src;
+
+  const ancho = ANCHOS_DE_FOTO.find((candidato) => candidato >= (width ?? 1080)) ?? 1600;
+  return src.replace(/\.jpg$/, `-${ancho}.webp`);
+}
 
 /**
  * Una foto del club, o el hueco donde va a ir.
@@ -42,6 +63,11 @@ const ANCHO: Record<Proporcion, number> = {
 @Component({
   selector: 'app-foto',
   imports: [MatIcon, NgOptimizedImage],
+  // Acá y no en toda la app: es el único lugar con `ngSrc`, y solo sus fotos tienen variantes.
+  providers: [
+    { provide: IMAGE_LOADER, useValue: cargadorDeFotos },
+    { provide: IMAGE_CONFIG, useValue: { breakpoints: [...ANCHOS_DE_FOTO] } },
+  ],
   template: `
     <div
       data-caja

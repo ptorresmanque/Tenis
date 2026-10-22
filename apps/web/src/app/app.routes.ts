@@ -53,8 +53,11 @@ export const routes: Routes = [
             'Elige día, hora y cancha en FEDAL Tennis Center, Temuco: techada o al aire libre, ' +
             'por 1 hora o 1 hora y media. Pagas en línea con Webpay; el socio no paga.',
         },
+        // T362: la grilla va dentro de su página, en @defer: depende del día de hoy y de la API.
         loadComponent: () =>
-          import('./catalogo-canchas/grilla/grilla').then((m) => m.Grilla),
+          import('./catalogo-canchas/grilla/pagina-de-disponibilidad').then(
+            (m) => m.PaginaDeDisponibilidad,
+          ),
       },
       // Mis reservas y Mis partidos son pestañas de Mi cuenta desde T318 (SPEC-sitio.md A8).
       { path: 'mis-reservas', redirectTo: '/mi-cuenta/reservas' },

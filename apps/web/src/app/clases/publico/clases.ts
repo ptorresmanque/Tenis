@@ -61,116 +61,66 @@ import { Esqueleto } from '../../ui/esqueleto';
 
     <!-- Los títulos de la A, como el del formulario de contacto de abajo (TV4.4). -->
     <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Quiénes enseñan</h2>
-    @if (datos.error()) {
-      <p class="mt-3 text-destructive">
-        No se pudieron cargar las clases. Reintenta en un momento.
-      </p>
-    } @else if (datos.value(); as info) {
-      @if (info.profesores.length === 0) {
-        <p class="mt-2 text-muted-foreground">
-          Estamos armando el equipo de profesores para la próxima temporada.
+    <!-- Lo que viene de la API va en @defer (T363, SPEC-seo.md D1): el HTML del build
+         trae el esqueleto, no un error de carga. -->
+    @defer (on immediate) {
+      @if (datos.error()) {
+        <p class="mt-3 text-destructive">
+          No se pudieron cargar las clases. Reintenta en un momento.
         </p>
-      } @else {
-        <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
-          @for (profesor of info.profesores; track profesor.nombreVisible) {
-            <li class="flex flex-wrap items-baseline justify-between gap-2 py-4">
-              <p class="titulo-tarjeta">
-                {{ profesor.nombreVisible }}
-              </p>
-              <p class="text-muted-foreground">{{ profesor.especialidad }}</p>
-            </li>
-          }
-        </ul>
-      }
+      } @else if (datos.value(); as info) {
+        @if (info.profesores.length === 0) {
+          <p class="mt-2 text-muted-foreground">
+            Estamos armando el equipo de profesores para la próxima temporada.
+          </p>
+        } @else {
+          <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
+            @for (profesor of info.profesores; track profesor.nombreVisible) {
+              <li class="flex flex-wrap items-baseline justify-between gap-2 py-4">
+                <p class="titulo-tarjeta">
+                  {{ profesor.nombreVisible }}
+                </p>
+                <p class="text-muted-foreground">{{ profesor.especialidad }}</p>
+              </li>
+            }
+          </ul>
+        }
 
-      <!-- T117. Una serie es una tarjeta: "martes y jueves, 19:00", no una clase por fecha.
-           La inscripción es a la serie completa, así que el cupo es el de su clase más llena. -->
-      @if (info.series.length > 0) {
-        <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Todas las semanas</h2>
-        <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
-          @for (serie of info.series; track serie.id) {
-            <li class="flex flex-wrap items-center gap-3 py-4">
-              <!-- T229. Si todos los días comparten horario y lugar, la serie se lee como
-                   antes; si no, cada día va en su renglón. -->
-              @if (enComun(serie); as comun) {
-                <span class="font-display text-2xl font-bold">
-                  {{ diasDeLaSerie(comun.diasSemana) }}, {{ comun.horaDesde }}–{{ comun.horaHasta }}
-                </span>
-              } @else {
-                <span class="grid font-display text-xl font-bold">
-                  @for (dia of enOrden(serie.dias); track dia.diaSemana) {
-                    <span>
-                      {{ diasDeLaSerie([dia.diaSemana]) }} {{ dia.horaDesde }}–{{ dia.horaHasta }} ·
-                      {{ dia.lugar }}
-                    </span>
-                  }
-                </span>
-              }
-              <mat-chip-set class="insignias">
-                <mat-chip class="insignia info">
-                  <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
-                  {{ queClaseEs(serie) }}
-                </mat-chip>
-              </mat-chip-set>
-              <span class="text-sm text-muted-foreground">{{ detalle(serie) }}</span>
-
-              @if (serie.cuposLibres === 0) {
-                <mat-chip-set class="insignias ms-auto">
-                  <mat-chip class="insignia neutro">
-                    <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
-                    Sin cupos
-                  </mat-chip>
-                </mat-chip-set>
-              } @else {
-                <mat-chip-set class="insignias ms-auto">
-                  <mat-chip class="insignia libre">
-                    <mat-icon matChipAvatar aria-hidden="true">event_available</mat-icon>
-                    {{ serie.cuposLibres }} {{ serie.cuposLibres === 1 ? 'cupo' : 'cupos' }}
-                  </mat-chip>
-                </mat-chip-set>
-              }
-            </li>
-          }
-        </ul>
-      }
-
-      @if (info.clases.length > 0 || info.series.length === 0) {
-        <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Esta semana</h2>
-      }
-
-      @if (info.clases.length === 0 && info.series.length === 0) {
-        <app-estado-vacio
-          class="mt-3 block"
-          icono="event_busy"
-          titulo="No hay clases programadas esta semana"
-          detalle="Escríbenos y te avisamos cuando se abra el próximo grupo."
-        />
-      } @else if (info.clases.length > 0) {
-        @for (dia of porDia(); track dia.fecha) {
-          <!-- Cada día lo encabeza un rótulo de transmisión, con su corte (TV4.4). -->
-          <h3
-            class="mt-8 inline-flex bg-rotulo py-1.5 ps-4 font-display text-sm font-bold
-                   tracking-wider text-on-rotulo uppercase corte-fin aparece-al-pasar"
-          >
-            {{ enPalabras(dia.fecha) }}
-          </h3>
-          <ul class="divide-y divide-border border-t border-border aparece-al-pasar">
-            @for (clase of dia.clases; track clase.id) {
+        <!-- T117. Una serie es una tarjeta: "martes y jueves, 19:00", no una clase por fecha.
+             La inscripción es a la serie completa, así que el cupo es el de su clase más llena. -->
+        @if (info.series.length > 0) {
+          <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Todas las semanas</h2>
+          <ul class="mt-4 divide-y divide-border border-y border-border aparece-al-pasar">
+            @for (serie of info.series; track serie.id) {
               <li class="flex flex-wrap items-center gap-3 py-4">
-                <span class="font-display text-2xl font-bold tabular-nums">
-                  {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
-                </span>
+                <!-- T229. Si todos los días comparten horario y lugar, la serie se lee como
+                     antes; si no, cada día va en su renglón. -->
+                @if (enComun(serie); as comun) {
+                  <span class="font-display text-2xl font-bold">
+                    {{ diasDeLaSerie(comun.diasSemana) }}, {{ comun.horaDesde }}–{{
+                      comun.horaHasta
+                    }}
+                  </span>
+                } @else {
+                  <span class="grid font-display text-xl font-bold">
+                    @for (dia of enOrden(serie.dias); track dia.diaSemana) {
+                      <span>
+                        {{ diasDeLaSerie([dia.diaSemana]) }} {{ dia.horaDesde }}–{{ dia.horaHasta }}
+                        ·
+                        {{ dia.lugar }}
+                      </span>
+                    }
+                  </span>
+                }
                 <mat-chip-set class="insignias">
                   <mat-chip class="insignia info">
                     <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
-                    {{ queClaseEs(clase) }}
+                    {{ queClaseEs(serie) }}
                   </mat-chip>
                 </mat-chip-set>
-                <span class="text-sm text-muted-foreground">
-                  {{ clase.profesor }} · {{ clase.lugar }}
-                </span>
+                <span class="text-sm text-muted-foreground">{{ detalle(serie) }}</span>
 
-                @if (clase.cuposLibres === 0) {
+                @if (serie.cuposLibres === 0) {
                   <mat-chip-set class="insignias ms-auto">
                     <mat-chip class="insignia neutro">
                       <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
@@ -178,12 +128,10 @@ import { Esqueleto } from '../../ui/esqueleto';
                     </mat-chip>
                   </mat-chip-set>
                 } @else {
-                  <!-- Cupos libres: el verde de "libre", con fondo sólido. -->
                   <mat-chip-set class="insignias ms-auto">
                     <mat-chip class="insignia libre">
                       <mat-icon matChipAvatar aria-hidden="true">event_available</mat-icon>
-                      {{ clase.cuposLibres }}
-                      {{ clase.cuposLibres === 1 ? 'cupo' : 'cupos' }}
+                      {{ serie.cuposLibres }} {{ serie.cuposLibres === 1 ? 'cupo' : 'cupos' }}
                     </mat-chip>
                   </mat-chip-set>
                 }
@@ -191,8 +139,69 @@ import { Esqueleto } from '../../ui/esqueleto';
             }
           </ul>
         }
+
+        @if (info.clases.length > 0 || info.series.length === 0) {
+          <h2 class="titular mt-16 text-5xl aparece-al-pasar sm:text-6xl">Esta semana</h2>
+        }
+
+        @if (info.clases.length === 0 && info.series.length === 0) {
+          <app-estado-vacio
+            class="mt-3 block"
+            icono="event_busy"
+            titulo="No hay clases programadas esta semana"
+            detalle="Escríbenos y te avisamos cuando se abra el próximo grupo."
+          />
+        } @else if (info.clases.length > 0) {
+          @for (dia of porDia(); track dia.fecha) {
+            <!-- Cada día lo encabeza un rótulo de transmisión, con su corte (TV4.4). -->
+            <h3
+              class="mt-8 inline-flex bg-rotulo py-1.5 ps-4 font-display text-sm font-bold
+                     tracking-wider text-on-rotulo uppercase corte-fin aparece-al-pasar"
+            >
+              {{ enPalabras(dia.fecha) }}
+            </h3>
+            <ul class="divide-y divide-border border-t border-border aparece-al-pasar">
+              @for (clase of dia.clases; track clase.id) {
+                <li class="flex flex-wrap items-center gap-3 py-4">
+                  <span class="font-display text-2xl font-bold tabular-nums">
+                    {{ hora(clase.inicio) }}–{{ hora(clase.fin) }}
+                  </span>
+                  <mat-chip-set class="insignias">
+                    <mat-chip class="insignia info">
+                      <mat-icon matChipAvatar aria-hidden="true">school</mat-icon>
+                      {{ queClaseEs(clase) }}
+                    </mat-chip>
+                  </mat-chip-set>
+                  <span class="text-sm text-muted-foreground">
+                    {{ clase.profesor }} · {{ clase.lugar }}
+                  </span>
+
+                  @if (clase.cuposLibres === 0) {
+                    <mat-chip-set class="insignias ms-auto">
+                      <mat-chip class="insignia neutro">
+                        <mat-icon matChipAvatar aria-hidden="true">block</mat-icon>
+                        Sin cupos
+                      </mat-chip>
+                    </mat-chip-set>
+                  } @else {
+                    <!-- Cupos libres: el verde de "libre", con fondo sólido. -->
+                    <mat-chip-set class="insignias ms-auto">
+                      <mat-chip class="insignia libre">
+                        <mat-icon matChipAvatar aria-hidden="true">event_available</mat-icon>
+                        {{ clase.cuposLibres }}
+                        {{ clase.cuposLibres === 1 ? 'cupo' : 'cupos' }}
+                      </mat-chip>
+                    </mat-chip-set>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        }
+      } @else if (datos.isLoading()) {
+        <app-esqueleto class="mt-3 block" [filas]="4" etiqueta="Cargando los horarios…" />
       }
-    } @else if (datos.isLoading()) {
+    } @placeholder {
       <app-esqueleto class="mt-3 block" [filas]="4" etiqueta="Cargando los horarios…" />
     }
 

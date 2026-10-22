@@ -168,56 +168,63 @@ import { publicarElClub } from '../seo/datos-estructurados';
           aria-live="polite"
           class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
         >
-          @if (grillas.isLoading() || grillasDeManana.isLoading()) {
-            <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
-          } @else if (grillas.error()) {
-            <p class="text-muted-foreground">
-              No pudimos cargar las horas de hoy.
-              <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
-                Mira la disponibilidad
-              </a>
-            </p>
-          } @else if (proximaLibre(); as libre) {
-            <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
-            <div class="min-w-0 flex-1">
-              <!-- Si hoy ya no queda nada, la de mañana, y lo dice (T268). -->
-              <p class="font-display text-lg font-bold uppercase">
-                @if (esManana()) {
-                  Mañana ·
-                }
-                {{ libre.cancha }}
+          <!-- Lo que dice depende de hoy y de la API: en @defer (T362, SPEC-seo.md D1), el HTML
+               del build trae el esqueleto y no un error de carga ni la hora del día en que se
+               compiló. La región viva queda afuera, desde el principio. -->
+          @defer (on immediate) {
+            @if (grillas.isLoading() || grillasDeManana.isLoading()) {
+              <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
+            } @else if (grillas.error()) {
+              <p class="text-muted-foreground">
+                No pudimos cargar las horas de hoy.
+                <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
+                  Mira la disponibilidad
+                </a>
               </p>
-              <p class="text-sm text-muted-foreground">
-                @if (libre.montoClp !== null) {
-                  Arriendo {{ pesos(libre.montoClp) }}.
-                }
-                Socio sin costo.
-              </p>
-            </div>
-            <!-- A esa hora y en esa cancha, marcada al llegar (T266). -->
-            <a
-              matButton="filled"
-              routerLink="/disponibilidad"
-              [queryParams]="{
-                fecha: fecha(libre.inicio),
-                cancha: libre.canchaId,
-                inicio: hora(libre.inicio),
-              }"
-              class="w-full sm:w-auto"
-            >
-              Reservar
-              <span class="sr-only"
-                >{{ esManana() ? 'mañana, ' : '' }}{{ libre.cancha }} a las
-                {{ hora(libre.inicio) }}</span
+            } @else if (proximaLibre(); as libre) {
+              <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
+              <div class="min-w-0 flex-1">
+                <!-- Si hoy ya no queda nada, la de mañana, y lo dice (T268). -->
+                <p class="font-display text-lg font-bold uppercase">
+                  @if (esManana()) {
+                    Mañana ·
+                  }
+                  {{ libre.cancha }}
+                </p>
+                <p class="text-sm text-muted-foreground">
+                  @if (libre.montoClp !== null) {
+                    Arriendo {{ pesos(libre.montoClp) }}.
+                  }
+                  Socio sin costo.
+                </p>
+              </div>
+              <!-- A esa hora y en esa cancha, marcada al llegar (T266). -->
+              <a
+                matButton="filled"
+                routerLink="/disponibilidad"
+                [queryParams]="{
+                  fecha: fecha(libre.inicio),
+                  cancha: libre.canchaId,
+                  inicio: hora(libre.inicio),
+                }"
+                class="w-full sm:w-auto"
               >
-            </a>
-          } @else {
-            <p class="font-semibold">
-              Hoy ya no quedan horas libres.
-              <a routerLink="/disponibilidad" class="text-primary underline">
-                Mira los próximos días.
+                Reservar
+                <span class="sr-only"
+                  >{{ esManana() ? 'mañana, ' : '' }}{{ libre.cancha }} a las
+                  {{ hora(libre.inicio) }}</span
+                >
               </a>
-            </p>
+            } @else {
+              <p class="font-semibold">
+                Hoy ya no quedan horas libres.
+                <a routerLink="/disponibilidad" class="text-primary underline">
+                  Mira los próximos días.
+                </a>
+              </p>
+            }
+          } @placeholder {
+            <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
           }
         </div>
       </div>
@@ -299,14 +306,24 @@ import { publicarElClub } from '../seo/datos-estructurados';
       class="mt-16 grid gap-8 aparece-al-pasar lg:grid-cols-[1.1fr_1fr] lg:items-center"
       aria-labelledby="canchas"
     >
-      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
-      <app-foto
-        descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
-                     canchas techadas al fondo"
-        src="/fotos/malla.jpg"
-        proporcion="4/3"
-        claseCaja="corte-foto"
-      />
+      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4).
+           En @defer (T370): con conexión lenta, Chrome pedía esta foto diferida al leer el HTML,
+           junto con la principal, y le quitaba ancho de banda a la que mide el LCP. En el HTML
+           prerenderizado las bandas de la API todavía no están y esta queda en el primer
+           pantallazo, así que el disparador se cumple al hidratar: lo que se gana es que la foto
+           ya no sale en el HTML. El margen sirve si un día la banda queda más abajo. El hueco
+           ocupa lo mismo que la foto. -->
+      @defer (on viewport({ rootMargin: '600px' })) {
+        <app-foto
+          descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
+                       canchas techadas al fondo"
+          src="/fotos/malla.jpg"
+          proporcion="4/3"
+          claseCaja="corte-foto"
+        />
+      } @placeholder {
+        <div data-hueco-de-foto class="corte-foto w-full bg-muted" style="aspect-ratio: 4/3"></div>
+      }
 
       <div>
         <h2 id="canchas" class="titular text-5xl sm:text-6xl">Nuestras canchas</h2>
@@ -700,13 +717,14 @@ export class Inicio {
    */
   protected readonly resumenDeCanchas = computed(() => {
     const canchas = this.canchas();
-    const techadas = canchas.filter((cancha) => cancha.techada).length;
-    const conLuz = canchas.filter((cancha) => cancha.iluminacion).length;
+    // Sin catálogo (cargando, sin API o en el prerender, que no la llama: SPEC-seo.md D1), una
+    // raya y no «0 canchas», que en el HTML se leería como dato del club.
+    const cifra = (cuantas: number) => (canchas.length > 0 ? `${cuantas}` : '—');
 
     return [
-      { etiqueta: canchas.length === 1 ? 'Cancha' : 'Canchas', valor: `${canchas.length}` },
-      { etiqueta: 'Techadas', valor: `${techadas}` },
-      { etiqueta: 'Con iluminación', valor: `${conLuz}` },
+      { etiqueta: canchas.length === 1 ? 'Cancha' : 'Canchas', valor: cifra(canchas.length) },
+      { etiqueta: 'Techadas', valor: cifra(canchas.filter((c) => c.techada).length) },
+      { etiqueta: 'Con iluminación', valor: cifra(canchas.filter((c) => c.iluminacion).length) },
     ];
   });
 

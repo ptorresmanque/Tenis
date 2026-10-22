@@ -104,199 +104,205 @@ import { eventosDeTorneos, publicar } from '../../seo/datos-estructurados';
       </app-aviso>
     }
 
-    @if (torneos.error()) {
-      <p class="mt-6 text-destructive">
-        No se pudo cargar el calendario de torneos. Reintenta en un momento.
-      </p>
-    } @else if (torneos.value(); as lista) {
-      @if (lista.length === 0) {
-        <app-estado-vacio
-          class="mt-6 block"
-          icono="emoji_events"
-          titulo="Todavía no hay torneos este año"
-          detalle="El calendario se publica acá en cuanto el club lo cierra."
-        />
-      } @else {
-        <ul class="mt-8 grid gap-6">
-          @for (torneo of lista; track torneo.id) {
-            <li class="aparece-al-pasar">
-              <!-- EL CARTEL (T315, D3): el afiche a la izquierda, que es lo que invita a
-                   inscribirse, y lo del torneo a la derecha, como en la portada. El estado
-                   lo dice la insignia. -->
-              <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
-                <div class="flex flex-wrap items-center gap-2">
-                  <mat-chip-set class="insignias">
-                    <mat-chip
-                      class="insignia"
-                      [class]="aceptaInscripciones(torneo) ? 'libre' : 'neutro'"
-                    >
-                      <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
-                      {{ nombreEstado(torneo) }}
-                    </mat-chip>
-                  </mat-chip-set>
-                </div>
+    <!-- Lo que viene de la API va en @defer (T363, SPEC-seo.md D1): el HTML del build
+         trae el esqueleto, no un error de carga. -->
+    @defer (on immediate) {
+      @if (torneos.error()) {
+        <p class="mt-6 text-destructive">
+          No se pudo cargar el calendario de torneos. Reintenta en un momento.
+        </p>
+      } @else if (torneos.value(); as lista) {
+        @if (lista.length === 0) {
+          <app-estado-vacio
+            class="mt-6 block"
+            icono="emoji_events"
+            titulo="Todavía no hay torneos este año"
+            detalle="El calendario se publica acá en cuanto el club lo cierra."
+          />
+        } @else {
+          <ul class="mt-8 grid gap-6">
+            @for (torneo of lista; track torneo.id) {
+              <li class="aparece-al-pasar">
+                <!-- EL CARTEL (T315, D3): el afiche a la izquierda, que es lo que invita a
+                     inscribirse, y lo del torneo a la derecha, como en la portada. El estado
+                     lo dice la insignia. -->
+                <app-cartel-del-torneo [nombre]="torneo.nombre" [afiches]="torneo.afiches">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <mat-chip-set class="insignias">
+                      <mat-chip
+                        class="insignia"
+                        [class]="aceptaInscripciones(torneo) ? 'libre' : 'neutro'"
+                      >
+                        <mat-icon matChipAvatar aria-hidden="true">flag</mat-icon>
+                        {{ nombreEstado(torneo) }}
+                      </mat-chip>
+                    </mat-chip-set>
+                  </div>
 
-                <h2 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h2>
+                  <h2 class="titular mt-3 text-4xl sm:text-5xl">{{ torneo.nombre }}</h2>
 
-                <p class="mt-2 text-muted-foreground">
-                  {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
-                  @if (torneo.superficie) {
-                    · {{ superficie(torneo.superficie) }}
-                  }
-                </p>
-                <!-- Para qué tours suma (U6), con el enlace a cada uno. -->
-                @if (torneo.tours.length > 0) {
-                  <p class="mt-1">
-                    Suma para
-                    @for (tour of torneo.tours; track tour.tourId) {
-                      el
-                      <a [routerLink]="['/tours', tour.tourId]" class="font-semibold underline">{{
-                        tour.tour
-                      }}</a>
-                      ({{ tour.nivel }}){{ separador($index, $count) }}
+                  <p class="mt-2 text-muted-foreground">
+                    {{ enPalabras(torneo.fechaInicio) }}–{{ enPalabras(torneo.fechaFin) }}
+                    @if (torneo.superficie) {
+                      · {{ superficie(torneo.superficie) }}
                     }
                   </p>
-                }
-                @if (aceptaInscripciones(torneo)) {
-                  <p class="mt-1 font-semibold">
-                    Inscripción hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
-                  </p>
-                } @else if (torneo.estado === 'INSCRIPCION') {
-                  <p class="mt-1">
-                    La inscripción cerró el {{ enPalabras(torneo.cierreInscripcion) }}.
-                  </p>
-                }
+                  <!-- Para qué tours suma (U6), con el enlace a cada uno. -->
+                  @if (torneo.tours.length > 0) {
+                    <p class="mt-1">
+                      Suma para
+                      @for (tour of torneo.tours; track tour.tourId) {
+                        el
+                        <a [routerLink]="['/tours', tour.tourId]" class="font-semibold underline">{{
+                          tour.tour
+                        }}</a>
+                        ({{ tour.nivel }}){{ separador($index, $count) }}
+                      }
+                    </p>
+                  }
+                  @if (aceptaInscripciones(torneo)) {
+                    <p class="mt-1 font-semibold">
+                      Inscripción hasta el {{ enPalabras(torneo.cierreInscripcion) }}.
+                    </p>
+                  } @else if (torneo.estado === 'INSCRIPCION') {
+                    <p class="mt-1">
+                      La inscripción cerró el {{ enPalabras(torneo.cierreInscripcion) }}.
+                    </p>
+                  }
 
-                <!-- **Una fila por categoría y no una del torneo.** Honor cierra con
-                     8 y la 4ª con 32: "quedan 3 cupos" sin decir de qué categoría no
-                     le sirve a nadie para saber si se puede inscribir. Y el precio es
-                     de cada categoría: Honor puede costar el doble que la 5ª el mismo
-                     fin de semana. -->
-                @if (torneo.categorias.length === 0) {
-                  <p class="mt-5 text-sm text-muted-foreground">
-                    Todavía no se anunciaron las categorías.
-                  </p>
-                } @else {
-                  <!-- Una tabla de posiciones (TV4.2). Con cuatro columnas puede no
-                       caber en un teléfono, y se desplaza adentro, no la página. -->
-                  <div class="mt-5 overflow-x-auto">
-                    <!-- En el teléfono, menos relleno por celda: con el de siempre
-                         (1rem por lado), cuatro columnas no caben en 296px. -->
-                    <table
-                      mat-table
-                      [attr.aria-label]="'Categorías de ' + torneo.nombre"
-                      class="max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5"
-                      [dataSource]="torneo.categorias"
-                    >
-                      <ng-container matColumnDef="categoria">
-                        <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
-                        <td
-                          mat-cell
-                          *matCellDef="let categoria"
-                          class="font-display text-xl font-extrabold text-primary sm:text-2xl"
-                        >
-                          {{ categoria.categoria }}
-                        </td>
-                      </ng-container>
-                      <ng-container matColumnDef="inscripcion">
-                        <th mat-header-cell *matHeaderCellDef scope="col">Inscripción</th>
-                        <td mat-cell *matCellDef="let categoria">
-                          {{ precio(categoria.montoClp) }}
-                        </td>
-                      </ng-container>
-                      <ng-container matColumnDef="cupos">
-                        <th mat-header-cell *matHeaderCellDef scope="col">Cupos</th>
-                        <td mat-cell *matCellDef="let categoria">
-                          @if (categoria.armado) {
-                            cuadro armado
-                          } @else if (categoria.cuposLibres > 0) {
-                            quedan {{ categoria.cuposLibres }}
-                            {{ categoria.cuposLibres === 1 ? 'cupo' : 'cupos' }} de
-                            {{ categoria.cupo }}
-                          } @else {
-                            <span class="font-semibold text-warning-strong">
-                              sin cupos, se entra en lista de espera
-                            </span>
-                          }
-                        </td>
-                      </ng-container>
-                      <ng-container matColumnDef="cuadro">
-                        <th mat-header-cell *matHeaderCellDef scope="col">Cuadro</th>
-                        <td mat-cell *matCellDef="let categoria">
-                          @if (categoria.armado) {
-                            cuadro armado
-                          }
-                        </td>
-                      </ng-container>
-                      <ng-container matColumnDef="ver">
-                        <th mat-header-cell *matHeaderCellDef scope="col">
-                          <span class="sr-only">Quiénes juegan</span>
-                        </th>
-                        <td mat-cell *matCellDef="let categoria" class="numero">
-                          <!-- En el teléfono, solo el ícono: con su texto se partía en
-                               dos líneas y la tabla no cabía igual. El nombre sigue
-                               siendo el texto, para el lector y para el inventario. -->
-                          <!-- Abre el modal de la categoría (T135): quiénes juegan
-                               antes de armar, el cuadro después. -->
-                          <button
-                            matButton="outlined"
-                            type="button"
-                            class="chico max-sm:size-11 max-sm:p-0"
-                            aria-haspopup="dialog"
-                            (click)="abrir(categoria.id)"
+                  <!-- **Una fila por categoría y no una del torneo.** Honor cierra con
+                       8 y la 4ª con 32: "quedan 3 cupos" sin decir de qué categoría no
+                       le sirve a nadie para saber si se puede inscribir. Y el precio es
+                       de cada categoría: Honor puede costar el doble que la 5ª el mismo
+                       fin de semana. -->
+                  @if (torneo.categorias.length === 0) {
+                    <p class="mt-5 text-sm text-muted-foreground">
+                      Todavía no se anunciaron las categorías.
+                    </p>
+                  } @else {
+                    <!-- Una tabla de posiciones (TV4.2). Con cuatro columnas puede no
+                         caber en un teléfono, y se desplaza adentro, no la página. -->
+                    <div class="mt-5 overflow-x-auto">
+                      <!-- En el teléfono, menos relleno por celda: con el de siempre
+                           (1rem por lado), cuatro columnas no caben en 296px. -->
+                      <table
+                        mat-table
+                        [attr.aria-label]="'Categorías de ' + torneo.nombre"
+                        class="max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5"
+                        [dataSource]="torneo.categorias"
+                      >
+                        <ng-container matColumnDef="categoria">
+                          <th mat-header-cell *matHeaderCellDef scope="col">Categoría</th>
+                          <td
+                            mat-cell
+                            *matCellDef="let categoria"
+                            class="font-display text-xl font-extrabold text-primary sm:text-2xl"
                           >
-                            <span class="max-sm:sr-only">
-                              {{ categoria.armado ? 'Ver el cuadro' : 'Ver quiénes juegan' }}
-                            </span>
-                            <mat-icon
-                              iconPositionEnd
-                              class="text-xl sm:hidden"
-                              aria-hidden="true"
+                            {{ categoria.categoria }}
+                          </td>
+                        </ng-container>
+                        <ng-container matColumnDef="inscripcion">
+                          <th mat-header-cell *matHeaderCellDef scope="col">Inscripción</th>
+                          <td mat-cell *matCellDef="let categoria">
+                            {{ precio(categoria.montoClp) }}
+                          </td>
+                        </ng-container>
+                        <ng-container matColumnDef="cupos">
+                          <th mat-header-cell *matHeaderCellDef scope="col">Cupos</th>
+                          <td mat-cell *matCellDef="let categoria">
+                            @if (categoria.armado) {
+                              cuadro armado
+                            } @else if (categoria.cuposLibres > 0) {
+                              quedan {{ categoria.cuposLibres }}
+                              {{ categoria.cuposLibres === 1 ? 'cupo' : 'cupos' }} de
+                              {{ categoria.cupo }}
+                            } @else {
+                              <span class="font-semibold text-warning-strong">
+                                sin cupos, se entra en lista de espera
+                              </span>
+                            }
+                          </td>
+                        </ng-container>
+                        <ng-container matColumnDef="cuadro">
+                          <th mat-header-cell *matHeaderCellDef scope="col">Cuadro</th>
+                          <td mat-cell *matCellDef="let categoria">
+                            @if (categoria.armado) {
+                              cuadro armado
+                            }
+                          </td>
+                        </ng-container>
+                        <ng-container matColumnDef="ver">
+                          <th mat-header-cell *matHeaderCellDef scope="col">
+                            <span class="sr-only">Quiénes juegan</span>
+                          </th>
+                          <td mat-cell *matCellDef="let categoria" class="numero">
+                            <!-- En el teléfono, solo el ícono: con su texto se partía en
+                                 dos líneas y la tabla no cabía igual. El nombre sigue
+                                 siendo el texto, para el lector y para el inventario. -->
+                            <!-- Abre el modal de la categoría (T135): quiénes juegan
+                                 antes de armar, el cuadro después. -->
+                            <button
+                              matButton="outlined"
+                              type="button"
+                              class="chico max-sm:size-11 max-sm:p-0"
+                              aria-haspopup="dialog"
+                              (click)="abrir(categoria.id)"
                             >
-                              {{ categoria.armado ? 'account_tree' : 'groups' }}
-                            </mat-icon>
-                          </button>
-                        </td>
-                      </ng-container>
+                              <span class="max-sm:sr-only">
+                                {{ categoria.armado ? 'Ver el cuadro' : 'Ver quiénes juegan' }}
+                              </span>
+                              <mat-icon
+                                iconPositionEnd
+                                class="text-xl sm:hidden"
+                                aria-hidden="true"
+                              >
+                                {{ categoria.armado ? 'account_tree' : 'groups' }}
+                              </mat-icon>
+                            </button>
+                          </td>
+                        </ng-container>
 
-                      <!-- Con la inscripción abierta se dice cuánto cuesta y cuántos
-                           cupos quedan; después, si el cuadro ya está armado. -->
-                      <tr
-                        mat-header-row
-                        *matHeaderRowDef="
-                          aceptaInscripciones(torneo) ? EN_INSCRIPCION : DESPUES;
-                          sticky: true
-                        "
-                      ></tr>
-                      <tr
-                        mat-row
-                        *matRowDef="
-                          let categoria;
-                          columns: aceptaInscripciones(torneo) ? EN_INSCRIPCION : DESPUES
-                        "
-                      ></tr>
-                    </table>
-                  </div>
-                }
+                        <!-- Con la inscripción abierta se dice cuánto cuesta y cuántos
+                             cupos quedan; después, si el cuadro ya está armado. -->
+                        <tr
+                          mat-header-row
+                          *matHeaderRowDef="
+                            aceptaInscripciones(torneo) ? EN_INSCRIPCION : DESPUES;
+                            sticky: true
+                          "
+                        ></tr>
+                        <tr
+                          mat-row
+                          *matRowDef="
+                            let categoria;
+                            columns: aceptaInscripciones(torneo) ? EN_INSCRIPCION : DESPUES
+                          "
+                        ></tr>
+                      </table>
+                    </div>
+                  }
 
-                <!-- La inscripción es su página (T316, D4), con sus pasos: un enlace y no un
-                     botón que desplegaba el formulario en la tarjeta. -->
-                @if (aceptaInscripciones(torneo) && torneo.categorias.length > 0) {
-                  <a
-                    matButton="filled"
-                    class="mt-4 self-start"
-                    [routerLink]="['/torneos', torneo.id, 'inscripcion']"
-                  >
-                    Inscribirme
-                    <span class="sr-only">en {{ torneo.nombre }}</span>
-                  </a>
-                }
-              </app-cartel-del-torneo>
-            </li>
-          }
-        </ul>
+                  <!-- La inscripción es su página (T316, D4), con sus pasos: un enlace y no un
+                       botón que desplegaba el formulario en la tarjeta. -->
+                  @if (aceptaInscripciones(torneo) && torneo.categorias.length > 0) {
+                    <a
+                      matButton="filled"
+                      class="mt-4 self-start"
+                      [routerLink]="['/torneos', torneo.id, 'inscripcion']"
+                    >
+                      Inscribirme
+                      <span class="sr-only">en {{ torneo.nombre }}</span>
+                    </a>
+                  }
+                </app-cartel-del-torneo>
+              </li>
+            }
+          </ul>
+        }
+      } @else if (torneos.isLoading()) {
+        <app-esqueleto class="mt-6 block" [filas]="3" etiqueta="Cargando el calendario…" />
       }
-    } @else if (torneos.isLoading()) {
+    } @placeholder {
       <app-esqueleto class="mt-6 block" [filas]="3" etiqueta="Cargando el calendario…" />
     }
 
@@ -306,6 +312,13 @@ import { eventosDeTorneos, publicar } from '../../seo/datos-estructurados';
   `,
 })
 export class TorneosPublicos {
+  /**
+   * MatButton se usa solo dentro del @defer: sin nombrarlo acá, Angular lo difiere con un import()
+   * de @angular/material/button entero, y como esa librería ya está en el arranque, ahí queda completa, sin
+   * poda (unos 15 kB, T363). Nombrado en la clase, se carga como siempre.
+   */
+  protected readonly sinDiferir = [MatButton];
+
   /** Las columnas de las categorías: con la inscripción abierta, y después. */
   protected readonly EN_INSCRIPCION = ['categoria', 'inscripcion', 'cupos', 'ver'];
   protected readonly DESPUES = ['categoria', 'cuadro', 'ver'];

@@ -1,7 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  DeferBlockBehavior,
+  DeferBlockState,
+  TestBed,
+} from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
@@ -57,8 +62,10 @@ describe('Inicio', () => {
     torneos: TorneoPublico[] | Error,
     delDia: (fecha: string) => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
     // Sin usuario, nadie entró. Con él, basta lo que la portada mira: la ficha de socio.
-    { esperar, tienda, usuario = null, club = {} } = { esperar: true } as {
+    { esperar, tienda, usuario = null, club = {}, diferidos } = { esperar: true } as {
       esperar: boolean;
+      /** Manual: los `@defer` se abren a mano, como en el prerender antes de su disparador. */
+      diferidos?: DeferBlockBehavior;
       tienda?: LugarDelClub;
       usuario?: Pick<UsuarioActual, 'id' | 'socioId'> | null;
       /** Lo demás del club: la dirección, para los datos estructurados (T357). */
@@ -68,6 +75,7 @@ describe('Inicio', () => {
     const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
+      deferBlockBehavior: diferidos,
       providers: [
         provideRouter([]),
         // Los datos estructurados piden el horario (T357), solo si el club tiene dirección.
@@ -351,6 +359,42 @@ describe('Inicio', () => {
     expect(banda.textContent).toContain(enPesos(9_000));
   });
 
+  // T370 (SPEC-seo.md, criterio 8). La foto de «Nuestras canchas» es diferida, pero con conexión
+  // lenta Chrome la pedía al leer el HTML, junto con la foto principal, y le quitaba ancho de banda a
+  // la que mide el LCP. Ahora no viene en el HTML: llega con su @defer, que se abre al hidratar.
+  it('**la foto de «Nuestras canchas» no viene en el HTML: llega con su @defer**', async () => {
+    await montar([], undefined, { esperar: true, diferidos: DeferBlockBehavior.Manual });
+    const banda = () => elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+
+    expect(banda().querySelector('img')).toBeNull();
+    // El hueco ocupa lo mismo que la foto: al llegar, no mueve nada.
+    const hueco = banda().querySelector('[data-hueco-de-foto]') as HTMLElement;
+    expect(hueco.style.aspectRatio.replace(/\s/g, '')).toBe('4/3');
+    expect(hueco.classList).toContain('corte-foto');
+
+    for (const bloque of await fixture.getDeferBlocks())
+      await bloque.render(DeferBlockState.Complete);
+
+    expect(banda().querySelector('img')?.getAttribute('src')).toContain('/fotos/malla');
+    expect(banda().querySelector('[data-hueco-de-foto]')).toBeNull();
+  });
+
+  // La revisión de la Fase 2 del SEO: la portada prerenderizada no llama a la API (SPEC-seo.md
+  // D1), y su HTML decía «Canchas 0 · Techadas 0 · Con iluminación 0». Lo mismo se veía en el
+  // navegador mientras la API no contestaba.
+  it.each([
+    ['mientras carga', () => new Promise<GrillaDeCancha[]>(() => undefined)],
+    ['si no carga', () => Promise.reject(new Error('sin API'))],
+  ])('**%s, las tres cifras no dicen 0 canchas**', async (_, delDia) => {
+    await montar([], delDia, { esperar: false });
+    await new Promise((listo) => setTimeout(listo));
+    fixture.detectChanges();
+    const banda = elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+    const cifras = [...banda.querySelectorAll('dd')].map((dd) => dd.textContent?.trim());
+
+    expect(cifras).toEqual(['—', '—', '—']);
+  });
+
   it('**"Desde" no cuenta las horas reservadas**, que la API manda con monto 0', async () => {
     // La API pone en 0 el monto de una hora que no se puede tomar, para no ofrecer pagarla.
     // El día del lanzamiento (2026-10-11) una reserva de prueba dejó la portada en "Desde $0".
@@ -592,7 +636,8 @@ describe('Inicio', () => {
       await montar([]);
       const foto = elemento().querySelector<HTMLImageElement>('[aria-labelledby="promesa"] img')!;
 
-      expect(foto.getAttribute('src')).toContain('/fotos/el-club.jpg');
+      // La foto, en cualquiera de sus variantes WebP (T366).
+      expect(foto.getAttribute('src')).toMatch(/^\/fotos\/el-club-\d+\.webp$/);
       expect(foto.alt).toContain('Vista aérea del club');
     });
 

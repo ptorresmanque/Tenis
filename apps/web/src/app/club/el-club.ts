@@ -88,8 +88,14 @@ import { publicarElClub } from '../seo/datos-estructurados';
         <h1 id="el-club" class="titular text-6xl sm:text-7xl lg:text-8xl">
           {{ club().elClubTitulo }}
         </h1>
-        @if (club().elClubBajada) {
-          <p class="max-w-prose text-lg whitespace-pre-line text-on-campo/90">{{ club().elClubBajada }}</p>
+        <!-- **Lo que sale de la API va en @defer (on immediate)** (T360, SPEC-seo.md D1). En el
+             prerender no hay API, y el servidor dibuja el placeholder: sin @defer quedarían en el
+             HTML los textos por omisión del servicio («Desde 2008») o un error de carga. En el
+             navegador el bloque se abre al tiro y los datos llegan como siempre. -->
+        @defer (on immediate) {
+          @if (club().elClubBajada) {
+            <p class="max-w-prose text-lg whitespace-pre-line text-on-campo/90">{{ club().elClubBajada }}</p>
+          }
         }
       </div>
     </section>
@@ -104,59 +110,63 @@ import { publicarElClub } from '../seo/datos-estructurados';
     -->
     <section class="mt-16 aparece-al-pasar" aria-labelledby="las-canchas">
       <h2 id="las-canchas" class="titular text-5xl sm:text-6xl">Las canchas</h2>
-      @if (club().elClubCanchas) {
-        <p class="mt-2 max-w-prose whitespace-pre-line text-muted-foreground">{{ club().elClubCanchas }}</p>
-      }
+      @defer (on immediate) {
+        @if (club().elClubCanchas) {
+          <p class="mt-2 max-w-prose whitespace-pre-line text-muted-foreground">{{ club().elClubCanchas }}</p>
+        }
 
-      @if (catalogo.isLoading()) {
-        <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Cargando las canchas…" />
-      } @else if (canchas().length > 0) {
-        <div class="mt-6 grid gap-8 md:grid-cols-2">
-          @for (grupo of gruposDeCanchas(); track grupo.titulo) {
-            <!-- Cada grupo es una cifra de marcador con su raya, como las de la
-                 portada (TV4.1): cuántas hay y de qué tipo, de un vistazo. -->
-            <div class="border-t-4 border-primary pt-3">
-              <p class="flex items-baseline gap-3">
-                <span class="font-display text-marcador text-primary">
-                  {{ grupo.canchas.length }}
-                </span>
-                <span
-                  class="font-display text-xl font-bold tracking-wide text-muted-foreground
-                         uppercase"
-                >
-                  {{ grupo.titulo }}
-                </span>
-              </p>
-              <p class="mt-1 text-sm text-muted-foreground">{{ grupo.detalle }}</p>
+        @if (catalogo.isLoading()) {
+          <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Cargando las canchas…" />
+        } @else if (canchas().length > 0) {
+          <div class="mt-6 grid gap-8 md:grid-cols-2">
+            @for (grupo of gruposDeCanchas(); track grupo.titulo) {
+              <!-- Cada grupo es una cifra de marcador con su raya, como las de la
+                   portada (TV4.1): cuántas hay y de qué tipo, de un vistazo. -->
+              <div class="border-t-4 border-primary pt-3">
+                <p class="flex items-baseline gap-3">
+                  <span class="font-display text-marcador text-primary">
+                    {{ grupo.canchas.length }}
+                  </span>
+                  <span
+                    class="font-display text-xl font-bold tracking-wide text-muted-foreground
+                           uppercase"
+                  >
+                    {{ grupo.titulo }}
+                  </span>
+                </p>
+                <p class="mt-1 text-sm text-muted-foreground">{{ grupo.detalle }}</p>
 
-              <ul class="mt-4 divide-y divide-border border-t border-border">
-                @for (cancha of grupo.canchas; track cancha.id) {
-                  <li class="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <span class="font-display text-lg font-bold tracking-wide uppercase">
-                      {{ cancha.nombre }}
-                    </span>
-                    <span class="flex flex-wrap gap-2">
-                      <mat-chip-set class="insignias">
-                        <mat-chip class="insignia info">
-                          <mat-icon matChipAvatar aria-hidden="true">sports_tennis</mat-icon>
-                          {{ superficie(cancha.superficie) }}
-                        </mat-chip>
-                      </mat-chip-set>
-                      @if (cancha.iluminacion) {
+                <ul class="mt-4 divide-y divide-border border-t border-border">
+                  @for (cancha of grupo.canchas; track cancha.id) {
+                    <li class="flex flex-wrap items-center justify-between gap-2 py-3">
+                      <span class="font-display text-lg font-bold tracking-wide uppercase">
+                        {{ cancha.nombre }}
+                      </span>
+                      <span class="flex flex-wrap gap-2">
                         <mat-chip-set class="insignias">
-                          <mat-chip class="insignia neutro">
-                            <mat-icon matChipAvatar aria-hidden="true">lightbulb</mat-icon>
-                            Con iluminación
+                          <mat-chip class="insignia info">
+                            <mat-icon matChipAvatar aria-hidden="true">sports_tennis</mat-icon>
+                            {{ superficie(cancha.superficie) }}
                           </mat-chip>
                         </mat-chip-set>
-                      }
-                    </span>
-                  </li>
-                }
-              </ul>
-            </div>
-          }
-        </div>
+                        @if (cancha.iluminacion) {
+                          <mat-chip-set class="insignias">
+                            <mat-chip class="insignia neutro">
+                              <mat-icon matChipAvatar aria-hidden="true">lightbulb</mat-icon>
+                              Con iluminación
+                            </mat-chip>
+                          </mat-chip-set>
+                        }
+                      </span>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+        }
+      } @placeholder {
+        <app-esqueleto class="mt-6 block" [filas]="4" etiqueta="Cargando las canchas…" />
       }
     </section>
 
@@ -209,73 +219,81 @@ import { publicarElClub } from '../seo/datos-estructurados';
         Dónde encontrarnos
       </h2>
 
-      <div class="mt-6 grid gap-8 border-t border-border pt-6 sm:grid-cols-2">
-        <dl>
-          <div>
-            <dt
-              class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
-            >
-              <mat-icon class="text-primary" aria-hidden="true">place</mat-icon>
-              Dónde y cómo ubicarnos
-            </dt>
-            <dd class="mt-2 grid gap-1 text-muted-foreground">
-              @if (club().direccion) {
-                <span>{{ club().direccion }}</span>
-              }
-              @if (club().telefono) {
-                <a [href]="club().telefono | enlaceTelefono" class="underline hover:text-primary">
-                  {{ club().telefono | telefono }}
-                </a>
-              }
-              @if (club().email) {
-                <a [href]="'mailto:' + club().email" class="underline hover:text-primary">
-                  {{ club().email }}
-                </a>
-              }
-              <!-- Con la configuración en blanco no queda una ficha a medias: queda
-                   una frase que sirve igual. -->
-              @if (!club().direccion && !club().telefono && !club().email) {
-                <span>Pregunta en el mesón: te atienden todos los días.</span>
-              }
-              <!-- T141. Bajo el contacto: son otra forma de escribirle al club. -->
-              <app-redes-sociales clase="-ms-3" />
-            </dd>
-          </div>
-        </dl>
-
-        @if (mapa(); as mapa) {
-          <!-- T101. OpenStreetMap y no Google: cargar el mapa no le pasa a nadie la IP de
-               quien mira. Google Maps y Waze van como enlaces, que la persona elige abrir. -->
-          <div>
-            <iframe
-              [src]="mapa.incrustado"
-              [title]="'Mapa con la ubicación de ' + club().nombre"
-              loading="lazy"
-              referrerpolicy="no-referrer"
-              class="aspect-[4/3] w-full border border-border"
-            ></iframe>
-            <p class="mt-3 flex flex-wrap gap-3">
-              <a
-                matButton="outlined"
-                [href]="mapa.googleMaps"
-                target="_blank"
-                rel="noopener"
+      @defer (on immediate) {
+        <div class="mt-6 grid gap-8 border-t border-border pt-6 sm:grid-cols-2">
+          <dl>
+            <div>
+              <dt
+                class="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase"
               >
-                Cómo llegar con Google Maps
-                <span class="sr-only">(se abre en otra pestaña)</span>
-              </a>
-              <a matButton="outlined" [href]="mapa.waze" target="_blank" rel="noopener">
-                Cómo llegar con Waze
-                <span class="sr-only">(se abre en otra pestaña)</span>
-              </a>
-            </p>
-          </div>
-        }
-      </div>
+                <mat-icon class="text-primary" aria-hidden="true">place</mat-icon>
+                Dónde y cómo ubicarnos
+              </dt>
+              <dd class="mt-2 grid gap-1 text-muted-foreground">
+                @if (club().direccion) {
+                  <span>{{ club().direccion }}</span>
+                }
+                @if (club().telefono) {
+                  <a [href]="club().telefono | enlaceTelefono" class="underline hover:text-primary">
+                    {{ club().telefono | telefono }}
+                  </a>
+                }
+                @if (club().email) {
+                  <a [href]="'mailto:' + club().email" class="underline hover:text-primary">
+                    {{ club().email }}
+                  </a>
+                }
+                <!-- Con la configuración en blanco no queda una ficha a medias: queda
+                     una frase que sirve igual. -->
+                @if (!club().direccion && !club().telefono && !club().email) {
+                  <span>Pregunta en el mesón: te atienden todos los días.</span>
+                }
+                <!-- T141. Bajo el contacto: son otra forma de escribirle al club. -->
+                <app-redes-sociales clase="-ms-3" />
+              </dd>
+            </div>
+          </dl>
+
+          @if (mapa(); as mapa) {
+            <!-- T101. OpenStreetMap y no Google: cargar el mapa no le pasa a nadie la IP de
+                 quien mira. Google Maps y Waze van como enlaces, que la persona elige abrir. -->
+            <div>
+              <iframe
+                [src]="mapa.incrustado"
+                [title]="'Mapa con la ubicación de ' + club().nombre"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+                class="aspect-[4/3] w-full border border-border"
+              ></iframe>
+              <p class="mt-3 flex flex-wrap gap-3">
+                <a
+                  matButton="outlined"
+                  [href]="mapa.googleMaps"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Cómo llegar con Google Maps
+                  <span class="sr-only">(se abre en otra pestaña)</span>
+                </a>
+                <a matButton="outlined" [href]="mapa.waze" target="_blank" rel="noopener">
+                  Cómo llegar con Waze
+                  <span class="sr-only">(se abre en otra pestaña)</span>
+                </a>
+              </p>
+            </div>
+          }
+        </div>
+      } @placeholder {
+        <app-esqueleto class="mt-6 block" [filas]="3" etiqueta="Cargando el contacto…" />
+      }
     </section>
 
     <section class="mt-16 aparece-al-pasar">
-      <app-tarifas />
+      @defer (on immediate) {
+        <app-tarifas />
+      } @placeholder {
+        <app-esqueleto class="block" [filas]="4" etiqueta="Cargando las tarifas…" />
+      }
     </section>
 
     <section class="mt-16 aparece-al-pasar">

@@ -5,16 +5,34 @@
 
 Options -Indexes
 
+# Sin la barra final que mod_dir agrega a una carpeta: /el-club es una página prerenderizada
+# (el-club/index.html) y se sirve con esa URL, sin redirigir (T361, SPEC-seo.md A11). Es de la
+# misma clase de AllowOverride que ExpiresActive, que este archivo ya usa. Sin listado de
+# carpetas (Options -Indexes), apagarla no expone nada.
+DirectorySlash Off
+
 # Sin clave desde el 2026-10-09, a pedido del usuario: el cliente prueba QA sin tener que
 # escribirla (antes, plan § 0.9). Sigue fuera de los buscadores, porque no es el sitio del
 # club, y los correos siguen yendo a la casilla de CORREO_DESVIO.
 Header always set X-Robots-Tag "noindex, nofollow"
 
 # index.html nombra los chunks de su release, y el agente borra los del anterior: si el
-# navegador lo guardara, pediría archivos que ya no existen.
-<Files "index.html">
+# navegador lo guardara, pediría archivos que ya no existen. Vale para cada página prerenderizada
+# (su carpeta/index.html) y para index.csr.html, el de las rutas del navegador (T361).
+<FilesMatch "^index(\.csr)?\.html$">
   Header set Cache-Control "no-cache"
-</Files>
+</FilesMatch>
+
+# Lo que lleva hash en el nombre no cambia nunca: el release siguiente trae otro nombre. Un año y
+# sin volver a preguntar (T367, SPEC-seo.md T8): el JavaScript, el CSS y las fuentes de media/, con
+# el hash de 8 caracteres que les pone el build. Las fotos, og.jpg y un archivo de media/ sin hash
+# se reemplazan con el mismo nombre, y quedan como estaban.
+<FilesMatch "^(main|chunk|polyfills|styles)-[A-Za-z0-9_-]{8}\.(js|css)$">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</FilesMatch>
+<If "%{REQUEST_URI} =~ m#^/media/[^/]+-[A-Z0-9]{8}\.[a-z0-9]+$#">
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</If>
 
 # La configuración global del servidor les pone caché a las respuestas con mod_expires, y
 # ningún .htaccess de la cuenta lo pide (D4): a /api/yo, medido con curl, un mes. /api/yo es
@@ -45,7 +63,17 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 # /api es de Passenger, que lo configura en api/.htaccess (lo escribe el Selector).
 RewriteRule ^api(/|$) - [L]
 
-# Las rutas de la SPA: lo que no es un archivo ni una carpeta carga index.html.
+# Las páginas prerenderizadas (T361, SPEC-seo.md A11), con una sola URL: con barra final, 301 a
+# la URL sin barra (con la consulta, que Apache agrega sola).
+RewriteCond %{REQUEST_URI} ^/(.+)/$
+RewriteRule ^ https://%{HTTP_HOST}/%1 [R=301,L]
+
+# /el-club sirve el-club/index.html tal cual, sin redirigir. La portada es el index.html de la
+# raíz.
+RewriteCond %{REQUEST_FILENAME}/index.html -f
+RewriteRule ^(.*)$ $1/index.html [L]
+
+# Lo demás que no es un archivo se dibuja en el navegador: index.csr.html, que deja el build
+# cuando hay prerender. También una carpeta sin index.html, que así no se lista.
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
+RewriteRule ^ index.csr.html [L]
