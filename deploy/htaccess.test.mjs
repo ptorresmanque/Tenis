@@ -149,6 +149,41 @@ function pedir(urls, ruta, { host, protocolo = 'https' } = {}) {
   };
 }
 
+/**
+ * T373. Las direcciones del sitio anterior que Google todavía tenía indexadas (Search Console,
+ * 2026-10-22): las de Sitejet y las de un sitio de 2019. Cada una lleva a su equivalente.
+ */
+const DIRECCIONES_VIEJAS = [
+  ['/plans', '/el-club'],
+  ['/contact', '/el-club'],
+  ['/classes', '/clases'],
+  ['/trainers', '/clases'],
+  ['/privacy', '/privacidad'],
+  ['/servicios', '/el-club'],
+  ['/quienes_somos', '/el-club'],
+  ['/contacto', '/el-club'],
+  ['/home', '/'],
+];
+
+/** Con y sin barra final, un 301 directo al equivalente: sin pasar por la URL sin barra. */
+function redirigenASuEquivalente(pedirA, dominio) {
+  for (const [vieja, nueva] of DIRECCIONES_VIEJAS) {
+    for (const ruta of [vieja, `${vieja}/`]) {
+      const respuesta = pedirA(ruta);
+      assert.equal(respuesta.estado, 301, ruta);
+      assert.match(
+        respuesta.cabecera,
+        new RegExp(`location: https://${dominio.replaceAll('.', '\\.')}${nueva}\\r?\\n`),
+        ruta,
+      );
+    }
+  }
+  // Las de ahora no se tocan.
+  for (const ruta of ['/el-club', '/clases', '/privacidad', '/']) {
+    assert.equal(pedirA(ruta).estado, 200, ruta);
+  }
+}
+
 describe('htaccess.qa', { skip: saltar }, () => {
   let servidor;
   const qa = (ruta, opciones = {}) =>
@@ -191,6 +226,10 @@ describe('htaccess.qa', { skip: saltar }, () => {
     const respuesta = qa('/el-club/');
     assert.equal(respuesta.estado, 301);
     assert.match(respuesta.cabecera, /location: https:\/\/qa\.fedal\.cl\/el-club\r?\n/);
+  });
+
+  test('**las direcciones del sitio anterior llevan a su equivalente**, en un solo salto', () => {
+    redirigenASuEquivalente(qa, 'qa.fedal.cl');
   });
 
   test('los archivos se sirven tal cual', () => {
@@ -306,6 +345,10 @@ describe('htaccess.prod', { skip: saltar }, () => {
     const respuesta = prod('/el-club/?a=1');
     assert.equal(respuesta.estado, 301);
     assert.match(respuesta.cabecera, /location: https:\/\/fedal\.cl\/el-club\?a=1\r?\n/);
+  });
+
+  test('**las direcciones del sitio anterior llevan a su equivalente**, en un solo salto', () => {
+    redirigenASuEquivalente(prod, 'fedal.cl');
   });
 
   // Antes de T352 no existían, y los buscadores recibían la SPA con un 200 (SPEC-seo.md).
