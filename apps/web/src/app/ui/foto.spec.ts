@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Component, signal } from '@angular/core';
@@ -162,4 +162,15 @@ describe('las variantes de public/fotos', () => {
       expect(existsSync(join(carpeta, foto.replace(/\.jpg$/, `-${ancho}.webp`)))).toBe(true);
     }
   });
+
+  // T370 (SPEC-seo.md, criterio 8). La foto de cabecera es la que mide el LCP de su página, y en un
+  // teléfono con 4G lenta baja junto con el JavaScript: con la vista aérea de la portada en 112 KB
+  // (1080 px), el LCP no bajaba de 2,5 s. Las tres páginas que se miden: la portada, El club y Clases.
+  it.each(['el-club', 'portada', 'ninos'])(
+    '**la foto de cabecera %s, en 1080 px, pesa 95 KB o menos**',
+    (foto) => {
+      const kb = statSync(join(carpeta, `${foto}-1080.webp`)).size / 1024;
+      expect(Math.round(kb)).toBeLessThanOrEqual(95);
+    },
+  );
 });

@@ -1,7 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  DeferBlockBehavior,
+  DeferBlockState,
+  TestBed,
+} from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatButtonHarness } from '@angular/material/button/testing';
@@ -57,8 +62,10 @@ describe('Inicio', () => {
     torneos: TorneoPublico[] | Error,
     delDia: (fecha: string) => Promise<GrillaDeCancha[]> = () => Promise.resolve([]),
     // Sin usuario, nadie entró. Con él, basta lo que la portada mira: la ficha de socio.
-    { esperar, tienda, usuario = null, club = {} } = { esperar: true } as {
+    { esperar, tienda, usuario = null, club = {}, diferidos } = { esperar: true } as {
       esperar: boolean;
+      /** Manual: los `@defer` se abren a mano, como en el prerender antes de su disparador. */
+      diferidos?: DeferBlockBehavior;
       tienda?: LugarDelClub;
       usuario?: Pick<UsuarioActual, 'id' | 'socioId'> | null;
       /** Lo demás del club: la dirección, para los datos estructurados (T357). */
@@ -68,6 +75,7 @@ describe('Inicio', () => {
     const vacio: LugarDelClub = { descripcion: '', horario: '', whatsapp: '', fotos: [] };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
+      deferBlockBehavior: diferidos,
       providers: [
         provideRouter([]),
         // Los datos estructurados piden el horario (T357), solo si el club tiene dirección.
@@ -349,6 +357,26 @@ describe('Inicio', () => {
 
     expect(cifras).toEqual(['2', '1', '1']);
     expect(banda.textContent).toContain(enPesos(9_000));
+  });
+
+  // T370 (SPEC-seo.md, criterio 8). La foto de «Nuestras canchas» está tres bandas más abajo y es
+  // diferida, pero con conexión lenta Chrome la pedía al cargar, junto con la foto principal, y le
+  // quitaba ancho de banda a la que mide el LCP.
+  it('**la foto de «Nuestras canchas» no está en la página hasta que se acerca a la vista**', async () => {
+    await montar([], undefined, { esperar: true, diferidos: DeferBlockBehavior.Manual });
+    const banda = () => elemento().querySelector('[aria-labelledby="canchas"]') as HTMLElement;
+
+    expect(banda().querySelector('img')).toBeNull();
+    // El hueco ocupa lo mismo que la foto: al llegar, no mueve nada.
+    const hueco = banda().querySelector('[data-hueco-de-foto]') as HTMLElement;
+    expect(hueco.style.aspectRatio.replace(/\s/g, '')).toBe('4/3');
+    expect(hueco.classList).toContain('corte-foto');
+
+    for (const bloque of await fixture.getDeferBlocks())
+      await bloque.render(DeferBlockState.Complete);
+
+    expect(banda().querySelector('img')?.getAttribute('src')).toContain('/fotos/malla');
+    expect(banda().querySelector('[data-hueco-de-foto]')).toBeNull();
   });
 
   // La revisión de la Fase 2 del SEO: la portada prerenderizada no llama a la API (SPEC-seo.md

@@ -306,14 +306,21 @@ import { publicarElClub } from '../seo/datos-estructurados';
       class="mt-16 grid gap-8 aparece-al-pasar lg:grid-cols-[1.1fr_1fr] lg:items-center"
       aria-labelledby="canchas"
     >
-      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4). -->
-      <app-foto
-        descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
-                     canchas techadas al fondo"
-        src="/fotos/malla.jpg"
-        proporcion="4/3"
-        claseCaja="corte-foto"
-      />
+      <!-- El corte en diagonal es el canto de un gráfico de transmisión (TV3.4).
+           En @defer hasta que se acerca a la vista (T370): está tres bandas más abajo, y con
+           conexión lenta Chrome pedía esta foto diferida al cargar, junto con la principal, y le
+           quitaba ancho de banda a la que mide el LCP. El hueco ocupa lo mismo que la foto. -->
+      @defer (on viewport({ rootMargin: '600px' })) {
+        <app-foto
+          descripcion="Una cancha al aire libre a la altura de la red, con los galpones de las
+                       canchas techadas al fondo"
+          src="/fotos/malla.jpg"
+          proporcion="4/3"
+          claseCaja="corte-foto"
+        />
+      } @placeholder {
+        <div data-hueco-de-foto class="corte-foto w-full bg-muted" style="aspect-ratio: 4/3"></div>
+      }
 
       <div>
         <h2 id="canchas" class="titular text-5xl sm:text-6xl">Nuestras canchas</h2>

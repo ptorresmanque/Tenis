@@ -14,13 +14,17 @@ import sharp from 'sharp';
 const web = fileURLToPath(new URL('..', import.meta.url));
 const fotos = join(web, 'public/fotos');
 const ANCHOS = [640, 1080, 1600];
+// La vista aérea de la portada es la que mide el LCP de su página y la más pesada de las de
+// cabecera: en 75 pesaba 112 KB en 1080 px y el LCP no bajaba de 2,5 s (T370). En 60, bajo el
+// velo azul de la portada, no se nota.
+const CALIDAD = { 'el-club.jpg': { quality: 60, effort: 6 } };
 
 for (const foto of readdirSync(fotos).filter((archivo) => archivo.endsWith('.jpg'))) {
   for (const ancho of ANCHOS) {
     const destino = join(fotos, foto.replace(/\.jpg$/, `-${ancho}.webp`));
     const { size, width } = await sharp(join(fotos, foto))
       .resize({ width: ancho, withoutEnlargement: true })
-      .webp({ quality: 75 })
+      .webp(CALIDAD[foto] ?? { quality: 75 })
       .toFile(destino);
     console.log(`${foto} → ${ancho}: ${width} px, ${Math.round(size / 1024)} KB`);
   }
