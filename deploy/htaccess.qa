@@ -63,6 +63,14 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 # /api es de Passenger, que lo configura en api/.htaccess (lo escribe el Selector).
 RewriteRule ^api(/|$) - [L]
 
+# Las direcciones del sitio anterior que Google todavía tenía indexadas (T373, Search Console del
+# 2026-10-22): las de Sitejet y las de un sitio de 2019. Un 301 a su equivalente, con o sin barra
+# final y en un solo salto, antes de la regla de la barra.
+RewriteRule ^(plans|contact|servicios|quienes_somos|contacto)/?$ https://%{HTTP_HOST}/el-club [R=301,L]
+RewriteRule ^(classes|trainers)/?$ https://%{HTTP_HOST}/clases [R=301,L]
+RewriteRule ^privacy/?$ https://%{HTTP_HOST}/privacidad [R=301,L]
+RewriteRule ^home/?$ https://%{HTTP_HOST}/ [R=301,L]
+
 # Las páginas prerenderizadas (T361, SPEC-seo.md A11), con una sola URL: con barra final, 301 a
 # la URL sin barra (con la consulta, que Apache agrega sola).
 RewriteCond %{REQUEST_URI} ^/(.+)/$
