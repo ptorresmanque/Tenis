@@ -22,8 +22,8 @@ const RECHAZOS: Record<string, string> = {
 };
 
 /**
- * A dónde ir después de entrar: la pantalla que se pidió sin sesión, que el guard deja
- * en `?volver=`. El parámetro lo puede escribir cualquiera en un enlace. `navigateByUrl`
+ * A dónde ir después de entrar: la pantalla que se pidió sin sesión, que `conPanel` y
+ * `conSesion` dejan en `?volver=`. El parámetro lo puede escribir cualquiera en un enlace. `navigateByUrl`
  * ya no sale del sitio (con `//otro.cl` termina en `/otro.cl`), así que esto es la
  * segunda barrera: solo rutas que empiezan con una `/`, sin `//` ni `/\`, que el
  * navegador leería como otro dominio si la vuelta algún día sale del router.

@@ -10,7 +10,7 @@ import { Auth } from './auth';
  * devolvería al inicio. Igual que ese, **es comodidad, no control**: los datos los protege la
  * API. Este existe para no mostrar un error de carga con el 401 a quien no entró.
  */
-export const conSesion: CanActivateFn = async () => {
+export const conSesion: CanActivateFn = async (_ruta, estado) => {
   const auth = inject(Auth);
   const router = inject(Router);
 
@@ -20,5 +20,9 @@ export const conSesion: CanActivateFn = async () => {
     await auth.refrescar();
   }
 
-  return auth.usuario() === null ? router.createUrlTree(['/entrar']) : true;
+  // Después de entrar vuelve a la pantalla que pidió, como en `conPanel`: los correos de
+  // cuota y de partidos enlazan directo a su pestaña.
+  return auth.usuario() === null
+    ? router.createUrlTree(['/entrar'], { queryParams: { volver: estado.url } })
+    : true;
 };
