@@ -379,6 +379,32 @@ describe('Inicio', () => {
     expect(banda().querySelector('[data-hueco-de-foto]')).toBeNull();
   });
 
+  // T372 (SPEC-seo.md, criterio 8). La tabla y los chips de los torneos traían los formularios de
+  // Angular, y la portada los bajaba al arrancar, junto con la foto que mide el LCP. Las dos bandas
+  // dependen de la API y nunca están en el HTML prerenderizado: su código llega con su @defer.
+  it('**los torneos y la tienda llegan con su @defer**, no con la portada', async () => {
+    await montar([ABIERTO], undefined, {
+      esperar: true,
+      diferidos: DeferBlockBehavior.Manual,
+      tienda: { descripcion: 'Raquetas y cuerdas.', horario: '', whatsapp: '', fotos: [] },
+    });
+
+    // El título de los torneos no espera: el enlace de la cinta ya tiene adónde llevar.
+    expect(elemento().querySelector('app-cinta a[href="#torneos-abiertos"]')).not.toBeNull();
+    expect(elemento().querySelector('#torneos-abiertos')).not.toBeNull();
+    expect(elemento().querySelector('mat-chip-set')).toBeNull();
+    expect(elemento().querySelector('table[mat-table]')).toBeNull();
+    expect(texto()).not.toContain('También en el club');
+
+    for (const bloque of await fixture.getDeferBlocks())
+      await bloque.render(DeferBlockState.Complete);
+
+    expect(elemento().querySelector('#torneos-abiertos')).not.toBeNull();
+    expect(elemento().querySelector('mat-chip-set')).not.toBeNull();
+    expect(elemento().querySelector('table[mat-table]')).not.toBeNull();
+    expect(texto()).toContain('También en el club');
+  });
+
   // La revisión de la Fase 2 del SEO: la portada prerenderizada no llama a la API (SPEC-seo.md
   // D1), y su HTML decía «Canchas 0 · Techadas 0 · Con iluminación 0». Lo mismo se veía en el
   // navegador mientras la API no contestaba.
