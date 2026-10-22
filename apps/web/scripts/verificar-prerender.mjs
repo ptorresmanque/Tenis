@@ -20,10 +20,25 @@ const rutas = [...lista.matchAll(/'([^']*)'/g)].map(([, ruta]) => ruta);
 const PROHIBIDOS = [
   'No se pudo',
   'No se pudieron',
+  'No pudimos',
   'Reintenta',
   // Los textos por omisión del servicio Club (club.service.ts), mientras /api/club no contesta.
   'Desde 2008',
   'Basilea y Manacor',
+];
+
+// El día del build, en cualquier forma que tome en el HTML (un enlace con ?fecha=, un día del
+// selector): lo que depende de hoy va en @defer, o el HTML diría siempre el día en que se compiló.
+const zona = { timeZone: 'America/Santiago' };
+const hoy = [
+  new Intl.DateTimeFormat('en-CA', zona).format(new Date()),
+  // Como lo escribe la app: «miércoles, 21 de octubre».
+  new Intl.DateTimeFormat('es-CL', {
+    ...zona,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date()),
 ];
 
 const fallas = [];
@@ -59,9 +74,16 @@ for (const ruta of rutas) {
     /<meta property="og:image" content="https:\/\/fedal\.cl\/[^"]+"/.test(cabecera),
     `${donde}: sin og:image`,
   );
-  exigir(/<h1[^>]*>\s*[^<\s][^<]*<\/h1>/.test(cuerpo), `${donde}: sin H1 con texto`);
+  const h1 = cuerpo
+    .match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]
+    .replace(/<[^>]+>/g, '')
+    .trim();
+  exigir(Boolean(h1), `${donde}: sin H1 con texto`);
   for (const prohibido of PROHIBIDOS) {
     exigir(!texto.includes(prohibido), `${donde}: el HTML dice «${prohibido}»`);
+  }
+  for (const fecha of hoy) {
+    exigir(!cuerpo.includes(fecha), `${donde}: el HTML trae la fecha del build («${fecha}»)`);
   }
 }
 

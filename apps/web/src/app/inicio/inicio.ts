@@ -168,56 +168,63 @@ import { publicarElClub } from '../seo/datos-estructurados';
           aria-live="polite"
           class="flex flex-1 flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-5"
         >
-          @if (grillas.isLoading() || grillasDeManana.isLoading()) {
-            <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
-          } @else if (grillas.error()) {
-            <p class="text-muted-foreground">
-              No pudimos cargar las horas de hoy.
-              <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
-                Mira la disponibilidad
-              </a>
-            </p>
-          } @else if (proximaLibre(); as libre) {
-            <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
-            <div class="min-w-0 flex-1">
-              <!-- Si hoy ya no queda nada, la de mañana, y lo dice (T268). -->
-              <p class="font-display text-lg font-bold uppercase">
-                @if (esManana()) {
-                  Mañana ·
-                }
-                {{ libre.cancha }}
+          <!-- Lo que dice depende de hoy y de la API: en @defer (T362, SPEC-seo.md D1), el HTML
+               del build trae el esqueleto y no un error de carga ni la hora del día en que se
+               compiló. La región viva queda afuera, desde el principio. -->
+          @defer (on immediate) {
+            @if (grillas.isLoading() || grillasDeManana.isLoading()) {
+              <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
+            } @else if (grillas.error()) {
+              <p class="text-muted-foreground">
+                No pudimos cargar las horas de hoy.
+                <a routerLink="/disponibilidad" class="font-semibold text-primary underline">
+                  Mira la disponibilidad
+                </a>
               </p>
-              <p class="text-sm text-muted-foreground">
-                @if (libre.montoClp !== null) {
-                  Arriendo {{ pesos(libre.montoClp) }}.
-                }
-                Socio sin costo.
-              </p>
-            </div>
-            <!-- A esa hora y en esa cancha, marcada al llegar (T266). -->
-            <a
-              matButton="filled"
-              routerLink="/disponibilidad"
-              [queryParams]="{
-                fecha: fecha(libre.inicio),
-                cancha: libre.canchaId,
-                inicio: hora(libre.inicio),
-              }"
-              class="w-full sm:w-auto"
-            >
-              Reservar
-              <span class="sr-only"
-                >{{ esManana() ? 'mañana, ' : '' }}{{ libre.cancha }} a las
-                {{ hora(libre.inicio) }}</span
+            } @else if (proximaLibre(); as libre) {
+              <p class="font-display text-marcador text-primary">{{ hora(libre.inicio) }}</p>
+              <div class="min-w-0 flex-1">
+                <!-- Si hoy ya no queda nada, la de mañana, y lo dice (T268). -->
+                <p class="font-display text-lg font-bold uppercase">
+                  @if (esManana()) {
+                    Mañana ·
+                  }
+                  {{ libre.cancha }}
+                </p>
+                <p class="text-sm text-muted-foreground">
+                  @if (libre.montoClp !== null) {
+                    Arriendo {{ pesos(libre.montoClp) }}.
+                  }
+                  Socio sin costo.
+                </p>
+              </div>
+              <!-- A esa hora y en esa cancha, marcada al llegar (T266). -->
+              <a
+                matButton="filled"
+                routerLink="/disponibilidad"
+                [queryParams]="{
+                  fecha: fecha(libre.inicio),
+                  cancha: libre.canchaId,
+                  inicio: hora(libre.inicio),
+                }"
+                class="w-full sm:w-auto"
               >
-            </a>
-          } @else {
-            <p class="font-semibold">
-              Hoy ya no quedan horas libres.
-              <a routerLink="/disponibilidad" class="text-primary underline">
-                Mira los próximos días.
+                Reservar
+                <span class="sr-only"
+                  >{{ esManana() ? 'mañana, ' : '' }}{{ libre.cancha }} a las
+                  {{ hora(libre.inicio) }}</span
+                >
               </a>
-            </p>
+            } @else {
+              <p class="font-semibold">
+                Hoy ya no quedan horas libres.
+                <a routerLink="/disponibilidad" class="text-primary underline">
+                  Mira los próximos días.
+                </a>
+              </p>
+            }
+          } @placeholder {
+            <app-esqueleto class="flex-1" compacto etiqueta="Buscando la próxima hora libre…" />
           }
         </div>
       </div>
