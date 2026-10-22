@@ -44,6 +44,23 @@ const hoy = [
 const fallas = [];
 const exigir = (condicion, mensaje) => condicion || fallas.push(mensaje);
 
+// El sitemap lista lo que se prerenderiza (SPEC-seo.md A1): si una ruta entra o sale de la lista
+// sin entrar o salir del sitemap, Google pide una página sin HTML o no se entera de una que sí.
+const sitemap = readFileSync(join(web, 'public/sitemap.xml'), 'utf8');
+const enElSitemap = [...sitemap.matchAll(/<loc>https:\/\/fedal\.cl\/([^<]*)<\/loc>/g)].map(
+  ([, ruta]) => ruta,
+);
+const sobran = enElSitemap.filter((ruta) => !rutas.includes(ruta));
+const faltan = rutas.filter((ruta) => !enElSitemap.includes(ruta));
+exigir(
+  sobran.length === 0,
+  `en el sitemap y sin prerender: ${sobran.map((r) => '/' + r).join(', ')}`,
+);
+exigir(
+  faltan.length === 0,
+  `prerenderizadas y no en el sitemap: ${faltan.map((r) => '/' + r).join(', ')}`,
+);
+
 exigir(
   existsSync(join(salida, 'index.csr.html')),
   'falta index.csr.html, el respaldo de las rutas del navegador',

@@ -12,6 +12,8 @@ export const RUTAS_PRERENDERIZADAS = [
   'tours',
   'ranking',
   'el-club',
+  'preguntas-frecuentes',
+  'privacidad',
 ];
 
 /**
