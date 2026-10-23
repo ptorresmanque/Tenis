@@ -64,7 +64,8 @@ const enBlanco = () => ({
  * anotarse era la barrera que el club quiso sacar.
  *
  * **Esta pantalla no decide nada.** Si queda cupo, si la inscripción sigue abierta, si
- * el cuadro ya se armó: todo lo resuelve el servidor y esto muestra lo que respondió.
+ * el cuadro ya se armó: todo lo resuelve el servidor. Esto muestra lo que dijo el calendario
+ * (los cupos, el cuadro armado) y lo que respondió el envío.
  * Adivinarlo acá produciría un formulario que dice "quedan 2 cupos" y un servidor que
  * responde otra cosa.
  */
@@ -255,7 +256,7 @@ const enBlanco = () => ({
                   <mat-option [value]="categoria.categoriaJuegoId" [disabled]="categoria.armado">
                     {{ categoria.categoria }} — {{ precio(categoria.montoClp) }}
                     @if (categoria.armado) {
-                      — cuadro armado
+                      — cuadro armado, inscripción cerrada
                     } @else if (categoria.cuposLibres === 0) {
                       — sin cupos, quedarías en lista de espera
                     }
@@ -574,6 +575,17 @@ export class InscripcionATorneo {
     // club. Sin foco: no lo pidió nadie, y robarlo al abrir la página desorienta.
     effect(() => {
       if (this.esSocio()) untracked(() => this.cambiarModo(true, false));
+    });
+
+    // **Tras un rechazo la página recarga el calendario** (T378): si la elegida volvió armada,
+    // se suelta y se vuelve a la categoría, donde se ve por qué. Seguía elegida: el paso 3
+    // decía «quedas en la lista de espera» y un segundo envío volvía a mandarla.
+    effect(() => {
+      const id = Number(this.datos.categoriaJuegoId);
+      if (!this.categorias().some((c) => c.armado && c.categoriaJuegoId === id)) return;
+
+      this.datos.categoriaJuegoId = null;
+      untracked(() => (this.pasos().selectedIndex = 1));
     });
   }
 

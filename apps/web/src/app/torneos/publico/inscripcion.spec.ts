@@ -9,7 +9,7 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
-import { elegir, opcionesDe, textosDe } from '../../testing/elegir';
+import { elegidoEn, elegir, opcionesDe, textosDe } from '../../testing/elegir';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -216,7 +216,7 @@ describe('InscripcionATorneo', () => {
     );
 
     expect(segunda?.deshabilitada).toBe(true);
-    expect(segunda?.texto).toContain('cuadro armado');
+    expect(segunda?.texto).toContain('cuadro armado, inscripción cerrada');
     expect(segunda?.texto).not.toContain('lista de espera');
   });
 
@@ -473,6 +473,30 @@ describe('InscripcionATorneo', () => {
     await enviar();
 
     expect(rechazada).toHaveBeenCalledOnce();
+  });
+
+  it('**si tras un rechazo la elegida vuelve armada, se suelta**: ni lista de espera ni reenvío (T378)', async () => {
+    // Eligió la 3ª, llena, y mientras llenaba el formulario el club armó el cuadro. El servidor
+    // rechaza y la página recarga el calendario: la 3ª vuelve armada, y seguía elegida.
+    api.inscribirseEnTorneo.mockRejectedValueOnce({
+      error: { message: 'El cuadro de 3ª ya está armado.' },
+    });
+    await escribir({ ...completo, categoria: '30' });
+    await enviar();
+
+    fixture.componentRef.setInput(
+      'categorias',
+      CATEGORIAS.map((c) => (c.categoriaJuegoId === 30 ? { ...c, armado: true } : c)),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elegidoEn(fixture, 'mat-select[name="categoria"]')).toBe('');
+    expect(texto()).not.toContain('quedas en la lista de espera');
+    // De vuelta en la categoría: ahí la 3ª se ve gris y dice por qué.
+    expect(await pasoActual()).toBe('Categoría');
   });
 
   it('el mensaje del servidor se muestra tal cual cuando rechaza', async () => {
