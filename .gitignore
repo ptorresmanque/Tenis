@@ -21,9 +21,19 @@ docs/
 
 *.md
 !/README.md
-.claude/
 .stitch/
 design-system/
 /scripts/
 tasks/
 e2e/
+
+# De .claude/ se versiona lo que tiene que valer igual en cada worktree: los hooks, los
+# subagentes y los skills. Va con `.claude/*` y no `.claude/`, porque git no vuelve a incluir
+# nada dentro de una carpeta ignorada entera; y al final, para ganarle al `*.md` de arriba.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/agents/
+!.claude/skills/
+!.claude/agents/**/*.md
+!.claude/skills/**/*.md
