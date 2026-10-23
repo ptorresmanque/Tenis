@@ -868,7 +868,8 @@ export class Inicio {
 
 /** Lo que la cinta dice de los cupos de una categoría: lo mismo que la tabla de abajo. */
 function cuposEnLaCinta({ armado, cupo, cuposLibres }: CategoriaPublica): string {
-  // Armado, ya no recibe a nadie: «quedan 2 de 8» invitaba a inscribirse, como en el calendario.
+  // Armado, ya no recibe a nadie, y lo dice como el calendario: «quedan 2 de 8» invitaba a
+  // inscribirse.
   if (armado) return 'cuadro armado';
   // `null`: bajo el umbral (80 % del cupo o 16 inscritos) no se dice cuántos (T374), y siempre
   // quedan.

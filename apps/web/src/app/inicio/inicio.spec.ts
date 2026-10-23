@@ -505,7 +505,7 @@ describe('Inicio', () => {
     });
 
     it('**una categoría con el cuadro armado lo dice**, como el calendario', async () => {
-      // Ya no recibe a nadie: «2 de 8» invitaba a inscribirse, y era el número que desmotiva.
+      // Ya no recibe a nadie: «2 de 8» invitaba a inscribirse donde ya no se puede.
       await montar([
         {
           ...ABIERTO,
@@ -562,7 +562,7 @@ describe('Inicio', () => {
       expect(cinta()?.textContent).not.toContain('lista de espera');
     });
 
-    it('**una categoría con el cuadro armado lo dice**, sin cupos que ya no se toman', async () => {
+    it('**una categoría con el cuadro armado lo dice**, y no ofrece cupos que ya no se pueden tomar', async () => {
       await montar([
         {
           ...ABIERTO,
