@@ -495,8 +495,10 @@ describe('InscripcionATorneo', () => {
 
     expect(elegidoEn(fixture, 'mat-select[name="categoria"]')).toBe('');
     expect(texto()).not.toContain('quedas en la lista de espera');
-    // De vuelta en la categoría: ahí la 3ª se ve gris y dice por qué.
+    // De vuelta en la categoría: ahí la 3ª se ve gris y dice por qué. El error del servidor se
+    // va, para que no quede bajo «Inscribirme» si elige otra.
     expect(await pasoActual()).toBe('Categoría');
+    expect(texto()).not.toContain('ya está armado');
   });
 
   it('el mensaje del servidor se muestra tal cual cuando rechaza', async () => {

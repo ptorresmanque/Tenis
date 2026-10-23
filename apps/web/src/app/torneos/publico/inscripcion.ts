@@ -579,13 +579,19 @@ export class InscripcionATorneo {
 
     // **Tras un rechazo la página recarga el calendario** (T378): si la elegida volvió armada,
     // se suelta y se vuelve a la categoría, donde se ve por qué. Seguía elegida: el paso 3
-    // decía «quedas en la lista de espera» y un segundo envío volvía a mandarla.
+    // decía «quedas en la lista de espera» y un segundo envío volvía a mandarla. El error del
+    // servidor se va con ella: si no, quedaba bajo «Inscribirme» con otra categoría elegida.
+    // Solo hacia atrás: quien volvió a «Tus datos» se queda ahí.
     effect(() => {
       const id = Number(this.datos.categoriaJuegoId);
       if (!this.categorias().some((c) => c.armado && c.categoriaJuegoId === id)) return;
 
       this.datos.categoriaJuegoId = null;
-      untracked(() => (this.pasos().selectedIndex = 1));
+      this.error.set(null);
+      untracked(() => {
+        const pasos = this.pasos();
+        if (pasos.selectedIndex > 1) pasos.selectedIndex = 1;
+      });
     });
   }
 
