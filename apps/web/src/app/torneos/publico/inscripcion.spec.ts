@@ -9,7 +9,7 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
-import { elegir, textosDe } from '../../testing/elegir';
+import { elegidoEn, elegir, opcionesDe, textosDe } from '../../testing/elegir';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -22,8 +22,9 @@ import { InscripcionATorneo } from './inscripcion';
  */
 describe('InscripcionATorneo', () => {
   const CATEGORIAS: CategoriaPublica[] = [
-    { id: 7, categoriaJuegoId: 20, categoria: '4ª', montoClp: 0, cupo: 4, cuposLibres: 2, armado: false },
-    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: 1, armado: false },
+    // Con 2 de 4 y 1 de 2 no llegan al 80 %: la API no dice cuántos quedan (T374).
+    { id: 7, categoriaJuegoId: 20, categoria: '4ª', montoClp: 0, cupo: 4, cuposLibres: null, armado: false },
+    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: null, armado: false },
     // Cobra y está llena: quien la elige queda en la lista de espera, sin pagar (T328).
     { id: 9, categoriaJuegoId: 30, categoria: '3ª', montoClp: 12_000, cupo: 2, cuposLibres: 0, armado: false },
   ];
@@ -190,6 +191,33 @@ describe('InscripcionATorneo', () => {
     // En la opción misma: se ve al abrir la lista, antes de elegir (T248).
     const opciones = textosDe(fixture, 'mat-select[name="categoria"]').join(' ');
     expect(opciones).toContain('sin cupos, quedarías en lista de espera');
+  });
+
+  it('**con el número oculto no la da por llena**: siempre quedan cupos (T374)', () => {
+    const honor = textosDe(fixture, 'mat-select[name="categoria"]').find((o) =>
+      o.startsWith('Honor'),
+    );
+
+    expect(honor).not.toContain('lista de espera');
+  });
+
+  it('**una categoría con el cuadro armado no se puede elegir**, y dice por qué (T378)', async () => {
+    // El servidor la rechaza al enviar: ofrecerla era llenar el formulario para nada. Llena,
+    // además decía «quedarías en lista de espera», y con el cuadro armado no hay lista.
+    fixture.componentRef.setInput('categorias', [
+      ...CATEGORIAS,
+      { id: 10, categoriaJuegoId: 40, categoria: '2ª', montoClp: 0, cupo: 8, cuposLibres: 0, armado: true },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const segunda = opcionesDe(fixture, 'mat-select[name="categoria"]').find((o) =>
+      o.texto.startsWith('2ª'),
+    );
+
+    expect(segunda?.deshabilitada).toBe(true);
+    expect(segunda?.texto).toContain('cuadro armado, inscripción cerrada');
+    expect(segunda?.texto).not.toContain('lista de espera');
   });
 
   it('**pide el correo y dice para qué**: ahí le llegan la confirmación y sus partidos (T127)', () => {
@@ -445,6 +473,32 @@ describe('InscripcionATorneo', () => {
     await enviar();
 
     expect(rechazada).toHaveBeenCalledOnce();
+  });
+
+  it('**si tras un rechazo la elegida vuelve armada, se suelta**: ni lista de espera ni reenvío (T378)', async () => {
+    // Eligió la 3ª, llena, y mientras llenaba el formulario el club armó el cuadro. El servidor
+    // rechaza y la página recarga el calendario: la 3ª vuelve armada, y seguía elegida.
+    api.inscribirseEnTorneo.mockRejectedValueOnce({
+      error: { message: 'El cuadro de 3ª ya está armado.' },
+    });
+    await escribir({ ...completo, categoria: '30' });
+    await enviar();
+
+    fixture.componentRef.setInput(
+      'categorias',
+      CATEGORIAS.map((c) => (c.categoriaJuegoId === 30 ? { ...c, armado: true } : c)),
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(elegidoEn(fixture, 'mat-select[name="categoria"]')).toBe('');
+    expect(texto()).not.toContain('quedas en la lista de espera');
+    // De vuelta en la categoría: ahí la 3ª se ve gris y dice por qué. El error del servidor se
+    // va, para que no quede bajo «Inscribirme» si elige otra.
+    expect(await pasoActual()).toBe('Categoría');
+    expect(texto()).not.toContain('ya está armado');
   });
 
   it('el mensaje del servidor se muestra tal cual cuando rechaza', async () => {

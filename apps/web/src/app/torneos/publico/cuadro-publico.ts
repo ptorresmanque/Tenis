@@ -87,7 +87,14 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
       <div class="px-5 py-4">
         @if (detalle(); as cuadro) {
           @if (cuadro.partidos.length === 0) {
-            @if (cuadro.inscritos.length === 0) {
+            <!-- «null»: bajo el umbral (80 % del cupo o 16 inscritos) la lista no se publica
+                 (T375). Sin «hay cupos»: el modal también se abre con la inscripción cerrada.
+                 Vacía y a la vista solo si todo el cupo está ofrecido a la lista de espera. -->
+            @if (cuadro.inscritos === null) {
+              <p class="text-sm text-muted-foreground">
+                La lista de quienes juegan se publica más adelante.
+              </p>
+            } @else if (cuadro.inscritos.length === 0) {
               <p class="text-sm text-muted-foreground">Todavía no hay inscritos.</p>
             } @else {
               <!-- En el orden en que se inscribieron (T134) y con el estado del pago

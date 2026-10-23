@@ -312,8 +312,12 @@ describe('POST /api/torneos/:id/inscripcion', () => {
       // de la API pública no lo saque a la calle sin que nadie lo note.
       await inscribirse(validos()).expect(201);
 
-      const cuadro = await prisma.torneoCategoria.findFirstOrThrow({
-        where: { torneoId, categoriaJuegoId: cuartaId },
+      // Con 1 de 1 la categoría está llena y la lista se publica (T375).
+      const cuadro = await prisma.torneoCategoria.update({
+        where: {
+          torneoId_categoriaJuegoId: { torneoId, categoriaJuegoId: cuartaId },
+        },
+        data: { cupo: 1 },
       });
       const publicos = await Promise.all([
         request(app.getHttpServer())
@@ -322,6 +326,10 @@ describe('POST /api/torneos/:id/inscripcion', () => {
         request(app.getHttpServer()).get('/api/torneos/publicos').expect(200),
       ]);
 
+      // La prueba vale solo si la lista se publica (T375): con la lista oculta no viaja nadie.
+      expect(
+        (publicos[0].body as { inscritos: unknown[] | null }).inscritos,
+      ).toHaveLength(1);
       for (const respuesta of publicos) {
         expect(JSON.stringify(respuesta.body)).not.toContain('ejemplo.cl');
       }
@@ -433,17 +441,22 @@ describe('POST /api/torneos/:id/inscripcion', () => {
       // tercero. Se comprueba sobre el JSON entero, como el teléfono.
       await inscribirse(validos({ restricciones: [martes] })).expect(201);
 
-      const cuadro = await prisma.torneoCategoria.findFirstOrThrow({
-        where: { torneoId, categoriaJuegoId: cuartaId },
+      // Con 1 de 1 la categoría está llena y la lista se publica (T375).
+      const cuadro = await prisma.torneoCategoria.update({
+        where: {
+          torneoId_categoriaJuegoId: { torneoId, categoriaJuegoId: cuartaId },
+        },
+        data: { cupo: 1 },
       });
-      const publico = JSON.stringify(
-        (
-          await request(app.getHttpServer())
-            .get(`/api/torneos/cuadros/${cuadro.id}`)
-            .expect(200)
-        ).body,
-      );
+      const respuesta = (
+        await request(app.getHttpServer())
+          .get(`/api/torneos/cuadros/${cuadro.id}`)
+          .expect(200)
+      ).body as { inscritos: unknown[] | null };
+      const publico = JSON.stringify(respuesta);
 
+      // La prueba vale solo si la lista se publica (T375): con la lista oculta no viaja nadie.
+      expect(respuesta.inscritos).toHaveLength(1);
       expect(publico).not.toContain('restriccion');
       expect(publico).not.toContain('18:00');
     });

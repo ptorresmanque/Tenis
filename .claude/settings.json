@@ -1,0 +1,33 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --no-warnings \"$CLAUDE_PROJECT_DIR/.claude/hooks/guardia.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --no-warnings \"$CLAUDE_PROJECT_DIR/.claude/hooks/voseo.mjs\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node --no-warnings \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-api.mjs\"",
+            "timeout": 90
+          }
+        ]
+      }
+    ]
+  }
+}

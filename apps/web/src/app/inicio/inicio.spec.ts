@@ -492,6 +492,32 @@ describe('Inicio', () => {
 
       expect(seccion().querySelector('tbody')?.textContent).toContain('Lista de espera');
     });
+
+    it('**con el número oculto dice que hay cupos, sin decir cuántos** (T374)', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: null }] },
+      ]);
+      const fila = [...seccion().querySelectorAll('tbody tr td')].map((td) =>
+        td.textContent?.trim(),
+      );
+
+      expect(fila).toEqual(['4ª', '$12.000', 'Hay cupos']);
+    });
+
+    it('**una categoría con el cuadro armado lo dice**, como el calendario', async () => {
+      // Ya no recibe a nadie: «2 de 8» invitaba a inscribirse donde ya no se puede.
+      await montar([
+        {
+          ...ABIERTO,
+          categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 2, armado: true }],
+        },
+      ]);
+      const fila = [...seccion().querySelectorAll('tbody tr td')].map((td) =>
+        td.textContent?.trim(),
+      );
+
+      expect(fila).toEqual(['4ª', '$12.000', 'Cuadro armado']);
+    });
   });
 
   /**
@@ -517,6 +543,35 @@ describe('Inicio', () => {
 
       // "Sin cupos" a secas manda a no inscribirse a quien sí puede: entra en espera.
       expect(cinta()?.textContent).toContain('4ª: sin cupos, se entra en lista de espera');
+    });
+
+    it('con un solo cupo libre concuerda: «queda 1 de 8 cupos»', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 1 }] },
+      ]);
+
+      expect(cinta()?.textContent).toContain('4ª: queda 1 de 8 cupos');
+    });
+
+    it('**con el número oculto dice que hay cupos, sin decir cuántos** (T374)', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: null }] },
+      ]);
+
+      expect(cinta()?.textContent).toContain('4ª: hay cupos');
+      expect(cinta()?.textContent).not.toContain('lista de espera');
+    });
+
+    it('**una categoría con el cuadro armado lo dice**, y no ofrece cupos que ya no se pueden tomar', async () => {
+      await montar([
+        {
+          ...ABIERTO,
+          categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 2, armado: true }],
+        },
+      ]);
+
+      expect(cinta()?.textContent).toContain('4ª: cuadro armado');
+      expect(cinta()?.textContent).not.toContain('quedan');
     });
 
     it('su rótulo lleva a la sección de abajo', async () => {

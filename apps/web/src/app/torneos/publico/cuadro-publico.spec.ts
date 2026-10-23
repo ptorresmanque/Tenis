@@ -165,6 +165,25 @@ describe('CuadroPublicoModal', () => {
       expect(elemento().querySelector('ol li')?.textContent).not.toContain('Pag');
     });
 
+    it('**con la lista oculta dice que se publica más adelante, sin un nombre** (T375)', async () => {
+      // Bajo el umbral (80 % del cupo o 16 inscritos) la API no manda la lista: dos nombres
+      // desmotivan. Sin «hay cupos»: el modal también se abre con la inscripción cerrada.
+      await montar({ ...SIN_ARMAR, inscritos: null });
+
+      expect(texto()).toContain('La lista de quienes juegan se publica más adelante.');
+      expect(texto()).not.toContain('hay cupos');
+      expect(elemento().querySelector('ol')).toBeNull();
+    });
+
+    it('una lista a la vista pero vacía dice que todavía no hay inscritos', async () => {
+      // Pasa si todo el cupo está ofrecido a la lista de espera: cuenta para el umbral, pero
+      // la lista es de los inscritos.
+      await montar({ ...SIN_ARMAR, inscritos: [] });
+
+      expect(texto()).toContain('Todavía no hay inscritos.');
+      expect(elemento().querySelector('ol')).toBeNull();
+    });
+
     it('el título lo dice', async () => {
       await montar(SIN_ARMAR);
 

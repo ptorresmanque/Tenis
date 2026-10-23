@@ -1,6 +1,7 @@
 # Las compuertas de cada PR hacia main o qa (tasks/plan-despliegue.md, D6): lint, tests de
-# la API contra MariaDB, tests de la web y de deploy/, y el build. El deploy (D7 y D8) las
-# llama con workflow_call, así que nada se despliega sin pasar exactamente por estas.
+# la API contra MariaDB, tests de la web, de deploy/ y de los hooks de Claude Code, y el
+# build. El deploy (D7 y D8) las llama con workflow_call, así que nada se despliega sin pasar
+# exactamente por estas.
 name: CI
 
 on:
@@ -108,7 +109,7 @@ jobs:
             exit 1
           }
 
-      - name: Tests (API, web y deploy/)
+      - name: Tests (API, web, deploy/ y hooks de Claude Code)
         run: npm test
 
       - name: Build

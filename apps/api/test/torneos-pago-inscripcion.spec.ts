@@ -539,16 +539,22 @@ describe('El pago de la inscripción a un torneo', () => {
     });
 
     it('el cupo vuelve a estar libre, que es el punto', async () => {
+      // Con cupo 1, la abandonada llena la categoría: al soltarla, el calendario pasa de
+      // «sin cupos» a «hay cupos». Con 0 de 1, el número no se publica (T374): `null`.
+      await prisma.torneoCategoria.update({
+        where: { id: cuadroPagado },
+        data: { cupo: 1 },
+      });
       const { id } = (await inscribirse().expect(201)).body as { id: number };
       await envejecer(id);
 
       const calendario = (await mirarElCalendario()).body as {
         id: number;
-        categorias: { cuposLibres: number; cupo: number }[];
+        categorias: { cuposLibres: number | null; cupo: number }[];
       }[];
       const suyo = calendario.find((t) => t.id === torneoId);
 
-      expect(suyo?.categorias[0].cuposLibres).toBe(8);
+      expect(suyo?.categorias[0].cuposLibres).toBeNull();
       expect(await sigueViva(id)).toBe(false);
     });
 
