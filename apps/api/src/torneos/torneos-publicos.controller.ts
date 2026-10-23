@@ -99,7 +99,7 @@ export class TorneosPublicosController {
 
   /**
    * El cuadro de **una categoría**, con sus resultados; o su lista de inscritos si
-   * todavía no se armó.
+   * todavía no se armó y la categoría ya llegó al umbral (T375).
    *
    * **El `id` es el de la categoría del torneo y no el del torneo** (T62). Un torneo
    * corre 4ª, 3ª y Honor a la vez, así que "el cuadro del torneo" dejó de significar

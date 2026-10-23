@@ -530,6 +530,14 @@ describe('Inicio', () => {
       expect(cinta()?.textContent).toContain('4ª: sin cupos, se entra en lista de espera');
     });
 
+    it('con un solo cupo libre concuerda: «queda 1 de 8 cupos»', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 1 }] },
+      ]);
+
+      expect(cinta()?.textContent).toContain('4ª: queda 1 de 8 cupos');
+    });
+
     it('**con el número oculto dice que hay cupos, sin decir cuántos** (T374)', async () => {
       await montar([
         { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: null }] },
