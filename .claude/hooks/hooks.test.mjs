@@ -71,7 +71,10 @@ after(() => {
   rmSync(proyecto, { recursive: true, force: true });
 });
 
-test('build: el de la API con su servidor arriba se frena, como sea que se escriba', () => {
+// Sin lsof la guardia no puede ver al servidor y deja pasar todo: no hay nada que frenar.
+const sinLsof = spawnSync('lsof', ['-v']).error ? 'no hay lsof' : false;
+
+test('build: el de la API con su servidor arriba se frena, como sea que se escriba', { skip: sinLsof }, () => {
   for (const c of [
     'npm run build -w apps/api',
     'npm -w apps/api run build',
@@ -118,8 +121,14 @@ test('voseo al editar: avisa con la línea, calla en texto limpio y en los archi
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('lint de la API: fuera de apps/api/{src,test} no hace nada', () => {
-  for (const f of ['/x/apps/web/src/a.ts', '/x/apps/api/prisma/seed.ts', '/x/apps/api/src/generated/a.ts', '/x/README.md']) {
+test('lint de la API: fuera de apps/api/{src,test}, o sin eslint instalado, no hace nada', () => {
+  for (const f of [
+    '/x/apps/web/src/a.ts',
+    '/x/apps/api/prisma/seed.ts',
+    '/x/apps/api/src/generated/a.ts',
+    '/x/README.md',
+    '/x/apps/api/src/a.ts',
+  ]) {
     assert.equal(correr('lint-api.mjs', { tool_input: { file_path: f } }).status, 0, f);
   }
 });

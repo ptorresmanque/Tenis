@@ -5,8 +5,8 @@
 // formateado. En `apps/web` no: muchos archivos no siguen Prettier y reformatearlos enteros
 // llena el diff de ruido (T222).
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { relative } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 const archivo = JSON.parse(readFileSync(0, 'utf8')).tool_input?.file_path ?? '';
 // La API se saca del propio archivo y no de la carpeta de la sesión: así también vale para un
@@ -18,6 +18,12 @@ const ruta = relative(api, archivo);
 
 // Lo mismo que mira el script `lint` de la API, menos lo que escribe `prisma generate`.
 if (!/^(src|test)\/.+\.ts$/.test(ruta) || ruta.startsWith('src/generated/')) process.exit(0);
+
+// Sin `npm ci` (un worktree o un clon recién hechos) no hay eslint, y npx fallaría como si el
+// archivo tuviera errores. Ahí no se revisa; el CI igual lo atrapa.
+if (![join(api, 'node_modules/.bin/eslint'), join(api, '../../node_modules/.bin/eslint')].some(existsSync)) {
+  process.exit(0);
+}
 
 // El `--` va porque npx (npm 11) se queda con `--fix` como opción propia y eslint no la recibe.
 const r = spawnSync('npx', ['--no', '--', 'eslint', '--fix', '--quiet', ruta], { cwd: api, encoding: 'utf8' });
