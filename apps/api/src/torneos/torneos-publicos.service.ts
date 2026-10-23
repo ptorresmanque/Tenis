@@ -157,7 +157,11 @@ export interface CuadroPublico {
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
-  inscritos: InscritoPublico[];
+  /**
+   * `null` mientras la categoría no llegue al umbral (T375): la lista no se publica todavía.
+   * Con el cuadro armado, siempre la lista.
+   */
+  inscritos: InscritoPublico[] | null;
   partidos: PartidoPublico[];
 }
 
@@ -306,8 +310,13 @@ export class TorneosPublicos {
       select: {
         id: true,
         torneoId: true,
+        cupo: true,
+        semillaSorteo: true,
         categoriaJuego: { select: { nombre: true } },
         torneo: { select: { nombre: true, estado: true } },
+        // Con el mismo número que el calendario (T375): la lista y «quedan 3 de 8» se
+        // publican juntas o no se publica ninguna.
+        _count: { select: { inscripciones: { where: OCUPA_CUPO } } },
         // **En el orden en que se inscribieron** (T134), no en el de la siembra: es la
         // lista de quién se anotó, y antes de armar el cuadro no hay siembra.
         inscripciones: {
@@ -363,10 +372,14 @@ export class TorneosPublicos {
       estado: cuadro.torneo.estado,
       // Sin cast: un inscrito **siempre** tiene jugador —la relación es obligatoria—,
       // y el `as string[]` tapaba que se estaba usando el lector de los opcionales.
-      inscritos: cuadro.inscripciones.map((fila) => ({
-        nombre: `${fila.jugador.nombre} ${fila.jugador.apellido}`,
-        pago: PAGO_PUBLICO[fila.estadoPago],
-      })),
+      inscritos:
+        cuadro.semillaSorteo !== null ||
+        inscritosALaVista(cuadro._count.inscripciones, cuadro.cupo)
+          ? cuadro.inscripciones.map((fila) => ({
+              nombre: `${fila.jugador.nombre} ${fila.jugador.apellido}`,
+              pago: PAGO_PUBLICO[fila.estadoPago],
+            }))
+          : null,
       partidos: cuadro.partidos.map((partido) => ({
         ronda: partido.ronda,
         ronda_nombre: nombreDeRonda(partido.ronda, rondas),

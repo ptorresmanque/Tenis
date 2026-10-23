@@ -165,6 +165,17 @@ describe('CuadroPublicoModal', () => {
       expect(elemento().querySelector('ol li')?.textContent).not.toContain('Pag');
     });
 
+    it('**con la lista oculta dice que hay cupos, sin un nombre** (T375)', async () => {
+      // Bajo el 80 % del cupo la API no manda la lista: dos nombres desmotivan.
+      await montar({ ...SIN_ARMAR, inscritos: null });
+
+      expect(texto()).toContain(
+        'Todavía hay cupos. La lista de quienes juegan se publica más adelante.',
+      );
+      expect(elemento().querySelector('ol')).toBeNull();
+      expect(texto()).not.toContain('Todavía no hay inscritos');
+    });
+
     it('el título lo dice', async () => {
       await montar(SIN_ARMAR);
 

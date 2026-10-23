@@ -316,8 +316,11 @@ export interface CuadroPublico {
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
-  /** En el orden en que se inscribieron (T134). */
-  inscritos: InscritoPublico[];
+  /**
+   * En el orden en que se inscribieron (T134). `null` mientras la categoría no llega al 80 % de
+   * su cupo ni a 16 inscritos (T375): la lista no se publica todavía.
+   */
+  inscritos: InscritoPublico[] | null;
   partidos: PartidoPublico[];
 }
 

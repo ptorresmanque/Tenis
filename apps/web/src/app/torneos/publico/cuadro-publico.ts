@@ -87,8 +87,12 @@ const PESTANAS: { id: Vista; nombre: string }[] = [
       <div class="px-5 py-4">
         @if (detalle(); as cuadro) {
           @if (cuadro.partidos.length === 0) {
-            @if (cuadro.inscritos.length === 0) {
-              <p class="text-sm text-muted-foreground">Todavía no hay inscritos.</p>
+            <!-- «null»: bajo el 80 % del cupo la lista no se publica (T375), y con cero
+                 inscritos tampoco, así que «Todavía no hay inscritos» ya no se dice. -->
+            @if (cuadro.inscritos === null) {
+              <p class="text-sm text-muted-foreground">
+                Todavía hay cupos. La lista de quienes juegan se publica más adelante.
+              </p>
             } @else {
               <!-- En el orden en que se inscribieron (T134) y con el estado del pago
                    (decisión 4): es lo único que se publica de cada uno. -->
