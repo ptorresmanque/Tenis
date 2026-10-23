@@ -249,11 +249,14 @@ const enBlanco = () => ({
               <mat-label>Categoría <span aria-hidden="true">*</span></mat-label>
               <mat-select name="categoria" required [(ngModel)]="datos.categoriaJuegoId">
                 <!-- Solo las que corre **este** torneo: ofrecer las seis del club
-                     produciría una inscripción a un cuadro que no existe. -->
+                     produciría una inscripción a un cuadro que no existe. Una armada se ve
+                     pero no se elige (T378): el servidor la rechazaría al enviar. -->
                 @for (categoria of categorias(); track categoria.id) {
-                  <mat-option [value]="categoria.categoriaJuegoId">
+                  <mat-option [value]="categoria.categoriaJuegoId" [disabled]="categoria.armado">
                     {{ categoria.categoria }} — {{ precio(categoria.montoClp) }}
-                    @if (categoria.cuposLibres === 0) {
+                    @if (categoria.armado) {
+                      — cuadro armado
+                    } @else if (categoria.cuposLibres === 0) {
                       — sin cupos, quedarías en lista de espera
                     }
                   </mat-option>

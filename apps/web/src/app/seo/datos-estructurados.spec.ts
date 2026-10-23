@@ -220,6 +220,15 @@ describe('eventosDeTorneos', () => {
     expect(ofertas[0].availability).toBe('https://schema.org/InStock');
   });
 
+  it('**una categoría con el cuadro armado no está disponible**, aunque le queden cupos (T378)', () => {
+    // Ya no acepta inscripciones: anunciarla disponible manda a Google a ofrecer lo que no hay.
+    const armado = torneo(1, 'INSCRIPCION');
+    armado.categorias[0] = { ...armado.categorias[0], cuposLibres: 3, armado: true };
+
+    const ofertas = eventos([armado])?.[0]['offers'] as { availability: string }[];
+    expect(ofertas[0].availability).toBe('https://schema.org/SoldOut');
+  });
+
   it('sin afiche no hay imagen', () => {
     const sinAfiche = { ...torneo(1, 'INSCRIPCION'), afiches: [] };
     expect(eventos([sinAfiche])?.[0]).not.toHaveProperty('image');

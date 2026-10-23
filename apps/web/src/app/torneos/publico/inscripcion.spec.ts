@@ -9,7 +9,7 @@ import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 
 import { Auth, UsuarioActual } from '../../core/auth/auth';
-import { elegir, textosDe } from '../../testing/elegir';
+import { elegir, opcionesDe, textosDe } from '../../testing/elegir';
 import { CategoriaPublica, Torneos } from '../torneos.service';
 import { InscripcionATorneo } from './inscripcion';
 
@@ -199,6 +199,25 @@ describe('InscripcionATorneo', () => {
     );
 
     expect(honor).not.toContain('lista de espera');
+  });
+
+  it('**una categoría con el cuadro armado no se puede elegir**, y dice por qué (T378)', async () => {
+    // El servidor la rechaza al enviar: ofrecerla era llenar el formulario para nada. Llena,
+    // además decía «quedarías en lista de espera», y con el cuadro armado no hay lista.
+    fixture.componentRef.setInput('categorias', [
+      ...CATEGORIAS,
+      { id: 10, categoriaJuegoId: 40, categoria: '2ª', montoClp: 0, cupo: 8, cuposLibres: 0, armado: true },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const segunda = opcionesDe(fixture, 'mat-select[name="categoria"]').find((o) =>
+      o.texto.startsWith('2ª'),
+    );
+
+    expect(segunda?.deshabilitada).toBe(true);
+    expect(segunda?.texto).toContain('cuadro armado');
+    expect(segunda?.texto).not.toContain('lista de espera');
   });
 
   it('**pide el correo y dice para qué**: ahí le llegan la confirmación y sus partidos (T127)', () => {

@@ -89,8 +89,11 @@ export function eventosDeTorneos(
         name: categoria.categoria,
         price: categoria.montoClp,
         priceCurrency: 'CLP',
-        // `null` es «hay cupos y no se dice cuántos» (T374): disponible.
-        availability: `https://schema.org/${categoria.cuposLibres !== 0 ? 'InStock' : 'SoldOut'}`,
+        // `null` es «hay cupos y no se dice cuántos» (T374): disponible. Armada, ya no acepta
+        // inscripciones aunque le queden cupos (T378): no disponible.
+        availability: `https://schema.org/${
+          !categoria.armado && categoria.cuposLibres !== 0 ? 'InStock' : 'SoldOut'
+        }`,
         validThrough: torneo.cierreInscripcion,
         url: `${ORIGEN}/torneos/${torneo.id}/inscripcion`,
       })),
