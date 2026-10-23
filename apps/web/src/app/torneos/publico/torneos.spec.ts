@@ -428,6 +428,33 @@ describe('TorneosPublicos', () => {
     expect(elemento().querySelector('app-inscripcion-a-torneo')).toBeNull();
   });
 
+  it('con un solo cupo libre concuerda: «queda 1 cupo de 8»', async () => {
+    // Con cupo 8, el 1 es el único número que se publica antes de llenarse (T374).
+    await montar([
+      {
+        ...EN_INSCRIPCION,
+        categorias: [{ ...EN_INSCRIPCION.categorias[0], cuposLibres: 1 }],
+      },
+    ]);
+
+    const celda = elemento().querySelector('td.mat-column-cupos')?.textContent;
+    expect(celda?.replace(/\s+/g, ' ').trim()).toBe('queda 1 cupo de 8');
+  });
+
+  it('**con el número oculto dice que hay cupos, sin decir cuántos** (T374)', async () => {
+    // Bajo el umbral (80 % del cupo o 16 inscritos) la API no manda el número: «quedan 30 de
+    // 32» desmotiva.
+    await montar([
+      {
+        ...EN_INSCRIPCION,
+        categorias: [{ ...EN_INSCRIPCION.categorias[0], cuposLibres: null }],
+      },
+    ]);
+
+    const celda = elemento().querySelector('td.mat-column-cupos')?.textContent?.trim();
+    expect(celda).toBe('hay cupos');
+  });
+
   it('sin cupos lo dice, y explica que se entra en lista de espera', async () => {
     await montar([
       {

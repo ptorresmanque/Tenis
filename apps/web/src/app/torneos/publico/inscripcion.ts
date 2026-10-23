@@ -64,7 +64,8 @@ const enBlanco = () => ({
  * anotarse era la barrera que el club quiso sacar.
  *
  * **Esta pantalla no decide nada.** Si queda cupo, si la inscripción sigue abierta, si
- * el cuadro ya se armó: todo lo resuelve el servidor y esto muestra lo que respondió.
+ * el cuadro ya se armó: todo lo resuelve el servidor. Esto muestra lo que dijo el calendario
+ * (los cupos, el cuadro armado) y lo que respondió el envío.
  * Adivinarlo acá produciría un formulario que dice "quedan 2 cupos" y un servidor que
  * responde otra cosa.
  */
@@ -249,11 +250,14 @@ const enBlanco = () => ({
               <mat-label>Categoría <span aria-hidden="true">*</span></mat-label>
               <mat-select name="categoria" required [(ngModel)]="datos.categoriaJuegoId">
                 <!-- Solo las que corre **este** torneo: ofrecer las seis del club
-                     produciría una inscripción a un cuadro que no existe. -->
+                     produciría una inscripción a un cuadro que no existe. Una armada se ve
+                     pero no se elige (T378): el servidor la rechazaría al enviar. -->
                 @for (categoria of categorias(); track categoria.id) {
-                  <mat-option [value]="categoria.categoriaJuegoId">
+                  <mat-option [value]="categoria.categoriaJuegoId" [disabled]="categoria.armado">
                     {{ categoria.categoria }} — {{ precio(categoria.montoClp) }}
-                    @if (categoria.cuposLibres === 0) {
+                    @if (categoria.armado) {
+                      — cuadro armado, inscripción cerrada
+                    } @else if (categoria.cuposLibres === 0) {
                       — sin cupos, quedarías en lista de espera
                     }
                   </mat-option>
@@ -571,6 +575,23 @@ export class InscripcionATorneo {
     // club. Sin foco: no lo pidió nadie, y robarlo al abrir la página desorienta.
     effect(() => {
       if (this.esSocio()) untracked(() => this.cambiarModo(true, false));
+    });
+
+    // **Tras un rechazo la página recarga el calendario** (T378): si la elegida volvió armada,
+    // se suelta y se vuelve a la categoría, donde se ve por qué. Seguía elegida: el paso 3
+    // decía «quedas en la lista de espera» y un segundo envío volvía a mandarla. El error del
+    // servidor se va con ella: si no, quedaba bajo «Inscribirme» con otra categoría elegida.
+    // Solo hacia atrás: quien volvió a «Tus datos» se queda ahí.
+    effect(() => {
+      const id = Number(this.datos.categoriaJuegoId);
+      if (!this.categorias().some((c) => c.armado && c.categoriaJuegoId === id)) return;
+
+      this.datos.categoriaJuegoId = null;
+      this.error.set(null);
+      untracked(() => {
+        const pasos = this.pasos();
+        if (pasos.selectedIndex > 1) pasos.selectedIndex = 1;
+      });
     });
   }
 

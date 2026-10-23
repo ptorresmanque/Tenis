@@ -27,7 +27,7 @@ export interface TorneoPublico {
   fechaFin: string;
   cierreInscripcion: string;
   estado: EstadoTorneo;
-  /** Qué categorías corre, con cuánto lugar queda en cada una. */
+  /** Qué categorías corre, con cuánto lugar queda en cada una desde el umbral (T374). */
   categorias: CategoriaPublica[];
   /** Para qué tours suma (T196). Vacío en los torneos de antes de los tours. */
   tours: TourDelTorneoPublico[];
@@ -103,8 +103,40 @@ export interface CategoriaPublica {
    */
   montoClp: number;
   cupo: number;
-  cuposLibres: number;
+  /**
+   * `null` mientras la categoría no llegue al umbral (T374): hay cupos y no se dice cuántos.
+   * Con el cuadro armado, siempre el número.
+   */
+  cuposLibres: number | null;
   armado: boolean;
+}
+
+/**
+ * Cuántos ocupan cupo, para la regla de abajo: la misma cuenta en el calendario y en el modal.
+ * Un cupo ofrecido a la lista de espera está tomado (T331).
+ */
+const OCUPADOS = {
+  select: { inscripciones: { where: OCUPA_CUPO } },
+} satisfies Prisma.TorneoCategoriaCountOutputTypeDefaultArgs;
+
+/**
+ * Si ya se publican cuántos cupos quedan y quiénes se inscribieron (T374 y T375, `SPEC.md` §
+ * Inscritos a la vista desde el 80 %): con el cuadro armado, que ya muestra a todos, o con 16
+ * inscritos o el 80 % del cupo. Antes, «quedan 30 de 32» y una lista de dos nombres desmotivan
+ * al que está por inscribirse. En enteros, para no redondear. Mientras da falso siempre quedan
+ * cupos, porque los ocupados no llegan al 80 %.
+ */
+export function inscritosALaVista(cuadro: {
+  cupo: number;
+  semillaSorteo: number | null;
+  _count: { inscripciones: number };
+}): boolean {
+  const ocupados = cuadro._count.inscripciones;
+  return (
+    cuadro.semillaSorteo !== null ||
+    ocupados >= 16 ||
+    ocupados * 5 >= cuadro.cupo * 4
+  );
 }
 
 /** Un partido publicado: nombres, marcador y, si ya lo programó el club, cuándo y dónde. */
@@ -143,7 +175,11 @@ export interface CuadroPublico {
   nombre: string;
   categoria: string;
   estado: EstadoTorneo;
-  inscritos: InscritoPublico[];
+  /**
+   * `null` mientras la categoría no llegue al umbral (T375): la lista no se publica todavía.
+   * Con el cuadro armado, siempre la lista.
+   */
+  inscritos: InscritoPublico[] | null;
   partidos: PartidoPublico[];
 }
 
@@ -219,13 +255,8 @@ export class TorneosPublicos {
             categoriaJuegoId: true,
             montoInscripcionClp: true,
             categoriaJuego: { select: { nombre: true } },
-            // Solo el número: cuántos lugares quedan, no quiénes están. Un cupo ofrecido a la
-            // lista de espera está tomado (T331).
-            _count: {
-              select: {
-                inscripciones: { where: OCUPA_CUPO },
-              },
-            },
+            // Solo el número: cuántos lugares quedan, no quiénes están.
+            _count: OCUPADOS,
           },
         },
         tours: TOURS_DEL_TORNEO,
@@ -254,7 +285,9 @@ export class TorneosPublicos {
         categoria: cuadro.categoriaJuego.nombre,
         montoClp: cuadro.montoInscripcionClp,
         cupo: cuadro.cupo,
-        cuposLibres: Math.max(cuadro.cupo - cuadro._count.inscripciones, 0),
+        cuposLibres: inscritosALaVista(cuadro)
+          ? Math.max(cuadro.cupo - cuadro._count.inscripciones, 0)
+          : null,
         // Sin columna que lo diga: el cuadro está armado cuando se guardó su semilla,
         // que es lo mismo que decir que sus partidos existen.
         armado: cuadro.semillaSorteo !== null,
@@ -267,9 +300,9 @@ export class TorneosPublicos {
   /**
    * El cuadro de un torneo, con los resultados que ya se cargaron.
    *
-   * Se publica desde que está armado. Mientras la inscripción sigue abierta hay lista
-   * de inscritos y todavía no hay cuadro, que es exactamente lo que la gente quiere
-   * saber en ese momento: quiénes se anotaron.
+   * Se publica desde que está armado. Antes no hay cuadro, y lo que la gente quiere saber
+   * es quiénes se anotaron: la lista, desde que la categoría llega al umbral (T375).
+   * Antes de eso, `inscritos` va en `null`.
    *
    * **El `id` es el de la categoría del torneo, no el del torneo.** Un torneo tiene
    * tres cuadros y "el cuadro del torneo" dejó de significar algo.
@@ -284,8 +317,13 @@ export class TorneosPublicos {
       select: {
         id: true,
         torneoId: true,
+        cupo: true,
+        semillaSorteo: true,
         categoriaJuego: { select: { nombre: true } },
         torneo: { select: { nombre: true, estado: true } },
+        // Con la misma cuenta que el calendario (T375): la lista y «quedan 3 de 8» se
+        // publican juntas o no se publica ninguna.
+        _count: OCUPADOS,
         // **En el orden en que se inscribieron** (T134), no en el de la siembra: es la
         // lista de quién se anotó, y antes de armar el cuadro no hay siembra.
         inscripciones: {
@@ -341,10 +379,12 @@ export class TorneosPublicos {
       estado: cuadro.torneo.estado,
       // Sin cast: un inscrito **siempre** tiene jugador —la relación es obligatoria—,
       // y el `as string[]` tapaba que se estaba usando el lector de los opcionales.
-      inscritos: cuadro.inscripciones.map((fila) => ({
-        nombre: `${fila.jugador.nombre} ${fila.jugador.apellido}`,
-        pago: PAGO_PUBLICO[fila.estadoPago],
-      })),
+      inscritos: inscritosALaVista(cuadro)
+        ? cuadro.inscripciones.map((fila) => ({
+            nombre: `${fila.jugador.nombre} ${fila.jugador.apellido}`,
+            pago: PAGO_PUBLICO[fila.estadoPago],
+          }))
+        : null,
       partidos: cuadro.partidos.map((partido) => ({
         ronda: partido.ronda,
         ronda_nombre: nombreDeRonda(partido.ronda, rondas),

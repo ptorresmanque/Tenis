@@ -86,7 +86,7 @@ describe('GET /api/torneos/publicos', () => {
       /** Cuánto cuesta inscribirse en **esta** categoría. */
       montoClp: number;
       cupo: number;
-      cuposLibres: number;
+      cuposLibres: number | null;
       armado: boolean;
     }[];
   }
@@ -107,7 +107,9 @@ describe('GET /api/torneos/publicos', () => {
     return respuesta.body as {
       nombre: string;
       estado: string;
-      inscritos: { nombre: string; pago: 'PAGADO' | 'PENDIENTE' | null }[];
+      /** `null` mientras la categoría no llega al umbral (T375). */
+      inscritos:
+        { nombre: string; pago: 'PAGADO' | 'PENDIENTE' | null }[] | null;
       partidos: {
         ronda: number;
         ronda_nombre: string;
@@ -314,6 +316,182 @@ describe('GET /api/torneos/publicos', () => {
     expect(suyo?.categorias[0].cuposLibres).toBe(0);
   });
 
+  /** El `beforeEach` deja 4 inscritos de 4: con otro cupo, la misma gente queda en otro lado del umbral. */
+  const conCupo = (cupo: number) =>
+    prisma.torneoCategoria.update({
+      where: { id: cuadroId },
+      data: { cupo },
+    });
+
+  /** Más inscritos, directo a la base: dieciséis pasadas por la API no prueban nada más. */
+  const sumarInscritos = async (cuantos: number) => {
+    for (let i = 0; i < cuantos; i++) {
+      const jugador = await prisma.jugador.create({
+        data: { nombre: `Extra${i}`, apellido: APELLIDO },
+        select: { id: true },
+      });
+      await prisma.inscripcionTorneo.create({
+        data: {
+          torneoId,
+          torneoCategoriaId: cuadroId,
+          jugadorId: jugador.id,
+        },
+      });
+    }
+  };
+
+  /**
+   * T374, `SPEC.md` § Inscritos a la vista desde el 80 %. Con pocos inscritos, «quedan 30 de
+   * 32» desmotiva al que está por inscribirse. El número sale desde el 80 % del cupo o desde
+   * los 16 inscritos; antes, `null`: hay cupos y no se dice cuántos.
+   */
+  describe('cuántos cupos quedan, desde el 80 % o los 16 inscritos (T374)', () => {
+    const cuposLibres = async () =>
+      (await calendario('?anio=2026')).find((t) => t.id === torneoId)!
+        .categorias[0].cuposLibres;
+
+    it('con 4 inscritos de 5 (el 80 %) dice cuántos quedan', async () => {
+      await conCupo(5);
+
+      expect(await cuposLibres()).toBe(1);
+    });
+
+    it('**con 4 inscritos de 6 no dice cuántos quedan**', async () => {
+      await conCupo(6);
+
+      expect(await cuposLibres()).toBeNull();
+    });
+
+    it('**con 16 inscritos lo dice aunque el cupo sea de 32**', async () => {
+      await conCupo(32);
+      await sumarInscritos(12);
+
+      expect(await cuposLibres()).toBe(16);
+    });
+
+    it('con 15 de 32 no lo dice', async () => {
+      await conCupo(32);
+      await sumarInscritos(11);
+
+      expect(await cuposLibres()).toBeNull();
+    });
+
+    it('**cuenta lo que ocupa cupo**: el cupo ofrecido sí, la espera sin oferta no', async () => {
+      // Con cupo 5, los 4 inscritos están justo en el 80 %: basta con que uno deje de contar.
+      await conCupo(5);
+      const [ana, beto] = await prisma.inscripcionTorneo.findMany({
+        where: { torneoCategoriaId: cuadroId },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      await prisma.inscripcionTorneo.update({
+        where: { id: ana.id },
+        data: {
+          estado: 'LISTA_ESPERA',
+          cupoOfrecidoHasta: new Date('2026-11-01T00:00:00Z'),
+        },
+      });
+      await prisma.inscripcionTorneo.update({
+        where: { id: beto.id },
+        data: { estadoPago: 'PENDIENTE' },
+      });
+
+      expect(await cuposLibres()).toBe(1);
+
+      await prisma.inscripcionTorneo.update({
+        where: { id: ana.id },
+        data: { cupoOfrecidoHasta: null },
+      });
+
+      expect(await cuposLibres()).toBeNull();
+    });
+
+    it('**con el cuadro armado lo dice, aunque haya pocos**: el árbol ya muestra a todos', async () => {
+      await conCupo(6);
+      await request(app.getHttpServer())
+        .post(`/api/admin/cuadros/${cuadroId}/armar`)
+        .set('Cookie', cookieAdmin)
+        .expect(201);
+
+      expect(await cuposLibres()).toBe(2);
+    });
+  });
+
+  /**
+   * T375, `SPEC.md` § Inscritos a la vista desde el 80 %. Lo mismo para la lista de «Ver quiénes
+   * juegan»: dos nombres desmotivan tanto como «quedan 30 de 32». Decide con el mismo número que
+   * el calendario, así el modal y la tabla no se contradicen.
+   */
+  describe('quiénes juegan, desde el 80 % o los 16 inscritos (T375)', () => {
+    const inscritos = async () => (await cuadro()).inscritos;
+
+    it('con 4 inscritos de 5 (el 80 %) publica la lista', async () => {
+      await conCupo(5);
+
+      expect(await inscritos()).toHaveLength(4);
+    });
+
+    it('**con 4 inscritos de 6 no publica la lista, ni un nombre**', async () => {
+      await conCupo(6);
+
+      const respuesta = await cuadro();
+
+      expect(respuesta.inscritos).toBeNull();
+      expect(JSON.stringify(respuesta)).not.toContain(APELLIDO);
+    });
+
+    it('**con 16 inscritos la publica aunque el cupo sea de 32**', async () => {
+      await conCupo(32);
+      await sumarInscritos(12);
+
+      expect(await inscritos()).toHaveLength(16);
+    });
+
+    it('con 15 de 32 no la publica', async () => {
+      await conCupo(32);
+      await sumarInscritos(11);
+
+      expect(await inscritos()).toBeNull();
+    });
+
+    it('**decide con el número del calendario**: un cupo ofrecido cuenta, la espera sin oferta no', async () => {
+      // Con cupo 5 los 4 están justo en el 80 %. Ana pasa a la espera con un cupo ofrecido:
+      // sigue ocupando cupo, así que la lista se ve, aunque ella no esté en la lista.
+      await conCupo(5);
+      const [ana] = await prisma.inscripcionTorneo.findMany({
+        where: { torneoCategoriaId: cuadroId },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      await prisma.inscripcionTorneo.update({
+        where: { id: ana.id },
+        data: {
+          estado: 'LISTA_ESPERA',
+          cupoOfrecidoHasta: new Date('2026-11-01T00:00:00Z'),
+        },
+      });
+
+      expect(await inscritos()).toHaveLength(3);
+
+      await prisma.inscripcionTorneo.update({
+        where: { id: ana.id },
+        data: { cupoOfrecidoHasta: null },
+      });
+
+      expect(await inscritos()).toBeNull();
+    });
+
+    it('**con el cuadro armado la publica, aunque haya pocos**', async () => {
+      await conCupo(6);
+      await request(app.getHttpServer())
+        .post(`/api/admin/cuadros/${cuadroId}/armar`)
+        .set('Cookie', cookieAdmin)
+        .expect(201);
+
+      expect(await inscritos()).toHaveLength(4);
+    });
+  });
+
   it('**ninguna respuesta pública trae un teléfono**', async () => {
     // El club tiene el teléfono de un jugador para llamarlo, no para publicarlo. Se
     // comprueba sobre el JSON entero: un campo nuevo que lo filtre entra sin que nadie
@@ -337,7 +515,7 @@ describe('GET /api/torneos/publicos', () => {
     const publicado = await cuadro();
 
     expect(publicado.inscritos).toHaveLength(4);
-    expect(publicado.inscritos[0].nombre).toContain(APELLIDO);
+    expect(publicado.inscritos![0].nombre).toContain(APELLIDO);
   });
 
   /** T134. Lo que "Ver quiénes juegan" muestra antes de armar el cuadro. */
@@ -361,7 +539,7 @@ describe('GET /api/torneos/publicos', () => {
 
       const publicado = await cuadro();
 
-      expect(publicado.inscritos.map((i) => i.nombre.split(' ')[0])).toEqual([
+      expect(publicado.inscritos!.map((i) => i.nombre.split(' ')[0])).toEqual([
         'Ana',
         'Beto',
         'Cata',
@@ -386,14 +564,14 @@ describe('GET /api/torneos/publicos', () => {
 
       const publicado = await cuadro();
 
-      expect(publicado.inscritos[0].pago).toBe('PAGADO');
-      expect(publicado.inscritos[1].pago).toBe('PENDIENTE');
+      expect(publicado.inscritos![0].pago).toBe('PAGADO');
+      expect(publicado.inscritos![1].pago).toBe('PENDIENTE');
     });
 
     it('en una categoría gratis no lleva estado de pago', async () => {
       const publicado = await cuadro();
 
-      expect(publicado.inscritos.every((i) => i.pago === null)).toBe(true);
+      expect(publicado.inscritos!.every((i) => i.pago === null)).toBe(true);
     });
   });
 
