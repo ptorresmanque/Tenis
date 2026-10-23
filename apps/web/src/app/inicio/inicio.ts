@@ -31,7 +31,7 @@ import {
 import { Auth } from '../core/auth/auth';
 import { TiendaYCafeteria } from '../club/tienda-y-cafeteria';
 import { CartelDelTorneo } from '../torneos/publico/cartel-del-torneo';
-import { aceptaInscripciones, Torneos } from '../torneos/torneos.service';
+import { aceptaInscripciones, CategoriaPublica, Torneos } from '../torneos/torneos.service';
 import { Cinta } from '../ui/cinta';
 import { Esqueleto } from '../ui/esqueleto';
 import { Foto } from '../ui/foto';
@@ -460,9 +460,11 @@ import { publicarElClub } from '../seo/datos-estructurados';
                         Cupos libres
                       </th>
                       <td mat-cell *matCellDef="let categoria" class="numero">
-                        <!-- «null»: bajo el umbral (80 % del cupo o 16 inscritos) no se dice
-                             cuántos (T374). -->
-                        @if (categoria.cuposLibres === null) {
+                        <!-- Armado, ya no recibe a nadie: como en el calendario. «null»: bajo
+                             el umbral (80 % del cupo o 16 inscritos) no se dice cuántos (T374). -->
+                        @if (categoria.armado) {
+                          Cuadro armado
+                        } @else if (categoria.cuposLibres === null) {
                           Hay cupos
                         } @else if (categoria.cuposLibres > 0) {
                           {{ categoria.cuposLibres }} de {{ categoria.cupo }}
@@ -692,15 +694,7 @@ export class Inicio {
     this.abiertos().flatMap((torneo) => [
       `${torneo.nombre}: inscripciones hasta el ${diaEnPalabras(torneo.cierreInscripcion)}`,
       ...torneo.categorias.map(
-        ({ categoria, cupo, cuposLibres }) =>
-          `${categoria}: ` +
-          // `null`: bajo el umbral (80 % del cupo o 16 inscritos) no se dice cuántos (T374),
-          // y siempre quedan.
-          (cuposLibres === null
-            ? 'hay cupos'
-            : cuposLibres > 0
-              ? `${cuposLibres === 1 ? 'queda' : 'quedan'} ${cuposLibres} de ${cupo} cupos`
-              : 'sin cupos, se entra en lista de espera'),
+        (categoria) => `${categoria.categoria}: ${cuposEnLaCinta(categoria)}`,
       ),
       `Se juega desde el ${diaEnPalabras(torneo.fechaInicio)}`,
     ]),
@@ -870,6 +864,19 @@ export class Inicio {
   protected readonly hora = horaEnElClub;
   protected readonly fecha = fechaEnElClub;
   protected readonly pesos = enPesos;
+}
+
+/** Lo que la cinta dice de los cupos de una categoría: lo mismo que la tabla de abajo. */
+function cuposEnLaCinta({ armado, cupo, cuposLibres }: CategoriaPublica): string {
+  // Armado, ya no recibe a nadie: «quedan 2 de 8» invitaba a inscribirse, como en el calendario.
+  if (armado) return 'cuadro armado';
+  // `null`: bajo el umbral (80 % del cupo o 16 inscritos) no se dice cuántos (T374), y siempre
+  // quedan.
+  if (cuposLibres === null) return 'hay cupos';
+  if (cuposLibres > 0) {
+    return `${cuposLibres === 1 ? 'queda' : 'quedan'} ${cuposLibres} de ${cupo} cupos`;
+  }
+  return 'sin cupos, se entra en lista de espera';
 }
 
 /** La primera hora libre que todavía no empieza, con el nombre de su cancha. */

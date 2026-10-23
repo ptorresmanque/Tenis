@@ -503,6 +503,21 @@ describe('Inicio', () => {
 
       expect(fila).toEqual(['4ª', '$12.000', 'Hay cupos']);
     });
+
+    it('**una categoría con el cuadro armado lo dice**, como el calendario', async () => {
+      // Ya no recibe a nadie: «2 de 8» invitaba a inscribirse, y era el número que desmotiva.
+      await montar([
+        {
+          ...ABIERTO,
+          categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 2, armado: true }],
+        },
+      ]);
+      const fila = [...seccion().querySelectorAll('tbody tr td')].map((td) =>
+        td.textContent?.trim(),
+      );
+
+      expect(fila).toEqual(['4ª', '$12.000', 'Cuadro armado']);
+    });
   });
 
   /**
@@ -545,6 +560,18 @@ describe('Inicio', () => {
 
       expect(cinta()?.textContent).toContain('4ª: hay cupos');
       expect(cinta()?.textContent).not.toContain('lista de espera');
+    });
+
+    it('**una categoría con el cuadro armado lo dice**, sin cupos que ya no se toman', async () => {
+      await montar([
+        {
+          ...ABIERTO,
+          categorias: [{ ...ABIERTO.categorias[0], cuposLibres: 2, armado: true }],
+        },
+      ]);
+
+      expect(cinta()?.textContent).toContain('4ª: cuadro armado');
+      expect(cinta()?.textContent).not.toContain('quedan');
     });
 
     it('su rótulo lleva a la sección de abajo', async () => {
