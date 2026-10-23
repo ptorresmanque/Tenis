@@ -211,6 +211,15 @@ describe('eventosDeTorneos', () => {
     });
   });
 
+  it('**con el número oculto la categoría está disponible**, no agotada (T374)', () => {
+    // `null` es «hay cupos y no se dice cuántos»: mientras es `null`, siempre quedan.
+    const oculto = torneo(1, 'INSCRIPCION');
+    oculto.categorias[0] = { ...oculto.categorias[0], cuposLibres: null };
+
+    const ofertas = eventos([oculto])?.[0]['offers'] as { availability: string }[];
+    expect(ofertas[0].availability).toBe('https://schema.org/InStock');
+  });
+
   it('sin afiche no hay imagen', () => {
     const sinAfiche = { ...torneo(1, 'INSCRIPCION'), afiches: [] };
     expect(eventos([sinAfiche])?.[0]).not.toHaveProperty('image');

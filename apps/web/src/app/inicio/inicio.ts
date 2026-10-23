@@ -460,7 +460,10 @@ import { publicarElClub } from '../seo/datos-estructurados';
                         Cupos libres
                       </th>
                       <td mat-cell *matCellDef="let categoria" class="numero">
-                        @if (categoria.cuposLibres > 0) {
+                        <!-- «null»: bajo el 80 % no se dice cuántos (T374). -->
+                        @if (categoria.cuposLibres === null) {
+                          Hay cupos
+                        } @else if (categoria.cuposLibres > 0) {
                           {{ categoria.cuposLibres }} de {{ categoria.cupo }}
                         } @else {
                           <span class="font-semibold text-warning-strong">Lista de espera</span>
@@ -690,9 +693,12 @@ export class Inicio {
       ...torneo.categorias.map(
         ({ categoria, cupo, cuposLibres }) =>
           `${categoria}: ` +
-          (cuposLibres > 0
-            ? `quedan ${cuposLibres} de ${cupo} cupos`
-            : 'sin cupos, se entra en lista de espera'),
+          // `null`: bajo el 80 % no se dice cuántos (T374), y siempre quedan.
+          (cuposLibres === null
+            ? 'hay cupos'
+            : cuposLibres > 0
+              ? `quedan ${cuposLibres} de ${cupo} cupos`
+              : 'sin cupos, se entra en lista de espera'),
       ),
       `Se juega desde el ${diaEnPalabras(torneo.fechaInicio)}`,
     ]),

@@ -492,6 +492,17 @@ describe('Inicio', () => {
 
       expect(seccion().querySelector('tbody')?.textContent).toContain('Lista de espera');
     });
+
+    it('**con el número oculto dice que hay cupos, sin decir cuántos** (T374)', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: null }] },
+      ]);
+      const fila = [...seccion().querySelectorAll('tbody tr td')].map((td) =>
+        td.textContent?.trim(),
+      );
+
+      expect(fila).toEqual(['4ª', '$12.000', 'Hay cupos']);
+    });
   });
 
   /**
@@ -517,6 +528,15 @@ describe('Inicio', () => {
 
       // "Sin cupos" a secas manda a no inscribirse a quien sí puede: entra en espera.
       expect(cinta()?.textContent).toContain('4ª: sin cupos, se entra en lista de espera');
+    });
+
+    it('**con el número oculto dice que hay cupos, sin decir cuántos** (T374)', async () => {
+      await montar([
+        { ...ABIERTO, categorias: [{ ...ABIERTO.categorias[0], cuposLibres: null }] },
+      ]);
+
+      expect(cinta()?.textContent).toContain('4ª: hay cupos');
+      expect(cinta()?.textContent).not.toContain('lista de espera');
     });
 
     it('su rótulo lleva a la sección de abajo', async () => {

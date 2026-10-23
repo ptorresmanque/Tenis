@@ -277,7 +277,11 @@ export interface CategoriaPublica {
   /** Cuánto cuesta inscribirse en **esta** categoría. 0 = gratis. */
   montoClp: number;
   cupo: number;
-  cuposLibres: number;
+  /**
+   * `null` mientras la categoría no llega al 80 % de su cupo ni a 16 inscritos (T374): hay
+   * cupos y no se dice cuántos. Mientras es `null` siempre quedan cupos.
+   */
+  cuposLibres: number | null;
   armado: boolean;
 }
 

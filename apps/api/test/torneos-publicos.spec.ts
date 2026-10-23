@@ -86,7 +86,7 @@ describe('GET /api/torneos/publicos', () => {
       /** Cuánto cuesta inscribirse en **esta** categoría. */
       montoClp: number;
       cupo: number;
-      cuposLibres: number;
+      cuposLibres: number | null;
       armado: boolean;
     }[];
   }
@@ -312,6 +312,106 @@ describe('GET /api/torneos/publicos', () => {
     expect(suyo?.categorias).toHaveLength(1);
     expect(suyo?.categorias[0].cupo).toBe(4);
     expect(suyo?.categorias[0].cuposLibres).toBe(0);
+  });
+
+  /**
+   * T374, `SPEC.md` § Inscritos a la vista desde el 80 %. Con pocos inscritos, «quedan 30 de
+   * 32» desmotiva al que está por inscribirse. El número sale desde el 80 % del cupo o desde
+   * los 16 inscritos; antes, `null`: hay cupos y no se dice cuántos.
+   */
+  describe('cuántos cupos quedan, desde el 80 % o los 16 inscritos (T374)', () => {
+    const cuposLibres = async () =>
+      (await calendario('?anio=2026')).find((t) => t.id === torneoId)!
+        .categorias[0].cuposLibres;
+
+    const conCupo = (cupo: number) =>
+      prisma.torneoCategoria.update({
+        where: { id: cuadroId },
+        data: { cupo },
+      });
+
+    /** Más inscritos, directo a la base: dieciséis pasadas por la API no prueban nada más. */
+    const sumarInscritos = async (cuantos: number) => {
+      for (let i = 0; i < cuantos; i++) {
+        const jugador = await prisma.jugador.create({
+          data: { nombre: `Extra${i}`, apellido: APELLIDO },
+          select: { id: true },
+        });
+        await prisma.inscripcionTorneo.create({
+          data: {
+            torneoId,
+            torneoCategoriaId: cuadroId,
+            jugadorId: jugador.id,
+          },
+        });
+      }
+    };
+
+    it('con 4 inscritos de 5 (el 80 %) dice cuántos quedan', async () => {
+      await conCupo(5);
+
+      expect(await cuposLibres()).toBe(1);
+    });
+
+    it('**con 4 inscritos de 6 no dice cuántos quedan**', async () => {
+      await conCupo(6);
+
+      expect(await cuposLibres()).toBeNull();
+    });
+
+    it('**con 16 inscritos lo dice aunque el cupo sea de 32**', async () => {
+      await conCupo(32);
+      await sumarInscritos(12);
+
+      expect(await cuposLibres()).toBe(16);
+    });
+
+    it('con 15 de 32 no lo dice', async () => {
+      await conCupo(32);
+      await sumarInscritos(11);
+
+      expect(await cuposLibres()).toBeNull();
+    });
+
+    it('**cuenta lo que ocupa cupo**: el cupo ofrecido sí, la espera sin oferta no', async () => {
+      // Con cupo 5, los 4 inscritos están justo en el 80 %: basta con que uno deje de contar.
+      await conCupo(5);
+      const [ana, beto] = await prisma.inscripcionTorneo.findMany({
+        where: { torneoCategoriaId: cuadroId },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      await prisma.inscripcionTorneo.update({
+        where: { id: ana.id },
+        data: {
+          estado: 'LISTA_ESPERA',
+          cupoOfrecidoHasta: new Date('2026-11-01T00:00:00Z'),
+        },
+      });
+      await prisma.inscripcionTorneo.update({
+        where: { id: beto.id },
+        data: { estadoPago: 'PENDIENTE' },
+      });
+
+      expect(await cuposLibres()).toBe(1);
+
+      await prisma.inscripcionTorneo.update({
+        where: { id: ana.id },
+        data: { cupoOfrecidoHasta: null },
+      });
+
+      expect(await cuposLibres()).toBeNull();
+    });
+
+    it('**con el cuadro armado lo dice, aunque haya pocos**: el árbol ya muestra a todos', async () => {
+      await conCupo(6);
+      await request(app.getHttpServer())
+        .post(`/api/admin/cuadros/${cuadroId}/armar`)
+        .set('Cookie', cookieAdmin)
+        .expect(201);
+
+      expect(await cuposLibres()).toBe(2);
+    });
   });
 
   it('**ninguna respuesta pública trae un teléfono**', async () => {

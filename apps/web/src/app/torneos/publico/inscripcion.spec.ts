@@ -22,8 +22,9 @@ import { InscripcionATorneo } from './inscripcion';
  */
 describe('InscripcionATorneo', () => {
   const CATEGORIAS: CategoriaPublica[] = [
-    { id: 7, categoriaJuegoId: 20, categoria: '4ª', montoClp: 0, cupo: 4, cuposLibres: 2, armado: false },
-    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: 1, armado: false },
+    // Con 2 de 4 y 1 de 2 no llegan al 80 %: la API no dice cuántos quedan (T374).
+    { id: 7, categoriaJuegoId: 20, categoria: '4ª', montoClp: 0, cupo: 4, cuposLibres: null, armado: false },
+    { id: 8, categoriaJuegoId: 60, categoria: 'Honor', montoClp: 15_000, cupo: 2, cuposLibres: null, armado: false },
     // Cobra y está llena: quien la elige queda en la lista de espera, sin pagar (T328).
     { id: 9, categoriaJuegoId: 30, categoria: '3ª', montoClp: 12_000, cupo: 2, cuposLibres: 0, armado: false },
   ];
@@ -190,6 +191,14 @@ describe('InscripcionATorneo', () => {
     // En la opción misma: se ve al abrir la lista, antes de elegir (T248).
     const opciones = textosDe(fixture, 'mat-select[name="categoria"]').join(' ');
     expect(opciones).toContain('sin cupos, quedarías en lista de espera');
+  });
+
+  it('**con el número oculto no la da por llena**: siempre quedan cupos (T374)', () => {
+    const honor = textosDe(fixture, 'mat-select[name="categoria"]').find((o) =>
+      o.startsWith('Honor'),
+    );
+
+    expect(honor).not.toContain('lista de espera');
   });
 
   it('**pide el correo y dice para qué**: ahí le llegan la confirmación y sus partidos (T127)', () => {

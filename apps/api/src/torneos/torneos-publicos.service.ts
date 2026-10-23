@@ -103,8 +103,22 @@ export interface CategoriaPublica {
    */
   montoClp: number;
   cupo: number;
-  cuposLibres: number;
+  /**
+   * `null` mientras la categoría no llegue al umbral (T374): hay cupos y no se dice cuántos.
+   * Con el cuadro armado, siempre el número.
+   */
+  cuposLibres: number | null;
   armado: boolean;
+}
+
+/**
+ * Si ya se publica cuántos se inscribieron (T374, `SPEC.md` § Inscritos a la vista desde el
+ * 80 %): con 16 inscritos o con el 80 % del cupo. Antes, «quedan 30 de 32» desmotiva al que
+ * está por inscribirse. En enteros, para no redondear. Mientras da falso siempre quedan
+ * cupos, porque los ocupados no llegan al 80 %.
+ */
+export function inscritosALaVista(ocupados: number, cupo: number): boolean {
+  return ocupados >= 16 || ocupados * 5 >= cupo * 4;
 }
 
 /** Un partido publicado: nombres, marcador y, si ya lo programó el club, cuándo y dónde. */
@@ -248,17 +262,25 @@ export class TorneosPublicos {
       fechaFin: comoFechaCivil(torneo.fechaFin),
       cierreInscripcion: comoFechaCivil(torneo.cierreInscripcion),
       estado: torneo.estado,
-      categorias: torneo.cuadros.map((cuadro) => ({
-        id: cuadro.id,
-        categoriaJuegoId: cuadro.categoriaJuegoId,
-        categoria: cuadro.categoriaJuego.nombre,
-        montoClp: cuadro.montoInscripcionClp,
-        cupo: cuadro.cupo,
-        cuposLibres: Math.max(cuadro.cupo - cuadro._count.inscripciones, 0),
+      categorias: torneo.cuadros.map((cuadro) => {
+        const ocupados = cuadro._count.inscripciones;
         // Sin columna que lo diga: el cuadro está armado cuando se guardó su semilla,
         // que es lo mismo que decir que sus partidos existen.
-        armado: cuadro.semillaSorteo !== null,
-      })),
+        const armado = cuadro.semillaSorteo !== null;
+
+        return {
+          id: cuadro.id,
+          categoriaJuegoId: cuadro.categoriaJuegoId,
+          categoria: cuadro.categoriaJuego.nombre,
+          montoClp: cuadro.montoInscripcionClp,
+          cupo: cuadro.cupo,
+          cuposLibres:
+            armado || inscritosALaVista(ocupados, cuadro.cupo)
+              ? Math.max(cuadro.cupo - ocupados, 0)
+              : null,
+          armado,
+        };
+      }),
       tours: aplanarTours(torneo.tours),
       afiches: torneo.fotos.map(publicarFoto),
     }));

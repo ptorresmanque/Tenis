@@ -210,8 +210,12 @@ import { eventosDeTorneos, publicar } from '../../seo/datos-estructurados';
                         <ng-container matColumnDef="cupos">
                           <th mat-header-cell *matHeaderCellDef scope="col">Cupos</th>
                           <td mat-cell *matCellDef="let categoria">
+                            <!-- «null»: bajo el 80 % del cupo no se dice cuántos (T374),
+                                 y mientras tanto siempre quedan. -->
                             @if (categoria.armado) {
                               cuadro armado
+                            } @else if (categoria.cuposLibres === null) {
+                              hay cupos
                             } @else if (categoria.cuposLibres > 0) {
                               quedan {{ categoria.cuposLibres }}
                               {{ categoria.cuposLibres === 1 ? 'cupo' : 'cupos' }} de
