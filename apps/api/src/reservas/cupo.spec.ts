@@ -34,6 +34,9 @@ describe('evaluarReservaDeSocio', () => {
       cupoPicoSemanalReservas: 2,
       invitadosPorMes: 4,
       duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
+      // Sin gracia, como antes de T379: las pruebas de la cuota de más abajo miran el borde
+      // de `alDiaHasta`, y con gracia ese borde quedaría tapado. La gracia tiene las suyas.
+      diasGraciaCuota: 0,
     },
     reservasDelDia: 0,
     reservasPicoDeLaSemana: 0,
@@ -164,6 +167,60 @@ describe('evaluarReservaDeSocio', () => {
     });
   });
 
+  describe('los días de gracia de la mensualidad (T379)', () => {
+    // HOY es el 17 de agosto: pagado hasta el 16 es el primer día de la deuda.
+    const conGracia = (alDiaHasta: string, diasGraciaCuota = 5) =>
+      solicitud({
+        socio: {
+          id: 7,
+          estado: EstadoSocio.ACTIVO,
+          alDiaHasta: new Date(`${alDiaHasta}T00:00:00.000Z`),
+          sancionadoHasta: null,
+        },
+        config: { ...solicitud().config, diasGraciaCuota },
+      });
+
+    it('en la gracia el socio moroso reserva', () => {
+      expect(evaluarReservaDeSocio(conGracia('2026-08-16'))).toBeNull();
+    });
+
+    it('el último día de gracia todavía reserva', () => {
+      expect(evaluarReservaDeSocio(conGracia('2026-08-12'))).toBeNull();
+    });
+
+    it('pasada la gracia no reserva, y el mensaje dice cuándo terminó el plazo', () => {
+      const rechazo = evaluarReservaDeSocio(conGracia('2026-08-11'));
+
+      expect(rechazo?.tipo).toBe('CUOTA_VENCIDA');
+      expect(rechazo?.mensaje).toBe(
+        'Tu cuota está vencida desde el 11-08-2026 y el plazo para pagarla terminó el ' +
+          '16-08-2026. Ponte al día y vuelve a reservar; las reservas que ya tenías se ' +
+          'mantienen.',
+      );
+    });
+
+    it('con 0 días, el primer día de la deuda ya no reserva, con el texto de siempre', () => {
+      const rechazo = evaluarReservaDeSocio(conGracia('2026-08-16', 0));
+
+      expect(rechazo?.tipo).toBe('CUOTA_VENCIDA');
+      expect(rechazo?.mensaje).toBe(
+        'Tu cuota está vencida desde el 16-08-2026. Ponte al día y vuelve a reservar; ' +
+          'las reservas que ya tenías se mantienen.',
+      );
+    });
+
+    it('la incorporación impaga bloquea aunque la mensualidad esté en gracia', () => {
+      // La gracia es de la mensualidad (asunción 4): la incorporación es la entrada al
+      // club, y con gracia el socio nuevo reservaría sin haberla pagado.
+      const rechazo = evaluarReservaDeSocio({
+        ...conGracia('2026-08-16'),
+        incorporacionPendiente: true,
+      });
+
+      expect(rechazo?.tipo).toBe('INCORPORACION_IMPAGA');
+    });
+  });
+
   describe('cupos', () => {
     it('la segunda reserva del día se rechaza, diciendo el límite y cuándo se renueva', () => {
       const rechazo = evaluarReservaDeSocio(solicitud({ reservasDelDia: 1 }));
@@ -207,6 +264,7 @@ describe('evaluarReservaDeSocio', () => {
             cupoPicoSemanalReservas: 2,
             invitadosPorMes: 4,
             duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
+            diasGraciaCuota: 0,
           },
         }),
       );
@@ -231,6 +289,7 @@ describe('evaluarReservaDeSocio', () => {
             cupoPicoSemanalReservas: 0,
             invitadosPorMes: 4,
             duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
+            diasGraciaCuota: 0,
           },
         }),
       );
@@ -295,6 +354,7 @@ describe('evaluarReservaDeSocio', () => {
           cupoPicoSemanalReservas: 3,
           invitadosPorMes: 4,
           duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
+          diasGraciaCuota: 0,
         },
       });
 
@@ -311,6 +371,7 @@ describe('evaluarReservaDeSocio', () => {
               cupoPicoSemanalReservas: 2,
               invitadosPorMes: 4,
               duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
+              diasGraciaCuota: 0,
             },
           }),
         ),
@@ -445,6 +506,7 @@ describe('evaluarReservaDeSocio', () => {
               cupoPicoSemanalReservas: 2,
               invitadosPorMes: 8,
               duracionesSocioPico: DuracionesSocioPico.UNA_HORA,
+              diasGraciaCuota: 0,
             },
           }),
         ),
@@ -710,6 +772,7 @@ describe('evaluarReservaDeSocio', () => {
             cupoPicoSemanalReservas: 2,
             invitadosPorMes: 4,
             duracionesSocioPico: duraciones,
+            diasGraciaCuota: 0,
           },
           ...parche,
         }),

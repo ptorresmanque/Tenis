@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AppModule } from '../src/app.module';
+import { hoyEnElClub } from '../src/comun/tiempo';
 import {
   ConceptoPago,
   DuracionesSocioPico,
@@ -581,6 +582,23 @@ describe('Modificación y cancelación de reservas', () => {
           horasAntes(LUNES_20, 30),
         ),
       ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('el socio en gracia sí mueve su hora (T379)', async () => {
+      // La misma regla que al reservar, con el reloj real: pagado hasta ayer es el primer
+      // día de la deuda, y con la gracia de 5 días por omisión todavía reserva.
+      const ayer = new Date(hoyEnElClub().getTime() - 24 * 60 * 60 * 1000);
+      socioId = await unSocio('en-gracia', { alDiaHasta: ayer });
+      const suya = await suReserva(LUNES_20);
+
+      await expect(
+        modificacion.modificar(
+          suya.id,
+          { canchaId: otraCanchaId, inicio: MARTES_20 },
+          admin,
+          horasAntes(LUNES_20, 30),
+        ),
+      ).resolves.toBeDefined();
     });
 
     it('dos movimientos simultáneos no lo dejan con dos horas el mismo día', async () => {
