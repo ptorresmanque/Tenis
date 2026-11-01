@@ -662,12 +662,16 @@ describe('Configuración del club', () => {
       ((await patch(cuerpo).expect(400)).body as { message: string }).message;
 
     it('**por omisión son 5 días**', async () => {
-      const respuesta = await request(servidor())
-        .get('/api/admin/configuracion')
-        .set('Cookie', admin)
-        .expect(200);
+      // Por el valor por omisión de la columna y no por la fila: `tenis_test` dura entre
+      // corridas, y una cortada a mitad de esta suite deja la fila en 0 o en 15. La columna
+      // es lo que recibe la fila de fedal.cl al aplicar la migración (como el tope de luz).
+      const [columna] = await prisma.$queryRaw<{ omision: string }[]>`
+        SELECT COLUMN_DEFAULT AS omision
+          FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'configuracion_club'
+           AND COLUMN_NAME = 'dias_gracia_cuota'`;
 
-      expect(respuesta.body).toMatchObject({ diasGraciaCuota: 5 });
+      expect(columna).toEqual({ omision: '5' });
     });
 
     it('**guarda de 0 a 15 y lo devuelve**', async () => {

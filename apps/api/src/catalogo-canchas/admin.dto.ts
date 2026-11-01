@@ -242,8 +242,9 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   // pero no hay cobro que la pague. El tope es contra el dedazo, como el de los torneos.
   cuotaMensualClp: [1, 10_000_000],
   cuotaIncorporacionClp: [1, 10_000_000],
-  // Desde 0, que apaga la gracia. Hasta 15: deja la gracia bien dentro del mes, y con 31 la
-  // de octubre llegaría a noviembre (SPEC-cuotas.md § Días de gracia, asunción 10).
+  // Desde 0, que apaga la gracia. Hasta 15: deja la gracia bien dentro del mes. Con 31, quien
+  // pagó hasta el 31 de octubre reservaría hasta el 1 de diciembre sin pagar noviembre (SPEC-
+  // cuotas.md § Días de gracia, asunción 10).
   diasGraciaCuota: [0, 15],
   // Desde 2: una grupal de uno es la individual. Hasta 40, el tope del cupo de una clase.
   gimnasioCupoGrupal: [2, 40],
