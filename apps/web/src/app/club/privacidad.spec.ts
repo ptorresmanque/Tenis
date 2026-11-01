@@ -55,12 +55,20 @@ describe('Política de privacidad', () => {
     ['el aviso de la programación de un partido', 'programa, cambia o quita la hora'],
     ['el aviso a los administradores con el comprobante', 'comprobante de transferencia que llega'],
     ['que el teléfono es chileno', '+56 y nueve dígitos'],
+    // Versión 1.3 (T385): los días de gracia de la cuota.
+    ['que la cuota bloquea después de la gracia', 'después de los días de gracia que fija el club'],
+    ['que la incorporación impaga bloquea', 'si debes la incorporación'],
   ])('nombra %s', (_, frase) => {
     expect(texto()).toContain(frase);
   });
 
-  it('la versión 1.2 es la que nombra lo nuevo', () => {
-    expect(texto()).toContain('Versión 1.2');
+  it('la versión 1.3 es la que nombra lo nuevo', () => {
+    expect(texto()).toContain('Versión 1.3');
+  });
+
+  it('ya no dice que la cuota impaga bloquea desde el primer día (T385)', () => {
+    // Con la gracia (SPEC-cuotas.md § Días de gracia), el socio sigue reservando unos días.
+    expect(texto()).not.toContain('Si tu cuota está impaga o tu ficha');
   });
 
   it('el cupo de invitados se describe como funciona desde A5: por reservas', () => {
