@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AvisoDeGracia } from './aviso-de-gracia';
 
@@ -130,6 +130,41 @@ describe('AvisoDeGracia', () => {
 
     botonCerrar(elemento).click();
 
+    expect(document.activeElement).toBe(pie);
+  });
+
+  it('si un control no recibe el foco, prueba con el que sigue (verificación del /review)', () => {
+    // Safari antes de la 17.4 no tiene checkVisibility, y Chrome 119–120 no mira
+    // visibility: hidden. Ahí «Volver arriba» oculto (inert) pasa el filtro, focus() no hace
+    // nada, y lo que ataja es comprobar que el foco llegó.
+    const elemento = montar(3);
+    const inerte = document.createElement('button');
+    inerte.id = 'oculto-de-prueba';
+    inerte.focus = () => undefined;
+    document.body.appendChild(inerte);
+    const pie = document.createElement('a');
+    pie.id = 'pie-de-prueba';
+    pie.href = '/privacidad';
+    document.body.appendChild(pie);
+
+    botonCerrar(elemento).click();
+
+    expect(document.activeElement).toBe(pie);
+  });
+
+  it('cerrar con el mouse o el dedo no mueve la página hasta el pie (verificación del /review)', () => {
+    // El foco pasa al pie igual, para quien siga con el teclado; la página se desplaza solo
+    // si se cerró con el teclado.
+    const elemento = montar(3);
+    const pie = document.createElement('a');
+    pie.id = 'pie-de-prueba';
+    pie.href = '/privacidad';
+    document.body.appendChild(pie);
+    const enfocar = vi.spyOn(pie, 'focus');
+
+    botonCerrar(elemento).click();
+
+    expect(enfocar).toHaveBeenCalledWith({ preventScroll: true });
     expect(document.activeElement).toBe(pie);
   });
 

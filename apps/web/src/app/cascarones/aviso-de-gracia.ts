@@ -65,7 +65,7 @@ const CERRADO = 'aviso-de-gracia-cerrado';
         </p>
         <div class="mt-3 flex flex-wrap gap-2">
           <a matButton="filled" routerLink="/mi-cuenta/cuota">Pagar cuota</a>
-          <button matButton type="button" (click)="cerrar()">Cerrar</button>
+          <button matButton type="button" (click)="cerrar($event)">Cerrar</button>
         </div>
       </app-aviso>
     }
@@ -79,30 +79,37 @@ export class AvisoDeGracia {
 
   private readonly anfitrion = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
-  protected cerrar(): void {
+  protected cerrar(evento: Event): void {
     sessionStorage.setItem(CERRADO, '1');
     this.abierto.set(false);
 
-    // Se comprueba que el foco llegó: un control que no se puede enfocar lo deja donde estaba,
-    // en el botón que se va, y de ahí terminaría en <body>.
-    const siguiente = this.controlSiguiente();
-    siguiente?.focus();
-    if (document.activeElement !== siguiente) {
-      document.getElementById('contenido')?.focus();
+    // La página se desplaza hasta el foco solo si se cerró con el teclado: con el mouse o el
+    // dedo, saltar al pie haría perder lo que se estaba leyendo.
+    const porTeclado =
+      evento.currentTarget instanceof HTMLElement &&
+      evento.currentTarget.matches(':focus-visible');
+
+    // Se comprueba que el foco llegó, y si no, se prueba con el que sigue: un control que no
+    // se puede enfocar lo deja en el botón que se va, y de ahí terminaría en <body>.
+    for (const control of this.controlesSiguientes()) {
+      control.focus({ preventScroll: !porTeclado });
+      if (document.activeElement === control) return;
     }
+
+    document.getElementById('contenido')?.focus({ preventScroll: true });
   }
 
   /**
-   * El primer control **visible** que viene después del aviso en el documento, si hay alguno.
-   * Visible porque entre el aviso y el pie está el cajón del menú del teléfono, cerrado y sin
-   * render (/review): enfocar sus botones no hace nada.
+   * Los controles **visibles** que vienen después del aviso en el documento, en orden.
+   * Visibles porque entre el aviso y el pie están el cajón del menú del teléfono, cerrado y sin
+   * render, y «Volver arriba», oculto mientras no se baja (/review): enfocarlos no hace nada.
    */
-  private controlSiguiente(): HTMLElement | undefined {
+  private controlesSiguientes(): HTMLElement[] {
     return [
       ...document.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input:not([disabled]), select, textarea',
       ),
-    ].find(
+    ].filter(
       (control) =>
         !this.anfitrion.contains(control) &&
         Boolean(
