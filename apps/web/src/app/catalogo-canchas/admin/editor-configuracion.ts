@@ -27,8 +27,13 @@ interface Regla {
   campo: keyof ReglasDelClub;
   etiqueta: string;
   ayuda: string;
-  /** El mínimo del campo: las cuotas parten en 1 peso, las reglas en 0. */
+  /**
+   * El rango del campo, el mismo que valida el servidor (`LIMITES` en
+   * apps/api/src/catalogo-canchas/admin.dto.ts): las cuotas parten en 1 peso, las reglas en 0.
+   * Sin máximo, el servidor tampoco pone tope.
+   */
   minimo: number;
+  maximo?: number;
 }
 
 /** Cada regla con su etiqueta y su ayuda. El orden es el de la pantalla. */
@@ -69,7 +74,8 @@ const DE_RESERVA: Regla[] = [
     campo: 'diasSancionNoUso',
     etiqueta: 'Días de sanción por hora no usada',
     ayuda: 'Cuánto queda sin reservar quien tomó una hora y no la usó.',
-    minimo: 0,
+    minimo: 1,
+    maximo: 365,
   },
 ];
 
@@ -83,12 +89,14 @@ const DE_CUOTA: Regla[] = [
     etiqueta: 'Mensualidad ($)',
     ayuda: 'Lo que paga cada socio por mes.',
     minimo: 1,
+    maximo: 10_000_000,
   },
   {
     campo: 'cuotaIncorporacionClp',
     etiqueta: 'Incorporación ($)',
     ayuda: 'Se cobra una sola vez, a quien entra al club.',
     minimo: 1,
+    maximo: 10_000_000,
   },
   {
     campo: 'diasGraciaCuota',
@@ -97,6 +105,7 @@ const DE_CUOTA: Regla[] = [
       'Cuántos días el socio sigue reservando con la mensualidad vencida, de 0 a 15. ' +
       'La incorporación no tiene gracia.',
     minimo: 0,
+    maximo: 15,
   },
 ];
 
@@ -112,6 +121,7 @@ const DE_TORNEO: Regla[] = [
       'Cuánto se le guarda el cupo al primero de la fila. Corre solo de 8:00 a 22:00: ' +
       'de noche el aviso sale, pero el plazo no avanza.',
     minimo: 10,
+    maximo: 1440,
   },
 ];
 
@@ -201,10 +211,22 @@ function todasNumericas(valores: ValoresEnPantalla): ReglasDelClub | null {
                       [name]="regla.campo"
                       type="number"
                       [min]="regla.minimo"
+                      [max]="regla.maximo ?? null"
                       [ngModel]="puestos[regla.campo]"
                       (ngModelChange)="cambiar(regla.campo, $event)"
                     />
                     <mat-hint>{{ regla.ayuda }}</mat-hint>
+                    <!-- Fuera de rango el campo se pone rojo, y el color solo no dice qué
+                         hacer: el error lo escribe (lineamientos de Angular Material, form
+                         field). Con el mismo rango que valida el servidor. -->
+                    <mat-error>
+                      @if (regla.maximo === undefined) {
+                        Tiene que ser un número entero desde {{ enCifras(regla.minimo) }}.
+                      } @else {
+                        Tiene que ser un número entero de {{ enCifras(regla.minimo) }} a
+                        {{ enCifras(regla.maximo) }}.
+                      }
+                    </mat-error>
                   </mat-form-field>
                 }
               </div>
@@ -240,6 +262,11 @@ export class EditorConfiguracion {
   private readonly api = inject(AdminCanchas);
 
   protected readonly grupos = GRUPOS;
+
+  /** "10.000.000" y no "10000000": el tope de las cuotas se lee como lo escribe el club. */
+  protected enCifras(numero: number): string {
+    return numero.toLocaleString('es-CL');
+  }
 
   protected readonly guardando = signal(false);
   protected readonly error = signal<string | null>(null);

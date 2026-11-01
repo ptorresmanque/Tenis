@@ -12,6 +12,12 @@ const CERRADO = 'aviso-de-gracia-cerrado';
  * SPEC-cuotas.md § Días de gracia): cuántos días le quedan para pagar antes de quedar sin
  * reservar, y el botón que lo lleva a hacerlo.
  *
+ * **No es un `MatSnackBar`, y es lo que piden los lineamientos de Angular Material**: el
+ * snackbar es para confirmaciones que se van solas, no para algo que la persona tiene que leer,
+ * como este plazo; para eso va un aviso fijo en la página, que Material no trae (referencias
+ * `snack-bar.md` y `wrappers.md` del skill). Por eso se arma sobre `<app-aviso>`, con los
+ * botones de Material.
+ *
  * **`sticky` al final de `<main>` y no `fixed`.** Mientras se recorre la página flota abajo;
  * al llegar al final se queda en su lugar, antes del pie, y no lo tapa. En el teléfono va
  * más arriba que en el escritorio para dejar libre la esquina de «Volver arriba» (T149).

@@ -457,6 +457,12 @@ describe('NuevaReserva', () => {
     const texto = (dialogo().textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('En gracia hasta el jueves, 5 de noviembre');
     expect(texto).not.toContain('Cuota vencida');
+    // La insignia lleva dos palabras, como «Al día» y «Cuota vencida», y la fecha va al lado
+    // como texto: un chip es para una o dos palabras (lineamientos de Angular Material, chips).
+    const insignia = dialogo().querySelector('mat-chip.insignia.aviso');
+    expect(
+      insignia?.textContent?.replace('schedule', '').replace(/\s+/g, ' ').trim(),
+    ).toBe('En gracia');
   });
 
   it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', async () => {

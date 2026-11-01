@@ -179,6 +179,51 @@ describe('EditorConfiguracion', () => {
     });
   });
 
+  describe('un valor fuera de rango se explica con texto, no solo en rojo', () => {
+    // Lineamientos de Angular Material (form field): un mat-error por error, con texto que diga
+    // cómo corregirlo. Los rangos son los mismos que valida el servidor (admin.dto.ts).
+    const salir = async (id: string) => {
+      campo(id).dispatchEvent(new Event('blur'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('**los días de gracia, de 0 a 15**', async () => {
+      await escribir('diasGraciaCuota', '16');
+      await salir('diasGraciaCuota');
+
+      expect(texto()).toContain('Tiene que ser un número entero de 0 a 15.');
+    });
+
+    it('un cupo, desde 0', async () => {
+      await escribir('cupoDiarioSocioReservas', '-1');
+      await salir('cupoDiarioSocioReservas');
+
+      expect(texto()).toContain('Tiene que ser un número entero desde 0.');
+    });
+
+    it('la sanción, de 1 a 365, como en el servidor', async () => {
+      await escribir('diasSancionNoUso', '0');
+      await salir('diasSancionNoUso');
+
+      expect(texto()).toContain('Tiene que ser un número entero de 1 a 365.');
+    });
+
+    it('la mensualidad, con el tope escrito como lo escribe el club', async () => {
+      await escribir('cuotaMensualClp', '0');
+      await salir('cuotaMensualClp');
+
+      expect(texto()).toContain('Tiene que ser un número entero de 1 a 10.000.000.');
+    });
+
+    it('dentro del rango no hay error', async () => {
+      await escribir('diasGraciaCuota', '15');
+      await salir('diasGraciaCuota');
+
+      expect(texto()).not.toContain('Tiene que ser un número entero');
+    });
+  });
+
   describe('el plazo de la lista de espera (T326)', () => {
     it('**trae el plazo vigente, en minutos**', () => {
       expect(texto()).toContain('Torneos');
