@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type { DuracionMin } from '../catalogo-canchas/bloques';
-import { comoFechaCivil, fechaDelClub, hoyEnElClub } from '../comun/tiempo';
+import { comoFechaCivil, hoyEnElClub } from '../comun/tiempo';
 import { EstadoSocio } from '../generated/prisma/client';
 import {
   estaAlDia,
@@ -73,7 +73,11 @@ export class ReservaDelAdminService {
   ) {}
 
   /** Cuánto le queda al socio hoy, para decidir antes de tomarle la hora. */
-  async cupoDe(socioId: number, fecha: string): Promise<CupoDelSocio> {
+  async cupoDe(
+    socioId: number,
+    fecha: string,
+    ahora = new Date(),
+  ): Promise<CupoDelSocio> {
     const socio = await this.prisma.socio.findUnique({
       where: { id: socioId },
       select: {
@@ -89,9 +93,11 @@ export class ReservaDelAdminService {
 
     const config = await this.prisma.configuracionClub.findFirstOrThrow();
     const cuenta = await this.reservas.ocupacionDelSocio(socio.id, fecha);
-    // Con la misma fecha que `alDia`, para que las dos insignias no se contradigan.
-    const dia = fechaDelClub(fecha);
-    const alDia = estaAlDia(socio.alDiaHasta, dia);
+    // La cuota y la gracia, con el día de hoy y no con el de la agenda: es el que mira la
+    // regla de la reserva. Con el de la agenda, el mesón que abría un día posterior al fin de
+    // la gracia veía «Cuota vencida» a quien la reserva igual le aceptaba (/review de T384).
+    const hoy = hoyEnElClub(ahora);
+    const alDia = estaAlDia(socio.alDiaHasta, hoy);
     const fin = finDeLaGracia(socio.alDiaHasta, config.diasGraciaCuota);
 
     return {
@@ -100,7 +106,7 @@ export class ReservaDelAdminService {
       numeroSocio: socio.numeroSocio,
       estado: socio.estado,
       alDia,
-      graciaHasta: !alDia && fin >= dia ? comoFechaCivil(fin) : null,
+      graciaHasta: !alDia && fin >= hoy ? comoFechaCivil(fin) : null,
       ...cuenta,
       cupoDiarioSocioReservas: config.cupoDiarioSocioReservas,
       cupoPicoSemanalReservas: config.cupoPicoSemanalReservas,

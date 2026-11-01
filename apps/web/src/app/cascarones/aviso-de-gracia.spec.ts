@@ -36,7 +36,9 @@ describe('AvisoDeGracia', () => {
   afterEach(() => {
     sessionStorage.clear();
     document.getElementById('contenido')?.remove();
-    document.getElementById('pie-de-prueba')?.remove();
+    for (const id of ['pie-de-prueba', 'antes-de-prueba', 'oculto-de-prueba']) {
+      document.getElementById(id)?.remove();
+    }
   });
 
   it('dice que la cuota está vencida y cuántos días quedan para pagarla', () => {
@@ -96,8 +98,31 @@ describe('AvisoDeGracia', () => {
 
   it('al cerrarlo, el foco sigue en el control que viene después (el pie)', () => {
     // Sin esto, quien navega con el teclado queda con el foco en un botón que ya no existe,
-    // o al comienzo de <main>, y el siguiente Tab empieza de nuevo desde arriba.
+    // o al comienzo de <main>, y el siguiente Tab empieza de nuevo desde arriba. Con un
+    // control antes del aviso: el que vale es el que viene después, no el primero.
+    const antes = document.createElement('a');
+    antes.id = 'antes-de-prueba';
+    antes.href = '/reservar';
+    document.body.prepend(antes);
     const elemento = montar(3);
+    const pie = document.createElement('a');
+    pie.id = 'pie-de-prueba';
+    pie.href = '/privacidad';
+    document.body.appendChild(pie);
+
+    botonCerrar(elemento).click();
+
+    expect(document.activeElement).toBe(pie);
+  });
+
+  it('salta los controles que no se ven, como el menú del teléfono cerrado (/review)', () => {
+    // En el sitio, entre el aviso y el pie está el cajón del menú del teléfono, cerrado y sin
+    // render: enfocar su botón no hace nada, y el foco terminaba en <body>.
+    const elemento = montar(3);
+    const oculto = document.createElement('button');
+    oculto.id = 'oculto-de-prueba';
+    oculto.checkVisibility = () => false;
+    document.body.appendChild(oculto);
     const pie = document.createElement('a');
     pie.id = 'pie-de-prueba';
     pie.href = '/privacidad';

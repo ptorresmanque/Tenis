@@ -178,6 +178,16 @@ describe('Recordatorios de cuota', () => {
       expect(cuerpoDe('ana')).not.toContain('no puedes reservar');
     });
 
+    it('el último día de gracia todavía dice hasta cuándo hay plazo (/review)', async () => {
+      await socio('cata', { alDiaHasta: '2037-10-31' });
+
+      await recordatorios.correrTanda(elDia('2037-11-05'), 10_000);
+
+      expect(cuerpoDe('cata')).toContain(
+        'Tienes hasta el 5 de noviembre para pagarla',
+      );
+    });
+
     it('pasada la gracia, el vencido dice que ya no puede reservar', async () => {
       // Un cron que estuvo caído hasta el 10: el plazo ya pasó, y el correo no lo promete.
       await socio('beto', { alDiaHasta: '2037-10-31' });

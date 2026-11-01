@@ -82,10 +82,21 @@ export class AvisoDeGracia {
   protected cerrar(): void {
     sessionStorage.setItem(CERRADO, '1');
     this.abierto.set(false);
-    (this.controlSiguiente() ?? document.getElementById('contenido'))?.focus();
+
+    // Se comprueba que el foco llegó: un control que no se puede enfocar lo deja donde estaba,
+    // en el botón que se va, y de ahí terminaría en <body>.
+    const siguiente = this.controlSiguiente();
+    siguiente?.focus();
+    if (document.activeElement !== siguiente) {
+      document.getElementById('contenido')?.focus();
+    }
   }
 
-  /** El primer control que viene después del aviso en el documento, si hay alguno. */
+  /**
+   * El primer control **visible** que viene después del aviso en el documento, si hay alguno.
+   * Visible porque entre el aviso y el pie está el cajón del menú del teléfono, cerrado y sin
+   * render (/review): enfocar sus botones no hace nada.
+   */
   private controlSiguiente(): HTMLElement | undefined {
     return [
       ...document.querySelectorAll<HTMLElement>(
@@ -97,7 +108,10 @@ export class AvisoDeGracia {
         Boolean(
           this.anfitrion.compareDocumentPosition(control) &
             Node.DOCUMENT_POSITION_FOLLOWING,
-        ),
+        ) &&
+        // Opcional: Safari la trae desde la 17.4. Sin ella, el chequeo del foco de `cerrar`
+        // ataja igual el control que no se pudo enfocar.
+        control.checkVisibility?.({ visibilityProperty: true }) !== false,
     );
   }
 }
