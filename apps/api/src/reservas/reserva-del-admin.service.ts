@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type { DuracionMin } from '../catalogo-canchas/bloques';
-import { fechaDelClub, hoyEnElClub } from '../comun/tiempo';
+import { comoFechaCivil, fechaDelClub, hoyEnElClub } from '../comun/tiempo';
 import { EstadoSocio } from '../generated/prisma/client';
-import { estaAlDia, UsuarioActual } from '../identidad/usuario-actual';
+import {
+  estaAlDia,
+  finDeLaGracia,
+  UsuarioActual,
+} from '../identidad/usuario-actual';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcompananteDeclarado } from './cupo';
 import { ReservaCreada, ReservasService } from './reservas.service';
@@ -16,6 +20,12 @@ export interface CupoDelSocio {
   estado: string;
   /** La cuota al día: si no, el club decide si igual le toma la hora. */
   alDia: boolean;
+  /**
+   * El último día de gracia, "AAAA-MM-DD", si con la cuota vencida todavía está en gracia
+   * (T382): ahí el socio sí reserva, y el mesón tiene que saberlo. Nulo al día o pasada la
+   * gracia.
+   */
+  graciaHasta: string | null;
   reservasDelDia: number;
   cupoDiarioSocioReservas: number;
   reservasPicoDeLaSemana: number;
@@ -79,13 +89,18 @@ export class ReservaDelAdminService {
 
     const config = await this.prisma.configuracionClub.findFirstOrThrow();
     const cuenta = await this.reservas.ocupacionDelSocio(socio.id, fecha);
+    // Con la misma fecha que `alDia`, para que las dos insignias no se contradigan.
+    const dia = fechaDelClub(fecha);
+    const alDia = estaAlDia(socio.alDiaHasta, dia);
+    const fin = finDeLaGracia(socio.alDiaHasta, config.diasGraciaCuota);
 
     return {
       socioId: socio.id,
       nombre: `${socio.usuario.nombre} ${socio.usuario.apellido}`.trim(),
       numeroSocio: socio.numeroSocio,
       estado: socio.estado,
-      alDia: estaAlDia(socio.alDiaHasta, fechaDelClub(fecha)),
+      alDia,
+      graciaHasta: !alDia && fin >= dia ? comoFechaCivil(fin) : null,
       ...cuenta,
       cupoDiarioSocioReservas: config.cupoDiarioSocioReservas,
       cupoPicoSemanalReservas: config.cupoPicoSemanalReservas,

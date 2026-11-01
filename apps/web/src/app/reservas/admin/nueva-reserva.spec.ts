@@ -378,6 +378,7 @@ describe('NuevaReserva', () => {
                 numeroSocio: '002',
                 estado: 'ACTIVO',
                 alDia: true,
+                graciaHasta: null,
                 reservasDelDia: 1,
                 cupoDiarioSocioReservas: 1,
                 reservasPicoDeLaSemana: 0,
@@ -404,6 +405,58 @@ describe('NuevaReserva', () => {
     // El cupo cuenta reservas con invitados, no personas (A5, T105).
     expect(texto).toContain('Reservas con invitados del mes: 0 de 4');
     expect(texto).not.toMatch(/Horas (de ese día|prime)/);
+  });
+
+  it('**el socio en gracia sale «En gracia hasta…», no «Cuota vencida»** (T382)', async () => {
+    // El mesón le toma la hora a quien está en gracia: «Cuota vencida» a secas lo haría
+    // decirle que no a alguien que sí puede reservar (SPEC-cuotas.md § Días de gracia).
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(DIA) } },
+        {
+          provide: Socios,
+          useValue: {
+            listado: () =>
+              Promise.resolve({
+                socios: [{ id: 3, numeroSocio: '002', usuario: { nombre: 'Matías', apellido: 'Rojas' } }],
+              }),
+          },
+        },
+        {
+          provide: ReservasDelAdmin,
+          useValue: {
+            cupoDe: () =>
+              Promise.resolve({
+                socioId: 3,
+                nombre: 'Matías Rojas',
+                numeroSocio: '002',
+                estado: 'ACTIVO',
+                alDia: false,
+                graciaHasta: '2026-11-05',
+                reservasDelDia: 0,
+                cupoDiarioSocioReservas: 1,
+                reservasPicoDeLaSemana: 0,
+                cupoPicoSemanalReservas: 2,
+                reservasConInvitadosDelMes: 0,
+                invitadosPorMes: 4,
+              }),
+            crear: vi.fn(),
+          },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(NuevaReserva);
+    fixture.componentRef.setInput('fecha', '2026-11-02');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    await elegir(fixture, 'mat-select[name="socio"]', 3);
+
+    const texto = (dialogo().textContent ?? '').replace(/\s+/g, ' ');
+    expect(texto).toContain('En gracia hasta el jueves, 5 de noviembre');
+    expect(texto).not.toContain('Cuota vencida');
   });
 
   it('mientras llegan las horas y los socios, los selectores lo dicen (T153)', async () => {
