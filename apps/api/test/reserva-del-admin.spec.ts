@@ -327,8 +327,17 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
   });
 
   describe('los días de gracia de la mensualidad (T379)', () => {
-    // La reserva del mesón pasa por la misma regla que la del socio: con la gracia de 5
-    // días por omisión, pagado hasta ayer reserva y pagado hasta hace 6 días no.
+    // La reserva del mesón pasa por la misma regla que la del socio: con 5 días de gracia,
+    // pagado hasta ayer reserva y pagado hasta hace 6 días no. Fijados en cada prueba y no
+    // tomados del valor por omisión: `tenis_test` dura entre corridas, y una cortada a
+    // mitad de otra prueba puede haberlos dejado en otro número.
+    beforeEach(() =>
+      prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { diasGraciaCuota: 5 },
+      }),
+    );
+
     const haceDias = (dias: number) =>
       new Date(hoyEnElClub().getTime() - dias * 24 * 60 * 60 * 1000);
     const tomarleLaHora = () =>

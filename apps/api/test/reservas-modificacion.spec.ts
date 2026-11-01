@@ -586,7 +586,13 @@ describe('Modificación y cancelación de reservas', () => {
 
     it('el socio en gracia sí mueve su hora (T379)', async () => {
       // La misma regla que al reservar, con el reloj real: pagado hasta ayer es el primer
-      // día de la deuda, y con la gracia de 5 días por omisión todavía reserva.
+      // día de la deuda, y con 5 días de gracia todavía reserva. Fijados acá y no tomados
+      // del valor por omisión: `tenis_test` dura entre corridas, y una cortada a mitad de
+      // otra prueba puede haberlos dejado en otro número.
+      await prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { diasGraciaCuota: 5 },
+      });
       const ayer = new Date(hoyEnElClub().getTime() - 24 * 60 * 60 * 1000);
       socioId = await unSocio('en-gracia', { alDiaHasta: ayer });
       const suya = await suReserva(LUNES_20);
