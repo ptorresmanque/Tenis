@@ -11,6 +11,7 @@ import { enlacesDelMapa } from '../club/mapa';
 import { RedesSociales } from '../club/redes-sociales';
 import { ProgresoDeNavegacion } from '../ui/progreso-de-navegacion';
 import { VolverArriba } from '../ui/volver-arriba';
+import { AvisoDeGracia } from './aviso-de-gracia';
 import { Auth } from '../core/auth/auth';
 import { inicioDelPanel } from '../core/auth/tipos-del-panel';
 import { tiposDelUsuario } from '../core/auth/tipos-del-usuario';
@@ -57,6 +58,7 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
     RedesSociales,
     VolverArriba,
     ProgresoDeNavegacion,
+    AvisoDeGracia,
   ],
   template: `
     <!-- Al quedar libre el navegador (I6), como el conmutador: la barra solo hace falta cuando
@@ -208,6 +210,15 @@ import { EnlaceTelefonoPipe, TelefonoPipe } from '../core/telefono';
          Sin anillo: el foco va al comienzo de la página, no a un control. -->
     <main id="contenido" tabindex="-1" class="mx-auto max-w-[90rem] px-4 py-8 focus:outline-none">
       <router-outlet />
+
+      <!-- T381: el socio con la cuota vencida, en sus días de gracia. Dentro de main porque
+           va sticky al final del contenido, antes del pie. En su propio bloque @defer: solo lo
+           descarga quien está en gracia. -->
+      @if (usuario()?.diasDeGraciaRestantes; as dias) {
+        @defer (on immediate) {
+          <app-aviso-de-gracia [dias]="dias" />
+        }
+      }
     </main>
 
     <!-- El menú del teléfono (T263): llega al quedar libre el navegador o al tocar el botón, y
