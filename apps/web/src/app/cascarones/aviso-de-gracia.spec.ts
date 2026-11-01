@@ -30,8 +30,14 @@ describe('AvisoDeGracia', () => {
       (boton) => boton.textContent?.trim() === 'Cerrar',
     ) as HTMLButtonElement;
 
+  // Limpio antes y después: Vitest corre los archivos de un worker en el mismo entorno, y un
+  // aviso cerrado acá dejaría cerrado el del cascarón en el archivo siguiente.
   beforeEach(() => sessionStorage.clear());
-  afterEach(() => document.getElementById('contenido')?.remove());
+  afterEach(() => {
+    sessionStorage.clear();
+    document.getElementById('contenido')?.remove();
+    document.getElementById('pie-de-prueba')?.remove();
+  });
 
   it('dice que la cuota está vencida y cuántos días quedan para pagarla', () => {
     const elemento = montar(3);
@@ -40,6 +46,17 @@ describe('AvisoDeGracia', () => {
     expect(plano(elemento)).toContain(
       'Te quedan 3 días para pagarla; después no podrás reservar canchas.',
     );
+  });
+
+  it.each([5, 2])('con %i días dice cuántos quedan, y no que es el último', (dias) => {
+    // El 2 es el borde: con «dias > 2» en vez de «dias > 1», el penúltimo día diría que es el
+    // último, y el socio todavía reserva mañana.
+    const elemento = montar(dias);
+
+    expect(plano(elemento)).toContain(
+      `Te quedan ${dias} días para pagarla; después no podrás reservar canchas.`,
+    );
+    expect(plano(elemento)).not.toContain('último día');
   });
 
   it('el último día lo dice así, y no «te quedan 1 días»', () => {
@@ -77,13 +94,25 @@ describe('AvisoDeGracia', () => {
     expect(montar(3).querySelector('[role="status"]')).toBeNull();
   });
 
-  it('al cerrarlo, el foco vuelve al contenido y no se pierde en la página', () => {
+  it('al cerrarlo, el foco sigue en el control que viene después (el pie)', () => {
     // Sin esto, quien navega con el teclado queda con el foco en un botón que ya no existe,
-    // y el siguiente Tab empieza de nuevo desde arriba.
+    // o al comienzo de <main>, y el siguiente Tab empieza de nuevo desde arriba.
+    const elemento = montar(3);
+    const pie = document.createElement('a');
+    pie.id = 'pie-de-prueba';
+    pie.href = '/privacidad';
+    document.body.appendChild(pie);
+
+    botonCerrar(elemento).click();
+
+    expect(document.activeElement).toBe(pie);
+  });
+
+  it('sin controles después, el foco vuelve al contenido y no se pierde', () => {
     const contenido = document.createElement('main');
     contenido.id = 'contenido';
     contenido.tabIndex = -1;
-    document.body.appendChild(contenido);
+    document.body.prepend(contenido);
     const elemento = montar(3);
 
     botonCerrar(elemento).click();

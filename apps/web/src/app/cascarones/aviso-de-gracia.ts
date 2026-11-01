@@ -1,4 +1,4 @@
-import { Component, input, signal } from '@angular/core';
+import { Component, ElementRef, inject, input, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 
@@ -21,8 +21,12 @@ const CERRADO = 'aviso-de-gracia-cerrado';
  * `:has()` y no avisándose entre componentes: la grilla no tiene por qué saber del aviso.
  *
  * Se anuncia como `status`, sin quitar el foco, porque lo pone `<app-aviso>` con la variante
- * «aviso». Al cerrarlo, el foco vuelve a `#contenido`: si no, quedaría en un botón que ya no
- * existe y el siguiente Tab empezaría desde arriba.
+ * «aviso». Al cerrarlo, el foco pasa al primer control que viene después (el pie): si se
+ * quedara en un botón que ya no existe, o volviera a `#contenido`, el siguiente Tab empezaría
+ * desde arriba, y el aviso es lo último de `<main>`.
+ *
+ * Mientras se ve, `styles.css` le reserva su alto abajo con `scroll-padding-bottom`, para que
+ * lo que recibe el foco no quede tapado por él (WCAG 2.2, 2.4.11).
  */
 @Component({
   selector: 'app-aviso-de-gracia',
@@ -67,9 +71,27 @@ export class AvisoDeGracia {
 
   protected readonly abierto = signal(sessionStorage.getItem(CERRADO) === null);
 
+  private readonly anfitrion = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
   protected cerrar(): void {
     sessionStorage.setItem(CERRADO, '1');
     this.abierto.set(false);
-    document.getElementById('contenido')?.focus({ preventScroll: true });
+    (this.controlSiguiente() ?? document.getElementById('contenido'))?.focus();
+  }
+
+  /** El primer control que viene después del aviso en el documento, si hay alguno. */
+  private controlSiguiente(): HTMLElement | undefined {
+    return [
+      ...document.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select, textarea',
+      ),
+    ].find(
+      (control) =>
+        !this.anfitrion.contains(control) &&
+        Boolean(
+          this.anfitrion.compareDocumentPosition(control) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+    );
   }
 }

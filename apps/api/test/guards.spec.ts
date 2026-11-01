@@ -329,6 +329,17 @@ describe('Guards de autorización', () => {
         );
       });
 
+      it('cuenta con los días que fijó el club, no con 5 fijos', async () => {
+        await prisma.configuracionClub.update({
+          where: { id: 1 },
+          data: { diasGraciaCuota: 3 },
+        });
+
+        expect(await diasQueTrae(await conCuotaPagadaHasta(haceDias(1)))).toBe(
+          3,
+        );
+      });
+
       it('el último día de gracia trae 1', async () => {
         expect(await diasQueTrae(await conCuotaPagadaHasta(haceDias(5)))).toBe(
           1,
