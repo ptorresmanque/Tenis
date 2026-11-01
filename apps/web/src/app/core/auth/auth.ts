@@ -24,6 +24,13 @@ export interface UsuarioActual {
   socioAlDia: boolean;
   /** Nulo también si la ficha está inactiva: un profesor de baja no entra a Clases. */
   profesorId: number | null;
+  /**
+   * Los días de gracia que le quedan al socio con la cuota vencida, contando hoy (T381). Nulo
+   * si está al día, si la gracia ya pasó o si no es un socio activo. Opcional porque solo lo
+   * manda `GET /api/yo`: en el `UsuarioActual` de la API no está (SPEC-cuotas.md § Días de
+   * gracia).
+   */
+  diasDeGraciaRestantes?: number | null;
 }
 
 /**

@@ -4,6 +4,7 @@ import request from 'supertest';
 
 import { sembrarCatalogo } from '../prisma/seed-catalogo';
 import { AppModule } from '../src/app.module';
+import { hoyEnElClub } from '../src/comun/tiempo';
 import { hashear } from '../src/identidad/contrasena';
 import {
   ConfiguracionClub,
@@ -656,6 +657,46 @@ describe('Configuración del club', () => {
     });
   });
 
+  describe('los días de gracia de la cuota (T380)', () => {
+    const mensaje = async (cuerpo: Record<string, unknown>) =>
+      ((await patch(cuerpo).expect(400)).body as { message: string }).message;
+
+    it('**por omisión son 5 días**', async () => {
+      // Por el valor por omisión de la columna y no por la fila: `tenis_test` dura entre
+      // corridas, y una cortada a mitad de esta suite deja la fila en 0 o en 15. La columna
+      // es lo que recibe la fila de fedal.cl al aplicar la migración (como el tope de luz).
+      const [columna] = await prisma.$queryRaw<{ omision: string }[]>`
+        SELECT COLUMN_DEFAULT AS omision
+          FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'configuracion_club'
+           AND COLUMN_NAME = 'dias_gracia_cuota'`;
+
+      expect(columna).toEqual({ omision: '5' });
+    });
+
+    it('**guarda de 0 a 15 y lo devuelve**', async () => {
+      // 0 es apagar la gracia: el socio queda sin reservar el primer día de la deuda.
+      expect(
+        (await patch({ diasGraciaCuota: 0 }).expect(200)).body,
+      ).toMatchObject({ diasGraciaCuota: 0 });
+      expect(
+        (await patch({ diasGraciaCuota: 15 }).expect(200)).body,
+      ).toMatchObject({ diasGraciaCuota: 15 });
+    });
+
+    it('**fuera de 0 a 15 se rechaza y dice por qué**', async () => {
+      expect(await mensaje({ diasGraciaCuota: -1 })).toBe(
+        'La gracia de la cuota, en días, tiene que ser un número entero desde 0.',
+      );
+      expect(await mensaje({ diasGraciaCuota: 16 })).toBe(
+        'La gracia de la cuota, en días, no puede pasar de 15.',
+      );
+      expect(await mensaje({ diasGraciaCuota: 2.5 })).toBe(
+        'La gracia de la cuota, en días, tiene que ser un número entero desde 0.',
+      );
+    });
+  });
+
   describe('la regla cambia en el acto', () => {
     it('subir el cupo diario deja al socio reservar dos horas el mismo día', async () => {
       // **El criterio 13 de `SPEC-catalogo-canchas.md`**: la regla cambia sin tocar
@@ -671,6 +712,32 @@ describe('Configuración del club', () => {
       expect(await prisma.reserva.count({ where: { socioId, canchaId } })).toBe(
         2,
       );
+    });
+
+    it('**los días de gracia rigen desde la siguiente reserva** (T380)', async () => {
+      // El socio de esta suite, con la cuota pagada hasta ayer: el primer día de la deuda.
+      // Con 0 días ya no reserva; con 5, la siguiente reserva pasa, sin reiniciar nada.
+      const ayer = new Date(hoyEnElClub().getTime() - 24 * 60 * 60 * 1000);
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: ayer },
+      });
+
+      try {
+        await patch({ diasGraciaCuota: 0 }).expect(200);
+        const rechazo = await reservar(A_LAS_10).expect(409);
+        expect((rechazo.body as { motivo: string }).motivo).toBe(
+          'CUOTA_VENCIDA',
+        );
+
+        await patch({ diasGraciaCuota: 5 }).expect(200);
+        await reservar(A_LAS_10).expect(201);
+      } finally {
+        await prisma.socio.update({
+          where: { id: socioId },
+          data: { alDiaHasta: new Date('2099-12-31T00:00:00.000Z') },
+        });
+      }
     });
   });
 });

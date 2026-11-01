@@ -23,7 +23,7 @@ import { MatIcon } from '@angular/material/icon';
 import { dialogoSegun } from '../../ui/dialogo';
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
-import { horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
+import { diaEnPalabras, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
 import { Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
@@ -187,6 +187,18 @@ import { TelefonoDirective } from '../../ui/telefono';
                         Al día
                       </mat-chip>
                     </mat-chip-set>
+                  } @else if (datos.graciaHasta) {
+                    <!-- T382: con la cuota vencida pero en gracia, el socio todavía reserva, y el
+                         mesón no tiene que decirle que no (SPEC-cuotas.md § Días de gracia). La
+                         insignia lleva dos palabras, como las otras, y la fecha va al lado: un chip
+                         es para una o dos palabras (lineamientos de Angular Material, chips). -->
+                    <mat-chip-set class="insignias">
+                      <mat-chip class="insignia aviso">
+                        <mat-icon matChipAvatar aria-hidden="true">schedule</mat-icon>
+                        En gracia
+                      </mat-chip>
+                    </mat-chip-set>
+                    <span class="font-normal">hasta el {{ diaEnPalabras(datos.graciaHasta) }}</span>
                   } @else {
                     <mat-chip-set class="insignias">
                       <mat-chip class="insignia error">
@@ -279,6 +291,8 @@ import { TelefonoDirective } from '../../ui/telefono';
   `,
 })
 export class NuevaReserva {
+  protected readonly diaEnPalabras = diaEnPalabras;
+
   protected readonly errorDelCampo = errorDelCampo;
 
   /** El día que la agenda está mirando: la reserva se toma sobre ese día. */

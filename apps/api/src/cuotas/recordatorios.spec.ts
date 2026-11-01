@@ -103,5 +103,40 @@ describe('recordatorios de cuota', () => {
         ).cuerpo,
       ).toContain('Tienes pendiente la cuota mensual y la incorporación.');
     });
+
+    describe('en los días de gracia (T383)', () => {
+      it('**dice hasta cuándo hay plazo, y no que ya no puede reservar**', () => {
+        const { cuerpo } = recordatorioVencido(
+          SOCIO,
+          { mensual: true, incorporacion: false },
+          WEB,
+          FIRMA,
+          dia('2037-11-05'),
+        );
+
+        expect(cuerpo).toContain(
+          'Tu cuota mensual está pendiente. Tienes hasta el 5 de noviembre para pagarla; ' +
+            'después no podrás reservar canchas.',
+        );
+        expect(cuerpo).not.toContain('no puedes reservar');
+        expect(cuerpo).toContain('https://fedal.cl/mi-cuenta/cuota');
+      });
+
+      it('con la incorporación pendiente dice lo de siempre: esa no tiene gracia', () => {
+        const { cuerpo } = recordatorioVencido(
+          SOCIO,
+          { mensual: true, incorporacion: true },
+          WEB,
+          FIRMA,
+          dia('2037-11-05'),
+        );
+
+        expect(cuerpo).toContain(
+          'Tienes pendiente la cuota mensual y la incorporación. Mientras esté pendiente ' +
+            'no puedes reservar canchas.',
+        );
+        expect(cuerpo).not.toContain('Tienes hasta');
+      });
+    });
   });
 });

@@ -155,6 +155,50 @@ describe('Recordatorios de cuota', () => {
     expect(aDani.cuerpo).toContain('Tienes pendiente la incorporación.');
   });
 
+  describe('en los días de gracia (T383)', () => {
+    const cuerpoDe = (quien: string) =>
+      enviados.find((correo) => correo.para === `${quien}${DOMINIO}`)?.cuerpo;
+
+    // Fijados acá y no tomados del valor por omisión: `tenis_test` dura entre corridas.
+    beforeEach(() =>
+      prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { diasGraciaCuota: 5 },
+      }),
+    );
+
+    it('**el vencido del día 1 dice hasta cuándo hay plazo para pagar**', async () => {
+      await socio('ana', { alDiaHasta: '2037-10-31' });
+
+      await recordatorios.correrTanda(elDia('2037-11-01'), 10_000);
+
+      expect(cuerpoDe('ana')).toContain(
+        'Tienes hasta el 5 de noviembre para pagarla; después no podrás reservar canchas.',
+      );
+      expect(cuerpoDe('ana')).not.toContain('no puedes reservar');
+    });
+
+    it('el último día de gracia todavía dice hasta cuándo hay plazo (/review)', async () => {
+      await socio('cata', { alDiaHasta: '2037-10-31' });
+
+      await recordatorios.correrTanda(elDia('2037-11-05'), 10_000);
+
+      expect(cuerpoDe('cata')).toContain(
+        'Tienes hasta el 5 de noviembre para pagarla',
+      );
+    });
+
+    it('pasada la gracia, el vencido dice que ya no puede reservar', async () => {
+      // Un cron que estuvo caído hasta el 10: el plazo ya pasó, y el correo no lo promete.
+      await socio('beto', { alDiaHasta: '2037-10-31' });
+
+      await recordatorios.correrTanda(elDia('2037-11-10'), 10_000);
+
+      expect(cuerpoDe('beto')).toContain('no puedes reservar canchas');
+      expect(cuerpoDe('beto')).not.toContain('Tienes hasta');
+    });
+  });
+
   it('el vencido llega con la cuota del mes ya emitida, lista para pagar', async () => {
     const ana = await socio('ana', { alDiaHasta: '2037-10-31' });
 

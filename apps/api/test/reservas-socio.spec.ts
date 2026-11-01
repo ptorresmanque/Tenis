@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { comoFechaCivil, hoyEnElClub } from '../src/comun/tiempo';
 import {
   DuracionesSocioPico,
   EstadoReserva,
@@ -406,6 +407,63 @@ describe('POST /api/reservas — reserva de socio', () => {
     expect(
       await prisma.reserva.findUniqueOrThrow({ where: { id: previa.id } }),
     ).toMatchObject({ estado: EstadoReserva.CONFIRMADA });
+  });
+
+  describe('los días de gracia de la mensualidad (T379)', () => {
+    // Con el reloj real: la regla mira el día de hoy en el club, no el de la hora
+    // reservada, que va en 2037. Pagado hasta ayer es el primer día de la deuda.
+    const DIA_MS = 24 * 60 * 60 * 1000;
+    const haceDias = (dias: number) =>
+      new Date(hoyEnElClub().getTime() - dias * DIA_MS);
+    /** "05-11-2026", como lo escribe el rechazo. */
+    const enDiaMesAno = (fecha: Date) =>
+      comoFechaCivil(fecha).split('-').reverse().join('-');
+
+    const conGracia = (diasGraciaCuota: number) =>
+      prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { diasGraciaCuota },
+      });
+    const pagadoHasta = (alDiaHasta: Date) =>
+      prisma.socio.update({ where: { id: socioId }, data: { alDiaHasta } });
+
+    beforeEach(() => conGracia(5));
+
+    it('en la gracia el socio moroso reserva', async () => {
+      await pagadoHasta(haceDias(1));
+
+      expect((await reservar(unaReserva())).status).toBe(201);
+    });
+
+    it('el último día de gracia todavía reserva', async () => {
+      await pagadoHasta(haceDias(5));
+
+      expect((await reservar(unaReserva())).status).toBe(201);
+    });
+
+    it('pasada la gracia no reserva, y el rechazo dice cuándo terminó el plazo', async () => {
+      await pagadoHasta(haceDias(6));
+
+      const respuesta = await reservar(unaReserva());
+
+      expect(respuesta.status).toBe(409);
+      expect(respuesta.body.motivo).toBe('CUOTA_VENCIDA');
+      expect(respuesta.body.message).toContain(
+        `el plazo para pagarla terminó el ${enDiaMesAno(haceDias(1))}`,
+      );
+    });
+
+    it('con 0 días, el primer día de la deuda ya no reserva', async () => {
+      await pagadoHasta(haceDias(1));
+
+      const respuesta = await conGracia(0)
+        .then(() => reservar(unaReserva()))
+        .finally(() => conGracia(5));
+
+      expect(respuesta.status).toBe(409);
+      expect(respuesta.body.motivo).toBe('CUOTA_VENCIDA');
+      expect(respuesta.body.message).not.toContain('plazo');
+    });
   });
 
   it('el socio suspendido recibe un mensaje distinto al del moroso', async () => {

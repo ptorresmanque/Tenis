@@ -1,5 +1,10 @@
 import { EstadoSocio } from '../generated/prisma/client';
-import { usuarioActualDe, UsuarioConFichas } from './usuario-actual';
+import {
+  diasDeGraciaRestantes,
+  finDeLaGracia,
+  usuarioActualDe,
+  UsuarioConFichas,
+} from './usuario-actual';
 
 /**
  * T8. Los dos casos cruzados —socio activo pero moroso, socio suspendido pero al
@@ -140,5 +145,77 @@ describe('usuarioActualDe', () => {
       'socioId',
       'telefono',
     ]);
+  });
+});
+
+/**
+ * T379 (SPEC-cuotas.md § Días de gracia). Fechas civiles a medianoche UTC, como vuelve la
+ * columna `DATE` y como entrega `hoyEnElClub`.
+ */
+describe('los días de gracia de la cuota', () => {
+  const dia = (fecha: string) => new Date(`${fecha}T00:00:00.000Z`);
+
+  describe('finDeLaGracia', () => {
+    it('es el último día pagado más los días de gracia', () => {
+      expect(finDeLaGracia(dia('2026-10-31'), 5)).toEqual(dia('2026-11-05'));
+    });
+
+    it('con 0 días es el mismo último día pagado', () => {
+      expect(finDeLaGracia(dia('2026-10-31'), 0)).toEqual(dia('2026-10-31'));
+    });
+
+    it('cruza de diciembre a enero', () => {
+      expect(finDeLaGracia(dia('2026-12-31'), 5)).toEqual(dia('2027-01-05'));
+    });
+
+    it('cruza de febrero a marzo, en un año normal y en uno bisiesto', () => {
+      expect(finDeLaGracia(dia('2027-02-28'), 5)).toEqual(dia('2027-03-05'));
+      expect(finDeLaGracia(dia('2028-02-29'), 5)).toEqual(dia('2028-03-05'));
+    });
+  });
+
+  describe('diasDeGraciaRestantes', () => {
+    it('al día no hay gracia que contar, tampoco el día en que vence', () => {
+      expect(
+        diasDeGraciaRestantes(dia('2026-10-31'), dia('2026-10-31'), 5),
+      ).toBeNull();
+      expect(
+        diasDeGraciaRestantes(dia('2026-12-31'), dia('2026-10-31'), 5),
+      ).toBeNull();
+    });
+
+    it('el primer día de la deuda le quedan todos, porque el de hoy cuenta', () => {
+      expect(
+        diasDeGraciaRestantes(dia('2026-10-31'), dia('2026-11-01'), 5),
+      ).toBe(5);
+    });
+
+    it('el último día de gracia le queda 1', () => {
+      expect(
+        diasDeGraciaRestantes(dia('2026-10-31'), dia('2026-11-05'), 5),
+      ).toBe(1);
+    });
+
+    it('el día siguiente al último ya no tiene gracia', () => {
+      expect(
+        diasDeGraciaRestantes(dia('2026-10-31'), dia('2026-11-06'), 5),
+      ).toBeNull();
+    });
+
+    it('con 0 días de gracia, el primer día de la deuda no tiene gracia', () => {
+      expect(
+        diasDeGraciaRestantes(dia('2026-10-31'), dia('2026-11-01'), 0),
+      ).toBeNull();
+    });
+
+    it('cuenta bien de diciembre a enero', () => {
+      expect(
+        diasDeGraciaRestantes(dia('2026-12-31'), dia('2027-01-03'), 5),
+      ).toBe(3);
+    });
+
+    it('sin ficha de socio no hay gracia', () => {
+      expect(diasDeGraciaRestantes(null, dia('2026-11-01'), 5)).toBeNull();
+    });
   });
 });

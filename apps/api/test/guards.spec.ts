@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { hoyEnElClub } from '../src/comun/tiempo';
 import { hashear } from '../src/identidad/contrasena';
 import {
   AdminO,
@@ -286,6 +287,81 @@ describe('Guards de autorización', () => {
         socioActivo: true,
         socioAlDia: true,
         profesorId: null,
+        // Al día: no hay gracia que contar (T381).
+        diasDeGraciaRestantes: null,
+      });
+    });
+
+    describe('los días de gracia que le quedan (T381)', () => {
+      // Con el reloj real, como la regla de la reserva: pagado hasta ayer es el primer día
+      // de la deuda. Los 5 días se fijan acá y no se toman del valor por omisión, porque
+      // `tenis_test` dura entre corridas.
+      const haceDias = (dias: number) =>
+        new Date(hoyEnElClub().getTime() - dias * 24 * 60 * 60 * 1000);
+      const conCuotaPagadaHasta = async (
+        alDiaHasta: Date,
+        estado: EstadoSocio = EstadoSocio.ACTIVO,
+      ) => {
+        const cookie = await sesionDe('socio');
+        await prisma.socio.updateMany({
+          where: { usuario: { email: `socio${DOMINIO}` } },
+          data: { alDiaHasta, estado },
+        });
+        return cookie;
+      };
+      const diasQueTrae = async (cookie: string) =>
+        (
+          (await yo(cookie).expect(200)).body as {
+            diasDeGraciaRestantes: number | null;
+          }
+        ).diasDeGraciaRestantes;
+
+      beforeEach(() =>
+        prisma.configuracionClub.update({
+          where: { id: 1 },
+          data: { diasGraciaCuota: 5 },
+        }),
+      );
+
+      it('el primer día de la deuda trae los 5', async () => {
+        expect(await diasQueTrae(await conCuotaPagadaHasta(haceDias(1)))).toBe(
+          5,
+        );
+      });
+
+      it('cuenta con los días que fijó el club, no con 5 fijos', async () => {
+        await prisma.configuracionClub.update({
+          where: { id: 1 },
+          data: { diasGraciaCuota: 3 },
+        });
+
+        expect(await diasQueTrae(await conCuotaPagadaHasta(haceDias(1)))).toBe(
+          3,
+        );
+      });
+
+      it('el último día de gracia trae 1', async () => {
+        expect(await diasQueTrae(await conCuotaPagadaHasta(haceDias(5)))).toBe(
+          1,
+        );
+      });
+
+      it('pasada la gracia trae null: ya no hay nada que avisar', async () => {
+        expect(
+          await diasQueTrae(await conCuotaPagadaHasta(haceDias(6))),
+        ).toBeNull();
+      });
+
+      it('el suspendido con la cuota vencida trae null: su problema es otro', async () => {
+        expect(
+          await diasQueTrae(
+            await conCuotaPagadaHasta(haceDias(1), EstadoSocio.SUSPENDIDO),
+          ),
+        ).toBeNull();
+      });
+
+      it('quien no es socio trae null', async () => {
+        expect(await diasQueTrae(await sesionDe('visitante'))).toBeNull();
       });
     });
 

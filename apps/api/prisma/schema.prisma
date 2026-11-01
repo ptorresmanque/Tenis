@@ -635,6 +635,12 @@ model ConfiguracionClub {
   /// La inscripción por única vez, el otro cobro del modelo de socios.
   cuotaIncorporacionClp Int @default(150000) @map("cuota_incorporacion_clp")
 
+  /// Cuántos días sigue reservando el socio con la mensualidad vencida (T379,
+  /// SPEC-cuotas.md § Días de gracia). Cuentan desde el día siguiente a `alDiaHasta`; con 0
+  /// queda sin reservar el primer día de la deuda, como antes de la gracia. La
+  /// incorporación no tiene gracia.
+  diasGraciaCuota Int @default(5) @map("dias_gracia_cuota")
+
   /// Desde qué fecha de ingreso se cobra la incorporación (T42).
   ///
   /// **El club arranca con su padrón, y esa gente la pagó hace años fuera del

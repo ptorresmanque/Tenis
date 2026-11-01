@@ -121,7 +121,8 @@ interface Tratamiento {
       </p>
       <ul class="mt-3 grid list-disc gap-1 ps-5">
         <li>
-          Si tu cuota está impaga o tu ficha de socio está suspendida, no puedes reservar hasta
+          Si tu cuota mensual sigue impaga después de los días de gracia que fija el club, si debes
+          la incorporación o si tu ficha de socio está suspendida, no puedes reservar hasta
           regularizar tu situación.
         </li>
         <li>
@@ -250,8 +251,8 @@ interface Tratamiento {
 })
 export class Privacidad {
   /** Cambiar el texto es subir la versión y la fecha. */
-  protected readonly version = '1.2';
-  protected readonly vigenteDesde = '9 de octubre de 2026';
+  protected readonly version = '1.3';
+  protected readonly vigenteDesde = '1 de noviembre de 2026';
   protected readonly correo = 'contacto@fedal.cl';
 
   protected readonly tratamientos: Tratamiento[] = [

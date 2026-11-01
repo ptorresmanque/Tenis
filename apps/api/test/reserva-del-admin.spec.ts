@@ -326,6 +326,134 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
     expect((despues.body as { reservasDelDia: number }).reservasDelDia).toBe(1);
   });
 
+  describe('los días de gracia de la mensualidad (T379)', () => {
+    // La reserva del mesón pasa por la misma regla que la del socio: con 5 días de gracia,
+    // pagado hasta ayer reserva y pagado hasta hace 6 días no. Fijados en cada prueba y no
+    // tomados del valor por omisión: `tenis_test` dura entre corridas, y una cortada a
+    // mitad de otra prueba puede haberlos dejado en otro número.
+    beforeEach(() =>
+      prisma.configuracionClub.update({
+        where: { id: 1 },
+        data: { diasGraciaCuota: 5 },
+      }),
+    );
+
+    const haceDias = (dias: number) =>
+      new Date(hoyEnElClub().getTime() - dias * 24 * 60 * 60 * 1000);
+    const tomarleLaHora = () =>
+      request(app.getHttpServer())
+        .post('/api/admin/reservas')
+        .set('Cookie', cookieAdmin)
+        .send({
+          canchaId,
+          inicio: bloques[0].inicio,
+          socioId,
+          acompanantes: [{ nombre: 'Invitado del mesón' }],
+        });
+
+    it('el mesón le toma la hora al socio en gracia', async () => {
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: haceDias(1) },
+      });
+
+      expect((await tomarleLaHora()).status).toBe(201);
+    });
+
+    const cupoDeHoy = async () =>
+      (
+        await request(app.getHttpServer())
+          .get(
+            `/api/admin/reservas/cupo/${socioId}?fecha=${comoFechaCivil(hoyEnElClub())}`,
+          )
+          .set('Cookie', cookieAdmin)
+          .expect(200)
+      ).body as { alDia: boolean; graciaHasta: string | null };
+
+    it('el cupo que consulta el mesón dice hasta cuándo está en gracia (T382)', async () => {
+      // Pagado hasta ayer, con 5 días: el último de gracia es dentro de 4 días.
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: haceDias(1) },
+      });
+
+      expect(await cupoDeHoy()).toMatchObject({
+        alDia: false,
+        graciaHasta: comoFechaCivil(haceDias(-4)),
+      });
+    });
+
+    it('el último día de gracia el cupo todavía la trae (T382, /review)', async () => {
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: haceDias(5) },
+      });
+
+      expect(await cupoDeHoy()).toMatchObject({
+        alDia: false,
+        graciaHasta: comoFechaCivil(hoyEnElClub()),
+      });
+    });
+
+    it('el cupo de un día posterior al fin de la gracia la mide con hoy, como la reserva (T382, /review)', async () => {
+      // Hoy está en gracia: pagado hasta ayer, el último día es dentro de 4. El mesón abre la
+      // agenda de dentro de 6 días. La reserva pasaría, porque la regla mira hoy, así que la
+      // insignia no puede decir «Cuota vencida».
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: haceDias(1) },
+      });
+
+      const cupo = (
+        await request(app.getHttpServer())
+          .get(
+            `/api/admin/reservas/cupo/${socioId}?fecha=${comoFechaCivil(haceDias(-6))}`,
+          )
+          .set('Cookie', cookieAdmin)
+          .expect(200)
+      ).body as { alDia: boolean; graciaHasta: string | null };
+
+      expect(cupo).toMatchObject({
+        alDia: false,
+        graciaHasta: comoFechaCivil(haceDias(-4)),
+      });
+    });
+
+    it('al día, o pasada la gracia, el cupo no trae gracia (T382)', async () => {
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: haceDias(6) },
+      });
+      expect(await cupoDeHoy()).toMatchObject({
+        alDia: false,
+        graciaHasta: null,
+      });
+
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: haceDias(-30) },
+      });
+      expect(await cupoDeHoy()).toMatchObject({
+        alDia: true,
+        graciaHasta: null,
+      });
+    });
+
+    it('pasada la gracia, el mesón recibe CUOTA_VENCIDA', async () => {
+      await prisma.socio.update({
+        where: { id: socioId },
+        data: { alDiaHasta: haceDias(6) },
+      });
+
+      const respuesta = await tomarleLaHora();
+
+      expect(respuesta.status).toBe(409);
+      expect((respuesta.body as { motivo: string }).motivo).toBe(
+        'CUOTA_VENCIDA',
+      );
+    });
+  });
+
   describe('la cuota que vence hoy', () => {
     // `alDiaHasta` es `DATE` y vuelve como medianoche UTC. Pasarla por la hora de Chile
     // la corría al día anterior: el día del vencimiento, el mesón veía moroso al socio

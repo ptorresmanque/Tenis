@@ -9,6 +9,8 @@ export interface CupoDelSocio {
   numeroSocio: string;
   estado: string;
   alDia: boolean;
+  /** El último día de gracia, "AAAA-MM-DD", si con la cuota vencida todavía está en gracia (T382). */
+  graciaHasta: string | null;
   reservasDelDia: number;
   cupoDiarioSocioReservas: number;
   reservasPicoDeLaSemana: number;
