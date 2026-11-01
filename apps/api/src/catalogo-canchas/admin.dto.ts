@@ -187,6 +187,8 @@ export interface CambiosDeConfiguracion
   /** Lo que vale ser socio. Las cuotas ya emitidas congelaron el suyo y no cambian. */
   cuotaMensualClp: number;
   cuotaIncorporacionClp: number;
+  /** Cuántos días sigue reservando el socio con la mensualidad vencida (T380). */
+  diasGraciaCuota: number;
   /** El tope de canchas con luz (T203, T208). Nulo = sin tope. */
   topeCanchasConLuz: number | null;
   /** Desde qué hora rige, en el reloj del club: en punto o y media. */
@@ -240,6 +242,9 @@ const LIMITES: Record<keyof ReglasNumericas, [number, number?]> = {
   // pero no hay cobro que la pague. El tope es contra el dedazo, como el de los torneos.
   cuotaMensualClp: [1, 10_000_000],
   cuotaIncorporacionClp: [1, 10_000_000],
+  // Desde 0, que apaga la gracia. Hasta 15: deja la gracia bien dentro del mes, y con 31 la
+  // de octubre llegaría a noviembre (SPEC-cuotas.md § Días de gracia, asunción 10).
+  diasGraciaCuota: [0, 15],
   // Desde 2: una grupal de uno es la individual. Hasta 40, el tope del cupo de una clase.
   gimnasioCupoGrupal: [2, 40],
   // Una hora del reloj del club, en punto: el cron corre cada hora (T275).
@@ -259,6 +264,7 @@ const NOMBRES: Record<keyof ReglasNumericas, string> = {
   diasSancionNoUso: 'La sanción por una hora no usada, en días,',
   cuotaMensualClp: 'La mensualidad',
   cuotaIncorporacionClp: 'La cuota de incorporación',
+  diasGraciaCuota: 'La gracia de la cuota, en días,',
   gimnasioCupoGrupal: 'El cupo de una clase grupal del gimnasio',
   informeDiarioHora: 'La hora del informe diario',
   plazoCupoListaEsperaMin:

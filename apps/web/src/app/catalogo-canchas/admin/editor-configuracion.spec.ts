@@ -19,6 +19,7 @@ describe('EditorConfiguracion', () => {
     diasSancionNoUso: 15,
     cuotaMensualClp: 25000,
     cuotaIncorporacionClp: 150000,
+    diasGraciaCuota: 5,
     plazoCupoListaEsperaMin: 30,
   };
 
@@ -153,6 +154,28 @@ describe('EditorConfiguracion', () => {
 
     it('**avisa que las cuotas ya emitidas no cambian**', () => {
       expect(texto()).toContain('las ya emitidas mantienen su monto');
+    });
+
+    it('**trae los días de gracia vigentes, y cambiarlos los manda** (T380)', async () => {
+      expect(campo('diasGraciaCuota').value).toBe('5');
+
+      await escribir('diasGraciaCuota', '0');
+      await guardar();
+
+      expect(api.fijarConfiguracion).toHaveBeenCalledWith(
+        expect.objectContaining({ diasGraciaCuota: 0 }),
+      );
+    });
+
+    it('**dice qué es la gracia, su rango y que rige desde que se guarda** (T380)', () => {
+      // Junto a los montos, cuya nota dice que rigen desde la próxima cuota: la gracia no
+      // espera a nadie, y el club tiene que saberlo antes de guardar.
+      const plano = texto().replace(/\s+/g, ' ');
+
+      expect(plano).toContain('Días de gracia de la cuota');
+      expect(plano).toContain('sigue reservando con la mensualidad vencida');
+      expect(plano).toContain('de 0 a 15');
+      expect(plano).toContain('Los días de gracia, desde que se guardan');
     });
   });
 

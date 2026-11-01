@@ -90,6 +90,14 @@ const DE_CUOTA: Regla[] = [
     ayuda: 'Se cobra una sola vez, a quien entra al club.',
     minimo: 1,
   },
+  {
+    campo: 'diasGraciaCuota',
+    etiqueta: 'Días de gracia de la cuota',
+    ayuda:
+      'Cuántos días el socio sigue reservando con la mensualidad vencida, de 0 a 15. ' +
+      'La incorporación no tiene gracia.',
+    minimo: 0,
+  },
 ];
 
 /**
@@ -115,7 +123,9 @@ const GRUPOS = [
   },
   {
     titulo: 'Cuotas del socio',
-    nota: 'Rigen desde la próxima cuota que se emita: las ya emitidas mantienen su monto.',
+    nota:
+      'Los montos rigen desde la próxima cuota que se emita: las ya emitidas mantienen su ' +
+      'monto. Los días de gracia, desde que se guardan.',
     reglas: DE_CUOTA,
   },
   {
