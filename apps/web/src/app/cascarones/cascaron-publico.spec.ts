@@ -97,6 +97,29 @@ describe('Cascarón público: la navegación', () => {
     );
   }
 
+  describe('el aviso de la cuota en gracia (T381)', () => {
+    it('el socio en gracia lo ve, con los días que le quedan', async () => {
+      const fixture = await montarConElMenu({
+        ...SOCIA,
+        socioAlDia: false,
+        diasDeGraciaRestantes: 3,
+      });
+      const aviso = (fixture.nativeElement as HTMLElement).querySelector(
+        'main app-aviso-de-gracia',
+      );
+
+      expect(aviso?.textContent).toContain('Te quedan 3 días');
+    });
+
+    it('el socio al día no lo ve', async () => {
+      const fixture = await montarConElMenu({ ...SOCIA, diasDeGraciaRestantes: null });
+
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('app-aviso-de-gracia'),
+      ).toBeNull();
+    });
+  });
+
   it('el pie enlaza la política de privacidad, con sesión o sin ella', () => {
     // La Ley 21.719 pide que la política esté a la vista, y Google la busca en el
     // sitio antes de aprobar el login. El pie está en todas las páginas públicas.

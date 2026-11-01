@@ -6,6 +6,7 @@ import {
   hoyEnElClub as diaDelClub,
   minutosDeRelojEntre,
 } from '../comun/tiempo';
+import { finDeLaGracia } from '../identidad/usuario-actual';
 import { mesDelClub } from './invitados';
 
 /** Un socio, mirado desde las reglas de reserva. */
@@ -53,6 +54,8 @@ export interface SolicitudDeSocio {
     cupoPicoSemanalReservas: number;
     invitadosPorMes: number;
     duracionesSocioPico: DuracionesSocioPico;
+    /** Los días que sigue reservando con la mensualidad vencida (T379). */
+    diasGraciaCuota: number;
   };
   /** Reservas activas que el socio ya tiene ese día. */
   reservasDelDia: number;
@@ -148,11 +151,19 @@ export function evaluarReservaDeSocio(
     };
   }
 
-  if (estaMoroso(socio, solicitud.hoyEnElClub)) {
+  if (vencioLaGracia(socio, solicitud.hoyEnElClub, config.diasGraciaCuota)) {
+    // Con gracia, la fecha en que terminó: «vencida desde el 31-10» a secas, el 6 de
+    // noviembre, no explica por qué el 5 sí reservaba.
+    const plazo =
+      config.diasGraciaCuota > 0
+        ? ' y el plazo para pagarla terminó el ' +
+          enDiaMesAno(finDeLaGracia(socio.alDiaHasta, config.diasGraciaCuota))
+        : '';
+
     return {
       tipo: 'CUOTA_VENCIDA',
       mensaje:
-        `Tu cuota está vencida desde el ${enDiaMesAno(socio.alDiaHasta)}. ` +
+        `Tu cuota está vencida desde el ${enDiaMesAno(socio.alDiaHasta)}${plazo}. ` +
         'Ponte al día y vuelve a reservar; las reservas que ya tenías se mantienen.',
     };
   }
@@ -294,11 +305,19 @@ function sePisan(
 }
 
 /**
- * El día en que vence la cuota **todavía cuenta como al día**, igual que
- * `socioAlDia` en T8: la fecha del papel es la última que vale.
+ * Pasó el último día de gracia (T379): con la mensualidad vencida, el socio reserva hasta
+ * `finDeLaGracia` inclusive. Con 0 días es el borde de antes, y el día en que vence la cuota
+ * **todavía cuenta como al día**, igual que `socioAlDia` en T8: la fecha del papel es la
+ * última que vale.
  */
-function estaMoroso(socio: SocioQueReserva, hoyEnElClub: string): boolean {
-  return socio.alDiaHasta < fechaDelClub(hoyEnElClub);
+function vencioLaGracia(
+  socio: SocioQueReserva,
+  hoyEnElClub: string,
+  diasGracia: number,
+): boolean {
+  return (
+    finDeLaGracia(socio.alDiaHasta, diasGracia) < fechaDelClub(hoyEnElClub)
+  );
 }
 
 /**

@@ -130,6 +130,8 @@ export interface ReglasDelClub {
   /** Lo que vale ser socio, en pesos. Las cuotas ya emitidas congelaron el suyo. */
   cuotaMensualClp: number;
   cuotaIncorporacionClp: number;
+  /** Cuántos días sigue reservando el socio con la mensualidad vencida, de 0 a 15 (T380). */
+  diasGraciaCuota: number;
   /** Cuántos minutos se le guarda el cupo al primero de la lista de espera de un torneo (T326). */
   plazoCupoListaEsperaMin: number;
 }

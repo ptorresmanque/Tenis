@@ -629,6 +629,18 @@ body:has(app-barra-fija) app-volver-arriba {
   display: none;
 }
 
+/* Mientras el aviso de la cuota en gracia flota abajo (T381), se le reserva su alto para que
+   lo que recibe el foco no quede tapado por él (WCAG 2.2, 2.4.11; técnica C43). Es el alto del
+   aviso más su distancia al borde: en el teléfono va más arriba, sobre «Volver arriba». Con la
+   barra fija a la vista el aviso se esconde, y la reserva deja de hacer falta. */
+html:has(app-aviso-de-gracia [role='status']):not(:has(app-barra-fija)) {
+  scroll-padding-bottom: 15rem;
+
+  @media (width >= 40rem) {
+    scroll-padding-bottom: 11rem;
+  }
+}
+
 /*
   LAS BANDAS ENTRAN AL APARECER (T147).
 

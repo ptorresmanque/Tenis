@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type { DuracionMin } from '../catalogo-canchas/bloques';
-import { fechaDelClub, hoyEnElClub } from '../comun/tiempo';
+import { comoFechaCivil, hoyEnElClub } from '../comun/tiempo';
 import { EstadoSocio } from '../generated/prisma/client';
-import { estaAlDia, UsuarioActual } from '../identidad/usuario-actual';
+import {
+  estaAlDia,
+  finDeLaGracia,
+  UsuarioActual,
+} from '../identidad/usuario-actual';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcompananteDeclarado } from './cupo';
 import { ReservaCreada, ReservasService } from './reservas.service';
@@ -16,6 +20,12 @@ export interface CupoDelSocio {
   estado: string;
   /** La cuota al día: si no, el club decide si igual le toma la hora. */
   alDia: boolean;
+  /**
+   * El último día de gracia, "AAAA-MM-DD", si con la cuota vencida todavía está en gracia
+   * (T382): ahí el socio sí reserva, y el mesón tiene que saberlo. Nulo al día o pasada la
+   * gracia.
+   */
+  graciaHasta: string | null;
   reservasDelDia: number;
   cupoDiarioSocioReservas: number;
   reservasPicoDeLaSemana: number;
@@ -63,7 +73,11 @@ export class ReservaDelAdminService {
   ) {}
 
   /** Cuánto le queda al socio hoy, para decidir antes de tomarle la hora. */
-  async cupoDe(socioId: number, fecha: string): Promise<CupoDelSocio> {
+  async cupoDe(
+    socioId: number,
+    fecha: string,
+    ahora = new Date(),
+  ): Promise<CupoDelSocio> {
     const socio = await this.prisma.socio.findUnique({
       where: { id: socioId },
       select: {
@@ -79,13 +93,20 @@ export class ReservaDelAdminService {
 
     const config = await this.prisma.configuracionClub.findFirstOrThrow();
     const cuenta = await this.reservas.ocupacionDelSocio(socio.id, fecha);
+    // La cuota y la gracia, con el día de hoy y no con el de la agenda: es el que mira la
+    // regla de la reserva. Con el de la agenda, el mesón que abría un día posterior al fin de
+    // la gracia veía «Cuota vencida» a quien la reserva igual le aceptaba (/review de T384).
+    const hoy = hoyEnElClub(ahora);
+    const alDia = estaAlDia(socio.alDiaHasta, hoy);
+    const fin = finDeLaGracia(socio.alDiaHasta, config.diasGraciaCuota);
 
     return {
       socioId: socio.id,
       nombre: `${socio.usuario.nombre} ${socio.usuario.apellido}`.trim(),
       numeroSocio: socio.numeroSocio,
       estado: socio.estado,
-      alDia: estaAlDia(socio.alDiaHasta, fechaDelClub(fecha)),
+      alDia,
+      graciaHasta: !alDia && fin >= hoy ? comoFechaCivil(fin) : null,
       ...cuenta,
       cupoDiarioSocioReservas: config.cupoDiarioSocioReservas,
       cupoPicoSemanalReservas: config.cupoPicoSemanalReservas,

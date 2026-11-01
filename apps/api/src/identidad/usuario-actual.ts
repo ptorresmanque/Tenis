@@ -51,6 +51,43 @@ export function estaAlDia(
   return (alDiaHasta?.getTime() ?? -Infinity) >= hoy.getTime();
 }
 
+const UN_DIA_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * El último día en que el socio con la mensualidad vencida todavía reserva (T379,
+ * SPEC-cuotas.md § Días de gracia). Junto a `estaAlDia` por lo mismo que ella: la usan la
+ * sesión, las reservas y el mesón, y un socio no puede estar en gracia para el aviso y sin
+ * gracia para la reserva.
+ *
+ * Fecha civil, como `alDiaHasta`. Sumar días en milisegundos es exacto porque va a
+ * medianoche UTC, que no tiene cambio de hora.
+ */
+export function finDeLaGracia(alDiaHasta: Date, diasGracia: number): Date {
+  return new Date(alDiaHasta.getTime() + diasGracia * UN_DIA_MS);
+}
+
+/**
+ * Cuántos días de gracia le quedan, contando hoy: con 5 de gracia, 5 el primer día de la
+ * deuda y 1 el último. `null` si está al día o si la gracia ya pasó, los dos casos en que no
+ * hay nada que avisarle.
+ *
+ * @param hoy Como en `estaAlDia`: el día del club a medianoche UTC.
+ */
+export function diasDeGraciaRestantes(
+  alDiaHasta: Date | null | undefined,
+  hoy: Date,
+  diasGracia: number,
+): number | null {
+  if (!alDiaHasta || estaAlDia(alDiaHasta, hoy)) return null;
+
+  const restantes =
+    (finDeLaGracia(alDiaHasta, diasGracia).getTime() - hoy.getTime()) /
+      UN_DIA_MS +
+    1;
+
+  return restantes > 0 ? restantes : null;
+}
+
 /**
  * `socioActivo` y `socioAlDia` se calculan por separado a propósito: un socio
  * suspendido no es lo mismo que uno atrasado en la cuota, y `reservas` tiene que

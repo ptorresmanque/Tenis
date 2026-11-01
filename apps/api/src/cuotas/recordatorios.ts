@@ -10,6 +10,7 @@ import {
   TipoRecordatorio,
 } from '../generated/prisma/client';
 import { EnviadorCorreo, enviarOAnotar } from '../identidad/correo';
+import { finDeLaGracia } from '../identidad/usuario-actual';
 import { esViolacionDeUnicidad } from '../prisma/errores';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmisionDeCuotas } from './emision.service';
@@ -28,6 +29,13 @@ const TOPE_POR_OMISION = 50;
 
 const MES = new Intl.DateTimeFormat('es-CL', {
   timeZone: 'UTC',
+  month: 'long',
+});
+
+/** "5 de noviembre", de una fecha civil (T383). */
+const DIA_Y_MES = new Intl.DateTimeFormat('es-CL', {
+  timeZone: 'UTC',
+  day: 'numeric',
   month: 'long',
 });
 
@@ -93,12 +101,19 @@ export function recordatorioPrevio(
 /**
  * El aviso de lo que quedó impago: la mensual, la incorporación o las dos. Las dos
  * condiciones son las mismas que le impiden reservar, y el correo se lo dice.
+ *
+ * **En los días de gracia (T383) todavía reserva**, así que el correo no le dice que ya no
+ * puede: le dice hasta cuándo tiene para pagar. Solo si lo único pendiente es la mensual: la
+ * incorporación no tiene gracia, y quien la debe ya no reserva.
+ *
+ * @param graciaHasta El último día de gracia, si hoy está en ella. Nulo si no.
  */
 export function recordatorioVencido(
   socio: { nombre: string },
   pendiente: { mensual: boolean; incorporacion: boolean },
   origenWeb: string,
   firma: string,
+  graciaHasta: Date | null = null,
 ): { asunto: string; cuerpo: string } {
   const que = [
     pendiente.mensual ? 'la cuota mensual' : null,
@@ -106,12 +121,17 @@ export function recordatorioVencido(
   ]
     .filter(Boolean)
     .join(' y ');
+  const situacion =
+    graciaHasta && !pendiente.incorporacion
+      ? `Tu cuota mensual está pendiente. Tienes hasta el ${DIA_Y_MES.format(graciaHasta)} ` +
+        'para pagarla; después no podrás reservar canchas.'
+      : `Tienes pendiente ${que}. Mientras esté pendiente no puedes reservar canchas.`;
 
   return {
     asunto: 'Tienes la cuota pendiente',
     cuerpo:
       `Hola ${socio.nombre}:\n\n` +
-      `Tienes pendiente ${que}. Mientras esté pendiente no puedes reservar canchas.\n\n` +
+      `${situacion}\n\n` +
       'Págala en línea en "Mi cuenta", o en el mesón del club:\n' +
       `${origenWeb}/mi-cuenta/cuota\n\n` +
       firma,
@@ -126,6 +146,8 @@ interface Candidato {
   nombre: string;
   email: string;
   pendiente: { mensual: boolean; incorporacion: boolean };
+  /** El último día de gracia, si la mensual está vencida y hoy todavía está en ella (T383). */
+  graciaHasta: Date | null;
 }
 
 /**
@@ -194,7 +216,13 @@ export class RecordatoriosDeCuota {
 
       const { asunto, cuerpo } =
         candidato.tipo === TipoRecordatorio.VENCIDA
-          ? recordatorioVencido(candidato, candidato.pendiente, web(), firma)
+          ? recordatorioVencido(
+              candidato,
+              candidato.pendiente,
+              web(),
+              firma,
+              candidato.graciaHasta,
+            )
           : recordatorioPrevio(candidato, candidato.periodo, web(), firma);
 
       await enviarOAnotar(
@@ -220,6 +248,10 @@ export class RecordatoriosDeCuota {
    * incorporación impaga. Las mismas dos condiciones que mira `reservas`.
    */
   private async vencidos(hoy: Date, periodo: string): Promise<Candidato[]> {
+    const { diasGraciaCuota } =
+      await this.prisma.configuracionClub.findFirstOrThrow({
+        select: { diasGraciaCuota: true },
+      });
     const socios = await this.prisma.socio.findMany({
       where: {
         estado: EstadoSocio.ACTIVO,
@@ -252,17 +284,24 @@ export class RecordatoriosDeCuota {
       },
     });
 
-    return socios.map((socio) => ({
-      socioId: socio.id,
-      tipo: TipoRecordatorio.VENCIDA,
-      periodo,
-      nombre: socio.usuario.nombre,
-      email: socio.usuario.email,
-      pendiente: {
-        mensual: socio.alDiaHasta < hoy,
-        incorporacion: socio.cuotas.length > 0,
-      },
-    }));
+    return socios.map((socio) => {
+      // La misma regla que la reserva: con la mensual vencida, reserva hasta el último día
+      // de gracia inclusive. Con 0 días, el fin es `alDiaHasta`, ya pasado, y queda nulo.
+      const fin = finDeLaGracia(socio.alDiaHasta, diasGraciaCuota);
+
+      return {
+        socioId: socio.id,
+        tipo: TipoRecordatorio.VENCIDA,
+        periodo,
+        nombre: socio.usuario.nombre,
+        email: socio.usuario.email,
+        pendiente: {
+          mensual: socio.alDiaHasta < hoy,
+          incorporacion: socio.cuotas.length > 0,
+        },
+        graciaHasta: socio.alDiaHasta < hoy && fin >= hoy ? fin : null,
+      };
+    });
   }
 
   /** Los que no tienen pagado el mes que viene. Casi todos: nadie paga por adelantado. */
@@ -284,6 +323,7 @@ export class RecordatoriosDeCuota {
       nombre: socio.usuario.nombre,
       email: socio.usuario.email,
       pendiente: { mensual: true, incorporacion: false },
+      graciaHasta: null,
     }));
   }
 }
