@@ -12,7 +12,6 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatListModule } from '@angular/material/list';
@@ -74,7 +73,6 @@ import { NuevaReserva } from './nueva-reserva';
     EstadoVacio,
     FichaDeLaReserva,
     Marcador,
-    MatButton,
     MatChipsModule,
     MatIcon,
     MatListModule,
@@ -112,18 +110,16 @@ import { NuevaReserva } from './nueva-reserva';
     />
 
     <!-- Modificar (T392): el próximo clic en una libre mueve la reserva en vez de tomar una nueva,
-         y se dice arriba, como en el sitio. La salida está al lado. La región está siempre y solo
-         cambia lo de adentro: una región viva recién creada, algunos lectores no la anuncian. -->
+         y se dice arriba, como en el sitio. La salida está en la barra de abajo, que sigue a la vista
+         al bajar por el tablero (T402). La región está siempre y solo cambia lo de adentro: una
+         región viva recién creada, algunos lectores no la anuncian. -->
     <div role="status" data-modo-mover>
       @if (moviendo()) {
-        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3">
-          <p class="font-medium">
-            Elige la nueva hora para {{ cualSeMueve() }}. La hora que tenía queda libre.
-          </p>
-          <button matButton="outlined" type="button" (click)="volverSinCambiar()">
-            Volver sin cambiar
-          </button>
-        </div>
+        <p class="mt-4 rounded-lg bg-muted p-3 font-medium">
+          <!-- No «queda libre»: hasta confirmar sigue ahí, y el tablero la marca «Su hora». A quien
+               vuelve a mitad del cambio le sirve saber que todavía no pasó nada (revisión, T405). -->
+          Elige la nueva hora para {{ cualSeMueve() }}. Mientras no confirmes, no se mueve.
+        </p>
       }
     </div>
     @if (mover.error(); as falla) {
@@ -189,6 +185,8 @@ import { NuevaReserva } from './nueva-reserva';
           [reservas]="reservasDelTablero()"
           [todoElDia]="true"
           [puedeElegir]="puedeTomarHoras()"
+          [origen]="moviendo() ? mover.origen() : null"
+          rotuloDelOrigen="Su hora"
           [elegida]="laElegida()"
           [etiqueta]="etiquetaDeCelda"
           (elegir)="elegido.set($event)"
@@ -220,28 +218,33 @@ import { NuevaReserva } from './nueva-reserva';
     }
 
     <!-- Lo elegido y «Reservar», como en el sitio. Pegada abajo dentro del panel, no a la
-         ventana: fija a todo el ancho quedaba encima del menú lateral. -->
-    @if (elegido(); as eleccion) {
+         ventana: fija a todo el ancho quedaba encima del menú lateral. En modo mover está desde el
+         inicio y no se va hasta terminar (T402): si el admin se distrae, al volver sabe qué hacía. -->
+    @if (moviendo()) {
       <app-barra-fija enElFlujo>
-        @if (moviendo()) {
-          <!-- Sin plata de por medio: el club mueve sin cobrar ni devolver (T392). -->
-          <app-resumen-del-cambio
-            [cancha]="eleccion.cancha"
-            [bloque]="eleccion.bloque"
-            [pagadoClp]="null"
-            [detalle]="'Nueva hora para ' + cualSeMueve() + '.'"
-            [enviando]="mover.enviando()"
-            (soltar)="elegido.set(null)"
-            (confirmar)="confirmarCambio(eleccion)"
-          />
-        } @else {
-          <app-resumen-de-la-eleccion
-            [cancha]="eleccion.cancha"
-            [bloque]="eleccion.bloque"
-            (soltar)="elegido.set(null)"
-            (reservar)="reservando.set(eleccion)"
-          />
-        }
+        <!-- Sin plata de por medio: el club mueve sin cobrar ni devolver (T392), así que debajo de
+             la nueva no va nada. -->
+        <app-resumen-del-cambio
+          [rotulo]="rotuloDelCambio()"
+          [antes]="mover.origen()"
+          [cancha]="elegido()?.cancha ?? null"
+          [bloque]="elegido()?.bloque ?? null"
+          [pagadoClp]="null"
+          detalle=""
+          [enviando]="mover.enviando()"
+          (soltar)="elegido.set(null)"
+          (confirmar)="confirmarCambio()"
+          (volver)="volverSinCambiar()"
+        />
+      </app-barra-fija>
+    } @else if (elegido(); as eleccion) {
+      <app-barra-fija enElFlujo>
+        <app-resumen-de-la-eleccion
+          [cancha]="eleccion.cancha"
+          [bloque]="eleccion.bloque"
+          (soltar)="elegido.set(null)"
+          (reservar)="reservando.set(eleccion)"
+        />
       </app-barra-fija>
     }
 
@@ -362,15 +365,19 @@ export class AgendaDelDia {
     this.clases.hasValue() ? this.clases.value() : [],
   );
 
-  /** La reserva que se está moviendo, para decir de quién es (T392). */
-  protected readonly laQueSeMueve = computed(() =>
-    this.reservasSeguras().find(({ id }) => id === this.idQueSeMueve()),
-  );
-
-  /** Cómo se nombra en el aviso y en la barra: sin nombre (otro día, o no cargó), «esta reserva». */
+  /**
+   * Cómo se nombra la que se mueve en el aviso: por su origen (T401) y no por la lista del día, que
+   * la pierde si el admin cambia de día. Mientras llega, «esta reserva».
+   */
   protected readonly cualSeMueve = computed(() => {
-    const nombre = this.laQueSeMueve()?.nombre;
+    const nombre = this.mover.origen()?.nombre;
     return nombre ? `la reserva de ${nombre}` : 'esta reserva';
+  });
+
+  /** Lo que dice la barra arriba, en modo mover (T402). */
+  protected readonly rotuloDelCambio = computed(() => {
+    const nombre = this.mover.origen()?.nombre;
+    return nombre ? `Modificando · Reserva de ${nombre}` : 'Modificando una reserva';
   });
 
   /** Las del tablero: sin la que se mueve, cuyas filas quedan libres para elegirlas. */
@@ -522,18 +529,20 @@ export class AgendaDelDia {
       .then(() => this.devolverElFoco.set(true));
   }
 
-  /** Sale del modo mover sin tocar la reserva. */
+  /** Sale del modo mover sin tocar la reserva. El foco, al tablero: la barra se va con su botón. */
   protected volverSinCambiar(): void {
     this.elegido.set(null);
-    void this.salirDeMover();
+    void this.salirDeMover().then(() => this.devolverElFoco.set(true));
   }
 
   /**
    * Mueve la reserva a la hora marcada. Al terminar, el admin sigue en la agenda, con el día al
    * tiro y el aviso; si la API la rechaza, `mover.error()` lo dice arriba y la hora queda marcada.
    */
-  protected confirmarCambio(eleccion: CeldaElegible): void {
-    const folio = this.laQueSeMueve()?.folio;
+  protected confirmarCambio(): void {
+    const eleccion = this.elegido();
+    if (!eleccion) return;
+    const folio = this.mover.origen()?.folio;
     void this.mover.moverAlTiro(eleccion, async () => {
       this.elegido.set(null);
       await this.salirDeMover();

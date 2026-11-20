@@ -103,6 +103,7 @@ describe('AgendaDelDia', () => {
   let avisos: Subject<{ fecha: string }>;
   let grillaParaMover: ReturnType<typeof vi.fn>;
   let mover: ReturnType<typeof vi.fn>;
+  let hora: ReturnType<typeof vi.fn>;
 
   const proveer = (
     reservas: ReservaDelDia[] | Error,
@@ -119,6 +120,18 @@ describe('AgendaDelDia', () => {
     disponibilidadDelDia = vi.fn(() => Promise.resolve([abierta(1), abierta(2)]));
     grillaParaMover = vi.fn(() => Promise.resolve([abierta(1), abierta(2)]));
     mover = vi.fn(() => Promise.resolve({}));
+    // Dónde estaba la que se mueve (T401): la de Camila, la Cancha 1 a las 08:00.
+    hora = vi.fn(() =>
+      Promise.resolve({
+        id: 1,
+        folio: 'AB23CDE',
+        nombre: 'Camila Visitante',
+        canchaId: 1,
+        cancha: 'Cancha 1',
+        inicio: '2026-08-17T12:00:00.000Z',
+        fin: '2026-08-17T13:00:00.000Z',
+      }),
+    );
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -137,7 +150,7 @@ describe('AgendaDelDia', () => {
         { provide: Auth, useValue: { usuario: signal(usuario).asReadonly() } },
         { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
         { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
-        { provide: Reservas, useValue: { grillaParaMover, mover, cancelar: vi.fn() } },
+        { provide: Reservas, useValue: { grillaParaMover, mover, cancelar: vi.fn(), hora } },
         { provide: ReservasPublicas, useValue: {} },
       ],
     });
@@ -240,6 +253,8 @@ describe('AgendaDelDia', () => {
   });
 
   it('**al admin, la libre se elige y la barra la muestra; «Reservar» abre el diálogo con esa hora**', async () => {
+    // Sin elegir no hay barra: aparece con lo elegido, o en modo mover (MV7).
+    expect(raiz().querySelector('app-barra-fija')).toBeNull();
     // La Cancha 1 a las 08:00 es de Camila: la primera libre es la Cancha 2.
     libres()[0].click();
     await actualizar();
@@ -423,12 +438,12 @@ describe('AgendaDelDia', () => {
       expect(TestBed.inject(Router).url).toContain('mover=1');
       expect(grillaParaMover).toHaveBeenCalledWith(1, '2026-08-17', 60);
       expect(texto()).toContain(
-        'Elige la nueva hora para la reserva de Camila Visitante. La hora que tenía queda libre.',
+        'Elige la nueva hora para la reserva de Camila Visitante. Mientras no confirmes, no se mueve.',
       );
       // Sus filas quedan libres para elegirlas: alargarla en el mismo lugar también vale.
       expect(raiz().querySelector('app-marcador [data-reserva]')).toBeNull();
-      // La libre dice lo que hace en este modo, como en el sitio.
-      expect(libres()[0].getAttribute('aria-label')).toMatch(/^Libre: mover la reserva a la Cancha/);
+      // La libre dice lo que hace en este modo, como en el sitio. La primera es «Su hora» (T404).
+      expect(libres()[1].getAttribute('aria-label')).toMatch(/^Libre: mover la reserva a la Cancha/);
       // El foco, en el tablero: la ficha que tenía el botón se cerró (WCAG 2.4.3, T394).
       await actualizar();
       expect(raiz().querySelector('app-marcador tbody')!.contains(document.activeElement)).toBe(true);
@@ -445,6 +460,82 @@ describe('AgendaDelDia', () => {
       expect(region?.textContent).toContain('Elige la nueva hora');
     });
 
+    /**
+     * T402 (`SPEC-panel.md` § El modo mover a la vista, MV1 y MV2). Si el admin se distrae a la
+     * mitad, la barra de abajo le recuerda qué está haciendo: está desde el inicio del modo y no se
+     * va hasta terminar.
+     */
+    const barra = () => raiz().querySelector('app-barra-fija');
+    const textoDeLaBarra = () => (barra()?.textContent ?? '').replace(/\s+/g, ' ');
+    const botonDeLaBarra = (nombre: string) =>
+      [...(barra()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+        (uno) => uno.textContent?.trim() === nombre,
+      );
+
+    it('**la barra está desde el inicio: qué se modifica, la hora que tenía y que falta la nueva** (MV1)', async () => {
+      await empezarAMover();
+
+      expect(hora).toHaveBeenCalledWith(1);
+      expect(textoDeLaBarra()).toContain('Modificando · Reserva de Camila Visitante');
+      expect(textoDeLaBarra()).toContain('Cancha 1 · Lun 17 ago · 08:00–09:00');
+      expect(textoDeLaBarra()).toContain('elige una hora en el tablero');
+      expect(botonDeLaBarra('Volver sin cambiar')).toBeDefined();
+    });
+
+    it('**al cambiar de día, la barra sigue diciendo cuál es y dónde estaba** (MV1)', async () => {
+      await empezarAMover();
+      delDia.mockResolvedValue([]);
+
+      componente('app-selector-de-dia').componentInstance.fecha.set('2026-08-20');
+      await actualizar();
+
+      expect(TestBed.inject(Router).url).toContain('mover=1');
+      expect(textoDeLaBarra()).toContain('Modificando · Reserva de Camila Visitante');
+      expect(textoDeLaBarra()).toContain('Cancha 1 · Lun 17 ago · 08:00–09:00');
+    });
+
+    it('**«Soltar» vuelve a «elige una hora» sin salir del modo** (MV2)', async () => {
+      await empezarAMover();
+      libres()[1].click();
+      await actualizar();
+      expect(textoDeLaBarra()).toContain('Cancha 1 · Lun 17 ago · 08:00–09:00');
+      expect(textoDeLaBarra()).toContain('Cancha 2 · Lun 17 ago · 08:00–09:00');
+
+      botonDeLaBarra('Soltar')!.click();
+      await actualizar();
+
+      expect(textoDeLaBarra()).toContain('elige una hora en el tablero');
+      expect(TestBed.inject(Router).url).toContain('mover=1');
+    });
+
+    it('**«Volver sin cambiar» de la barra sale del modo, y el foco vuelve al tablero**', async () => {
+      await empezarAMover();
+
+      botonDeLaBarra('Volver sin cambiar')!.click();
+      await actualizar();
+      await actualizar();
+
+      expect(TestBed.inject(Router).url).not.toContain('mover=');
+      expect(barra()).toBeNull();
+      expect(raiz().querySelector('app-marcador tbody')!.contains(document.activeElement)).toBe(true);
+    });
+
+    it('**en el tablero, la hora que tenía dice «Su hora»** (MV3, T404)', async () => {
+      await empezarAMover();
+
+      // La de Camila, la Cancha 1 a las 08:00: libre en la grilla para moverla, y marcada.
+      const suHora = raiz().querySelector('app-marcador tbody button.border-dashed');
+      expect(suHora?.textContent?.trim()).toBe('Su hora');
+      expect(suHora?.getAttribute('aria-label')).toMatch(/^Su hora\. Libre: mover la reserva a la Cancha 1/);
+    });
+
+    it('el aviso de arriba queda como texto: la salida está en la barra', async () => {
+      await empezarAMover();
+
+      expect(raiz().querySelector('[data-modo-mover]')?.textContent).toContain('Elige la nueva hora');
+      expect(raiz().querySelector('[data-modo-mover] button')).toBeNull();
+    });
+
     it('la de 1 hora y media se mueve con esa duración', async () => {
       const larga = { ...UNA, fin: '2026-08-17T13:30:00.000Z' };
       await montar([larga]);
@@ -459,7 +550,7 @@ describe('AgendaDelDia', () => {
       libres()[1].click();
       await actualizar();
       const barra = raiz().querySelector('app-barra-fija')!;
-      expect(barra.textContent).toContain('Nueva hora para la reserva de Camila Visitante.');
+      expect(barra.textContent).toContain('Cancha 2 · Lun 17 ago · 08:00–09:00');
       delDia.mockClear();
 
       [...barra.querySelectorAll<HTMLButtonElement>('button')]
@@ -507,10 +598,11 @@ describe('AgendaDelDia', () => {
       expect(texto()).toContain('Esa hora la acaban de tomar. Elige otra.');
       expect(texto()).not.toContain('La reserva no se puede mover');
 
-      // Al volver sin cambiar, el rechazo no se queda a la vista fuera del modo mover.
-      [...raiz().querySelectorAll<HTMLButtonElement>('button')]
-        .find((uno) => uno.textContent?.trim() === 'Volver sin cambiar')!
-        .click();
+      // Al volver sin cambiar, el rechazo no se queda a la vista fuera del modo mover. La hora
+      // rechazada sigue marcada: primero se suelta, y sin hora elegida la barra ofrece salir (T402).
+      botonDeLaBarra('Soltar')!.click();
+      await actualizar();
+      botonDeLaBarra('Volver sin cambiar')!.click();
       await actualizar();
       expect(texto()).not.toContain('Esa hora la acaban de tomar');
     });
@@ -524,6 +616,19 @@ describe('AgendaDelDia', () => {
 
       expect(grillaParaMover).not.toHaveBeenCalled();
       expect(harness.routeNativeElement?.textContent).not.toContain('Elige la nueva hora');
+      // Ni la barra ni la marca de «Su hora» en el tablero o la leyenda (revisión, T405).
+      expect(harness.routeNativeElement?.querySelector('app-barra-fija')).toBeNull();
+      expect(harness.routeNativeElement?.textContent).not.toContain('Su hora');
+    });
+
+    it('**si el origen no llega, la barra igual está: dice qué hace y ofrece volver** (revisión, T405)', async () => {
+      // Con un rechazo y no con una promesa pendiente: whenStable esperaría para siempre.
+      hora.mockRejectedValue(new Error('la API no respondió'));
+      await empezarAMover();
+
+      expect(textoDeLaBarra()).toContain('Modificando una reserva');
+      expect(textoDeLaBarra()).not.toContain('Antes');
+      expect(botonDeLaBarra('Volver sin cambiar')).toBeDefined();
     });
   });
 

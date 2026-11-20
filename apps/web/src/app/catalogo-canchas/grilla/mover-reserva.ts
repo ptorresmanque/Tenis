@@ -14,6 +14,16 @@ interface Eleccion {
   bloque: BloqueDisponible;
 }
 
+/** Dónde estaba la reserva que se mueve: la barra lo dice en «Antes» y el tablero lo marca. */
+export interface OrigenDelCambio {
+  folio: string;
+  nombre: string;
+  canchaId: number;
+  cancha: string;
+  inicio: string;
+  fin: string;
+}
+
 /**
  * La grilla en modo mover: el clic cambia una reserva que ya existe en vez de tomar una
  * nueva.
@@ -54,6 +64,33 @@ export class MoverReserva {
   readonly pagadoPorElEnlace = computed(() =>
     this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().pagadoClp : null,
   );
+
+  /**
+   * La reserva que se mueve por su id, con su hora: el panel cambia de día mientras la mueve.
+   *
+   * Se pide con `?mover=` aunque quien mira no pueda mover: la gestora con ese parámetro recibe un
+   * 404 que no se muestra, porque la agenda no entra al modo mover sin `puedeTomarHoras` (revisión,
+   * T405). Un pedido de más en un caso que solo llega a mano no justifica pasarle el permiso.
+   */
+  private readonly reservaPorId = resource({
+    params: () => this.porId() ?? undefined,
+    loader: ({ params: id }) => this.reservas.hora(id),
+  });
+
+  /**
+   * Dónde estaba la reserva que se mueve (T401), por su id o por el enlace. Nulo sin modo mover, o
+   * mientras llega.
+   */
+  readonly origen = computed((): OrigenDelCambio | null => {
+    const deDonde =
+      this.porId() !== null
+        ? this.reservaPorId.hasValue() && this.reservaPorId.value()
+        : this.porToken() !== null && this.reservaDelEnlace.hasValue() && this.reservaDelEnlace.value();
+    if (!deDonde) return null;
+
+    const { folio, nombre, canchaId, cancha, inicio, fin } = deDonde;
+    return { folio, nombre, canchaId, cancha, inicio, fin };
+  });
 
   readonly error = signal<string | null>(null);
 

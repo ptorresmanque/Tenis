@@ -125,10 +125,21 @@ describe('GET /api/reservas/publica/:token', () => {
     expect(respuesta.body).toMatchObject({
       folio,
       cancha: NOMBRE_CANCHA,
+      // Para marcar en el tablero la hora que tenía, al cambiarla desde el enlace (T401).
+      canchaId,
       nombre: 'Camila Rojas',
       estado: EstadoReserva.CONFIRMADA,
       acompanantes: 1,
     });
+  });
+
+  it('**la hora de una reserva por su id no es pública: sin sesión, 401** (T401)', async () => {
+    // El enlace es la llave del visitante; por el número, solo con sesión y si es suya.
+    const { id } = await unaReserva();
+
+    await request(app.getHttpServer())
+      .get(`/api/reservas/${id}/hora`)
+      .expect(401);
   });
 
   it('**no devuelve el teléfono ni el correo del titular**', async () => {

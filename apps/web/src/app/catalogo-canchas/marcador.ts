@@ -253,7 +253,7 @@ function ponerLasReservas(
                     <button
                       type="button"
                       data-reserva
-                      class="absolute inset-0 flex scroll-mt-41 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52
+                      class="absolute inset-0 flex scroll-mt-41 scroll-mb-56 scroll-ms-18 sm:scroll-mt-52
                              cursor-pointer flex-col items-start gap-0.5 overflow-hidden border
                              bg-card p-1.5 text-start text-foreground hover:border-primary"
                       [class.border-2]="espera"
@@ -321,27 +321,34 @@ function ponerLasReservas(
                                y 4 más para el anillo del foco) y,
                                desde sm, también los nombres de las canchas
                                (hasta 200 px con la línea, T350); abajo, la barra de la elección
-                               (167); a la izquierda, la columna de la hora (64), cuando el tablero
+                               (167; en modo mover, hasta unos 210 a 375 px, y por eso 56 = 224,
+                               T405); a la izquierda, la columna de la hora (64), cuando el tablero
                                se desplaza. -->
                           <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
                                que cambia es la placa, la marca y aria-pressed. La marca va arriba
                                del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
+                          <!-- La hora que tenía la reserva que se mueve (T404): punteada, como la
+                               que espera el pago, y la primera con su rótulo en vez de «Libre».
+                               Sigue siendo una libre: alargarla en su lugar se ofrece (T87). -->
                           @let marcada = esLaElegida(celda);
+                          @let delOrigen = clavesDelOrigen().has(celda.clave);
                           <button
                             type="button"
-                            class="flex h-full w-full scroll-mt-41 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
+                            class="flex h-full w-full scroll-mt-41 scroll-mb-56 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
                                    items-center justify-center gap-0.5 border font-display text-sm
                                    font-bold tracking-wider uppercase transition-transform
                                    active:scale-95"
                             [class]="
                               marcada
                                 ? 'flex-col leading-none border-rotulo bg-rotulo text-on-rotulo'
-                                : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
+                                : delOrigen
+                                  ? 'border-2 border-dashed border-primary bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
+                                  : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
                             "
                             [attr.data-fila]="i"
                             [attr.data-columna]="j"
                             [attr.tabindex]="esLaParada(celda) ? 0 : -1"
-                            [attr.aria-label]="etiqueta()(celda.cancha, celda.bloque)"
+                            [attr.aria-label]="etiquetaDeLaLibre(celda)"
                             [attr.aria-pressed]="marcada"
                             [attr.data-en-la-eleccion]="marcada ? '' : null"
                             (focus)="foco.set(celda.clave)"
@@ -351,7 +358,7 @@ function ponerLasReservas(
                             @if (marcada) {
                               <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
                             }
-                            Libre
+                            {{ celda.clave === inicioDelOrigen() ? rotuloDelOrigen() : 'Libre' }}
                           </button>
                         } @else {
                           <!-- aria-label y no un sr-only: Chrome separa el sr-only con un
@@ -445,6 +452,14 @@ function ponerLasReservas(
               : 'Libre'
         }}
       </li>
+      @if (origenALaVista()) {
+        <!-- Solo si esa hora está en el tablero: en otro día, o con su cancha filtrada, no hay
+             nada que explicar (T404). -->
+        <li class="flex items-center gap-2">
+          <span class="size-4 border-2 border-dashed border-primary bg-celda-libre" aria-hidden="true"></span>
+          {{ rotuloDelOrigen() }}: la hora actual de la reserva
+        </li>
+      }
       @if (reservas()) {
         <li class="flex items-center gap-2">
           <span class="size-4 bg-card" aria-hidden="true"></span>
@@ -543,6 +558,14 @@ export class Marcador {
 
   /** Si quien mira toma horas libres. El gestor ve el día y no las toma (T221). */
   readonly puedeElegir = input(true);
+
+  /**
+   * La hora que tenía la reserva que se mueve (T404): sus celdas van punteadas y la primera dice
+   * `rotuloDelOrigen`. Nula fuera del modo mover.
+   */
+  readonly origen = input<{ canchaId: number; inicio: string; fin: string } | null>(null);
+  /** «Su hora» en el panel, «Tu hora» en el sitio. */
+  readonly rotuloDelOrigen = input('Su hora');
 
   /** La celda libre que se tocó, en modo elegir. */
   readonly elegir = output<CeldaElegible>();
@@ -748,6 +771,56 @@ export class Marcador {
   }
 
   protected readonly pagoEnPalabras = PAGO_EN_PALABRAS;
+
+  /** Las medias horas de la hora que tenía la reserva, por la clave de su celda (T404). */
+  protected readonly clavesDelOrigen = computed(() => {
+    const origen = this.origen();
+    const claves = new Set<string>();
+    if (!origen) return claves;
+
+    const fin = new Date(origen.fin).getTime();
+    for (let instante = new Date(origen.inicio).getTime(); instante < fin; instante += PASO_DE_LA_GRILLA_MS) {
+      claves.add(claveDe(origen.canchaId, new Date(instante).toISOString()));
+    }
+    return claves;
+  });
+
+  /**
+   * Las celdas del origen que de verdad se marcan: las libres que se eligen, de arriba abajo. Con
+   * la reserva en curso, su primera media hora ya pasó y queda tenue, sin marca (revisión, T405).
+   */
+  private readonly marcadasDelOrigen = computed(() =>
+    this.filas().flatMap(({ celdas }) =>
+      celdas.flatMap((celda) =>
+        celda.estado === 'libre' &&
+        !celda.sigue &&
+        this.sePuedeElegir(celda.bloque) &&
+        this.clavesDelOrigen().has(celda.clave)
+          ? [celda.clave]
+          : [],
+      ),
+    ),
+  );
+
+  /** La primera que se marca, la que dice el rótulo. */
+  protected readonly inicioDelOrigen = computed(() => this.marcadasDelOrigen()[0] ?? null);
+
+  /** Si alguna se marca: si no, la leyenda no explica una marca que no se ve. */
+  protected readonly origenALaVista = computed(() => this.marcadasDelOrigen().length > 0);
+
+  /**
+   * Lo que oye quien navega por teclado en una libre. La primera del origen empieza con su rótulo,
+   * que es lo que se ve (WCAG 2.5.3); las siguientes lo suman al final.
+   */
+  protected etiquetaDeLaLibre(celda: { cancha: Cancha; bloque: BloqueDisponible; clave: string }): string {
+    const etiqueta = this.etiqueta()(celda.cancha, celda.bloque);
+    if (celda.clave === this.inicioDelOrigen()) return `${this.rotuloDelOrigen()}. ${etiqueta}`;
+    if (this.clavesDelOrigen().has(celda.clave)) {
+      // Con punto y no coma: la etiqueta puede terminar con la diferencia, y se leía de corrido.
+      return `${etiqueta}. ${this.rotuloDelOrigen()} actual`;
+    }
+    return etiqueta;
+  }
 
   /**
    * Lo que oye quien no ve el tablero (R4): empieza con lo que la celda dice —el nombre, el tipo

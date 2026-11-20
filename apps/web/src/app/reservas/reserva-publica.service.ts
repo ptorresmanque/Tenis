@@ -9,6 +9,8 @@ import { RedireccionAPasarela } from '../core/pagos/ir-a-pagar';
 export interface ReservaPublica {
   folio: string;
   cancha: string;
+  /** Para marcar en el tablero la hora que tenía, al cambiarla desde el enlace (T401). */
+  canchaId: number;
   inicio: string;
   fin: string;
   nombre: string;

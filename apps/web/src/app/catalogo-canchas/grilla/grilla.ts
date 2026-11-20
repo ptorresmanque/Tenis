@@ -76,8 +76,8 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
   host: {
     class: 'block',
     // La barra fija tapa la última fila si no se le deja aire, y el checklist del master
-    // lo prohíbe.
-    '[class.pb-56]': 'elegido() !== null',
+    // lo prohíbe. En modo mover está desde el inicio (T403).
+    '[class.pb-56]': 'elegido() !== null || cambiando()',
   },
   template: `
     <h1 class="titular text-5xl sm:text-6xl">Reserva tu cancha</h1>
@@ -87,7 +87,8 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
            el enlace tiene que saber que el próximo clic mueve su hora en vez de tomar
            una nueva. Y quien pagó, la regla de la plata, antes de elegir (T88). -->
       <p class="mt-3 rounded-lg bg-muted p-3 font-medium">
-        Elige la nueva hora para tu reserva. La que tenías queda liberada.
+        <!-- Hasta confirmar sigue en su hora, que el tablero marca «Tu hora» (revisión, T405). -->
+        Elige la nueva hora para tu reserva. Mientras no confirmes, no se mueve.
         @if (mover.pagadoPorElEnlace(); as pagado) {
           Pagaste {{ pesos(pagado) }}: si la nueva vale menos, no se devuelve la
           diferencia.
@@ -347,6 +348,8 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
           [elegida]="laElegida()"
           [sinVenta]="sinVenta"
           [etiqueta]="etiquetaDeCelda"
+          [origen]="mover.origen()"
+          rotuloDelOrigen="Tu hora"
           [arriendo]="!esSocio()"
           [bajoLaLinea]="!controlesALaVista()"
           (elegir)="elegirCelda($event)"
@@ -357,33 +360,31 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
     <!-- Elegir y reservar quedaron separados: la celda se marca y la barra dice qué cancha
          quedó y con cuánto antes del botón. Al mover, la barra confirma el cambio: desde
          el enlace, con la diferencia (T91); desde "mis reservas", sin plata. -->
-    @if (elegido(); as eleccion) {
+    @if (cambiando()) {
+      <!-- Al mover está desde el inicio y no se va hasta terminar (T403): dice cuál era su hora y
+           la nueva, y si quien cambia se distrae, al volver sabe qué estaba haciendo. -->
       <app-barra-fija>
-        @if (mover.activo()) {
-          <!-- Desde el enlace, solo con lo pagado a la vista: sin eso, el resumen le diría
-               al visitante lo que se le dice al socio. Por el modo y no por lo pagado: con
-               la barra de reservar, "Reservar" abriría una reserva nueva en vez de cambiar
-               la suya. -->
-          @let pagado = mover.pagadoPorElEnlace();
-          @if (mover.porId() !== null || pagado !== null) {
-            <app-resumen-del-cambio
-              [cancha]="eleccion.cancha"
-              [bloque]="eleccion.bloque"
-              [pagadoClp]="pagado"
-              [enviando]="mover.enviando()"
-              (soltar)="elegido.set(null)"
-              (confirmar)="confirmarCambio(eleccion)"
-            />
-          }
-        } @else {
-          <app-resumen-de-la-eleccion
-            [cancha]="eleccion.cancha"
-            [bloque]="eleccion.bloque"
-            [esSocio]="esSocio()"
-            (soltar)="elegido.set(null)"
-            (reservar)="reservar()"
-          />
-        }
+        <app-resumen-del-cambio
+          rotulo="Cambiando tu reserva"
+          [antes]="mover.origen()"
+          [cancha]="elegido()?.cancha ?? null"
+          [bloque]="elegido()?.bloque ?? null"
+          [pagadoClp]="mover.pagadoPorElEnlace()"
+          [enviando]="mover.enviando()"
+          (soltar)="elegido.set(null)"
+          (confirmar)="confirmarCambio()"
+          (volver)="volverSinCambiar()"
+        />
+      </app-barra-fija>
+    } @else if (!mover.activo() && elegido(); as eleccion) {
+      <app-barra-fija>
+        <app-resumen-de-la-eleccion
+          [cancha]="eleccion.cancha"
+          [bloque]="eleccion.bloque"
+          [esSocio]="esSocio()"
+          (soltar)="elegido.set(null)"
+          (reservar)="reservar()"
+        />
       </app-barra-fija>
     }
 
@@ -824,8 +825,26 @@ export class Grilla {
     this.avisoAlLlegar.set(null);
   }
 
+  /**
+   * Si la barra del cambio está a la vista (T403): desde que empieza el modo mover. Desde el
+   * enlace, recién con lo pagado: sin eso, el resumen le diría al visitante lo que se le dice al
+   * socio. Por el modo y no por lo pagado: con la barra de reservar, «Reservar» abriría una reserva
+   * nueva en vez de cambiar la suya (revisión de T91).
+   */
+  protected readonly cambiando = computed(
+    () => this.mover.porId() !== null || this.mover.pagadoPorElEnlace() !== null,
+  );
+
+  /** Sale sin cambiar nada: el socio vuelve a «Mis reservas» y el visitante, a su reserva. */
+  protected volverSinCambiar(): void {
+    const token = this.mover.porToken();
+    void this.router.navigate(token !== null ? ['/r', token] : ['/mi-cuenta/reservas']);
+  }
+
   /** El socio mueve sin pagar; desde el enlace, con la diferencia de por medio (T91). */
-  protected confirmarCambio(eleccion: CeldaElegible): void {
+  protected confirmarCambio(): void {
+    const eleccion = this.elegido();
+    if (!eleccion) return;
     void (this.mover.porId() !== null
       ? this.mover.moverAlTiro(eleccion)
       : this.mover.cambiarPorEnlace(eleccion));
