@@ -197,8 +197,8 @@ import { LO_HECHO } from '../../ui/material';
                 <mat-form-field class="chico flex-1">
                   <mat-label>Teléfono</mat-label>
                   <span matTextPrefix>+56&nbsp;</span>
-                  <!-- La referencia no se llama "telefono": taparía la propiedad, y el
-                       ngModel recibiría el NgModel en vez del texto. -->
+                  <!-- La referencia no se llama "telefono": taparía la propiedad y lo
+                       escrito no llegaría al componente. -->
                   <input
                     matInput
                     appTelefono
