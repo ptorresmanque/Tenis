@@ -16,6 +16,7 @@ interface Eleccion {
 
 /** Dónde estaba la reserva que se mueve: la barra lo dice en «Antes» y el tablero lo marca. */
 export interface OrigenDelCambio {
+  folio: string;
   nombre: string;
   canchaId: number;
   cancha: string;
@@ -81,8 +82,8 @@ export class MoverReserva {
         : this.porToken() !== null && this.reservaDelEnlace.hasValue() && this.reservaDelEnlace.value();
     if (!deDonde) return null;
 
-    const { nombre, canchaId, cancha, inicio, fin } = deDonde;
-    return { nombre, canchaId, cancha, inicio, fin };
+    const { folio, nombre, canchaId, cancha, inicio, fin } = deDonde;
+    return { folio, nombre, canchaId, cancha, inicio, fin };
   });
 
   readonly error = signal<string | null>(null);

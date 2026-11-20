@@ -60,6 +60,7 @@ describe('MoverReserva.origen', () => {
 
     expect(hora).toHaveBeenCalledWith(7);
     expect(mover.origen()).toEqual({
+      folio: 'AB23CDE',
       nombre: 'Carolina Díaz',
       canchaId: 2,
       cancha: 'Cancha 2',
@@ -74,6 +75,7 @@ describe('MoverReserva.origen', () => {
     expect(porToken).toHaveBeenCalledWith('tok-123');
     expect(hora).not.toHaveBeenCalled();
     expect(mover.origen()).toEqual({
+      folio: 'VIS1234',
       nombre: 'Camila Visitante',
       canchaId: 3,
       cancha: 'Cancha 3',
