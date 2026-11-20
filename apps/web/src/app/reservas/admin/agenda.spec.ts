@@ -11,6 +11,8 @@ import { Disponibilidad, GrillaDeCancha } from '../../catalogo-canchas/disponibi
 import { ClaseDelDia, Clases } from '../../clases/clases.service';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
 import { Socios } from '../../identidad/admin/socios.service';
+import { ReservasPublicas } from '../reserva-publica.service';
+import { Reservas } from '../reservas.service';
 import { avisoDeLoHecho } from '../../testing/snackbar';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { AgendaDelDia } from './agenda';
@@ -99,6 +101,8 @@ describe('AgendaDelDia', () => {
   let disponibilidadDelDia: ReturnType<typeof vi.fn>;
   let clasesDelDia: ReturnType<typeof vi.fn>;
   let avisos: Subject<{ fecha: string }>;
+  let grillaParaMover: ReturnType<typeof vi.fn>;
+  let mover: ReturnType<typeof vi.fn>;
 
   const proveer = (
     reservas: ReservaDelDia[] | Error,
@@ -113,6 +117,8 @@ describe('AgendaDelDia', () => {
     );
     avisos = new Subject<{ fecha: string }>();
     disponibilidadDelDia = vi.fn(() => Promise.resolve([abierta(1), abierta(2)]));
+    grillaParaMover = vi.fn(() => Promise.resolve([abierta(1), abierta(2)]));
+    mover = vi.fn(() => Promise.resolve({}));
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -131,6 +137,8 @@ describe('AgendaDelDia', () => {
         { provide: Auth, useValue: { usuario: signal(usuario).asReadonly() } },
         { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
         { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
+        { provide: Reservas, useValue: { grillaParaMover, mover, cancelar: vi.fn() } },
+        { provide: ReservasPublicas, useValue: {} },
       ],
     });
   };
@@ -339,6 +347,93 @@ describe('AgendaDelDia', () => {
     await montar([UNA], [], GESTORA);
     await abrirLaFicha();
     expect(componente('app-ficha-de-la-reserva').componentInstance.esAdmin()).toBe(false);
+  });
+
+  /**
+   * T392 (`SPEC-panel.md` § Reservas del panel, R7). «Modificar» pone el tablero en modo mover,
+   * como «Mis reservas» lo hace con el socio: la grilla sin esa reserva, la barra con «Cambiar a
+   * esta hora», y al terminar el admin sigue en el panel.
+   */
+  describe('modificar desde la ficha (T392)', () => {
+    const empezarAMover = async (reserva = UNA) => {
+      await abrirLaFicha(reserva.nombre);
+      componente('app-ficha-de-la-reserva').componentInstance.modificar.emit(reserva);
+      await actualizar();
+    };
+
+    it('**pone el tablero en modo mover: la grilla sin esa reserva, el aviso y la dirección**', async () => {
+      await empezarAMover();
+
+      expect(componente('app-ficha-de-la-reserva')).toBeNull();
+      expect(TestBed.inject(Router).url).toContain('mover=1');
+      expect(grillaParaMover).toHaveBeenCalledWith(1, '2026-08-17', 60);
+      expect(texto()).toContain('Elige la nueva hora para la reserva de Camila Visitante.');
+      // Sus filas quedan libres para elegirlas: alargarla en el mismo lugar también vale.
+      expect(raiz().querySelector('app-marcador [data-reserva]')).toBeNull();
+    });
+
+    it('la de 1 hora y media se mueve con esa duración', async () => {
+      const larga = { ...UNA, fin: '2026-08-17T13:30:00.000Z' };
+      await montar([larga]);
+      await empezarAMover(larga);
+
+      expect(grillaParaMover).toHaveBeenLastCalledWith(1, '2026-08-17', 90);
+    });
+
+    it('**elegir otra hora y confirmar la mueve, y el admin sigue en el panel con el día al tiro**', async () => {
+      await empezarAMover();
+      // Sin la que se mueve, todo está libre: la segunda es la Cancha 2 a las 08:00.
+      libres()[1].click();
+      await actualizar();
+      const barra = raiz().querySelector('app-barra-fija')!;
+      expect(barra.textContent).toContain('Mover la reserva de Camila Visitante.');
+      delDia.mockClear();
+
+      [...barra.querySelectorAll<HTMLButtonElement>('button')]
+        .find((uno) => uno.textContent?.includes('Cambiar a esta hora'))!
+        .click();
+      await actualizar();
+
+      expect(mover).toHaveBeenCalledWith(1, {
+        canchaId: 2,
+        inicio: '2026-08-17T12:00:00.000Z',
+        duracionMin: 60,
+      });
+      expect(TestBed.inject(Router).url).not.toContain('mover=');
+      expect(avisoDeLoHecho()).toBe('Reserva AB23CDE movida.');
+      expect(delDia).toHaveBeenCalled();
+    });
+
+    it('«Volver sin cambiar» deja todo como estaba', async () => {
+      await empezarAMover();
+
+      [...raiz().querySelectorAll<HTMLButtonElement>('button')]
+        .find((uno) => uno.textContent?.trim() === 'Volver sin cambiar')!
+        .click();
+      await actualizar();
+
+      expect(TestBed.inject(Router).url).not.toContain('mover=');
+      expect(mover).not.toHaveBeenCalled();
+      expect(raiz().querySelector('app-marcador [data-reserva]')).not.toBeNull();
+    });
+
+    it('**el rechazo se dice, con qué no se pudo**', async () => {
+      mover.mockRejectedValue({
+        status: 409,
+        error: { motivo: 'BLOQUE_TOMADO', message: 'Esa hora la acaban de tomar. Elige otra.' },
+      });
+      await empezarAMover();
+      libres()[1].click();
+      await actualizar();
+      [...raiz().querySelectorAll<HTMLButtonElement>('app-barra-fija button')]
+        .find((uno) => uno.textContent?.includes('Cambiar a esta hora'))!
+        .click();
+      await actualizar();
+
+      expect(texto()).toContain(
+        'La reserva no se puede mover: Esa hora la acaban de tomar. Elige otra.',
+      );
+    });
   });
 
   it('distingue al socio del visitante, y la ficha dice con quién juega', async () => {

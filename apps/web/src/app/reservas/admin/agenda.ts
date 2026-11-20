@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatListModule } from '@angular/material/list';
@@ -21,12 +22,20 @@ import {
   DuracionMin,
 } from '../../catalogo-canchas/disponibilidad';
 import { ControlesDelDia, pasaElFiltro } from '../../catalogo-canchas/grilla/controles-del-dia';
+import { MoverReserva } from '../../catalogo-canchas/grilla/mover-reserva';
 import { ResumenDeLaEleccion } from '../../catalogo-canchas/grilla/resumen-de-la-eleccion';
+import { ResumenDelCambio } from '../../catalogo-canchas/grilla/resumen-del-cambio';
 import { CeldaElegible, Marcador } from '../../catalogo-canchas/marcador';
-import { hoyEnElClub, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
+import {
+  fechaEnElClub,
+  hoyEnElClub,
+  horaEnElClub,
+  minutosDe,
+} from '../../catalogo-canchas/reloj-del-club';
 import { ClaseDelDia, Clases, cupoEnPalabras, queClaseEs } from '../../clases/clases.service';
 import { Auth } from '../../core/auth/auth';
 import { DescargarCsv } from '../../reportes/descargar-csv';
+import { Aviso } from '../../ui/aviso';
 import { BarraFija } from '../../ui/barra-fija';
 import { Esqueleto } from '../../ui/esqueleto';
 import { EstadoVacio } from '../../ui/estado-vacio';
@@ -51,7 +60,10 @@ import { NuevaReserva } from './nueva-reserva';
 @Component({
   selector: 'app-agenda-del-dia',
   host: { class: 'block' },
+  // Uno por página, como en la grilla del sitio: el modo mover vive en la dirección (T392).
+  providers: [MoverReserva],
   imports: [
+    Aviso,
     BarraFija,
     ControlesDelDia,
     DescargarCsv,
@@ -59,11 +71,13 @@ import { NuevaReserva } from './nueva-reserva';
     EstadoVacio,
     FichaDeLaReserva,
     Marcador,
+    MatButton,
     MatChipsModule,
     MatIcon,
     MatListModule,
     NuevaReserva,
     ResumenDeLaEleccion,
+    ResumenDelCambio,
   ],
   template: `
     <!-- El titular y las pestañas van en la pantalla madre (T285, panel-de-la-agenda). Acá
@@ -93,6 +107,25 @@ import { NuevaReserva } from './nueva-reserva';
       [(filtro)]="filtro"
       (cambiarDuracion)="elegirDuracion($event)"
     />
+
+    @if (mover.activo()) {
+      <!-- Modificar (T392): el próximo clic en una libre mueve la reserva en vez de tomar una
+           nueva, y se dice arriba, como en el sitio. La salida está al lado. -->
+      <div role="status" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3">
+        <p class="font-medium">
+          Elige la nueva hora para la reserva de {{ laQueSeMueve()?.nombre ?? 'esta reserva' }}.
+          La que tenía queda libre.
+        </p>
+        <button matButton="outlined" type="button" (click)="volverSinCambiar()">
+          Volver sin cambiar
+        </button>
+      </div>
+    }
+    @if (mover.error(); as falla) {
+      <app-aviso variante="error" class="mt-3 block">
+        La reserva no se puede mover: {{ falla }}
+      </app-aviso>
+    }
 
     @if (reservasSeguras().length > 0) {
       <ul class="mt-6 grid gap-3 sm:grid-cols-3">
@@ -145,7 +178,7 @@ import { NuevaReserva } from './nueva-reserva';
         <app-marcador
           modo="elegir"
           [grillas]="visibles()"
-          [reservas]="reservasSeguras()"
+          [reservas]="reservasDelTablero()"
           [todoElDia]="true"
           [puedeElegir]="puedeTomarHoras()"
           [elegida]="laElegida()"
@@ -182,12 +215,25 @@ import { NuevaReserva } from './nueva-reserva';
          ventana: fija a todo el ancho quedaba encima del menú lateral. -->
     @if (elegido(); as eleccion) {
       <app-barra-fija enElFlujo>
-        <app-resumen-de-la-eleccion
-          [cancha]="eleccion.cancha"
-          [bloque]="eleccion.bloque"
-          (soltar)="elegido.set(null)"
-          (reservar)="reservando.set(eleccion)"
-        />
+        @if (mover.activo()) {
+          <!-- Sin plata de por medio: el club mueve sin cobrar ni devolver (T392). -->
+          <app-resumen-del-cambio
+            [cancha]="eleccion.cancha"
+            [bloque]="eleccion.bloque"
+            [pagadoClp]="null"
+            [detalle]="'Mover la reserva de ' + (laQueSeMueve()?.nombre ?? 'esta reserva') + '.'"
+            [enviando]="mover.enviando()"
+            (soltar)="elegido.set(null)"
+            (confirmar)="confirmarCambio(eleccion)"
+          />
+        } @else {
+          <app-resumen-de-la-eleccion
+            [cancha]="eleccion.cancha"
+            [bloque]="eleccion.bloque"
+            (soltar)="elegido.set(null)"
+            (reservar)="reservando.set(eleccion)"
+          />
+        }
       </app-barra-fija>
     }
 
@@ -207,6 +253,7 @@ import { NuevaReserva } from './nueva-reserva';
         (cerrar)="cerrarFicha()"
         (cambio)="reservas.reload()"
         (cancelada)="anunciarCancelada()"
+        (modificar)="empezarAMover($event)"
       />
     }
   `,
@@ -220,6 +267,7 @@ export class AgendaDelDia {
   private readonly router = inject(Router);
   private readonly ruta = inject(ActivatedRoute);
   private readonly parametros = toSignal(this.ruta.queryParamMap);
+  protected readonly mover = inject(MoverReserva);
 
   /** El mesón es del admin; el gestor ve el mismo día sin poder tomar horas (T221). */
   protected readonly puedeTomarHoras = computed(
@@ -271,8 +319,13 @@ export class AgendaDelDia {
       fecha: this.fechaActual(),
       duracion: this.duracion(),
       recarga: this.recargas(),
+      porId: this.mover.porId(),
+      porToken: null,
     }),
-    loader: ({ params }) => this.disponibilidad.delDia(params.fecha, params.duracion),
+    // Al mover, el día sin contar la reserva que se mueve: alargarla en su lugar se ofrece (T87).
+    loader: ({ params }) =>
+      this.mover.grillaDelDia(params) ??
+      this.disponibilidad.delDia(params.fecha, params.duracion),
     defaultValue: [],
   });
 
@@ -285,6 +338,16 @@ export class AgendaDelDia {
   );
   protected readonly clasesSeguras = computed(() =>
     this.clases.hasValue() ? this.clases.value() : [],
+  );
+
+  /** La reserva que se está moviendo, para decir de quién es (T392). */
+  protected readonly laQueSeMueve = computed(() =>
+    this.reservasSeguras().find(({ id }) => id === this.mover.porId()),
+  );
+
+  /** Las del tablero: sin la que se mueve, cuyas filas quedan libres para elegirlas. */
+  protected readonly reservasDelTablero = computed(() =>
+    this.reservasSeguras().filter(({ id }) => id !== this.mover.porId()),
   );
 
   /** Las canchas que pasan el filtro, como en el sitio (`pasaElFiltro`). */
@@ -387,6 +450,49 @@ export class AgendaDelDia {
   protected anunciarCancelada(): void {
     this.cerrarFicha();
     this.recargas.update((veces) => veces + 1);
+  }
+
+  /**
+   * «Modificar» desde la ficha (T392): la ficha se cierra y el tablero pasa a modo mover en el día
+   * y con la duración de la reserva. Va en la dirección, como en el sitio: recargar no lo pierde.
+   */
+  protected empezarAMover(reserva: ReservaDelDia): void {
+    this.cerrarFicha();
+    this.elegido.set(null);
+    this.duracion.set(minutosDe(reserva) === 90 ? 90 : 60);
+    void this.router.navigate([], {
+      relativeTo: this.ruta,
+      queryParams: { mover: reserva.id, fecha: fechaEnElClub(reserva.inicio), reserva: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  /** Sale del modo mover sin tocar la reserva. */
+  protected volverSinCambiar(): void {
+    this.elegido.set(null);
+    void this.salirDeMover();
+  }
+
+  /**
+   * Mueve la reserva a la hora marcada. Al terminar, el admin sigue en la agenda, con el día al
+   * tiro y el aviso; si la API la rechaza, `mover.error()` lo dice arriba y la hora queda marcada.
+   */
+  protected confirmarCambio(eleccion: CeldaElegible): void {
+    const folio = this.laQueSeMueve()?.folio;
+    void this.mover.moverAlTiro(eleccion, async () => {
+      this.elegido.set(null);
+      await this.salirDeMover();
+      this.recargas.update((veces) => veces + 1);
+      this.snackBar.open(folio ? `Reserva ${folio} movida.` : 'Reserva movida.', undefined, LO_HECHO);
+    });
+  }
+
+  private salirDeMover(): Promise<boolean> {
+    return this.router.navigate([], {
+      relativeTo: this.ruta,
+      queryParams: { mover: null },
+      queryParamsHandling: 'merge',
+    });
   }
 
   /** Lo que oye quien navega por teclado antes de elegir la libre: empieza con lo que dice. */

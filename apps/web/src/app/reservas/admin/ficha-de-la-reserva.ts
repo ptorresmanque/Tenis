@@ -226,10 +226,17 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
         </mat-dialog-content>
 
         @if (esAdmin() && !yaTermino()) {
-          <!-- A la izquierda: en la confirmación, ese lugar es de «Volver». -->
-          <mat-dialog-actions>
+          <!-- «Cancelar reserva» a la izquierda: en la confirmación, ese lugar es de «Volver».
+               «Modificar» al borde, la acción principal de la ficha (T392). -->
+          <mat-dialog-actions align="end">
             <button #cancelarReserva matButton type="button" (click)="pedirConfirmacion()">
               Cancelar reserva
+            </button>
+            <!-- La otra acción llena es confirmar la cancelación, en la otra rama del mismo if: se
+                 ve una a la vez.
+                 mat-guidelines-ignore: multiples-filled -->
+            <button matButton="filled" type="button" (click)="modificar.emit(laReserva)">
+              Modificar
             </button>
           </mat-dialog-actions>
         }
@@ -248,6 +255,8 @@ export class FichaDeLaReserva {
   readonly cambio = output<void>();
   /** Se canceló: la agenda la cierra y vuelve a pedir el día. El aviso ya lo puso la ficha. */
   readonly cancelada = output<ReservaCancelada>();
+  /** «Modificar»: la agenda la cierra y pone el tablero en modo mover (T392). */
+  readonly modificar = output<ReservaDelDia>();
 
   private readonly agenda = inject(Agenda);
   private readonly reservasApi = inject(Reservas);

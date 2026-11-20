@@ -56,6 +56,7 @@ describe('FichaDeLaReserva', () => {
   let pagosDe: ReturnType<typeof vi.fn>;
   let cancelar: ReturnType<typeof vi.fn>;
   let canceladas: ReservaCancelada[];
+  let aModificar: ReservaDelDia[];
 
   const ficha = () => document.querySelector('mat-dialog-container') as HTMLElement;
   const texto = () => (ficha()?.textContent ?? '').replace(/\s+/g, ' ');
@@ -78,6 +79,7 @@ describe('FichaDeLaReserva', () => {
       Promise.resolve({ folio: 'AB23CDE', huboDevolucion: true, motivo: null }),
     );
     canceladas = [];
+    aModificar = [];
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -90,6 +92,7 @@ describe('FichaDeLaReserva', () => {
     fixture.componentRef.setInput('reserva', cambios.reserva ?? UNA);
     fixture.componentRef.setInput('esAdmin', cambios.esAdmin ?? true);
     fixture.componentInstance.cancelada.subscribe((una) => canceladas.push(una));
+    fixture.componentInstance.modificar.subscribe((una) => aModificar.push(una));
     await actualizar();
   };
 
@@ -232,10 +235,32 @@ describe('FichaDeLaReserva', () => {
     expect(canceladas).toEqual([]);
   });
 
+  it('**«Modificar» avisa a la agenda qué reserva mover** (R7, T392)', async () => {
+    boton('Modificar')!.click();
+    await actualizar();
+
+    expect(aModificar).toEqual([UNA]);
+  });
+
+  it('«Modificar» va al borde y «Cancelar reserva» a su izquierda: en la confirmación, ese lugar es de «Volver»', () => {
+    const acciones = [...ficha().querySelectorAll('mat-dialog-actions button')].map((uno) =>
+      uno.textContent?.trim(),
+    );
+
+    expect(acciones).toEqual(['Cancelar reserva', 'Modificar']);
+  });
+
+  it('al gestor tampoco le ofrece modificar', async () => {
+    await montar({ esAdmin: false });
+
+    expect(boton('Modificar')).toBeUndefined();
+  });
+
   it('**una reserva que ya terminó no ofrece cancelarla** (R8)', async () => {
     vi.setSystemTime('2026-08-17T13:30:00.000Z');
     await montar();
 
     expect(boton('Cancelar reserva')).toBeUndefined();
+    expect(boton('Modificar')).toBeUndefined();
   });
 });
