@@ -118,7 +118,14 @@ describe('AgendaDelDia', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ path: 'agenda', component: AgendaDelDia }]),
-        { provide: Agenda, useValue: { delDia, avisos: avisos.asObservable() } },
+        {
+          provide: Agenda,
+          useValue: {
+            delDia,
+            avisos: avisos.asObservable(),
+            pagosDe: () => Promise.resolve({ pagos: [], devolucionAlCancelar: false }),
+          },
+        },
         { provide: Disponibilidad, useValue: { delDia: disponibilidadDelDia } },
         { provide: Clases, useValue: { delDia: clasesDelDia } },
         { provide: Auth, useValue: { usuario: signal(usuario).asReadonly() } },
@@ -305,6 +312,33 @@ describe('AgendaDelDia', () => {
     expect(texto()).toContain('Camila Visitante');
     // La ficha sigue abierta, con la reserva al día.
     expect(ficha()?.textContent).toContain('Camila Visitante');
+  });
+
+  it('**cancelada desde la ficha, la cierra y vuelve a pedir el día al tiro** (R6)', async () => {
+    await abrirLaFicha();
+    delDia.mockClear();
+    disponibilidadDelDia.mockClear();
+
+    componente('app-ficha-de-la-reserva').componentInstance.cancelada.emit({
+      folio: 'AB23CDE',
+      huboDevolucion: true,
+      motivo: null,
+    });
+    await actualizar();
+
+    // El snackbar lo pone la ficha: puede irse antes de que llegue la respuesta.
+    expect(componente('app-ficha-de-la-reserva')).toBeNull();
+    expect(delDia).toHaveBeenCalled();
+    expect(disponibilidadDelDia).toHaveBeenCalled();
+  });
+
+  it('a la ficha le dice si quien mira es el admin: el gestor no ve el pago ni cancela', async () => {
+    await abrirLaFicha();
+    expect(componente('app-ficha-de-la-reserva').componentInstance.esAdmin()).toBe(true);
+
+    await montar([UNA], [], GESTORA);
+    await abrirLaFicha();
+    expect(componente('app-ficha-de-la-reserva').componentInstance.esAdmin()).toBe(false);
   });
 
   it('distingue al socio del visitante, y la ficha dice con quién juega', async () => {

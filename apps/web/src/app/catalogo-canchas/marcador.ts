@@ -31,8 +31,8 @@ export interface ReservaEnElTablero {
   pago: 'SIN_COBRO' | 'ESPERANDO' | 'EN_LINEA' | 'EN_EL_MESON';
 }
 
-/** El pago dicho con palabras (RD1): en el tablero no se lee por color. */
-const PAGO_EN_PALABRAS: Record<ReservaEnElTablero['pago'], string> = {
+/** El pago dicho con palabras (RD1): en el tablero y en la ficha, no se lee por color. */
+export const PAGO_EN_PALABRAS: Record<ReservaEnElTablero['pago'], string> = {
   SIN_COBRO: 'Sin cobro',
   ESPERANDO: 'Esperando el pago',
   EN_LINEA: 'Pagada en línea',

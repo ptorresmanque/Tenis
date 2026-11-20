@@ -203,8 +203,10 @@ import { NuevaReserva } from './nueva-reserva';
     @if (laFicha(); as reserva) {
       <app-ficha-de-la-reserva
         [reserva]="reserva"
+        [esAdmin]="puedeTomarHoras()"
         (cerrar)="cerrarFicha()"
         (cambio)="reservas.reload()"
+        (cancelada)="anunciarCancelada()"
       />
     }
   `,
@@ -375,6 +377,16 @@ export class AgendaDelDia {
     this.reservando.set(null);
     this.elegido.set(null);
     this.snackBar.open(`Hora tomada. Folio ${folio}.`, undefined, LO_HECHO);
+  }
+
+  /**
+   * La reserva cancelada desde su ficha (T391): la ficha se cierra y el día se vuelve a pedir al
+   * tiro, sin esperar el aviso del servidor, que igual llega. Lo que pasó con la plata lo dice la
+   * ficha, que puede irse antes de que llegue la respuesta.
+   */
+  protected anunciarCancelada(): void {
+    this.cerrarFicha();
+    this.recargas.update((veces) => veces + 1);
   }
 
   /** Lo que oye quien navega por teclado antes de elegir la libre: empieza con lo que dice. */
