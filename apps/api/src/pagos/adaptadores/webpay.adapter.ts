@@ -115,6 +115,11 @@ export class WebpayAdapter extends PasarelaPago {
         respuesta.card_detail?.card_number ?? respuesta.card_number,
       ),
       motivoRechazo: autorizada ? null : motivoDe(respuesta),
+      // Lo demás del commit, tal cual, para Finanzas › Pagos (T395): con los nombres de la
+      // documentación de Transbank (Webpay Plus, confirmar una transacción).
+      tipoPago: respuesta.payment_type_code ?? null,
+      numeroCuotas: respuesta.installments_number ?? null,
+      codigoRespuesta: respuesta.response_code ?? null,
     };
   }
 
@@ -129,6 +134,9 @@ export class WebpayAdapter extends PasarelaPago {
 interface RespuestaCommit {
   status?: string;
   response_code?: number;
+  /** VD, VN, VC, SI, S2, NC o VP (T395). */
+  payment_type_code?: string | null;
+  installments_number?: number | null;
   authorization_code?: string | null;
   amount: number;
   card_number?: string | null;

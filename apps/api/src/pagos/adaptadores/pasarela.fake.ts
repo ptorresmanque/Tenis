@@ -101,6 +101,10 @@ export class PasarelaFake extends PasarelaPago {
         montoClp: this.montoReportado ?? orden.montoClp,
         ultimosDigitos: null,
         motivoRechazo: 'Tarjeta rechazada por el emisor',
+        // Como Webpay: el código del emisor que rechazó (T395).
+        tipoPago: 'VD',
+        numeroCuotas: 0,
+        codigoRespuesta: -1,
       });
     }
 
@@ -112,6 +116,10 @@ export class PasarelaFake extends PasarelaPago {
       montoClp: this.montoReportado ?? orden.montoClp,
       ultimosDigitos: '4321',
       motivoRechazo: null,
+      // Débito, sin cuotas y aprobado, como el caso más común de Webpay (T395).
+      tipoPago: 'VD',
+      numeroCuotas: 0,
+      codigoRespuesta: 0,
     });
   }
 

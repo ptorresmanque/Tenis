@@ -27,6 +27,16 @@ describe('pagoWebpay', () => {
     requiereRevision: false,
     creadaEn: new Date('2037-09-01T15:00:00.000Z'),
     confirmadaEn: new Date('2037-09-01T15:02:00.000Z'),
+    tipoPago: 'VD',
+    numeroCuotas: 0,
+    codigoRespuesta: 0,
+    motivoRechazo: null,
+    revisadaPor: null,
+    revisadaEn: null,
+    notaRevision: null,
+    anuladaPor: null,
+    anuladaEn: null,
+    motivoAnulacion: null,
   };
 
   it('**dice lo que respondió Webpay**: orden de compra, monto, estado, autorización y tarjeta', () => {
@@ -41,6 +51,17 @@ describe('pagoWebpay', () => {
       creadaEn: new Date('2037-09-01T15:00:00.000Z'),
       confirmadaEn: new Date('2037-09-01T15:02:00.000Z'),
       requiereRevision: false,
+      // T395: lo que dijo Webpay, la revisión y la devolución.
+      tipoPago: 'VD',
+      numeroCuotas: 0,
+      codigoRespuesta: 0,
+      motivoRechazo: null,
+      revisadaPor: null,
+      revisadaEn: null,
+      notaRevision: null,
+      anuladaPor: null,
+      anuladaEn: null,
+      motivoAnulacion: null,
     });
   });
 

@@ -24,8 +24,14 @@ export class AnulacionService {
    *
    * Solo existe la devolución total (`SPEC-pagos.md` § Reembolso). Devolver de menos
    * es una discusión con el socio que nadie quiere tener en el mesón.
+   *
+   * Deja la fecha siempre (T395). Quién y por qué, solo cuando la devolución es a mano desde
+   * Finanzas › Pagos (T397): la de cancelar una reserva la decide el sistema.
    */
-  async anular(transaccionId: number): Promise<void> {
+  async anular(
+    transaccionId: number,
+    aMano?: { por: number; motivo: string },
+  ): Promise<void> {
     const transaccion = await this.prisma.transaccion.findUnique({
       where: { id: transaccionId },
     });
@@ -62,7 +68,12 @@ export class AnulacionService {
       // AUTORIZADA y las dos piden la devolución — plata que sale dos veces del club.
       const { count } = await tx.transaccion.updateMany({
         where: { id: transaccion.id, estado: EstadoTransaccion.AUTORIZADA },
-        data: { estado: estadoNuevo },
+        data: {
+          estado: estadoNuevo,
+          anuladaEn: new Date(),
+          anuladaPor: aMano?.por ?? null,
+          motivoAnulacion: aMano?.motivo.slice(0, 200) ?? null,
+        },
       });
 
       if (count === 0) return false;

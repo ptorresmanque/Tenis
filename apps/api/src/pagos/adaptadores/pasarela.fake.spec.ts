@@ -50,6 +50,16 @@ describe('PasarelaFake', () => {
     });
   });
 
+  it('**dice el tipo de pago, las cuotas y el código, como Webpay** (T395)', async () => {
+    const { tokenPasarela } = await pasarela.iniciar(orden);
+
+    expect(await pasarela.confirmar(tokenPasarela)).toMatchObject({
+      tipoPago: 'VD',
+      numeroCuotas: 0,
+      codigoRespuesta: 0,
+    });
+  });
+
   it('se le puede pedir que rechace, con motivo', async () => {
     pasarela.respuesta = 'RECHAZADA';
     const { tokenPasarela } = await pasarela.iniciar(orden);

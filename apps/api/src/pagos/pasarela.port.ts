@@ -21,6 +21,14 @@ export interface ResultadoPago {
   montoClp: number;
   ultimosDigitos: string | null;
   motivoRechazo: string | null;
+  /**
+   * Lo demás que dice la pasarela, para Finanzas › Pagos (T395): el tipo de pago (en Webpay,
+   * VD débito, VN crédito, VC en cuotas, SI/S2/NC sin interés, VP prepago), las cuotas y el
+   * código de respuesta. Nulos si la pasarela no los manda.
+   */
+  tipoPago: string | null;
+  numeroCuotas: number | null;
+  codigoRespuesta: number | null;
 }
 
 /**

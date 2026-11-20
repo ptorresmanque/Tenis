@@ -57,10 +57,13 @@ model Usuario {
   creadoEn      DateTime @default(now()) @map("creado_en")
   actualizadoEn DateTime @updatedAt @map("actualizado_en")
 
-  socio         Socio?
-  profesor      Profesor?
-  sesiones      Sesion[]
-  transacciones Transaccion[]
+  socio                  Socio?
+  profesor               Profesor?
+  sesiones               Sesion[]
+  transacciones          Transaccion[] @relation("TransaccionDelUsuario")
+  /// Los pagos que revisó o devolvió desde Finanzas › Pagos (T395).
+  transaccionesRevisadas Transaccion[] @relation("TransaccionRevisada")
+  transaccionesAnuladas  Transaccion[] @relation("TransaccionAnulada")
 
   @@map("usuario")
 }
@@ -793,10 +796,36 @@ model Transaccion {
   creadaEn     DateTime  @default(now()) @map("creada_en")
   confirmadaEn DateTime? @map("confirmada_en")
 
-  // El pago sobrevive a la baja del usuario: es el registro de que el club cobró.
-  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  /// Lo que dijo la pasarela al confirmar (T395, `SPEC-panel.md` § Los pagos del club): el
+  /// tipo de pago de Webpay (VD débito, VN crédito, VC en cuotas, SI/S2/NC sin interés, VP
+  /// prepago), el número de cuotas y el código de respuesta. Antes se descartaban; Finanzas › Pagos
+  /// los muestra. Nulos en los pagos de antes.
+  tipoPago        String? @map("tipo_pago") @db.VarChar(2)
+  numeroCuotas    Int?    @map("numero_cuotas")
+  codigoRespuesta Int?    @map("codigo_respuesta")
+  /// El motivo del rechazo, como lo arma el adaptador. Antes servía solo en el momento.
+  motivoRechazo   String? @map("motivo_rechazo") @db.VarChar(200)
+
+  /// «Marcar como revisado» desde Finanzas › Pagos (T397): quién, cuándo y su nota.
+  revisadaPor  Int?      @map("revisada_por")
+  revisadaEn   DateTime? @map("revisada_en")
+  notaRevision String?   @map("nota_revision") @db.VarChar(200)
+
+  /// La devolución (T395): cuándo, siempre; quién y por qué, cuando fue a mano desde
+  /// Finanzas › Pagos (T397). Los nombres siguen los de `Cuota`.
+  anuladaPor      Int?      @map("anulada_por")
+  anuladaEn       DateTime? @map("anulada_en")
+  motivoAnulacion String?   @map("motivo_anulacion") @db.VarChar(200)
+
+  // El pago sobrevive a la baja del usuario: es el registro de que el club cobró. Lo
+  // mismo con quien lo revisó o lo devolvió: el registro queda, sin el nombre.
+  usuario  Usuario? @relation("TransaccionDelUsuario", fields: [usuarioId], references: [id], onDelete: SetNull)
+  revisor  Usuario? @relation("TransaccionRevisada", fields: [revisadaPor], references: [id], onDelete: SetNull)
+  anulador Usuario? @relation("TransaccionAnulada", fields: [anuladaPor], references: [id], onDelete: SetNull)
 
   @@index([usuarioId])
+  @@index([revisadaPor])
+  @@index([anuladaPor])
   @@map("transaccion")
 }
 

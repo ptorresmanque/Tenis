@@ -115,6 +115,14 @@ export class ConfirmacionService {
           estado: estadoNuevo,
           codigoAutorizacion: resultado.codigoAutorizacion,
           ultimosDigitos: resultado.ultimosDigitos,
+          // Lo demás que dijo la pasarela, para Finanzas › Pagos (T395). El motivo, recortado
+          // a su columna: es un texto del adaptador, y uno largo no puede tumbar la confirmación.
+          tipoPago: resultado.tipoPago?.slice(0, 2) ?? null,
+          numeroCuotas: resultado.numeroCuotas,
+          codigoRespuesta: resultado.codigoRespuesta,
+          motivoRechazo: autorizada
+            ? null
+            : (resultado.motivoRechazo?.slice(0, 200) ?? null),
           confirmadaEn: new Date(),
           requiereRevision: !montoCuadra,
         },
@@ -219,9 +227,8 @@ export class ConfirmacionService {
       montoClp: transaccion.montoClp,
       codigoAutorizacion: transaccion.codigoAutorizacion,
       ultimosDigitos: transaccion.ultimosDigitos,
-      // El motivo del rechazo no se guarda: lo que importa después es el estado, y
-      // el texto de la pasarela sirve en el momento, para quien está mirando.
-      motivoRechazo: null,
+      // Guardado desde T395: quien recarga la página de un pago rechazado ve por qué.
+      motivoRechazo: transaccion.motivoRechazo,
       requiereRevision: revisar,
     };
   }

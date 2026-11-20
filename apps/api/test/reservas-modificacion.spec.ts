@@ -886,6 +886,11 @@ describe('Modificación y cancelación de reservas', () => {
       expect(pasarela.anulaciones).toHaveLength(1);
       expect(pasarela.anulaciones[0].montoClp).toBe(12000);
       expect(pasarela.anulaciones[0].tokenPasarela).toBeTruthy();
+      // Queda cuándo se devolvió (T395): Finanzas › Pagos lo muestra.
+      const [pago] = await prisma.transaccion.findMany({
+        where: { concepto: 'RESERVA', conceptoId: reserva.id },
+      });
+      expect(pago.anuladaEn).toBeInstanceOf(Date);
     });
 
     it('con menos de 24 horas no hay devolución, y se explica por qué', async () => {
