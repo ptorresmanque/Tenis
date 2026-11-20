@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
-import { Marcador } from './marcador';
+import { Marcador, ReservaEnElTablero } from './marcador';
 import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
 /**
@@ -563,6 +563,187 @@ describe('Marcador', () => {
 
         expect(marcadas(el)).toEqual([true, true, false, false]);
       });
+    });
+  });
+
+  /**
+   * T389 (`SPEC-panel.md` § Reservas del panel, R4 y asunciones 4 a 7). En el panel, el mismo
+   * tablero del sitio dice de quién es cada hora: la reserva ocupa sus filas en una sola celda con
+   * el nombre, el tipo y el pago, y se toca para abrir su ficha. El día se ve entero, y el gestor
+   * no toma horas.
+   */
+  describe('en el panel', () => {
+    const MEDIA = 30 * 60 * 1000;
+    /** Hace dos horas, en punto: las primeras filas ya pasaron y alguna está corriendo. */
+    const base = enHoras(-2);
+    const a = (medias: number) => new Date(base.getTime() + medias * MEDIA);
+    /** Un día con un inicio cada media hora, como lo manda disponibilidad. */
+    const dia = (canchaId: number, tomadas: number[] = [], cambios: Record<number, Partial<BloqueDisponible>> = {}) =>
+      Array.from({ length: 12 }, (_, medias) =>
+        bloque(canchaId, a(medias), {
+          reservado: tomadas.includes(medias),
+          ...cambios[medias],
+        }),
+      );
+    const reserva = (cambios: Partial<ReservaEnElTablero> = {}): ReservaEnElTablero => ({
+      id: 41,
+      canchaId: 1,
+      inicio: a(6).toISOString(),
+      fin: a(8).toISOString(),
+      nombre: 'Camila Rojas',
+      esSocio: false,
+      pago: 'EN_LINEA',
+      ...cambios,
+    });
+
+    @Component({
+      imports: [Marcador],
+      template: `
+        <app-marcador
+          modo="elegir"
+          [grillas]="grillas()"
+          [reservas]="reservas()"
+          [todoElDia]="true"
+          [puedeElegir]="puedeElegir()"
+          (abrirReserva)="abiertas.push($event)"
+        />
+      `,
+    })
+    class HostDelPanel {
+      readonly grillas = signal<GrillaDeCancha[]>([]);
+      readonly reservas = signal<ReservaEnElTablero[]>([]);
+      readonly puedeElegir = signal(true);
+      readonly abiertas: number[] = [];
+    }
+
+    function montarEnElPanel(
+      reservas: ReservaEnElTablero[],
+      opciones: { puedeElegir?: boolean; tomadas?: number[]; cambios?: Record<number, Partial<BloqueDisponible>> } = {},
+    ) {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [provideRouter([])] });
+      const fixture = TestBed.createComponent(HostDelPanel);
+      fixture.componentInstance.grillas.set([
+        { cancha: cancha(1), bloques: dia(1, opciones.tomadas ?? [5, 6, 7], opciones.cambios) },
+        { cancha: cancha(2), bloques: dia(2) },
+      ]);
+      fixture.componentInstance.reservas.set(reservas);
+      fixture.componentInstance.puedeElegir.set(opciones.puedeElegir ?? true);
+      fixture.detectChanges();
+
+      return { fixture, el: fixture.nativeElement as HTMLElement };
+    }
+
+    const laReserva = (el: HTMLElement) =>
+      el.querySelector<HTMLButtonElement>('tbody button[data-reserva]');
+    const texto = (nodo: Element | null) => nodo?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+
+    it('**una reserva de 1 hora ocupa sus dos filas en una sola celda, con su nombre, su tipo y su pago**', () => {
+      const { el } = montarEnElPanel([reserva()]);
+
+      const td = laReserva(el)!.closest('td')!;
+      expect(td.getAttribute('rowspan')).toBe('2');
+      expect(texto(td)).toContain('Camila Rojas');
+      expect(texto(td)).toContain('Visitante');
+      expect(texto(td)).toContain('Pagada en línea');
+      // La fila que sigue no dibuja su celda en esa cancha: la cubre la de arriba.
+      expect(el.querySelectorAll('tbody tr')[7].querySelectorAll('td')).toHaveLength(1);
+    });
+
+    it('**una de 1 hora y media ocupa tres**', () => {
+      const { el } = montarEnElPanel([reserva({ fin: a(9).toISOString() })], {
+        tomadas: [5, 6, 7, 8],
+      });
+
+      expect(laReserva(el)!.closest('td')!.getAttribute('rowspan')).toBe('3');
+    });
+
+    it('**el lector la oye completa, y tocarla abre su ficha**', () => {
+      const { fixture, el } = montarEnElPanel([reserva()]);
+      const boton = laReserva(el)!;
+
+      expect(boton.getAttribute('aria-label')).toBe(
+        `Camila Rojas, visitante, pagada en línea: de ${horaEnElClub(a(6).toISOString())} a ` +
+          `${horaEnElClub(a(8).toISOString())} en la Cancha 1. Ver la ficha`,
+      );
+
+      boton.click();
+      expect(fixture.componentInstance.abiertas).toEqual([41]);
+    });
+
+    it('cada pago se dice con palabras, y la que espera el pago va punteada', () => {
+      const pagos = {
+        SIN_COBRO: 'Sin cobro',
+        ESPERANDO: 'Esperando el pago',
+        EN_LINEA: 'Pagada en línea',
+        EN_EL_MESON: 'Paga en el mesón',
+      } as const;
+
+      for (const [pago, palabras] of Object.entries(pagos)) {
+        const { el } = montarEnElPanel([
+          reserva({ pago: pago as ReservaEnElTablero['pago'], esSocio: pago === 'SIN_COBRO' }),
+        ]);
+        const boton = laReserva(el)!;
+
+        expect(texto(boton)).toContain(palabras);
+        expect(boton.classList.contains('border-dashed')).toBe(pago === 'ESPERANDO');
+      }
+    });
+
+    it('la del socio dice «Socio»', () => {
+      const { el } = montarEnElPanel([reserva({ esSocio: true, pago: 'SIN_COBRO' })]);
+
+      expect(texto(laReserva(el))).toContain('Socio');
+    });
+
+    it('**la media hora tomada sin reserva detrás dice «Ocupada», sin botón**', () => {
+      // A las 09:30 no cabe una hora entera antes de la reserva de las 10:00: el sitio la
+      // muestra ocupada, y en el panel no hay ficha que abrir.
+      const { el } = montarEnElPanel([reserva()]);
+
+      expect(celda(el, 5, 1).querySelector('button')).toBeNull();
+      expect(texto(celda(el, 5, 1))).toBe('Ocupada');
+    });
+
+    it('**con el día entero, se ven las filas que ya pasaron, y su libre no tiene botón**', () => {
+      const { el } = montarEnElPanel([]);
+      const primera = el.querySelector('tbody tr th')!;
+
+      expect(texto(primera)).toContain(horaEnElClub(a(0).toISOString()));
+      expect(celda(el, 0, 1).querySelector('button')).toBeNull();
+      expect(texto(celda(el, 0, 1))).toBe('Libre');
+    });
+
+    it('la hora que está corriendo todavía se puede tomar', () => {
+      // La de hace dos horas en punto más cuatro medias: empezó y no ha terminado.
+      const { el } = montarEnElPanel([]);
+
+      expect(celda(el, 4, 1).querySelector('button')).not.toBeNull();
+    });
+
+    it('**al gestor, lo libre no le ofrece nada, y las reservas sí se abren**', () => {
+      const { el } = montarEnElPanel([reserva()], { puedeElegir: false });
+      const botones = [...el.querySelectorAll('tbody button')];
+
+      expect(botones).toHaveLength(1);
+      expect(botones[0].hasAttribute('data-reserva')).toBe(true);
+      // Es la parada del tablero: se llega a ella con Tab.
+      expect((botones[0] as HTMLButtonElement).tabIndex).toBe(0);
+    });
+
+    it('la leyenda dice que la reserva se toca para ver su ficha', () => {
+      const { el } = montarEnElPanel([reserva()]);
+
+      expect(texto(el.querySelector('ul'))).toContain('Reserva: tócala para ver su ficha');
+    });
+
+    it('la clase no lleva a las clases del sitio', () => {
+      const { el } = montarEnElPanel([], {
+        tomadas: [],
+        cambios: { 8: { bloqueado: true, motivoBloqueo: 'CLASE' } },
+      });
+
+      expect(el.querySelector('a[href="/clases"]')).toBeNull();
     });
   });
 });
