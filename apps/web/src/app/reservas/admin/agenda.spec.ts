@@ -35,6 +35,7 @@ describe('AgendaDelDia', () => {
     acompanantes: [],
     observaciones: [],
     observacionesAnteriores: 0,
+    pago: 'EN_EL_MESON',
   };
 
   /** Una clase ocupa cancha igual que una reserva, y el mesón la mira ahí mismo. */

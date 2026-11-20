@@ -2,15 +2,28 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 
 import type { DuracionMin } from '../catalogo-canchas/bloques';
 import { comoFechaCivil, hoyEnElClub } from '../comun/tiempo';
-import { EstadoSocio } from '../generated/prisma/client';
+import {
+  ConceptoPago,
+  EstadoSocio,
+  EstadoTransaccion,
+} from '../generated/prisma/client';
 import {
   estaAlDia,
   finDeLaGracia,
   UsuarioActual,
 } from '../identidad/usuario-actual';
+import { pagoWebpay, type PagoWebpay } from '../pagos/pago-webpay';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcompananteDeclarado } from './cupo';
 import { ReservaCreada, ReservasService } from './reservas.service';
+import { correspondeReembolso } from './ventanas';
+
+/** Lo que dijo Webpay de una reserva, para su ficha en el panel (T387). */
+export interface PagosDeLaReserva {
+  pagos: PagoWebpay[];
+  /** Si cancelarla ahora devolvería lo pagado. Falso si no hay nada pagado. */
+  devolucionAlCancelar: boolean;
+}
 
 /** Lo que el mesón alcanza a ver del cupo antes de tomar la hora por teléfono. */
 export interface CupoDelSocio {
@@ -111,6 +124,45 @@ export class ReservaDelAdminService {
       cupoDiarioSocioReservas: config.cupoDiarioSocioReservas,
       cupoPicoSemanalReservas: config.cupoPicoSemanalReservas,
       invitadosPorMes: config.invitadosPorMes,
+    };
+  }
+
+  /**
+   * Los pagos por Webpay de una reserva, para su ficha en el panel (T387), y si cancelarla
+   * ahora los devolvería. La regla es la de `ModificacionService.cancelar`: contra el bloque
+   * que se compró, no contra el reagendado.
+   */
+  async pagosDe(
+    reservaId: number,
+    ahora = new Date(),
+  ): Promise<PagosDeLaReserva> {
+    const reserva = await this.prisma.reserva.findUnique({
+      where: { id: reservaId },
+      select: { id: true, inicio: true },
+    });
+
+    if (!reserva) throw new NotFoundException('No encontramos esa reserva.');
+
+    const [transacciones, ventanas] = await Promise.all([
+      this.prisma.transaccion.findMany({
+        where: { concepto: ConceptoPago.RESERVA, conceptoId: reserva.id },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.configuracionClub.findFirstOrThrow(),
+    ]);
+    const compra = transacciones.find(
+      ({ estado }) => estado === EstadoTransaccion.AUTORIZADA,
+    );
+
+    return {
+      pagos: transacciones.map(pagoWebpay),
+      devolucionAlCancelar:
+        compra !== undefined &&
+        correspondeReembolso(
+          compra.inicioBloqueOriginal ?? reserva.inicio,
+          ahora,
+          ventanas,
+        ),
     };
   }
 

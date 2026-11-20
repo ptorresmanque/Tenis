@@ -4,8 +4,10 @@ import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
 import {
+  ConceptoPago,
   EstadoReserva,
   EstadoSocio,
+  EstadoTransaccion,
   MotivoBloqueo,
   Superficie,
 } from '../src/generated/prisma/client';
@@ -374,6 +376,171 @@ describe('GET /api/admin/reservas', () => {
    * bloques de una hora que empiezan cada media hora marcaría cerrada la media hora de
    * antes. Las clases no vienen: la agenda ya las trae con su profesor.
    */
+  /**
+   * T387 (`SPEC-panel.md` § Reservas del panel, RD1 y asunción 6). Cada reserva dice cómo
+   * se paga, con palabras en el tablero; lo que dijo Webpay va solo en la ficha, al admin.
+   */
+  describe('el pago de cada reserva (T387)', () => {
+    /** Una reserva a las 10:00 del día, con lo que cada caso necesite. */
+    const unaReserva = (
+      folio: string,
+      parche: { estado?: EstadoReserva; socioId?: number } = {},
+      inicio = new Date(A_LAS_10),
+    ) =>
+      prisma.reserva.create({
+        data: {
+          folio,
+          canchaId,
+          inicio,
+          fin: new Date(inicio.getTime() + 60 * 60 * 1000),
+          estado: parche.estado ?? EstadoReserva.CONFIRMADA,
+          socioId: parche.socioId,
+          nombre: `Titular ${folio}`,
+          email: `visitante${DOMINIO}`,
+          telefono: '',
+        },
+        select: { id: true, inicio: true },
+      });
+
+    const suPago = (
+      reserva: { id: number; inicio: Date },
+      estado: EstadoTransaccion,
+    ) =>
+      prisma.transaccion.create({
+        data: {
+          referencia: `T387-${reserva.id}-${estado}-${Date.now()}`,
+          concepto: ConceptoPago.RESERVA,
+          conceptoId: reserva.id,
+          montoClp: 12000,
+          pasarela: 'webpay',
+          estado,
+          tokenPasarela: `token-t387-${reserva.id}-${estado}`,
+          codigoAutorizacion:
+            estado === EstadoTransaccion.AUTORIZADA ? '1213' : null,
+          ultimosDigitos: '6623',
+          inicioBloqueOriginal: reserva.inicio,
+          confirmadaEn: new Date(),
+        },
+      });
+
+    const pagoDe = async (folio: string) =>
+      ((await pedirElDia()).body as { folio: string; pago: string }[]).find(
+        (fila) => fila.folio === folio,
+      )?.pago;
+
+    it('**la del socio no se cobra**', async () => {
+      const usuario = await prisma.usuario.findUniqueOrThrow({
+        where: { email: `socio${DOMINIO}` },
+        select: { id: true },
+      });
+      const socio = await prisma.socio.create({
+        data: {
+          usuarioId: usuario.id,
+          numeroSocio: 'T387-001',
+          estado: EstadoSocio.ACTIVO,
+          fechaIngreso: new Date('2026-01-01'),
+          alDiaHasta: new Date('2027-01-01'),
+        },
+        select: { id: true },
+      });
+      await unaReserva('T387SOC', { socioId: socio.id });
+
+      expect(await pagoDe('T387SOC')).toBe('SIN_COBRO');
+    });
+
+    it('**la que espera la vuelta de Webpay dice que espera**', async () => {
+      const reserva = await unaReserva('T387ESP', {
+        estado: EstadoReserva.PENDIENTE_PAGO,
+      });
+      await suPago(reserva, EstadoTransaccion.PENDIENTE);
+
+      expect(await pagoDe('T387ESP')).toBe('ESPERANDO');
+    });
+
+    it('**la pagada en línea lo dice**', async () => {
+      const reserva = await unaReserva('T387LIN');
+      await suPago(reserva, EstadoTransaccion.AUTORIZADA);
+
+      expect(await pagoDe('T387LIN')).toBe('EN_LINEA');
+    });
+
+    it('**la del visitante sin ningún pago autorizado se paga en el mesón**', async () => {
+      await unaReserva('T387MES');
+      // Un intento rechazado no la hace «pagada en línea».
+      const otra = await unaReserva('T387REC', {}, new Date(A_LAS_11));
+      await suPago(otra, EstadoTransaccion.RECHAZADA);
+
+      expect(await pagoDe('T387MES')).toBe('EN_EL_MESON');
+      expect(await pagoDe('T387REC')).toBe('EN_EL_MESON');
+    });
+
+    describe('GET /api/admin/reservas/:id/pagos', () => {
+      const pedirSusPagos = (id: number, cookie = cookieAdmin) =>
+        request(app.getHttpServer())
+          .get(`/api/admin/reservas/${id}/pagos`)
+          .set('Cookie', cookie);
+
+      // En 2037: para que cancelar todavía devuelva, faltan más de 24 horas.
+      const MAS_ADELANTE = new Date('2037-09-14T21:00:00.000Z');
+
+      it('**trae lo que dijo Webpay de cada pago, y si cancelar lo devolvería**', async () => {
+        const reserva = await unaReserva('T387FIC', {}, MAS_ADELANTE);
+        await suPago(reserva, EstadoTransaccion.AUTORIZADA);
+
+        const respuesta = await pedirSusPagos(reserva.id);
+
+        expect(respuesta.status).toBe(200);
+        expect(respuesta.body).toMatchObject({
+          devolucionAlCancelar: true,
+          pagos: [
+            {
+              montoClp: 12000,
+              estado: EstadoTransaccion.AUTORIZADA,
+              codigoAutorizacion: '1213',
+              ultimosDigitos: '6623',
+              requiereRevision: false,
+            },
+          ],
+        });
+      });
+
+      it('**el token de la pasarela no sale nunca**', async () => {
+        const reserva = await unaReserva('T387TOK', {}, MAS_ADELANTE);
+        await suPago(reserva, EstadoTransaccion.AUTORIZADA);
+
+        const respuesta = await pedirSusPagos(reserva.id);
+
+        expect(respuesta.text).not.toContain('token-t387');
+        expect(respuesta.text).not.toContain('tokenPasarela');
+      });
+
+      it('una reserva del día que ya pasó no se devolvería', async () => {
+        const reserva = await unaReserva('T387PAS');
+        await suPago(reserva, EstadoTransaccion.AUTORIZADA);
+
+        expect((await pedirSusPagos(reserva.id)).body).toMatchObject({
+          devolucionAlCancelar: false,
+        });
+      });
+
+      it('sin pagos, la lista viene vacía y no hay nada que devolver', async () => {
+        const reserva = await unaReserva('T387NAD', {}, MAS_ADELANTE);
+
+        expect((await pedirSusPagos(reserva.id)).body).toEqual({
+          pagos: [],
+          devolucionAlCancelar: false,
+        });
+      });
+
+      it('una reserva que no existe es 404, y un socio no entra: 403', async () => {
+        await pedirSusPagos(999_999_999).expect(404);
+
+        const reserva = await unaReserva('T387SOC2', {}, MAS_ADELANTE);
+        await pedirSusPagos(reserva.id, cookieSocio).expect(403);
+      });
+    });
+  });
+
   describe('los bloqueos del día (T270)', () => {
     const pedirBloqueos = (fecha = DIA, cookie = cookieAdmin) =>
       request(app.getHttpServer())

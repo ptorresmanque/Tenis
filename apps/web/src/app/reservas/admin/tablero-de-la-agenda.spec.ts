@@ -62,6 +62,7 @@ describe('El tablero de la agenda', () => {
     acompanantes: [],
     observaciones: [],
     observacionesAnteriores: 0,
+    pago: 'SIN_COBRO',
     ...cambios,
   });
 

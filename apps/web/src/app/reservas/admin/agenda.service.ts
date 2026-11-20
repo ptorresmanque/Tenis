@@ -21,6 +21,29 @@ export interface ReservaDelDia {
   observaciones: ObservacionDeReserva[];
   /** Cuántas tiene el socio en reservas de días anteriores. */
   observacionesAnteriores: number;
+  /** Cómo se paga, para decirlo en el tablero (T387). Lo que dijo Webpay va en la ficha. */
+  pago: 'SIN_COBRO' | 'ESPERANDO' | 'EN_LINEA' | 'EN_EL_MESON';
+}
+
+/** Espejo de `PagoWebpay` en la API: lo que dijo Webpay de un pago, sin el token. */
+export interface PagoWebpay {
+  id: number;
+  /** La orden de compra que viajó a la pasarela. */
+  referencia: string;
+  montoClp: number;
+  estado: 'PENDIENTE' | 'AUTORIZADA' | 'RECHAZADA' | 'ANULADA' | 'EXPIRADA';
+  pasarela: string;
+  codigoAutorizacion: string | null;
+  ultimosDigitos: string | null;
+  creadaEn: string;
+  confirmadaEn: string | null;
+  requiereRevision: boolean;
+}
+
+/** Los pagos de una reserva y si cancelarla ahora los devolvería (T387). */
+export interface PagosDeLaReserva {
+  pagos: PagoWebpay[];
+  devolucionAlCancelar: boolean;
 }
 
 /** Una nota del mesón sobre una reserva (T225). */
@@ -106,6 +129,13 @@ export class Agenda {
       this.http.get<ObservacionDelHistorial[]>('/api/admin/reservas/observaciones', {
         params: { socioId },
       }),
+    );
+  }
+
+  /** Lo que dijo Webpay de una reserva, para su ficha. Solo el admin (T387). */
+  pagosDe(reservaId: number): Promise<PagosDeLaReserva> {
+    return firstValueFrom(
+      this.http.get<PagosDeLaReserva>(`/api/admin/reservas/${reservaId}/pagos`),
     );
   }
 
