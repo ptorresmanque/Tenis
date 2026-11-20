@@ -17,7 +17,7 @@ describe('Finanzas', () => {
     expect(montar().querySelector('h1')?.textContent?.trim()).toBe('Finanzas');
   });
 
-  it('**tiene las cuatro pestañas, en el orden que pidió el usuario**', () => {
+  it('**tiene las cinco pestañas, en el orden que pidió el usuario**: Pagos, la última (T398)', () => {
     const pestanas = [...montar().querySelectorAll('nav[mat-tab-nav-bar] a')];
 
     expect(pestanas.map((a) => a.textContent?.trim())).toEqual([
@@ -25,12 +25,14 @@ describe('Finanzas', () => {
       'Padrón y morosidad',
       'Cuotas',
       'Socios con deuda',
+      'Pagos',
     ]);
     expect(pestanas.map((a) => a.getAttribute('href'))).toEqual([
       '/administracion/finanzas/ingreso',
       '/administracion/finanzas/padron',
       '/administracion/finanzas/cuotas',
       '/administracion/finanzas/morosos',
+      '/administracion/finanzas/pagos',
     ]);
   });
 });

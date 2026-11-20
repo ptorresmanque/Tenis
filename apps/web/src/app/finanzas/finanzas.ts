@@ -26,5 +26,7 @@ export class Finanzas {
     { ruta: '/administracion/finanzas/padron', etiqueta: 'Padrón y morosidad' },
     { ruta: '/administracion/finanzas/cuotas', etiqueta: 'Cuotas' },
     { ruta: '/administracion/finanzas/morosos', etiqueta: 'Socios con deuda' },
+    // T398: los pagos uno por uno, de Webpay y del mesón.
+    { ruta: '/administracion/finanzas/pagos', etiqueta: 'Pagos' },
   ];
 }

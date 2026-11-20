@@ -461,6 +461,12 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./cuotas/admin/morosos').then((m) => m.MorososPanel),
           },
+          {
+            // T398 (SPEC-panel.md § Los pagos del club): los pagos de Webpay y del mesón.
+            path: 'pagos',
+            title: 'Finanzas · Pagos — Administración',
+            loadComponent: () => import('./finanzas/pagos').then((m) => m.PagosPanel),
+          },
         ],
       },
       {
