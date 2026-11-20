@@ -1,7 +1,10 @@
 import {
+  afterNextRender,
   Component,
   computed,
+  ElementRef,
   inject,
+  Injector,
   input,
   linkedSignal,
   output,
@@ -10,7 +13,9 @@ import {
   TemplateRef,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButton } from '@angular/material/button';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -25,10 +30,12 @@ import { errorDelCampo, proveerCampos } from '../../ui/campos';
 import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
 import { diaEnPalabras, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
-import { Socios } from '../../identidad/admin/socios.service';
+import { SocioDelClub, Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
 import { ReservasDelAdmin } from './nueva-reserva.service';
 import { TelefonoDirective } from '../../ui/telefono';
+import { CampoDeAcompanantes, clave } from '../campo-de-acompanantes';
+import { AcompananteNuevo } from '../reservas.service';
 
 /**
  * La hora que el club toma por teléfono o con alguien en el mostrador.
@@ -50,6 +57,9 @@ import { TelefonoDirective } from '../../ui/telefono';
     MatInput,
     MatButton,
     FormsModule,
+    ReactiveFormsModule,
+    MatAutocompleteModule,
+    CampoDeAcompanantes,
     Aviso,
     MatButtonToggleModule,
     TelefonoDirective,
@@ -151,26 +161,38 @@ import { TelefonoDirective } from '../../ui/telefono';
           </mat-form-field>
 
           @if (paraQuien() === 'socio') {
+            <!-- Con autocompletado y no un select: el padrón tiene cientos de socios, y el
+                 lineamiento pide buscar pasadas las quince opciones (T388). Solo los activos:
+                 la API no le toma la hora a un suspendido ni a un retirado. -->
             <mat-form-field>
               <mat-label>Socio</mat-label>
-              <mat-select
-                name="socio"
-                [value]="socioId()"
-                (selectionChange)="socioId.set($event.value)"
-              >
-                <mat-option [value]="0">
-                  {{ socios.isLoading() ? 'Cargando los socios…' : 'Elige un socio' }}
-                </mat-option>
-                @if (socios.hasValue()) {
-                  @for (socio of socios.value().socios; track socio.id) {
-                    <mat-option [value]="socio.id">
-                      {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                      {{ socio.usuario.apellido }}
-                    </mat-option>
-                  }
+              <input
+                matInput
+                id="titular"
+                name="titular"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                [formControl]="titular"
+                [matAutocomplete]="titulares"
+              />
+              <mat-autocomplete #titulares requireSelection [displayWith]="nombreDelTitular">
+                @for (socio of titularesFiltrados(); track socio.id) {
+                  <mat-option [value]="socio.id">{{ comoTitular(socio) }}</mat-option>
+                } @empty {
+                  <mat-option disabled>
+                    {{ socios.isLoading() ? 'Cargando los socios…' : 'Sin resultados' }}
+                  </mat-option>
                 }
-              </mat-select>
+              </mat-autocomplete>
+              <mat-hint>Por su nombre o su número de socio.</mat-hint>
+              <mat-error>Elige un socio de la lista.</mat-error>
             </mat-form-field>
+            @if (socios.error()) {
+              <p class="text-sm text-destructive">
+                No se pudo cargar la lista de socios. Reintenta en un momento.
+              </p>
+            }
 
             @if (cupo.error()) {
               <p class="text-sm text-destructive">
@@ -225,20 +247,24 @@ import { TelefonoDirective } from '../../ui/telefono';
               </div>
             }
 
-            <!-- El socio no juega solo: la regla es la misma que en la web, y el mesón
-                 no es una puerta para saltársela. -->
-            <mat-form-field>
-              <mat-label>Con quién juega</mat-label>
-              <input
-                matInput
-                name="acompanante"
-                placeholder="Nombre del invitado"
-                [(ngModel)]="acompanante"
+            <!-- El socio no juega solo: la regla es la misma que en la web, y el mesón no es
+                 una puerta para saltársela. El campo es el del sitio (T388): sugiere a los otros
+                 socios, y el que se elige no le gasta al titular una reserva con invitados. -->
+            <fieldset class="grid gap-2">
+              <legend class="font-display text-sm font-bold tracking-wide uppercase">
+                Con quién juega
+              </legend>
+              <p class="text-sm text-muted-foreground">
+                Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta una de sus
+                reservas con invitados del mes, traiga uno o tres.
+              </p>
+              <app-campo-de-acompanantes
+                [socios]="sugeribles()"
+                nombreDeLaLista="Quienes juegan con el socio"
+                [(acompanantes)]="acompanantes"
+                (completo)="enfocarCrear()"
               />
-              <mat-hint>
-                Con invitados, la reserva gasta una de sus reservas con invitados del mes.
-              </mat-hint>
-            </mat-form-field>
+            </fieldset>
           } @else {
             <mat-form-field>
               <mat-label>A nombre de <span aria-hidden="true">*</span></mat-label>
@@ -277,6 +303,7 @@ import { TelefonoDirective } from '../../ui/telefono';
           <div class="flex justify-end gap-2">
             <button matButton type="button" mat-dialog-close>Cancelar</button>
             <button
+              #crearReserva
               matButton="filled"
               type="submit"
               [disabled]="enviando()"
@@ -326,8 +353,14 @@ export class NuevaReserva {
   protected readonly duracion = signal<DuracionMin>(60);
   protected readonly canchaId = linkedSignal(() => this.cancha() ?? 0);
   protected readonly inicioElegido = linkedSignal(() => this.inicio() ?? '');
-  protected readonly socioId = signal(0);
-  protected acompanante = '';
+  /** El titular: mientras se escribe es texto; elegido de la lista, su id (T388). */
+  protected readonly titular = new FormControl<number | string | null>(null, Validators.required);
+  private readonly valorDelTitular = toSignal(this.titular.valueChanges, { initialValue: null });
+  protected readonly socioId = computed(() => {
+    const valor = this.valorDelTitular();
+    return typeof valor === 'number' ? valor : 0;
+  });
+  protected readonly acompanantes = signal<AcompananteNuevo[]>([]);
   protected nombre = '';
   protected email = '';
   protected telefono = '';
@@ -347,6 +380,52 @@ export class NuevaReserva {
   );
 
   protected readonly socios = resource({ loader: () => this.sociosApi.listado() });
+
+  /** Los socios a los que se les toma una hora: la API rechaza a los suspendidos y retirados. */
+  private readonly activos = computed(() =>
+    this.socios.hasValue()
+      ? this.socios.value().socios.filter(({ estado }) => estado === 'ACTIVO')
+      : [],
+  );
+
+  /** Los que calzan con lo escrito en el titular, por su nombre o su número. */
+  protected readonly titularesFiltrados = computed(() => {
+    const valor = this.valorDelTitular();
+    const escrito = typeof valor === 'string' ? clave(valor) : '';
+
+    return this.activos().filter((socio) => clave(this.comoTitular(socio)).includes(escrito));
+  });
+
+  /** Con quién puede jugar el titular: los otros activos, no él mismo. */
+  protected readonly sugeribles = computed(() =>
+    this.activos()
+      .filter(({ id }) => id !== this.socioId())
+      .map((socio) => ({
+        numeroSocio: socio.numeroSocio,
+        nombre: `${socio.usuario.nombre} ${socio.usuario.apellido}`.trim(),
+      })),
+  );
+
+  protected comoTitular(socio: SocioDelClub): string {
+    return `${socio.numeroSocio} · ${socio.usuario.nombre} ${socio.usuario.apellido}`.trim();
+  }
+
+  /** Lo que el campo muestra una vez elegido: el autocompletar guarda el id. */
+  protected readonly nombreDelTitular = (id: number | null): string => {
+    const socio = this.activos().find((uno) => uno.id === id);
+    return socio ? this.comoTitular(socio) : '';
+  };
+
+  private readonly campoDeAcompanantes = viewChild(CampoDeAcompanantes);
+  private readonly crearReserva = viewChild('crearReserva', { read: ElementRef<HTMLButtonElement> });
+  private readonly injector = inject(Injector);
+
+  /** Con los tres declarados, el foco va a «Crear reserva»: no queda nada más que escribir. */
+  protected enfocarCrear(): void {
+    afterNextRender(() => this.crearReserva()?.nativeElement.focus(), {
+      injector: this.injector,
+    });
+  }
 
   /** El cupo se pide al elegir socio: es lo que el club mira antes de decidir. */
   protected readonly cupo = resource({
@@ -409,6 +488,8 @@ export class NuevaReserva {
 
   protected async crear(): Promise<void> {
     this.error.set(null);
+    // «Agregar» es un paso que se salta fácil: lo escrito a la vista también cuenta.
+    this.campoDeAcompanantes()?.agregarLoEscrito();
 
     // La de una franja que no abre una hora entera (la última media hora del día) no está
     // entre las libres: se elige otra, en vez de mandarle a la API una que va a rechazar.
@@ -427,9 +508,7 @@ export class NuevaReserva {
         ...(this.paraQuien() === 'socio'
           ? {
               socioId: this.socioId(),
-              acompanantes: this.acompanante.trim()
-                ? [{ nombre: this.acompanante.trim() }]
-                : [],
+              acompanantes: this.acompanantes(),
             }
           : {
               nombre: this.nombre.trim(),

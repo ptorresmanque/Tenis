@@ -1,4 +1,6 @@
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatAutocompleteHarness } from '@angular/material/autocomplete/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Disponibilidad, GrillaDeCancha } from '../../catalogo-canchas/disponibilidad';
@@ -62,6 +64,20 @@ describe('NuevaReserva', () => {
 
   /** Es un MatDialog (T252): su contenido está en el contenedor de overlays. */
   const dialogo = () => document.querySelector('mat-dialog-container') as HTMLElement;
+
+  /**
+   * El titular, como lo elige quien atiende el mesón: escribe parte del nombre y toca la
+   * sugerencia (T388). Con cientos de socios, un `mat-select` no se recorre.
+   */
+  const elegirTitular = async (texto: RegExp) => {
+    const campo = await TestbedHarnessEnvironment.documentRootLoader(fixture).getHarness(
+      MatAutocompleteHarness.with({ selector: '#titular' }),
+    );
+    await campo.focus();
+    await campo.selectOption({ text: texto });
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
 
   const horasOfrecidas = () =>
     opcionesDe(fixture, 'mat-select[name="hora"]')
@@ -329,7 +345,14 @@ describe('NuevaReserva', () => {
           useValue: {
             listado: () =>
               Promise.resolve({
-                socios: [{ id: 3, numeroSocio: '002', usuario: { nombre: 'Matías', apellido: 'Rojas' } }],
+                socios: [
+                  {
+                    id: 3,
+                    numeroSocio: '002',
+                    estado: 'ACTIVO',
+                    usuario: { nombre: 'Matías', apellido: 'Rojas' },
+                  },
+                ],
               }),
           },
         },
@@ -345,7 +368,7 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    await elegir(fixture, 'mat-select[name="socio"]', 3);
+    await elegirTitular(/Matías Rojas/);
 
     expect(dialogo().textContent).toContain(
       'No se pudo cargar el cupo',
@@ -364,7 +387,14 @@ describe('NuevaReserva', () => {
           useValue: {
             listado: () =>
               Promise.resolve({
-                socios: [{ id: 3, numeroSocio: '002', usuario: { nombre: 'Matías', apellido: 'Rojas' } }],
+                socios: [
+                  {
+                    id: 3,
+                    numeroSocio: '002',
+                    estado: 'ACTIVO',
+                    usuario: { nombre: 'Matías', apellido: 'Rojas' },
+                  },
+                ],
               }),
           },
         },
@@ -397,7 +427,7 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    await elegir(fixture, 'mat-select[name="socio"]', 3);
+    await elegirTitular(/Matías Rojas/);
 
     const texto = (dialogo().textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('Reservas de ese día: 1 de 1');
@@ -419,7 +449,14 @@ describe('NuevaReserva', () => {
           useValue: {
             listado: () =>
               Promise.resolve({
-                socios: [{ id: 3, numeroSocio: '002', usuario: { nombre: 'Matías', apellido: 'Rojas' } }],
+                socios: [
+                  {
+                    id: 3,
+                    numeroSocio: '002',
+                    estado: 'ACTIVO',
+                    usuario: { nombre: 'Matías', apellido: 'Rojas' },
+                  },
+                ],
               }),
           },
         },
@@ -452,7 +489,7 @@ describe('NuevaReserva', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    await elegir(fixture, 'mat-select[name="socio"]', 3);
+    await elegirTitular(/Matías Rojas/);
 
     const texto = (dialogo().textContent ?? '').replace(/\s+/g, ' ');
     expect(texto).toContain('En gracia hasta el jueves, 5 de noviembre');
@@ -487,5 +524,102 @@ describe('NuevaReserva', () => {
     expect(dialogo().textContent).toContain(
       'Cargando las horas libres…',
     );
+  });
+
+  /**
+   * T388 (`SPEC-panel.md` § Reservas del panel, R1 y R2). «Con quién juega» es el campo del
+   * sitio: sugiere a los socios del club, y el que se elige sale como socio y no gasta una
+   * reserva con invitados del titular.
+   */
+  describe('con quién juega el socio (T388)', () => {
+    const PADRON = [
+      { id: 3, numeroSocio: '002', estado: 'ACTIVO', usuario: { nombre: 'Matías', apellido: 'Rojas' } },
+      { id: 4, numeroSocio: '008', estado: 'ACTIVO', usuario: { nombre: 'Ana', apellido: 'Fuentes' } },
+      { id: 5, numeroSocio: '010', estado: 'SUSPENDIDO', usuario: { nombre: 'Pedro', apellido: 'Suspendido' } },
+      { id: 6, numeroSocio: '011', estado: 'RETIRADO', usuario: { nombre: 'Rita', apellido: 'Retirada' } },
+    ];
+    let crear: ReturnType<typeof vi.fn>;
+
+    const cargador = () => TestbedHarnessEnvironment.documentRootLoader(fixture);
+    const acompanantes = () =>
+      cargador().getHarness(MatAutocompleteHarness.with({ selector: '#acompanante' }));
+    const textos = async (campo: MatAutocompleteHarness) =>
+      Promise.all((await campo.getOptions()).map((opcion) => opcion.getText()));
+
+    beforeEach(async () => {
+      crear = vi.fn().mockResolvedValue({ id: 1, folio: 'MESON2' });
+      fixture.destroy();
+      await new Promise((listo) => setTimeout(listo));
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: Disponibilidad, useValue: { delDia: () => Promise.resolve(DIA) } },
+          { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: PADRON }) } },
+          {
+            provide: ReservasDelAdmin,
+            useValue: { cupoDe: () => Promise.resolve(undefined), crear },
+          },
+        ],
+      });
+
+      fixture = TestBed.createComponent(NuevaReserva);
+      fixture.componentRef.setInput('fecha', '2026-08-17');
+      fixture.componentRef.setInput('cancha', 1);
+      fixture.componentRef.setInput('inicio', DIA[0].bloques[2].inicio);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    });
+
+    it('**el titular se elige entre los socios activos**', async () => {
+      const titular = await cargador().getHarness(
+        MatAutocompleteHarness.with({ selector: '#titular' }),
+      );
+      await titular.focus();
+
+      expect(await textos(titular)).toEqual(['002 · Matías Rojas', '008 · Ana Fuentes']);
+    });
+
+    it('**sugiere a los otros socios activos, sin el titular**', async () => {
+      await elegirTitular(/Matías Rojas/);
+      const campo = await acompanantes();
+      await campo.focus();
+
+      expect(await textos(campo)).toEqual(['Ana Fuentes · N.º 008 · Socio del club']);
+    });
+
+    it('**el socio elegido sale como socio; un nombre suelto, como invitado**', async () => {
+      await elegirTitular(/Matías Rojas/);
+      const campo = await acompanantes();
+      await campo.enterText('ana');
+      await campo.selectOption({ text: /Ana Fuentes/ });
+      await campo.enterText('Juan Pérez');
+      [...dialogo().querySelectorAll('button')]
+        .find((boton) => boton.textContent?.trim() === 'Agregar')!
+        .click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      dialogo().querySelector('form')!.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+
+      expect(crear).toHaveBeenCalledWith(
+        expect.objectContaining({
+          socioId: 3,
+          acompanantes: [{ numeroSocio: '008' }, { nombre: 'Juan Pérez' }],
+        }),
+      );
+    });
+
+    it('lo escrito sin apretar «Agregar» también cuenta al crear', async () => {
+      await elegirTitular(/Matías Rojas/);
+      await (await acompanantes()).enterText('Juan Pérez');
+
+      dialogo().querySelector('form')!.dispatchEvent(new Event('submit'));
+      await fixture.whenStable();
+
+      expect(crear).toHaveBeenCalledWith(
+        expect.objectContaining({ acompanantes: [{ nombre: 'Juan Pérez' }] }),
+      );
+    });
   });
 });
