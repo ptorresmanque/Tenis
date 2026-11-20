@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { alternar } from '../../testing/alternar';
 import { elegir as elegirOpcion, textosDe } from '../../testing/elegir';
 import { Clases, FichaDeClase } from '../clases.service';
 import { InscritosDeLaClase } from './inscritos';
@@ -108,6 +109,27 @@ describe('InscritosDeLaClase', () => {
     await apretar('Inscribir');
 
     expect(api.inscribir).toHaveBeenCalledWith(7, { socioId: 3 });
+  });
+
+  it('**el teléfono del alumno de afuera llega a la API**, con el 56 del país', async () => {
+    // La referencia `#telefono` de la plantilla tapaba la propiedad del mismo nombre: el campo
+    // recibía el NgModel en vez del texto, y el teléfono no viajaba.
+    await alternar(fixture, 'alumno');
+    const escribir = (nombre: string, valor: string) => {
+      const campo = elemento().querySelector<HTMLInputElement>(`input[name="${nombre}"]`)!;
+      campo.value = valor;
+      campo.dispatchEvent(new Event('input'));
+    };
+    escribir('nombre', 'Pedro Afuera');
+    escribir('telefono', '9 1234 5678');
+    await fixture.whenStable();
+
+    await apretar('Inscribir');
+
+    expect(api.inscribir).toHaveBeenCalledWith(7, {
+      nombre: 'Pedro Afuera',
+      telefono: '56912345678',
+    });
   });
 
   it('**con la clase llena el botón sigue disponible: quien decide es el servidor**', async () => {
