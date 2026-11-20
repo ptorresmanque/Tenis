@@ -250,17 +250,19 @@ describe('Modificación y cancelación de reservas', () => {
       );
     });
 
-    it('a menos de 6 horas del inicio, no', async () => {
+    it('a menos de 6 horas del inicio, al club no lo frena el plazo (T386)', async () => {
+      // El plazo es del socio y del enlace: que el socio no la rechace sigue en
+      // `reservas-del-club.spec.ts`, y el del enlace, en «rige la ventana de 6 horas».
       const reserva = await unaReservaPagada();
 
-      await expect(
-        modificacion.modificar(
-          reserva.id,
-          { canchaId: otraCanchaId, inicio: MARTES_20 },
-          admin,
-          horasAntes(LUNES_20, 5),
-        ),
-      ).rejects.toMatchObject({ status: 409 });
+      const movida = await modificacion.modificar(
+        reserva.id,
+        { canchaId: otraCanchaId, inicio: MARTES_20 },
+        admin,
+        horasAntes(LUNES_20, 5),
+      );
+
+      expect(movida.inicio).toEqual(MARTES_20);
     });
 
     it('el bloque viejo vuelve a la grilla y el nuevo queda tomado', async () => {
