@@ -17,6 +17,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { RouterLink } from '@angular/router';
 
 import { PAGO_EN_PALABRAS } from '../../catalogo-canchas/marcador';
 import {
@@ -78,6 +79,7 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
     MatIconButton,
     EnlaceTelefonoPipe,
     ObservacionesDeReserva,
+    RouterLink,
     TelefonoPipe,
   ],
   template: `
@@ -218,13 +220,26 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
                     <dd>{{ pago.ultimosDigitos ? 'terminada en ' + pago.ultimosDigitos : '—' }}</dd>
                     <dt class="text-muted-foreground">Iniciado</dt>
                     <dd>{{ cuando(pago.creadaEn) }}</dd>
-                    <dt class="text-muted-foreground">Confirmado</dt>
+                    <!-- No «Confirmado»: un rechazo también tiene respuesta. -->
+                    <dt class="text-muted-foreground">Respuesta de Webpay</dt>
                     <dd>{{ pago.confirmadaEn ? cuando(pago.confirmadaEn) : '—' }}</dd>
                     @if (pago.requiereRevision) {
                       <dt class="text-muted-foreground">Revisión</dt>
-                      <dd class="font-semibold">Requiere revisión</dd>
+                      <!-- Lo mismo que dice Finanzas › Pagos, adonde lleva el enlace. -->
+                      <dd [class.font-semibold]="!pago.revisadaEn">
+                        {{ pago.revisadaEn ? 'Revisado' : 'Por revisar' }}
+                      </dd>
                     }
                   </dl>
+                  <!-- Ahí se revisa y se devuelve (T399): abre su ficha, con el día en que se pagó
+                       en la lista de atrás. -->
+                  <a
+                    class="mt-1 inline-block text-sm underline"
+                    routerLink="/administracion/finanzas/pagos"
+                    [queryParams]="enFinanzas(pago)"
+                  >
+                    Ver en Finanzas › Pagos<span class="sr-only">, pago de {{ pesos(pago.montoClp) }}</span>
+                  </a>
                 } @empty {
                   <p class="text-sm text-muted-foreground">
                     {{
@@ -331,7 +346,7 @@ export class FichaDeLaReserva {
     const total = autorizados.reduce((suma, { montoClp }) => suma + montoClp, 0);
     return datos.devolucionAlCancelar
       ? `Se le devuelve todo lo pagado, ${enPesos(total)}, al mismo medio de pago.`
-      : 'Ya pasó el plazo de devolución: el pago no se devuelve.';
+      : 'Ya pasó el plazo de devolución: al cancelar, el pago no se devuelve solo. Si corresponde, devuélvelo desde Finanzas › Pagos.';
   });
 
   constructor() {
@@ -395,6 +410,12 @@ export class FichaDeLaReserva {
     } finally {
       this.cancelando.set(false);
     }
+  }
+
+  /** La ficha del pago en Finanzas › Pagos, con la lista en el día en que se movió la plata. */
+  protected enFinanzas({ id, confirmadaEn, creadaEn }: PagoWebpay): Record<string, string> {
+    const dia = fechaEnElClub(confirmadaEn ?? creadaEn);
+    return { pago: `webpay-${id}`, desde: dia, hasta: dia };
   }
 
   /** «lunes, 10 de agosto, 11:00», en la hora del club. */

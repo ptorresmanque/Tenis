@@ -150,6 +150,43 @@ describe('ConfirmacionService', () => {
     });
   });
 
+  it('**guarda lo que dijo la pasarela: el tipo de pago, las cuotas y el código** (T395, F6)', async () => {
+    const { transaccionId } = await unPagoPendiente();
+
+    await confirmacion.confirmar(await tokenDe(transaccionId), efecto);
+
+    expect(
+      await prisma.transaccion.findUniqueOrThrow({
+        where: { id: transaccionId },
+      }),
+    ).toMatchObject({
+      tipoPago: 'VD',
+      numeroCuotas: 0,
+      codigoRespuesta: 0,
+      motivoRechazo: null,
+    });
+  });
+
+  it('**un rechazo guarda además el motivo, y una recarga lo vuelve a decir** (T395)', async () => {
+    pasarela.respuesta = 'RECHAZADA';
+    const { transaccionId } = await unPagoPendiente();
+    const token = await tokenDe(transaccionId);
+
+    await confirmacion.confirmar(token, efecto);
+    const recargada = await confirmacion.confirmar(token, efecto);
+
+    expect(
+      await prisma.transaccion.findUniqueOrThrow({
+        where: { id: transaccionId },
+      }),
+    ).toMatchObject({
+      codigoRespuesta: -1,
+      motivoRechazo: 'Tarjeta rechazada por el emisor',
+    });
+    // Antes el motivo se descartaba, y la recarga respondía sin él.
+    expect(recargada.motivoRechazo).toBe('Tarjeta rechazada por el emisor');
+  });
+
   it('un monto distinto al guardado no confirma el efecto y queda para revisión', async () => {
     // Criterio 6 del spec: es manipulación o un bug, y en los dos casos confirmar la
     // reserva sería regalar una cancha o cobrar de menos sin que nadie se entere.

@@ -38,6 +38,8 @@ export interface PagoWebpay {
   creadaEn: string;
   confirmadaEn: string | null;
   requiereRevision: boolean;
+  /** Cuándo se revisó en Finanzas › Pagos (T397): hasta entonces, «Por revisar». */
+  revisadaEn: string | null;
 }
 
 /** Los pagos de una reserva y si cancelarla ahora los devolvería (T387). */

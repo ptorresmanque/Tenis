@@ -115,6 +115,11 @@ export class WebpayAdapter extends PasarelaPago {
         respuesta.card_detail?.card_number ?? respuesta.card_number,
       ),
       motivoRechazo: autorizada ? null : motivoDe(respuesta),
+      // Lo demás del commit, tal cual, para Finanzas › Pagos (T395): con los nombres de la
+      // documentación de Transbank (Webpay Plus, confirmar una transacción).
+      tipoPago: respuesta.payment_type_code ?? null,
+      numeroCuotas: respuesta.installments_number ?? null,
+      codigoRespuesta: respuesta.response_code ?? null,
     };
   }
 
@@ -122,13 +127,27 @@ export class WebpayAdapter extends PasarelaPago {
     // El error se propaga tal cual: una devolución que no ocurrió no se puede dar
     // por hecha, y `reservas` tiene que enterarse para no decirle a nadie que le
     // devolvieron la plata.
-    await this.webpay.refund(tokenPasarela, montoClp);
+    const respuesta = (await this.webpay.refund(tokenPasarela, montoClp)) as {
+      type?: string;
+      response_code?: number | null;
+    } | null;
+
+    // Una anulación responde 200 aunque no se haya hecho: lo dice `response_code`, que es 0
+    // solo si salió (documentación de Webpay, «Reversar o Anular un pago»). La reversa no lo
+    // trae (revisión, T400).
+    const codigo = respuesta?.response_code;
+    if (codigo !== undefined && codigo !== null && codigo !== 0) {
+      throw new Error(`Transbank no hizo la anulación (código ${codigo}).`);
+    }
   }
 }
 
 interface RespuestaCommit {
   status?: string;
   response_code?: number;
+  /** VD, VN, VC, SI, S2, NC o VP (T395). */
+  payment_type_code?: string | null;
+  installments_number?: number | null;
   authorization_code?: string | null;
   amount: number;
   card_number?: string | null;
@@ -170,13 +189,10 @@ function motivoDe(respuesta: RespuestaCommit): string {
   const codigo = respuesta.response_code;
 
   if (codigo === undefined) {
-    return `Transbank no autorizó el pago (estado ${respuesta.status ?? 'desconocido'}).`;
+    return 'Transbank no autorizó el pago y no dijo por qué.';
   }
 
-  return (
-    MOTIVOS[codigo] ??
-    `Transbank rechazó el pago (código ${codigo}, estado ${respuesta.status ?? 'desconocido'}).`
-  );
+  return MOTIVOS[codigo] ?? `Transbank rechazó el pago (código ${codigo}).`;
 }
 
 /**

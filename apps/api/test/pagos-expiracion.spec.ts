@@ -167,6 +167,52 @@ describe('Expiración y anulación', () => {
       ]);
     });
 
+    it('**deja la fecha de la devolución, sin quién ni por qué si la pidió el sistema** (T395)', async () => {
+      const { transaccionId } = await unPagoAutorizado();
+      const antes = new Date();
+
+      await anulacion.anular(transaccionId);
+
+      const anulada = await prisma.transaccion.findUniqueOrThrow({
+        where: { id: transaccionId },
+      });
+      expect(anulada.anuladaEn!.getTime()).toBeGreaterThanOrEqual(
+        antes.getTime() - 1000,
+      );
+      expect(anulada.anuladaPor).toBeNull();
+      expect(anulada.motivoAnulacion).toBeNull();
+    });
+
+    it('**a mano, deja también quién y por qué** (T395, para T397)', async () => {
+      const { transaccionId } = await unPagoAutorizado();
+      const quien = await prisma.usuario.create({
+        data: {
+          email: `devuelve-${Date.now()}@t395.ejemplo.cl`,
+          nombre: 'Admin',
+          apellido: 'Que devuelve',
+          esAdmin: true,
+        },
+      });
+
+      try {
+        await anulacion.anular(transaccionId, {
+          por: quien.id,
+          motivo: 'Pagó dos veces la misma hora.',
+        });
+
+        expect(
+          await prisma.transaccion.findUniqueOrThrow({
+            where: { id: transaccionId },
+          }),
+        ).toMatchObject({
+          anuladaPor: quien.id,
+          motivoAnulacion: 'Pagó dos veces la misma hora.',
+        });
+      } finally {
+        await prisma.usuario.delete({ where: { id: quien.id } });
+      }
+    });
+
     it('anular dos veces no devuelve la plata dos veces', async () => {
       const { transaccionId } = await unPagoAutorizado();
 

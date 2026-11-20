@@ -93,7 +93,36 @@ describe('WebpayAdapter', () => {
         montoClp: 12000,
         ultimosDigitos: '6623',
         motivoRechazo: null,
+        tipoPago: 'VN',
+        numeroCuotas: null,
+        codigoRespuesta: 0,
       });
+    });
+
+    it('**pasa el tipo de pago, las cuotas y el código de respuesta** (T395, F6)', async () => {
+      // Los nombres del commit de Webpay Plus, confirmados en la documentación de
+      // Transbank: payment_type_code, installments_number y response_code.
+      webpay.commit.mockResolvedValue({
+        ...autorizada,
+        payment_type_code: 'VC',
+        installments_number: 3,
+      });
+
+      expect(await adaptador.confirmar('tok-01')).toMatchObject({
+        tipoPago: 'VC',
+        numeroCuotas: 3,
+        codigoRespuesta: 0,
+      });
+    });
+
+    it('en un rechazo también dice el código, que Finanzas muestra junto al motivo', async () => {
+      webpay.commit.mockResolvedValue({
+        ...autorizada,
+        status: 'FAILED',
+        response_code: -1,
+      });
+
+      expect((await adaptador.confirmar('tok-01')).codigoRespuesta).toBe(-1);
     });
 
     it('el monto que reporta Transbank se pasa tal cual, sin corregirlo', async () => {
@@ -199,6 +228,22 @@ describe('WebpayAdapter', () => {
       webpay.refund.mockRejectedValue(new Error('Transaction not found'));
 
       await expect(adaptador.anular('tok-01', 12000)).rejects.toThrow();
+    });
+
+    it('**una anulación que Transbank no hizo es una falla, aunque responda 200** (revisión, T400)', async () => {
+      // La documentación de Webpay: en NULLIFIED, `response_code` distinto de 0 es que la
+      // anulación no se realizó. Darla por hecha marcaría «Devuelto» sin que salga la plata.
+      webpay.refund.mockResolvedValue({ type: 'NULLIFIED', response_code: -1 });
+
+      await expect(adaptador.anular('tok-01', 12000)).rejects.toThrow(
+        'Transbank no hizo la anulación (código -1).',
+      );
+    });
+
+    it('la anulación con código 0 está hecha', async () => {
+      webpay.refund.mockResolvedValue({ type: 'NULLIFIED', response_code: 0 });
+
+      await expect(adaptador.anular('tok-01', 12000)).resolves.toBeUndefined();
     });
   });
 });

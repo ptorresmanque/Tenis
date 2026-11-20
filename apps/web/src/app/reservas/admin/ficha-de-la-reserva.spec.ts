@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth } from '../../core/auth/auth';
@@ -48,6 +49,7 @@ describe('FichaDeLaReserva', () => {
         creadaEn: '2026-08-10T15:00:00.000Z',
         confirmadaEn: '2026-08-10T15:02:00.000Z',
         requiereRevision: false,
+        revisadaEn: null,
       },
     ],
   };
@@ -87,6 +89,7 @@ describe('FichaDeLaReserva', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         { provide: Agenda, useValue: { pagosDe } },
         { provide: Reservas, useValue: { cancelar } },
         { provide: Auth, useValue: { usuario: signal(null).asReadonly() } },
@@ -124,6 +127,33 @@ describe('FichaDeLaReserva', () => {
     expect(pago).toContain('Autorizado');
     expect(pago).toContain('1213');
     expect(pago).toContain('terminada en 6623');
+  });
+
+  it('**cada pago enlaza a su ficha en Finanzas › Pagos**, con el día en que se pagó (T399)', () => {
+    const enlace = [...ficha().querySelectorAll<HTMLAnchorElement>('[data-pagos] a')].find((uno) =>
+      uno.textContent?.includes('Ver en Finanzas › Pagos'),
+    );
+
+    expect(enlace?.getAttribute('href')).toBe(
+      '/administracion/finanzas/pagos?pago=webpay-7&desde=2026-08-10&hasta=2026-08-10',
+    );
+    // Con la compra y la diferencia hay dos enlaces: el nombre dice cuál (revisión, T400).
+    expect(enlace?.textContent).toContain('$12.000');
+  });
+
+  it('**la revisión dice lo mismo que Finanzas: «Por revisar» hasta que alguien la revisa**', async () => {
+    const conMarca = { ...PAGADA.pagos[0], requiereRevision: true };
+    await montar({ pagos: { ...PAGADA, pagos: [conMarca] } });
+    const revision = () =>
+      [...ficha().querySelectorAll('[data-pagos] dt')]
+        .find((dt) => dt.textContent?.trim() === 'Revisión')
+        ?.nextElementSibling?.textContent?.trim();
+    expect(revision()).toBe('Por revisar');
+
+    await montar({
+      pagos: { ...PAGADA, pagos: [{ ...conMarca, revisadaEn: '2026-08-11T15:00:00.000Z' }] },
+    });
+    expect(revision()).toBe('Revisado');
   });
 
   it('**al gestor no**: ni el pago, ni pide los pagos, ni ofrece cancelar (R9)', async () => {
@@ -217,7 +247,10 @@ describe('FichaDeLaReserva', () => {
     boton('Cancelar reserva')!.click();
     await actualizar();
 
-    expect(texto()).toContain('Ya pasó el plazo de devolución: el pago no se devuelve.');
+    // Ahora se puede devolver a mano: no se dice que nunca (revisión, T400).
+    expect(texto()).toContain(
+      'Ya pasó el plazo de devolución: al cancelar, el pago no se devuelve solo. Si corresponde, devuélvelo desde Finanzas › Pagos.',
+    );
   });
 
   it('**si los pagos no cargaron, no le dice que no tiene pagos en línea**', async () => {

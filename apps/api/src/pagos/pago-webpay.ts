@@ -16,6 +16,19 @@ export interface PagoWebpay {
   creadaEn: Date;
   confirmadaEn: Date | null;
   requiereRevision: boolean;
+  /** Lo que dijo Webpay al confirmar (T395). */
+  tipoPago: string | null;
+  numeroCuotas: number | null;
+  codigoRespuesta: number | null;
+  motivoRechazo: string | null;
+  /** La revisión desde Finanzas › Pagos (T397). */
+  revisadaPor: number | null;
+  revisadaEn: Date | null;
+  notaRevision: string | null;
+  /** La devolución: cuándo y, si fue a mano, quién y por qué. */
+  anuladaPor: number | null;
+  anuladaEn: Date | null;
+  motivoAnulacion: string | null;
 }
 
 /**
@@ -33,6 +46,16 @@ export const CAMPOS_DEL_PAGO_WEBPAY = {
   creadaEn: true,
   confirmadaEn: true,
   requiereRevision: true,
+  tipoPago: true,
+  numeroCuotas: true,
+  codigoRespuesta: true,
+  motivoRechazo: true,
+  revisadaPor: true,
+  revisadaEn: true,
+  notaRevision: true,
+  anuladaPor: true,
+  anuladaEn: true,
+  motivoAnulacion: true,
 } as const;
 
 /**
@@ -56,5 +79,15 @@ export function pagoWebpay(
     creadaEn: transaccion.creadaEn,
     confirmadaEn: transaccion.confirmadaEn,
     requiereRevision: transaccion.requiereRevision,
+    tipoPago: transaccion.tipoPago,
+    numeroCuotas: transaccion.numeroCuotas,
+    codigoRespuesta: transaccion.codigoRespuesta,
+    motivoRechazo: transaccion.motivoRechazo,
+    revisadaPor: transaccion.revisadaPor,
+    revisadaEn: transaccion.revisadaEn,
+    notaRevision: transaccion.notaRevision,
+    anuladaPor: transaccion.anuladaPor,
+    anuladaEn: transaccion.anuladaEn,
+    motivoAnulacion: transaccion.motivoAnulacion,
   };
 }
