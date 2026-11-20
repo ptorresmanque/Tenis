@@ -148,12 +148,22 @@ function ponerLasReservas(
          overflow, los nombres de las canchas no se podrían pegar bajo la cabecera. -->
     <!-- En el panel (T390) se desplaza siempre: con los nombres, ocho canchas no caben al lado
          del menú, y ahí no hay cabecera del sitio bajo la que pegar los nombres. -->
+    <!-- En la portada, sus libres van con tabindex="-1": el contenedor es la parada, para que el
+         tablero que no cabe se desplace con el teclado (modern-web-guidance, responsive-table;
+         T393). En disponibilidad y en el panel, la parada ya es la grilla. -->
     <div
       class="overflow-x-auto"
       [class]="modo() === 'elegir' && !reservas() ? 'sm:overflow-visible' : ''"
+      [attr.tabindex]="modo() === 'enlace' ? 0 : null"
+      [attr.role]="modo() === 'enlace' ? 'region' : null"
+      [attr.aria-label]="modo() === 'enlace' ? 'Las horas que quedan, cancha por cancha' : null"
     >
+      <!-- Una grilla cuando las flechas la recorren: el roving tabindex pide un rol compuesto
+           para que el lector de pantalla lo siga (modern-web-guidance, spatial-navigation;
+           T393). En la portada, no: es una tabla de enlaces. -->
       <table
         class="w-full table-fixed border-separate border-spacing-1"
+        [attr.role]="modo() === 'elegir' ? 'grid' : null"
         [style.min-width.rem]="anchoMinimo()"
       >
         <caption class="sr-only">

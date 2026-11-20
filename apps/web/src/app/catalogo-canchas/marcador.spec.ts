@@ -193,6 +193,19 @@ describe('Marcador', () => {
     expect(el.textContent).not.toContain(enPesos(0));
   });
 
+  it('**el tablero de la portada se desplaza con el teclado**: es una región con nombre y una parada (T393)', () => {
+    // Sus libres van con tabindex="-1": sin una parada en el contenedor, quien usa teclado no
+    // llegaba a las canchas que no caben (modern-web-guidance, responsive-table).
+    const el = montar([{ cancha: cancha(1), bloques: [bloque(1, enHoras(2))] }]);
+    const contenedor = el.querySelector('app-marcador > div')!;
+
+    expect(contenedor.getAttribute('tabindex')).toBe('0');
+    expect(contenedor.getAttribute('role')).toBe('region');
+    expect(contenedor.getAttribute('aria-label')).toBe('Las horas que quedan, cancha por cancha');
+    // Sus celdas son enlaces de una sola parada, no una grilla que se recorre con flechas.
+    expect(el.querySelector('table')?.getAttribute('role')).toBeNull();
+  });
+
   it('la cancha techada lo dice, también al lector de pantalla', () => {
     const el = montar([{ cancha: cancha(5, true), bloques: [bloque(5, enHoras(2))] }]);
     const encabezado = el.querySelectorAll('thead th[scope="col"]')[1];
@@ -358,6 +371,16 @@ describe('Marcador', () => {
         expect(th.className).toContain('sm:sticky');
         expect(th.className).toContain('sm:top-16');
       }
+    });
+
+    it('**la tabla es una grilla para el lector**: las flechas la recorren (T393)', () => {
+      // El roving tabindex pide un rol compuesto para que el lector lo siga
+      // (modern-web-guidance, spatial-navigation).
+      const { el } = montarQueElige([{ cancha: cancha(1), bloques: [bloque(1, enHoras(2))] }]);
+
+      expect(el.querySelector('table')?.getAttribute('role')).toBe('grid');
+      // El contenedor no suma una parada: la grilla ya tiene la suya.
+      expect(el.querySelector('app-marcador > div')?.getAttribute('tabindex')).toBeNull();
     });
 
     it('la libre responde al mouse; la elegida no', () => {

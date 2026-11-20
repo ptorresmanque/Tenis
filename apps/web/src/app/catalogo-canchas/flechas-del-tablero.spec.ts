@@ -14,10 +14,11 @@ describe('moverConFlechas', () => {
     const [arriba, abajo] = [...tabla.querySelectorAll('button')];
     return { tabla, arriba, abajo };
   };
-  const flecha = (key: string, desde: HTMLElement) => {
-    const evento = new KeyboardEvent('keydown', { key, cancelable: true });
+  const flecha = (key: string, desde: HTMLElement, opciones: KeyboardEventInit = {}) => {
+    const evento = new KeyboardEvent('keydown', { key, cancelable: true, ...opciones });
     Object.defineProperty(evento, 'currentTarget', { value: desde });
     moverConFlechas(evento, 2, 1);
+    return evento;
   };
 
   it('lleva el foco a la de abajo', () => {
@@ -41,5 +42,56 @@ describe('moverConFlechas', () => {
 
     expect(llevar).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
     tabla.remove();
+  });
+
+  /**
+   * T393, con la guía `spatial-navigation` de modern-web-guidance: la flecha es del tablero solo
+   * cuando mueve el foco. Si no hay a dónde ir, o viene con un modificador, es de la página.
+   */
+  describe('la flecha es de la página cuando el tablero no la usa (T393)', () => {
+    it('**con destino, el tablero se queda con la flecha**', () => {
+      const { tabla, arriba } = tablero();
+
+      expect(flecha('ArrowDown', arriba).defaultPrevented).toBe(true);
+      tabla.remove();
+    });
+
+    it('**en el borde no se la queda: la página tiene que poder desplazarse**', () => {
+      const { tabla, arriba } = tablero();
+      arriba.focus();
+
+      const evento = flecha('ArrowUp', arriba);
+
+      expect(evento.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(arriba);
+      tabla.remove();
+    });
+
+    it.each([['altKey'], ['ctrlKey'], ['metaKey'], ['shiftKey']])(
+      '**con %s no mueve el foco ni se queda con la tecla**',
+      (modificador) => {
+        const { tabla, arriba } = tablero();
+        arriba.focus();
+
+        const evento = flecha('ArrowDown', arriba, { [modificador]: true });
+
+        expect(document.activeElement).toBe(arriba);
+        expect(evento.defaultPrevented).toBe(false);
+        tabla.remove();
+      },
+    );
+
+    it('si otro ya usó la tecla, no hace nada', () => {
+      const { tabla, arriba } = tablero();
+      arriba.focus();
+      const evento = new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true });
+      Object.defineProperty(evento, 'currentTarget', { value: arriba });
+      evento.preventDefault();
+
+      moverConFlechas(evento, 2, 1);
+
+      expect(document.activeElement).toBe(arriba);
+      tabla.remove();
+    });
   });
 });
