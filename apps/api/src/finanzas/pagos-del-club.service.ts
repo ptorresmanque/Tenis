@@ -1,5 +1,7 @@
 import {
+  BadGatewayException,
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -27,6 +29,7 @@ import {
   pagoWebpay,
   type PagoWebpay,
 } from '../pagos/pago-webpay';
+import { AnulacionService } from '../pagos/anulacion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { aCsv } from '../reportes/csv';
 
@@ -150,7 +153,10 @@ type TransaccionDeLaLista = Parameters<typeof pagoWebpay>[0] & {
  */
 @Injectable()
 export class PagosDelClubService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly anulacion: AnulacionService,
+  ) {}
 
   async listado(
     filtro: FiltroDePagos,
@@ -225,6 +231,74 @@ export class PagosDelClubService {
    * no está vigente. La comparte la ficha con «Devolver» (T397).
    */
   async reglaDeDevolucion(transaccionId: number): Promise<ReglaDeDevolucion> {
+    return sinCodigo(await this.reglaConCodigo(transaccionId));
+  }
+
+  /**
+   * «Devolver un pago» (T397, asunción 9): el total, por la pasarela, solo si la regla lo permite.
+   * Queda quién y por qué (`anular` deja además cuándo). Dos a la vez no pagan dos veces: `anular`
+   * cambia el estado con compare-and-set antes de pedir la plata.
+   */
+  async devolver(
+    transaccionId: number,
+    motivo: string,
+    por: number,
+  ): Promise<FichaDePago> {
+    const { codigo, ...regla } = await this.reglaConCodigo(transaccionId);
+    if (codigo !== null) {
+      throw new ConflictException({
+        motivo: codigo,
+        message: regla.motivo,
+        enlace: regla.enlace,
+      });
+    }
+
+    try {
+      await this.anulacion.anular(transaccionId, { por, motivo });
+    } catch (error) {
+      // El rechazo de la pasarela, tal cual: el admin decide con eso, y el pago sigue autorizado.
+      throw new BadGatewayException({
+        motivo: 'LA_PASARELA_NO_DEVOLVIO',
+        message: `La pasarela no hizo la devolución: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+
+    return this.ficha('webpay', transaccionId);
+  }
+
+  /**
+   * «Marcar como revisado» (T397, asunción 8): solo el pago con la marca, una vez, con la nota y
+   * quién. La marca queda: dice que algo no cuadró; la revisión dice que alguien ya lo miró.
+   */
+  async revisar(
+    transaccionId: number,
+    nota: string,
+    por: number,
+  ): Promise<FichaDePago> {
+    const transaccion = await this.transaccion(transaccionId);
+    if (!transaccion.requiereRevision) {
+      throw new ConflictException({
+        motivo: 'NO_PIDE_REVISION',
+        message: 'Este pago no está marcado para revisión.',
+      });
+    }
+
+    // Compare-and-set: dos admins a la vez, y la primera nota es la que queda.
+    const { count } = await this.prisma.transaccion.updateMany({
+      where: { id: transaccionId, requiereRevision: true, revisadaEn: null },
+      data: { revisadaPor: por, revisadaEn: new Date(), notaRevision: nota },
+    });
+    if (count === 0) {
+      throw new ConflictException({
+        motivo: 'YA_REVISADO',
+        message: 'Este pago ya se revisó.',
+      });
+    }
+
+    return this.ficha('webpay', transaccionId);
+  }
+
+  private async reglaConCodigo(transaccionId: number): Promise<ReglaConCodigo> {
     const transaccion = await this.transaccion(transaccionId);
     const descripcion = (await this.descripciones([transaccion])).get(
       claveDe(transaccion),
@@ -435,7 +509,7 @@ export class PagosDelClubService {
       },
       registradaPor: null,
       asociadoA: descripcion.asociado,
-      devolucion: devolucionDe(transaccion, descripcion),
+      devolucion: sinCodigo(devolucionDe(transaccion, descripcion)),
     };
   }
 
@@ -669,29 +743,69 @@ function filaDeInscripcion(inscripcion: InscripcionDeLaLista): FilaDePago {
   };
 }
 
+/** Por qué no se devuelve, para el 409 de «Devolver»; nulo si se puede. */
+type CodigoDeDevolucion =
+  'YA_DEVUELTO' | 'NO_AUTORIZADA' | 'FUERA_DE_PLAZO' | 'SIGUE_VIGENTE' | null;
+
+type ReglaConCodigo = ReglaDeDevolucion & { codigo: CodigoDeDevolucion };
+
+/**
+ * Transbank anula por servicios web hasta 90 días desde la venta (PQ1, documentación de Webpay:
+ * «Anulaciones y Reversas»). Antes de 3 horas es una reversa; después, una anulación: la decide
+ * Transbank con el mismo servicio. La devolución total se puede con débito, prepago y crédito.
+ */
+const DIAS_PARA_DEVOLVER = 90;
+
+/** La regla como la ve la ficha: el código es para el 409 de «Devolver». */
+const sinCodigo = ({
+  permitida,
+  motivo,
+  enlace,
+}: ReglaConCodigo): ReglaDeDevolucion => ({
+  permitida,
+  motivo,
+  enlace,
+});
+
 function devolucionDe(
   transaccion: TransaccionDeLaLista,
   descripcion: Descripcion,
-): ReglaDeDevolucion {
+  ahora = new Date(),
+): ReglaConCodigo {
+  const no = (
+    codigo: CodigoDeDevolucion,
+    motivo: string,
+    enlace: string | null = null,
+  ) => ({
+    permitida: false,
+    motivo,
+    enlace,
+    codigo,
+  });
+
   if (transaccion.estado === EstadoTransaccion.ANULADA) {
-    return { permitida: false, motivo: 'Ya se devolvió.', enlace: null };
+    return no('YA_DEVUELTO', 'Ya se devolvió.');
   }
   if (transaccion.estado !== EstadoTransaccion.AUTORIZADA) {
-    return {
-      permitida: false,
-      motivo: 'Solo se devuelve un pago autorizado.',
-      enlace: null,
-    };
+    return no('NO_AUTORIZADA', 'Solo se devuelve un pago autorizado.');
+  }
+
+  const venta = transaccion.confirmadaEn ?? transaccion.creadaEn;
+  if (
+    ahora.getTime() - venta.getTime() >
+    DIAS_PARA_DEVOLVER * 24 * 60 * 60 * 1000
+  ) {
+    return no(
+      'FUERA_DE_PLAZO',
+      `Transbank devuelve por Webpay hasta ${DIAS_PARA_DEVOLVER} días después del pago, y este ya ` +
+        'los pasó: la devolución se hace por transferencia, fuera del panel.',
+    );
   }
 
   const queHacer = descripcion.queHacerAntes(transaccion.id);
   return queHacer
-    ? {
-        permitida: false,
-        motivo: queHacer,
-        enlace: descripcion.asociado.enlace,
-      }
-    : { permitida: true, motivo: null, enlace: null };
+    ? no('SIGUE_VIGENTE', queHacer, descripcion.asociado.enlace)
+    : { permitida: true, motivo: null, enlace: null, codigo: null };
 }
 
 const claveDe = ({
@@ -862,6 +976,26 @@ export function leerOrigen(valor: string): OrigenDelPago {
     throw new BadRequestException('Ese origen de pago no existe.');
   }
   return valor as OrigenDelPago;
+}
+
+/**
+ * La nota de la revisión o el motivo de la devolución, del cuerpo: obligatorio y de hasta 200
+ * caracteres, el largo de su columna.
+ */
+export function leerTextoObligatorio(
+  cuerpo: unknown,
+  campo: 'nota' | 'motivo',
+): string {
+  const valor =
+    typeof cuerpo === 'object' && cuerpo !== null
+      ? texto((cuerpo as Record<string, unknown>)[campo]).trim()
+      : '';
+  if (valor === '' || valor.length > 200) {
+    throw new BadRequestException(
+      `${campo === 'nota' ? 'La nota' : 'El motivo'} es obligatorio y tiene hasta 200 caracteres.`,
+    );
+  }
+  return valor;
 }
 
 function texto(valor: unknown): string {

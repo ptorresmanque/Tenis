@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { IdentidadModule } from '../identidad/identidad.module';
+import { PagosModule } from '../pagos/pagos.module';
 import { PagosDelClubController } from './pagos-del-club.controller';
 import { PagosDelClubService } from './pagos-del-club.service';
 
@@ -11,7 +12,8 @@ import { PagosDelClubService } from './pagos-del-club.service';
  */
 @Module({
   // `@SoloAdmin()` resuelve `SesionService` en el módulo del controlador.
-  imports: [IdentidadModule],
+  // `pagos` da `AnulacionService`, que devuelve (T397).
+  imports: [IdentidadModule, PagosModule],
   controllers: [PagosDelClubController],
   providers: [PagosDelClubService],
   exports: [PagosDelClubService],

@@ -1,20 +1,24 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   ParseIntPipe,
+  Post,
   Query,
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
 
-import { SoloAdmin } from '../identidad/guards';
+import { SoloAdmin, Yo } from '../identidad/guards';
+import type { UsuarioActual } from '../identidad/usuario-actual';
 import { descargaCsv } from '../reportes/csv';
 import {
   FichaDePago,
   leerFiltro,
   leerOrigen,
   leerPagina,
+  leerTextoObligatorio,
   ListadoDePagos,
   PagosDelClubService,
 } from './pagos-del-club.service';
@@ -57,5 +61,29 @@ export class PagosDelClubController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<FichaDePago> {
     return this.pagos.ficha(leerOrigen(origen), id);
+  }
+
+  /** «Marcar como revisado» (T397): con la nota, y queda quién y cuándo. */
+  @Post('pagos/webpay/:id/revision')
+  revisar(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ): Promise<FichaDePago> {
+    return this.pagos.revisar(id, leerTextoObligatorio(cuerpo, 'nota'), yo.id);
+  }
+
+  /** «Devolver» (T397): el total por la pasarela, solo con lo pagado que ya no está vigente. */
+  @Post('pagos/webpay/:id/devolucion')
+  devolver(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cuerpo: unknown,
+    @Yo() yo: UsuarioActual,
+  ): Promise<FichaDePago> {
+    return this.pagos.devolver(
+      id,
+      leerTextoObligatorio(cuerpo, 'motivo'),
+      yo.id,
+    );
   }
 }
