@@ -20,12 +20,9 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { MatAutocompleteModule, MatAutocompleteTrigger } from '@angular/material/autocomplete';
 import { MatButton } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIcon } from '@angular/material/icon';
 import { MatInput } from '@angular/material/input';
 
 import { errorDelCampo, proveerCampos } from '../ui/campos';
@@ -37,13 +34,10 @@ import {
   AcompananteNuevo,
   mensajeDeRechazo,
   Reservas,
-  SocioDelDirectorio,
 } from './reservas.service';
 import { dialogoSegun } from '../ui/dialogo';
 import { TelefonoDirective } from '../ui/telefono';
-
-/** El mismo tope que la API (`MAXIMO_ACOMPANANTES` en `reservas.dto.ts`, T105). */
-const MAXIMO_ACOMPANANTES = 3;
+import { CampoDeAcompanantes } from './campo-de-acompanantes';
 
 /**
  * El formulario de reserva, para socio y para visitante.
@@ -55,11 +49,9 @@ const MAXIMO_ACOMPANANTES = 3;
 @Component({
   selector: 'app-reservar',
   imports: [
-    MatAutocompleteModule,
-    MatChipsModule,
+    CampoDeAcompanantes,
     MatDialogModule,
     MatFormFieldModule,
-    MatIcon,
     MatInput,
     MatButton,
     ReactiveFormsModule,
@@ -141,71 +133,15 @@ const MAXIMO_ACOMPANANTES = 3;
                 }
               </p>
 
-              <!-- Los que ya se agregaron son chips (T280), con cómo se leyó cada nombre: un
-                   socio escrito a mano que quedó como invitado se corrige acá, antes de gastar
-                   cupo. Al socio le sugiere los socios del club, con su número porque dos
-                   pueden llamarse igual, y sus invitados anteriores. Enter agrega y no envía:
-                   con el formulario, Enter reservaba con la mitad escrita. El botón baja de
-                   línea antes que apretar el campo: en el teléfono, un chip angosto cortaba
-                   justo «socio N.º …» o «invitado», que es lo que se revisa. -->
-              <div class="flex flex-wrap items-start gap-x-2">
-                <mat-form-field class="min-w-64 flex-1">
-                  <!-- Los nombres de antes (T107), a la vista: en el formulario del visitante,
-                       que ya tiene su propio «Nombre», «Nombre y apellido» no decía de quién. -->
-                  <mat-label>{{
-                    esSocio() ? 'Nombre de un socio o de un invitado' : 'Nombre de quien juega contigo'
-                  }}</mat-label>
-                  <mat-chip-grid #listaDeChips aria-label="Quienes juegan contigo">
-                    @for (acompanante of acompanantes(); track $index) {
-                      <mat-chip-row (removed)="quitar($index)">
-                        {{ etiqueta(acompanante) }}
-                        <button matChipRemove [attr.aria-label]="'Quitar a ' + etiqueta(acompanante)">
-                          <mat-icon aria-hidden="true">cancel</mat-icon>
-                        </button>
-                      </mat-chip-row>
-                    }
-                    <input
-                      #campo
-                      id="acompanante"
-                      [placeholder]="esSocio() ? 'Nombre y apellido' : ''"
-                      [matChipInputFor]="listaDeChips"
-                      [matAutocomplete]="sugeridas"
-                      [matAutocompleteDisabled]="!esSocio()"
-                      [disabled]="acompanantes().length >= maximo"
-                      [value]="porAgregar()"
-                      (input)="porAgregar.set($any($event.target).value)"
-                      (matChipInputTokenEnd)="alApretarEnter()"
-                    />
-                  </mat-chip-grid>
-                  <mat-autocomplete
-                    #sugeridas="matAutocomplete"
-                    (optionSelected)="elegir($event.option.value)"
-                  >
-                    @for (sugerencia of filtradas(); track sugerencia.valor) {
-                      <mat-option [value]="sugerencia.valor"
-                        >{{ sugerencia.valor
-                        }}<span class="text-muted-foreground"> · {{ sugerencia.tipo }}</span></mat-option
-                      >
-                    }
-                  </mat-autocomplete>
-                </mat-form-field>
-                @if (acompanantes().length < maximo) {
-                  <button
-                    matButton="outlined"
-                    type="button"
-                    class="mt-2"
-                    [disabled]="porAgregar().trim() === ''"
-                    (click)="agregar()"
-                  >
-                    Agregar
-                  </button>
-                }
-              </div>
-              @if (acompanantes().length >= maximo) {
-                <p class="text-sm text-muted-foreground">
-                  Listo: {{ maximo }} es el máximo por reserva.
-                </p>
-              }
+              <!-- El campo es el mismo del mesón (T388): ver CampoDeAcompanantes. -->
+              <app-campo-de-acompanantes
+                [socios]="sociosSeguros()"
+                [invitados]="invitadosSeguros()"
+                [conSugerencias]="esSocio()"
+                [(acompanantes)]="acompanantes"
+                (acompanantesChange)="error.set(null)"
+                (completo)="enfocarConfirmar()"
+              />
 
               <!-- La lista que no cargó no es una lista vacía, y sin ella un socio escrito a
                    mano quedaría como invitado y gastaría cupo: se dice, con la salida. -->
@@ -295,13 +231,10 @@ export class Reservar {
   );
 
   protected readonly acompanantes = signal<AcompananteNuevo[]>([]);
-  protected readonly porAgregar = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly enviando = signal(false);
-  protected readonly maximo = MAXIMO_ACOMPANANTES;
 
-  private readonly campo = viewChild<ElementRef<HTMLInputElement>>('campo');
-  private readonly disparador = viewChild(MatAutocompleteTrigger);
+  private readonly campoDeAcompanantes = viewChild.required(CampoDeAcompanantes);
   private readonly confirmar =
     viewChild.required('confirmar', { read: ElementRef<HTMLButtonElement> });
   private readonly injector = inject(Injector);
@@ -326,54 +259,15 @@ export class Reservar {
   });
 
   /**
-   * Los que todavía no están en la lista: agregar dos veces al mismo no es válido.
-   *
-   * `hasValue` antes de `value`: un resource que falló lanza al leerlo, aunque tenga valor
-   * por defecto.
+   * Las listas cargadas, leídas sin reventar: `value()` lanza si el resource falló, y la de
+   * socios que no cargó se avisa aparte.
    */
-  private readonly sociosDisponibles = computed(() => {
-    const puestos = new Set(
-      this.acompanantes()
-        .map((acompanante) => acompanante.numeroSocio)
-        .filter((numero) => numero !== undefined),
-    );
-    const socios = this.socios.hasValue() ? this.socios.value() : [];
-
-    return socios.filter((socio) => !puestos.has(socio.numeroSocio));
-  });
-
-  /** Lo que sugiere el campo: los socios que quedan y los invitados anteriores que faltan. */
-  protected readonly sugerencias = computed(() => {
-    const puestos = new Set(
-      this.acompanantes().flatMap(({ nombre }) => (nombre ? [clave(nombre)] : [])),
-    );
-    const invitados = this.invitadosAnteriores.hasValue()
-      ? this.invitadosAnteriores.value()
-      : [];
-
-    return [
-      ...this.sociosDisponibles().map((socio) => ({
-        valor: comoSugerencia(socio),
-        tipo: 'Socio del club',
-      })),
-      ...invitados
-        .filter((nombre) => !puestos.has(clave(nombre)))
-        .map((nombre) => ({ valor: nombre, tipo: 'Invitado anterior' })),
-    ];
-  });
-
-  /**
-   * Las sugerencias que calzan con lo escrito (T280): el datalist filtraba solo, el
-   * autocompletar de Material muestra lo que se le da. Sin tildes ni mayúsculas, como se
-   * comparan los nombres al agregarlos.
-   */
-  protected readonly filtradas = computed(() => {
-    const escrito = clave(this.porAgregar());
-
-    return escrito === ''
-      ? this.sugerencias()
-      : this.sugerencias().filter(({ valor }) => clave(valor).includes(escrito));
-  });
+  protected readonly sociosSeguros = computed(() =>
+    this.socios.hasValue() ? this.socios.value() : [],
+  );
+  protected readonly invitadosSeguros = computed(() =>
+    this.invitadosAnteriores.hasValue() ? this.invitadosAnteriores.value() : [],
+  );
 
   constructor() {
     // En el teléfono, una hoja pegada abajo y a todo el ancho, que es donde está el pulgar;
@@ -414,93 +308,17 @@ export class Reservar {
     telefono: ['', [Validators.required]],
   });
 
-  /**
-   * Agrega lo escrito: el socio que nombra, si nombra a uno, y si no, un invitado. Después
-   * el foco vuelve al campo para el siguiente, o al botón de reservar si ya son tres.
-   */
-  protected agregar(): void {
-    const valor = this.porAgregar().trim().replace(/\s+/g, ' ');
-    if (valor === '' || this.acompanantes().length >= MAXIMO_ACOMPANANTES) return;
-
-    const socio = this.esSocio() ? this.socioQueNombra(valor) : undefined;
-
-    this.acompanantes.update((lista) => [
-      ...lista,
-      socio ? { numeroSocio: socio.numeroSocio } : { nombre: valor },
-    ]);
-    this.porAgregar.set('');
-    // A mano y no solo con la señal: si ya estaba vacía, el campo se quedaría con el texto
-    // de la sugerencia que el autocompletar escribió.
-    const campo = this.campo()?.nativeElement;
-    if (campo) campo.value = '';
-    this.error.set(null);
-
-    const lleno = this.acompanantes().length >= MAXIMO_ACOMPANANTES;
-    afterNextRender(
-      () => (lleno ? this.confirmar().nativeElement : campo)?.focus(),
-      { injector: this.injector },
-    );
-  }
-
-  /** La sugerencia elegida, con el mouse o con las flechas y Enter. */
-  protected elegir(valor: string): void {
-    this.porAgregar.set(valor);
-    this.agregar();
-  }
-
-  /**
-   * Enter en el campo. Si había una sugerencia marcada con las flechas, la agrega el
-   * autocompletar (`elegir`): agregar también lo escrito metería «ana» como invitada,
-   * además de la socia elegida. Quién atiende Enter primero depende del orden de los
-   * imports; con esta guarda, el resultado no.
-   */
-  protected alApretarEnter(): void {
-    if (this.disparador()?.activeOption) return;
-    this.agregar();
-  }
-
-  /**
-   * El socio que lo escrito nombra: el de la sugerencia elegida, o el único que se llama
-   * así. Escrito a mano sigue siendo socio: como invitado le gastaría cupo por alguien
-   * que no lo gasta. Si dos se llaman igual, sin el número no se sabe cuál, y queda como
-   * invitado a la vista de la lista para corregirlo.
-   */
-  private socioQueNombra(valor: string): SocioDelDirectorio | undefined {
-    const disponibles = this.sociosDisponibles();
-    const elegido = disponibles.find((socio) => comoSugerencia(socio) === valor);
-    if (elegido) return elegido;
-
-    const homonimos = disponibles.filter((socio) => clave(socio.nombre) === clave(valor));
-
-    return homonimos.length === 1 ? homonimos[0] : undefined;
-  }
-
-  protected quitar(indice: number): void {
-    this.acompanantes.update((lista) => lista.filter((_, i) => i !== indice));
-  }
-
-  /**
-   * Cómo se lee un acompañante ya agregado. Al socio se lo nombra con su número; al
-   * invitado se lo marca, para que se vea cómo quedó leído lo que se escribió.
-   */
-  protected etiqueta(acompanante: AcompananteNuevo): string {
-    if (!acompanante.numeroSocio) {
-      return this.esSocio() ? `${acompanante.nombre} · invitado` : (acompanante.nombre ?? '');
-    }
-
-    const socios = this.socios.hasValue() ? this.socios.value() : [];
-    const socio = socios.find((candidato) => candidato.numeroSocio === acompanante.numeroSocio);
-
-    return socio
-      ? `${socio.nombre} · socio N.º ${acompanante.numeroSocio}`
-      : `Socio N.º ${acompanante.numeroSocio}`;
+  /** Con los tres declarados, el foco va al botón de reservar: no queda nada más que escribir. */
+  protected enfocarConfirmar(): void {
+    afterNextRender(() => this.confirmar().nativeElement.focus(), { injector: this.injector });
   }
 
   protected async enviar(): Promise<void> {
     this.error.set(null);
 
     // "Agregar" es un paso que se salta fácil: lo escrito a la vista también cuenta.
-    if (this.porAgregar().trim() !== '') this.agregar();
+    this.campoDeAcompanantes().agregarLoEscrito();
+    this.error.set(null);
 
     if (!this.esSocio() && this.formulario.invalid) {
       this.formulario.markAllAsTouched();
@@ -549,19 +367,4 @@ export class Reservar {
 
   protected readonly hora = horaEnElClub;
   protected readonly pesos = enPesos;
-}
-
-/** Cómo se sugiere un socio: con su número, porque dos pueden llamarse igual. */
-function comoSugerencia(socio: SocioDelDirectorio): string {
-  return `${socio.nombre} · N.º ${socio.numeroSocio}`;
-}
-
-/** Un nombre sin mayúsculas, tildes ni espacios de más, para compararlo con otro. */
-function clave(nombre: string): string {
-  return nombre
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLocaleLowerCase('es')
-    .trim()
-    .replace(/\s+/g, ' ');
 }

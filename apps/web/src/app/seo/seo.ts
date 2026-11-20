@@ -60,7 +60,7 @@ export class Seo extends TitleStrategy {
 
     const descripcion: string =
       this.propio?.descripcion ??
-      [...cadena].reverse().find((ruta) => ruta.data['descripcion'])?.data['descripcion'] ??
+      cadena.findLast((ruta) => ruta.data['descripcion'])?.data['descripcion'] ??
       DESCRIPCION_DEL_SITIO;
     const indexar = cadena.every((ruta) => ruta.data['indexar'] !== false);
 

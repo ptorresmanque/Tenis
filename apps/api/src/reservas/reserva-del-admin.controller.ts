@@ -16,6 +16,7 @@ import { leerDuracion } from './duracion';
 import { leerAcompanantes } from './reservas.dto';
 import {
   CupoDelSocio,
+  PagosDeLaReserva,
   ReservaDelAdminService,
 } from './reserva-del-admin.service';
 import { ReservaCreada } from './reservas.service';
@@ -51,6 +52,15 @@ export class ReservaDelAdminController {
     }
 
     return this.servicio.cupoDe(socioId, fecha);
+  }
+
+  /**
+   * Lo que dijo Webpay de cada pago de la reserva, para su ficha (T387). Solo el admin:
+   * el gestor mira el día y anota, y Finanzas no es suya.
+   */
+  @Get(':id/pagos')
+  pagos(@Param('id', ParseIntPipe) id: number): Promise<PagosDeLaReserva> {
+    return this.servicio.pagosDe(id);
   }
 
   @Post()

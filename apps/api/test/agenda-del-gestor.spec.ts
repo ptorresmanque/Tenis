@@ -169,6 +169,10 @@ describe('El gestor en la agenda del día', () => {
     await como('gestora').get(`admin/reservas/cupo/${ids.socia}`).expect(403);
   });
 
+  it('no ve lo que dijo Webpay de una reserva: Finanzas no es suya (T387)', async () => {
+    await como('gestora').get(`admin/reservas/${reservaId}/pagos`).expect(403);
+  });
+
   it('no cancela ni mueve la hora de nadie: le responde como a quien no es su dueño (51)', async () => {
     await como('gestora').delete(`reservas/${reservaId}`).expect(404);
     await como('gestora')

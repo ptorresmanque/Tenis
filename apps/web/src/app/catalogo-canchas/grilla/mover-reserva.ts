@@ -84,8 +84,15 @@ export class MoverReserva {
   /**
    * El socio confirma el cambio en la barra y se mueve al tiro: no paga, y no hay
    * diferencia que cobrarle ni ruta a Webpay.
+   *
+   * @param alTerminar A dónde se va al terminar. Por omisión, a «Mis reservas»; el panel se queda
+   *   en la agenda (T392).
    */
-  async moverAlTiro(eleccion: Eleccion): Promise<void> {
+  async moverAlTiro(
+    eleccion: Eleccion,
+    alTerminar: () => Promise<unknown> | void = () =>
+      this.router.navigate(['/mi-cuenta/reservas']),
+  ): Promise<void> {
     const reservaId = this.porId();
 
     if (reservaId === null || this.enviando()) return;
@@ -95,7 +102,7 @@ export class MoverReserva {
 
     try {
       await this.reservas.mover(reservaId, destinoDe(eleccion));
-      await this.router.navigate(['/mi-cuenta/reservas']);
+      await alTerminar();
     } catch (falla) {
       // Se queda en la grilla a propósito: la hora que eligió no se pudo, pero las
       // otras siguen ahí y volver atrás para reintentar sería un paso de más.

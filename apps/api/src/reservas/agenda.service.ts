@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 import { instanteEnElClub } from '../comun/tiempo';
-import { EstadoReserva, MotivoBloqueo } from '../generated/prisma/client';
+import {
+  ConceptoPago,
+  EstadoReserva,
+  EstadoTransaccion,
+  MotivoBloqueo,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   OBSERVACION,
@@ -31,7 +36,18 @@ export interface ReservaDelDia {
   observaciones: ObservacionDeReserva[];
   /** Cuántas tiene el socio en reservas de días anteriores. Cero para el visitante. */
   observacionesAnteriores: number;
+  /** Cómo se paga, para decirlo en el tablero (T387). Lo que dijo Webpay va en la ficha. */
+  pago: PagoDeLaReserva;
 }
+
+/**
+ * - `SIN_COBRO`: es de socio, que no paga la hora.
+ * - `ESPERANDO`: la hora está tomada mientras vuelve Webpay, y se puede caer.
+ * - `EN_LINEA`: tiene un pago autorizado.
+ * - `EN_EL_MESON`: es de visitante sin pago en línea; el cobro, si lo hubo, fue en el mostrador.
+ */
+export type PagoDeLaReserva =
+  'SIN_COBRO' | 'ESPERANDO' | 'EN_LINEA' | 'EN_EL_MESON';
 
 /** Una cancha cerrada en el día, con su rango exacto (T270). */
 export interface BloqueoDelDia {
@@ -121,6 +137,26 @@ export class AgendaService {
       instanteEnElClub(fecha, '00:00'),
     );
 
+    // Una consulta para todo el día, no una por reserva: solo las que tienen un pago
+    // autorizado, que son las únicas que cambian lo que se dice.
+    const pagadas = new Set(
+      (
+        await this.prisma.transaccion.findMany({
+          where: {
+            concepto: ConceptoPago.RESERVA,
+            conceptoId: { in: reservas.map(({ id }) => id) },
+            estado: EstadoTransaccion.AUTORIZADA,
+          },
+          select: { conceptoId: true },
+        })
+      ).map(({ conceptoId }) => conceptoId),
+    );
+    const pagoDe = (reserva: (typeof reservas)[number]): PagoDeLaReserva => {
+      if (reserva.socioId !== null) return 'SIN_COBRO';
+      if (reserva.estado === EstadoReserva.PENDIENTE_PAGO) return 'ESPERANDO';
+      return pagadas.has(reserva.id) ? 'EN_LINEA' : 'EN_EL_MESON';
+    };
+
     return reservas.map((reserva) => ({
       id: reserva.id,
       folio: reserva.folio,
@@ -141,6 +177,7 @@ export class AgendaService {
       observaciones: reserva.observaciones,
       observacionesAnteriores:
         reserva.socioId === null ? 0 : (anteriores.get(reserva.socioId) ?? 0),
+      pago: pagoDe(reserva),
     }));
   }
 

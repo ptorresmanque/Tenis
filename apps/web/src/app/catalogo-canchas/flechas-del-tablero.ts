@@ -8,7 +8,8 @@ const PASOS: Record<string, readonly [number, number]> = {
 
 /**
  * Las flechas de un tablero: llevan el foco al botón siguiente en esa dirección, saltándose
- * lo que no es botón, y en el borde lo dejan donde está.
+ * lo que no es botón. En el borde lo dejan donde está y no se quedan con la tecla, para que la
+ * página se desplace; con Alt, Ctrl, Cmd o Shift no hacen nada (T393).
  *
  * La comparten el tablero de disponibilidad (T264) y el de la agenda (T270): cada uno es una
  * sola parada de teclado, y con ocho canchas una parada por celda serían doscientas. Los
@@ -23,21 +24,25 @@ export function moverConFlechas(evento: KeyboardEvent, filas: number, columnas: 
   const paso = PASOS[evento.key];
   const desde = evento.currentTarget as HTMLElement;
   const tabla = desde.closest('table');
-  if (!paso || !tabla) return;
+  // Con un modificador, la combinación es del navegador o del lector de pantalla; y si otro ya
+  // usó la tecla, no es del tablero (modern-web-guidance, spatial-navigation; T393).
+  const conModificador = evento.altKey || evento.ctrlKey || evento.metaKey || evento.shiftKey;
+  if (!paso || !tabla || conModificador || evento.defaultPrevented) return;
 
-  evento.preventDefault();
   let fila = Number(desde.dataset['fila']);
   let columna = Number(desde.dataset['columna']);
 
   for (;;) {
     fila += paso[0];
     columna += paso[1];
+    // En el borde, la flecha sigue siendo de la página: sin `preventDefault`, se desplaza (T393).
     if (fila < 0 || fila >= filas || columna < 0 || columna >= columnas) return;
 
     const destino = tabla.querySelector<HTMLElement>(
       `button[data-fila="${fila}"][data-columna="${columna}"]`,
     );
     if (destino) {
+      evento.preventDefault();
       // El foco solo no desplaza si la celda sigue en la ventana, aunque quede bajo lo pegado
       // (el encabezado y, en el teléfono, la línea de lo elegido): «nearest» respeta el
       // scroll-margin de la celda (WCAG 2.4.11), y no se mueve si ya se ve entera. jsdom no

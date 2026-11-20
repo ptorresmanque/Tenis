@@ -271,7 +271,7 @@ export class ClasesPublicas {
 
   /** Los días desde el lunes: el domingo, 0 en la API, va al final. */
   protected enOrden(dias: SeriePublica['dias']) {
-    return [...dias].sort((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7));
+    return dias.toSorted((a, b) => ((a.diaSemana + 6) % 7) - ((b.diaSemana + 6) % 7));
   }
 
   /** "15 de diciembre", de una fecha civil. */
@@ -293,7 +293,7 @@ const FECHA_CORTA = new Intl.DateTimeFormat('es-CL', {
  * va al final: 0 en la API, pero el último día para quien lee el horario.
  */
 export function diasDeLaSerie(dias: number[]): string {
-  const enOrden = [...dias].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+  const enOrden = dias.toSorted((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
   const texto = LISTA.format(enOrden.map((dia) => NOMBRES_DE_DIA[dia]));
 
   return texto.charAt(0).toUpperCase() + texto.slice(1);

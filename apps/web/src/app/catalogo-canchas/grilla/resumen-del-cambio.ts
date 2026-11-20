@@ -63,6 +63,11 @@ export class ResumenDelCambio {
   readonly bloque = input.required<BloqueDisponible>();
   /** Lo que pagó por el enlace; nulo si quien cambia es el socio, que no paga. */
   readonly pagadoClp = input.required<number | null>();
+  /**
+   * Lo que dice debajo de la hora, en vez de la diferencia: en el panel (T392), de quién es la
+   * reserva que se mueve. Sin esto, al visitante le diría «Socio sin costo».
+   */
+  readonly detalle = input<string | null>(null);
   readonly enviando = input(false);
 
   readonly soltar = output<void>();
@@ -73,7 +78,9 @@ export class ResumenDelCambio {
 
   protected readonly diferencia = computed(() => {
     const pagado = this.pagadoClp();
+    const detalle = this.detalle();
 
+    if (detalle !== null) return detalle;
     return pagado === null
       ? `Socio ${TARIFA_DEL_SOCIO}.`
       : textoDeLaDiferencia(this.monto(), pagado);

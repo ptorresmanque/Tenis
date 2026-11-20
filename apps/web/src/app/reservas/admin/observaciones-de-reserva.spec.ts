@@ -57,6 +57,7 @@ describe('ObservacionesDeReserva', () => {
       nota({ id: 2, texto: 'Dejó la red baja.', autorId: 9, autorNombre: 'Otro Gestor' }),
     ],
     observacionesAnteriores: 2,
+    pago: 'SIN_COBRO',
   };
 
   let fixture: ComponentFixture<ObservacionesDeReserva>;

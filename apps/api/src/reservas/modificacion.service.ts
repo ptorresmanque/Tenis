@@ -317,13 +317,23 @@ export class ModificacionService {
    * Que el destino se pueda pedir: la reserva sin pago en curso, a tiempo, y la hora en
    * el horario de la cancha y sin bloquear. Lo comparten mover y pagar la diferencia.
    */
-  private async destinoValido(reserva: Reserva, destino: Destino, ahora: Date) {
+  private async destinoValido(
+    reserva: Reserva,
+    destino: Destino,
+    ahora: Date,
+    /**
+     * El club, desde el panel (T386): mueve sin el plazo del socio, que es para que el
+     * socio no suelte una hora a última hora, no para que el mesón no pueda atender.
+     */
+    alAdmin = false,
+  ) {
     const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
 
     // Igual que cancelar (T87): la hora no cambia bajo los pies de quien está en Webpay.
     await this.exigirQueNoHayaPagoEnCurso(reserva.id);
+    exigirQueNoHayaTerminado(reserva, ahora);
 
-    if (!sePuedeModificar(reserva.inicio, ahora, ventanas)) {
+    if (!alAdmin && !sePuedeModificar(reserva.inicio, ahora, ventanas)) {
       throw new ConflictException({
         motivo: 'FUERA_DE_PLAZO',
         message:
@@ -351,9 +361,9 @@ export class ModificacionService {
     /** El admin, que necesita saber qué canchas llenan el tope de luz. */
     alAdmin = false,
   ): Promise<Reserva> {
-    const bloque = await this.destinoValido(reserva, destino, ahora);
+    const bloque = await this.destinoValido(reserva, destino, ahora, alAdmin);
 
-    await this.exigirQueNoQuedeDiferencia(reserva.id, bloque.montoClp);
+    await this.exigirQueNoQuedeDiferencia(reserva.id, bloque.montoClp, alAdmin);
 
     try {
       const movida = await this.moverContraSusCupos(reserva, destino, bloque);
@@ -399,6 +409,7 @@ export class ModificacionService {
     const ventanas = await this.prisma.configuracionClub.findFirstOrThrow();
 
     await this.exigirQueNoHayaPagoEnCurso(reserva.id);
+    exigirQueNoHayaTerminado(reserva, ahora);
 
     // **Todos los pagos, no "el" pago** (T86): la compra y, si la alargó, la diferencia
     // que cobró T89. Devolver es anular cada uno, entero (`SPEC-pagos.md` § Reembolso).
@@ -439,6 +450,18 @@ export class ModificacionService {
         motivo: 'YA_NO_ESTA_ACTIVA',
         message: 'Esa reserva ya estaba cancelada.',
       });
+    }
+
+    // El titular se entera si la canceló el club (T386). **No con `reserva.socioId !==
+    // yo.socioId`**: en la reserva de visitante los dos son nulos, y el admin sin ficha de
+    // socio pasaría por su titular. El admin que es socio y cancela la suya ya lo sabe.
+    const laCanceloElClub =
+      yo.esAdmin && !(yo.socioId !== null && reserva.socioId === yo.socioId);
+    if (laCanceloElClub) {
+      await this.avisos.cancelacion(
+        reserva.id,
+        devolver ? 'DEVUELTO' : compra ? 'SIN_DEVOLUCION' : 'SIN_PAGO',
+      );
     }
 
     if (devolver) {
@@ -575,10 +598,23 @@ export class ModificacionService {
   private async exigirQueNoQuedeDiferencia(
     reservaId: number,
     montoDelBloque: number | null,
+    /** El club, desde el panel: no pagó él, y el mesón no cobra la diferencia (T394). */
+    alAdmin = false,
   ): Promise<void> {
     const cuenta = await this.diferenciaPara(reservaId, montoDelBloque);
 
     if (cuenta === null || cuenta.diferencia <= 0) return;
+
+    if (alAdmin) {
+      throw new ConflictException({
+        motivo: 'DIFERENCIA_POR_PAGAR',
+        diferenciaClp: cuenta.diferencia,
+        message:
+          `Esa hora vale ${enPesos(cuenta.precio)} y la reserva tiene pagados ` +
+          `${enPesos(cuenta.pagado)}: la diferencia de ${enPesos(cuenta.diferencia)} no se ` +
+          'cobra desde el panel. Elige una del mismo precio o menor.',
+      });
+    }
 
     // Se rechaza y no se cobra acá: pagar es otra ruta (`pagarDiferenciaPorToken`), así
     // nadie paga sin haber visto antes el monto, que viaja en la respuesta (T89).
@@ -781,6 +817,22 @@ function esBloqueOcupado(error: unknown): boolean {
   // `esViolacionDeUnicidad` es el helper que T2 dejó para esto; reescribir el
   // chequeo de P2002 acá sería una segunda versión de la misma regla.
   return error instanceof BloqueTomado || esViolacionDeUnicidad(error);
+}
+
+/**
+ * Una reserva que ya se jugó no se mueve ni se cancela, la pida quien la pida (T386).
+ *
+ * Al socio el plazo para mover ya se lo impedía; desde que el club mueve sin plazo, sin esto
+ * el panel podría llevarse la reserva de ayer a mañana, o cancelarla y devolverle el cupo de
+ * un día que ya pasó. La que está corriendo todavía se puede cancelar.
+ */
+function exigirQueNoHayaTerminado(reserva: Reserva, ahora: Date): void {
+  if (reserva.fin.getTime() <= ahora.getTime()) {
+    throw new ConflictException({
+      motivo: 'YA_TERMINO',
+      message: 'Esa reserva ya terminó.',
+    });
+  }
 }
 
 /** Una reserva cancelada o expirada ya no se mueve ni se cancela. */
