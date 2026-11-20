@@ -2,21 +2,27 @@ import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { Subject } from 'rxjs';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Disponibilidad, GrillaDeCancha } from '../../catalogo-canchas/disponibilidad';
 import { ClaseDelDia, Clases } from '../../clases/clases.service';
 import { Auth, UsuarioActual } from '../../core/auth/auth';
+import { Socios } from '../../identidad/admin/socios.service';
 import { avisoDeLoHecho } from '../../testing/snackbar';
 import { Agenda, ReservaDelDia } from './agenda.service';
 import { AgendaDelDia } from './agenda';
+import { ReservasDelAdmin } from './nueva-reserva.service';
 
 /**
- * T26. El panel del mesón, y sobre todo **que se actualice solo**.
+ * T26 y T390. El panel del mesón: **el mismo tablero del sitio**, con las reservas a la vista, y
+ * **que se actualice solo**.
  *
- * El criterio 2 de `SPEC.md`: la reserva del visitante aparece sin que nadie recargue.
- * Es lo que se muestra en la demo con dos ventanas lado a lado.
+ * El criterio 2 de `SPEC.md`: la reserva del visitante aparece sin que nadie recargue. Desde T390
+ * (`SPEC-panel.md` § Reservas del panel, R3), la página usa los controles, el tablero, la barra y
+ * el diálogo de `/disponibilidad`, y se reserva desde el tablero.
  */
 describe('AgendaDelDia', () => {
   const UNA: ReservaDelDia = {
@@ -91,14 +97,13 @@ describe('AgendaDelDia', () => {
   let fixture: ComponentFixture<AgendaDelDia>;
   let delDia: ReturnType<typeof vi.fn>;
   let disponibilidadDelDia: ReturnType<typeof vi.fn>;
-  let bloqueosDelDia: ReturnType<typeof vi.fn>;
   let clasesDelDia: ReturnType<typeof vi.fn>;
   let avisos: Subject<{ fecha: string }>;
 
-  const montar = async (
+  const proveer = (
     reservas: ReservaDelDia[] | Error,
-    clases: ClaseDelDia[] | Error = [],
-    usuario: UsuarioActual = ADMIN,
+    clases: ClaseDelDia[] | Error,
+    usuario: UsuarioActual,
   ) => {
     delDia = vi.fn(() =>
       reservas instanceof Error ? Promise.reject(reservas) : Promise.resolve(reservas),
@@ -108,76 +113,157 @@ describe('AgendaDelDia', () => {
     );
     avisos = new Subject<{ fecha: string }>();
     disponibilidadDelDia = vi.fn(() => Promise.resolve([abierta(1), abierta(2)]));
-    bloqueosDelDia = vi.fn(() => Promise.resolve([]));
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        {
-          provide: Agenda,
-          useValue: { delDia, bloqueosDelDia, avisos: avisos.asObservable() },
-        },
+        provideRouter([{ path: 'agenda', component: AgendaDelDia }]),
+        { provide: Agenda, useValue: { delDia, avisos: avisos.asObservable() } },
         { provide: Disponibilidad, useValue: { delDia: disponibilidadDelDia } },
         { provide: Clases, useValue: { delDia: clasesDelDia } },
         { provide: Auth, useValue: { usuario: signal(usuario).asReadonly() } },
+        { provide: Socios, useValue: { listado: () => Promise.resolve({ socios: [] }) } },
+        { provide: ReservasDelAdmin, useValue: { cupoDe: vi.fn(), crear: vi.fn() } },
       ],
     });
+  };
 
-    fixture = TestBed.createComponent(AgendaDelDia);
+  const actualizar = async () => {
     await fixture.whenStable();
     fixture.detectChanges();
   };
 
-  const texto = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
+  const montar = async (
+    reservas: ReservaDelDia[] | Error,
+    clases: ClaseDelDia[] | Error = [],
+    usuario: UsuarioActual = ADMIN,
+  ) => {
+    proveer(reservas, clases, usuario);
+    fixture = TestBed.createComponent(AgendaDelDia);
+    await actualizar();
+  };
+
+  const raiz = () => fixture.nativeElement as HTMLElement;
+  const texto = () => (raiz().textContent ?? '').replace(/\s+/g, ' ');
+  const componente = (nombre: string) => fixture.debugElement.query((nodo) => nodo.name === nombre);
 
   /** La ficha se abre en el overlay del diálogo, fuera del componente. */
   const ficha = () => document.querySelector('mat-dialog-container');
   const abrirLaFicha = async (nombre = 'Camila Visitante') => {
-    [...(fixture.nativeElement as HTMLElement).querySelectorAll('app-tablero-de-la-agenda button')]
+    [...raiz().querySelectorAll<HTMLButtonElement>('app-marcador button[data-reserva]')]
       .find((boton) => boton.textContent?.includes(nombre))!
-      .dispatchEvent(new MouseEvent('click'));
-    await fixture.whenStable();
-    fixture.detectChanges();
+      .click();
+    await actualizar();
+  };
+
+  /** Las libres que el tablero deja tomar: los botones que no son una reserva. */
+  const libres = () => [
+    ...raiz().querySelectorAll<HTMLButtonElement>('app-marcador tbody button:not([data-reserva])'),
+  ];
+
+  const reservarLaPrimeraLibre = async () => {
+    libres()[0].click();
+    await actualizar();
+    [...raiz().querySelectorAll<HTMLButtonElement>('app-barra-fija button')]
+      .find((boton) => boton.textContent?.includes('Reservar'))!
+      .click();
+    await actualizar();
   };
 
   beforeEach(async () => {
+    // Las 07:00 del club el lunes 17 de agosto: el día de los datos, con todo por delante.
+    vi.setSystemTime('2026-08-17T11:00:00.000Z');
     await montar([UNA]);
   });
 
-  /** Los FAB de la pantalla: la acción que crea (SPEC-panel.md D15). */
-  const fabs = () =>
-    TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('**se reserva desde el tablero, como en el sitio: sin el FAB de antes** (T390)', async () => {
+    const fabs = await TestbedHarnessEnvironment.loader(fixture).getAllHarnesses(
       MatButtonHarness.with({ variant: 'fab' }),
     );
 
-  it('**«Nueva reserva» es el FAB extendido de la pantalla, el único** (T285, D15)', async () => {
+    expect(fabs).toHaveLength(0);
     // El título vive en la pantalla madre (panel-de-la-agenda), con las pestañas.
-    const [nueva, ...otros] = await fabs();
-
-    expect(otros).toHaveLength(0);
-    expect(await nueva.getText()).toContain('Nueva reserva');
-    expect(await (await nueva.host()).hasClass('mdc-fab--extended')).toBe(true);
-    expect((fixture.nativeElement as HTMLElement).querySelector('h1')).toBeNull();
+    expect(raiz().querySelector('h1')).toBeNull();
   });
 
-  it('a la gestora le muestra el día, reservas y clases, sin "Nueva reserva" (T221)', async () => {
+  it('**el día es el tablero del sitio, con la reserva en sus filas y lo que dice de ella**', () => {
+    expect(raiz().querySelector('app-tablero-de-la-agenda')).toBeNull();
+    const tablero = raiz().querySelector('app-marcador')!;
+    const columnas = [...tablero.querySelectorAll('thead th')].map((th) =>
+      th.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+
+    expect(columnas).toEqual(['Hora', 'Cancha 1', 'Cancha 2']);
+    const primera = tablero.querySelector('tbody tr')!.textContent ?? '';
+    expect(primera).toContain('08:00');
+    expect(primera).toContain('Camila Visitante');
+    expect(primera).toContain('Paga en el mesón');
+  });
+
+  it('**los controles del día son los de disponibilidad: el día, la duración y las canchas**', async () => {
+    expect(componente('app-controles-del-dia')).not.toBeNull();
+    expect(disponibilidadDelDia).toHaveBeenCalledWith('2026-08-17', 60);
+
+    componente('app-selector-de-dia').componentInstance.fecha.set('2026-08-20');
+    await actualizar();
+    expect(delDia).toHaveBeenLastCalledWith('2026-08-20');
+    expect(disponibilidadDelDia).toHaveBeenLastCalledWith('2026-08-20', 60);
+    // El día queda en la dirección: el enlace desde Finanzas y recargar lo conservan.
+    expect(TestBed.inject(Router).url).toContain('fecha=2026-08-20');
+
+    componente('app-controles-del-dia').componentInstance.cambiarDuracion.emit('90');
+    await actualizar();
+    expect(disponibilidadDelDia).toHaveBeenLastCalledWith('2026-08-20', 90);
+  });
+
+  it('**al admin, la libre se elige y la barra la muestra; «Reservar» abre el diálogo con esa hora**', async () => {
+    // La Cancha 1 a las 08:00 es de Camila: la primera libre es la Cancha 2.
+    libres()[0].click();
+    await actualizar();
+    expect(raiz().querySelector('app-barra-fija')?.textContent).toContain('Cancha 2 · 08:00–09:00');
+
+    await reservarLaPrimeraLibre();
+
+    const dialogo = componente('app-nueva-reserva').componentInstance;
+    expect(dialogo.cancha().id).toBe(2);
+    expect(dialogo.bloque().inicio).toBe('2026-08-17T12:00:00.000Z');
+  });
+
+  it('la barra va dentro del panel, pegada abajo, y no tapa el menú lateral', async () => {
+    libres()[0].click();
+    await actualizar();
+
+    const caja = raiz().querySelector('app-barra-fija > div')!;
+    expect(caja.classList.contains('sticky')).toBe(true);
+    expect(caja.classList.contains('fixed')).toBe(false);
+  });
+
+  it('**la hora tomada se confirma con el snackbar y la barra se va** (T283)', async () => {
+    await reservarLaPrimeraLibre();
+
+    componente('app-nueva-reserva').componentInstance.creada.emit('AB23CDE');
+    await actualizar();
+
+    expect(avisoDeLoHecho()).toBe('Hora tomada. Folio AB23CDE.');
+    expect(raiz().querySelector('app-barra-fija')).toBeNull();
+  });
+
+  it('a la gestora le muestra el día, reservas y clases, y lo libre no le ofrece nada (T221)', async () => {
     await montar([UNA], [CLASE], GESTORA);
 
-    expect(await fabs()).toHaveLength(0);
-    expect(texto()).not.toContain('Nueva reserva');
     expect(texto()).toContain('Camila Visitante');
     expect(texto()).toContain('Ana Silva');
+    expect(libres()).toHaveLength(0);
   });
 
   it('**baja el CSV del día que se está mirando, también la gestora** (T273)', async () => {
-    const enlace = () =>
-      (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
-        'app-descargar-csv a',
-      );
+    const enlace = () => raiz().querySelector<HTMLAnchorElement>('app-descargar-csv a');
 
-    expect(enlace()?.getAttribute('href')).toBe(
-      `/api/admin/agenda.csv?fecha=${fixture.componentInstance.fechaActual()}`,
-    );
+    expect(enlace()?.getAttribute('href')).toBe('/api/admin/agenda.csv?fecha=2026-08-17');
 
     fixture.componentInstance.fechaActual.set('2026-08-20');
     fixture.detectChanges();
@@ -185,76 +271,6 @@ describe('AgendaDelDia', () => {
 
     await montar([UNA], [], GESTORA);
     expect(enlace()).not.toBeNull();
-  });
-
-  /**
-   * T271. La agenda se ve como disponibilidad (D2): los mismos controles del día y el
-   * tablero de hora por cancha, con la reserva en su celda y su ficha al tocarla.
-   */
-  it('**el día es un tablero: una columna por cancha y la reserva en su franja**', () => {
-    const tablero = (fixture.nativeElement as HTMLElement).querySelector('app-tablero-de-la-agenda');
-    const columnas = [...tablero!.querySelectorAll('thead th')].map((th) => th.textContent?.trim());
-
-    expect(columnas).toEqual(['Hora', 'Cancha 1', 'Cancha 2']);
-    expect(tablero!.querySelector('tbody tr')?.textContent).toContain('08:00');
-    expect(tablero!.querySelector('tbody tr')?.textContent).toContain('Camila Visitante');
-  });
-
-  it('pide la disponibilidad y los cierres del día que se mira', () => {
-    const fecha = fixture.componentInstance.fechaActual();
-
-    expect(disponibilidadDelDia).toHaveBeenCalledWith(fecha);
-    expect(bloqueosDelDia).toHaveBeenCalledWith(fecha);
-  });
-
-  it('**los controles del día son los de disponibilidad**', async () => {
-    const selector = fixture.debugElement.query((nodo) => nodo.name === 'app-selector-de-dia');
-    expect(selector).not.toBeNull();
-
-    selector.componentInstance.fecha.set('2026-08-20');
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    expect(delDia).toHaveBeenLastCalledWith('2026-08-20');
-    expect(disponibilidadDelDia).toHaveBeenLastCalledWith('2026-08-20');
-  });
-
-  it('**al admin, la franja libre abre «Nueva reserva» con esa cancha y esa hora** (T272)', async () => {
-    const tablero = fixture.debugElement.query((nodo) => nodo.name === 'app-tablero-de-la-agenda');
-    tablero.componentInstance.tomar.emit({ canchaId: 2, inicio: '2026-08-17T13:00:00.000Z' });
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const formulario = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-reserva');
-    expect(formulario.componentInstance.cancha()).toBe(2);
-    expect(formulario.componentInstance.inicio()).toBe('2026-08-17T13:00:00.000Z');
-  });
-
-  it('**la hora tomada se confirma con el snackbar, no con un aviso que se queda** (T283)', async () => {
-    const tablero = fixture.debugElement.query((nodo) => nodo.name === 'app-tablero-de-la-agenda');
-    tablero.componentInstance.tomar.emit({ canchaId: 2, inicio: '2026-08-17T13:00:00.000Z' });
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    fixture.debugElement
-      .query((nodo) => nodo.name === 'app-nueva-reserva')
-      .componentInstance.creada.emit('AB23CDE');
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    expect(avisoDeLoHecho()).toBe('Hora tomada. Folio AB23CDE.');
-    // El tablero ya la muestra: un aviso fijo arriba solo empujaba la tabla.
-    expect(texto()).not.toContain('Hora tomada');
-  });
-
-  it('el FAB la abre sin cancha ni hora', async () => {
-    await (await fabs())[0].click();
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const formulario = fixture.debugElement.query((nodo) => nodo.name === 'app-nueva-reserva');
-    expect(formulario.componentInstance.cancha()).toBeNull();
-    expect(formulario.componentInstance.inicio()).toBeNull();
   });
 
   it('**tocar la reserva abre su ficha: la hora, la cancha y su teléfono**', async () => {
@@ -268,14 +284,22 @@ describe('AgendaDelDia', () => {
     expect(ficha()?.querySelector('a[href^="tel:"]')).not.toBeNull();
   });
 
+  it('**`?fecha` y `?reserva` en la dirección abren ese día con esa ficha** (R10)', async () => {
+    proveer([UNA], [], ADMIN);
+    const harness = await RouterTestingHarness.create('/agenda?fecha=2026-08-20&reserva=1');
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    expect(delDia).toHaveBeenCalledWith('2026-08-20');
+    expect(ficha()?.textContent).toContain('Camila Visitante');
+  });
+
   it('en la ficha van sus observaciones, y anotar una recarga el día sin vaciarlo (T226)', async () => {
     await abrirLaFicha();
     expect(ficha()?.querySelector('app-observaciones-de-reserva')).not.toBeNull();
 
-    const laFicha = fixture.debugElement.query((nodo) => nodo.name === 'app-ficha-de-la-reserva');
-    laFicha.componentInstance.cambio.emit();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    componente('app-ficha-de-la-reserva').componentInstance.cambio.emit();
+    await actualizar();
 
     expect(delDia).toHaveBeenCalledTimes(2);
     expect(texto()).toContain('Camila Visitante');
@@ -285,17 +309,18 @@ describe('AgendaDelDia', () => {
 
   it('distingue al socio del visitante, y la ficha dice con quién juega', async () => {
     await montar([
-      { ...UNA, esSocio: true, nombre: 'Socia', acompanantes: ['Ana Invitada'] },
+      { ...UNA, esSocio: true, nombre: 'Socia', pago: 'SIN_COBRO', acompanantes: ['Ana Invitada'] },
     ]);
 
     expect(texto()).toContain('Socia');
+    expect(texto()).toContain('Sin cobro');
     await abrirLaFicha('Socia');
     expect(ficha()?.textContent).toContain('Ana Invitada');
   });
 
   it('marca la que todavía está pagando', async () => {
     // Ocupa la cancha pero puede caerse: el club necesita distinguirla de una vendida.
-    await montar([{ ...UNA, estado: 'PENDIENTE_PAGO' }]);
+    await montar([{ ...UNA, estado: 'PENDIENTE_PAGO', pago: 'ESPERANDO' }]);
 
     expect(texto()).toContain('Esperando el pago');
   });
@@ -306,28 +331,30 @@ describe('AgendaDelDia', () => {
     expect(texto()).toContain('No hay nada agendado');
   });
 
-  it('**un aviso del servidor repuebla el panel sin recargar la página**', async () => {
+  it('**un aviso del servidor repuebla el panel sin recargar la página**, el tablero incluido', async () => {
     // El criterio 2 de `SPEC.md`, que es lo que se muestra en la demo.
     delDia.mockResolvedValue([
       UNA,
       { ...UNA, id: 2, folio: 'NUEVA99', nombre: 'Recién llegada', cancha: 'Cancha 2', canchaId: 2 },
     ]);
+    disponibilidadDelDia.mockClear();
 
-    avisos.next({ fecha: fixture.componentInstance.fechaActual() });
-    await fixture.whenStable();
-    fixture.detectChanges();
+    avisos.next({ fecha: '2026-08-17' });
+    await actualizar();
 
-    // En la franja de al lado no cabe: va a la Cancha 2, que está libre a esa hora.
     expect(texto()).toContain('Recién llegada');
+    // La hora tomada deja de estar libre en el tablero: también se vuelve a pedir.
+    expect(disponibilidadDelDia).toHaveBeenCalledWith('2026-08-17', 60);
   });
 
-  it('**las clases se ven en la misma agenda que las reservas**', async () => {
+  it('**las clases del día van en una lista bajo el tablero, con su hora, su lugar y su profesor**', async () => {
     await montar([UNA], [CLASE]);
 
-    // En su franja y en su cancha: la de las 10:00 de la Cancha 2.
-    const filas = [...(fixture.nativeElement as HTMLElement).querySelectorAll('app-tablero-de-la-agenda tbody tr')];
-    const deLas10 = filas.find((fila) => fila.querySelector('th')?.textContent?.includes('10:00'));
-    expect(deLas10?.textContent).toContain('Ana Silva');
+    const lista =
+      raiz().querySelector('[data-clases-del-dia]')?.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(lista).toContain('10:00–11:00');
+    expect(lista).toContain('Cancha 2');
+    expect(lista).toContain('Ana Silva');
   });
 
   it('la clase se distingue de una reserva sin depender del color', async () => {
@@ -344,10 +371,9 @@ describe('AgendaDelDia', () => {
       { ...CLASE, tipo: 'PREPARACION_FISICA', lugar: 'Gimnasio', canchaId: null, nivel: null, cupoMaximo: 1 },
     ]);
 
-    const fila = texto().replace(/\s+/g, ' ');
-    expect(fila).toContain('Gimnasio');
-    expect(fila).toContain('Clase · Preparación física · Individual');
-    expect(fila).toContain('Ana Silva · un alumno');
+    expect(texto()).toContain('Gimnasio');
+    expect(texto()).toContain('Clase · Preparación física · Individual');
+    expect(texto()).toContain('Ana Silva · un alumno');
   });
 
   it('**un día con clases y sin reservas no se anuncia como vacío**', async () => {

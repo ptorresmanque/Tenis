@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { booleanAttribute, Component, input } from '@angular/core';
 
 /**
  * La barra pegada abajo con lo elegido y el botón que cierra la acción.
@@ -16,9 +16,11 @@ import { Component } from '@angular/core';
 @Component({
   selector: 'app-barra-fija',
   template: `
+    <!-- En el panel va pegada abajo dentro del contenido (T390): fija a todo el ancho de la
+         ventana, quedaba encima del menú lateral. -->
     <div
-      class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card px-4 py-4
-             shadow-lg"
+      class="bottom-0 z-30 border-t border-border bg-card px-4 py-4 shadow-lg"
+      [class]="enElFlujo() ? 'sticky mt-6' : 'fixed inset-x-0'"
     >
       <div
         class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3"
@@ -28,4 +30,7 @@ import { Component } from '@angular/core';
     </div>
   `,
 })
-export class BarraFija {}
+export class BarraFija {
+  /** Pegada abajo dentro de lo que se desplaza, y no fija a la ventana: la del panel (T390). */
+  readonly enElFlujo = input(false, { transform: booleanAttribute });
+}

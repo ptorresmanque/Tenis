@@ -146,7 +146,12 @@ function ponerLasReservas(
   template: `
     <!-- En disponibilidad, desde sm el tablero cabe y deja de desplazarse de lado: con
          overflow, los nombres de las canchas no se podrían pegar bajo la cabecera. -->
-    <div class="overflow-x-auto" [class]="modo() === 'elegir' ? 'sm:overflow-visible' : ''">
+    <!-- En el panel (T390) se desplaza siempre: con los nombres, ocho canchas no caben al lado
+         del menú, y ahí no hay cabecera del sitio bajo la que pegar los nombres. -->
+    <div
+      class="overflow-x-auto"
+      [class]="modo() === 'elegir' && !reservas() ? 'sm:overflow-visible' : ''"
+    >
       <table
         class="w-full table-fixed border-separate border-spacing-1"
         [style.min-width.rem]="anchoMinimo()"
@@ -226,8 +231,9 @@ function ponerLasReservas(
                       class="absolute inset-0 flex scroll-mt-41 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52
                              cursor-pointer flex-col items-start gap-0.5 overflow-hidden border
                              bg-card p-1.5 text-start text-foreground hover:border-primary"
+                      [class.border-2]="espera"
                       [class.border-dashed]="espera"
-                      [class.border-on-campo]="espera"
+                      [class.border-primary]="espera"
                       [class.border-transparent]="!espera"
                       [attr.data-fila]="i"
                       [attr.data-columna]="j"
@@ -241,7 +247,9 @@ function ponerLasReservas(
                       <span class="w-full truncate text-xs text-muted-foreground">
                         {{ reserva.esSocio ? 'Socio' : 'Visitante' }}
                       </span>
-                      <span class="inline-flex w-full items-center gap-0.5 truncate text-xs font-semibold">
+                      <!-- El pago baja de línea y no se corta: es lo que el mesón viene a mirar. El
+                           nombre sí se corta; completo lo dice el lector y lo muestra la ficha. -->
+                      <span class="flex w-full items-start gap-0.5 text-xs leading-tight font-semibold">
                         @if (espera) {
                           <mat-icon class="text-sm" aria-hidden="true">schedule</mat-icon>
                         }
@@ -418,7 +426,8 @@ function ponerLasReservas(
           Reserva: tócala para ver su ficha
         </li>
         <li class="flex items-center gap-2">
-          <span class="size-4 border border-dashed border-on-campo bg-card" aria-hidden="true"></span>
+          <!-- Azul y no blanco: el blanco del borde sobre la tarjeta blanca no se veía. -->
+          <span class="size-4 border-2 border-dashed border-primary bg-card" aria-hidden="true"></span>
           Esperando el pago
         </li>
       }
@@ -519,10 +528,11 @@ export class Marcador {
   /**
    * En disponibilidad, los encabezados quedan pegados bajo la cabecera del sitio, que mide
    * 64 px: a la fila veinte nadie se acuerda de cuál columna era cuál. En la portada, no:
-   * el tablero de hoy es corto y se desplaza de lado.
+   * el tablero de hoy es corto y se desplaza de lado. En el panel tampoco (T390): se desplaza
+   * de lado, y la cabecera del sitio no existe ahí.
    */
   protected readonly pegado = computed(() =>
-    this.modo() !== 'elegir'
+    this.modo() !== 'elegir' || this.reservas()
       ? ''
       : // Bajo el encabezado (64 px) o, con la línea de lo elegido, bajo los dos (64 + 58).
         `sm:sticky sm:z-20 ${this.bajoLaLinea() ? 'sm:top-30.5' : 'sm:top-16'}`,
@@ -540,11 +550,12 @@ export class Marcador {
   protected readonly canchas = computed((): Cancha[] => this.grillas().map(({ cancha }) => cancha));
 
   /**
-   * La hora (4.5rem) y cada cancha (3.25rem): por debajo de eso, se desplaza. En el panel, 7rem
-   * por cancha, para que quepa un nombre, como en el tablero de la agenda de antes.
+   * La hora (4.5rem) y cada cancha (3.25rem): por debajo de eso, se desplaza. En el panel, 6rem
+   * por cancha, para que quepa un nombre: con 7rem, como el tablero de antes, a 1280 px la octava
+   * cancha quedaba cortada al lado del menú (T390).
    */
   protected readonly anchoMinimo = computed(
-    () => 4.5 + this.canchas().length * (this.reservas() ? 7 : 3.25),
+    () => 4.5 + this.canchas().length * (this.reservas() ? 6 : 3.25),
   );
 
   /**
