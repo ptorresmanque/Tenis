@@ -12,7 +12,11 @@ import {
   finDeLaGracia,
   UsuarioActual,
 } from '../identidad/usuario-actual';
-import { pagoWebpay, type PagoWebpay } from '../pagos/pago-webpay';
+import {
+  CAMPOS_DEL_PAGO_WEBPAY,
+  pagoWebpay,
+  type PagoWebpay,
+} from '../pagos/pago-webpay';
 import { PrismaService } from '../prisma/prisma.service';
 import { AcompananteDeclarado } from './cupo';
 import { ReservaCreada, ReservasService } from './reservas.service';
@@ -146,6 +150,8 @@ export class ReservaDelAdminService {
     const [transacciones, ventanas] = await Promise.all([
       this.prisma.transaccion.findMany({
         where: { concepto: ConceptoPago.RESERVA, conceptoId: reserva.id },
+        // Solo lo que se muestra y lo que decide la devolución: el token no sale de la base.
+        select: { ...CAMPOS_DEL_PAGO_WEBPAY, inicioBloqueOriginal: true },
         orderBy: { id: 'asc' },
       }),
       this.prisma.configuracionClub.findFirstOrThrow(),

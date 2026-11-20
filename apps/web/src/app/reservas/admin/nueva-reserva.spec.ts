@@ -112,8 +112,9 @@ describe('NuevaReserva', () => {
     vi.useRealTimers();
   });
 
-  it('**dice la cancha y la hora que se eligieron en el tablero, como el diálogo del sitio**', () => {
-    expect(texto()).toContain('Cancha 1 · 12:00–13:00');
+  it('**dice el día, la cancha y la hora que se eligieron en el tablero, como el diálogo del sitio**', () => {
+    // El día también: el panel abre días que no son hoy, y por teléfono se confirma en voz alta.
+    expect(texto()).toContain('lunes, 17 de agosto · Cancha 1 · 12:00–13:00');
     // Ya no las elige: no hay selects de cancha ni de hora.
     expect(dialogo().querySelector('mat-select')).toBeNull();
   });
@@ -148,7 +149,9 @@ describe('NuevaReserva', () => {
   it('**al socio no le manda la duración que el club no le permite en prime, y le dice por qué** (T213)', async () => {
     await montar({ bloque: { ...BLOQUE, esPico: true, socioPuede: false } });
 
-    expect(texto()).toContain('En horario prime, el socio solo puede reservar 1 hora y media.');
+    expect(texto()).toContain(
+      'En horario prime, el socio solo puede reservar 1 hora y media: cambia la duración sobre el tablero y vuelve a elegir la hora.',
+    );
 
     await elegirTitular(/Matías Rojas/);
     await enviar();
@@ -335,6 +338,29 @@ describe('NuevaReserva', () => {
           socioId: 3,
           acompanantes: [{ numeroSocio: '008' }, { nombre: 'Juan Pérez' }],
         }),
+      );
+    });
+
+    it('**sin titular elegido no manda nada, y el campo lo pide**', async () => {
+      // Antes viajaba `socioId: 0` y esperaba a que la API lo rechazara (revisión, T394).
+      await enviar();
+
+      expect(crear).not.toHaveBeenCalled();
+      expect(dialogo().textContent).toContain('Elige un socio de la lista.');
+    });
+
+    it('**si el titular era uno de sus acompañantes, sale de «¿Con quién juega?»**', async () => {
+      // No juega consigo mismo: elegido titular después de agregarlo, quedaba en los dos lados.
+      await elegirTitular(/Matías Rojas/);
+      const campo = await acompanantes();
+      await campo.enterText('ana');
+      await campo.selectOption({ text: /Ana Fuentes/ });
+      await actualizar();
+      await elegirTitular(/Ana Fuentes/);
+      await enviar();
+
+      expect(crear).toHaveBeenCalledWith(
+        expect.objectContaining({ socioId: 4, acompanantes: [] }),
       );
     });
 

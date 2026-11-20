@@ -87,7 +87,7 @@ describe('El club mueve y cancela reservas desde el panel', () => {
     });
 
   /** La de un visitante que pagó en línea, con su pago autorizado en la pasarela. */
-  const reservaPagada = async () => {
+  const reservaPagada = async (montoClp = 12000) => {
     const reserva = await prisma.reserva.create({
       data: {
         folio: `T386V${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
@@ -102,7 +102,7 @@ describe('El club mueve y cancela reservas desde el panel', () => {
     });
     const orden = await pasarela.iniciar({
       referencia: `T386-${reserva.id}`,
-      montoClp: 12000,
+      montoClp,
       urlRetorno: 'https://club.local/retorno',
     });
     await pasarela.confirmar(orden.tokenPasarela);
@@ -111,7 +111,7 @@ describe('El club mueve y cancela reservas desde el panel', () => {
         referencia: `T386-${reserva.id}-${Date.now()}`,
         concepto: ConceptoPago.RESERVA,
         conceptoId: reserva.id,
-        montoClp: 12000,
+        montoClp,
         pasarela: 'doble',
         estado: EstadoTransaccion.AUTORIZADA,
         tokenPasarela: orden.tokenPasarela,
@@ -246,6 +246,29 @@ describe('El club mueve y cancela reservas desde el panel', () => {
       );
 
       expect(movida.inicio).toEqual(A_LAS_20);
+    });
+
+    it('**a una hora más cara, al club le dice que la diferencia no se cobra desde el panel**', async () => {
+      // Pagó $8.000 una hora que hoy vale $12.000: el mensaje del socio («pagaste», «cambiarte»)
+      // le hablaba al admin como si hubiera pagado él (revisión, T394).
+      const reserva = await reservaPagada(8000);
+
+      await expect(
+        modificacion.modificar(
+          reserva.id,
+          { canchaId, inicio: A_LAS_20 },
+          admin,
+          horasAntes(30),
+        ),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: {
+          motivo: 'DIFERENCIA_POR_PAGAR',
+          message:
+            'Esa hora vale $12.000 y la reserva tiene pagados $8.000: la diferencia de $4.000 ' +
+            'no se cobra desde el panel. Elige una del mismo precio o menor.',
+        },
+      });
     });
 
     it('la hora que ya pasó sigue cerrada también para el club', async () => {

@@ -70,11 +70,15 @@ describe('FichaDeLaReserva', () => {
   };
 
   const montar = async (
-    cambios: { reserva?: ReservaDelDia; esAdmin?: boolean; pagos?: PagosDeLaReserva } = {},
+    cambios: { reserva?: ReservaDelDia; esAdmin?: boolean; pagos?: PagosDeLaReserva | Error } = {},
   ) => {
     fixture?.destroy();
     await new Promise((listo) => setTimeout(listo));
-    pagosDe = vi.fn(() => Promise.resolve(cambios.pagos ?? PAGADA));
+    pagosDe = vi.fn(() =>
+      cambios.pagos instanceof Error
+        ? Promise.reject(cambios.pagos)
+        : Promise.resolve(cambios.pagos ?? PAGADA),
+    );
     cancelar = vi.fn(() =>
       Promise.resolve({ folio: 'AB23CDE', huboDevolucion: true, motivo: null }),
     );
@@ -204,7 +208,7 @@ describe('FichaDeLaReserva', () => {
     boton('Cancelar reserva')!.click();
     await actualizar();
 
-    expect(texto()).toContain('Su cupo de ese día queda libre');
+    expect(texto()).toContain('Esa hora deja de contar en sus cupos: puede reservar otra.');
     expect(texto()).not.toContain('devuelve');
   });
 
@@ -214,6 +218,15 @@ describe('FichaDeLaReserva', () => {
     await actualizar();
 
     expect(texto()).toContain('Ya pasó el plazo de devolución: el pago no se devuelve.');
+  });
+
+  it('**si los pagos no cargaron, no le dice que no tiene pagos en línea**', async () => {
+    await montar({ pagos: new Error('la API no respondió') });
+    boton('Cancelar reserva')!.click();
+    await actualizar();
+
+    expect(texto()).not.toContain('No tiene pagos en línea');
+    expect(texto()).toContain('No se pudieron cargar los pagos');
   });
 
   it('**el rechazo de la API se dice tal cual, y la ficha sigue abierta**', async () => {
@@ -233,6 +246,41 @@ describe('FichaDeLaReserva', () => {
 
     expect(texto()).toContain('Esa hora tiene un pago en curso.');
     expect(canceladas).toEqual([]);
+  });
+
+  it('**la misma reserva, recargada por un aviso, no vuelve a pedir los pagos**', async () => {
+    // Cada recarga del día trae objetos nuevos: pedir los pagos otra vez ponía el esqueleto en la
+    // ficha y cambiaba la consecuencia en plena confirmación (revisión, T394).
+    boton('Cancelar reserva')!.click();
+    await actualizar();
+    fixture!.componentRef.setInput('reserva', { ...UNA });
+    await actualizar();
+
+    expect(pagosDe).toHaveBeenCalledTimes(1);
+    expect(texto()).toContain('Se le devuelve todo lo pagado');
+  });
+
+  it('**la consecuencia se lee junto con los botones de la confirmación**', async () => {
+    // El foco va a «Volver», y el lector anunciaba solo el botón, no lo que pasa con la plata.
+    boton('Cancelar reserva')!.click();
+    await actualizar();
+
+    for (const nombre of ['Volver', 'Cancelar reserva']) {
+      const id = boton(nombre)!.getAttribute('aria-describedby');
+      expect(id && document.getElementById(id)?.textContent).toContain('Se le devuelve todo lo pagado');
+    }
+  });
+
+  it('**con el pago en curso no ofrece cancelar ni modificar, y dice por qué**', async () => {
+    // La API los rechazaría con PAGO_EN_CURSO: la hora se libera sola si el pago no se completa.
+    await montar({
+      reserva: { ...UNA, estado: 'PENDIENTE_PAGO', pago: 'ESPERANDO' },
+      pagos: { pagos: [], devolucionAlCancelar: false },
+    });
+
+    expect(boton('Cancelar reserva')).toBeUndefined();
+    expect(boton('Modificar')).toBeUndefined();
+    expect(texto()).toContain('Tiene un pago en curso');
   });
 
   it('**«Modificar» avisa a la agenda qué reserva mover** (R7, T392)', async () => {

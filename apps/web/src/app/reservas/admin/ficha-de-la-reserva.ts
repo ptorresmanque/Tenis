@@ -111,7 +111,9 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
           <p class="font-display text-lg font-semibold">
             {{ hora(laReserva.inicio) }}–{{ hora(laReserva.fin) }} · {{ laReserva.cancha }}
           </p>
-          <p class="mt-2">{{ consecuencia() }}</p>
+          <!-- Los dos botones la nombran: el foco cae en «Volver», y sin esto el lector anunciaba
+               solo el botón y no lo que pasa con la plata (revisión, T394). -->
+          <p id="consecuencia-de-cancelar" class="mt-2">{{ consecuencia() }}</p>
           <p class="mt-1 text-sm text-muted-foreground">
             Si la reserva tiene correo, le avisamos.
           </p>
@@ -123,10 +125,19 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
         <!-- «Volver» queda donde estaba «Cancelar reserva»: un segundo clic en el mismo lugar no
              cancela sin leer (modern-web-guidance, dialog). Confirmar va al borde. -->
         <mat-dialog-actions align="end">
-          <button #volver matButton type="button" (click)="volverALaFicha()">Volver</button>
+          <button
+            #volver
+            matButton
+            type="button"
+            aria-describedby="consecuencia-de-cancelar"
+            (click)="volverALaFicha()"
+          >
+            Volver
+          </button>
           <button
             matButton="filled"
             type="button"
+            aria-describedby="consecuencia-de-cancelar"
             [disabled]="cancelando()"
             [attr.aria-busy]="cancelando()"
             (click)="confirmarCancelacion()"
@@ -169,6 +180,12 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
               {{ pagoEnPalabras[laReserva.pago] }}
             </mat-chip>
           </mat-chip-set>
+          @if (enCurso()) {
+            <!-- Por eso no hay acciones: la API las rechazaría con PAGO_EN_CURSO (revisión, T394). -->
+            <p class="mt-2 text-sm text-muted-foreground">
+              Tiene un pago en curso: si no se completa, la hora se libera sola en unos minutos.
+            </p>
+          }
 
           @if (esAdmin()) {
             <!-- Lo que dijo Webpay (RD2): solo acá, y solo al admin. Una lista de definiciones
@@ -225,7 +242,7 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
           <app-observaciones-de-reserva [reserva]="laReserva" (cambio)="cambio.emit()" />
         </mat-dialog-content>
 
-        @if (esAdmin() && !yaTermino()) {
+        @if (esAdmin() && !yaTermino() && !enCurso()) {
           <!-- «Cancelar reserva» a la izquierda: en la confirmación, ese lugar es de «Volver».
                «Modificar» al borde, la acción principal de la ficha (T392). -->
           <mat-dialog-actions align="end">
@@ -269,9 +286,15 @@ export class FichaDeLaReserva {
     read: ElementRef<HTMLButtonElement>,
   });
 
+  /**
+   * Por el id y no por la reserva: cada recarga del día trae un objeto nuevo, y volver a pedir los
+   * pagos ponía el esqueleto en la ficha en plena confirmación (revisión, T394).
+   */
+  private readonly idDeLaReserva = computed(() => this.reserva().id);
+
   /** Lo que dijo Webpay: solo se pide para el admin, que es el único que lo ve. */
   protected readonly pagos = resource({
-    params: () => (this.esAdmin() ? { id: this.reserva().id } : undefined),
+    params: () => (this.esAdmin() ? { id: this.idDeLaReserva() } : undefined),
     loader: ({ params }) => this.agenda.pagosDe(params.id),
   });
   protected readonly pagosSeguros = computed(() =>
@@ -289,17 +312,24 @@ export class FichaDeLaReserva {
    */
   protected readonly consecuencia = computed(() => {
     if (this.reserva().esSocio) {
-      return 'Su cupo de ese día queda libre: puede reservar otra hora.';
+      // Lo mismo que le dice el correo: no es solo el cupo del día, también el prime y el de invitados.
+      return 'Esa hora deja de contar en sus cupos: puede reservar otra.';
     }
 
-    const datos = this.pagos.hasValue() ? this.pagos.value() : undefined;
-    const autorizados = (datos?.pagos ?? []).filter(({ estado }) => estado === 'AUTORIZADA');
+    // Sin los pagos a la vista no se afirma que no los hay: la devolución la decide la API igual.
+    if (this.pagos.error()) {
+      return 'No se pudieron cargar los pagos: si pagó en línea, se devuelve según el plazo del club.';
+    }
+    if (!this.pagos.hasValue()) return 'Buscando los pagos…';
+
+    const datos = this.pagos.value();
+    const autorizados = datos.pagos.filter(({ estado }) => estado === 'AUTORIZADA');
     if (autorizados.length === 0) {
       return 'No tiene pagos en línea: si pagó en el mesón, la devolución se resuelve ahí.';
     }
 
     const total = autorizados.reduce((suma, { montoClp }) => suma + montoClp, 0);
-    return datos?.devolucionAlCancelar
+    return datos.devolucionAlCancelar
       ? `Se le devuelve todo lo pagado, ${enPesos(total)}, al mismo medio de pago.`
       : 'Ya pasó el plazo de devolución: el pago no se devuelve.';
   });
@@ -312,9 +342,16 @@ export class FichaDeLaReserva {
       {
         width: '32rem',
         maxWidth: '92vw',
+        // A la parada del tablero y no al botón que la abrió: si la reserva se canceló, ese botón
+        // ya no está y el foco se iba al body (WCAG 2.4.3; revisión, T394). Si sigue, es el mismo:
+        // la parada es la última celda que tuvo el foco.
+        restoreFocus: 'app-marcador tbody [tabindex="0"]',
       },
     );
   }
+
+  /** Webpay todavía no responde: mover o cancelar, la API lo rechaza con `PAGO_EN_CURSO`. */
+  protected readonly enCurso = computed(() => this.reserva().pago === 'ESPERANDO');
 
   /** La que ya se jugó no se cancela (R8): la API la rechazaría con `YA_TERMINO`. */
   protected yaTermino(): boolean {

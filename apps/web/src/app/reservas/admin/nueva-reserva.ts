@@ -2,6 +2,7 @@ import {
   afterNextRender,
   Component,
   computed,
+  effect,
   ElementRef,
   inject,
   Injector,
@@ -10,6 +11,7 @@ import {
   resource,
   signal,
   TemplateRef,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -76,7 +78,9 @@ import { AcompananteNuevo } from '../reservas.service';
       <mat-dialog-content>
         <!-- La cancha y la hora vienen del tablero, como en el diálogo del sitio (T390). -->
         <p class="text-muted-foreground">
-          {{ cancha().nombre }} · {{ hora(bloque().inicio) }}–{{ hora(bloque().fin) }}
+          <!-- El día también: el panel abre días que no son hoy, y por teléfono se confirma. -->
+          {{ elDia() }} · {{ cancha().nombre }} ·
+          {{ hora(bloque().inicio) }}–{{ hora(bloque().fin) }}
         </p>
         <p class="mt-1 text-sm text-muted-foreground">
           La hora queda confirmada al instante: el cobro del visitante se hace en el mesón.
@@ -198,7 +202,7 @@ import { AcompananteNuevo } from '../reservas.service';
                  socios, y el que se elige no le gasta al titular una reserva con invitados. -->
             <fieldset class="grid gap-2">
               <legend class="font-display text-sm font-bold tracking-wide uppercase">
-                Con quién juega
+                ¿Con quién juega?
               </legend>
               <p class="text-sm text-muted-foreground">
                 Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta una de sus
@@ -371,7 +375,7 @@ export class NuevaReserva {
     this.paraQuien() === 'socio' && this.bloque().socioPuede === false
       ? `En horario prime, el socio solo puede reservar ${
           minutosDe(this.bloque()) === 90 ? '1 hora' : '1 hora y media'
-        }.`
+        }: cambia la duración sobre el tablero y vuelve a elegir la hora.`
       : null,
   );
 
@@ -382,12 +386,28 @@ export class NuevaReserva {
       width: '32rem',
       maxWidth: '92vw',
     });
+
+    // El titular no juega consigo mismo: si se elige a quien ya estaba en «¿Con quién juega?», sale
+    // de ahí (revisión, T394).
+    effect(() => {
+      const numero = this.activos().find(({ id }) => id === this.socioId())?.numeroSocio;
+      if (!numero) return;
+      untracked(() =>
+        this.acompanantes.update((lista) => lista.filter((uno) => uno.numeroSocio !== numero)),
+      );
+    });
   }
 
   protected async crear(): Promise<void> {
     this.error.set(null);
     // «Agregar» es un paso que se salta fácil: lo escrito a la vista también cuenta.
     this.campoDeAcompanantes()?.agregarLoEscrito();
+
+    // Sin titular no hay a quién tomarle la hora: el campo lo pide, sin ir a la API (revisión, T394).
+    if (this.paraQuien() === 'socio' && this.socioId() === 0) {
+      this.titular.markAsTouched();
+      return;
+    }
 
     // La API la rechazaría igual; dicho antes, el mesón le ofrece otra hora al socio.
     const sinPrime = this.sinPrimeParaElSocio();
@@ -428,4 +448,5 @@ export class NuevaReserva {
   }
 
   protected readonly hora = horaEnElClub;
+  protected readonly elDia = computed(() => diaEnPalabras(fechaEnElClub(this.bloque().inicio)));
 }

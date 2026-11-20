@@ -681,6 +681,26 @@ describe('Marcador', () => {
       expect(laReserva(el)!.closest('td')!.getAttribute('rowspan')).toBe('3');
     });
 
+    it('**la que termina al cierre se dibuja entera, aunque la API no mande sus últimos inicios**', () => {
+      // La API no manda los inicios que terminarían después del cierre: con el día de 12 inicios,
+      // la última media hora (a(12)) no tiene fila propia (revisión, T394).
+      const { el } = montarEnElPanel([reserva({ inicio: a(11).toISOString(), fin: a(13).toISOString() })], {
+        tomadas: [11],
+      });
+
+      expect(laReserva(el)!.closest('td')!.getAttribute('rowspan')).toBe('2');
+    });
+
+    it('**y la que empieza después del último inicio también aparece**', () => {
+      // Con 1 hora y media, la reserva de la última hora no tiene ningún inicio que la contenga.
+      const { el } = montarEnElPanel([reserva({ inicio: a(12).toISOString(), fin: a(14).toISOString() })], {
+        tomadas: [],
+      });
+
+      expect(laReserva(el)).not.toBeNull();
+      expect(laReserva(el)!.closest('td')!.getAttribute('rowspan')).toBe('2');
+    });
+
     it('**el lector la oye completa, y tocarla abre su ficha**', () => {
       const { fixture, el } = montarEnElPanel([reserva()]);
       const boton = laReserva(el)!;
@@ -699,7 +719,7 @@ describe('Marcador', () => {
         SIN_COBRO: 'Sin cobro',
         ESPERANDO: 'Esperando el pago',
         EN_LINEA: 'Pagada en línea',
-        EN_EL_MESON: 'Paga en el mesón',
+        EN_EL_MESON: 'Cobro en el mesón',
       } as const;
 
       for (const [pago, palabras] of Object.entries(pagos)) {
@@ -752,6 +772,9 @@ describe('Marcador', () => {
       expect(botones[0].hasAttribute('data-reserva')).toBe(true);
       // Es la parada del tablero: se llega a ella con Tab.
       expect((botones[0] as HTMLButtonElement).tabIndex).toBe(0);
+      // El caption no le promete libres que no son botones.
+      expect(texto(el.querySelector('caption'))).toContain('Las flechas recorren las reservas.');
+      expect(texto(el.querySelector('caption'))).not.toContain('libres');
     });
 
     it('la leyenda dice que la reserva se toca para ver su ficha', () => {

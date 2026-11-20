@@ -1,4 +1,14 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 
@@ -36,7 +46,9 @@ export const PAGO_EN_PALABRAS: Record<ReservaEnElTablero['pago'], string> = {
   SIN_COBRO: 'Sin cobro',
   ESPERANDO: 'Esperando el pago',
   EN_LINEA: 'Pagada en línea',
-  EN_EL_MESON: 'Paga en el mesón',
+  // «Cobro» y no «Paga»: en la reserva de la mañana, ya cobrada en efectivo, «Paga» se leía como
+  // deuda, y el sistema no sabe si se cobró.
+  EN_EL_MESON: 'Cobro en el mesón',
 };
 
 /**
@@ -167,7 +179,10 @@ function ponerLasReservas(
         [style.min-width.rem]="anchoMinimo()"
       >
         <caption class="sr-only">
-          @if (reservas()) {
+          @if (reservas() && !puedeElegir()) {
+            <!-- Al gestor, las libres no son botones (T221): no se le prometen. -->
+            Las horas del día, cancha por cancha. Las flechas recorren las reservas.
+          } @else if (reservas()) {
             Las horas del día, cancha por cancha. Las flechas recorren las reservas y las horas
             libres.
           } @else if (modo() === 'elegir') {
@@ -600,6 +615,17 @@ export class Marcador {
         if (instante > ahora) instantes.add(instante);
       }
     }
+    // En el panel, las medias horas de cada reserva de las canchas a la vista, por lo mismo: la que
+    // termina al cierre no tiene sus últimos inicios, y se dibujaba corta o no se dibujaba (T394).
+    const reservas = this.reservas();
+    const aLaVista = new Set(grillas.map(({ cancha }) => cancha.id));
+    for (const una of reservas ?? []) {
+      if (!aLaVista.has(una.canchaId)) continue;
+      const fin = new Date(una.fin).getTime();
+      for (let instante = new Date(una.inicio).getTime(); instante < fin; instante += PASO_DE_LA_GRILLA_MS) {
+        instantes.add(instante);
+      }
+    }
 
     const filas = [...instantes]
       .sort((una, otra) => una - otra)
@@ -638,7 +664,6 @@ export class Marcador {
         };
       });
 
-    const reservas = this.reservas();
     if (reservas) ponerLasReservas(filas, grillas, reservas);
 
     return filas;
@@ -666,6 +691,21 @@ export class Marcador {
     }
     return [...motivos];
   });
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+
+  /**
+   * Lleva el foco a la parada del tablero (WCAG 2.4.3; revisión, T394). Lo usa el panel cuando lo
+   * que tenía el foco se fue: la barra después de crear, la reserva cancelada o la que pasa a
+   * moverse. Después del próximo render, para que la parada ya sea la del día nuevo.
+   */
+  enfocar(): void {
+    afterNextRender(
+      () => this.host.nativeElement.querySelector<HTMLElement>('tbody [tabindex="0"]')?.focus(),
+      { injector: this.injector },
+    );
+  }
 
   /**
    * La celda que es la parada del teclado: la última que tuvo el foco, la elegida o la

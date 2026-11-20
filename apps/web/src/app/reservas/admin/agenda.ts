@@ -2,10 +2,13 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   inject,
   linkedSignal,
   resource,
   signal,
+  untracked,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -108,22 +111,25 @@ import { NuevaReserva } from './nueva-reserva';
       (cambiarDuracion)="elegirDuracion($event)"
     />
 
-    @if (mover.activo()) {
-      <!-- Modificar (T392): el próximo clic en una libre mueve la reserva en vez de tomar una
-           nueva, y se dice arriba, como en el sitio. La salida está al lado. -->
-      <div role="status" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3">
-        <p class="font-medium">
-          Elige la nueva hora para la reserva de {{ laQueSeMueve()?.nombre ?? 'esta reserva' }}.
-          La que tenía queda libre.
-        </p>
-        <button matButton="outlined" type="button" (click)="volverSinCambiar()">
-          Volver sin cambiar
-        </button>
-      </div>
-    }
+    <!-- Modificar (T392): el próximo clic en una libre mueve la reserva en vez de tomar una nueva,
+         y se dice arriba, como en el sitio. La salida está al lado. La región está siempre y solo
+         cambia lo de adentro: una región viva recién creada, algunos lectores no la anuncian. -->
+    <div role="status" data-modo-mover>
+      @if (moviendo()) {
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted p-3">
+          <p class="font-medium">
+            Elige la nueva hora para {{ cualSeMueve() }}. La hora que tenía queda libre.
+          </p>
+          <button matButton="outlined" type="button" (click)="volverSinCambiar()">
+            Volver sin cambiar
+          </button>
+        </div>
+      }
+    </div>
     @if (mover.error(); as falla) {
       <app-aviso variante="error" class="mt-3 block">
-        La reserva no se puede mover: {{ falla }}
+        <!-- Tal cual, como en el sitio: el texto de la API ya dice qué pasó y qué hacer. -->
+        {{ falla }}
       </app-aviso>
     }
 
@@ -142,7 +148,9 @@ import { NuevaReserva } from './nueva-reserva';
     }
 
     <div role="status" aria-live="polite" class="mt-6">
-      @if (reservas.isLoading() || grillas.isLoading()) {
+      <!-- Solo la primera carga de cada día: al recargar por un aviso, lo que se ve se queda
+           hasta que llega lo nuevo, sin el esqueleto encima del tablero. -->
+      @if (reservas.status() === 'loading' || grillas.status() === 'loading') {
         <app-esqueleto [filas]="6" etiqueta="Buscando las reservas del día…" />
       } @else if (reservas.error() || clases.error() || grillas.error()) {
         <p class="text-destructive">
@@ -215,13 +223,13 @@ import { NuevaReserva } from './nueva-reserva';
          ventana: fija a todo el ancho quedaba encima del menú lateral. -->
     @if (elegido(); as eleccion) {
       <app-barra-fija enElFlujo>
-        @if (mover.activo()) {
+        @if (moviendo()) {
           <!-- Sin plata de por medio: el club mueve sin cobrar ni devolver (T392). -->
           <app-resumen-del-cambio
             [cancha]="eleccion.cancha"
             [bloque]="eleccion.bloque"
             [pagadoClp]="null"
-            [detalle]="'Mover la reserva de ' + (laQueSeMueve()?.nombre ?? 'esta reserva') + '.'"
+            [detalle]="'Nueva hora para ' + cualSeMueve() + '.'"
             [enviando]="mover.enviando()"
             (soltar)="elegido.set(null)"
             (confirmar)="confirmarCambio(eleccion)"
@@ -275,6 +283,24 @@ export class AgendaDelDia {
   );
 
   /**
+   * La reserva que se mueve (`?mover=`), solo para el admin: al gestor la API no le deja mover, y
+   * con el parámetro en la dirección le respondía 404 y el tablero no cargaba (revisión, T394).
+   */
+  private readonly idQueSeMueve = computed(() =>
+    this.puedeTomarHoras() ? this.mover.porId() : null,
+  );
+  protected readonly moviendo = computed(() => this.idQueSeMueve() !== null);
+
+  private readonly marcador = viewChild(Marcador);
+
+  /**
+   * Si el foco vuelve al tablero apenas termine de cargar el día (WCAG 2.4.3; revisión, T394):
+   * MatDialog lo devuelve a quien abrió el diálogo, y después de crear, cancelar o empezar a mover
+   * ese botón ya no está.
+   */
+  private readonly devolverElFoco = signal(false);
+
+  /**
    * El día que se mira: el de la dirección (`?fecha=`), o hoy. A diferencia del sitio, uno
    * pasado también vale: el club revisa lo que se jugó.
    */
@@ -287,11 +313,8 @@ export class AgendaDelDia {
   protected readonly duracion = signal<DuracionMin>(60);
   protected readonly filtro = signal('todas');
 
-  /** Cambia con cada aviso del servidor y así vuelve a disparar cada `resource`. */
-  private readonly recargas = signal(0);
-
   protected readonly reservas = resource({
-    params: () => ({ fecha: this.fechaActual(), recarga: this.recargas() }),
+    params: () => ({ fecha: this.fechaActual() }),
     loader: ({ params }) => this.agenda.delDia(params.fecha),
     defaultValue: [] as ReservaDelDia[],
   });
@@ -304,7 +327,7 @@ export class AgendaDelDia {
    * los dos módulos a depender del otro. Se juntan acá, que es donde se miran juntas.
    */
   protected readonly clases = resource({
-    params: () => ({ fecha: this.fechaActual(), recarga: this.recargas() }),
+    params: () => ({ fecha: this.fechaActual() }),
     loader: ({ params }) => this.clasesApi.delDia(params.fecha),
     defaultValue: [] as ClaseDelDia[],
   });
@@ -318,8 +341,7 @@ export class AgendaDelDia {
     params: () => ({
       fecha: this.fechaActual(),
       duracion: this.duracion(),
-      recarga: this.recargas(),
-      porId: this.mover.porId(),
+      porId: this.idQueSeMueve(),
       porToken: null,
     }),
     // Al mover, el día sin contar la reserva que se mueve: alargarla en su lugar se ofrece (T87).
@@ -342,12 +364,18 @@ export class AgendaDelDia {
 
   /** La reserva que se está moviendo, para decir de quién es (T392). */
   protected readonly laQueSeMueve = computed(() =>
-    this.reservasSeguras().find(({ id }) => id === this.mover.porId()),
+    this.reservasSeguras().find(({ id }) => id === this.idQueSeMueve()),
   );
+
+  /** Cómo se nombra en el aviso y en la barra: sin nombre (otro día, o no cargó), «esta reserva». */
+  protected readonly cualSeMueve = computed(() => {
+    const nombre = this.laQueSeMueve()?.nombre;
+    return nombre ? `la reserva de ${nombre}` : 'esta reserva';
+  });
 
   /** Las del tablero: sin la que se mueve, cuyas filas quedan libres para elegirlas. */
   protected readonly reservasDelTablero = computed(() =>
-    this.reservasSeguras().filter(({ id }) => id !== this.mover.porId()),
+    this.reservasSeguras().filter(({ id }) => id !== this.idQueSeMueve()),
   );
 
   /** Las canchas que pasan el filtro, como en el sitio (`pasaElFiltro`). */
@@ -391,14 +419,32 @@ export class AgendaDelDia {
     const suscripcion = this.agenda.avisos.subscribe((aviso) => {
       // Solo el día que se está mirando: quien revisa el sábado no quiere que la
       // pantalla se le repueble porque entró una reserva para el martes.
-      if (aviso.fecha === this.fechaActual()) {
-        this.recargas.update((veces) => veces + 1);
-      }
+      if (aviso.fecha === this.fechaActual()) this.recargarElDia();
     });
 
     // Cierra el canal al salir de la pantalla; si no, queda una conexión abierta por
     // cada vez que se entró.
     inject(DestroyRef).onDestroy(() => suscripcion.unsubscribe());
+
+    // La ficha de una reserva que ya no está en el día se cierra y sale de la dirección. Pasa al
+    // cancelarla: el aviso en vivo llega antes que la respuesta, la recarga se la lleva y la ficha
+    // se va sin alcanzar a avisar (revisión, T394).
+    effect(() => {
+      const id = this.idDeLaFicha();
+      if (id === null || this.reservas.status() !== 'resolved') return;
+      if (this.reservasSeguras().some((reserva) => reserva.id === id)) return;
+      untracked(() => this.cerrarFicha());
+    });
+
+    effect(() => {
+      const marcador = this.marcador();
+      if (!this.devolverElFoco() || !marcador) return;
+      if (this.reservas.isLoading() || this.grillas.isLoading()) return;
+      untracked(() => {
+        this.devolverElFoco.set(false);
+        marcador.enfocar();
+      });
+    });
   }
 
   /** Cambiar de día suelta lo marcado, y el día queda en la dirección. */
@@ -440,6 +486,10 @@ export class AgendaDelDia {
     this.reservando.set(null);
     this.elegido.set(null);
     this.snackBar.open(`Hora tomada. Folio ${folio}.`, undefined, LO_HECHO);
+    // El foco, a la hora recién tomada: la barra con «Reservar» ya no está. Se recarga acá, y no
+    // con el aviso, para enfocar el tablero con la reserva ya dibujada.
+    this.recargarElDia();
+    this.devolverElFoco.set(true);
   }
 
   /**
@@ -449,7 +499,8 @@ export class AgendaDelDia {
    */
   protected anunciarCancelada(): void {
     this.cerrarFicha();
-    this.recargas.update((veces) => veces + 1);
+    this.recargarElDia();
+    this.devolverElFoco.set(true);
   }
 
   /**
@@ -459,12 +510,16 @@ export class AgendaDelDia {
   protected empezarAMover(reserva: ReservaDelDia): void {
     this.cerrarFicha();
     this.elegido.set(null);
+    this.mover.error.set(null);
     this.duracion.set(minutosDe(reserva) === 90 ? 90 : 60);
-    void this.router.navigate([], {
-      relativeTo: this.ruta,
-      queryParams: { mover: reserva.id, fecha: fechaEnElClub(reserva.inicio), reserva: null },
-      queryParamsHandling: 'merge',
-    });
+    void this.router
+      .navigate([], {
+        relativeTo: this.ruta,
+        queryParams: { mover: reserva.id, fecha: fechaEnElClub(reserva.inicio), reserva: null },
+        queryParamsHandling: 'merge',
+      })
+      // Después de navegar: recién ahí el tablero pide la grilla sin la reserva que se mueve.
+      .then(() => this.devolverElFoco.set(true));
   }
 
   /** Sale del modo mover sin tocar la reserva. */
@@ -482,12 +537,26 @@ export class AgendaDelDia {
     void this.mover.moverAlTiro(eleccion, async () => {
       this.elegido.set(null);
       await this.salirDeMover();
-      this.recargas.update((veces) => veces + 1);
+      this.recargarElDia();
+      this.devolverElFoco.set(true);
       this.snackBar.open(folio ? `Reserva ${folio} movida.` : 'Reserva movida.', undefined, LO_HECHO);
     });
   }
 
+  /**
+   * Vuelve a pedir el día **sin vaciarlo**: `reload()` deja lo que se ve hasta que llega lo nuevo.
+   * Cambiar los parámetros, como antes, lo vaciaba mientras tanto: el tablero se iba y la ficha
+   * abierta se cerraba y se volvía a abrir desde cero con cada reserva que entraba (T394).
+   */
+  private recargarElDia(): void {
+    this.reservas.reload();
+    this.clases.reload();
+    this.grillas.reload();
+  }
+
   private salirDeMover(): Promise<boolean> {
+    // El rechazo de un intento no se queda a la vista fuera del modo mover (revisión, T394).
+    this.mover.error.set(null);
     return this.router.navigate([], {
       relativeTo: this.ruta,
       queryParams: { mover: null },
@@ -495,9 +564,19 @@ export class AgendaDelDia {
     });
   }
 
-  /** Lo que oye quien navega por teclado antes de elegir la libre: empieza con lo que dice. */
-  protected readonly etiquetaDeCelda = (cancha: Cancha, bloque: BloqueDisponible): string =>
-    `Libre: tomar la ${cancha.nombre} de ${horaEnElClub(bloque.inicio)} a ${horaEnElClub(bloque.fin)}`;
+  /**
+   * Lo que oye quien navega por teclado antes de elegir la libre: empieza con lo que dice, y nombra
+   * lo que hace el clic, que solo la marca (la toma la barra). La hora prime también, como en el
+   * sitio: al socio le gasta un cupo semanal.
+   */
+  protected readonly etiquetaDeCelda = (cancha: Cancha, bloque: BloqueDisponible): string => {
+    const que = this.moviendo() ? 'mover la reserva a' : 'elegir';
+    return (
+      `Libre: ${que} la ${cancha.nombre} de ${horaEnElClub(bloque.inicio)} a ` +
+      `${horaEnElClub(bloque.fin)}` +
+      (bloque.esPico ? ', hora prime' : '')
+    );
+  };
 
   protected readonly resumen = () => {
     const total = this.reservasSeguras().length;

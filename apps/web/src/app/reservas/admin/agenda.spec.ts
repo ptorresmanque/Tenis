@@ -216,7 +216,7 @@ describe('AgendaDelDia', () => {
     const primera = tablero.querySelector('tbody tr')!.textContent ?? '';
     expect(primera).toContain('08:00');
     expect(primera).toContain('Camila Visitante');
-    expect(primera).toContain('Paga en el mesón');
+    expect(primera).toContain('Cobro en el mesón');
   });
 
   it('**los controles del día son los de disponibilidad: el día, la duración y las canchas**', async () => {
@@ -233,6 +233,10 @@ describe('AgendaDelDia', () => {
     componente('app-controles-del-dia').componentInstance.cambiarDuracion.emit('90');
     await actualizar();
     expect(disponibilidadDelDia).toHaveBeenLastCalledWith('2026-08-20', 90);
+  });
+
+  it('la libre se nombra con lo que hace: elegirla, no tomarla, porque toma la barra', () => {
+    expect(libres()[0].getAttribute('aria-label')).toMatch(/^Libre: elegir la Cancha \d de \d{2}:\d{2} a /);
   });
 
   it('**al admin, la libre se elige y la barra la muestra; «Reservar» abre el diálogo con esa hora**', async () => {
@@ -265,6 +269,57 @@ describe('AgendaDelDia', () => {
 
     expect(avisoDeLoHecho()).toBe('Hora tomada. Folio AB23CDE.');
     expect(raiz().querySelector('app-barra-fija')).toBeNull();
+  });
+
+  /**
+   * WCAG 2.4.3 (revisión, T394): MatDialog devuelve el foco a quien abrió el diálogo, y después de
+   * crear, cancelar o empezar a mover ese botón ya no está. El foco se iba al `body`.
+   */
+  describe('el foco vuelve al tablero cuando lo que lo tenía se fue', () => {
+    const enElTablero = () =>
+      raiz().querySelector('app-marcador tbody')!.contains(document.activeElement);
+
+    it('al crear la reserva: la barra con «Reservar» ya no está', async () => {
+      await reservarLaPrimeraLibre();
+      componente('app-nueva-reserva').componentInstance.creada.emit('AB23CDE');
+      await actualizar();
+      await actualizar();
+
+      expect(enElTablero()).toBe(true);
+    });
+
+    it('al cancelar: la reserva ya no está en el tablero', async () => {
+      await abrirLaFicha();
+      delDia.mockResolvedValue([]);
+      componente('app-ficha-de-la-reserva').componentInstance.cancelada.emit({
+        folio: 'AB23CDE',
+        huboDevolucion: false,
+        motivo: 'sin_pago',
+      });
+      await actualizar();
+      await actualizar();
+
+      expect(enElTablero()).toBe(true);
+    });
+  });
+
+  it('**la ficha de una reserva que se fue del día se cierra, aunque su aviso no llegue, y no se reabre**', async () => {
+    // El aviso en vivo llega antes que la respuesta del DELETE: la ficha se va antes de poder
+    // avisar, y su id quedaba apuntando a una reserva cancelada (revisión, T394).
+    await abrirLaFicha();
+    delDia.mockResolvedValue([]);
+    avisos.next({ fecha: '2026-08-17' });
+    await actualizar();
+    expect(componente('app-ficha-de-la-reserva')).toBeNull();
+    // El foco no se pierde: el diálogo lo devuelve a la parada del tablero, no al botón que se fue.
+    await actualizar();
+    expect(raiz().querySelector('app-marcador tbody')!.contains(document.activeElement)).toBe(true);
+
+    delDia.mockResolvedValue([UNA]);
+    avisos.next({ fecha: '2026-08-17' });
+    await actualizar();
+
+    expect(componente('app-ficha-de-la-reserva')).toBeNull();
   });
 
   it('a la gestora le muestra el día, reservas y clases, y lo libre no le ofrece nada (T221)', async () => {
@@ -367,9 +422,27 @@ describe('AgendaDelDia', () => {
       expect(componente('app-ficha-de-la-reserva')).toBeNull();
       expect(TestBed.inject(Router).url).toContain('mover=1');
       expect(grillaParaMover).toHaveBeenCalledWith(1, '2026-08-17', 60);
-      expect(texto()).toContain('Elige la nueva hora para la reserva de Camila Visitante.');
+      expect(texto()).toContain(
+        'Elige la nueva hora para la reserva de Camila Visitante. La hora que tenía queda libre.',
+      );
       // Sus filas quedan libres para elegirlas: alargarla en el mismo lugar también vale.
       expect(raiz().querySelector('app-marcador [data-reserva]')).toBeNull();
+      // La libre dice lo que hace en este modo, como en el sitio.
+      expect(libres()[0].getAttribute('aria-label')).toMatch(/^Libre: mover la reserva a la Cancha/);
+      // El foco, en el tablero: la ficha que tenía el botón se cerró (WCAG 2.4.3, T394).
+      await actualizar();
+      expect(raiz().querySelector('app-marcador tbody')!.contains(document.activeElement)).toBe(true);
+    });
+
+    it('el aviso del modo mover cae en una región que ya estaba, para que el lector lo anuncie', async () => {
+      const region = raiz().querySelector('[data-modo-mover]');
+      expect(region?.getAttribute('role')).toBe('status');
+      expect(region?.textContent?.trim()).toBe('');
+
+      await empezarAMover();
+
+      expect(raiz().querySelector('[data-modo-mover]')).toBe(region);
+      expect(region?.textContent).toContain('Elige la nueva hora');
     });
 
     it('la de 1 hora y media se mueve con esa duración', async () => {
@@ -386,7 +459,7 @@ describe('AgendaDelDia', () => {
       libres()[1].click();
       await actualizar();
       const barra = raiz().querySelector('app-barra-fija')!;
-      expect(barra.textContent).toContain('Mover la reserva de Camila Visitante.');
+      expect(barra.textContent).toContain('Nueva hora para la reserva de Camila Visitante.');
       delDia.mockClear();
 
       [...barra.querySelectorAll<HTMLButtonElement>('button')]
@@ -430,9 +503,27 @@ describe('AgendaDelDia', () => {
         .click();
       await actualizar();
 
-      expect(texto()).toContain(
-        'La reserva no se puede mover: Esa hora la acaban de tomar. Elige otra.',
-      );
+      // Tal cual, como en el sitio: el texto de la API ya dice qué pasó y qué hacer.
+      expect(texto()).toContain('Esa hora la acaban de tomar. Elige otra.');
+      expect(texto()).not.toContain('La reserva no se puede mover');
+
+      // Al volver sin cambiar, el rechazo no se queda a la vista fuera del modo mover.
+      [...raiz().querySelectorAll<HTMLButtonElement>('button')]
+        .find((uno) => uno.textContent?.trim() === 'Volver sin cambiar')!
+        .click();
+      await actualizar();
+      expect(texto()).not.toContain('Esa hora la acaban de tomar');
+    });
+
+    it('**la gestora con `?mover=` en la dirección no entra al modo mover**', async () => {
+      // La API no le deja mover: le respondía 404 y el tablero decía que no se pudo cargar.
+      proveer([UNA], [], GESTORA);
+      const harness = await RouterTestingHarness.create('/agenda?mover=1');
+      await harness.fixture.whenStable();
+      harness.detectChanges();
+
+      expect(grillaParaMover).not.toHaveBeenCalled();
+      expect(harness.routeNativeElement?.textContent).not.toContain('Elige la nueva hora');
     });
   });
 
@@ -474,6 +565,29 @@ describe('AgendaDelDia', () => {
     expect(texto()).toContain('Recién llegada');
     // La hora tomada deja de estar libre en el tablero: también se vuelve a pedir.
     expect(disponibilidadDelDia).toHaveBeenCalledWith('2026-08-17', 60);
+  });
+
+  it('**mientras vuelve a pedir el día por un aviso, el tablero y la ficha abierta siguen ahí**', async () => {
+    // Entra otra reserva mientras el admin confirma una cancelación: vaciar el día mientras llega
+    // la respuesta cerraba la ficha y la volvía a abrir desde cero (revisión, T394).
+    await abrirLaFicha();
+    const laAbierta = componente('app-ficha-de-la-reserva').componentInstance;
+    let responder!: (reservas: ReservaDelDia[]) => void;
+    delDia.mockReturnValue(new Promise<ReservaDelDia[]>((listo) => (responder = listo)));
+
+    avisos.next({ fecha: '2026-08-17' });
+    fixture.detectChanges();
+    await new Promise((listo) => setTimeout(listo));
+    fixture.detectChanges();
+
+    expect(raiz().querySelector('app-marcador button[data-reserva]')).not.toBeNull();
+    expect(raiz().querySelector('app-esqueleto')).toBeNull();
+    expect(componente('app-ficha-de-la-reserva')?.componentInstance).toBe(laAbierta);
+
+    responder([UNA]);
+    await actualizar();
+
+    expect(componente('app-ficha-de-la-reserva')?.componentInstance).toBe(laAbierta);
   });
 
   it('**las clases del día van en una lista bajo el tablero, con su hora, su lugar y su profesor**', async () => {

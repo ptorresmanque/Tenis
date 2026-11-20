@@ -363,7 +363,7 @@ export class ModificacionService {
   ): Promise<Reserva> {
     const bloque = await this.destinoValido(reserva, destino, ahora, alAdmin);
 
-    await this.exigirQueNoQuedeDiferencia(reserva.id, bloque.montoClp);
+    await this.exigirQueNoQuedeDiferencia(reserva.id, bloque.montoClp, alAdmin);
 
     try {
       const movida = await this.moverContraSusCupos(reserva, destino, bloque);
@@ -598,10 +598,23 @@ export class ModificacionService {
   private async exigirQueNoQuedeDiferencia(
     reservaId: number,
     montoDelBloque: number | null,
+    /** El club, desde el panel: no pagó él, y el mesón no cobra la diferencia (T394). */
+    alAdmin = false,
   ): Promise<void> {
     const cuenta = await this.diferenciaPara(reservaId, montoDelBloque);
 
     if (cuenta === null || cuenta.diferencia <= 0) return;
+
+    if (alAdmin) {
+      throw new ConflictException({
+        motivo: 'DIFERENCIA_POR_PAGAR',
+        diferenciaClp: cuenta.diferencia,
+        message:
+          `Esa hora vale ${enPesos(cuenta.precio)} y la reserva tiene pagados ` +
+          `${enPesos(cuenta.pagado)}: la diferencia de ${enPesos(cuenta.diferencia)} no se ` +
+          'cobra desde el panel. Elige una del mismo precio o menor.',
+      });
+    }
 
     // Se rechaza y no se cobra acá: pagar es otra ruta (`pagarDiferenciaPorToken`), así
     // nadie paga sin haber visto antes el monto, que viaja en la respuesta (T89).
