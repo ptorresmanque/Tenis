@@ -816,7 +816,8 @@ describe('Marcador', () => {
 
         // Empieza con lo que se ve (WCAG 2.5.3).
         expect(celdaEn(el, 8, 0).getAttribute('aria-label')).toMatch(/^Su hora\. /);
-        expect(celdaEn(el, 9, 0).getAttribute('aria-label')).toMatch(/, su hora actual$/);
+        // Con punto: si la etiqueta termina con la diferencia, no se lee de corrido (revisión de copy).
+        expect(celdaEn(el, 9, 0).getAttribute('aria-label')).toMatch(/\. Su hora actual$/);
 
         celdaEn(el, 8, 0).click();
         expect(fixture.componentInstance.elegidas).toHaveLength(1);
@@ -824,11 +825,36 @@ describe('Marcador', () => {
 
       it('**la leyenda lo explica, solo si esa hora está a la vista**', () => {
         const conOrigen = montarEnElPanel([], { tomadas: [], origen: ORIGEN });
-        expect(texto(conOrigen.el.querySelector('ul'))).toContain('Su hora: donde estaba la reserva');
+        // «Actual» y no «estaba»: hasta confirmar, la reserva sigue ahí (revisión de copy).
+        expect(texto(conOrigen.el.querySelector('ul'))).toContain('Su hora: la hora actual de la reserva');
 
         // En una cancha que no está en el tablero (el filtro, u otro día): nada que explicar.
         const enOtra = montarEnElPanel([], { tomadas: [], origen: { ...ORIGEN, canchaId: 9 } });
         expect(texto(enOtra.el.querySelector('ul'))).not.toContain('Su hora');
+      });
+
+      it('**con su primera media hora ya pasada, el rótulo va en la primera que se marca**', () => {
+        // La reserva en curso (revisión, T405). `base` cae entre 3 y 2 horas atrás: a(1) y a(2) ya
+        // terminaron siempre y quedan tenues, sin marca; a(4) en adelante siempre se toma.
+        const { el } = montarEnElPanel([], {
+          tomadas: [],
+          origen: { canchaId: 1, inicio: a(1).toISOString(), fin: a(6).toISOString() },
+        });
+        const marcadas = [...el.querySelectorAll('tbody button.border-dashed')];
+
+        expect(texto(marcadas[0])).toBe('Su hora');
+        expect(marcadas.filter((una) => texto(una) === 'Su hora')).toHaveLength(1);
+        expect(texto(el.querySelector('ul'))).toContain('Su hora:');
+      });
+
+      it('**si ninguna de sus celdas se marca, la leyenda no la explica**', () => {
+        const { el } = montarEnElPanel([], {
+          tomadas: [],
+          origen: { canchaId: 1, inicio: a(0).toISOString(), fin: a(2).toISOString() },
+        });
+
+        expect(el.querySelector('tbody button.border-dashed')).toBeNull();
+        expect(texto(el.querySelector('ul'))).not.toContain('Su hora');
       });
 
       it('sin origen, nada punteado ni en la leyenda (MV7)', () => {

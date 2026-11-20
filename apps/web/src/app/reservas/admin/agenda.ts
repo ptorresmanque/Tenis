@@ -12,7 +12,6 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatListModule } from '@angular/material/list';
@@ -74,7 +73,6 @@ import { NuevaReserva } from './nueva-reserva';
     EstadoVacio,
     FichaDeLaReserva,
     Marcador,
-    MatButton,
     MatChipsModule,
     MatIcon,
     MatListModule,
@@ -118,7 +116,9 @@ import { NuevaReserva } from './nueva-reserva';
     <div role="status" data-modo-mover>
       @if (moviendo()) {
         <p class="mt-4 rounded-lg bg-muted p-3 font-medium">
-          Elige la nueva hora para {{ cualSeMueve() }}. La hora que tenía queda libre.
+          <!-- No «queda libre»: hasta confirmar sigue ahí, y el tablero la marca «Su hora». A quien
+               vuelve a mitad del cambio le sirve saber que todavía no pasó nada (revisión, T405). -->
+          Elige la nueva hora para {{ cualSeMueve() }}. Mientras no confirmes, no se mueve.
         </p>
       }
     </div>

@@ -97,6 +97,8 @@ describe('Grilla', () => {
         | Error;
       /** Lo pagado que trae el enlace; por omisión, $16.000. Un `Error` la hace fallar. */
       reservaDelEnlace?: { pagadoClp: number; cancha?: string } | Error;
+      /** La hora de la reserva que se mueve por su id (T401). Un `Error` la hace fallar. */
+      hora?: Error;
     } = {},
   ) => {
     mover = vi.fn().mockResolvedValue({});
@@ -149,7 +151,7 @@ describe('Grilla', () => {
     );
     // La del socio que viene de «Mis reservas» (T401): la Cancha 2, el lunes 17 a las 10:00.
     hora = vi.fn(() =>
-      Promise.resolve({
+      opciones.hora ? Promise.reject(opciones.hora) : Promise.resolve({
         id: 7,
         folio: 'SOC7777',
         nombre: 'Carolina Díaz',
@@ -1511,10 +1513,10 @@ describe('Grilla', () => {
       fixture.detectChanges();
     };
 
-    it('avisa que se está cambiando una hora ya reservada', async () => {
+    it('avisa que se está cambiando una hora ya reservada, y que no se mueve hasta confirmar', async () => {
       await montar(DIA, { mover: '7' });
 
-      expect(texto()).toContain('Elige la nueva hora');
+      expect(texto()).toContain('Elige la nueva hora para tu reserva. Mientras no confirmes, no se mueve.');
     });
 
     it('**abre en el día de la reserva que se mueve, no en hoy**', async () => {
@@ -1598,6 +1600,14 @@ describe('Grilla', () => {
 
       expect(navegar).toHaveBeenCalledWith(['/mi-cuenta/reservas']);
       expect(mover).not.toHaveBeenCalled();
+    });
+
+    it('**si la hora que tenía no carga, la barra igual está y deja volver** (revisión, T405)', async () => {
+      await montar(DIA, { mover: '7' }, { hora: new Error('la API no respondió') });
+
+      expect(enTexto(barra())).toContain('Cambiando tu reserva');
+      expect(enTexto(barra())).not.toContain('Antes');
+      expect(botonDeLaBarra('Volver sin cambiar')).toBeDefined();
     });
 
     it('sin modo mover, la barra sale recién al elegir (MV7)', async () => {

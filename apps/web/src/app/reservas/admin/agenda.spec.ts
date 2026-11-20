@@ -438,7 +438,7 @@ describe('AgendaDelDia', () => {
       expect(TestBed.inject(Router).url).toContain('mover=1');
       expect(grillaParaMover).toHaveBeenCalledWith(1, '2026-08-17', 60);
       expect(texto()).toContain(
-        'Elige la nueva hora para la reserva de Camila Visitante. La hora que tenía queda libre.',
+        'Elige la nueva hora para la reserva de Camila Visitante. Mientras no confirmes, no se mueve.',
       );
       // Sus filas quedan libres para elegirlas: alargarla en el mismo lugar también vale.
       expect(raiz().querySelector('app-marcador [data-reserva]')).toBeNull();
@@ -616,6 +616,19 @@ describe('AgendaDelDia', () => {
 
       expect(grillaParaMover).not.toHaveBeenCalled();
       expect(harness.routeNativeElement?.textContent).not.toContain('Elige la nueva hora');
+      // Ni la barra ni la marca de «Su hora» en el tablero o la leyenda (revisión, T405).
+      expect(harness.routeNativeElement?.querySelector('app-barra-fija')).toBeNull();
+      expect(harness.routeNativeElement?.textContent).not.toContain('Su hora');
+    });
+
+    it('**si el origen no llega, la barra igual está: dice qué hace y ofrece volver** (revisión, T405)', async () => {
+      // Con un rechazo y no con una promesa pendiente: whenStable esperaría para siempre.
+      hora.mockRejectedValue(new Error('la API no respondió'));
+      await empezarAMover();
+
+      expect(textoDeLaBarra()).toContain('Modificando una reserva');
+      expect(textoDeLaBarra()).not.toContain('Antes');
+      expect(botonDeLaBarra('Volver sin cambiar')).toBeDefined();
     });
   });
 

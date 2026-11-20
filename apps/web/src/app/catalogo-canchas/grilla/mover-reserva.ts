@@ -65,7 +65,13 @@ export class MoverReserva {
     this.reservaDelEnlace.hasValue() ? this.reservaDelEnlace.value().pagadoClp : null,
   );
 
-  /** La reserva que se mueve por su id, con su hora: el panel cambia de día mientras la mueve. */
+  /**
+   * La reserva que se mueve por su id, con su hora: el panel cambia de día mientras la mueve.
+   *
+   * Se pide con `?mover=` aunque quien mira no pueda mover: la gestora con ese parámetro recibe un
+   * 404 que no se muestra, porque la agenda no entra al modo mover sin `puedeTomarHoras` (revisión,
+   * T405). Un pedido de más en un caso que solo llega a mano no justifica pasarle el permiso.
+   */
   private readonly reservaPorId = resource({
     params: () => this.porId() ?? undefined,
     loader: ({ params: id }) => this.reservas.hora(id),

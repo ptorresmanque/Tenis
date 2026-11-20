@@ -127,15 +127,15 @@ export class Reservas {
     return firstValueFrom(this.http.patch(`/api/reservas/${id}`, destino));
   }
 
-  /**
-   * El día para mover esta reserva: la grilla de siempre, sin contarla a ella (T87). Con
-   * la pública, alargarla en la misma cancha y hora salía ocupado por ella misma.
-   */
   /** Dónde está la reserva que se mueve, aunque el día que se mira sea otro (T401). */
   hora(id: number): Promise<ReservaQueSeMueve> {
     return firstValueFrom(this.http.get<ReservaQueSeMueve>(`/api/reservas/${id}/hora`));
   }
 
+  /**
+   * El día para mover esta reserva: la grilla de siempre, sin contarla a ella (T87). Con
+   * la pública, alargarla en la misma cancha y hora salía ocupado por ella misma.
+   */
   grillaParaMover(
     id: number,
     fecha: string,

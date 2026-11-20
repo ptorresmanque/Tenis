@@ -55,13 +55,6 @@ describe('ResumenDelCambio', () => {
 
   beforeEach(() => TestBed.resetTestingModule());
 
-  it('sin «Antes», como siempre: la hora elegida y sus dos botones', () => {
-    montar({ cancha: CANCHA, bloque: BLOQUE });
-
-    expect(texto()).toContain('Cancha 1 · 12:00–13:00');
-    expect(botones()).toEqual(['Soltar', 'Cambiar a esta hora']);
-  });
-
   it('**sin hora elegida: qué se modifica, la hora que tenía y que falta elegir la nueva**', () => {
     montar({ antes: ANTES, rotulo: 'Modificando · Reserva de Carolina Díaz' });
 
@@ -96,6 +89,28 @@ describe('ResumenDelCambio', () => {
 
     expect(texto()).toContain('Pagas $4.000 de diferencia.');
     expect(botones()).toEqual(['Soltar', 'Pagar $4.000']);
+  });
+
+  it('**mientras se envía el cambio no se puede soltar**: volver sin cambiar llegaría tarde (revisión, T405)', () => {
+    montar({ antes: ANTES, rotulo: 'Cambiando tu reserva', cancha: CANCHA, bloque: BLOQUE, enviando: true });
+
+    const soltar = [...raiz().querySelectorAll('button')].find((uno) => uno.textContent?.trim() === 'Soltar');
+    expect(soltar?.disabled).toBe(true);
+  });
+
+  it('**al soltar, el foco pasa a «Volver sin cambiar»**, que toma el lugar del botón (revisión, T405)', async () => {
+    montar({ antes: ANTES, rotulo: 'Cambiando tu reserva', cancha: CANCHA, bloque: BLOQUE });
+    // Quien la usa suelta la hora: la barra pasa a «elige una hora».
+    fixture.componentInstance.soltar.subscribe(() => {
+      fixture.componentRef.setInput('cancha', null);
+      fixture.componentRef.setInput('bloque', null);
+    });
+
+    [...raiz().querySelectorAll('button')].find((uno) => uno.textContent?.trim() === 'Soltar')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement?.textContent?.trim()).toBe('Volver sin cambiar');
   });
 
   it('para el lector, el día va completo', () => {

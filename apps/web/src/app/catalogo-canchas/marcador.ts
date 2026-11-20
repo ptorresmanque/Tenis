@@ -253,7 +253,7 @@ function ponerLasReservas(
                     <button
                       type="button"
                       data-reserva
-                      class="absolute inset-0 flex scroll-mt-41 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52
+                      class="absolute inset-0 flex scroll-mt-41 scroll-mb-56 scroll-ms-18 sm:scroll-mt-52
                              cursor-pointer flex-col items-start gap-0.5 overflow-hidden border
                              bg-card p-1.5 text-start text-foreground hover:border-primary"
                       [class.border-2]="espera"
@@ -321,7 +321,8 @@ function ponerLasReservas(
                                y 4 más para el anillo del foco) y,
                                desde sm, también los nombres de las canchas
                                (hasta 200 px con la línea, T350); abajo, la barra de la elección
-                               (167); a la izquierda, la columna de la hora (64), cuando el tablero
+                               (167; en modo mover, hasta unos 210 a 375 px, y por eso 56 = 224,
+                               T405); a la izquierda, la columna de la hora (64), cuando el tablero
                                se desplaza. -->
                           <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
                                que cambia es la placa, la marca y aria-pressed. La marca va arriba
@@ -333,7 +334,7 @@ function ponerLasReservas(
                           @let delOrigen = clavesDelOrigen().has(celda.clave);
                           <button
                             type="button"
-                            class="flex h-full w-full scroll-mt-41 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
+                            class="flex h-full w-full scroll-mt-41 scroll-mb-56 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
                                    items-center justify-center gap-0.5 border font-display text-sm
                                    font-bold tracking-wider uppercase transition-transform
                                    active:scale-95"
@@ -456,7 +457,7 @@ function ponerLasReservas(
              nada que explicar (T404). -->
         <li class="flex items-center gap-2">
           <span class="size-4 border-2 border-dashed border-primary bg-celda-libre" aria-hidden="true"></span>
-          {{ rotuloDelOrigen() }}: donde estaba la reserva
+          {{ rotuloDelOrigen() }}: la hora actual de la reserva
         </li>
       }
       @if (reservas()) {
@@ -784,16 +785,28 @@ export class Marcador {
     return claves;
   });
 
-  /** La primera media hora del origen, la que dice el rótulo. */
-  protected readonly inicioDelOrigen = computed(() => {
-    const origen = this.origen();
-    return origen ? claveDe(origen.canchaId, origen.inicio) : null;
-  });
-
-  /** Si alguna celda del tablero es del origen: si no, la leyenda no lo nombra. */
-  protected readonly origenALaVista = computed(() =>
-    this.filas().some(({ celdas }) => celdas.some(({ clave }) => this.clavesDelOrigen().has(clave))),
+  /**
+   * Las celdas del origen que de verdad se marcan: las libres que se eligen, de arriba abajo. Con
+   * la reserva en curso, su primera media hora ya pasó y queda tenue, sin marca (revisión, T405).
+   */
+  private readonly marcadasDelOrigen = computed(() =>
+    this.filas().flatMap(({ celdas }) =>
+      celdas.flatMap((celda) =>
+        celda.estado === 'libre' &&
+        !celda.sigue &&
+        this.sePuedeElegir(celda.bloque) &&
+        this.clavesDelOrigen().has(celda.clave)
+          ? [celda.clave]
+          : [],
+      ),
+    ),
   );
+
+  /** La primera que se marca, la que dice el rótulo. */
+  protected readonly inicioDelOrigen = computed(() => this.marcadasDelOrigen()[0] ?? null);
+
+  /** Si alguna se marca: si no, la leyenda no explica una marca que no se ve. */
+  protected readonly origenALaVista = computed(() => this.marcadasDelOrigen().length > 0);
 
   /**
    * Lo que oye quien navega por teclado en una libre. La primera del origen empieza con su rótulo,
@@ -803,7 +816,8 @@ export class Marcador {
     const etiqueta = this.etiqueta()(celda.cancha, celda.bloque);
     if (celda.clave === this.inicioDelOrigen()) return `${this.rotuloDelOrigen()}. ${etiqueta}`;
     if (this.clavesDelOrigen().has(celda.clave)) {
-      return `${etiqueta}, ${this.rotuloDelOrigen().toLowerCase()} actual`;
+      // Con punto y no coma: la etiqueta puede terminar con la diferencia, y se leía de corrido.
+      return `${etiqueta}. ${this.rotuloDelOrigen()} actual`;
     }
     return etiqueta;
   }

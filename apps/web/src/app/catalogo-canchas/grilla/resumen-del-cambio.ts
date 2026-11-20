@@ -1,4 +1,14 @@
-import { Component, computed, input, output } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  output,
+  viewChild,
+} from '@angular/core';
 import { MatButton } from '@angular/material/button';
 
 import { BloqueDisponible, Cancha } from '../disponibilidad';
@@ -35,7 +45,7 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
  * que lo hace. Al socio se le confirma igual: la celda elige un tipo de cancha y no una
  * cancha, y la barra es donde ve cuál quedó y la puede cambiar.
  *
- * **Con `rotulo`, está desde que empieza el modo mover** (T402, `SPEC-panel.md` § El modo mover a
+ * **Está desde que empieza el modo mover** (T402, `SPEC-panel.md` § El modo mover a
  * la vista): dice qué reserva se modifica, la hora que tenía («Antes») y la nueva, que falta
  * elegir mientras no se toca una libre. Si quien la mueve se distrae, al volver sabe qué estaba
  * haciendo. Sin hora elegida, la salida es «Volver sin cambiar».
@@ -49,12 +59,11 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
   host: { class: 'contents' },
   template: `
     <div role="status" aria-live="polite" class="min-w-0">
-      @if (rotulo(); as titulo) {
         <p
           class="inline-flex bg-rotulo py-1 ps-3 font-display text-lg font-bold tracking-wide
                  text-on-rotulo uppercase corte-fin"
         >
-          {{ titulo }}
+          {{ rotulo() }}
         </p>
         <!-- La que tenía y la nueva, con el día: la reserva se puede llevar a otro día. Corto a la
              vista y completo para el lector, como en la línea de lo elegido (N4). -->
@@ -79,20 +88,15 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
         @if (laNueva() && diferencia()) {
           <p class="mt-1 text-sm text-muted-foreground">{{ diferencia() }}</p>
         }
-      } @else if (laNueva(); as nueva) {
-        <p
-          class="inline-flex bg-rotulo py-1 ps-3 font-display text-lg font-bold tracking-wide
-                 text-on-rotulo uppercase corte-fin"
-        >
-          {{ nueva.cancha }} · {{ hora(nueva.inicio) }}–{{ hora(nueva.fin) }}
-        </p>
-        <p class="mt-1 text-sm text-muted-foreground">{{ diferencia() }}</p>
-      }
     </div>
 
     <div class="flex gap-2">
       @if (laNueva()) {
-        <button matButton type="button" (click)="soltar.emit()">Soltar</button>
+        <!-- Desactivado mientras se envía: soltar y volver sin cambiar llegaría tarde, y el cambio
+             se haría igual (revisión, T405). -->
+        <button matButton type="button" [disabled]="enviando()" (click)="soltarLaNueva()">
+          Soltar
+        </button>
         <button
           matButton="filled"
           type="button"
@@ -104,7 +108,9 @@ export function textoDeLaDiferencia(montoClp: number, pagadoClp: number): string
         </button>
       } @else {
         <!-- Sin hora elegida no hay nada que confirmar: la única salida es dejarla donde estaba. -->
-        <button matButton="outlined" type="button" (click)="volver.emit()">Volver sin cambiar</button>
+        <button #volverSinCambiar matButton="outlined" type="button" (click)="volver.emit()">
+          Volver sin cambiar
+        </button>
       }
     </div>
   `,
@@ -122,8 +128,8 @@ export class ResumenDelCambio {
    */
   readonly detalle = input<string | null>(null);
   readonly enviando = input(false);
-  /** Qué se modifica: «Modificando · Reserva de X» o «Cambiando tu reserva». Con él, el modo mover. */
-  readonly rotulo = input<string | null>(null);
+  /** Qué se modifica: «Modificando · Reserva de X» en el panel, «Cambiando tu reserva» en el sitio. */
+  readonly rotulo = input.required<string>();
   /** La hora que tenía la reserva (T401): lo que dice «Antes». */
   readonly antes = input<OrigenDelCambio | null>(null);
 
@@ -174,5 +180,15 @@ export class ResumenDelCambio {
     );
   }
 
-  protected readonly hora = horaEnElClub;
+  private readonly volverSinCambiar = viewChild('volverSinCambiar', { read: ElementRef<HTMLButtonElement> });
+  private readonly injector = inject(Injector);
+
+  /**
+   * Soltar la hora elegida. «Soltar» se va y en su lugar aparece «Volver sin cambiar»: el foco pasa
+   * a ese botón, y no se cae al `body` (WCAG 2.4.3; revisión, T405).
+   */
+  protected soltarLaNueva(): void {
+    this.soltar.emit();
+    afterNextRender(() => this.volverSinCambiar()?.nativeElement.focus(), { injector: this.injector });
+  }
 }

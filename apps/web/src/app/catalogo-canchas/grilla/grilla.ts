@@ -87,7 +87,8 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
            el enlace tiene que saber que el próximo clic mueve su hora en vez de tomar
            una nueva. Y quien pagó, la regla de la plata, antes de elegir (T88). -->
       <p class="mt-3 rounded-lg bg-muted p-3 font-medium">
-        Elige la nueva hora para tu reserva. La que tenías queda liberada.
+        <!-- Hasta confirmar sigue en su hora, que el tablero marca «Tu hora» (revisión, T405). -->
+        Elige la nueva hora para tu reserva. Mientras no confirmes, no se mueve.
         @if (mover.pagadoPorElEnlace(); as pagado) {
           Pagaste {{ pesos(pagado) }}: si la nueva vale menos, no se devuelve la
           diferencia.
