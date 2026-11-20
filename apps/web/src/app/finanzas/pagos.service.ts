@@ -42,6 +42,44 @@ export interface ListadoDePagos {
   resumen: { cobradoClp: number; devueltoClp: number; porRevisar: number };
 }
 
+/** Lo que dijo Webpay de un pago, con quién lo revisó o lo devolvió (T395–T397). */
+export interface PagoWebpay {
+  id: number;
+  referencia: string;
+  montoClp: number;
+  estado: Exclude<EstadoDelPago, 'MESON'>;
+  pasarela: string;
+  codigoAutorizacion: string | null;
+  ultimosDigitos: string | null;
+  creadaEn: string;
+  confirmadaEn: string | null;
+  requiereRevision: boolean;
+  tipoPago: string | null;
+  numeroCuotas: number | null;
+  codigoRespuesta: number | null;
+  motivoRechazo: string | null;
+  revisadaPor: number | null;
+  revisadaEn: string | null;
+  notaRevision: string | null;
+  anuladaPor: number | null;
+  anuladaEn: string | null;
+  motivoAnulacion: string | null;
+  revisadaPorNombre: string | null;
+  anuladaPorNombre: string | null;
+}
+
+/** La ficha de un pago, como la manda `GET /api/admin/pagos/:origen/:id` (T396). */
+export interface FichaDePago {
+  fila: FilaDePago;
+  /** Nulo en el mesón. */
+  webpay: PagoWebpay | null;
+  /** Quién registró el cobro del mesón, si se guardó. */
+  registradaPor: string | null;
+  asociadoA: { tipo: ConceptoDelPago; id: number; texto: string; enlace: string | null };
+  /** Si se puede devolver y, si no, por qué y adónde ir primero. Nula en el mesón. */
+  devolucion: { permitida: boolean; motivo: string | null; enlace: string | null } | null;
+}
+
 /** Lo que se filtra, como viaja en la dirección y a la API. */
 export interface FiltroDePagos {
   desde: string;
@@ -80,6 +118,24 @@ export class PagosDelClub {
       this.http.get<ListadoDePagos>('/api/admin/pagos', {
         params: { ...parametrosDe(filtro), pagina },
       }),
+    );
+  }
+
+  ficha(origen: OrigenDelPago, id: number): Promise<FichaDePago> {
+    return firstValueFrom(this.http.get<FichaDePago>(`/api/admin/pagos/${origen}/${id}`));
+  }
+
+  /** «Marcar como revisado» (T397): responde la ficha al día. */
+  revisar(id: number, nota: string): Promise<FichaDePago> {
+    return firstValueFrom(
+      this.http.post<FichaDePago>(`/api/admin/pagos/webpay/${id}/revision`, { nota }),
+    );
+  }
+
+  /** «Devolver» (T397): el total por la pasarela; responde la ficha al día. */
+  devolver(id: number, motivo: string): Promise<FichaDePago> {
+    return firstValueFrom(
+      this.http.post<FichaDePago>(`/api/admin/pagos/webpay/${id}/devolucion`, { motivo }),
     );
   }
 

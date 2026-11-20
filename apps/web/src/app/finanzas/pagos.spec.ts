@@ -1,10 +1,19 @@
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { TestBed } from '@angular/core/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FilaDePago, FiltroDePagos, ListadoDePagos, PagosDelClub, parametrosDe } from './pagos.service';
+import { FichaDelPago } from './ficha-del-pago';
+import {
+  FichaDePago,
+  FilaDePago,
+  FiltroDePagos,
+  ListadoDePagos,
+  PagosDelClub,
+  parametrosDe,
+} from './pagos.service';
 import { PagosPanel } from './pagos';
 
 /**
@@ -58,6 +67,16 @@ describe('PagosPanel', () => {
       resumen: { cobradoClp: 37000, devueltoClp: 15000, porRevisar: 1 },
       ...listado,
     });
+    const ficha = vi.fn(
+      (): Promise<FichaDePago> =>
+        Promise.resolve({
+          fila: PAGADA,
+          webpay: null,
+          registradaPor: null,
+          asociadoA: { tipo: 'RESERVA', id: 41, texto: PAGADA.detalle, enlace: null },
+          devolucion: null,
+        }),
+    );
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -65,6 +84,7 @@ describe('PagosPanel', () => {
           provide: PagosDelClub,
           useValue: {
             listar,
+            ficha,
             // Con los parámetros de verdad: son los mismos que viajan a la API.
             urlDelCsv: (filtro: FiltroDePagos) =>
               `/api/admin/pagos.csv?${new URLSearchParams(parametrosDe(filtro))}`,
@@ -79,7 +99,7 @@ describe('PagosPanel', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    return { fixture, el, listar, navegar };
+    return { fixture, el, listar, ficha, navegar };
   };
 
   /** Lo que se pidió que cambie en la URL, sin el resto de las opciones. */
@@ -293,5 +313,43 @@ describe('PagosPanel', () => {
     const region = el.querySelector('[role="region"]');
     expect(region?.getAttribute('tabindex')).toBe('0');
     expect(region?.getAttribute('aria-label')).toBe('Pagos del club');
+  });
+
+  it('**«Ver el pago» abre su ficha por la URL**, con un nombre que dice cuál', async () => {
+    const { el, fixture, navegar } = await montar();
+    const ver = el.querySelectorAll<HTMLButtonElement>('tr[mat-row] button')[1];
+
+    expect(texto(ver)).toBe('Ver el pago de Camila Pagada, 05-02-2039 12:00');
+    ver.click();
+    fixture.detectChanges();
+
+    expect(cambioEnLaUrl(navegar)).toEqual({ pago: 'webpay-7' });
+  });
+
+  it('**con ?pago= en la URL, la ficha de ese pago se abre**', async () => {
+    const { ficha } = await montar({ pago: 'webpay-7' });
+
+    expect(ficha).toHaveBeenCalledWith('webpay', 7);
+    expect(document.querySelector('mat-dialog-container')).not.toBeNull();
+  });
+
+  it('lo que no se entiende en ?pago= no abre nada', async () => {
+    const { ficha } = await montar({ pago: 'pedido-7' });
+
+    expect(ficha).not.toHaveBeenCalled();
+    expect(document.querySelector('mat-dialog-container')).toBeNull();
+  });
+
+  it('**al cerrar la ficha sale de la URL, y si cambió algo la lista se vuelve a pedir**', async () => {
+    const { fixture, listar, navegar } = await montar({ pago: 'webpay-7' });
+    const laFicha = fixture.debugElement.query(By.directive(FichaDelPago))
+      .componentInstance as FichaDelPago;
+
+    laFicha.cambio.emit();
+    await fixture.whenStable();
+    expect(listar).toHaveBeenCalledTimes(2);
+
+    laFicha.cerrar.emit();
+    expect(cambioEnLaUrl(navegar)).toEqual({ pago: null });
   });
 });

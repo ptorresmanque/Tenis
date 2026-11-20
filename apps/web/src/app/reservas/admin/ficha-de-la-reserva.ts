@@ -17,6 +17,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { RouterLink } from '@angular/router';
 
 import { PAGO_EN_PALABRAS } from '../../catalogo-canchas/marcador';
 import {
@@ -78,6 +79,7 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
     MatIconButton,
     EnlaceTelefonoPipe,
     ObservacionesDeReserva,
+    RouterLink,
     TelefonoPipe,
   ],
   template: `
@@ -225,6 +227,15 @@ const ESTADO_DEL_PAGO: Record<PagoWebpay['estado'], string> = {
                       <dd class="font-semibold">Requiere revisión</dd>
                     }
                   </dl>
+                  <!-- Ahí se revisa y se devuelve (T399): abre su ficha, con el día en que se pagó
+                       en la lista de atrás. -->
+                  <a
+                    class="mt-1 inline-block text-sm underline"
+                    routerLink="/administracion/finanzas/pagos"
+                    [queryParams]="enFinanzas(pago)"
+                  >
+                    Ver en Finanzas › Pagos
+                  </a>
                 } @empty {
                   <p class="text-sm text-muted-foreground">
                     {{
@@ -395,6 +406,12 @@ export class FichaDeLaReserva {
     } finally {
       this.cancelando.set(false);
     }
+  }
+
+  /** La ficha del pago en Finanzas › Pagos, con la lista en el día en que se movió la plata. */
+  protected enFinanzas({ id, confirmadaEn, creadaEn }: PagoWebpay): Record<string, string> {
+    const dia = fechaEnElClub(confirmadaEn ?? creadaEn);
+    return { pago: `webpay-${id}`, desde: dia, hasta: dia };
   }
 
   /** «lunes, 10 de agosto, 11:00», en la hora del club. */

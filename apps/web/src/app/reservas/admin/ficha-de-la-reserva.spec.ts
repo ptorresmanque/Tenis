@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Auth } from '../../core/auth/auth';
@@ -87,6 +88,7 @@ describe('FichaDeLaReserva', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         { provide: Agenda, useValue: { pagosDe } },
         { provide: Reservas, useValue: { cancelar } },
         { provide: Auth, useValue: { usuario: signal(null).asReadonly() } },
@@ -124,6 +126,16 @@ describe('FichaDeLaReserva', () => {
     expect(pago).toContain('Autorizado');
     expect(pago).toContain('1213');
     expect(pago).toContain('terminada en 6623');
+  });
+
+  it('**cada pago enlaza a su ficha en Finanzas › Pagos**, con el día en que se pagó (T399)', () => {
+    const enlace = [...ficha().querySelectorAll<HTMLAnchorElement>('[data-pagos] a')].find((uno) =>
+      uno.textContent?.includes('Ver en Finanzas › Pagos'),
+    );
+
+    expect(enlace?.getAttribute('href')).toBe(
+      '/administracion/finanzas/pagos?pago=webpay-7&desde=2026-08-10&hasta=2026-08-10',
+    );
   });
 
   it('**al gestor no**: ni el pago, ni pide los pagos, ni ofrece cancelar (R9)', async () => {

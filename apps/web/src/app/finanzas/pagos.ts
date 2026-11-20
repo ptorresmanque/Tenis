@@ -25,19 +25,27 @@ import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 
-import { enPesos, fechaEnElClub, hoyEnElClub, horaEnElClub } from '../catalogo-canchas/reloj-del-club';
+import { enPesos, hoyEnElClub } from '../catalogo-canchas/reloj-del-club';
 import { DescargarCsv } from '../reportes/descargar-csv';
 import { proveerCampos } from '../ui/campos';
 import { Esqueleto } from '../ui/esqueleto';
 import { EstadoVacio } from '../ui/estado-vacio';
 import { fechaATexto, proveerFechaYHora, textoAFecha } from '../ui/fecha-y-hora';
 import { proveerPaginador } from '../ui/paginador';
+import { FichaDelPago } from './ficha-del-pago';
+import {
+  ESTADO_DEL_PAGO,
+  fechaYHoraDelClub,
+  MEDIO_DEL_PAGO,
+  medioDelPago,
+} from './pagos-en-palabras';
 import {
   ConceptoDelPago,
   EstadoDelPago,
   FilaDePago,
   FiltroDePagos,
   MedioDelPago,
+  OrigenDelPago,
   PagosDelClub,
 } from './pagos.service';
 
@@ -47,40 +55,14 @@ const CONCEPTOS: { valor: ConceptoDelPago; etiqueta: string }[] = [
   { valor: 'INSCRIPCION', etiqueta: 'Inscripciones' },
 ];
 
-/** El estado como lo dice el club (asunción 5), con su ícono y su color: no solo el color. */
-export const ESTADO_DEL_PAGO: Record<
-  EstadoDelPago,
-  { palabra: string; icono: string; variante: string }
-> = {
-  AUTORIZADA: { palabra: 'Autorizado', icono: 'check_circle', variante: 'exito' },
-  PENDIENTE: { palabra: 'Pendiente', icono: 'schedule', variante: 'aviso' },
-  RECHAZADA: { palabra: 'Rechazado', icono: 'cancel', variante: 'error' },
-  ANULADA: { palabra: 'Devuelto', icono: 'money_off', variante: 'neutro' },
-  EXPIRADA: { palabra: 'Expirado', icono: 'timer_off', variante: 'neutro' },
-  MESON: { palabra: 'Pagado en el mesón', icono: 'payments', variante: 'exito' },
-};
-
 const ESTADOS = Object.keys(ESTADO_DEL_PAGO) as EstadoDelPago[];
 
 const MEDIOS_DE_PAGO: MedioDelPago[] = ['WEBPAY', 'EFECTIVO', 'TRANSFERENCIA'];
 
 const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
   { valor: 'TODOS', etiqueta: 'Todos' },
-  { valor: 'WEBPAY', etiqueta: 'Webpay' },
-  { valor: 'EFECTIVO', etiqueta: 'Efectivo' },
-  { valor: 'TRANSFERENCIA', etiqueta: 'Transferencia' },
+  ...MEDIOS_DE_PAGO.map((valor) => ({ valor, etiqueta: MEDIO_DEL_PAGO[valor] })),
 ];
-
-/** Los tipos de pago de Webpay, en minúscula para ir después del medio: «Webpay · débito». */
-export const TIPO_DE_PAGO: Record<string, string> = {
-  VD: 'débito',
-  VN: 'crédito',
-  VC: 'crédito en cuotas',
-  SI: 'cuotas sin interés',
-  S2: 'cuotas sin interés',
-  NC: 'cuotas sin interés',
-  VP: 'prepago',
-};
 
 /**
  * Finanzas › Pagos (T398, `SPEC-panel.md` § Los pagos del club): los pagos por Webpay y los
@@ -96,6 +78,7 @@ export const TIPO_DE_PAGO: Record<string, string> = {
     DescargarCsv,
     Esqueleto,
     EstadoVacio,
+    FichaDelPago,
     FormsModule,
     MatButton,
     MatButtonToggleModule,
@@ -317,6 +300,19 @@ export const TIPO_DE_PAGO: Record<string, string> = {
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="ver">
+              <th mat-header-cell *matHeaderCellDef scope="col"><span class="sr-only">Ficha</span></th>
+              <td mat-cell *matCellDef="let pago">
+                <!-- El nombre dice cuál: en la tabla, veinte «Ver el pago» iguales no le sirven al
+                     lector de pantalla. -->
+                <button matButton type="button" class="whitespace-nowrap" (click)="abrirFicha(pago)">
+                  Ver el pago<span class="sr-only">
+                    de {{ pago.quien }}, {{ fechaYHora(pago.fecha) }}</span
+                  >
+                </button>
+              </td>
+            </ng-container>
+
             <tr mat-header-row *matHeaderRowDef="COLUMNAS; sticky: true"></tr>
             <tr mat-row *matRowDef="let pago; columns: COLUMNAS"></tr>
           </table>
@@ -335,6 +331,15 @@ export const TIPO_DE_PAGO: Record<string, string> = {
           />
         }
       }
+    }
+
+    @if (pagoAbierto(); as abierto) {
+      <app-ficha-del-pago
+        [origen]="abierto.origen"
+        [id]="abierto.id"
+        (cerrar)="ir({ pago: null })"
+        (cambio)="listado.reload()"
+      />
     }
   `,
 })
@@ -355,12 +360,23 @@ export class PagosPanel {
   readonly orden = input<string>();
   readonly direccion = input<string>();
   readonly pagina = input<string>();
+  /** La ficha abierta, «webpay-7»: un enlace la abre (la ficha de la reserva enlaza acá). */
+  readonly pago = input<string>();
 
   protected readonly CONCEPTOS = CONCEPTOS;
   protected readonly ESTADOS = ESTADOS;
   protected readonly ESTADO_DEL_PAGO = ESTADO_DEL_PAGO;
   protected readonly MEDIOS = MEDIOS;
-  protected readonly COLUMNAS = ['fecha', 'concepto', 'quien', 'medio', 'monto', 'estado', 'revision'];
+  protected readonly COLUMNAS = [
+    'fecha',
+    'concepto',
+    'quien',
+    'medio',
+    'monto',
+    'estado',
+    'revision',
+    'ver',
+  ];
 
   /** El filtro de la URL, con lo que no se entiende reemplazado por lo de siempre. */
   protected readonly filtro = computed((): FiltroDePagos => {
@@ -383,6 +399,11 @@ export class PagosPanel {
       orden: this.orden() === 'monto' ? 'monto' : 'fecha',
       direccion: this.direccion() === 'asc' ? 'asc' : 'desc',
     };
+  });
+
+  protected readonly pagoAbierto = computed(() => {
+    const [, origen, id] = /^(webpay|cuota|inscripcion)-(\d+)$/.exec(this.pago() ?? '') ?? [];
+    return origen ? { origen: origen as OrigenDelPago, id: Number(id) } : null;
   });
 
   protected readonly paginaElegida = computed(() => {
@@ -470,12 +491,17 @@ export class PagosPanel {
     this.ir({ orden, direccion, pagina: null });
   }
 
+  /** Por la URL: volver atrás la cierra, y el enlace se comparte. */
+  protected abrirFicha({ origen, id }: FilaDePago): void {
+    this.ir({ pago: `${origen}-${id}` });
+  }
+
   protected irALaPagina(evento: PageEvent): void {
     this.ir({ pagina: evento.pageIndex + 1 });
   }
 
   /** Cambia lo elegido en la URL; el resto de lo que dice se queda. */
-  private ir(cambios: Params): void {
+  protected ir(cambios: Params): void {
     void this.router.navigate([], {
       relativeTo: this.ruta,
       queryParams: cambios,
@@ -483,23 +509,12 @@ export class PagosPanel {
     });
   }
 
-  /** «05-02-2039 12:00», en la hora del club. */
-  protected fechaYHora(instante: string): string {
-    const [anio, mes, dia] = fechaEnElClub(instante).split('-');
-    return `${dia}-${mes}-${anio} ${horaEnElClub(instante)}`;
-  }
-
   protected insigniaDe(pago: FilaDePago): (typeof ESTADO_DEL_PAGO)[EstadoDelPago] {
     return ESTADO_DEL_PAGO[pago.estado];
   }
 
-  /** «Webpay · débito», «Efectivo» o «Transferencia». */
-  protected medioDe(pago: FilaDePago): string {
-    const medio = MEDIOS.find(({ valor }) => valor === pago.medio)?.etiqueta ?? pago.medio;
-    const tipo = pago.tipoPago ? (TIPO_DE_PAGO[pago.tipoPago] ?? pago.tipoPago) : null;
-    return tipo ? `${medio} · ${tipo}` : medio;
-  }
-
+  protected readonly fechaYHora = fechaYHoraDelClub;
+  protected readonly medioDe = medioDelPago;
   protected readonly pesos = enPesos;
 }
 
