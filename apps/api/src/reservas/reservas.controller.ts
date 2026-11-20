@@ -64,6 +64,17 @@ export class ReservasController {
     return this.reservas.misInvitados(yo.socioId!);
   }
 
+  /**
+   * Dónde está la reserva que se mueve, para la barra y el tablero (T401). Con dos segmentos, como
+   * `:id/grilla`: un `GET :id` suelto taparía `retorno`, `retorno-diferencia` y `reportables`,
+   * que son de un segmento bajo `/reservas` en otros controladores.
+   */
+  @Get(':id/hora')
+  @Autenticado()
+  hora(@Yo() yo: UsuarioActual, @Param('id', ParseIntPipe) id: number) {
+    return this.modificacion.hora(id, yo);
+  }
+
   /** La grilla del día para mover esta reserva, sin contarla a ella (T87). */
   @Get(':id/grilla')
   @Autenticado()

@@ -59,6 +59,17 @@ export interface ReservaCancelada {
   motivo: string | null;
 }
 
+/** Dónde está la reserva que se mueve (T401): lo que dice «Antes» en la barra del cambio. */
+export interface ReservaQueSeMueve {
+  id: number;
+  folio: string;
+  nombre: string;
+  canchaId: number;
+  cancha: string;
+  inicio: string;
+  fin: string;
+}
+
 @Service()
 export class Reservas {
   private readonly http = inject(HttpClient);
@@ -120,6 +131,11 @@ export class Reservas {
    * El día para mover esta reserva: la grilla de siempre, sin contarla a ella (T87). Con
    * la pública, alargarla en la misma cancha y hora salía ocupado por ella misma.
    */
+  /** Dónde está la reserva que se mueve, aunque el día que se mira sea otro (T401). */
+  hora(id: number): Promise<ReservaQueSeMueve> {
+    return firstValueFrom(this.http.get<ReservaQueSeMueve>(`/api/reservas/${id}/hora`));
+  }
+
   grillaParaMover(
     id: number,
     fecha: string,

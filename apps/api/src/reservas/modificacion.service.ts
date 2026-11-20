@@ -61,6 +61,20 @@ export interface ReservaMia {
   devolucionAlCancelar: boolean;
 }
 
+/**
+ * Dónde está la reserva que se mueve (T401): la barra del cambio dice «Antes» con esto, y el
+ * tablero marca su hora. Lo mismo que ya ve quien la puede mover.
+ */
+export interface ReservaQueSeMueve {
+  id: number;
+  folio: string;
+  nombre: string;
+  canchaId: number;
+  cancha: string;
+  inicio: Date;
+  fin: Date;
+}
+
 export interface ReservaCancelada {
   folio: string;
   /** Si se devolvió el dinero. Falso también cuando no había nada que devolver. */
@@ -210,6 +224,24 @@ export class ModificacionService {
     ahora = new Date(),
   ): Promise<Reserva> {
     return this.mover(await this.delEnlace(token), destino, ahora);
+  }
+
+  /**
+   * La hora de la reserva que se mueve (T401), para la barra y el tablero: el panel no la puede
+   * sacar de la lista del día, porque el admin cambia de día mientras la mueve. Con la regla de
+   * mover: la del dueño y, para el admin, cualquiera; la ajena responde 404.
+   */
+  async hora(reservaId: number, yo: UsuarioActual): Promise<ReservaQueSeMueve> {
+    const { id, folio, nombre, canchaId, inicio, fin } = await this.suya(
+      reservaId,
+      yo,
+    );
+    const cancha = await this.prisma.cancha.findUniqueOrThrow({
+      where: { id: canchaId },
+      select: { nombre: true },
+    });
+
+    return { id, folio, nombre, canchaId, cancha: cancha.nombre, inicio, fin };
   }
 
   /** La grilla para mover desde el enlace, sin contar la reserva (T87, T88). */

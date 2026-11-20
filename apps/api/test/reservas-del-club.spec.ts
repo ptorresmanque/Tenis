@@ -288,6 +288,57 @@ describe('El club mueve y cancela reservas desde el panel', () => {
     });
   });
 
+  /**
+   * T401 (`SPEC-panel.md` § El modo mover a la vista, MV6). Dónde estaba la reserva que se mueve:
+   * la barra lo dice y el tablero lo marca, también si el panel cambia de día. Con la regla de
+   * mover: la del dueño y, para el admin, cualquiera.
+   */
+  describe('la hora de la reserva que se mueve (T401)', () => {
+    it('**el socio dueño la recibe: la cancha, el día y la hora**', async () => {
+      const reserva = await suReserva();
+
+      expect(await modificacion.hora(reserva.id, elSocio())).toEqual({
+        id: reserva.id,
+        folio: reserva.folio,
+        nombre: 'Sofía Socia',
+        canchaId,
+        cancha: NOMBRE_CANCHA,
+        inicio: INICIO,
+        fin: FIN,
+      });
+    });
+
+    it('el admin también, aunque no sea suya', async () => {
+      const reserva = await suReserva();
+
+      expect(await modificacion.hora(reserva.id, admin)).toMatchObject({
+        id: reserva.id,
+        cancha: NOMBRE_CANCHA,
+      });
+    });
+
+    it('**otro socio recibe 404, como si no existiera**', async () => {
+      const reserva = await suReserva();
+      const otro = usuario({
+        socioId: 99999,
+        socioActivo: true,
+        socioAlDia: true,
+      });
+
+      await expect(modificacion.hora(reserva.id, otro)).rejects.toMatchObject({
+        status: 404,
+      });
+    });
+
+    it('el gestor tampoco: no mueve reservas', async () => {
+      const reserva = await suReserva();
+
+      await expect(
+        modificacion.hora(reserva.id, usuario({ esGestor: true })),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
   describe('lo que ya terminó no se toca (asunción 9)', () => {
     it('**el club no mueve una reserva que ya se jugó**', async () => {
       const reserva = await suReserva();
