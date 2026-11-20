@@ -442,8 +442,8 @@ describe('AgendaDelDia', () => {
       );
       // Sus filas quedan libres para elegirlas: alargarla en el mismo lugar también vale.
       expect(raiz().querySelector('app-marcador [data-reserva]')).toBeNull();
-      // La libre dice lo que hace en este modo, como en el sitio.
-      expect(libres()[0].getAttribute('aria-label')).toMatch(/^Libre: mover la reserva a la Cancha/);
+      // La libre dice lo que hace en este modo, como en el sitio. La primera es «Su hora» (T404).
+      expect(libres()[1].getAttribute('aria-label')).toMatch(/^Libre: mover la reserva a la Cancha/);
       // El foco, en el tablero: la ficha que tenía el botón se cerró (WCAG 2.4.3, T394).
       await actualizar();
       expect(raiz().querySelector('app-marcador tbody')!.contains(document.activeElement)).toBe(true);
@@ -518,6 +518,15 @@ describe('AgendaDelDia', () => {
       expect(TestBed.inject(Router).url).not.toContain('mover=');
       expect(barra()).toBeNull();
       expect(raiz().querySelector('app-marcador tbody')!.contains(document.activeElement)).toBe(true);
+    });
+
+    it('**en el tablero, la hora que tenía dice «Su hora»** (MV3, T404)', async () => {
+      await empezarAMover();
+
+      // La de Camila, la Cancha 1 a las 08:00: libre en la grilla para moverla, y marcada.
+      const suHora = raiz().querySelector('app-marcador tbody button.border-dashed');
+      expect(suHora?.textContent?.trim()).toBe('Su hora');
+      expect(suHora?.getAttribute('aria-label')).toMatch(/^Su hora\. Libre: mover la reserva a la Cancha 1/);
     });
 
     it('el aviso de arriba queda como texto: la salida está en la barra', async () => {

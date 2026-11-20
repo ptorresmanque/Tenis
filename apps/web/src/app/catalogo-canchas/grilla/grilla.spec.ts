@@ -1739,6 +1739,15 @@ describe('Grilla', () => {
         expect(enTexto(barra())).toContain('elige una hora en el tablero');
       });
 
+      it('**en el tablero, la hora que tenía dice «Tu hora»** (MV5, T404)', async () => {
+        // La del enlace es la Cancha 1 a las 18:00: en el tablero del día, libre y marcada.
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        const tuHora = el().querySelector('app-marcador tbody button.border-dashed');
+        expect(tuHora?.textContent?.trim()).toBe('Tu hora');
+        expect(tuHora?.getAttribute('aria-label')).toMatch(/^Tu hora\. Libre: mover tu reserva a la Cancha 1/);
+      });
+
       it('**«Volver sin cambiar» lo lleva a la página de su reserva** (MV5)', async () => {
         await montar(DIA, { moverToken: 'tok-123' });
 

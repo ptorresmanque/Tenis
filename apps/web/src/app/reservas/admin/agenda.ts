@@ -185,6 +185,8 @@ import { NuevaReserva } from './nueva-reserva';
           [reservas]="reservasDelTablero()"
           [todoElDia]="true"
           [puedeElegir]="puedeTomarHoras()"
+          [origen]="moviendo() ? mover.origen() : null"
+          rotuloDelOrigen="Su hora"
           [elegida]="laElegida()"
           [etiqueta]="etiquetaDeCelda"
           (elegir)="elegido.set($event)"

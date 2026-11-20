@@ -347,6 +347,8 @@ import { ResumenDelCambio, textoDeLaDiferencia } from './resumen-del-cambio';
           [elegida]="laElegida()"
           [sinVenta]="sinVenta"
           [etiqueta]="etiquetaDeCelda"
+          [origen]="mover.origen()"
+          rotuloDelOrigen="Tu hora"
           [arriendo]="!esSocio()"
           [bajoLaLinea]="!controlesALaVista()"
           (elegir)="elegirCelda($event)"

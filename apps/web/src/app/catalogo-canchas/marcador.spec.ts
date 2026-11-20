@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { describe, expect, it } from 'vitest';
 
 import { BloqueDisponible, Cancha, GrillaDeCancha } from './disponibilidad';
-import { Marcador, ReservaEnElTablero } from './marcador';
+import { CeldaElegible, Marcador, ReservaEnElTablero } from './marcador';
 import { enPesos, fechaEnElClub, horaEnElClub } from './reloj-del-club';
 
 /**
@@ -628,7 +628,10 @@ describe('Marcador', () => {
           [reservas]="reservas()"
           [todoElDia]="true"
           [puedeElegir]="puedeElegir()"
+          [origen]="origen()"
+          rotuloDelOrigen="Su hora"
           (abrirReserva)="abiertas.push($event)"
+          (elegir)="elegidas.push($event)"
         />
       `,
     })
@@ -636,12 +639,19 @@ describe('Marcador', () => {
       readonly grillas = signal<GrillaDeCancha[]>([]);
       readonly reservas = signal<ReservaEnElTablero[]>([]);
       readonly puedeElegir = signal(true);
+      readonly origen = signal<{ canchaId: number; inicio: string; fin: string } | null>(null);
       readonly abiertas: number[] = [];
+      readonly elegidas: CeldaElegible[] = [];
     }
 
     function montarEnElPanel(
       reservas: ReservaEnElTablero[],
-      opciones: { puedeElegir?: boolean; tomadas?: number[]; cambios?: Record<number, Partial<BloqueDisponible>> } = {},
+      opciones: {
+        puedeElegir?: boolean;
+        tomadas?: number[];
+        cambios?: Record<number, Partial<BloqueDisponible>>;
+        origen?: { canchaId: number; inicio: string; fin: string };
+      } = {},
     ) {
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({ providers: [provideRouter([])] });
@@ -652,6 +662,7 @@ describe('Marcador', () => {
       ]);
       fixture.componentInstance.reservas.set(reservas);
       fixture.componentInstance.puedeElegir.set(opciones.puedeElegir ?? true);
+      fixture.componentInstance.origen.set(opciones.origen ?? null);
       fixture.detectChanges();
 
       return { fixture, el: fixture.nativeElement as HTMLElement };
@@ -775,6 +786,57 @@ describe('Marcador', () => {
       // El caption no le promete libres que no son botones.
       expect(texto(el.querySelector('caption'))).toContain('Las flechas recorren las reservas.');
       expect(texto(el.querySelector('caption'))).not.toContain('libres');
+    });
+
+    /**
+     * T404 (`SPEC-panel.md` § El modo mover a la vista, MV3). Al mover, la hora que tenía la reserva
+     * se ve punteada y la primera media hora dice «Su hora»: quien vuelve de una distracción ve de
+     * dónde partió. Sigue siendo una libre, para alargarla o acortarla en su lugar (T87).
+     */
+    describe('la hora que tenía la reserva que se mueve (T404)', () => {
+      /** La de la Cancha 1, de a(8) a a(10): sin reservas encima, sus dos filas están libres. */
+      const ORIGEN = { canchaId: 1, inicio: a(8).toISOString(), fin: a(10).toISOString() };
+      const celdaEn = (el: HTMLElement, fila: number, columna: number) =>
+        el.querySelector<HTMLButtonElement>(`tbody button[data-fila="${fila}"][data-columna="${columna}"]`)!;
+
+      it('**se ve punteada, y la primera dice «Su hora» en vez de «Libre»**', () => {
+        const { el } = montarEnElPanel([], { tomadas: [], origen: ORIGEN });
+
+        expect(texto(celdaEn(el, 8, 0))).toBe('Su hora');
+        expect(celdaEn(el, 8, 0).classList.contains('border-dashed')).toBe(true);
+        expect(texto(celdaEn(el, 9, 0))).toBe('Libre');
+        expect(celdaEn(el, 9, 0).classList.contains('border-dashed')).toBe(true);
+        // Las otras, como siempre.
+        expect(celdaEn(el, 10, 0).classList.contains('border-dashed')).toBe(false);
+        expect(celdaEn(el, 8, 1).classList.contains('border-dashed')).toBe(false);
+      });
+
+      it('**se sigue eligiendo, y el lector oye que es su hora**', () => {
+        const { fixture, el } = montarEnElPanel([], { tomadas: [], origen: ORIGEN });
+
+        // Empieza con lo que se ve (WCAG 2.5.3).
+        expect(celdaEn(el, 8, 0).getAttribute('aria-label')).toMatch(/^Su hora\. /);
+        expect(celdaEn(el, 9, 0).getAttribute('aria-label')).toMatch(/, su hora actual$/);
+
+        celdaEn(el, 8, 0).click();
+        expect(fixture.componentInstance.elegidas).toHaveLength(1);
+      });
+
+      it('**la leyenda lo explica, solo si esa hora está a la vista**', () => {
+        const conOrigen = montarEnElPanel([], { tomadas: [], origen: ORIGEN });
+        expect(texto(conOrigen.el.querySelector('ul'))).toContain('Su hora: donde estaba la reserva');
+
+        // En una cancha que no está en el tablero (el filtro, u otro día): nada que explicar.
+        const enOtra = montarEnElPanel([], { tomadas: [], origen: { ...ORIGEN, canchaId: 9 } });
+        expect(texto(enOtra.el.querySelector('ul'))).not.toContain('Su hora');
+      });
+
+      it('sin origen, nada punteado ni en la leyenda (MV7)', () => {
+        const { el } = montarEnElPanel([], { tomadas: [] });
+
+        expect(el.querySelector('tbody button.border-dashed')).toBeNull();
+        expect(texto(el.querySelector('ul'))).not.toContain('Su hora');
+      });
     });
 
     it('la leyenda dice que la reserva se toca para ver su ficha', () => {
