@@ -1,14 +1,13 @@
 import {
   BadGatewayException,
-  BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 
 import {
   comoFechaCivil,
-  esFechaDelClub,
   hoyEnElClub,
   instanteEnElClub,
   ZONA_DEL_CLUB,
@@ -29,7 +28,10 @@ import {
   pagoWebpay,
   type PagoWebpay,
 } from '../pagos/pago-webpay';
-import { AnulacionService } from '../pagos/anulacion.service';
+import {
+  AnulacionService,
+  LaPasarelaNoDevolvio,
+} from '../pagos/anulacion.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { aCsv } from '../reportes/csv';
 
@@ -118,11 +120,6 @@ export interface FichaDePago {
 /** El de Personas: la misma página en todas las listas del panel. */
 export const POR_PAGINA = 50;
 
-const CONCEPTOS: ConceptoDelPago[] = ['RESERVA', 'CUOTA', 'INSCRIPCION'];
-const ESTADOS: EstadoDelPago[] = [...Object.values(EstadoTransaccion), 'MESON'];
-const MEDIOS: MedioDelPago[] = ['WEBPAY', 'EFECTIVO', 'TRANSFERENCIA'];
-const ORIGENES: OrigenDelPago[] = ['webpay', 'cuota', 'inscripcion'];
-
 const CONCEPTO_DE: Record<ConceptoPago, ConceptoDelPago> = {
   RESERVA: 'RESERVA',
   CUOTA: 'CUOTA',
@@ -135,8 +132,13 @@ interface Descripcion {
   quien: string;
   esSocio: boolean;
   asociado: Asociado;
-  /** Si lo pagado sigue vigente para esta transacción, qué hacer antes de devolverla. */
-  queHacerAntes: (transaccionId: number) => string | null;
+  /**
+   * Si lo pagado sigue vigente para esta transacción, qué hacer antes de devolverla y adónde ir.
+   * Sin enlace cuando no hay nada que hacer en el panel.
+   */
+  queHacerAntes: (
+    transaccionId: number,
+  ) => { texto: string; enlace: string | null } | null;
 }
 
 type TransaccionDeLaLista = Parameters<typeof pagoWebpay>[0] & {
@@ -227,14 +229,6 @@ export class PagosDelClubService {
   }
 
   /**
-   * Si un pago por Webpay se puede devolver (asunción 9): solo autorizado, y solo si lo pagado ya
-   * no está vigente. La comparte la ficha con «Devolver» (T397).
-   */
-  async reglaDeDevolucion(transaccionId: number): Promise<ReglaDeDevolucion> {
-    return sinCodigo(await this.reglaConCodigo(transaccionId));
-  }
-
-  /**
    * «Devolver un pago» (T397, asunción 9): el total, por la pasarela, solo si la regla lo permite.
    * Queda quién y por qué (`anular` deja además cuándo). Dos a la vez no pagan dos veces: `anular`
    * cambia el estado con compare-and-set antes de pedir la plata.
@@ -253,13 +247,40 @@ export class PagosDelClubService {
       });
     }
 
+    let devuelto: boolean;
     try {
-      await this.anulacion.anular(transaccionId, { por, motivo });
+      devuelto = await this.anulacion.anular(transaccionId, { por, motivo });
     } catch (error) {
-      // El rechazo de la pasarela, tal cual: el admin decide con eso, y el pago sigue autorizado.
-      throw new BadGatewayException({
-        motivo: 'LA_PASARELA_NO_DEVOLVIO',
-        message: `La pasarela no hizo la devolución: ${error instanceof Error ? error.message : String(error)}`,
+      if (error instanceof LaPasarelaNoDevolvio) {
+        // El rechazo de Transbank, tal cual y al final (F8): el pago sigue autorizado.
+        throw new BadGatewayException({
+          motivo: 'LA_PASARELA_NO_DEVOLVIO',
+          message:
+            'Webpay no hizo la devolución, y el pago sigue autorizado. Reintenta en unos ' +
+            `minutos; si vuelve a fallar, revísalo en el portal de Transbank. Detalle: ${error.message}`,
+        });
+      }
+
+      // Cualquier otra falla puede llegar después de que Transbank devolvió (el commit de la base,
+      // por ejemplo). No se sabe si la plata salió: no se dice que no, no se muestran detalles
+      // internos, y queda por revisar con la causa en el log.
+      await this.anulacion.marcarParaRevision(
+        transaccionId,
+        `devolución a mano sin confirmar: ${String(error)}`,
+      );
+      throw new InternalServerErrorException({
+        motivo: 'DEVOLUCION_SIN_CONFIRMAR',
+        message:
+          'No sabemos si Webpay hizo la devolución. Revisa el pago en el portal de Transbank ' +
+          'antes de reintentar; quedó por revisar.',
+      });
+    }
+
+    // Otra persona la devolvió entre la regla y el compare-and-set de `anular`.
+    if (!devuelto) {
+      throw new ConflictException({
+        motivo: 'YA_DEVUELTO',
+        message: YA_DEVUELTO,
       });
     }
 
@@ -291,7 +312,8 @@ export class PagosDelClubService {
     if (count === 0) {
       throw new ConflictException({
         motivo: 'YA_REVISADO',
-        message: 'Este pago ya se revisó.',
+        message:
+          'Este pago ya se revisó. Vuelve a la ficha para ver quién lo hizo y su nota.',
       });
     }
 
@@ -414,9 +436,7 @@ export class PagosDelClubService {
         `/administracion/reservas?fecha=${comoFechaCivil(hoyEnElClub(reserva.inicio))}` +
         `&reserva=${reserva.id}`;
       const detalle = `Reserva ${reserva.folio} · ${reserva.cancha.nombre}, ${diaYHora(reserva.inicio)}`;
-      const vigente =
-        reserva.estado === EstadoReserva.CONFIRMADA ||
-        reserva.estado === EstadoReserva.PENDIENTE_PAGO;
+      const vigente = RESERVA_VIGENTE[reserva.estado];
 
       mapa.set(`${ConceptoPago.RESERVA}:${reserva.id}`, {
         detalle,
@@ -425,7 +445,12 @@ export class PagosDelClubService {
         asociado: { tipo: 'RESERVA', id: reserva.id, texto: detalle, enlace },
         queHacerAntes: () =>
           vigente
-            ? 'Primero cancela la reserva desde la agenda: todavía está vigente.'
+            ? {
+                texto:
+                  'La reserva sigue vigente: cancélala desde la agenda. Si está dentro del ' +
+                  'plazo, el pago se devuelve solo; si no, vuelve acá para devolverlo.',
+                enlace,
+              }
             : null,
       });
     }
@@ -435,11 +460,17 @@ export class PagosDelClubService {
       mapa.set(`${ConceptoPago.CUOTA}:${cuota.id}`, {
         ...base,
         // Vigente si sigue pagada con este cobro. Anulada, o pagada con otro (un pago
-        // duplicado), ya no.
+        // duplicado), ya no. Una cuota pagada no se anula en el panel (`AjustesService`): no hay
+        // adónde mandar a nadie (revisión, T400).
         queHacerAntes: (transaccionId) =>
           cuota.estado === EstadoCuota.PAGADA &&
           cuota.transaccionId === transaccionId
-            ? 'Primero anula la cuota desde la ficha de la persona: sigue pagada con este cobro.'
+            ? {
+                texto:
+                  'Esta cuota sigue pagada con este cobro, y una cuota pagada no se anula en ' +
+                  'el panel. Si el cobro fue un error, la devolución se hace en el club.',
+                enlace: null,
+              }
             : null,
       });
     }
@@ -453,7 +484,12 @@ export class PagosDelClubService {
         ...base,
         queHacerAntes: () =>
           vigente
-            ? 'Primero retira la inscripción desde el torneo: todavía está vigente.'
+            ? {
+                texto:
+                  'La inscripción sigue vigente: retírala desde el torneo y vuelve acá para ' +
+                  'devolver el pago.',
+                enlace: base.asociado.enlace,
+              }
             : null,
       });
     }
@@ -756,6 +792,20 @@ type ReglaConCodigo = ReglaDeDevolucion & { codigo: CodigoDeDevolucion };
  */
 const DIAS_PARA_DEVOLVER = 90;
 
+const YA_DEVUELTO =
+  'Este pago ya se devolvió. Vuelve a la ficha para ver quién lo hizo y por qué.';
+
+/**
+ * Lo pagado de una reserva sigue en pie mientras la reserva lo esté. Un `Record` y no una lista:
+ * un estado nuevo no compila hasta que alguien decida si se puede devolver (revisión, T400).
+ */
+const RESERVA_VIGENTE: Record<EstadoReserva, boolean> = {
+  PENDIENTE_PAGO: true,
+  CONFIRMADA: true,
+  CANCELADA: false,
+  EXPIRADA: false,
+};
+
 /** La regla como la ve la ficha: el código es para el 409 de «Devolver». */
 const sinCodigo = ({
   permitida,
@@ -784,7 +834,7 @@ function devolucionDe(
   });
 
   if (transaccion.estado === EstadoTransaccion.ANULADA) {
-    return no('YA_DEVUELTO', 'Ya se devolvió.');
+    return no('YA_DEVUELTO', YA_DEVUELTO);
   }
   if (transaccion.estado !== EstadoTransaccion.AUTORIZADA) {
     return no('NO_AUTORIZADA', 'Solo se devuelve un pago autorizado.');
@@ -797,14 +847,20 @@ function devolucionDe(
   ) {
     return no(
       'FUERA_DE_PLAZO',
-      `Transbank devuelve por Webpay hasta ${DIAS_PARA_DEVOLVER} días después del pago, y este ya ` +
-        'los pasó: la devolución se hace por transferencia, fuera del panel.',
+      `Pasaron más de ${DIAS_PARA_DEVOLVER} días desde el pago, y Webpay solo devuelve dentro de ` +
+        'ese plazo. Haz la devolución por transferencia, fuera del panel.',
     );
   }
 
-  const queHacer = descripcion.queHacerAntes(transaccion.id);
+  // Un pago marcado para revisión no dejó nada vigente: los caminos que lo marcan autorizado
+  // —el monto que no cuadra, la diferencia de un cambio que no se aplicó (T90) y la inscripción
+  // que ya estaba pagada o soltada— no aplican su efecto. Pedir cancelar la reserva o retirar la
+  // inscripción le quitaría a alguien lo que sí pagó (revisión, T400).
+  const queHacer = transaccion.requiereRevision
+    ? null
+    : descripcion.queHacerAntes(transaccion.id);
   return queHacer
-    ? no('SIGUE_VIGENTE', queHacer, descripcion.asociado.enlace)
+    ? no('SIGUE_VIGENTE', queHacer.texto, queHacer.enlace)
     : { permitida: true, motivo: null, enlace: null, codigo: null };
 }
 
@@ -919,99 +975,3 @@ const TIPO_DE_PAGO: Record<string, string> = {
   NC: 'Cuotas sin interés',
   VP: 'Prepago',
 };
-
-/**
- * Lee el filtro de la consulta, con los valores por omisión a la vista (el mes en curso). Un valor
- * que no existe responde 400: una lista vacía parecería la verdad.
- */
-export function leerFiltro(consulta: Record<string, unknown>): FiltroDePagos {
-  const hoy = comoFechaCivil(hoyEnElClub());
-  const desde = texto(consulta['desde']) || `${hoy.slice(0, 7)}-01`;
-  const hasta = texto(consulta['hasta']) || ultimoDiaDelMes(hoy);
-  if (!esFechaDelClub(desde) || !esFechaDelClub(hasta) || desde > hasta) {
-    throw new BadRequestException(
-      'Las fechas tienen que existir, con la forma AAAA-MM-DD, y «desde» no puede ir después de «hasta».',
-    );
-  }
-
-  const conceptos = valores(consulta['concepto']);
-  const estado = texto(consulta['estado']) || null;
-  const medio = texto(consulta['medio']) || null;
-  const orden = texto(consulta['orden']) || 'fecha';
-  const direccion = texto(consulta['direccion']) || 'desc';
-
-  if (
-    conceptos.some((uno) => !CONCEPTOS.includes(uno as ConceptoDelPago)) ||
-    (estado !== null && !ESTADOS.includes(estado as EstadoDelPago)) ||
-    (medio !== null && !MEDIOS.includes(medio as MedioDelPago)) ||
-    !['fecha', 'monto'].includes(orden) ||
-    !['asc', 'desc'].includes(direccion)
-  ) {
-    throw new BadRequestException('Ese filtro no existe.');
-  }
-
-  return {
-    desde,
-    hasta,
-    conceptos: conceptos as ConceptoDelPago[],
-    estado: estado as EstadoDelPago | null,
-    medio: medio as MedioDelPago | null,
-    q: texto(consulta['q']).slice(0, 100),
-    porRevisar: texto(consulta['porRevisar']) === 'true',
-    orden: orden as FiltroDePagos['orden'],
-    direccion: direccion as FiltroDePagos['direccion'],
-  };
-}
-
-export function leerPagina(valor: unknown): number {
-  const pagina = valor === undefined ? 1 : Number(valor);
-  if (!Number.isInteger(pagina) || pagina < 1) {
-    throw new BadRequestException('La página es un número desde 1.');
-  }
-  return pagina;
-}
-
-export function leerOrigen(valor: string): OrigenDelPago {
-  if (!ORIGENES.includes(valor as OrigenDelPago)) {
-    throw new BadRequestException('Ese origen de pago no existe.');
-  }
-  return valor as OrigenDelPago;
-}
-
-/**
- * La nota de la revisión o el motivo de la devolución, del cuerpo: obligatorio y de hasta 200
- * caracteres, el largo de su columna.
- */
-export function leerTextoObligatorio(
-  cuerpo: unknown,
-  campo: 'nota' | 'motivo',
-): string {
-  const valor =
-    typeof cuerpo === 'object' && cuerpo !== null
-      ? texto((cuerpo as Record<string, unknown>)[campo]).trim()
-      : '';
-  if (valor === '' || valor.length > 200) {
-    throw new BadRequestException(
-      `${campo === 'nota' ? 'La nota' : 'El motivo'} es obligatorio y tiene hasta 200 caracteres.`,
-    );
-  }
-  return valor;
-}
-
-function texto(valor: unknown): string {
-  return typeof valor === 'string' ? valor : '';
-}
-
-/** `?concepto=A,B` y `?concepto=A&concepto=B` dicen lo mismo. */
-function valores(valor: unknown): string[] {
-  const lista = Array.isArray(valor) ? valor : [valor];
-  return lista
-    .flatMap((uno) => texto(uno).split(','))
-    .map((uno) => uno.trim())
-    .filter(Boolean);
-}
-
-function ultimoDiaDelMes(fecha: string): string {
-  const [anio, mes] = fecha.split('-').map(Number);
-  return comoFechaCivil(new Date(Date.UTC(anio, mes, 0)));
-}

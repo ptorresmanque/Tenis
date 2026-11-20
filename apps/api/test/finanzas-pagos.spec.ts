@@ -565,9 +565,13 @@ describe('Finanzas › Pagos (T396)', () => {
         id: ids.reservaPagada,
         enlace,
       });
-      // La reserva sigue en pie: primero se cancela, desde la agenda (asunción 9).
-      expect(body.devolucion).toMatchObject({ permitida: false, enlace });
-      expect(body.devolucion.motivo).toMatch(/cancela/i);
+      // La reserva sigue en pie, pero el pago está marcado para revisión: no dejó nada vigente y
+      // se puede devolver (revisión, T400). El pago vigente sin marca: `finanzas-devolucion.spec`.
+      expect(body.devolucion).toEqual({
+        permitida: true,
+        motivo: null,
+        enlace: null,
+      });
       expect(JSON.stringify(body)).not.toContain('tok-t396');
     });
 
@@ -599,8 +603,8 @@ describe('Finanzas › Pagos (T396)', () => {
     it('la ya devuelta no se devuelve otra vez', async () => {
       const body = await laFicha('webpay', ids.txAnulada);
 
-      expect(body.devolucion.permitida).toBe(false);
-      expect(body.devolucion.motivo).toMatch(/ya se devolvió/i);
+      expect(body.devolucion?.permitida).toBe(false);
+      expect(body.devolucion?.motivo).toMatch(/ya se devolvió/i);
     });
 
     it('la de una cuota enlaza a la persona, y no se devuelve mientras la cuota siga pagada con ella', async () => {
@@ -610,8 +614,8 @@ describe('Finanzas › Pagos (T396)', () => {
         tipo: 'CUOTA',
         enlace: `/administracion/personas/${ids.socioUsuario}`,
       });
-      expect(body.devolucion.permitida).toBe(false);
-      expect(body.devolucion.motivo).toMatch(/anula/i);
+      expect(body.devolucion?.permitida).toBe(false);
+      expect(body.devolucion?.motivo).toMatch(/anula/i);
     });
 
     it('**del mesón: el cobro, quién lo registró y lo asociado, sin devolución** (F5)', async () => {

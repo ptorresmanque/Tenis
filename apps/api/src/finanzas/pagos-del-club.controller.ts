@@ -14,11 +14,13 @@ import { SoloAdmin, Yo } from '../identidad/guards';
 import type { UsuarioActual } from '../identidad/usuario-actual';
 import { descargaCsv } from '../reportes/csv';
 import {
-  FichaDePago,
   leerFiltro,
   leerOrigen,
   leerPagina,
   leerTextoObligatorio,
+} from './pagos-del-club.dto';
+import {
+  FichaDePago,
   ListadoDePagos,
   PagosDelClubService,
 } from './pagos-del-club.service';

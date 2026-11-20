@@ -129,9 +129,13 @@ describe('FichaDelPago', () => {
     expect(webpay['Autorización']).toBe('1213');
     expect(webpay['Tarjeta']).toBe('terminada en 6623');
     expect(webpay['Tipo de pago']).toBe('Débito');
-    expect(webpay['Cuotas']).toBe('0');
+    // «Cuotas» a secas se confundía con la cuota del socio (revisión, T400).
+    expect(webpay['Cuotas de la tarjeta']).toBe('Sin cuotas');
     expect(webpay['Código de respuesta']).toBe('0');
     expect(webpay['Motivo del rechazo']).toBeUndefined();
+    // También llega en un rechazo: no es «Confirmado».
+    expect(webpay['Respuesta de Webpay']).toContain('12:00');
+    expect(webpay['Confirmado']).toBeUndefined();
     expect(texto()).toContain('$12.000');
     expect(texto()).toContain('Autorizado');
   });
@@ -144,7 +148,7 @@ describe('FichaDelPago', () => {
     const webpay = definiciones('[data-webpay]');
 
     expect(webpay['Tipo de pago']).toBe('No se guardó');
-    expect(webpay['Cuotas']).toBe('No se guardó');
+    expect(webpay['Cuotas de la tarjeta']).toBe('No se guardó');
     expect(webpay['Código de respuesta']).toBe('No se guardó');
   });
 
@@ -173,6 +177,8 @@ describe('FichaDelPago', () => {
     const enlace = dialogo().querySelector<HTMLAnchorElement>('[data-asociado] a')!;
 
     expect(enlace.textContent).toContain('Reserva T396RPA');
+    // Como la columna de la lista: «Asociado a» se leía como «socio» (revisión, T400).
+    expect(limpio(dialogo().querySelector('[data-asociado] h3'))).toBe('Concepto');
     expect(enlace.getAttribute('href')).toBe('/administracion/reservas?fecha=2039-02-10&reserva=41');
   });
 
@@ -190,18 +196,46 @@ describe('FichaDelPago', () => {
       },
       devolucion: { permitida: false, motivo: 'Ya se devolvió.', enlace: null },
     });
-    const devolucion = (dialogo().querySelector('[data-devolucion]')?.textContent ?? '').replace(/\s+/g, ' ');
-    expect(devolucion).toContain('Rodrigo Admin');
-    expect(devolucion).toContain('Pagó dos veces la misma hora.');
+    const devolucion = definiciones('[data-devolucion]');
+    // Como la revisión: primero quién (revisión, T400).
+    expect(Object.keys(devolucion)[0]).toBe('Devuelto por');
+    expect(devolucion['Devuelto por']).toBe('Rodrigo Admin');
+    expect(devolucion['Motivo']).toBe('Pagó dos veces la misma hora.');
 
     await montar({
       ...AUTORIZADO,
       webpay: { ...AUTORIZADO.webpay!, estado: 'ANULADA', anuladaEn: '2039-02-06T15:00:00.000Z' },
       devolucion: { permitida: false, motivo: 'Ya se devolvió.', enlace: null },
     });
-    expect(dialogo().querySelector('[data-devolucion]')?.textContent).toContain(
-      'Automática, al cancelar',
+    // El sistema también devuelve al cerrar una cancha o si un cambio no se aplica.
+    expect(definiciones('[data-devolucion]')['Devuelto por']).toBe(
+      'El sistema, al cancelar o cambiar la reserva',
     );
+  });
+
+  it('**si se borró la cuenta de quien devolvió o revisó, lo dice, y no la hace pasar por automática**', async () => {
+    // Las FK quedan en null al borrar al admin, pero la devolución a mano siempre deja su motivo.
+    await montar({
+      ...AUTORIZADO,
+      webpay: {
+        ...AUTORIZADO.webpay!,
+        estado: 'ANULADA',
+        anuladaEn: '2039-02-06T15:00:00.000Z',
+        motivoAnulacion: 'Pagó dos veces la misma hora.',
+        revisadaEn: '2039-02-07T15:00:00.000Z',
+        notaRevision: 'Cuadra con la cartola.',
+      },
+      devolucion: { permitida: false, motivo: 'Este pago ya se devolvió.', enlace: null },
+    });
+
+    expect(definiciones('[data-devolucion]')['Devuelto por']).toBe('Cuenta eliminada');
+    expect(definiciones('[data-revision]')['Revisado por']).toBe('Cuenta eliminada');
+  });
+
+  it('cuando lo pagado ya no existe, el título no dice «Pago de —»', async () => {
+    await montar({ ...AUTORIZADO, fila: { ...AUTORIZADO.fila, quien: '—' } });
+
+    expect(limpio(dialogo().querySelector('h2'))).toBe('Pago');
   });
 
   it('la revisión dice si falta o quién la hizo, con su nota', async () => {
@@ -270,6 +304,8 @@ describe('FichaDelPago', () => {
     await actualizar();
 
     expect(texto()).toContain('¿Marcar como revisado el pago de Camila Pagada?');
+    // Como «Devolver»: no se deshace (asunción 8).
+    expect(texto()).toContain('no se puede deshacer');
     await escribir('Cuadra con la cartola.');
     boton('Marcar como revisado')!.click();
     await actualizar();
@@ -296,6 +332,45 @@ describe('FichaDelPago', () => {
     expect(texto()).toContain('La pasarela no aceptó la devolución.');
     expect(texto()).toContain('¿Devolver $12.000');
     expect(cambios).toBe(0);
+  });
+
+  it('**sin mensaje de la API, dice qué acción falló**', async () => {
+    await montar();
+    api.devolver.mockRejectedValue(new HttpErrorResponse({ status: 0 }));
+    boton('Devolver')!.click();
+    await actualizar();
+    await escribir('Motivo.');
+    boton('Devolver $12.000')!.click();
+    await actualizar();
+
+    expect(texto()).toContain('No se pudo hacer la devolución. Reintenta en un momento.');
+  });
+
+  it('**si otra persona ya lo hizo (409), la ficha se pone al día y la lista también**', async () => {
+    await montar();
+    api.devolver.mockRejectedValue(
+      new HttpErrorResponse({
+        status: 409,
+        error: { message: 'Este pago ya se devolvió. Vuelve a la ficha para ver quién lo hizo y por qué.' },
+      }),
+    );
+    boton('Devolver')!.click();
+    await actualizar();
+    await escribir('Motivo.');
+    boton('Devolver $12.000')!.click();
+    await actualizar();
+
+    expect(texto()).toContain('Este pago ya se devolvió.');
+    expect(api.ficha).toHaveBeenCalledTimes(2);
+    expect(cambios).toBe(1);
+  });
+
+  it('sin los cuatro dígitos, la pregunta dice «la tarjeta con la que se pagó»', async () => {
+    await montar({ ...AUTORIZADO, webpay: { ...AUTORIZADO.webpay!, ultimosDigitos: null } });
+    boton('Devolver')!.click();
+    await actualizar();
+
+    expect(texto()).toContain('¿Devolver $12.000 a la tarjeta con la que se pagó?');
   });
 
   it('«Volver» deja la ficha como estaba', async () => {

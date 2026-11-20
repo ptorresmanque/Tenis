@@ -16,6 +16,5 @@ import { PagosDelClubService } from './pagos-del-club.service';
   imports: [IdentidadModule, PagosModule],
   controllers: [PagosDelClubController],
   providers: [PagosDelClubService],
-  exports: [PagosDelClubService],
 })
 export class FinanzasModule {}

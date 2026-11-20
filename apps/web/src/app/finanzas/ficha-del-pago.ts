@@ -12,6 +12,7 @@ import {
   TemplateRef,
   viewChild,
 } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -49,12 +50,14 @@ const ACCIONES = {
     falta: 'Escribe por qué se devuelve.',
     enviando: 'Devolviendo…',
     hecho: 'Pago devuelto.',
+    fallo: 'No se pudo hacer la devolución. Reintenta en un momento.',
   },
   revisar: {
     campo: 'Nota',
     falta: 'Escribe qué revisaste.',
     enviando: 'Guardando…',
     hecho: 'Pago marcado como revisado.',
+    fallo: 'No se pudo guardar la revisión. Reintenta en un momento.',
   },
 } as const;
 type Accion = keyof typeof ACCIONES;
@@ -123,7 +126,7 @@ const LARGO_MAXIMO = 200;
               {{
                 laAccion === 'devolver'
                   ? 'Webpay devuelve el total al mismo medio de pago. No se puede deshacer.'
-                  : 'Queda tu nombre, la hora y la nota. Sale de «Solo por revisar».'
+                  : 'Quedan registrados tu nombre, la fecha y la nota, y no se puede deshacer. El pago deja de aparecer en «Solo por revisar».'
               }}
             </p>
             <mat-form-field class="mt-3 w-full">
@@ -190,8 +193,9 @@ const LARGO_MAXIMO = 200;
             </dl>
 
             <section data-asociado class="mt-4" aria-labelledby="titulo-asociado">
+              <!-- «Concepto», como la columna de la lista: «Asociado a» se leía como «socio». -->
               <h3 id="titulo-asociado" class="font-display text-sm font-bold tracking-wide uppercase">
-                Asociado a
+                Concepto
               </h3>
               @if (enlaceAlAsociado(); as enlace) {
                 <a class="mt-1 block text-sm underline" [routerLink]="enlace">
@@ -218,8 +222,9 @@ const LARGO_MAXIMO = 200;
                   <!-- Los tres que se guardan desde T395: en un pago anterior, «No se guardó». -->
                   <dt class="text-muted-foreground">Tipo de pago</dt>
                   <dd>{{ tipoDePago(webpay) ?? falta }}</dd>
-                  <dt class="text-muted-foreground">Cuotas</dt>
-                  <dd>{{ webpay.numeroCuotas ?? falta }}</dd>
+                  <!-- «Cuotas» a secas se confundía con la cuota del socio. -->
+                  <dt class="text-muted-foreground">Cuotas de la tarjeta</dt>
+                  <dd>{{ cuotasDe(webpay) ?? falta }}</dd>
                   <dt class="text-muted-foreground">Código de respuesta</dt>
                   <dd>{{ webpay.codigoRespuesta ?? falta }}</dd>
                   @if (webpay.estado === 'RECHAZADA') {
@@ -228,7 +233,8 @@ const LARGO_MAXIMO = 200;
                   }
                   <dt class="text-muted-foreground">Iniciado</dt>
                   <dd>{{ cuando(webpay.creadaEn) }}</dd>
-                  <dt class="text-muted-foreground">Confirmado</dt>
+                  <!-- No «Confirmado»: un rechazo también tiene respuesta. -->
+                  <dt class="text-muted-foreground">Respuesta de Webpay</dt>
                   <dd>{{ webpay.confirmadaEn ? cuando(webpay.confirmadaEn) : '—' }}</dd>
                 </dl>
               </section>
@@ -241,20 +247,14 @@ const LARGO_MAXIMO = 200;
                   >
                     Devolución
                   </h3>
+                  <!-- Como la revisión: quién, cuándo y el texto que se pidió. -->
                   <dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                    <dt class="text-muted-foreground">Devuelto por</dt>
+                    <dd>{{ devueltoPor(webpay) }}</dd>
                     <dt class="text-muted-foreground">Cuándo</dt>
                     <dd>{{ webpay.anuladaEn ? cuando(webpay.anuladaEn) : 'No se guardó' }}</dd>
-                    <dt class="text-muted-foreground">Quién</dt>
-                    <!-- Sin persona y con fecha: la hizo el sistema al cancelar lo pagado. Sin
-                         fecha es anterior a T395, y no se sabe. -->
-                    <dd>
-                      {{
-                        webpay.anuladaPorNombre ??
-                          (webpay.anuladaEn ? 'Automática, al cancelar' : 'No se guardó')
-                      }}
-                    </dd>
                     @if (webpay.motivoAnulacion) {
-                      <dt class="text-muted-foreground">Por qué</dt>
+                      <dt class="text-muted-foreground">Motivo</dt>
                       <dd>{{ webpay.motivoAnulacion }}</dd>
                     }
                   </dl>
@@ -272,7 +272,8 @@ const LARGO_MAXIMO = 200;
                   @if (webpay.revisadaEn) {
                     <dl class="mt-1 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                       <dt class="text-muted-foreground">Revisado por</dt>
-                      <dd>{{ webpay.revisadaPorNombre ?? 'No se guardó' }}</dd>
+                      <!-- Con fecha hubo alguien: sin nombre, se borró su cuenta (FK en null). -->
+                      <dd>{{ webpay.revisadaPorNombre ?? 'Cuenta eliminada' }}</dd>
                       <dt class="text-muted-foreground">Cuándo</dt>
                       <dd>{{ cuando(webpay.revisadaEn) }}</dd>
                       <dt class="text-muted-foreground">Nota</dt>
@@ -280,8 +281,9 @@ const LARGO_MAXIMO = 200;
                     </dl>
                   } @else {
                     <p class="mt-1 text-sm">
-                      <span class="font-semibold">Por revisar:</span> algo no cuadró con este pago
-                      y lo tiene que mirar una persona.
+                      <span class="font-semibold">Por revisar:</span> algo no cuadró con este pago.
+                      Compáralo con el portal de Transbank y, cuando lo resuelvas, márcalo como
+                      revisado.
                     </p>
                   }
                 </section>
@@ -402,13 +404,14 @@ export class FichaDelPago {
       case 'devolver':
         return webpay?.ultimosDigitos
           ? `¿Devolver ${enPesos(fila.montoClp)} a la tarjeta terminada en ${webpay.ultimosDigitos}?`
-          : `¿Devolver ${enPesos(fila.montoClp)} a la tarjeta con que se pagó?`;
+          : `¿Devolver ${enPesos(fila.montoClp)} a la tarjeta con la que se pagó?`;
       case 'revisar':
         // El nombre y no la orden de compra: el título va en mayúsculas, y la orden no se leería
         // igual que en la cartola.
         return `¿Marcar como revisado el pago de ${fila.quien}?`;
       default:
-        return `Pago de ${fila.quien}`;
+        // «—» es lo pagado que ya no existe: «Pago de —» no dice nada.
+        return fila.quien === '—' ? 'Pago' : `Pago de ${fila.quien}`;
     }
   });
 
@@ -459,7 +462,13 @@ export class FichaDelPago {
       // El botón que la abrió ya no está: el foco va al ícono de cerrar, que siempre está.
       this.enfocar(() => this.cerrarFicha());
     } catch (falla) {
-      this.error.set(mensajeDelServidor(falla, 'No se pudo. Reintenta en un momento.'));
+      this.error.set(mensajeDelServidor(falla, ACCIONES[accion].fallo));
+      // Otra persona ya lo hizo: la ficha se pone al día detrás de la confirmación, y «Volver»
+      // muestra quién. La lista también (revisión, T400).
+      if (falla instanceof HttpErrorResponse && falla.status === 409) {
+        this.ficha.reload();
+        this.cambio.emit();
+      }
     } finally {
       this.enviando.set(false);
     }
@@ -472,6 +481,23 @@ export class FichaDelPago {
   /** El enlace de la API, como lo entiende `routerLink`: con su consulta y no como texto. */
   private urlDe(enlace: string | null): UrlTree | null {
     return enlace ? this.router.parseUrl(enlace) : null;
+  }
+
+  /** «Sin cuotas» en vez de «0»; nulo si no se guardó. */
+  protected cuotasDe({ numeroCuotas }: PagoWebpay): string | null {
+    if (numeroCuotas === null) return null;
+    return numeroCuotas === 0 ? 'Sin cuotas' : String(numeroCuotas);
+  }
+
+  /**
+   * Quién devolvió. Sin persona: si hay motivo fue a mano y se borró su cuenta (la FK queda en
+   * null); si no, la hizo el sistema al cancelar, cerrar una cancha o no aplicar un cambio. Sin
+   * fecha es anterior a T395, y no se sabe.
+   */
+  protected devueltoPor(webpay: PagoWebpay): string {
+    if (webpay.anuladaPorNombre) return webpay.anuladaPorNombre;
+    if (webpay.motivoAnulacion) return 'Cuenta eliminada';
+    return webpay.anuladaEn ? 'El sistema, al cancelar o cambiar la reserva' : 'No se guardó';
   }
 
   /** «Débito»: la palabra del tipo, con mayúscula porque va sola. */

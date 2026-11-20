@@ -17,6 +17,7 @@ import {
   TipoCuota,
 } from '../src/generated/prisma/client';
 import { PasarelaFake } from '../src/pagos/adaptadores/pasarela.fake';
+import { AnulacionService } from '../src/pagos/anulacion.service';
 import { PasarelaPago } from '../src/pagos/pasarela.port';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -264,6 +265,7 @@ describe('Finanzas › Pagos: revisar y devolver (T397)', () => {
   });
 
   beforeEach(() => pasarela.reiniciar());
+  afterEach(() => jest.restoreAllMocks());
 
   afterAll(async () => {
     await limpiar();
@@ -316,7 +318,7 @@ describe('Finanzas › Pagos: revisar y devolver (T397)', () => {
         motivo: 'SIGUE_VIGENTE',
         enlace: expect.stringContaining(`reserva=${reserva.id}`) as unknown,
       });
-      expect((respuesta.body as Rechazo).message).toMatch(/cancela/i);
+      expect((respuesta.body as Rechazo).message).toMatch(/cancélala/);
       expect(pasarela.anulaciones).toHaveLength(0);
       expect((await estadoDe(pago.id)).estado).toBe(
         EstadoTransaccion.AUTORIZADA,
@@ -344,9 +346,42 @@ describe('Finanzas › Pagos: revisar y devolver (T397)', () => {
       });
       await devolver(duplicado.id).expect(201);
 
+      // Una cuota pagada no se anula en el panel (`AjustesService`): la ficha no manda a hacerlo.
       const vigente = await devolver(elQueQuedo.id).expect(409);
-      expect((vigente.body as Rechazo).motivo).toBe('SIGUE_VIGENTE');
-      expect((vigente.body as Rechazo).message).toMatch(/anula/i);
+      expect(vigente.body as Rechazo).toMatchObject({
+        motivo: 'SIGUE_VIGENTE',
+        enlace: null,
+      });
+      expect((vigente.body as Rechazo).message).toMatch(/en el club/);
+      expect((vigente.body as Rechazo).message).not.toMatch(/^Primero anula/);
+    });
+
+    it('**un pago marcado para revisión no dejó nada vigente: se devuelve aunque la reserva siga** (revisión, T400)', async () => {
+      // La diferencia de un cambio que no se aplicó y cuya devolución automática falló (T90): la
+      // reserva sigue confirmada en su hora, con su compra. Cancelarla sería quitarle la cancha.
+      const reserva = await unaReserva(EstadoReserva.CONFIRMADA);
+      const laCompra = await unPago(ConceptoPago.RESERVA, reserva.id);
+      const laDiferencia = await unPago(ConceptoPago.RESERVA, reserva.id, {
+        requiereRevision: true,
+      });
+
+      await devolver(laDiferencia.id).expect(201);
+      expect((await estadoDe(laDiferencia.id)).estado).toBe(
+        EstadoTransaccion.ANULADA,
+      );
+      // La compra sí sigue vigente.
+      await devolver(laCompra.id).expect(409);
+    });
+
+    it('**el pago de una inscripción que ya estaba pagada por otra vía se devuelve sin retirarla** (revisión, T400)', async () => {
+      const inscripcion = await unaInscripcion({});
+      const duplicado = await unPago(
+        ConceptoPago.INSCRIPCION_TORNEO,
+        inscripcion.id,
+        { requiereRevision: true },
+      );
+
+      await devolver(duplicado.id).expect(201);
     });
 
     it('**una inscripción retirada o rechazada se devuelve; la vigente, no**', async () => {
@@ -369,7 +404,7 @@ describe('Finanzas › Pagos: revisar y devolver (T397)', () => {
         (await unPago(ConceptoPago.INSCRIPCION_TORNEO, vigente.id)).id,
       ).expect(409);
       expect((respuesta.body as Rechazo).motivo).toBe('SIGUE_VIGENTE');
-      expect((respuesta.body as Rechazo).message).toMatch(/retira/i);
+      expect((respuesta.body as Rechazo).message).toMatch(/retírala/);
     });
 
     it('un pago que no se autorizó no se devuelve', async () => {
@@ -411,12 +446,47 @@ describe('Finanzas › Pagos: revisar y devolver (T397)', () => {
 
       const respuesta = await devolver(pago.id).expect(502);
 
-      expect((respuesta.body as Rechazo).message).toContain(
-        'La pasarela no aceptó la devolución.',
-      );
-      expect((await estadoDe(pago.id)).estado).toBe(
-        EstadoTransaccion.AUTORIZADA,
-      );
+      const { message } = respuesta.body as Rechazo;
+      expect(message).toMatch(/^Webpay no hizo la devolución/);
+      // El detalle de Transbank, tal cual, al final (F8).
+      expect(message).toContain('La pasarela no aceptó la devolución.');
+      expect(await estadoDe(pago.id)).toMatchObject({
+        estado: EstadoTransaccion.AUTORIZADA,
+        anuladaEn: null,
+        anuladaPor: null,
+        motivoAnulacion: null,
+      });
+    });
+
+    it('**si otro admin la devolvió entremedio, da 409 y no «devuelto»** (revisión, T400)', async () => {
+      const reserva = await unaReserva(EstadoReserva.CANCELADA);
+      const pago = await unPago(ConceptoPago.RESERVA, reserva.id);
+      // La regla la vio autorizada, pero `anular` la encontró ya devuelta (compare-and-set).
+      jest
+        .spyOn(app.get(AnulacionService), 'anular')
+        .mockResolvedValueOnce(false);
+
+      const respuesta = await devolver(pago.id).expect(409);
+
+      expect((respuesta.body as Rechazo).motivo).toBe('YA_DEVUELTO');
+    });
+
+    it('**si falla otra cosa que la pasarela, no se sabe si se devolvió: lo dice, sin detalles internos, y lo deja por revisar** (revisión, T400)', async () => {
+      const reserva = await unaReserva(EstadoReserva.CANCELADA);
+      const pago = await unPago(ConceptoPago.RESERVA, reserva.id);
+      // Como el commit de una transacción de Prisma que venció mientras Transbank respondía.
+      jest
+        .spyOn(app.get(AnulacionService), 'anular')
+        .mockRejectedValueOnce(
+          new Error('Transaction already closed: /srv/fedal/x'),
+        );
+
+      const respuesta = await devolver(pago.id).expect(500);
+
+      const { message } = respuesta.body as Rechazo;
+      expect(message).toMatch(/portal de Transbank/);
+      expect(message).not.toContain('Transaction');
+      expect((await estadoDe(pago.id)).requiereRevision).toBe(true);
     });
 
     it('el motivo es obligatorio, de hasta 200 caracteres', async () => {
@@ -466,7 +536,10 @@ describe('Finanzas › Pagos: revisar y devolver (T397)', () => {
         requiereRevision: true,
       });
 
-      await revisar(pago.id, '').expect(400);
+      const sinNota = await revisar(pago.id, '').expect(400);
+      expect((sinNota.body as Rechazo).message).toBe(
+        'La nota es obligatoria y tiene hasta 200 caracteres.',
+      );
       await revisar(pago.id, 'x'.repeat(201)).expect(400);
     });
 

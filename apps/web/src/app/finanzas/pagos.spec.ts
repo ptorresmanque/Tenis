@@ -351,5 +351,41 @@ describe('PagosPanel', () => {
 
     laFicha.cerrar.emit();
     expect(cambioEnLaUrl(navegar)).toEqual({ pago: null });
+    // Como la agenda: «Atrás» no vuelve a abrir la ficha recién cerrada (revisión, T400).
+    expect(navegar.mock.lastCall![1]).toMatchObject({ replaceUrl: true });
+  });
+
+  it('**al recargar la lista, las filas son las mismas: el foco vuelve a «Ver el pago»** (revisión, T400)', async () => {
+    const { el, fixture, listar } = await montar({ pago: 'webpay-7' });
+    const antes = el.querySelectorAll('tr[mat-row]')[1];
+    // Como la API: los mismos pagos, en objetos nuevos.
+    listar.mockResolvedValue({
+      pagos: [{ ...DEL_MESON }, { ...PAGADA }],
+      total: 2,
+      pagina: 1,
+      porPagina: 50,
+      resumen: { cobradoClp: 37000, devueltoClp: 15000, porRevisar: 1 },
+    });
+
+    fixture.debugElement.query(By.directive(FichaDelPago)).componentInstance.cambio.emit();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el.querySelectorAll('tr[mat-row]')[1]).toBe(antes);
+  });
+
+  it('**mientras llega otra página, la tabla y el resumen siguen ahí** (revisión, T400)', async () => {
+    const { el, fixture, listar } = await montar();
+    // Una página que no termina de llegar.
+    listar.mockReturnValue(new Promise(() => undefined));
+
+    fixture.componentRef.setInput('pagina', '2');
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(listar).toHaveBeenLastCalledWith(expect.anything(), 2);
+    expect(el.querySelector('table')).not.toBeNull();
+    expect(el.querySelector('[data-resumen]')).not.toBeNull();
   });
 });

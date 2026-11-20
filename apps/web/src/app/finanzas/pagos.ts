@@ -44,6 +44,7 @@ import {
   EstadoDelPago,
   FilaDePago,
   FiltroDePagos,
+  ListadoDePagos,
   MedioDelPago,
   OrigenDelPago,
   PagosDelClub,
@@ -56,6 +57,12 @@ const CONCEPTOS: { valor: ConceptoDelPago; etiqueta: string }[] = [
 ];
 
 const ESTADOS = Object.keys(ESTADO_DEL_PAGO) as EstadoDelPago[];
+
+/** Lo que anuncia el lector al ordenar: una fecha no es «mayor» (revisor de copy, T400). */
+const SENTIDO = {
+  fecha: { asc: 'del más antiguo al más reciente', desc: 'del más reciente al más antiguo' },
+  monto: { asc: 'de menor a mayor', desc: 'de mayor a menor' },
+} as const;
 
 const MEDIOS_DE_PAGO: MedioDelPago[] = ['WEBPAY', 'EFECTIVO', 'TRANSFERENCIA'];
 
@@ -119,7 +126,7 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
             <button matButton="filled" matDateRangePickerApply>Aplicar</button>
           </mat-date-range-picker-actions>
         </mat-date-range-picker>
-        <mat-error>Elige dos fechas válidas, la primera antes que la segunda.</mat-error>
+        <mat-error>Elige dos fechas válidas: la primera no puede ir después de la segunda.</mat-error>
       </mat-form-field>
 
       <mat-form-field class="w-56">
@@ -182,7 +189,7 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
       Las reservas de visitante cobradas en el mesón no aparecen: el sistema no guarda su monto.
     </p>
 
-    @if (listado.hasValue()) {
+    @if (ultimoListado()) {
       <!-- Del filtro entero, no de la página (asunción 6). -->
       <ul data-resumen class="mt-6 grid gap-3 sm:grid-cols-3">
         @for (dato of resumen(); track dato.titulo) {
@@ -197,12 +204,12 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
       </ul>
     }
 
-    @if (listado.isLoading() && !listado.hasValue()) {
+    @if (listado.isLoading() && !ultimoListado()) {
       <app-esqueleto class="mt-6 block" [filas]="6" etiqueta="Buscando los pagos…" />
     } @else if (listado.error()) {
       <p class="mt-6 text-destructive">No se pudo cargar la lista. Reintenta en un momento.</p>
-    } @else if (listado.hasValue()) {
-      @if (listado.value().pagos.length === 0) {
+    } @else if (ultimoListado(); as datos) {
+      @if (datos.pagos.length === 0) {
         <app-estado-vacio
           class="mt-6 block"
           icono="search_off"
@@ -211,7 +218,7 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
         />
       } @else {
         <p class="mt-6 text-sm text-muted-foreground">
-          {{ listado.value().total }} {{ listado.value().total === 1 ? 'pago' : 'pagos' }}
+          {{ datos.total }} {{ datos.total === 1 ? 'pago' : 'pagos' }}
         </p>
         <!-- Se desplaza de lado en el teléfono: el contenedor es una parada del teclado, con
              nombre (modern-web-guidance, sortable-table y responsive-table). -->
@@ -220,6 +227,7 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
           tabindex="0"
           aria-label="Pagos del club"
           class="mt-2 overflow-x-auto rounded-xl border border-border bg-card"
+          [attr.aria-busy]="listado.isLoading()"
         >
           <table
             mat-table
@@ -229,7 +237,8 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
             aria-label="Pagos del club"
             [matSortActive]="filtro().orden"
             [matSortDirection]="filtro().direccion"
-            [dataSource]="listado.value().pagos"
+            [dataSource]="datos.pagos"
+            [trackBy]="porPago"
             (matSortChange)="ordenar($event)"
           >
             <ng-container matColumnDef="fecha">
@@ -318,14 +327,14 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
           </table>
         </div>
 
-        @if (listado.value().total > listado.value().porPagina) {
+        @if (datos.total > datos.porPagina) {
           <mat-paginator
             class="mt-4"
             aria-label="Páginas de pagos"
             hidePageSize
             showFirstLastButtons
-            [length]="listado.value().total"
-            [pageSize]="listado.value().porPagina"
+            [length]="datos.total"
+            [pageSize]="datos.porPagina"
             [pageIndex]="paginaElegida() - 1"
             (page)="irALaPagina($event)"
           />
@@ -337,7 +346,7 @@ const MEDIOS: { valor: MedioDelPago | 'TODOS'; etiqueta: string }[] = [
       <app-ficha-del-pago
         [origen]="abierto.origen"
         [id]="abierto.id"
-        (cerrar)="ir({ pago: null })"
+        (cerrar)="cerrarFicha()"
         (cambio)="listado.reload()"
       />
     }
@@ -421,8 +430,23 @@ export class PagosPanel {
 
   protected readonly urlDelCsv = computed(() => this.api.urlDelCsv(this.filtro()));
 
+  /**
+   * La última lista que llegó. Mientras llega otra página u otro orden, la tabla y el resumen no se
+   * van, y con ellos no se pierde el foco del paginador o del encabezado (revisión, T400).
+   */
+  protected readonly ultimoListado = linkedSignal<
+    ListadoDePagos | undefined,
+    ListadoDePagos | undefined
+  >({
+    source: () => (this.listado.hasValue() ? this.listado.value() : undefined),
+    computation: (nuevo, anterior) => nuevo ?? anterior?.value,
+  });
+
+  /** Cada fila por su pago y no por su objeto: al recargar, el botón que abrió la ficha sigue. */
+  protected readonly porPago = (_: number, pago: FilaDePago) => `${pago.origen}-${pago.id}`;
+
   protected readonly resumen = computed(() => {
-    const resumen = this.listado.hasValue() ? this.listado.value().resumen : null;
+    const resumen = this.ultimoListado()?.resumen ?? null;
     return [
       { titulo: 'Cobrado', icono: 'payments', valor: enPesos(resumen?.cobradoClp ?? 0) },
       { titulo: 'Devuelto', icono: 'money_off', valor: enPesos(resumen?.devueltoClp ?? 0) },
@@ -485,9 +509,7 @@ export class PagosPanel {
   protected ordenar({ active, direction }: Sort): void {
     const orden = active === 'monto' ? 'monto' : 'fecha';
     const direccion = direction === 'asc' ? 'asc' : 'desc';
-    void this.anunciador.announce(
-      `Ordenado por ${orden}, ${direccion === 'asc' ? 'de menor a mayor' : 'de mayor a menor'}.`,
-    );
+    void this.anunciador.announce(`Ordenado por ${orden}, ${SENTIDO[orden][direccion]}.`);
     this.ir({ orden, direccion, pagina: null });
   }
 
@@ -500,12 +522,18 @@ export class PagosPanel {
     this.ir({ pagina: evento.pageIndex + 1 });
   }
 
+  /** Como la agenda: cerrarla reemplaza la dirección, y «Atrás» no la vuelve a abrir. */
+  protected cerrarFicha(): void {
+    this.ir({ pago: null }, true);
+  }
+
   /** Cambia lo elegido en la URL; el resto de lo que dice se queda. */
-  protected ir(cambios: Params): void {
+  private ir(cambios: Params, reemplazar = false): void {
     void this.router.navigate([], {
       relativeTo: this.ruta,
       queryParams: cambios,
       queryParamsHandling: 'merge',
+      replaceUrl: reemplazar,
     });
   }
 

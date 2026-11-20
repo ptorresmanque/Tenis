@@ -229,5 +229,21 @@ describe('WebpayAdapter', () => {
 
       await expect(adaptador.anular('tok-01', 12000)).rejects.toThrow();
     });
+
+    it('**una anulación que Transbank no hizo es una falla, aunque responda 200** (revisión, T400)', async () => {
+      // La documentación de Webpay: en NULLIFIED, `response_code` distinto de 0 es que la
+      // anulación no se realizó. Darla por hecha marcaría «Devuelto» sin que salga la plata.
+      webpay.refund.mockResolvedValue({ type: 'NULLIFIED', response_code: -1 });
+
+      await expect(adaptador.anular('tok-01', 12000)).rejects.toThrow(
+        'Transbank no hizo la anulación (código -1).',
+      );
+    });
+
+    it('la anulación con código 0 está hecha', async () => {
+      webpay.refund.mockResolvedValue({ type: 'NULLIFIED', response_code: 0 });
+
+      await expect(adaptador.anular('tok-01', 12000)).resolves.toBeUndefined();
+    });
   });
 });

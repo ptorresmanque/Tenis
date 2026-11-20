@@ -127,7 +127,18 @@ export class WebpayAdapter extends PasarelaPago {
     // El error se propaga tal cual: una devolución que no ocurrió no se puede dar
     // por hecha, y `reservas` tiene que enterarse para no decirle a nadie que le
     // devolvieron la plata.
-    await this.webpay.refund(tokenPasarela, montoClp);
+    const respuesta = (await this.webpay.refund(tokenPasarela, montoClp)) as {
+      type?: string;
+      response_code?: number | null;
+    } | null;
+
+    // Una anulación responde 200 aunque no se haya hecho: lo dice `response_code`, que es 0
+    // solo si salió (documentación de Webpay, «Reversar o Anular un pago»). La reversa no lo
+    // trae (revisión, T400).
+    const codigo = respuesta?.response_code;
+    if (codigo !== undefined && codigo !== null && codigo !== 0) {
+      throw new Error(`Transbank no hizo la anulación (código ${codigo}).`);
+    }
   }
 }
 
@@ -178,13 +189,10 @@ function motivoDe(respuesta: RespuestaCommit): string {
   const codigo = respuesta.response_code;
 
   if (codigo === undefined) {
-    return `Transbank no autorizó el pago (estado ${respuesta.status ?? 'desconocido'}).`;
+    return 'Transbank no autorizó el pago y no dijo por qué.';
   }
 
-  return (
-    MOTIVOS[codigo] ??
-    `Transbank rechazó el pago (código ${codigo}, estado ${respuesta.status ?? 'desconocido'}).`
-  );
+  return MOTIVOS[codigo] ?? `Transbank rechazó el pago (código ${codigo}).`;
 }
 
 /**
