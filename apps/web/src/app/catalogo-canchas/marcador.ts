@@ -1,4 +1,14 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIcon } from '@angular/material/icon';
 
@@ -16,6 +26,40 @@ type Celda =
   | { estado: 'ocupada' }
   | { estado: 'bloqueada'; motivo: string; icono: string; clase: boolean }
   | { estado: 'cerrada' };
+
+/**
+ * Una reserva del día como la dibuja el tablero en el panel (T389): de quién es y cómo se paga.
+ * La agenda le pasa sus `ReservaDelDia`, que traen esto y más.
+ */
+export interface ReservaEnElTablero {
+  id: number;
+  canchaId: number;
+  inicio: string;
+  fin: string;
+  nombre: string;
+  esSocio: boolean;
+  pago: 'SIN_COBRO' | 'ESPERANDO' | 'EN_LINEA' | 'EN_EL_MESON';
+}
+
+/** El pago dicho con palabras (RD1): en el tablero y en la ficha, no se lee por color. */
+export const PAGO_EN_PALABRAS: Record<ReservaEnElTablero['pago'], string> = {
+  SIN_COBRO: 'Sin cobro',
+  ESPERANDO: 'Esperando el pago',
+  EN_LINEA: 'Pagada en línea',
+  // «Cobro» y no «Paga»: en la reserva de la mañana, ya cobrada en efectivo, «Paga» se leía como
+  // deuda, y el sistema no sabe si se cobró.
+  EN_EL_MESON: 'Cobro en el mesón',
+};
+
+/**
+ * Lo que dibuja una fila en una cancha. En el panel, la reserva ocupa una sola celda con
+ * `rowspan` (`franjas`), y las filas que cubre no dibujan la suya.
+ */
+type CeldaDeFila = { cancha: Cancha; clave: string; sigue: boolean; ultima: boolean } & (
+  | Celda
+  | { estado: 'reserva'; reserva: ReservaEnElTablero; franjas: number }
+  | { estado: 'cubierta' }
+);
 
 /** Una cancha libre del tablero, la que se elige en disponibilidad (T264). */
 export interface CeldaElegible {
@@ -45,6 +89,43 @@ function celdaDe(bloque: BloqueDisponible | undefined, sinVenta: MotivoSinVenta)
 /** La celda de una cancha a una hora, como texto: la parada del teclado se guarda así. */
 const claveDe = (canchaId: number, inicio: string) =>
   `${canchaId}|${new Date(inicio).getTime()}`;
+
+/**
+ * Pone cada reserva en su cancha, en una sola celda desde la primera media hora que toca hasta su
+ * fin (T389), como hacía el tablero de la agenda. Las filas que cubre quedan `cubierta` y no se
+ * dibujan. La media hora tomada sin reserva detrás (no cabe una hora entera antes de la siguiente,
+ * o el tope de luz) sigue diciendo «Ocupada», como en el sitio.
+ */
+function ponerLasReservas(
+  filas: { instante: number; celdas: CeldaDeFila[] }[],
+  grillas: readonly GrillaDeCancha[],
+  reservas: readonly ReservaEnElTablero[],
+): void {
+  const ms = (instante: string) => new Date(instante).getTime();
+
+  grillas.forEach(({ cancha }, columna) => {
+    for (let fila = 0; fila < filas.length; fila++) {
+      const desde = filas[fila].instante;
+      const reserva = reservas.find(
+        (una) =>
+          una.canchaId === cancha.id &&
+          ms(una.inicio) < desde + PASO_DE_LA_GRILLA_MS &&
+          ms(una.fin) > desde,
+      );
+      if (!reserva) continue;
+
+      let franjas = 1;
+      while (fila + franjas < filas.length && filas[fila + franjas].instante < ms(reserva.fin)) {
+        const cubierta = filas[fila + franjas].celdas[columna];
+        filas[fila + franjas].celdas[columna] = { ...cubierta, estado: 'cubierta' };
+        franjas++;
+      }
+      const primera = filas[fila].celdas[columna];
+      filas[fila].celdas[columna] = { ...primera, estado: 'reserva', reserva, franjas };
+      fila += franjas - 1;
+    }
+  });
+}
 
 /**
  * El marcador de la portada: las horas que quedan hoy contra las canchas (TV3.3).
@@ -77,13 +158,34 @@ const claveDe = (canchaId: number, inicio: string) =>
   template: `
     <!-- En disponibilidad, desde sm el tablero cabe y deja de desplazarse de lado: con
          overflow, los nombres de las canchas no se podrían pegar bajo la cabecera. -->
-    <div class="overflow-x-auto" [class]="modo() === 'elegir' ? 'sm:overflow-visible' : ''">
+    <!-- En el panel (T390) se desplaza siempre: con los nombres, ocho canchas no caben al lado
+         del menú, y ahí no hay cabecera del sitio bajo la que pegar los nombres. -->
+    <!-- En la portada, sus libres van con tabindex="-1": el contenedor es la parada, para que el
+         tablero que no cabe se desplace con el teclado (modern-web-guidance, responsive-table;
+         T393). En disponibilidad y en el panel, la parada ya es la grilla. -->
+    <div
+      class="overflow-x-auto"
+      [class]="modo() === 'elegir' && !reservas() ? 'sm:overflow-visible' : ''"
+      [attr.tabindex]="modo() === 'enlace' ? 0 : null"
+      [attr.role]="modo() === 'enlace' ? 'region' : null"
+      [attr.aria-label]="modo() === 'enlace' ? 'Las horas que quedan, cancha por cancha' : null"
+    >
+      <!-- Una grilla cuando las flechas la recorren: el roving tabindex pide un rol compuesto
+           para que el lector de pantalla lo siga (modern-web-guidance, spatial-navigation;
+           T393). En la portada, no: es una tabla de enlaces. -->
       <table
         class="w-full table-fixed border-separate border-spacing-1"
+        [attr.role]="modo() === 'elegir' ? 'grid' : null"
         [style.min-width.rem]="anchoMinimo()"
       >
         <caption class="sr-only">
-          @if (modo() === 'elegir') {
+          @if (reservas() && !puedeElegir()) {
+            <!-- Al gestor, las libres no son botones (T221): no se le prometen. -->
+            Las horas del día, cancha por cancha. Las flechas recorren las reservas.
+          } @else if (reservas()) {
+            Las horas del día, cancha por cancha. Las flechas recorren las reservas y las horas
+            libres.
+          } @else if (modo() === 'elegir') {
             Las horas del día, cancha por cancha. Las flechas recorren las horas libres.
           } @else {
             <!-- Sin "hoy": desde T268 la portada muestra mañana si hoy ya no queda nada, y su
@@ -140,6 +242,47 @@ const claveDe = (canchaId: number, inicio: string) =>
                 </span>
               </th>
               @for (celda of fila.celdas; track celda.cancha.id; let j = $index) {
+                @if (celda.estado === 'reserva') {
+                  <!-- En el panel (T389): la reserva ocupa sus filas en una sola celda, como en el
+                       tablero de la agenda de antes. relative y el botón en absolute: con rowspan,
+                       un h-full adentro no toma el alto de la celda. Dice el nombre, el tipo y el
+                       pago con palabras; la que espera el pago va punteada, porque se puede caer. -->
+                  <td class="relative p-0" [attr.rowspan]="celda.franjas">
+                    @let reserva = celda.reserva;
+                    @let espera = reserva.pago === 'ESPERANDO';
+                    <button
+                      type="button"
+                      data-reserva
+                      class="absolute inset-0 flex scroll-mt-41 scroll-mb-56 scroll-ms-18 sm:scroll-mt-52
+                             cursor-pointer flex-col items-start gap-0.5 overflow-hidden border
+                             bg-card p-1.5 text-start text-foreground hover:border-primary"
+                      [class.border-2]="espera"
+                      [class.border-dashed]="espera"
+                      [class.border-primary]="espera"
+                      [class.border-transparent]="!espera"
+                      [attr.data-fila]="i"
+                      [attr.data-columna]="j"
+                      [attr.tabindex]="esLaParada(celda) ? 0 : -1"
+                      [attr.aria-label]="etiquetaDeLaReserva(reserva, celda.cancha)"
+                      (focus)="foco.set(celda.clave)"
+                      (keydown)="mover($event)"
+                      (click)="abrirReserva.emit(reserva.id)"
+                    >
+                      <span class="w-full truncate text-sm font-semibold">{{ reserva.nombre }}</span>
+                      <span class="w-full truncate text-xs text-muted-foreground">
+                        {{ reserva.esSocio ? 'Socio' : 'Visitante' }}
+                      </span>
+                      <!-- El pago baja de línea y no se corta: es lo que el mesón viene a mirar. El
+                           nombre sí se corta; completo lo dice el lector y lo muestra la ficha. -->
+                      <span class="flex w-full items-start gap-0.5 text-xs leading-tight font-semibold">
+                        @if (espera) {
+                          <mat-icon class="text-sm" aria-hidden="true">schedule</mat-icon>
+                        }
+                        {{ pagoEnPalabras[reserva.pago] }}
+                      </span>
+                    </button>
+                  </td>
+                } @else if (celda.estado !== 'cubierta') {
                 <td class="h-11 p-0">
                   <!-- Las filas que siguen a la de inicio, dentro de la hora elegida (T344, B2):
                        la misma placa, sin botón. Tocar otra libre cambia la elección. -->
@@ -161,44 +304,61 @@ const claveDe = (canchaId: number, inicio: string) =>
                   } @else {
                     @switch (celda.estado) {
                       @case ('libre') {
-                        @if (modo() === 'elegir') {
+                        @if (modo() === 'elegir' && !sePuedeElegir(celda.bloque)) {
+                          <!-- En el panel, la que ya terminó o la que el gestor no toma (T389): se
+                               ve libre, sin botón y más tenue, como la del gestor en la agenda. -->
+                          <span
+                            class="flex h-full items-center justify-center border
+                                   border-borde-celda-libre/60 bg-celda-libre/40 font-display
+                                   text-xs font-bold tracking-wider text-on-campo/80 uppercase"
+                          >
+                            Libre
+                          </span>
+                        } @else if (modo() === 'elegir') {
                           <!-- Los scroll-m*: al moverse con las flechas, la celda con foco no queda
                                bajo lo pegado (WCAG 2.4.11): arriba, el encabezado y la línea del
                                teléfono (122 px; 160 cuando parte en dos renglones, como a 320 px,
                                y 4 más para el anillo del foco) y,
                                desde sm, también los nombres de las canchas
                                (hasta 200 px con la línea, T350); abajo, la barra de la elección
-                               (167); a la izquierda, la columna de la hora (64), cuando el tablero
+                               (167; en modo mover, hasta unos 210 a 375 px, y por eso 56 = 224,
+                               T405); a la izquierda, la columna de la hora (64), cuando el tablero
                                se desplaza. -->
                           <!-- La elegida dice "Libre" igual, que es su nombre (WCAG 2.5.3): lo
                                que cambia es la placa, la marca y aria-pressed. La marca va arriba
                                del texto: al lado, en los 48 px de la celda del teléfono no cabía. -->
+                          <!-- La hora que tenía la reserva que se mueve (T404): punteada, como la
+                               que espera el pago, y la primera con su rótulo en vez de «Libre».
+                               Sigue siendo una libre: alargarla en su lugar se ofrece (T87). -->
                           @let marcada = esLaElegida(celda);
+                          @let delOrigen = clavesDelOrigen().has(celda.clave);
                           <button
                             type="button"
-                            class="flex h-full w-full scroll-mt-41 scroll-mb-44 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
+                            class="flex h-full w-full scroll-mt-41 scroll-mb-56 scroll-ms-18 sm:scroll-mt-52 cursor-pointer
                                    items-center justify-center gap-0.5 border font-display text-sm
                                    font-bold tracking-wider uppercase transition-transform
                                    active:scale-95"
                             [class]="
                               marcada
                                 ? 'flex-col leading-none border-rotulo bg-rotulo text-on-rotulo'
-                                : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
+                                : delOrigen
+                                  ? 'border-2 border-dashed border-primary bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
+                                  : 'border-borde-celda-libre bg-celda-libre text-on-celda-libre hover:border-on-celda-libre'
                             "
                             [attr.data-fila]="i"
                             [attr.data-columna]="j"
                             [attr.tabindex]="esLaParada(celda) ? 0 : -1"
-                            [attr.aria-label]="etiqueta()(celda.cancha, celda.bloque)"
+                            [attr.aria-label]="etiquetaDeLaLibre(celda)"
                             [attr.aria-pressed]="marcada"
                             [attr.data-en-la-eleccion]="marcada ? '' : null"
-                            (focus)="foco.set(clave(celda))"
+                            (focus)="foco.set(celda.clave)"
                             (keydown)="mover($event)"
                             (click)="elegir.emit({ cancha: celda.cancha, bloque: celda.bloque })"
                           >
                             @if (marcada) {
                               <mat-icon class="text-sm" aria-hidden="true">check_circle</mat-icon>
                             }
-                            Libre
+                            {{ celda.clave === inicioDelOrigen() ? rotuloDelOrigen() : 'Libre' }}
                           </button>
                         } @else {
                           <!-- aria-label y no un sr-only: Chrome separa el sr-only con un
@@ -238,8 +398,9 @@ const claveDe = (canchaId: number, inicio: string) =>
                       }
                       @case ('bloqueada') {
                         <!-- En disponibilidad, la clase lleva a las clases (T97): a quien
-                             llega nuevo le dice que a esa hora hay una que le puede servir. -->
-                        @if (modo() === 'elegir' && celda.clase) {
+                             llega nuevo le dice que a esa hora hay una que le puede servir. En el
+                             panel no: llevaría al admin al sitio (T389). -->
+                        @if (modo() === 'elegir' && celda.clase && reservas() === null) {
                           <a
                             routerLink="/clases"
                             class="rayas flex h-full items-center justify-center text-on-campo/70
@@ -272,6 +433,7 @@ const claveDe = (canchaId: number, inicio: string) =>
                     }
                   }
                 </td>
+                }
               }
             </tr>
           }
@@ -282,8 +444,33 @@ const claveDe = (canchaId: number, inicio: string) =>
     <ul class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-on-campo/85">
       <li class="flex items-center gap-2">
         <span class="size-4 border border-borde-celda-libre bg-celda-libre" aria-hidden="true"></span>
-        {{ modo() === 'elegir' ? 'Libre: tócala para elegirla' : 'Libre: tócala para reservar' }}
+        {{
+          modo() !== 'elegir'
+            ? 'Libre: tócala para reservar'
+            : puedeElegir()
+              ? 'Libre: tócala para elegirla'
+              : 'Libre'
+        }}
       </li>
+      @if (origenALaVista()) {
+        <!-- Solo si esa hora está en el tablero: en otro día, o con su cancha filtrada, no hay
+             nada que explicar (T404). -->
+        <li class="flex items-center gap-2">
+          <span class="size-4 border-2 border-dashed border-primary bg-celda-libre" aria-hidden="true"></span>
+          {{ rotuloDelOrigen() }}: la hora actual de la reserva
+        </li>
+      }
+      @if (reservas()) {
+        <li class="flex items-center gap-2">
+          <span class="size-4 bg-card" aria-hidden="true"></span>
+          Reserva: tócala para ver su ficha
+        </li>
+        <li class="flex items-center gap-2">
+          <!-- Azul y no blanco: el blanco del borde sobre la tarjeta blanca no se veía. -->
+          <span class="size-4 border-2 border-dashed border-primary bg-card" aria-hidden="true"></span>
+          Esperando el pago
+        </li>
+      }
       @for (motivo of sinVentas(); track motivo) {
         <li class="flex items-center gap-2">
           <mat-icon class="text-base" aria-hidden="true">hourglass_disabled</mat-icon>
@@ -356,16 +543,44 @@ export class Marcador {
   /** Si la leyenda dice el arriendo de la hora prime: al socio, que no paga, no (T265). */
   readonly arriendo = input(true);
 
+  /**
+   * Las reservas del día, en el panel (T389): cada una ocupa sus filas en una celda que dice de
+   * quién es y cómo se paga, y se toca para abrir su ficha. Nulo en el sitio, que no dice quién
+   * reservó.
+   */
+  readonly reservas = input<readonly ReservaEnElTablero[] | null>(null);
+
+  /**
+   * El día entero, también lo que ya pasó (T389): el panel abre la reserva de la mañana para ver
+   * su pago. La libre que ya terminó se ve, pero no se toma.
+   */
+  readonly todoElDia = input(false);
+
+  /** Si quien mira toma horas libres. El gestor ve el día y no las toma (T221). */
+  readonly puedeElegir = input(true);
+
+  /**
+   * La hora que tenía la reserva que se mueve (T404): sus celdas van punteadas y la primera dice
+   * `rotuloDelOrigen`. Nula fuera del modo mover.
+   */
+  readonly origen = input<{ canchaId: number; inicio: string; fin: string } | null>(null);
+  /** «Su hora» en el panel, «Tu hora» en el sitio. */
+  readonly rotuloDelOrigen = input('Su hora');
+
   /** La celda libre que se tocó, en modo elegir. */
   readonly elegir = output<CeldaElegible>();
+
+  /** El id de la reserva que se tocó, en el panel. */
+  readonly abrirReserva = output<number>();
 
   /**
    * En disponibilidad, los encabezados quedan pegados bajo la cabecera del sitio, que mide
    * 64 px: a la fila veinte nadie se acuerda de cuál columna era cuál. En la portada, no:
-   * el tablero de hoy es corto y se desplaza de lado.
+   * el tablero de hoy es corto y se desplaza de lado. En el panel tampoco (T390): se desplaza
+   * de lado, y la cabecera del sitio no existe ahí.
    */
   protected readonly pegado = computed(() =>
-    this.modo() !== 'elegir'
+    this.modo() !== 'elegir' || this.reservas()
       ? ''
       : // Bajo el encabezado (64 px) o, con la línea de lo elegido, bajo los dos (64 + 58).
         `sm:sticky sm:z-20 ${this.bajoLaLinea() ? 'sm:top-30.5' : 'sm:top-16'}`,
@@ -382,8 +597,14 @@ export class Marcador {
 
   protected readonly canchas = computed((): Cancha[] => this.grillas().map(({ cancha }) => cancha));
 
-  /** La hora (4.5rem) y cada cancha (3.25rem): por debajo de eso, se desplaza. */
-  protected readonly anchoMinimo = computed(() => 4.5 + this.canchas().length * 3.25);
+  /**
+   * La hora (4.5rem) y cada cancha (3.25rem): por debajo de eso, se desplaza. En el panel, 6rem
+   * por cancha, para que quepa un nombre: con 7rem, como el tablero de antes, a 1280 px la octava
+   * cancha quedaba cortada al lado del menú (T390).
+   */
+  protected readonly anchoMinimo = computed(
+    () => 4.5 + this.canchas().length * (this.reservas() ? 6 : 3.25),
+  );
 
   /**
    * Una fila por cada hora que todavía no empieza, con lo que pasa en cada cancha.
@@ -399,10 +620,12 @@ export class Marcador {
     const hasta = elegida ? new Date(elegida.fin).getTime() : 0;
     const instantes = new Set<number>();
 
+    // En el panel, el día entero (T389): también lo que ya empezó.
+    const todoElDia = this.todoElDia();
     for (const { bloques } of grillas) {
       for (const { inicio } of bloques) {
         const instante = new Date(inicio).getTime();
-        if (instante > ahora) instantes.add(instante);
+        if (todoElDia || instante > ahora) instantes.add(instante);
       }
     }
     // Las medias horas de la elegida, aunque en ellas no empiece nada: al final del día la API
@@ -415,8 +638,19 @@ export class Marcador {
         if (instante > ahora) instantes.add(instante);
       }
     }
+    // En el panel, las medias horas de cada reserva de las canchas a la vista, por lo mismo: la que
+    // termina al cierre no tiene sus últimos inicios, y se dibujaba corta o no se dibujaba (T394).
+    const reservas = this.reservas();
+    const aLaVista = new Set(grillas.map(({ cancha }) => cancha.id));
+    for (const una of reservas ?? []) {
+      if (!aLaVista.has(una.canchaId)) continue;
+      const fin = new Date(una.fin).getTime();
+      for (let instante = new Date(una.inicio).getTime(); instante < fin; instante += PASO_DE_LA_GRILLA_MS) {
+        instantes.add(instante);
+      }
+    }
 
-    return [...instantes]
+    const filas = [...instantes]
       .sort((una, otra) => una - otra)
       .map((instante) => {
         const deLaHora = grillas.map(({ cancha, bloques }) => ({
@@ -436,16 +670,26 @@ export class Marcador {
             deLaHora.find(
               ({ bloque }) => bloque?.esPico && !bloque.reservado && !bloque.bloqueado,
             )?.bloque?.montoClp ?? null,
-          celdas: deLaHora.map(({ cancha, bloque }) => ({
-            cancha,
-            // Dentro de la hora elegida y después de su inicio (T344, B2), sea cual sea el
-            // estado de su propio inicio.
-            sigue: elegida?.canchaId === cancha.id && instante > desde && instante < hasta,
-            ultima: instante + PASO_DE_LA_GRILLA_MS >= hasta,
-            ...(sinInicios ? { estado: 'sin-inicio' as const } : celdaDe(bloque, this.sinVenta())),
-          })),
+          celdas: deLaHora.map(
+            ({ cancha, bloque }): CeldaDeFila => ({
+              cancha,
+              // La parada del teclado se guarda así: por la cancha y el instante de la fila.
+              clave: claveDe(cancha.id, new Date(instante).toISOString()),
+              // Dentro de la hora elegida y después de su inicio (T344, B2), sea cual sea el
+              // estado de su propio inicio.
+              sigue: elegida?.canchaId === cancha.id && instante > desde && instante < hasta,
+              ultima: instante + PASO_DE_LA_GRILLA_MS >= hasta,
+              ...(sinInicios
+                ? { estado: 'sin-inicio' as const }
+                : celdaDe(bloque, this.sinVenta())),
+            }),
+          ),
         };
       });
+
+    if (reservas) ponerLasReservas(filas, grillas, reservas);
+
+    return filas;
   });
 
   /** Los motivos de bloqueo que aparecen en el tablero, para la leyenda. */
@@ -471,35 +715,123 @@ export class Marcador {
     return [...motivos];
   });
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+
+  /**
+   * Lleva el foco a la parada del tablero (WCAG 2.4.3; revisión, T394). Lo usa el panel cuando lo
+   * que tenía el foco se fue: la barra después de crear, la reserva cancelada o la que pasa a
+   * moverse. Después del próximo render, para que la parada ya sea la del día nuevo.
+   */
+  enfocar(): void {
+    afterNextRender(
+      () => this.host.nativeElement.querySelector<HTMLElement>('tbody [tabindex="0"]')?.focus(),
+      { injector: this.injector },
+    );
+  }
+
   /**
    * La celda que es la parada del teclado: la última que tuvo el foco, la elegida o la
    * primera libre, la primera de esas que siga libre en el tablero.
    */
   private readonly parada = computed(() => {
-    const libres = new Set(
+    // Las libres que se pueden tomar y, en el panel, las reservas: son los botones del tablero.
+    const botones = new Set(
       this.filas().flatMap(({ celdas }) =>
         celdas.flatMap((celda) =>
-          celda.estado === 'libre' && !celda.sigue ? [this.clave(celda)] : [],
+          (celda.estado === 'libre' && !celda.sigue && this.sePuedeElegir(celda.bloque)) ||
+          celda.estado === 'reserva'
+            ? [celda.clave]
+            : [],
         ),
       ),
     );
     const elegida = this.elegida();
     const candidatas = [this.foco(), elegida && claveDe(elegida.canchaId, elegida.inicio)];
 
-    return candidatas.find((clave) => clave && libres.has(clave)) ?? [...libres][0] ?? null;
+    return candidatas.find((clave) => clave && botones.has(clave)) ?? [...botones][0] ?? null;
   });
 
-  protected clave(celda: CeldaElegible): string {
-    return claveDe(celda.cancha.id, celda.bloque.inicio);
+  protected esLaParada(celda: { clave: string }): boolean {
+    return celda.clave === this.parada();
   }
 
-  protected esLaParada(celda: CeldaElegible): boolean {
-    return this.clave(celda) === this.parada();
-  }
-
-  protected esLaElegida(celda: CeldaElegible): boolean {
+  protected esLaElegida(celda: { clave: string }): boolean {
     const elegida = this.elegida();
-    return elegida !== null && claveDe(elegida.canchaId, elegida.inicio) === this.clave(celda);
+    return elegida !== null && claveDe(elegida.canchaId, elegida.inicio) === celda.clave;
+  }
+
+  /**
+   * Si la libre se toma ahí mismo: quien mira toma horas (el gestor no, T221) y la hora no
+   * terminó. En el sitio las filas son solo las que no empezaron; en el panel, con el día entero,
+   * la que está corriendo todavía se toma, como en el mesón.
+   */
+  protected sePuedeElegir(bloque: BloqueDisponible): boolean {
+    return this.puedeElegir() && new Date(bloque.fin).getTime() > Date.now();
+  }
+
+  protected readonly pagoEnPalabras = PAGO_EN_PALABRAS;
+
+  /** Las medias horas de la hora que tenía la reserva, por la clave de su celda (T404). */
+  protected readonly clavesDelOrigen = computed(() => {
+    const origen = this.origen();
+    const claves = new Set<string>();
+    if (!origen) return claves;
+
+    const fin = new Date(origen.fin).getTime();
+    for (let instante = new Date(origen.inicio).getTime(); instante < fin; instante += PASO_DE_LA_GRILLA_MS) {
+      claves.add(claveDe(origen.canchaId, new Date(instante).toISOString()));
+    }
+    return claves;
+  });
+
+  /**
+   * Las celdas del origen que de verdad se marcan: las libres que se eligen, de arriba abajo. Con
+   * la reserva en curso, su primera media hora ya pasó y queda tenue, sin marca (revisión, T405).
+   */
+  private readonly marcadasDelOrigen = computed(() =>
+    this.filas().flatMap(({ celdas }) =>
+      celdas.flatMap((celda) =>
+        celda.estado === 'libre' &&
+        !celda.sigue &&
+        this.sePuedeElegir(celda.bloque) &&
+        this.clavesDelOrigen().has(celda.clave)
+          ? [celda.clave]
+          : [],
+      ),
+    ),
+  );
+
+  /** La primera que se marca, la que dice el rótulo. */
+  protected readonly inicioDelOrigen = computed(() => this.marcadasDelOrigen()[0] ?? null);
+
+  /** Si alguna se marca: si no, la leyenda no explica una marca que no se ve. */
+  protected readonly origenALaVista = computed(() => this.marcadasDelOrigen().length > 0);
+
+  /**
+   * Lo que oye quien navega por teclado en una libre. La primera del origen empieza con su rótulo,
+   * que es lo que se ve (WCAG 2.5.3); las siguientes lo suman al final.
+   */
+  protected etiquetaDeLaLibre(celda: { cancha: Cancha; bloque: BloqueDisponible; clave: string }): string {
+    const etiqueta = this.etiqueta()(celda.cancha, celda.bloque);
+    if (celda.clave === this.inicioDelOrigen()) return `${this.rotuloDelOrigen()}. ${etiqueta}`;
+    if (this.clavesDelOrigen().has(celda.clave)) {
+      // Con punto y no coma: la etiqueta puede terminar con la diferencia, y se leía de corrido.
+      return `${etiqueta}. ${this.rotuloDelOrigen()} actual`;
+    }
+    return etiqueta;
+  }
+
+  /**
+   * Lo que oye quien no ve el tablero (R4): empieza con lo que la celda dice —el nombre, el tipo
+   * y el pago, WCAG 2.5.3— y suma la hora y la cancha, que la celda no repite.
+   */
+  protected etiquetaDeLaReserva(reserva: ReservaEnElTablero, cancha: Cancha): string {
+    return (
+      `${reserva.nombre}, ${reserva.esSocio ? 'socio' : 'visitante'}, ` +
+      `${PAGO_EN_PALABRAS[reserva.pago].toLowerCase()}: de ${horaEnElClub(reserva.inicio)} a ` +
+      `${horaEnElClub(reserva.fin)} en la ${cancha.nombre}. Ver la ficha`
+    );
   }
 
   /** Las flechas, de libre en libre (ver `moverConFlechas`). Solo en modo elegir. */

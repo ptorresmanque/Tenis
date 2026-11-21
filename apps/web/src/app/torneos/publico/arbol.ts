@@ -163,7 +163,7 @@ export class Arbol {
       .map(([numero, suyos]) => ({
         numero,
         nombre: suyos[0].ronda_nombre,
-        partidos: [...suyos].sort((a, b) => a.posicion - b.posicion),
+        partidos: suyos.toSorted((a, b) => a.posicion - b.posicion),
       }));
   });
 

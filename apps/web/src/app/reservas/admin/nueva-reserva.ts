@@ -1,55 +1,70 @@
 import {
+  afterNextRender,
   Component,
   computed,
+  effect,
+  ElementRef,
   inject,
+  Injector,
   input,
-  linkedSignal,
   output,
   resource,
   signal,
   TemplateRef,
+  untracked,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButton } from '@angular/material/button';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIcon } from '@angular/material/icon';
 
 import { dialogoSegun } from '../../ui/dialogo';
 import { errorDelCampo, proveerCampos } from '../../ui/campos';
-import { Disponibilidad, DuracionMin } from '../../catalogo-canchas/disponibilidad';
-import { diaEnPalabras, horaEnElClub } from '../../catalogo-canchas/reloj-del-club';
+import { BloqueDisponible, Cancha } from '../../catalogo-canchas/disponibilidad';
+import {
+  diaEnPalabras,
+  fechaEnElClub,
+  horaEnElClub,
+  minutosDe,
+} from '../../catalogo-canchas/reloj-del-club';
 import { mensajeDelServidor } from '../../core/errores';
-import { Socios } from '../../identidad/admin/socios.service';
+import { SocioDelClub, Socios } from '../../identidad/admin/socios.service';
 import { Aviso } from '../../ui/aviso';
 import { ReservasDelAdmin } from './nueva-reserva.service';
 import { TelefonoDirective } from '../../ui/telefono';
+import { CampoDeAcompanantes, clave } from '../campo-de-acompanantes';
+import { AcompananteNuevo } from '../reservas.service';
 
 /**
- * La hora que el club toma por teléfono o con alguien en el mostrador.
+ * La hora que el club toma por teléfono o con alguien en el mostrador. La cancha y la hora se
+ * eligen en el tablero, como en el sitio (T390); acá se dice para quién es.
  *
  * **Muestra el cupo del socio antes de crear** (decisión § 5.2 del plan): la reserva
  * del mesón consume su hora del día igual que si la tomara él, y decir "hoy ya
  * jugaste" mientras la persona está al teléfono es una conversación; decirlo después
  * de apretar, una llamada de vuelta.
  *
- * Es un MatDialog (T252): el foco queda atrapado, `Esc` cierra y el foco vuelve al botón
- * «Nueva reserva», sin código nuestro.
+ * Es un MatDialog (T252): el foco queda atrapado, `Esc` cierra y el foco vuelve a «Reservar»
+ * de la barra, sin código nuestro.
  */
 @Component({
   selector: 'app-nueva-reserva',
   imports: [
     MatDialogModule,
-    MatSelectModule,
     MatFormFieldModule,
     MatInput,
     MatButton,
     FormsModule,
+    ReactiveFormsModule,
+    MatAutocompleteModule,
+    CampoDeAcompanantes,
     Aviso,
     MatButtonToggleModule,
     TelefonoDirective,
@@ -61,9 +76,14 @@ import { TelefonoDirective } from '../../ui/telefono';
     <ng-template #dialogo>
       <h2 mat-dialog-title>Nueva reserva</h2>
       <mat-dialog-content>
-        <p class="text-sm text-muted-foreground">
-          Para el {{ fecha() }}. La hora queda confirmada al instante: el cobro del
-          visitante se hace en el mesón.
+        <!-- La cancha y la hora vienen del tablero, como en el diálogo del sitio (T390). -->
+        <p class="text-muted-foreground">
+          <!-- El día también: el panel abre días que no son hoy, y por teléfono se confirma. -->
+          {{ elDia() }} · {{ cancha().nombre }} ·
+          {{ hora(bloque().inicio) }}–{{ hora(bloque().fin) }}
+        </p>
+        <p class="mt-1 text-sm text-muted-foreground">
+          La hora queda confirmada al instante: el cobro del visitante se hace en el mesón.
         </p>
 
         <form class="mt-4 grid gap-4" (ngSubmit)="crear()">
@@ -80,97 +100,49 @@ import { TelefonoDirective } from '../../ui/telefono';
             }
           </mat-button-toggle-group>
 
-          <mat-form-field>
-            <mat-label>Cancha</mat-label>
-            <!-- value y selectionChange, no ngModel: sin elegir, la cancha es la primera del
-                 día (canchaElegida), y eso no es un campo que el formulario guarde. -->
-            <mat-select
-              name="cancha"
-              [value]="canchaElegida()"
-              (selectionChange)="canchaId.set($event.value)"
-            >
-              @for (grilla of grillasDelDia(); track grilla.cancha.id) {
-                <mat-option
-                  [value]="grilla.cancha.id"
-                >
-                  {{ grilla.cancha.nombre }}
-                </mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          @if (grillas.error()) {
-            <p class="text-sm text-destructive">
-              No se pudo cargar la disponibilidad. Reintenta en un momento.
-            </p>
-          }
-
-          <!-- Antes de la hora, porque decide qué horas quedan libres. Se ofrece la hora y
-               media aunque la franja no tenga su precio: el socio no paga, y el visitante
-               paga en el mostrador (T85). -->
-          <mat-button-toggle-group
-            aria-label="Duración"
-            hideSingleSelectionIndicator
-            [value]="'' + duracion()"
-            (change)="elegirDuracion($event.value)"
-          >
-            @for (opcion of DURACIONES; track opcion.valor) {
-              <mat-button-toggle [value]="opcion.valor">
-                {{ opcion.etiqueta }}
-              </mat-button-toggle>
-            }
-          </mat-button-toggle-group>
-
-          <mat-form-field>
-            <mat-label>Hora</mat-label>
-            <mat-select
-              name="hora"
-              [value]="inicioElegido()"
-              (selectionChange)="inicioElegido.set($event.value)"
-            >
-              <!-- Mientras llegan, la primera opción lo dice: un esqueleto no cabe dentro de
-                   un select (T153). -->
-              <mat-option value="">
-                {{ grillas.isLoading() ? 'Cargando las horas libres…' : 'Elige una hora libre' }}
-              </mat-option>
-              @for (bloque of libres(); track bloque.inicio) {
-                <!-- La cancha vacía que ya no se puede encender (T207): se ve y se explica,
-                     para que el mesón no la busque por otro lado. -->
-                <mat-option
-                  [value]="bloque.inicio"
-                  [disabled]="bloque.topeDeLuz"
-                >
-                  {{ hora(bloque.inicio) }}–{{ hora(bloque.fin) }}
-                  @if (bloque.topeDeLuz) {
-                    · Tope de luz
-                  } @else if (bloque.esPico) {
-                    · hora prime
-                  }
-                </mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-
           @if (paraQuien() === 'socio') {
+            <!-- Con autocompletado y no un select: el padrón tiene cientos de socios, y el
+                 lineamiento pide buscar pasadas las quince opciones (T388). Solo los activos:
+                 la API no le toma la hora a un suspendido ni a un retirado. -->
             <mat-form-field>
               <mat-label>Socio</mat-label>
-              <mat-select
-                name="socio"
-                [value]="socioId()"
-                (selectionChange)="socioId.set($event.value)"
-              >
-                <mat-option [value]="0">
-                  {{ socios.isLoading() ? 'Cargando los socios…' : 'Elige un socio' }}
-                </mat-option>
-                @if (socios.hasValue()) {
-                  @for (socio of socios.value().socios; track socio.id) {
-                    <mat-option [value]="socio.id">
-                      {{ socio.numeroSocio }} · {{ socio.usuario.nombre }}
-                      {{ socio.usuario.apellido }}
-                    </mat-option>
-                  }
+              <input
+                matInput
+                id="titular"
+                name="titular"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                [formControl]="titular"
+                [matAutocomplete]="titulares"
+              />
+              <mat-autocomplete #titulares requireSelection [displayWith]="nombreDelTitular">
+                @for (socio of titularesFiltrados(); track socio.id) {
+                  <mat-option [value]="socio.id">{{ comoTitular(socio) }}</mat-option>
+                } @empty {
+                  <mat-option disabled>
+                    {{ socios.isLoading() ? 'Cargando los socios…' : 'Sin resultados' }}
+                  </mat-option>
                 }
-              </mat-select>
+              </mat-autocomplete>
+              <!-- Mientras llegan, la pista lo dice: se ve sin abrir la lista (T153). -->
+              <mat-hint>{{
+                socios.isLoading() ? 'Cargando los socios…' : 'Por su nombre o su número de socio.'
+              }}</mat-hint>
+              <mat-error>Elige un socio de la lista.</mat-error>
             </mat-form-field>
+            @if (socios.error()) {
+              <p class="text-sm text-destructive">
+                No se pudo cargar la lista de socios. Reintenta en un momento.
+              </p>
+            }
+
+            @if (sinPrimeParaElSocio(); as aviso) {
+              <!-- La duración que el club no le permite al socio en prime (T213): antes no se
+                   ofrecía en la lista de horas; ahora el tablero la deja elegir, porque al
+                   visitante sí se le toma, y se dice acá antes de mandarla. -->
+              <app-aviso variante="aviso">{{ aviso }}</app-aviso>
+            }
 
             @if (cupo.error()) {
               <p class="text-sm text-destructive">
@@ -225,20 +197,24 @@ import { TelefonoDirective } from '../../ui/telefono';
               </div>
             }
 
-            <!-- El socio no juega solo: la regla es la misma que en la web, y el mesón
-                 no es una puerta para saltársela. -->
-            <mat-form-field>
-              <mat-label>Con quién juega</mat-label>
-              <input
-                matInput
-                name="acompanante"
-                placeholder="Nombre del invitado"
-                [(ngModel)]="acompanante"
+            <!-- El socio no juega solo: la regla es la misma que en la web, y el mesón no es
+                 una puerta para saltársela. El campo es el del sitio (T388): sugiere a los otros
+                 socios, y el que se elige no le gasta al titular una reserva con invitados. -->
+            <fieldset class="grid gap-2">
+              <legend class="font-display text-sm font-bold tracking-wide uppercase">
+                ¿Con quién juega?
+              </legend>
+              <p class="text-sm text-muted-foreground">
+                Jugar solo con socios no gasta cupo. Con invitados, la reserva gasta una de sus
+                reservas con invitados del mes, traiga uno o tres.
+              </p>
+              <app-campo-de-acompanantes
+                [socios]="sugeribles()"
+                nombreDeLaLista="Quienes juegan con el socio"
+                [(acompanantes)]="acompanantes"
+                (completo)="enfocarCrear()"
               />
-              <mat-hint>
-                Con invitados, la reserva gasta una de sus reservas con invitados del mes.
-              </mat-hint>
-            </mat-form-field>
+            </fieldset>
           } @else {
             <mat-form-field>
               <mat-label>A nombre de <span aria-hidden="true">*</span></mat-label>
@@ -249,14 +225,16 @@ import { TelefonoDirective } from '../../ui/telefono';
               <mat-form-field>
                 <mat-label>Teléfono</mat-label>
                 <span matTextPrefix>+56&nbsp;</span>
+                <!-- La referencia no se llama «telefono»: tapaba a la propiedad del mismo nombre,
+                     el campo recibía el NgModel y el teléfono no viajaba (T390). -->
                 <input
                   matInput
                   appTelefono
-                  #telefono="ngModel"
+                  #campoTelefono="ngModel"
                   name="telefono"
                   [(ngModel)]="telefono"
                 />
-                <mat-error>{{ errorDelCampo(telefono.control) }}</mat-error>
+                <mat-error>{{ errorDelCampo(campoTelefono.control) }}</mat-error>
               </mat-form-field>
               <mat-form-field>
                 <mat-label>Correo</mat-label>
@@ -277,6 +255,7 @@ import { TelefonoDirective } from '../../ui/telefono';
           <div class="flex justify-end gap-2">
             <button matButton type="button" mat-dialog-close>Cancelar</button>
             <button
+              #crearReserva
               matButton="filled"
               type="submit"
               [disabled]="enviando()"
@@ -295,17 +274,14 @@ export class NuevaReserva {
 
   protected readonly errorDelCampo = errorDelCampo;
 
-  /** El día que la agenda está mirando: la reserva se toma sobre ese día. */
-  readonly fecha = input.required<string>();
-  /** La cancha de la franja libre que se tocó en el tablero (T272); sin ella, la del día. */
-  readonly cancha = input<number | null>(null);
-  /** El inicio de esa franja; sin él, la hora se elige. */
-  readonly inicio = input<string | null>(null);
+  /** La cancha que se eligió en el tablero (T390), como en el diálogo del sitio. */
+  readonly cancha = input.required<Cancha>();
+  /** La hora elegida: su inicio, su fin y lo que el club permite en ella. */
+  readonly bloque = input.required<BloqueDisponible>();
   readonly cerrar = output<void>();
   readonly creada = output<string>();
 
   private readonly api = inject(ReservasDelAdmin);
-  private readonly disponibilidad = inject(Disponibilidad);
   private readonly sociosApi = inject(Socios);
 
   private readonly dialogo = viewChild.required<TemplateRef<unknown>>('dialogo');
@@ -317,17 +293,15 @@ export class NuevaReserva {
     { valor: 'visitante', etiqueta: 'Un visitante' },
   ];
 
-  protected readonly DURACIONES = [
-    { valor: '60', etiqueta: '1 hora' },
-    { valor: '90', etiqueta: '1 hora y media' },
-  ];
-
   protected readonly paraQuien = signal('socio');
-  protected readonly duracion = signal<DuracionMin>(60);
-  protected readonly canchaId = linkedSignal(() => this.cancha() ?? 0);
-  protected readonly inicioElegido = linkedSignal(() => this.inicio() ?? '');
-  protected readonly socioId = signal(0);
-  protected acompanante = '';
+  /** El titular: mientras se escribe es texto; elegido de la lista, su id (T388). */
+  protected readonly titular = new FormControl<number | string | null>(null, Validators.required);
+  private readonly valorDelTitular = toSignal(this.titular.valueChanges, { initialValue: null });
+  protected readonly socioId = computed(() => {
+    const valor = this.valorDelTitular();
+    return typeof valor === 'number' ? valor : 0;
+  });
+  protected readonly acompanantes = signal<AcompananteNuevo[]>([]);
   protected nombre = '';
   protected email = '';
   protected telefono = '';
@@ -335,22 +309,58 @@ export class NuevaReserva {
   protected readonly enviando = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly grillas = resource({
-    params: () => ({ fecha: this.fecha(), duracion: this.duracion() }),
-    loader: ({ params }) => this.disponibilidad.delDia(params.fecha, params.duracion),
-    defaultValue: [],
-  });
+  protected readonly socios = resource({ loader: () => this.sociosApi.listado() });
 
-  /** `value()` lanza si la grilla no cargó, y el formulario se pinta igual. */
-  protected readonly grillasDelDia = computed(() =>
-    this.grillas.hasValue() ? this.grillas.value() : [],
+  /** Los socios a los que se les toma una hora: la API rechaza a los suspendidos y retirados. */
+  private readonly activos = computed(() =>
+    this.socios.hasValue()
+      ? this.socios.value().socios.filter(({ estado }) => estado === 'ACTIVO')
+      : [],
   );
 
-  protected readonly socios = resource({ loader: () => this.sociosApi.listado() });
+  /** Los que calzan con lo escrito en el titular, por su nombre o su número. */
+  protected readonly titularesFiltrados = computed(() => {
+    const valor = this.valorDelTitular();
+    const escrito = typeof valor === 'string' ? clave(valor) : '';
+
+    return this.activos().filter((socio) => clave(this.comoTitular(socio)).includes(escrito));
+  });
+
+  /** Con quién puede jugar el titular: los otros activos, no él mismo. */
+  protected readonly sugeribles = computed(() =>
+    this.activos()
+      .filter(({ id }) => id !== this.socioId())
+      .map((socio) => ({
+        numeroSocio: socio.numeroSocio,
+        nombre: `${socio.usuario.nombre} ${socio.usuario.apellido}`.trim(),
+      })),
+  );
+
+  protected comoTitular(socio: SocioDelClub): string {
+    return `${socio.numeroSocio} · ${socio.usuario.nombre} ${socio.usuario.apellido}`.trim();
+  }
+
+  /** Lo que el campo muestra una vez elegido: el autocompletar guarda el id. */
+  protected readonly nombreDelTitular = (id: number | null): string => {
+    const socio = this.activos().find((uno) => uno.id === id);
+    return socio ? this.comoTitular(socio) : '';
+  };
+
+  private readonly campoDeAcompanantes = viewChild(CampoDeAcompanantes);
+  private readonly crearReserva = viewChild('crearReserva', { read: ElementRef<HTMLButtonElement> });
+  private readonly injector = inject(Injector);
+
+  /** Con los tres declarados, el foco va a «Crear reserva»: no queda nada más que escribir. */
+  protected enfocarCrear(): void {
+    afterNextRender(() => this.crearReserva()?.nativeElement.focus(), {
+      injector: this.injector,
+    });
+  }
 
   /** El cupo se pide al elegir socio: es lo que el club mira antes de decidir. */
   protected readonly cupo = resource({
-    params: () => ({ socioId: this.socioId(), fecha: this.fecha() }),
+    // El día de la hora elegida: el cupo diario y el prime de la semana se cuentan sobre él.
+    params: () => ({ socioId: this.socioId(), fecha: fechaEnElClub(this.bloque().inicio) }),
     loader: ({ params }) =>
       params.socioId > 0
         ? this.api.cupoDe(params.socioId, params.fecha)
@@ -358,38 +368,16 @@ export class NuevaReserva {
   });
 
   /**
-   * La cancha sobre la que se está trabajando.
-   *
-   * Mientras nadie elija, la primera de la lista: un selector en blanco obliga a un
-   * clic que no decide nada, y con una sola cancha no decide nada nunca. Es un
-   * `computed` y no un `effect` que escriba la señal, que era la versión anterior y
-   * dependía de en qué orden llegara la grilla.
+   * Por qué al socio no se le toma esta hora, o nulo (T213): en prime, el club le permite una sola
+   * de las dos duraciones. El tablero del panel la deja elegir, porque al visitante sí se le toma.
    */
-  protected readonly canchaElegida = computed(
-    () => this.canchaId() || this.grillasDelDia()[0]?.cancha.id || 0,
+  protected readonly sinPrimeParaElSocio = computed(() =>
+    this.paraQuien() === 'socio' && this.bloque().socioPuede === false
+      ? `En horario prime, el socio solo puede reservar ${
+          minutosDe(this.bloque()) === 90 ? '1 hora' : '1 hora y media'
+        }: cambia la duración sobre el tablero y vuelve a elegir la hora.`
+      : null,
   );
-
-  /**
-   * Las horas que quedan libres en la cancha elegida, y las que el tope de canchas con luz
-   * deja vacías, que se muestran deshabilitadas (T207).
-   *
-   * La que está corriendo sí se ofrece: el mesón la puede vender a quien llega a
-   * jugar ahora. La que ya terminó no, porque la API la rechaza
-   * (`BLOQUE_EN_EL_PASADO`). Se corta por `fin` y no por `inicio` como la grilla
-   * pública. Si el reloj del navegador anda mal, manda la API.
-   */
-  protected readonly libres = computed(() => {
-    const grilla = this.grillasDelDia().find((una) => una.cancha.id === this.canchaElegida());
-
-    return (grilla?.bloques ?? []).filter(
-      (bloque) =>
-        !bloque.bloqueado &&
-        (!bloque.reservado || bloque.topeDeLuz) &&
-        // Al socio, la duración que el club no le permite en prime no se le ofrece (T213).
-        !(this.paraQuien() === 'socio' && bloque.socioPuede === false) &&
-        new Date(bloque.fin).getTime() > Date.now(),
-    );
-  });
 
   constructor() {
     // Se abre al montarse: el componente solo existe mientras el diálogo está en pantalla.
@@ -398,22 +386,33 @@ export class NuevaReserva {
       width: '32rem',
       maxWidth: '92vw',
     });
-  }
 
-  protected elegirDuracion(valor: string): void {
-    this.duracion.set(valor === '90' ? 90 : 60);
-    // La hora elegida era de la otra lista: con 1 hora y media puede chocar con la
-    // reserva siguiente, o pasarse del cierre.
-    this.inicioElegido.set('');
+    // El titular no juega consigo mismo: si se elige a quien ya estaba en «¿Con quién juega?», sale
+    // de ahí (revisión, T394).
+    effect(() => {
+      const numero = this.activos().find(({ id }) => id === this.socioId())?.numeroSocio;
+      if (!numero) return;
+      untracked(() =>
+        this.acompanantes.update((lista) => lista.filter((uno) => uno.numeroSocio !== numero)),
+      );
+    });
   }
 
   protected async crear(): Promise<void> {
     this.error.set(null);
+    // «Agregar» es un paso que se salta fácil: lo escrito a la vista también cuenta.
+    this.campoDeAcompanantes()?.agregarLoEscrito();
 
-    // La de una franja que no abre una hora entera (la última media hora del día) no está
-    // entre las libres: se elige otra, en vez de mandarle a la API una que va a rechazar.
-    if (!this.libres().some(({ inicio }) => inicio === this.inicioElegido())) {
-      this.error.set('Elige la hora de la reserva.');
+    // Sin titular no hay a quién tomarle la hora: el campo lo pide, sin ir a la API (revisión, T394).
+    if (this.paraQuien() === 'socio' && this.socioId() === 0) {
+      this.titular.markAsTouched();
+      return;
+    }
+
+    // La API la rechazaría igual; dicho antes, el mesón le ofrece otra hora al socio.
+    const sinPrime = this.sinPrimeParaElSocio();
+    if (sinPrime) {
+      this.error.set(sinPrime);
       return;
     }
 
@@ -421,15 +420,14 @@ export class NuevaReserva {
 
     try {
       const { folio } = await this.api.crear({
-        canchaId: this.canchaElegida(),
-        inicio: this.inicioElegido(),
-        duracionMin: this.duracion(),
+        canchaId: this.cancha().id,
+        inicio: this.bloque().inicio,
+        // La duración la dice el bloque: el tablero lo pidió de 1 hora o de 1 hora y media.
+        duracionMin: minutosDe(this.bloque()) === 90 ? 90 : 60,
         ...(this.paraQuien() === 'socio'
           ? {
               socioId: this.socioId(),
-              acompanantes: this.acompanante.trim()
-                ? [{ nombre: this.acompanante.trim() }]
-                : [],
+              acompanantes: this.acompanantes(),
             }
           : {
               nombre: this.nombre.trim(),
@@ -450,4 +448,5 @@ export class NuevaReserva {
   }
 
   protected readonly hora = horaEnElClub;
+  protected readonly elDia = computed(() => diaEnPalabras(fechaEnElClub(this.bloque().inicio)));
 }

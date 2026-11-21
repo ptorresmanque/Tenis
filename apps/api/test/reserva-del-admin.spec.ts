@@ -197,6 +197,45 @@ describe('POST /api/admin/reservas y GET /api/admin/reservas/cupo/:socioId', () 
     });
   });
 
+  it('**un socio acompañante, por su número, queda como socio y no gasta reserva con invitados** (T388)', async () => {
+    // Es como lo manda el panel desde T388, igual que el sitio. Antes, «Con quién juega» del
+    // mesón mandaba a cualquiera como `{ nombre }`, y un socio contaba como invitado.
+    const usuarioAna = await crearCuenta('ana');
+    const ana = await prisma.socio.create({
+      data: {
+        usuarioId: usuarioAna,
+        numeroSocio: `MESON-ANA-${Date.now()}`,
+        estado: EstadoSocio.ACTIVO,
+        fechaIngreso: new Date('2026-01-01'),
+        alDiaHasta: new Date('2027-01-01'),
+      },
+      select: { id: true, numeroSocio: true },
+    });
+
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/admin/reservas')
+      .set('Cookie', cookieAdmin)
+      .send({
+        canchaId,
+        inicio: bloques[0].inicio,
+        socioId,
+        acompanantes: [{ numeroSocio: ana.numeroSocio }],
+      })
+      .expect(201);
+
+    const guardada = await prisma.reserva.findUniqueOrThrow({
+      where: { id: (respuesta.body as { id: number }).id },
+      select: { acompanantes: { select: { socioId: true, nombre: true } } },
+    });
+    expect(guardada.acompanantes).toEqual([{ socioId: ana.id, nombre: null }]);
+
+    const cupo = await request(app.getHttpServer())
+      .get(`/api/admin/reservas/cupo/${socioId}?fecha=${enTresDias()}`)
+      .set('Cookie', cookieAdmin)
+      .expect(200);
+    expect(cupo.body).toMatchObject({ reservasConInvitadosDelMes: 0 });
+  });
+
   describe('la duración (T85)', () => {
     const NOVENTA_MIN = 90 * 60 * 1000;
     const minutosDe = async (id: number) => {

@@ -29,7 +29,8 @@ export interface ReservaDelAdmin {
   nombre?: string;
   email?: string;
   telefono?: string;
-  acompanantes?: { nombre?: string; socioId?: number }[];
+  /** El socio por su número, como en el sitio, y el invitado por su nombre (T388). */
+  acompanantes?: { nombre?: string; numeroSocio?: string }[];
 }
 
 /** La hora que el club toma por teléfono o en el mesón. */

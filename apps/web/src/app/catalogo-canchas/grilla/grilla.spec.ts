@@ -69,6 +69,7 @@ describe('Grilla', () => {
   let fixture: ComponentFixture<Grilla>;
   let mover: ReturnType<typeof vi.fn>;
   let pedirDiaParaMover: ReturnType<typeof vi.fn>;
+  let hora: ReturnType<typeof vi.fn>;
   let delEnlace: {
     porToken: ReturnType<typeof vi.fn>;
     grillaParaMover: ReturnType<typeof vi.fn>;
@@ -96,6 +97,8 @@ describe('Grilla', () => {
         | Error;
       /** Lo pagado que trae el enlace; por omisión, $16.000. Un `Error` la hace fallar. */
       reservaDelEnlace?: { pagadoClp: number; cancha?: string } | Error;
+      /** La hora de la reserva que se mueve por su id (T401). Un `Error` la hace fallar. */
+      hora?: Error;
     } = {},
   ) => {
     mover = vi.fn().mockResolvedValue({});
@@ -121,7 +124,18 @@ describe('Grilla', () => {
       porToken: vi.fn(() =>
         opciones.reservaDelEnlace instanceof Error
           ? Promise.reject(opciones.reservaDelEnlace)
-          : Promise.resolve(opciones.reservaDelEnlace ?? { pagadoClp: 16000 }),
+          : Promise.resolve(
+              opciones.reservaDelEnlace ?? {
+                pagadoClp: 16000,
+                // Dónde estaba (T401): la Cancha 1, el lunes 17 a las 18:00 del club.
+                folio: 'VIS1234',
+                nombre: 'Camila Visitante',
+                canchaId: 1,
+                cancha: 'Cancha 1',
+                inicio: '2026-08-17T22:00:00.000Z',
+                fin: '2026-08-17T23:00:00.000Z',
+              },
+            ),
       ),
       grillaParaMover: vi.fn(() =>
         dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
@@ -135,12 +149,24 @@ describe('Grilla', () => {
     pedirDiaParaMover = vi.fn(() =>
       dia instanceof Error ? Promise.reject(dia) : Promise.resolve(dia),
     );
+    // La del socio que viene de «Mis reservas» (T401): la Cancha 2, el lunes 17 a las 10:00.
+    hora = vi.fn(() =>
+      opciones.hora ? Promise.reject(opciones.hora) : Promise.resolve({
+        id: 7,
+        folio: 'SOC7777',
+        nombre: 'Carolina Díaz',
+        canchaId: 2,
+        cancha: 'Cancha 2',
+        inicio: '2026-08-17T14:00:00.000Z',
+        fin: '2026-08-17T15:00:00.000Z',
+      }),
+    );
 
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         { provide: Disponibilidad, useValue: { delDia: pedirDia } },
-        { provide: Reservas, useValue: { mover, grillaParaMover: pedirDiaParaMover } },
+        { provide: Reservas, useValue: { mover, grillaParaMover: pedirDiaParaMover, hora } },
         { provide: ReservasPublicas, useValue: delEnlace },
         { provide: ReportesDelSocio, useValue: { reportables, reportar } },
         {
@@ -1487,10 +1513,10 @@ describe('Grilla', () => {
       fixture.detectChanges();
     };
 
-    it('avisa que se está cambiando una hora ya reservada', async () => {
+    it('avisa que se está cambiando una hora ya reservada, y que no se mueve hasta confirmar', async () => {
       await montar(DIA, { mover: '7' });
 
-      expect(texto()).toContain('Elige la nueva hora');
+      expect(texto()).toContain('Elige la nueva hora para tu reserva. Mientras no confirmes, no se mueve.');
     });
 
     it('**abre en el día de la reserva que se mueve, no en hoy**', async () => {
@@ -1539,6 +1565,56 @@ describe('Grilla', () => {
       });
       // Vuelve a sus reservas, que son una pestaña de Mi cuenta desde T318.
       expect(navegar).toHaveBeenCalledWith(['/mi-cuenta/reservas']);
+    });
+
+    /**
+     * T403 (`SPEC-panel.md` § El modo mover a la vista, MV4, MV5 y MV7). La barra está desde que
+     * empieza el modo mover, como en el panel: si quien cambia su hora se distrae, al volver sabe
+     * qué estaba haciendo y cuál era su hora.
+     */
+    it('**la barra está desde el inicio: «Cambiando tu reserva», la hora que tenía y que falta la nueva** (MV4)', async () => {
+      await montar(DIA, { mover: '7' });
+
+      expect(hora).toHaveBeenCalledWith(7);
+      expect(enTexto(barra())).toContain('Cambiando tu reserva');
+      expect(enTexto(barra())).toContain('Cancha 2 · Lun 17 ago · 10:00–11:00');
+      expect(enTexto(barra())).toContain('elige una hora en el tablero');
+      // Fija abajo: el host deja el espacio para que no tape la última fila.
+      expect((fixture.nativeElement as HTMLElement).classList.contains('pb-56')).toBe(true);
+    });
+
+    it('**elegida la hora, dice la que tenía y la nueva, con «Socio sin costo»** (MV4)', async () => {
+      await montar(DIA, { mover: '7' });
+
+      await elegirPrimerBloque();
+
+      expect(enTexto(barra())).toContain('Cancha 2 · Lun 17 ago · 10:00–11:00');
+      expect(enTexto(barra())).toContain('Cancha 1 · Lun 17 ago · 08:00–09:00');
+      expect(enTexto(barra())).toContain('Socio sin costo');
+    });
+
+    it('**«Volver sin cambiar» lleva al socio de vuelta a «Mis reservas»** (MV4)', async () => {
+      await montar(DIA, { mover: '7' });
+
+      await apretar(botonDeLaBarra('Volver sin cambiar'));
+
+      expect(navegar).toHaveBeenCalledWith(['/mi-cuenta/reservas']);
+      expect(mover).not.toHaveBeenCalled();
+    });
+
+    it('**si la hora que tenía no carga, la barra igual está y deja volver** (revisión, T405)', async () => {
+      await montar(DIA, { mover: '7' }, { hora: new Error('la API no respondió') });
+
+      expect(enTexto(barra())).toContain('Cambiando tu reserva');
+      expect(enTexto(barra())).not.toContain('Antes');
+      expect(botonDeLaBarra('Volver sin cambiar')).toBeDefined();
+    });
+
+    it('sin modo mover, la barra sale recién al elegir (MV7)', async () => {
+      await montar(DIA);
+
+      expect(el().querySelector('app-barra-fija')).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).classList.contains('pb-56')).toBe(false);
     });
 
     it('**al mover con 1 hora y media, manda 90: la reserva se alarga** (T87)', async () => {
@@ -1663,6 +1739,32 @@ describe('Grilla', () => {
         expect(delEnlace.mover).not.toHaveBeenCalled();
         // El servidor manda: si rechaza, lo dice y la persona sigue en la grilla.
         expect(texto()).toContain('Esa hora ya está tomada');
+      });
+
+      it('**la barra está desde el inicio, con la hora que tenía** (MV5)', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        expect(enTexto(barra())).toContain('Cambiando tu reserva');
+        expect(enTexto(barra())).toContain('Cancha 1 · Lun 17 ago · 18:00–19:00');
+        expect(enTexto(barra())).toContain('elige una hora en el tablero');
+      });
+
+      it('**en el tablero, la hora que tenía dice «Tu hora»** (MV5, T404)', async () => {
+        // La del enlace es la Cancha 1 a las 18:00: en el tablero del día, libre y marcada.
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        const tuHora = el().querySelector('app-marcador tbody button.border-dashed');
+        expect(tuHora?.textContent?.trim()).toBe('Tu hora');
+        expect(tuHora?.getAttribute('aria-label')).toMatch(/^Tu hora\. Libre: mover tu reserva a la Cancha 1/);
+      });
+
+      it('**«Volver sin cambiar» lo lleva a la página de su reserva** (MV5)', async () => {
+        await montar(DIA, { moverToken: 'tok-123' });
+
+        await apretar(botonDeLaBarra('Volver sin cambiar'));
+
+        expect(navegar).toHaveBeenCalledWith(['/r', 'tok-123']);
+        expect(delEnlace.mover).not.toHaveBeenCalled();
       });
 
       it('la etiqueta de cada hora ya dice lo que costaría el cambio', async () => {

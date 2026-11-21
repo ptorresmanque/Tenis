@@ -21,6 +21,31 @@ export interface ReservaDelDia {
   observaciones: ObservacionDeReserva[];
   /** Cuántas tiene el socio en reservas de días anteriores. */
   observacionesAnteriores: number;
+  /** Cómo se paga, para decirlo en el tablero (T387). Lo que dijo Webpay va en la ficha. */
+  pago: 'SIN_COBRO' | 'ESPERANDO' | 'EN_LINEA' | 'EN_EL_MESON';
+}
+
+/** Espejo de `PagoWebpay` en la API: lo que dijo Webpay de un pago, sin el token. */
+export interface PagoWebpay {
+  id: number;
+  /** La orden de compra que viajó a la pasarela. */
+  referencia: string;
+  montoClp: number;
+  estado: 'PENDIENTE' | 'AUTORIZADA' | 'RECHAZADA' | 'ANULADA' | 'EXPIRADA';
+  pasarela: string;
+  codigoAutorizacion: string | null;
+  ultimosDigitos: string | null;
+  creadaEn: string;
+  confirmadaEn: string | null;
+  requiereRevision: boolean;
+  /** Cuándo se revisó en Finanzas › Pagos (T397): hasta entonces, «Por revisar». */
+  revisadaEn: string | null;
+}
+
+/** Los pagos de una reserva y si cancelarla ahora los devolvería (T387). */
+export interface PagosDeLaReserva {
+  pagos: PagoWebpay[];
+  devolucionAlCancelar: boolean;
 }
 
 /** Una nota del mesón sobre una reserva (T225). */
@@ -39,15 +64,6 @@ export interface ObservacionDelHistorial extends ObservacionDeReserva {
   folio: string;
   cancha: string;
   inicio: string;
-}
-
-/** Espejo de `BloqueoDelDia` de la API: una cancha cerrada en el día, con su rango (T270). */
-export interface BloqueoDelDia {
-  canchaId: number;
-  inicio: string;
-  fin: string;
-  motivo: string;
-  descripcion: string | null;
 }
 
 @Service()
@@ -109,19 +125,17 @@ export class Agenda {
     );
   }
 
+  /** Lo que dijo Webpay de una reserva, para su ficha. Solo el admin (T387). */
+  pagosDe(reservaId: number): Promise<PagosDeLaReserva> {
+    return firstValueFrom(
+      this.http.get<PagosDeLaReserva>(`/api/admin/reservas/${reservaId}/pagos`),
+    );
+  }
+
   /** Las reservas activas de un día del club, "AAAA-MM-DD". */
   delDia(fecha: string): Promise<ReservaDelDia[]> {
     return firstValueFrom(
       this.http.get<ReservaDelDia[]>('/api/admin/reservas', {
-        params: { fecha },
-      }),
-    );
-  }
-
-  /** Las canchas cerradas de un día, sin las de clase, para el tablero (T270). */
-  bloqueosDelDia(fecha: string): Promise<BloqueoDelDia[]> {
-    return firstValueFrom(
-      this.http.get<BloqueoDelDia[]>('/api/admin/reservas/bloqueos', {
         params: { fecha },
       }),
     );

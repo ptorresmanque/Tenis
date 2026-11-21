@@ -22,6 +22,7 @@ describe('ReservaPublicaPagina', () => {
   const UNA: ReservaPublica = {
     folio: 'AB23CDE',
     cancha: 'Cancha 1',
+    canchaId: 1,
     inicio: '2026-08-17T12:00:00.000Z',
     fin: '2026-08-17T13:00:00.000Z',
     nombre: 'Rafael Nadal',

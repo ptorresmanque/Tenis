@@ -16,6 +16,8 @@ import { sePuedeModificar } from './ventanas';
 export interface ReservaPublica {
   folio: string;
   cancha: string;
+  /** Para marcar en el tablero la hora que tenía, al cambiarla desde el enlace (T401). */
+  canchaId: number;
   inicio: string;
   fin: string;
   /** El titular, que es a quien portería espera ver aparecer. */
@@ -59,6 +61,7 @@ export class ReservaPublicaService {
         nombre: true,
         esPico: true,
         estado: true,
+        canchaId: true,
         cancha: { select: { nombre: true } },
         _count: { select: { acompanantes: true } },
       },
@@ -73,6 +76,7 @@ export class ReservaPublicaService {
     return {
       folio: reserva.folio,
       cancha: reserva.cancha.nombre,
+      canchaId: reserva.canchaId,
       inicio: reserva.inicio.toISOString(),
       fin: reserva.fin.toISOString(),
       nombre: reserva.nombre,

@@ -99,6 +99,7 @@ describe('Rutas protegidas', () => {
     'administracion/finanzas/padron',
     'administracion/finanzas/cuotas',
     'administracion/finanzas/morosos',
+    'administracion/finanzas/pagos',
     'administracion/no-uso/por-revisar',
     'administracion/no-uso/periodo',
     'administracion/clases/agendar',
@@ -147,6 +148,12 @@ describe('Rutas protegidas', () => {
       );
     },
   );
+
+  it('**Pagos es la quinta pestaña de Finanzas** (T398)', () => {
+    expect(buscar('administracion/finanzas/pagos')?.ruta.title).toBe(
+      'Finanzas · Pagos — Administración',
+    );
+  });
 
   it('**Horas reportadas es la pestaña «Por revisar» de Horas no usadas** (T287, A1)', () => {
     expect(buscar('administracion/reportes')?.ruta.redirectTo).toBe(

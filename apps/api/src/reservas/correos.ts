@@ -117,6 +117,44 @@ export function avisoDeCambio(
   };
 }
 
+/** Qué pasó con la plata al cancelar: lo decide `cancelar()`, y el correo lo cuenta. */
+export type PagoAlCancelar = 'DEVUELTO' | 'SIN_DEVOLUCION' | 'SIN_PAGO';
+
+/**
+ * El aviso de que el club canceló la reserva desde el panel (T386): la hora que se fue y qué
+ * pasó con la plata o con el cupo. Sin el enlace de la reserva, que ya no sirve para nada.
+ */
+export function avisoDeCancelacion(
+  reserva: ReservaParaAvisar,
+  pago: PagoAlCancelar,
+  club: DatosDelClub,
+  ventanas: VentanasDelClub,
+): { asunto: string; cuerpo: string } {
+  const consecuencia = {
+    DEVUELTO: 'Te devolvimos todo lo que pagaste, al mismo medio de pago.',
+    SIN_DEVOLUCION:
+      'El pago no se devuelve: las devoluciones son con ' +
+      `${ventanas.horasReembolsoTotal} horas o más de anticipación.`,
+    // Al visitante que no pagó en línea, nada: si pagó en el mesón, el sistema no lo sabe.
+    SIN_PAGO: reserva.deSocio
+      ? 'Esa hora ya no cuenta en tus cupos: puedes reservar otra.'
+      : null,
+  }[pago];
+
+  return {
+    asunto:
+      `Reserva cancelada: ${DIA.format(reserva.inicio)}, a las ` +
+      HORA.format(reserva.inicio),
+    cuerpo:
+      `Hola ${reserva.nombre}:\n\n` +
+      `Cancelamos tu reserva ${reserva.folio}.\n\n` +
+      `${dondeYCuando(reserva)}\n\n` +
+      (consecuencia ? `${consecuencia}\n\n` : '') +
+      'Si no pediste esta cancelación, escríbenos y lo revisamos.\n\n' +
+      firmaDelClub(club),
+  };
+}
+
 function dondeYCuando(hora: HoraDeLaReserva): string {
   return (
     `${hora.cancha}, ${DIA.format(hora.inicio)}, de ${HORA.format(hora.inicio)} a ` +
@@ -181,6 +219,18 @@ export class AvisosDeReserva {
           web(),
         );
       },
+    );
+  }
+
+  /**
+   * El aviso de que el club la canceló (T386). Quien llama decide si corresponde: solo
+   * cuando la cancela el club y no su titular, que ya sabe lo que hizo.
+   */
+  async cancelacion(reservaId: number, pago: PagoAlCancelar): Promise<void> {
+    await this.avisar(
+      reservaId,
+      'el aviso de cancelación',
+      ({ reserva, club }) => avisoDeCancelacion(reserva, pago, club, club),
     );
   }
 
@@ -250,6 +300,12 @@ export class AvisosDeReserva {
       });
 
       if (correo === null) return;
+
+      // La reserva del mesón para un visitante que no dejó correo: no hay a quién.
+      if (!fila.email) {
+        this.log.warn(`${folio} no tiene correo: no salió ${que}.`);
+        return;
+      }
 
       await enviarOAnotar(
         this.correo,

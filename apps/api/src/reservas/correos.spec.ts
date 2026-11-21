@@ -1,5 +1,9 @@
 import { DatosDelClub, firmaDelClub } from '../comun/club';
-import { avisoDeCambio, confirmacionDeReserva } from './correos';
+import {
+  avisoDeCambio,
+  avisoDeCancelacion,
+  confirmacionDeReserva,
+} from './correos';
 
 /**
  * T108 y T109. Lo que dicen la confirmación y el aviso de cambio; la firma se prueba en
@@ -139,6 +143,70 @@ describe('correos de la reserva', () => {
 
     it('el asunto nombra el folio', () => {
       expect(aviso().asunto).toBe('Tu reserva ABC1234 cambió');
+    });
+  });
+
+  /**
+   * T386. Cuando el club cancela una reserva desde el panel, el titular se entera por
+   * correo: qué hora era y qué pasó con su plata o con su cupo.
+   */
+  describe('el aviso de cancelación', () => {
+    const aviso = (
+      pago: 'DEVUELTO' | 'SIN_DEVOLUCION' | 'SIN_PAGO',
+      parche: Partial<typeof RESERVA> = {},
+    ) => avisoDeCancelacion({ ...RESERVA, ...parche }, pago, CLUB, VENTANAS);
+
+    it('**dice el folio y la hora que se canceló, con su cancha y su duración**', () => {
+      const { cuerpo } = aviso('DEVUELTO');
+
+      expect(cuerpo).toContain('Cancelamos tu reserva ABC1234.');
+      expect(cuerpo).toContain(
+        'Cancha 1, lunes, 17 de agosto, de 10:00 a 11:00 (1 hora)',
+      );
+    });
+
+    it('**con devolución, dice que se devolvió todo lo pagado**', () => {
+      expect(aviso('DEVUELTO').cuerpo).toContain(
+        'Te devolvimos todo lo que pagaste, al mismo medio de pago.',
+      );
+    });
+
+    it('sin devolución, dice por qué con las horas del club', () => {
+      expect(aviso('SIN_DEVOLUCION').cuerpo).toContain(
+        'El pago no se devuelve: las devoluciones son con 24 horas o más de anticipación.',
+      );
+    });
+
+    it('al socio le dice que esa hora ya no gasta su cupo, sin hablarle de plata', () => {
+      const { cuerpo } = aviso('SIN_PAGO', { deSocio: true });
+
+      expect(cuerpo).toContain(
+        'Esa hora ya no cuenta en tus cupos: puedes reservar otra.',
+      );
+      expect(cuerpo).not.toMatch(/pag|devol/);
+    });
+
+    it('al visitante que no pagó en línea no le habla de plata ni de cupos', () => {
+      const { cuerpo } = aviso('SIN_PAGO');
+
+      expect(cuerpo).not.toMatch(/pagaste|devol|cupos/);
+    });
+
+    it('dice que escriba si no la pidió, sin el enlace de la reserva, que ya no sirve', () => {
+      const { cuerpo } = aviso('DEVUELTO');
+
+      expect(cuerpo).toContain(
+        'Si no pediste esta cancelación, escríbenos y lo revisamos.',
+      );
+      expect(cuerpo).not.toContain('/r/un-token-largo');
+      expect(cuerpo.startsWith('Hola Camila Visitante:')).toBe(true);
+      expect(cuerpo.endsWith(firmaDelClub(CLUB))).toBe(true);
+    });
+
+    it('el asunto dice el día y la hora, como el de la confirmación', () => {
+      expect(aviso('DEVUELTO').asunto).toBe(
+        'Reserva cancelada: lunes, 17 de agosto, a las 10:00',
+      );
     });
   });
 
